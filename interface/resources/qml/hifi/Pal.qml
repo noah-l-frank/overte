@@ -44,6 +44,92 @@ Rectangle {
     property double loudSortTime: 0.0;
     readonly property double kLOUD_SORT_PERIOD_MS: 1000.0;
 
+    property var connectionState: ({ phase: "idle", message: "", peerName: "" })
+    function handleTabletBack() {
+        if (!connectionPrompt.visible) { return false; }
+        pal.sendToScript({ method: "connectionCancel" });
+        return true;
+    }
+    Component.onCompleted: pal.sendToScript({ method: "connectionReady" })
+    // Keep the prompt inside the offscreen tablet scene, like the existing
+    // People letterbox/availability dialogs. A separate popup window cannot
+    // receive the same tablet/controller pointer on every native host.
+    Rectangle {
+        id: connectionPrompt
+        objectName: "peopleConnectionPrompt"
+        anchors.fill: parent
+        z: 1001
+        color: "#aa000000"
+        visible: false
+        focus: visible
+        function open() { visible = true; forceActiveFocus(); }
+        function close() { visible = false; }
+        Keys.onEscapePressed: function(event) { pal.sendToScript({ method: "connectionCancel" }); event.accepted = true; }
+        MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons }
+        Rectangle {
+            id: connectionPanel
+            objectName: "peopleConnectionPanel"
+            width: Math.max(160, Math.min(parent.width - 24, 500))
+            height: connectionContent.height + 32
+            anchors.centerIn: parent
+            color: "white"
+            radius: 4
+            Column {
+                id: connectionContent
+                x: 16; y: 16
+                width: parent.width - 32
+                spacing: 12
+                Text {
+                    width: parent.width
+                    text: pal.connectionState.phase === "incoming" ? qsTr("Connection request") : qsTr("Connect with a person")
+                    font.bold: true; font.pixelSize: 20
+                    wrapMode: Text.Wrap
+                }
+                Text {
+                    width: parent.width
+                    text: pal.connectionState.peerName || ""
+                    textFormat: Text.PlainText
+                    font.bold: true; font.pixelSize: 18
+                    wrapMode: Text.Wrap
+                }
+                Text {
+                    objectName: "peopleConnectionStatus"
+                    width: parent.width
+                    text: pal.connectionState.message || ""
+                    textFormat: Text.PlainText
+                    font.pixelSize: 18
+                    wrapMode: Text.Wrap
+                }
+                Flow {
+                    width: parent.width
+                    spacing: 8
+                    Button {
+                        objectName: "peopleConnectionAccept"
+                        text: qsTr("Accept")
+                        visible: pal.connectionState.phase === "incoming"
+                        implicitHeight: 48
+                        onClicked: pal.sendToScript({ method: "connectionRespond", params: true })
+                    }
+                    Button {
+                        objectName: "peopleConnectionDecline"
+                        text: qsTr("Decline")
+                        visible: pal.connectionState.phase === "incoming"
+                        implicitHeight: 48
+                        onClicked: pal.sendToScript({ method: "connectionRespond", params: false })
+                    }
+                    Button {
+                        objectName: "peopleConnectionCancel"
+                        text: ["submitting", "polling"].indexOf(pal.connectionState.phase) !== -1 ? qsTr("Stop waiting")
+                            : ["outgoing", "accepted"].indexOf(pal.connectionState.phase) !== -1 ? qsTr("Cancel") : qsTr("Close")
+                        visible: pal.connectionState.phase !== "incoming"
+                        implicitHeight: 48
+                        onClicked: pal.sendToScript({ method: "connectionCancel" })
+                    }
+                }
+            }
+        }
+    }
+
     HifiConstants { id: hifi; }
     RootHttpRequest { id: http; }
     HifiModels.PSFListModel {
@@ -496,7 +582,7 @@ Rectangle {
             // This Rectangle refers to each Row in the nearbyTable.
             rowDelegate: Rectangle { // The only way I know to specify a row height.
                 // Size
-                height: rowHeight + (styleData.selected ? 15 : 0);
+                height: rowHeight + (styleData.selected ? 112 : 0);
                 color: nearbyRowColor(styleData.selected, styleData.alternate);
             }
 
@@ -1015,7 +1101,8 @@ Rectangle {
                     "3. After about 3 seconds, you're connected!";
                 property string notLoggedInInstructions: "<b><font color='red'>You must be logged into your High Fidelity account to make connections.</b></font><br>"
                 property string instructions:
-                    "<b>When you meet someone you want to remember later, you can <font color='purple'>connect</font> with a handshake:</b><br><br>"
+                    "<b>To connect, select a nearby person and choose Connect. The other person must accept.</b><br><br>" +
+                    "You can also connect with a handshake:<br>"
                 // Text
                 text:
                     Account.isLoggedIn() ? ( HMD.mounted ? instructions + hmdMountedInstructions : instructions + hmdNotMountedInstructions)
@@ -1195,6 +1282,11 @@ Rectangle {
     }
     function fromScript(message) {
         switch (message.method) {
+        case 'connectionState':
+            connectionState = message.params;
+            if (connectionState.phase === "idle") { connectionPrompt.close(); }
+            else { connectionPrompt.open(); }
+            break;
         case 'nearbyUsers':
             var data = message.params;
             var index = -1;
