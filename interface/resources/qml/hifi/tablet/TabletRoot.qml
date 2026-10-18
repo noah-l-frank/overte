@@ -22,6 +22,25 @@ Rectangle {
     property bool shown: true
     property int currentApp: -1;
     property alias tabletApps: tabletApps
+    property var _inlineSources: ({})
+    property var _webLoadTicket: null
+    property var _activeInlineSource: null
+
+    function _suspendInlineSource() {
+        if (_activeInlineSource) { _activeInlineSource.suspend(); }
+        _activeInlineSource = null;
+    }
+    Component.onDestruction: _retireInlineSources()
+
+    function _retireInlineSources() {
+        _webLoadTicket = {};
+        _suspendInlineSource();
+        Object.keys(_inlineSources).forEach(function(identity) {
+            var source = _inlineSources[identity];
+            if (source) { source.retire(); }
+        });
+        _inlineSources = ({});
+    }
 
     function setOption(value) {
         option = value;
@@ -107,14 +126,17 @@ Rectangle {
     }
 
     function loadSource(url) {
+        _retireInlineSources();
         tabletApps.clear();
-        tabletApps.append({"appUrl": url, "isWebUrl": false, "scriptUrl": "", "appWebUrl": ""});
+        tabletApps.append({"appUrl": url, "isWebUrl": false, "scriptUrl": "", "appWebUrl": "", "inlineIdentity": ""});
         loader.load(url)
     }
 
     function loadQMLOnTop(url) {
         if (!isUrlLoaded(url)) {
-            tabletApps.append({"appUrl": url, "isWebUrl": false, "scriptUrl": "", "appWebUrl": ""});
+            _webLoadTicket = {};
+            _suspendInlineSource();
+            tabletApps.append({"appUrl": url, "isWebUrl": false, "scriptUrl": "", "appWebUrl": "", "inlineIdentity": ""});
             loader.load(tabletApps.get(currentApp).appUrl, function(){
 	            if (loader.item.hasOwnProperty("gotoPreviousApp")) {
 	                loader.item.gotoPreviousApp = true;
@@ -127,10 +149,29 @@ Rectangle {
         }
     }
 
-    function loadWebContent(source, url, injectJavaScriptUrl) {
-        if (!isUrlLoaded(url)) {
-            tabletApps.append({"appUrl": source, "isWebUrl": true, "scriptUrl": injectJavaScriptUrl, "appWebUrl": url});
-            loader.load(source, function() {
+    function loadWebContent(source, url, injectJavaScriptUrl, nativeSource, restoring) {
+        _suspendInlineSource();
+        _activeInlineSource = nativeSource || null;
+        var ticket = {};
+        _webLoadTicket = ticket;
+        var identity = nativeSource ? nativeSource.sourceIdentity : "";
+        if (!restoring) {
+            tabletApps.append({"appUrl": source, "isWebUrl": true, "scriptUrl": injectJavaScriptUrl,
+                               "appWebUrl": url, "inlineIdentity": identity});
+            if (identity.length) { _inlineSources[identity] = nativeSource; }
+        }
+        loader.load(source, function() {
+            // The native surface may invoke this callback before visual
+            // parenting and completeCreate. Wait for real ancestry, while the
+            // page URL remains empty and cannot create a native navigation.
+            Qt.callLater(function() {
+                if (_webLoadTicket !== ticket) { return; }
+                if (nativeSource && loader.item.hasOwnProperty("inlineDocument")) {
+                    loader.item.sourceIdentity = nativeSource.sourceIdentity;
+                    if (nativeSource.bind(loader.item)) {
+                        loader.item.inlineDocument = Qt.binding(function() { return nativeSource.document; });
+                    }
+                }
                 loader.item.scriptURL = injectJavaScriptUrl;
                 loader.item.url = url;
                 if (loader.item.hasOwnProperty("gotoPreviousApp")) {
@@ -138,24 +179,33 @@ Rectangle {
                 }
                 screenChanged("Web", url)
             });
-        }
+        });
     }
 
-    function loadWebBase(url, injectJavaScriptUrl) {
-        loadWebContent("hifi/tablet/TabletWebView.qml", url, injectJavaScriptUrl);
+    function loadWebBase(url, injectJavaScriptUrl, nativeSource) {
+        loadWebContent("hifi/tablet/TabletWebView.qml", url, injectJavaScriptUrl, nativeSource, false);
     }
 
-    function loadTabletWebBase(url, injectJavaScriptUrl) {
-        loadWebContent("hifi/tablet/BlocksWebView.qml", url, injectJavaScriptUrl);
+    function loadTabletWebBase(url, injectJavaScriptUrl, nativeSource) {
+        loadWebContent("hifi/tablet/BlocksWebView.qml", url, injectJavaScriptUrl, nativeSource, false);
     }
 
     function returnToPreviousApp() {
+        if (currentApp < 0) { return; }
+        _webLoadTicket = {};
+        _suspendInlineSource();
+        var oldIdentity = tabletApps.get(currentApp).inlineIdentity;
+        if (oldIdentity && _inlineSources[oldIdentity]) {
+            _inlineSources[oldIdentity].retire();
+            delete _inlineSources[oldIdentity];
+        }
         tabletApps.remove(currentApp);
+        if (currentApp < 0) { loadSource("hifi/tablet/TabletHome.qml"); return; }
         var isWebPage = tabletApps.get(currentApp).isWebUrl;
         if (isWebPage) {
-            var webUrl = tabletApps.get(currentApp).appWebUrl;
-            var scriptUrl = tabletApps.get(currentApp).scriptUrl;
-            loadWebBase(webUrl, scriptUrl);
+            var previous = tabletApps.get(currentApp);
+            loadWebContent(previous.appUrl, previous.appWebUrl, previous.scriptUrl,
+                           _inlineSources[previous.inlineIdentity], true);
         } else {
         	loader.load(tabletApps.get(currentApp).appUrl);
         }
@@ -227,6 +277,7 @@ Rectangle {
         anchors.fill: parent;
     	property string source: "";
     	property var item: null;
+        property var loadTicket: null;
     	signal loaded;
 
 		onWidthChanged: {
@@ -246,10 +297,9 @@ Rectangle {
                 console.info("OVERTE_IOS_TABLET_QML stage=load-requested source=" + newSource +
                     " previous=" + loader.source + " had_item=" + (loader.item !== null))
             }
-            if (loader.source == newSource) {
-                loader.loaded();
-                return;
-            }
+            var ticket = {};
+            loader.loadTicket = ticket;
+            loader.source = newSource;
 
             if (loader.item) {
                 loader.item.destroy();
@@ -257,6 +307,11 @@ Rectangle {
             }
 
 	        QmlSurface.load(newSource, loader, function(newItem) {
+                if (loader.loadTicket !== ticket) {
+                    if (newItem) { newItem.destroy(); }
+                    return;
+                }
+                if (!newItem) { return; }
 	        	loader.item = newItem;
 	        	loader.item.width = loader.width;
 	        	loader.item.height = loader.height;
@@ -267,12 +322,9 @@ Rectangle {
 	            if (loader.item.hasOwnProperty("setRootMenu")) {
 	                loader.item.setRootMenu(tabletRoot.rootMenu, tabletRoot.subMenu);
 	            }
-	            // The iOS backend completes dynamic Qt 6 components before this
-	            // callback. Defer focus one event turn so the completed item also
-	            // has stable window and focus-scope ownership.
-	            if (Qt.platform.os !== "ios") {
-	                loader.item.forceActiveFocus();
-	            }
+                Qt.callLater(function() {
+                    if (loader.item === newItem) { newItem.forceActiveFocus(); }
+                });
 
 	            if (openModal) {
 	                openModal.canceled();
@@ -312,7 +364,6 @@ Rectangle {
                         if (loader.item !== newItem) {
                             return
                         }
-                        loader.item.forceActiveFocus()
                         console.info("OVERTE_IOS_TABLET_QML stage=load-complete source=" + newSource +
                             " class=" + loader.item + " size=" + loader.item.width + "x" + loader.item.height +
                             " visible=" + loader.item.visible + " active_focus=" + loader.item.activeFocus)
@@ -326,6 +377,7 @@ Rectangle {
     height: 706
 
     function setShown(value) {
+        if (value === false) { _retireInlineSources(); }
         if (typeof HMD === "undefined" || !HMD) {
             return
         }

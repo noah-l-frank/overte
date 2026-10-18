@@ -1238,7 +1238,7 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         source=Path(__file__).resolve().parents[1]/'repository-checks/package_checks.py'
         packages=VALIDATION._trusted_module('verified_empty_fixture_packages',source)
         generation=packages.validate_wiring(root)
-        self.assertIn(generation,{'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','protected-producer-original-default-v1'})
+        self.assertIn(generation,{'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-v1'})
         return packages,generation
 
     def setUp(self):
@@ -1384,7 +1384,7 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         packages,generation=self.workflow_fixture_generation(VALIDATION.ROOT)
         reviewed=next(row for row in packages.workflow_generations() if row['name']==generation)
         self.assertEqual(set(reviewed['workflows']),set(packages.CONSUMER_WORKFLOW_PATHS
-            if generation in ('npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1') else packages.METADATA_WORKFLOW_PATHS))
+            if generation in ('npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1') else packages.METADATA_WORKFLOW_PATHS))
         sync='.github/workflows/sync-validation.yml'
         for kind in ('altered','missing','alias','mode','mixed'):
             with self.subTest(kind=kind),tempfile.TemporaryDirectory(prefix='sync-whole-generation-') as temporary:
@@ -1399,7 +1399,7 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
                 elif kind=='alias':
                     saved=target.with_suffix('.fixture');target.rename(saved);target.symlink_to(saved.name)
                 elif kind=='mode':target.chmod(0o755)
-                elif generation in ('npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1'):
+                elif generation in ('npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1'):
                     target.write_bytes((VALIDATION.ROOT/'tools/repository-checks/workflows/sync-ci-selection.yml').read_bytes())
                 else:
                     (snapshot/'.github/workflows/project-tests.yml').write_bytes(

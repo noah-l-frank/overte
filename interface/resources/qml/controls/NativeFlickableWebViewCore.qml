@@ -12,6 +12,9 @@ Item {
     property alias useBackground: webView.useBackground
     property alias userAgent: webView.userAgent
     property alias userScriptUrl: webView.scriptUrl
+    property alias surface: webView.surface
+    property alias sourceIdentity: webView.sourceIdentity
+    property alias inlineDocument: webView.inlineDocument
     property string urlTag: "noDownload=false"
     property bool interactive: true
     property bool blurOnCtrlShift: true
