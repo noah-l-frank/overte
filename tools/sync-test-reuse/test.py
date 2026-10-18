@@ -2369,7 +2369,7 @@ class RequiredCodeQLInvocationTests(unittest.TestCase):
                           "_SCHEDULING_RESULTS_WORKFLOW = '" + "e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1" + "'\n"
                           "_SCHEDULING_SOURCE_WORKFLOW = '" + "b76ade9fd7a76da21bf2cb2161deae7a262163e8" + "'\n"
                           "_BOOLEAN_RESULTS_WORKFLOW = '3b7a88765b7181a1bc7dd6f48b9b459e590055d3'\n"
-                          "_REQUIRED_CONTEXT_RESULTS_WORKFLOW = 'ad03cef5088499f08361265850b0191009deada5'\n"
+                          "_REQUIRED_CONTEXT_RESULTS_WORKFLOW = '7b0703d88d404f38c1b3dec92f77f03586c9144c'\n"
                           "def result_workflow_blobs():\n"
                           "    return (_RESULTS_WORKFLOW, _RETARGET_RESULTS_WORKFLOW, "
                           "_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW)\n"

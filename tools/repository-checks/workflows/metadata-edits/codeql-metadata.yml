@@ -183,6 +183,9 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           path: trusted
           persist-credentials: false
+          sparse-checkout: |
+            tools/repository-checks
+            tools/test-evidence
 
       - name: Mirror the freshly authenticated original mandatory result
         if: needs.select.result == 'success' && needs.select.outputs.metadata_only == 'true'

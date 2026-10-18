@@ -55,7 +55,7 @@ _SCHEDULING_RUN_FIELDS = ('id', 'workflow_id', 'check_suite_id', 'path', 'event'
 _NATIVE_INTENT_RECIPES = frozenset({
     ('.github/workflows/repository-checks.yml', '22fe0d6d39d120f800099136d7d1ab5280d80b41',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
-    ('.github/workflows/codeql.yml', 'ad03cef5088499f08361265850b0191009deada5',
+    ('.github/workflows/codeql.yml', '7b0703d88d404f38c1b3dec92f77f03586c9144c',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/repository-checks.yml', '15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),

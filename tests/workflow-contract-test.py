@@ -789,6 +789,9 @@ class RequiredContextCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
         self.assertIn('100',job['timeout-minutes'])
         mirror=next(step for step in job['steps'] if '--result' in step.get('run',''))
         self.assertEqual(mirror['if'],"needs.select.result == 'success' && needs.select.outputs.metadata_only == 'true'")
+        trusted=next(step for step in job['steps'] if step['name']=='Check out trusted selected-result policy')
+        self.assertEqual(trusted['with']['sparse-checkout'].splitlines(),
+                         ['tools/repository-checks','tools/test-evidence'])
         for name in ('Require every selected analysis','Read the exact candidate for independent result selection',
                      'Require current selected-language security results'):
             step=next(step for step in job['steps'] if step['name']==name)

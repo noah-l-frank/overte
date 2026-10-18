@@ -260,7 +260,7 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         codeql_by_generation={
             'protected-producer-original-default-v1':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1',
             'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
-            'protected-producer-original-default-required-context-v1':'ad03cef5088499f08361265850b0191009deada5',
+            'protected-producer-original-default-required-context-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
         }
         self.assertIn(installed,codeql_by_generation)
         self.assertEqual(rows[installed][caller],blob((ROOT/caller).read_bytes()))
