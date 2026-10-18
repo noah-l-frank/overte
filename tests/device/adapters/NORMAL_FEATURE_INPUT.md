@@ -22,7 +22,10 @@ execution, hidden bridge or direct product API fallback is used.
 
 Text replacement uses the actual native element's clear/value commands, supports
 Unicode within the providers' UTF-16 limit and rejects embedded control keys.
-Submitting remains an explicit normal UI action. Input is never automatically
+Mapped special keys from the [WebDriver key table](https://www.w3.org/TR/webdriver/#keyboard-actions)
+are also rejected as literal text. `press_enter` submits the actual resolved
+field through one explicit native key action. Unmapped private-use glyphs remain
+ordinary Unicode. Submitting remains an explicit normal UI action. Input is never automatically
 replayed after an uncertain response: an accidental double click or second
 submit could alter history or create another object. The ordinary journey then
 judges real feature effects through its independent observation.
