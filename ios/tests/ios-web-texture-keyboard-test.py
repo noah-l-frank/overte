@@ -110,8 +110,14 @@ function run(name, script, options, expected) {
         options.direction || 'forward'); } catch (_) {}
     element.disabled = !!options.disabled;
     if(options.disabledFieldset){const fieldset=document.createElement('fieldset');fieldset.disabled=true;form.append(fieldset);fieldset.append(element);}
-    const events = []; let submits = 0;
-    form.addEventListener('submit', event => { event.preventDefault(); ++submits; });
+    const events = []; let submits = 0, clicks = 0, submittedButton = false;
+    if(options.submitButton){
+        const button=document.createElement(options.imageButton?'input':'button');button.type=options.imageButton?'image':'submit';
+        button.disabled=!!options.disabledButton;button.id='default-submit';
+        button.addEventListener('click',event=>{++clicks;if(options.cancelClick)event.preventDefault();});
+        if(options.externalButton){form.id='external-form';button.setAttribute('form',form.id);document.body.append(button);}else form.append(button);
+    }
+    form.addEventListener('submit', event => { event.preventDefault(); ++submits; submittedButton=!!event.submitter&&event.submitter.id==='default-submit'; });
     for (const type of ['keydown', 'beforeinput', 'input']) element.addEventListener(type, event => {
         events.push({type:event.type, key:event.key || null, inputType:event.inputType || null,
             cancelable:event.cancelable, shift:event.shiftKey || false});
@@ -119,7 +125,7 @@ function run(name, script, options, expected) {
     });
     let error = null; try { (0, eval)(scripts[script]); } catch (caught) { error = String(caught); }
     const actual = {value:element.value, start:element.selectionStart, end:element.selectionEnd,
-        direction:element.selectionDirection, submits, inputEvents:events.filter(event => event.type === 'input').length};
+        direction:element.selectionDirection, submits, clicks, submittedButton, inputEvents:events.filter(event => event.type === 'input').length};
     const failures = [];
     if (error) failures.push(error);
     for (const [field,value] of Object.entries(expected)) if (actual[field] !== value) failures.push(field + ': ' + JSON.stringify(actual[field]) + ' != ' + JSON.stringify(value));
@@ -129,7 +135,7 @@ function run(name, script, options, expected) {
     if(expectedKey && !events.some(event=>event.type==='keydown'&&event.key===expectedKey&&event.cancelable&&event.shift===script.startsWith('shift-'))) failures.push('missing cancelable named keydown');
     if(actual.inputEvents && events.map(event=>event.type).join(',')!=='keydown,beforeinput,input') failures.push('incorrect edit event ordering');
     results.push({name, script, actual, expected, events, failures});
-    element.blur(); form.remove();
+    element.blur(); form.remove();document.querySelector('#default-submit')?.remove();
 }
 run('left collapses selection without deletion','left',{start:0,end:2},{value:'abc',start:0,end:0,inputEvents:0});
 run('right collapses selection without deletion','right',{start:0,end:2},{value:'abc',start:2,end:2,inputEvents:0});
@@ -144,6 +150,11 @@ run('keydown cancels selection navigation','left',{start:0,end:2,cancel:'keydown
 run('shift home extends selection','shift-home',{tag:'textarea',value:'a\nbc',start:4},{value:'a\nbc',start:2,end:4,direction:'backward',inputEvents:0});
 run('shift end extends selection','shift-end',{tag:'textarea',value:'a\nbc',start:2},{value:'a\nbc',start:2,end:4,direction:'forward',inputEvents:0});
 run('single line Enter submits without text edit','return',{}, {value:'abc',submits:1,inputEvents:0});
+run('Enter activates default submit button','return',{submitButton:true},{value:'abc',submits:1,clicks:1,submittedButton:true,inputEvents:0});
+run('default button click cancellation blocks Enter submit','return',{submitButton:true,cancelClick:true},{value:'abc',submits:0,clicks:1,inputEvents:0});
+run('disabled default submit button blocks Enter','return',{submitButton:true,disabledButton:true},{value:'abc',submits:0,clicks:0,inputEvents:0});
+run('externally associated default button activates','return',{submitButton:true,externalButton:true},{value:'abc',submits:1,clicks:1,submittedButton:true,inputEvents:0});
+run('image submit button activates','return',{submitButton:true,imageButton:true},{value:'abc',submits:1,clicks:1,submittedButton:true,inputEvents:0});
 run('textarea Return inserts newline without submit','return',{tag:'textarea',value:'ab',start:1,requireBeforeInput:true},{value:'a\nb',submits:0,inputEvents:1});
 run('textarea keypad Enter with empty text inserts newline','enter-empty',{tag:'textarea',value:'ab',start:1},{value:'a\nb',submits:0,inputEvents:1});
 run('readonly text stays unchanged','text',{readOnly:true},{value:'abc',inputEvents:0,submits:0});

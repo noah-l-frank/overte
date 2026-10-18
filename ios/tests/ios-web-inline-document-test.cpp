@@ -438,5 +438,34 @@ int main(int argc, char** argv) {
     surface->setProperty("inlineDocument", QVariant::fromValue(web::InlineHtmlDocument{}));
     assert(!callerBinding.current(backend));
     surface.reset();
+    // Execute the complete World root through the actual iOS product profile.
+    // HTML data sources ending in .qml must retain the native web route.
+    const auto selectedWorld = platformSelector.selector()->select(iosRoot + "/interface/resources/qml/Web3DSurface.qml");
+    assert(selectedWorld.contains("/+android_interface/"));
+    const QStringList worldSources {"data:text/html,%3Cp%3Ecurrent%3C/p%3E",
+        "data:text/html,%3Cp%3Ecurrent%3C/p%3E.qml",
+        "data:text/html,%3Cp%3Ecurrent%3C/p%3E#document.qml"};
+    for (const auto& worldSource : worldSources) {
+        QQmlContext worldContext(engine.rootContext());
+        web::InlineHtmlDocumentOwner worldOwner;
+        const auto worldDocument = worldOwner.issue(&worldContext, "selected-world", worldSource, "");
+        assert(worldDocument.current());
+        worldContext.setContextProperty("nativeWebSourceIdentity", "selected-world");
+        worldContext.setContextProperty("nativeInlineHtmlDocument", QVariant::fromValue(worldDocument));
+        QQmlComponent worldComponent(&engine, QUrl::fromLocalFile(iosRoot + "/interface/resources/qml/Web3DSurface.qml"));
+        if (!worldComponent.isReady()) { std::cerr << worldComponent.errorString().toStdString(); std::abort(); }
+        std::unique_ptr<QObject> world(worldComponent.createWithInitialProperties(
+            {{"url", worldSource}, {"width", 640}, {"height", 480}}, &worldContext));
+        assert(world);
+        for (int turn = 0; turn < 5; ++turn) { QCoreApplication::processEvents(); }
+        auto* wrapper = world->property("item").value<QObject*>();
+        auto* endpoint = wrapper ? qobject_cast<IOSWebView*>(wrapper->property("backend").value<QObject*>()) : nullptr;
+        assert(world->property("webViewLoaded").toBool() && endpoint && endpoint->sourceOpenedAtCompletion);
+        assert(endpoint->url() == worldSource && endpoint->_private->inlineMode);
+        ios::IOSInlineDocumentBinding worldBinding;
+        assert(worldBinding.bind(endpoint->inlineDocument(), endpoint, "selected-world", worldSource, ""));
+        assert(worldBinding.context() == &worldContext);
+    }
+    std::cout << "PASS complete iOS-selected World route: plain inline, body ending .qml, fragment ending .qml reach actual native source policy (WK unopened)" << std::endl;
     std::cout << "PASS Qt " << qVersion() << " actual inline context ancestry, exact source/charset/bytes, property setters, revocation, epoch and compiled-rule input (WK execution not performed)\n";
 }

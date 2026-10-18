@@ -896,7 +896,17 @@ else select(target,target,'none');
 return;
 }
 if(el.readOnly)return;
-if(key==='Enter'&&el.tagName!=='TEXTAREA'){if(el.form&&el.form.requestSubmit)el.form.requestSubmit();return;}
+if(key==='Enter'&&el.tagName!=='TEXTAREA'){
+if(el.form){
+// Implicit submission activates the first associated submit button. Its click
+// handler, disabled state and per-button form overrides must remain effective.
+var form=el.form,submitter=Array.from(document.querySelectorAll('button,input')).find(function(button){
+return button.form===form&&((button.tagName==='BUTTON'&&button.type==='submit')||
+(button.tagName==='INPUT'&&(button.type==='submit'||button.type==='image')));});
+if(submitter)submitter.click();else if(form.requestSubmit)form.requestSubmit();
+}
+return;
+}
 var inserted=key==='Enter'?'\n':a[0],type=key==='Enter'?'insertLineBreak':'insertText';
 if(key==='Backspace'){inserted='';type='deleteContentBackward';if(start===end)start=previous(start);}
 else if(key==='Delete'){inserted='';type='deleteContentForward';if(start===end)end=next(end);}
