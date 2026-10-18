@@ -862,7 +862,17 @@
           "tests/device/contracts/graphics/test_render_preferences.py",
           "tests/device/contracts/graphics/render-preferences.cpp",
           "tests/device/contracts/graphics/test_mirror_controls.py",
-          "tests/device/contracts/graphics/mirror-controls.cpp"
+          "tests/device/contracts/graphics/mirror-controls.cpp",
+          "tests/device/contracts/avatar/test_hidden_avatar_pose.py",
+          "tests/device/contracts/avatar/hidden-avatar-pose.cpp",
+          "interface/src/avatar/MyAvatar.cpp",
+          "interface/src/avatar/MyAvatar.h",
+          "interface/src/avatar/AvatarManager.cpp",
+          "libraries/avatars/src/AvatarData.cpp",
+          "libraries/avatars/src/AvatarData.h",
+          "libraries/avatars/src/AvatarHashMap.h",
+          "libraries/shared/src/JointData.h",
+          "libraries/shared/src/NumericalConstants.h"
         ]
       }
     },
@@ -1507,31 +1517,6 @@
           "tools/test-evidence/validate-sync.py",
           "tools/test-evidence/validate-sync-test.py",
           "tools/sync-test-reuse/gate.py"
-        ]
-      }
-    },
-    "avatar-pose-native": {
-      "command": [
-        "python",
-        "tests/device/contracts/avatar/test_hidden_avatar_pose.py"
-      ],
-      "layer": "host",
-      "scope": "content",
-      "environment": "host-qt5-qt6",
-      "closure": {
-        "kind": "repository",
-        "inputs": [],
-        "required": [
-          "tests/device/contracts/avatar/test_hidden_avatar_pose.py",
-          "tests/device/contracts/avatar/hidden-avatar-pose.cpp",
-          "interface/src/avatar/MyAvatar.cpp",
-          "interface/src/avatar/MyAvatar.h",
-          "interface/src/avatar/AvatarManager.cpp",
-          "libraries/avatars/src/AvatarData.cpp",
-          "libraries/avatars/src/AvatarData.h",
-          "libraries/avatars/src/AvatarHashMap.h",
-          "libraries/shared/src/JointData.h",
-          "libraries/shared/src/NumericalConstants.h"
         ]
       }
     }
