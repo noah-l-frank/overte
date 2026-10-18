@@ -845,7 +845,24 @@
           "libraries/octree/src/OctreeUtils.cpp",
           "libraries/shared/src/SettingHandle.h",
           "tests/device/contracts/lifecycle/lod-preferences-test.cpp",
-          "tests/device/contracts/lifecycle/test_login_dialog_domain_receiver.py"
+          "tests/device/contracts/lifecycle/test_login_dialog_domain_receiver.py",
+          "tests/device/contracts/graphics/test_render_configuration_traversal.py",
+          "tests/device/contracts/graphics/render-configuration-traversal.cpp",
+          "tests/device/contracts/graphics/test_graphics_settings_qml.py",
+          "tests/device/contracts/graphics/graphics-settings-services.cpp",
+          "tests/device/contracts/graphics/tst_graphics_settings.qml",
+          "interface/src/scripting/RenderScriptingInterface.cpp",
+          "interface/src/scripting/RenderScriptingInterface.h",
+          "libraries/render-utils/src/RenderForwardTask.cpp",
+          "libraries/render-utils/src/RenderDeferredTask.cpp",
+          "libraries/render-utils/src/RenderViewTask.cpp",
+          "libraries/render-utils/src/RenderCommonTask.cpp",
+          "libraries/render-utils/src/RenderCommonTask.h",
+          "scripts/system/settings/qml/pages/GraphicsSettingsBase.qml",
+          "tests/device/contracts/graphics/test_render_preferences.py",
+          "tests/device/contracts/graphics/render-preferences.cpp",
+          "tests/device/contracts/graphics/test_mirror_controls.py",
+          "tests/device/contracts/graphics/mirror-controls.cpp"
         ]
       }
     },

@@ -689,7 +689,7 @@
     },
     "lod-preferences": {
       "kind": "reviewed-product-inventory",
-      "definition_digest": "sha256:ec1963fe23a614d99cd57b53fe58e3df0352ee9c3c9fdfb61e1cd59770947524",
+      "definition_digest": "sha256:be7e2d76b4c68cfba85dfbe8806085401f9b6eed752a6e679d70869fa0890d02",
       "setup": [
         "host-full"
       ]
@@ -867,7 +867,7 @@
       ]
     }
   },
-  "registry_digest": "sha256:8c4cbcb61837aa46e50e8af9df71d78e828f19c15012edcf5f0501500f6056ad",
+  "registry_digest": "sha256:be48db2f6750b075fe5e3f97692812bb3bc231aa6aabdb3548734e6e55192516",
   "lookup_digest": "sha256:03ae433044c9e3f28611f14c5ad3f87f8f368a77ca45316134be7ef0186a0557",
   "targets": {
     "android-main": {

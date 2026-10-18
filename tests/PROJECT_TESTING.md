@@ -160,6 +160,15 @@ substituted, including the first EventBridge message before channel idle,
 single message delivery, source replacement, and keyboard transitions.
 Set `OVERTE_QML_TEST_RUNNER` to select a matching Qt Quick Test executable.
 
+The `lod-preferences` host suite also runs the production render-configuration
+traversal and the complete shared Graphics settings page on Qt6. Native job
+names and mirror recursion budgets are read from actual registrations; GPU,
+engine/configuration and platform settings endpoints remain explicit fixtures.
+Run `tests/device/contracts/graphics/test_render_configuration_traversal.py` and
+`test_graphics_settings_qml.py` directly with `OVERTE_NATIVE_QT_MAJOR=5` or `6`
+for independent toolkit variants. Each selected SDK must provide matching
+development libraries, `pkg-config` files and tools; no fallback is accepted.
+
 The `recorded-voice-native` host suite requires Qt Core development files and
 matching `moc`. It executes the actual AudioClient capture/playback callback and
 AudioScriptingInterface methods with real Qt signals, queued calls and timers;
