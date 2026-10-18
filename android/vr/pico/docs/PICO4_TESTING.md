@@ -144,7 +144,7 @@ The actual Activity, host, common input-gate and picker journey is a separately
 executed prepared-host check: five scenarios on API 26 and 35 produce ten JUnit
 cases. It requires Java 21, Gradle 8.13, Robolectric 4.16.1 with the actual API
 26/35 instrumented runtime JARs, and the real SDK 36, Qt and AndroidX inputs
-below. Neither the 39-case Pico catalog nor the currently registered 60-suite
+below. Neither the 40-case Pico catalog nor the currently registered 61-suite
 project host profile runs it automatically. Automatic standard-path wiring
 remains pending; record this result separately from the normal host result.
 
@@ -191,8 +191,12 @@ python3 android/vr/pico/tests/device/test_legacy_web_qt.py
 python3 android/vr/pico/tests/device/test_production_java_compile.py
 ```
 
-The lifecycle and Qt checks are mandatory entries in the 39-case Pico
-device-free catalog. The standalone SDK/callgraph check must be run separately;
+The lifecycle and Qt checks are mandatory entries in the 40-case Pico
+device-free catalog. The current native Activity ingress case separately compiles
+and executes Back, keyboard/controller, pause and obsolete-owner dispatch. The
+legacy Qt check loads the retained `PicoLegacyWebSurface.qml` directly; the normal
+selected hardware world/tablet route is covered by `pico-embedded-web-test.py`.
+The standalone SDK/callgraph check must be run separately;
 neither that catalog nor the current project host profile invokes it
 automatically. The lifecycle Java check executes the original production
 lifecycle/frame/cleanup methods;
