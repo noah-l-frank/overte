@@ -85,6 +85,7 @@ public:
     bool _bloomEnabled{},_shadowsEnabled{},_ambientOcclusionEnabled{},_hazeEnabled{true};
     int _antialiasingMode{0};float _viewportResolutionScale{0.8f},fieldOfView{60};bool cameraClipping{true};QString _fullScreenScreen;
 @RUNTIME@
+@PERSISTENCE_MEMBER@
 @SETTINGS@
     void loadSettings();bool getMirrorsEnabled() const;void setMirrorsEnabled(bool);void forceMirrorsEnabled(bool);
     enum RenderMethod { DEFERRED,FORWARD };

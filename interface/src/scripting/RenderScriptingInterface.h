@@ -93,6 +93,8 @@ public:
     // C++ startup/debug overrides may change the effective pipeline without
     // replacing the user's saved choices. Hold the recursive setting lock for
     // the complete scope so other threads cannot inherit transient behavior.
+    // Use only write-setter paths inside this scope. loadSettings() acquires a
+    // read lock and must run before the scope (Qt cannot change lock modes).
     class ScopedSettingsOverride {
     public:
         explicit ScopedSettingsOverride(RenderScriptingInterface& render);
