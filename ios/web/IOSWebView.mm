@@ -483,6 +483,27 @@ void IOSWebView::fail(const QString& message) {
     _private->error = message; emit errorChanged(); tearDown(); update();
 }
 
+bool IOSWebView::openSource() {
+    const auto surface = _private->surface == QStringLiteral("tablet") ? web::Surface::Tablet : web::Surface::WorldEntity;
+    _private->inlineMode = _private->url.scheme() == QStringLiteral("data");
+    if (_private->inlineMode || overte::ios::iosInlineCarrierSupplied(_private->inlineCarrier)) {
+        if (!_private->inlineBinding.bind(_private->inlineCarrier, this, _private->identity,
+                _private->originalSource, _private->originalScript)) {
+            return false;
+        }
+        _private->generation = _private->policy.openInline(_private->inlineBinding.document(),
+            _private->inlineBinding.context(), _private->originalSource, surface, _private->identity,
+            _private->originalScript);
+    } else {
+        _private->generation = _private->policy.open(_private->url, surface, _private->identity, _private->documentRoot);
+    }
+    if (!_private->generation) { return false; }
+    if (_private->inlineMode && !observeInlineDocument()) {
+        return false;
+    }
+    return true;
+}
+
 void IOSWebView::open() {
     tearDown();
     if (_private->cleanupFailed) { fail(tr("Native browser cleanup failed. Restart Overte before opening another page.")); return; }
@@ -497,22 +518,8 @@ void IOSWebView::open() {
     if (!_private->packagedRoot.isEmpty() && _private->packagedRoot != _private->scriptRoot) {
         fail(tr("The packaged script root does not match the native resource owner.")); return;
     }
-    const auto surface = _private->surface == QStringLiteral("tablet") ? web::Surface::Tablet : web::Surface::WorldEntity;
-    _private->inlineMode = _private->url.scheme() == QStringLiteral("data");
-    if (_private->inlineMode) {
-        if (!_private->inlineBinding.bind(_private->inlineCarrier, this, _private->identity,
-                _private->originalSource, _private->originalScript)) {
-            fail(tr("This inline document has no current native source owner.")); return;
-        }
-        _private->generation = _private->policy.openInline(_private->inlineBinding.document(),
-            _private->inlineBinding.context(), _private->originalSource, surface, _private->identity,
-            _private->originalScript);
-    } else {
-        _private->generation = _private->policy.open(_private->url, surface, _private->identity, _private->documentRoot);
-    }
-    if (!_private->generation) { fail(tr("This web URL is not permitted.")); return; }
-    if (_private->inlineMode && !observeInlineDocument()) {
-        fail(tr("This inline document has no current native source owner.")); return;
+    if (!openSource()) {
+        fail(_private->inlineMode ? tr("This inline document has no current native source owner.") : tr("This web URL is not permitted.")); return;
     }
     _private->error.clear(); emit errorChanged(); setLoading(true);
     UIWindow* window = nil;

@@ -42,13 +42,15 @@ if not moc.is_file() and os.environ.get("PKG_CONFIG_SYSROOT_DIR"):
 source = (ROOT / "ios/web/IOSWebView.mm").read_text()
 header = (ROOT / "ios/web/IOSWebView.h").read_text()
 properties = "\n".join(line for line in header.splitlines()
-    if re.search(r"Q_PROPERTY\(\w+ (url|scriptUrl|inlineDocument) ", line))
-if len(properties.splitlines()) != 3:
+    if re.search(r"Q_PROPERTY\(\w+ (url|scriptUrl|inlineDocument|surface|sourceIdentity) ", line))
+if len(properties.splitlines()) != 5:
     raise SystemExit("The actual native property declarations must be tested")
 signatures = ("QString IOSWebView::url(", "void IOSWebView::setUrl(",
               "QString IOSWebView::scriptUrl(", "void IOSWebView::setScriptUrl(",
               "QVariant IOSWebView::inlineDocument(", "void IOSWebView::setInlineDocument(",
-              "bool IOSWebView::observeInlineDocument(")
+              "bool IOSWebView::observeInlineDocument(", "bool IOSWebView::openSource(",
+              "QString IOSWebView::surface(", "void IOSWebView::setSurface(",
+              "QString IOSWebView::sourceIdentity(", "void IOSWebView::setSourceIdentity(")
 with tempfile.TemporaryDirectory(prefix="ios-inline-document-") as temporary:
     stage = Path(temporary)
     (stage / "production-properties-methods.inc").write_text("\n".join(body(source, signature) for signature in signatures))

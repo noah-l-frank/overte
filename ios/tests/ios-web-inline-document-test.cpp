@@ -28,6 +28,8 @@ class IOSWebView : public QQuickItem {
 public:
     struct Private {
         QString originalSource, originalScript; QUrl url, scriptUrl; QVariant inlineCarrier;
+        QString identity, surface { QStringLiteral("tablet") }, documentRoot;
+        web::EmbeddedWebSession policy;
         ios::IOSInlineDocumentBinding inlineBinding;
         QMetaObject::Connection inlineRevocationConnection;
         std::uint64_t generation { 0 };
@@ -35,7 +37,7 @@ public:
     };
     std::unique_ptr<Private> _private { std::make_unique<Private>() };
     int revocations { 0 }, nativeStops { 0 };
-    bool configuredAtCompletion { false };
+    bool configuredAtCompletion { false }, sourceOpenedAtCompletion { false };
     QString url() const;
     void setUrl(const QString&);
     QString scriptUrl() const;
@@ -43,10 +45,20 @@ public:
     QVariant inlineDocument() const;
     void setInlineDocument(const QVariant&);
     bool observeInlineDocument();
-    void scheduleOpen() { ++revocations; } // Explicit unopened native lifecycle boundary.
+    bool openSource();
+    QString surface() const;
+    void setSurface(const QString&);
+    QString sourceIdentity() const;
+    void setSourceIdentity(const QString&);
+    void scheduleOpen() {
+        ++revocations; // Explicit unopened WK replacement boundary.
+        _private->policy.close(); _private->generation = 0;
+        QObject::disconnect(_private->inlineRevocationConnection); _private->inlineRevocationConnection = {};
+        _private->inlineBinding.clear();
+    }
     void stop() {
         ++nativeStops; // Actual subscription stops at this explicit WK boundary.
-        _private->generation = 0;
+        _private->policy.close(); _private->generation = 0;
         QObject::disconnect(_private->inlineRevocationConnection); _private->inlineRevocationConnection = {};
         _private->inlineBinding.clear();
     }
@@ -54,7 +66,8 @@ protected:
     void componentComplete() override {
         QQuickItem::componentComplete();
         ios::IOSInlineDocumentBinding initial;
-        configuredAtCompletion = initial.bind(inlineDocument(), this, property("sourceIdentity").toString(), url(), scriptUrl());
+        configuredAtCompletion = initial.bind(inlineDocument(), this, sourceIdentity(), url(), scriptUrl());
+        sourceOpenedAtCompletion = openSource(); // Execute production policy selection, then stop before WK.
     }
 signals:
     void urlChanged();
@@ -135,7 +148,7 @@ int main(int argc, char** argv) {
 
     IOSWebView item;
     QQmlEngine::setObjectOwnership(&item, QQmlEngine::CppOwnership);
-    for (const char* name : {"url", "scriptUrl", "inlineDocument"}) {
+    for (const char* name : {"url", "scriptUrl", "inlineDocument", "surface", "sourceIdentity"}) {
         const auto index = item.metaObject()->indexOfProperty(name);
         assert(index >= 0); // JavaScript must never fall back to a dynamic property.
         const auto property = item.metaObject()->property(index);
@@ -278,7 +291,7 @@ int main(int argc, char** argv) {
     if (!surface) { std::cerr << sharedWrapper.errorString().toStdString(); std::abort(); }
     auto* backend = qobject_cast<IOSWebView*>(surface->property("backend").value<QObject*>());
     assert(backend && backend->url() == source && backend->scriptUrl() == script);
-    assert(backend->configuredAtCompletion);
+    assert(backend->configuredAtCompletion && backend->sourceOpenedAtCompletion);
     assert(!backend->property("bridgeAvailable").toBool());
     ios::IOSInlineDocumentBinding callerBinding;
     assert(callerBinding.bind(backend->inlineDocument(), backend, backend->property("sourceIdentity").toString(),
@@ -309,12 +322,45 @@ int main(int argc, char** argv) {
     std::unique_ptr<QObject> ordinary(sharedWrapper.createWithInitialProperties(ordinaryInitial, &issuer));
     assert(ordinary);
     auto* transitioned = qobject_cast<IOSWebView*>(ordinary->property("backend").value<QObject*>());
-    assert(transitioned && !transitioned->configuredAtCompletion);
+    assert(transitioned && !transitioned->configuredAtCompletion && transitioned->sourceOpenedAtCompletion);
+    assert(transitioned->_private->policy.active() && !transitioned->_private->inlineMode);
+    assert(transitioned->_private->policy.url() == QUrl("https://ordinary.example/page"));
+    assert(transitioned->inlineDocument().userType() != qMetaTypeId<web::InlineHtmlDocument>());
     assert(ordinary->setProperty("inlineDocument", QVariant()));
     assert(ordinary->setProperty("inlineDocument", QVariant::fromValue(document)));
     assert(ordinary->setProperty("url", source));
     ios::IOSInlineDocumentBinding transitionBinding;
     assert(transitionBinding.bind(transitioned->inlineDocument(), transitioned, identity, source, script));
+    assert(transitioned->openSource() && transitioned->_private->inlineMode);
+    const auto oldGeneration = transitioned->_private->generation;
+    const auto oldTransport = document.transportURL();
+    assert(transitioned->_private->policy.allowsBridge(oldGeneration, oldTransport, true, 1));
+    owner.revoke();
+    assert(!transitioned->_private->policy.active() && !transitioned->_private->generation);
+    assert(ordinary->setProperty("inlineDocument", QVariant()));
+    assert(ordinary->setProperty("url", "https://ordinary.example/restored"));
+    assert(transitioned->openSource() && !transitioned->_private->inlineMode);
+    assert(transitioned->_private->policy.url() == QUrl("https://ordinary.example/restored"));
+    assert(!transitioned->_private->policy.allowsBridge(oldGeneration, oldTransport, true, 1));
+    // Supplying an opaque empty/stale grant or a forged map/string must never
+    // silently downgrade an unauthorized request into ordinary HTTPS policy.
+    for (const auto& supplied : {QVariant::fromValue(web::InlineHtmlDocument{}), QVariant::fromValue(document),
+            QVariant(QVariantMap{{"token", "forged"}}), QVariant(QString("forged")), QVariant(QString())}) {
+        assert(ordinary->setProperty("inlineDocument", supplied));
+        assert(!transitioned->openSource());
+        assert(!transitioned->_private->policy.active());
+    }
+    // Both native undefined and the actual QML null carriers remain absence;
+    // they permit ordinary HTTPS but never grant data HTML source authority.
+    for (const auto& absent : {QVariant(), QVariant::fromValue(nullptr), QVariant::fromValue(static_cast<QObject*>(nullptr)),
+            QVariant::fromValue(QJSValue(QJSValue::NullValue)), QVariant::fromValue(QJSValue(QJSValue::UndefinedValue))}) {
+        assert(!ios::iosInlineCarrierSupplied(absent));
+        assert(ordinary->setProperty("inlineDocument", absent));
+        assert(transitioned->openSource() && transitioned->_private->policy.active());
+    }
+    assert(ordinary->setProperty("url", source));
+    assert(!transitioned->openSource() && !transitioned->_private->policy.active());
+    std::cout << "PASS actual selected iOS source opening: ordinary HTTPS, inline revocation, absent-carrier restoration and supplied-carrier denial (WK unopened)" << std::endl;
     ordinary.reset(); nested.reset();
     owner.revoke();
     assert(!callerBinding.current(backend));

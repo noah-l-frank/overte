@@ -95,6 +95,7 @@ private:
     void open();
     void tearDown();
     bool observeInlineDocument();
+    bool openSource();
     void fail(const QString& message);
     void setLoading(bool value);
     void updateNavigation();

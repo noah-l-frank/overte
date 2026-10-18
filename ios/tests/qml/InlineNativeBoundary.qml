@@ -7,8 +7,6 @@ import IOSInlineProperties 1.0
 // WK boundary. This fixture never pretends to load HTML, initialize a bridge or
 // play video successfully.
 NativeProperties {
-    property string sourceIdentity: ""
-    property string surface: ""
     property string userAgent: ""
     property string eventBridgeJavaScript: ""
     property bool useBackground: true

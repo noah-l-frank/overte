@@ -6,11 +6,24 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJSValue>
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QVariant>
 
 namespace overte::ios {
+
+// QML undefined/null means no supplied grant. A typed empty/stale descriptor,
+// string, map or other supplied value must still pass the opaque binding check.
+inline bool iosInlineCarrierSupplied(const QVariant& carrier) {
+    if (!carrier.isValid() || carrier.userType() == QMetaType::Nullptr) { return false; }
+    if (carrier.userType() == QMetaType::QObjectStar && !carrier.value<QObject*>()) { return false; }
+    if (carrier.userType() == qMetaTypeId<QJSValue>()) {
+        const auto value = carrier.value<QJSValue>();
+        return !value.isNull() && !value.isUndefined();
+    }
+    return true;
+}
 
 // A descriptor is only usable by a real descendant of its issuing QML context.
 // No QObject parent, context-property string, map or URL issues authority.
