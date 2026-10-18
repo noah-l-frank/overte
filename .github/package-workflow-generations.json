@@ -596,22 +596,22 @@
         ".github/workflows/project-tests.yml": {
           "mode": "100644",
           "type": "blob",
-          "sha": "b540a1f26c3fbe2a60e7b7ecde91d814cfa0060c"
+          "sha": "28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9"
         },
         ".github/workflows/parent-qualification.yml": {
           "mode": "100644",
           "type": "blob",
-          "sha": "98abf45ca6c475af1e1ac3b20ec20f074048fb64"
+          "sha": "9bfc6f8723b1f59426f913472b78206844a7f201"
         },
         ".github/workflows/sync-validation.yml": {
           "mode": "100644",
           "type": "blob",
-          "sha": "50cbb324de358c5f8cd019a8e9b9aed45ea6868d"
+          "sha": "fb8b8645f229d924cfebb068ea124ac5910a483e"
         },
         ".github/workflows/repository-checks.yml": {
           "mode": "100644",
           "type": "blob",
-          "sha": "bc9c4284286b5c3d2de07a3ecf3b98393e2f2a2c"
+          "sha": "81bcf1933edc435826e2de411a777cccd4dec7c7"
         },
         ".github/workflows/browser-client.yml": {
           "mode": "100644",
@@ -622,6 +622,36 @@
           "mode": "100644",
           "type": "blob",
           "sha": "b76ade9fd7a76da21bf2cb2161deae7a262163e8"
+        }
+      }
+    },
+    {
+      "name": "npm-consumers-sync-ci-budget-v1",
+      "workflows": {
+        ".github/workflows/project-tests.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "e1e009f489e2bd126d0546f75977dc73c6450dda"
+        },
+        ".github/workflows/parent-qualification.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "2f4aec7f6463801a6deeb443b59977273197ea60"
+        },
+        ".github/workflows/sync-validation.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "cff76b696a4afd8658329a02ab33032672f292b9"
+        },
+        ".github/workflows/repository-checks.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "7f7ec83f15581ebc9cd693201aac1d8cd77d944f"
+        },
+        ".github/workflows/browser-client.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "8f6e3e009e201ce6c9980f4f23ff4a994588bb9d"
         }
       }
     }
