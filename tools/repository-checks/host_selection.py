@@ -153,6 +153,8 @@ REVIEWED_CHILD_PROGRAMS = {
     'android-vr': '569dee6cc9864ec22f904161e9b6a4ddc52ed7c25458171c65baec129f0b7b18',
     'android-vr-pico': '873e916ba69684bfa48f0ff269b956e20c591dd86a99d7f47d6eff79affdd338',
 }
+# Separate exact installed family; None admits nothing until genuine enrollment.
+REVIEWED_INSTALLED_PROGRAMS = {'apple-ios': None}
 REVIEWED_PREDECESSORS = {
     'main': '6c6064992d2e2e189e06af5957c147fd1ac0996b886b8d0b6f30dbf856ee9afe',
     'apple-main': 'ad02726fc123ea762f37e077f6ad11bf54b568542c89ebba9ae6477d9225288a',
@@ -458,6 +460,12 @@ def _select_legacy(tree, paths, regular, *, unknown=False, trusted_tree=None, ca
             expected = REVIEWED_PROGRAMS if target == 'main' else REVIEWED_CHILD_PROGRAMS.get(target)
             reviewed = expected is not None and program_digest(reviewed_tree, candidate_root) in {
                 expected, REVIEWED_PREDECESSORS.get(target)}
+            installed = REVIEWED_INSTALLED_PROGRAMS.get(target)
+            if not reviewed and installed is not None and all(
+                    inputs.installed_compiler_profile(snapshot, target=target)
+                    for snapshot in (base_tree, tree)):
+                reviewed = all(program_digest(snapshot, candidate_root) == installed
+                               for snapshot in (base_tree, tree))
             if trusted_tree is not None:
                 reviewed &= program_digest(trusted_tree, trusted_root) in {
                     REVIEWED_PROGRAMS, REVIEWED_PREDECESSORS['main']}

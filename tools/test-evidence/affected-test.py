@@ -1115,4 +1115,138 @@ class NonreusableRouteTests(unittest.TestCase):
         self.assertFalse(observed['reusable']);self.assertIsNone(observed['environment'])
 
 
+class InstalledCompilerReaderTests(unittest.TestCase):
+    PROFILE_MODES = {
+        '.github/workflows/ios-integrated.yml': '100644',
+        'docs/ios/SIGNING_AND_DEVICE_TESTS.md': '100644',
+        'ios/ci/qt-checkpoint-artifact.py': '100755',
+        'ios/tests/ios-full-client-sccache-contract-test.py': '100644',
+        'ios/tests/qt-checkpoint-artifact-test.py': '100755',
+    }
+
+    def private_git_context(self):
+        """Real commits and immutable reads, with an explicitly synthetic policy.
+
+        Fixture hashes never claim to be the seven-target shipping certificates.
+        The exact production five/R constants are checked separately by host tests.
+        """
+        temporary=tempfile.TemporaryDirectory(prefix='overte-installed-compiler-readers-')
+        self.addCleanup(temporary.cleanup);root=Path(temporary.name)
+        source=Path(__file__).resolve().parents[2]
+        actual=inputs.load_registry(source/'.github/test-suites.json')
+        names=('device-control-plane-full','shared-script-behavior','test-evidence')
+        registry={'schema':1,'control_inputs':actual['control_inputs'],
+            'suites':{name:deepcopy(actual['suites'][name]) for name in names}}
+        def write(path,data,mode=0o644):
+            leaf=root/path;leaf.parent.mkdir(parents=True,exist_ok=True)
+            leaf.write_bytes(data);leaf.chmod(mode)
+        def git(*args):
+            return inputs.subprocess.check_output(['git','-c','core.hooksPath=/dev/null',
+                '-c','commit.gpgsign=false','-c','user.name=Compiler reader fixture',
+                '-c','user.email=fixture@example.invalid',*args],cwd=root).decode().strip()
+        def snapshot():
+            git('add','--','.');git('commit','-qm','Record private immutable reader fixture')
+            return inputs.full_tree(root,git('rev-parse','HEAD'))
+        git('init','-q','--initial-branch=main')
+        required=set(inputs.AFFECTED_AUTHORITY)
+        for suite in registry['suites'].values():required.update(suite['closure']['required'])
+        for path in sorted(required):write(path,('fixed authority or required fixture '+path+'\n').encode(),
+            0o755 if path=='tests/run-project-tests.py' else 0o644)
+        write('.github/test-suites.json',(json.dumps(registry,indent=2)+'\n').encode())
+        profile_raw=(json.dumps({'schema':1,'platform':'shared','suites':[]},indent=2)+'\n').encode()
+        self.assertEqual(blob(profile_raw),inputs._AFFECTED_SHARED_PROFILE)
+        write('tests/platform-profile.json',profile_raw)
+        ci='tools/branch-cleanup/cleanup.py';write(ci,b'old independent CI\n')
+        for path,mode in self.PROFILE_MODES.items():
+            write(path,('old '+path+'\n').encode(),int(mode,8)&0o777)
+        provisional=snapshot()
+        independent=[inputs.AFFECTED_POLICY,ci]
+        reader=inputs.device_reader_digest(provisional,independent)
+        lookup=inputs.affected_lookup_digest(provisional)
+        policy={'schema':2,'registry_digest':inputs._suite_definition_digest(registry),
+            'lookup_digest':lookup,'suites':{},'targets':{
+                target:{'profile':{'mode':'100644','type':'blob','sha':sha},
+                        'lookup_digest':lookup,'reader_digest':reader}
+                for target,sha in inputs._AFFECTED_TARGET_PROFILES.items()}}
+        for name,suite in registry['suites'].items():
+            policy['suites'][name]={'kind':'device-control-plane' if name==names[0]
+                else 'reviewed-product-inventory' if name==names[1] else 'repository',
+                'definition_digest':inputs._suite_definition_digest(suite),'setup':['host-full']}
+        policy['suites'][names[0]].update(reviewed_reader_digest=reader,native_independent_paths=independent)
+        raw=(json.dumps(policy,indent=2)+'\n').encode();write(inputs.AFFECTED_POLICY,raw)
+        old=snapshot()
+        self.assertEqual(inputs.device_reader_digest(old,independent),reader)
+        write(ci,b'new independent CI\n');old_ci=snapshot()
+        write(ci,b'old independent CI\n')
+        for path,mode in self.PROFILE_MODES.items():
+            write(path,('installed '+path+'\n').encode(),int(mode,8)&0o777)
+        new=snapshot()
+        write(ci,b'new independent CI\n');new_ci=snapshot()
+        installed={path:new[path].copy() for path in self.PROFILE_MODES}
+        new_reader=inputs.device_reader_digest(new,independent)
+        self.assertNotEqual(reader,new_reader)
+        self.assertEqual(inputs.affected_lookup_digest(new),lookup)
+        return registry,raw,old,old_ci,new,new_ci,installed,new_reader
+
+    def test_equal_old_and_equal_installed_readers_omit_but_install_and_revert_keep_product_owners(self):
+        registry,raw,old,old_ci,new,new_ci,profile,reader=self.private_git_context()
+        with (patch.object(inputs,'INSTALLED_COMPILER_PROFILE',profile,create=True),
+              patch.object(inputs,'INSTALLED_COMPILER_READER',reader,create=True)):
+            for base,candidate in ((old,old_ci),(new,new_ci)):
+                with self.subTest(family='installed' if base is new else 'original'):
+                    plan=inputs.plan_affected(registry,raw,base,candidate,old,target='apple-ios')
+                    self.assertIn('device-control-plane-full',plan['omitted'])
+                    self.assertIn('shared-script-behavior',plan['omitted'])
+                    self.assertIn('test-evidence',plan['required']);self.assertFalse(plan['reusable'])
+            for base,candidate in ((old,new_ci),(new,old_ci)):
+                with self.subTest(direction='install' if base is old else 'revert'):
+                    plan=inputs.plan_affected(registry,raw,base,candidate,old,target='apple-ios')
+                    self.assertIn('device-control-plane-full',plan['required'])
+                    self.assertIn('shared-script-behavior',plan['required'])
+
+    def test_installed_reader_rejects_wrong_target_stale_hash_profile_and_neighbor_bytes(self):
+        registry,raw,old,old_ci,new,new_ci,profile,reader=self.private_git_context()
+        with (patch.object(inputs,'INSTALLED_COMPILER_PROFILE',profile,create=True),
+              patch.object(inputs,'INSTALLED_COMPILER_READER',reader,create=True)):
+            plan=inputs.plan_affected(registry,raw,new,new_ci,old,target='apple-main')
+            self.assertIn('device-control-plane-full',plan['required'])
+            with patch.object(inputs,'INSTALLED_COMPILER_READER','sha256:'+'f'*64):
+                self.assertIn('device-control-plane-full',
+                    inputs.plan_affected(registry,raw,new,new_ci,old,target='apple-ios')['required'])
+            for change in ('guide','helper','mode','missing','neighbor'):
+                base,candidate=deepcopy(new),deepcopy(new_ci)
+                for tree in (base,candidate):
+                    helper='ios/ci/qt-checkpoint-artifact.py'
+                    if change=='missing':del tree[helper]
+                    elif change=='mode':tree[helper]['mode']='100644'
+                    elif change=='neighbor':tree['ios/ci/unreviewed.hpp']=blob(b'new neighboring input')
+                    else:tree['docs/ios/SIGNING_AND_DEVICE_TESTS.md' if change=='guide' else helper]=blob(b'changed bytes')
+                with self.subTest(change=change):
+                    self.assertIn('device-control-plane-full',
+                        inputs.plan_affected(registry,raw,base,candidate,old,target='apple-ios')['required'])
+                    # Even falsely substituting this reader hash cannot bypass
+                    # the independent exact-five profile check.
+                    changed_reader=inputs.device_reader_digest(base,json.loads(raw)['suites'][
+                        'device-control-plane-full']['native_independent_paths'])
+                    if change!='neighbor':
+                        with patch.object(inputs,'INSTALLED_COMPILER_READER',changed_reader):
+                            self.assertIn('device-control-plane-full',inputs.plan_affected(
+                                registry,raw,base,candidate,old,target='apple-ios')['required'])
+
+    def test_installed_reader_keeps_lookup_authority_profile_and_nonordinary_failures_closed(self):
+        registry,raw,old,old_ci,new,new_ci,profile,reader=self.private_git_context()
+        with (patch.object(inputs,'INSTALLED_COMPILER_PROFILE',profile,create=True),
+              patch.object(inputs,'INSTALLED_COMPILER_READER',reader,create=True)):
+            for change in ('lookup','authority','graph','platform','symlink'):
+                base,candidate=deepcopy(new),deepcopy(new_ci)
+                for tree in (base,candidate):
+                    if change=='lookup':tree['ios/ci/unreviewed_reader.py']=blob(b'new import candidate')
+                    elif change=='authority':tree['tools/test-evidence/inputs.py']=blob(b'stale selector')
+                    elif change=='graph':tree[inputs.AFFECTED_POLICY]=blob(b'foreign graph')
+                    elif change=='platform':tree['tests/platform-profile.json']=blob(b'foreign target')
+                    else:tree['ios/ci/qt-checkpoint-artifact.py']['mode']='120000'
+                with self.subTest(change=change),self.assertRaises(inputs.InputError):
+                    inputs.plan_affected(registry,raw,base,candidate,old,target='apple-ios')
+
+
 if __name__=='__main__':unittest.main()

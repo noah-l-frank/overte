@@ -818,6 +818,15 @@ neither an application/test PASS nor native qualification E; registering or
 restoring it does not establish a warm-build measurement. Relevant application
 changes still require their application build.
 
+The installed protected PR compiler-data profile has a separate finite
+`apple-ios` program and Device-reader family. Ordinary CI changes may use that
+family only when both immutable inputs already contain the exact five ordinary
+cache-profile leaves and their complete raw reader identities agree. Installing
+or reverting the cache profile still requires Device and iOS own-host checks;
+unknown profiles, modes, lookup members and neighboring readers retain the
+existing full-verification fallback. The extra program identity remains disabled
+until it is derived from the final source; this is selection, not reuse evidence.
+
 For those two ordinary lockfiles, a complete required JavaScript package owner
 also permits omission when dependency changes exceed the focused security-fix
 profiles. The full package checks must still succeed in the required repository
@@ -1660,12 +1669,13 @@ All earlier result generations remain admitted for source rollout, while both
 independent gates reject returning from a deployed result generation to an older
 one. The deployment transition requires both complete language scans.
 
-Only an edit to an existing ordinary `100644` `.github/android-orchestration.json`
-or `.github/test-suites.json` may select Python without JavaScript when both
+Only an edit to an existing ordinary `100644` `.github/android-orchestration.json`,
+`.github/ios-host-orchestration.json`, `.github/test-suites.json` or
+`.github/test-suite-dependencies.json` may select Python without JavaScript when both
 immutable trees use that exact pinned workflow and unchanged reviewed CodeQL
 configuration. The reviewed extractor has no generic JSON extraction and its
 single-file TypeScript parser cannot read imported JSON; its ancestor readers
-recognize package/tsconfig files rather than these two policy leaves. Python and
+recognize package/tsconfig files rather than these four policy leaves. Python and
 the policy governance tests remain required. Additions, removals, aliases, mode
 changes, older or unknown workflow/configuration, other JSON, YAML, package
 locks and mixed JavaScript inputs keep their existing conservative owners.
