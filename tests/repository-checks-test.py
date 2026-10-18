@@ -2839,8 +2839,11 @@ class VerifiedEmptyCandidateTests(unittest.TestCase):
         git('init','-q','--initial-branch=main');git('config','user.name','Fixture')
         git('config','user.email','fixture@example.invalid')
         selected=next(row for row in PACKAGES.workflow_generations() if row['name']==generation)
+        historical = historical_workflow_bytes()
         for name,entry in selected['workflows'].items():
-            raw=subprocess.check_output(['git','cat-file','blob',entry['sha']],cwd=ROOT)
+            raw = historical.get(entry['sha'])
+            if raw is None:
+                raw=subprocess.check_output(['git','cat-file','blob',entry['sha']],cwd=ROOT)
             self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),entry['sha'])
             path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
         (root/'native.cpp').write_text('unchanged product input\n')
@@ -2860,6 +2863,23 @@ class VerifiedEmptyCandidateTests(unittest.TestCase):
             'GITHUB_REPOSITORY_ID':str(CONFIG['repository_id']),'GITHUB_SHA':merge,'GITHUB_REF_TYPE':'branch',
             'GITHUB_REF':'refs/pull/23/merge','GITHUB_BASE_REF':'main','GITHUB_HEAD_REF':'fix/main/example'}
         return root,git,base,head,merge,payload,environment
+
+    def test_historical_workflows_do_not_require_ancestral_git_objects(self):
+        original = subprocess.check_output
+        historical = historical_workflow_bytes()
+        def without_history(command, *args, **kwargs):
+            if (list(command[:3]) == ['git', 'cat-file', 'blob']
+                    and command[3] in historical and kwargs.get('cwd') == ROOT):
+                self.fail('historical workflow bytes must come from the verified fixture')
+            return original(command, *args, **kwargs)
+        for generation in ('npm-consumers-sync-ci-v1', 'protected-producer-original-default-v1'):
+            with self.subTest(generation=generation), patch.object(
+                    subprocess, 'check_output', side_effect=without_history):
+                root,git,base,head,merge,payload,native=self.fixture(generation)
+                with patch.dict(os.environ,native,clear=True):
+                    proof=CHECKS.verified_empty_candidate(root,payload,merge)
+                self.assertIsNotNone(proof)
+                self.assertEqual(proof['tree'],git('rev-parse',base+'^{tree}'))
 
     def test_real_equal_tree_pr_is_not_an_empty_path_guess(self):
         root,git,base,head,merge,payload,native=self.fixture()
