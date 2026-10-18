@@ -95,6 +95,8 @@ if command -v pkg-config >/dev/null && pkg-config --exists Qt6Qml; then
     python3 "$script_dir/tablet-close-hit-target-test.py"
     python3 "$script_dir/../../tests/device/contracts/tablet/test_tablet_qml.py"
     python3 "$script_dir/ios-web-selected-qml-test.py"
+    python3 "$script_dir/ios-world-web-controls-test.py"
+    python3 "$script_dir/startup-keyboard-ownership-test.py"
     python3 "$script_dir/../../tests/device/contracts/chat/test_chat_qml.py"
     python3 "$script_dir/../../tests/device/contracts/snapshot/test_snapshot_qml.py"
     OVERTE_NATIVE_QT_MAJOR=6 python3 "$script_dir/../../tests/device/contracts/script_assets/test_script_assets_qml.py"

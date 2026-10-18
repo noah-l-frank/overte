@@ -48,6 +48,8 @@ scrolling, native media controls, and accessibility. Tablet pages retain their
 automatic native presentation. Test these selected controls and real DOM
 scrolling on the host with `python3 ios/tests/ios-world-web-controls-test.py`;
 WK video pixels and native presentation still require device observations.
+The normal `ios/tests/run-tests.sh` Qt6 host gate executes both the world-Web
+controls and startup-keyboard ownership regressions.
 
 ## iPad orientation policy
 
