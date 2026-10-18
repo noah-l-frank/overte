@@ -171,7 +171,7 @@ class AdapterTests(unittest.TestCase):
 
     def add_run(self, run, *, descriptor=True):
         self.runs[run.run_id] = {
-            "id": run.run_id, "workflow_id": 99, "check_suite_id": run.run_id + 1000,
+            "id": run.run_id, "workflow_id": 99, "run_number": run.run_id, "check_suite_id": run.run_id + 1000,
             "path": self.policy.caller_path, "event": "pull_request", "head_sha": self.binding["head_sha"],
             "head_branch": self.binding["head_ref"], "repository": {"id": 1319052603, "full_name": A.REPOSITORY},
             "head_repository": {"id": 1319052603, "full_name": A.REPOSITORY}, "pull_requests": [{"number": 17}],
@@ -598,7 +598,7 @@ class MetadataNonproducerTests(unittest.TestCase):
         c.policy = replace(c.policy, metadata_generations={"metadata-v1": deepcopy(c.generation)},
                            metadata_sources={"metadata-v1": self.sources})
         c.originals[c.binding["base_sha"]] = ("3" * 40, ["7" * 40])
-        c.runs[101] = {**deepcopy(c.runs[100]), "id": 101, "check_suite_id": 1101,
+        c.runs[101] = {**deepcopy(c.runs[100]), "id": 101, "run_number": 101, "check_suite_id": 1101,
             "status": "in_progress", "conclusion": None, "run_started_at": "2026-10-15T10:04:00Z",
             "referenced_workflows": [{"path": A.REPOSITORY + "/" + A.METADATA_WORKFLOW + "@" + c.binding["merge_sha"],
                                       "sha": c.binding["merge_sha"], "ref": c.pp.workflow_ref}]}
@@ -831,6 +831,34 @@ class MetadataSchedulingTests(unittest.TestCase):
                         self.assertNotIn(field, value)
         self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
 
+    def test_same_second_open_and_label_events_use_native_workflow_sequence(self):
+        c = self.case
+        # GitHub observed on PR1412: both timestamps are18:44:15, while the
+        # independently authenticated workflow ordinals are671 then672.
+        c.runs[100]['run_number'] = 671
+        c.runs[101]['run_number'] = 672
+        c.runs[101]['run_started_at'] = c.runs[100]['run_started_at']
+        value = self.schedule()
+        self.assertEqual(value['original_run_id'], 100)
+        self.assertFalse(value['qualification'])
+        self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
+
+    def test_newer_equal_or_changed_native_workflow_sequence_cannot_own_metadata(self):
+        c = self.case
+        c.runs[100]['run_number'] = 671
+        c.runs[101]['run_number'] = 672
+        for ordinal in (672, 673, None, True):
+            with self.subTest(ordinal=ordinal), patch.dict(c.runs[100], {'run_number': ordinal}), \
+                    self.assertRaises(ValueError):
+                self.schedule()
+        def change_ordinal(endpoint, value):
+            if endpoint.endswith('/actions/runs/100/attempts/1'):
+                value['run_number'] = 670
+            return value
+        c.api.mutate = change_ordinal
+        with self.assertRaises(ValueError):
+            self.schedule()
+
     def test_unproved_queued_or_failed_source_cannot_be_promoted_by_same_head_or_marker(self):
         c = self.case
         for shape in ('no-edge', 'missing-source-job', 'pending-source-job', 'failed-source-step',
@@ -873,6 +901,29 @@ class MetadataSchedulingTests(unittest.TestCase):
         c = self.case
         c.labels = [{'id': 7, 'name': 'bug'}]
         self.assertEqual(self.schedule()['original_run_id'], 100)
+
+    def test_installed_repository_recipe_accepts_later_label_without_new_execution(self):
+        c = self.case
+        raw = (Path(__file__).resolve().parents[2] / c.policy.caller_path).read_bytes()
+        current = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+        self.assertEqual(current, '81bcf1933edc435826e2de411a777cccd4dec7c7')
+        c.generation[c.policy.caller_path]['sha'] = current
+        c.policy = replace(c.policy, metadata_generations={'metadata-v2': deepcopy(c.generation)})
+        self.policy = A.MetadataPolicy(99, c.policy.caller_path,
+            c.policy.metadata_generations, c.policy.metadata_sources)
+        for status, conclusion in [('completed', 'success'), ('completed', 'failure')]:
+            with self.subTest(status=status, conclusion=conclusion):
+                c.runs[100].update(status=status, conclusion=conclusion)
+                value = self.schedule()
+                self.assertEqual(value['original_run_id'], 100)
+                self.assertEqual((value['original_status'], value['original_conclusion']),
+                    (status, conclusion))
+                self.assertFalse(value['qualification'])
+                self.assertNotIn('results', value)
+                self.assertNotIn('environment', value)
+        intent = c.adapter.metadata_observation(c.runs[101], c.binding, self.policy, now=NOW)
+        self.assertEqual(intent['kind'], A.METADATA_INTENT_KIND)
+        self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
         c.labels.append({'id': 8, 'name': 'android-long-diagnostics'})
         with self.assertRaises(P.ProtocolError): self.schedule()
         with self.assertRaises(P.ProtocolError): self.schedule(diagnostics=True)
@@ -1121,7 +1172,7 @@ class RetainedIntegratedFakeApi(IntegratedFakeApi):
             common = {'run_attempt':1,'repository':{'id':1319052603,'full_name':A.REPOSITORY},
                 'head_repository':{'id':1319052603,'full_name':A.REPOSITORY},
                 'status':'completed','conclusion':'success','updated_at':when}
-            ordinary = {**common,'id':ordinary_id,'workflow_id':99,'check_suite_id':ordinary_id+1000,
+            ordinary = {**common,'id':ordinary_id,'run_number':ordinary_id,'workflow_id':99,'check_suite_id':ordinary_id+1000,
                 'event':'pull_request','path':case.policy.caller_path,'head_sha':head,
                 'head_branch':detail['head']['ref'],'display_title':A.ORDINARY_RUN_NAME,
                 'run_started_at':'2026-10-15T10:04:50Z','pull_requests':[],
@@ -2800,7 +2851,7 @@ class MetadataRetentionConsumerTests(unittest.TestCase):
         for index, (path, (name, steps)) in enumerate(C._METADATA_OUTER_RECIPES.items(), 160):
             c.jobs[100].append(self.job(index, 100, name, steps=steps))
             c.runs[100]["referenced_workflows"].append(self.reference(path))
-        c.runs[101] = {**deepcopy(c.runs[100]), "id": 101, "check_suite_id": 1101,
+        c.runs[101] = {**deepcopy(c.runs[100]), "id": 101, "run_number": 101, "check_suite_id": 1101,
             "status": "in_progress", "conclusion": None, "run_started_at": "2026-10-15T10:04:00Z",
             "referenced_workflows": [self.reference(A.METADATA_WORKFLOW)]}
         c.jobs[101] = [self.job(140, 101, A.METADATA_JOB, steps=(A.METADATA_STEP,), late=True)]
@@ -3948,6 +3999,92 @@ class UnchangedParentTests(unittest.TestCase):
                     self.C.verify_no_execution(self.event,self.native,self.adapter,candidate=self.candidate,clock=lambda:NOW)
 
 
+
+
+class OptionalParentScheduleTests(unittest.TestCase):
+    generation_name = 'protected-producer-original-default-v1'
+    setUp = MainConsumerTests.setUp
+
+    def schedule(self):
+        self.environment['GITHUB_JOB'] = 'common-parent'
+        self.tree[self.module.producer.PLATFORM_PARENT_TEMPLATE] = deepcopy(
+            self.tree['.github/workflows/parent-qualification.yml'])
+        return self.module.unavailable_parent_schedule(
+            self.event, self.environment, self.adapter, clock=lambda: NOW)
+
+    def test_actual_native_schedule_has_no_test_or_qualification_authority(self):
+        value = self.schedule()
+        self.assertEqual(value['kind'], 'optional-parent-qualification-schedule-v1')
+        self.assertFalse(value['reusable'])
+        self.assertFalse(value['qualification'])
+        self.assertIsNone(value['execution'])
+        self.assertEqual(value['executed_suites'], [])
+        self.assertEqual(value['reused_suites'], [])
+        with patch.object(self.module, 'verify_main', side_effect=ValueError('missing original proof')):
+            result = self.module.lookup(self.event, self.environment, self.adapter, clock=lambda: NOW)
+        self.assertFalse(result['reused'])
+        self.assertEqual(result['optional_qualification'], value)
+
+    def test_stale_attempt_recipe_source_and_forced_push_cannot_schedule(self):
+        self.schedule()
+        for mapping, key, value in ((self.environment, 'GITHUB_RUN_ATTEMPT', '2'),
+                (self.environment, 'GITHUB_SHA', 'e'*40), (self.event, 'forced', True),
+                (self.event, 'before', 'e'*40),
+                (self.tree, '.github/workflows/parent-qualification.yml',
+                    {'mode':'100644','type':'blob','sha':'e'*40})):
+            with self.subTest(key=key), patch.dict(mapping, {key: value}), self.assertRaises(ValueError):
+                self.schedule()
+        def mutate(endpoint, value):
+            if endpoint.endswith('/actions/runs/500'):
+                value['run_attempt'] = 2
+            return value
+        self.api.mutate = mutate
+        with self.assertRaises(ValueError):
+            self.schedule()
+
+
+class OptionalAndroidParentCommonTests(unittest.TestCase):
+    def test_only_native_parent_common_nonqualifying_execution_is_declined(self):
+        import producer_workflow as workflow
+        import tempfile
+        context = {'binding': {'base_ref': 'android-main', 'merge_sha': 'a'*40},
+            'candidate': Path('/unused-candidate'), 'integration': {},
+            'platform_partition': {'digest': 'sha256:'+'b'*64, 'common_owner': {'suites': ['contract']}}}
+        environment = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_JOB': 'common-parent',
+            'GITHUB_WORKFLOW_REF': 'noah-l-frank/overte/.github/workflows/parent-qualification.yml@refs/heads/android-main'}
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory)/'common.xml'
+            with patch.object(workflow, '_push_platform_job') as native, \
+                    patch.object(workflow, '_platform_bookend') as bookend, \
+                    patch.object(workflow.execution, 'execute', side_effect=AssertionError('no duplicate common tests')) as execute:
+                result = workflow.legacy_common_fallback(context, {}, environment, object(), report=report)
+            self.assertEqual(native.call_count, 2)
+            bookend.assert_called_once()
+            execute.assert_not_called()
+            self.assertFalse(report.exists())
+            self.assertEqual(json.loads(report.with_suffix('.json').read_text()), result)
+            self.assertFalse(result['reusable'])
+            self.assertFalse(result['qualification'])
+            self.assertIsNone(result['execution'])
+            self.assertEqual(result['executed_suites'], [])
+            for field, value in (('GITHUB_EVENT_NAME', 'pull_request'), ('GITHUB_JOB', 'project-tests'),
+                                 ('GITHUB_WORKFLOW_REF', 'unknown')):
+                with self.subTest(field=field), patch.dict(environment, {field: value}), \
+                        patch.object(workflow, '_push_platform_job'), \
+                        patch.object(workflow, '_platform_bookend'), \
+                        patch.object(workflow.execution, 'execute', return_value=(0, {'reusable':False, 'environment':None})) as execute:
+                    workflow.legacy_common_fallback(context, {}, environment, object(), report=report)
+                execute.assert_called_once()
+
+    def test_required_pr_common_fallback_still_executes_and_fails_on_failure(self):
+        import producer_workflow as workflow
+        context = {'binding': {'base_ref': 'android-main'}, 'candidate': Path('/unused-candidate'),
+            'platform_partition': {'common_owner': {'suites': ['contract']}}}
+        with patch.object(workflow, 'current_run'), patch.object(workflow, '_platform_bookend'), \
+                patch.object(workflow.execution, 'execute', return_value=(1, {'reusable':False, 'environment':None})) as execute:
+            with self.assertRaises(ValueError):
+                workflow.legacy_common_fallback(context, {}, {'GITHUB_EVENT_NAME':'pull_request'}, object(), report=Path('/unused.xml'))
+        execute.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -297,7 +297,8 @@ def candidate_plan(candidate, event, sha, *, include_browser=False, include_cons
             paths, regular, unknown = [], False, True
     else:
         paths, regular, unknown = [], False, True
-    legacy = checks.plan(event, paths, config, branches, regular)
+    legacy = checks.effective_plan(candidate, event, sha, paths, config, branches, regular,
+                                  pr_context=pr_context)
     current_consumers = consumer_generation(candidate)
     if consumer_base(candidate, base) and (not current_consumers or include_consumers is False):
         raise ValueError('deployed required npm consumer ownership cannot be disabled')

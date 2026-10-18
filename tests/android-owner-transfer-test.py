@@ -315,7 +315,8 @@ class AndroidOwnerTransferTests(unittest.TestCase):
         paths = set(transfer["legacy_workflows"]) | set(transfer["source_contracts"])
         sync = json.loads((ROOT / ".github/sync-test-reuse.json").read_text())
         self.assertEqual(set(sync["reconciliation_repair_paths"]["android-main"]), paths)
-        self.assertEqual(len(paths), 6)
+        self.assertEqual(len(paths), 7)
+        self.assertIn("android/common/tests/robolectric/build.gradle", paths)
         self.fixture.workflow_files(); self.fixture.merge()
         event = deepcopy(self.fixture.event)
         event["pull_request"]["base"]["ref"] = "android-main"

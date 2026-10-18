@@ -48,12 +48,14 @@ NONPRODUCER_RUN_NAME = 'Overte native metadata nonproducer v2'
 ORDINARY_RUN_NAME = 'Overte native ordinary qualification v2'
 METADATA_INTENT_KIND = 'authenticated-metadata-nonproducer-intent'
 _SCHEDULING_RUN_FIELDS = ('id', 'workflow_id', 'check_suite_id', 'path', 'event', 'head_sha',
-                          'head_branch', 'run_attempt', 'display_title')
+                          'head_branch', 'run_attempt', 'run_number', 'display_title')
 # A server-rendered title is meaningful only under these exact reviewed native
 # recipes. Their nonproducer intent structurally excludes every heavy job even
 # when recognition is missing/failed. Historical recipes require their marker.
 _NATIVE_INTENT_RECIPES = frozenset({
     ('.github/workflows/repository-checks.yml', 'bc9c4284286b5c3d2de07a3ecf3b98393e2f2a2c',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
+    ('.github/workflows/repository-checks.yml', '81bcf1933edc435826e2de411a777cccd4dec7c7',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/codeql.yml', 'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
@@ -1042,11 +1044,12 @@ class Adapter:
         require(latest.get('run_attempt') == 1, 'scheduling original attempt unavailable')
         run = self._object(f'actions/runs/{identity}/attempts/1')
         fields = ('id', 'workflow_id', 'check_suite_id', 'path', 'event', 'head_sha', 'head_branch',
-                  'run_attempt', 'status', 'conclusion', 'run_started_at', 'updated_at', 'display_title')
+                  'run_attempt', 'run_number', 'status', 'conclusion', 'run_started_at', 'updated_at', 'display_title')
         require(all(listed.get(key) == latest.get(key) == run.get(key)
                     for key in _SCHEDULING_RUN_FIELDS if key != 'display_title')
             and run.get('run_attempt') == 1 and binding['base_ref'] in METADATA_TARGETS,
             'scheduling original native attempt changed')
+        positive(run.get('run_number'))
         require(run.get('workflow_id') == policy.caller_workflow_id
             and run.get('path') == policy.caller_path and run.get('event') == 'pull_request'
             and run.get('head_sha') == binding['head_sha'] and run.get('head_branch') == binding['head_ref']
@@ -1224,16 +1227,19 @@ class Adapter:
                 and P._time(fact.started_at) <= P._time(steps[0].get('started_at'))
                 <= P._time(steps[0].get('completed_at')) <= P._time(fact.completed_at) <= now,
                 'ordinary scheduling source was not independently observed')
-            require(P._time(source['run']['run_started_at']) < P._time(current['run']['run_started_at']),
+            # Start timestamps have only second resolution and two separately
+            # queued native events can share one. The workflow-specific run
+            # sequence is independently bound across list/latest/attempt.
+            require(source['run']['run_number'] < current['run']['run_number'],
                     'ordinary scheduling source is not older')
             observations[identity] = ('ordinary', source, job, vars(fact))
             if steps[0]['name'] == ORDINARY_SOURCE_STEP + (
                     ' (diagnostics requested)' if diagnostics else ' (diagnostics absent)'):
                 ordinary.append(source)
         require(bool(ordinary), 'matching ordinary scheduling source unavailable')
-        newest = max(P._time(row['run']['run_started_at']) for row in ordinary)
-        originals = [row for row in ordinary if P._time(row['run']['run_started_at']) == newest]
-        require(len(originals) == 1 and newest < P._time(current['run']['run_started_at']),
+        newest = max(row['run']['run_number'] for row in ordinary)
+        originals = [row for row in ordinary if row['run']['run_number'] == newest]
+        require(len(originals) == 1 and newest < current['run']['run_number'],
                 'ordinary scheduling source is ambiguous or newer')
         # Complete fresh inventories and native source checks; neither transient
         # availability nor run IDs are cached or supplied by a caller marker.

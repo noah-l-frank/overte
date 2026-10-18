@@ -18,6 +18,7 @@ from pathlib import Path
 import re
 import signal
 import stat
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -806,6 +807,87 @@ def reuse_source_context(adapter, binding, references, policy):
     return _protected_source_context(adapter,binding,references,policy,_reuse_only=True)
 
 
+def sync_source_ready(candidate, event, context):
+    """Strict immutable B/D admission for scheduling a canonical Sync owner.
+
+    Read-only Git fallback supports the existing sparse routing checkout. No
+    candidate code is loaded, no environment is captured, and this result is
+    never accepted as the producer's actual native pre-import admission.
+    """
+    return sync_source_admission(inputs.full_tree(candidate, context['base']),
+        inputs.full_tree(candidate, context['candidate']), inputs.full_tree(ROOT, 'HEAD'), event,
+        read_blob=lambda oid: source_blob(candidate, oid))
+
+
+def sync_source_admission(previous, current, local, event, *, read_blob=None):
+    """The same pure source decision for routing and the trusted Sync reader."""
+    try:
+        return _sync_source_admission(previous, current, local, event, read_blob=read_blob)
+    except (source_admission.SourceUnavailable, PreExecutionUnavailable, ci_profile.CIProfileError,
+            OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        return False
+
+
+def _sync_source_admission(previous, current, local, event, *, read_blob):
+    protected_admission()
+    pr = event['pull_request']
+    target = pr['base']['ref']
+    policy = _host_policy()
+    package = policy.package_policy()
+    for snapshot in (previous, current, local):
+        inputs._validate_tree(snapshot)
+    if package.validate_tree_wiring(current) != PLATFORM_GENERATION:
+        return False
+    package.validate_tree_wiring(previous)
+    paths = sorted(path for path in previous.keys() | current.keys() if previous.get(path) != current.get(path))
+    config, branches = package.load('sync_source_repository_policy', 'tools/repository-checks/check.py').configuration()
+    checks = package.load('sync_source_legacy_classifier', 'tools/repository-checks/check.py')
+    if not paths or checks.plan(event, paths, config, branches)['mode'] != 'delegated-sync':
+        return False
+    repair = json.loads(package._trusted_bytes('.github/sync-test-reuse.json', git_fallback=True))
+    if pr['head']['ref'].startswith('reconcile/') and set(paths).intersection(
+            repair.get('reconciliation_repair_paths', {}).get(target, ())):
+        return False
+    if any(snapshot.get('.github/test-suites.json') != local.get('.github/test-suites.json')
+            for snapshot in (previous, current)):
+        return False
+    if any(entry['type'] != 'blob' or entry['mode'] not in {'100644', '100755'}
+            for snapshot in (previous, current, local) for entry in snapshot.values()):
+        return False
+    imports = source_admission.actual_import_inventory(ROOT)
+    candidate_imports = {name: entry for name, entry in current.items()
+        if any(name == root or name.startswith(root + '/') for root in source_admission.IMPORT_ROOTS)}
+    if set(candidate_imports) != set(source_admission.IMPORT_MEMBERS):
+        return False
+    def read(name):
+        raw = package._trusted_bytes(name, git_fallback=True)
+        entry = local.get(name)
+        host.require(entry is not None and source_admission.blob_id(raw) == entry['sha'],
+                     'immutable Sync routing source differs from actual trusted bytes')
+        return raw, entry
+    source_admission.compatibility(previous, local, target, read_actual=read, actual_imports=imports)
+    registry = inputs.load_registry(ROOT / '.github/test-suites.json')
+    profile = selection_profile(policy, registry, current, previous, local,
+        root=ROOT, target=target, read_blob=read_blob)
+    selected = profile['selection']
+    partition = platform_partition(policy, profile, registry, current, previous, local,
+        root=ROOT, target=target, read_blob=read_blob)
+    if partition is None and not source_admission.shared_platform_supported(
+            selected, target, current.get(source_admission.PROFILE)):
+        return False
+    if profile['profile'] == FULL_PROFILE:
+        # The existing producer derives full/affected common commands and any
+        # Android partition. New definitions still require monotonic fallback.
+        return selected['full_host'] is True and bool(profile['suites'])
+    runtime_policy = ci_profile.load_policy(ROOT)
+    return profile['profile'] == ci_profile.PROFILE and ci_profile.SOURCE_READY is True \
+        and runtime_policy['enabled'] is True \
+        and runtime_policy.get('generation_kind') == ci_profile.SEVEN_CONTROLLER_KIND \
+        and selected['full_host'] is False and selected['include_platform'] is False \
+        and bool(selected['suites']) \
+        and selected['suites'] == [name for name in ci_profile.SUITES if name in selected['suites']]
+
+
 def prepare(candidate, event, environment, adapter):
     """Independently select a supported protected owner and source generation."""
     number, identifier = _native(environment)
@@ -1041,6 +1123,27 @@ def legacy_common_fallback(context, event, environment, adapter, *, report):
         if context['binding']['base_ref'] in {'android-main', 'android-vr'} else 'Shared tests')) \
         if 'integration' in context else (lambda: current_run(context, adapter, 'shared'))
     native()
+    target = context['binding']['base_ref'] if 'integration' in context else None
+    if 'integration' in context and target in {'android-main', 'android-vr'} \
+            and environment.get('GITHUB_EVENT_NAME') == 'push' \
+            and environment.get('GITHUB_JOB') == 'common-parent' \
+            and environment.get('GITHUB_WORKFLOW_REF') == (
+                'noah-l-frank/overte/.github/workflows/parent-qualification.yml@refs/heads/'+target):
+        # This impact-only route cannot publish E or a qualification artifact.
+        # Declining optional common qualification leaves the separately checked
+        # platform owner and every required PR/Sync execution unchanged.
+        _platform_bookend(context, event, environment, adapter)
+        native()
+        value = {'schema': 1, 'kind': 'optional-parent-qualification-unavailable-v1',
+            'reusable': False, 'qualification': False, 'execution': None,
+            'executed_suites': [], 'reused_suites': [],
+            'candidate': context['binding']['merge_sha'],
+            'partition': context['platform_partition']['digest'],
+            'reason': 'impact-only-common-fallback-cannot-publish-qualification'}
+        Path(report).with_suffix('.json').write_bytes(protocol.canonical(value))
+        print('Optional parent common qualification unavailable: no suites executed, '
+              'no test pass or reusable evidence published; platform owner remains required.', flush=True)
+        return value
     status, receipt = execution.execute(context['candidate'], context['platform_partition']['common_owner']['suites'], include_platform=False,
         junit=report, _impact_selection=True)
     host.require(status == 0 and receipt['reusable'] is False and receipt['environment'] is None,

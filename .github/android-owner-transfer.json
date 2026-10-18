@@ -34,6 +34,11 @@
       "source": "tools/repository-checks/workflows/android-owned/handoff/android/phone/tests/phone-release-metadata-test.py",
       "reviewed_blob": "de670465b44ca7be8d550274acbe92bdfc9e7acc",
       "mode": "100755"
+    },
+    "android/common/tests/robolectric/build.gradle": {
+      "source": "tools/repository-checks/workflows/android-owned/handoff/android/common/tests/robolectric/build.gradle",
+      "reviewed_blob": "6b0c5613853d5f02e0ff7aadb1019c88a34c8df2",
+      "mode": "100644"
     }
   },
   "profiles": {

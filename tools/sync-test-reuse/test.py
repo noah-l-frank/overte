@@ -711,7 +711,8 @@ class ProductRepairContracts(unittest.TestCase):
     def test_android_owner_handoff_repairs_require_full_fallback(self):
         transfer = json.loads((HERE.parents[1] / ".github/android-owner-transfer.json").read_text())
         paths = set(transfer["legacy_workflows"]) | set(transfer["source_contracts"])
-        self.assertEqual(len(paths), 6)
+        self.assertEqual(len(paths), 7)
+        self.assertIn("android/common/tests/robolectric/build.gradle", paths)
         self.assertEqual(gate.allowed_repair_paths(config(), "android-main"), paths)
         event, settings, api = self.fixture(target="android-main")
         request = self.classify(event, settings, api)
@@ -3065,6 +3066,11 @@ class NativeRetainedParentEvidenceTests(unittest.TestCase):
         members.start();self.addCleanup(members.stop)
         self.profile={'profile':C.producer.FULL_PROFILE,'binding':None,'suites':list(self.registry['suites']),
             'selection':{'suites':list(self.registry['suites']),'full_host':True,'include_platform':True,'reason':'fixture-full-owner'}}
+        if getattr(self,'common_subset',False):
+            names=list(self.registry['suites'])[:2]
+            self.profile['suites']=names
+            self.profile['selection'].update(suites=names,reason='protected-affected-dependencies',
+                affected={'dependency_schema':2,'target':parent_target,'required':names})
         if getattr(self,'ci_original',False):
             selected=deepcopy(holder.selection)
             raw_blobs={C.source_admission.blob_id((self.root/name).read_bytes()):(self.root/name).read_bytes()
@@ -3721,6 +3727,212 @@ class VerifiedEmptySyncSourceTests(unittest.TestCase):
         (self.candidate/'ios/new.cpp').write_text('changed tree\n');self.git('add','.')
         self.git('commit','-qm','Actual nonempty source')
         self.assertIsNone(self.verify())
+
+
+class NativeCurrentPrEvidenceTests(unittest.TestCase):
+    """Real schema4 retained source and Adapter proof; no hosted-E claim.
+
+    The existing tiny immutable-source/CI2 fixture supplies the real retained
+    manifest, projection, signed receipt and native publisher hash. Scheduling
+    source admission and Sync role are explicit unit seams, tested separately.
+    No candidate execution, runtime capture or API call leaves this fixture.
+    """
+    @classmethod
+    def setUpClass(cls):
+        NativeRetainedParentEvidenceTests.setUpClass()
+
+    def setUp(self):
+        self.f = NativeRetainedParentEvidenceTests(); self.f.ci_original = not self._testMethodName.startswith('test_full_')
+        self.f.common_subset = self._testMethodName == 'test_full_subset_keeps_only_actual_selected_common_results'
+        self.addCleanup(self.f.doCleanups); self.f.setUp()
+        f = self.f; self.C = f.controller; self.case = f.case
+        binding = self.case.binding
+        self.case.runs[100]['pull_requests'] = [{'number': binding['pull_request']}]
+        self.request = gate.SyncRequest(repository=REPOSITORY, repository_id=REPOSITORY_ID,
+            number=binding['pull_request'], base=binding['base_ref'], base_sha=binding['base_sha'],
+            head=binding['head_ref'], head_sha=binding['head_sha'], head_repository_id=REPOSITORY_ID,
+            merge_sha=binding['merge_sha'], parent=binding['head_ref'], parent_sha=binding['head_sha'],
+            profile='apple-family', classification='direct', changed_paths=(), parent_changed_paths=(), repair_paths=())
+        original = f.native.api.json
+        def read(endpoint):
+            path = endpoint[len(self.C.A.PREFIX):].lstrip('/').split('?', 1)[0]
+            if path == 'pulls/' + str(binding['pull_request']):
+                return {'number':binding['pull_request'], 'state':'open', **{
+                    side:{'ref':binding[side+'_ref'], 'sha':binding[side+'_sha'],
+                          'repo':{'id':REPOSITORY_ID, 'full_name':REPOSITORY}}
+                    for side in ('base','head')}}
+            if path == 'commits/refs/pull/' + str(binding['pull_request']) + '/merge':
+                return {'sha':binding['merge_sha'], 'commit':{'tree':{'sha':binding['merge_tree']}},
+                    'parents':[{'sha':value} for value in binding['merge_parents']]}
+            for prefix in ('branches/', 'git/ref/heads/'):
+                if path.startswith(prefix):
+                    branch = self.f.fixtures.unquote(path[len(prefix):])
+                    revision = (binding['base_sha'] if branch == binding['base_ref'] else
+                        f.native.default if branch == 'main' else binding['head_sha'])
+                    return ({'name':branch, 'protected':True, 'commit':{'sha':revision}}
+                        if prefix == 'branches/' else
+                        {'ref':'refs/heads/'+branch, 'object':{'type':'commit','sha':revision}})
+            return original(endpoint)
+        f.native.api.json = read
+        for patcher in (mock.patch.dict(gate.os.environ, {'GITHUB_ACTIONS':'true'}),
+                mock.patch.object(self.C.producer, 'sync_source_admission', return_value=True),
+                mock.patch.object(gate, '_native_effective_role', return_value=None)):
+            patcher.start(); self.addCleanup(patcher.stop)
+
+    def verify(self, **kwargs):
+        arguments = {'timeout':0, 'clock':lambda:self.f.fixtures.NOW, **kwargs}
+        return gate.native_pr_evidence(self.f.native.transport, config(), self.request, **arguments)
+
+    def test_real_schema4_retained_source_is_consumed_at_original_m_without_new_execution(self):
+        value = self.verify()
+        self.assertIsInstance(value, gate.NativePrEvidence)
+        self.assertEqual(self.f.receipt['schema'], 4)
+        self.assertEqual(self.f.receipt['protected_source'], self.f.retained)
+        self.assertEqual(self.f.retained['default_commit'], self.f.native.default)
+        self.assertEqual(value['original_commit'], self.case.binding['merge_sha'])
+        self.assertNotEqual(value['original_commit'], self.case.integrated)
+        self.assertEqual(value['environment'], self.f.environment)
+        self.assertEqual(value['tested_inputs'], self.f.parent)
+        self.assertEqual(value['requested_suites'], list(self.C.ci_profile.SUITES))
+        self.assertEqual(value['original_proof']['receipt_sha256'],
+            hashlib.sha256(self.C.P.canonical(self.f.receipt)).hexdigest())
+        self.assertFalse(value['reusable']); self.assertFalse(value['qualification'])
+        self.C.execution.execute.assert_not_called()
+        self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_full_schema4_common_and_android_native_owner_use_original_E_once(self):
+        value = self.verify()
+        self.assertEqual(self.f.receipt['schema'], 4)
+        self.assertEqual(value['environment'], self.f.environment)
+        self.assertEqual(value['requested_suites'], list(self.f.registry['suites']))
+        self.assertEqual(value['platform_commands'], self.f.partition['commands'])
+        self.assertEqual(value['original_platform_observation']['job_id'], 140)
+        self.assertFalse(value['original_platform_observation']['reusable'])
+        self.assertEqual(value['platform_partition'], self.f.partition['digest'])
+        self.assertEqual(self.f.receipt['platform_results'], {})
+        self.C.execution.execute.assert_not_called()
+        self.C.execution.capture_execution_environment.assert_not_called()
+
+    def pending_native_build(self):
+        self.case.runs[100].update(status='in_progress', conclusion=None)
+        build=deepcopy(self.case.jobs[100][1])
+        build.update(id=160,name='native / tests',status='in_progress',conclusion=None,completed_at=None,
+            check_run_url=f'https://api.github.com/{self.C.A.PREFIX}/check-runs/160',steps=[])
+        self.case.jobs[100].append(build)
+        return build
+
+    def test_full_completed_shared_owner_does_not_wait_for_unrelated_native_build(self):
+        self.pending_native_build()
+        with mock.patch.object(self.C.A.Adapter,'verify',side_effect=AssertionError('ordinary verifier stays strict')):
+            value=self.verify()
+        self.assertFalse(value['original_proof']['overall_run_complete'])
+        self.assertEqual(value['original_proof']['purpose'],'current-pr-sync-selected-owners-only')
+        self.assertFalse(value['original_proof']['qualification']);self.assertFalse(value['original_proof']['reusable'])
+        self.assertEqual(value['original_commit'],self.case.binding['merge_sha'])
+        self.assertEqual(value['environment'],self.f.environment)
+        self.assertEqual(value['original_platform_observation']['job_id'],140)
+        self.C.execution.execute.assert_not_called()
+        self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_full_failed_cancelled_or_unknown_native_build_blocks_shared_success(self):
+        build=self.pending_native_build()
+        for conclusion in ('failure','cancelled','timed_out','unknown'):
+            build.update(status='completed',conclusion=conclusion,completed_at='2026-10-15T10:04:30Z')
+            with self.subTest(conclusion=conclusion),self.assertRaises(gate.NativeSyncOwnerError): self.verify()
+        self.C.execution.execute.assert_not_called()
+
+    def test_full_pending_selected_jobs_wait_thinly_then_rebuild_complete_api_proof(self):
+        self.pending_native_build()
+        original=deepcopy(self.case.jobs[100])
+        self.case.jobs[100][1].update(status='in_progress',conclusion=None,completed_at=None)
+        self.case.jobs[100][2].update(status='queued',conclusion=None,started_at=None,completed_at=None)
+        elapsed=[0];sleeps=[]
+        def sleep(seconds):
+            sleeps.append(seconds);elapsed[0]+=seconds
+            # No API fact is accepted from the sleep callback: the subsequent
+            # real Adapter capture re-reads every source/job/artifact predicate.
+            self.case.jobs[100]=deepcopy(original)
+        original_capture=self.C.A.Adapter.capture
+        with mock.patch.object(self.C.A.Adapter,'capture',autospec=True,side_effect=original_capture) as capture:
+            value=self.verify(timeout=1800,monotonic=lambda:elapsed[0],sleep=sleep)
+        self.assertEqual(sleeps,[30])
+        self.assertEqual(capture.call_count,3)
+        self.assertFalse(value['original_proof']['overall_run_complete'])
+        self.assertEqual(value['requested_suites'],list(self.f.registry['suites']))
+        self.C.execution.execute.assert_not_called()
+
+    def test_full_subset_keeps_only_actual_selected_common_results(self):
+        value = self.verify()
+        expected = list(self.f.registry['suites'])[:2]
+        self.assertEqual(value['requested_suites'], expected)
+        self.assertEqual(set(value['results']['suites']), set(expected))
+        self.assertLess(len(expected), len(self.f.registry['suites']))
+        self.assertEqual(value['platform_commands'], self.f.partition['commands'])
+        self.assertFalse(value['reusable']); self.assertFalse(value['qualification'])
+        self.C.execution.execute.assert_not_called()
+
+    def test_full_failed_missing_or_mixed_platform_owner_cannot_use_common_receipt(self):
+        jobs = deepcopy(self.case.jobs[100])
+        for shape in ('failed', 'missing', 'attempt'):
+            self.case.jobs[100] = deepcopy(jobs)
+            if shape == 'missing': self.case.jobs[100].pop()
+            elif shape == 'attempt': self.case.jobs[100][-1]['run_attempt'] = 2
+            else: self.case.jobs[100][-1]['conclusion'] = 'failure'
+            with self.subTest(shape=shape), self.assertRaises(gate.NativeSyncOwnerError): self.verify()
+        self.C.execution.execute.assert_not_called()
+
+    def test_missing_native_hash_or_failed_owner_blocks_without_second_executor(self):
+        jobs = deepcopy(self.case.jobs[100])
+        for shape in ('failed', 'publisher', 'attempt'):
+            self.case.jobs[100] = deepcopy(jobs)
+            if shape == 'failed': self.case.jobs[100][1]['conclusion'] = 'failure'
+            elif shape == 'attempt': self.case.jobs[100][1]['run_attempt'] = 2
+            else: self.case.jobs[100][-1]['name'] = self.case.policy.final_publisher_prefix + '0'*64
+            with self.subTest(shape=shape), self.assertRaises(gate.NativeSyncOwnerError):
+                self.verify()
+        self.C.execution.execute.assert_not_called()
+
+    def test_failed_owner_after_runtime_admission_cannot_reuse_earlier_success(self):
+        original = self.C.runtime_ci.validate_environment
+        def admit(*args, **kwargs):
+            result = original(*args, **kwargs)
+            self.case.jobs[100][1]['conclusion'] = 'failure'
+            return result
+        with mock.patch.object(self.C.runtime_ci, 'validate_environment', side_effect=admit), \
+                self.assertRaises(gate.NativeSyncOwnerError):
+            self.verify()
+        self.C.execution.execute.assert_not_called()
+
+    def test_pending_owner_times_out_without_duplicate_sync_execution(self):
+        self.case.runs[100].update(status='in_progress', conclusion=None)
+        self.case.jobs[100][1].update(status='in_progress',conclusion=None,completed_at=None)
+        self.case.jobs[100][-1].update(status='queued',conclusion=None,started_at=None,completed_at=None)
+        with self.assertRaises(gate.NativeSyncOwnerError): self.verify()
+        self.C.execution.execute.assert_not_called()
+
+    def test_unadmitted_source_keeps_bootstrap_delegated_before_proof_lookup(self):
+        self.C.producer.sync_source_admission.return_value = False
+        with mock.patch.object(self.C.A.Adapter, 'capture', side_effect=AssertionError('not selected')):
+            self.assertIsNone(self.verify())
+
+    def test_actual_gate_uses_completed_owner_and_never_falls_back_after_its_failure(self):
+        source = mock.Mock(); source.read_text.return_value = '{}'
+        evidence = self.verify()
+        with mock.patch.dict(gate.os.environ, {'GITHUB_EVENT_NAME':'workflow_dispatch'}), \
+                mock.patch.object(gate, 'GitHubApi', return_value=self.f.native.transport), \
+                mock.patch.object(gate, 'load_config', return_value=config()), \
+                mock.patch.object(gate, 'validate_required_codeql_workflow'), \
+                mock.patch.object(gate, 'classify_event', return_value=self.request), \
+                mock.patch.object(gate, 'verify_evidence', side_effect=AssertionError('duplicate owner lookup')), \
+                mock.patch.object(gate, 'native_pr_evidence', return_value=evidence) as native, \
+                mock.patch.object(gate, 'write_outputs') as output:
+            args = SimpleNamespace(config=None, event=source, output=None)
+            self.assertEqual(gate.inspect(args), 0)
+            self.assertEqual(output.call_args.args[1]['mode'], 'reuse')
+            output.reset_mock()
+            native.side_effect = gate.NativeSyncOwnerError('native owner failed')
+            with self.assertRaises(gate.NativeSyncOwnerError): gate.inspect(args)
+            output.assert_not_called()
 
 
 if __name__ == "__main__":

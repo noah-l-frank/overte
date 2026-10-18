@@ -828,6 +828,44 @@ def verify_no_execution(event, environment, adapter, *, candidate, root=ROOT,
     return before
 
 
+def unavailable_parent_schedule(event, environment, adapter, *, root=ROOT,
+                                clock=lambda: datetime.now(timezone.utc)):
+    """Schedule optional qualification only; grant no test or reuse authority.
+
+    The later trusted selector may decline an incomplete qualification. This
+    observation is written before candidate commands run in this same job.
+    Complete qualification, packages and platform owners remain independent.
+    """
+    A.require(_source_qualified(), 'parent scheduling source unavailable')
+    source, run_id = _native(event, environment)
+    A.require(environment.get('GITHUB_JOB') == 'common-parent', 'not the optional parent common owner')
+    binding, refs = adapter._integrated_current(run_id, 15368, clock())
+    target = binding['base_ref']
+    A.require(target in {'main', 'apple-main'} and refs['target'] == source
+        and event.get('before') == binding['base_sha']
+        and refs['integration']['workflow_path'] == '.github/workflows/parent-qualification.yml',
+        'optional common qualification is not a current normal protected push')
+    authority = default_authority(adapter, refs)
+    tree, current = full_tree(adapter, source)
+    default_tree, local = full_tree(adapter, refs['default'])
+    A.require(execution.checkout_identity(root) == (refs['default'], default_tree)
+        and inputs.full_tree(root, refs['default']) == local
+        and tree == binding['merge_tree'] == refs['integration']['tree'],
+        'optional parent scheduling source differs')
+    policy = producer._host_policy()
+    package = policy.package_policy()
+    A.require(package.validate_tree_wiring(current) == ci_profile.RETAINED_SOURCE_GENERATION
+        and current.get('.github/workflows/parent-qualification.yml') == local.get(producer.PLATFORM_PARENT_TEMPLATE)
+        and current.get('tests/platform-profile.json') == inputs._AFFECTED_SHARED_PROFILE,
+        'optional parent scheduling requires the exact common-only native recipe')
+    A.require(adapter._integrated_current(run_id, 15368, clock()) == (binding, refs)
+        and default_authority(adapter, refs) == authority, 'optional parent source changed')
+    return {'schema': 1, 'kind': 'optional-parent-qualification-schedule-v1',
+        'authority': 'none', 'reusable': False, 'qualification': False,
+        'executed_suites': [], 'reused_suites': [], 'execution': None,
+        'binding': binding, 'refs': refs, 'default_authority': authority}
+
+
 def lookup(event, environment, adapter=None, *, root=ROOT, clock=lambda: datetime.now(timezone.utc)):
     """Pre-execution only: no failure is hidden by retrying an alternate executor."""
     try:
@@ -852,7 +890,15 @@ def lookup(event, environment, adapter=None, *, root=ROOT, clock=lambda: datetim
             AttributeError, StopIteration):
         # API bodies, candidate strings, signed URLs and credentials never enter
         # output. This means no reuse, not success of any unexecuted test.
-        return {'reused': False, 'reason': 'original-proof-unavailable'}
+        result = {'reused': False, 'reason': 'original-proof-unavailable'}
+        try:
+            result['optional_qualification'] = unavailable_parent_schedule(
+                event, environment, adapter, root=root, clock=clock)
+        except (P.ProtocolError, inputs.InputError, execution.ExecutionError,
+                producer.PreExecutionUnavailable, OSError, subprocess.SubprocessError,
+                KeyError, TypeError, ValueError, AttributeError, StopIteration):
+            pass  # No authenticated schedule means unchanged actual execution.
+        return result
 
 
 def main(argv=None):

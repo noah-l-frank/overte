@@ -1765,12 +1765,12 @@ class MetadataResultTests(unittest.TestCase):
         self.env = {'GITHUB_JOB': 'select'}
         edge = {'path': RESULTS.REPOSITORY + '/' + self.A.METADATA_WORKFLOW + '@' + 'c' * 40,
                 'sha': 'c' * 40, 'ref': 'refs/pull/42/merge'}
-        run = {'id': 12, 'workflow_id': 7, 'check_suite_id': 112, 'path': RESULTS.WORKFLOW,
+        run = {'id': 12, 'run_number': 12, 'workflow_id': 7, 'check_suite_id': 112, 'path': RESULTS.WORKFLOW,
             'event': 'pull_request', 'head_sha': 'b' * 40, 'head_branch': 'fix/main/example', 'run_attempt': 1,
             'status': 'completed', 'conclusion': 'success', 'run_started_at': '2026-10-15T21:00:00Z',
             'updated_at': '2026-10-15T21:01:00Z', 'repository': self.repository,
             'head_repository': self.repository, 'pull_requests': [{'number': 42}], 'referenced_workflows': [edge]}
-        self.runs = {12: run, 13: {**deepcopy(run), 'id': 13, 'check_suite_id': 113,
+        self.runs = {12: run, 13: {**deepcopy(run), 'id': 13, 'run_number': 13, 'check_suite_id': 113,
             'status': 'in_progress', 'conclusion': None, 'run_started_at': '2026-10-15T21:04:00Z',
             'updated_at': '2026-10-15T21:04:21Z'}}
         def job(identity, run_id, name, start, end, steps):
