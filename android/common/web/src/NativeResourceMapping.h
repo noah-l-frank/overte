@@ -60,6 +60,7 @@ struct NativeResourceSource {
     QUrl inlineURL;
     QByteArray bytes;
     QString charset;
+    std::shared_ptr<std::atomic<bool>> ownerValid;
     std::shared_ptr<std::atomic<bool>> valid { std::make_shared<std::atomic<bool>>(true) };
 };
 struct NativeResourceResponse {
@@ -75,7 +76,8 @@ class NativeResourceState {
 public:
     explicit NativeResourceState(NativeResourceSource source) : _source(std::move(source)) { }
     void revoke() const { _source.valid->store(false, std::memory_order_release); }
-    bool active() const { return _source.valid->load(std::memory_order_acquire); }
+    bool active() const { return _source.valid->load(std::memory_order_acquire)
+        && (!_source.ownerValid || _source.ownerValid->load(std::memory_order_acquire)); }
     quint64 begin(quint64 creation, quint64 grant, quint64 page, const QUrl& document) {
         std::lock_guard<std::mutex> guard(_mutex);
         if (!active() || creation != _source.creation || grant != _source.grant || !page
