@@ -43,8 +43,8 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     ownerContext.setContextProperty("nativeInlineHtmlDocument",QVariant::fromValue(document));
     ownerContext.setContextProperty("nativeWebSourceIdentity","inline-owner");
     QQmlComponent component(&engine);
-    component.setData("import QtQuick 2.7\nimport controls 1.0 as Controls\nItem { width: 100; height: 100; property alias content: page; Controls.EmbeddedWebView { id: page; anchors.fill: parent; url: authored; scriptUrl: approvedScript } }",QUrl());
-    ownerContext.setContextProperty("authored",raw); ownerContext.setContextProperty("approvedScript",script);
+    component.setData("import QtQuick 2.7\nimport controls 1.0 as Controls\nItem { width: 100; height: 100; property alias content: page; Controls.EmbeddedWebView { id: page; anchors.fill: parent; url: authored; scriptUrl: approvedScript; surface: targetSurface } }",QUrl());
+    ownerContext.setContextProperty("authored",raw); ownerContext.setContextProperty("approvedScript",script); ownerContext.setContextProperty("targetSurface","world-entity");
     assert(component.isReady()); const auto before = count();
     std::unique_ptr<QObject> root(component.create(&nested));
     if (!root) qWarning() << component.errors(); assert(root);
@@ -55,7 +55,7 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     auto handle = field("handle"), birth = field("creationRevision"); auto grant = view->generation();
     const auto transport = document.transportURL(); auto transportString = jstringFor(transport.toString(QUrl::FullyEncoded));
     auto get = jstringFor("GET"), head = jstringFor("HEAD");
-    const auto load = Java_org_overte_web_EmbeddedWebView_nativeBeginResourceLoad(env,boundary,handle,birth,grant,1,transportString); assert(load);
+    auto load = Java_org_overte_web_EmbeddedWebView_nativeBeginResourceLoad(env,boundary,handle,birth,grant,1,transportString); assert(load);
     auto response = Java_org_overte_web_EmbeddedWebView_nativeRequest(env,boundary,handle,birth,grant,load,1,transportString,true,get);
     assert(responseAction(response) == 1 && responseBytes(response) == QByteArray::fromHex("3c703e0080ff2e716d6c"));
     auto charset = static_cast<jstring>(env->GetObjectField(response,charsetField));
@@ -74,6 +74,35 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     assert(!view->acceptMessage(grant,2,wrongPath,origin,true,"channel",R"({"type":3,"id":0})"));
     view->acceptState(grant,2,transport,true,false,false,true,0); QCoreApplication::processEvents();
     assert(view->currentUrl() == raw); // Exact authored source stays distinct from transport.
+    // Unsupported-provider GET reload retains only the still-current original native tuple.
+    const auto oldGrant=grant; const auto oldBirth=birth; const auto oldLoad=load;
+    view->acceptSuspended(view->lifecycleRevision(),transport,false,false,birth); QCoreApplication::processEvents();
+    assert(view->reloadRequired()); view->reload(); QCoreApplication::processEvents(); QCoreApplication::processEvents();
+    assert(!view->reloadRequired()); grant=view->generation(); birth=field("creationRevision");
+    assert(grant>oldGrant && birth!=oldBirth);
+    assert(!Java_org_overte_web_EmbeddedWebView_nativeResourceCurrent(env,boundary,handle,oldBirth,oldGrant,oldLoad,1));
+    load=Java_org_overte_web_EmbeddedWebView_nativeBeginResourceLoad(env,boundary,handle,birth,grant,1,transportString); assert(load);
+    assert(Java_org_overte_web_EmbeddedWebView_nativeBindResourcePage(env,boundary,handle,birth,grant,load,1,2,transportString));
+    view->acceptPage(grant,2,transport);
+    // A second real Tablet view has a different native origin and valid empty HTML.
+    QQmlContext tabletContext(engine.rootContext()); InlineHtmlDocumentOwner tabletOwner;
+    const QString emptySource="data:text/html,";
+    const auto emptyDocument=tabletOwner.issue(&tabletContext,"second-owner",emptySource);
+    tabletContext.setContextProperty("nativeInlineHtmlDocument",QVariant::fromValue(emptyDocument));
+    tabletContext.setContextProperty("nativeWebSourceIdentity","second-owner");
+    tabletContext.setContextProperty("authored",emptySource);tabletContext.setContextProperty("approvedScript",QString());
+    tabletContext.setContextProperty("targetSurface","tablet");
+    std::unique_ptr<QObject> tabletRoot(component.create(&tabletContext)); assert(tabletRoot); QCoreApplication::processEvents();
+    auto* tabletView=tabletRoot->findChild<NativeWebViewItem*>(); assert(tabletView && tabletView->generation());
+    auto tabletHandle=field("handle"),tabletBirth=field("creationRevision"); auto tabletGrant=tabletView->generation();
+    auto tabletURL=jstringFor(emptyDocument.transportURL().toString(QUrl::FullyEncoded));
+    auto tabletLoad=Java_org_overte_web_EmbeddedWebView_nativeBeginResourceLoad(env,boundary,tabletHandle,tabletBirth,tabletGrant,1,tabletURL); assert(tabletLoad);
+    response=Java_org_overte_web_EmbeddedWebView_nativeRequest(env,boundary,tabletHandle,tabletBirth,tabletGrant,tabletLoad,1,tabletURL,true,get);
+    assert(responseAction(response)==1 && responseBytes(response).isEmpty());env->DeleteLocalRef(response);
+    response=Java_org_overte_web_EmbeddedWebView_nativeRequest(env,boundary,tabletHandle,tabletBirth,tabletGrant,tabletLoad,1,transportString,true,get);
+    assert(responseAction(response)==0);if(response)env->DeleteLocalRef(response);
+    response=Java_org_overte_web_EmbeddedWebView_nativeRequest(env,boundary,handle,birth,grant,load,1,tabletURL,true,get);
+    assert(responseAction(response)==0);if(response)env->DeleteLocalRef(response);
     // Actual scene graph clears the revoked document's previously visible pixels.
     QQuickRenderControl control; QQuickWindow window(&control); window.resize(8,8); window.setColor(Qt::transparent);
     // Observe the native texture itself; the shared error overlay would otherwise mask it.
@@ -96,6 +125,7 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     owner.revoke();
     assert(!Java_org_overte_web_EmbeddedWebView_nativeResourceCurrent(env,boundary,handle,birth,grant,load,1));
     assert(!view->generation() && !view->allowsBridgeDocument(grant,2,transport));
+    assert(Java_org_overte_web_EmbeddedWebView_nativeResourceCurrent(env,boundary,tabletHandle,tabletBirth,tabletGrant,tabletLoad,1));
     control.polishItems(); control.sync(); control.render(); assert(control.grab().pixelColor(1,1).alpha()==0);
     view->setParentItem(nullptr); control.invalidate();
     response=Java_org_overte_web_EmbeddedWebView_nativeRequest(env,boundary,handle,birth,grant,load,1,transportString,true,get);
@@ -112,10 +142,10 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     ownerContext.setContextProperty("approvedScript",script+"#changed");
     std::unique_ptr<QObject> wrongScript(component.create(&nested)); assert(wrongScript && !wrongScript->findChild<NativeWebViewItem*>()->generation()); wrongScript.reset();
     foreignContext.setContextProperty("nativeInlineHtmlDocument",QVariant::fromValue(next));
-    foreignContext.setContextProperty("nativeWebSourceIdentity","inline-owner"); foreignContext.setContextProperty("authored",raw); foreignContext.setContextProperty("approvedScript",script);
+    foreignContext.setContextProperty("nativeWebSourceIdentity","inline-owner"); foreignContext.setContextProperty("authored",raw); foreignContext.setContextProperty("approvedScript",script);foreignContext.setContextProperty("targetSurface","world-entity");
     std::unique_ptr<QObject> foreign(component.create(&foreignContext)); assert(foreign && !foreign->findChild<NativeWebViewItem*>()->generation());
     assert(count()==rejectedBefore);
     assert(!env->ExceptionCheck());
-    env->DeleteLocalRef(transportString); env->DeleteLocalRef(get); env->DeleteLocalRef(head); env->DeleteLocalRef(responseType);
-    puts("PASS: real nested shared/Android QML initial descriptor, exact JNI bytes/charset/HEAD, foreign-thread resource IO, inline frame-origin negatives, semantic URL, synchronous revoke/scene clear, forged/stale/foreign/script rejection");
+    env->DeleteLocalRef(transportString); env->DeleteLocalRef(get); env->DeleteLocalRef(head); env->DeleteLocalRef(responseType); env->DeleteLocalRef(tabletURL);
+    puts("PASS: real nested shared/Android QML initial descriptor, exact JNI bytes/charset/HEAD, foreign-thread resource IO, inline frame-origin negatives, semantic URL, scoped GET reload, two-view World/Tablet isolation and valid empty HTML, synchronous revoke/scene clear, forged/stale/foreign/script rejection");
 }

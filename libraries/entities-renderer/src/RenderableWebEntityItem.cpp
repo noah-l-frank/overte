@@ -468,7 +468,7 @@ void WebEntityRenderer::destroyWebSurface() {
         _inlineDocument = {};
         if (_inlineDocumentContext) {
             auto* context = static_cast<QQmlContext*>(_inlineDocumentContext.data());
-            context->setContextProperty("nativeInlineHtmlDocument", QVariant::fromValue(_inlineDocument));
+            context->setContextProperty("nativeInlineHtmlDocument", QVariant());
             context->setContextProperty("nativeWebSourceIdentity", QString());
         }
         QObject::disconnect(_inlineDocumentRootConnection);
@@ -526,7 +526,7 @@ void WebEntityRenderer::synchronizeInlineDocument(const TypedEntityPointer& enti
         _inlineDocumentRoot.clear();
         auto* currentContext = static_cast<QQmlContext*>(_inlineDocumentContext.data());
         if (currentContext && currentContext->isValid()) {
-            currentContext->setContextProperty("nativeInlineHtmlDocument", QVariant::fromValue(_inlineDocument));
+            currentContext->setContextProperty("nativeInlineHtmlDocument", QVariant());
         }
     };
     _inlineDocumentRootConnection = QObject::connect(root, &QObject::destroyed, this, revoke);
@@ -540,7 +540,10 @@ void WebEntityRenderer::synchronizeInlineDocument(const TypedEntityPointer& enti
     // These are native context values, not browser- or QML-issued grants.
     // Deliver source ownership before a root URL triggers its first load.
     context->setContextProperty("nativeWebSourceIdentity", identity);
-    context->setContextProperty("nativeInlineHtmlDocument", QVariant::fromValue(_inlineDocument));
+    // No issued document means no supplied grant. A typed empty/revoked
+    // descriptor is an explicit denied carrier at native client boundaries.
+    context->setContextProperty("nativeInlineHtmlDocument",
+        _inlineDocument.current() ? QVariant::fromValue(_inlineDocument) : QVariant());
 }
 
 glm::vec2 WebEntityRenderer::getWindowSize(const TypedEntityPointer& entity) const {
