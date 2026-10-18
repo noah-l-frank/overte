@@ -53,8 +53,12 @@ PROTECTED_GENERATIONS = (
     'protected-shared-producer-v1', 'protected-producer-postmerge-original-e-v1',
     'protected-producer-ci37-v1', 'protected-producer-metadata-ci-v1',
     'protected-producer-seven-target-ci-v1', 'protected-producer-original-default-v1',
+    'protected-producer-original-default-boolean-v1',
 )
-METADATA_PRODUCER_GENERATIONS = PROTECTED_GENERATIONS[-3:]
+METADATA_PRODUCER_GENERATIONS = PROTECTED_GENERATIONS[3:]
+ORIGINAL_DEFAULT_GENERATIONS = (
+    'protected-producer-original-default-v1', 'protected-producer-original-default-boolean-v1',
+)
 SELECTED_SYNC_GENERATIONS = (
     'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1', 'npm-consumers-metadata-edits-v1',
     'android-owned-npm5-sync-ci-v1', *PROTECTED_GENERATIONS,
@@ -62,6 +66,17 @@ SELECTED_SYNC_GENERATIONS = (
 
 # Exact historical metadata recipe; available even in a shallow source checkout.
 _HISTORICAL_METADATA_CODEQL = 'c-rk*ZBrXL68`RAp?Fgnn`OoZOd!sZT5oVA+_8p@P3m%4$|cXpSYa$pBn{xa{P%5*G-HiDPO`}s_vJ`cu%%Y3U!QI@KcQnT=9nooCkjVcVI<QqBvNwm6eWU4B5nvGcQ{lip^T9TVTR+y2O{7@gd|TzNDz+ZR7%QOP-A#by68EN$RDS*8fV=aLP;uT`Zq!ofmt{svWwo%F=g8bCrM0v_cP^kTk{s2M)`*QmdrRK%da=W{p=?+<d@kk305=d(<{aWG4~?mqx#lXYb%&X^-Q8T9t-k5B~lp*wMa6tctSwSZ6rwkNiINS!5RGkcaw-J5?$V#G7>I`(%7ouqYwn?qWaDO+Cy9LuT!tp5+bbmr6vnGQ-moHOAs8@YVbWwg&-_k=<T0S4=Hk|GF8w#l?pL(1O5y_8xkW!tI+!t$8<_Vtbj4%0=OkH24_<x;j>I*6#%;{!PBG*mqz4$>_7bY5nWL=ODDlC7uVC6-=fc--DS9nslc^=z|#2y?*H^Drx9dYc?zOX%W`ytJmUusJ$i&5lxV^kW>-W86D*0|ZB*_ms$$~YxN??9i>5xD%agJ(jWoGevWf>%YJ+En^C|Na!LPtHV0tA|Qmeh=lguS~cKIe>j5AH9^inm0yER9G&R;EElhM#=w<O|NAIc2iTF`T3)q0P$0X311I4@(AN*$*`D==iO+&i+B2)__73!OU^Eaq`d2Oo(^X!C;+5&?%5O$s4#e2W*dky)*g(FQA|fr*(+E(<cAHtE-iuW6EiubU>f%fYUHRs!BEnpi2XX`A`hX5}48And7H_?ea6J>#WeW(kC+Q}_iSXz&fi5HBf)kjY3POr)>VGo7SNrT%UwXm<>_&^h6$^5>MLN;_gdTZW}1RfQh84aS_si!RdPFBM6ojZRA)l*mj3>YqXu_atO2D-ISE%R>@kcO$*t%t^EDC6-#0pONrdYoWtks=PQzDpA5?8ZIn-9)8v*tx%tXW54c2dtqmn>|-46Pw-)T|8RFd!UvB#JMD1iaA)^mZ-Sq+Cp!RIHwQsG*eMv^LKt_8Z(w^eHF}g18X${Hs<>DL5t(9$sIdX<r3LbO(am*m*NFgKlphKb=^Vu|C^3cqi9;k4EF|%Box13gvk9)}JeIAcAcjy@&_G})h(8KfL1L|#`V|TJl`cUj^LohVP+kBr43GgjYs@l`ZbG=YfJR-jRICto<C^Zp%kk*!-~B<!eu`fcR<_chH#&LUAOGGT^^SX^-uPrN>JLWdRCN-sMJ&w{)nyAg(?!pG*XRocm2oe3M{9!tO%MgiVhKrQEx~qX1=SzEI2paX_-)*O4FZqPd!v{2eACYWb%kQk`@OFzjQq>pvy0LB#i+jS8yq1(aoZ<B)<iVYa88-N0%Tq~1ETcnIsE`oPZtpH{_@A9Kq0!bGbJjV`4LGp!R`-dhb=&>Hnad+#C3tRIcQmEA@YZ9sS`ru+@^f^tvBqChc9~-cv5OxbfpdC46n5j6EcOy(^=L;rBr&}8yufN60P5}M!Jm1b$LuTu$oOS{z#&bPf`xedjbGR<L^ndthLjb_GbyTd|z<xhP&@;llWSN`or9cI*$qxyH`@bzQ#7sS~nS=<sD{Lq25W(Dm3xYFTZ%_Z#-v<&J!*a(g(H?cVTxb_&f{ym`-xCbNK4=g}cyEb~uPRj$}g<G`v+&yk?;Lg|Y6P8qKD|VOesIGH!3ZV#T|3=&*#Bma-(e=bvNmQg=T)*)xku%B0e5W}`U2jbg~Y<~kGS&Li~p2FEEu5Rk}xq6{^>clZX&P|!sA*}EtE=xsw+nOV|nLUJwX3x=-58bFYKA~iT9AiJUPFnQ~hfYQ4Jju@C>X<MCc$<uiQ6x>4VMH)-f9C_$xWA!MVCvvHC6V|;ynb-UxAKkZPETj^R2}HHSpb3t=C8ANqDG^Yg8qU4i9q|5x$QWOfg*+Moj+ESc{zl`NeG$7|{jw&S9=fvmg;u#lQw?B8Ie=+;&o-Wo;=P_S^J<BjSvNh^?|IcI=svbTH^H&6Cg@$!0XB2cuwA_oplIg5L8=F?RF(8u_jpu7-@nly@3sF{x4+iEXQ5y_R{_X#waCwF6!fPU-u<OwWh}G|(A-qUml`boH9Q+MDphsj^V`~GJ2ufdq`x{9^d2kz=JLHF_X(qVTQ{F}uH%+c%BWhA+P*O@Od1_pn(o&ynsyEkr~6O#qr-Oen6wW_doSudKIlxzB-+Q5&i)iX**nzYcY?ix;K@e$vvSo%Go`@Nt(L8e&_J{*uNUAls7|sK@mr?BJl}^<j9^l8vm5Ll1iLG%F~sBD<4&Nk2tG(vh3qCkRuZgS!zU??Vf+J}A-7=a<7`1RPwACEr7+@gp65o2To^-?zsk$4=lhgGuOZ;wKyH^0Qz%3N6xXP)-OM*OJI~LK`+uB{U-w@PPtFGJQ&9V>h;S>2W%k`IhkoMd`d_-V4z<x3e^tAl0oHGcE{nncWPs_3%oX%OFm7uVXi)9z>`9P2E9;u>r5M;73-B|1<>u<J>4cYibi*j8Ecb)T3C_2bi>6z4-kLMpc?G@vzA?&ukAy10J<mivN?q83>I_6S<=?P>+J8P8zv>S!PDh(Vr35EK=$|V{tHw6wr#I-GzWHyz;udT8ifg_nuS?44w6;-FN-C+J+nEXv%W~DBl$6IJ5HMZK;!{?cx^@=WL{FcVNVl4Zgfou3VQzQ}gvCG#9w30d%7~;V$Il+^J_VeFfyqvp8<9AyeRa~6d)TJX{|8?G_`qw!P(?pwD1&(fVOmD}rwHp0x6<9a3)bH5|LdVjj!F5Sbc&cQN>>hY){62+XN0!0_y2PaK+r!PpY{eXE_yHe!!O`f#aQ}>=7L#?8(W27Y*G8-$ihqkb^ld4C#?MizY_pz'
+
+_ORIGINAL_DEFAULT_WORKFLOWS = {'repository-checks': ('81bcf1933edc435826e2de411a777cccd4dec7c7', 'c-rk+S#KLT5`OouptFOq1uW&*iFdMEWU)>x#GXSAY&na;U?5Q4l*G72_K<AZ+R6O)Ena=7TSpw*2m<LzO%|`JuTJuB=v2rl;Tma~DNSRPlIVtvDH>BwCDBaqe<2cSHnabcq<>^gQU!lzjNZZkP2`wrl!}B!^Y#uWQ`$k7G!=?zA?GNX(C9|($c$sx_uZd=qWv+`lWf?gGs^YAw4>Lr(O#M*$-pc@mEJ?&e~<Pngl)4C*n}aaF@x<|qTLEjG$DLUReMMjwNo_qYNiv4K7B&XV?{h~wM_T&4J2ep6SITGNlG*s4^%C)l?s{dY1^ak0x99K6fDMx;A0#!GUh^Q7OA~f%Z}Z<m{F-I;vk0^MN_ItOf*4U@KlO8i>O4iBfFagQXyl;2}t6Pj3jKtA}2{h{MTPQf_HWhDl^`EBc$gkRqiiFA_X+W{zKBrr<(I<A_ZsvqrSz7#(#JQ_^+HH@O>-f%_tGKgP5t5=xE|rV?52YUl}2Q4eV<Sh*QjM)%{|sBFR#75<pwVk)BW#iD{ZpIC%`<j3^#SN>MQyX+~u}gE?Ra4TVT3;iY*;BujM1=mX7LJ?i5Q8j(cNos`Ncvvb;wMuKY)sp<eBiFe>L%A}+`nw#FS6j^Gzf=Xbg64)q01rlW`w0Slif=ml^Njd_7*-=}y*lU%C8kDfuV!r}%i*S$+;So(R;}}%MqQT4eqZnEN25rJhWHO=-X3kojWPmKL&4d)azeJkeX^U_N)=>v-V9G4*0%*){0XVMFF{;|;5L0O~3t+!MxhGSgx2S#4cKbRAYNifSiSvWnmG5+WK27YXTOba*Dw&i4vm10qduy{l1DpUnU?-@)4sfD02Ei;qEk_YaZpmEj+cozsZF_+f41faDWH+g@C;}MUgRCdMVQFg4^OP`j+H(brjC5{4OGYrn1>VRjYz%oe%(%|*(aZMpm(B~ZDFqhdDdWIMnE%)|LsQvFgtHF>Pv#D*5X+>>OU+ZaD`d_x*wG@U<w0pecrgY#3sObFurobhN*)M`A<hYx2e_6cD`@aX1JJ&Yz&5pXnF>`g*vD=Iuy-+olP*72jj}$8p<g@RG}ebsKn(^f*;=ElPqG;&8ma4(DXP~_0W`%xuiAsc^Dh~_NLZg@y)<f+^+{GrqfAsE%DB-2P`S0^bILG@r42!#)9ANGZH)rv8H2HLjE{W=;1_pZ$lH(utLs4apBM3q=;aYTCL}r@l2^}<UmYFC<cEK}JbWG<zB)Ym;l+^r^ZD@5&r<eECJGzX9Z|b5DQzFT4TcgN{-of9!2wJZc3iYlshH9@0=XF<53yZ{@B#@$rczNH4$wiL@-BqDi!HSn7^;I>s8^!^Tc$AtsjzHBYrW1wU_(?N%7nthj3qIyggO-=UD8O5O+=2YsmtSH=Rt);##!1Z23aPCRT$vhHu!JKX9fG;oelaIKXrQ*8EA1sd70C_lm7XK?%<bh|K#+fe=<1l^}D^k8`JEmYUbI+9IGb1dVAJAz5e;U_wKVMRv?WyOAJ`^$-(z@(7$nkiMgH#{sQ51gs%{O6F_sYM6?du?Q~vv_A&=SChi+O`|jO&|LpqBp!)$BGI)Q|KYJEBZDzbk(L4F2Ybe|?ir$Os{`>3xvju^Z*rh<Z3DG9`F$!dKmEM74vRcZ*&P>p;-b<P=$ArpzkEqv9IrE+8?IQ|FA&zNkx{tm{Ys;F7tFeg_BN|CDwH%~(a5@ksR5faQx*yMsRvCL+MqGf|#^|!PeGQfh;n$gov6_%#;MLj5rr7d)^3{Z=VV7HMJ;TbD@{4)pc$9N&Lta6T5t|Gg!q&BZRMsT>=&uwJ7v{?528}^IqyS}-X12W!Y_ruNFP;6oE|hVX7{x7D6LJK5!SHRG1^D2o64|>%#_p{#ec5&SHl$GQ`$3MoTRv_Rx#z&HPk3CGxvevPPMvX0{h+LDjfI0E<X<5m3qT*KcfL3yU6y_}<f@OVfBrx#6wp)T8u%5c(S8$sJvB3{jDXLjYQrW&jD<Gdn{pH7GOE^&HyN1O;BUV>9B<Y4A=TFdaE1Qn!kRB6-c3SVl5x|!6dGtP?Oi4JhP*eQre2O%HB*rRdqzEh>-8(GP<>DFHK~3Rd99RDIp<axA5s~^(7@|PeQYj5Z6vyNRj5^yY*dC?HNi%8s8tgz6ry4gWm9Odg^nlC=*oI4^twW~sNKKW_5L10o!=W3eS^(=C+(+MeF@M+6pH`%HWFddFraek0bDgh4GIvqyEPV%Wh^Qj_mu%}Fai<IuO=Q}J!)&NP>~w#*X{)KGi{yUqv5#*iY3wL2ri)WS0W}Ql*ERl{%uA+P0{sD8sJR;+H9)p%-h=Q2gCPg-&(J}P0MSkMfeq}_oYhr6JD>GdU5Fv=6==qaL^A1c5_%`N*Fiy5CNJfhi19j`~KJd*+uX4qSycL<$1sR=GT7r?Zs*L^<hy5wk6-139#8M)PT*~i^XF4w^MDZ9c_gNuF>Wmc*(Pq%1(D1&D=%?tW`3`;pt%R>~S#5{;Lw=__msxSZuFC2bXURa7a5IOjR$bE%0TW%m@Qpk<{N}`bSl0NJm2Ys}h*JbQ`j@vYT7kvOS=8a8-S{?jeGMtoLy88+wWGHM)yOzqK{$O|iRE__9YC)>S}JLW5dP%^T1WOK7;FD{Htdo`6kE;H6h$>yP2SQwwCxU@o)D(+GHu@b;&{W%ug(=l+#Lh890wUG$tuZIuDA$uo-kT@lZmk6m-|X?KLp;en#E@q1j0?))F&V*}*'), 'codeql': ('e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1', 'c-rk*>vI}8693L$A+xCr<UE5PICjW7wIrqz?|HE|;MC=^E=tS@P%=mpNrOWk|NFHbGtA&2@A7?#Qx${MYIUo-fBo=p=!A<oW(v)T!Vy*&$uta!lw3SSi6D}Q1wrH;4i!o$V<bYD;duF;2>1{o$x{&$grhl?l5!T*7@m_3dcq^}_gPJ(%(n}7K72rpDOIy{9FPTJYNXfE@iFp}G>%7tyiJKz9=dxMHA;j5+zp%!DT$~eks;bD(S$S1rbGr~EQw)JxvQv(3HtaERiEY2vf0$zn+1sRn8aFwbtVOxlx0*+ElP>Z>;y*jEg*#_6r4tW%-PhBD4sGd6%D1=Y?`y)`GN>V5W|Xs9daWv&Jw|+Gz2p&_KY-Zq+CRlVX;JSQykL?4Y83=6My<tt8vz;A(W(Yrhg+e7MO)IB0K2S98<Q9aFWEtFMg(6Zlg?Kx8c4eGtS8B>p~Pi`w0#CmANIsY9@UOS_)$CMaW0>d-q!Rf_YRo60Ll}QmAEO#Nr77@7qR#WS`^`L>8RU_i(rMjH_EyM#2SA8ap+76oMcfRNp;B`{*A0Yu9VFga{WFQj>+8DewUhOAs8@YVbWwg&-_k>h0f97b)^i8CB3cl?pL%8i7L4hQ!Fysx^ah0o;-pLl9CW;j>I*6#%=b;Azr<OC$0&_I3C<N4)0Z%_Qd6;0MKJ>z~E<4_G=M!~H8)7i5y1`W2&Ivv?GcZbTy!h$RD=a6`_9K4m_{?G&s8UZ6xuYPHvVY`i0jZQnww^(%{=-Bis$FwK#mi{~pZF*J12L0<u^HUP^WsejhI(k|MUDzAaVhi}SD`U2lwP~1tS4!)ojSh-r6%gI(E{9I9U^E(wR=dn3;4aAvL1%Mk-BcM$ozcR=-c&7$>Kq_DqIxuB~L|~aUU(4MH$Jcl%8|Ko6p$*nZ0}C)lN>?cuO}<S0h9-$t=r;XOD-W<q)zUYQSKPCqH878Z@MHqNpt!Mh3yQ&>DF%}oQiyHoYj{t`DO0Jx*A8~tHaXEb;i>ZHl%-1h{DE19r6g6kYT2`lIE$CokEJ4sbQX2gL5a-5hW^QADV_wxXZgXLVs%IY;B2JVn;EIuUgcs}z3C^`T4;=tDl7UVl_=pc4VR8Si*#qEmN5++`(r=a58Hd>0ORmrjE{B>j`j{Be0aaTyA$pn?d~1!kMV<@@h&92#bK}$?B)!MAYk5}Om0R#I99?XRa`8Ch)ggz*~ljS)eB_xMkmvuxK0G<qWn;hNCPX5L5T_cPYOgb!9o&0)2V|#7B<23oX4`Y62ub93L0<>1^!3jDu}hUr+!XCKGh`*GFA`y9Lf`bc?&d<-8H7zlEAufegTa-b}3&WY*Bo=r_V;i^MCjHrT0_(4PoV1>UW2yFM6ZDdc*EXci0`B_J_Ux(4MM}>l+?xA^P)d2Tz{$PA<<*`%k}#wJWqJn-<waNOsU8zi88?g2HVd`KQPqApdb@_SObNS!WHB<q8eUuL(A?E2w_w>FMy<<>OKB1w72?qC0$6&o)havrf_P{?*eIR+-iA`Q`B9a#+9V12{sE;$5Ew(HYT5=X%QY6(IA<=nxHG#txkrbamm~UYy!c%SA8jOo$3+enb*Yu=m4J=xU1fH*`Rr$4`#v88|u!Bl3seQU{*K(@k;rxI5^L2G6<`xK%2zb)^x=8NN{ojL8HVq{6Z$D#g~5ZvW&IqUz>7H%M0=xv7F$533^1NurQXQVz|30zgaSiirDSpqUm#N7_Fnbo70}dC}c{Uq6YjRjA*|UQx$UPU7}T>ep|u&7!s#jE}NT$YjFTlCvu8K)?U)UA*)PTXddqp^!eXjd&5>CxXw7+sAaAkzK&oB44-*9h<{J%yA?enxNsWi{do{U6+h>IoxPA3mjId{n&7O<>f2hRe=smnA9joq9JpRy(?XK?V2$Sm6S=PdyqzcejCLQea)Lp3U?l(R|_1c1c5^$`-w8t@LuBumZ6}D@=bqkK6=|wiJO;%vXxF&^f|+##2P@5Zsi*s0+1~zG|;cS5>R?qz!3v8EL};}DOoxzw1R6W@knF!G{+wLmwojpohNdoa}(CRf0)<&EFWDT85UBB#u&W1z@Q0+ye6Vi#VHYx2OEWZwK-r;0iH2>LzeP*2slzQ@5M`vV{W2WZ249R(w6U)bvIP$C7NmgJI(;i43u1f+sH>rDYM;6)HH?sM9%|NBd7bY^Qj4jg*8Fn<&|bL0}a<uSOF^gh%MXtLNjB(|0J!pidt3Dn<}@Y{MN4l<hKkUzqR+--}$EA?nY~7qR%xY0>FN{%+Bk?<4-V*1WWaSb;=bcWZr4RN8|IKgY$l)(mM)}@O7P#n{;c~(q9Wj%PkgJn=7U@xlb9@+q$oCqxfR=LK#(SQoBiw%S={>mZtk7j3(`)qshU8gXm}{x=(fv$<BV%zJJ)Bka2W?$L)g&ez1R}#cv1uhrxr5@|y~wgJw#>OSf9iF`;H_RbDT^WDriW74d7P^JlgXt{A}(cd-}j9R_=AtI#T>@9wt)g+=gQs;Xpa9b^sD%4O3yr7=u~fpbR>qlzUdc=Lo#{RxHXZ(+z~rO1S_L}s>iquPI)QYh~Pw1nh(HFJR6FF<jfXtkO7#`^Nf`AP5Zv(by*^TFwPzu4t#d*vSP1aZv1yUNqut1h`pm)4;iv5&v5UDxKaukkLI_I{>==?Uo+N>7-?w{kS7wzcWPGGp11(rx5lcViBImap8LkT;$1GK+2)+?D0ts+`w-U50HIGyN-jW;-iduD)+V_9Fwp@0s>hf_oN;`mZcYSHl!$U7O->&^zlr8IGR!2A5~U&8|{{lL53W6{J-YIs4P?ch6q_w^wnCd-#fLz9+6r%IL6mUQ!AwsV5vpg*#=r>X1sx6EAR>j$`rBWTuXr{5H|Uhb7W`O+>;ON8TWNcn5^}tPy%Xz+PoV(lyVcyL%4-Ct()0TjoY24r^Z=VrCY0A@pmO`O{~a8|GNLd!!6TK!j---Crr4J&Kv`)=h9@T=M^(V`Z3>{k1pu**tY+Am?6D{^<DEW%k~GE&vF6C!@1&|LJA-X>afuysG$%!{=tQUpFBdIfY<SRQv3d$PQk0{Z%=dt^E%O!s^f')}
+
+def original_default_workflow(name):
+    """Exact installed22 bytes, independent of canonical edits or Git history."""
+    oid,encoded=_ORIGINAL_DEFAULT_WORKFLOWS[name]
+    raw=zlib.decompress(base64.b85decode(encoded))
+    if hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()!=oid:
+        raise AssertionError('original default workflow fixture changed')
+    return raw
+
 
 def historical_metadata_codeql():
     raw = zlib.decompress(base64.b85decode(_HISTORICAL_METADATA_CODEQL))
@@ -103,7 +118,8 @@ def codeql_generation(case, source):
     case.assertEqual(blob(successor.read_text()), policy._RETARGET_RESULTS_WORKFLOW)
     case.assertEqual(blob(pinned.read_text()), policy._PINNED_RESULTS_WORKFLOW)
     case.assertEqual(blob(historical_metadata_codeql()), policy._METADATA_RESULTS_WORKFLOW)
-    case.assertEqual(blob(metadata.read_text()), policy._SCHEDULING_RESULTS_WORKFLOW)
+    case.assertEqual(blob(original_default_workflow('codeql').decode()), policy._SCHEDULING_RESULTS_WORKFLOW)
+    case.assertEqual(blob(metadata.read_text()), policy._BOOLEAN_RESULTS_WORKFLOW)
     helper = metadata.with_name('pr-metadata-context.yml')
     case.assertEqual(blob(helper.read_text()), policy._SCHEDULING_SOURCE_WORKFLOW)
     case.assertIn((blob(metadata.read_text()), blob(helper.read_text())), policy.result_workflow_sources())
@@ -111,7 +127,8 @@ def codeql_generation(case, source):
              policy._RETARGET_RESULTS_WORKFLOW: 'retarget-results',
              policy._PINNED_RESULTS_WORKFLOW: 'pinned-results',
              policy._METADATA_RESULTS_WORKFLOW: 'metadata-pinned-results',
-             policy._SCHEDULING_RESULTS_WORKFLOW: 'scheduling-pinned-results'}
+             policy._SCHEDULING_RESULTS_WORKFLOW: 'scheduling-pinned-results',
+             policy._BOOLEAN_RESULTS_WORKFLOW: 'boolean-scheduling-pinned-results'}
     identity = blob(source)
     case.assertIn(identity, known, 'unreviewed CodeQL workflow cannot inherit omission contracts')
     return known[identity]
@@ -120,9 +137,9 @@ def codeql_generation(case, source):
 def codeql_analyze_condition(case, source):
     generation = codeql_generation(case, source)
     condition = ("needs.select.outputs.metadata_only != 'true' && needs.select.outputs.scan == 'true'"
-                 if generation in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results'}
+                 if generation in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'}
                  else "needs.select.outputs.scan == 'true'")
-    if generation == 'scheduling-pinned-results':
+    if generation in {'scheduling-pinned-results','boolean-scheduling-pinned-results'}:
         intent = "github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics'))"
         condition = "always() && !cancelled() && needs.select.result == 'success' && " + condition + ' && !(' + intent + ')'
     return condition
@@ -149,11 +166,24 @@ def reviewed_package_generation():
             tree[relative] = android._blob(path.read_bytes())
         if android.validate_tree_wiring(tree) != name:
             raise AssertionError('owned Android requires its exact complete generation')
+    if name in ORIGINAL_DEFAULT_GENERATIONS:
+        raw=CODEQL_WORKFLOW.read_bytes()
+        expected={'protected-producer-original-default-v1':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1',
+            'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3'}[name]
+        if (CODEQL_WORKFLOW.is_symlink() or CODEQL_WORKFLOW.stat().st_mode & 0o777 not in {0o444,0o644}
+                or hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()!=expected):
+            raise AssertionError('deployed Repository and CodeQL must be the same exact old or Boolean variant')
     return name
 
 
+def prospective_package_generation(packages):
+    names={row['name'] for row in packages.workflow_generations()}
+    return ('protected-producer-original-default-boolean-v1'
+        if 'protected-producer-original-default-boolean-v1' in names else 'protected-producer-original-default-v1')
+
+
 def prospective_package_tree():
-    """Read the exact six future22 endpoints, independently of active source13."""
+    """Read the exact staged complete tuple without relabelling the installed tuple."""
     spec = importlib.util.spec_from_file_location(
         'prospective_workflow_packages', ROOT / 'tools/repository-checks/package_checks.py')
     packages = importlib.util.module_from_spec(spec)
@@ -174,8 +204,8 @@ def prospective_package_tree():
         raw = path.read_bytes()
         tree[target] = {'mode': '100644', 'type': 'blob',
             'sha': hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()}
-    if packages.validate_tree_wiring(tree) != 'protected-producer-original-default-v1':
-        raise AssertionError('future sources require the complete exact22 generation')
+    if packages.validate_tree_wiring(tree) != prospective_package_generation(packages):
+        raise AssertionError('future sources require their exact complete enrolled generation')
     return packages, tree
 
 
@@ -253,7 +283,7 @@ def sync_condition(legacy, selected, *, setup=False):
     """Admit selected conditions only with an exact complete reviewed caller."""
     if not selected_sync_recipe():
         return legacy
-    installed_empty = reviewed_package_generation() == 'protected-producer-original-default-v1'
+    installed_empty = reviewed_package_generation() in ORIGINAL_DEFAULT_GENERATIONS
     if installed_empty:
         # The extra lane belongs to installed22, never to an older caller just
         # because a newer canonical recipe is staged beside it. Both complete
@@ -281,6 +311,7 @@ def sync_condition(legacy, selected, *, setup=False):
 def assert_project_caller_routing(case, source):
     """Finite successors bind their whole generation and exact project route."""
     templates = (
+        (None, ('protected-producer-original-default-v1',), True),
         ('tools/repository-checks/workflows/npm-consumers/repository-checks.yml',
          ('npm-consumers-v1', 'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1'), False),
         ('tools/repository-checks/workflows/metadata-edits/repository-checks.yml',
@@ -288,10 +319,11 @@ def assert_project_caller_routing(case, source):
         ('tools/repository-checks/workflows/android-owned/repository-checks.yml',
          ('android-owned-npm5-sync-ci-v1',), True),
         ('tools/repository-checks/workflows/producers/repository-checks.yml',
-         METADATA_PRODUCER_GENERATIONS, True),
+         ('protected-producer-original-default-boolean-v1',), True),
     )
     for relative, generations, metadata in templates:
-        if source != (ROOT / relative).read_text(encoding='utf-8'):
+        expected=original_default_workflow('repository-checks').decode() if relative is None else (ROOT/relative).read_text(encoding='utf-8')
+        if source != expected:
             continue
         case.assertIn(reviewed_package_generation(), generations)
         condition = ("needs.route.outputs.package_host_mode == 'full' || "
@@ -299,7 +331,7 @@ def assert_project_caller_routing(case, source):
                      "needs.route.outputs.package_set != '[]'")
         if metadata:
             condition = "needs.route.outputs.metadata_only != 'true' && (" + condition + ")"
-        if reviewed_package_generation() == 'protected-producer-original-default-v1':
+        if reviewed_package_generation() in ORIGINAL_DEFAULT_GENERATIONS:
             condition = "always() && !cancelled() && needs.route.result == 'success' && " + condition
             intent = "github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics'))"
             condition += " && !(" + intent + ")"
@@ -419,7 +451,7 @@ class LightweightWorkflowContracts(unittest.TestCase):
             source = path.read_text(encoding="utf-8")
             self.assertEqual(workflow_events(source)['push']['paths-ignore'], ['**/*.md'])
         source = CODEQL_WORKFLOW.read_text(encoding="utf-8")
-        if codeql_generation(self, source) in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results'}:
+        if codeql_generation(self, source) in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'}:
             # Required context is published for docs; the immutable selector
             # omits both analyzer jobs, rather than omitting the entire check.
             self.assertNotIn('paths-ignore', workflow_events(source)['pull_request'])
@@ -536,8 +568,8 @@ class CodeQLWorkflowContracts(unittest.TestCase):
         generation=codeql_generation(self,self.source)
         local=[action for action in actions if action.startswith('./')]
         self.assertEqual(local,['./.github/workflows/pr-metadata-context.yml']
-                         if generation in {'metadata-pinned-results', 'scheduling-pinned-results'} else [])
-        self.assertEqual(len(actions),8 if generation in {'metadata-pinned-results', 'scheduling-pinned-results'} else
+                         if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'} else [])
+        self.assertEqual(len(actions),8 if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'} else
             7 if generation in {'results','retarget-results','pinned-results'} else 5)
         self.assertEqual([action for action in actions if action not in local and not FULL_SHA_ACTION.fullmatch(action)], [])
         codeql = [action for action in actions if action.startswith("github/codeql-action/")]
@@ -571,7 +603,7 @@ class CodeQLWorkflowContracts(unittest.TestCase):
         aggregate = self.source.split('  codeql-checks:', 1)[1]
         self.assertIn('if: always()', aggregate)
         self.assertIn('needs: [select, analyze]', aggregate)
-        selected = codeql_generation(self, self.source) in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results'}
+        selected = codeql_generation(self, self.source) in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'}
         job = workflow_data(self.source)['jobs']['codeql-checks']
         self.assertEqual(job['if'], "always() && (needs.select.result != 'success' || needs.select.outputs.metadata_only != 'true')"
                          if selected else 'always()')
@@ -591,7 +623,7 @@ class CodeQLWorkflowContracts(unittest.TestCase):
 
 
     def test_selected_results_are_independent_and_cannot_bypass_the_truth_table(self):
-        if codeql_generation(self, self.source) not in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results'}:
+        if codeql_generation(self, self.source) not in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'}:
             self.skipTest("Selected-result generation is covered by its staged workflow contracts")
         workflow = workflow_data(self.source)
         job = workflow['jobs']['codeql-checks']
@@ -700,6 +732,12 @@ class HistoricalMetadataCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
 
 
 class SchedulingCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
+    @classmethod
+    def setUpClass(cls):
+        cls.source = original_default_workflow('codeql').decode()
+
+
+class BooleanSchedulingCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
     @classmethod
     def setUpClass(cls):
         cls.source = (ROOT / 'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml').read_text()
@@ -926,7 +964,7 @@ class BranchGovernanceWorkflowContracts(unittest.TestCase):
             'staged_sync_packages', ROOT / 'tools/repository-checks/package_checks.py')
         packages = importlib.util.module_from_spec(spec); spec.loader.exec_module(packages)
         packages, tree = prospective_package_tree()
-        self.assertEqual(packages.validate_tree_wiring(tree), 'protected-producer-original-default-v1')
+        self.assertEqual(packages.validate_tree_wiring(tree), prospective_package_generation(packages))
         self.assertIn('protected-producer-original-default-v1', SELECTED_SYNC_GENERATIONS)
         self.assertIn(reviewed_package_generation(), SELECTED_SYNC_GENERATIONS)
         deployed = next(row for row in packages.workflow_generations()
@@ -950,8 +988,12 @@ class BranchGovernanceWorkflowContracts(unittest.TestCase):
         self.assertEqual(packages.validate_tree_wiring(deployed), generation)
         product = "steps.select.outputs.lane != 'legacy-bounded'"
         setup = "steps.select.outputs.full_host == 'true'"
-        if generation == 'protected-producer-original-default-v1':
-            self.assertEqual(deployed, future)
+        if generation in ORIGINAL_DEFAULT_GENERATIONS:
+            expected={path:dict(entry) for path,entry in future.items()}
+            if generation=='protected-producer-original-default-v1':
+                expected['.github/workflows/repository-checks.yml']={'mode':'100644','type':'blob',
+                    'sha':'81bcf1933edc435826e2de411a777cccd4dec7c7'}
+            self.assertEqual(deployed, expected)
             self.assertEqual(SYNC_VALIDATION_WORKFLOW.read_bytes(),
                 (ROOT / 'tools/repository-checks/workflows/sync-ci-selection.yml').read_bytes())
             product += " && steps.select.outputs.lane != 'verified-empty'"
@@ -1269,7 +1311,7 @@ def assert_reviewed_host_selection(case, source):
         identity = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
         matches = {row['name'] for row in packages.workflow_generations()
                    if row['workflows']['.github/workflows/project-tests.yml']['sha'] == identity}
-        allowed = ({'protected-producer-original-default-v1'} if platform_owner else
+        allowed = (set(ORIGINAL_DEFAULT_GENERATIONS) if platform_owner else
                    set(PROTECTED_GENERATIONS) if protected_owner else {'android-owned-npm5-sync-ci-v1'})
         case.assertTrue(matches & allowed, 'host template requires an exact reviewed Git blob')
         if source == WORKFLOW.read_text(encoding='utf-8'):
@@ -1374,11 +1416,14 @@ class ProjectWorkflowContracts(unittest.TestCase):
         for generation, caller_path, project_path in (
                 ('npm-consumers-sync-ci-v1', 'npm-consumers/repository-checks.yml', 'host/project-tests.yml'),
                 ('protected-producer-original-default-v1', 'producers/repository-checks.yml',
+                 'producers/protected-project-tests-android-platform.yml'),
+                ('protected-producer-original-default-boolean-v1', 'producers/repository-checks.yml',
                  'producers/protected-project-tests-android-platform.yml')):
             with self.subTest(generation=generation):
                 recipes = {}
                 for endpoint, relative in (('repository-checks', caller_path), ('project-tests', project_path)):
-                    raw = (ROOT / 'tools/repository-checks/workflows' / relative).read_bytes()
+                    raw = (original_default_workflow('repository-checks') if generation=='protected-producer-original-default-v1' and endpoint=='repository-checks'
+                        else (ROOT / 'tools/repository-checks/workflows' / relative).read_bytes())
                     self.assertEqual(generations[generation]['.github/workflows/' + endpoint + '.yml'],
                                      {'mode': '100644', 'type': 'blob',
                                       'sha': hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()})
@@ -1410,7 +1455,7 @@ class ProjectWorkflowContracts(unittest.TestCase):
         spec.loader.exec_module(packages)
         packages, tree = prospective_package_tree()
         generation = packages.validate_tree_wiring(tree)
-        self.assertEqual(generation, 'protected-producer-original-default-v1')
+        self.assertEqual(generation, prospective_package_generation(packages))
         historical = next(row for row in packages.workflow_generations()
                           if row['name'] == 'protected-producer-seven-target-ci-v1')
         self.assertEqual(packages.validate_tree_wiring(historical['workflows']), historical['name'])
@@ -1532,7 +1577,7 @@ class ProjectWorkflowContracts(unittest.TestCase):
         final = jobs['project-results']
         self.assertEqual(final['if'], 'always()')
         expected_needs = {'route', 'project-tests', 'tool-dependencies', 'package-checks'}
-        if reviewed_package_generation() == 'protected-producer-original-default-v1':
+        if reviewed_package_generation() in ORIGINAL_DEFAULT_GENERATIONS:
             expected_needs.add('platform-tests')
         self.assertEqual(set(final['needs']), expected_needs)
         aggregate = (WORKFLOW_DIRECTORY / 'repository-checks.yml').read_text()
@@ -1640,7 +1685,7 @@ class ProjectWorkflowContracts(unittest.TestCase):
     def test_original22_fallback_namespace_utility_is_owner_selected_without_changing_protected_setup(self):
         expected = {'.github/workflows/project-tests.yml': {'path': 'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml', 'before_oid': 'b540a1f26c3fbe2a60e7b7ecde91d814cfa0060c', 'after_oid': '28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9', 'condition': "steps.protected.outputs.protected_executed != 'true' && steps.host.outputs.requires_artifact_namespace == 'true'", 'selected_step': 'host'}, '.github/workflows/parent-qualification.yml': {'path': 'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml', 'before_oid': '98abf45ca6c475af1e1ac3b20ec20f074048fb64', 'after_oid': '9bfc6f8723b1f59426f913472b78206844a7f201', 'condition': "steps.host.outputs.requires_artifact_namespace == 'true'", 'selected_step': 'host'}, '.github/workflows/sync-validation.yml': {'path': 'tools/repository-checks/workflows/sync-ci-selection.yml', 'before_oid': '50cbb324de358c5f8cd019a8e9b9aed45ea6868d', 'after_oid': '747bd6424d1e9b533ae35a81b524ceefc06b286b', 'condition': "steps.select.outputs.requires_artifact_namespace == 'true'", 'selected_step': 'select'}}
         packages, tree = prospective_package_tree()
-        self.assertEqual(packages.validate_tree_wiring(tree), 'protected-producer-original-default-v1')
+        self.assertEqual(packages.validate_tree_wiring(tree), prospective_package_generation(packages))
         for endpoint, facts in expected.items():
             with self.subTest(endpoint=endpoint):
                 raw = (ROOT / facts['path']).read_bytes()
@@ -1818,7 +1863,7 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
         namespace = [(i, step) for i, step in enumerate(steps)
                      if step.get('name') == 'Install selected artifact namespace utility']
         self.assertEqual(len(namespace), int(reviewed_package_generation() in (
-            'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1', 'protected-producer-original-default-v1')))
+            'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1', *ORIGINAL_DEFAULT_GENERATIONS)))
         if namespace:
             utility_index, utility = namespace[0]
             self.assertEqual(utility['if'], "steps.select.outputs.requires_artifact_namespace == 'true'")
@@ -1913,7 +1958,7 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
         platform = (ROOT / 'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml').read_text()
         platform_owner = source == platform
         if platform_owner:
-            self.assertEqual(reviewed_package_generation(), 'protected-producer-original-default-v1')
+            self.assertIn(reviewed_package_generation(), ORIGINAL_DEFAULT_GENERATIONS)
             self.assertEqual(set(jobs['qualify-parent']['needs']), {'route', 'common-parent', 'platform-tests'})
             self.assertIn('producer_workflow.py parent-verify', jobs['qualify-parent']['steps'][-1]['run'])
         steps = jobs['common-parent' if platform_owner else 'qualify-parent']['steps']
