@@ -37,6 +37,11 @@ It uses normal Select All, input-method commit and Return events, with fresh
 editor/focus observations after replacement. A successful Return reports event
 delivery only. Navigation must still pass the independent scene observations.
 
+Real tablet page-indicator MouseAreas expose `tabletPage.1`, `tabletPage.2`
+and subsequent one-based object names. Activating them follows the original
+pointer handler and changes the ordinary SwipeView. Input must resolve the
+current visible control; a hidden GOTO button is never activated directly.
+
 The existing registered `device-control-plane-full` tablet close check executes
 the actual shared implementation against real Quick Controls editors. Its
 `NativeFieldInputTests` class can also be run separately with
