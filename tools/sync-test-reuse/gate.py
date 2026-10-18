@@ -1535,7 +1535,12 @@ def _dispatch_run(value, run_id, source, correlation, *, allow_pending=False, en
                 "path": ".github/workflows/sync-validation.yml", "event": "workflow_dispatch",
                 "head_branch": "main", "head_sha": source, "display_title": "Sync validation " + correlation}
     for key, wanted in expected.items():
-        if value.get(key) is None:
+        # GitHub initially exposes the workflow name before expanding run-name.
+        # Only this exact observed placeholder may wait; foreign titles remain conflicts.
+        if (key == "display_title" and allow_pending and pending
+                and type(value.get(key)) is str and value[key] == "Sync validation"):
+            missing.append(key)
+        elif value.get(key) is None:
             missing.append(key)
         elif type(value[key]) is not type(wanted) or value[key] != wanted:
             invalid.append(key)
