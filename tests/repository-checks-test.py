@@ -2258,8 +2258,22 @@ class PackageChecksTests(unittest.TestCase):
 
     def test_budget_source23_is_atomic_trusted_only_and_keeps_original22_immutable(self):
         rows = PACKAGES.workflow_generations()
-        self.assertEqual(len(rows), 23)
-        historical = rows[:22]
+        self.assertEqual(len(rows), 24)
+        self.assertEqual(len([row for row in rows
+                              if row['name'] != 'npm-consumers-sync-ci-budget-cleanup-v1']), 23)
+        historical = deepcopy(rows[:22])
+        # Row22 is still unqualified. Its only new endpoint is the exact callback
+        # Sync recipe; prove all six real descriptors before retaining the old
+        # historical whole-catalog hash with that one declared normalization.
+        pending = historical[21]
+        self.assertEqual(pending['name'], 'protected-producer-original-default-v1')
+        original_workflows = {'.github/workflows/project-tests.yml': {'mode': '100644', 'type': 'blob', 'sha': '28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9'}, '.github/workflows/parent-qualification.yml': {'mode': '100644', 'type': 'blob', 'sha': '9bfc6f8723b1f59426f913472b78206844a7f201'}, '.github/workflows/sync-validation.yml': {'mode': '100644', 'type': 'blob', 'sha': 'fb8b8645f229d924cfebb068ea124ac5910a483e'}, '.github/workflows/repository-checks.yml': {'mode': '100644', 'type': 'blob', 'sha': '81bcf1933edc435826e2de411a777cccd4dec7c7'}, '.github/workflows/browser-client.yml': {'mode': '100644', 'type': 'blob', 'sha': '8f6e3e009e201ce6c9980f4f23ff4a994588bb9d'}, '.github/workflows/pr-metadata-context.yml': {'mode': '100644', 'type': 'blob', 'sha': 'b76ade9fd7a76da21bf2cb2161deae7a262163e8'}}
+        expected_pending = deepcopy(original_workflows)
+        expected_pending['.github/workflows/sync-validation.yml'] = {
+            'mode':'100644','type':'blob','sha':'747bd6424d1e9b533ae35a81b524ceefc06b286b'}
+        self.assertEqual(pending['workflows'], expected_pending)
+        pending['workflows']['.github/workflows/sync-validation.yml'] = deepcopy(
+            original_workflows['.github/workflows/sync-validation.yml'])
         self.assertEqual(hashlib.sha256(json.dumps(historical, sort_keys=True,
             separators=(',', ':')).encode()).hexdigest(), '0379905b7f40d15235f27a15d24cb24a2696c2c53d683931cbe6d5935cf7bfd1')
         source = next(row for row in rows if row['name'] == 'npm-consumers-sync-ci-v1')
@@ -2318,6 +2332,40 @@ class PackageChecksTests(unittest.TestCase):
             'id':PACKAGES.REPOSITORY_ID},'generations':over}).encode()
         with patch.object(PACKAGES,'_trusted_bytes',return_value=raw), self.assertRaises(ValueError):
             PACKAGES.workflow_generations()
+
+
+    def test_callback_source24_is_one_exact_five_endpoint_successor_without_native_authority(self):
+        rows = PACKAGES.workflow_generations()
+        self.assertEqual(len(rows), 24)
+        self.assertEqual(rows[-1]['name'], 'npm-consumers-sync-ci-budget-cleanup-v1')
+        previous = next(row for row in rows if row['name']=='npm-consumers-sync-ci-budget-v1')
+        callback = rows[-1]
+        self.assertEqual(set(callback['workflows']), set(PACKAGES.CONSUMER_WORKFLOW_PATHS))
+        sync = '.github/workflows/sync-validation.yml'
+        self.assertEqual([path for path in callback['workflows']
+                          if callback['workflows'][path] != previous['workflows'][path]], [sync])
+        self.assertEqual(previous['workflows'][sync], {'mode':'100644','type':'blob',
+            'sha':'cff76b696a4afd8658329a02ab33032672f292b9'})
+        self.assertEqual(callback['workflows'][sync], {'mode':'100644','type':'blob',
+            'sha':'ccc75d37c4f8b5012299bf864bf48dd45ead389b'})
+        self.assertEqual(PACKAGES.validate_tree_wiring(callback['workflows']), callback['name'])
+        self.assertNotIn(callback['name'], PACKAGES._PROTECTED_ROUTE_GENERATIONS)
+        old_catalog = json.dumps({'schema':1,'repository':{'full_name':PACKAGES.REPOSITORY,
+            'id':PACKAGES.REPOSITORY_ID},'generations':rows[:-1]}).encode()
+        with patch.object(PACKAGES, '_trusted_bytes', return_value=old_catalog):
+            self.assertEqual(PACKAGES.validate_tree_wiring(previous['workflows']), previous['name'])
+            with self.assertRaises(ValueError): PACKAGES.validate_tree_wiring(callback['workflows'])
+        for change in ('mixed', 'missing', 'unknown', 'executable', 'alias', 'submodule'):
+            tree = deepcopy(callback['workflows'])
+            if change=='mixed': tree[sync] = deepcopy(previous['workflows'][sync])
+            elif change=='missing': del tree['.github/workflows/project-tests.yml']
+            elif change=='unknown': tree[sync]['sha'] = 'f'*40
+            elif change in ('executable','alias'): tree[sync]['mode'] = '100755' if change=='executable' else '120000'
+            else: tree[sync]['type'] = 'commit'
+            with self.subTest(change=change):
+                if change=='mixed': self.assertEqual(PACKAGES.validate_tree_wiring(tree), previous['name'])
+                else:
+                    with self.assertRaises(ValueError): PACKAGES.validate_tree_wiring(tree)
 
 
 class NpmConsumerSelectionTests(unittest.TestCase):
@@ -2911,8 +2959,17 @@ class VerifiedEmptyCandidateTests(unittest.TestCase):
         git('config','user.email','fixture@example.invalid')
         selected=next(row for row in PACKAGES.workflow_generations() if row['name']==generation)
         historical = historical_workflow_bytes()
+        # New exact active/canonical recipe bytes need no historical Git object.
+        available = {}
+        paths = list((ROOT/'tools/repository-checks/workflows').rglob('*.yml'))
+        paths += list((ROOT/'.github/workflows').glob('*.yml'))
+        for path in paths:
+            if path.is_file() and not path.is_symlink() and not path.stat().st_mode & 0o111:
+                raw = path.read_bytes()
+                available[hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()] = raw
         for name,entry in selected['workflows'].items():
             raw = historical.get(entry['sha'])
+            if raw is None: raw = available.get(entry['sha'])
             if raw is None:
                 raw=subprocess.check_output(['git','cat-file','blob',entry['sha']],cwd=ROOT)
             self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),entry['sha'])

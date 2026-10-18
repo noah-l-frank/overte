@@ -606,7 +606,7 @@
         ".github/workflows/sync-validation.yml": {
           "mode": "100644",
           "type": "blob",
-          "sha": "fb8b8645f229d924cfebb068ea124ac5910a483e"
+          "sha": "747bd6424d1e9b533ae35a81b524ceefc06b286b"
         },
         ".github/workflows/repository-checks.yml": {
           "mode": "100644",
@@ -642,6 +642,36 @@
           "mode": "100644",
           "type": "blob",
           "sha": "cff76b696a4afd8658329a02ab33032672f292b9"
+        },
+        ".github/workflows/repository-checks.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "7f7ec83f15581ebc9cd693201aac1d8cd77d944f"
+        },
+        ".github/workflows/browser-client.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "8f6e3e009e201ce6c9980f4f23ff4a994588bb9d"
+        }
+      }
+    },
+    {
+      "name": "npm-consumers-sync-ci-budget-cleanup-v1",
+      "workflows": {
+        ".github/workflows/project-tests.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "e1e009f489e2bd126d0546f75977dc73c6450dda"
+        },
+        ".github/workflows/parent-qualification.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "2f4aec7f6463801a6deeb443b59977273197ea60"
+        },
+        ".github/workflows/sync-validation.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "ccc75d37c4f8b5012299bf864bf48dd45ead389b"
         },
         ".github/workflows/repository-checks.yml": {
           "mode": "100644",
