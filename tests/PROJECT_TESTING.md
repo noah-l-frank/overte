@@ -169,8 +169,8 @@ Run `tests/device/contracts/graphics/test_render_configuration_traversal.py` and
 for independent toolkit variants. Each selected SDK must provide matching
 development libraries, `pkg-config` files and tools; no fallback is accepted.
 
-The `avatar-pose-native` host suite requires Qt Core development files and real
-GLM headers (`OVERTE_TEST_GLM_INCLUDE` when not installed globally). It compiles
+The same `lod-preferences` native host group also runs the avatar pose regression
+with Qt Core and real GLM headers (`OVERTE_TEST_GLM_INCLUDE` when needed). It compiles
 the production hidden/visible avatar simulation slice, native animation override
 and cancellation, complete manager update, and outbound joint-cache acquisition.
 Rig/model math, rendering and network transport are explicit endpoints. This
