@@ -11,6 +11,8 @@ Flickable {
         availableHeight: graphicsPage.height
     }
 
+    readonly property bool deferredRenderingAvailable: Render.deferredRenderingAvailable
+
     property var verticalScrollBarWidth: 20;
     property bool hasPresetBeenModified: false;
     property bool isChangingPreset: false;
@@ -81,7 +83,7 @@ Flickable {
             optionIndex: Performance.getPerformancePreset() - 1;
             options: ["Low Power", "Low", "Medium", "High", "Custom"];
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 Performance.setPerformancePreset(index + 1);
                 if (index !== 4) switchToAGraphicsPreset();
             }
@@ -98,7 +100,19 @@ Flickable {
         }
 
         SettingBoolean {
+            objectName: "settings.graphics.haze"
+            settingText: "Haze";
+            settingEnabledCondition: () => { return Render.hazeEnabled }
+
+            onSettingEnabledChanged: {
+                Render.hazeEnabled = settingEnabled;
+            }
+        }
+
+        SettingBoolean {
             settingText: "Bloom";
+            visible: graphicsPage.deferredRenderingAvailable
+            height: visible ? 50 : 0
             settingEnabledCondition: () => { return Render.bloomEnabled }
 
             onSettingEnabledChanged: {
@@ -134,6 +148,9 @@ Flickable {
         }
 
         SettingBoolean {
+            objectName: "settings.graphics.deferred"
+            visible: graphicsPage.deferredRenderingAvailable
+            height: visible ? 50 : 0
             settingText: "Deferred Rendering";
             settingEnabledCondition: function () { return Render.renderMethod === 0; }
 
@@ -147,13 +164,15 @@ Flickable {
             wrapMode: Text.Wrap
             font.pixelSize: 16
             color: "white"
-            text: "May affect performance, especially on mobile devices. Not compatible with MSAA. Haze is always enabled when not using deferred rendering."
+            visible: graphicsPage.deferredRenderingAvailable
+            height: visible ? implicitHeight : 0
+            text: "May affect performance. Deferred rendering is not compatible with MSAA."
         }
 
         // Rendering Effects sub options
         AdvancedOptions {
             id: renderingEffectsAdvancedOptions;
-            isEnabled: Render.renderMethod === 0;
+            isEnabled: graphicsPage.deferredRenderingAvailable && Render.renderMethod === 0;
 
             SettingBoolean {
                 settingText: "Shadows";
@@ -173,14 +192,6 @@ Flickable {
                 }
             }
 
-            SettingBoolean {
-                settingText: "Haze";
-                settingEnabledCondition: () => { return Render.hazeEnabled }
-
-                onSettingEnabledChanged: {
-                    Render.hazeEnabled = settingEnabled;
-                }
-            }
         }
 
         SettingSlider {
@@ -191,7 +202,7 @@ Flickable {
             settingValue: Render.verticalFieldOfView.toFixed(1);
             roundDisplay: 0;
 
-            onSliderValueChanged: {
+            onSliderValueChanged: function(value) {
                 Render.verticalFieldOfView = value.toFixed(1);
             }
         }
@@ -203,7 +214,7 @@ Flickable {
             maxValue: 2;
             settingValue: Render.viewportResolutionScale.toFixed(1)
 
-            onSliderValueChanged: {
+            onSliderValueChanged: function(value) {
                 Render.viewportResolutionScale = value.toFixed(1)
             }
         }
@@ -235,7 +246,7 @@ Flickable {
 
             Component.onCompleted: syncFromSettings()
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 if (!initialized || scales[index] ===
                         Number(Settings.getValue("pico/renderScale", 0.80))) {
                     return
@@ -289,12 +300,15 @@ Flickable {
         }
 
         SettingComboBox {
+            objectName: "settings.graphics.antialiasing"
+            visible: graphicsPage.deferredRenderingAvailable
+            height: visible ? 50 : 0
             settingText: "Anti-aliasing";
             optionIndex: Render.antialiasingMode;
             options: ["None", "TAA", "FXAA"];
             disabled: Render.renderMethod;
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 Render.antialiasingMode = index;
             }
 
@@ -313,7 +327,7 @@ Flickable {
             options: ["Low Detail", "Medium Detail",  "High Detail" ];
             optionIndex: LODManager.worldDetailQuality;
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 LODManager.worldDetailQuality = index;
             }
 
@@ -327,7 +341,7 @@ Flickable {
             options: ["Economical", "Interactive", "Real-Time", "Custom"];
             optionIndex: Performance.getRefreshRateProfile();
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 Performance.setRefreshRateProfile(index);
                 fpsAdvancedOptions.isEnabled = index == 3;
             }
@@ -344,7 +358,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(0)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(0, value);
                 }
             }
@@ -356,7 +370,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(1)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(1, value);
                 }
             }
@@ -368,7 +382,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(2)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(2, value);
                 }
             }
@@ -380,7 +394,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(3)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(3, value);
                 }
             }
@@ -392,7 +406,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(4)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(4, value);
                 }
             }
@@ -404,7 +418,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(5)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(5, value);
                 }
             }
@@ -427,7 +441,7 @@ Flickable {
                 }
             }
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 Render.setFullScreenScreen(optionText);
             }
         }

@@ -689,7 +689,7 @@
     },
     "lod-preferences": {
       "kind": "reviewed-product-inventory",
-      "definition_digest": "sha256:ec1963fe23a614d99cd57b53fe58e3df0352ee9c3c9fdfb61e1cd59770947524",
+      "definition_digest": "sha256:be7e2d76b4c68cfba85dfbe8806085401f9b6eed752a6e679d70869fa0890d02",
       "setup": [
         "host-full"
       ]
@@ -865,9 +865,16 @@
       "setup": [
         "host-full"
       ]
+    },
+    "avatar-pose-native": {
+      "kind": "repository",
+      "definition_digest": "sha256:59f526652797a070e67c1861250704c354526b0089edea3a2d84824ace271e25",
+      "setup": [
+        "host-full"
+      ]
     }
   },
-  "registry_digest": "sha256:8c4cbcb61837aa46e50e8af9df71d78e828f19c15012edcf5f0501500f6056ad",
+  "registry_digest": "sha256:e4eae34b64ae18c6b702f1ea95a11dd0b836dc7c19af946006d62fa6ecf33129",
   "lookup_digest": "sha256:03ae433044c9e3f28611f14c5ad3f87f8f368a77ca45316134be7ef0186a0557",
   "targets": {
     "android-main": {
