@@ -1597,22 +1597,56 @@ void Application::loadSettings(const QCommandLineParser& parser) {
     }
 
     // Load settings of the RenderScritpingInterface
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    // Snapshot presence before loadSettings materializes default Render values.
+    // Existing user choices take precedence over automatic startup presets.
+    Settings picoGraphicsSettings;
+    const QStringList picoGraphicsPreferenceKeys {
+        "renderMethod", "shadowsEnabled", "hazeEnabled", "bloomEnabled",
+        "ambientOcclusionEnabled", "localLightingEnabled", "proceduralMaterialsEnabled",
+        "mirrorsEnabled", "antialiasingMode", "viewportResolutionScale", "fullScreenScreen",
+        "performancePreset", "refreshRateProfile", "customRefreshRateFocusActive",
+        "customRefreshRateFocusInactive", "customRefreshRateUnfocus", "customRefreshRateMinimized",
+        "customRefreshRateStartup", "customRefreshRateShutdown", "lodManager/desktopWorldDetailQuality",
+        "lodManager/hmdWorldDetailQuality", "lodManager/automaticLODAdjust", "lodManager/lodHalfAngle"
+    };
+    QStringList picoSavedGraphicsKeys;
+    for (const auto& key : picoGraphicsPreferenceKeys) {
+        if (picoGraphicsSettings.contains(key)) {
+            picoSavedGraphicsKeys.append(key);
+        }
+    }
+#endif
     // Do that explicitely before being used
     RenderScriptingInterface::getInstance()->loadSettings();
 
     // Setup the PerformanceManager which will enforce the several settings to match the Preset
     // On the first run, the Preset is evaluated from the
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    if (!picoSavedGraphicsKeys.isEmpty()) {
+        // A legacy/partial settings file may have no preset. Treat its saved
+        // graphics choices as custom instead of overwriting them with a tier.
+        if (getPerformanceManager().getPerformancePreset() == PerformanceManager::UNKNOWN) {
+            getPerformanceManager().setPerformancePreset(PerformanceManager::CUSTOM);
+        }
+    } else {
+        getPerformanceManager().setupPerformancePresetSettings(_firstRun.get());
+    }
+#else
     getPerformanceManager().setupPerformancePresetSettings(_firstRun.get());
+#endif
 
 #if defined(Q_OS_ANDROID)
     auto renderSettings = RenderScriptingInterface::getInstance();
-    // Standalone headsets need a predictable baseline. The desktop platform
-    // tier can otherwise enable these passes even though Pico has no UI
-    // controls exposing the individual settings.
+#if !defined(ANDROID_APP_PICO_INTERFACE)
+    // Retain the shared Android baseline for other interfaces. Pico applies
+    // defaults only to unset preferences below, preserving its graphics UI.
     renderSettings->setShadowsEnabled(false);
     renderSettings->setBloomEnabled(false);
     renderSettings->setAmbientOcclusionEnabled(false);
     DependencyManager::get<LODManager>()->setWorldDetailQuality(WORLD_DETAIL_LOW);
+
+#endif
 
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     // Phones are passively cooled and share system/GPU memory. Prefer a
@@ -1724,82 +1758,87 @@ void Application::loadSettings(const QCommandLineParser& parser) {
 #endif
 
 #if defined(ANDROID_APP_PICO_INTERFACE)
-    // Opt-in, process-start power profile for controlled Pico A/B tests. It
-    // deliberately leaves viewport and OpenXR swapchain resolution unchanged.
-    // adb shell setprop debug.overte.power_profile 1
-    char picoPowerProfileValue[PROP_VALUE_MAX] {};
-    const QString picoPowerProfile = __system_property_get(
-        "debug.overte.power_profile", picoPowerProfileValue) > 0
-        ? QString::fromLatin1(picoPowerProfileValue).trimmed().toLower()
-        : QString();
-    const bool picoPowerProfileEnabled = picoPowerProfile == "1" ||
-        picoPowerProfile == "on" || picoPowerProfile == "enabled";
-    const auto picoBoolOverride = [](const char* property, bool fallback) {
-        char value[PROP_VALUE_MAX] {};
-        if (__system_property_get(property, value) <= 0) {
-            return fallback;
-        }
-        const QString requested = QString::fromLatin1(value).trimmed().toLower();
-        if (requested == "1" || requested == "on" || requested == "true" || requested == "enabled") {
-            return true;
-        }
-        if (requested == "0" || requested == "off" || requested == "false" || requested == "disabled") {
-            return false;
-        }
-        return fallback;
-    };
-    const bool shadowsEnabled = picoBoolOverride("debug.overte.shadows", false);
-    const bool bloomEnabled = picoBoolOverride("debug.overte.bloom", false);
-    const bool ambientOcclusionEnabled = picoBoolOverride("debug.overte.ambient_occlusion", false);
-    const bool hazeEnabled = picoBoolOverride("debug.overte.haze", !picoPowerProfileEnabled);
-    const bool localLightsEnabled = picoBoolOverride("debug.overte.local_lights", !picoPowerProfileEnabled);
-    const bool proceduralMaterialsEnabled = picoBoolOverride(
-        "debug.overte.procedural_materials", !picoPowerProfileEnabled);
-    const bool mirrorViewsEnabled = picoBoolOverride("debug.overte.mirror_views", !picoPowerProfileEnabled);
-
-    renderSettings->setShadowsEnabled(shadowsEnabled);
-    renderSettings->setBloomEnabled(bloomEnabled);
-    renderSettings->setAmbientOcclusionEnabled(ambientOcclusionEnabled);
-    renderSettings->setHazeEnabled(hazeEnabled);
-    renderSettings->setLocalLightingEnabled(localLightsEnabled);
-    renderSettings->setProceduralMaterialsEnabled(proceduralMaterialsEnabled);
-    renderSettings->setAntialiasingMode(AntialiasingSetupConfig::Mode::NONE);
-    int disabledMirrorViews { 0 };
-    if (!mirrorViewsEnabled) {
-        renderSettings->setRenderMethod(RenderScriptingInterface::RenderMethod::FORWARD);
-
-        // Do not render recursive world mirrors. The normal main stereo view
-        // remains untouched; mirror surfaces simply retain their fallback.
-        auto renderConfig = qApp->getRenderEngine()->getConfiguration();
-        const QStringList viewNames { "RenderMainView", "RenderSecondView" };
-        for (const auto& viewName : viewNames) {
-            constexpr size_t MIRROR_VIEWS_PER_LEVEL { 3 };
-            for (size_t mirrorIndex = 0; mirrorIndex < MIRROR_VIEWS_PER_LEVEL; ++mirrorIndex) {
-                const QString mirrorName = viewName + ".RenderMirrorView" +
-                    QString::number(mirrorIndex) + "Depth0";
-                if (auto mirrorConfig = renderConfig->getConfig(mirrorName)) {
-                    if (mirrorConfig->setProperty("enabled", false)) {
-                        ++disabledMirrorViews;
-                    }
-                }
-            }
-        }
-    } else {
-        // Restore the known Pico baseline after an A/B profile run. The public
-        // render setters persist values, so leaving this implicit would make a
-        // later "profile off" run inherit parts of the power profile.
+    // Apply the Pico baseline only to preferences absent at startup. Keep
+    // first-run defaults and explicit preset/user choices across restarts.
+    if (!picoSavedGraphicsKeys.contains("shadowsEnabled")) { renderSettings->setShadowsEnabled(false); }
+    if (!picoSavedGraphicsKeys.contains("bloomEnabled")) { renderSettings->setBloomEnabled(false); }
+    if (!picoSavedGraphicsKeys.contains("ambientOcclusionEnabled")) { renderSettings->setAmbientOcclusionEnabled(false); }
+    if (!picoSavedGraphicsKeys.contains("renderMethod")) {
         renderSettings->setRenderMethod(RenderScriptingInterface::RenderMethod::FORWARD);
     }
-    qCInfo(interfaceapp) << "PICO_POWER_PROFILE" << (picoPowerProfileEnabled ? "enabled" : "disabled")
-                         << "renderScale" << renderSettings->getViewportResolutionScale()
-                         << "forward" << (renderSettings->getRenderMethod() == RenderScriptingInterface::RenderMethod::FORWARD)
-                         << "shadows" << renderSettings->getShadowsEnabled()
-                         << "haze" << renderSettings->getHazeEnabled()
-                         << "bloom" << renderSettings->getBloomEnabled()
-                         << "ambientOcclusion" << renderSettings->getAmbientOcclusionEnabled()
-                         << "localLights" << renderSettings->getLocalLightingEnabled()
-                         << "proceduralMaterials" << renderSettings->getProceduralMaterialsEnabled()
-                         << "disabledMirrorViews" << disabledMirrorViews;
+    if (!picoSavedGraphicsKeys.contains("antialiasingMode")) {
+        renderSettings->setAntialiasingMode(AntialiasingSetupConfig::Mode::NONE);
+    }
+    const QString picoWorldDetailKey = qApp->isHMDMode()
+        ? "lodManager/hmdWorldDetailQuality" : "lodManager/desktopWorldDetailQuality";
+    if (!picoSavedGraphicsKeys.contains(picoWorldDetailKey)) {
+        DependencyManager::get<LODManager>()->setWorldDetailQuality(WORLD_DETAIL_LOW);
+    }
+
+    // Process-start A/B overrides change the effective pipeline, never the
+    // saved user preferences. Removing the properties restores them next run.
+    // Do not call loadSettings() inside this write-only override scope.
+    {
+        RenderScriptingInterface::ScopedSettingsOverride picoOverrides(*renderSettings);
+        char picoPowerProfileValue[PROP_VALUE_MAX] {};
+        const QString picoPowerProfile = __system_property_get(
+            "debug.overte.power_profile", picoPowerProfileValue) > 0
+            ? QString::fromLatin1(picoPowerProfileValue).trimmed().toLower()
+            : QString();
+        const bool picoPowerProfileEnabled = picoPowerProfile == "1" ||
+            picoPowerProfile == "on" || picoPowerProfile == "enabled";
+        const auto picoBoolOverride = [](const char* property, bool fallback) {
+            char value[PROP_VALUE_MAX] {};
+            if (__system_property_get(property, value) <= 0) {
+                return fallback;
+            }
+            const QString requested = QString::fromLatin1(value).trimmed().toLower();
+            if (requested == "1" || requested == "on" || requested == "true" || requested == "enabled") {
+                return true;
+            }
+            if (requested == "0" || requested == "off" || requested == "false" || requested == "disabled") {
+                return false;
+            }
+            return fallback;
+        };
+        const bool shadowsEnabled = picoBoolOverride("debug.overte.shadows",
+            picoPowerProfileEnabled ? false : renderSettings->getShadowsEnabled());
+        const bool bloomEnabled = picoBoolOverride("debug.overte.bloom",
+            picoPowerProfileEnabled ? false : renderSettings->getBloomEnabled());
+        const bool ambientOcclusionEnabled = picoBoolOverride("debug.overte.ambient_occlusion",
+            picoPowerProfileEnabled ? false : renderSettings->getAmbientOcclusionEnabled());
+        const bool hazeEnabled = picoBoolOverride("debug.overte.haze",
+            picoPowerProfileEnabled ? false : renderSettings->getHazeEnabled());
+        const bool localLightsEnabled = picoBoolOverride("debug.overte.local_lights",
+            picoPowerProfileEnabled ? false : renderSettings->getLocalLightingEnabled());
+        const bool proceduralMaterialsEnabled = picoBoolOverride(
+            "debug.overte.procedural_materials",
+            picoPowerProfileEnabled ? false : renderSettings->getProceduralMaterialsEnabled());
+        const bool mirrorViewsEnabled = picoBoolOverride("debug.overte.mirror_views",
+            picoPowerProfileEnabled ? false : renderSettings->getMirrorsEnabled());
+
+        renderSettings->setShadowsEnabled(shadowsEnabled);
+        renderSettings->setBloomEnabled(bloomEnabled);
+        renderSettings->setAmbientOcclusionEnabled(ambientOcclusionEnabled);
+        renderSettings->setHazeEnabled(hazeEnabled);
+        renderSettings->setLocalLightingEnabled(localLightsEnabled);
+        renderSettings->setProceduralMaterialsEnabled(proceduralMaterialsEnabled);
+        renderSettings->setMirrorsEnabled(mirrorViewsEnabled);
+        if (picoPowerProfileEnabled) {
+            renderSettings->setAntialiasingMode(AntialiasingSetupConfig::Mode::NONE);
+            renderSettings->setRenderMethod(RenderScriptingInterface::RenderMethod::FORWARD);
+        }
+        qCInfo(interfaceapp) << "PICO_POWER_PROFILE" << (picoPowerProfileEnabled ? "enabled" : "disabled")
+                             << "renderScale" << renderSettings->getViewportResolutionScale()
+                             << "forward" << (renderSettings->getRenderMethod() == RenderScriptingInterface::RenderMethod::FORWARD)
+                             << "shadows" << renderSettings->getShadowsEnabled()
+                             << "haze" << renderSettings->getHazeEnabled()
+                             << "bloom" << renderSettings->getBloomEnabled()
+                             << "ambientOcclusion" << renderSettings->getAmbientOcclusionEnabled()
+                             << "localLights" << renderSettings->getLocalLightingEnabled()
+                             << "proceduralMaterials" << renderSettings->getProceduralMaterialsEnabled()
+                             << "mirrorViews" << renderSettings->getMirrorsEnabled();
+    }
 #endif
 #endif
 
