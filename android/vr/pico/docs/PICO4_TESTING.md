@@ -144,7 +144,7 @@ The actual Activity, host, common input-gate and picker journey is a separately
 executed prepared-host check: five scenarios on API 26 and 35 produce ten JUnit
 cases. It requires Java 21, Gradle 8.13, Robolectric 4.16.1 with the actual API
 26/35 instrumented runtime JARs, and the real SDK 36, Qt and AndroidX inputs
-below. Neither the 40-case Pico catalog nor the currently registered 61-suite
+below. Neither the 40-case Pico catalog nor the currently registered 60-suite
 project host profile runs it automatically. Automatic standard-path wiring
 remains pending; record this result separately from the normal host result.
 
