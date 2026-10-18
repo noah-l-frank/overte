@@ -70,6 +70,8 @@ public final class EmbeddedWebView {
         nativeForeground(foreground);
         for (Instance instance : new ArrayList<>(VIEWS.values())) {
             instance.document.grant(nativeLifecycleRevision(instance.handle));
+            if (foreground && !instance.destroyedDocument) instance.prepareResources(instance.view.getUrl());
+            else instance.resources.revoke();
             if (!foreground) { instance.suspend(); }
             else if (instance.visible) { if (instance.destroyedDocument) instance.reportSuspended();
                 else { instance.view.setVisibility(View.VISIBLE); instance.view.onResume(); instance.authorize(); instance.armTexture(); instance.commitAudio(); instance.publish(); } }
@@ -114,8 +116,11 @@ public final class EmbeddedWebView {
     private static native void nativeResult(long handle, long grant, long page, long request, String json);
     private static native void nativeCreated(long handle, long revision, boolean created);
     private static native void nativeFrame(long handle, long grant, long page, ByteBuffer pixels, int width, int height);
-    private static native byte[] nativeResource(long handle, long grant, String url);
-    private static native String nativeResourceMime(long handle, long grant, String url);
+    private static native long nativeBeginResourceLoad(long handle, long creation, long grant, long page, String document);
+    private static native boolean nativeBindResourcePage(long handle, long creation, long grant, long load, long pendingPage, long actualPage, String document);
+    private static native boolean nativeResourceCurrent(long handle, long creation, long grant, long load, long page);
+    private static native WebResourceLease.Response nativeRequest(long handle, long creation, long grant, long load, long page,
+                                                                 String url, boolean mainFrame, String method);
 
     private interface Command { void run(Instance instance); }
     private static void post(long handle, Command command) { post(handle, command, false); }
@@ -190,6 +195,7 @@ public final class EmbeddedWebView {
                     instance.clip = new Rect(clipX, clipY, clipX + clipWidth, clipY + clipHeight);
                     instance.resize(width, height);
                     VIEWS.put(handle, instance);
+                    if (!instance.prepareResources(url)) throw new IllegalStateException("Resource lease denied");
                     instance.configureBridge(url);
                     view.setWebViewClient(instance.client);
                     view.setWebChromeClient(instance.chrome);
@@ -241,11 +247,17 @@ public final class EmbeddedWebView {
             }
         });
     }
-    public static void revoke(long handle) { post(handle, instance -> instance.suspend(), true); }
+    public static void revoke(long handle) {
+        Instance expected = VIEWS.get(handle); if (expected != null) expected.resources.revoke();
+        post(handle, instance -> instance.suspend(), true);
+    }
     public static void destroyExpected(long handle, long creationRevision) {
         post(handle, instance -> { if (instance.creationRevision == creationRevision) destroyOnMain(handle); }, true);
     }
-    public static void destroy(long handle) { MAIN.post(() -> destroyOnMain(handle)); }
+    public static void destroy(long handle) {
+        Instance expected = VIEWS.get(handle); if (expected != null) expected.resources.revoke();
+        MAIN.post(() -> destroyOnMain(handle));
+    }
     private static void destroyAll() {
         requireMain(); for (long handle : new ArrayList<>(CREATING.keySet())) destroyOnMain(handle);
         for (long handle : new ArrayList<>(VIEWS.keySet())) destroyOnMain(handle);
@@ -255,6 +267,7 @@ public final class EmbeddedWebView {
         if (pending != null && pending.renderer != null) pending.renderer.close();
         Instance instance = VIEWS.remove(handle);
         if (instance == null) { if (pending != null) nativeCreated(handle,pending.revision,false); return; }
+        instance.resources.revoke();
         instance.active = false; instance.closing = true; instance.audio.suspend(); instance.document.close();
         if (!instance.destroyedDocument) instance.cancelInput();
         if (instance.renderer != null) instance.renderer.close();
@@ -273,7 +286,7 @@ public final class EmbeddedWebView {
             if (!instance.audio.suspend()) return;
             instance.cancelInput();
             if (instance.renderer != null) instance.renderer.invalidate(); instance.configureBridge(url);
-            instance.view.loadUrl(url);
+            if (instance.prepareResources(url)) instance.view.loadUrl(url);
         }, true);
     }
     public static void visibility(long handle, long grant, boolean visible) {
@@ -281,6 +294,8 @@ public final class EmbeddedWebView {
             WebLifecycleDispatch.apply(instance, VIEWS.get(handle), instance.owner, host.get(),
                 instance.activity, instance.owner.activity(), grant, nativeLifecycleRevision(handle), () -> {
             instance.document.grant(grant); instance.document.visible(visible); instance.visible = visible;
+            if (visible && !instance.destroyedDocument) instance.prepareResources(instance.view.getUrl());
+            else instance.resources.revoke();
             if (instance.destroyedDocument) { instance.reportSuspended(); return; }
             if (!visible) {
                 instance.suspend();
@@ -324,26 +339,46 @@ public final class EmbeddedWebView {
     public static void stop(long handle) { post(handle, instance -> { if (!instance.destroyedDocument) { instance.view.stopLoading(); instance.loading = false; instance.publish(); } }); }
     public static void reload(long handle) { navigationInput(handle, instance -> {
         if (instance.destroyedDocument) { instance.resumeArchive(0); return; }
-        if (instance.beginAudioNavigation(instance.view.getUrl())) { instance.document.begin(instance.document.grant()); instance.view.reload(); }
+        if (instance.beginAudioNavigation(instance.view.getUrl())) { instance.document.begin(instance.document.grant()); if (instance.prepareResources(instance.view.getUrl())) instance.view.reload(); }
     }); }
     public static void goForward(long handle) { navigationInput(handle, instance -> { if (instance.destroyedDocument) { instance.resumeArchive(1); return; }
         if (instance.archive != null) { instance.navigateArchive(1); return; }
-        if (instance.view.canGoForward() && instance.beginAudioNavigation(null)) { instance.document.begin(instance.document.grant()); instance.view.goForward(); } }); }
+        if (instance.view.canGoForward() && instance.beginAudioNavigation(null)) { instance.document.begin(instance.document.grant()); if (instance.prepareResources(instance.view.getUrl())) instance.view.goForward(); } }); }
     public static void reloadAndBypassCache(long handle) { navigationInput(handle, instance -> {
         if (instance.destroyedDocument) { instance.resumeArchive(0); return; }
-        if (instance.beginAudioNavigation(instance.view.getUrl())) { instance.view.clearCache(false); instance.document.begin(instance.document.grant()); instance.view.reload(); }
+        if (instance.beginAudioNavigation(instance.view.getUrl())) { instance.view.clearCache(false); instance.document.begin(instance.document.grant()); if (instance.prepareResources(instance.view.getUrl())) instance.view.reload(); }
     }); }
+    /** Product hosts use the same reserved-origin boundary for OS browser actions. */
+    public static boolean isExternalWebURL(Uri url) {
+        return url != null && ("http".equals(url.getScheme()) || "https".equals(url.getScheme()))
+            && url.getHost() != null && url.getUserInfo() == null
+            && !"overte-embedded.invalid".equalsIgnoreCase(url.getHost())
+            && !WebResourceLease.reservedInlineHost(url.getHost());
+    }
     public static void openNative(long handle) { navigationInput(handle, instance -> {
         String url = instance.destroyedDocument ? instance.fallbackUrl : instance.view.getUrl();
         if (url != null && nativeNavigation(handle, instance.document.grant(), url, true, "GET")
-                && !"overte-embedded.invalid".equals(Uri.parse(url).getHost())) {
+                && isExternalWebURL(Uri.parse(url))) {
             EmbeddedWebHost owner = host.get();
             if (owner != null && !owner.openExternal(Uri.parse(url))) { instance.status = EXTERNAL_UNAVAILABLE; instance.publish(); }
         }
     }); }
     public static void goBack(long handle) { navigationInput(handle, instance -> { if (instance.destroyedDocument) { instance.resumeArchive(-1); return; }
         if (instance.archive != null) { instance.navigateArchive(-1); return; }
-        if (instance.view.canGoBack() && instance.beginAudioNavigation(null)) { instance.document.begin(instance.document.grant()); instance.view.goBack(); } }); }
+        if (instance.view.canGoBack() && instance.beginAudioNavigation(null)) { instance.document.begin(instance.document.grant()); if (instance.prepareResources(instance.view.getUrl())) instance.view.goBack(); } }); }
+    /** Route physical Back through common audio, input, and resource navigation fences. */
+    public static boolean goBack(EmbeddedWebHost expectedOwner, WebView view) {
+        requireMain();
+        if (expectedOwner == null || host.get() != expectedOwner || !expectedOwner.isForeground()
+                || expectedOwner.activity() == null || !expectedOwner.activity().hasWindowFocus()) return false;
+        for (Instance instance : VIEWS.values()) {
+            if (instance.view == view && instance.owner == expectedOwner && instance.activity == expectedOwner.activity()
+                    && instance.active && instance.visible && !instance.destroyedDocument && view.canGoBack()) {
+                goBack(instance.handle); return true;
+            }
+        }
+        return false;
+    }
     public static void evaluate(long handle, long grant, long page, String javascript) {
         post(handle, instance -> {
             if (instance.destroyedDocument || !instance.document.admits(grant, page, true, 1)) return;
@@ -387,6 +422,7 @@ public final class EmbeddedWebView {
         final boolean overlay;
         final String bootstrap, editorBootstrap;
         final WebDocumentState document = new WebDocumentState();
+        final WebResourceLease resources;
         Rect bounds, clip;
         boolean destroyedDocument, closing;
         String fallbackUrl;
@@ -406,6 +442,20 @@ public final class EmbeddedWebView {
                 EmbeddedWebHost owner, Activity activity, WebTextureRenderer renderer) {
             this.handle = handle; this.view = view; this.overlay = overlay; this.bootstrap = bootstrap; this.editorBootstrap = editorBootstrap;
             this.owner = owner; this.activity = activity; this.renderer = renderer;
+            resources = new WebResourceLease(new WebResourceLease.Native() {
+                public long begin(long creation, long grant, long page, String document) {
+                    return nativeBeginResourceLoad(handle, creation, grant, page, document);
+                }
+                public boolean bind(WebResourceLease.Ticket ticket, long actualPage, String document) {
+                    return nativeBindResourcePage(handle, ticket.creation, ticket.grant, ticket.load, ticket.page, actualPage, document);
+                }
+                public boolean current(WebResourceLease.Ticket ticket) {
+                    return nativeResourceCurrent(handle, ticket.creation, ticket.grant, ticket.load, ticket.page);
+                }
+                public WebResourceLease.Response request(WebResourceLease.Ticket ticket, String url, boolean mainFrame, String method) {
+                    return nativeRequest(handle, ticket.creation, ticket.grant, ticket.load, ticket.page, url, mainFrame, method);
+                }
+            });
             boolean available;
             try { available = WebViewFeature.isFeatureSupported(WebViewFeature.MUTE_AUDIO); }
             catch (RuntimeException providerFailure) { available = false; }
@@ -418,6 +468,9 @@ public final class EmbeddedWebView {
                 }
                 @Override public void closeDocument() { closeForAudio(); }
             });
+        }
+        boolean prepareResources(String url) {
+            return url != null && resources.begin(creationRevision, document.grant(), document.page(), url);
         }
         boolean beginAudioNavigation(String url) {
             if (destroyedDocument) return false;
@@ -435,7 +488,7 @@ public final class EmbeddedWebView {
                 archive = new WebNavigationArchive(); archive.remember(urls, saved.getCurrentIndex() - start);
             }
             destroyedDocument = true;
-            document.close(); cancelInput();
+            resources.revoke(); document.close(); cancelInput();
             if (renderer != null) renderer.close();
             if (overlay) owner.removeTabletView(view);
             if (script != null) { script.remove(); script = null; }
@@ -458,7 +511,7 @@ public final class EmbeddedWebView {
         void navigateArchive(int delta) {
             String url = archive.peek(delta);
             if (url == null || !nativeNavigation(handle, document.grant(), url, true, "GET")) return;
-            if (beginAudioNavigation(url)) { archive.select(delta); view.loadUrl(url); }
+            if (beginAudioNavigation(url)) { document.begin(document.grant()); if (prepareResources(url)) { archive.select(delta); view.loadUrl(url); } }
         }
         void commitAudio() {
             if (destroyedDocument || loading || !visible || !owner.isForeground()) return;
@@ -526,6 +579,7 @@ public final class EmbeddedWebView {
         }
         void editorPublish() { view.evaluateJavascript("window.__overteEditor&&window.__overteEditor.publish();", null); }
         void suspend() {
+            resources.revoke();
             if (destroyedDocument) { reportSuspended(); return; }
             if (!audio.suspend()) return;
             if (renderer != null) renderer.pause();
@@ -585,26 +639,33 @@ public final class EmbeddedWebView {
         final WebViewClient client = new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView source, WebResourceRequest request) {
                 boolean allowed = nativeNavigation(handle, document.grant(), request.getUrl().toString(), request.isForMainFrame(), request.getMethod());
-                if (request.isForMainFrame() && !beginAudioNavigation(allowed ? request.getUrl().toString() : view.getUrl())) return true;
+                if (request.isForMainFrame()) {
+                    if (!allowed || !beginAudioNavigation(request.getUrl().toString())) return true;
+                    document.begin(document.grant());
+                    if (!prepareResources(request.getUrl().toString())) return true;
+                }
                 return !allowed;
             }
             @Override public boolean shouldOverrideUrlLoading(WebView source, String url) {
                 boolean allowed = nativeNavigation(handle, document.grant(), url, true, "GET");
-                return !beginAudioNavigation(allowed ? url : view.getUrl()) || !allowed;
+                if (!allowed || !beginAudioNavigation(url)) return true;
+                document.begin(document.grant());
+                return !prepareResources(url);
             }
             @Override public WebResourceResponse shouldInterceptRequest(WebView source, WebResourceRequest request) {
-                String url = request.getUrl().toString();
-                if ("overte-embedded.invalid".equals(request.getUrl().getHost())) {
-                    byte[] data = nativeResource(handle, document.grant(), url);
-                    String mime = nativeResourceMime(handle, document.grant(), url);
-                    return data == null ? forbidden() : new WebResourceResponse(mime, "UTF-8", new ByteArrayInputStream(data));
-                }
-                return nativeNavigation(handle, document.grant(), url, request.isForMainFrame(), request.getMethod()) ? null : forbidden();
+                // The provider calls this on an IO thread. All mutable UI state is excluded.
+                WebResourceLease.Ticket ticket = resources.capture();
+                WebResourceLease.Response response = resources.request(ticket, request.getUrl().toString(),
+                    request.isForMainFrame(), request.getMethod());
+                if (response == null || response.action == WebResourceLease.Response.DENIED) return forbidden();
+                if (response.action == WebResourceLease.Response.NETWORK) return null;
+                return new WebResourceResponse(response.mime, response.charset, resources.body(ticket, response));
             }
             @Override public void onPageStarted(WebView source, String url, Bitmap favicon) {
                 if (destroyedDocument || source != view) return;
                 if (document.page() > 1 && !beginAudioNavigation(url)) return;
                 document.begin(document.grant()); loading = true;
+                if (!resources.pageStarted(creationRevision, document.grant(), document.page(), url)) { resources.revoke(); source.stopLoading(); return; }
                 if (renderer != null) renderer.invalidate();
                 nativePage(handle, document.grant(), document.page(), url); publish();
             }

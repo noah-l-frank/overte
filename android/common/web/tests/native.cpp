@@ -46,6 +46,9 @@ int main(int argc, char** argv) {
     pixels.acceptFrame(pixelGrant,2,rejected,sizeof(rejected),1,1);
     control.polishItems(); control.sync(); control.render();
     assert(control.grab().pixelColor(1,1).red() > 240);
+    pixels.setUrl("https://one.test/replacement");
+    control.polishItems(); control.sync(); control.render();
+    assert(control.grab().pixelColor(1,1).alpha() == 0);
     pixels.setParentItem(nullptr); control.invalidate();
     std::puts("PASS: actual native frame ingestion and Qt scene graph pixels preserve BGRA/row orientation/premultiplied alpha; stale source/page frames rejected");
     QQuickItem transformed; transformed.setPosition(QPointF(10, 20)); transformed.setWidth(300); transformed.setHeight(200);

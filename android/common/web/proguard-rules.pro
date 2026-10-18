@@ -2,3 +2,5 @@
 # SPDX-License-Identifier: Apache-2.0
 # C++ JNI lookups are absent from the Java reachability graph.
 -keep class org.overte.web.EmbeddedWebView { *; }
+
+-keep class org.overte.web.WebResourceLease$Response { *; }

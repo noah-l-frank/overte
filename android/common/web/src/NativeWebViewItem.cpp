@@ -28,6 +28,11 @@
 namespace {
 QMutex registryMutex;
 QHash<jlong, NativeWebViewItem*> registry;
+QMutex resourceRegistryMutex;
+QHash<jlong, std::shared_ptr<overte::android::web::NativeResourceState>> resourceRegistry;
+std::shared_ptr<overte::android::web::NativeResourceState> resourceState(jlong handle) {
+    QMutexLocker guard(&resourceRegistryMutex); return resourceRegistry.value(handle);
+}
 jlong nextHandle { 1 };
 QStringList packagedRoots;
 std::atomic<bool> foreground { false };
@@ -98,6 +103,8 @@ NativeWebViewItem::NativeWebViewItem(QQuickItem* parent) : QQuickItem(parent),
 }
 NativeWebViewItem::~NativeWebViewItem() {
     { QMutexLocker guard(&registryMutex); registry.remove(_handle); }
+    if (_resourceState) _resourceState->revoke();
+    { QMutexLocker guard(&resourceRegistryMutex); resourceRegistry.remove(_handle); }
     { QMutexLocker guard(&_mutex); _session.close(); }
     jvalue args[1]; args[0].j = _handle; call("destroy", "(J)V", args);
 }
@@ -133,6 +140,7 @@ QString NativeWebViewItem::scriptRoot(const QUrl& source) const {
 void NativeWebViewItem::navigate() {
     if (!isComponentComplete()) return;
     _callbacks.clear(); resetEditor();
+    { QMutexLocker guard(&_mutex); _image = QImage(); } update();
     if (_created || _pending) { jvalue a[1]; a[0].j = _handle; call("revoke", "(J)V", a); }
     _resumeDocument = QUrl();
     if (_suspendedDocument) { { QMutexLocker guard(&_mutex); _suspendedDocument = false; } _created = false; jvalue a[1]; a[0].j = _handle; call("destroy", "(J)V", a); }
@@ -146,6 +154,7 @@ void NativeWebViewItem::navigate() {
     const bool authorized = !_sourceIdentity.trimmed().isEmpty() &&
         (overte::web::EmbeddedWebSession::isNetworkURL(source) || overte::web::EmbeddedWebSession::isPackagedURL(source, root));
     _sourceAuthorized = authorized;
+    publishResourceSource();
     if (!authorized) {
         _status = 6; { QMutexLocker guard(&_mutex); _image = QImage(); } update(); emit stateChanged();
         if (_created) {
@@ -180,6 +189,7 @@ void NativeWebViewItem::create() {
     const auto bounds = sceneBounds().toAlignedRect(), clip = sceneClipBounds().toAlignedRect(); jvalue args[16]; args[0].j = _handle; args[1].j = generation();
     _creationRevision = args[1].j; _creationIdentity = _sourceIdentity;
     _creationSurface = _surface; _creationPresentation = _presentation;
+    publishResourceSource();
     { QMutexLocker guard(&_mutex); _creationSource = _session.url(); } args[2].l = url; args[3].l = agent;
     args[4].z = _background; args[5].z = _presentation == NativeOverlay; args[6].i = bounds.x(); args[7].i = bounds.y();
     args[8].i = bounds.width(); args[9].i = bounds.height();
@@ -333,24 +343,29 @@ void NativeWebViewItem::acceptInputFocus(quint64 revision, quint64 birth, bool f
 }
 void NativeWebViewItem::acceptForeground(bool active) {
     { QMutexLocker guard(&_mutex); _session.setForeground(active); }
+    publishResourceSource();
     if (!active) QMetaObject::invokeMethod(this, [this] { _callbacks.clear(); _bridgeAvailable = false; _loading = false; emit stateChanged(); resetEditor();
         if (auto* input = QGuiApplication::inputMethod()) { input->update(Qt::ImQueryInput); input->hide(); } }, Qt::QueuedConnection);
     if (active) QMetaObject::invokeMethod(this, [this] { if (!_created) create(); }, Qt::QueuedConnection);
 }
-QByteArray NativeWebViewItem::resource(quint64 grant, const QUrl& browser) const {
-    QUrl source; { QMutexLocker guard(&_mutex); source = sourceURL(browser);
-      if (!_session.allowsNavigation(grant, source, false, "GET") || !_mapping.accepts(source)) return {}; }
-    QFile file(source.scheme() == "qrc" ? ':' + source.path() : source.toLocalFile());
-    if (!file.open(QFile::ReadOnly) || file.size() > 8 * 1024 * 1024) return {};
-    return file.readAll();
-}
-QString NativeWebViewItem::resourceMime(quint64 grant, const QUrl& browser) const {
-    QMutexLocker guard(&_mutex); const auto source = sourceURL(browser);
-    if (!_session.allowsNavigation(grant, source, false, "GET") || !_mapping.accepts(source)) return "text/plain";
-    return QMimeDatabase().mimeTypeForFile(source.path(), QMimeDatabase::MatchExtension).name();
+void NativeWebViewItem::publishResourceSource() {
+    QMutexLocker guard(&_mutex);
+    const auto grant = _session.active() && _sourceAuthorized ? _session.generation() : 0;
+    if (_resourceState && _resourceGrant == grant && _resourceCreation == _creationRevision && _resourceState->active()) return;
+    if (_resourceState) _resourceState->revoke();
+    _resourceState.reset(); _resourceGrant = grant; _resourceCreation = _creationRevision;
+    if (grant && _creationRevision) {
+        overte::android::web::NativeResourceSource source;
+        source.grant = grant; source.creation = _creationRevision; source.mapping = _mapping;
+        _resourceState = std::make_shared<overte::android::web::NativeResourceState>(std::move(source));
+    }
+    QMutexLocker resources(&resourceRegistryMutex);
+    if (_resourceState) resourceRegistry.insert(_handle, _resourceState);
+    else resourceRegistry.remove(_handle);
 }
 void NativeWebViewItem::synchronizeVisibility() {
     quint64 grant; { QMutexLocker guard(&_mutex); _session.setVisible(isVisible() && isEnabled()); grant = _session.generation(); }
+    publishResourceSource();
     if (!isVisible() || !isEnabled()) { _callbacks.clear(); _bridgeAvailable = false; resetEditor(); emit stateChanged(); }
     if (!_created) { create(); return; } jvalue args[3]; args[0].j = _handle; args[1].j = grant; args[2].z = isVisible() && isEnabled();
     call("visibility", "(JJZ)V", args);
@@ -385,7 +400,7 @@ void NativeWebViewItem::updateGeometry() { if (!_created) { create(); return; }
 void NativeWebViewItem::geometryChanged(const QRectF& geometry, const QRectF& old) { QQuickItem::geometryChanged(geometry, old); updateGeometry(); }
 QSGNode* NativeWebViewItem::updatePaintNode(QSGNode* old, UpdatePaintNodeData*) {
     auto* node = static_cast<QSGSimpleTextureNode*>(old); if (_presentation == NativeOverlay) { delete node; return nullptr; }
-    QImage frame; { QMutexLocker guard(&_mutex); frame = _image; } if (frame.isNull() || !window()) return node;
+    QImage frame; { QMutexLocker guard(&_mutex); frame = _image; } if (frame.isNull() || !window()) { delete node; return nullptr; }
     if (!node) node = new QSGSimpleTextureNode;
     auto* previous = node->texture(); node->setOwnsTexture(false); node->setTexture(window()->createTextureFromImage(frame)); node->setOwnsTexture(true); delete previous; node->setRect(boundingRect()); return node;
 }
@@ -617,13 +632,35 @@ extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeFram
     auto* bytes = env->GetDirectBufferAddress(pixels); const auto capacity = env->GetDirectBufferCapacity(pixels);
     QMutexLocker guard(&registryMutex); if (auto* item = registry.value(handle)) item->acceptFrame(grant, page, bytes, capacity, width, height);
 }
-extern "C" JNIEXPORT jbyteArray JNICALL Java_org_overte_web_EmbeddedWebView_nativeResource(JNIEnv* env, jclass, jlong handle, jlong grant, jstring url) {
-    auto target = QUrl(string(env, url)); QByteArray data; { QMutexLocker guard(&registryMutex); if (auto* item = registry.value(handle)) data = item->resource(grant, target); }
-    if (data.isNull()) return nullptr; auto result = env->NewByteArray(data.size()); if (result) env->SetByteArrayRegion(result, 0, data.size(), reinterpret_cast<const jbyte*>(data.constData())); return result;
+extern "C" JNIEXPORT jlong JNICALL Java_org_overte_web_EmbeddedWebView_nativeBeginResourceLoad(JNIEnv* env, jclass, jlong handle, jlong creation, jlong grant, jlong page, jstring url) {
+    const auto state = resourceState(handle);
+    return state ? state->begin(creation, grant, page, QUrl(string(env, url))) : 0;
 }
-extern "C" JNIEXPORT jstring JNICALL Java_org_overte_web_EmbeddedWebView_nativeResourceMime(JNIEnv* env, jclass, jlong handle, jlong grant, jstring url) {
-    auto target = QUrl(string(env, url)); QString mime; { QMutexLocker guard(&registryMutex); if (auto* item = registry.value(handle)) mime = item->resourceMime(grant, target); }
-    return env->NewString(reinterpret_cast<const jchar*>(mime.utf16()), mime.size());
+extern "C" JNIEXPORT jboolean JNICALL Java_org_overte_web_EmbeddedWebView_nativeBindResourcePage(JNIEnv* env, jclass, jlong handle, jlong creation, jlong grant, jlong load, jlong pendingPage, jlong actualPage, jstring url) {
+    const auto state = resourceState(handle);
+    return state && state->bind(creation, grant, load, pendingPage, actualPage, QUrl(string(env, url)));
+}
+extern "C" JNIEXPORT jboolean JNICALL Java_org_overte_web_EmbeddedWebView_nativeResourceCurrent(JNIEnv*, jclass, jlong handle, jlong creation, jlong grant, jlong load, jlong page) {
+    const auto state = resourceState(handle);
+    return state && state->current(creation, grant, load, page);
+}
+extern "C" JNIEXPORT jobject JNICALL Java_org_overte_web_EmbeddedWebView_nativeRequest(JNIEnv* env, jclass, jlong handle, jlong creation, jlong grant, jlong load, jlong page, jstring url, jboolean mainFrame, jstring method) {
+    const auto state = resourceState(handle);
+    if (!state) return nullptr;
+    const auto response = state->response(creation, grant, load, page, QUrl(string(env, url)), mainFrame, string(env, method));
+    auto type = env->FindClass("org/overte/web/WebResourceLease$Response");
+    if (!type) return nullptr;
+    auto constructor = env->GetMethodID(type, "<init>", "(I[BLjava/lang/String;Ljava/lang/String;)V");
+    if (!constructor) { env->DeleteLocalRef(type); return nullptr; }
+    auto bytes = env->NewByteArray(response.bytes.size());
+    if (!bytes) { env->DeleteLocalRef(type); return nullptr; }
+    env->SetByteArrayRegion(bytes, 0, response.bytes.size(), reinterpret_cast<const jbyte*>(response.bytes.constData()));
+    auto mime = env->NewString(reinterpret_cast<const jchar*>(response.mime.utf16()), response.mime.size());
+    auto charset = env->NewString(reinterpret_cast<const jchar*>(response.charset.utf16()), response.charset.size());
+    auto result = mime && charset && !env->ExceptionCheck()
+        ? env->NewObject(type, constructor, jint(response.action), bytes, mime, charset) : nullptr;
+    env->DeleteLocalRef(bytes); env->DeleteLocalRef(mime); env->DeleteLocalRef(charset); env->DeleteLocalRef(type);
+    return result;
 }
 
 extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeResult(JNIEnv* env, jclass, jlong handle, jlong grant, jlong page, jlong request, jstring result) {
