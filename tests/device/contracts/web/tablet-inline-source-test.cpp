@@ -32,9 +32,18 @@ public:
 };
 #include "production-tablet-native-loader.inc"
 
-static overte::web::InlineHtmlDocument descriptor(QVariant value) {
+static QVariant nativeCarrier(QVariant value) {
     if (value.userType() == qMetaTypeId<QJSValue>()) { value = value.value<QJSValue>().toVariant(); }
-    return value.value<overte::web::InlineHtmlDocument>();
+    return value;
+}
+static bool carrierSupplied(QVariant value) {
+    value = nativeCarrier(value);
+    // A typed empty/stale carrier is explicitly supplied and must be denied.
+    return value.userType() == qMetaTypeId<overte::web::InlineHtmlDocument>() ||
+        (value.isValid() && !value.isNull());
+}
+static overte::web::InlineHtmlDocument descriptor(QVariant value) {
+    return nativeCarrier(value).value<overte::web::InlineHtmlDocument>();
 }
 
 // The real QML property/constructor boundary, with only the OS browser
@@ -66,6 +75,10 @@ public:
         if (!complete) { return; }
         session.close();
         QObject::disconnect(revocation);
+        if (!carrierSupplied(_document)) {
+            session.open(QUrl(_url), overte::web::Surface::Tablet, _identity);
+            return;
+        }
         const auto document = descriptor(_document);
         auto* context = qmlContext(this);
         while (context && context != document.context()) { context = context->parentContext(); }
@@ -84,6 +97,13 @@ signals:
     void sourceIdentityChanged();
     void inlineDocumentChanged();
 };
+
+static NativeEndpoint* worldEndpoint(QObject* world) {
+    // Loader can retain a retired QObject until deferred deletion. Observe its
+    // current production item, never a stale descendant found by tree order.
+    auto* item = nativeCarrier(world->property("item")).value<QObject*>();
+    return item ? item->findChild<NativeEndpoint*>() : nullptr;
+}
 
 // Surface acquisition is the explicit host boundary. Both real ordering modes
 // are exercised: page completeCreate before or after the native callback. The
@@ -152,6 +172,7 @@ int main(int argc, char** argv) {
     const QString script("https://scripts.example/%2fsource-owned.js?raw=%2b+%2f#exact%2f");
     QObject owner;
     auto* request = new NativeInlineHtmlSource(root.get(), "system", source, script, &owner);
+    assert(!carrierSupplied(request->document()));
     assert(!request->bind(root.get()));
     QObject notAPage;
     assert(!request->bind(&notAPage));
@@ -192,6 +213,7 @@ int main(int argc, char** argv) {
     auto dying = descriptor(request->document());
     delete page;
     assert(!dying.current() && !descriptor(request->document()).current());
+    assert(!carrierSupplied(request->document()));
     assert(!descriptor(forwarded->property("forwarded")).current());
 
     QQmlComponent nextComponent(&engine);
@@ -249,7 +271,7 @@ int main(int argc, char** argv) {
         std::unique_ptr<QObject> world(worldComponent.beginCreate(&worldContext));
         assert(world); world->setProperty("scriptUrl", script); world->setProperty("url", worldSource);
         worldComponent.completeCreate();
-        auto* endpoint = world->findChild<NativeEndpoint*>();
+        auto* endpoint = worldEndpoint(world.get());
         assert(endpoint && endpoint->validAtCompletion && endpoint->session.active());
         assert(endpoint->_url == worldSource && endpoint->_script == script && endpoint->bootstrapCount == 1);
         worldOwner.revoke();
@@ -264,7 +286,8 @@ int main(int argc, char** argv) {
         assert(view); view->setProperty("url", "https://ordinary.example/start");
         viewComponent.completeCreate();
         auto* endpoint = view->findChild<NativeEndpoint*>(); assert(endpoint);
-        assert(!endpoint->validAtCompletion && !endpoint->session.active());
+        assert(endpoint->validAtCompletion && endpoint->session.active());
+        assert(!carrierSupplied(endpoint->inlineDocument()));
         overte::web::InlineHtmlDocumentOwner sourceOwner;
         const auto value = sourceOwner.issue(&pageContext, "later-source", source, script);
         view->setProperty("sourceIdentity", "later-source"); view->setProperty("scriptUrl", script);
@@ -279,6 +302,41 @@ int main(int argc, char** argv) {
         sourceOwner.revoke();
         assert(!endpoint->session.active() && endpoint->revokeCount == 1);
         assert(!endpoint->session.allowsBridge(generation, value.transportURL(), true, 10));
+    }
+    {
+        // Complete ordinary World startup and inline -> ordinary replacement.
+        // Absence crosses the actual production aliases into the native property.
+        QQmlContext worldContext(engine.rootContext());
+        overte::web::InlineHtmlDocumentOwner worldOwner;
+        worldContext.setContextProperty("nativeWebSourceIdentity", "ordinary-world-owner");
+        worldContext.setContextProperty("nativeInlineHtmlDocument", QVariant());
+        QQmlComponent component(&engine, QUrl::fromLocalFile(surface.stage + "/Web3DSurface.qml"));
+        std::unique_ptr<QObject> world(component.beginCreate(&worldContext));
+        assert(world); world->setProperty("url", "https://ordinary.example/initial");
+        component.completeCreate();
+        auto* endpoint = worldEndpoint(world.get());
+        assert(endpoint && endpoint->validAtCompletion && endpoint->session.active());
+        assert(!carrierSupplied(endpoint->inlineDocument()) && !endpoint->session.inlineDocument());
+        const auto issued = worldOwner.issue(&worldContext, "ordinary-world-owner", source, script);
+        worldContext.setContextProperty("nativeInlineHtmlDocument", QVariant::fromValue(issued));
+        world->setProperty("scriptUrl", script); world->setProperty("url", source);
+        endpoint = worldEndpoint(world.get());
+        assert(endpoint && endpoint->validAtCompletion && endpoint->session.inlineDocument());
+        worldOwner.revoke();
+        assert(!issued.current() && !endpoint->session.active());
+        worldContext.setContextProperty("nativeInlineHtmlDocument", QVariant());
+        world->setProperty("url", "https://ordinary.example/replacement");
+        endpoint = worldEndpoint(world.get());
+        assert(endpoint && endpoint->validAtCompletion && endpoint->session.active());
+        assert(!carrierSupplied(endpoint->inlineDocument()) && !endpoint->session.inlineDocument());
+        // Never reinterpret a deliberately supplied typed-unissued/stale carrier
+        // as absence, even when the URL is otherwise an ordinary HTTPS URL.
+        endpoint->setInlineDocument(QVariant::fromValue(overte::web::InlineHtmlDocument()));
+        assert(!endpoint->session.active());
+        endpoint->setInlineDocument(QVariant::fromValue(issued));
+        assert(!endpoint->session.active());
+        endpoint->setInlineDocument(QVariant());
+        assert(endpoint->session.active() && !endpoint->session.inlineDocument());
     }
     for (bool completeBefore : { false, true }) {
       surface.completeBeforeCallback = completeBefore;

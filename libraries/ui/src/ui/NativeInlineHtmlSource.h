@@ -19,7 +19,9 @@ public:
                            const QString& originalSource, const QString& sourceScriptURL,
                            QObject* parent = nullptr);
     QString sourceIdentity() const { return _identity; }
-    QVariant document() const { return QVariant::fromValue(_document); }
+    QVariant document() const {
+        return _document.current() ? QVariant::fromValue(_document) : QVariant();
+    }
     Q_INVOKABLE bool bind(QObject* page);
     Q_INVOKABLE void suspend();
     Q_INVOKABLE void retire();
