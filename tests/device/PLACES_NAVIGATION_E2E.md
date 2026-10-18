@@ -4,8 +4,10 @@
 through normal Go To, then visits both history directions. Actual probe reads
 must show the matching full scene URL, grounded feet position, all five owned
 scene markers and advancing recent renderer presentation. A displayed address
-or `performed: true` alone cannot qualify. Native adapter activation and device
-acceptance remain pending; no native adapter advertises these operations yet.
+or `performed: true` alone cannot qualify. The source-bound Phone Appium adapter
+advertises these operations only with its explicit `phone-native-v1` profile,
+controlled scene and verified installed candidate. iOS and Pico native input
+activation and physical-device acceptance remain pending.
 
 ## Native input contract
 
@@ -25,6 +27,23 @@ arguments, direct API calls and navigation verdicts in their result are rejected
 The existing Phone address dialog and native Places implementations provide
 platform-appropriate controls; no hidden QML bridge or injected script drives
 them. iOS/tablet and Pico bindings still require their native input work.
+
+The common tablet address editor exposes stable object names
+`tabletAddressDialog`, `tabletAddressLine`, `tabletAddressHome`,
+`tabletAddressBack` and `tabletAddressForward`. These identify actual controls;
+they do not provide feature mutation or verdict APIs. `NativeFieldInput` accepts
+only an already focused, visible, enabled editor on its owned Qt Quick window.
+It uses normal Select All, input-method commit and Return events, with fresh
+editor/focus observations after replacement. A successful Return reports event
+delivery only. Navigation must still pass the independent scene observations.
+
+The existing registered `device-control-plane-full` tablet close check executes
+the actual shared implementation against real Quick Controls editors. Its
+`NativeFieldInputTests` class can also be run separately with
+`OVERTE_NATIVE_QT_MAJOR=5` or `6`. A relocated Qt 5 host SDK may be selected using
+`OVERTE_QT5_HOST_ROOT`; all application source and headers still come from the
+current checkout. These are hardware-free behavioral checks, not application
+builds or native-device acceptance.
 
 ## Exact fixture and state
 
