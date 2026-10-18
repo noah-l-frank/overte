@@ -253,9 +253,17 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         self.assertEqual({path for path in old if old[path]!=new[path]},{caller})
         self.assertEqual(old[caller]['sha'],'81bcf1933edc435826e2de411a777cccd4dec7c7')
         self.assertEqual(new[caller],blob((ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml').read_bytes()))
-        self.assertEqual(PACKAGES.validate_wiring(ROOT),'protected-producer-original-default-v1')
-        self.assertEqual(blob((ROOT/'.github/workflows/codeql.yml').read_bytes())['sha'],
-            'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1')
+        installed=PACKAGES.validate_wiring(ROOT)
+        codeql_by_generation={
+            'protected-producer-original-default-v1':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1',
+            'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
+        }
+        self.assertIn(installed,codeql_by_generation)
+        self.assertEqual(rows[installed][caller],blob((ROOT/caller).read_bytes()))
+        codeql=ROOT/'.github/workflows/codeql.yml'
+        self.assertFalse(codeql.is_symlink())
+        self.assertIn(codeql.stat().st_mode & 0o777,(0o444,0o644))
+        self.assertEqual(blob(codeql.read_bytes())['sha'],codeql_by_generation[installed])
         for name in ('protected-producer-original-default-v1','protected-producer-original-default-boolean-v1'):
             self.assertEqual(PACKAGES.validate_tree_wiring(rows[name]),name)
             unknown=deepcopy(rows[name]);unknown[caller]['sha']='f'*40
