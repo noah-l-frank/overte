@@ -74,7 +74,7 @@ Item {
         anchors { left: parent.left; right: parent.right; top: navigation.bottom; bottom: parent.bottom }
         enabled: flick.enabled && flick.interactive
         surface: "tablet"
-        onLoadingChangedWithStatus: {
+        onLoadingChangedWithStatus: function(change) {
             flick.onLoadingChanged(change);
             flick.loadingChangedCallback(change);
         }
