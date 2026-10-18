@@ -422,6 +422,9 @@ It waits a bounded time for both source runs to finish and verifies that its own
 run ID is the recipient in the native notification receipt. The associated PR may
 already be merged; its original native association is distinct from current PR
 state. Only then can it retry current closed-topic hints across the seven targets.
+The receiver captures raw console bytes through its bounded pipe, allowing the
+GitHub CLI's control-sequence option only for this internal log read. The console
+is parsed as data; byte/time limits and exact receipt authentication still apply.
 The callback never performs history adoption. Every hint retains its actual target
 and protected base; source retention, activity holds, fresh refs, complete
 integration, verified backup, independent recovery, and exact-head deletion checks

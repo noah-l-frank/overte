@@ -516,7 +516,7 @@ class Github:
     def job_log(self, identifier):
         """Read only one fixed native job console, with byte and wall-time limits."""
         require(type(identifier) is int and identifier > 0, "invalid_sync_completion_log_job")
-        args = ["gh", "api", "--method", "GET", "repos/" + REPOSITORY
+        args = ["gh", "api", "--allow-escape-sequences", "--method", "GET", "repos/" + REPOSITORY
                 + "/actions/jobs/" + str(identifier) + "/logs"]
         with self._statistics_lock:
             self._cache_statistics["fresh_api_invocations"]["other"] += 1
