@@ -351,7 +351,7 @@ public final class EmbeddedWebView {
     /** Product hosts use the same reserved-origin boundary for OS browser actions. */
     public static boolean isExternalWebURL(Uri url) {
         return url != null && ("http".equals(url.getScheme()) || "https".equals(url.getScheme()))
-            && url.getHost() != null && url.getUserInfo() == null
+            && url.getHost() != null && !url.getHost().isEmpty() && url.getUserInfo() == null
             && !"overte-embedded.invalid".equalsIgnoreCase(url.getHost())
             && !WebResourceLease.reservedInlineHost(url.getHost());
     }
@@ -373,7 +373,8 @@ public final class EmbeddedWebView {
                 || expectedOwner.activity() == null || !expectedOwner.activity().hasWindowFocus()) return false;
         for (Instance instance : VIEWS.values()) {
             if (instance.view == view && instance.owner == expectedOwner && instance.activity == expectedOwner.activity()
-                    && instance.active && instance.visible && !instance.destroyedDocument && view.canGoBack()) {
+                    && instance.active && instance.visible && !instance.destroyedDocument && view.hasFocus() && view.canGoBack()
+                    && nativeEditorAllowed(instance.handle, instance.document.grant(), instance.document.page(), view.getUrl())) {
                 goBack(instance.handle); return true;
             }
         }
