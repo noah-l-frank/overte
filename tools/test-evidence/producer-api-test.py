@@ -171,7 +171,7 @@ class AdapterTests(unittest.TestCase):
 
     def add_run(self, run, *, descriptor=True):
         self.runs[run.run_id] = {
-            "id": run.run_id, "workflow_id": 99, "check_suite_id": run.run_id + 1000,
+            "id": run.run_id, "workflow_id": 99, "run_number": run.run_id, "check_suite_id": run.run_id + 1000,
             "path": self.policy.caller_path, "event": "pull_request", "head_sha": self.binding["head_sha"],
             "head_branch": self.binding["head_ref"], "repository": {"id": 1319052603, "full_name": A.REPOSITORY},
             "head_repository": {"id": 1319052603, "full_name": A.REPOSITORY}, "pull_requests": [{"number": 17}],
@@ -598,7 +598,7 @@ class MetadataNonproducerTests(unittest.TestCase):
         c.policy = replace(c.policy, metadata_generations={"metadata-v1": deepcopy(c.generation)},
                            metadata_sources={"metadata-v1": self.sources})
         c.originals[c.binding["base_sha"]] = ("3" * 40, ["7" * 40])
-        c.runs[101] = {**deepcopy(c.runs[100]), "id": 101, "check_suite_id": 1101,
+        c.runs[101] = {**deepcopy(c.runs[100]), "id": 101, "run_number": 101, "check_suite_id": 1101,
             "status": "in_progress", "conclusion": None, "run_started_at": "2026-10-15T10:04:00Z",
             "referenced_workflows": [{"path": A.REPOSITORY + "/" + A.METADATA_WORKFLOW + "@" + c.binding["merge_sha"],
                                       "sha": c.binding["merge_sha"], "ref": c.pp.workflow_ref}]}
@@ -830,6 +830,34 @@ class MetadataSchedulingTests(unittest.TestCase):
                     for field in ('environment', 'results', 'receipt', 'reused', 'passed_suites'):
                         self.assertNotIn(field, value)
         self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
+
+    def test_same_second_open_and_label_events_use_native_workflow_sequence(self):
+        c = self.case
+        # GitHub observed on PR1412: both timestamps are18:44:15, while the
+        # independently authenticated workflow ordinals are671 then672.
+        c.runs[100]['run_number'] = 671
+        c.runs[101]['run_number'] = 672
+        c.runs[101]['run_started_at'] = c.runs[100]['run_started_at']
+        value = self.schedule()
+        self.assertEqual(value['original_run_id'], 100)
+        self.assertFalse(value['qualification'])
+        self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
+
+    def test_newer_equal_or_changed_native_workflow_sequence_cannot_own_metadata(self):
+        c = self.case
+        c.runs[100]['run_number'] = 671
+        c.runs[101]['run_number'] = 672
+        for ordinal in (672, 673, None, True):
+            with self.subTest(ordinal=ordinal), patch.dict(c.runs[100], {'run_number': ordinal}), \
+                    self.assertRaises(ValueError):
+                self.schedule()
+        def change_ordinal(endpoint, value):
+            if endpoint.endswith('/actions/runs/100/attempts/1'):
+                value['run_number'] = 670
+            return value
+        c.api.mutate = change_ordinal
+        with self.assertRaises(ValueError):
+            self.schedule()
 
     def test_unproved_queued_or_failed_source_cannot_be_promoted_by_same_head_or_marker(self):
         c = self.case
@@ -2800,7 +2828,7 @@ class MetadataRetentionConsumerTests(unittest.TestCase):
         for index, (path, (name, steps)) in enumerate(C._METADATA_OUTER_RECIPES.items(), 160):
             c.jobs[100].append(self.job(index, 100, name, steps=steps))
             c.runs[100]["referenced_workflows"].append(self.reference(path))
-        c.runs[101] = {**deepcopy(c.runs[100]), "id": 101, "check_suite_id": 1101,
+        c.runs[101] = {**deepcopy(c.runs[100]), "id": 101, "run_number": 101, "check_suite_id": 1101,
             "status": "in_progress", "conclusion": None, "run_started_at": "2026-10-15T10:04:00Z",
             "referenced_workflows": [self.reference(A.METADATA_WORKFLOW)]}
         c.jobs[101] = [self.job(140, 101, A.METADATA_JOB, steps=(A.METADATA_STEP,), late=True)]

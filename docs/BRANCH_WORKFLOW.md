@@ -320,6 +320,14 @@ unchanged draft ready does not restart synchronization validation. The
 `reopened` and `edited` events remain enabled; retargeting a pull request must
 still validate its current base, head, and exact merge candidate.
 
+Inert title, body and label events retain the independently authenticated
+ordinary owner instead of starting its tests again. Scheduling orders runs by
+their native workflow-specific run number: GitHub start timestamps can be
+identical to the second for separate events. The number must agree across the
+listed run, latest run and original attempt. This observation preserves a
+pending or failed owner's state and supplies no passing result or reusable
+evidence.
+
 The trusted default-branch `reconciliation_repair_paths` configuration can
 authorize exact nonprivileged product paths per target. A reconciliation
 touching one of these paths (including either side of a rename) must pass the
