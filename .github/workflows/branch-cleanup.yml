@@ -47,7 +47,16 @@ on: # zizmor: ignore[dangerous-triggers] PR and finite completion notifications 
         type: choice
         required: true
         default: report
-        options: [report, apply]
+        options: [report, apply, sync-completion]
+      sender_run_id: {description: Exact manual Sync run, type: string, required: false, default: ''}
+      sender_run_attempt: {description: Original manual Sync attempt, type: string, required: false, default: ''}
+      sender_source_sha: {description: Protected manual Sync source, type: string, required: false, default: ''}
+      gate_run_id: {description: Exact originating Sync gate, type: string, required: false, default: ''}
+      gate_run_attempt: {description: Original Sync gate attempt, type: string, required: false, default: ''}
+      pull_request: {description: Original associated pull request, type: string, required: false, default: ''}
+      expected_base_sha: {description: Original immutable candidate base, type: string, required: false, default: ''}
+      expected_head_sha: {description: Original immutable candidate head, type: string, required: false, default: ''}
+      expected_merge_sha: {description: Original immutable candidate merge, type: string, required: false, default: ''}
 
 permissions:
   contents: read
@@ -111,10 +120,23 @@ jobs:
             --event "$GITHUB_EVENT_PATH" --output "$GITHUB_OUTPUT" \
             --report "$RUNNER_TEMP/branch-cleanup/retry.json"
 
+      - name: Check the authenticated explicit synchronization completion
+        id: callback
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'sync-completion'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/branch-cleanup"
+          python3 tools/branch-cleanup/cleanup.py retry-sync-completion \
+            --event "$GITHUB_EVENT_PATH" --output "$GITHUB_OUTPUT" \
+            --report "$RUNNER_TEMP/branch-cleanup/sync-completion.json"
+
       - name: Create repository-scoped history integration token
         id: history-token
         if: >-
           github.event_name != 'workflow_run' &&
+          (github.event_name != 'workflow_dispatch' || inputs.mode != 'sync-completion') &&
           vars.BRANCH_SYNC_APP_CLIENT_ID != '' &&
           (github.event_name != 'workflow_dispatch' || inputs.mode == 'apply')
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
@@ -128,7 +150,7 @@ jobs:
 
       - name: Assess adopted work and maintain checked history PRs
         id: history
-        if: github.event_name != 'workflow_run'
+        if: github.event_name != 'workflow_run' && (github.event_name != 'workflow_dispatch' || inputs.mode != 'sync-completion')
         env:
           GH_TOKEN: ${{ github.token }}
           ADOPTION_APP_TOKEN: ${{ steps.history-token.outputs.token }}
@@ -163,7 +185,10 @@ jobs:
 
       - name: Plan from current GitHub state
         id: plan
-        if: steps.history.outputs.deferred != 'true' && (github.event_name != 'workflow_run' || steps.retry.outputs.retry == 'true')
+        if: >-
+          steps.history.outputs.deferred != 'true' &&
+          (github.event_name != 'workflow_run' || steps.retry.outputs.retry == 'true') &&
+          (github.event_name != 'workflow_dispatch' || inputs.mode != 'sync-completion' || steps.callback.outputs.retry == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -176,7 +201,8 @@ jobs:
       - name: Build and verify a self-contained Git backup
         if: >-
           fromJSON(steps.plan.outputs.candidate_count || '0') > 0 &&
-          (github.event_name != 'workflow_dispatch' || inputs.mode == 'apply')
+          (github.event_name != 'workflow_dispatch' || inputs.mode == 'apply' ||
+           (inputs.mode == 'sync-completion' && steps.callback.outputs.retry == 'true'))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -189,7 +215,8 @@ jobs:
         id: backup
         if: >-
           fromJSON(steps.plan.outputs.candidate_count || '0') > 0 &&
-          (github.event_name != 'workflow_dispatch' || inputs.mode == 'apply')
+          (github.event_name != 'workflow_dispatch' || inputs.mode == 'apply' ||
+           (inputs.mode == 'sync-completion' && steps.callback.outputs.retry == 'true'))
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: branch-cleanup-backup-${{ github.run_id }}-${{ github.run_attempt }}
@@ -204,7 +231,8 @@ jobs:
       - name: Recheck and delete exact branch heads
         if: >-
           fromJSON(steps.plan.outputs.candidate_count || '0') > 0 &&
-          (github.event_name != 'workflow_dispatch' || inputs.mode == 'apply')
+          (github.event_name != 'workflow_dispatch' || inputs.mode == 'apply' ||
+           (inputs.mode == 'sync-completion' && steps.callback.outputs.retry == 'true'))
         env:
           GH_TOKEN: ${{ github.token }}
           BACKUP_ARTIFACT_ID: ${{ steps.backup.outputs.artifact-id }}
@@ -230,5 +258,6 @@ jobs:
             ${{ runner.temp }}/branch-cleanup/report.json
             ${{ runner.temp }}/branch-cleanup/adoption.json
             ${{ runner.temp }}/branch-cleanup/retry.json
+            ${{ runner.temp }}/branch-cleanup/sync-completion.json
           if-no-files-found: warn
           retention-days: 14

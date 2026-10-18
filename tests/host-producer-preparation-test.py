@@ -76,6 +76,9 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
     def setUp(self):
         self.generations = PACKAGES.workflow_generations()
         paths = list((ROOT / "tools/repository-checks/workflows").rglob("*.yml"))
+        paths += [ROOT / relative for relative in
+                  set(PACKAGES.CONSUMER_WORKFLOW_PATHS) | set(PACKAGES.METADATA_WORKFLOW_PATHS)
+                  if (ROOT / relative).is_file() and not (ROOT / relative).is_symlink()]
         self.contents = {blob(path.read_bytes())["sha"]: path.read_bytes() for path in paths}
         self.contents.update(historical_workflow_bytes())
         # Immutable historical fixtures must survive later template edits and
@@ -151,9 +154,11 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         previous = next(g for g in self.generations if g['name'] == 'android-owned-npm5-sync-ci-v1')
         prospective = next(g for g in self.generations if g['name'] == 'protected-shared-producer-v1')
         self.assertEqual(set(prospective['workflows']), set(PACKAGES.CONSUMER_WORKFLOW_PATHS))
-        self.assertEqual(len(self.generations), 23)
+        self.assertEqual(len(self.generations), 24)
         self.assertEqual(len([row for row in self.generations
-                              if row['name'] != 'npm-consumers-sync-ci-budget-v1']), 22)
+                              if row['name'] != 'npm-consumers-sync-ci-budget-cleanup-v1']), 23)
+        self.assertEqual(len([row for row in self.generations
+                              if row['name'] not in {'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1'}]), 22)
         for path in prospective['workflows']:
             if path not in {'.github/workflows/repository-checks.yml', '.github/workflows/project-tests.yml'}:
                 self.assertEqual(prospective['workflows'][path], previous['workflows'][path])
