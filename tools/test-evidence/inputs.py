@@ -441,7 +441,7 @@ _AFFECTED_TARGET_PROFILES = {
 
 # Additional installed apple-ios data family only. The complete raw reader
 # digest still binds every neighboring input; these entries never normalize it.
-INSTALLED_COMPILER_READER = 'sha256:d57dea0d6e1db2ccf001d910d6f171f08827e5fef16f91dfcd9153b74198aeb8'
+INSTALLED_COMPILER_READER = 'sha256:d277ac07e249ac9fefd564d02fbbb53365abd57d1139cd8dbca634ece52e0d7f'
 INSTALLED_COMPILER_PROFILE = {
     '.github/workflows/ios-integrated.yml': {'mode': '100644', 'type': 'blob',
         'sha': '9367feef078a9311919ad920bf15b0d61800cf94'},
