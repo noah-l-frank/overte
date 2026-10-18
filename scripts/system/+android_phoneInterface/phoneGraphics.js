@@ -39,12 +39,9 @@
     }
 
     function setMirrors(enabled) {
-        views.forEach(function (view) {
-            for (var index = 0; index < 3; ++index) {
-                var mirror = config(view + ".RenderMirrorView" + index + "Depth0");
-                if (mirror) { mirror.enabled = enabled; }
-            }
-        });
+        // The native setter updates complete passes and their inner views,
+        // including reapplying saved choices after the safe startup profile.
+        Render.mirrorsEnabled = enabled;
     }
 
     function apply(key, value) {
@@ -99,6 +96,7 @@
     state.localLights = Render.localLightingEnabled;
     state.proceduralMaterials = Render.proceduralMaterialsEnabled;
     state.resolutionScale = Render.viewportResolutionScale;
+    state.mirrors = Render.mirrorsEnabled;
     tablet.fromQml.connect(fromQml);
     tablet.screenChanged.connect(screenChanged);
     Script.scriptEnding.connect(function () {

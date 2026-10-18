@@ -115,6 +115,16 @@ Flickable {
             }
         }
 
+        SettingBoolean {
+            objectName: "settings.graphics.mirrors"
+            settingText: "Mirrors";
+            settingEnabledCondition: () => { return Render.mirrorsEnabled }
+
+            onSettingEnabledChanged: {
+                Render.mirrorsEnabled = settingEnabled;
+            }
+        }
+
         Text {
             width: parent.width
             wrapMode: Text.Wrap
