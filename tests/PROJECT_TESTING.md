@@ -796,6 +796,28 @@ comparison entries are normalized to the original reviewed reader boundaries;
 actual source identities and test inputs stay intact. Unknown cache bytes, modes,
 readers or mixed product changes retain the ordinary application gate.
 
+The additional `host-v1-protected-pr-compiler-data-v1` generation registers one
+exact callee and five-file profile: `.github/workflows/ios-integrated.yml`,
+`ios/ci/qt-checkpoint-artifact.py`, `ios/tests/qt-checkpoint-artifact-test.py`,
+`ios/tests/ios-full-client-sccache-contract-test.py` and
+`docs/ios/SIGNING_AND_DEVICE_TESTS.md`. Only an exact transition from the original
+or installed v3 compiler profile to this reviewed profile can omit application
+compilation while retaining the iOS host checks. Complete ordinary base, head and
+merge inventories must preserve the original reviewed application boundary.
+Installed-profile continuation admits only already independent CI or document
+changes. Separate own-host omission still requires the existing CI/npm subset,
+mode and required-package-owner proofs plus the complete installed profile;
+cache transitions and guide changes keep the own-host checks. Unknown bytes,
+modes, neighboring inputs or changed application readers retain their gates.
+
+A relevant feature or fix PR can read compiler DATA through the protected base's
+isolated parser, accepting only a matching protected `apple-ios` native producer
+and its verified upload, archive and final source bookends. Existing per-object
+compiler, SDK, source, header and argument checks remain required. This DATA is
+neither an application/test PASS nor native qualification E; registering or
+restoring it does not establish a warm-build measurement. Relevant application
+changes still require their application build.
+
 For those two ordinary lockfiles, a complete required JavaScript package owner
 also permits omission when dependency changes exceed the focused security-fix
 profiles. The full package checks must still succeed in the required repository

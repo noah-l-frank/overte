@@ -862,7 +862,10 @@ class HostGenerationTests(unittest.TestCase):
         return callee, oid, document
 
     def test_protected_compiler_data_registration_preserves_both_original_tuples(self):
-        approved = self.host.generations()
+        # Preserve this historical three-tuple assertion independently of the
+        # separately asserted additive protected-PR registration below.
+        approved = {name: row for name, row in self.host.generations().items()
+                    if name != self.host.COMPILER_PR_DATA_GENERATION}
         document = self.host.policy()
         self.assertEqual(document["schema"], 2)
         self.assertEqual(set(approved), {"legacy", "host-v1", "host-v1-compiler-data-v1"})
@@ -1045,6 +1048,120 @@ class HostGenerationTests(unittest.TestCase):
         event, source = self.candidate({"tools/test-evidence/source-admission-test.py": "# Independent change\n"}, base=drift)
         self.assertEqual((self.route(event, source)["required"], self.route(event, source)["host_required"]),
                          ("true", "true"))
+
+    def compiler_pr_input_fixture(self):
+        """A second finite profile built with real private Git objects."""
+        base, v3_changes = self.compiler_input_fixture()
+        callee = "# Fixed disposable protected-PR read-only compiler client callee.\n"
+        oid = self.git("hash-object", "--stdin", data=callee.encode())
+        changes, profile = {}, {}
+        for path, (mode, _) in self.host.COMPILER_DATA_ORIGINAL.items():
+            content = callee if path == ".github/workflows/ios-integrated.yml" else \
+                "# Protected-PR reviewed fixture: " + path + "\n"
+            changes[path] = (mode, content)
+            profile[path] = (mode, self.git("hash-object", "--stdin", data=content.encode()))
+        path = self.trusted / self.host.POLICY
+        policy = json.loads(path.read_text())
+        row = {name: dict(entry) for name, entry in policy["reviewedGenerations"][self.host.COMPILER_DATA_GENERATION].items()}
+        row[".github/workflows/ios-integrated.yml"]["oid"] = oid
+        policy["reviewedGenerations"][self.host.COMPILER_PR_DATA_GENERATION] = row
+        path.write_text(json.dumps(policy))
+        replacement = patch.multiple(self.host, COMPILER_PR_DATA_CALLEE=oid, COMPILER_PR_DATA_UPDATED=profile)
+        replacement.start()
+        self.addCleanup(replacement.stop)
+        return base, v3_changes, changes
+
+    def test_protected_pr_registration_is_additive_exact_six_and_cannot_change_old_tuples(self):
+        approved = self.host.generations()
+        self.assertEqual(set(approved), {"legacy", "host-v1", self.host.COMPILER_DATA_GENERATION,
+                                        self.host.COMPILER_PR_DATA_GENERATION})
+        self.assertEqual(approved[self.host.COMPILER_PR_DATA_GENERATION], {
+            **approved["host-v1"], ".github/workflows/ios-integrated.yml": {
+                "mode": "100644", "type": "blob", "oid": self.host.COMPILER_PR_DATA_CALLEE}})
+        self.assertEqual(approved[self.host.COMPILER_DATA_GENERATION], {
+            **approved["host-v1"], ".github/workflows/ios-integrated.yml": {
+                "mode": "100644", "type": "blob", "oid": "66892fd2b87b7aa4b0ffe8c12407fc5a7597db44"}})
+        self.assertEqual(set(self.host.COMPILER_PR_DATA_UPDATED), set(self.host.COMPILER_DATA_ORIGINAL))
+        self.assertEqual(approved["legacy"], self.host.policy()["legacy"])
+        self.assertEqual(self.host.COMPILER_PR_DATA_UPDATED[".github/workflows/ios-integrated.yml"],
+                         ("100644", self.host.COMPILER_PR_DATA_CALLEE))
+
+    def test_exact_original_and_v3_to_protected_pr_transitions_preserve_actual_sources_and_host(self):
+        base, v3_changes, changes = self.compiler_pr_input_fixture()
+        for label, previous in (("original", base), ("installed-v3", self.commit(base, v3_changes))):
+            with self.subTest(previous=label):
+                event, source = self.candidate(changes, base=previous)
+                inputs = self.host.selector(self.trusted)
+                snapshots = [inputs.read_snapshot(self.root, revision) for revision in
+                    (previous, source, event["pull_request"]["head"]["sha"])]
+                actual = [self.host.entries(snapshot) for snapshot in snapshots]
+                proof = self.host.compiler_pr_data_selection(*snapshots, policy_root=self.trusted)
+                self.assertIsNotNone(proof)
+                self.assertEqual(proof["changedPaths"], sorted(changes))
+                self.assertEqual([self.host.entries(snapshot) for snapshot in snapshots], actual)
+                self.assertEqual(self.host.resolve(self.root, source, policy_root=self.trusted)[0],
+                                 self.host.COMPILER_PR_DATA_GENERATION)
+                output = self.route(event, source)
+                self.assertEqual((output["required"], output["host_required"], output["reason"]),
+                    ("false", "true", "reviewed-protected-pr-compiler-data-only-inputs"))
+                self.assertEqual(self.verify(output, event, source), output)
+                needs = self.needs(output);needs["host"]["result"] = "skipped"
+                with self.assertRaises(ValueError):self.verify(output, event, source, required=needs)
+
+    def test_installed_protected_pr_profile_continuation_preserves_ci_subset_and_guide_host(self):
+        base, _, changes = self.compiler_pr_input_fixture()
+        installed = self.commit(base, changes)
+        for path, wanted_host in (("tools/test-evidence/source-admission-test.py", "false"),
+                ("docs/ios-fixture.md", "true"), ("docs/ios/SIGNING_AND_DEVICE_TESTS.md", "true")):
+            event, source = self.candidate({path: "# Independent exact source update\n"}, base=installed)
+            output = self.route(event, source)
+            self.assertEqual((output["required"], output["host_required"]), ("false", wanted_host), path)
+            self.assertEqual(self.verify(output, event, source), output)
+            if wanted_host == "false":
+                inputs = self.host.selector(self.trusted)
+                self.assertIsNone(self.host.ci_host_omission(inputs.read_snapshot(self.root, installed),
+                    inputs.read_snapshot(self.root, source), policy_root=self.trusted))
+        manual = {"repository": {"full_name": CHECK.REPOSITORY, "id": CHECK.REPOSITORY_ID}, "ref": "apple-ios"}
+        self.assertEqual(self.route(manual, source)["required"], "true")
+
+    def test_protected_pr_profile_keeps_unknown_modes_neighbors_and_historical_reader_drift_full(self):
+        base, _, changes = self.compiler_pr_input_fixture()
+        for path in sorted(changes):
+            for label, value in (("bytes", "# Unreviewed fixture\n"), ("missing", None),
+                    ("alias", ("120000", "other")),
+                    ("mode", ("100644" if changes[path][0] == "100755" else "100755", changes[path][1]))):
+                with self.subTest(path=path, mutation=label):
+                    event, source = self.candidate({**changes, path: value}, base=base)
+                    inputs = self.host.selector(self.trusted)
+                    snapshots = [inputs.read_snapshot(self.root, revision) for revision in
+                        (base, source, event["pull_request"]["head"]["sha"])]
+                    self.assertIsNone(self.host.compiler_pr_data_selection(*snapshots, policy_root=self.trusted))
+        for extra in ({"ios/ci/qt-checkpoint-artifact-neighbor.py": "# Unreviewed reader\n"},
+                {"CMakeLists.txt": "file(READ ios/ci/qt-checkpoint-artifact.py INPUT)\n"}):
+            event, source = self.candidate({**changes, **extra}, base=base)
+            output = self.route(event, source)
+            self.assertEqual((output["required"], output["host_required"]), ("true", "true"))
+        installed = self.commit(base, changes)
+        drift = self.commit(installed, {"CMakeLists.txt": "# Historical reader changed\n"})
+        event, source = self.candidate({"tools/test-evidence/source-admission-test.py": "# CI update\n"}, base=drift)
+        output = self.route(event, source)
+        self.assertEqual((output["required"], output["host_required"]), ("true", "true"))
+
+    def test_protected_pr_policy_rejects_unknown_partial_mixed_alias_and_duplicate_tuples(self):
+        self.compiler_pr_input_fixture()
+        path = self.trusted / self.host.POLICY
+        valid = json.loads(path.read_text())
+        name = self.host.COMPILER_PR_DATA_GENERATION
+        for mutation in ("unknown", "partial", "alias", "mixed", "duplicate"):
+            value = json.loads(json.dumps(valid))
+            row = value["reviewedGenerations"][name]
+            if mutation == "unknown":value["reviewedGenerations"]["unreviewed"] = row
+            elif mutation == "partial":row.pop("tests/requirements-host.txt")
+            elif mutation == "alias":row[".github/workflows/ios-integrated.yml"]["mode"] = "120000"
+            elif mutation == "mixed":row[self.host.WORKFLOW] = value["legacy"][self.host.WORKFLOW]
+            else:row[".github/workflows/ios-integrated.yml"] = value["reviewedGenerations"][self.host.COMPILER_DATA_GENERATION][".github/workflows/ios-integrated.yml"]
+            path.write_text(json.dumps(value))
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):self.host.generations(self.trusted)
 
     def bootstrap_tree(self):
         return self.git("rev-parse", self.legacy + "^{tree}")

@@ -42,6 +42,16 @@ COMPILER_DATA_UPDATED = {
     "ios/tests/ios-full-client-sccache-contract-test.py": ("100644", "305a56d5f906101fb728feca59f811278477eb69"),
     "docs/ios/SIGNING_AND_DEVICE_TESTS.md": ("100644", "bb4f69bb29368f04fdc6a6c7ce00b48d92b7f90d"),
 }
+# Exact protected-base PR compiler-data profile. The finite tuple preserves
+# the independent application reader boundary and does not certify a build.
+COMPILER_PR_DATA_GENERATION = 'host-v1-protected-pr-compiler-data-v1'
+COMPILER_PR_DATA_CALLEE = '9367feef078a9311919ad920bf15b0d61800cf94'
+COMPILER_PR_DATA_UPDATED = {'.github/workflows/ios-integrated.yml': ('100644', '9367feef078a9311919ad920bf15b0d61800cf94'),
+ 'docs/ios/SIGNING_AND_DEVICE_TESTS.md': ('100644', 'f0777c42ed2b49ed04b9b6650de13c4a4ef14e9f'),
+ 'ios/ci/qt-checkpoint-artifact.py': ('100755', '34a53dea5e99060403d38a90b9f1b6afdbb5021d'),
+ 'ios/tests/ios-full-client-sccache-contract-test.py': ('100644',
+                                                        'c037ab31ab74c0f4cbb9902b6fafba172914cdba'),
+ 'ios/tests/qt-checkpoint-artifact-test.py': ('100755', '2b829c678fac98ba68a12758168e7931f921393c')}
 SOURCE_READY = True
 BOOTSTRAP_REVIEWED_SOURCE = "52f1cc38180e96cdfd8049a4be93517961ae7dbd"
 BOOTSTRAP_REVIEWED_TREE = "f5b44d19b5c64c96bc3f73f72c51519dbfbf08a3"
@@ -341,9 +351,12 @@ def policy(policy_root=ROOT):
     rows = [value["legacy"]]
     if value["schema"] == 2:
         reviewed = value["reviewedGenerations"]
-        require(isinstance(reviewed, dict) and set(reviewed) == {COMPILER_DATA_GENERATION},
+        require(isinstance(reviewed, dict) and set(reviewed) in ({COMPILER_DATA_GENERATION},
+                {COMPILER_DATA_GENERATION, COMPILER_PR_DATA_GENERATION}),
                 "invalid reviewed iOS generation names")
         rows.append(reviewed[COMPILER_DATA_GENERATION])
+        if COMPILER_PR_DATA_GENERATION in reviewed:
+            rows.append(reviewed[COMPILER_PR_DATA_GENERATION])
     for row in rows:
         require(isinstance(row, dict) and set(row) == PATHS, "incomplete reviewed iOS generation")
         for path, entry in row.items():
@@ -369,6 +382,13 @@ def generations(policy_root=ROOT):
         require(reviewed == expected and reviewed != current and reviewed != legacy,
                 "iOS compiler-data generation must change only the exact reviewed client callee")
         result[COMPILER_DATA_GENERATION] = reviewed
+        if COMPILER_PR_DATA_GENERATION in value["reviewedGenerations"]:
+            protected_pr = value["reviewedGenerations"][COMPILER_PR_DATA_GENERATION]
+            expected_pr = {**current, ".github/workflows/ios-integrated.yml": {
+                "mode": "100644", "type": "blob", "oid": COMPILER_PR_DATA_CALLEE}}
+            require(protected_pr == expected_pr and all(protected_pr != row for row in result.values()),
+                    "iOS protected-PR compiler generation must change only the exact reviewed client callee")
+            result[COMPILER_PR_DATA_GENERATION] = protected_pr
     return result
 
 
@@ -605,6 +625,61 @@ def compiler_data_selection(previous, current, head, *, policy_root=ROOT):
             "changedPaths": sorted(changed[0])}
 
 
+def compiler_pr_data_selection(previous, current, head, *, policy_root=ROOT):
+    """Exact reviewed cache transition/continuation; no product result authority."""
+    inputs = selector(policy_root)
+    snapshots = (previous, current, head)
+    if any(entry.mode not in {"100644", "100755"} or entry.object_type != "blob"
+           for snapshot in snapshots for entry in snapshot.entries):
+        return None
+    approved = generations(policy_root)
+    updated = approved.get(COMPILER_PR_DATA_GENERATION)
+    if updated is None:
+        return None
+    observed = [entries(snapshot) for snapshot in snapshots]
+    matches = lambda tree, row: all(tree.get(path) == identity for path, identity in row.items())
+    changed = [{path for path in observed[0].keys() | tree.keys() if observed[0].get(path) != tree.get(path)}
+               for tree in observed[1:]]
+    original_base = (matches(observed[0], approved["host-v1"])
+        and _compiler_profile(previous, COMPILER_DATA_ORIGINAL))
+    installed_v3_base = (matches(observed[0], approved[COMPILER_DATA_GENERATION])
+        and _compiler_profile(previous, COMPILER_DATA_UPDATED))
+    transition = ((original_base or installed_v3_base)
+        and all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_PR_DATA_UPDATED)
+                for tree, snapshot in zip(observed[1:], snapshots[1:]))
+        and all(paths == set(COMPILER_DATA_ORIGINAL) for paths in changed))
+    continuation = (all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_PR_DATA_UPDATED, guide=False)
+                        for tree, snapshot in zip(observed, snapshots))
+        and all(paths for paths in changed)
+        and all(inputs._kind(entry) != "application-input" for snapshot, paths in zip(snapshots[1:], changed)
+                for entry in (*previous.entries, *snapshot.entries) if entry.path in paths))
+    if not (transition or continuation) or any(inputs._boundary(_compiler_comparison(snapshot, inputs))
+            != inputs.REVIEWED_BOUNDARY for snapshot in snapshots):
+        return None
+    return {"schema": 1, "reason": "reviewed-protected-pr-compiler-data-only-inputs" if transition
+            else "reviewed-protected-pr-compiler-data-independent-inputs", "requires_application_build": False,
+            "reviewed_boundary": inputs.REVIEWED_BOUNDARY, "comparison_profile": digest(COMPILER_PR_DATA_UPDATED),
+            "base": {"revision": previous.revision, "tree": previous.tree},
+            "head": {"revision": head.revision, "tree": head.tree},
+            "candidate": {"revision": current.revision, "tree": current.tree},
+            "changedPaths": sorted(changed[0])}
+
+def _compiler_pr_ci_comparison(previous, current, head, *, policy_root=ROOT):
+    """Only an installed exact new profile can normalize an old CI complement."""
+    if head is None:
+        return None
+    inputs = selector(policy_root)
+    updated = generations(policy_root).get(COMPILER_PR_DATA_GENERATION)
+    snapshots = (previous, current, head)
+    if updated is None or any(not _compiler_profile(snapshot, COMPILER_PR_DATA_UPDATED)
+            or any(entries(snapshot).get(path) != identity for path, identity in updated.items())
+            or ci_host_boundary(_compiler_comparison(snapshot, inputs, guide=True)) != REVIEWED_CI_HOST_BOUNDARY
+            for snapshot in snapshots):
+        return None
+    return {"profile": digest(COMPILER_PR_DATA_UPDATED), "head": {"revision": head.revision, "tree": head.tree},
+            "actual_boundaries": [ci_host_boundary(snapshot) for snapshot in snapshots]}
+
+
 def ci_host_omission(previous, current, *, repository=None, package_owner=None, policy_root=ROOT, head=None):
     """Finite negative dependency proof; never infer independence from app inputs."""
     old, new = entries(previous), entries(current)
@@ -634,9 +709,12 @@ def ci_host_omission(previous, current, *, repository=None, package_owner=None, 
                 or any(entries(snapshot).get(path) != identity for path, identity in updated.items())
                 or ci_host_boundary(_compiler_comparison(snapshot, inputs, guide=True)) != REVIEWED_CI_HOST_BOUNDARY
                 for snapshot in snapshots):
-            return None
-        comparison = {"profile": digest(COMPILER_DATA_UPDATED), "head": {"revision": head.revision, "tree": head.tree},
-                      "actual_boundaries": [ci_host_boundary(snapshot) for snapshot in snapshots]}
+            comparison = _compiler_pr_ci_comparison(previous, current, head, policy_root=policy_root)
+            if comparison is None:
+                return None
+        else:
+            comparison = {"profile": digest(COMPILER_DATA_UPDATED), "head": {"revision": head.revision, "tree": head.tree},
+                          "actual_boundaries": [ci_host_boundary(snapshot) for snapshot in snapshots]}
     result = {"schema": 1, "reason": "reviewed-ci-only-host-inputs" if npm is None
               else "reviewed-ci-and-required-npm-host-inputs",
             "boundary": REVIEWED_CI_HOST_BOUNDARY, "changedPaths": sorted(changed),
@@ -652,7 +730,7 @@ def ci_host_omission(previous, current, *, repository=None, package_owner=None, 
 def route(event, candidate, source, *, policy_root=ROOT):
     base, head = context(event, candidate, source)
     generation, current = resolve(candidate, source, policy_root=policy_root)
-    require(generation in {"host-v1", COMPILER_DATA_GENERATION},
+    require(generation in {"host-v1", COMPILER_DATA_GENERATION, COMPILER_PR_DATA_GENERATION},
             "iOS next-generation ownership cannot roll back to legacy")
     require(SOURCE_READY and "apple-ios" in policy(policy_root)["activationTargets"],
             "iOS host-only generation is not qualified or activated")
@@ -670,6 +748,8 @@ def route(event, candidate, source, *, policy_root=ROOT):
             selection = workflow_bootstrap(candidate, previous, current, head_source, policy_root=policy_root)
             if selection is None:
                 selection = compiler_data_selection(previous, current, head_source, policy_root=policy_root)
+            if selection is None:
+                selection = compiler_pr_data_selection(previous, current, head_source, policy_root=policy_root)
             if selection is None:
                 selection = inputs.candidate_plan(candidate, base, source, package_owner=package_owner)
             required, host_required = selection["requires_application_build"], True
