@@ -1403,6 +1403,268 @@ class DispatchContracts(unittest.TestCase):
         self.outputs.assert_not_called()
 
 
+    def registration_pending(self, *, missing=(), **fields):
+        value = self.run_document(status="queued", conclusion=None)
+        for name in missing:
+            del value[name]
+        value.update(fields)
+        return value
+
+    def test_delayed_null_or_missing_identity_waits_only_for_returned_run(self):
+        keys = ("workflow_id", "run_attempt", "check_suite_id", "path", "event",
+                "head_branch", "head_sha", "display_title", "repository", "head_repository")
+        cases = [fields for key in keys for fields in ({key: None}, {"missing": (key,)})]
+        for owner in ("repository", "head_repository"):
+            for member in ("id", "full_name"):
+                for absent in (False, True):
+                    value = {"id": REPOSITORY_ID, "full_name": REPOSITORY}
+                    if absent:
+                        del value[member]
+                    else:
+                        value[member] = None
+                    cases.append({owner: value})
+        cases.append({"missing": keys, "status": "in_progress"})
+        endpoint = f"repos/{REPOSITORY}/actions/runs/902"
+        for fields in cases:
+            with self.subTest(fields=fields):
+                partial = self.registration_pending(**fields)
+                self.assertEqual(self.dispatch([partial, partial, self.run_document()]), 0)
+                self.assert_dispatch_binding("reuse")
+                self.assertEqual(self.sleep.call_args_list, [mock.call(2), mock.call(2)])
+                self.outputs.assert_called_once_with(None, {
+                    "validation_run_id": 902,
+                    "validation_url": f"https://github.com/{REPOSITORY}/actions/runs/902",
+                })
+                calls = self.api.json.call_args_list
+                reads = [i for i, call in enumerate(calls) if call.args[0] == endpoint]
+                native = [i for i, call in enumerate(calls)
+                          if call.args[0].endswith("/attempts/1") or "/check-suites/" in call.args[0]]
+                self.assertEqual(len(reads), 4)
+                self.assertTrue(native)
+                self.assertGreater(min(native), reads[2])
+
+    def test_registration_wait_then_registered_pending_keeps_normal_poll_interval(self):
+        self.assertEqual(self.dispatch([
+            self.registration_pending(workflow_id=None, repository=None),
+            self.run_document(status="in_progress", conclusion=None), self.run_document(),
+        ]), 0)
+        self.assert_dispatch_binding("reuse")
+        self.assertEqual(self.sleep.call_args_list, [mock.call(2), mock.call(10)])
+        self.outputs.assert_called_once()
+
+    def test_missing_registration_timeout_reports_endpoint_and_field_without_outputs(self):
+        for fields, field in (({"workflow_id": None}, "workflow_id"),
+                              ({"repository": None}, "repository"),
+                              ({"missing": ("display_title",)}, "display_title")):
+            with self.subTest(fields=fields):
+                with self.assertRaises(gate.GateError) as error:
+                    self.dispatch([self.registration_pending(**fields)])
+                self.assertRegex(str(error.exception), "timeout|registration")
+                self.assertIn("endpoint=run", str(error.exception))
+                self.assertIn(field, str(error.exception))
+                self.assert_dispatch_binding("reuse")
+                self.outputs.assert_not_called()
+                delays = [call.args[0] for call in self.sleep.call_args_list]
+                self.assertTrue(delays)
+                self.assertTrue(all(0 < delay <= 2 for delay in delays))
+                self.assertLessEqual(sum(delays), 30)
+                self.assertFalse(any(call.args[0].endswith("/attempts/1") or "/check-suites/" in call.args[0]
+                                     for call in self.api.json.call_args_list))
+
+    def test_partial_registration_cannot_excuse_present_conflicts_or_missing_anchors(self):
+        cases = (
+            ("id", 903), ("id", True), ("workflow_id", 12), ("run_attempt", 2),
+            ("head_sha", HEAD), ("head_branch", "apple-main"), ("event", "pull_request_target"),
+            ("path", ".github/workflows/other.yml"),
+            ("repository", {"id": None, "full_name": "overte-org/overte"}),
+            ("head_repository", {"id": 9, "full_name": None}),
+            ("url", "https://api.github.com/repos/overte-org/overte/actions/runs/902"),
+            ("html_url", f"https://github.com/{REPOSITORY}/actions/runs/903"),
+            ("display_title", "Sync validation gate-700-attempt-1"), ("display_title", ""),
+            ("display_title", False), ("check_suite_id", 0), ("check_suite_id", True),
+            ("check_suite_id", "904"), ("status", []), ("conclusion", "success"),
+        )
+        documents = []
+        for key, value in cases:
+            partial = self.registration_pending(workflow_id=None, display_title=None, check_suite_id=None)
+            partial[key] = value
+            documents.append((key, value, partial))
+        for key in ("id", "url", "html_url", "status"):
+            documents.append((key, None, self.registration_pending(**{key: None})))
+            documents.append((key, "absent", self.registration_pending(missing=(key,))))
+        for key, value, partial in documents:
+            with self.subTest(key=key, value=value):
+                with self.assertRaises(gate.GateError):
+                    self.dispatch([partial])
+                self.assert_dispatch_binding("reuse")
+                self.sleep.assert_not_called()
+                self.outputs.assert_not_called()
+
+    def test_completed_or_bound_run_cannot_lose_identity_metadata(self):
+        for fields in ({"workflow_id": None}, {"repository": None}, {"check_suite_id": None},
+                       {"missing": ("display_title",)}):
+            with self.subTest(fields=fields, phase="completed"):
+                partial = self.registration_pending(**fields)
+                partial.update(status="completed", conclusion="success")
+                with self.assertRaises(gate.GateError):
+                    self.dispatch([partial])
+                self.assert_dispatch_binding("reuse")
+                self.sleep.assert_not_called()
+                self.outputs.assert_not_called()
+            with self.subTest(fields=fields, phase="already-bound"):
+                partial = self.registration_pending(**fields)
+                partial["status"] = "in_progress"
+                with self.assertRaises(gate.GateError):
+                    self.dispatch([self.run_document(status="in_progress", conclusion=None), partial])
+                self.assert_dispatch_binding("reuse")
+                self.assertEqual(self.sleep.call_args_list, [mock.call(10)])
+                self.outputs.assert_not_called()
+
+    def test_initial_native_attempt_registration_can_complete_before_identity_binding(self):
+        attempts = [0]
+        def mutate(endpoint, document):
+            if endpoint.endswith("/actions/runs/902/attempts/1"):
+                attempts[0] += 1
+                if attempts[0] == 1:
+                    document["workflow_id"] = None
+                    document["repository"] = None
+                    document.pop("display_title")
+            return document
+        self.assertEqual(self.dispatch([
+            self.run_document(status="in_progress", conclusion=None),
+            self.run_document(status="in_progress", conclusion=None), self.run_document(),
+        ], mutate=mutate), 0)
+        self.assert_dispatch_binding("reuse")
+        self.assertEqual(self.sleep.call_args_list, [mock.call(2), mock.call(10)])
+        self.assertGreaterEqual(attempts[0], 3)
+        self.outputs.assert_called_once()
+
+    def test_permanent_native_attempt_registration_is_bounded_and_diagnosed(self):
+        def mutate(endpoint, document):
+            if endpoint.endswith("/actions/runs/902/attempts/1"):
+                document["workflow_id"] = None
+            return document
+        with self.assertRaises(gate.GateError) as error:
+            self.dispatch([self.run_document(status="in_progress", conclusion=None)], mutate=mutate)
+        self.assertRegex(str(error.exception), "timeout|registration")
+        self.assertIn("endpoint=attempts/1", str(error.exception))
+        self.assertIn("workflow_id", str(error.exception))
+        self.assert_dispatch_binding("reuse")
+        self.outputs.assert_not_called()
+        self.assertTrue(self.sleep.call_count)
+        self.assertLessEqual(sum(call.args[0] for call in self.sleep.call_args_list), 30)
+        self.assertFalse(any("/check-suites/" in call.args[0] for call in self.api.json.call_args_list))
+
+    def test_native_attempt_and_app_conflicts_still_reject_after_registration_delay(self):
+        for suffix, key, value in (("/attempts/1", "run_attempt", 2),
+                                   ("/check-suites/904", "app", {"id": 57789})):
+            def mutate(endpoint, document):
+                if endpoint.endswith(suffix):
+                    document[key] = value
+                return document
+            with self.subTest(suffix=suffix):
+                with self.assertRaises(gate.GateError):
+                    self.dispatch([self.registration_pending(workflow_id=None),
+                                   self.run_document()], mutate=mutate)
+                self.assert_dispatch_binding("reuse")
+                self.assertEqual(self.sleep.call_args_list, [mock.call(2)])
+                self.outputs.assert_not_called()
+
+
+    def test_initial_native_suite_registration_can_complete_before_identity_binding(self):
+        suites = [0]
+        def mutate(endpoint, document):
+            if endpoint.endswith("/check-suites/904"):
+                suites[0] += 1
+                if suites[0] == 1:
+                    document["app"] = None
+                    document.pop("repository")
+            return document
+        self.assertEqual(self.dispatch([
+            self.run_document(status="in_progress", conclusion=None),
+            self.run_document(status="in_progress", conclusion=None), self.run_document(),
+        ], mutate=mutate), 0)
+        self.assert_dispatch_binding("reuse")
+        self.assertEqual(self.sleep.call_args_list, [mock.call(2), mock.call(10)])
+        self.assertGreaterEqual(suites[0], 3)
+        self.outputs.assert_called_once()
+
+    def test_native_suite_partial_timeout_and_populated_conflicts_are_not_success(self):
+        def pending(endpoint, document):
+            if endpoint.endswith("/check-suites/904"):
+                document["app"] = None
+            return document
+        with self.assertRaises(gate.GateError) as error:
+            self.dispatch([self.run_document(status="in_progress", conclusion=None)], mutate=pending)
+        self.assertRegex(str(error.exception), "timeout|registration")
+        self.assertIn("endpoint=check-suite", str(error.exception))
+        self.assertIn("app", str(error.exception))
+        self.assert_dispatch_binding("reuse")
+        self.outputs.assert_not_called()
+        self.assertTrue(self.sleep.call_count)
+        self.assertLessEqual(sum(call.args[0] for call in self.sleep.call_args_list), 30)
+        for fields in ({"app": None, "head_sha": HEAD},
+                       {"app": {"id": 57789}, "head_sha": None},
+                       {"app": None, "repository": {"id": 9, "full_name": REPOSITORY}}):
+            def mutate(endpoint, document):
+                if endpoint.endswith("/check-suites/904"):
+                    document.update(fields)
+                return document
+            with self.subTest(fields=fields):
+                with self.assertRaises(gate.GateError):
+                    self.dispatch([self.run_document(status="in_progress", conclusion=None)], mutate=mutate)
+                self.assert_dispatch_binding("reuse")
+                self.sleep.assert_not_called()
+                self.outputs.assert_not_called()
+
+
+    def test_observed_suite_cannot_change_while_initial_attempt_is_registering(self):
+        for partial_title in (False, True):
+            attempts = [0]
+            def mutate(endpoint, document):
+                if endpoint.endswith("/actions/runs/902/attempts/1"):
+                    attempts[0] += 1
+                    if attempts[0] == 1:
+                        document["workflow_id"] = None
+                return document
+            changed = self.run_document(status="in_progress", conclusion=None)
+            changed["check_suite_id"] = 905
+            if partial_title:
+                changed["display_title"] = None
+            with self.subTest(partial_title=partial_title):
+                with self.assertRaisesRegex(gate.GateError, "identity"):
+                    self.dispatch([self.run_document(status="in_progress", conclusion=None), changed],
+                                  mutate=mutate)
+                self.assert_dispatch_binding("reuse")
+                self.assertEqual(self.sleep.call_args_list, [mock.call(2)])
+                self.outputs.assert_not_called()
+                self.assertFalse(any(call.args[0].endswith("/check-suites/905")
+                                     for call in self.api.json.call_args_list))
+
+    def test_complete_metadata_returned_after_deadline_cannot_publish_outputs(self):
+        for suffix in ("/actions/runs/902", "/actions/runs/902/attempts/1", "/check-suites/904"):
+            delayed = [False]
+            def mutate(endpoint, document):
+                if endpoint.endswith(suffix) and not delayed[0]:
+                    delayed[0] = True
+                    # Advance the existing fake transport clock; no real sleep or API.
+                    self.sleep(31)
+                return document
+            with self.subTest(suffix=suffix):
+                with self.assertRaisesRegex(gate.GateError, "timeout|registration"):
+                    self.dispatch([self.run_document()], mutate=mutate)
+                self.assert_dispatch_binding("reuse")
+                self.assertEqual(self.sleep.call_args_list, [mock.call(31)])
+                self.outputs.assert_not_called()
+                if suffix == "/actions/runs/902":
+                    self.assertFalse(any(call.args[0].endswith("/attempts/1")
+                                         or "/check-suites/" in call.args[0]
+                                         for call in self.api.json.call_args_list))
+                elif suffix == "/actions/runs/902/attempts/1":
+                    self.assertFalse(any("/check-suites/" in call.args[0]
+                                         for call in self.api.json.call_args_list))
+
+
 class DispatchTransportContracts(unittest.TestCase):
     def test_dispatch_uses_fixed_version_and_real_boolean_without_changing_string_inputs(self):
         endpoint = f"repos/{REPOSITORY}/actions/workflows/sync-validation.yml/dispatches"
