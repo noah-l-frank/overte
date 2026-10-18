@@ -50,7 +50,11 @@ signatures = ("QString IOSWebView::url(", "void IOSWebView::setUrl(",
               "QVariant IOSWebView::inlineDocument(", "void IOSWebView::setInlineDocument(",
               "bool IOSWebView::observeInlineDocument(", "bool IOSWebView::openSource(",
               "QString IOSWebView::surface(", "void IOSWebView::setSurface(",
-              "QString IOSWebView::sourceIdentity(", "void IOSWebView::setSourceIdentity(")
+              "QString IOSWebView::sourceIdentity(", "void IOSWebView::setSourceIdentity(",
+              "void IOSWebView::paint(", "QVariant IOSWebView::inputMethodQuery(", "void IOSWebView::setLoading(",
+              "void IOSWebView::retireDocumentPresentation(", "bool IOSWebView::beginDocumentNavigation(",
+              "void IOSWebView::acceptDocumentImage(", "void IOSWebView::acceptInputResult(",
+              "bool IOSWebViewNative::current(", "void IOSWebViewNative::started(", "void IOSWebViewNative::prepareNavigation(")
 with tempfile.TemporaryDirectory(prefix="ios-inline-document-") as temporary:
     stage = Path(temporary)
     (stage / "production-properties-methods.inc").write_text("\n".join(body(source, signature) for signature in signatures))

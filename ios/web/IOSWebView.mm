@@ -38,6 +38,7 @@ struct IOSWebViewNative {
     static bool navigation(IOSWebView*, std::uint64_t, NSURL*, bool, NSString*);
     static void message(IOSWebView*, std::uint64_t, NSString*, NSString*, NSURL*, bool);
     static void prepare(IOSWebView*, std::uint64_t, NSURL*);
+    static void prepareNavigation(IOSWebView*, std::uint64_t, const QUrl&, const QUrl&, bool);
     static void redirected(IOSWebView*, std::uint64_t, NSURL*);
     static void finished(IOSWebView*, std::uint64_t);
     static void started(IOSWebView*, std::uint64_t);
@@ -182,7 +183,9 @@ QVariant qtValue(id value) {
         return;
     }
     // Fragment links retain the same JavaScript document, including its nonce.
-    if (allowed && action.targetFrame.mainFrame && !fragmentOnly) { overte::ios::IOSWebViewNative::prepare(owner, generation, action.request.URL); }
+    if (allowed) {
+        overte::ios::IOSWebViewNative::prepareNavigation(owner, generation, previous, destination, action.targetFrame.mainFrame);
+    }
     decisionHandler(allowed ? WKNavigationActionPolicyAllow : WKNavigationActionPolicyCancel);
 }
 - (void)webView:(WKWebView*)view decidePolicyForNavigationResponse:(WKNavigationResponse*)response
@@ -269,7 +272,7 @@ struct IOSWebView::Private {
     IOSWebDocumentEpoch document;
     IOSInlineDocumentBinding inlineBinding;
     IOSInlineNavigation inlineNavigation;
-    QMetaObject::Connection inlineRevocationConnection;
+    QMetaObject::Connection inlineRevocationConnection, snapshotConnection;
     QVariant inlineCarrier;
     QString originalSource, originalScript;
     bool inlineMode { false };
@@ -311,11 +314,6 @@ IOSWebView::IOSWebView(QQuickItem* parent) : QQuickPaintedItem(parent), _private
             _private->resumeOnForeground = true;
             _private->policy.setForeground(false); tearDown();
         }
-    });
-    connect(&_private->snapshot, &WKWebSnapshot::imageReady, this, [this](const QImage& image) {
-        if (!active()) { return; }
-        _private->image = image;
-        emit frameChanged(); update();
     });
     connect(&_private->snapshot, &WKWebSnapshot::failed, this, [this] {
         _private->image = QImage(); emit frameChanged();
@@ -449,6 +447,7 @@ void IOSWebView::tearDown() {
     _private->generation = 0;
     _private->inlineBinding.clear(); _private->inlineNavigation.clear(); _private->inlineMode = false;
     _private->openTimer.stop(); _private->deadline.stop();
+    QObject::disconnect(_private->snapshotConnection); _private->snapshotConnection = {};
     _private->snapshot.detach(); _private->channel.reset();
     _private->document.invalidate();
     if (_private->scriptReply) { _private->scriptReply->abort(); _private->scriptReply->deleteLater(); _private->scriptReply = nullptr; }
@@ -705,6 +704,11 @@ void IOSWebView::nativeNavigationFinished() {
     _private->deadline.stop(); setLoading(false); updateNavigation();
     if (!_private->presentation) {
         const QSize size(qBound(1, static_cast<int>(width()), 2048), qBound(1, static_cast<int>(height()), 2048));
+        QObject::disconnect(_private->snapshotConnection);
+        const auto generation = _private->generation;
+        const auto epoch = _private->document.epoch();
+        _private->snapshotConnection = connect(&_private->snapshot, &WKWebSnapshot::imageReady,
+            this, [this, generation, epoch](const QImage& image) { acceptDocumentImage(generation, epoch, image); });
         if (!_private->snapshot.attach((__bridge void*)_private->view, size)) {
             _private->error = tr("Unable to capture the web surface. Open the native browser to interact.");
             emit errorChanged(); update();
@@ -745,13 +749,41 @@ void IOSWebView::nativeMessage(const QString& envelope, const QString& documentN
         _private->channel.receiveEnvelope(envelope, frame, mainFrame);
     }
 }
+void IOSWebView::retireDocumentPresentation() {
+    QObject::disconnect(_private->snapshotConnection); _private->snapshotConnection = {};
+    _private->snapshot.detach();
+    _private->image = QImage();
+    const bool hadInput = _private->inputActive;
+    _private->inputActive = false;
+    emit frameChanged(); update();
+    if (hadInput) {
+        QGuiApplication::inputMethod()->update(Qt::ImEnabled | Qt::ImHints);
+        if (hasActiveFocus() && !_private->presentation) { QGuiApplication::inputMethod()->hide(); }
+    }
+}
+bool IOSWebView::beginDocumentNavigation(const QUrl& frame) {
+    if (!active()) { return false; }
+    retireDocumentPresentation();
+    _private->bridgeFrame = QUrl(); _private->bridgeReady = false; emit bridgeAvailableChanged();
+    if (!active()) { return false; }
+    if (!_private->document.begin(_private->generation, frame, QUuid::createUuid().toString(QUuid::WithoutBraces))) {
+        fail(tr("The web document identity is unavailable.")); return false;
+    }
+    return true;
+}
+void IOSWebView::acceptDocumentImage(std::uint64_t generation, std::uint64_t epoch, const QImage& image) {
+    if (!active() || _private->generation != generation || _private->document.epoch() != epoch) { return; }
+    _private->image = image; emit frameChanged(); update();
+}
+void IOSWebView::acceptInputResult(std::uint64_t generation, std::uint64_t epoch, bool editable) {
+    if (!active() || _private->generation != generation || _private->document.epoch() != epoch) { return; }
+    _private->inputActive = editable;
+    QGuiApplication::inputMethod()->update(Qt::ImEnabled | Qt::ImHints);
+    if (editable) { QGuiApplication::inputMethod()->show(); }
+}
 void IOSWebView::prepareDocument(const QUrl& frame) {
     if (!active() || !_private->view) { return; }
-    _private->snapshot.detach(); _private->bridgeFrame = QUrl();
-    _private->bridgeReady = false; emit bridgeAvailableChanged();
-    if (!_private->document.begin(_private->generation, frame, QUuid::createUuid().toString(QUuid::WithoutBraces))) {
-        fail(tr("The web document identity is unavailable.")); return;
-    }
+    if (!beginDocumentNavigation(frame)) { return; }
     QPointer<IOSWebView> guarded(this);
     const auto generation = _private->generation;
     _private->channel.reset([guarded, generation](const QUrl& frameURL, bool mainFrame, std::size_t bytes) {
@@ -826,11 +858,8 @@ return !!(el.isContentEditable||el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&
     const auto generation = _private->generation;
     const auto epoch = _private->document.epoch();
     [_private->view evaluateJavaScript:nativeString(guardedScript(QStringLiteral("return ") + code, _private->document.nonce())) completionHandler:^(id result, NSError* error) {
-        if (!owner || !owner->active() || owner->_private->generation != generation || type != QStringLiteral("press")) { return; }
-        if (owner->_private->document.epoch() != epoch) { return; }
-        owner->_private->inputActive = !error && [result isKindOfClass:NSNumber.class] && [result boolValue];
-        QGuiApplication::inputMethod()->update(Qt::ImEnabled | Qt::ImHints);
-        if (owner->_private->inputActive) { QGuiApplication::inputMethod()->show(); }
+        if (!owner || type != QStringLiteral("press")) { return; }
+        owner->acceptInputResult(generation, epoch, !error && [result isKindOfClass:NSNumber.class] && [result boolValue]);
     }];
 }
 void IOSWebView::keyEvent(const QString& text, int key, int modifiers) {
@@ -868,11 +897,17 @@ bool IOSWebViewNative::current(IOSWebView* owner, std::uint64_t generation) { re
 bool IOSWebViewNative::navigation(IOSWebView* owner, std::uint64_t generation, NSURL* url, bool mainFrame, NSString* method) { return current(owner, generation) && owner->allowsNavigation(qtURL(url), mainFrame, qtString(method)); }
 void IOSWebViewNative::message(IOSWebView* owner, std::uint64_t generation, NSString* message, NSString* nonce, NSURL* frame, bool mainFrame) { if (current(owner, generation)) { owner->nativeMessage(qtString(message), qtString(nonce), qtURL(frame), mainFrame); } }
 void IOSWebViewNative::prepare(IOSWebView* owner, std::uint64_t generation, NSURL* frame) { if (current(owner, generation)) { owner->prepareDocument(qtURL(frame)); } }
+void IOSWebViewNative::prepareNavigation(IOSWebView* owner, std::uint64_t generation, const QUrl& previous,
+        const QUrl& frame, bool mainFrame) {
+    if (current(owner, generation) && mainFrame && !overte::ios::IOSWebDocumentEpoch::isFragmentNavigation(previous, frame)) {
+        owner->prepareDocument(frame);
+    }
+}
 void IOSWebViewNative::redirected(IOSWebView* owner, std::uint64_t generation, NSURL* frame) { if (current(owner, generation)) { owner->_private->document.redirected(qtURL(frame)); } }
 void IOSWebViewNative::finished(IOSWebView* owner, std::uint64_t generation) { if (current(owner, generation)) { owner->verifyDocument(); } }
 void IOSWebViewNative::started(IOSWebView* owner, std::uint64_t generation) {
     if (!current(owner, generation)) { return; }
-    owner->_private->snapshot.detach();
+    owner->retireDocumentPresentation();
     owner->setLoading(true); owner->_private->deadline.start();
 }
 void IOSWebViewNative::failed(IOSWebView* owner, std::uint64_t generation) { if (current(owner, generation)) { owner->fail(owner->tr("The web page could not be loaded. Reload to try again.")); } }

@@ -9,6 +9,11 @@
 #include <QFileSelector>
 #include <CapabilityProfile.h>
 #include <QQuickItem>
+#include <QQuickPaintedItem>
+#include <QPainter>
+#include <QInputMethod>
+#include <QTimer>
+#include <QUuid>
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QMetaProperty>
@@ -22,7 +27,7 @@ using namespace overte;
 
 // Only the native item construction/teardown boundary is replaced. Property
 // declarations and complete getter/setter bodies come from IOSWebView itself.
-class IOSWebView : public QQuickItem {
+class IOSWebView : public QQuickPaintedItem {
     Q_OBJECT
 #include "production-properties.inc"
 public:
@@ -31,7 +36,14 @@ public:
         QString identity, surface { QStringLiteral("tablet") }, documentRoot;
         web::EmbeddedWebSession policy;
         ios::IOSInlineDocumentBinding inlineBinding;
-        QMetaObject::Connection inlineRevocationConnection;
+        QMetaObject::Connection inlineRevocationConnection, snapshotConnection;
+        ios::IOSWebDocumentEpoch document;
+        QImage image;
+        QString error;
+        QUrl bridgeFrame;
+        bool background { true }, inputActive { false }, presentation { false }, bridgeReady { false }, loading { false };
+        struct SnapshotBoundary { int detaches {0}; void detach() { ++detaches; } } snapshot;
+        QTimer deadline;
         std::uint64_t generation { 0 };
         bool inlineMode { false };
     };
@@ -46,6 +58,16 @@ public:
     void setInlineDocument(const QVariant&);
     bool observeInlineDocument();
     bool openSource();
+    bool active() const { return _private->generation && _private->policy.active(); } // Explicit native-window boundary.
+    void setLoading(bool);
+    void retireDocumentPresentation();
+    bool beginDocumentNavigation(const QUrl&);
+    void acceptDocumentImage(std::uint64_t, std::uint64_t, const QImage&);
+    void acceptInputResult(std::uint64_t, std::uint64_t, bool);
+    void prepareDocument(const QUrl& frame) { beginDocumentNavigation(frame); } // WK script installation boundary.
+    void paint(QPainter*) override;
+    QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
+    void fail(const QString& error) { _private->error = error; stop(); }
     QString surface() const;
     void setSurface(const QString&);
     QString sourceIdentity() const;
@@ -64,7 +86,7 @@ public:
     }
 protected:
     void componentComplete() override {
-        QQuickItem::componentComplete();
+        QQuickPaintedItem::componentComplete();
         ios::IOSInlineDocumentBinding initial;
         configuredAtCompletion = initial.bind(inlineDocument(), this, sourceIdentity(), url(), scriptUrl());
         sourceOpenedAtCompletion = openSource(); // Execute production policy selection, then stop before WK.
@@ -73,6 +95,14 @@ signals:
     void urlChanged();
     void configurationChanged();
     void inlineDocumentChanged();
+    void frameChanged();
+    void bridgeAvailableChanged();
+    void loadingChanged();
+};
+struct IOSWebViewNative {
+    static bool current(IOSWebView*, std::uint64_t);
+    static void started(IOSWebView*, std::uint64_t);
+    static void prepareNavigation(IOSWebView*, std::uint64_t, const QUrl&, const QUrl&, bool);
 };
 #include "inline-test.moc"
 #include "production-properties-methods.inc"
@@ -268,6 +298,47 @@ int main(int argc, char** argv) {
     assert(dyingObserved->observeInlineDocument());
     dyingContext.reset(); assert(dyingObserved->nativeStops == 1 && !dyingDocument.current());
     std::cout << "PASS actual native revocation subscription: synchronous source/invalid-replacement/context teardown and retired subscription isolation (WK stop boundary unopened)" << std::endl;
+    // Execute actual document navigation, result sinks, paint and input-query
+    // bodies. Only the active native window and WK script/capture are boundaries.
+    IOSWebView navigating;
+    navigating.setWidth(32); navigating.setHeight(32);
+    navigating._private->deadline.setInterval(30000);
+    const QUrl firstPage("https://navigation.example/first"), fragment("https://navigation.example/first#part"),
+        nextPage("https://navigation.example/next");
+    const auto navigationGeneration = navigating._private->policy.open(firstPage, web::Surface::WorldEntity, "navigation-world");
+    navigating._private->generation = navigationGeneration;
+    IOSWebViewNative::prepareNavigation(&navigating, navigationGeneration, QUrl(), firstPage, true);
+    const auto oldEpoch = navigating._private->document.epoch();
+    QImage oldImage(32, 32, QImage::Format_RGBA8888); oldImage.fill(Qt::red);
+    navigating.acceptDocumentImage(navigationGeneration, oldEpoch, oldImage);
+    navigating.acceptInputResult(navigationGeneration, oldEpoch, true);
+    assert(navigating.inputMethodQuery(Qt::ImEnabled).toBool());
+    const auto painted = [&] {
+        QImage pixels(32, 32, QImage::Format_RGBA8888); pixels.fill(Qt::transparent);
+        QPainter painter(&pixels); navigating.paint(&painter); painter.end(); return pixels;
+    };
+    assert(painted().pixelColor(16, 16) == QColor(Qt::red));
+    IOSWebViewNative::prepareNavigation(&navigating, navigationGeneration, firstPage, fragment, true);
+    assert(navigating._private->document.epoch() == oldEpoch);
+    assert(painted().pixelColor(16, 16) == QColor(Qt::red) && navigating.inputMethodQuery(Qt::ImEnabled).toBool());
+    IOSWebViewNative::prepareNavigation(&navigating, navigationGeneration, fragment, nextPage, true);
+    const auto newEpoch = navigating._private->document.epoch();
+    assert(newEpoch > oldEpoch && navigating._private->image.isNull());
+    assert(!navigating.inputMethodQuery(Qt::ImEnabled).toBool());
+    IOSWebViewNative::started(&navigating, navigationGeneration);
+    assert(navigating._private->loading && painted().pixelColor(16, 16) == QColor(Qt::white));
+    navigating.acceptDocumentImage(navigationGeneration, oldEpoch, oldImage);
+    navigating.acceptInputResult(navigationGeneration, oldEpoch, true);
+    assert(navigating._private->image.isNull() && !navigating.inputMethodQuery(Qt::ImEnabled).toBool());
+    QImage newImage(32, 32, QImage::Format_RGBA8888); newImage.fill(Qt::blue);
+    navigating.acceptDocumentImage(navigationGeneration, newEpoch, newImage);
+    navigating.acceptInputResult(navigationGeneration, newEpoch, true);
+    assert(painted().pixelColor(16, 16) == QColor(Qt::blue) && navigating.inputMethodQuery(Qt::ImEnabled).toBool());
+    IOSWebViewNative::prepareNavigation(&navigating, navigationGeneration, nextPage, QUrl("https://foreign.example/frame"), false);
+    navigating.acceptDocumentImage(navigationGeneration + 1, newEpoch, oldImage);
+    navigating.acceptInputResult(navigationGeneration + 1, newEpoch, false);
+    assert(painted().pixelColor(16, 16) == QColor(Qt::blue) && navigating.inputMethodQuery(Qt::ImEnabled).toBool());
+    std::cout << "PASS actual document navigation/paint/input: real navigation retires old pixels and edits, stale image/input results deny, new document recovers, fragments/subframes preserve state (WK unopened)" << std::endl;
     std::cout << "PASS independent iOS native property/binding/session/epoch/namespace checks" << std::endl;
     document = owner.issue(&issuer, identity, source, script);
     // Execute the actual inherited wrapper through the real product selectors;

@@ -96,6 +96,10 @@ private:
     void tearDown();
     bool observeInlineDocument();
     bool openSource();
+    void retireDocumentPresentation();
+    bool beginDocumentNavigation(const QUrl& frame);
+    void acceptDocumentImage(std::uint64_t generation, std::uint64_t epoch, const QImage& image);
+    void acceptInputResult(std::uint64_t generation, std::uint64_t epoch, bool editable);
     void fail(const QString& message);
     void setLoading(bool value);
     void updateNavigation();
