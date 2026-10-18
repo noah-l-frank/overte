@@ -1,5 +1,24 @@
 # Pico 4 Web entities
 
+## Current shared native surface
+
+The selected Pico World and tablet surfaces use the common Android native
+WebView backend in texture presentation, including inline HTML. The World
+renderer supplies a native immutable document through the real QML context;
+HTML strings or JavaScript maps cannot issue that authority. Source replacement
+and native owner revocation retire the previous response, bridge and input
+grants. The old `PicoLegacyWebSurface.qml` remains historical code and is no
+longer selected for data HTML. The implementation history below describes the
+older bitmap renderer and its device observations.
+
+Activity foreground controls rendering and media lifecycle. Window focus gates
+input, external browser actions and picker delivery without suspending a
+foreground page. Physical Back uses the common current-owner navigation entry;
+reserved inline and packaged origins cannot open in an external browser.
+Host Qt texture checks and API26/35 Activity tests cover their named local
+boundaries. Current HMD controller, WebView media, compositor, physical audio,
+full APK and installation acceptance require separate current-device evidence.
+
 ## Revision 09 content boundary
 
 The production Java bridge now checks initial loads, replacement loads, link

@@ -46,6 +46,9 @@ final class PicoEmbeddedWebHost implements EmbeddedWebHost {
         if (initialized) EmbeddedWebView.setInputFocused(this, isInputFocused());
         files.deliver(isInputFocused());
     }
+    boolean back() {
+        return isInputFocused() && EmbeddedWebView.goBack(this);
+    }
     void detach() {
         resumed = false;
         files.cancel();
@@ -71,8 +74,7 @@ final class PicoEmbeddedWebHost implements EmbeddedWebHost {
     }
     @Override public void diagnostic(int status) { RedactingDiagnostics.w(Event.REDACTED); }
     @Override public boolean openExternal(Uri url) {
-        if (!isInputFocused() || url == null || url.getUserInfo() != null
-                || !("https".equals(url.getScheme()) || "http".equals(url.getScheme()))) return false;
+        if (!isInputFocused() || !EmbeddedWebView.isExternalWebURL(url)) return false;
         try {
             Intent browser = new Intent(Intent.ACTION_VIEW, url).addCategory(Intent.CATEGORY_BROWSABLE);
             activity.startActivity(Intent.createChooser(browser, "Open in browser"));

@@ -11,7 +11,7 @@ Item {
     property bool useBackground: true
     property string userAgent: ""
     readonly property var item: loader.item
-    readonly property bool webViewLoaded: !/\.qml(?:[?#].*)?$/.test(url)
+    readonly property bool webViewLoaded: /^data:/i.test(url) || !/\.qml(?:[?#].*)?$/.test(url)
     property bool keyboardEnabled: true
     property bool keyboardRaised: false
     property bool punctuationMode: false
@@ -31,21 +31,21 @@ Item {
         keyboardRaised = false;
         punctuationMode = false;
         passwordField = false;
-        // Keep Pico's working inline-HTML renderer. The common source grant
-        // intentionally excludes data documents from privileged WebChannel use.
+        // Inline HTML uses the same native descriptor and resource lease as
+        // other Android surfaces. The nested common view inherits the real
+        // World context; QML strings alone cannot grant document authority.
         // A direct physical load and Qt's logical selector entry have different
         // bases. Resolve the sibling shared component from either entry.
         var base = Qt.resolvedUrl(".").toString();
         var commonBase = base.replace(/\+android_picoInterface\/$/, "");
-        var source = /^data:text\/html(?:[;,]|$)/i.test(url)
-            ? base + "PicoLegacyWebSurface.qml"
-            : commonBase + "+android_interface/Web3DSurface.qml";
+        var source = commonBase + "+android_interface/Web3DSurface.qml";
         if (_source === source) {
             _set("url", url);
             return;
         }
         if (loader.item) {
-            // Blank the legacy page before releasing its native handle/audio.
+            // Release the previous native document before replacing its host.
+            if (loader.item.item && loader.item.item.stop) { loader.item.item.stop(); }
             loader.item.url = "about:blank";
         }
         _source = source;

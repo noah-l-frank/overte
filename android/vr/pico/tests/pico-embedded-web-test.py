@@ -85,7 +85,7 @@ if __name__ == '__main__':
         parser.error('--api-only requires the four actual SDK artifacts')
     if any(artifacts):
         if not all(path and path.is_file() for path in artifacts):
-            parser.error('Production Java API compilation requires all three actual SDK artifacts')
+            parser.error('Production Java API compilation requires all four actual SDK artifacts')
         # PermissionsActivity needs generated APK R. Every other Pico class,
         # real Qt binding and shared runtime is compiled without substitutions.
         sources = list((ROOT / 'android/vr/pico/apps/picoInterface/src/main/java').rglob('*.java'))

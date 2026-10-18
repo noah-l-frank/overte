@@ -1,6 +1,7 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
 #include "NativeWebViewItem.h"
+#include "InlineHtmlDocument.h"
 #include <QGuiApplication>
 #include <QQuickWindow>
 #include <QQmlEngine>
@@ -68,10 +69,10 @@ int main(int argc, char** argv) {
     engine.rootContext()->setContextProperty("KeyboardScriptingInterface", &keyboard);
     QQuickWindow window;
     window.setWidth(640); window.setHeight(480); window.show();
-    auto create = [&](const QString& file) {
+    auto create = [&](const QString& file, QQmlContext* context = nullptr) {
         QQmlComponent component(&engine, QUrl::fromLocalFile(QString(argv[1]) + file));
         if (!component.isReady()) qFatal("%s", qPrintable(component.errorString()));
-        auto* object = component.create();
+        auto* object = component.create(context ? context : engine.rootContext());
         if (!object) qFatal("%s", qPrintable(component.errorString()));
         return object;
     };
@@ -117,6 +118,11 @@ int main(int argc, char** argv) {
     pointer(QEvent::MouseButtonPress, Qt::LeftButton, Qt::LeftButton, true);
     pointer(QEvent::MouseButtonRelease, Qt::LeftButton, Qt::NoButton, true);
     pointer(QEvent::MouseMove, Qt::NoButton, Qt::LeftButton, false);
+    pointer(QEvent::MouseButtonPress, Qt::LeftButton, Qt::LeftButton, true);
+    view->grabMouse(); assert(window.mouseGrabberItem() == view);
+    view->ungrabMouse(); assert(window.mouseGrabberItem() != view);
+    pointer(QEvent::MouseMove, Qt::NoButton, Qt::LeftButton, false);
+    pointer(QEvent::MouseButtonRelease, Qt::LeftButton, Qt::NoButton, false);
     QImage frame(4, 4, QImage::Format_ARGB32); frame.fill(QColor(220, 40, 60));
     view->acceptFrame(grant, 1, frame.constBits(), frame.sizeInBytes(), frame.width(), frame.height());
     QEventLoop paint; QTimer::singleShot(80, &paint, &QEventLoop::quit); paint.exec();
@@ -130,6 +136,21 @@ int main(int argc, char** argv) {
     auto color = rendered.pixelColor(100, 100);
     assert(color.red() == 220 && color.green() == 40 && color.blue() == 60);
     qInfo("PASS actual Qt scene renders Pico-selected native WebView texture pixels");
+    std::unique_ptr<QObject> isolated(create("/controls/EmbeddedWebBackend.qml"));
+    auto* isolatedItem=qobject_cast<QQuickItem*>(isolated.get());
+    isolatedItem->setParentItem(window.contentItem());isolatedItem->setWidth(640);isolatedItem->setHeight(480);
+    isolated->setProperty("sourceIdentity", "pico-owned-second-world");
+    isolated->setProperty("url", "https://pico.test/isolated");
+    auto* isolatedView=isolated->findChild<NativeWebViewItem*>();assert(isolatedView && isolatedView!=view);
+    isolatedView->acceptForeground(true);const auto isolatedGrant=isolatedView->generation();assert(isolatedGrant);
+    isolatedView->acceptPage(isolatedGrant,1,QUrl("https://pico.test/isolated"));
+    QImage isolatedFrame(4,4,QImage::Format_ARGB32);isolatedFrame.fill(QColor(20,210,70));
+    isolatedView->acceptFrame(isolatedGrant,1,isolatedFrame.constBits(),isolatedFrame.sizeInBytes(),4,4);
+    isolatedItem->setVisible(false);QCoreApplication::processEvents();
+    assert(!isolatedView->generation() && view->generation()==grant);
+    assert(view->editorFocused() && !isolatedView->editorFocused());
+    isolated.reset();assert(view->generation()==grant);
+    qInfo("PASS selected Pico native surfaces isolate frame, editor and hide state; browser media is a device boundary");
     assert(!view->acceptMessage(grant, 1, QUrl("https://pico.test/form"), QUrl("https://foreign.test"), true, "editor", "{}"));
     view->acceptForeground(false); QCoreApplication::processEvents();
     assert(bridge.messages.last() == "_LOWER_KEYBOARD");
@@ -165,12 +186,27 @@ int main(int argc, char** argv) {
     assert(panel->property("numeric").toBool() && panel->property("password").toBool());
     assert(common->height() == 230);
     world->setProperty("keyboardRaised", false); assert(common->height() == 480);
-    world->setProperty("url", "data:text/html,<input value='inline'>");
+    const QString inlineSource = "data:text/html;charset=UTF-8,<input value='inline+%2f'>.qml#Authored";
+    world->setProperty("url", inlineSource);
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete); QCoreApplication::processEvents();
-    assert(!common);
-    auto* legacy = world->findChild<LegacyBoundary*>(); assert(legacy);
-    assert(legacy->url.startsWith("data:text/html,"));
-    assert(legacy->scriptUrl == "https://pico.test/client.js");
+    common = world->findChild<NativeWebViewItem*>();
+    assert(common && !world->findChild<LegacyBoundary*>());
+    assert(common->url() == inlineSource && !common->generation()); // No descriptor, no authority.
+    overte::web::InlineHtmlDocumentOwner inlineOwner;
+    const auto descriptor = inlineOwner.issue(engine.rootContext(), "pico:inline:world", inlineSource,
+        "https://pico.test/client.js");
+    assert(descriptor.current());
+    engine.rootContext()->setContextProperty("nativeWebSourceIdentity", "pico:inline:world");
+    engine.rootContext()->setContextProperty("nativeInlineHtmlDocument", QVariant::fromValue(descriptor));
+    common->acceptForeground(true); QCoreApplication::processEvents();
+    assert(common->url() == inlineSource && common->generation());
+    assert(common->property("inlineDocument").value<overte::web::InlineHtmlDocument>().token() == descriptor.token());
+    const auto inlineGrant = common->generation();
+    const auto inlineTransport = descriptor.transportURL();
+    inlineOwner.revoke(); // Revoke without a QML assignment or event-loop turn.
+    assert(!common->generation());
+    assert(!common->allowsFileChooser(inlineGrant, 1, inlineTransport));
+    assert(!common->acceptMessage(inlineGrant, 1, inlineTransport, inlineTransport, true, "editor", "{}"));
     world->setProperty("url", "https://pico.test/next");
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete); QCoreApplication::processEvents();
     assert(world->findChild<NativeWebViewItem*>());
@@ -182,7 +218,14 @@ int main(int argc, char** argv) {
     physicalWorld->setProperty("url", "https://pico.test/physical"); QCoreApplication::processEvents();
     assert(physicalWorld->findChild<NativeWebViewItem*>());
     physicalWorld->setProperty("url", "data:text/html,<p>physical inline</p>"); QCoreApplication::processEvents();
-    assert(physicalWorld->findChild<LegacyBoundary*>());
+    auto* physicalNative = physicalWorld->findChild<NativeWebViewItem*>(); assert(physicalNative);
+    assert(!physicalWorld->findChild<LegacyBoundary*>() && !physicalNative->generation());
+    // The direct physical selector entry must also preserve data bodies that
+    // look like a QML filename and reject caller-supplied maps as authority.
+    physicalWorld->setProperty("url", "data:text/html,<p>physical inline</p>.qml");
+    QCoreApplication::processEvents(); assert(physicalNative->url().endsWith(".qml"));
+    physicalNative->setProperty("inlineDocument", QVariantMap{{"html", "forged"}});
+    assert(!physicalNative->generation());
     physicalWorld.reset();
     std::unique_ptr<QObject> tablet(create("/controls/TabletWebScreen.qml"));
     auto* tabletItem = qobject_cast<QQuickItem*>(tablet.get()); assert(tabletItem);
@@ -201,6 +244,32 @@ int main(int argc, char** argv) {
     assert(tabletView->height() == 182); // Existing keyboard (250) + native navigation (48).
     tablet->setProperty("keyboardRaised", false);
     assert(!tabletView->editorFocused() && tabletView->height() == 432);
+    {
+        auto context=std::make_unique<QQmlContext>(engine.rootContext());
+        QQmlContext foreignContext(engine.rootContext());
+        auto owner=std::make_unique<overte::web::InlineHtmlDocumentOwner>();
+        const QString source="data:text/html,<p>owner+%2f</p>.qml#Case";
+        const QString script="https://pico.test/script%2f.js?literal=+";
+        auto foreign=owner->issue(&foreignContext,"pico:bound-context",source,script);
+        context->setContextProperty("nativeWebSourceIdentity","pico:bound-context");
+        context->setContextProperty("nativeInlineHtmlDocument",QVariant::fromValue(foreign));
+        std::unique_ptr<QObject> bound(create("/+android_picoInterface/Web3DSurface.qml",context.get()));
+        qobject_cast<QQuickItem*>(bound.get())->setParentItem(window.contentItem());
+        bound->setProperty("scriptUrl",script);bound->setProperty("url",source);
+        QCoreApplication::processEvents();
+        auto* native=bound->findChild<NativeWebViewItem*>();assert(native);
+        native->acceptForeground(true);assert(!native->generation()); // A sibling context cannot authorize this page.
+        auto valid=owner->issue(context.get(),"pico:bound-context",source,script);
+        context->setContextProperty("nativeInlineHtmlDocument",QVariant::fromValue(valid));
+        QCoreApplication::processEvents();assert(native->generation());
+        assert(native->url()==source && native->scriptUrl()==script);
+        owner.reset();assert(!native->generation()); // Owner death is synchronous.
+        overte::web::InlineHtmlDocumentOwner contextOwner;
+        auto renewed=contextOwner.issue(context.get(),"pico:bound-context",source,script);
+        context->setContextProperty("nativeInlineHtmlDocument",QVariant::fromValue(renewed));
+        QCoreApplication::processEvents();assert(native->generation());
+        context.reset();assert(!native->generation()); // Context death retires the still-live native item.
+    }
     qInfo("PASS Pico selected native Texture world/tablet, editor/keyboard and lifecycle routing");
 }
 #include "pico-embedded-web-native-test.moc"

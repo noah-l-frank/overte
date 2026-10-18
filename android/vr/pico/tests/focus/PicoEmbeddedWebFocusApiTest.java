@@ -7,6 +7,8 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.WebChromeClient;
+import android.view.KeyEvent;
+import org.overte.web.EmbeddedWebHost;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import org.junit.Test;
@@ -75,6 +77,13 @@ public final class PicoEmbeddedWebFocusApiTest {
     @Implements(value=EmbeddedWebView.class, isInAndroidSdk=false)
     public static final class SharedNativeBoundary {
         static int transitions; static boolean foreground;
+        static int backCalls; static boolean backHandled;
+        static EmbeddedWebHost backOwner;
+        // Selection/resource/audio behavior is covered by the shared owner.
+        // Here the actual Pico Activity and host must call the common entry.
+        @Implementation protected static boolean goBack(EmbeddedWebHost owner) {
+            ++backCalls; backOwner=owner; return backHandled;
+        }
         @Implementation protected static void nativeInitialize() { }
         @Implementation protected static void nativeForeground(boolean active) {
             ++transitions;foreground=active;
@@ -198,6 +207,51 @@ public final class PicoEmbeddedWebFocusApiTest {
         first.pause().stop().destroy();
         assertEquals(1,delivered.size());assertNull(delivered.get(0));
         assertFalse(SharedNativeBoundary.foreground);
+    }
+    @Test
+    public void external_browser_denies_reserved_transports_without_launching_an_intent() {
+        ActivityController<PicoInterfaceActivity> c=create();c.windowFocusChanged(true);
+        PicoEmbeddedWebHost host=host(c.get());
+        for(String url:new String[]{"http://token.overte-inline.invalid/index.html",
+                "https://OVERTE-INLINE.INVALID/", "https://token.overte-inline.invalid./",
+                "https://overte-embedded.invalid/html/test", "https://user@example.invalid/",
+                "file:///tmp/page.html", "https:///missing-host"}) {
+            assertFalse(url,host.openExternal(Uri.parse(url)));
+            assertNull(Shadows.shadowOf(c.get()).getNextStartedActivity());
+        }
+        assertTrue(host.openExternal(Uri.parse("https://example.invalid/page")));
+        assertEquals(Intent.ACTION_CHOOSER,Shadows.shadowOf(c.get()).getNextStartedActivity().getAction());
+        c.pause().stop().destroy();
+    }
+    @Test
+    public void back_gesture_and_callback_reach_common_only_for_the_focused_owner() {
+        ActivityController<PicoInterfaceActivity> c=create();c.windowFocusChanged(true);
+        PicoInterfaceActivity activity=c.get();PicoEmbeddedWebHost host=host(activity);
+        SharedNativeBoundary.backHandled=true;int before=SharedNativeBoundary.backCalls;
+        assertTrue(activity.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_BACK)));
+        assertEquals(before+1,SharedNativeBoundary.backCalls);assertSame(host,SharedNativeBoundary.backOwner);
+        assertTrue(activity.dispatchKeyEvent(new KeyEvent(1,2,KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_BACK,1)));
+        assertTrue(activity.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,KeyEvent.KEYCODE_BACK)));
+        assertEquals(before+1,SharedNativeBoundary.backCalls);
+        activity.onBackPressed();assertEquals(before+2,SharedNativeBoundary.backCalls);
+        c.windowFocusChanged(false);activity.onBackPressed();assertFalse(host.back());
+        assertEquals(before+2,SharedNativeBoundary.backCalls);assertTrue(host.isForeground());
+        c.windowFocusChanged(true);c.pause();activity.onBackPressed();assertFalse(host.back());
+        assertEquals(before+2,SharedNativeBoundary.backCalls);
+        c.stop().destroy();SharedNativeBoundary.backHandled=false;
+    }
+    @Test
+    public void picker_cancellation_delivers_once_and_rejects_late_provider_results() {
+        ActivityController<PicoInterfaceActivity> c=create();c.windowFocusChanged(true);
+        PicoEmbeddedWebHost host=host(c.get());ArrayList<Uri[]> delivered=new ArrayList<>();
+        assertTrue(host.chooseFiles(delivered::add,new Choice()));
+        org.robolectric.shadows.ShadowActivity.IntentForResult started=
+            Shadows.shadowOf(c.get()).getNextStartedActivityForResult();
+        c.get().onActivityResult(started.requestCode,Activity.RESULT_CANCELED,null);
+        assertEquals(1,delivered.size());assertNull(delivered.get(0));
+        assertFalse(host.fileResult(started.requestCode,Activity.RESULT_OK,
+            new Intent().setData(Uri.parse("content://provider/late-selection.glb"))));
+        host.detach();assertEquals(1,delivered.size());c.pause().stop().destroy();
     }
     private static final class Choice extends WebChromeClient.FileChooserParams {
         @Override public int getMode(){return MODE_OPEN;}

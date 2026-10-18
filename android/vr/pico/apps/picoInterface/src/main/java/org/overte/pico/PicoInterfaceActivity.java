@@ -21,6 +21,7 @@ public final class PicoInterfaceActivity extends QtActivity {
     private static final PicoActivityInstancePolicy<PicoInterfaceActivity> INSTANCE =
         new PicoActivityInstancePolicy<>();
     private boolean resumed;
+    private boolean embeddedBackConsumed;
     private PicoAccessibilityBridge accessibility;
     private PicoEmbeddedWebHost embeddedWeb;
     private PicoNativeDocumentHost nativeDocuments;
@@ -183,6 +184,15 @@ public final class PicoInterfaceActivity extends QtActivity {
         if (!resumed || INSTANCE.current() != this) {
             return true;
         }
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                embeddedBackConsumed = embeddedWeb != null && embeddedWeb.back();
+            }
+            if (embeddedBackConsumed) {
+                if (event.getAction() == KeyEvent.ACTION_UP) embeddedBackConsumed = false;
+                return true;
+            }
+        }
         // Pico controller input is handled through OpenXR. Pico OS also sends
         // some controller buttons through Android, which can otherwise queue
         // indefinitely behind Qt's native event loop and trigger an input ANR.
@@ -196,6 +206,12 @@ public final class PicoInterfaceActivity extends QtActivity {
             return super.dispatchKeyEvent(event);
         }
         return true;
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (!resumed || INSTANCE.current() != this || !hasWindowFocus()) return;
+        if (embeddedWeb == null || !embeddedWeb.back()) super.onBackPressed();
     }
 
     @Override

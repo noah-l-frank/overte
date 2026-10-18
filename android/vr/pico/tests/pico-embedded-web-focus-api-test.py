@@ -108,7 +108,7 @@ test {
     counts={k:sum(int(ET.parse(p).getroot().get(k,'0')) for p in reports) for k in ['tests','failures','errors','skipped']}
     (args.output/'result.json').write_text(json.dumps({'exit':result.returncode,'counts':counts},indent=2)+'\n')
     if result.returncode:return result.returncode
-    if counts!={'tests':10,'failures':0,'errors':0,'skipped':0}:raise RuntimeError('Incomplete actual Activity/API focus cases')
+    if counts!={'tests':16,'failures':0,'errors':0,'skipped':0}:raise RuntimeError('Incomplete actual Activity/API focus cases')
     classes=project/'build/classes/java/main'
     for name in ['org.overte.pico.PicoEmbeddedWebHost','org.overte.pico.PicoInterfaceActivity','org.overte.web.EmbeddedWebView']:
         text=subprocess.check_output(['javap','-private','-c','-s','-classpath',str(classes),name],text=True)
