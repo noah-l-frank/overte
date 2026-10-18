@@ -3023,11 +3023,14 @@ class SyncCompletionReceiverTests(unittest.TestCase):
         method = getattr(type(self.github), "job_log", None)
         self.assertTrue(callable(method), "bounded native console transport is absent")
         original_popen = subprocess.Popen
-        for content, expected in ((b"native line\n", "native line\n"), (b"x" * 70000, None), (b"\xff", None)):
+        for content, expected in ((b"native line\n", "native line\n"),
+                                  (b"\x1b[32msetup\x1b[0m\nnative receipt\n",
+                                   "\x1b[32msetup\x1b[0m\nnative receipt\n"),
+                                  (b"x" * 70000, None), (b"\xff", None)):
             with self.subTest(bytes=len(content)):
                 children = []
                 def launch(args, **kwargs):
-                    self.assertEqual(args, ["gh", "api", "--method", "GET", "repos/" + FORK + "/actions/jobs/810/logs"])
+                    self.assertEqual(args, ["gh", "api", "--allow-escape-sequences", "--method", "GET", "repos/" + FORK + "/actions/jobs/810/logs"])
                     child = original_popen([sys.executable, "-I", "-B", "-c",
                         "import sys; sys.stdout.buffer.write(" + repr(content) + ")"], **kwargs)
                     children.append(child)
