@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -33,7 +34,18 @@ with tempfile.TemporaryDirectory(prefix='overte-phone-emote-qt5-') as temporary:
     shutil.copy2(source, copied)
     assert copied.read_bytes() == source.read_bytes()
     shutil.copy2(HERE / 'tst_phone_emote.qml', stage)
-    result = subprocess.run([str(runner), '-import', str(ROOT / 'interface/resources/qml'),
+    # Use the real compiled Phone selector with a native sound/enum boundary.
+    # Production controls, touch metrics and all action handlers stay in-tree.
+    moc = runner.parent / 'moc'
+    cpp = HERE / 'phone-native-context.cpp'
+    subprocess.run([str(moc), str(cpp), '-o', str(stage / 'phone-native-context.moc')], check=True)
+    flags = shlex.split(subprocess.check_output(
+        ['pkg-config', '--cflags', '--libs', 'Qt5QuickTest', 'Qt5Quick', 'Qt5Test'], text=True))
+    libdir = subprocess.check_output(['pkg-config', '--variable=libdir', 'Qt5Core'], text=True).strip()
+    binary = stage / 'phone-emote'
+    subprocess.run(['c++', '-std=c++17', '-fPIC', '-I' + str(stage), str(cpp),
+                    '-o', str(binary), '-L' + libdir, *flags], check=True, timeout=60)
+    result = subprocess.run([str(binary), '-import', str(ROOT / 'interface/resources/qml'),
                              '-input', str(stage / 'tst_phone_emote.qml')],
         env=os.environ | {'QT_QPA_PLATFORM': 'offscreen', 'QT_QUICK_BACKEND': 'software'},
         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)

@@ -34,6 +34,10 @@ TestCase {
     function cleanup() { page = null }
     function button(name) {
         tryVerify(function() { return findChild(page, "PhoneEmoteButton_" + name) !== null }, 2000)
+        var grid = findChild(page, "PhoneEmoteGrid")
+        verify(grid !== null, "Use the actual Phone adaptive grid")
+        grid.positionViewAtIndex(agreed.indexOf(name), GridView.Contain)
+        waitForRendering(page)
         return findChild(page, "PhoneEmoteButton_" + name)
     }
     function test_actualMouseDispatchForAllTenAndStatusFeedback() {
