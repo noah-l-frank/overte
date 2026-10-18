@@ -1405,6 +1405,10 @@ identity does not grant reusable evidence or change the independent source,
 current-candidate, runtime, artifact and expiry checks. Before binding the native
 identity, the gate allows at most 30 seconds within its existing timeout for
 missing or null registration fields on that exact run, attempt and check suite.
+The exact initial workflow-name title `Sync validation` also waits for GitHub to
+expand the correlated run name within that same deadline. Empty, foreign or
+otherwise different titles fail immediately; a completed or already-bound run
+must always retain the complete correlated title.
 The positive returned run ID, exact fork URLs and nonterminal state remain
 mandatory; populated conflicting fields fail immediately. Complete identity and
 native App checks remain required, and field names plus the endpoint identify
