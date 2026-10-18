@@ -805,7 +805,7 @@
     },
     "shared-script-behavior": {
       "kind": "reviewed-product-inventory",
-      "definition_digest": "sha256:c094282fd3fedadcb0cc7fa1cb2b0241fd1e72a6765ae954662d08cd2d5382e4",
+      "definition_digest": "sha256:4f911f34b2075de56cfc02bf4cda2b7a30b8ec690960fe1cb888827d3ad3cff7",
       "setup": [
         "host-full"
       ]
@@ -867,7 +867,7 @@
       ]
     }
   },
-  "registry_digest": "sha256:25e5cd5e1b9fb1d7a16989a464f6010961e074e5d9400f959d3e0441536e39b4",
+  "registry_digest": "sha256:8c4cbcb61837aa46e50e8af9df71d78e828f19c15012edcf5f0501500f6056ad",
   "lookup_digest": "sha256:03ae433044c9e3f28611f14c5ad3f87f8f368a77ca45316134be7ef0186a0557",
   "targets": {
     "android-main": {

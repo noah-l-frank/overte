@@ -192,7 +192,7 @@ void RenderForwardTask::build(JobModel& task, const render::Varying& input, rend
     const auto opaqueInputs = DrawForward::Inputs(opaques, lightingModel, hazeFrame, lightClusters, deferredFrameTransform).asVarying();
     task.addJob<DrawForward>("DrawOpaques", opaqueInputs, shapePlumber, true, mainViewTransformSlot);
 
-#ifndef Q_OS_ANDROID
+#if !defined(Q_OS_ANDROID) || defined(ANDROID_APP_PHONE_INTERFACE) || defined(ANDROID_APP_PICO_INTERFACE)
     if (depth < RenderMirrorTask::MAX_MIRROR_DEPTH) {
         const auto mirrorInputs = RenderMirrorTask::Inputs(mirrors, scaledPrimaryFramebuffer).asVarying();
         for (size_t i = 0; i < RenderMirrorTask::MAX_MIRRORS_PER_LEVEL; i++) {
