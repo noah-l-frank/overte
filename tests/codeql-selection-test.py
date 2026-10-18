@@ -184,6 +184,21 @@ class LanguageSelectionTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(CODEQL.select_languages(before, after)['languages'], list(CODEQL.LANGUAGES))
 
+    def test_ios_host_policy_keeps_python_and_mixed_javascript_owners(self):
+        path = '.github/ios-host-orchestration.json'
+        for event in ('pull_request', 'push'):
+            before, after = self.pinned_trees()
+            before[path], after[path] = entry(), entry('b')
+            after['tools/check.py'] = entry('b')
+            with self.subTest(event=event):
+                self.assertEqual(CODEQL.select_languages(before, after, event=event)['languages'], ['python'])
+            for extra in ('browser/src/main.ts', '.github/ios-host-orchestration-extra.json'):
+                mixed = deepcopy(after)
+                mixed[extra] = entry('b')
+                with self.subTest(event=event, extra=extra):
+                    self.assertEqual(CODEQL.select_languages(before, mixed, event=event)['languages'],
+                                     list(CODEQL.LANGUAGES))
+
     def test_policy_json_add_remove_and_modes_cannot_inherit_the_exception(self):
         for path in CODEQL._PYTHON_POLICY_JSONS:
             for mutation in ('addition', 'removal', 'executable', 'symlink', 'gitlink'):

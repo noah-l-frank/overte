@@ -796,6 +796,37 @@ comparison entries are normalized to the original reviewed reader boundaries;
 actual source identities and test inputs stay intact. Unknown cache bytes, modes,
 readers or mixed product changes retain the ordinary application gate.
 
+The additional `host-v1-protected-pr-compiler-data-v1` generation registers one
+exact callee and five-file profile: `.github/workflows/ios-integrated.yml`,
+`ios/ci/qt-checkpoint-artifact.py`, `ios/tests/qt-checkpoint-artifact-test.py`,
+`ios/tests/ios-full-client-sccache-contract-test.py` and
+`docs/ios/SIGNING_AND_DEVICE_TESTS.md`. Only an exact transition from the original
+or installed v3 compiler profile to this reviewed profile can omit application
+compilation while retaining the iOS host checks. Complete ordinary base, head and
+merge inventories must preserve the original reviewed application boundary.
+Installed-profile continuation admits only already independent CI or document
+changes. Separate own-host omission still requires the existing CI/npm subset,
+mode and required-package-owner proofs plus the complete installed profile;
+cache transitions and guide changes keep the own-host checks. Unknown bytes,
+modes, neighboring inputs or changed application readers retain their gates.
+
+A relevant feature or fix PR can read compiler DATA through the protected base's
+isolated parser, accepting only a matching protected `apple-ios` native producer
+and its verified upload, archive and final source bookends. Existing per-object
+compiler, SDK, source, header and argument checks remain required. This DATA is
+neither an application/test PASS nor native qualification E; registering or
+restoring it does not establish a warm-build measurement. Relevant application
+changes still require their application build.
+
+The installed protected PR compiler-data profile has a separate finite
+`apple-ios` program and Device-reader family. Ordinary CI changes may use that
+family only when both immutable inputs already contain the exact five ordinary
+cache-profile leaves and their complete raw reader identities agree. Installing
+or reverting the cache profile still requires Device and iOS own-host checks;
+unknown profiles, modes, lookup members and neighboring readers retain the
+existing full-verification fallback. The extra program identity remains disabled
+until it is derived from the final source; this is selection, not reuse evidence.
+
 For those two ordinary lockfiles, a complete required JavaScript package owner
 also permits omission when dependency changes exceed the focused security-fix
 profiles. The full package checks must still succeed in the required repository
@@ -1638,12 +1669,13 @@ All earlier result generations remain admitted for source rollout, while both
 independent gates reject returning from a deployed result generation to an older
 one. The deployment transition requires both complete language scans.
 
-Only an edit to an existing ordinary `100644` `.github/android-orchestration.json`
-or `.github/test-suites.json` may select Python without JavaScript when both
+Only an edit to an existing ordinary `100644` `.github/android-orchestration.json`,
+`.github/ios-host-orchestration.json`, `.github/test-suites.json` or
+`.github/test-suite-dependencies.json` may select Python without JavaScript when both
 immutable trees use that exact pinned workflow and unchanged reviewed CodeQL
 configuration. The reviewed extractor has no generic JSON extraction and its
 single-file TypeScript parser cannot read imported JSON; its ancestor readers
-recognize package/tsconfig files rather than these two policy leaves. Python and
+recognize package/tsconfig files rather than these four policy leaves. Python and
 the policy governance tests remain required. Additions, removals, aliases, mode
 changes, older or unknown workflow/configuration, other JSON, YAML, package
 locks and mixed JavaScript inputs keep their existing conservative owners.
