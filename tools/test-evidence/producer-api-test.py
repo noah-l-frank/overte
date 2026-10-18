@@ -4043,7 +4043,222 @@ class OptionalParentScheduleTests(unittest.TestCase):
             self.schedule()
 
 
+class LeafOriginalCommonTests(unittest.TestCase):
+    """Real schema4/hash/API verification; source reconstruction uses fixed seams.
+
+    Original B/D projection validation remains covered by ci-profile-test. No
+    consumer environment capture or candidate command is substituted for proof.
+    """
+    def setUp(self):
+        f = MainConsumerTests('runTest')
+        f.generation_name = 'protected-producer-original-default-v1'
+        f.setUp(); self.addCleanup(f.doCleanups)
+        self.f, self.C, self.c, self.adapter = f, f.module, f.case, f.adapter
+        C, c = self.C, self.c
+        run = f.adapter.capture_integrated(500, c.plan, c.policy, now=NOW).observations[0].run
+        self.original_run = run
+        self.profile = deepcopy(C.producer.selection_profile.return_value)
+        c.binding['base_ref'] = 'apple-ios'
+        c.push.update(workflow_id=330551824, path='.github/workflows/project-tests.yml', head_branch='apple-ios')
+        c.originals['6'*40] = ('c'*40, ['7'*40])
+        f.tree[C.producer.PLATFORM_TEMPLATE] = deepcopy(f.tree['.github/workflows/project-tests.yml'])
+        self.candidate = Path('/immutable-leaf-candidate')
+        C.execution.checkout_identity.side_effect = lambda path: ((c.integrated, c.binding['merge_tree'])
+            if path == self.candidate else ('6'*40, 'c'*40))
+        f.environment.update(GITHUB_REF='refs/heads/apple-ios', GITHUB_JOB='project-tests',
+            GITHUB_WORKFLOW_REF=A.REPOSITORY+'/.github/workflows/project-tests.yml@refs/heads/apple-ios')
+        f.event['ref'] = 'refs/heads/apple-ios'
+        self.source = deepcopy(FIXTURES.RetainedSourceProtocolTests().fixture().context.protected_source)
+        self.source['binding'].update(source=c.binding['merge_sha'], git_context=f.git,
+            selection=self.profile['selection'], registry=P.digest(f.registry))
+        self.receipt = deepcopy(f.receipt)
+        self.receipt.update(schema=4, protected_source=deepcopy(self.source))
+        self.receipt = FIXTURES.signed(self.receipt, 'receipt_digest')
+        c.pp = replace(c.pp, required_execution_schema=4)
+        c.policy = replace(c.policy, producer=c.pp)
+        C._policy.return_value = c.plan, c.policy
+        c.aggregate['results']['shared-host']['receipt'] = self.receipt
+        c.add_run(replace(run, final_publisher=replace(run.final_publisher,
+            receipt_sha256=hashlib.sha256(P.canonical(self.receipt)).hexdigest())))
+        c.runs[100]['pull_requests'] = []
+        self.job = {'id':5500, 'run_id':500, 'run_attempt':1, 'head_sha':c.integrated,
+            'name':'Shared tests', 'status':'in_progress', 'conclusion':None,
+            'started_at':'2026-10-15T10:04:52Z', 'completed_at':None,
+            'check_run_url':'https://api.github.com/'+A.PREFIX+'/check-runs/5500'}
+        original_json = f.api.json
+        def native_json(endpoint):
+            path = endpoint[len(A.PREFIX):].lstrip('/').split('?',1)[0]
+            if path == 'branches/main':
+                value = {'name':'main', 'protected':True, 'commit':{'sha':'6'*40}}
+            elif path == 'actions/runs/500/attempts/1/jobs':
+                value = {'total_count':1, 'jobs':[deepcopy(self.job)]}
+            elif path == 'check-runs/5500':
+                value = {key:self.job[key] for key in ('id','head_sha','name','status','conclusion','started_at','completed_at')}
+                value.update(app={'id':15368}, check_suite={'id':1500})
+            else: return original_json(endpoint)
+            f.api.calls.append(endpoint)
+            return f.api.mutate(endpoint, deepcopy(value))
+        f.api.json = native_json
+        self.enterContext(patch.object(C.producer, 'selection_profile_for_reuse', return_value=self.profile))
+        self.enterContext(patch.object(C.producer, 'reuse_source_profile',
+            side_effect=lambda *args, **kwargs:(deepcopy(self.profile), deepcopy(f.tree))))
+        self.enterContext(patch.object(C, 'integrated_controller_for_reuse', return_value=c.pp.controller_digest))
+        def retained(receipt, *args, **kwargs):
+            A.require(receipt.get('schema') == 4 and receipt.get('protected_source') == self.source,
+                'fixed original source reconstruction differs')
+            return deepcopy(self.source)
+        self.enterContext(patch.object(C.producer, 'retained_receipt_source', side_effect=retained))
+        def original(adapter, invocation, plan, policy, context, receipt, binding, *, integrated, root, clock):
+            A.require(integrated and context.protected_source == self.source,
+                'actual schema4 source context differs')
+            return A.Adapter.verify_integrated(adapter, invocation, plan, policy,
+                {'shared-host':context}, clock=clock), object()
+        self.enterContext(patch.object(C.producer, 'verify_original_source', side_effect=original))
+
+    def reuse(self, *, include_platform=True, **kwargs):
+        return self.C.leaf_common_reuse(self.candidate, self.f.event, self.f.environment,
+            list(self.f.registry['suites']), include_platform=include_platform, adapter=self.adapter,
+            clock=lambda:NOW, **kwargs)
+
+    def test_actual_original_schema4_whole_hash_full_E_and_current_native_leaf_are_required(self):
+        for target in sorted(self.C.LEAF_TARGETS):
+            self.c.binding['base_ref'] = target; self.c.push['head_branch'] = target
+            self.f.event['ref'] = self.f.environment['GITHUB_REF'] = 'refs/heads/'+target
+            self.f.environment['GITHUB_WORKFLOW_REF'] = A.REPOSITORY+'/.github/workflows/project-tests.yml@refs/heads/'+target
+            partition = None if target == 'apple-ios' else {'digest':'sha256:'+'b'*64,
+                'common_owner':{'kind':'shared','suites':list(self.f.registry['suites']),
+                    'include_platform':False,'platform':{}}}
+            self.c.plan['owners']['shared-host']['include_platform'] = partition is None
+            self.receipt['include_platform'] = partition is None
+            self.receipt = FIXTURES.signed(self.receipt, 'receipt_digest')
+            self.c.aggregate['results']['shared-host']['receipt'] = self.receipt
+            run = replace(self.original_run, final_publisher=replace(self.original_run.final_publisher,
+                receipt_sha256=hashlib.sha256(P.canonical(self.receipt)).hexdigest()))
+            self.c.add_run(run); self.c.runs[100]['pull_requests'] = []
+            if partition is not None:
+                self.c.jobs[100].append({'id':140, 'run_id':100, 'run_attempt':1,
+                    'head_sha':self.c.binding['head_sha'], 'name':self.C.producer.PLATFORM_JOB,
+                    'status':'completed','conclusion':'success',
+                    'started_at':'2026-10-15T10:02:00Z','completed_at':'2026-10-15T10:03:00Z',
+                    'check_run_url':'https://api.github.com/'+A.PREFIX+'/check-runs/140',
+                    'steps':[{'name':'Execute and verify the complete Android platform inventory',
+                        'status':'completed','conclusion':'success',
+                        'started_at':'2026-10-15T10:02:01Z','completed_at':'2026-10-15T10:02:59Z'}]})
+            with self.subTest(target=target), patch.object(self.C.producer,'platform_partition',return_value=partition):
+                value = self.reuse(include_platform=partition is None,
+                    **({'partition':partition['digest']} if partition is not None else {}))
+                self.assertIsNotNone(value)
+                self.assertEqual(value['reused_suites'], list(self.f.registry['suites']))
+                self.assertEqual(value['executed_suites'], [])
+                self.assertIsNone(value['execution']); self.assertFalse(value['qualification'])
+                proof = value['proof']
+                self.assertEqual(proof['original_commit'], self.c.binding['merge_sha'])
+                self.assertNotEqual(proof['original_commit'], proof['current_commit'])
+                self.assertEqual(proof['original_protected_source'], self.source)
+                self.assertEqual(proof['original_proof']['receipt_sha256'], hashlib.sha256(P.canonical(self.receipt)).hexdigest())
+                self.assertEqual(value['external_platform_required'], partition is not None)
+                if partition is not None:
+                    self.assertFalse(proof['original_platform_job']['reusable'])
+                    self.c.jobs[100][-1]['conclusion'] = 'failure'
+                    self.assertIsNone(self.reuse(include_platform=False, partition=partition['digest']))
+        self.C.execution.execute.assert_not_called()
+        self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_absent_pending_failed_retry_native_hash_or_stale_context_never_skip_actual_fallback(self):
+        original = deepcopy((self.c.runs, self.c.jobs, self.c.artifacts))
+        for change in ('missing','pending','failed','attempt','hash','tree','runtime','git','source'):
+            with self.subTest(change=change):
+                if change=='missing': self.c.runs.clear()
+                elif change=='pending': self.c.runs[100].update(status='in_progress',conclusion=None)
+                elif change=='failed': self.c.runs[100]['conclusion']='failure'
+                elif change=='attempt': self.c.runs[100]['run_attempt']=2
+                elif change=='hash': self.c.jobs[100][-1]['name']=self.c.policy.final_publisher_prefix+'0'*64
+                elif change=='tree':
+                    with patch.object(self.C.execution,'checkout_identity',return_value=('f'*40,'e'*40)):
+                        self.assertIsNone(self.reuse())
+                    continue
+                elif change=='runtime':
+                    with patch.object(self.C.attested,'validate_environment',side_effect=ValueError('old E')):
+                        self.assertIsNone(self.reuse())
+                    continue
+                elif change=='git':
+                    with patch.object(self.C.producer,'expected_git_context',return_value={'wrong':'S is not M'}):
+                        self.assertIsNone(self.reuse())
+                    continue
+                else:
+                    with patch.object(self.C.producer,'retained_receipt_source',side_effect=ValueError('changed original D')):
+                        self.assertIsNone(self.reuse())
+                    continue
+                self.assertIsNone(self.reuse())
+            self.c.runs,self.c.jobs,self.c.artifacts = deepcopy(original)
+
+    def test_current_native_job_foreign_attempt_target_and_selected_owner_changes_never_waive(self):
+        for key, value in (('GITHUB_JOB','route'),('GITHUB_REF','refs/heads/apple-main'),
+                ('GITHUB_EVENT_NAME','pull_request'),('GITHUB_RUN_ATTEMPT','2'),
+                ('GITHUB_WORKFLOW_SHA','f'*40),('GITHUB_REPOSITORY','overte-org/overte')):
+            with self.subTest(key=key), patch.dict(self.f.environment,{key:value}):
+                self.assertIsNone(self.reuse())
+        for key, value in (('status','completed'),('run_attempt',2),('head_sha','f'*40),('name','fake Shared tests')):
+            with self.subTest(key=key), patch.dict(self.job,{key:value}):
+                self.assertIsNone(self.reuse())
+        with patch.object(self.C,'verify_main',wraps=self.C.verify_main):
+            value = self.C.leaf_common_reuse(self.candidate,self.f.event,self.f.environment,['first'],
+                include_platform=True,adapter=self.adapter,clock=lambda:NOW)
+            self.assertIsNone(value)
+
+    def test_package_delta_keeps_its_external_owner_and_current_native_job_is_bookended(self):
+        path = self.C.producer._host_policy().package_policy().S3+'/package-lock.json'
+        self.f.tree[path] = {'mode':'100644','type':'blob','sha':'f'*40}
+        value = self.reuse()
+        self.assertIsNotNone(value)
+        self.assertTrue(value['proof']['package_work'])
+        self.assertEqual(value['reused_suites'],list(self.f.registry['suites']))
+        self.assertEqual(value['executed_suites'],[])
+        reads = 0
+        def changed(endpoint, value):
+            nonlocal reads
+            if '/actions/runs/500/attempts/1/jobs?' in endpoint:
+                reads += 1
+                if reads >= 2:
+                    value['jobs'][0]['status'] = 'completed'
+                    value['jobs'][0]['conclusion'] = 'cancelled'
+            return value
+        self.f.api.mutate = changed
+        self.assertIsNone(self.reuse())
+        self.assertGreaterEqual(reads,2)
+
+
 class OptionalAndroidParentCommonTests(unittest.TestCase):
+    def test_leaf_omits_only_common_on_verified_original_proof_and_never_retries_failed_execution(self):
+        import postmerge
+        import producer_workflow as workflow
+        import tempfile
+        context = {'binding':{'base_ref':'android-phone','merge_sha':'a'*40},
+            'candidate':Path('/unused-candidate'),'integration':{},
+            'platform_partition':{'digest':'sha256:'+'b'*64,'common_owner':{'suites':['contract']}}}
+        proof = {'kind':'leaf-original-common-reuse-v1','reusable':False,'qualification':False,
+            'execution':None,'executed_suites':[],'reused_suites':['contract'],
+            'external_platform_required':True}
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory)/'common.xml'
+            with patch.object(workflow,'_push_platform_job') as native, \
+                    patch.object(workflow,'_platform_bookend') as bookend, \
+                    patch.object(postmerge,'leaf_common_reuse',return_value=proof) as lookup, \
+                    patch.object(workflow.execution,'execute',side_effect=AssertionError('duplicate common commands')):
+                value = workflow.legacy_common_fallback(context,{}, {},object(),report=report)
+            self.assertEqual(value,proof);self.assertEqual(native.call_count,2);bookend.assert_called_once()
+            self.assertFalse(report.exists());self.assertEqual(json.loads(report.with_suffix('.json').read_text()),proof)
+            self.assertEqual(lookup.call_args.kwargs['partition'],context['platform_partition']['digest'])
+            self.assertIs(lookup.call_args.kwargs['include_platform'],False)
+            with patch.object(workflow,'_push_platform_job'),patch.object(workflow,'_platform_bookend'), \
+                    patch.object(postmerge,'leaf_common_reuse',return_value=None) as lookup, \
+                    patch.object(workflow.execution,'execute',return_value=(1,{'reusable':False,'environment':None})) as execute:
+                with self.assertRaises(ValueError):
+                    workflow.legacy_common_fallback(context,{}, {},object(),report=report)
+            lookup.assert_called_once();execute.assert_called_once()
+            self.assertEqual(execute.call_args.args[1],['contract'])
+            self.assertFalse(execute.call_args.kwargs['include_platform'])
+
     def test_only_native_parent_common_nonqualifying_execution_is_declined(self):
         import producer_workflow as workflow
         import tempfile

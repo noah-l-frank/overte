@@ -38,6 +38,7 @@ GENERATIONS = {'postmerge-original-e-v1', 'protected-producer-postmerge-original
                'protected-producer-seven-target-ci-v1', producer.PLATFORM_GENERATION,
                ci_profile.RETAINED_SOURCE_GENERATION}
 DOCUMENTATION_SUITES = frozenset({'documentation-contracts','documentation','policy-consistency'})
+LEAF_TARGETS = frozenset({'apple-ios', 'android-phone', 'android-vr-pico'})
 
 
 def _source_qualified():
@@ -61,6 +62,9 @@ def _native(event, environment):
     # from its common job. verify_main still authenticates the complete recipe.
     if workflow == 'parent-qualification' and environment.get('GITHUB_JOB') == 'common-parent':
         expected['GITHUB_JOB'] = 'common-parent'
+    if workflow == 'project-tests' and target in LEAF_TARGETS \
+            and environment.get('GITHUB_JOB') == 'project-tests':
+        expected['GITHUB_JOB'] = 'project-tests'
     A.require(all(environment.get(key) == value for key, value in expected.items()),
               'consumer requires the original current protected push job')
     source = A.sha(environment.get('GITHUB_SHA'))
@@ -404,9 +408,67 @@ def verify_main(event, environment, adapter, *, root=ROOT, clock=lambda: datetim
         'original_commit': snapshot.binding['merge_sha'], 'original_git_context': original_git,
         'original_proof': verified, 'original_protected_source':retained, 'original_environment_digest': admission['environment_digest'],
         'runtime_admission': runtime_admission, 'reused_suites': reused_suites, 'executed_suites': [],
+        'shared_include_platform': owner['include_platform'],
         'package_work': package_work,
         **({'external_platform_required': True, 'platform_partition': partition['digest'],
             'original_platform_job': platform_observation} if partition is not None else {})}
+
+
+def leaf_common_reuse(candidate, event, environment, required_suites, *, include_platform,
+                      partition=None, adapter=None, root=ROOT, clock=lambda: datetime.now(timezone.utc)):
+    """Late native leaf hook: genuine original proof or unchanged actual fallback.
+
+    Only common commands are omitted. Current package/platform jobs retain their
+    separate owners. This cannot turn an optional no-proof report into evidence,
+    publish a new receipt, or retry any candidate command after it has started.
+    """
+    try:
+        A.require(_source_qualified() and environment.get('GITHUB_JOB') == 'project-tests'
+            and environment.get('GITHUB_REF', '').removeprefix('refs/heads/') in LEAF_TARGETS,
+            'not the fixed native leaf shared job')
+        source, run_id = _native(event, environment)
+        A.require(type(required_suites) is list and required_suites
+            and all(type(name) is str for name in required_suites)
+            and len(set(required_suites)) == len(required_suites) and type(include_platform) is bool,
+            'leaf common command inventory is unavailable')
+        adapter = adapter or A.Adapter()
+        binding, refs = adapter._integrated_current(run_id, 15368, clock())
+        A.require(binding['base_ref'] in LEAF_TARGETS and refs['target'] == source,
+            'leaf push target changed')
+        context = {'run_id': run_id, 'binding': binding, 'refs': refs, 'integration': refs['integration']}
+        before = execution.checkout_identity(candidate)
+        A.require(before == (source, binding['merge_tree']), 'leaf checkout differs from the current push')
+        native = producer._push_platform_job(context, adapter, 'Shared tests')
+        proof = verify_main(event, environment, adapter, root=root, clock=clock)
+        A.require(type(proof.get('original_protected_source')) is dict
+            and proof['current_commit'] == source and proof['current_tree'] == before[1]
+            and proof['current_push_run_id'] == run_id and proof['target'] == binding['base_ref']
+            and proof['reused_suites'] == required_suites and proof['executed_suites'] == []
+            and proof['shared_include_platform'] is include_platform
+            and proof['reusable'] is False,
+            'original schema4 proof does not cover the exact leaf common commands')
+        if partition is None:
+            A.require(proof.get('external_platform_required') is not True,
+                'independent Android owner cannot disappear behind shared reuse')
+        else:
+            A.require(include_platform is False and proof.get('external_platform_required') is True
+                and proof.get('platform_partition') == partition,
+                'leaf Android common partition differs from original proof')
+        A.require(execution.checkout_identity(candidate) == before
+            and producer._push_platform_job(context, adapter, 'Shared tests') == native
+            and clock() < P._time(proof['original_proof']['expires_at']),
+            'leaf source or active native shared job changed during original proof verification')
+        return {'schema': 1, 'kind': 'leaf-original-common-reuse-v1', 'reusable': False,
+            'qualification': False, 'execution': None, 'executed_suites': [],
+            'reused_suites': required_suites, 'proof': proof,
+            'external_platform_required': partition is not None}
+    except (P.ProtocolError, attested.AttestedReuseUnavailable, inputs.InputError, execution.ExecutionError,
+            sandbox.SandboxUnavailable, ci_profile.CIProfileError, runtime_ci.CIEnvironmentError,
+            producer.PreExecutionUnavailable, OSError, subprocess.SubprocessError, KeyError, TypeError,
+            ValueError, AttributeError, StopIteration):
+        # This hook runs strictly before any candidate execution. Unavailable
+        # proof never waives required tests and API bodies never enter output.
+        return None
 
 
 def _metadata_module(root=ROOT):

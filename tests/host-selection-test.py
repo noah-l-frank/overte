@@ -1730,5 +1730,77 @@ class OptionalParentQualificationTests(unittest.TestCase):
             self.assertIn('no test pass or reusable evidence published', output.getvalue())
 
 
+class LeafOriginalExecutionTests(unittest.TestCase):
+    def cli(self, *, proof=True, target='apple-ios', event_name='push', platform=False,
+            select_only=False, failure=False, additions=False):
+        import postmerge
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory)/'candidate'; candidate.mkdir()
+            event = Path(directory)/'event.json'
+            event.write_text(json.dumps({'ref':'refs/heads/'+target}))
+            junit, report, output = (Path(directory)/name for name in ('tests.xml','report.json','outputs'))
+            plan = {'candidate':'a'*40,'plan':'fixture','host_mode':'full','base':None,
+                'regular':True,'unknown':False,'paths':['tools/branch-cleanup/cleanup.py']}
+            registry = {'suites':{'contract':{'layer':'quick','environment':'fixture',
+                'command':['python','contract.py']}}}
+            selected = {'suites':['contract'],'include_platform':platform,'full_host':platform,'reason':'fixture'}
+            proposed = deepcopy(registry)
+            if additions:
+                proposed['suites']['new-contract'] = {**deepcopy(registry['suites']['contract']),
+                    'command':['python','new-contract.py']}
+            value = {'kind':'leaf-original-common-reuse-v1','reusable':False,'qualification':False,
+                'execution':None,'executed_suites':[],'reused_suites':['contract'],
+                'proof':{'original_commit':'b'*40,'current_commit':'a'*40}}
+            runner = SimpleNamespace(Suite=lambda *args:args,run_suites=Mock(return_value=1 if failure else 0))
+            policy = SimpleNamespace(validate_wiring=lambda _:None,candidate_plan=lambda *_:plan)
+            argv = ['host_selection.py','--candidate',str(candidate),'--event',str(event),
+                '--sha','a'*40,'--expected-plan','fixture','--junit',str(junit),'--selection-report',str(report)]
+            if select_only: argv += ['--select-only','--output',str(output)]
+            with patch.object(sys,'argv',argv), patch.dict(HOST.os.environ,
+                    {'GITHUB_EVENT_NAME':event_name,'GITHUB_JOB':'project-tests'},clear=True), \
+                    patch.object(HOST.execution,'_runner',return_value=runner), \
+                    patch.object(HOST.execution,'checkout_identity',return_value=('a'*40,'c'*40)), \
+                    patch.object(HOST,'package_policy',return_value=policy), \
+                    patch.object(HOST.inputs,'full_tree',return_value={}), \
+                    patch.object(HOST.inputs,'load_registry',return_value=registry), \
+                    patch.object(HOST,'candidate_registry',return_value=proposed), \
+                    patch.object(HOST,'select',return_value=selected), \
+                    patch.object(HOST.execution,'platform_suites',return_value=(
+                        [('platform-contract',['python','platform.py'])] if platform else [])), \
+                    patch.object(postmerge,'leaf_common_reuse',return_value=value if proof else None) as lookup, \
+                    contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
+                status = HOST.main()
+            return status,runner,lookup,json.loads(report.read_text()),junit.exists()
+
+    def test_late_common_hook_preserves_original_provenance_without_new_junit_or_execution(self):
+        status,runner,lookup,report,junit = self.cli()
+        self.assertEqual(status,0); runner.run_suites.assert_not_called(); lookup.assert_called_once()
+        self.assertFalse(junit)
+        self.assertEqual(report['executed_suites'],[])
+        self.assertEqual(report['reused_suites'],['contract'])
+        self.assertNotEqual(report['original_common']['proof']['original_commit'],report['candidate'])
+        self.assertIsNone(report['execution']);self.assertFalse(report['reusable'])
+        # Setup cannot use an unauthenticated speculative early lookup.
+        _,runner,lookup,_,_ = self.cli(select_only=True)
+        runner.run_suites.assert_not_called();lookup.assert_not_called()
+
+    def test_unavailable_proof_runs_exactly_once_and_failure_is_not_retried(self):
+        for failure in (False,True):
+            with self.subTest(failure=failure):
+                status,runner,lookup,report,_ = self.cli(proof=False,failure=failure)
+                self.assertEqual(status, int(failure));runner.run_suites.assert_called_once();lookup.assert_called_once()
+                self.assertNotIn('original_common',report)
+
+    def test_pr_foreign_leaf_new_command_and_actual_platform_work_retain_their_owners(self):
+        for options in ({'event_name':'pull_request'},{'target':'apple-main'},
+                        {'platform':True},{'additions':True}):
+            with self.subTest(options=options):
+                status,runner,lookup,report,_ = self.cli(**options)
+                self.assertEqual(status,0);runner.run_suites.assert_called_once();lookup.assert_not_called()
+                self.assertNotIn('original_common',report)
+                if options.get('platform'):
+                    self.assertIn('platform-contract',[suite[0] for suite in runner.run_suites.call_args.args[1]])
+
+
 if __name__=='__main__':
     unittest.main()

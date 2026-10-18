@@ -1124,6 +1124,18 @@ def legacy_common_fallback(context, event, environment, adapter, *, report):
         if 'integration' in context else (lambda: current_run(context, adapter, 'shared'))
     native()
     target = context['binding']['base_ref'] if 'integration' in context else None
+    if 'integration' in context and target in {'android-phone', 'android-vr-pico'}:
+        import postmerge
+        original = postmerge.leaf_common_reuse(context['candidate'], event, environment,
+            context['platform_partition']['common_owner']['suites'], include_platform=False,
+            partition=context['platform_partition']['digest'], adapter=adapter, root=ROOT)
+        if original is not None:
+            _platform_bookend(context, event, environment, adapter)
+            native()
+            Path(report).with_suffix('.json').write_bytes(protocol.canonical(original))
+            print('Original native PR proof covers the leaf common commands; '
+                  'package and platform owners remain independently required.', flush=True)
+            return original
     if 'integration' in context and target in {'android-main', 'android-vr'} \
             and environment.get('GITHUB_EVENT_NAME') == 'push' \
             and environment.get('GITHUB_JOB') == 'common-parent' \

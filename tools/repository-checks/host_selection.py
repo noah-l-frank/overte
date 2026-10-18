@@ -748,6 +748,20 @@ def main():
             return 0
         if args.junit is None:
             raise ValueError('host execution requires a test report path')
+        if (os.environ.get('GITHUB_EVENT_NAME') == 'push'
+                and os.environ.get('GITHUB_JOB') == 'project-tests'
+                and target_branch(event) in {'apple-ios', 'android-phone', 'android-vr-pico'}
+                and not additions and not selected['platform_suites']):
+            import postmerge
+            original = postmerge.leaf_common_reuse(candidate, event, os.environ, selected['suites'],
+                include_platform=selected['include_platform'], root=ROOT)
+            if original is not None:
+                report.update(original_common=original, executed_suites=[],
+                    reused_suites=selected['suites'], qualification=False, execution=None)
+                if args.selection_report is not None:
+                    args.selection_report.write_text(json.dumps(report, sort_keys=True, indent=2) + '\n')
+                print(json.dumps(original, sort_keys=True), flush=True)
+                return 0
         if not complete_receipt and os.environ.get('GITHUB_JOB') == 'common-parent':
             # The earlier native API lookup owns this workspace file. Candidate
             # commands have not run, and this branch publishes no test receipt.

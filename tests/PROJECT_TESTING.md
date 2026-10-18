@@ -1061,6 +1061,19 @@ does not run S3 again or claim a successful S3 JUnit case: it records the extern
 required package owner. Parent qualification owns parent pushes, and the shared
 project workflow owns leaf pushes, preserving the current branch partition.
 
+On `apple-ios`, `android-phone` and `android-vr-pico`, the token-bearing late
+`Shared tests` push step can consume the original PR's completed schema-4 native
+proof instead of executing matching common commands again. It independently
+checks the current protected push/job, complete source inventories, original
+M/Git context, retained protected source, full original environment, native
+whole-receipt hash, expiry and exact selected common inventory. This publishes
+neither new PASS cases nor a new qualification receipt. Missing, stale, failed,
+pending or unsupported proof retains the existing actual execution once;
+execution failure never retries another executor. Package checks and the
+separate Android platform owner remain required. The existing setup step has
+no API token, so this source-only hook saves test execution after setup; it
+does not omit earlier Python, Node or relevant Qt preparation.
+
 Deployment requires two stages. The trusted helpers and approved templates
 must land on the default branch before installing the exact project, parent and sync
 templates plus the appropriate outer caller. The package caller with direct
