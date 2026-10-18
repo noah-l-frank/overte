@@ -240,13 +240,29 @@ class FiniteExecutableSelectionTests(unittest.TestCase):
         for target in ('apple-ios','android-main','android-phone','android-vr','android-vr-pico'):
             base,candidate=self.transition(target)
             with self.subTest(target=target), patch.object(C,'validate_selection',wraps=C.validate_selection) as admit:
-                result=P.selection_profile(self.router,self.registry,candidate,base,self.trusted,root=self.root,target=target)
+                result=P.selection_profile(self.router,self.registry,candidate,base,self.trusted,root=self.root,target=target,
+                    read_blob=lambda oid:P.source_blob(self.root,oid))
                 self.assertEqual(result['profile'],C.PROFILE)
                 self.assertEqual(result['suites'],list(C.SUITES))
                 self.assertEqual(result['binding']['suites'],list(C.SUITES))
                 self.assertIs(admit.call_args.kwargs['regular'],True)
                 self.assertIs(result['selection']['full_host'],False)
                 self.assertIs(result['selection']['include_platform'],False)
+
+    def test_existing_ci_executable_owners_reach_actual_ci37_on_main_and_apple(self):
+        path='tests/run-project-tests.py'
+        self.assertEqual(self.trusted[path]['mode'],'100755')
+        for target in ('main','apple-main','apple-ios'):
+            base=deepcopy(self.trusted)
+            base['tests/platform-profile.json']=P.source_admission.ordinary(P.source_admission.TARGET_PROFILES[target])
+            candidate=deepcopy(base)
+            base[path]={**self.fixture.f.blob(b'previous reviewed CI executable fixture\n'),'mode':'100755'}
+            with self.subTest(target=target), patch.dict(self.router.REVIEWED_CHILD_PROGRAMS,
+                    {target:self.router.program_digest(candidate,self.root)}):
+                result=P.selection_profile(self.router,self.registry,candidate,base,self.trusted,
+                    root=self.root,target=target,read_blob=lambda oid:P.source_blob(self.root,oid))
+                self.assertEqual(result['profile'],C.PROFILE)
+                self.assertEqual(result['suites'],list(C.SUITES))
 
     def test_selected_json_cannot_replace_the_independent_executable_proof(self):
         for target in ('apple-ios','android-main'):
