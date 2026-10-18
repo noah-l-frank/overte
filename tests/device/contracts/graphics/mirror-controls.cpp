@@ -192,6 +192,7 @@ int main(int argc,char** argv) {
         assert(QMetaObject::invokeMethod(toggle,"toggle"));out["qml_true"]=render.getMirrorsEnabled()&&allMatch(config,true);delete item;
     }
     int count=0;for(auto job:config.findChildren<task::JobConfig*>()) if(job->objectName().startsWith("RenderMirror")) ++count;
+    out["qt_version"]=QString::fromLatin1(qVersion());
     out["value"]=render.getMirrorsEnabled();out["configs"]=count;out["all_match"]=allMatch(config,render.getMirrorsEnabled());out["safe"]=safe;
     out["unrelated_enabled"]=config.getJobConfig("RenderMainView.UnrelatedPass")->isEnabled();settings.sync();
     std::cout<<QJsonDocument(out).toJson(QJsonDocument::Compact).toStdString()<<'\n';
