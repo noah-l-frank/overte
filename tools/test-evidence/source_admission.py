@@ -23,7 +23,8 @@ REPOSITORY = 'noah-l-frank/overte'
 REPOSITORY_ID = 1319052603
 SELF = 'tools/test-evidence/source_admission.py'
 CURRENT_PARENT_GENERATIONS = frozenset({'protected-producer-original-default-v1',
-    'protected-producer-original-default-boolean-v1'})
+    'protected-producer-original-default-boolean-v1',
+    'protected-producer-original-default-required-context-v1'})
 PROFILE = 'tests/platform-profile.json'
 DOCUMENTATION_WORKFLOW = '.github/workflows/documentation-push-owner.yml'
 DOCUMENTATION_TARGETS = frozenset({'main','android-phone','android-vr-pico','apple-ios'})

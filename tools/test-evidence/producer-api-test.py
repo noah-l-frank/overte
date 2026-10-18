@@ -1009,6 +1009,106 @@ class MetadataSchedulingTests(unittest.TestCase):
             with self.subTest(shape=shape), self.assertRaises(P.ProtocolError): self.schedule()
 
 
+class MetadataCanonicalResultTests(unittest.TestCase):
+    def setUp(self):
+        MetadataSchedulingTests.setUp(self)
+        c=self.case
+        c.runs[100].update(status='completed',conclusion='success')
+        job=deepcopy(c.jobs[100][0])
+        job.update(id=151,name='repository-checks',started_at='2026-10-15T10:03:00Z',
+            completed_at='2026-10-15T10:04:00Z',
+            check_run_url=f'https://api.github.com/{A.PREFIX}/check-runs/151')
+        c.jobs[100].append(job)
+        self.observed=MetadataSchedulingTests.schedule(self)
+
+    def test_original_success_requires_the_actual_canonical_actions_job_and_empty_new_authority(self):
+        value=self.case.adapter.metadata_result_success(self.observed,now=NOW)
+        self.assertEqual(value,{'job_id':151,'qualification':False})
+        self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in self.case.api.calls))
+        # Between complete admissions a pending original needs only its fixed ID.
+        self.case.runs[100].update(status='in_progress',conclusion=None)
+        before=len(self.case.api.calls)
+        self.assertEqual(self.case.adapter.metadata_result_status(self.observed)['status'],'in_progress')
+        self.assertEqual(self.case.api.calls[before:],[A.PREFIX+'/actions/runs/100'])
+
+    def test_codeql_uses_its_own_exact_canonical_name_not_a_repository_job(self):
+        c=self.case
+        path='.github/workflows/codeql.yml'
+        c.runs[100]['path']=path;self.observed['original_identity']['path']=path
+        c.jobs[100][-1]['name']='codeql-security-results'
+        self.assertEqual(c.adapter.metadata_result_success(self.observed,now=NOW)['job_id'],151)
+        c.jobs[100][-1]['name']='repository-checks'
+        with self.assertRaisesRegex(ValueError,'aggregate unavailable'):
+            c.adapter.metadata_result_success(self.observed,now=NOW)
+
+    def test_successful_workflow_without_successful_canonical_job_never_mirrors_green(self):
+        for mutation in ('missing','duplicate','renamed','failed','skipped','pending','foreign-app',
+                         'foreign-suite','wrong-attempt','outside-time'):
+            self.setUp();c=self.case
+            if mutation=='missing':c.jobs[100].pop()
+            elif mutation=='duplicate':c.jobs[100].append(deepcopy(c.jobs[100][-1]))
+            elif mutation=='renamed':c.jobs[100][-1]['name']='repository-checks (metadata unchanged)'
+            elif mutation=='failed':c.jobs[100][-1]['conclusion']='failure'
+            elif mutation=='skipped':c.jobs[100][-1]['conclusion']='skipped'
+            elif mutation=='pending':c.jobs[100][-1].update(status='in_progress',conclusion=None,completed_at=None)
+            elif mutation=='wrong-attempt':c.jobs[100][-1]['run_attempt']=2
+            elif mutation=='outside-time':c.jobs[100][-1]['completed_at']='2026-10-15T11:04:00Z'
+            else:
+                def alter(endpoint,value,mutation=mutation):
+                    if endpoint.endswith('/check-runs/151'):
+                        if mutation=='foreign-app':value['app']['id']=57789
+                        else:value['check_suite']['id']=1101
+                    return value
+                c.api.mutate=alter
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):
+                c.adapter.metadata_result_success(self.observed,now=NOW)
+
+    def test_failed_cancelled_pending_rerun_or_changed_original_is_not_accepted(self):
+        for status,conclusion in [('completed','failure'),('completed','cancelled'),('completed','timed_out'),
+                                  ('completed','skipped'),('queued',None),('in_progress',None)]:
+            self.case.runs[100].update(status=status,conclusion=conclusion)
+            with self.subTest(status=status,conclusion=conclusion),self.assertRaises(ValueError):
+                self.case.adapter.metadata_result_success(self.observed,now=NOW)
+        self.setUp();c=self.case
+        for field,value in [('run_attempt',2),('run_attempt',True),('workflow_id',77),('check_suite_id',1101),
+                            ('head_sha','f'*40),('display_title',A.NONPRODUCER_RUN_NAME)]:
+            before=deepcopy(c.runs[100]);c.runs[100][field]=value
+            with self.subTest(field=field,value=value),self.assertRaises(ValueError):
+                c.adapter.metadata_result_status(self.observed)
+            c.runs[100]=before
+
+    def test_changed_final_native_job_check_or_attempt_cannot_emit_success(self):
+        c=self.case;reads=0
+        def change(endpoint,value):
+            nonlocal reads
+            if endpoint.endswith('/check-runs/151'):
+                reads+=1
+                if reads>=2:value['conclusion']='failure'
+            return value
+        c.api.mutate=change
+        with self.assertRaises(ValueError):c.adapter.metadata_result_success(self.observed,now=NOW)
+
+    def test_new_meaningful_diagnostic_demand_cannot_reuse_the_absent_diagnostic_original(self):
+        self.case.labels=[{'id':7,'name':'android-long-diagnostics'}]
+        with self.assertRaisesRegex(ValueError,'diagnostic demand changed'):
+            self.case.adapter.metadata_result_success(self.observed,now=NOW)
+
+    def test_old_boolean_helper_pair_remains_exact_without_relabeling_new_native_source(self):
+        for caller,oid in [('.github/workflows/repository-checks.yml','15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'),
+                           ('.github/workflows/codeql.yml','3b7a88765b7181a1bc7dd6f48b9b459e590055d3')]:
+            paths=A.METADATA_CALLERS[caller]
+            workflows={path:deepcopy(self.case.generation.get(path,{'mode':'100644','type':'blob','sha':'9'*40})) for path in paths}
+            workflows[caller]['sha']=oid
+            generations={'installed25':deepcopy(workflows)}
+            sources={'installed25':{A.METADATA_SOURCE:{'mode':'100644','type':'blob','sha':'a'*40}}}
+            retained,helpers=A.retain_native_metadata_sources(generations,sources)
+            self.assertEqual(retained['installed25'],workflows)
+            self.assertEqual(helpers['installed25'][A.METADATA_SOURCE]['sha'],'a'*40)
+            self.assertEqual(helpers['installed25-reviewed-helper-v2'][A.METADATA_SOURCE]['sha'],
+                '8f157f4bb98f56fc431dfff301f566727096bf7c')
+            self.assertEqual(retained['installed25-reviewed-helper-v2'],workflows)
+
+
 class NativeMetadataIntentTests(unittest.TestCase):
     """The new exact never-producer recipe can be known before its marker."""
     def setUp(self):
@@ -2821,9 +2921,11 @@ class MetadataRetentionConsumerTests(unittest.TestCase):
         real_host = C.producer._host_policy()
         real_package = real_host.package_policy()
         generations = real_package.workflow_generations()
-        self.assertEqual(len(generations), 25)
-        self.assertEqual(len([row for row in generations if row['name']!='protected-producer-original-default-boolean-v1']),24)
-        self.assertEqual(len([row for row in generations
+        self.assertEqual(len(generations), 26)
+        prior_generations=generations[:25]
+        self.assertEqual(len(prior_generations), 25)
+        self.assertEqual(len([row for row in prior_generations if row['name']!='protected-producer-original-default-boolean-v1']),24)
+        self.assertEqual(len([row for row in prior_generations
                               if row['name'] not in {'npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-boolean-v1'}]), 23)
         self.generation_name = getattr(self, 'generation_name', 'protected-producer-metadata-ci-v1')
         generation = next(row for row in generations if row["name"] == self.generation_name)

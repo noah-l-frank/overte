@@ -54,10 +54,12 @@ PROTECTED_GENERATIONS = (
     'protected-producer-ci37-v1', 'protected-producer-metadata-ci-v1',
     'protected-producer-seven-target-ci-v1', 'protected-producer-original-default-v1',
     'protected-producer-original-default-boolean-v1',
+    'protected-producer-original-default-required-context-v1',
 )
 METADATA_PRODUCER_GENERATIONS = PROTECTED_GENERATIONS[3:]
 ORIGINAL_DEFAULT_GENERATIONS = (
     'protected-producer-original-default-v1', 'protected-producer-original-default-boolean-v1',
+    'protected-producer-original-default-required-context-v1',
 )
 SELECTED_SYNC_GENERATIONS = (
     'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1', 'npm-consumers-metadata-edits-v1',
@@ -75,6 +77,21 @@ def original_default_workflow(name):
     raw=zlib.decompress(base64.b85decode(encoded))
     if hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()!=oid:
         raise AssertionError('original default workflow fixture changed')
+    return raw
+
+
+
+def boolean_workflow(name):
+    """Exact deployed25 data, independently of staged26 or Git history."""
+    raw=original_default_workflow(name)
+    lines=[line for line in raw.splitlines(keepends=True) if b'nonproducer_intent: ${{ ' in line]
+    if len(lines)!=1:raise AssertionError('original Boolean input must be unique')
+    old=lines[0];new=old.replace(b'${{ ',b'${{ !(!(',1).replace(b' }}',b')) }}',1)
+    raw=raw.replace(old,new,1)
+    oid={'repository-checks':'15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a',
+         'codeql':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3'}[name]
+    if hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()!=oid:
+        raise AssertionError('Boolean workflow fixture changed')
     return raw
 
 
@@ -119,7 +136,8 @@ def codeql_generation(case, source):
     case.assertEqual(blob(pinned.read_text()), policy._PINNED_RESULTS_WORKFLOW)
     case.assertEqual(blob(historical_metadata_codeql()), policy._METADATA_RESULTS_WORKFLOW)
     case.assertEqual(blob(original_default_workflow('codeql').decode()), policy._SCHEDULING_RESULTS_WORKFLOW)
-    case.assertEqual(blob(metadata.read_text()), policy._BOOLEAN_RESULTS_WORKFLOW)
+    case.assertEqual(blob(boolean_workflow('codeql').decode()), policy._BOOLEAN_RESULTS_WORKFLOW)
+    case.assertEqual(blob(metadata.read_text()), policy._REQUIRED_CONTEXT_RESULTS_WORKFLOW)
     helper = metadata.with_name('pr-metadata-context.yml')
     case.assertEqual(blob(helper.read_text()), policy._SCHEDULING_SOURCE_WORKFLOW)
     case.assertIn((blob(metadata.read_text()), blob(helper.read_text())), policy.result_workflow_sources())
@@ -128,7 +146,8 @@ def codeql_generation(case, source):
              policy._PINNED_RESULTS_WORKFLOW: 'pinned-results',
              policy._METADATA_RESULTS_WORKFLOW: 'metadata-pinned-results',
              policy._SCHEDULING_RESULTS_WORKFLOW: 'scheduling-pinned-results',
-             policy._BOOLEAN_RESULTS_WORKFLOW: 'boolean-scheduling-pinned-results'}
+             policy._BOOLEAN_RESULTS_WORKFLOW: 'boolean-scheduling-pinned-results',
+             policy._REQUIRED_CONTEXT_RESULTS_WORKFLOW: 'required-context-pinned-results'}
     identity = blob(source)
     case.assertIn(identity, known, 'unreviewed CodeQL workflow cannot inherit omission contracts')
     return known[identity]
@@ -137,9 +156,9 @@ def codeql_generation(case, source):
 def codeql_analyze_condition(case, source):
     generation = codeql_generation(case, source)
     condition = ("needs.select.outputs.metadata_only != 'true' && needs.select.outputs.scan == 'true'"
-                 if generation in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'}
+                 if generation in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}
                  else "needs.select.outputs.scan == 'true'")
-    if generation in {'scheduling-pinned-results','boolean-scheduling-pinned-results'}:
+    if generation in {'scheduling-pinned-results','boolean-scheduling-pinned-results', 'required-context-pinned-results'}:
         intent = "github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics'))"
         condition = "always() && !cancelled() && needs.select.result == 'success' && " + condition + ' && !(' + intent + ')'
     return condition
@@ -178,7 +197,9 @@ def reviewed_package_generation():
 
 def prospective_package_generation(packages):
     names={row['name'] for row in packages.workflow_generations()}
-    return ('protected-producer-original-default-boolean-v1'
+    return ('protected-producer-original-default-required-context-v1'
+        if 'protected-producer-original-default-required-context-v1' in names else
+        'protected-producer-original-default-boolean-v1'
         if 'protected-producer-original-default-boolean-v1' in names else 'protected-producer-original-default-v1')
 
 
@@ -312,6 +333,7 @@ def assert_project_caller_routing(case, source):
     """Finite successors bind their whole generation and exact project route."""
     templates = (
         (None, ('protected-producer-original-default-v1',), True),
+        ('boolean25', ('protected-producer-original-default-boolean-v1',), True),
         ('tools/repository-checks/workflows/npm-consumers/repository-checks.yml',
          ('npm-consumers-v1', 'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1'), False),
         ('tools/repository-checks/workflows/metadata-edits/repository-checks.yml',
@@ -319,19 +341,25 @@ def assert_project_caller_routing(case, source):
         ('tools/repository-checks/workflows/android-owned/repository-checks.yml',
          ('android-owned-npm5-sync-ci-v1',), True),
         ('tools/repository-checks/workflows/producers/repository-checks.yml',
-         ('protected-producer-original-default-boolean-v1',), True),
+         ('protected-producer-original-default-required-context-v1',), True),
     )
     for relative, generations, metadata in templates:
-        expected=original_default_workflow('repository-checks').decode() if relative is None else (ROOT/relative).read_text(encoding='utf-8')
+        expected=(original_default_workflow('repository-checks').decode() if relative is None else
+            boolean_workflow('repository-checks').decode() if relative=='boolean25' else (ROOT/relative).read_text(encoding='utf-8'))
         if source != expected:
             continue
-        case.assertIn(reviewed_package_generation(), generations)
+        installed=reviewed_package_generation()
+        if relative=='tools/repository-checks/workflows/producers/repository-checks.yml':
+            packages,tree=prospective_package_tree()
+            admitted=packages.validate_tree_wiring(tree)
+        else:admitted=installed
+        case.assertIn(admitted, generations)
         condition = ("needs.route.outputs.package_host_mode == 'full' || "
                      "needs.route.outputs.package_host_mode == 'tool-dependencies' || "
                      "needs.route.outputs.package_set != '[]'")
         if metadata:
             condition = "needs.route.outputs.metadata_only != 'true' && (" + condition + ")"
-        if reviewed_package_generation() in ORIGINAL_DEFAULT_GENERATIONS:
+        if admitted in ORIGINAL_DEFAULT_GENERATIONS:
             condition = "always() && !cancelled() && needs.route.result == 'success' && " + condition
             intent = "github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics'))"
             condition += " && !(" + intent + ")"
@@ -451,7 +479,7 @@ class LightweightWorkflowContracts(unittest.TestCase):
             source = path.read_text(encoding="utf-8")
             self.assertEqual(workflow_events(source)['push']['paths-ignore'], ['**/*.md'])
         source = CODEQL_WORKFLOW.read_text(encoding="utf-8")
-        if codeql_generation(self, source) in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'}:
+        if codeql_generation(self, source) in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}:
             # Required context is published for docs; the immutable selector
             # omits both analyzer jobs, rather than omitting the entire check.
             self.assertNotIn('paths-ignore', workflow_events(source)['pull_request'])
@@ -568,8 +596,8 @@ class CodeQLWorkflowContracts(unittest.TestCase):
         generation=codeql_generation(self,self.source)
         local=[action for action in actions if action.startswith('./')]
         self.assertEqual(local,['./.github/workflows/pr-metadata-context.yml']
-                         if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'} else [])
-        self.assertEqual(len(actions),8 if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'} else
+                         if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'} else [])
+        self.assertEqual(len(actions),8 if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'} else
             7 if generation in {'results','retarget-results','pinned-results'} else 5)
         self.assertEqual([action for action in actions if action not in local and not FULL_SHA_ACTION.fullmatch(action)], [])
         codeql = [action for action in actions if action.startswith("github/codeql-action/")]
@@ -603,13 +631,14 @@ class CodeQLWorkflowContracts(unittest.TestCase):
         aggregate = self.source.split('  codeql-checks:', 1)[1]
         self.assertIn('if: always()', aggregate)
         self.assertIn('needs: [select, analyze]', aggregate)
-        selected = codeql_generation(self, self.source) in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'}
+        selected = codeql_generation(self, self.source) in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}
         job = workflow_data(self.source)['jobs']['codeql-checks']
+        canonical = codeql_generation(self,self.source)=='required-context-pinned-results'
         self.assertEqual(job['if'], "always() && (needs.select.result != 'success' || needs.select.outputs.metadata_only != 'true')"
-                         if selected else 'always()')
+                         if selected and not canonical else 'always()')
         self.assertEqual(job['name'], "${{ needs.select.result == 'success' && needs.select.outputs.metadata_only == 'true' && "
                          "'codeql-security-results (metadata unchanged)' || 'codeql-security-results' }}"
-                         if selected else 'codeql-security-results')
+                         if selected and not canonical else 'codeql-security-results')
         steps = workflow_data(self.source)['jobs']['codeql-checks']['steps']
         script = next(step['run'] for step in steps if step['name'] == 'Require every selected analysis')
         for selected in ('success', 'failure', 'cancelled', 'skipped'):
@@ -623,14 +652,19 @@ class CodeQLWorkflowContracts(unittest.TestCase):
 
 
     def test_selected_results_are_independent_and_cannot_bypass_the_truth_table(self):
-        if codeql_generation(self, self.source) not in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results'}:
+        if codeql_generation(self, self.source) not in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}:
             self.skipTest("Selected-result generation is covered by its staged workflow contracts")
         workflow = workflow_data(self.source)
         job = workflow['jobs']['codeql-checks']
-        self.assertEqual(job['permissions'], {'contents': 'read', 'actions': 'read',
-                         'pull-requests': 'read', 'security-events': 'read'})
+        permissions={'contents':'read','actions':'read','pull-requests':'read','security-events':'read'}
+        canonical=codeql_generation(self,self.source)=='required-context-pinned-results'
+        if canonical:permissions['checks']='read'
+        self.assertEqual(job['permissions'],permissions)
         steps = job['steps']
-        self.assertEqual(steps[0]['name'], 'Require every selected analysis')
+        self.assertEqual(steps[0]['name'],'Require a successful independent selector' if canonical else 'Require every selected analysis')
+        if canonical:
+            self.assertEqual(steps[0]['run'],'test "$SELECT_RESULT" = success')
+            self.assertEqual(steps[0]['env']['SELECT_RESULT'],'${{ needs.select.result }}')
         trusted = next(step for step in steps if step['name'] == 'Check out trusted selected-result policy')
         self.assertEqual(trusted['with']['ref'], '${{ github.event.repository.default_branch }}')
         self.assertEqual(trusted['with']['path'], 'trusted')
@@ -740,7 +774,28 @@ class SchedulingCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
 class BooleanSchedulingCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
     @classmethod
     def setUpClass(cls):
+        cls.source = boolean_workflow('codeql').decode()
+
+
+class RequiredContextCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
+    @classmethod
+    def setUpClass(cls):
         cls.source = (ROOT / 'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml').read_text()
+
+    def test_metadata_success_executes_only_the_native_original_result_verifier(self):
+        job=workflow_data(self.source)['jobs']['codeql-checks']
+        self.assertEqual(job['name'],'codeql-security-results')
+        self.assertEqual(job['if'],'always()')
+        self.assertIn('100',job['timeout-minutes'])
+        mirror=next(step for step in job['steps'] if '--result' in step.get('run',''))
+        self.assertEqual(mirror['if'],"needs.select.result == 'success' && needs.select.outputs.metadata_only == 'true'")
+        trusted=next(step for step in job['steps'] if step['name']=='Check out trusted selected-result policy')
+        self.assertEqual(trusted['with']['sparse-checkout'].splitlines(),
+                         ['tools/repository-checks','tools/test-evidence'])
+        for name in ('Require every selected analysis','Read the exact candidate for independent result selection',
+                     'Require current selected-language security results'):
+            step=next(step for step in job['steps'] if step['name']==name)
+            self.assertEqual(step['if'],"needs.select.outputs.metadata_only != 'true'")
 
 
 class BranchGovernanceWorkflowContracts(unittest.TestCase):
@@ -993,6 +1048,9 @@ class BranchGovernanceWorkflowContracts(unittest.TestCase):
             if generation=='protected-producer-original-default-v1':
                 expected['.github/workflows/repository-checks.yml']={'mode':'100644','type':'blob',
                     'sha':'81bcf1933edc435826e2de411a777cccd4dec7c7'}
+            elif generation=='protected-producer-original-default-boolean-v1':
+                expected['.github/workflows/repository-checks.yml']={'mode':'100644','type':'blob',
+                    'sha':'15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'}
             self.assertEqual(deployed, expected)
             self.assertEqual(SYNC_VALIDATION_WORKFLOW.read_bytes(),
                 (ROOT / 'tools/repository-checks/workflows/sync-ci-selection.yml').read_bytes())
@@ -1418,11 +1476,14 @@ class ProjectWorkflowContracts(unittest.TestCase):
                 ('protected-producer-original-default-v1', 'producers/repository-checks.yml',
                  'producers/protected-project-tests-android-platform.yml'),
                 ('protected-producer-original-default-boolean-v1', 'producers/repository-checks.yml',
+                 'producers/protected-project-tests-android-platform.yml'),
+                ('protected-producer-original-default-required-context-v1', 'producers/repository-checks.yml',
                  'producers/protected-project-tests-android-platform.yml')):
             with self.subTest(generation=generation):
                 recipes = {}
                 for endpoint, relative in (('repository-checks', caller_path), ('project-tests', project_path)):
                     raw = (original_default_workflow('repository-checks') if generation=='protected-producer-original-default-v1' and endpoint=='repository-checks'
+                        else boolean_workflow('repository-checks') if generation=='protected-producer-original-default-boolean-v1' and endpoint=='repository-checks'
                         else (ROOT / 'tools/repository-checks/workflows' / relative).read_bytes())
                     self.assertEqual(generations[generation]['.github/workflows/' + endpoint + '.yml'],
                                      {'mode': '100644', 'type': 'blob',

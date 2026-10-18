@@ -62,6 +62,8 @@ _SCHEDULING_RESULTS_WORKFLOW = "e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1"
 _SCHEDULING_SOURCE_WORKFLOW = "b76ade9fd7a76da21bf2cb2161deae7a262163e8"
 # Exact Boolean-input successor; every prior caller/helper remains supported.
 _BOOLEAN_RESULTS_WORKFLOW = "3b7a88765b7181a1bc7dd6f48b9b459e590055d3"
+# Canonical metadata results mirror the authenticated original, never new analysis.
+_REQUIRED_CONTEXT_RESULTS_WORKFLOW = "7b0703d88d404f38c1b3dec92f77f03586c9144c"
 # These exact passive recipes change only job-level Boolean metadata intent.
 # The pinned Actions model reads .github/workflows, not these stored templates;
 # Python does not extract YAML. The corresponding exact active Repository
@@ -141,7 +143,8 @@ def result_workflow_sources():
             (_PINNED_RESULTS_WORKFLOW, None),
             (_METADATA_RESULTS_WORKFLOW, _METADATA_SOURCE_WORKFLOW),
             (_SCHEDULING_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW),
-            (_BOOLEAN_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))
+            (_BOOLEAN_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW),
+            (_REQUIRED_CONTEXT_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))
 
 
 def pinned_workflow_entries():

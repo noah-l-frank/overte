@@ -1816,3 +1816,24 @@ tuple and its exact helper source, including the retained original helper pair.
 The optional current-parent import capability also requires the complete actual
 installed tuple and unchanged protected admission source; it never certifies the
 original execution environment or replaces the original native proof.
+
+
+The canonical required-context successor is staged separately as
+`protected-producer-original-default-required-context-v1`. Protect its complete
+six-workflow tuple and both canonical callers before activating the two callers;
+all 25 previous tuples and their exact native helper pairs remain supported.
+On inert PR metadata events, `repository-checks` and `codeql-security-results`
+keep their canonical names and execute a read-only original-status branch.
+It independently authenticates the same current B/H/M, original attempt 1, source
+recipe and native Actions canonical job. Only completed successful original
+workflows with successful canonical jobs can produce successful contexts.
+Pending originals are polled by their bound run ID, at most 95 minutes (the
+supported Android verifier permits 90 minutes, plus finalization); the metadata
+job allows 100 minutes while ordinary aggregate verification retains 5 minutes.
+Failure, cancellation, missing proof, changed refs, attempts or timeout fail
+closed. Full source/native admission is repeated before success. This branch
+runs no tests, builds or CodeQL analyses and creates no receipt or execution
+qualification. Its successful context mirrors original truth, not new evidence.
+The marker CLI separately allows at most 180 seconds for original tiny-source
+registration, without changing the pure scheduling contract or accepting an
+unknown source. No rule/context bypass, new dispatch or rerun is involved.
