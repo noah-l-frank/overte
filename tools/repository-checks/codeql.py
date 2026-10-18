@@ -63,12 +63,14 @@ _SCHEDULING_SOURCE_WORKFLOW = "b76ade9fd7a76da21bf2cb2161deae7a262163e8"
 _PYTHON_POLICY_JSONS = frozenset({
     ".github/test-suite-dependencies.json",
     ".github/android-orchestration.json", ".github/test-suites.json",
+    ".github/ios-host-orchestration.json",
 })
 # Ordinary metadata leaves outside both pinned extractors. This does not admit
 # analysis/security controls, YAML, new paths, or a floating extractor version.
 _INERT_CI_JSONS = frozenset({
     ".github/branch-cleanup.json", ".github/issue-policy.json",
     ".github/repository-health.json", ".github/dependency-releases.json",
+    ".github/package-workflow-generations.json",
 })
 # The pinned no-build extractors do not read these dependency resolution files.
 # Their independent npm owners still require package/security/function checks.
@@ -156,7 +158,7 @@ def _pinned_policy_json(change, base_tree, candidate_tree):
 
 
 def _pinned_ci_metadata(change, base_tree, candidate_tree):
-    """Four existing generic JSON leaves supply no pinned language input.
+    """Finite existing generic JSON leaves supply no pinned language input.
 
     The reviewed JS filter excludes their names and its single-file TS parser
     cannot read imported JSON. Python traverses modules rather than these JSON
