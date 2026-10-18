@@ -620,7 +620,11 @@ The diagnostic consumer report lists reused and executed suites separately and
 cannot become a new qualification artifact or renew original expiry.
 
 `producer_workflow.controller_sources()` declares the finite reviewed producer
-graph. Extra loaded repository modules fail producer admission. The consumer
+graph. Extra loaded repository modules fail producer admission. The outer
+repository verifier disables Python bytecode writes before importing repository
+code, including when started with ordinary Python. Importing the trusted
+controller must leave its complete file inventory intact; unexpected bytecode
+or other extra lookup files still reject source admission. The consumer
 reconstructs that identity from the original protected base only when all its
 ordinary source/policy/template entries equal current reviewed immutable bytes;
 it never executes historical Python or trusts a receipt's claimed policy root.
@@ -779,6 +783,50 @@ owner and both reviewed application and own-host reader boundaries. Unknown neig
 files, mode changes and historical application reader drift still require the
 application build. This classification does not publish IPA or reuse evidence.
 
+The schema 2 iOS host policy also recognizes the exact reviewed
+`host-v1-compiler-data-v1` workflow tuple for the guarded compiler-data restore.
+The existing `legacy` and `host-v1` tuples retain their identities. Same-run
+host requirements and application input selection apply independently;
+registering a workflow tuple supplies no build or test result.
+
+The exact reviewed compiler-cache transition can omit the application build
+while retaining the mandatory iOS host checks. Subsequent independent CI and
+documentation changes can use the exact installed cache profile. Temporary
+comparison entries are normalized to the original reviewed reader boundaries;
+actual source identities and test inputs stay intact. Unknown cache bytes, modes,
+readers or mixed product changes retain the ordinary application gate.
+
+The additional `host-v1-protected-pr-compiler-data-v1` generation registers one
+exact callee and five-file profile: `.github/workflows/ios-integrated.yml`,
+`ios/ci/qt-checkpoint-artifact.py`, `ios/tests/qt-checkpoint-artifact-test.py`,
+`ios/tests/ios-full-client-sccache-contract-test.py` and
+`docs/ios/SIGNING_AND_DEVICE_TESTS.md`. Only an exact transition from the original
+or installed v3 compiler profile to this reviewed profile can omit application
+compilation while retaining the iOS host checks. Complete ordinary base, head and
+merge inventories must preserve the original reviewed application boundary.
+Installed-profile continuation admits only already independent CI or document
+changes. Separate own-host omission still requires the existing CI/npm subset,
+mode and required-package-owner proofs plus the complete installed profile;
+cache transitions and guide changes keep the own-host checks. Unknown bytes,
+modes, neighboring inputs or changed application readers retain their gates.
+
+A relevant feature or fix PR can read compiler DATA through the protected base's
+isolated parser, accepting only a matching protected `apple-ios` native producer
+and its verified upload, archive and final source bookends. Existing per-object
+compiler, SDK, source, header and argument checks remain required. This DATA is
+neither an application/test PASS nor native qualification E; registering or
+restoring it does not establish a warm-build measurement. Relevant application
+changes still require their application build.
+
+The installed protected PR compiler-data profile has a separate finite
+`apple-ios` program and Device-reader family. Ordinary CI changes may use that
+family only when both immutable inputs already contain the exact five ordinary
+cache-profile leaves and their complete raw reader identities agree. Installing
+or reverting the cache profile still requires Device and iOS own-host checks;
+unknown profiles, modes, lookup members and neighboring readers retain the
+existing full-verification fallback. The extra program identity remains disabled
+until it is derived from the final source; this is selection, not reuse evidence.
+
 For those two ordinary lockfiles, a complete required JavaScript package owner
 also permits omission when dependency changes exceed the focused security-fix
 profiles. The full package checks must still succeed in the required repository
@@ -896,6 +944,14 @@ entries out of this shared table allows it to propagate unchanged to children.
 | `shared-script-behavior` | `host` | `python3 tests/run-project-tests.py --suite shared-script-behavior` |
 | `native-ctest` | `native` | `python3 tests/run-project-tests.py --suite native-ctest` |
 <!-- generated:test-suites:end -->
+
+Pull requests run the `issue-intake` contracts through the required central
+repository/project gate. Its registered command remains
+`python tests/issue-intake-test.py`, including the CI37 owner set. Both the
+source generation 13 and reviewed generation 22 recipes retain that owner and
+their required host-result aggregation. The dedicated Issue intake workflow
+handles issue, milestone, scheduled and manual reconciliation; it has no
+separate pull-request contracts job.
 
 ## Complete portable host contracts
 
@@ -1260,6 +1316,26 @@ and their Qt development installation.
 This is dependency-based impact selection; an omitted group is not reported as
 a successful test or reused evidence.
 
+Four exact shared inputs retain explicit mandatory owners: `.github/workflows/issue-intake.yml`
+keeps `workflow-contracts`, the chat QML fixture keeps `shared-script-behavior`, and
+both Snapshot Python fixtures keep `snapshot-qml` and `snapshot-native` under their
+complete declared fixture/import root. The controller checks complete ordinary
+base and candidate entries, including historical differences absent from a path
+hint, and unions these owners with the existing CI and Device selections. A finer
+dependency selector cannot remove a mandatory owner. Missing or nonregular entries,
+unknown inputs and unreviewed reader changes keep the full fallback; an absent
+required registry owner is an error. These admissions do not remove Device reader
+inputs, broaden CI independence, or waive the required host work.
+
+The `apple-ios` Device reader graph has additional unproved code edges, so an
+actual change to any of the three mapped chat/Snapshot fixtures also retains
+`device-control-plane-full` for that target, including hidden base/candidate
+differences. The finer selector cannot remove this owner. An issue-workflow-only
+change does not add Device, and the proved main, Apple parent and four Android
+reader scopes keep their precise mapped owners. Unknown targets retain the full
+fallback. The cumulative source rollout already changes the two independently
+Device-owned eligibility fixtures; this conservative rule adds no work there.
+
 The exclusion requires the exact reviewed host reader, discovery, manifest,
 fixture and production-source generation in the candidate and trusted checkout.
 Six separately reviewed child inventories preserve their own production sources,
@@ -1270,6 +1346,16 @@ historical differences, changed readers, mixed product changes, symlinks,
 submodules and incomplete inventories retain every shared and declared platform
 suite. The exact 32 additional CI paths are listed in `CI_ROLLOUT_PATHS`; no
 directory-wide exemption for `tools/test-evidence` or `tests` is added.
+
+The app selector separately classifies exactly the issue-intake workflow, its
+installed-wrapper test and installer, the chat QML fixture, both Snapshot Python
+fixtures and the two Android eligibility fixtures as independent of the reviewed
+iOS configure/build/package/E2E graph. Both immutable trees must match the reviewed
+app-reader complement and expected ordinary modes. This skips app work only:
+`ios/tests/run-tests.sh` directly executes the chat and Snapshot fixtures, so the
+required iOS host remains selected. Unknown neighbors, executable or aliased
+fixtures, mixed product changes and historical reader drift retain app work or
+fail source validation. No IPA, test PASS or reusable evidence is inferred.
 
 For mixed CI and npm-lock changes, the trusted package plan can separately own
 the two reviewed security updates or formatting-only changes. The shared host
@@ -1342,6 +1428,75 @@ JUnit results or reusable evidence. These canonical recipes require the complete
 reviewed installation and hosted qualification; source-only preparation does
 not enable result reuse. The active source13 parent retains its historical Node
 setup until that installation.
+
+The synchronization gate dispatches validation once with the fixed compatible
+GitHub API version and `return_run_details: true`. It binds the returned positive
+run ID and exact fork URLs, then polls only that run. Empty or malformed replies,
+foreign workflows, rerun attempts, changed protected sources and non-native
+suites fail closed without a second dispatch or a first-page run search. The
+child runs at the actual trusted default-branch checkout commit; the still-running
+PR-target gate's API head remains the PR head, a separate role. This orchestration
+identity does not grant reusable evidence or change the independent source,
+current-candidate, runtime, artifact and expiry checks. Before binding the native
+identity, the gate allows at most 30 seconds within its existing timeout for
+missing or null registration fields on that exact run, attempt and check suite.
+The exact initial workflow-name title `Sync validation` also waits for GitHub to
+expand the correlated run name within that same deadline. Empty, foreign or
+otherwise different titles fail immediately; a completed or already-bound run
+must always retain the complete correlated title.
+The positive returned run ID, exact fork URLs and nonterminal state remain
+mandatory; populated conflicting fields fail immediately. Complete identity and
+native App checks remain required, and field names plus the endpoint identify
+registration failures without logging response payloads.
+
+Protected candidate identity reads use `git --no-optional-locks` to preserve the
+private immutable index while retaining the complete snapshot verification.
+
+Protected execution presents ordinary Git files as physically read-only files.
+Tests must keep logical Git modes, exact source bytes and alias checks intact;
+when a test intentionally edits a temporary copy, make only that copied leaf
+writable. Never change the original snapshot permissions. Synthetic native-event
+fixtures that clear their environment must supply Git's safe-directory setting
+for their exact trusted checkout, without a wildcard or inherited configuration.
+The device control-plane runner prints failed group names at the end of a failed
+run so bounded host diagnostics retain the failing group without exposing its
+arbitrary output.
+For failed parallel Python self-tests, the final line also reports up to four
+failed module basenames and their total count from the current bounded report.
+This diagnostic stays within 450 ASCII bytes so the protected host's 512-character
+tail retains it. Missing, stale, aliased or invalid reports are reported as
+unavailable; serial runs do not read a parallel report. This output never changes
+test status, timeouts, coverage or evidence authority.
+
+Under the current reviewed catalog and ownership policies, rare controller-source
+upgrades after installing generation 22 use governed maintenance: normally install
+complete generation 13 (`npm-consumers-sync-ci-v1`) on main and all six children,
+restore Android's six original owner/contract files, and preserve every required
+owner and platform profile. Upgrade controller source through the normal 13 checks,
+then obtain fresh native 22 qualification before reinstalling 22. This sequence
+does not authorize automatic downgrades, waive B/D source checks or mint E. Routine
+product PRs with unchanged controllers need no staging.
+
+Original evidence lookup on the four parent branches can traverse at most eight
+normal, exactly equal-tree integrations whose native PR and parent jobs prove
+that no tests executed. The lookup retains the original execution's base,
+candidate, default source, environment and expiry; the original merge time
+still bounds publication. Every hop and the current protected parent are
+independently authenticated. A failed, retried or execution-bearing newer run
+cannot expose an older passing result. Leaf branches retain their existing
+direct lookup; this is not transparent historical reuse on all seven branches.
+
+The canonical Documentation push owner on `main`, `android-phone`,
+`android-vr-pico` and `apple-ios` also supports the unchanged-tree route. Its
+early output only schedules a sparse candidate checkout. The trusted
+`postmerge.py --verify-empty --candidate <checkout>` entrypoint independently
+checks the complete raw candidate, current source and native Documentation job
+again before suppressing the three standalone documentation commands. It does
+not wait for a parallel parent/project job, capture an environment or publish
+test passes. The result remains `reusable: false`, `execution: null` and has no
+evidence authority. Missing initial proof keeps the existing documentation
+fallback; changed proof during final verification fails the owner. These source
+contracts still require actual native qualification before reuse is enabled.
 
 A partial parent run uploads its real JUnit results and a diagnostic
 `host-selection.json` with the exact candidate, package plan, selected and
@@ -1514,23 +1669,28 @@ All earlier result generations remain admitted for source rollout, while both
 independent gates reject returning from a deployed result generation to an older
 one. The deployment transition requires both complete language scans.
 
-Only an edit to an existing ordinary `100644` `.github/android-orchestration.json`
-or `.github/test-suites.json` may select Python without JavaScript when both
+Only an edit to an existing ordinary `100644` `.github/android-orchestration.json`,
+`.github/ios-host-orchestration.json`, `.github/test-suites.json` or
+`.github/test-suite-dependencies.json` may select Python without JavaScript when both
 immutable trees use that exact pinned workflow and unchanged reviewed CodeQL
 configuration. The reviewed extractor has no generic JSON extraction and its
 single-file TypeScript parser cannot read imported JSON; its ancestor readers
-recognize package/tsconfig files rather than these two policy leaves. Python and
+recognize package/tsconfig files rather than these four policy leaves. Python and
 the policy governance tests remain required. Additions, removals, aliases, mode
 changes, older or unknown workflow/configuration, other JSON, YAML, package
 locks and mixed JavaScript inputs keep their existing conservative owners.
 
-The same pinned generation admits four further existing ordinary
+The same pinned generation admits five further existing ordinary
 `100644` metadata leaves: `.github/branch-cleanup.json`, `.github/issue-policy.json`,
-`.github/repository-health.json` and `.github/dependency-releases.json`. Only when
-both immutable trees use the exact pinned workflow and unchanged configuration
-do these leaves contribute no CodeQL language. Neither pinned extractor reads
-these generic JSON files, and no candidate generator runs during the fixed
-no-build analysis. Their governance and functional tests remain required.
+`.github/repository-health.json`, `.github/dependency-releases.json` and
+`.github/package-workflow-generations.json`. Only when both immutable trees use
+the exact pinned workflow and unchanged configuration do these leaves contribute
+no CodeQL language. The JavaScript discovery filter excludes their exact generic
+JSON names; header classification does not extract them. Python discovers
+modules, and the fixed no-build analysis executes no candidate policy consumers
+or generators. The generation catalog remains trusted rollout policy with all
+its required governance and functional checks; this rule grants no runtime,
+source-admission, security-result or receipt authority.
 Mixed Python, JavaScript, package or analysis-control changes retain their
 existing language owners. Unknown siblings, additions, deletions, renames,
 aliases, mode changes and query-pack inputs cannot inherit this exception.
@@ -1558,3 +1718,61 @@ language changes retain their required scans, while the independent required
 result gate recomputes the selection and still requires a successful current
 selector even when no language is selected. Product/native tests remain owned
 by their existing gates; scheduled CodeQL scans remain full.
+
+The exact ordinary `100644` Linux helper `tests/device/run_artifact_identity.py`
+is outside the reviewed iOS application and iOS host launcher reader graphs.
+Its recognition in both finite input sets preserves the existing complete reader
+anchors; it does not omit its mandatory shared Device owner. Unknown neighbors,
+mode changes and historical reader drift remain conservative. Mixing this helper
+with the chat or Snapshot fixtures still requires the iOS host, because that
+launcher executes those fixtures directly. This input decision carries no test,
+application-build, checkpoint or reusable-evidence qualification authority.
+
+The complete `npm-consumers-sync-ci-budget-v1` source tuple is registered before
+installation. Shared PR, parent and synchronization workflows install
+`bubblewrap` only for selected owners that require `/usr/bin/bwrap`, including
+the project-runner's isolated checks in a partial CI selection. Qt prerequisites
+remain separately selected. The utility reuses a successful Qt step's package
+index; otherwise it updates the index only when the executable is missing.
+Verified empty or zero-execution cases and bounded documentation avoid this
+utility setup. The project job allows 30 minutes for the source transition that
+verifies both the trusted and changed Device commands. All earlier tuples and
+the protected producer tuple remain unchanged. Registration alone installs no
+workflow and does not establish execution evidence.
+
+The legacy host CLI stops after a selected suite fails. Its partial report names
+only executed suites; unexecuted suites cannot acquire passing evidence. A
+successful run still executes every selected suite in its original order with
+the same per-suite deadlines and cancellation handling.
+
+
+Linux ArtifactIdentity execution uses the fixed `tests/device/run_artifact_identity.py`
+child from the full Device owner. It runs the same unittest discovery and real SBOM
+validators in a read-only source projection without the iOS cache leaves, checkout
+metadata or outer workspace. The full Device driver and every Python CLI child use
+isolated startup without `site` or `.pth` execution; explicit prepared package roots
+retain the validators and their schema/license resources. Missing confinement fails
+the owner, with no unconfined or skipped-test fallback. Other Device commands and
+non-Linux ArtifactIdentity execution retain their existing behavior.
+
+This execution boundary does not qualify compiler checkpoints or establish a warm
+cache result. The iOS cache owner remains required, and any narrow input omission
+still requires the complete source/lookup comparison against the actual protected
+iOS target and its admitted native execution profile.
+
+The protected evidence producer runs the selected `test-evidence` and
+`host-selection` suites concurrently, once each, in separate kernel scopes with
+their own guardian, private scratch space and 240-second limit. Either failure
+still fails the host result; cancellation and cleanup cover both scopes. The
+pair is fixed in the trusted producer and retains registry order in JUnit.
+Ordinary project-test commands remain serial. The scheduler controller bytes
+are part of the execution identity, so evidence from the previous serial
+controller cannot be reused for this execution.
+
+The existing manual Shared sandbox host diagnostic, profile `boundary`, also
+checks the pair against real kernel controls: private descriptors and
+namespaces, cancellation with detached descendants in both scopes, and an
+actual supervisor SIGKILL followed by both guardians observing controller EOF.
+The before/after probe requires every scope to be empty. This diagnostic is
+an acceptance check, carries no reusable PR evidence authority, and does not
+run on ordinary PR events.

@@ -435,7 +435,7 @@ class NativeCallerSchedulingTests(unittest.TestCase):
         self.assertTrue({'route', 'native', 'project', 'android', 'documentation', 'workflow-security', 'workflow-contracts'} <= set(aggregate['needs']))
         self.assertEqual(aggregate['steps'][0]['run'], 'exit 1')
         self.assertEqual(aggregate['steps'][1]['with']['ref'], '${{ github.event.repository.default_branch }}')
-        self.assertIn('python3 tools/repository-checks/check.py verify', aggregate['steps'][-1]['run'])
+        self.assertIn('python3 trusted/tools/repository-checks/check.py verify', aggregate['steps'][-1]['run'])
 
     def test_native_nonproducer_intent_cannot_start_any_heavy_job_without_recognition(self):
         names={'native','project','android','documentation','workflow-security','workflow-contracts'}
@@ -553,6 +553,7 @@ class MetadataSchedulingBoundaryTests(unittest.TestCase):
                 shutil.copy2(ROOT/relative,path)
             # D models protected main even when this suite runs on Android.
             # Keep the candidate's distinct Android declaration in `before`.
+            (root/'tests/platform-profile.json').chmod(0o644)
             (root/'tests/platform-profile.json').write_text(json.dumps(
                 {'schema':1,'platform':'shared','suites':[]},indent=2)+'\n')
             def git(*args):
@@ -635,6 +636,7 @@ except (ValueError,OSError):
             shadow=root/'tools/test-evidence/json.py'; shadow.write_text('raise RuntimeError("unreviewed import")\n')
             self.assertEqual(run(),{'success':False,'api_loaded':False}); shadow.unlink()
             guard=root/'tools/test-evidence/source_admission.py'
+            guard.chmod(0o644)
             guard.write_text('raise RuntimeError("unreviewed immutable guard")\n')
             git('add','.');git('commit','--quiet','-m','Unknown guard is still ordinary immutable Git data')
             # Even an internally consistent new Git checkout cannot choose a new
@@ -1202,6 +1204,77 @@ print(json.dumps(sorted(reached)))
                                 capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('tools/test-evidence/producer_workflow.py', json.loads(result.stdout))
+
+    def test_plain_current_owner_bootstrap_preserves_immutable_import_lookup(self):
+        # Use the real protected loader and source guard in a fresh interpreter.
+        # No -B or inherited bytecode environment may mask the production CLI.
+        import shutil
+        guard_source = ROOT / 'tools/test-evidence/source_admission.py'
+        declarations = {
+            node.targets[0].id: ast.literal_eval(node.value)
+            for node in ast.parse(guard_source.read_bytes()).body
+            if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id in {'CONTROLLERS', 'IMPORT_MEMBERS'}
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for relative in sorted(set(declarations['CONTROLLERS']) | set(declarations['IMPORT_MEMBERS'])):
+                source = ROOT / relative
+                self.assertTrue(source.is_file() and not source.is_symlink(), relative)
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
+            # The protected default is shared even when this contract runs in
+            # an iOS/Android candidate checkout.
+            profile = root / 'tests/platform-profile.json'
+            profile.chmod(profile.stat().st_mode | 0o200)
+            profile.write_text(json.dumps(
+                {'schema': 1, 'platform': 'shared', 'suites': []}, indent=2) + '\n')
+            program = r"""
+import hashlib, importlib.util, json, stat, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+# Build immutable expected source metadata BEFORE any repository import.
+tree = {}
+for path in root.rglob('*'):
+    if path.is_file():
+        body = path.read_bytes()
+        tree[path.relative_to(root).as_posix()] = {
+            'mode': '100755' if path.stat().st_mode & 0o111 else '100644',
+            'type': 'blob',
+            'sha': hashlib.sha1(b'blob ' + str(len(body)).encode() + b'\0' + body).hexdigest()}
+spec = importlib.util.spec_from_file_location('plain_current_owner_checks',
+    root / 'tools/repository-checks/check.py')
+checks = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = checks
+spec.loader.exec_module(checks)
+producer = checks.native_owner_policy()
+guard = producer.source_admission
+observed = guard.actual_import_inventory(root)
+proof = guard.compatibility(tree, tree, 'main',
+    read_actual=lambda name: guard.actual_bytes(root, name), actual_imports=observed)
+assert proof['kind'] == 'protected-default-controller-source-v1'
+assert not list((root / 'tools/test-evidence').rglob('*.pyc'))
+# The startup repair must not filter or admit preexisting unknown bytecode.
+(root / 'tools/test-evidence/unreviewed.pyc').write_bytes(b'not-authority')
+try:
+    guard.compatibility(tree, tree, 'main',
+        read_actual=lambda name: guard.actual_bytes(root, name),
+        actual_imports=guard.actual_import_inventory(root))
+except guard.SourceUnavailable as error:
+    assert str(error) == 'actual import lookup differs from the immutable reviewed inventory'
+else:
+    raise AssertionError('unknown bytecode was admitted')
+print(json.dumps({'plain_owner_admitted': True, 'unknown_bytecode_rejected': True}))
+"""
+            env = dict(os.environ)
+            for name in ('PYTHONDONTWRITEBYTECODE', 'PYTHONPYCACHEPREFIX'):
+                env.pop(name, None)
+            result = subprocess.run([sys.executable, '-I', '-S', '-c', program, str(root)],
+                                    env=env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), {
+                'plain_owner_admitted': True, 'unknown_bytecode_rejected': True})
 
     def test_unselected_project_retains_the_existing_documentation_route(self):
         self.plan['host_mode'] = 'documentation'
@@ -2183,6 +2256,69 @@ class PackageChecksTests(unittest.TestCase):
             if step.get('name') in ('Set up Python', 'Set up Java', 'Install QML and portable C++ contract prerequisites'):
                 self.assertEqual(step['if'], "steps.route.outputs.package_host_mode == 'full'")
 
+    def test_budget_source23_is_atomic_trusted_only_and_keeps_original22_immutable(self):
+        rows = PACKAGES.workflow_generations()
+        self.assertEqual(len(rows), 23)
+        historical = rows[:22]
+        self.assertEqual(hashlib.sha256(json.dumps(historical, sort_keys=True,
+            separators=(',', ':')).encode()).hexdigest(), '0379905b7f40d15235f27a15d24cb24a2696c2c53d683931cbe6d5935cf7bfd1')
+        source = next(row for row in rows if row['name'] == 'npm-consumers-sync-ci-v1')
+        budget = next(row for row in rows if row['name'] == 'npm-consumers-sync-ci-budget-v1')
+        self.assertEqual(set(budget['workflows']), set(PACKAGES.CONSUMER_WORKFLOW_PATHS))
+        changed = {path for path in source['workflows'] if source['workflows'][path] != budget['workflows'][path]}
+        expected = {'.github/workflows/project-tests.yml': '8920a91e79c8e25c34c0afdeda610d71a625dde9', '.github/workflows/parent-qualification.yml': '6d2d342e4b63d9e60602451157d13854bd52dde7', '.github/workflows/sync-validation.yml': '55d08b65a987224ce576459cede693cfd49375f6'}
+        self.assertEqual(changed, set(expected))
+        step = '- name: Install selected artifact namespace utility\n  if: steps.{select}.outputs.requires_artifact_namespace == \'true\'\n  env:\n    FULL_HOST: ${{ steps.{select}.outputs.full_host }}\n  run: |\n    set -euo pipefail\n    if ! test -x /usr/bin/bwrap; then\n      if test "$FULL_HOST" != true; then\n        sudo apt-get -o Acquire::Retries=4 update\n      fi\n      sudo apt-get -o Acquire::Retries=4 install --no-install-recommends -y bubblewrap\n    fi\n    test -x /usr/bin/bwrap\n'
+        for path, old_oid in expected.items():
+            if path.endswith('sync-validation.yml'):
+                recipe = historical_workflow_bytes()[old_oid]
+            else:
+                recipe = (ROOT / 'tools/repository-checks/workflows/host' / Path(path).name).read_bytes()
+            self.assertEqual(hashlib.sha1(b'blob '+str(len(recipe)).encode()+b'\0'+recipe).hexdigest(), old_oid)
+            sync = path.endswith('sync-validation.yml'); indent = 6 if sync else 4
+            marker = ' '*indent+'- name: '+('Prepare isolated shared and product Python validators' if sync else 'Prepare isolated host evidence validators')+'\n'
+            utility = ''.join(' '*indent+line+'\n' for line in step.replace('{select}', 'select' if sync else 'host').splitlines())
+            self.assertEqual(recipe.count(marker.encode()), 1)
+            proposed = recipe.replace(marker.encode(), (utility+marker).encode())
+            if path.endswith('project-tests.yml'):
+                self.assertEqual(proposed.count(b'    timeout-minutes: 20\n'), 1)
+                proposed = proposed.replace(b'    timeout-minutes: 20\n', b'    timeout-minutes: 30\n')
+            self.assertEqual(budget['workflows'][path], {'mode':'100644','type':'blob','sha':hashlib.sha1(
+                b'blob '+str(len(proposed)).encode()+b'\0'+proposed).hexdigest()})
+        self.assertEqual(PACKAGES.validate_tree_wiring(source['workflows']), 'npm-consumers-sync-ci-v1')
+        self.assertEqual(PACKAGES.validate_tree_wiring(budget['workflows']), 'npm-consumers-sync-ci-budget-v1')
+        old_policy = json.dumps({'schema':1,'repository':{'full_name':PACKAGES.REPOSITORY,
+            'id':PACKAGES.REPOSITORY_ID},'generations':historical}).encode()
+        with patch.object(PACKAGES, '_trusted_bytes', return_value=old_policy):
+            self.assertEqual(PACKAGES.validate_tree_wiring(source['workflows']), 'npm-consumers-sync-ci-v1')
+            with self.assertRaises(ValueError): PACKAGES.validate_tree_wiring(budget['workflows'])
+        for path in expected:
+            for origin in ('old-in-new','new-in-old'):
+                tree = deepcopy(budget['workflows'] if origin=='old-in-new' else source['workflows'])
+                tree[path] = deepcopy(source['workflows'][path] if origin=='old-in-new' else budget['workflows'][path])
+                with self.subTest(path=path, origin=origin), self.assertRaises(ValueError):
+                    PACKAGES.validate_tree_wiring(tree)
+        for mutation in ('unknown-project','mixed-caller','missing','executable','symlink','submodule'):
+            tree = deepcopy(budget['workflows'])
+            if mutation == 'unknown-project': tree['.github/workflows/project-tests.yml']['sha'] = 'a'*40
+            elif mutation == 'mixed-caller': tree['.github/workflows/repository-checks.yml']['sha'] = 'b'*40
+            elif mutation == 'missing': del tree['.github/workflows/browser-client.yml']
+            elif mutation in ('executable','symlink'):
+                tree['.github/workflows/project-tests.yml']['mode'] = '100755' if mutation=='executable' else '120000'
+            else: tree['.github/workflows/project-tests.yml']['type'] = 'commit'
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError): PACKAGES.validate_tree_wiring(tree)
+        original22 = rows[21]
+        self.assertEqual(original22['name'], 'protected-producer-original-default-v1')
+        self.assertEqual(original22['workflows']['.github/workflows/project-tests.yml']['sha'],
+                         '28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9')
+        self.assertNotIn(budget['name'], PACKAGES._PROTECTED_ROUTE_GENERATIONS)
+        over = deepcopy(rows); extra = deepcopy(budget); extra['name'] = 'unreviewed-extra-budget'
+        extra['workflows']['.github/workflows/project-tests.yml']['sha'] = 'c'*40; over.append(extra)
+        raw = json.dumps({'schema':1,'repository':{'full_name':PACKAGES.REPOSITORY,
+            'id':PACKAGES.REPOSITORY_ID},'generations':over}).encode()
+        with patch.object(PACKAGES,'_trusted_bytes',return_value=raw), self.assertRaises(ValueError):
+            PACKAGES.workflow_generations()
+
 
 class NpmConsumerSelectionTests(unittest.TestCase):
     """Exercise source-bound decisions with actual immutable Git objects."""
@@ -2774,8 +2910,11 @@ class VerifiedEmptyCandidateTests(unittest.TestCase):
         git('init','-q','--initial-branch=main');git('config','user.name','Fixture')
         git('config','user.email','fixture@example.invalid')
         selected=next(row for row in PACKAGES.workflow_generations() if row['name']==generation)
+        historical = historical_workflow_bytes()
         for name,entry in selected['workflows'].items():
-            raw=subprocess.check_output(['git','cat-file','blob',entry['sha']],cwd=ROOT)
+            raw = historical.get(entry['sha'])
+            if raw is None:
+                raw=subprocess.check_output(['git','cat-file','blob',entry['sha']],cwd=ROOT)
             self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),entry['sha'])
             path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
         (root/'native.cpp').write_text('unchanged product input\n')
@@ -2795,6 +2934,23 @@ class VerifiedEmptyCandidateTests(unittest.TestCase):
             'GITHUB_REPOSITORY_ID':str(CONFIG['repository_id']),'GITHUB_SHA':merge,'GITHUB_REF_TYPE':'branch',
             'GITHUB_REF':'refs/pull/23/merge','GITHUB_BASE_REF':'main','GITHUB_HEAD_REF':'fix/main/example'}
         return root,git,base,head,merge,payload,environment
+
+    def test_historical_workflows_do_not_require_ancestral_git_objects(self):
+        original = subprocess.check_output
+        historical = historical_workflow_bytes()
+        def without_history(command, *args, **kwargs):
+            if (list(command[:3]) == ['git', 'cat-file', 'blob']
+                    and command[3] in historical and kwargs.get('cwd') == ROOT):
+                self.fail('historical workflow bytes must come from the verified fixture')
+            return original(command, *args, **kwargs)
+        for generation in ('npm-consumers-sync-ci-v1', 'protected-producer-original-default-v1'):
+            with self.subTest(generation=generation), patch.object(
+                    subprocess, 'check_output', side_effect=without_history):
+                root,git,base,head,merge,payload,native=self.fixture(generation)
+                with patch.dict(os.environ,native,clear=True):
+                    proof=CHECKS.verified_empty_candidate(root,payload,merge)
+                self.assertIsNotNone(proof)
+                self.assertEqual(proof['tree'],git('rev-parse',base+'^{tree}'))
 
     def test_real_equal_tree_pr_is_not_an_empty_path_guess(self):
         root,git,base,head,merge,payload,native=self.fixture()
