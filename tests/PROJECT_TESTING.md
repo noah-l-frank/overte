@@ -1402,7 +1402,13 @@ suites fail closed without a second dispatch or a first-page run search. The
 child runs at the actual trusted default-branch checkout commit; the still-running
 PR-target gate's API head remains the PR head, a separate role. This orchestration
 identity does not grant reusable evidence or change the independent source,
-current-candidate, runtime, artifact and expiry checks.
+current-candidate, runtime, artifact and expiry checks. Before binding the native
+identity, the gate allows at most 30 seconds within its existing timeout for
+missing or null registration fields on that exact run, attempt and check suite.
+The positive returned run ID, exact fork URLs and nonterminal state remain
+mandatory; populated conflicting fields fail immediately. Complete identity and
+native App checks remain required, and field names plus the endpoint identify
+registration failures without logging response payloads.
 
 Protected candidate identity reads use `git --no-optional-locks` to preserve the
 private immutable index while retaining the complete snapshot verification.
