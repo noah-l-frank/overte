@@ -144,17 +144,19 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = '4832d6fe6f911bb637db093f8097b0d491f1954d27cc4e87cc4a44b7d593e209'
+REVIEWED_PROGRAMS = '15cfe68c32c32c4882b5e433c31a5fa383158830684498596d0f4c999d1a7801'
 REVIEWED_CHILD_PROGRAMS = {
-    'apple-main': '4171ea61dba3d1b2b05a2779631ea1beeeebaffe9b66e0d529ce2d5b5d7684f9',
-    'apple-ios': '0db6cbd519ed86b48e5ef74085e5e94abaec0de31961855ef58e92e2a80e1199',
-    'android-main': '77bf2c5fb11c27cae5732a9fe3a1ceb3f288b054f70de878b84d0f465163b64e',
-    'android-phone': '2543946cef39f446cfc980f86bfe623396f59b81a9b3fb5fdaec666dc7226428',
-    'android-vr': '77bf2c5fb11c27cae5732a9fe3a1ceb3f288b054f70de878b84d0f465163b64e',
-    'android-vr-pico': '5439cde1a7b5c730c6ad768a67c295e28da56d45f30b38027e1a56391064ea63',
+    'apple-main': 'dbf8eae1788a8f035a2344909629a9197898f433794ffa8f7b78387a4b6f16d1',
+    'apple-ios': '8967dffaf566dfd7d6bf4cd23bb0ab9a46bb39bebc6e8e27828348fdb483258f',
+    'android-main': '531e361cff47805cfcf2b04d52a32259d807fa7e3df9dd98733215075fdb0da6',
+    'android-phone': 'd065a2715d96679f3d84b9f3958e975917cc57efe2f1b94eb266f20eba7f6810',
+    'android-vr': '531e361cff47805cfcf2b04d52a32259d807fa7e3df9dd98733215075fdb0da6',
+    'android-vr-pico': '5f494cd7a6632c75d5b84d5a6069ce211cbcbc34544a011b1936d84d8e6bc8bc',
 }
 # Separate exact installed family; None admits nothing until genuine enrollment.
-REVIEWED_INSTALLED_PROGRAMS = {'apple-ios': '9fbc1f120488d226686672af39ca2c818892764a29b22b61af61d26ab2472e50'}
+REVIEWED_INSTALLED_PROGRAMS = {
+    'apple-ios': '0bc5e24e80771d9fa0e60a09bc3858ec669dffdb36cfb79294b91faaec2606f0',
+}
 REVIEWED_PREDECESSORS = {
     'main': '6c6064992d2e2e189e06af5957c147fd1ac0996b886b8d0b6f30dbf856ee9afe',
     'apple-main': 'ad02726fc123ea762f37e077f6ad11bf54b568542c89ebba9ae6477d9225288a',
