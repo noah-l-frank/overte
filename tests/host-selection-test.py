@@ -1512,5 +1512,117 @@ class HostSelectionTests(unittest.TestCase):
                 self.assertEqual(canary.exists(), not failing)
 
 
+class InstalledCompilerProgramsTests(unittest.TestCase):
+    PROFILE_MODES = {
+        '.github/workflows/ios-integrated.yml': '100644',
+        'docs/ios/SIGNING_AND_DEVICE_TESTS.md': '100644',
+        'ios/ci/qt-checkpoint-artifact.py': '100755',
+        'ios/tests/ios-full-client-sccache-contract-test.py': '100644',
+        'ios/tests/qt-checkpoint-artifact-test.py': '100755',
+    }
+
+    @contextlib.contextmanager
+    def private_git_profiles(self):
+        """Real private Git inputs; tiny profile bytes are fixture data, not IOS5."""
+        with tempfile.TemporaryDirectory(prefix='overte-installed-compiler-programs-') as folder:
+            root=Path(folder)
+            def write(path,data,mode=0o644):
+                leaf=root/path;leaf.parent.mkdir(parents=True,exist_ok=True)
+                leaf.write_bytes(data);leaf.chmod(mode)
+            def git(*args):
+                return HOST.subprocess.check_output(['git','-c','core.hooksPath=/dev/null',
+                    '-c','commit.gpgsign=false','-c','user.name=Compiler profile fixture',
+                    '-c','user.email=fixture@example.invalid',*args],cwd=root).decode().strip()
+            def snapshot():
+                git('add','--','.');git('commit','-qm','Record private immutable input fixture')
+                return HOST.inputs.full_tree(root,git('rev-parse','HEAD'))
+            git('init','-q','--initial-branch=main')
+            write('.github/test-suites.json',(ROOT/'.github/test-suites.json').read_bytes())
+            write('tests/platform-profile.json',(json.dumps(
+                {'schema':1,'platform':'shared','suites':[]},indent=2)+'\n').encode())
+            write('tools/test-evidence/inputs.py',b'fixed fixture selector authority\n')
+            ci='tools/branch-cleanup/cleanup.py'
+            write(ci,b'old CI bytes\n')
+            for path,mode in self.PROFILE_MODES.items():
+                write(path,('old '+path+'\n').encode(),int(mode,8)&0o777)
+            old=snapshot()
+            write(ci,b'new CI bytes\n');old_ci=snapshot()
+            write(ci,b'old CI bytes\n')
+            for path,mode in self.PROFILE_MODES.items():
+                write(path,('installed '+path+'\n').encode(),int(mode,8)&0o777)
+            new=snapshot()
+            write(ci,b'new CI bytes\n');new_ci=snapshot()
+            profile={path:new[path].copy() for path in self.PROFILE_MODES}
+            old_p,new_p=(HOST.program_digest(tree,root) for tree in (old,new))
+            with (patch.object(HOST,'REVIEWED_PROGRAMS',old_p),
+                  patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{'apple-ios':old_p}),
+                  patch.object(HOST,'REVIEWED_INSTALLED_PROGRAMS',{'apple-ios':new_p},create=True),
+                  patch.object(HOST.inputs,'INSTALLED_COMPILER_PROFILE',profile,create=True)):
+                def select(base,candidate,*,target='apple-ios',unknown=False):
+                    paths=sorted(path for path in base.keys()|candidate.keys() if base.get(path)!=candidate.get(path))
+                    return HOST.select(candidate,paths,True,unknown=unknown,trusted_tree=old,
+                        base_tree=base,candidate_root=root,trusted_root=root,target=target)
+                yield old,old_ci,new,new_ci,select,profile
+
+    def test_same_installed_and_original_families_keep_ci_omission_but_transitions_keep_device(self):
+        with self.private_git_profiles() as (old,old_ci,new,new_ci,select,profile):
+            for base,candidate in ((old,old_ci),(new,new_ci)):
+                with self.subTest(family='installed' if base is new else 'original'):
+                    result=select(base,candidate)
+                    self.assertFalse(result['full_host']);self.assertFalse(result['include_platform'])
+                    self.assertNotIn('device-control-plane-full',result['suites'])
+            for base,candidate in ((old,new_ci),(new,old_ci)):
+                with self.subTest(direction='install' if base is old else 'revert'):
+                    result=select(base,candidate)
+                    self.assertTrue(result['full_host']);self.assertTrue(result['include_platform'])
+                    for name in ('device-control-plane-full','shared-script-behavior','snapshot-native'):
+                        self.assertIn(name,result['suites'])
+            with patch.dict(HOST.REVIEWED_INSTALLED_PROGRAMS,{'apple-ios':None}):
+                self.assertTrue(select(new,new_ci)['full_host'])
+            self.assertEqual(set(HOST.REVIEWED_INSTALLED_PROGRAMS),{'apple-ios'})
+
+    def test_installed_program_family_rejects_partial_modes_bytes_neighbors_and_stale_readers(self):
+        with self.private_git_profiles() as (old,old_ci,new,new_ci,select,profile):
+            guide='docs/ios/SIGNING_AND_DEVICE_TESTS.md'
+            helper='ios/ci/qt-checkpoint-artifact.py'
+            for which in ('base','candidate'):
+                for change in ('guide','helper','mode','missing','neighbor','selector','lookup'):
+                    base,candidate=copy_git_tree(new),copy_git_tree(new_ci)
+                    tree=base if which=='base' else candidate
+                    if change=='missing':del tree[helper]
+                    elif change=='mode':tree[helper]['mode']='100644'
+                    elif change=='neighbor':tree['ios/ci/new-reader.hpp']={'mode':'100644','type':'blob','sha':'a'*40}
+                    elif change=='lookup':tree['ios/ci/new_reader.py']={'mode':'100644','type':'blob','sha':'b'*40}
+                    else:tree[guide if change=='guide' else helper if change=='helper'
+                              else 'tools/test-evidence/inputs.py']['sha']='c'*40
+                    with self.subTest(which=which,change=change):
+                        result=select(base,candidate)
+                        self.assertTrue(result['full_host'])
+                        self.assertIn('device-control-plane-full',result['suites'])
+            self.assertTrue(select(new,new_ci,target='apple-main')['full_host'])
+            self.assertTrue(select(new,new_ci,unknown=True)['full_host'])
+            # Before cache installation Markdown keeps its established legacy CI
+            # route. This is distinct from admission of the new installed family.
+            previous=copy_git_tree(old_ci);previous[guide]['sha']='d'*40
+            self.assertFalse(select(old,previous)['full_host'])
+
+    def test_installed_profile_is_the_exact_five_frozen_ordinary_cache_inputs(self):
+        expected={
+            '.github/workflows/ios-integrated.yml':('100644','9367feef078a9311919ad920bf15b0d61800cf94'),
+            'docs/ios/SIGNING_AND_DEVICE_TESTS.md':('100644','f0777c42ed2b49ed04b9b6650de13c4a4ef14e9f'),
+            'ios/ci/qt-checkpoint-artifact.py':('100755','34a53dea5e99060403d38a90b9f1b6afdbb5021d'),
+            'ios/tests/ios-full-client-sccache-contract-test.py':('100644','c037ab31ab74c0f4cbb9902b6fafba172914cdba'),
+            'ios/tests/qt-checkpoint-artifact-test.py':('100755','2b829c678fac98ba68a12758168e7931f921393c'),
+        }
+        self.assertEqual(HOST.inputs.INSTALLED_COMPILER_PROFILE,
+            {path:{'mode':mode,'type':'blob','sha':sha} for path,(mode,sha) in expected.items()})
+        self.assertEqual(HOST.inputs.INSTALLED_COMPILER_READER,
+            'sha256:d57dea0d6e1db2ccf001d910d6f171f08827e5fef16f91dfcd9153b74198aeb8')
+        for path in expected:
+            self.assertNotIn(path,HOST.DEVICE_CONTROL_INPUTS)
+        self.assertIn('ios',HOST.inputs._DEVICE_INPUTS)
+        self.assertFalse(HOST.inputs.installed_compiler_profile(HOST.inputs.INSTALLED_COMPILER_PROFILE,target='main'))
+
+
 if __name__=='__main__':
     unittest.main()

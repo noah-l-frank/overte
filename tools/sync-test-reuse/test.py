@@ -1184,6 +1184,7 @@ class DispatchContracts(unittest.TestCase):
             clock[0] += seconds
         with mock.patch.object(gate, "GitHubApi", return_value=self.api), \
              mock.patch.object(gate, "_dispatch_checkout_source", return_value=checkout_source), \
+             mock.patch.object(gate, "_callback_sync_recipe", return_value=False), \
              mock.patch.object(gate.time, "monotonic", side_effect=lambda: clock[0]), \
              mock.patch.object(gate.time, "sleep", side_effect=sleep) as self.sleep, \
              mock.patch.object(gate, "write_outputs") as self.outputs:
@@ -1744,6 +1745,167 @@ class DispatchContracts(unittest.TestCase):
                                          for call in self.api.json.call_args_list))
 
 
+class CallbackNativeRolesTests(unittest.TestCase):
+    """A notification role never substitutes for a passing candidate validator."""
+
+    def setUp(self):
+        self.prefix = "repos/" + REPOSITORY
+        self.run = {"id": 700, "check_suite_id": 1700}
+        self.jobs, self.documents = [], {}
+        for identifier, name in ((71, "Validate exact synchronization"),
+                                 (72, "Notify completed synchronization cleanup")):
+            html = "https://github.com/" + REPOSITORY + "/actions/runs/700/job/" + str(identifier)
+            job = {"id": identifier, "run_id": 700, "run_attempt": 1, "head_sha": HEAD,
+                "name": name, "status": "completed", "conclusion": "success",
+                "url": "https://api.github.com/repos/" + REPOSITORY + "/actions/jobs/" + str(identifier),
+                "html_url": html,
+                "check_run_url": "https://api.github.com/repos/" + REPOSITORY + "/check-runs/" + str(identifier),
+                "started_at": "2026-10-18T00:00:00Z", "completed_at": "2026-10-18T00:01:00Z",
+                "steps": []}
+            self.jobs.append(job)
+            self.documents[self.prefix + "/check-runs/" + str(identifier)] = {
+                "id": identifier, "name": name, "head_sha": HEAD, "app": {"id": 15368},
+                "check_suite": {"id": 1700}, "details_url": html, "status": "completed",
+                "conclusion": "success", "started_at": job["started_at"], "completed_at": job["completed_at"]}
+        self.jobs[1]["steps"] = [{"name": "Dispatch exact synchronization completion",
+                                  "status": "completed", "conclusion": "success"}]
+        self.roster = {"total_count": 2, "jobs": self.jobs}
+        self.documents[self.prefix + "/actions/runs/700/attempts/1/jobs?per_page=100"] = self.roster
+        self.api = MappingApi(self.documents)
+
+    def verify(self):
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as output:
+            result = gate._dispatch_terminal_roles(self.api, self.prefix, self.run, HEAD)
+        lines = output.getvalue().splitlines()
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(json.loads(lines[0].removeprefix("sync_cleanup_notification=")), result)
+        return result
+
+    def test_administrative_success_or_failure_is_recorded_without_qualification_authority(self):
+        for conclusion in ("success", "failure", "timed_out", "cancelled"):
+            with self.subTest(conclusion=conclusion):
+                self.jobs[1]["conclusion"] = conclusion
+                self.jobs[1]["steps"][0]["conclusion"] = conclusion
+                self.documents[self.prefix + "/check-runs/72"]["conclusion"] = conclusion
+                result = self.verify()
+                self.assertEqual(result["conclusion"], conclusion)
+                self.assertEqual(result["dispatch_step"]["conclusion"], conclusion)
+                self.assertIs(result["qualification"], False)
+                self.assertFalse({"accepted", "retry", "test_pass", "evidence"} & set(result))
+
+    def test_callback_terminal_native_admission_requires_validator_and_rejects_overall_failure(self):
+        run=DispatchContracts().run_document("gate-701-attempt-1",run_id=700)
+        run.update(head_sha=HEAD,check_suite_id=1700)
+        self.documents[self.prefix+'/actions/runs/700/attempts/1']=run
+        self.documents[self.prefix+'/check-suites/1700']={
+            'id':1700,'head_sha':HEAD,'repository':{'id':REPOSITORY_ID,'full_name':REPOSITORY},
+            'app':{'id':15368}}
+        identity=gate._dispatch_run(run,700,HEAD,'gate-701-attempt-1')
+        with mock.patch.object(gate,'_callback_sync_recipe',return_value=True), \
+                mock.patch('sys.stdout',new_callable=io.StringIO):
+            gate._dispatch_native(self.api,self.prefix,run,HEAD,'gate-701-attempt-1',identity)
+            self.jobs[0]['conclusion']='failure'
+            self.documents[self.prefix+'/check-runs/71']['conclusion']='failure'
+            with self.assertRaisesRegex(gate.GateError,'workload did not succeed'):
+                gate._dispatch_native(self.api,self.prefix,run,HEAD,'gate-701-attempt-1',identity)
+            self.jobs[0]['conclusion']='success'
+            self.documents[self.prefix+'/check-runs/71']['conclusion']='success'
+            run['conclusion']='cancelled'
+            with self.assertRaises(gate.GateError):
+                gate._dispatch_native(self.api,self.prefix,run,HEAD,'gate-701-attempt-1',identity)
+
+    def test_failed_or_skipped_validator_never_passes_even_with_successful_notifier(self):
+        for conclusion in ("failure", "skipped", "cancelled", "timed_out", "neutral", None):
+            with self.subTest(conclusion=conclusion):
+                self.jobs[0]["conclusion"] = conclusion
+                self.documents[self.prefix + "/check-runs/71"]["conclusion"] = conclusion
+                with self.assertRaises(gate.GateError):
+                    self.verify()
+
+    def test_native_no_start_administrative_failure_never_certifies_execution(self):
+        job=self.jobs[1];check=self.documents[self.prefix+'/check-runs/72']
+        job.update(conclusion='startup_failure',started_at=None,completed_at=None,steps=[])
+        check.update(conclusion='startup_failure',started_at=None,completed_at=None)
+        result=self.verify()
+        self.assertEqual(result['execution_state'],'not-started')
+        self.assertIsNone(result['dispatch_step'])
+        self.assertIs(result['qualification'],False)
+        for changes in ({'conclusion':'success'},{'started_at':''},
+                        {'steps':[{'name':'Dispatch exact synchronization completion',
+                                   'status':'completed','conclusion':'success'}]}):
+            original=deepcopy(job);original_check=deepcopy(check)
+            job.update(changes)
+            for key in ('conclusion','started_at','completed_at'):
+                check[key]=job[key]
+            with self.subTest(changes=changes),self.assertRaises(gate.GateError):self.verify()
+            job.clear();job.update(original);check.clear();check.update(original_check)
+        self.jobs[0]['started_at']=None
+        self.jobs[0]['completed_at']=None
+        self.documents[self.prefix+'/check-runs/71'].update(started_at=None,completed_at=None)
+        with self.assertRaises(gate.GateError):self.verify()
+
+    def test_missing_extra_duplicate_and_ill_typed_native_roles_fail_closed(self):
+        for jobs in (self.jobs[:1], self.jobs + [dict(self.jobs[0], id=73)],
+                     [self.jobs[0], dict(self.jobs[0])], [self.jobs[0], None]):
+            with self.subTest(jobs=jobs):
+                self.roster.update(total_count=len(jobs), jobs=jobs)
+                with self.assertRaises(gate.GateError):
+                    self.verify()
+        self.roster.update(total_count=2.0, jobs=self.jobs)
+        with self.assertRaises(gate.GateError):
+            self.verify()
+
+    def test_foreign_source_run_attempt_check_app_suite_or_details_never_passes(self):
+        for target, changes in (
+            (self.jobs[1], {"run_id": 701}), (self.jobs[1], {"run_attempt": 2}),
+            (self.jobs[1], {"head_sha": BASE}), (self.jobs[1], {"id": True}),
+            (self.jobs[1], {"check_run_url": "https://api.github.com/repos/overte-org/overte/check-runs/72"}),
+            (self.documents[self.prefix + "/check-runs/72"], {"app": {"id": 1}}),
+            (self.documents[self.prefix + "/check-runs/72"], {"check_suite": {"id": 1701}}),
+            (self.documents[self.prefix + "/check-runs/72"], {"details_url": self.jobs[0]["html_url"]}),
+            (self.documents[self.prefix + "/check-runs/72"], {"completed_at": "2026-10-18T00:02:00Z"}),
+        ):
+            with self.subTest(changes=changes):
+                original = deepcopy(target)
+                target.update(changes)
+                with self.assertRaises(gate.GateError):
+                    self.verify()
+                target.clear(); target.update(original)
+
+    def test_unknown_or_missing_successful_dispatch_steps_are_not_accepted(self):
+        for steps in ([], [dict(self.jobs[1]["steps"][0], conclusion="invented")],
+                      self.jobs[1]["steps"] * 2, [None]):
+            with self.subTest(steps=steps):
+                self.jobs[1]["steps"] = steps
+                with self.assertRaises(gate.GateError):
+                    self.verify()
+
+    def test_classifier_requires_one_complete_reviewed_recipe_and_keeps_historical_shape(self):
+        old = deepcopy(next(row for row in gate.package_checks.workflow_generations()
+                            if row['name'] == 'npm-consumers-sync-ci-budget-v1'))
+        path = ".github/workflows/sync-validation.yml"
+        new = deepcopy(old)
+        new["name"] = "offline-reviewed-callback-generation"
+        new["workflows"][path] = deepcopy(gate.CALLBACK_SYNC_RECIPE_ENTRIES[0])
+        with mock.patch.object(gate.package_checks, "workflow_generations", return_value=[old, new]):
+            with mock.patch.object(gate.suite_inputs, "full_tree", return_value=old["workflows"]):
+                self.assertFalse(gate._callback_sync_recipe())
+            with mock.patch.object(gate.suite_inputs, "full_tree", return_value=new["workflows"]):
+                self.assertTrue(gate._callback_sync_recipe())
+            other = next(name for name in new["workflows"] if name != path)
+            for change in ("missing-companion", "changed-companion", "symlink-sync"):
+                tree = deepcopy(new["workflows"])
+                if change == "missing-companion":
+                    tree.pop(other)
+                elif change == "changed-companion":
+                    tree[other]["sha"] = BASE
+                else:
+                    tree[path]["mode"] = "120000"
+                with self.subTest(change=change), mock.patch.object(gate.suite_inputs, "full_tree", return_value=tree):
+                    with self.assertRaises(gate.GateError):
+                        gate._callback_sync_recipe()
+
+
 class DispatchTransportContracts(unittest.TestCase):
     def test_dispatch_uses_fixed_version_and_real_boolean_without_changing_string_inputs(self):
         endpoint = f"repos/{REPOSITORY}/actions/workflows/sync-validation.yml/dispatches"
@@ -2117,7 +2279,11 @@ class EffectiveBaseTopologyTests(unittest.TestCase):
             context = gate.effective_pr_context(self.event, self.api)
             with mock.patch.object(gate, 'compare_merge_base', return_value=HEAD), \
                  mock.patch.object(gate, 'compare_files', return_value=(HEAD, {'docs/change.md'})), \
-                 mock.patch.object(gate.time, 'sleep', side_effect=AssertionError('authenticated M needs no optional API field')) as sleep:
+                 mock.patch.object(gate, 'time', mock.Mock(wraps=gate.time)) as clock:
+                # The assertion covers gate retries, not subprocess.wait's
+                # timeout bookkeeping through the shared standard time module.
+                sleep = clock.sleep
+                sleep.side_effect = AssertionError('authenticated M needs no optional API field')
                 request = gate.classify_event(self.event, config(), self.api, pr_context=context)
             self.assertEqual(request.merge_sha, MERGE)
             self.assertEqual(request.base_sha, BASE)
@@ -3480,6 +3646,35 @@ class VerifiedEmptySyncSourceTests(unittest.TestCase):
         with self.assertRaises(gate.GateError):
             gate.classify_event({'repository':self.repository,'pull_request':self.pr},config(),self.api)
         self.assertIsNone(self.verify())
+
+    def test_callback_empty_proof_only_accepts_validator_and_unstarted_distinct_notifier(self):
+        notifier={'id':703,'run_id':700,'run_attempt':1,'head_sha':self.default,
+            'name':'Notify completed synchronization cleanup','status':'queued','conclusion':None,
+            'started_at':None,'completed_at':None,'steps':[]}
+        with mock.patch.object(gate,'_callback_sync_recipe',return_value=True):
+            self.assertIsNotNone(self.verify())
+            def roster(changes=None, extra=None):
+                def mutate(path,value):
+                    if path.endswith('/jobs'):
+                        value['jobs'].append({**notifier,**(changes or {})})
+                        if extra is not None:value['jobs'].append(extra)
+                        value['total_count']=len(value['jobs'])
+                    return value
+                return mutate
+            self.mutate=roster()
+            result=self.verify()
+            self.assertIsNotNone(result)
+            self.assertFalse(result['qualification'])
+            self.assertEqual(result['native']['job']['job_id'],702)
+            for changes in ({'id':702},{'id':True},{'run_id':701},{'run_attempt':2},
+                    {'head_sha':BASE},{'status':'in_progress'},{'conclusion':'success'},
+                    {'started_at':'2026-10-18T00:00:00Z'},
+                    {'steps':[{'name':'unexpected execution','status':'completed'}]},
+                    {'name':'Unreviewed notification'}):
+                self.mutate=roster(changes)
+                with self.subTest(changes=changes):self.assertIsNone(self.verify())
+            self.mutate=roster(extra=dict(notifier,id=704))
+            self.assertIsNone(self.verify())
 
     def test_native_source_app_attempt_registration_and_diagnostics_never_use_empty(self):
         original=deepcopy(self.run)

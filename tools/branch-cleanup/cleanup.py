@@ -15,6 +15,8 @@ import os
 from pathlib import Path
 import re
 import stat
+import selectors
+import signal
 import subprocess
 import tempfile
 import threading
@@ -501,12 +503,72 @@ class Github:
         require(len(value) == 1, "unexpected_object_pagination")
         return value[0]
 
+    def get_sync_completion_run(self, suffix, *, timeout):
+        """Uncached fixed run/attempt reads for the receiver's finite terminal wait."""
+        require(type(suffix) is str and re.fullmatch(r"actions/runs/[1-9][0-9]{0,19}(?:/attempts/1)?", suffix),
+                "invalid_sync_completion_wait_endpoint")
+        require(type(timeout) in (int, float) and 0 < timeout <= 120, "invalid_sync_completion_read_timeout")
+        with self._statistics_lock:
+            self._cache_statistics["fresh_api_invocations"]["other"] += 1
+        return json.loads(run(["gh", "api", "--method", "GET", "repos/" + REPOSITORY + "/" + suffix],
+                              timeout=timeout).stdout)
+
+    def job_log(self, identifier):
+        """Read only one fixed native job console, with byte and wall-time limits."""
+        require(type(identifier) is int and identifier > 0, "invalid_sync_completion_log_job")
+        args = ["gh", "api", "--allow-escape-sequences", "--method", "GET", "repos/" + REPOSITORY
+                + "/actions/jobs/" + str(identifier) + "/logs"]
+        with self._statistics_lock:
+            self._cache_statistics["fresh_api_invocations"]["other"] += 1
+        child = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, close_fds=True, start_new_session=True)
+        body = bytearray()
+        deadline = time.monotonic() + 30
+        try:
+            with selectors.DefaultSelector() as ready:
+                ready.register(child.stdout, selectors.EVENT_READ)
+                while True:
+                    remaining = deadline - time.monotonic()
+                    require(remaining > 0, "sync_completion_log_timeout")
+                    require(ready.select(remaining), "sync_completion_log_timeout")
+                    chunk = os.read(child.stdout.fileno(), min(8192, 65537 - len(body)))
+                    if not chunk:
+                        break
+                    body.extend(chunk)
+                    require(len(body) <= 65536, "sync_completion_log_bound")
+            require(child.wait(timeout=max(0.001, deadline - time.monotonic())) == 0,
+                    "sync_completion_log_unavailable")
+            try:
+                return body.decode("utf-8")
+            except UnicodeError:
+                raise CleanupError("sync_completion_log_encoding_invalid") from None
+        finally:
+            try:
+                if child.poll() is None:
+                    try:
+                        os.killpg(child.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                child.wait(timeout=30)
+            finally:
+                child.stdout.close()
+
     def verify_owner(self):
         value = self.get()
         require(value.get("full_name") == REPOSITORY and value.get("id") == REPOSITORY_ID,
                 "repository_ownership_mismatch")
         require(value.get("default_branch") == "main", "default_branch_changed")
         require(value.get("delete_branch_on_merge") is False, "native_cleanup_would_bypass_guards")
+        return value
+
+    def verify_notification_owner(self):
+        """A read-only sender may lack administrative fields; deletion never may."""
+        value = self.get()
+        require(value.get("full_name") == REPOSITORY and value.get("id") == REPOSITORY_ID,
+                "repository_ownership_mismatch")
+        require(value.get("default_branch") == "main", "default_branch_changed")
+        if "delete_branch_on_merge" in value:
+            require(value["delete_branch_on_merge"] is False, "native_cleanup_would_bypass_guards")
         return value
 
     def branches(self):
@@ -827,6 +889,11 @@ def terminal_retry(github, policy, event):
     validate_policy(policy)
     github.verify_owner()
     actual = terminal_run(github, event)
+    return _terminal_retry_for_run(github, policy, actual)
+
+
+def _terminal_retry_for_run(github, policy, actual):
+    """Already authenticated completion; unchanged current hints never authorize deletion."""
     indexed = branch_inventory(github.branches())
     target, trigger_revision = actual["head_branch"], actual["head_sha"]
     revision = indexed[target]["sha"]
@@ -1050,6 +1117,445 @@ def summary(report):
                 out.write("- `" + branch.replace("`", "") + "`: " + ", ".join(sorted(set(reasons))) + "\n")
 
 
+SYNC_COMPLETION_INPUTS = frozenset({
+    "mode", "sender_run_id", "sender_run_attempt", "sender_source_sha", "gate_run_id",
+    "gate_run_attempt", "pull_request", "expected_base_sha", "expected_head_sha", "expected_merge_sha",
+})
+SYNC_COMPLETION_RECEIPT_FIELDS = frozenset({
+    "schema", "repository", "repository_id", "sender_run_id", "sender_run_attempt", "sender_source_sha",
+    "gate_run_id", "gate_run_attempt", "pull_request", "receiver_run_id", "receiver_api_url",
+    "receiver_html_url", "payload_digest", "outcome",
+})
+SYNC_COMPLETION_PREFIX = "OVERTE_SYNC_CLEANUP_DISPATCH_V1 "
+SYNC_NOTIFY_JOB = "Notify completed synchronization cleanup"
+SYNC_NOTIFY_STEP = "Dispatch exact synchronization completion"
+SYNC_VALIDATION_ID = 350930895
+SYNC_GATE_ID = 350930894
+CLEANUP_WORKFLOW_ID = 355150779
+SYNC_PENDING_STATES = frozenset({"queued", "requested", "waiting", "pending", "in_progress"})
+SYNC_TERMINAL_CONCLUSIONS = frozenset({"success", "failure", "neutral", "cancelled", "skipped", "timed_out",
+                                      "action_required", "stale", "startup_failure"})
+
+
+def sync_completion_payload(event):
+    require(type(event) is dict and same_repository(event.get("repository")), "invalid_sync_completion_repository")
+    payload = event.get("inputs")
+    require(type(payload) is dict and set(payload) == SYNC_COMPLETION_INPUTS
+            and all(type(value) is str for value in payload.values())
+            and payload["mode"] == "sync-completion", "invalid_sync_completion_payload")
+    for name in ("sender_run_id", "sender_run_attempt", "gate_run_id", "gate_run_attempt", "pull_request"):
+        require(re.fullmatch(r"[1-9][0-9]{0,19}", payload[name]), "invalid_sync_completion_integer")
+    require(payload["sender_run_attempt"] == payload["gate_run_attempt"] == "1", "sync_completion_requires_original_attempt")
+    for name in ("sender_source_sha", "expected_base_sha", "expected_head_sha", "expected_merge_sha"):
+        require(SHA.fullmatch(payload[name]), "invalid_sync_completion_source")
+    require(payload["sender_run_id"] != payload["gate_run_id"], "sync_completion_run_roles_collide")
+    return dict(payload)
+
+
+def sync_completion_payload_digest(payload):
+    raw = (json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n").encode("utf-8")
+    return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+
+def sync_completion_run(github, identifier, workflow, filename, event, branch, source, *, read=None):
+    read = github.get if read is None else read
+    actual = read("actions/runs/" + str(identifier))
+    require(type(actual) is dict and type(actual.get("id")) is int and actual["id"] == identifier
+            and type(actual.get("run_attempt")) is int and actual["run_attempt"] == 1
+            and type(actual.get("workflow_id")) is int and actual["workflow_id"] == workflow
+            and actual.get("path") == ".github/workflows/" + filename and actual.get("event") == event
+            and actual.get("head_branch") == branch and actual.get("head_sha") == source
+            and same_repository(actual.get("repository")) and same_repository(actual.get("head_repository"))
+            and actual.get("url") == "https://api.github.com/repos/" + REPOSITORY + "/actions/runs/" + str(identifier)
+            and actual.get("html_url") == "https://github.com/" + REPOSITORY + "/actions/runs/" + str(identifier)
+            and type(actual.get("check_suite_id")) is int and actual["check_suite_id"] > 0,
+            "sync_completion_native_run_identity_changed")
+    status = actual.get("status")
+    require(status in SYNC_PENDING_STATES or status == "completed", "sync_completion_unknown_run_state")
+    require((status == "completed" and actual.get("conclusion") in SYNC_TERMINAL_CONCLUSIONS)
+            or (status in SYNC_PENDING_STATES and actual.get("conclusion") is None), "sync_completion_invalid_run_conclusion")
+    attempt = read("actions/runs/" + str(identifier) + "/attempts/1")
+    fields = ("id", "run_attempt", "workflow_id", "path", "event", "head_branch", "head_sha", "check_suite_id")
+    require(type(attempt) is dict and all(attempt.get(name) == actual[name] for name in fields)
+            and all(type(attempt.get(name)) is int for name in ("id", "run_attempt", "workflow_id", "check_suite_id"))
+            and same_repository(attempt.get("repository")) and same_repository(attempt.get("head_repository"))
+            and attempt.get("status") in SYNC_PENDING_STATES | {"completed"}, "sync_completion_native_attempt_changed")
+    # Status may advance between these two fresh reads; an attempt may never go backwards.
+    require(actual["status"] != "completed" or attempt.get("status") == "completed",
+            "sync_completion_terminal_attempt_regressed")
+    if attempt["status"] == "completed":
+        require(attempt.get("conclusion") in SYNC_TERMINAL_CONCLUSIONS, "sync_completion_invalid_attempt_conclusion")
+        if actual["status"] == "completed":
+            require(attempt["conclusion"] == actual["conclusion"], "sync_completion_terminal_conclusion_changed")
+    else:
+        require(attempt.get("conclusion") is None, "sync_completion_pending_attempt_conclusion")
+    return actual
+
+
+def sync_completion_source(github, revision, path):
+    endpoint = "contents/" + path + "?ref=" + revision
+    content = github.get(endpoint)
+    ImmutableReadCache.validate({"kind": "contents", "endpoint": endpoint}, content)
+    import base64
+    return base64.b64decode(re.sub(rb"[ \t\r\n]", b"", content["content"].encode("ascii")), validate=True)
+
+
+def sync_completion_registration(github, workflow, name, filename):
+    value = github.get("actions/workflows/" + str(workflow))
+    require(type(value) is dict and type(value.get("id")) is int and value["id"] == workflow
+            and value.get("name") == name and value.get("path") == ".github/workflows/" + filename
+            and value.get("state") == "active", "sync_completion_workflow_registration_changed")
+
+
+def sync_completion_receipt(log, payload, receiver):
+    require(type(log) is str and len(log.encode("utf-8")) <= 65536, "sync_completion_log_bound")
+    candidates = [line for line in log.splitlines() if SYNC_COMPLETION_PREFIX in line]
+    require(len(candidates) == 1, "sync_completion_receipt_missing_or_ambiguous")
+    match = re.fullmatch(r"(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?"
+                         + re.escape(SYNC_COMPLETION_PREFIX) + r"(\{[^\r\n]{1,4096}\})", candidates[0])
+    require(match is not None, "sync_completion_receipt_line_invalid")
+    def unique(items):
+        value = {}
+        for key, item in items:
+            require(key not in value, "sync_completion_receipt_duplicate_key")
+            value[key] = item
+        return value
+    try:
+        value = json.loads(match[1], object_pairs_hook=unique,
+                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+    except (ValueError, TypeError):
+        raise CleanupError("sync_completion_receipt_json_invalid") from None
+    require(type(value) is dict and set(value) == SYNC_COMPLETION_RECEIPT_FIELDS,
+            "sync_completion_receipt_schema_invalid")
+    integers = ("schema", "repository_id", "sender_run_id", "sender_run_attempt", "gate_run_id",
+                "gate_run_attempt", "pull_request", "receiver_run_id")
+    require(all(type(value[name]) is int and value[name] > 0 for name in integers), "sync_completion_receipt_integer_invalid")
+    expected = {"schema": 1, "repository": REPOSITORY, "repository_id": REPOSITORY_ID,
+        "sender_run_id": int(payload["sender_run_id"]), "sender_run_attempt": 1,
+        "sender_source_sha": payload["sender_source_sha"], "gate_run_id": int(payload["gate_run_id"]),
+        "gate_run_attempt": 1, "pull_request": int(payload["pull_request"]), "receiver_run_id": receiver,
+        "receiver_api_url": "https://api.github.com/repos/" + REPOSITORY + "/actions/runs/" + str(receiver),
+        "receiver_html_url": "https://github.com/" + REPOSITORY + "/actions/runs/" + str(receiver),
+        "payload_digest": sync_completion_payload_digest(payload), "outcome": "dispatched"}
+    require(value == expected, "sync_completion_receipt_causal_identity_changed")
+    return value
+
+
+def retry_sync_completion(github, policy, event, *, timeout=120, clock=time.monotonic, sleep=time.sleep):
+    """Authenticate one explicit notification, then reuse unchanged current-hint guards."""
+    validate_policy(policy)
+    trusted_runtime()
+    require(os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+            and os.environ.get("GITHUB_REF") == "refs/heads/main"
+            and os.environ.get("GITHUB_RUN_ATTEMPT") == "1"
+            and os.environ.get("GITHUB_WORKFLOW_SHA") == os.environ.get("GITHUB_SHA"),
+            "invalid_sync_completion_runner_event")
+    receiver_text = os.environ.get("GITHUB_RUN_ID", "")
+    receiver_source = os.environ.get("GITHUB_SHA", "")
+    require(re.fullmatch(r"[1-9][0-9]{0,19}", receiver_text) and SHA.fullmatch(receiver_source),
+            "invalid_sync_completion_receiver_context")
+    require(type(timeout) in (int, float) and 0 < timeout <= 120, "invalid_sync_completion_wait_bound")
+    payload = sync_completion_payload(event)
+    receiver, sender, gate = int(receiver_text), int(payload["sender_run_id"]), int(payload["gate_run_id"])
+    require(receiver not in {sender, gate}, "sync_completion_receiver_role_collision")
+    github.verify_owner()
+    reference = github.get("git/ref/heads/main")
+    require(type(reference) is dict and reference.get("ref") == "refs/heads/main"
+            and type(reference.get("object")) is dict and reference["object"].get("type") == "commit"
+            and type(reference["object"].get("sha")) is str and SHA.fullmatch(reference["object"]["sha"]),
+            "invalid_sync_completion_main")
+    current = reference["object"]["sha"]
+    verify_current_checkout(Path(__file__).resolve().parents[2], current, github)
+    sync_completion_registration(github, CLEANUP_WORKFLOW_ID, "Automatic branch cleanup", "branch-cleanup.yml")
+    sync_completion_registration(github, SYNC_VALIDATION_ID, "Sync validation", "sync-validation.yml")
+    sync_completion_registration(github, SYNC_GATE_ID, "Sync test reuse", "sync-test-reuse.yml")
+    sync_completion_run(github, receiver, CLEANUP_WORKFLOW_ID, "branch-cleanup.yml", "workflow_dispatch", "main", receiver_source)
+    for path in (".github/workflows/sync-validation.yml", "tools/branch-cleanup/cleanup.py"):
+        if sync_completion_source(github, payload["sender_source_sha"], path) != sync_completion_source(github, current, path):
+            return {"retry": False, "source_sha": current, "reason": "sync_completion_sender_source_changed",
+                    "callback": {"accepted": False, "sender_run_id": sender, "gate_run_id": gate, "receiver_run_id": receiver}}
+    merge = github.get("git/commits/" + payload["expected_merge_sha"])
+    require(type(merge) is dict and merge.get("sha") == payload["expected_merge_sha"]
+            and type(merge.get("parents")) is list and all(type(item) is dict for item in merge["parents"])
+            and [item.get("sha") for item in merge["parents"]] == [payload["expected_base_sha"], payload["expected_head_sha"]],
+            "sync_completion_original_candidate_parents_changed")
+    # Only this terminal wait is capped by timeout; pre-authentication and later
+    # fresh hint checks retain their existing bounds. Each native read consumes
+    # the same deadline, rather than receiving a fresh independent timeout.
+    deadline = clock() + timeout
+    def read_native(endpoint):
+        remaining = deadline - clock()
+        require(remaining > 0, "sync_completion_terminal_wait_deadline")
+        value = github.get_sync_completion_run(endpoint, timeout=remaining)
+        require(clock() <= deadline, "sync_completion_terminal_read_exceeded_deadline")
+        return value
+    while True:
+        child = sync_completion_run(github, sender, SYNC_VALIDATION_ID, "sync-validation.yml", "workflow_dispatch", "main", payload["sender_source_sha"], read=read_native)
+        require(child.get("display_title") == "Sync validation gate-" + str(gate) + "-attempt-1",
+                "sync_completion_child_correlation_changed")
+        parent = read_native("actions/runs/" + str(gate))
+        require(type(parent) is dict and type(parent.get("head_branch")) is str and valid_branch(parent["head_branch"]),
+                "sync_completion_gate_branch_invalid")
+        parent = sync_completion_run(github, gate, SYNC_GATE_ID, "sync-test-reuse.yml", "pull_request_target", parent["head_branch"], payload["expected_head_sha"], read=read_native)
+        associated = parent.get("pull_requests")
+        require(type(associated) is list and len(associated) == 1 and type(associated[0]) is dict,
+                "sync_completion_gate_pr_missing")
+        pr = associated[0]
+        require(type(pr.get("number")) is int and pr["number"] == int(payload["pull_request"])
+                and pr.get("url") == "https://api.github.com/repos/" + REPOSITORY + "/pulls/" + payload["pull_request"],
+                "sync_completion_gate_pr_changed")
+        for role, expected in (("base", payload["expected_base_sha"]), ("head", payload["expected_head_sha"])):
+            value = pr.get(role)
+            require(type(value) is dict and value.get("sha") == expected and type(value.get("repo")) is dict
+                    and type(value["repo"].get("id")) is int and value["repo"]["id"] == REPOSITORY_ID
+                    and value["repo"].get("url") == "https://api.github.com/repos/" + REPOSITORY,
+                    "sync_completion_gate_pr_source_changed")
+        require(pr["base"].get("ref") in PERMANENT and pr["head"].get("ref") == parent["head_branch"],
+                "sync_completion_gate_pr_refs_changed")
+        if child["status"] == parent["status"] == "completed":
+            break
+        sleep(min(2, max(0, deadline - clock())))
+        if clock() >= deadline:
+            return {"retry": False, "source_sha": current, "reason": "sync_completion_sources_still_active",
+                    "callback": {"accepted": False, "sender_run_id": sender, "gate_run_id": gate,
+                                 "receiver_run_id": receiver, "sender_status": child["status"], "gate_status": parent["status"]}}
+    require(clock() <= deadline, "sync_completion_terminal_read_exceeded_deadline")
+    jobs = github.get("actions/runs/" + str(sender) + "/attempts/1/jobs?per_page=100")
+    require(type(jobs) is dict and type(jobs.get("total_count")) is int and jobs["total_count"] == 2 and type(jobs.get("jobs")) is list
+            and len(jobs["jobs"]) == 2
+            and all(type(job) is dict and type(job.get("id")) is int and job["id"] > 0
+                    and type(job.get("run_id")) is int and job["run_id"] == sender
+                    and job.get("head_sha") == payload["sender_source_sha"] and type(job.get("run_attempt")) is int
+                    and job["run_attempt"] == 1 and job.get("status") == "completed"
+                    and job.get("conclusion") in SYNC_TERMINAL_CONCLUSIONS for job in jobs["jobs"])
+            and len({job["id"] for job in jobs["jobs"]}) == 2
+            and sorted(job.get("name", "") for job in jobs["jobs"])
+                == sorted(["Validate exact synchronization", SYNC_NOTIFY_JOB]), "sync_completion_native_job_roster_changed")
+    notifier = next(job for job in jobs["jobs"] if job["name"] == SYNC_NOTIFY_JOB)
+    require(type(notifier.get("id")) is int and notifier["id"] > 0 and notifier.get("run_id") == sender
+            and notifier.get("run_attempt") == 1 and notifier.get("status") == "completed"
+            and notifier.get("conclusion") in SYNC_TERMINAL_CONCLUSIONS,
+            "sync_completion_notifier_job_identity_changed")
+    url = notifier.get("check_run_url", "")
+    prefix = "https://api.github.com/repos/" + REPOSITORY + "/check-runs/"
+    require(type(url) is str and url == prefix + str(notifier["id"])
+            and notifier.get("html_url") == "https://github.com/" + REPOSITORY + "/actions/runs/"
+                + str(sender) + "/job/" + str(notifier["id"]),
+            "sync_completion_notifier_check_url_invalid")
+    check = github.get("check-runs/" + url[len(prefix):])
+    require(type(check) is dict and type(check.get("id")) is int and str(check["id"]) == url[len(prefix):]
+            and check.get("details_url") == notifier["html_url"]
+            and check.get("name") == SYNC_NOTIFY_JOB and check.get("head_sha") == payload["sender_source_sha"]
+            and type(check.get("app")) is dict and type(check["app"].get("id")) is int and check["app"]["id"] == 15368
+            and type(check.get("check_suite")) is dict and check["check_suite"].get("id") == child["check_suite_id"]
+            and check.get("status") == "completed" and check.get("conclusion") == notifier["conclusion"]
+            and check.get("started_at") == notifier.get("started_at")
+            and check.get("completed_at") == notifier.get("completed_at"),
+            "sync_completion_notifier_native_app_changed")
+    steps = notifier.get("steps")
+    require(type(steps) is list and all(type(step) is dict for step in steps), "sync_completion_notifier_steps_missing")
+    steps = [step for step in steps if step.get("name") == SYNC_NOTIFY_STEP]
+    require(len(steps) == 1 and steps[0].get("status") == "completed" and steps[0].get("conclusion") == "success",
+            "sync_completion_receipt_step_not_successful")
+    log = github.job_log(notifier["id"])
+    receipt = sync_completion_receipt(log, payload, receiver)
+    native_line = next(line for line in log.splitlines() if SYNC_COMPLETION_PREFIX in line)
+    timestamp = native_line.split(" ", 1)[0]
+    try:
+        times = [dt.datetime.fromisoformat(value.replace("Z", "+00:00")) for value in (
+            notifier["started_at"], steps[0]["started_at"], timestamp,
+            steps[0]["completed_at"], notifier["completed_at"])]
+    except (ValueError, TypeError, KeyError):
+        raise CleanupError("sync_completion_receipt_native_chronology_invalid") from None
+    require(all(value.tzinfo is not None and value.utcoffset() == dt.timedelta(0) for value in times)
+            and times[0] <= times[1] <= times[2] < times[3] + dt.timedelta(seconds=1)
+            and times[3] <= times[4], "sync_completion_receipt_native_chronology_invalid")
+    # This is an authenticated manual run, not a synthetic workflow_run event.
+    actual = dict(child, registered_workflow_name="Sync validation")
+    github.verify_owner()
+    result = _terminal_retry_for_run(github, policy, actual)
+    result["callback"] = {"accepted": True, "mode": "sync-completion", "sender_run_id": sender,
+        "sender_run_attempt": 1, "sender_source_sha": payload["sender_source_sha"], "gate_run_id": gate,
+        "gate_run_attempt": 1, "receiver_run_id": receiver, "receiver_run_attempt": 1,
+        "sender_conclusion": child["conclusion"], "gate_conclusion": parent["conclusion"],
+        "notifier_job": notifier["id"], "receipt_digest": receipt["payload_digest"]}
+    return result
+
+
+
+def _sync_notify_native(github, run_id, workflow_id, path, source, event, *, completed=False):
+    """Read only fixed native identities; completion grants no cleanup authority."""
+    value = github.get(f"actions/runs/{run_id}/attempts/1")
+    require(isinstance(value, dict)
+            and type(value.get("id")) is int and value["id"] == run_id
+            and type(value.get("run_attempt")) is int and value["run_attempt"] == 1
+            and type(value.get("workflow_id")) is int and value["workflow_id"] == workflow_id
+            and value.get("path") == path and value.get("event") == event
+            and value.get("head_sha") == source
+            and value.get("url") == f"https://api.github.com/repos/{REPOSITORY}/actions/runs/{run_id}"
+            and value.get("html_url") == f"https://github.com/{REPOSITORY}/actions/runs/{run_id}"
+            and same_repository(value.get("repository"))
+            and same_repository(value.get("head_repository")), "sync_notify_native_identity_changed")
+    require(type(value.get("check_suite_id")) is int and value["check_suite_id"] > 0,
+            "sync_notify_native_suite_missing")
+    if completed:
+        require(value.get("status") == "completed" and value.get("conclusion") in {
+            "success", "failure", "cancelled", "skipped", "timed_out", "neutral", "action_required",
+        }, "sync_notify_native_not_terminal")
+    else:
+        require((value.get("status") in {"queued", "in_progress", "waiting", "pending", "requested"}
+                 and value.get("conclusion") is None)
+                or (value.get("status") == "completed" and value.get("conclusion") in {
+                    "success", "failure", "cancelled", "skipped", "timed_out", "neutral", "action_required",
+                }), "sync_notify_native_state_changed")
+    return value
+
+
+def _sync_notify_dispatch(github, payload):
+    """One fixed POST. Empty/lost/malformed responses never cause a second POST."""
+    github.verify_notification_owner()
+    args = ["gh", "api", "--method", "POST",
+            f"repos/{REPOSITORY}/actions/workflows/{CLEANUP_WORKFLOW_ID}/dispatches",
+            "-H", "X-GitHub-Api-Version: 2022-11-28", "-F", "return_run_details=true",
+            "-f", "ref=main"]
+    for key in sorted(SYNC_COMPLETION_INPUTS):
+        args += ["-f", "inputs[" + key + "]=" + payload[key]]
+    response = json.loads(run(args, timeout=30).stdout)
+    require(isinstance(response, dict) and type(response.get("workflow_run_id")) is int
+            and response["workflow_run_id"] > 0, "sync_notify_dispatch_missing_direct_id_no_retry")
+    run_id = response["workflow_run_id"]
+    require(response.get("run_url") == f"https://api.github.com/repos/{REPOSITORY}/actions/runs/{run_id}"
+            and response.get("html_url") == f"https://github.com/{REPOSITORY}/actions/runs/{run_id}",
+            "sync_notify_dispatch_foreign_urls_no_retry")
+    return run_id, response["run_url"], response["html_url"]
+
+
+def notify_sync_completion(github, policy, event):
+    """Notify from an isolated protected job, never from candidate validation code."""
+    validate_policy(policy)
+    require(os.environ.get("GITHUB_ACTIONS") == "true"
+            and os.environ.get("GITHUB_REPOSITORY") == REPOSITORY
+            and os.environ.get("GITHUB_REPOSITORY_ID") == str(REPOSITORY_ID)
+            and os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+            and os.environ.get("GITHUB_REF") == "refs/heads/main"
+            and os.environ.get("GITHUB_WORKFLOW_REF") == REPOSITORY + "/.github/workflows/sync-validation.yml@refs/heads/main"
+            and os.environ.get("GITHUB_JOB") == "notify-cleanup"
+            and os.environ.get("GITHUB_RUN_ATTEMPT") == "1", "sync_notify_untrusted_runtime")
+    run_text = os.environ.get("GITHUB_RUN_ID", "")
+    source = os.environ.get("GITHUB_SHA", "")
+    require(re.fullmatch(r"[1-9][0-9]*", run_text) and SHA.fullmatch(source)
+            and os.environ.get("GITHUB_WORKFLOW_SHA") == source,
+            "sync_notify_runtime_identity_invalid")
+    sender_id = int(run_text)
+    root = Path(__file__).resolve().parents[2]
+    verify_checkout(root, source)
+    require(isinstance(event, dict) and same_repository(event.get("repository")),
+            "sync_notify_event_repository_changed")
+    inputs = event.get("inputs")
+    require(isinstance(inputs, dict) and set(inputs) == {
+        "correlation", "mode", "profile", "pull_request",
+        "expected_base_sha", "expected_head_sha", "expected_merge_sha",
+    } and all(type(value) is str and 0 < len(value) <= 256 for value in inputs.values()),
+            "sync_notify_validation_inputs_changed")
+    correlation = re.fullmatch(r"gate-([1-9][0-9]*)-attempt-1", inputs["correlation"])
+    require(correlation is not None and inputs["mode"] in {"reuse", "fallback"}
+            and re.fullmatch(r"[1-9][0-9]*", inputs["pull_request"])
+            and all(SHA.fullmatch(inputs[key]) for key in (
+                "expected_base_sha", "expected_head_sha", "expected_merge_sha")),
+            "sync_notify_original_gate_context_invalid")
+    gate_id, number = int(correlation[1]), int(inputs["pull_request"])
+    base, head, merge = (inputs[key] for key in (
+        "expected_base_sha", "expected_head_sha", "expected_merge_sha"))
+    github.verify_notification_owner()
+    sender = _sync_notify_native(github, sender_id, SYNC_VALIDATION_ID,
+        ".github/workflows/sync-validation.yml", source, "workflow_dispatch")
+    require(sender.get("head_branch") == "main" and sender.get("status") == "in_progress"
+            and sender.get("conclusion") is None
+            and sender.get("display_title") == "Sync validation " + inputs["correlation"],
+            "sync_notify_sender_source_or_correlation_changed")
+    jobs = github.get(f"actions/runs/{sender_id}/attempts/1/jobs?per_page=100")
+    require(isinstance(jobs, dict) and type(jobs.get("total_count")) is int and jobs["total_count"] == 2
+            and isinstance(jobs.get("jobs"), list) and len(jobs["jobs"]) == 2
+            and all(isinstance(job, dict) for job in jobs["jobs"])
+            and all(type(job.get("run_id")) is int and job["run_id"] == sender_id
+                    and type(job.get("run_attempt")) is int and job["run_attempt"] == 1
+                    and job.get("head_sha") == source for job in jobs["jobs"])
+            and len({job.get("id") for job in jobs["jobs"]}) == 2
+            and all(type(job.get("id")) is int and job["id"] > 0 for job in jobs["jobs"])
+            and {job.get("name") for job in jobs["jobs"]} == {
+                "Validate exact synchronization", SYNC_NOTIFY_JOB}, "sync_notify_exact_roles_changed")
+    roles = {job["name"]: job for job in jobs["jobs"]}
+    require(roles["Validate exact synchronization"].get("status") == "completed"
+            and roles["Validate exact synchronization"].get("conclusion") in {
+                "success", "failure", "cancelled", "skipped", "timed_out", "neutral", "action_required"}
+            and roles[SYNC_NOTIFY_JOB].get("status") == "in_progress"
+            and roles[SYNC_NOTIFY_JOB].get("conclusion") is None,
+            "sync_notify_not_after_validation_or_wrong_sender_role")
+    parent = _sync_notify_native(github, gate_id, SYNC_GATE_ID,
+        ".github/workflows/sync-test-reuse.yml", head, "pull_request_target")
+    prs = parent.get("pull_requests")
+    require(isinstance(prs, list) and len(prs) == 1 and isinstance(prs[0], dict),
+            "sync_notify_original_parent_pr_missing")
+    pr = prs[0]
+    require(type(pr.get("number")) is int and pr["number"] == number
+            and pr.get("url") == f"https://api.github.com/repos/{REPOSITORY}/pulls/{number}"
+            and isinstance(pr.get("base"), dict) and isinstance(pr.get("head"), dict)
+            and pr["base"].get("sha") == base and pr["head"].get("sha") == head
+            and pr["base"].get("ref") in PERMANENT
+            and parent.get("head_branch") == pr["head"].get("ref")
+            and all(isinstance(pr[side].get("repo"), dict)
+                    and pr[side]["repo"].get("id") == REPOSITORY_ID
+                    and pr[side]["repo"].get("url") == f"https://api.github.com/repos/{REPOSITORY}"
+                    for side in ("base", "head")), "sync_notify_original_parent_pr_changed")
+    original_merge = github.get("git/commits/" + merge)
+    require(isinstance(original_merge, dict) and original_merge.get("sha") == merge
+            and isinstance(original_merge.get("parents"), list)
+            and all(isinstance(row, dict) for row in original_merge["parents"])
+            and [row.get("sha") for row in original_merge["parents"]] == [base, head],
+            "sync_notify_original_candidate_merge_changed")
+    for workflow_id, path, name in (
+        (SYNC_VALIDATION_ID, ".github/workflows/sync-validation.yml", "Sync validation"),
+        (SYNC_GATE_ID, ".github/workflows/sync-test-reuse.yml", "Sync test reuse"),
+        (CLEANUP_WORKFLOW_ID, WORKFLOW, "Automatic branch cleanup"),
+    ):
+        registration = github.get("actions/workflows/" + str(workflow_id))
+        require(isinstance(registration, dict) and type(registration.get("id")) is int
+                and registration["id"] == workflow_id
+                and registration.get("path") == path and registration.get("name") == name
+                and registration.get("state") == "active", "sync_notify_workflow_registration_changed")
+    main = github.get("branches/main")
+    require(isinstance(main, dict) and main.get("name") == "main" and main.get("protected") is True
+            and isinstance(main.get("commit"), dict) and SHA.fullmatch(main["commit"].get("sha", "")),
+            "sync_notify_main_not_protected")
+    if source != main["commit"]["sha"]:
+        retained = github.get(f"compare/{source}...{main['commit']['sha']}?per_page=1")
+        require(isinstance(retained, dict) and retained.get("status") == "ahead"
+                and type(retained.get("behind_by")) is int and retained["behind_by"] == 0
+                and retained.get("merge_base_commit", {}).get("sha") == source,
+                "sync_notify_source_not_retained")
+    payload = {"mode": "sync-completion", "sender_run_id": str(sender_id),
+        "sender_run_attempt": "1", "sender_source_sha": source,
+        "gate_run_id": str(gate_id), "gate_run_attempt": "1", "pull_request": str(number),
+        "expected_base_sha": base, "expected_head_sha": head, "expected_merge_sha": merge}
+    require(set(payload) == SYNC_COMPLETION_INPUTS, "sync_notify_wire_schema_changed")
+    payload_digest = "sha256:" + hashlib.sha256(
+        (json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n").encode()).hexdigest()
+    receipt = {"schema": 1, "repository": REPOSITORY, "repository_id": REPOSITORY_ID,
+        "sender_run_id": sender_id, "sender_run_attempt": 1, "sender_source_sha": source,
+        "gate_run_id": gate_id, "gate_run_attempt": 1, "pull_request": number,
+        "receiver_run_id": None, "receiver_api_url": None, "receiver_html_url": None,
+        "payload_digest": payload_digest, "outcome": "unresolved"}
+    try:
+        receiver_id, api_url, html_url = _sync_notify_dispatch(github, payload)
+    except (CleanupError, OSError, ValueError, KeyError, subprocess.TimeoutExpired):
+        print(SYNC_COMPLETION_PREFIX + json.dumps(receipt, sort_keys=True, separators=(",", ":")))
+        raise CleanupError("sync_notify_dispatch_unresolved_do_not_redispatch") from None
+    receipt.update(receiver_run_id=receiver_id, receiver_api_url=api_url,
+                   receiver_html_url=html_url, outcome="dispatched")
+    print(SYNC_COMPLETION_PREFIX + json.dumps(receipt, sort_keys=True, separators=(",", ":")))
+    return receipt
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1057,6 +1563,13 @@ def main():
     retry_parser.add_argument("--event", type=Path, required=True)
     retry_parser.add_argument("--output", type=Path, required=True)
     retry_parser.add_argument("--report", type=Path, required=True)
+    completion_parser = sub.add_parser("retry-sync-completion")
+    completion_parser.add_argument("--event", type=Path, required=True)
+    completion_parser.add_argument("--output", type=Path, required=True)
+    completion_parser.add_argument("--report", type=Path, required=True)
+    notify_parser = sub.add_parser("notify-sync-completion")
+    notify_parser.add_argument("--event", type=Path, required=True)
+    notify_parser.add_argument("--report", type=Path, required=True)
     plan_parser = sub.add_parser("plan")
     plan_parser.add_argument("--output", type=Path, required=True)
     plan_parser.add_argument("--report", type=Path, required=True)
@@ -1075,7 +1588,14 @@ def main():
     github = Github()
     report = {"repository": REPOSITORY, "status": "started", "deleted": []}
     try:
-        if args.command == "retry":
+        if args.command == "notify-sync-completion":
+            receipt = notify_sync_completion(github, policy, json.loads(args.event.read_text()))
+            report.update(callback=receipt, status="sync-completion-notified")
+        elif args.command == "retry-sync-completion":
+            result = retry_sync_completion(github, policy, json.loads(args.event.read_text()))
+            verify_current_checkout(root, result["source_sha"], github)
+            report.update(result, status="sync-completion-ready" if result["retry"] else "sync-completion-held")
+        elif args.command == "retry":
             trusted_runtime()
             require(os.environ.get("GITHUB_EVENT_NAME") == "workflow_run", "invalid_terminal_runner_event")
             result = terminal_retry(github, policy, json.loads(args.event.read_text()))
@@ -1165,11 +1685,21 @@ def main():
         if getattr(args, "report", None):
             write_json(args.report, report)
         summary(report)
+        if args.command == "notify-sync-completion":
+            # This job's temporary report is not an uploaded artifact. Keep its
+            # fixed failure label available in the native log without payloads.
+            code = report["error"]
+            if re.fullmatch(r"(?:sync_notify_[a-z0-9_]{1,128}|github_api_(?:get|post)_[a-z0-9_]{1,128}"
+                            r"|repository_ownership_mismatch|default_branch_changed"
+                            r"|native_cleanup_would_bypass_guards|trusted_checkout_is_stale"
+                            r"|git_failed_exit_[0-9]{1,3})", code) is None:
+                code = type(error).__name__
+            print("branch_cleanup_error=" + code)
         print("Branch cleanup stopped; inspect its redacted report.")
         return 1
-    if args.command == "retry":
+    if args.command in {"retry", "retry-sync-completion"}:
         with args.output.open("a") as out:
-            out.write("retry=" + str(report["status"] == "retry-ready" and report.get("retry") is True).lower() + "\n")
+            out.write("retry=" + str(report["status"] in {"retry-ready", "sync-completion-ready"} and report.get("retry") is True).lower() + "\n")
     if args.command == "plan" and os.environ.get("GITHUB_OUTPUT"):
         with Path(os.environ["GITHUB_OUTPUT"]).open("a") as out:
             out.write("candidate_count=" + str(report["candidate_count"]) + "\n")
