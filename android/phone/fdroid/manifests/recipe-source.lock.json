@@ -104,7 +104,7 @@
     "android/phone/fdroid/conan/recipe_export_store.py": "76b380d6ce6a3da3589336741559a30b65e6b9fede89fe4836d232fab8799125",
     "android/phone/fdroid/conan/source_closure_store.py": "5eb6f4d861a0fc6bec6c07aaa6890a7defb2665ba47ed65296a9cf9daa991157",
     "android/phone/fdroid/conan/toolchain_probe.py": "a302223442602e16804b7f2f9072d61a9989765bf20242705d05dbb30910f439",
-    "android/phone/apps/phoneInterface/build.gradle": "1810cf19617908d4b92e6026cafa9611ad632e05e35bff1cc8bf20b2f9e22243",
+    "android/phone/apps/phoneInterface/build.gradle": "1ff4f8bc6a025f162afa02d46e87c263bf7629802c930849a987590e68069640",
     "android/phone/fdroid/container/Containerfile": "4c5a1203ba2d125664428a98a03aa028a06805d5548948b2cbf7566719f8224b",
     "android/phone/fdroid/gradle-acquisition/build.gradle": "2c41804cfbecf768e3001ef501ad45afe6700ac8dff4d328d88f415b9f9c2450",
     "android/phone/fdroid/gradle-acquisition/settings.gradle": "347d3c618cd6441bd70ecfad7c83bd645702c5bf864526899e1e7e9c4ca9e071",
@@ -130,7 +130,9 @@
     "android/common/web/target.gradle": "a5d87db6336a1d25bacf5043dc425857f67a353e6676e93a2fce0d61ccd20f05",
     "android/common/web/network-capability.json": "63718331a22e01e1f10b512e0a9e2e0354dc92902ae496cd25f2adc8f6420737",
     "android/common/web/res/xml/overte_embedded_web_network_security_config.xml": "1f94de528879dd9a41f51d670f62095f129d12412b0cad992c12f1b0c5f2589a",
-    "android/phone/apps/phoneInterface/src/main/AndroidManifest.xml": "87fab0b58d069c313366aca2c6bc0a9f6e2c629fdd7edfed3d5d5911c8d7b728"
+    "android/phone/apps/phoneInterface/src/main/AndroidManifest.xml": "87fab0b58d069c313366aca2c6bc0a9f6e2c629fdd7edfed3d5d5911c8d7b728",
+    "android/phone/apps/phoneInterface/src/main/res/values/qt_dependencies.xml": "f47ac666c4b1c53dee04541f36aff36a9bcd416ebbfb42576cebb7c7a9074f33",
+    "android/phone/apps/phoneInterface/src/emulator/res/values/qt_dependencies.xml": "467d797a032aa2e53126e86a377158369be14a687b217a2604a956d067277e82"
   },
   "cold_build": {
     "status": "NOT_STARTED_CLEAN_ROOM_READINESS_PENDING",

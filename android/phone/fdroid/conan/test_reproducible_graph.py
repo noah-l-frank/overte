@@ -84,6 +84,16 @@ class ReproducibleGraphTest(unittest.TestCase):
             store["pkglist_sha256"], digest(ROOT / store["pkglist_path"])
         )
 
+    def test_snapshot_runtime_deployment_sources_are_registered(self):
+        # These source maps decide which staged codecs the Android Qt loader
+        # can deploy. Binding only build.gradle misses a changed loader map.
+        for variant in ("main", "emulator"):
+            relative = ("android/phone/apps/phoneInterface/src/" + variant +
+                        "/res/values/qt_dependencies.xml")
+            self.assertIn(relative, self.manifest["bound_files"])
+            self.assertEqual(digest(ROOT / relative),
+                             self.manifest["bound_files"][relative])
+
     def test_three_exact_lock_graphs_separate_host_and_target(self):
         locks = {
             path.name: load_json(path) for path in sorted(LOCK_DIR.glob("*.lock"))
