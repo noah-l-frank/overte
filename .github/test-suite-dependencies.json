@@ -577,7 +577,6 @@
         "tools/repository-checks/workflows/producers/legacy/protected-project-tests-postmerge-v1.yml",
         "tools/repository-checks/workflows/producers/legacy/protected-project-tests-v1.yml",
         "tools/repository-checks/workflows/producers/legacy/repository-checks-metadata-v1.yml",
-        "tools/repository-checks/workflows/producers/legacy/repository-checks-original-default-v1.yml",
         "tools/repository-checks/workflows/producers/legacy/repository-checks-protected-ci-v1.yml",
         "tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml",
         "tools/repository-checks/workflows/producers/parent-qualification.yml",
