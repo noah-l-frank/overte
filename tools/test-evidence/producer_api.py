@@ -53,6 +53,10 @@ _SCHEDULING_RUN_FIELDS = ('id', 'workflow_id', 'check_suite_id', 'path', 'event'
 # recipes. Their nonproducer intent structurally excludes every heavy job even
 # when recognition is missing/failed. Historical recipes require their marker.
 _NATIVE_INTENT_RECIPES = frozenset({
+    ('.github/workflows/repository-checks.yml', '15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
+    ('.github/workflows/codeql.yml', '3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/repository-checks.yml', 'bc9c4284286b5c3d2de07a3ecf3b98393e2f2a2c',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/repository-checks.yml', '81bcf1933edc435826e2de411a777cccd4dec7c7',
@@ -60,6 +64,36 @@ _NATIVE_INTENT_RECIPES = frozenset({
     ('.github/workflows/codeql.yml', 'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
 })
+RETAINED_OWNER_GENERATIONS = frozenset({'protected-producer-original-default-v1',
+    'protected-producer-original-default-boolean-v1'})
+
+
+def retain_native_metadata_sources(generations, sources):
+    """Retain exact original workflow/helper pairs without replacing current ones."""
+    prior = {METADATA_SOURCE: {'mode':'100644','type':'blob',
+        'sha':'c6ce80aa78d2f2161b1ea0caf715a6346187e8b9'}}
+    for name, workflows in list(generations.items()):
+        marker = workflows.get(METADATA_WORKFLOW, {})
+        old = (marker.get('sha') == 'b76ade9fd7a76da21bf2cb2161deae7a262163e8'
+            and (set(workflows) == METADATA_WORKFLOWS
+                and workflows['.github/workflows/repository-checks.yml'].get('sha') == '81bcf1933edc435826e2de411a777cccd4dec7c7'
+                or set(workflows) == METADATA_CALLERS['.github/workflows/codeql.yml']
+                and workflows['.github/workflows/codeql.yml'].get('sha') == 'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'))
+        if old and not any(workflows == row and sources[key] == prior for key,row in generations.items()):
+            key = name + '-reviewed-helper-v1'
+            require(key not in generations, 'retained helper pair name collides')
+            generations[key], sources[key] = workflows, prior
+    return generations, sources
+
+
+def _retained_metadata_generation(policy, workflows):
+    """Return the real catalog name of exactly one reviewed complete tuple."""
+    matches = [name for name in RETAINED_OWNER_GENERATIONS
+        if policy.generations.get(name) == workflows]
+    require(len(matches) == 1, 'retained workflow tuple is unknown or ambiguous')
+    return matches[0]
+
+
 METADATA_TARGETS = frozenset({'main', 'apple-main', 'apple-ios', 'android-main',
                               'android-phone', 'android-vr', 'android-vr-pico'})
 _PR_REUSABLES = METADATA_WORKFLOWS | frozenset('.github/workflows/' + name + '.yml' for name in (
@@ -682,8 +716,8 @@ class Adapter:
         """Classify complete introducing-H inventory; no absent-artifact inference."""
         _metadata_policy(policy)
         require(policy.caller_path == '.github/workflows/repository-checks.yml', 'unknown retention caller')
-        row22 = policy.generations.get('protected-producer-original-default-v1')
-        require(type(row22) is dict, 'fixed no-execution generation is not enrolled')
+        require(any(type(policy.generations.get(name)) is dict for name in RETAINED_OWNER_GENERATIONS),
+            'fixed no-execution generation is not enrolled')
         endpoint = f"actions/workflows/{policy.caller_workflow_id}/runs?head_sha={binding['head_sha']}"
         listed = self._pages(endpoint, 'workflow_runs', search=True)
         require(bool(listed), 'retained introducing-head inventory is missing')
@@ -695,8 +729,9 @@ class Adapter:
                 classified[identity] = {'metadata': marker}
                 continue
             source = self._scheduling_source(row, binding, policy, now=now, integrated=True)
-            require(source['generation'] == 'protected-producer-original-default-v1'
-                and source['workflows'] == row22 and source['run'].get('display_title') == ORDINARY_RUN_NAME,
+            family = _retained_metadata_generation(policy, source['workflows'])
+            require(source['workflows'] == policy.generations[family]
+                and source['run'].get('display_title') == ORDINARY_RUN_NAME,
                 'retained ordinary source recipe differs')
             run = source['run']
             require((run.get('status'), run.get('conclusion')) == ('completed', 'success'),
@@ -730,9 +765,11 @@ class Adapter:
 
     def _origin_empty_push(self, binding, integration, policy, now, *, current_run=None):
         target, revision = binding['base_ref'], binding['merge_sha']
-        expected = policy.generations['protected-producer-original-default-v1']
         _, _, workflows = self._workflow_tuple(revision, paths=METADATA_CALLERS[policy.caller_path])
-        require(workflows == expected and self._metadata_source(binding['base_sha']) == policy.sources['protected-producer-original-default-v1'],
+        _retained_metadata_generation(policy, workflows)
+        original_source = self._metadata_source(binding['base_sha'])
+        require(any(workflows == row and original_source == policy.sources[name]
+                    for name,row in policy.generations.items()),
             'retained unchanged workflow/helper recipe differs')
         endpoint = f'actions/workflows/350930890/runs?branch={quote(target, safe="")}&event=push&head_sha={revision}'
         listed = self._pages(endpoint, 'workflow_runs', search=True)
@@ -796,8 +833,7 @@ class Adapter:
             # inputs; only parent recipes have the completed no-execution job.
             return IntegratedOrigin(current, references)
         _metadata_policy(metadata_policy)
-        row22 = metadata_policy.generations.get('protected-producer-original-default-v1')
-        if row22 is None:
+        if not any(name in metadata_policy.generations for name in RETAINED_OWNER_GENERATIONS):
             return IntegratedOrigin(current, references)
         binding, integration, associations = current, references['integration'], references['associated_prs']
         hops = []
@@ -806,7 +842,8 @@ class Adapter:
             if previous_tree != binding['merge_tree']:
                 break
             _, _, workflows = self._workflow_tuple(binding['merge_sha'], paths=METADATA_CALLERS[metadata_policy.caller_path])
-            if workflows != row22:
+            if not any(metadata_policy.generations.get(name) == workflows
+                       for name in RETAINED_OWNER_GENERATIONS):
                 # No old/unknown recipe is transparent. Preserve the original
                 # strict execution lookup at this integration, never skip it.
                 break

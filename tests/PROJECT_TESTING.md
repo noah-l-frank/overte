@@ -1804,3 +1804,15 @@ actual supervisor SIGKILL followed by both guardians observing controller EOF.
 The before/after probe requires every scope to be empty. This diagnostic is
 an acceptance check, carries no reusable PR evidence authority, and does not
 run on ordinary PR events.
+
+The Boolean metadata-input successor is deployed in two stages. First, protect
+`protected-producer-original-default-boolean-v1` as a complete six-workflow tuple
+and stage the Repository and CodeQL canonical callers with Boolean reusable
+inputs. All 24 previous tuples and the active callers remain supported. Then
+install exactly those two callers from the protected templates. Their ordinary
+CI-only selection remains Qt-free; the change grants no test, build, receipt or
+reuse result. Native metadata observations bind the actual complete old or new
+tuple and its exact helper source, including the retained original helper pair.
+The optional current-parent import capability also requires the complete actual
+installed tuple and unchanged protected admission source; it never certifies the
+original execution environment or replaces the original native proof.

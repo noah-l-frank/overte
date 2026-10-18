@@ -2,6 +2,7 @@
 """Negative selection coverage against the real trusted host program closure."""
 from copy import deepcopy
 import importlib.util
+import hashlib
 import json
 import base64
 import zlib
@@ -78,6 +79,37 @@ class HostSelectionTests(unittest.TestCase):
         self.assertEqual(result, {'suites': list(self.registry['suites']),
             'reason': 'reviewed-protected-producer-transition', 'full_host': True, 'include_platform': True})
         self.assertEqual(len(result['suites']), len(set(result['suites'])))
+
+    def test_boolean_caller_pair_activation_uses_ordinary_ci_only_selection(self):
+        policy=HOST.package_policy()
+        rows={row['name']:row['workflows'] for row in policy.workflow_generations()}
+        previous=copy_git_tree(self.tree)
+        previous.update(deepcopy(rows['protected-producer-original-default-v1']))
+        templates={'.github/workflows/repository-checks.yml':'tools/repository-checks/workflows/producers/repository-checks.yml',
+            '.github/workflows/codeql.yml':'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml'}
+        for template in templates.values():
+            raw=(ROOT/template).read_bytes()
+            previous[template]={'mode':'100644','type':'blob',
+                'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+        previous['.github/workflows/codeql.yml']={'mode':'100644','type':'blob',
+            'sha':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'}
+        candidate=copy_git_tree(previous)
+        for caller,template in templates.items():candidate[caller]=deepcopy(previous[template])
+        paths=sorted(templates)
+        self.assertEqual(policy.validate_tree_wiring(previous),'protected-producer-original-default-v1')
+        self.assertEqual(policy.validate_tree_wiring(candidate),'protected-producer-original-default-boolean-v1')
+        with patch.object(HOST,'REVIEWED_PROGRAMS',HOST.program_digest(previous)):
+            result=self.selected(paths,tree=candidate,trusted_tree=previous,base_tree=previous)
+        self.assertEqual(result['reason'],'reviewed-ci-only-inputs')
+        self.assertEqual(result['suites'],json.loads((ROOT/'.github/ci37-runtime.json').read_text())['suites'])
+        self.assertFalse(result['full_host']);self.assertFalse(result['include_platform'])
+        self.assertFalse(HOST._protected_producer_transition(candidate,paths,previous,previous,'main'))
+        for path,change in (('.github/workflows/repository-checks.yml',{'sha':'f'*40}),
+                ('.github/workflows/repository-checks.yml',{'mode':'100755'}),
+                ('.github/workflows/browser-client.yml',{'sha':'f'*40})):
+            unknown=copy_git_tree(candidate);unknown[path].update(change)
+            with self.subTest(path=path,change=change),self.assertRaises(ValueError):
+                policy.validate_tree_wiring(unknown)
 
     def test_consumer_parent_is_preserved_by_each_exact_later_producer_pair(self):
         policy=HOST.package_policy()
