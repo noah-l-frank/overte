@@ -41,11 +41,20 @@ class Input {
     setRangeText(text, start, end) { this.value = this.value.slice(0, start) + text + this.value.slice(end); this.selectionStart = this.selectionEnd = start + text.length; }
     setSelectionRange(start, end, direction) { this.selectionStart = start; this.selectionEnd = end; this.selectionDirection = direction; }
     getBoundingClientRect() { return { x: 1, y: 2, width: 100, height: 40 }; }
-    dispatchEvent(event) { events.push(event); }
+    addEventListener() {}
+    removeEventListener() {}
+    dispatchEvent(event) { events.push(event); return this.onEvent ? this.onEvent(event) !== false : true; }
 }
-const editor = { HTMLInputElement: Input, HTMLTextAreaElement: class extends Input {},
+class TextArea {
+    constructor(text) { Object.assign(this, new Input(text, "textarea")); }
+}
+for (const name of Object.getOwnPropertyNames(Input.prototype)) {
+    if (name !== "constructor") TextArea.prototype[name] = Input.prototype[name];
+}
+const editor = { HTMLInputElement: Input, HTMLTextAreaElement: TextArea,
     CompositionEvent: class { constructor(type, values) { Object.assign(this, { type }, values); } },
     InputEvent: class { constructor(type, values) { Object.assign(this, { type }, values); } },
+    KeyboardEvent: class { constructor(type, values) { Object.assign(this, { type }, values); } },
     __overteEditorTransport: { editor(state) { states.push(state); } }, document: {
         activeElement: new Input("hello world"), addEventListener() {}
     } };
@@ -94,6 +103,35 @@ editor.__overteEditor.edit({ action: "ime", commit: "", preedit: "", replaceStar
 assert.equal(editor.document.activeElement.value, "lefQ-right", "composition cancellation restores the committed DOM text");
 editor.__overteEditor.edit({ action: "ime", commit: "", preedit: "", replaceStart: 0, replaceLength: 0, cursor: 0, selection: { start: 0, length: 3 } });
 editor.__overteEditor.publish(); assert.equal(states.at(-1).anchor, 0); assert.equal(states.at(-1).cursor, 3);
+// Regular edits and Enter share cancellation and field-state checks with IME.
+editor.document.activeElement = new Input("locked");
+editor.document.activeElement.readOnly = true;
+editor.__overteEditor.publish(); assert.equal(states.at(-1).active, false);
+editor.__overteEditor.edit({ text: "bad" });
+editor.__overteEditor.edit({ action: "ime", commit: "bad", preedit: "", replaceStart: 0, replaceLength: 0, cursor: 0 });
+assert.equal(editor.document.activeElement.value, "locked");
+editor.document.activeElement = new Input("fixed");
+editor.document.activeElement.onEvent = event => event.type !== "keydown";
+editor.__overteEditor.edit({ text: "bad" }); assert.equal(editor.document.activeElement.value, "fixed");
+editor.document.activeElement.onEvent = event => event.type !== "beforeinput";
+editor.__overteEditor.edit({ text: "bad" }); assert.equal(editor.document.activeElement.value, "fixed");
+editor.document.activeElement = new editor.HTMLTextAreaElement("line");
+editor.__overteEditor.edit({ action: "enter", shift: false });
+assert.equal(editor.document.activeElement.value, "line\n");
+assert.equal(events.at(-1).inputType, "insertLineBreak");
+const line = new Input("single"); let submitted = 0;
+line.form = { elements: [line], requestSubmit() { ++submitted; } };
+editor.document.querySelectorAll = () => [];
+editor.document.activeElement = line;
+editor.__overteEditor.edit({ action: "enter", shift: true }); assert.equal(submitted, 0);
+editor.__overteEditor.edit({ action: "enter", shift: false }); assert.equal(submitted, 1);
+line.onEvent = event => event.type !== "keydown";
+editor.__overteEditor.edit({ action: "enter", shift: false }); assert.equal(submitted, 1);
+line.onEvent = event => { if (event.type === "beforeinput") line.readOnly = true; return true; };
+editor.__overteEditor.edit({ text: "bad" }); assert.equal(line.value, "single");
+line.readOnly = false;
+line.onEvent = event => { if (event.type === "keydown") editor.document.activeElement = new Input("replacement"); return true; };
+editor.__overteEditor.edit({ text: "bad" }); assert.equal(line.value, "single");
 if (process.argv[2]) {
     const messages = [], client = { __overteNative: { postMessage(data) { messages.push(JSON.parse(data)); } }, console };
     client.window = client; client.top = client;
