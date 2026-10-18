@@ -56,7 +56,7 @@ PROTECTED_GENERATIONS = (
 )
 METADATA_PRODUCER_GENERATIONS = PROTECTED_GENERATIONS[-3:]
 SELECTED_SYNC_GENERATIONS = (
-    'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'npm-consumers-metadata-edits-v1',
+    'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1', 'npm-consumers-metadata-edits-v1',
     'android-owned-npm5-sync-ci-v1', *PROTECTED_GENERATIONS,
 )
 
@@ -179,6 +179,59 @@ def prospective_package_tree():
     return packages, tree
 
 
+
+def sync_callback_blob(source):
+    raw = source.encode('utf-8')
+    return hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+
+
+def callback_sync_predecessor(source):
+    """Only the two byte-exact callback recipes may extend validator permissions."""
+    expected = {
+        'ccc75d37c4f8b5012299bf864bf48dd45ead389b': ('cff76b696a4afd8658329a02ab33032672f292b9', ''),
+        '747bd6424d1e9b533ae35a81b524ceefc06b286b': ('fb8b8645f229d924cfebb068ea124ac5910a483e', '\n'),
+    }
+    identity = sync_callback_blob(source)
+    if identity not in expected or source.count('\n  notify-cleanup:') != 1:
+        raise AssertionError('callback requires its exact active or canonical whole recipe')
+    previous = source.split('\n  notify-cleanup:', 1)[0] + expected[identity][1]
+    if sync_callback_blob(previous) != expected[identity][0]:
+        raise AssertionError('mandatory validator must retain its exact predecessor bytes')
+    return previous
+
+
+def assert_sync_callback_roles(case, source):
+    previous = callback_sync_predecessor(source)
+    workflow = workflow_data(source)
+    case.assertEqual(set(workflow['jobs']), {'validate', 'notify-cleanup'})
+    validate, notifier = workflow['jobs']['validate'], workflow['jobs']['notify-cleanup']
+    case.assertNotIn('permissions', validate)
+    case.assertNotIn('continue-on-error', validate)
+    case.assertNotRegex(previous, r'(?m)^\s+[a-z-]+: write$')
+    case.assertEqual(notifier['name'], 'Notify completed synchronization cleanup')
+    case.assertEqual(notifier['permissions'], {'contents':'read', 'actions':'write'})
+    case.assertIs(notifier['continue-on-error'], True)
+    case.assertEqual(notifier['needs'], 'validate')
+    case.assertEqual(notifier['runs-on'], 'ubuntu-24.04')
+    case.assertEqual(notifier['timeout-minutes'], 5)
+    case.assertEqual(notifier['if'], "always() && github.repository == 'noah-l-frank/overte' && "
+        "github.repository_id == '1319052603' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && "
+        "github.workflow_ref == 'noah-l-frank/overte/.github/workflows/sync-validation.yml@refs/heads/main' && github.run_attempt == 1")
+    case.assertEqual(len(notifier['steps']), 2)
+    checkout, dispatch = notifier['steps']
+    case.assertEqual(checkout['uses'], 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1')
+    case.assertEqual(checkout['with'], {'repository':'noah-l-frank/overte', 'ref':'${{ github.sha }}',
+        'path':'trusted', 'persist-credentials':False, 'fetch-depth':1, 'sparse-checkout-cone-mode':False,
+        'sparse-checkout':'/tools/branch-cleanup/\n/.github/branch-cleanup.json\n'})
+    case.assertEqual(dispatch['name'], 'Dispatch exact synchronization completion')
+    case.assertEqual(dispatch['env'], {'GH_TOKEN':'${{ github.token }}'})
+    case.assertIn('python3 -B trusted/tools/branch-cleanup/cleanup.py notify-sync-completion', dispatch['run'])
+    case.assertIn('--event "$GITHUB_EVENT_PATH"', dispatch['run'])
+    case.assertIn('--report "$RUNNER_TEMP/sync-cleanup-notification.json"', dispatch['run'])
+    case.assertNotIn('candidate', dispatch['run'])
+    case.assertNotIn('secrets.', source)
+
+
 def selected_sync_recipe():
     """Keep deployed13/14/20/21 selected-sync recipes distinct from future22."""
     spec = importlib.util.spec_from_file_location(
@@ -229,7 +282,7 @@ def assert_project_caller_routing(case, source):
     """Finite successors bind their whole generation and exact project route."""
     templates = (
         ('tools/repository-checks/workflows/npm-consumers/repository-checks.yml',
-         ('npm-consumers-v1', 'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1'), False),
+         ('npm-consumers-v1', 'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1'), False),
         ('tools/repository-checks/workflows/metadata-edits/repository-checks.yml',
          ('npm-consumers-metadata-edits-v1',), True),
         ('tools/repository-checks/workflows/android-owned/repository-checks.yml',
@@ -757,7 +810,10 @@ class BranchGovernanceWorkflowContracts(unittest.TestCase):
         staged = ROOT / 'tools/repository-checks/workflows/sync-ci-selection.yml'
         if source == staged.read_text(): permissions['checks'] = 'read'
         self.assertEqual(workflow['permissions'], permissions)
-        self.assertNotRegex(source, r"(?m)^\s+[a-z-]+: write$")
+        if sync_callback_blob(source) in {'ccc75d37c4f8b5012299bf864bf48dd45ead389b', '747bd6424d1e9b533ae35a81b524ceefc06b286b'}:
+            assert_sync_callback_roles(self, source)
+        else:
+            self.assertNotRegex(source, r"(?m)^\s+[a-z-]+: write$")
         self.assertNotIn("secrets.", source)
         steps = workflow['jobs']['validate']['steps']
         checkouts = [step['with'] for step in steps if step.get('uses', '').startswith('actions/checkout@')]
@@ -1201,7 +1257,7 @@ def assert_reviewed_host_selection(case, source):
         case.assertEqual(row['workflows']['.github/workflows/project-tests.yml'],
             {'mode':'100644','type':'blob','sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()})
         if source == WORKFLOW.read_text(encoding='utf-8'):
-            case.assertEqual(reviewed_package_generation(), 'npm-consumers-sync-ci-budget-v1')
+            case.assertIn(reviewed_package_generation(), ('npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1'))
     elif android_owned or protected_owner:
         # Historical staged templates retain their exact approved identities
         # when a newer complete generation becomes the deployed workflow.
@@ -1582,7 +1638,7 @@ class ProjectWorkflowContracts(unittest.TestCase):
             with self.assertRaises(AssertionError): assert_reviewed_host_selection(self, source)
 
     def test_original22_fallback_namespace_utility_is_owner_selected_without_changing_protected_setup(self):
-        expected = {'.github/workflows/project-tests.yml': {'path': 'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml', 'before_oid': 'b540a1f26c3fbe2a60e7b7ecde91d814cfa0060c', 'after_oid': '28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9', 'condition': "steps.protected.outputs.protected_executed != 'true' && steps.host.outputs.requires_artifact_namespace == 'true'", 'selected_step': 'host'}, '.github/workflows/parent-qualification.yml': {'path': 'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml', 'before_oid': '98abf45ca6c475af1e1ac3b20ec20f074048fb64', 'after_oid': '9bfc6f8723b1f59426f913472b78206844a7f201', 'condition': "steps.host.outputs.requires_artifact_namespace == 'true'", 'selected_step': 'host'}, '.github/workflows/sync-validation.yml': {'path': 'tools/repository-checks/workflows/sync-ci-selection.yml', 'before_oid': '50cbb324de358c5f8cd019a8e9b9aed45ea6868d', 'after_oid': 'fb8b8645f229d924cfebb068ea124ac5910a483e', 'condition': "steps.select.outputs.requires_artifact_namespace == 'true'", 'selected_step': 'select'}}
+        expected = {'.github/workflows/project-tests.yml': {'path': 'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml', 'before_oid': 'b540a1f26c3fbe2a60e7b7ecde91d814cfa0060c', 'after_oid': '28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9', 'condition': "steps.protected.outputs.protected_executed != 'true' && steps.host.outputs.requires_artifact_namespace == 'true'", 'selected_step': 'host'}, '.github/workflows/parent-qualification.yml': {'path': 'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml', 'before_oid': '98abf45ca6c475af1e1ac3b20ec20f074048fb64', 'after_oid': '9bfc6f8723b1f59426f913472b78206844a7f201', 'condition': "steps.host.outputs.requires_artifact_namespace == 'true'", 'selected_step': 'host'}, '.github/workflows/sync-validation.yml': {'path': 'tools/repository-checks/workflows/sync-ci-selection.yml', 'before_oid': '50cbb324de358c5f8cd019a8e9b9aed45ea6868d', 'after_oid': '747bd6424d1e9b533ae35a81b524ceefc06b286b', 'condition': "steps.select.outputs.requires_artifact_namespace == 'true'", 'selected_step': 'select'}}
         packages, tree = prospective_package_tree()
         self.assertEqual(packages.validate_tree_wiring(tree), 'protected-producer-original-default-v1')
         for endpoint, facts in expected.items():
@@ -1591,6 +1647,11 @@ class ProjectWorkflowContracts(unittest.TestCase):
                 self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(), facts['after_oid'])
                 self.assertEqual(tree[endpoint], {'mode':'100644','type':'blob','sha':facts['after_oid']})
                 sync = endpoint.endswith('sync-validation.yml'); indent = 6 if sync else 4
+                if sync:
+                    assert_sync_callback_roles(self, raw.decode())
+                    raw = callback_sync_predecessor(raw.decode()).encode()
+                    self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),
+                                     'fb8b8645f229d924cfebb068ea124ac5910a483e')
                 start = (' '*indent+'- name: Install selected artifact namespace utility\n').encode()
                 following = (' '*indent+'- name: Prepare isolated '+('shared and product Python validators' if sync else 'host evidence validators')+'\n').encode()
                 self.assertEqual(raw.count(start), 1)
@@ -1729,6 +1790,11 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
                 self.assertNotIn("/etc/sysctl", setup)
                 self.assertNotIn("sudo unshare", source)
                 self.assertNotIn("sudo python", source)
+                if name == 'sync-fallback' and sync_callback_blob(source) in {
+                        'ccc75d37c4f8b5012299bf864bf48dd45ead389b',
+                        '747bd6424d1e9b533ae35a81b524ceefc06b286b'}:
+                    assert_sync_callback_roles(self, source)
+                    source = callback_sync_predecessor(source)
                 self.assertNotIn("continue-on-error:", source)
 
     def test_sync_platform_and_fallback_install_host_packages_before_execution(self):
@@ -1752,7 +1818,7 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
         namespace = [(i, step) for i, step in enumerate(steps)
                      if step.get('name') == 'Install selected artifact namespace utility']
         self.assertEqual(len(namespace), int(reviewed_package_generation() in (
-            'npm-consumers-sync-ci-budget-v1', 'protected-producer-original-default-v1')))
+            'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1', 'protected-producer-original-default-v1')))
         if namespace:
             utility_index, utility = namespace[0]
             self.assertEqual(utility['if'], "steps.select.outputs.requires_artifact_namespace == 'true'")
@@ -1855,7 +1921,7 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
         upload = next(step for step in steps if step['name'] == 'Upload immutable qualification evidence')
         canonical = (ROOT / 'tools/repository-checks/workflows/host/parent-qualification.yml').read_text()
         protected = (ROOT / 'tools/repository-checks/workflows/producers/parent-qualification.yml').read_text()
-        budget_owner = reviewed_package_generation() == 'npm-consumers-sync-ci-budget-v1'
+        budget_owner = reviewed_package_generation() in ('npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1')
         if source in (canonical, protected, platform) or budget_owner:
             protected_owner = source == protected or platform_owner
             if protected_owner:
