@@ -362,7 +362,7 @@ class NativeCallerSchedulingTests(unittest.TestCase):
         self.github = {'event_name':'pull_request','event':{'action':'opened',
             'changes':{'base':False,'title':False,'body':False},'label':{'name':'bug'}}}
 
-    def scheduled(self, name, *, expression=None, cancelled=False):
+    def scheduled(self, name, *, expression=None, cancelled=False, raw=False):
         def ancestors(job):
             needs = self.jobs[job].get('needs', [])
             if isinstance(needs, str): needs = [needs]
@@ -385,16 +385,57 @@ class NativeCallerSchedulingTests(unittest.TestCase):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and not node.args and not node.keywords:
                 return functions[node.func.id]
             if isinstance(node, ast.BoolOp):
-                values = (evaluate(value) for value in node.values)
-                if isinstance(node.op, ast.And): return all(values)
-                if isinstance(node.op, ast.Or): return any(values)
+                # GitHub returns the selected operand, including a change
+                # mapping. Boolean coercion here hid a hosted input-type bug.
+                value = evaluate(node.values[0])
+                for operand in node.values[1:]:
+                    if isinstance(node.op, ast.And) and not value: return value
+                    if isinstance(node.op, ast.Or) and value: return value
+                    value = evaluate(operand)
+                return value
             if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not): return not evaluate(node.operand)
             if isinstance(node, ast.Compare) and len(node.ops) == len(node.comparators) == 1:
                 left, right = evaluate(node.left), evaluate(node.comparators[0])
                 if isinstance(node.ops[0], ast.Eq): return left == right
                 if isinstance(node.ops[0], ast.NotEq): return left != right
             raise AssertionError('unreviewed scheduling expression')
-        return bool(evaluate(ast.parse(expression, mode='eval').body))
+        value = evaluate(ast.parse(expression.strip(), mode='eval').body)
+        return value if raw else bool(value)
+
+    def test_reusable_metadata_inputs_are_booleans_for_real_change_objects(self):
+        import yaml
+        tiny = yaml.safe_load((ROOT / 'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml').read_text())
+        trigger = tiny.get('on', tiny.get(True))
+        self.assertEqual(trigger['workflow_call']['inputs']['nonproducer_intent']['type'], 'boolean')
+        cases = [
+            ('pull_request', 'opened', {}, 'type: task', False),
+            ('pull_request', 'reopened', {}, 'type: task', False),
+            ('pull_request', 'synchronize', {}, 'type: task', False),
+            ('pull_request', 'edited', {'title': {'from': 'Previous title'}}, 'type: task', True),
+            ('pull_request', 'edited', {'body': {'from': 'Previous body'}}, 'type: task', True),
+            ('pull_request', 'edited', {'body': {'from': ''}}, 'type: task', True),
+            ('pull_request', 'edited', {'title': {'from': 'Old'}, 'body': {'from': 'Old'}}, 'type: task', True),
+            ('pull_request', 'edited', {'base': {'ref': {'from': 'main'}}, 'body': {'from': 'Old'}}, 'type: task', False),
+            ('pull_request', 'edited', {}, 'type: task', False),
+            ('pull_request', 'labeled', {}, 'type: task', True),
+            ('pull_request', 'unlabeled', {}, 'type: task', True),
+            ('pull_request', 'labeled', {}, 'android-long-diagnostics', False),
+            ('pull_request', 'unlabeled', {}, 'android-long-diagnostics', False),
+            ('push', None, {}, 'type: task', False),
+            ('workflow_dispatch', None, {}, 'type: task', False),
+            ('pull_request_target', 'edited', {'body': {'from': 'Old'}}, 'type: task', False),
+        ]
+        for relative in ('producers/repository-checks.yml', 'metadata-edits/codeql-metadata.yml'):
+            jobs = yaml.safe_load((ROOT / 'tools/repository-checks/workflows' / relative).read_text())['jobs']
+            expression = jobs['metadata-source']['with']['nonproducer_intent']
+            self.assertTrue(expression.startswith('${{') and expression.endswith('}}'))
+            for event_name, action, changes, label, expected in cases:
+                self.github = {'event_name': event_name, 'event': {'action': action,
+                    'changes': {'base': None, 'title': None, 'body': None, **changes}, 'label': {'name': label}}}
+                with self.subTest(caller=relative, event=event_name, action=action, changes=changes, label=label):
+                    result = self.scheduled('metadata-source', expression=expression[3:-2].strip(), raw=True)
+                    self.assertIs(type(result), bool)
+                    self.assertIs(result, expected)
 
     def test_normal_pr_selected_jobs_survive_skipped_metadata_ancestor(self):
         self.assertEqual(self.jobs['route']['needs'], 'metadata-source')
