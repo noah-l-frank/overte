@@ -174,3 +174,42 @@ jobs:
             candidate/build/test-results/device-self-tests.json
           if-no-files-found: warn
           retention-days: 7
+
+  notify-cleanup:
+    name: Notify completed synchronization cleanup
+    needs: validate
+    # Cleanup delivery is administrative; its actual result remains observable.
+    # Candidate validation stays mandatory and cannot use this exception.
+    continue-on-error: true
+    if: >-
+      always() && github.repository == 'noah-l-frank/overte' &&
+      github.repository_id == '1319052603' &&
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' &&
+      github.workflow_ref == 'noah-l-frank/overte/.github/workflows/sync-validation.yml@refs/heads/main' &&
+      github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Check out the exact protected notification source without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: noah-l-frank/overte
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /tools/branch-cleanup/
+            /.github/branch-cleanup.json
+      - name: Dispatch exact synchronization completion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 -B trusted/tools/branch-cleanup/cleanup.py notify-sync-completion \
+            --event "$GITHUB_EVENT_PATH" \
+            --report "$RUNNER_TEMP/sync-cleanup-notification.json"
