@@ -997,13 +997,15 @@ class AggregateTests(unittest.TestCase):
             'android-owned-npm5-sync-ci-v1': 'android-owned/repository-checks.yml',
             'protected-producer-metadata-ci-v1': 'producers/repository-checks.yml',
             'protected-producer-seven-target-ci-v1': 'producers/repository-checks.yml',
-            'protected-producer-original-default-v1': 'producers/repository-checks.yml',
+            'protected-producer-original-default-v1': 'producers/legacy/repository-checks-original-default-v1.yml',
+            'protected-producer-original-default-boolean-v1': 'producers/repository-checks.yml',
         }
         metadata = generation in metadata_callers
         if metadata:
             self.assertEqual(source, (ROOT / 'tools/repository-checks/workflows' / metadata_callers[generation]).read_text())
         protected = generation in ('protected-producer-metadata-ci-v1', 'protected-producer-seven-target-ci-v1',
-                                   'protected-producer-original-default-v1')
+                                   'protected-producer-original-default-v1',
+                                   'protected-producer-original-default-boolean-v1')
         if generation == 'android-owned-npm5-sync-ci-v1' or protected:
             spec = importlib.util.spec_from_file_location('aggregate_android_generation',
                 ROOT / 'tools/repository-checks/android_gate.py')
@@ -1015,7 +1017,8 @@ class AggregateTests(unittest.TestCase):
                 self.assertTrue(path.is_file() and not path.is_symlink() and not path.stat().st_mode & 0o111)
                 tree[relative] = android._blob(path.read_bytes())
             self.assertEqual(android.validate_tree_wiring(tree), generation)
-            if generation == 'protected-producer-original-default-v1':
+            if generation in ('protected-producer-original-default-v1',
+                              'protected-producer-original-default-boolean-v1'):
                 self.assertEqual(dependencies, required_jobs | {'native', 'android', 'workflow-contracts'})
             else:
                 self.assertEqual(dependencies, required_jobs | {'native', 'android'})
@@ -2004,7 +2007,8 @@ class PackageChecksTests(unittest.TestCase):
     def test_protected_route_accepts_only_actual_complete_flag_bearing_generations(self):
         names={'protected-shared-producer-v1','protected-producer-postmerge-original-e-v1',
                'protected-producer-ci37-v1','protected-producer-metadata-ci-v1',
-               'protected-producer-seven-target-ci-v1','protected-producer-original-default-v1'}
+               'protected-producer-seven-target-ci-v1','protected-producer-original-default-v1',
+               'protected-producer-original-default-boolean-v1'}
         self.assertEqual(PACKAGES._PROTECTED_ROUTE_GENERATIONS,names)
         for name in (*sorted(names),'postmerge-original-e-v1','npm-consumers-v1'):
             root,_,_=self.protected_workflow_fixture(name)
@@ -2297,9 +2301,50 @@ class PackageChecksTests(unittest.TestCase):
             if step.get('name') in ('Set up Python', 'Set up Java', 'Install QML and portable C++ contract prerequisites'):
                 self.assertEqual(step['if'], "steps.route.outputs.package_host_mode == 'full'")
 
-    def test_budget_source23_is_atomic_trusted_only_and_keeps_original22_immutable(self):
+    def test_boolean_source25_preserves_all_previous_tuples_and_requires_pre_enrollment(self):
         rows = PACKAGES.workflow_generations()
-        self.assertEqual(len(rows), 24)
+        self.assertEqual(len(rows), 25)
+        self.assertEqual(hashlib.sha256(json.dumps(rows[:24], sort_keys=True,
+            separators=(',', ':')).encode()).hexdigest(),
+            '80a94745fc140d61d518d95a7b2dee29690bc79b161306d3d601ee61ffdab4b3')
+        previous, following = rows[21], rows[24]
+        self.assertEqual(previous['name'], 'protected-producer-original-default-v1')
+        self.assertEqual(following['name'], 'protected-producer-original-default-boolean-v1')
+        caller = '.github/workflows/repository-checks.yml'
+        self.assertEqual(set(previous['workflows']), set(following['workflows']))
+        self.assertEqual([p for p in previous['workflows']
+            if previous['workflows'][p] != following['workflows'][p]], [caller])
+        for relative, expected in (
+                ('producers/legacy/repository-checks-original-default-v1.yml', previous['workflows'][caller]),
+                ('producers/repository-checks.yml', following['workflows'][caller])):
+            path = ROOT / 'tools/repository-checks/workflows' / relative
+            self.assertFalse(path.is_symlink())
+            self.assertFalse(path.stat().st_mode & 0o111)
+            raw = path.read_bytes()
+            self.assertEqual(expected, {'mode':'100644','type':'blob',
+                'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()})
+        self.assertEqual(PACKAGES.validate_tree_wiring(previous['workflows']), previous['name'])
+        self.assertEqual(PACKAGES.validate_tree_wiring(following['workflows']), following['name'])
+        old = json.dumps({'schema':1, 'repository':{'full_name':PACKAGES.REPOSITORY,
+            'id':PACKAGES.REPOSITORY_ID}, 'generations':rows[:24]}).encode()
+        with patch.object(PACKAGES, '_trusted_bytes', return_value=old):
+            self.assertEqual(PACKAGES.validate_tree_wiring(previous['workflows']), previous['name'])
+            with self.assertRaises(ValueError): PACKAGES.validate_tree_wiring(following['workflows'])
+        for mutation in ('unknown', 'missing', 'executable', 'alias', 'submodule', 'mixed-sync'):
+            tree = deepcopy(following['workflows'])
+            if mutation == 'unknown': tree[caller]['sha'] = 'a' * 40
+            elif mutation == 'missing': del tree[caller]
+            elif mutation in ('executable', 'alias'):
+                tree[caller]['mode'] = '100755' if mutation == 'executable' else '120000'
+            elif mutation == 'submodule': tree[caller]['type'] = 'commit'
+            else: tree['.github/workflows/sync-validation.yml'] = rows[23]['workflows']['.github/workflows/sync-validation.yml']
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                PACKAGES.validate_tree_wiring(tree)
+
+    def test_budget_source23_is_atomic_trusted_only_and_keeps_original22_immutable(self):
+        all_rows = PACKAGES.workflow_generations()
+        self.assertEqual(len(all_rows), 25)
+        rows = all_rows[:24]
         self.assertEqual(len([row for row in rows
                               if row['name'] != 'npm-consumers-sync-ci-budget-cleanup-v1']), 23)
         historical = deepcopy(rows[:22])
@@ -2367,7 +2412,7 @@ class PackageChecksTests(unittest.TestCase):
         self.assertEqual(original22['workflows']['.github/workflows/project-tests.yml']['sha'],
                          '28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9')
         self.assertNotIn(budget['name'], PACKAGES._PROTECTED_ROUTE_GENERATIONS)
-        over = deepcopy(rows); extra = deepcopy(budget); extra['name'] = 'unreviewed-extra-budget'
+        over = deepcopy(all_rows); extra = deepcopy(budget); extra['name'] = 'unreviewed-extra-budget'
         extra['workflows']['.github/workflows/project-tests.yml']['sha'] = 'c'*40; over.append(extra)
         raw = json.dumps({'schema':1,'repository':{'full_name':PACKAGES.REPOSITORY,
             'id':PACKAGES.REPOSITORY_ID},'generations':over}).encode()
@@ -2376,8 +2421,9 @@ class PackageChecksTests(unittest.TestCase):
 
 
     def test_callback_source24_is_one_exact_five_endpoint_successor_without_native_authority(self):
-        rows = PACKAGES.workflow_generations()
-        self.assertEqual(len(rows), 24)
+        all_rows = PACKAGES.workflow_generations()
+        self.assertEqual(len(all_rows), 25)
+        rows = all_rows[:24]
         self.assertEqual(rows[-1]['name'], 'npm-consumers-sync-ci-budget-cleanup-v1')
         previous = next(row for row in rows if row['name']=='npm-consumers-sync-ci-budget-v1')
         callback = rows[-1]
