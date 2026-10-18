@@ -901,6 +901,29 @@ class MetadataSchedulingTests(unittest.TestCase):
         c = self.case
         c.labels = [{'id': 7, 'name': 'bug'}]
         self.assertEqual(self.schedule()['original_run_id'], 100)
+
+    def test_installed_repository_recipe_accepts_later_label_without_new_execution(self):
+        c = self.case
+        raw = (Path(__file__).resolve().parents[2] / c.policy.caller_path).read_bytes()
+        current = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+        self.assertEqual(current, '81bcf1933edc435826e2de411a777cccd4dec7c7')
+        c.generation[c.policy.caller_path]['sha'] = current
+        c.policy = replace(c.policy, metadata_generations={'metadata-v2': deepcopy(c.generation)})
+        self.policy = A.MetadataPolicy(99, c.policy.caller_path,
+            c.policy.metadata_generations, c.policy.metadata_sources)
+        for status, conclusion in [('completed', 'success'), ('completed', 'failure')]:
+            with self.subTest(status=status, conclusion=conclusion):
+                c.runs[100].update(status=status, conclusion=conclusion)
+                value = self.schedule()
+                self.assertEqual(value['original_run_id'], 100)
+                self.assertEqual((value['original_status'], value['original_conclusion']),
+                    (status, conclusion))
+                self.assertFalse(value['qualification'])
+                self.assertNotIn('results', value)
+                self.assertNotIn('environment', value)
+        intent = c.adapter.metadata_observation(c.runs[101], c.binding, self.policy, now=NOW)
+        self.assertEqual(intent['kind'], A.METADATA_INTENT_KIND)
+        self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
         c.labels.append({'id': 8, 'name': 'android-long-diagnostics'})
         with self.assertRaises(P.ProtocolError): self.schedule()
         with self.assertRaises(P.ProtocolError): self.schedule(diagnostics=True)
