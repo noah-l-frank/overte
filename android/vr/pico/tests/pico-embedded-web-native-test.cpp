@@ -217,6 +217,15 @@ int main(int argc, char** argv) {
     nextWorld->acceptForeground(true); assert(!nextWorld->generation());
     engine.rootContext()->setContextProperty("nativeInlineHtmlDocument", QVariant());
     QCoreApplication::processEvents(); assert(nextWorld->generation());
+    // A default/null QString is a supplied typed carrier, not absent authority.
+    nextWorld->setProperty("inlineDocument", QVariant(QString()));
+    assert(!nextWorld->generation());
+    nextWorld->setProperty("inlineDocument", QVariant());
+    assert(nextWorld->generation());
+    engine.rootContext()->setContextProperty("nativeInlineHtmlDocument", QStringLiteral(""));
+    QCoreApplication::processEvents(); assert(!nextWorld->generation());
+    engine.rootContext()->setContextProperty("nativeInlineHtmlDocument", QVariant());
+    QCoreApplication::processEvents(); assert(nextWorld->generation());
     assert(!world->findChild<LegacyBoundary*>());
     world.reset();
     std::unique_ptr<QObject> physicalWorld(create("/+android_picoInterface/Web3DSurface.qml"));
