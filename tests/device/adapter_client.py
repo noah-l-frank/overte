@@ -43,7 +43,9 @@ def invoke(manifest: Path, target: str, operation: str,
     adapter_environment = os.environ.copy()
     # Product expectations belong exclusively to the shared assertion module.
     # An adapter must report observed UI and must never receive the policy path.
-    adapter_environment.pop("OVERTE_E2E_TABLET_POLICY", None)
+    for name in ('OVERTE_E2E_TABLET_POLICY', 'OVERTE_E2E_WEB_VIDEO_ROIS',
+                 'OVERTE_E2E_SCRIPTS_CONTROL_TOKEN', 'OVERTE_E2E_CREATE_CONTROL_TOKEN'):
+        adapter_environment.pop(name, None)
     try:
         result = subprocess.run(
             [*command, "invoke", "--target", target, "--operation", operation,

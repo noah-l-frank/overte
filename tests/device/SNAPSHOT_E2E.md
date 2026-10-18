@@ -1,0 +1,47 @@
+# Native SNAP output journey
+
+The `snapshot-output-parity` suite uses the existing controlled scene and normal
+SNAP app. It captures a PNG still, JPEG still, still plus GIF, 360 panorama and
+360 cubemap. It is implemented test logic; native adapters and physical-device
+acceptance remain separate work. No adapter advertises these new actions yet.
+
+The native adapter must implement and explicitly advertise:
+
+- `snapshot.open`: open the ordinary SNAP app. Save the initial capture-format
+  selection once per module so cleanup can restore it.
+- `snapshot.capture`: select the requested mode and format, enter the bounded
+  owned name, and activate `snapshotCapture`. Return after native input delivery;
+  do not call a capture API, inject a bridge message or return a success verdict.
+- `snapshot.files`: observe original files in the actual app snapshot directory,
+  restricted to the supplied run prefix. Copy their original bytes into bounded
+  private run artifacts, preserving the original basename separately. Reuse
+  content-addressed copies instead of accumulating repeated large transfers.
+  A missing directory is an infrastructure failure; an observed empty directory
+  returns an empty list. Never generate, re-encode or substitute an image.
+- `snapshot.close`: cancel any owned outstanding capture, close the owned SNAP
+  surface through normal controls and restore the saved capture-format selection.
+  Cleanup must work after partial entry or capture failures too.
+
+All UI actions confirm delivery with only `performed: true`. File observations
+contain only a bounded list of `{basename, artifact}` pairs; the shared module
+owns every assertion. Original private sandbox paths must remain private.
+
+Each case uses an unpredictable run name that fits `snapshotName`'s 48-character
+limit. Existing matching files fail the precondition. A bounded poll waits for
+the actual complete output set; in-progress encodes may settle. Every original
+basename must carry the requested name and a capture ticket. The still and GIF
+must carry the same ticket. A stale file, missing GIF or acknowledged tap without
+files cannot satisfy the journey.
+
+The independent decoder checks actual PNG/JPEG/GIF encoding, complete frames,
+checksums/end markers, frame timing and nonuniform output from the controlled
+scene. Panorama must be 8192x4096; cubemap must be the actual 8192x6144 cross
+produced by `interface/src/ui/Snapshot.cpp`. GIF must decode at least two frames
+and at least one second of encoded duration. A static controlled scene may
+produce identical frames; those conditions do not claim visual motion.
+
+Files, hashes, per-frame decoded RGB hashes, polling and process/foreground
+continuity stay bound to the ordinary runner artifacts. Source, built-artifact
+and installed-code verification remain required. This journey does not qualify
+projection orientation, scene fidelity, cancellation/owner replacement, uploads
+or system save/share. Those still require their own normal-UI observations.
