@@ -863,21 +863,62 @@ return !!(el.isContentEditable||el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&
     }];
 }
 void IOSWebView::keyEvent(const QString& text, int key, int modifiers) {
-    Q_UNUSED(modifiers);
-    if (!active() || text.size() > 8192) { return; }
+    if (!active() || !_private->inputActive || _private->presentation || text.size() > 8192 ||
+            (modifiers & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))) { return; }
     const bool control = key == Qt::Key_Backspace || key == Qt::Key_Delete || key == Qt::Key_Return || key == Qt::Key_Enter;
-    const auto args = encodedArguments(QJsonArray { control ? QString() : text, key });
-    evaluate(QStringLiteral(R"JS((function(a){var el=document.activeElement;if(!el)return;
-if(typeof el.value==='string'){var start=el.selectionStart==null?el.value.length:el.selectionStart;
+    const auto args = encodedArguments(QJsonArray { control ? QString() : text, key, bool(modifiers & Qt::ShiftModifier) });
+    evaluate(QStringLiteral(R"JS((function(a){
+var el=document.activeElement;if(!el||el.matches(':disabled'))return;
+var names={16777219:'Backspace',16777223:'Delete',16777220:'Enter',16777221:'Enter',
+16777234:'ArrowLeft',16777236:'ArrowRight',16777232:'Home',16777233:'End'};
+var key=names[a[1]]||a[0];
+if(!key||!el.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,cancelable:true,key:key,shiftKey:a[2]})))return;
+// A page handler may move focus or make the editor unavailable.
+if(document.activeElement!==el||!el.isConnected||el.matches(':disabled'))return;
+var field=el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&/^(text|search|url|tel|email|password|number)$/.test(el.type));
+var nav=key==='ArrowLeft'||key==='ArrowRight'||key==='Home'||key==='End';
+if(field){
+var value=el.value,start=el.selectionStart==null?value.length:el.selectionStart;
 var end=el.selectionEnd==null?start:el.selectionEnd;
-if(a[1]===16777219&&!a[0]&&start===end&&start>0)start--;
-if(a[1]===16777223&&!a[0]&&start===end&&end<el.value.length)end++;
-el.value=el.value.substring(0,start)+a[0]+el.value.substring(end);
-if(el.setSelectionRange)el.setSelectionRange(start+a[0].length,start+a[0].length);
-el.dispatchEvent(new Event('input',{bubbles:true}));}
-else if(el.isContentEditable){document.execCommand(a[1]===16777219?'delete':'insertText',false,a[0]);}
-el.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,key:a[1]===16777220||a[1]===16777221?'Enter':a[0]}));
-if((a[1]===16777220||a[1]===16777221)&&el.form)el.form.requestSubmit();})(%1);)JS").arg(args));
+var previous=function(p){return p>1&&value.charCodeAt(p-1)>=0xdc00&&value.charCodeAt(p-1)<=0xdfff&&
+value.charCodeAt(p-2)>=0xd800&&value.charCodeAt(p-2)<=0xdbff?p-2:Math.max(0,p-1);};
+var next=function(p){return p+1<value.length&&value.charCodeAt(p)>=0xd800&&value.charCodeAt(p)<=0xdbff&&
+value.charCodeAt(p+1)>=0xdc00&&value.charCodeAt(p+1)<=0xdfff?p+2:Math.min(value.length,p+1);};
+var select=function(s,e,d){try{el.setSelectionRange(s,e,d);}catch(_){}};
+if(nav){
+var backward=el.selectionDirection==='backward',anchor=backward?end:start,focus=backward?start:end;
+var target=key==='ArrowLeft'?(!a[2]&&start!==end?start:previous(focus)):
+key==='ArrowRight'?(!a[2]&&start!==end?end:next(focus)):
+key==='Home'?(el.tagName==='TEXTAREA'?(focus>0?value.lastIndexOf('\n',focus-1)+1:0):0):
+(el.tagName==='TEXTAREA'?(value.indexOf('\n',focus)<0?value.length:value.indexOf('\n',focus)):value.length);
+if(a[2])select(Math.min(anchor,target),Math.max(anchor,target),target<anchor?'backward':'forward');
+else select(target,target,'none');
+return;
+}
+if(el.readOnly)return;
+if(key==='Enter'&&el.tagName!=='TEXTAREA'){if(el.form&&el.form.requestSubmit)el.form.requestSubmit();return;}
+var inserted=key==='Enter'?'\n':a[0],type=key==='Enter'?'insertLineBreak':'insertText';
+if(key==='Backspace'){inserted='';type='deleteContentBackward';if(start===end)start=previous(start);}
+else if(key==='Delete'){inserted='';type='deleteContentForward';if(start===end)end=next(end);}
+else if(!inserted)return;
+if(start===end&&!inserted)return;
+if(!el.dispatchEvent(new InputEvent('beforeinput',{bubbles:true,cancelable:true,inputType:type,data:inserted||null})))return;
+// Respect changes made by beforeinput listeners rather than overwriting them.
+if(document.activeElement!==el||!el.isConnected||el.matches(':disabled')||el.readOnly||el.value!==value)return;
+el.value=value.substring(0,start)+inserted+value.substring(end);
+select(start+inserted.length,start+inserted.length,'none');
+el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:type,data:inserted||null}));
+}else if(el.isContentEditable){
+if(nav){var selection=window.getSelection();if(selection&&selection.modify)
+selection.modify(a[2]?'extend':'move',key==='ArrowLeft'||key==='Home'?'backward':'forward',key==='Home'||key==='End'?'lineboundary':'character');
+return;}
+var command=key==='Backspace'?'delete':key==='Delete'?'forwardDelete':key==='Enter'?'insertLineBreak':'insertText';
+var inputType=key==='Backspace'?'deleteContentBackward':key==='Delete'?'deleteContentForward':key==='Enter'?'insertLineBreak':'insertText';
+if((a[0]||key==='Backspace'||key==='Delete'||key==='Enter')&&
+el.dispatchEvent(new InputEvent('beforeinput',{bubbles:true,cancelable:true,inputType:inputType,data:a[0]||null}))&&
+document.activeElement===el&&el.isConnected&&el.isContentEditable)document.execCommand(command,false,a[0]);
+}
+})(%1);)JS").arg(args));
 }
 void IOSWebView::mousePressEvent(QMouseEvent* event) { pointerEvent(QStringLiteral("press"), event->position().x(), event->position().y(), event->button() == Qt::RightButton ? 2 : 0); event->accept(); }
 void IOSWebView::mouseReleaseEvent(QMouseEvent* event) { pointerEvent(QStringLiteral("release"), event->position().x(), event->position().y(), event->button() == Qt::RightButton ? 2 : 0); event->accept(); }
