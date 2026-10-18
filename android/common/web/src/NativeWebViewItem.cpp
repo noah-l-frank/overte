@@ -110,9 +110,19 @@ NativeWebViewItem::~NativeWebViewItem() {
 }
 void NativeWebViewItem::setPackagedResourceRoots(const QStringList& roots) { QMutexLocker guard(&registryMutex); packagedRoots = roots; }
 void NativeWebViewItem::setUrl(const QString& value) { if (_url == value) return; _url = value; emit urlChanged(); navigate(); }
+void NativeWebViewItem::setInlineDocument(const QVariant& value) {
+    _inlineCarrier = value;
+    QVariant native = value;
+    if (native.userType() == qMetaTypeId<QJSValue>()) native = native.value<QJSValue>().toVariant();
+    _inlineProvided = native.isValid() && !native.isNull();
+    _inlineDocument = native.userType() == qMetaTypeId<overte::web::InlineHtmlDocument>()
+        ? native.value<overte::web::InlineHtmlDocument>() : overte::web::InlineHtmlDocument();
+    emit inlineDocumentChanged(); navigate();
+}
 void NativeWebViewItem::setScriptUrl(const QString& value) {
     if (_scriptUrl == value) return; _scriptUrl = value; ++_scriptVersion; _injectedPage = 0; emit scriptUrlChanged();
     quint64 grant, page; { QMutexLocker guard(&_mutex); grant = _session.generation(); page = _page; }
+    if (_inlineProvided || _url.startsWith("data:", Qt::CaseInsensitive)) { navigate(); return; }
     if (!_loading) injectUserScript(grant, page, QUrl(value));
 }
 void NativeWebViewItem::setSourceIdentity(const QString& value) { if (_sourceIdentity == value) return; _sourceIdentity = value; emit sourceIdentityChanged(); navigate(); }
@@ -137,22 +147,51 @@ QString NativeWebViewItem::scriptRoot(const QUrl& source) const {
     for (const auto& root : packagedRoots) if (overte::web::EmbeddedWebSession::isPackagedURL(source, root)) return root;
     return {};
 }
+bool NativeWebViewItem::openSourceSession(const QUrl& source, const QString& root) {
+    const auto surface = _surface == Tablet ? overte::web::Surface::Tablet : overte::web::Surface::WorldEntity;
+    disconnect(_inlineRevocation);
+    if (_inlineProvided) {
+        auto* owner = _inlineDocument.context();
+        bool descendant = false;
+        for (auto* context = qmlContext(this); context; context = context->parentContext()) {
+            if (context == owner) { descendant = true; break; }
+        }
+        if (!descendant || !_inlineDocument.currentFor(owner, _sourceIdentity, _url)
+                || _inlineDocument.scriptURL() != _scriptUrl) { _session.close(); return false; }
+        _session.openInline(_inlineDocument, owner, _url, surface, _sourceIdentity, _scriptUrl);
+        _inlineRevocation = _inlineDocument.onRevoked(this, [this] { revokeInlineDocument(); }, Qt::AutoConnection);
+        return true;
+    }
+    _session.open(source, surface, _sourceIdentity, root);
+    return !_sourceIdentity.trimmed().isEmpty() && (overte::web::EmbeddedWebSession::isNetworkURL(source)
+        || overte::web::EmbeddedWebSession::isPackagedURL(source, root));
+}
+void NativeWebViewItem::cancelSourceScripts() {
+    const auto replies = _scriptReplies; _scriptReplies.clear();
+    for (const auto& reply : replies) if (reply) reply->abort();
+}
+void NativeWebViewItem::revokeInlineDocument() {
+    if (_inlineDocument.current()) return; // A queued previous-owner revoke cannot cancel its replacement.
+    { QMutexLocker guard(&_mutex); _session.close(); _image = QImage(); _sourceAuthorized = false; }
+    publishResourceSource(); _callbacks.clear(); resetEditor(); ++_scriptVersion; cancelSourceScripts();
+    _loading = false; _bridgeAvailable = false; _status = 6;
+    jvalue args[1]; args[0].j = _handle; call("revoke", "(J)V", args); call("destroy", "(J)V", args);
+    _created = false; _pending = false; update(); emit stateChanged();
+}
 void NativeWebViewItem::navigate() {
     if (!isComponentComplete()) return;
-    _callbacks.clear(); resetEditor();
+    _callbacks.clear(); resetEditor(); ++_scriptVersion; cancelSourceScripts();
     { QMutexLocker guard(&_mutex); _image = QImage(); } update();
     if (_created || _pending) { jvalue a[1]; a[0].j = _handle; call("revoke", "(J)V", a); }
     _resumeDocument = QUrl();
     if (_suspendedDocument) { { QMutexLocker guard(&_mutex); _suspendedDocument = false; } _created = false; jvalue a[1]; a[0].j = _handle; call("destroy", "(J)V", a); }
-    QUrl source(_url); const auto root = scriptRoot(source); QUrl browser;
+    QUrl source(_url); const auto root = scriptRoot(source); QUrl browser; bool authorized;
     { QMutexLocker guard(&_mutex);
       _mapping = overte::android::web::NativeResourceMapping(root, _handle);
       source = _mapping.canonicalSource(source);
       _tabletGrant = _surface == Tablet;
-      _session.open(source, _surface == Tablet ? overte::web::Surface::Tablet : overte::web::Surface::WorldEntity, _sourceIdentity, root);
-      _session.setVisible(isVisible() && isEnabled()); _page = 0; _document = QUrl(); browser = _mapping.toBrowser(source); }
-    const bool authorized = !_sourceIdentity.trimmed().isEmpty() &&
-        (overte::web::EmbeddedWebSession::isNetworkURL(source) || overte::web::EmbeddedWebSession::isPackagedURL(source, root));
+      authorized = openSourceSession(source, root);
+      _session.setVisible(isVisible() && isEnabled()); _page = 0; _document = QUrl(); browser = _mapping.toBrowser(_session.url()); }
     _sourceAuthorized = authorized;
     publishResourceSource();
     if (!authorized) {
@@ -176,9 +215,9 @@ void NativeWebViewItem::create() {
     const QString root = scriptRoot(source);
     QUrl browser; { QMutexLocker guard(&_mutex);
         // Each new WebView has a fresh source revision even if its URL is unchanged.
-        _session.open(source, _surface == Tablet ? overte::web::Surface::Tablet : overte::web::Surface::WorldEntity, _sourceIdentity, root);
+        if (!openSourceSession(_mapping.canonicalSource(QUrl(_url)), root)) return;
         _page = 0; _document = QUrl();
-        browser = _resumeDocument.isEmpty() ? _mapping.toBrowser(source) : _resumeDocument;
+        browser = _resumeDocument.isEmpty() ? _mapping.toBrowser(_session.url()) : _resumeDocument;
     }
     const QString script = resourceText(":/overte/android/web/resources/transport.js") + '\n' + _bootstrap;
     const QString editorScript = resourceText(":/overte/android/web/resources/editor-transport.js") + '\n' + resourceText(":/overte/android/web/resources/editor.js");
@@ -208,6 +247,15 @@ quint64 NativeWebViewItem::lifecycleRevision() const { QMutexLocker guard(&_mute
     const auto value = _session.generation(); return value <= quint64(std::numeric_limits<jlong>::max()) ? value : 0; }
 bool NativeWebViewItem::current(quint64 grant, quint64 page) const { return !_suspendedDocument && _session.active() && grant && grant == _session.generation() && page && page == _page; }
 QUrl NativeWebViewItem::sourceURL(const QUrl& browser) const { return _mapping.toSource(browser); }
+bool NativeWebViewItem::matchesOrigin(const QUrl& document, const QUrl& origin) const {
+    if (overte::web::EmbeddedWebSession::sameOrigin(document, origin)) return true;
+    const auto transport = _session.url();
+    return _inlineProvided && _session.allowsInlineResponse(_session.generation(), document, true, "GET")
+        && origin.isValid() && origin.userInfo().isEmpty() && !origin.hasQuery() && !origin.hasFragment()
+        && (origin.path().isEmpty() || origin.path() == "/")
+        && origin.scheme() == transport.scheme() && origin.host() == transport.host()
+        && origin.port(80) == transport.port(80);
+}
 bool NativeWebViewItem::allowsNavigation(quint64 grant, const QUrl& target, bool mainFrame, const QString& method) const {
     QMutexLocker guard(&_mutex); return _session.allowsNavigation(grant, sourceURL(target), mainFrame, method);
 }
@@ -237,7 +285,7 @@ bool NativeWebViewItem::acceptMessage(quint64 grant, quint64 page, const QUrl& d
                                      bool mainFrame, const QString& type, const QByteArray& payload) {
     { QMutexLocker guard(&_mutex);
       if (!current(grant, page) || !mainFrame || payload.isEmpty() || payload.size() > int(overte::web::EmbeddedWebSession::MAX_BRIDGE_BYTES)
-          || !overte::web::EmbeddedWebSession::sameOrigin(document, origin)
+          || !matchesOrigin(document, origin)
           || (type == "channel" ? !_session.allowsBridge(grant, sourceURL(document), mainFrame, payload.size())
                                 : !_session.allowsNavigation(grant, sourceURL(document), true, "GET"))
           || document.adjusted(QUrl::RemoveFragment) != _document.adjusted(QUrl::RemoveFragment)
@@ -267,7 +315,9 @@ void NativeWebViewItem::acceptState(quint64 grant, quint64 page, const QUrl& doc
     QPointer<NativeWebViewItem> self(this); QMetaObject::invokeMethod(this, [self, grant, page, document, loading, back, forward, bridge, status] {
         if (!self) return;
         { QMutexLocker guard(&self->_mutex); if (!self->current(grant, page)) return;
-          self->_document = document; self->_currentUrl = self->sourceURL(document).toString();
+          self->_document = document; self->_currentUrl = self->_inlineProvided
+              && document.adjusted(QUrl::RemoveFragment) == self->_inlineDocument.transportURL().adjusted(QUrl::RemoveFragment)
+              ? self->_url : self->sourceURL(document).toString();
           self->_bridgeAvailable = bridge && self->_session.allowsBridge(grant, self->sourceURL(document), true, 1); }
         self->_loading = loading; self->_canGoBack = back; self->_canGoForward = forward; self->_status = status;
         if (bridge && !self->_bridgeAvailable) self->_status = 9;
@@ -304,7 +354,9 @@ void NativeWebViewItem::acceptSuspended(quint64 revision, const QUrl& document, 
     QPointer<NativeWebViewItem> self(this); QMetaObject::invokeMethod(this, [self, revision, document, back, forward, birth] {
         if (!self || birth != self->_creationRevision || !self->_sourceAuthorized || self->lifecycleRevision() != revision) return;
         { QMutexLocker guard(&self->_mutex); self->_suspendedDocument = true; } self->_loading = false; self->_bridgeAvailable = false;
-        self->_currentUrl = document.toString(); self->_canGoBack = back; self->_canGoForward = forward;
+        self->_resumeDocument = document;
+        self->_currentUrl = self->_inlineProvided && document.adjusted(QUrl::RemoveFragment) == self->_inlineDocument.transportURL().adjusted(QUrl::RemoveFragment)
+            ? self->_url : document.toString(); self->_canGoBack = back; self->_canGoForward = forward;
         self->_status = 10; self->_callbacks.clear(); self->resetEditor();
         { QMutexLocker guard(&self->_mutex); self->_image = QImage(); }
         self->update(); emit self->stateChanged();
@@ -317,7 +369,7 @@ void NativeWebViewItem::requestResume(quint64 revision, const QUrl& document, qu
         QUrl source; { QMutexLocker guard(&self->_mutex); source = self->_session.url(); }
         const QString root = self->scriptRoot(source);
         { QMutexLocker guard(&self->_mutex);
-            self->_session.open(source, self->_surface == Tablet ? overte::web::Surface::Tablet : overte::web::Surface::WorldEntity, self->_sourceIdentity, root);
+            if (!self->openSourceSession(self->_mapping.canonicalSource(QUrl(self->_url)), root)) return;
             self->_page = 0; self->_document = QUrl(); self->_suspendedDocument = false;
         }
         self->_callbacks.clear(); self->_resumeDocument = document; self->_created = false;
@@ -353,10 +405,19 @@ void NativeWebViewItem::publishResourceSource() {
     const auto grant = _session.active() && _sourceAuthorized ? _session.generation() : 0;
     if (_resourceState && _resourceGrant == grant && _resourceCreation == _creationRevision && _resourceState->active()) return;
     if (_resourceState) _resourceState->revoke();
+    disconnect(_resourceRevocation);
     _resourceState.reset(); _resourceGrant = grant; _resourceCreation = _creationRevision;
     if (grant && _creationRevision) {
         overte::android::web::NativeResourceSource source;
         source.grant = grant; source.creation = _creationRevision; source.mapping = _mapping;
+        if (_inlineProvided && _inlineDocument.current()) {
+            source.inlineURL = _inlineDocument.transportURL(); source.bytes = _inlineDocument.bytes();
+            source.charset = _inlineDocument.charset(); source.revision = _inlineDocument.revision();
+            const auto valid = source.valid;
+            _resourceRevocation = _inlineDocument.onRevoked(this, [valid] {
+                valid->store(false, std::memory_order_release);
+            }, Qt::DirectConnection);
+        }
         _resourceState = std::make_shared<overte::android::web::NativeResourceState>(std::move(source));
     }
     QMutexLocker resources(&resourceRegistryMutex);
@@ -444,7 +505,7 @@ void NativeWebViewItem::acceptResult(quint64 grant, quint64 page, quint64 reques
     }, Qt::QueuedConnection);
 }
 void NativeWebViewItem::stop() { jvalue args[1]; args[0].j = _handle; call("stop", "(J)V", args); }
-void NativeWebViewItem::reload() { if (_suspendedDocument) { requestResume(lifecycleRevision(), QUrl(_currentUrl), _creationRevision); return; } jvalue args[1]; args[0].j = _handle; call("reload", "(J)V", args); }
+void NativeWebViewItem::reload() { if (_suspendedDocument) { requestResume(lifecycleRevision(), _resumeDocument.isEmpty() ? QUrl(_currentUrl) : _resumeDocument, _creationRevision); return; } jvalue args[1]; args[0].j = _handle; call("reload", "(J)V", args); }
 void NativeWebViewItem::goForward() { jvalue args[1]; args[0].j = _handle; call("goForward", "(J)V", args); }
 void NativeWebViewItem::reloadAndBypassCache() { if (_suspendedDocument) { reload(); return; } jvalue args[1]; args[0].j = _handle; call("reloadAndBypassCache", "(J)V", args); }
 void NativeWebViewItem::unfocus() { setFocus(false); resetEditor(); jvalue args[2]; args[0].j = _handle; args[1].z = false; call("focus", "(JZ)V", args); }
@@ -560,11 +621,12 @@ void NativeWebViewItem::injectUserScript(quint64 grant, quint64 page, const QUrl
     if (redirects > 5) { _status = 7; emit stateChanged(); return; }
     auto* network = new QNetworkAccessManager(this); QNetworkRequest request(url);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
-    auto* reply = network->get(request); auto* timeout = new QTimer(reply); timeout->setSingleShot(true); timeout->start(10000);
+    auto* reply = network->get(request); _scriptReplies.push_back(reply); auto* timeout = new QTimer(reply); timeout->setSingleShot(true); timeout->start(10000);
     connect(timeout, &QTimer::timeout, reply, &QNetworkReply::abort);
     connect(reply, &QIODevice::readyRead, reply, [reply] { if (reply->bytesAvailable() > 1024 * 1024) reply->abort(); });
     const auto revision = _scriptVersion;
     connect(reply, &QNetworkReply::finished, this, [this, grant, page, url, redirects, reply, network, revision] {
+        _scriptReplies.removeAll(reply);
         { QMutexLocker guard(&_mutex); if (!current(grant, page) || revision != _scriptVersion) { reply->deleteLater(); network->deleteLater(); return; } }
         const auto redirect = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
         if (!redirect.isEmpty()) injectUserScript(grant, page, url.resolved(redirect), redirects + 1);

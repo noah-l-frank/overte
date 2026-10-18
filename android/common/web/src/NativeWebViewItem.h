@@ -12,6 +12,8 @@
 #include <QWebChannel>
 #include <QWebChannelAbstractTransport>
 
+class QNetworkReply;
+
 class NativeWebTransport final : public QWebChannelAbstractTransport {
     Q_OBJECT
 public:
@@ -47,6 +49,7 @@ class NativeWebViewItem : public QQuickItem {
     Q_PROPERTY(QString currentUrl READ currentUrl NOTIFY stateChanged)
     Q_PROPERTY(QString url READ url WRITE setUrl NOTIFY urlChanged)
     Q_PROPERTY(QString scriptUrl READ scriptUrl WRITE setScriptUrl NOTIFY scriptUrlChanged)
+    Q_PROPERTY(QVariant inlineDocument READ inlineDocument WRITE setInlineDocument NOTIFY inlineDocumentChanged)
     Q_PROPERTY(QString userAgent READ userAgent WRITE setUserAgent NOTIFY userAgentChanged)
     Q_PROPERTY(bool useBackground READ useBackground WRITE setUseBackground NOTIFY useBackgroundChanged)
     Q_PROPERTY(QString sourceIdentity READ sourceIdentity WRITE setSourceIdentity NOTIFY sourceIdentityChanged)
@@ -74,6 +77,7 @@ public:
     QString currentUrl() const { return _currentUrl; }
     QString url() const { return _url; } void setUrl(const QString& value);
     QString scriptUrl() const { return _scriptUrl; } void setScriptUrl(const QString& value);
+    QVariant inlineDocument() const { return _inlineCarrier; } void setInlineDocument(const QVariant& value);
     QString userAgent() const { return _userAgent; } void setUserAgent(const QString& value);
     QString sourceIdentity() const { return _sourceIdentity; } void setSourceIdentity(const QString& value);
     QString eventBridgeJavaScript() const { return _bootstrap; } void setEventBridgeJavaScript(const QString& value) { _bootstrap = value; }
@@ -116,6 +120,7 @@ public:
     void acceptInputFocus(quint64 revision, quint64 birth, bool focused);
 signals:
     void editorStateChanged(); void editorFocusChanged(bool active, bool numeric, bool password);
+    void inlineDocumentChanged();
     void urlChanged(); void scriptUrlChanged(); void userAgentChanged(); void useBackgroundChanged();
     void webEventReceived(const QVariant& message);
     void sourceIdentityChanged(); void surfaceChanged(); void presentationChanged(); void stateChanged();
@@ -130,6 +135,10 @@ protected:
     QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
     void focusInEvent(QFocusEvent*) override; void focusOutEvent(QFocusEvent*) override;
 private:
+    bool openSourceSession(const QUrl& source, const QString& root);
+    bool matchesOrigin(const QUrl& document, const QUrl& origin) const;
+    void revokeInlineDocument();
+    void cancelSourceScripts();
     void publishResourceSource();
     void create(); void retryCreation(); void navigate(); void synchronizeVisibility(); void updateGeometry(); void trackGeometry();
     bool evaluate(const QString& script, quint64 grant, quint64 page);
@@ -141,6 +150,11 @@ private:
     bool current(quint64 grant, quint64 page) const;
     QUrl sourceURL(const QUrl& browser) const;
     QString scriptRoot(const QUrl& source) const;
+    QVariant _inlineCarrier;
+    overte::web::InlineHtmlDocument _inlineDocument;
+    bool _inlineProvided { false };
+    QMetaObject::Connection _inlineRevocation, _resourceRevocation;
+    QVector<QPointer<QNetworkReply>> _scriptReplies;
     QString _currentUrl, _url, _scriptUrl, _userAgent, _sourceIdentity, _bootstrap;
     bool _background { true }, _created { false }, _pending { false }, _retryPending { false }, _pressed { false };
     bool _tabletGrant { false }, _suspendedDocument { false }, _sourceAuthorized { false };

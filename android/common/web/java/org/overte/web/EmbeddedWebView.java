@@ -343,7 +343,7 @@ public final class EmbeddedWebView {
     }); }
     public static void goForward(long handle) { navigationInput(handle, instance -> { if (instance.destroyedDocument) { instance.resumeArchive(1); return; }
         if (instance.archive != null) { instance.navigateArchive(1); return; }
-        if (instance.view.canGoForward() && instance.beginAudioNavigation(null)) { instance.document.begin(instance.document.grant()); if (instance.prepareResources(instance.view.getUrl())) instance.view.goForward(); } }); }
+        instance.navigateHistory(1); }); }
     public static void reloadAndBypassCache(long handle) { navigationInput(handle, instance -> {
         if (instance.destroyedDocument) { instance.resumeArchive(0); return; }
         if (instance.beginAudioNavigation(instance.view.getUrl())) { instance.view.clearCache(false); instance.document.begin(instance.document.grant()); if (instance.prepareResources(instance.view.getUrl())) instance.view.reload(); }
@@ -365,7 +365,7 @@ public final class EmbeddedWebView {
     }); }
     public static void goBack(long handle) { navigationInput(handle, instance -> { if (instance.destroyedDocument) { instance.resumeArchive(-1); return; }
         if (instance.archive != null) { instance.navigateArchive(-1); return; }
-        if (instance.view.canGoBack() && instance.beginAudioNavigation(null)) { instance.document.begin(instance.document.grant()); if (instance.prepareResources(instance.view.getUrl())) instance.view.goBack(); } }); }
+        instance.navigateHistory(-1); }); }
     /** Route physical Back through common audio, input, and resource navigation fences. */
     public static boolean goBack(EmbeddedWebHost expectedOwner, WebView view) {
         requireMain();
@@ -378,6 +378,20 @@ public final class EmbeddedWebView {
             }
         }
         return false;
+    }
+    /** Texture hosts may have no Activity-focused child; reject ambiguous offscreen focus. */
+    public static boolean goBack(EmbeddedWebHost expectedOwner) {
+        requireMain();
+        if (expectedOwner == null || host.get() != expectedOwner) return false;
+        WebView selected = null;
+        for (Instance instance : VIEWS.values()) {
+            if (instance.owner != expectedOwner || instance.activity != expectedOwner.activity() || !instance.active
+                    || !instance.visible || instance.destroyedDocument || !instance.view.hasFocus()
+                    || !nativeEditorAllowed(instance.handle, instance.document.grant(), instance.document.page(), instance.view.getUrl())) continue;
+            if (selected != null) return false;
+            selected = instance.view;
+        }
+        return selected != null && goBack(expectedOwner, selected);
     }
     public static void evaluate(long handle, long grant, long page, String javascript) {
         post(handle, instance -> {
@@ -507,6 +521,15 @@ public final class EmbeddedWebView {
                     || !nativeNavigation(handle, revision, url, true, "GET")) return;
             if (delta != 0) archive.select(delta);
             nativeResumeRequest(handle, creationRevision, revision, url);
+        }
+        void navigateHistory(int delta) {
+            android.webkit.WebBackForwardList history = view.copyBackForwardList();
+            int index = history.getCurrentIndex() + delta;
+            if (index < 0 || index >= history.getSize()) return;
+            String target = history.getItemAtIndex(index).getUrl();
+            if (!nativeNavigation(handle, document.grant(), target, true, "GET") || !beginAudioNavigation(target)) return;
+            document.begin(document.grant());
+            if (prepareResources(target)) { if (delta < 0) view.goBack(); else view.goForward(); }
         }
         void navigateArchive(int delta) {
             String url = archive.peek(delta);
