@@ -217,6 +217,11 @@ static void update(WebEntityRenderer& renderer, const EntityItemPointer& entity)
     renderer.doRenderUpdateSynchronousTyped(nullptr, transaction, entity);
 }
 
+static bool absentInlineCarrier(const QSharedPointer<OffscreenQmlSurface>& surface) {
+    const auto value = surface->getSurfaceContext()->contextProperty("nativeInlineHtmlDocument");
+    return !value.isValid() || value.isNull();
+}
+
 static auto inlineDocument(const QSharedPointer<OffscreenQmlSurface>& surface) {
     return surface->getSurfaceContext()->contextProperty("nativeInlineHtmlDocument")
         .value<overte::web::InlineHtmlDocument>();
@@ -242,6 +247,8 @@ int main(int argc, char** argv) {
         assert(!surface->root->isVisible() && !surface->document->isVisible());
         assert(!surface->document->session.active());
         entity->visible = true; update(renderer, entity);
+        assert(absentInlineCarrier(surface)); // Initial ordinary HTTPS supplies no inline grant.
+        assert(surface->root->property("url").toString() == DOCUMENT.toString());
         auto grant = surface->document->session.generation();
         assert(surface->root->isVisible() && surface->document->session.active());
         assert(surface->document->session.allowsBridge(grant, DOCUMENT, true, 10));
@@ -396,6 +403,8 @@ int main(int argc, char** argv) {
         entity->url = DOCUMENT.toString();
         update(renderer, entity);
         assert(!empty.current() && !inlineDocument(surface).current());
+        assert(absentInlineCarrier(surface)); // Inline -> HTTPS removes the supplied carrier.
+        assert(surface->root->property("url").toString() == DOCUMENT.toString());
         assert(surface->getSurfaceContext()->contextProperty("nativeWebSourceIdentity").toString() == identity(entity));
 
         entity->url = "data:text/html,old-owner";
@@ -403,6 +412,7 @@ int main(int argc, char** argv) {
         auto oldOwner = inlineDocument(surface);
         renderer.destroyWebSurface();
         assert(!oldOwner.current() && !inlineDocument(surface).current());
+        assert(absentInlineCarrier(surface));
         assert(surface->getSurfaceContext()->contextProperty("nativeWebSourceIdentity").toString().isEmpty());
         // The actual cache boundary returns this same surface to a different
         // native entity. A copied descriptor must not survive that handover.
