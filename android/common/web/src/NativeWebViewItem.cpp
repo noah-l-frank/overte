@@ -185,6 +185,7 @@ bool NativeWebViewItem::openSourceSession(const QUrl& source, const QString& roo
 }
 void NativeWebViewItem::cancelSourceScripts() {
     const auto replies = _scriptReplies; _scriptReplies.clear();
+    _scriptAttemptGrant = 0; _scriptAttemptPage = 0; _injectedPage = 0;
     for (const auto& reply : replies) if (reply) reply->abort();
 }
 void NativeWebViewItem::revokeInlineDocument() {
@@ -206,7 +207,6 @@ void NativeWebViewItem::navigate() {
     { QMutexLocker guard(&_mutex);
       _mapping = overte::android::web::NativeResourceMapping(root, _handle);
       source = _mapping.canonicalSource(source);
-      _tabletGrant = _surface == Tablet;
       authorized = openSourceSession(source, root); _sourceAuthorized = authorized;
       _session.setVisible(isVisible() && isEnabled()); _page = 0; _document = QUrl(); browser = _mapping.toBrowser(_session.url()); }
     publishResourceSource();
@@ -288,7 +288,7 @@ bool NativeWebViewItem::allowsEditorDocument(quint64 grant, quint64 page, const 
 }
 bool NativeWebViewItem::allowsFileChooser(quint64 grant, quint64 page, const QUrl& document) const {
     QMutexLocker guard(&_mutex);
-    return _tabletGrant && current(grant, page) && sourceURL(document) == sourceURL(_document)
+    return current(grant, page) && sourceURL(document) == sourceURL(_document)
         && _session.allowsNavigation(grant, sourceURL(document), true, "GET");
 }
 void NativeWebViewItem::acceptPage(quint64 grant, quint64 page, const QUrl& document) {
@@ -339,7 +339,11 @@ void NativeWebViewItem::acceptState(quint64 grant, quint64 page, const QUrl& doc
         self->_loading = loading; self->_canGoBack = back; self->_canGoForward = forward; self->_status = status;
         if (bridge && !self->_bridgeAvailable) self->_status = 9;
         emit self->stateChanged();
-        if (!loading && self->_injectedPage != page) { self->_injectedPage = page; self->injectUserScript(grant, page, QUrl(self->_scriptUrl)); }
+        // A fetch attempted under a suspended grant is not a completed injection.
+        // A retained page may publish again with a new grant after resume.
+        if (!loading && self->_injectedPage != page
+            && (self->_scriptAttemptGrant != grant || self->_scriptAttemptPage != page))
+            self->injectUserScript(grant, page, QUrl(self->_scriptUrl));
     }, Qt::QueuedConnection);
 }
 void NativeWebViewItem::acceptFrame(quint64 grant, quint64 page, const void* pixels, qsizetype bytes, int width, int height) {
@@ -536,7 +540,28 @@ void NativeWebViewItem::hoverEnterEvent(QHoverEvent* event) { pointer(9, event->
 void NativeWebViewItem::hoverMoveEvent(QHoverEvent* event) { pointer(7, event->posF()); event->accept(); }
 void NativeWebViewItem::hoverLeaveEvent(QHoverEvent* event) { pointer(10, event->posF()); event->accept(); }
 void NativeWebViewItem::wheelEvent(QWheelEvent* event) {
-    const auto dy = event->angleDelta().y(); runJavaScript(QStringLiteral("window.scrollBy(0,%1);").arg(-dy)); event->accept();
+    event->ignore();
+    const auto position = event->position();
+    if (!isVisible() || !isEnabled() || !boundingRect().contains(position) || width() <= 0 || height() <= 0) return;
+    quint64 grant, page; QUrl document;
+    { QMutexLocker guard(&_mutex);
+      if (!_inputFocused) return;
+      grant = _session.generation(); page = _page; document = _document;
+    }
+    // Scrolling is private document input, independent of source EventBridge
+    // authority and of whether a text editor currently has focus.
+    if (!allowsEditorDocument(grant, page, document)) return;
+    Jni jni; if (!jni.env || !backend.load()) return;
+    const auto size = sceneBounds().size();
+    const qreal sx = size.width() / width(), sy = size.height() / height();
+    const auto pixel = event->pixelDelta(), angle = event->angleDelta();
+    jstring url = jni.string(document.toString(QUrl::FullyEncoded)); if (!url) return;
+    jvalue args[11]; args[0].j = _handle; args[1].j = grant; args[2].j = page; args[3].l = url;
+    args[4].f = position.x() * sx; args[5].f = position.y() * sy;
+    args[6].f = pixel.x() * sx; args[7].f = pixel.y() * sy;
+    args[8].f = angle.x(); args[9].f = angle.y(); args[10].z = !pixel.isNull();
+    if (call("wheel", "(JJJLjava/lang/String;FFFFFFZ)V", args)) event->accept();
+    jni.env->DeleteLocalRef(url);
 }
 void NativeWebViewItem::editorCommand(const QJsonObject& command) { if (!_editorActive || !hasActiveFocus()) return;
     quint64 grant, page; QUrl document;
@@ -552,7 +577,9 @@ void NativeWebViewItem::editorCommand(const QJsonObject& command) { if (!_editor
 }
 void NativeWebViewItem::keyPressEvent(QKeyEvent* event) {
     if (!_editorActive || (event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))) { event->ignore(); return; }
-    if (event->key() == Qt::Key_Backspace) editorCommand({{"action", "backspace"}});
+    if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)
+        editorCommand({{"action", "enter"}, {"shift", bool(event->modifiers() & Qt::ShiftModifier)}});
+    else if (event->key() == Qt::Key_Backspace) editorCommand({{"action", "backspace"}});
     else if (event->key() == Qt::Key_Delete) editorCommand({{"action", "delete"}});
     else if (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right || event->key() == Qt::Key_Home || event->key() == Qt::Key_End) {
         const auto action = event->key() == Qt::Key_Left ? "left" : event->key() == Qt::Key_Right ? "right" : event->key() == Qt::Key_Home ? "home" : "end";
@@ -626,9 +653,15 @@ QString NativeWebViewItem::statusText() const { switch (_status) {
 void NativeWebViewItem::injectUserScript(quint64 grant, quint64 page, const QUrl& url, int redirects) {
     if (url.isEmpty()) return; QString root = scriptRoot(url);
     { QMutexLocker guard(&_mutex); if (!current(grant, page) || !_session.allowsBridge(grant, sourceURL(_document), true, 1) || !_session.allowsScriptURL(url, root)) return; }
+    if (!redirects) {
+        cancelSourceScripts();
+        _scriptAttemptGrant = grant; _scriptAttemptPage = page;
+    }
     if (!root.isEmpty()) {
         QFile file(url.scheme() == "qrc" ? ':' + url.path() : url.toLocalFile());
-        if (file.open(QFile::ReadOnly) && file.size() <= 1024 * 1024) evaluate(QString::fromUtf8(file.readAll()), grant, page);
+        if (file.open(QFile::ReadOnly) && file.size() <= 1024 * 1024) {
+            if (evaluate(QString::fromUtf8(file.readAll()), grant, page)) _injectedPage = page;
+        }
         else { _status = 7; emit stateChanged(); } return;
     }
     if (redirects > 5) { _status = 7; emit stateChanged(); return; }
@@ -643,7 +676,9 @@ void NativeWebViewItem::injectUserScript(quint64 grant, quint64 page, const QUrl
         { QMutexLocker guard(&_mutex); if (!current(grant, page) || revision != _scriptVersion) { reply->deleteLater(); network->deleteLater(); return; } }
         const auto redirect = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
         if (!redirect.isEmpty()) injectUserScript(grant, page, url.resolved(redirect), redirects + 1);
-        else if (reply->error() == QNetworkReply::NoError && reply->bytesAvailable() <= 1024 * 1024) evaluate(QString::fromUtf8(reply->readAll()), grant, page);
+        else if (reply->error() == QNetworkReply::NoError && reply->bytesAvailable() <= 1024 * 1024) {
+            if (evaluate(QString::fromUtf8(reply->readAll()), grant, page)) _injectedPage = page;
+        }
         else { _status = 7; emit stateChanged(); }
         reply->deleteLater(); network->deleteLater();
     });

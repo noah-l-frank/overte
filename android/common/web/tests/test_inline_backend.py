@@ -41,6 +41,10 @@ try:
         abi=run([a.jdk/'bin/javap','-s','-p','-classpath',stage,'org.overte.web.WebResourceLease$Response'],capture_output=True,text=True).stdout
         (a.evidence_dir/'response-abi.txt').write_text(abi)
         assert '(I[BLjava/lang/String;Ljava/lang/String;)V' in abi
+        native_api=run([a.jdk/'bin/javap','-s','-p','-classpath',stage,'org.overte.web.EmbeddedWebView'],capture_output=True,text=True).stdout
+        (a.evidence_dir/'native-api-abi.txt').write_text(native_api)
+        assert 'wheel(long, long, long, java.lang.String, float, float, float, float, float, float, boolean)' in native_api
+        assert '(JJJLjava/lang/String;FFFFFFZ)V' in native_api
         moc=stage/'moc.cpp';qrc=stage/'resources.cpp'
         run([qtbin/'moc',web/'src/NativeWebViewItem.h','-o',moc]);run([qtbin/'rcc',web/'embedded-web.qrc','-o',qrc])
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','Qt5Quick','Qt5WebChannel','Qt5Network'],env=env,text=True))

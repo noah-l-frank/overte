@@ -15,6 +15,7 @@ import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.InputDevice;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.webkit.CookieManager;
 import android.webkit.PermissionRequest;
 import android.webkit.RenderProcessGoneDetail;
@@ -421,6 +422,16 @@ public final class EmbeddedWebView {
             });
         });
     }
+    /** Private native input: never grants evaluateJavascript or EventBridge authority. */
+    public static void wheel(long handle, long grant, long page, String expectedDocument,
+            float x, float y, float pixelX, float pixelY, float angleX, float angleY, boolean pixelMode) {
+        input(handle, instance -> {
+            if (!instance.document.admits(grant, page, true, 1)
+                    || !nativeEditorAllowed(handle, grant, page, expectedDocument)
+                    || !nativeEditorAllowed(handle, grant, page, instance.view.getUrl())) return;
+            instance.dispatchWheel(x, y, pixelX, pixelY, angleX, angleY, pixelMode);
+        });
+    }
     public static void pointer(long handle, int action, float x, float y) {
         input(handle, instance -> instance.dispatchPointer(action, x, y));
     }
@@ -625,6 +636,34 @@ public final class EmbeddedWebView {
             try { if (hover) view.dispatchGenericMotionEvent(event); else view.dispatchTouchEvent(event); }
             finally { event.recycle(); }
         }
+        void dispatchWheel(float x, float y, float pixelX, float pixelY, float angleX, float angleY, boolean pixelMode) {
+            if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(pixelX) || !Float.isFinite(pixelY)
+                    || !Float.isFinite(angleX) || !Float.isFinite(angleY)) return;
+            float px = overlay ? x : textureScale.pointer(x), py = overlay ? y : textureScale.pointer(y);
+            int width = overlay ? bounds.width() : textureScale.layoutWidth;
+            int height = overlay ? bounds.height() : textureScale.layoutHeight;
+            if (px < 0 || py < 0 || px >= width || py >= height) return;
+            ViewConfiguration configuration = ViewConfiguration.get(activity);
+            float horizontal = angleX / 120f, vertical = angleY / 120f;
+            if (pixelMode) {
+                float factorX = configuration.getScaledHorizontalScrollFactor(), factorY = configuration.getScaledVerticalScrollFactor();
+                if (!Float.isFinite(factorX) || !Float.isFinite(factorY) || factorX <= 0 || factorY <= 0) return;
+                horizontal = (overlay ? pixelX : textureScale.pointer(pixelX)) / factorX;
+                vertical = (overlay ? pixelY : textureScale.pointer(pixelY)) / factorY;
+            }
+            if (!Float.isFinite(horizontal) || !Float.isFinite(vertical) || horizontal == 0 && vertical == 0) return;
+            MotionEvent.PointerProperties pointer = new MotionEvent.PointerProperties();
+            pointer.id = 0; pointer.toolType = MotionEvent.TOOL_TYPE_MOUSE;
+            MotionEvent.PointerCoords coordinates = new MotionEvent.PointerCoords();
+            coordinates.x = px; coordinates.y = py;
+            coordinates.setAxisValue(MotionEvent.AXIS_HSCROLL, horizontal);
+            coordinates.setAxisValue(MotionEvent.AXIS_VSCROLL, vertical);
+            long now = SystemClock.uptimeMillis();
+            MotionEvent event = MotionEvent.obtain(now, now, MotionEvent.ACTION_SCROLL, 1,
+                new MotionEvent.PointerProperties[] { pointer }, new MotionEvent.PointerCoords[] { coordinates },
+                0, 0, 1, 1, 0, 0, InputDevice.SOURCE_MOUSE, 0);
+            try { view.dispatchGenericMotionEvent(event); } finally { event.recycle(); }
+        }
         void cancelInput() {
             if (pointerState.pressed()) dispatchPointer(MotionEvent.ACTION_CANCEL, 0, 0);
             if (pointerState.hovering()) dispatchPointer(MotionEvent.ACTION_HOVER_EXIT, 0, 0);
@@ -717,12 +756,17 @@ public final class EmbeddedWebView {
                 EmbeddedWebHost owner = host.get();
                 long page = document.page(), lease = ++pickerLease;
                 String sourceIdentity = requestedUrl, documentIdentity = view.getUrl();
-                if (!visible || owner == null || !owner.isForeground()
+                if (source != view || VIEWS.get(handle) != Instance.this || !active || destroyedDocument
+                        || !visible || owner == null || owner != Instance.this.owner || owner.activity() != activity
+                        || !owner.isForeground() || !activity.hasWindowFocus() || !INPUT.permits(INPUT.capture(), owner)
                         || !nativeFileChooserAllowed(handle, document.grant(), page, documentIdentity)) { result.onReceiveValue(null); return true; }
                 WebFileChoiceLease selected = new WebFileChoiceLease(Instance.this, owner, page, sourceIdentity, documentIdentity);
                 ValueCallback<Uri[]> guarded = values -> {
                     int decision = selected.consume(Instance.this, host.get(), document.page(), requestedUrl, view.getUrl(),
-                        lease == pickerLease, active, visible, owner.isForeground(),
+                        lease == pickerLease && VIEWS.get(handle) == Instance.this
+                            && owner == Instance.this.owner && owner.activity() == activity,
+                        active && !destroyedDocument, visible,
+                        owner.isForeground() && activity.hasWindowFocus() && INPUT.permits(INPUT.capture(), owner),
                         nativeFileChooserAllowed(handle, document.grant(), document.page(), view.getUrl()));
                     if (decision == 0) return;
                     if (lease == pickerLease) ++pickerLease;
