@@ -3066,6 +3066,11 @@ class NativeRetainedParentEvidenceTests(unittest.TestCase):
         members.start();self.addCleanup(members.stop)
         self.profile={'profile':C.producer.FULL_PROFILE,'binding':None,'suites':list(self.registry['suites']),
             'selection':{'suites':list(self.registry['suites']),'full_host':True,'include_platform':True,'reason':'fixture-full-owner'}}
+        if getattr(self,'common_subset',False):
+            names=list(self.registry['suites'])[:2]
+            self.profile['suites']=names
+            self.profile['selection'].update(suites=names,reason='protected-affected-dependencies',
+                affected={'dependency_schema':2,'target':parent_target,'required':names})
         if getattr(self,'ci_original',False):
             selected=deepcopy(holder.selection)
             raw_blobs={C.source_admission.blob_id((self.root/name).read_bytes()):(self.root/name).read_bytes()
@@ -3737,7 +3742,8 @@ class NativeCurrentPrEvidenceTests(unittest.TestCase):
         NativeRetainedParentEvidenceTests.setUpClass()
 
     def setUp(self):
-        self.f = NativeRetainedParentEvidenceTests(); self.f.ci_original = True
+        self.f = NativeRetainedParentEvidenceTests(); self.f.ci_original = not self._testMethodName.startswith('test_full_')
+        self.f.common_subset = self._testMethodName == 'test_full_subset_keeps_only_actual_selected_common_results'
         self.addCleanup(self.f.doCleanups); self.f.setUp()
         f = self.f; self.C = f.controller; self.case = f.case
         binding = self.case.binding
@@ -3774,8 +3780,8 @@ class NativeCurrentPrEvidenceTests(unittest.TestCase):
             patcher.start(); self.addCleanup(patcher.stop)
 
     def verify(self, **kwargs):
-        return gate.native_pr_evidence(self.f.native.transport, config(), self.request,
-            timeout=0, clock=lambda:self.f.fixtures.NOW, **kwargs)
+        arguments = {'timeout':0, 'clock':lambda:self.f.fixtures.NOW, **kwargs}
+        return gate.native_pr_evidence(self.f.native.transport, config(), self.request, **arguments)
 
     def test_real_schema4_retained_source_is_consumed_at_original_m_without_new_execution(self):
         value = self.verify()
@@ -3793,6 +3799,87 @@ class NativeCurrentPrEvidenceTests(unittest.TestCase):
         self.assertFalse(value['reusable']); self.assertFalse(value['qualification'])
         self.C.execution.execute.assert_not_called()
         self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_full_schema4_common_and_android_native_owner_use_original_E_once(self):
+        value = self.verify()
+        self.assertEqual(self.f.receipt['schema'], 4)
+        self.assertEqual(value['environment'], self.f.environment)
+        self.assertEqual(value['requested_suites'], list(self.f.registry['suites']))
+        self.assertEqual(value['platform_commands'], self.f.partition['commands'])
+        self.assertEqual(value['original_platform_observation']['job_id'], 140)
+        self.assertFalse(value['original_platform_observation']['reusable'])
+        self.assertEqual(value['platform_partition'], self.f.partition['digest'])
+        self.assertEqual(self.f.receipt['platform_results'], {})
+        self.C.execution.execute.assert_not_called()
+        self.C.execution.capture_execution_environment.assert_not_called()
+
+    def pending_native_build(self):
+        self.case.runs[100].update(status='in_progress', conclusion=None)
+        build=deepcopy(self.case.jobs[100][1])
+        build.update(id=160,name='native / tests',status='in_progress',conclusion=None,completed_at=None,
+            check_run_url=f'https://api.github.com/{self.C.A.PREFIX}/check-runs/160',steps=[])
+        self.case.jobs[100].append(build)
+        return build
+
+    def test_full_completed_shared_owner_does_not_wait_for_unrelated_native_build(self):
+        self.pending_native_build()
+        with mock.patch.object(self.C.A.Adapter,'verify',side_effect=AssertionError('ordinary verifier stays strict')):
+            value=self.verify()
+        self.assertFalse(value['original_proof']['overall_run_complete'])
+        self.assertEqual(value['original_proof']['purpose'],'current-pr-sync-selected-owners-only')
+        self.assertFalse(value['original_proof']['qualification']);self.assertFalse(value['original_proof']['reusable'])
+        self.assertEqual(value['original_commit'],self.case.binding['merge_sha'])
+        self.assertEqual(value['environment'],self.f.environment)
+        self.assertEqual(value['original_platform_observation']['job_id'],140)
+        self.C.execution.execute.assert_not_called()
+        self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_full_failed_cancelled_or_unknown_native_build_blocks_shared_success(self):
+        build=self.pending_native_build()
+        for conclusion in ('failure','cancelled','timed_out','unknown'):
+            build.update(status='completed',conclusion=conclusion,completed_at='2026-10-15T10:04:30Z')
+            with self.subTest(conclusion=conclusion),self.assertRaises(gate.NativeSyncOwnerError): self.verify()
+        self.C.execution.execute.assert_not_called()
+
+    def test_full_pending_selected_jobs_wait_thinly_then_rebuild_complete_api_proof(self):
+        self.pending_native_build()
+        original=deepcopy(self.case.jobs[100])
+        self.case.jobs[100][1].update(status='in_progress',conclusion=None,completed_at=None)
+        self.case.jobs[100][2].update(status='queued',conclusion=None,started_at=None,completed_at=None)
+        elapsed=[0];sleeps=[]
+        def sleep(seconds):
+            sleeps.append(seconds);elapsed[0]+=seconds
+            # No API fact is accepted from the sleep callback: the subsequent
+            # real Adapter capture re-reads every source/job/artifact predicate.
+            self.case.jobs[100]=deepcopy(original)
+        original_capture=self.C.A.Adapter.capture
+        with mock.patch.object(self.C.A.Adapter,'capture',autospec=True,side_effect=original_capture) as capture:
+            value=self.verify(timeout=1800,monotonic=lambda:elapsed[0],sleep=sleep)
+        self.assertEqual(sleeps,[30])
+        self.assertEqual(capture.call_count,3)
+        self.assertFalse(value['original_proof']['overall_run_complete'])
+        self.assertEqual(value['requested_suites'],list(self.f.registry['suites']))
+        self.C.execution.execute.assert_not_called()
+
+    def test_full_subset_keeps_only_actual_selected_common_results(self):
+        value = self.verify()
+        expected = list(self.f.registry['suites'])[:2]
+        self.assertEqual(value['requested_suites'], expected)
+        self.assertEqual(set(value['results']['suites']), set(expected))
+        self.assertLess(len(expected), len(self.f.registry['suites']))
+        self.assertEqual(value['platform_commands'], self.f.partition['commands'])
+        self.assertFalse(value['reusable']); self.assertFalse(value['qualification'])
+        self.C.execution.execute.assert_not_called()
+
+    def test_full_failed_missing_or_mixed_platform_owner_cannot_use_common_receipt(self):
+        jobs = deepcopy(self.case.jobs[100])
+        for shape in ('failed', 'missing', 'attempt'):
+            self.case.jobs[100] = deepcopy(jobs)
+            if shape == 'missing': self.case.jobs[100].pop()
+            elif shape == 'attempt': self.case.jobs[100][-1]['run_attempt'] = 2
+            else: self.case.jobs[100][-1]['conclusion'] = 'failure'
+            with self.subTest(shape=shape), self.assertRaises(gate.NativeSyncOwnerError): self.verify()
+        self.C.execution.execute.assert_not_called()
 
     def test_missing_native_hash_or_failed_owner_blocks_without_second_executor(self):
         jobs = deepcopy(self.case.jobs[100])
@@ -3818,6 +3905,8 @@ class NativeCurrentPrEvidenceTests(unittest.TestCase):
 
     def test_pending_owner_times_out_without_duplicate_sync_execution(self):
         self.case.runs[100].update(status='in_progress', conclusion=None)
+        self.case.jobs[100][1].update(status='in_progress',conclusion=None,completed_at=None)
+        self.case.jobs[100][-1].update(status='queued',conclusion=None,started_at=None,completed_at=None)
         with self.assertRaises(gate.NativeSyncOwnerError): self.verify()
         self.C.execution.execute.assert_not_called()
 

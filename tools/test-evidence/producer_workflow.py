@@ -815,19 +815,20 @@ def sync_source_ready(candidate, event, context):
     never accepted as the producer's actual native pre-import admission.
     """
     return sync_source_admission(inputs.full_tree(candidate, context['base']),
-        inputs.full_tree(candidate, context['candidate']), inputs.full_tree(ROOT, 'HEAD'), event)
+        inputs.full_tree(candidate, context['candidate']), inputs.full_tree(ROOT, 'HEAD'), event,
+        read_blob=lambda oid: source_blob(candidate, oid))
 
 
-def sync_source_admission(previous, current, local, event):
+def sync_source_admission(previous, current, local, event, *, read_blob=None):
     """The same pure source decision for routing and the trusted Sync reader."""
     try:
-        return _sync_source_admission(previous, current, local, event)
+        return _sync_source_admission(previous, current, local, event, read_blob=read_blob)
     except (source_admission.SourceUnavailable, PreExecutionUnavailable, ci_profile.CIProfileError,
             OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
         return False
 
 
-def _sync_source_admission(previous, current, local, event):
+def _sync_source_admission(previous, current, local, event, *, read_blob):
     protected_admission()
     pr = event['pull_request']
     target = pr['base']['ref']
@@ -841,8 +842,7 @@ def _sync_source_admission(previous, current, local, event):
     paths = sorted(path for path in previous.keys() | current.keys() if previous.get(path) != current.get(path))
     config, branches = package.load('sync_source_repository_policy', 'tools/repository-checks/check.py').configuration()
     checks = package.load('sync_source_legacy_classifier', 'tools/repository-checks/check.py')
-    if not paths or checks.plan(event, paths, config, branches)['mode'] != 'delegated-sync' \
-            or any(not policy.ci_owned(path) for path in paths):
+    if not paths or checks.plan(event, paths, config, branches)['mode'] != 'delegated-sync':
         return False
     repair = json.loads(package._trusted_bytes('.github/sync-test-reuse.json', git_fallback=True))
     if pr['head']['ref'].startswith('reconcile/') and set(paths).intersection(
@@ -866,10 +866,22 @@ def _sync_source_admission(previous, current, local, event):
                      'immutable Sync routing source differs from actual trusted bytes')
         return raw, entry
     source_admission.compatibility(previous, local, target, read_actual=read, actual_imports=imports)
+    registry = inputs.load_registry(ROOT / '.github/test-suites.json')
+    profile = selection_profile(policy, registry, current, previous, local,
+        root=ROOT, target=target, read_blob=read_blob)
+    selected = profile['selection']
+    partition = platform_partition(policy, profile, registry, current, previous, local,
+        root=ROOT, target=target, read_blob=read_blob)
+    if partition is None and not source_admission.shared_platform_supported(
+            selected, target, current.get(source_admission.PROFILE)):
+        return False
+    if profile['profile'] == FULL_PROFILE:
+        # The existing producer derives full/affected common commands and any
+        # Android partition. New definitions still require monotonic fallback.
+        return selected['full_host'] is True and bool(profile['suites'])
     runtime_policy = ci_profile.load_policy(ROOT)
-    selected = policy.select(current, paths, True, base_tree=previous, trusted_tree=local,
-        candidate_root=ROOT, trusted_root=ROOT, target=target)
-    return ci_profile.SOURCE_READY is True and runtime_policy['enabled'] is True \
+    return profile['profile'] == ci_profile.PROFILE and ci_profile.SOURCE_READY is True \
+        and runtime_policy['enabled'] is True \
         and runtime_policy.get('generation_kind') == ci_profile.SEVEN_CONTROLLER_KIND \
         and selected['full_host'] is False and selected['include_platform'] is False \
         and bool(selected['suites']) \

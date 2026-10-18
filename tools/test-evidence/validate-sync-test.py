@@ -1506,5 +1506,129 @@ class NativeCurrentPrConsumerTests(unittest.TestCase):
                 self.assertFalse(f.args.receipt.exists())
 
 
+class NativeProductPrConsumerTests(unittest.TestCase):
+    """Real source plans and tiny Git inputs; native proof is a verifier seam."""
+    def setUp(self):
+        self.f = NativeCurrentPrConsumerTests(); self.f.setUp()
+        self.addCleanup(self.f.doCleanups)
+        f = self.f.f; self.fixture = f
+        # This is an actual product delta, so the unchanged reviewed CI graph
+        # must select full setup. The native owner still supplies original E.
+        (f.candidate / 'libraries/alpha.cpp').write_text('changed product implementation\n')
+        f.ci_refresh()
+        self.f.evidence.update(candidate_inputs=deepcopy(f.tree), tested_inputs=deepcopy(f.tree),
+            original_commit=f.commit, results=deepcopy(f.make_evidence()['results']),
+            platform_commands=[], original_platform_observation=None, platform_partition=None)
+        source = SimpleNamespace(sync_source_ready=Mock(return_value=True))
+        f.ci_packages.load = lambda *args: SimpleNamespace(native_owner_policy=lambda: source)
+        original = f.ci_packages.candidate_plan.side_effect
+        f.ci_packages.candidate_plan.side_effect = lambda *args: {**original(*args),
+            'host_mode':'full' if source.sync_source_ready.return_value else 'delegated-sync'}
+        self.source = source
+        f.args.mode = 'reuse'
+        f.args.expected_selection = ''
+        if self._testMethodName == 'test_affected_full_profile_reports_only_actual_selected_subset':
+            original_select = f.ci_host.select
+            def select(*args, **kwargs):
+                value = original_select(*args, **kwargs)
+                return {**value, 'suites':['alpha'], 'include_platform':False,
+                    'reason':'protected-affected-dependencies'}
+            f.ci_host.select = select
+            self.f.evidence['requested_suites'] = ['alpha']
+            self.f.evidence['results']['suites'] = {'alpha':self.f.evidence['results']['suites']['alpha']}
+
+    def prepare(self):
+        f = self.fixture
+        result = f.ci_prepare()
+        f.args.expected_native_setup = result['native_setup']
+        return result
+
+    def test_product_source_plan_and_no_setup_consume_full_original_owner_once(self):
+        f = self.fixture; selected = self.prepare()
+        self.assertEqual(selected['lane'], 'native-owner')
+        self.assertTrue(selected['full_host'])
+        self.assertEqual(selected['consumer_setup'], 'none')
+        self.assertTrue(selected['native_current_owner_required'])
+        with patch.object(VALIDATION, '_differential') as differential:
+            result = f.validate(runtime_failure=AssertionError('unused consumer E'),
+                execute_override=lambda *a,**kw:self.fail('duplicate full executor'))
+        differential.assert_called_once()
+        self.assertEqual(result['mode'], 'native-current-owner')
+        self.assertEqual(result['reused_suites'], ['alpha','beta'])
+        self.assertEqual(result['executed_suites'], [])
+        self.assertIsNone(result['execution']); self.assertIsNone(result['parent_evidence'])
+        self.assertFalse(result['reusable']); self.assertFalse(result['qualification'])
+        self.assertEqual(f.executed(), [])
+
+    def test_affected_full_profile_reports_only_actual_selected_subset(self):
+        f = self.fixture; selected = self.prepare()
+        self.assertEqual(selected['lane'], 'native-owner')
+        self.assertEqual(selected['suites'], ['alpha'])
+        result = f.validate(runtime_failure=AssertionError('unused consumer E'),
+            execute_override=lambda *a,**kw:self.fail('duplicate subset executor'))
+        self.assertEqual(result['reused_suites'], ['alpha'])
+        self.assertEqual(result['not_selected_suites'], ['beta'])
+        self.assertEqual(result['executed_suites'], [])
+
+    def test_failed_missing_or_incomplete_selected_owner_never_uses_parent_or_executor(self):
+        f = self.fixture; self.prepare()
+        for shape in ('missing','failed','subset'):
+            with self.subTest(shape=shape):
+                original = deepcopy(self.f.evidence)
+                if shape == 'missing': f.gate.native_pr_evidence.side_effect = lambda *a,**kw:None
+                elif shape == 'failed': f.gate.native_pr_evidence.side_effect = ValueError('failed native product owner')
+                else: self.f.evidence['requested_suites'] = ['alpha']
+                with self.assertRaises(ValueError):
+                    f.validate(execute_override=lambda *a,**kw:self.fail('no second executor'))
+                self.f.evidence = original
+                f.gate.native_pr_evidence.side_effect = lambda *a,**kw:deepcopy(self.f.evidence)
+                self.assertFalse(f.args.receipt.exists()); self.assertEqual(f.executed(), [])
+
+    def test_promoted_owner_cannot_be_bypassed_by_fallback_mode(self):
+        f = self.fixture; f.args.mode = 'fallback'
+        with self.assertRaises(ValueError), patch.object(execution, 'execute', side_effect=AssertionError('no second executor')):
+            f.ci_prepare()
+        self.assertEqual(f.executed(), [])
+        self.assertFalse(f.args.receipt.exists())
+
+    def test_unadmitted_product_source_retains_existing_complete_fallback(self):
+        self.source.sync_source_ready.return_value = False
+        f = self.fixture
+        f.gate.native_pr_evidence.side_effect = lambda *a,**kw:None
+        f.gate.native_parent_evidence = Mock(return_value=None)
+        selected = f.ci_prepare()
+        self.assertEqual(selected['lane'], 'complete')
+        self.assertNotIn('native_current_owner_required', selected)
+        self.assertNotIn('native_setup', selected)
+
+    def test_actual_platform_declarations_require_exact_completed_same_pr_native_coverage(self):
+        f = self.fixture
+        (f.candidate / 'tests/platform-profile.json').write_text(json.dumps({'schema':1,'platform':'android',
+            'suites':[{'name':'pico4-device-free','entrypoint':'tests/pico.sh','interpreter':'bash'}]}))
+        (f.candidate / 'tests/pico.sh').write_text('# fixture is never executed\n')
+        f.ci_refresh()
+        commands=[{'name':name,'command':command} for name,command in execution.platform_suites(f.candidate,f.registry['suites'])]
+        self.f.evidence.update(candidate_inputs=deepcopy(f.tree), tested_inputs=deepcopy(f.tree), original_commit=f.commit,
+            results=deepcopy(f.make_evidence()['results']), platform_commands=commands, platform_partition='sha256:'+'a'*64,
+            original_platform_observation={'kind':'original-android-platform-native-job-v1','run_id':100,'attempt':1,
+                'reusable':False,'qualification':False,'partition':'sha256:'+'a'*64})
+        pending={'pico4-device-free':{'owner':'required-android','candidate':f.commit,
+            'plan':'sha256:'+'b'*64,'inventory':'sha256:'+'c'*64}}
+        def owner(*args, **kwargs): return deepcopy(pending) if kwargs.get('native_current') else {}
+        with patch.object(VALIDATION, '_sync_platform_owner', side_effect=owner) as handoff:
+            selected = self.prepare()
+            self.assertEqual(selected['platform_commands'],commands)
+            result=f.validate(execute_override=lambda *a,**kw:self.fail('duplicate platform executor'))
+            self.assertEqual(result['original_platform_commands'],commands)
+            self.assertEqual(result['external_platform_owners'],pending)
+            self.assertFalse(result['reusable']); self.assertIsNone(result['execution'])
+            self.assertTrue(any(call.kwargs.get('native_current') for call in handoff.call_args_list))
+            f.args.receipt.unlink()
+            self.f.evidence['original_platform_observation']=None
+            with self.assertRaises(ValueError):
+                f.validate(execute_override=lambda *a,**kw:self.fail('missing native owner cannot fallback'))
+            self.assertFalse(f.args.receipt.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

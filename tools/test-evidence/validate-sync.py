@@ -180,7 +180,8 @@ def _ci_policy():
     paths = ("tools/test-evidence/validate-sync.py", "tools/test-evidence/execution.py",
              "tools/test-evidence/inputs.py", "tools/test-evidence/runtime.py",
              "tools/sync-test-reuse/gate.py", "tools/sync-test-reuse/differential.py",
-             "tools/repository-checks/host_selection.py", "tools/repository-checks/package_checks.py",
+             "tools/test-evidence/producer_workflow.py", "tools/repository-checks/host_selection.py",
+             "tools/repository-checks/package_checks.py",
              "tools/repository-checks/npm_consumers.py", "tests/run-project-tests.py",
              ".github/test-suites.json", ".github/package-workflow-generations.json",
              ".github/repository-checks.json", "tools/repository-checks/android_handoff.py",
@@ -207,9 +208,9 @@ def _repository_owner_policy():
     return json.loads(path.read_text(), object_pairs_hook=inputs._unique_object)
 
 
-def _sync_platform_owner(args, request, candidate, api):
-    """Only complete fallback may name a separately enforced pending owner."""
-    if args.mode != "fallback" or request.base not in {
+def _sync_platform_owner(args, request, candidate, api, *, native_current=False):
+    """Retain the existing Pico handoff; its plan alone is never success proof."""
+    if (args.mode != "fallback" and not native_current) or request.base not in {
             "android-main", "android-phone", "android-vr", "android-vr-pico"}:
         return {}
     config = _repository_owner_policy()
@@ -248,6 +249,7 @@ def _ci_selection(args, request, candidate, initial, registry, api):
                 omitted_suites=list(registry['suites']))
             result['selection'] = execution.digest(result)
             return result
+    native_selected = False
     if not bounded and not request.repair_paths:
         try:
             host = _trusted_module("sync_ci_host_policy", ROOT / "tools/repository-checks/host_selection.py")
@@ -284,17 +286,32 @@ def _ci_selection(args, request, candidate, initial, registry, api):
                 unknown=plan["unknown"], trusted_tree=inputs.full_tree(ROOT, "HEAD"), candidate_root=candidate,
                 trusted_root=ROOT, target=request.base, base_tree=base_tree,
                 package_paths=host.package_owned_paths(plan))
-            if selected["include_platform"] is not False or not selected["suites"] \
+            if plan.get('host_mode') == 'full' and args.mode != 'reuse':
+                native_selected = True
+                raise ValidationError('promoted native current owner cannot be replaced by a fallback mode')
+            native_selected = plan.get('host_mode') == 'full' and selected['full_host'] is True
+            if native_selected and not packages.load(
+                    'sync_native_source_policy', 'tools/repository-checks/check.py').native_owner_policy().sync_source_ready(
+                        candidate, event, {'base':request.base_sha, 'candidate':initial[0]}):
+                raise ValidationError('promoted native current owner lost its protected source readiness')
+            if (selected["include_platform"] is not False and not native_selected) or not selected["suites"] \
                     or host.additional_suites(host.candidate_registry(candidate), registry):
                 raise ValidationError("complete product/shared fallback remains required")
             if len(set(selected["suites"])) != len(selected["suites"]) \
                     or any(name not in registry["suites"] for name in selected["suites"]):
                 raise ValidationError("affected synchronization suite inventory is invalid")
-            result.update(lane="affected-ci", full_host=selected["full_host"], suites=selected["suites"],
+            result.update(lane="native-owner" if native_selected else "affected-ci",
+                full_host=selected["full_host"], suites=selected["suites"],
                 omitted_suites=[name for name in registry["suites"] if name not in selected["suites"]],
                 external_package_set=plan["package_set"], package_plan=plan["plan"],
                 dependency_selection=selected, package_policy=plan["policy"])
+            if native_selected:
+                result.update(native_current_owner_required=True,
+                    platform_commands=[{'name':name,'command':command}
+                        for name,command in execution.platform_suites(candidate, registry['suites'])])
         except (OSError, ValueError, KeyError, TypeError, AttributeError, ImportError, subprocess.SubprocessError):
+            if native_selected:
+                raise ValidationError('selected native current owner cannot become duplicate fallback') from None
             # No successful diagnostic, unknown reader or missing package owner
             # can authorize omitting complete fallback and its product checks.
             pass
@@ -421,6 +438,8 @@ def _native_ci_reuse(args, gate, api, config, request, registry, local_tree, sel
         current = getattr(gate, 'native_pr_evidence', None)
         evidence = current(api, config, request) if callable(current) else None
         if evidence is None:
+            if selection.get('native_current_owner_required'):
+                raise ValidationError('selected native current owner is unavailable; second execution is forbidden')
             try:
                 evidence = gate.native_parent_evidence(api, config, request)
             except (gate.EvidenceError, gate.GateError):
@@ -428,6 +447,8 @@ def _native_ci_reuse(args, gate, api, config, request, registry, local_tree, sel
     else:
         evidence = native_evidence
     original_pr = isinstance(evidence, getattr(gate, 'NativePrEvidence', ()))
+    if selection.get('native_current_owner_required') and not original_pr:
+        raise ValidationError('selected current PR cannot be replaced with parent evidence')
     if not original_pr and not isinstance(evidence, getattr(gate, 'NativeParentEvidence', ())):
         return None, [], list(selected)
     if evidence.get('candidate_inputs') != local_tree:
@@ -449,6 +470,32 @@ def _native_ci_reuse(args, gate, api, config, request, registry, local_tree, sel
     return evidence, reused, [name for name in selected if name not in reused]
 
 
+
+def _native_current_platform(args, gate, api, request, candidate, registry, selection, evidence):
+    """Match actual declarations to completed native roles; never mint platform E."""
+    actual = [{'name':name,'command':command}
+        for name,command in execution.platform_suites(candidate, registry['suites'])]
+    expected = selection.get('platform_commands', actual)
+    if expected != actual or evidence.get('platform_commands', []) != actual:
+        raise ValidationError('original current PR omits or changes actual platform commands')
+    observation = evidence.get('original_platform_observation')
+    if actual:
+        if not isinstance(observation, dict) or observation.get('kind') != 'original-android-platform-native-job-v1' \
+                or observation.get('run_id') != evidence['original_proof']['run_id'] \
+                or observation.get('attempt') != 1 or observation.get('reusable') is not False \
+                or observation.get('qualification') is not False \
+                or observation.get('partition') != evidence.get('platform_partition'):
+            raise ValidationError('actual platform commands lack their completed same-PR native owner')
+    elif observation is not None or evidence.get('platform_partition') is not None:
+        raise ValidationError('unselected platform owner has an unexpected success claim')
+    pending = _sync_platform_owner(args, request, candidate, api, native_current=True) if actual else {}
+    if pending:
+        execution._validate_platform_owner(pending, request.merge_sha)
+        if set(pending) != {'pico4-device-free'} or not set(pending) <= {row['name'] for row in actual}:
+            raise ValidationError('unknown independent Android ownership in the exact current PR')
+    return pending
+
+
 def _native_zero_setup(args, gate, api, config, request, candidate, initial, registry, selection):
     """Schedule no consumer setup only for actual native zero-command coverage.
 
@@ -456,16 +503,18 @@ def _native_zero_setup(args, gate, api, config, request, candidate, initial, reg
     validator independently reconstructs it before the differential and then
     authenticates the original proof again after that actual validation.
     """
-    if args.mode != 'reuse' or selection['lane'] not in {'affected-ci','complete'} \
+    if args.mode != 'reuse' or selection['lane'] not in {'affected-ci','complete','native-owner'} \
             or request.repair_paths or selection.get('pending_platform_owners'):
         return None, None
-    selected = selection['suites'] if selection['lane'] == 'affected-ci' else list(registry['suites'])
+    selected = selection['suites'] if selection['lane'] in {'affected-ci','native-owner'} else list(registry['suites'])
     tree = inputs.full_tree(candidate, initial[0])
     evidence, reused, required = _native_ci_reuse(args, gate, api, config, request, registry, tree,
-        {'suites': selected})
+        {**selection, 'suites': selected})
     if evidence is None or required or reused != selected:
         return None, None
     original_pr = isinstance(evidence, getattr(gate, 'NativePrEvidence', ()))
+    if original_pr:
+        _native_current_platform(args, gate, api, request, candidate, registry, selection, evidence)
     if not original_pr and execution.platform_suites(candidate, registry['suites']):
         return None, None
     if gate.parse_time(evidence['expires_at'], 'expires_at') <= datetime.now(timezone.utc):
@@ -477,7 +526,10 @@ def _native_zero_setup(args, gate, api, config, request, candidate, initial, reg
         'qualified_at':evidence['qualified_at'], 'expires_at':evidence['expires_at'],
         'original_proof':evidence['original_proof']}
     if original_pr:
-        value['kind'] = 'native-current-pr-zero-command-setup-v1'
+        value.update(kind='native-current-pr-zero-command-setup-v1',
+            platform_commands=evidence.get('platform_commands', []),
+            original_platform_observation=evidence.get('original_platform_observation'),
+            platform_partition=evidence.get('platform_partition'))
     else:
         value['parent_commit'] = evidence['parent_commit']
     return execution.digest(value), evidence
@@ -562,6 +614,8 @@ def validate_sync(args, *, api=None):
         execution._write_receipt(args.receipt, result)
         return result
     affected = selection is not None and selection["lane"] == "affected-ci"
+    native_lane = selection is not None and selection['lane'] == 'native-owner'
+    current_platform = None
     bounded = args.mode == "reuse" and request.profile in ("documentation", "tool-dependencies")
     pending = _sync_platform_owner(args, request, candidate, api) if not affected and not bounded else {}
     no_setup = getattr(args, 'expected_native_setup', '')
@@ -572,11 +626,23 @@ def validate_sync(args, *, api=None):
             candidate, initial, registry, selection)
         if scheduling is None or scheduling != no_setup:
             raise ValidationError('native zero-command setup plan changed; prepared fallback is unavailable')
-    if args.mode == "reuse" or affected:
+    if args.mode == "reuse" or affected or native_lane:
         # Keep every branch differential assertion even when all common suites
         # have matching proof. Bounded profiles share this one invocation.
         _candidate_differential(candidate, request, gate, api)
-    if affected:
+    if native_lane:
+        if _ci_selection(args, request, candidate, initial, registry, api) != selection:
+            raise ValidationError('native current owner selection changed before proof consumption')
+        evidence, reused, ci_required = _native_ci_reuse(args, gate, api, config, request, registry,
+            local_tree, selection, native_evidence=prepared_native)
+        if not isinstance(evidence, getattr(gate, 'NativePrEvidence', ())) or ci_required:
+            raise ValidationError('selected native current owner has no complete proof; second executor is forbidden')
+        current_platform = _native_current_platform(args, gate, api, request, candidate, registry, selection, evidence)
+        _recheck_native_ci(gate, api, config, request, evidence, registry, local_tree, reused)
+        _bounded_junit(args.junit, [])
+        external_packages = list(selection['external_package_set'])
+        mode = 'native-current-owner'
+    elif affected:
         # Recompute after the differential and again at final validation. A
         # preparation output never selects the commands or certifies execution.
         if _ci_selection(args, request, candidate, initial, registry, api) != selection:
@@ -720,11 +786,14 @@ def validate_sync(args, *, api=None):
         final_selection = _ci_selection(args, request, candidate, initial, registry, api)
         if final_selection != selection:
             raise ValidationError("synchronization selection changed during final validation")
-        if affected:
+        if affected or native_lane:
             if observed is not None:
                 _verify_ci_execution(observed, final_selection, registry, initial, suite_names=ci_required)
             elif ci_required or set(reused) != set(final_selection['suites']):
                 raise ValidationError('selected CI work has neither original native proof nor actual execution')
+    if native_lane and _native_current_platform(
+            args, gate, api, request, candidate, registry, final_selection, evidence) != current_platform:
+        raise ValidationError('current Android/Pico source ownership changed during native proof validation')
     final_pending = _sync_platform_owner(args, request, candidate, api) if not affected and not bounded else {}
     if final_pending != pending:
         raise ValidationError("Android sync ownership or source PR labels changed during execution")
@@ -750,12 +819,15 @@ def validate_sync(args, *, api=None):
         result["external_package_set"] = external_packages
     if selection is not None:
         result["ci_selection"] = selection
-        if affected:
+        if affected or native_lane:
             result['not_selected_suites'] = [name for name in registry['suites'] if name not in selection['suites']]
     if isinstance(evidence, getattr(gate, 'NativePrEvidence', ())):
         result.update(reusable=False, qualification=False,
             original_pr_evidence={key: evidence[key] for key in (
-                'kind', 'original_commit', 'qualified_at', 'expires_at', 'original_proof', 'requested_suites')})
+                'kind', 'original_commit', 'qualified_at', 'expires_at', 'original_proof', 'requested_suites')},
+            original_platform_observation=evidence.get('original_platform_observation'),
+            original_platform_commands=evidence.get('platform_commands', []),
+            external_platform_owners=current_platform if native_lane else None)
     result["receipt_digest"] = execution.digest(result)
     execution._write_receipt(args.receipt, result)
     return result
@@ -778,7 +850,7 @@ def requires_artifact_namespace(selection):
             or selection.get('requested_mode') not in ('reuse', 'fallback'):
         return True
     lane, names = selection.get('lane'), selection.get('suites')
-    if lane not in ('verified-empty', 'legacy-bounded', 'affected-ci', 'complete') \
+    if lane not in ('verified-empty', 'legacy-bounded', 'affected-ci', 'complete', 'native-owner') \
             or type(names) is not list or any(type(name) is not str or not name \
                 or any(character not in 'abcdefghijklmnopqrstuvwxyz0123456789-_' for character in name)
                 for name in names) or len(names) != len(set(names)):
@@ -793,8 +865,10 @@ def requires_artifact_namespace(selection):
     if lane == 'complete' and selection['full_host'] is not True:
         return True
     if selection.get('consumer_setup', 'required') == 'none':
-        return not (lane in ('affected-ci', 'complete') \
+        return not (lane in ('affected-ci', 'complete', 'native-owner') \
             and token(selection.get('native_setup')) and 'empty_setup' not in selection)
+    if lane == 'native-owner':
+        return True
     if selection.get('consumer_setup', 'required') != 'required' \
             or 'native_setup' in selection or 'empty_setup' in selection:
         return True

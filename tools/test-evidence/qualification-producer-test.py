@@ -192,10 +192,16 @@ class SyncProtectedSourceTests(unittest.TestCase):
         package = SimpleNamespace(validate_tree_wiring=lambda tree: self.generation,
             load=lambda *args: classifier, _trusted_bytes=lambda name, **kwargs: s.bodies[name])
         self.selection = {'suites': ['producer-proof'], 'full_host': False, 'include_platform': False}
+        self.profile = {'profile': producer.ci_profile.PROFILE, 'selection': self.selection,
+            'suites': self.selection['suites'], 'binding': {}}
+        self.partition = None
         self.policy = SimpleNamespace(package_policy=lambda: package,
             ci_owned=lambda name: name == '.github/branch-cleanup.json', select=lambda *args, **kwargs: self.selection)
         for patcher in (mock.patch.object(producer, 'protected_admission'),
                 mock.patch.object(producer, '_host_policy', return_value=self.policy),
+                mock.patch.object(producer.inputs, 'load_registry', return_value={'suites': {'producer-proof': {}}}),
+                mock.patch.object(producer, 'selection_profile', side_effect=lambda *args, **kwargs: self.profile),
+                mock.patch.object(producer, 'platform_partition', side_effect=lambda *args, **kwargs: self.partition),
                 mock.patch.object(producer.source_admission, 'actual_import_inventory', side_effect=lambda root: s.imports()),
                 mock.patch.object(producer.ci_profile, 'load_policy', return_value={
                     'enabled': True, 'generation_kind': producer.ci_profile.SEVEN_CONTROLLER_KIND})):
@@ -209,6 +215,16 @@ class SyncProtectedSourceTests(unittest.TestCase):
         self.assertTrue(self.ready())
         self.selection['full_host'] = True
         self.assertFalse(self.ready(), 'unsupported owner must remain delegated')
+
+    def test_ordinary_product_delta_uses_existing_full_profile_and_exact_platform_partition(self):
+        self.current['libraries/changed.cpp'] = self.producer.source_admission.ordinary('d' * 40)
+        self.profile['profile'] = self.producer.FULL_PROFILE
+        self.selection.update(full_host=True, include_platform=True)
+        self.partition = {'common_owner': {'suites': self.selection['suites']}}
+        self.assertTrue(self.ready())
+        self.partition = None
+        with mock.patch.object(self.producer.source_admission, 'shared_platform_supported', return_value=False):
+            self.assertFalse(self.ready(), 'unowned nonempty platform must remain delegated')
 
     def test_old_base_import_bytes_new_shadow_or_mode_cannot_self_enroll(self):
         for shape in ('old-test', 'missing-import', 'new-shadow', 'mode', 'registry', 'foreign-generation'):
