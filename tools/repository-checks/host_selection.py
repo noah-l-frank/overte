@@ -355,7 +355,7 @@ def _android_handoff_scope(tree, base_tree, paths, trusted_tree, trusted_root, t
                 return {}
             scope[path] = item['mode']
         return scope
-    except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError):
+    except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError, AttributeError):
         return {}
 
 
