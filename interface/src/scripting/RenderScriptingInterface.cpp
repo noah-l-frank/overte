@@ -60,6 +60,7 @@ void RenderScriptingInterface::loadSettings() {
         _ambientOcclusionEnabled = _ambientOcclusionEnabledSetting.get();
         _localLightingEnabled = _localLightingSetting.get();
         _proceduralMaterialsEnabled = _proceduralMaterialsEnabledSetting.get();
+        _mirrorsEnabled = _mirrorsEnabledSetting.get();
         _antialiasingMode = static_cast<AntialiasingSetupConfig::Mode>(_antialiasingModeSetting.get());
         _viewportResolutionScale = _viewportResolutionScaleSetting.get();
         _fullScreenScreen = _fullScreenScreenSetting.get();
@@ -80,12 +81,63 @@ void RenderScriptingInterface::loadSettings() {
     forceAmbientOcclusionEnabled(_ambientOcclusionEnabled);
     forceLocalLightingEnabled(_localLightingEnabled);
     forceProceduralMaterialsEnabled(_proceduralMaterialsEnabled);
+    forceMirrorsEnabled(_mirrorsEnabled);
     forceAntialiasingMode(_antialiasingMode);
     forceViewportResolutionScale(_viewportResolutionScale);
 }
 
 RenderScriptingInterface::RenderMethod RenderScriptingInterface::getRenderMethod() const {
     return (RenderMethod) _renderMethod;
+}
+
+bool RenderScriptingInterface::getMirrorsEnabled() const {
+    return _mirrorsEnabled;
+}
+
+void RenderScriptingInterface::setMirrorsEnabled(bool enabled) {
+    const bool changed = _mirrorsEnabled != enabled;
+    // Reapply even an unchanged preference: startup profiles and developer
+    // render configurations can have changed the effective job state.
+    forceMirrorsEnabled(enabled);
+    if (changed) {
+        emit settingsChanged();
+    }
+}
+
+void RenderScriptingInterface::forceMirrorsEnabled(bool enabled) {
+    _renderSettingLock.withWriteLock([&] {
+        _mirrorsEnabled = enabled;
+        _mirrorsEnabledSetting.set(enabled);
+
+        auto renderConfig = qApp->getRenderEngine()->getConfiguration();
+        if (!renderConfig) { return; }
+        const QStringList views { "RenderMainView", "RenderSecondView" };
+        // Both branches exist on desktop/iOS, even when only one is selected.
+        // Android uses a direct forward task. Missing branches are harmless.
+        const QStringList paths {
+            ".DeferredForwardSwitch.RenderShadowsAndDeferredTask.RenderDeferredTask",
+            ".DeferredForwardSwitch.RenderForwardTask",
+            ".RenderForwardTask"
+        };
+        for (const auto& view : views) {
+            for (const auto& path : paths) {
+                for (size_t index = 0; index < RenderMirrorTask::MAX_MIRRORS_PER_LEVEL; ++index) {
+                    const auto name = view + path + ".RenderMirrorTask" + QString::number(index) + "Depth0";
+                    if (auto mirror = qobject_cast<task::JobConfig*>(renderConfig->getConfig(name))) {
+                        // Disable setup, recursive view and draw together, so an
+                        // old reflection cannot be drawn after capture stops.
+                        mirror->setEnabled(enabled);
+                        // Retain compatibility with native startup profiles
+                        // which disable the inner view before scripts start.
+                        const auto viewName = name + ".RenderMirrorView" + QString::number(index) + "Depth0";
+                        if (auto mirrorView = qobject_cast<task::JobConfig*>(renderConfig->getConfig(viewName))) {
+                            mirrorView->setEnabled(enabled);
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 void RenderScriptingInterface::setRenderMethod(RenderMethod renderMethod) {
