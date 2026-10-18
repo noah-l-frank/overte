@@ -12,12 +12,53 @@
 #include <QJsonDocument>
 #include <QMouseEvent>
 #include <QHoverEvent>
+#include <QWheelEvent>
+#include <QLibrary>
+#include <jni.h>
 #include <QEventLoop>
 #include <QTimer>
 #include <QQuickItemGrabResult>
 #include <cassert>
 #include <memory>
 #include <cstdio>
+
+extern "C" void Java_org_overte_web_EmbeddedWebView_nativeInitialize(JNIEnv*, jclass);
+extern "C" jlong Java_org_overte_web_EmbeddedWebView_nativeLifecycleRevision(JNIEnv*, jclass, jlong);
+extern "C" jlong Java_org_overte_web_EmbeddedWebView_nativeGeneration(JNIEnv*, jclass, jlong);
+extern "C" void Java_org_overte_web_EmbeddedWebView_nativeResumeRequest(JNIEnv*, jclass, jlong, jlong, jlong, jstring);
+extern "C" void Java_org_overte_web_EmbeddedWebView_nativeCreated(JNIEnv*, jclass, jlong, jlong, jboolean);
+
+// The optional wheel extension observes actual JNI commands with the common
+// Java lifecycle recorder. Android WebView MotionEvent dispatch is tested by
+// the shared owner; accepting a Qt event alone is not that browser evidence.
+struct WheelJvm {
+    QLibrary library;
+    JavaVM* machine { nullptr };
+    JNIEnv* env { nullptr };
+    ~WheelJvm() { if (machine) machine->DestroyJavaVM(); }
+    jclass start(const QByteArray& classpath) {
+        library.setFileName(qEnvironmentVariable("OVERTE_PICO_WHEEL_TEST_JVM",
+            qEnvironmentVariable("JAVA_HOME") + "/lib/server/libjvm.so"));
+        assert(library.load());
+        using Create = jint (*)(JavaVM**, void**, void*);
+        auto create = reinterpret_cast<Create>(library.resolve("JNI_CreateJavaVM")); assert(create);
+        QByteArray optionText = "-Djava.class.path=" + classpath;
+        JavaVMOption option { optionText.data(), nullptr };
+        JavaVMInitArgs arguments {}; arguments.version = JNI_VERSION_1_8;
+        arguments.nOptions = 1; arguments.options = &option;
+        assert(create(&machine, reinterpret_cast<void**>(&env), &arguments) == JNI_OK);
+        auto boundary = env->FindClass("org/overte/web/WebLifecycleBoundary"); assert(boundary);
+        JNINativeMethod methods[] = {
+            { const_cast<char*>("revision"), const_cast<char*>("(J)J"), reinterpret_cast<void*>(Java_org_overte_web_EmbeddedWebView_nativeLifecycleRevision) },
+            { const_cast<char*>("active"), const_cast<char*>("(J)J"), reinterpret_cast<void*>(Java_org_overte_web_EmbeddedWebView_nativeGeneration) },
+            { const_cast<char*>("resume"), const_cast<char*>("(JJJLjava/lang/String;)V"), reinterpret_cast<void*>(Java_org_overte_web_EmbeddedWebView_nativeResumeRequest) },
+            { const_cast<char*>("created"), const_cast<char*>("(JJZ)V"), reinterpret_cast<void*>(Java_org_overte_web_EmbeddedWebView_nativeCreated) }
+        };
+        assert(env->RegisterNatives(boundary, methods, 4) == JNI_OK);
+        Java_org_overte_web_EmbeddedWebView_nativeInitialize(env, boundary);
+        return boundary;
+    }
+};
 
 // Existing legacy JNI creation is tested separately. This boundary lets the
 // real legacy Canvas/QML participate without loading an Android VM on the host.
@@ -56,6 +97,8 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", qPrintable(message));
     });
     QGuiApplication app(argc, argv);
+    // Keep the JVM alive until all QML/native objects and the engine are gone.
+    WheelJvm wheelJvm;
     qmlRegisterType<LegacyBoundary>("Overte.Pico", 1, 0, "PicoWebView");
     qmlRegisterModule("TabletScriptingInterface", 1, 0);
     qmlRegisterModule("Hifi", 1, 0);
@@ -288,6 +331,84 @@ int main(int argc, char** argv) {
         context->setContextProperty("nativeInlineHtmlDocument",QVariant::fromValue(renewed));
         QCoreApplication::processEvents();assert(native->generation());
         context.reset();assert(!native->generation()); // Context death retires the still-live native item.
+    }
+    const auto classpath = qgetenv("OVERTE_PICO_WHEEL_TEST_CLASSPATH");
+    if (!classpath.isEmpty()) {
+        auto boundary = wheelJvm.start(classpath); auto* env = wheelJvm.env;
+        auto number = [&](const char* name) { return env->GetStaticIntField(boundary, env->GetStaticFieldID(boundary, name, "I")); };
+        auto integer = [&](const char* name) { return env->GetStaticLongField(boundary, env->GetStaticFieldID(boundary, name, "J")); };
+        auto real = [&](const char* name) { return env->GetStaticFloatField(boundary, env->GetStaticFieldID(boundary, name, "F")); };
+        const auto otherGrant = tabletView->generation(); assert(otherGrant);
+        QQmlContext wheelContext(engine.rootContext());
+        wheelContext.setContextProperty("nativeWebSourceIdentity", "pico:wheel-world");
+        wheelContext.setContextProperty("nativeInlineHtmlDocument", QVariant());
+        std::unique_ptr<QObject> wheelWorld(create("/Web3DSurface.qml", &wheelContext));
+        auto* wheelRoot = qobject_cast<QQuickItem*>(wheelWorld.get()); assert(wheelRoot);
+        wheelRoot->setParentItem(window.contentItem()); wheelRoot->setScale(0.5);
+        wheelWorld->setProperty("url", "https://pico.test/wheel-source");
+        QCoreApplication::processEvents();
+        QPointer<NativeWebViewItem> wheel = wheelWorld->findChild<NativeWebViewItem*>(); assert(wheel);
+        assert(wheel->surface() == NativeWebViewItem::WorldEntity && wheel->presentation() == NativeWebViewItem::Texture);
+        wheel->acceptForeground(true); QCoreApplication::processEvents();
+        const auto wheelGrant = wheel->generation(); assert(wheelGrant);
+        const auto birth = integer("creationRevision"), handle = integer("handle");
+        const QUrl foreign("https://foreign.test/wheel?literal=+%2f#Frame");
+        wheel->acceptPage(wheelGrant, 2, foreign); wheel->setFocus(false);
+        assert(wheel->allowsEditorDocument(wheelGrant, 2, foreign));
+        assert(!wheel->allowsBridgeDocument(wheelGrant, 2, foreign));
+        const auto evaluations = number("evaluations"), before = number("wheels");
+        assert(!wheel->runJavaScript("window.forbiddenOwnerScript = true"));
+        QWheelEvent angle(QPointF(20, 30), QPointF(20, 30), QPoint(), QPoint(60, 120),
+            Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+        QCoreApplication::sendEvent(wheel, &angle);
+        assert(angle.isAccepted() && number("wheels") == before + 1);
+        assert(integer("wheelHandle") == handle && integer("wheelGrant") == jlong(wheelGrant) && integer("wheelPage") == 2);
+        assert(real("wheelX") == 10 && real("wheelY") == 15 && real("wheelAngleX") == 60 && real("wheelAngleY") == 120);
+        auto document = static_cast<jstring>(env->GetStaticObjectField(boundary,
+            env->GetStaticFieldID(boundary, "wheelDocument", "Ljava/lang/String;")));
+        const auto* chars = env->GetStringChars(document, nullptr); assert(chars);
+        assert(QString::fromUtf16(reinterpret_cast<const ushort*>(chars), env->GetStringLength(document)) == foreign.toString(QUrl::FullyEncoded));
+        env->ReleaseStringChars(document, chars); env->DeleteLocalRef(document);
+        assert(!wheel->hasActiveFocus() && number("evaluations") == evaluations);
+        wheel->acceptInputFocus(wheelGrant, birth, false); QCoreApplication::sendEvent(wheel, &angle);
+        assert(!angle.isAccepted() && number("wheels") == before + 1);
+        wheelRoot->setVisible(false); QCoreApplication::sendEvent(wheel, &angle);
+        assert(!angle.isAccepted() && number("wheels") == before + 1 && tabletView->generation() == otherGrant);
+        wheelRoot->setVisible(true); QCoreApplication::processEvents();
+        const auto resumedGrant = wheel->generation(); assert(resumedGrant && resumedGrant != wheelGrant);
+        const auto resumedBirth = integer("creationRevision");
+        wheel->acceptPage(resumedGrant, 3, foreign); wheel->acceptInputFocus(resumedGrant, resumedBirth, true);
+        wheel->acceptInputFocus(wheelGrant, birth, false); // A stale focus callback cannot deny the current page.
+        QWheelEvent pixel(QPointF(20, 30), QPointF(20, 30), QPoint(4, -8), QPoint(),
+            Qt::NoButton, Qt::NoModifier, Qt::ScrollUpdate, false);
+        QCoreApplication::sendEvent(wheel, &pixel);
+        assert(pixel.isAccepted() && number("wheels") == before + 2);
+        assert(real("wheelPixelX") == 2 && real("wheelPixelY") == -4);
+        assert(env->GetStaticBooleanField(boundary, env->GetStaticFieldID(boundary, "wheelPixelMode", "Z")));
+        wheelWorld->setProperty("url", "https://pico.test/wheel-replacement");
+        if (wheel) { QCoreApplication::sendEvent(wheel, &angle); assert(!angle.isAccepted()); }
+        QCoreApplication::processEvents(); QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        assert(!wheel && number("wheels") == before + 2 && tabletView->generation() == otherGrant);
+        wheelWorld.reset();
+        overte::web::InlineHtmlDocumentOwner wheelOwner;
+        const QString inlineURL = "data:text/html,<p>revocable wheel</p>";
+        const auto inlineWheel = wheelOwner.issue(&wheelContext, "pico:wheel-world", inlineURL);
+        wheelContext.setContextProperty("nativeInlineHtmlDocument", QVariant::fromValue(inlineWheel));
+        std::unique_ptr<QObject> inlineWorld(create("/Web3DSurface.qml", &wheelContext));
+        qobject_cast<QQuickItem*>(inlineWorld.get())->setParentItem(window.contentItem());
+        inlineWorld->setProperty("url", inlineURL); QCoreApplication::processEvents();
+        auto* inlineNative = inlineWorld->findChild<NativeWebViewItem*>(); assert(inlineNative);
+        inlineNative->acceptForeground(true); QCoreApplication::processEvents();
+        const auto inlineGeneration = inlineNative->generation(); assert(inlineGeneration);
+        inlineNative->acceptPage(inlineGeneration, 1, inlineWheel.transportURL());
+        QCoreApplication::sendEvent(inlineNative, &angle); assert(angle.isAccepted() && number("wheels") == before + 3);
+        wheelOwner.revoke(); QCoreApplication::sendEvent(inlineNative, &angle);
+        assert(!angle.isAccepted() && number("wheels") == before + 3);
+        assert(tabletView->generation() == otherGrant && number("evaluations") == evaluations);
+        assert(!env->ExceptionCheck());
+        qInfo("PASS actual Pico-selected World foreign-page wheel JNI, owner-script denial, transform and stale lifecycle/inline revoke isolation");
+    } else {
+        qInfo("NOT_RUN Pico-selected private wheel JNI extension: explicit JVM/classpath inputs were not supplied");
     }
     qInfo("PASS Pico selected native Texture world/tablet, editor/keyboard and lifecycle routing");
 }
