@@ -96,6 +96,8 @@ if(OVERTE_PICO_E2E_OPENXR_INPUT)
         "${CMAKE_CURRENT_SOURCE_DIR}/e2e/PicoE2eTextBridge.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/e2e/PicoE2eTabletBridge.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/e2e/PicoE2eTabletBridge.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/e2e/PicoE2eNavigationUi.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/e2e/PicoE2eNavigationUi.h"
         "${CMAKE_CURRENT_SOURCE_DIR}/e2e/PicoE2eControllerObservation.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/e2e/PicoE2eControllerObservation.h"
     )

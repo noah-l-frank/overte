@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PicoE2eTabletBridge.h"
+#include "PicoE2eNavigationUi.h"
 
 #include <algorithm>
 #include <cmath>
@@ -255,6 +256,13 @@ bool sendPointerClick(QQuickItem* item, OffscreenQmlSurface* surface) {
             || position.x() >= window->width() || position.y() >= window->height()) {
         return false;
     }
+    // A partially clipped item can have an invisible center. Never send its
+    // pointer into a different control outside the actual clipping ancestors.
+    for (auto parent = item->parentItem(); parent; parent = parent->parentItem()) {
+        if (parent->clip() && !parent->clipRect().contains(parent->mapFromScene(position))) {
+            return false;
+        }
+    }
     constexpr uint32_t POINTER_ID { 0xE2E00001u };
     const glm::vec2 pointerPosition {
         static_cast<float>(position.x()), static_cast<float>(position.y())
@@ -296,6 +304,32 @@ private:
             { QStringLiteral("snapshot"), observation.snapshot },
         });
         applyCommand(observation);
+        navigationTick();
+    }
+
+    void navigationTick() {
+        auto tabletInterface = DependencyManager::get<TabletScriptingInterface>();
+        auto tablet = tabletInterface ? tabletInterface->getTablet(SYSTEM_TABLET) : nullptr;
+        auto root = tablet ? tablet->getTabletRoot() : nullptr;
+        auto surface = tablet ? tablet->getTabletSurface() : nullptr;
+        auto window = surface ? surface->getWindow() : nullptr;
+        const bool open = tablet && tablet->property("tabletShown").toBool();
+        writeJson(BRIDGE_DIRECTORY + "/navigation-ui-observation.json", _navigation.observe(root, window, open));
+        const QString path = BRIDGE_DIRECTORY + "/navigation-ui-command.json";
+        QFile input(path);
+        if (QFileInfo(path).isSymLink() || !input.open(QIODevice::ReadOnly) || input.size() > 24 * 1024) { return; }
+        QJsonParseError error;
+        const auto document = QJsonDocument::fromJson(input.readAll(), &error);
+        if (error.error != QJsonParseError::NoError || !document.isObject()) { return; }
+        const auto command = document.object();
+        const auto id = command.value("commandId").toString();
+        if (id.isEmpty() || id.size() > 128 || id == _lastNavigationCommandId) { return; }
+        _lastNavigationCommandId = id;
+        // The pointer callback is the existing native VR surface route. The
+        // navigation resolver itself cannot call AddressManager or QML slots.
+        const auto status = _navigation.apply(root, window, open, command,
+            [surface](QQuickItem* item) { return sendPointerClick(item, surface); });
+        writeJson(BRIDGE_DIRECTORY + "/navigation-ui-status.json", status);
     }
 
     void applyCommand(const Observation& observation) {
@@ -343,6 +377,8 @@ private:
 
     QTimer _timer;
     QString _lastCommandId;
+    QString _lastNavigationCommandId;
+    NavigationUi _navigation;
 };
 
 }  // namespace

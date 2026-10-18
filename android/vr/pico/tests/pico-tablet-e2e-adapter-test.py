@@ -4,7 +4,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
+import shlex
+import subprocess
 import sys
+import tempfile
 import unittest
 
 
@@ -23,6 +27,35 @@ POLICY = ROOT / "android/vr/pico/device-tests/pico4-tablet-policy.json"
 
 
 class PicoTabletE2EAdapterTest(unittest.TestCase):
+    def test_actual_navigation_resolver_and_native_qt_input(self):
+        major = os.environ.get("OVERTE_NATIVE_QT_MAJOR", "6")
+        if major not in {"5", "6"}:
+            raise ValueError("OVERTE_NATIVE_QT_MAJOR must be 5 or 6")
+        environment, library_paths = dict(os.environ), []
+        if major == "5" and environment.get("OVERTE_QT5_HOST_ROOT"):
+            prefix = Path(environment["OVERTE_QT5_HOST_ROOT"]).resolve(strict=True)
+            environment.update(PKG_CONFIG_SYSROOT_DIR=str(prefix),
+                PKG_CONFIG_LIBDIR=str(prefix / "usr/lib64/pkgconfig"),
+                LD_LIBRARY_PATH=str(prefix / "usr/lib64"),
+                QT_PLUGIN_PATH=str(prefix / "usr/lib64/qt5/plugins"),
+                QML2_IMPORT_PATH=str(prefix / "usr/lib64/qt5/qml"),
+                QML_IMPORT_PATH=str(prefix / "usr/lib64/qt5/qml"))
+            library_paths = ["-L" + str(prefix / "usr/lib64")]
+        flags = shlex.split(subprocess.check_output(["pkg-config", "--cflags", "--libs",
+            *["Qt" + major + module for module in ("Core", "Gui", "Qml", "Quick", "Test")]],
+            text=True, env=environment))
+        with tempfile.TemporaryDirectory(prefix="overte-pico-navigation-ui-") as directory:
+            binary = Path(directory) / "test"
+            subprocess.run(["c++", "-std=c++17", "-UNDEBUG", "-fPIC", "-pthread",
+                "-I" + str(ROOT / "libraries/ui/src"), "-I" + str(APP / "e2e"),
+                str(APP / "e2e/PicoE2eNavigationUi.cpp"),
+                str(ROOT / "libraries/ui/src/ui/NativeFieldInput.cpp"),
+                str(Path(__file__).parent / "device/native/navigation-ui-test.cpp"),
+                "-o", str(binary), *library_paths, *flags], check=True, timeout=60, env=environment)
+            subprocess.run(["unshare", "--user", "--map-root-user", "--net", str(binary)],
+                check=True, timeout=30, env={**environment, "QT_QPA_PLATFORM": "offscreen",
+                    "QT_QUICK_BACKEND": "software", "QT_FORCE_STDERR_LOGGING": "1"})
+
     def test_product_policy_requires_the_real_vr_surface(self):
         policy = load_tablet_product_policy(POLICY)
         self.assertEqual("pico4.vr", policy["profileId"])

@@ -1,5 +1,35 @@
 # Native input/runtime changes — revision 09
 
+## Controlled normal tablet navigation input
+
+The E2E-only `PicoE2eNavigationUi` resolver observes the actual system tablet
+root/window. It resolves visible unique address/history controls, the ordinary
+GOTO TabletButton and actual page indicators. Native pointer input uses the
+existing `OffscreenQmlSurface` hover/press/release route. Text replacement and
+Return use the shared, focus-guarded `NativeFieldInput` implementation. No
+AddressManager call, direct QML slot invocation or expected navigation state is
+available to the resolver.
+
+The fixed active private probe gates its installation alongside the existing
+tablet bridge. Separate `navigation-ui-observation.json`,
+`navigation-ui-command.json` and `navigation-ui-status.json` files retain the
+existing settings/tablet contract unchanged. Commands bind the process-local
+bridge, current root/window generation, live control token, increasing sequence
+and a native observation at most five seconds old. An admitted input sequence is
+consumed before delivery; uncertain input is never replayed. Duplicate controls,
+hidden/clipped controls, stale tokens and foreign-thread access fail closed.
+Text and feature verdicts are absent from delivery status.
+
+`pico-tablet-e2e-adapter-test.py` now compiles the actual resolver and shared field
+implementation, then runs native Qt pointer/key/IME counterfactuals in an isolated
+network namespace. The `OVERTE_NATIVE_QT_MAJOR=5` and `6` variants are distinct
+host executions. Their controlled Qt widgets qualify the input/protocol boundary;
+they do not build the full Pico application or prove OpenXR/device behavior.
+The normal Go To/history adapter flow and candidate-bound activation are still
+being implemented. The unchanged generic ADB adapter does not advertise them.
+
+## Earlier runtime integration
+
 PI-003/005/007 production callers now apply these local rules:
 
 - PicoInterfaceActivity forwards alphabetic external keyboard events to Qt only
