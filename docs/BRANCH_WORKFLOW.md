@@ -218,6 +218,24 @@ fingerprinting code, attestor and recursively included requirement manifests.
 Older parent-tree copies cannot hide a change to the helpers actually executed.
 
 The trusted `sync-test-reuse` check is loaded only from the default branch. For
+an enrolled current PR, synchronization consumes the original Repository
+producer's exact selected shared-suite receipt instead of running those suites
+again. This includes complete and affected selections. Actual Android commands
+must have their own successful native owner; the separately required Pico
+handoff remains explicit and does not become passing platform evidence.
+
+The selected descriptor, shared owner and receipt-hash publisher must have
+completed successfully. An unrelated native build may still be running: this
+current-PR consumer waits up to 30 minutes for its selected owners, checks fresh
+native attempts, jobs, artifacts and immutable inputs, and rejects observed
+failures or cancellations. It neither qualifies the overall pending run nor
+publishes reusable evidence. The independent required Repository check still
+blocks merging until all its required work succeeds. Once this native owner is
+selected, missing proof blocks synchronization rather than starting another
+executor. Initial enrollment and unsupported selections retain their existing
+conservative verification route.
+
+For an exact-parent reuse candidate on
 one of the six direct edges it re-reads the current base and parent refs,
 validates the exact merge parents and merge tree, rejects paths outside the
 parent delta, and accepts exactly one matching non-expired qualification from a
