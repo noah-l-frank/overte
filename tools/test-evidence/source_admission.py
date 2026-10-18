@@ -408,12 +408,16 @@ class GitHubSource:
     """Fixed GET-only source metadata; no endpoint, host or credential argument."""
     def __init__(self, *, deadline=None):
         self.calls = 0
+        self.native_calls = 0
         current=time.monotonic()
         self.deadline=current+45 if deadline is None else min(current+45,deadline)
     def get(self, endpoint):
-        require(type(endpoint) is str and re.fullmatch(r'(?:|pulls/[1-9][0-9]*|branches/(?:'+ '|'.join(TARGET_PROFILES)+r')|git/ref/heads/(?:[A-Za-z0-9._~-]|%[0-9A-F]{2})+|compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40}\?per_page=1|git/commits/[0-9a-f]{40}|git/trees/[0-9a-f]{40}\?recursive=1|commits/refs/pull/[1-9][0-9]*/merge)',endpoint), 'unsupported protected source endpoint')
+        require(type(endpoint) is str and re.fullmatch(r'(?:|pulls/[1-9][0-9]*|branches/(?:'+ '|'.join(TARGET_PROFILES)+r')|git/ref/heads/(?:[A-Za-z0-9._~-]|%[0-9A-F]{2})+|compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40}\?per_page=1|git/commits/[0-9a-f]{40}|git/trees/[0-9a-f]{40}\?recursive=1|commits/refs/pull/[1-9][0-9]*/merge|actions/runs/[1-9][0-9]*(?:/attempts/1(?:/jobs\?per_page=100&page=1)?)?|actions/workflows/350930890|check-suites/[1-9][0-9]*|check-runs/[1-9][0-9]*)',endpoint), 'unsupported protected source endpoint')
         self.calls += 1
-        require(self.calls <= 24, 'protected source API budget exceeded')
+        if endpoint.startswith(('actions/', 'check-suites/', 'check-runs/')):
+            self.native_calls += 1
+        require(self.calls - self.native_calls <= 24 and self.native_calls <= 16,
+            'protected source API budget exceeded')
         request = urllib.request.Request('https://api.github.com/repos/'+REPOSITORY+('/'+endpoint if endpoint else ''),
             headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},method='GET')
         remaining=self.deadline-time.monotonic()
@@ -493,6 +497,89 @@ def native(event, environment, api):
         and authority.get('commit',{}).get('sha')==default,'default authority protection/source changed')
     return {'target':target,'base':base,'source':source,'default':default}
 
+def current_parent_import(context, environment, api, base, default, root):
+    """Authenticate CURRENT protected main imports, never original B authority.
+
+    The unchanged native bootstrap must still authenticate SELF from B first.
+    This bounded role can schedule an unavailable partial qualification only
+    after repository imports independently derive its actual selection.
+    """
+    role = environment.get('GITHUB_JOB')
+    require(context['target'] == 'main' and context['source'] == context['default']
+        and environment.get('GITHUB_EVENT_NAME') == 'push'
+        and role in {'common-parent', 'qualify-parent'}
+        and base.get(SELF) == default.get(SELF), 'current parent import role or compatible SELF unavailable')
+    source = context['source']
+    expected = {'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY':REPOSITORY,
+        'GITHUB_REPOSITORY_ID':str(REPOSITORY_ID),'GITHUB_RUN_ATTEMPT':'1',
+        'GITHUB_REF':'refs/heads/main','GITHUB_SHA':source,'GITHUB_WORKFLOW_SHA':source,
+        'RUNNER_ENVIRONMENT':'github-hosted','ImageOS':'ubuntu24',
+        'GITHUB_WORKFLOW_REF':REPOSITORY+'/.github/workflows/parent-qualification.yml@refs/heads/main'}
+    require(all(environment.get(key) == value for key,value in expected.items()),
+        'current parent native caller changed')
+    run_id = environment.get('GITHUB_RUN_ID', '')
+    require(type(run_id) is str and re.fullmatch('[1-9][0-9]*', run_id), 'current parent run unavailable')
+    latest = api.get('actions/runs/'+run_id)
+    attempt = api.get('actions/runs/'+run_id+'/attempts/1')
+    keys = ('id','run_attempt','workflow_id','check_suite_id','event','path','head_sha','head_branch','status','conclusion')
+    require(all(latest.get(key) == attempt.get(key) for key in keys)
+        and attempt.get('id') == int(run_id) and attempt.get('run_attempt') == 1
+        and attempt.get('workflow_id') == 350930890 and attempt.get('event') == 'push'
+        and attempt.get('path') == '.github/workflows/parent-qualification.yml'
+        and attempt.get('head_sha') == source and attempt.get('head_branch') == 'main'
+        and (attempt.get('status'),attempt.get('conclusion')) == ('in_progress',None),
+        'current parent native run or attempt changed')
+    require(all(attempt.get(key,{}).get('id') == REPOSITORY_ID
+        and attempt[key].get('full_name') == REPOSITORY for key in ('repository','head_repository')),
+        'current parent run repository changed')
+    registered = api.get('actions/workflows/350930890')
+    require(registered.get('id') == 350930890 and registered.get('path') == attempt['path'],
+        'current parent native registration changed')
+    suite_id = attempt.get('check_suite_id')
+    require(type(suite_id) is int and suite_id > 0, 'current parent check suite unavailable')
+    suite = api.get('check-suites/'+str(suite_id))
+    require(suite.get('id') == suite_id and suite.get('head_sha') == source
+        and suite.get('repository',{}).get('id') == REPOSITORY_ID and suite.get('app',{}).get('id') == 15368,
+        'current parent check suite authority changed')
+    jobs = api.get('actions/runs/'+run_id+'/attempts/1/jobs?per_page=100&page=1')
+    rows = jobs.get('jobs')
+    require(type(rows) is list and type(jobs.get('total_count')) is int
+        and 0 < len(rows) == jobs['total_count'] <= 100 and all(type(row) is dict for row in rows),
+        'complete current parent native jobs unavailable')
+    name = 'Common parent tests' if role == 'common-parent' else 'Qualify exact parent'
+    matches = [row for row in rows if row.get('name') == name]
+    require(len(matches) == 1, 'current parent native role missing or ambiguous')
+    job = matches[0]; job_id = job.get('id')
+    require(type(job_id) is int and job_id > 0 and job.get('run_id') == int(run_id)
+        and job.get('run_attempt') == 1 and job.get('head_sha') == source
+        and (job.get('status'),job.get('conclusion')) == ('in_progress',None)
+        and type(job.get('started_at')) is str and job.get('completed_at') is None
+        and job.get('check_run_url') == 'https://api.github.com/repos/'+REPOSITORY+'/check-runs/'+str(job_id),
+        'current parent native job changed')
+    check = api.get('check-runs/'+str(job_id))
+    require(check.get('id') == job_id and check.get('head_sha') == source
+        and check.get('check_suite',{}).get('id') == suite_id and check.get('app',{}).get('id') == 15368
+        and all(check.get(key) == job.get(key) for key in ('name','status','conclusion','started_at','completed_at')),
+        'current parent native job/check authority changed')
+    value = compatibility(default, default, 'main', read_actual=lambda name:actual_bytes(root,name),
+        actual_imports=actual_import_inventory(root))
+    manifest, entry = actual_bytes(root, '.github/package-workflow-generations.json')
+    require(entry == default.get('.github/package-workflow-generations.json'), 'current generation manifest differs')
+    generations = json.loads(manifest, object_pairs_hook=unique)
+    matches = [row for row in generations.get('generations',[]) if type(row) is dict
+        and row.get('name') == 'protected-producer-original-default-v1']
+    require(len(matches) == 1 and type(matches[0].get('workflows')) is dict
+        and set(matches[0]['workflows']) == {'.github/workflows/'+name+'.yml' for name in (
+            'repository-checks','project-tests','parent-qualification','sync-validation','browser-client','pr-metadata-context')}
+        and all(default.get(path) == expected and expected == ordinary(expected.get('sha'))
+            for path,expected in matches[0]['workflows'].items())
+        and default.get('.github/workflows/parent-qualification.yml') ==
+            default.get('tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'),
+        'current parent complete installed generation changed')
+    return {**value, 'kind':'current-protected-parent-imports-v1', 'authority':'current-imports-only',
+        'native_job':{'id':job_id,'run_id':int(run_id),'attempt':1,'name':name}}
+
+
 def authenticate(event, environment, api, root):
     """No repository import is permitted until this complete result succeeds."""
     context=native(event,environment,api)
@@ -503,9 +590,15 @@ def authenticate(event, environment, api, root):
     # push roles retain strict original B/D admission. This grants no PASS.
     validator=(reuse_compatibility if environment.get('GITHUB_EVENT_NAME')=='push'
         and environment.get('GITHUB_JOB') in _REUSE_PUSH_ROLES else compatibility)
-    result=validator(base,default,context['target'],read_actual=lambda name:actual_bytes(root,name),actual_imports=actual_import_inventory(root))
+    try:
+        result=validator(base,default,context['target'],read_actual=lambda name:actual_bytes(root,name),actual_imports=actual_import_inventory(root))
+    except SourceUnavailable:
+        result=current_parent_import(context,environment,api,base,default,root)
     clean_env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null','GIT_TERMINAL_PROMPT':'0'}
     actual=subprocess.run(['/usr/bin/git','--no-replace-objects','-c','safe.directory='+str(root),'-c','core.hooksPath=/dev/null','rev-parse','--verify','HEAD'],cwd=root,env=clean_env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=True,timeout=10).stdout.decode().strip()
     require(actual==context['default'],'actual controller checkout is not current defaultD')
     require(native(event,environment,api)==context,'native base/default source changed during pre-import admission')
+    if result.get('kind') == 'current-protected-parent-imports-v1':
+        require(current_parent_import(context,environment,api,base,default,root) == result,
+            'current parent native import authority changed')
     return {**result,**context}
