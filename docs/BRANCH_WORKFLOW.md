@@ -325,7 +325,8 @@ fallback. No new direct-sync, topology, or ruleset exception is introduced.
 
 The prospective Android sole-owner transition registers seven exact repair targets
 only for `main` to `android-main`: the two legacy Android workflow files and
-the four contract files listed in `.github/android-owner-transfer.json`. These
+the five contract files listed in `.github/android-owner-transfer.json`, including
+the Robolectric Gradle report destination. These
 repairs allow the staged ownership handoff to reach full sync validation; they
 always require the complete fallback. The independent Android owner gate checks
 all seven files against their trusted handoff bytes and modes, preserves the
