@@ -117,6 +117,7 @@ public:
     bool _localLightingEnabled {true},_proceduralMaterialsEnabled {true},_mirrorsEnabled {true};
     AntialiasingSetupConfig::Mode _antialiasingMode {AntialiasingSetupConfig::NONE};
     float _viewportResolutionScale {0.8f};QString _fullScreenScreen;
+    #include "render-persistence.inc"
     #include "render-settings.inc"
     static RenderScriptingInterface* getInstance() { static RenderScriptingInterface r;return &r; }
     QStringList getScreens() const { return {"display"}; }
