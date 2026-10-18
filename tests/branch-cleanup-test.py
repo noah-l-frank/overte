@@ -7,6 +7,7 @@ import copy
 import base64
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -2796,6 +2797,274 @@ class TerminalRetryTests(unittest.TestCase):
         self.assertEqual(result["deleted"], [])
 
 
+class SyncCompletionReceiverTests(unittest.TestCase):
+    """Exercise the actual receiver and existing hint guards with finite native API fixtures."""
+    closed_pr = TerminalRetryTests.closed_pr
+    push_run = TerminalRetryTests.push_run
+    manual_run = TerminalRetryTests.manual_run
+    main_sync_hints = TerminalRetryTests.main_sync_hints
+
+    def setUp(self):
+        TerminalRetryTests.setUp(self)
+        self.hints = self.main_sync_hints(PERMANENT)
+        self.payload = {"mode": "sync-completion", "sender_run_id": "700", "sender_run_attempt": "1",
+            "sender_source_sha": "f" * 40, "gate_run_id": "600", "gate_run_attempt": "1",
+            "pull_request": "42", "expected_base_sha": "b" * 40,
+            "expected_head_sha": "c" * 40, "expected_merge_sha": "d" * 40}
+        self.event = {"repository": self.repository, "inputs": self.payload}
+        self.context = {"GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": FORK,
+            "GITHUB_REPOSITORY_ID": "1319052603", "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "GITHUB_REF": "refs/heads/main", "GITHUB_SHA": self.revision, "GITHUB_WORKFLOW_SHA": self.revision,
+            "GITHUB_RUN_ID": "999", "GITHUB_RUN_ATTEMPT": "1",
+            "GITHUB_WORKFLOW_REF": FORK + "/.github/workflows/branch-cleanup.yml@refs/heads/main"}
+        self.enterContext(mock.patch.dict(os.environ, self.context))
+        self.verify = self.enterContext(mock.patch.object(self.module, "verify_current_checkout"))
+        self.registrations = {355150779: ("Automatic branch cleanup", "branch-cleanup.yml"),
+                              350930895: ("Sync validation", "sync-validation.yml"),
+                              350930894: ("Sync test reuse", "sync-test-reuse.yml")}
+        self.runs[700] = self.native_run(700, 350930895, "workflow_dispatch", "main", "f" * 40, 904)
+        self.runs[700]["display_title"] = "Sync validation gate-600-attempt-1"
+        self.runs[600] = self.native_run(600, 350930894, "pull_request_target", "fix/android/correlated-source", "c" * 40, 905)
+        self.runs[999] = self.native_run(999, 355150779, "workflow_dispatch", "main", self.revision, 906)
+        self.runs[999].update(status="in_progress", conclusion=None)
+        frozen_repo = {"id": 1319052603, "url": "https://api.github.com/repos/" + FORK}
+        self.runs[600]["pull_requests"] = [{"number": 42, "url": "https://api.github.com/repos/" + FORK + "/pulls/42",
+            "base": {"ref": "android-main", "sha": "b" * 40, "repo": frozen_repo},
+            "head": {"ref": "fix/android/correlated-source", "sha": "c" * 40, "repo": frozen_repo}}]
+        self.native_jobs = [{"id": 809, "run_id": 700, "run_attempt": 1, "head_sha": "f" * 40, "name": "Validate exact synchronization",
+                            "status": "completed", "conclusion": "success"},
+            {"id": 810, "run_id": 700, "run_attempt": 1, "head_sha": "f" * 40, "name": "Notify completed synchronization cleanup",
+             "status": "completed", "conclusion": "success", "check_run_url": "https://api.github.com/repos/" + FORK + "/check-runs/810",
+             "html_url": "https://github.com/" + FORK + "/actions/runs/700/job/810",
+             "started_at": "2026-10-19T00:00:00Z", "completed_at": "2026-10-19T00:00:06Z",
+             "steps": [{"name": "Dispatch exact synchronization completion", "status": "completed", "conclusion": "success",
+                        "started_at": "2026-10-19T00:00:01Z", "completed_at": "2026-10-19T00:00:05Z"}]}]
+        self.native_check = {"id": 810, "details_url": "https://github.com/" + FORK + "/actions/runs/700/job/810", "name": "Notify completed synchronization cleanup", "head_sha": "f" * 40,
+            "app": {"id": 15368}, "check_suite": {"id": 904}, "status": "completed", "conclusion": "success",
+            "started_at": "2026-10-19T00:00:00Z", "completed_at": "2026-10-19T00:00:06Z"}
+        payload_digest = "sha256:" + hashlib.sha256((json.dumps(self.payload, sort_keys=True,
+            separators=(",", ":"), allow_nan=False) + "\n").encode()).hexdigest()
+        self.receipt = {"schema": 1, "repository": FORK, "repository_id": 1319052603,
+            "sender_run_id": 700, "sender_run_attempt": 1, "sender_source_sha": "f" * 40,
+            "gate_run_id": 600, "gate_run_attempt": 1, "pull_request": 42,
+            "receiver_run_id": 999, "receiver_api_url": "https://api.github.com/repos/" + FORK + "/actions/runs/999",
+            "receiver_html_url": "https://github.com/" + FORK + "/actions/runs/999",
+            "payload_digest": payload_digest, "outcome": "dispatched"}
+        self.log_override = None
+        self.logs = mock.Mock(side_effect=lambda identifier: self.log_override if self.log_override is not None else
+            "2026-10-19T00:00:04.500Z OVERTE_SYNC_CLEANUP_DISPATCH_V1 " + json.dumps(self.receipt, sort_keys=True, separators=(",", ":")) + "\n")
+        self.enterContext(mock.patch.object(self.github, "job_log", self.logs, create=True))
+        self.native_reads = self.enterContext(mock.patch.object(self.github, "get_sync_completion_run",
+            side_effect=lambda suffix, *, timeout: self.github.get(suffix), create=True))
+        self.controller_changed = False
+        self.tick = 0
+        self.on_sleep = None
+
+    def native_run(self, identifier, workflow, event, branch, source, suite):
+        name, filename = self.registrations[workflow]
+        return {"id": identifier, "run_attempt": 1, "workflow_id": workflow, "event": event,
+            "status": "completed", "conclusion": "success", "head_branch": branch, "head_sha": source,
+            "check_suite_id": suite, "name": name, "path": ".github/workflows/" + filename,
+            "url": "https://api.github.com/repos/" + FORK + "/actions/runs/" + str(identifier),
+            "html_url": "https://github.com/" + FORK + "/actions/runs/" + str(identifier),
+            "repository": self.repository, "head_repository": self.repository, "pull_requests": []}
+
+    def response(self, suffix="", paginate=False):
+        if suffix.startswith("actions/runs/"):
+            self.requests.append((suffix, paginate))
+            if suffix.endswith("/jobs?per_page=100"):
+                return {"total_count": len(self.native_jobs), "jobs": copy.deepcopy(self.native_jobs)}
+            identifier = int(suffix.split("/")[2])
+            return copy.deepcopy(self.runs[identifier])
+        if suffix.startswith("actions/workflows/"):
+            self.requests.append((suffix, paginate)); identifier = int(suffix.rsplit("/", 1)[1])
+            name, filename = self.registrations[identifier]
+            return {"id": identifier, "name": name, "path": ".github/workflows/" + filename, "state": "active"}
+        if suffix.startswith("contents/") and "?ref=" in suffix and "/.github/workflows?" not in suffix:
+            self.requests.append((suffix, paginate)); path, revision = suffix[9:].split("?ref=", 1)
+            body = b"protected cleanup source bytes\n" if path == "tools/branch-cleanup/cleanup.py" else b"name: Sync validation\non:\n  workflow_dispatch:\n"
+            if self.controller_changed and path == "tools/branch-cleanup/cleanup.py" and revision == "f" * 40:
+                body += b"old callback implementation\n"
+            return {"path": path, "type": "file", "encoding": "base64", "content": base64.b64encode(body).decode(),
+                "sha": hashlib.sha1(b"blob " + str(len(body)).encode() + b"\0" + body).hexdigest(), "size": len(body)}
+        if suffix == "git/commits/" + "d" * 40:
+            self.requests.append((suffix, paginate))
+            return {"sha": "d" * 40, "parents": [{"sha": "b" * 40}, {"sha": "c" * 40}]}
+        if suffix == "check-runs/810":
+            self.requests.append((suffix, paginate)); return copy.deepcopy(self.native_check)
+        return TerminalRetryTests.response(self, suffix, paginate)
+
+    def receive(self, *, timeout=4):
+        method = getattr(self.module, "retry_sync_completion", None)
+        self.assertTrue(callable(method), "explicit completion receiver is absent")
+        def sleep(seconds):
+            self.tick += seconds
+            if self.on_sleep:
+                self.on_sleep()
+        return method(self.github, self.policy, self.event, timeout=timeout,
+                      clock=lambda: self.tick, sleep=sleep)
+
+    def test_exact_notification_waits_for_both_sources_then_uses_real_seven_target_hints(self):
+        for identifier in (600, 700):
+            self.runs[identifier].update(status="in_progress", conclusion=None)
+        def finish():
+            for identifier in (600, 700):
+                self.runs[identifier].update(status="completed", conclusion="success")
+        self.on_sleep = finish
+        result = self.receive()
+        self.assertTrue(result["callback"]["accepted"])
+        self.assertTrue(result["retry"])
+        self.assertEqual(result["hint_count"], 7)
+        self.assertEqual(result["callback"]["receiver_run_id"], 999)
+        self.assertGreater(self.tick, 0)
+        self.logs.assert_called_once_with(810)
+        self.assertFalse(any(endpoint == "pulls/42" for endpoint, _ in self.requests))
+        self.assertFalse({"candidates", "deleted", "backup_artifact_id"} & set(result))
+
+    def test_active_child_or_parent_times_out_without_logs_hints_or_deletion_authority(self):
+        for identifier in (600, 700):
+            with self.subTest(active=identifier):
+                self.runs[identifier].update(status="in_progress", conclusion=None)
+                self.requests.clear(); self.logs.reset_mock(); self.tick = 0
+                result = self.receive()
+                self.assertFalse(result["retry"])
+                self.assertFalse(result["callback"]["accepted"])
+                self.assertEqual(result["reason"], "sync_completion_sources_still_active")
+                self.assertLessEqual(self.tick, 4)
+                self.logs.assert_not_called()
+                self.assertFalse(any(endpoint.startswith("pulls?state=closed") for endpoint, _ in self.requests))
+                self.runs[identifier].update(status="completed", conclusion="success")
+
+    def test_failure_or_cancelled_completion_is_a_wakeup_not_passing_test_evidence(self):
+        for conclusion in ("failure", "cancelled", "timed_out"):
+            with self.subTest(conclusion=conclusion):
+                self.runs[700]["conclusion"] = conclusion
+                self.runs[600]["conclusion"] = conclusion
+                result = self.receive()
+                self.assertTrue(result["callback"]["accepted"])
+                self.assertEqual(result["callback"]["sender_conclusion"], conclusion)
+                self.assertEqual(result["callback"]["gate_conclusion"], conclusion)
+                self.assertNotIn("passed", result)
+                self.assertNotIn("deleted", result)
+
+    def test_populated_native_conflicts_original_attempt_and_candidate_are_rejected(self):
+        changes = [(700, "workflow_id", 386334598), (700, "head_sha", "e" * 40),
+                   (700, "event", "push"), (700, "run_attempt", 2),
+                   (700, "display_title", "Sync validation gate-601-attempt-1"),
+                   (600, "head_sha", "e" * 40), (600, "run_attempt", 2), (600, "workflow_id", 350930895)]
+        for identifier, field, wrong in changes:
+            with self.subTest(run=identifier, field=field):
+                old = self.runs[identifier].get(field); self.runs[identifier][field] = wrong
+                with self.assertRaises(self.module.CleanupError):self.receive()
+                self.runs[identifier][field] = old
+        self.event["inputs"] = dict(self.payload, unexpected="x")
+        with self.assertRaises(self.module.CleanupError):self.receive()
+        self.event["inputs"] = self.payload
+        self.payload["sender_run_attempt"] = "2"
+        with self.assertRaises(self.module.CleanupError):self.receive()
+        self.payload["sender_run_attempt"] = "1"
+        self.runs[600]["pull_requests"][0]["base"]["sha"] = "a" * 40
+        with self.assertRaises(self.module.CleanupError):self.receive()
+
+    def test_unique_native_receipt_binds_exact_receiver_urls_payload_and_step(self):
+        mutations = {"receiver_run_id": 1000, "receiver_api_url": "https://api.github.com/repos/overte-org/overte/actions/runs/999",
+                     "receiver_html_url": "https://github.com/noah-l-frank/overte/actions/runs/1000",
+                     "payload_digest": "sha256:" + "0" * 64, "sender_run_id": True, "outcome": "unresolved"}
+        for field, wrong in mutations.items():
+            with self.subTest(field=field):
+                original = self.receipt[field]; self.receipt[field] = wrong
+                with self.assertRaises(self.module.CleanupError):self.receive()
+                self.receipt[field] = original
+        good = self.logs(810)
+        for bad in ("", good + good, "prefix " + good, "x" * 65537,
+                    good.replace("2026-10-19T00:00:04.500Z", "2026-10-19T00:10:04.500Z")):
+            with self.subTest(log=bad[:20]):
+                self.log_override = bad
+                with self.assertRaises(self.module.CleanupError):self.receive()
+        self.log_override = None
+        self.native_jobs[1]["steps"][0]["conclusion"] = "failure"
+        with self.assertRaises(self.module.CleanupError):self.receive()
+
+    def test_native_role_app_source_change_and_remaining_activity_cannot_be_ignored(self):
+        self.native_check["app"]["id"] = 1
+        with self.assertRaises(self.module.CleanupError):self.receive()
+        self.native_check["app"]["id"] = 15368
+        self.native_jobs[0]["status"] = "in_progress"
+        with self.assertRaises(self.module.CleanupError):self.receive()
+        self.native_jobs[0]["status"] = "completed"
+        self.controller_changed = True
+        result = self.receive()
+        self.assertFalse(result["retry"])
+        self.assertFalse(result["callback"]["accepted"])
+        self.controller_changed = False
+        self.active = [{"id": 1234, "status": "in_progress", "head_branch": self.hints["main"]["branch"],
+                        "head_sha": self.hints["main"]["sha"], "pull_requests": []}]
+        result = self.receive()
+        self.assertEqual(result["hint_count"], 6)
+        self.assertTrue(result["callback"]["accepted"])
+        self.reference_changes["android-main"] = "e" * 40
+        result = self.receive()
+        self.assertFalse(result["retry"])
+        self.assertEqual(result["reason"], "terminal_target_changed")
+
+    def test_terminal_wait_passes_one_remaining_deadline_to_every_native_read(self):
+        def delayed(endpoint, *, timeout):
+            self.tick += 1
+            return self.github.get(endpoint)
+        self.native_reads.side_effect = delayed
+        with self.assertRaisesRegex(self.module.CleanupError, "sync_completion_terminal_wait_deadline"):
+            self.receive()
+        self.assertEqual(self.tick, 4)
+        self.assertEqual([call.kwargs["timeout"] for call in self.native_reads.call_args_list], [4, 3, 2, 1])
+        self.logs.assert_not_called()
+        self.assertFalse(any(endpoint.startswith("pulls?state=closed") for endpoint, _ in self.requests))
+
+    def test_native_console_transport_bounds_real_bytes_and_reaps_the_local_stub(self):
+        method = getattr(type(self.github), "job_log", None)
+        self.assertTrue(callable(method), "bounded native console transport is absent")
+        original_popen = subprocess.Popen
+        for content, expected in ((b"native line\n", "native line\n"), (b"x" * 70000, None), (b"\xff", None)):
+            with self.subTest(bytes=len(content)):
+                children = []
+                def launch(args, **kwargs):
+                    self.assertEqual(args, ["gh", "api", "--method", "GET", "repos/" + FORK + "/actions/jobs/810/logs"])
+                    child = original_popen([sys.executable, "-I", "-B", "-c",
+                        "import sys; sys.stdout.buffer.write(" + repr(content) + ")"], **kwargs)
+                    children.append(child)
+                    return child
+                with mock.patch.object(self.module.subprocess, "Popen", side_effect=launch):
+                    if expected is None:
+                        with self.assertRaises(self.module.CleanupError):method(self.github, 810)
+                    else:
+                        self.assertEqual(method(self.github, 810), expected)
+                self.assertEqual(len(children), 1)
+                self.assertIsNotNone(children[0].poll())
+                self.assertTrue(children[0].stdout.closed)
+
+    def test_receiver_cli_only_emits_hint_and_never_enters_adoption_backup_or_delete(self):
+        method = getattr(self.module, "retry_sync_completion", None)
+        self.assertTrue(callable(method), "explicit completion receiver is absent")
+        with tempfile.TemporaryDirectory(prefix="cleanup-explicit-completion-") as temporary:
+            d = Path(temporary); event, output, report = (d / name for name in ("event.json", "output", "report.json"))
+            event.write_text(json.dumps(self.event))
+            argv = [str(SCRIPT), "retry-sync-completion", "--event", str(event), "--output", str(output), "--report", str(report)]
+            with mock.patch.object(sys, "argv", argv), mock.patch.object(self.module, "Github", return_value=self.github), \
+                    mock.patch.object(self.module, "make_plan", side_effect=AssertionError("callback is not a plan")), \
+                    mock.patch.object(self.module, "GitStore", side_effect=AssertionError("callback cannot write refs")):
+                self.assertEqual(self.module.main(), 0)
+            result = json.loads(report.read_text())
+            self.assertEqual(output.read_text(), "retry=true\n")
+            self.assertEqual(result["status"], "sync-completion-ready")
+            self.assertEqual(result["deleted"], [])
+            self.assertTrue(result["callback"]["accepted"])
+            with mock.patch.dict(os.environ, {"GITHUB_EVENT_NAME": "workflow_run"}), \
+                    mock.patch.object(sys, "argv", argv), mock.patch.object(self.module, "Github", return_value=self.github):
+                output.unlink()
+                self.assertEqual(self.module.main(), 1)
+            self.assertFalse(output.exists())
+
+
+
 class WorkflowSafetyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -2834,7 +3103,7 @@ class WorkflowSafetyTests(unittest.TestCase):
     def test_verified_history_deferral_skips_planning_without_hiding_failures(self):
         plan = self.source.split("- name: Plan from current GitHub state", 1)[1].split(
             "- name: Build and verify a self-contained Git backup", 1)[0]
-        self.assertIn("if: steps.history.outputs.deferred != 'true'", plan)
+        self.assertRegex(plan, r"if:\s*>-\s+steps\.history\.outputs\.deferred != 'true' &&")
         self.assertNotIn("continue-on-error", self.source)
 
     def test_adoption_uses_a_scoped_app_and_runs_before_the_original_delete_plan(self):
@@ -2897,7 +3166,7 @@ class WorkflowSafetyTests(unittest.TestCase):
 
     def test_preflight_adoption_deferral_skips_plan_and_existing_zero_candidate_dependents(self):
         plan = self.source.split("- name: Plan from current GitHub state", 1)[1].split("- name: Build and verify", 1)[0]
-        self.assertIn("if: steps.history.outputs.deferred != 'true'", plan)
+        self.assertRegex(plan, r"if:\s*>-\s+steps\.history\.outputs\.deferred != 'true' &&")
         self.assertEqual(self.source.count("fromJSON(steps.plan.outputs.candidate_count || '0') > 0"), 3)
         self.assertIn("if: always()", self.source.split("- name: Retain plan and outcome", 1)[1])
 
@@ -2916,6 +3185,335 @@ class WorkflowSafetyTests(unittest.TestCase):
                 with self.subTest(change=change), mock.patch.dict(os.environ, change):
                     with self.assertRaises(module.CleanupError):
                         module.trusted_runtime()
+
+    def test_explicit_callback_cannot_enter_adoption_or_skip_backup_and_fresh_plan(self):
+        callback = self.source.index("cleanup.py retry-sync-completion")
+        token = self.source.index("- name: Create repository-scoped history integration token")
+        history = self.source.index("- name: Assess adopted work and maintain checked history PRs")
+        plan = self.source.index("- name: Plan from current GitHub state")
+        self.assertLess(callback, token)
+        for block in (self.source[token:history], self.source[history:plan]):
+            self.assertIn("inputs.mode != 'sync-completion'", block)
+        self.assertIn("steps.callback.outputs.retry == 'true'", self.source[plan:])
+        self.assertEqual(self.source.count("inputs.mode == 'sync-completion' && steps.callback.outputs.retry == 'true'"), 3)
+        self.assertIn("cleanup.py backup", self.source[plan:])
+        self.assertIn("cleanup.py apply", self.source[plan:])
+        self.assertNotIn("continue-on-error", self.source)
+
+    def test_only_separate_notification_job_can_tolerate_failure_or_write_actions(self):
+        sources = (
+            ('tools/repository-checks/workflows/sync-ci-selection.yml',
+             {'747bd6424d1e9b533ae35a81b524ceefc06b286b'}),
+            ('.github/workflows/sync-validation.yml', {
+                'cff76b696a4afd8658329a02ab33032672f292b9',
+                'ccc75d37c4f8b5012299bf864bf48dd45ead389b',
+                '747bd6424d1e9b533ae35a81b524ceefc06b286b'}),
+        )
+        for path, approved in sources:
+            with self.subTest(path=path):
+                raw = (ROOT / path).read_bytes()
+                identity = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+                self.assertIn(identity, approved)
+                source = raw.decode('utf-8')
+                if identity == 'cff76b696a4afd8658329a02ab33032672f292b9':
+                    # Source23 remains the active predecessor until the default
+                    # source has registered the complete callback generation.
+                    validation, notification = source, None
+                    self.assertNotIn('\n  notify-cleanup:\n', validation)
+                else:
+                    validation, notification = source.split('\n  notify-cleanup:\n', 1)
+                    predecessor = validation + ('\n' if identity ==
+                        '747bd6424d1e9b533ae35a81b524ceefc06b286b' else '')
+                    previous_raw = predecessor.encode('utf-8')
+                    self.assertEqual(hashlib.sha1(b'blob ' + str(len(previous_raw)).encode() +
+                        b'\0' + previous_raw).hexdigest(),
+                        'fb8b8645f229d924cfebb068ea124ac5910a483e' if identity ==
+                        '747bd6424d1e9b533ae35a81b524ceefc06b286b' else
+                        'cff76b696a4afd8658329a02ab33032672f292b9')
+                self.assertIn("  actions: read\n", validation)
+                self.assertNotIn("actions: write", validation)
+                self.assertNotIn("continue-on-error", validation)
+                self.assertNotIn("notify-sync-completion", validation)
+                if notification is None:
+                    continue
+                self.assertIn("    needs: validate\n", notification)
+                self.assertIn("    continue-on-error: true\n", notification)
+                self.assertIn("always()", notification)
+                self.assertIn("      actions: write\n", notification)
+                self.assertIn("      contents: read\n", notification)
+                self.assertIn("ref: ${{ github.sha }}", notification)
+                self.assertIn("persist-credentials: false", notification)
+                self.assertIn("cleanup.py notify-sync-completion", notification)
+                self.assertNotIn("candidate", notification)
+                self.assertNotIn("secrets.", notification)
+                self.assertNotIn("create-github-app-token", notification)
+
+
+class SyncCompletionNotificationTests(unittest.TestCase):
+    """Exercise the isolated notification boundary without sending GitHub writes."""
+
+    def setUp(self):
+        self.module = load_cleanup()
+        self.policy = json.loads(POLICY_PATH.read_text())
+        self.source, self.base, self.head, self.merge = (letter * 40 for letter in "abcd")
+        self.repo = {"id": 1319052603, "full_name": FORK,
+                     "url": "https://api.github.com/repos/" + FORK}
+        self.events, self.posts = [], []
+        self.environment = {
+            "GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": FORK,
+            "GITHUB_REPOSITORY_ID": "1319052603", "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "GITHUB_REF": "refs/heads/main", "GITHUB_JOB": "notify-cleanup",
+            "GITHUB_WORKFLOW_REF": FORK + "/.github/workflows/sync-validation.yml@refs/heads/main",
+            "GITHUB_RUN_ATTEMPT": "1", "GITHUB_RUN_ID": "700",
+            "GITHUB_SHA": self.source, "GITHUB_WORKFLOW_SHA": self.source,
+        }
+        self.event = {"repository": self.repo, "inputs": {
+            "correlation": "gate-701-attempt-1", "mode": "reuse", "profile": "apple-ios",
+            "pull_request": "13", "expected_base_sha": self.base,
+            "expected_head_sha": self.head, "expected_merge_sha": self.merge,
+        }}
+        self.sender = self.native_run(700, 350930895, "sync-validation.yml", "workflow_dispatch", self.source)
+        self.sender.update(head_branch="main", display_title="Sync validation gate-701-attempt-1")
+        self.parent = self.native_run(701, 350930894, "sync-test-reuse.yml", "pull_request_target", self.head)
+        self.parent.update(head_branch="reconcile/ios/exact-candidate", pull_requests=[{
+            "number": 13, "url": "https://api.github.com/repos/" + FORK + "/pulls/13",
+            "base": {"sha": self.base, "ref": "apple-ios", "repo": self.repo},
+            "head": {"sha": self.head, "ref": "reconcile/ios/exact-candidate", "repo": self.repo},
+        }])
+        self.jobs = {"total_count": 2, "jobs": [
+            {"id": 71, "run_id": 700, "run_attempt": 1, "head_sha": self.source,
+             "name": "Validate exact synchronization", "status": "completed", "conclusion": "success"},
+            {"id": 72, "run_id": 700, "run_attempt": 1, "head_sha": self.source,
+             "name": "Notify completed synchronization cleanup", "status": "in_progress", "conclusion": None},
+        ]}
+        self.data = {
+            "actions/runs/700/attempts/1": self.sender,
+            "actions/runs/701/attempts/1": self.parent,
+            "actions/runs/700/attempts/1/jobs?per_page=100": self.jobs,
+            "git/commits/" + self.merge: {"sha": self.merge,
+                "parents": [{"sha": self.base}, {"sha": self.head}]},
+            "branches/main": {"name": "main", "protected": True, "commit": {"sha": self.source}},
+        }
+        for identifier, filename, name in (
+            (350930895, "sync-validation.yml", "Sync validation"),
+            (350930894, "sync-test-reuse.yml", "Sync test reuse"),
+            (355150779, "branch-cleanup.yml", "Automatic branch cleanup"),
+        ):
+            self.data["actions/workflows/" + str(identifier)] = {
+                "id": identifier, "path": ".github/workflows/" + filename,
+                "name": name, "state": "active",
+            }
+        self.reply = json.dumps({"workflow_run_id": 999,
+            "run_url": "https://api.github.com/repos/" + FORK + "/actions/runs/999",
+            "html_url": "https://github.com/" + FORK + "/actions/runs/999"})
+        self.post_error = None
+        self.github = self.module.Github()
+        self.github.get = self.get
+        self.github.verify_owner = lambda: self.events.append(("owner",))
+        self.original_run = self.module.run
+        self.stdout = io.StringIO()
+
+    def native_run(self, identifier, workflow, filename, event, source):
+        return {"id": identifier, "run_attempt": 1, "workflow_id": workflow,
+            "path": ".github/workflows/" + filename, "event": event, "head_sha": source,
+            "status": "in_progress", "conclusion": None, "check_suite_id": identifier + 1000,
+            "repository": self.repo, "head_repository": self.repo,
+            "url": "https://api.github.com/repos/" + FORK + "/actions/runs/" + str(identifier),
+            "html_url": "https://github.com/" + FORK + "/actions/runs/" + str(identifier)}
+
+    def get(self, path):
+        self.events.append(("get", path))
+        self.assertIn(path, self.data, "unexpected endpoint; offline tests must not discover runs")
+        return copy.deepcopy(self.data[path])
+
+    def command(self, args, **kwargs):
+        if args[:2] == ["git", "check-ref-format"]:
+            return self.original_run(args, **kwargs)
+        self.assertEqual(args[:4], ["gh", "api", "--method", "POST"])
+        self.assertEqual(args[4], "repos/" + FORK + "/actions/workflows/355150779/dispatches")
+        self.events.append(("post",))
+        self.posts.append(list(args))
+        self.assertEqual(kwargs.get("timeout"), 30)
+        if self.post_error:
+            raise self.post_error
+        return subprocess.CompletedProcess(args, 0, self.reply, "")
+
+    def notify(self):
+        with mock.patch.dict(os.environ, self.environment, clear=True), \
+             mock.patch.object(self.module, "run", side_effect=self.command), \
+             mock.patch.object(self.module, "verify_checkout") as checkout, \
+             mock.patch("sys.stdout", self.stdout):
+            result = self.module.notify_sync_completion(self.github, self.policy, self.event)
+        checkout.assert_called_once_with(ROOT, self.source)
+        return result
+
+    def test_one_owned_dispatch_has_typed_direct_id_and_exact_causal_receipt(self):
+        receipt = self.notify()
+        self.assertEqual(len(self.posts), 1)
+        self.assertEqual(self.events[-2:], [("owner",), ("post",)])
+        args = self.posts[0]
+        self.assertIn(["-F", "return_run_details=true"], [args[i:i + 2] for i in range(len(args) - 1)])
+        self.assertIn(["-H", "X-GitHub-Api-Version: 2022-11-28"], [args[i:i + 2] for i in range(len(args) - 1)])
+        fields = [args[i + 1] for i, flag in enumerate(args[:-1]) if flag == "-f"]
+        payload = {field[7:field.index("]=")]: field.split("]=", 1)[1]
+                   for field in fields if field.startswith("inputs[")}
+        self.assertEqual(fields.count("ref=main"), 1)
+        self.assertEqual(len(fields), 11)
+        self.assertEqual(payload, {"mode": "sync-completion", "sender_run_id": "700",
+            "sender_run_attempt": "1", "sender_source_sha": self.source, "gate_run_id": "701",
+            "gate_run_attempt": "1", "pull_request": "13", "expected_base_sha": self.base,
+            "expected_head_sha": self.head, "expected_merge_sha": self.merge})
+        self.assertEqual(set(receipt), {"schema", "repository", "repository_id", "sender_run_id",
+            "sender_run_attempt", "sender_source_sha", "gate_run_id", "gate_run_attempt", "pull_request",
+            "receiver_run_id", "receiver_api_url", "receiver_html_url", "payload_digest", "outcome"})
+        expected_digest = hashlib.sha256((json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()).hexdigest()
+        self.assertEqual(receipt["payload_digest"], "sha256:" + expected_digest)
+        self.assertEqual(receipt["receiver_run_id"], 999)
+        self.assertIs(type(receipt["receiver_run_id"]), int)
+        self.assertEqual(receipt["outcome"], "dispatched")
+        lines = self.stdout.getvalue().splitlines()
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(json.loads(lines[0].removeprefix("OVERTE_SYNC_CLEANUP_DISPATCH_V1 ")), receipt)
+
+    def test_untrusted_runtime_never_sends(self):
+        for changes in ({"GITHUB_ACTIONS": "false"}, {"GITHUB_JOB": "validate"},
+                        {"GITHUB_REPOSITORY": "overte-org/overte"}, {"GITHUB_REPOSITORY_ID": "1"},
+                        {"GITHUB_EVENT_NAME": "pull_request"}, {"GITHUB_RUN_ATTEMPT": "2"},
+                        {"GITHUB_REF": "refs/heads/apple-ios"}, {"GITHUB_RUN_ID": "0"},
+                        {"GITHUB_WORKFLOW_SHA": self.head}, {"GITHUB_SHA": "bad"},
+                        {"GITHUB_WORKFLOW_REF": FORK + "/.github/workflows/sync-validation.yml@refs/heads/topic"}):
+            with self.subTest(changes=changes):
+                original = dict(self.environment)
+                self.environment.update(changes)
+                with self.assertRaises(self.module.CleanupError):
+                    self.notify()
+                self.environment = original
+                self.assertEqual(self.posts, [])
+
+    def test_forged_rosters_and_native_identities_never_send(self):
+        cases = [
+            ("actions/runs/700/attempts/1", "workflow_id", 1),
+            ("actions/runs/700/attempts/1", "display_title", "Sync validation gate-702-attempt-1"),
+            ("actions/runs/700/attempts/1", "head_sha", self.head),
+            ("actions/runs/701/attempts/1", "run_attempt", 2),
+            ("actions/runs/701/attempts/1", "status", "completed"),
+            ("actions/runs/701/attempts/1", "conclusion", "invented"),
+            ("actions/runs/700/attempts/1/jobs?per_page=100", "total_count", 2.0),
+        ]
+        for path, key, value in cases:
+            with self.subTest(path=path, key=key, value=value):
+                original = copy.deepcopy(self.data[path])
+                self.data[path][key] = value
+                with self.assertRaises(self.module.CleanupError):
+                    self.notify()
+                self.data[path] = original
+                self.assertEqual(self.posts, [])
+        path = "actions/runs/700/attempts/1/jobs?per_page=100"
+        for index, changes in ((0, {"run_id": 701}), (0, {"run_attempt": 2}),
+                               (0, {"head_sha": self.head}), (0, {"id": True}),
+                               (0, {"status": "in_progress"}), (1, {"status": "completed"}),
+                               (1, {"name": "Unexpected privileged role"}), (1, {"id": 71})):
+            with self.subTest(index=index, changes=changes):
+                original = copy.deepcopy(self.data[path])
+                self.data[path]["jobs"][index].update(changes)
+                with self.assertRaises(self.module.CleanupError):
+                    self.notify()
+                self.data[path] = original
+                self.assertEqual(self.posts, [])
+        for jobs in ([], self.jobs["jobs"][:1], self.jobs["jobs"] + [dict(self.jobs["jobs"][0], id=73)]):
+            with self.subTest(roster=len(jobs)):
+                self.data[path] = {"total_count": len(jobs), "jobs": jobs}
+                with self.assertRaises(self.module.CleanupError):
+                    self.notify()
+                self.assertEqual(self.posts, [])
+
+    def test_original_pr_and_merge_are_bound_without_current_pr_lookup(self):
+        path = "actions/runs/701/attempts/1"
+        for role, key, value in (("base", "sha", self.head), ("head", "sha", self.base),
+                                 ("base", "ref", "unprotected"),
+                                 ("head", "repo", {"id": 1, "url": "https://api.github.com/repos/overte-org/overte"})):
+            with self.subTest(role=role, key=key):
+                original = copy.deepcopy(self.data[path])
+                self.data[path]["pull_requests"][0][role][key] = value
+                with self.assertRaises(self.module.CleanupError):
+                    self.notify()
+                self.data[path] = original
+                self.assertEqual(self.posts, [])
+        self.data[path]["pull_requests"][0]["number"] = True
+        with self.assertRaises(self.module.CleanupError):
+            self.notify()
+        self.data[path]["pull_requests"][0]["number"] = 13
+        self.data["git/commits/" + self.merge]["parents"].reverse()
+        with self.assertRaises(self.module.CleanupError):
+            self.notify()
+        self.assertEqual(self.posts, [])
+
+    def test_failed_validation_only_wakes_cleanup_and_claims_no_test_pass(self):
+        self.jobs["jobs"][0]["conclusion"] = "failure"
+        receipt = self.notify()
+        self.assertEqual(receipt["outcome"], "dispatched")
+        self.assertNotIn("retry", receipt)
+        self.assertNotIn("test_pass", receipt)
+
+    def test_source_must_still_be_protected_and_retained(self):
+        self.data["branches/main"]["protected"] = False
+        with self.assertRaises(self.module.CleanupError):
+            self.notify()
+        self.data["branches/main"]["protected"] = True
+        self.data["branches/main"]["commit"]["sha"] = self.head
+        path = "compare/" + self.source + "..." + self.head + "?per_page=1"
+        self.data[path] = {"status": "diverged", "behind_by": 1, "merge_base_commit": {"sha": self.base}}
+        with self.assertRaises(self.module.CleanupError):
+            self.notify()
+        self.assertEqual(self.posts, [])
+        self.data[path] = {"status": "ahead", "behind_by": 0, "merge_base_commit": {"sha": self.source}}
+        self.assertEqual(self.notify()["outcome"], "dispatched")
+
+    def test_disabled_registration_and_last_owner_drift_prevent_post(self):
+        self.data["actions/workflows/355150779"]["state"] = "disabled_manually"
+        with self.assertRaises(self.module.CleanupError):
+            self.notify()
+        self.data["actions/workflows/355150779"]["state"] = "active"
+        calls = []
+        def owner():
+            calls.append(1)
+            if len(calls) == 2:
+                raise self.module.CleanupError("foreign_repository")
+        self.github.verify_owner = owner
+        with self.assertRaisesRegex(self.module.CleanupError, "do_not_redispatch"):
+            self.notify()
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(self.posts, [])
+
+    def test_unknown_dispatch_outcome_emits_one_unresolved_receipt_without_redispatch(self):
+        responses = ["", "{}", "not-json", json.dumps({"workflow_run_id": True}),
+            json.dumps({"workflow_run_id": 999, "run_url": "https://api.github.com/repos/overte-org/overte/actions/runs/999",
+                        "html_url": "https://github.com/overte-org/overte/actions/runs/999"})]
+        for response in responses:
+            with self.subTest(response=response):
+                self.reply = response
+                self.posts.clear()
+                self.stdout = io.StringIO()
+                with self.assertRaisesRegex(self.module.CleanupError, "do_not_redispatch"):
+                    self.notify()
+                self.assertEqual(len(self.posts), 1)
+                lines = self.stdout.getvalue().splitlines()
+                self.assertEqual(len(lines), 1)
+                receipt = json.loads(lines[0].removeprefix("OVERTE_SYNC_CLEANUP_DISPATCH_V1 "))
+                self.assertEqual(receipt["outcome"], "unresolved")
+                self.assertIsNone(receipt["receiver_run_id"])
+                self.assertNotIn("run_url", receipt)
+        for error in (subprocess.TimeoutExpired(["gh"], 30), OSError("transport unavailable"),
+                      self.module.CleanupError("github_api_post_actions_http_503_server_error")):
+            with self.subTest(error=type(error).__name__):
+                self.post_error = error
+                self.posts.clear()
+                self.stdout = io.StringIO()
+                with self.assertRaisesRegex(self.module.CleanupError, "do_not_redispatch"):
+                    self.notify()
+                self.assertEqual(len(self.posts), 1)
+                self.assertEqual(len(self.stdout.getvalue().splitlines()), 1)
+                self.assertNotIn("transport unavailable", self.stdout.getvalue())
 
 
 if __name__ == "__main__":
