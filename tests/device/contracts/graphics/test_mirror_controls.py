@@ -69,6 +69,10 @@ class MirrorControls(unittest.TestCase):
         # Keep production property/declarations/conditional settings, not a
         # hand-authored property which could hide a broken QML API spelling.
         prop = re.search(r'^    Q_PROPERTY\(bool mirrorsEnabled[^\n]+', header, re.M).group()
+        persistence_member = re.search(
+            r'^[ \t]*bool _settingsPersistenceEnabled[ \t]*\{[^\n;]+\};', header, re.M)
+        if not persistence_member:
+            raise AssertionError('Production settings persistence member declaration/default is missing')
         settings = header[header.index('    Setting::Handle<int> _renderMethodSetting'):
                           header.index('    // Force assign both setting')]
         runtime_start = header.index('#if defined(ANDROID_APP_PHONE_INTERFACE)\n    bool _mirrorsEnabled')
@@ -104,6 +108,7 @@ class MirrorControls(unittest.TestCase):
         cls.android_mirrors = not re.search(r'#ifndef Q_OS_ANDROID\s+if \(depth < RenderMirrorTask::MAX_MIRROR_DEPTH\)', forward)
         template = (HERE / 'mirror-controls.cpp').read_text()
         for key, value in {'PROPERTY': prop, 'SETTINGS': settings, 'RUNTIME': runtime,
+                           'PERSISTENCE_MEMBER': persistence_member.group(),
                            'METHODS': methods, 'JOB_CLASS': job_class, 'JOB_METHODS': job_methods,
                            'MIRROR_COUNT': count}.items():
             template = template.replace('@' + key + '@', value)
