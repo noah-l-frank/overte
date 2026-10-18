@@ -1205,6 +1205,75 @@ print(json.dumps(sorted(reached)))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('tools/test-evidence/producer_workflow.py', json.loads(result.stdout))
 
+    def test_plain_current_owner_bootstrap_preserves_immutable_import_lookup(self):
+        # Use the real protected loader and source guard in a fresh interpreter.
+        # No -B or inherited bytecode environment may mask the production CLI.
+        import shutil
+        guard_source = ROOT / 'tools/test-evidence/source_admission.py'
+        declarations = {
+            node.targets[0].id: ast.literal_eval(node.value)
+            for node in ast.parse(guard_source.read_bytes()).body
+            if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id in {'CONTROLLERS', 'IMPORT_MEMBERS'}
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for relative in sorted(set(declarations['CONTROLLERS']) | set(declarations['IMPORT_MEMBERS'])):
+                source = ROOT / relative
+                self.assertTrue(source.is_file() and not source.is_symlink(), relative)
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
+            # The protected default is shared even when this contract runs in
+            # an iOS/Android candidate checkout.
+            (root / 'tests/platform-profile.json').write_text(json.dumps(
+                {'schema': 1, 'platform': 'shared', 'suites': []}, indent=2) + '\n')
+            program = r"""
+import hashlib, importlib.util, json, stat, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+# Build immutable expected source metadata BEFORE any repository import.
+tree = {}
+for path in root.rglob('*'):
+    if path.is_file():
+        body = path.read_bytes()
+        tree[path.relative_to(root).as_posix()] = {
+            'mode': '100755' if path.stat().st_mode & 0o111 else '100644',
+            'type': 'blob',
+            'sha': hashlib.sha1(b'blob ' + str(len(body)).encode() + b'\0' + body).hexdigest()}
+spec = importlib.util.spec_from_file_location('plain_current_owner_checks',
+    root / 'tools/repository-checks/check.py')
+checks = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = checks
+spec.loader.exec_module(checks)
+producer = checks.native_owner_policy()
+guard = producer.source_admission
+observed = guard.actual_import_inventory(root)
+proof = guard.compatibility(tree, tree, 'main',
+    read_actual=lambda name: guard.actual_bytes(root, name), actual_imports=observed)
+assert proof['kind'] == 'protected-default-controller-source-v1'
+assert not list((root / 'tools/test-evidence').rglob('*.pyc'))
+# The startup repair must not filter or admit preexisting unknown bytecode.
+(root / 'tools/test-evidence/unreviewed.pyc').write_bytes(b'not-authority')
+try:
+    guard.compatibility(tree, tree, 'main',
+        read_actual=lambda name: guard.actual_bytes(root, name),
+        actual_imports=guard.actual_import_inventory(root))
+except guard.SourceUnavailable as error:
+    assert str(error) == 'actual import lookup differs from the immutable reviewed inventory'
+else:
+    raise AssertionError('unknown bytecode was admitted')
+print(json.dumps({'plain_owner_admitted': True, 'unknown_bytecode_rejected': True}))
+"""
+            env = dict(os.environ)
+            for name in ('PYTHONDONTWRITEBYTECODE', 'PYTHONPYCACHEPREFIX'):
+                env.pop(name, None)
+            result = subprocess.run([sys.executable, '-I', '-S', '-c', program, str(root)],
+                                    env=env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), {
+                'plain_owner_admitted': True, 'unknown_bytecode_rejected': True})
+
     def test_unselected_project_retains_the_existing_documentation_route(self):
         self.plan['host_mode'] = 'documentation'
         self.needs = results('documentation', 'false')

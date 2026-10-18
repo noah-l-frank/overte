@@ -620,7 +620,11 @@ The diagnostic consumer report lists reused and executed suites separately and
 cannot become a new qualification artifact or renew original expiry.
 
 `producer_workflow.controller_sources()` declares the finite reviewed producer
-graph. Extra loaded repository modules fail producer admission. The consumer
+graph. Extra loaded repository modules fail producer admission. The outer
+repository verifier disables Python bytecode writes before importing repository
+code, including when started with ordinary Python. Importing the trusted
+controller must leave its complete file inventory intact; unexpected bytecode
+or other extra lookup files still reject source admission. The consumer
 reconstructs that identity from the original protected base only when all its
 ordinary source/policy/template entries equal current reviewed immutable bytes;
 it never executes historical Python or trusts a receipt's claimed policy root.
