@@ -22,6 +22,7 @@ extern "C" jlong Java_org_overte_web_EmbeddedWebView_nativeLifecycleRevision(JNI
 extern "C" jlong Java_org_overte_web_EmbeddedWebView_nativeGeneration(JNIEnv*, jclass, jlong);
 extern "C" void Java_org_overte_web_EmbeddedWebView_nativeResumeRequest(JNIEnv*, jclass, jlong, jlong, jlong, jstring);
 extern "C" void Java_org_overte_web_EmbeddedWebView_nativeCreated(JNIEnv*, jclass, jlong, jlong, jboolean);
+#include "inline-backend-tests.h"
 class Probe : public NativeWebViewItem {
 public: using NativeWebViewItem::inputMethodQuery;
 };
@@ -282,6 +283,7 @@ int main(int argc, char** argv) {
         Java_org_overte_web_EmbeddedWebView_nativeCreated(env,boundary,oldHandle,oldRevision,false);
         QCoreApplication::processEvents(); assert(pending.lifecycleRevision() == freshRevision && !env->ExceptionCheck());
         std::puts("PASS: actual Qt hide event crosses JVM/JNI into production lifecycle dispatcher after active grant becomes0; Android WebView/Looper represented, not DOM/audio");
+        runInlineBackendTests(env,boundary,QString::fromLocal8Bit(argv[2]));
     }
     return 0;
 }
