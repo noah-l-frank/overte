@@ -12,7 +12,8 @@ public final class WebLifecycleBoundary {
     static native void created(long handle, long revision, boolean value);
     public static String loadedUrl;
     public static long handle, creationRevision, hiddenRevision, hiddenActive;
-    public static int hidden, creates;
+    public static int hidden, creates, evaluations;
+    public static void evaluate(long handle,long grant,long page,String script) { evaluations++; }
     public static boolean delayCreated;
     static final Object owner = new Object(), activity = new Object();
     static final Map<Long,Object> instances = new HashMap<>();
