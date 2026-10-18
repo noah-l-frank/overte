@@ -2279,7 +2279,11 @@ class EffectiveBaseTopologyTests(unittest.TestCase):
             context = gate.effective_pr_context(self.event, self.api)
             with mock.patch.object(gate, 'compare_merge_base', return_value=HEAD), \
                  mock.patch.object(gate, 'compare_files', return_value=(HEAD, {'docs/change.md'})), \
-                 mock.patch.object(gate.time, 'sleep', side_effect=AssertionError('authenticated M needs no optional API field')) as sleep:
+                 mock.patch.object(gate, 'time', mock.Mock(wraps=gate.time)) as clock:
+                # The assertion covers gate retries, not subprocess.wait's
+                # timeout bookkeeping through the shared standard time module.
+                sleep = clock.sleep
+                sleep.side_effect = AssertionError('authenticated M needs no optional API field')
                 request = gate.classify_event(self.event, config(), self.api, pr_context=context)
             self.assertEqual(request.merge_sha, MERGE)
             self.assertEqual(request.base_sha, BASE)

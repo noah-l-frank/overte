@@ -8,11 +8,31 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 import tempfile
 import unittest
 from test_login_dialog_domain_receiver import block
 
 ROOT = Path(__file__).resolve().parents[4]
+
+
+class RenderConfigurations(unittest.TestCase):
+    """Keep the native graph and actual settings controls in the owning suite."""
+    def test_native_saved_graphics_and_transient_overrides(self):
+        subprocess.run([sys.executable, str(ROOT / 'tests/device/contracts/graphics/test_render_preferences.py')],
+                       check=True, timeout=180, env=os.environ | {'OVERTE_NATIVE_QT_MAJOR': '6'})
+
+    def test_registered_mirror_controls_and_persistence(self):
+        subprocess.run([sys.executable, str(ROOT / 'tests/device/contracts/graphics/test_mirror_controls.py')],
+                       check=True, timeout=180, env=os.environ | {'OVERTE_MIRROR_QT_MAJOR': '6'})
+
+    def test_actual_registered_native_graph_and_renderer_capability(self):
+        subprocess.run([sys.executable, str(ROOT / 'tests/device/contracts/graphics/test_render_configuration_traversal.py')],
+                       check=True, timeout=180, env=os.environ | {'OVERTE_NATIVE_QT_MAJOR': '6'})
+
+    def test_actual_shared_graphics_controls(self):
+        subprocess.run([sys.executable, str(ROOT / 'tests/device/contracts/graphics/test_graphics_settings_qml.py')],
+                       check=True, timeout=120, env=os.environ | {'OVERTE_NATIVE_QT_MAJOR': '6'})
 
 
 class LodPreferences(unittest.TestCase):
