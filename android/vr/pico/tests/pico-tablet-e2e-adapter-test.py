@@ -27,6 +27,10 @@ POLICY = ROOT / "android/vr/pico/device-tests/pico4-tablet-policy.json"
 
 
 class PicoTabletE2EAdapterTest(unittest.TestCase):
+    def test_original_candidate_binding_and_normal_navigation_flow(self):
+        subprocess.run([sys.executable, str(Path(__file__).parent / "device/test_native_execution_binding.py")],
+                       check=True, timeout=90)
+
     def test_actual_navigation_resolver_and_native_qt_input(self):
         major = os.environ.get("OVERTE_NATIVE_QT_MAJOR", "6")
         if major not in {"5", "6"}:
@@ -46,13 +50,79 @@ class PicoTabletE2EAdapterTest(unittest.TestCase):
             text=True, env=environment))
         with tempfile.TemporaryDirectory(prefix="overte-pico-navigation-ui-") as directory:
             binary = Path(directory) / "test"
+            def original(source, signature):
+                start = source.index(signature)
+                end = source.index("{", start) + 1
+                depth = 1
+                while depth:
+                    depth += (source[end] == "{") - (source[end] == "}")
+                    end += 1
+                return source[start:end]
+            button = (ROOT / "interface/resources/qml/hifi/tablet/TabletButton.qml").read_text()
+            handlers = original(button, "function activate() {") + "\n" + original(button, "    MouseArea {")
+            (Path(directory) / "NativeGotoButton.qml").write_text('''import QtQuick 2.12
+Item {
+ id: tabletButton
+ property string text: "GOTO"
+ property var tabletRoot: null
+ property bool inDebugMode: false
+ property bool isActive: false
+ property bool isEntered: false
+ property bool hoverEnabled: true
+ property bool prioritizeTap: false
+ property int buttonIndex: 0
+ property var gridView: grid
+ QtObject { id: grid; property int currentIndex: 0 }
+ signal clicked()
+ ORIGINAL_HANDLERS
+}'''.replace("ORIGINAL_HANDLERS", handlers))
+            pointer_flags = ["-I" + directory]
+            if major == "5":
+                surface = (ROOT / "libraries/ui/src/ui/OffscreenQmlSurface.cpp").read_text()
+                header = (ROOT / "libraries/ui/src/ui/OffscreenQmlSurface.h").read_text()
+                pointer = (ROOT / "libraries/script-engine/src/PointerEvent.cpp").read_text()
+                first = header.index("    struct TouchState {")
+                last = header.index("std::map<uint32_t, TouchState> _activeTouchPoints;", first)
+                state = header[first:last + len("std::map<uint32_t, TouchState> _activeTouchPoints;")]
+                context = '''
+class OffscreenQmlSurface : public QObject {
+public:
+    OffscreenQmlSurface(QQuickItem* root, QQuickWindow* window) : root(root), window(window) {}
+    QQuickItem* getRootItem() { return root; }
+    QQuickWindow* getWindow() { return window; }
+    bool isPaused() const { return false; }
+    void hoverBeginEvent(const PointerEvent&, QTouchDevice&);
+    void hoverEndEvent(const PointerEvent&, QTouchDevice&);
+    bool handlePointerEvent(const PointerEvent&, QTouchDevice&, bool release = false);
+    QQuickItem* root;
+    QQuickWindow* window;
+    STATE
+};
+'''.replace("STATE", state)
+                functions = [original(pointer, signature) for signature in (
+                    "PointerEvent::PointerEvent(EventType type, uint32_t id) :",
+                    "PointerEvent::PointerEvent(EventType type, uint32_t id, const glm::vec2& pos2D, Button button,")]
+                functions += [context]
+                functions += [original(surface, signature) for signature in (
+                    "void OffscreenQmlSurface::hoverBeginEvent(", "void OffscreenQmlSurface::hoverEndEvent(",
+                    "bool OffscreenQmlSurface::handlePointerEvent(")]
+                functions += [original(BRIDGE, signature) for signature in (
+                    "bool effectiveVisible(", "QTouchDevice& bridgeTouchDevice(", "bool sendPointerClick(")]
+                (Path(directory) / "actual-pointer-route.inc").write_text("\n".join(functions))
+                pointer_flags += ["-DOVERTE_TEST_PICO_SURFACE_POINTER=1",
+                                  "-I" + str(ROOT / "libraries/script-engine/src")]
+                if environment.get("OVERTE_TEST_GLM_INCLUDE"):
+                    glm = Path(environment["OVERTE_TEST_GLM_INCLUDE"]).resolve(strict=True)
+                    self.assertTrue((glm / "glm/glm.hpp").is_file())
+                    pointer_flags += ["-isystem", str(glm)]
             subprocess.run(["c++", "-std=c++17", "-UNDEBUG", "-fPIC", "-pthread",
+                *pointer_flags,
                 "-I" + str(ROOT / "libraries/ui/src"), "-I" + str(APP / "e2e"),
                 str(APP / "e2e/PicoE2eNavigationUi.cpp"),
                 str(ROOT / "libraries/ui/src/ui/NativeFieldInput.cpp"),
                 str(Path(__file__).parent / "device/native/navigation-ui-test.cpp"),
                 "-o", str(binary), *library_paths, *flags], check=True, timeout=60, env=environment)
-            subprocess.run(["unshare", "--user", "--map-root-user", "--net", str(binary)],
+            subprocess.run(["unshare", "--user", "--map-root-user", "--net", str(binary), directory],
                 check=True, timeout=30, env={**environment, "QT_QPA_PLATFORM": "offscreen",
                     "QT_QUICK_BACKEND": "software", "QT_FORCE_STDERR_LOGGING": "1"})
 

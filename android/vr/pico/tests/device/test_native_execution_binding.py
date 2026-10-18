@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 import unittest
 from unittest.mock import patch
 
@@ -83,6 +84,127 @@ class FakeAdb:
         return ''
 
 
+class NavigationAdb(FakeAdb):
+    """Native Qt/file/OpenXR boundaries only; no simulated arrival verdicts."""
+    bridge_id = '11111111-1111-4111-8111-111111111111'
+    generation = '22222222-2222-4222-8222-222222222222'
+
+    def __init__(self, digest, state_root):
+        super().__init__(digest)
+        self.state_root, self.identity = state_root, '123:synthetic-start'
+        self.running = True
+        self.opened = self.editor = self.focused = False
+        self.page = 1
+        self.sequence = 0
+        self.inputs, self.controllers, self.entered = [], [], []
+        self.text, self.status = '', {}
+        self.native_elapsed, self.installation_delay_ms = 100, 0
+        self.input_ages = []
+        self.after_read = self.after_send = self.snapshot_mutation = self.status_mutation = None
+
+    def process_state(self, target, package):
+        assert target == self.target and package == 'org.overte.pico'
+        return {'running': self.running, 'identity': self.identity if self.running else None}
+
+    def foreground_package(self, target):
+        assert target == self.target
+        return 'org.overte.pico'
+
+    def shell(self, target, *args, check=True):
+        result = super().shell(target, *args, check=check)
+        if args == ('pm', 'path', 'org.overte.pico'):
+            self.native_elapsed += self.installation_delay_ms
+        if args == ('am', 'force-stop', 'org.overte.pico'):
+            self.running = False
+        return result
+
+    def epoch_milliseconds(self, target):
+        assert target == self.target
+        return int(time.time() * 1000)
+
+    def snapshot(self):
+        names = []
+        if self.opened:
+            names = (['navigation.address', 'navigation.back', 'navigation.forward'] if self.editor
+                     else ['tablet.page.1', 'tablet.page.2'] + (['navigation.goto'] if self.page == 2 else []))
+        value = dict(schemaVersion=1, bridgeId=self.bridge_id, generation=self.generation,
+            processId=123, elapsedMs=self.native_elapsed, updatedEpochMs=self.epoch_milliseconds(self.target),
+            lastCommandSequence=self.sequence, open=self.opened, ready=self.opened,
+            controls=[dict(id=name, token='33333333-3333-4333-8333-' + format(index + 1, '012d'),
+                           enabled=True, focused=self.focused and name == 'navigation.address')
+                      for index, name in enumerate(names)])
+        if self.snapshot_mutation:
+            self.snapshot_mutation(value)
+        return value
+
+    def read_debug_app_file(self, target, package, path, attempts=1):
+        assert target == self.target and package == 'org.overte.pico'
+        if path == adapter.ANDROID_CONTROL_MARKER:
+            return json.dumps(adapter.ANDROID_CONTROL_CONTRACT | {'processId': 123})
+        if path == adapter.ANDROID_DEBUG_PROBE:
+            return json.dumps(dict(sampleEpochMs=self.epoch_milliseconds(target),
+                control=adapter.ANDROID_CONTROL_CONTRACT, application={'running': True}))
+        if path == 'files/overte-e2e/navigation-ui-observation.json':
+            value = self.snapshot()
+            if self.after_read:
+                callback, self.after_read = self.after_read, None
+                callback()
+            return json.dumps(value)
+        if path == 'files/overte-e2e/navigation-ui-status.json':
+            return json.dumps(self.status)
+        raise AssertionError('unexpected debug read: no feature mutation probe fallback')
+
+    def write_debug_app_file(self, target, package, path, raw):
+        assert target == self.target and package == 'org.overte.pico'
+        assert path == 'files/overte-e2e/navigation-ui-command.json'
+        value = json.loads(raw)
+        self.input_ages.append(self.native_elapsed - value['observedElapsedMs'])
+        assert 0 <= self.input_ages[-1] <= 5000
+        assert value['sequence'] == self.sequence + 1
+        assert value['bridgeId'] == self.bridge_id and value['generation'] == self.generation
+        self.sequence += 1; self.inputs.append(value)
+        control, action = value['controlId'], value['action']
+        if control.startswith('tablet.page.'):
+            assert action == 'activate'; self.page = int(control.rsplit('.', 1)[1])
+        elif control == 'navigation.goto':
+            assert action == 'activate'; self.editor = True
+        elif control == 'navigation.address':
+            if action == 'activate': self.focused = True
+            elif action == 'replace':
+                assert self.focused; self.text = value['text']
+            elif action == 'submit':
+                assert self.focused; self.entered.append(self.text)
+            else: raise AssertionError('unsupported native input action')
+        else:
+            assert control in {'navigation.back', 'navigation.forward'} and action == 'activate'
+        self.status = dict(schemaVersion=1, bridgeId=self.bridge_id, commandId=value['commandId'],
+            sequence=value['sequence'], performed=True, error='', processId=123,
+            updatedEpochMs=self.epoch_milliseconds(target))
+        if self.status_mutation: self.status_mutation(self.status)
+        if self.after_send:
+            callback, self.after_send = self.after_send, None
+            callback()
+
+    def require_process_identity(self, identity):
+        assert identity == '123:synthetic-start'
+
+    def stage(self, identity, operation, values):
+        assert identity == '123:synthetic-start' and values == {'holdMilliseconds': 1000}
+        assert operation in {'tablet.open', 'tablet.close'}
+        # The real flow must persist ownership intent before a native gesture.
+        states = list(self.state_root.glob('normal-navigation-*.json'))
+        assert len(states) == 1 and json.loads(states[0].read_text())['tabletOwned'] is True
+        self.controllers.append(operation)
+        self.opened = operation == 'tablet.open'
+        return {'performed': True}
+
+    def cleanup(self, running):
+        assert type(running) is bool
+
+    def discard_local_state(self):
+        pass
+
+
 class NativeExecutionBindingTest(unittest.TestCase):
     def setUp(self):
         self.fixture = fixture.CandidateIdentityTest('test_actual_candidate_entry_and_pending_semantics')
@@ -112,6 +234,157 @@ class NativeExecutionBindingTest(unittest.TestCase):
     def instance(self):
         args, binding = adapter.cli([*self.prefix, 'describe', '--target', self.fake.target])
         return binding.create_adapter(args, adapter.AndroidAdapter)
+
+    def navigation_setup(self):
+        self.fixture.rebind_synthetic_archive(e2e_layer=True)
+        self.prefix = ['--kind', 'pico', '--native-binding', '--apk', str(self.fixture.apk),
+                       *self.fixture.command[3:], '--expected-version-code', '7', '--expect-e2e-input-layer']
+        self.state_root = self.fixture.root / 'native-ui-state'
+        self.state_root.mkdir(mode=0o700)
+        self.fake = NavigationAdb(self.fixture.record['artifactSha256'], self.state_root)
+        for change in (patch.object(adapter, 'AdbTransport', return_value=self.fake),
+                       patch.object(adapter.AndroidAdapter, 'pico_input_session', return_value=self.fake),
+                       patch.dict(os.environ, {'OVERTE_PICO_OPENXR_INPUT': '1',
+                           'OVERTE_ANDROID_E2E_DEBUG': '1', 'OVERTE_PICO_NORMAL_NAVIGATION': '1',
+                           'ANDROID_ADB_SERVER_PORT': '5038', 'OVERTE_PICO_OPENXR_STATE_DIR': str(self.state_root),
+                           'OVERTE_E2E_SCENE_URL': 'http://controlled.invalid/scene.json',
+                           'OVERTE_ANDROID_E2E_PROBE_ATTEMPTS': '1'})):
+            change.start(); self.addCleanup(change.stop)
+
+    def navigation_invoke(self, operation, arguments=None):
+        result = self.invoke('invoke', ['--operation', operation, '--arguments', json.dumps(arguments or {})])
+        self.assertEqual(result, {'performed': True})
+        return result
+
+    def test_native_navigation_actual_dispatch_candidate_reader_and_private_ownership(self):
+        from navigation_observation import OPERATIONS, viewpoint_urls
+        self.navigation_setup()
+        self.assertEqual(self.fixture.fixture.parent, ROOT)
+        self.assertTrue(set(OPERATIONS).issubset(self.instance().capabilities(self.fake.target)))
+        urls = viewpoint_urls(os.environ['OVERTE_E2E_SCENE_URL'])
+        self.navigation_invoke('places.open')
+        for url in urls.values():
+            self.navigation_invoke('places.goto', {'url': url})
+        self.navigation_invoke('places.back'); self.navigation_invoke('places.forward')
+        self.assertEqual(self.fake.entered, list(urls.values()))
+        self.assertEqual(self.fake.controllers, ['tablet.open'])
+        self.assertEqual([row['sequence'] for row in self.fake.inputs], list(range(1, len(self.fake.inputs) + 1)))
+        self.assertEqual(len({row['commandId'] for row in self.fake.inputs}), len(self.fake.inputs))
+        self.assertIn('tablet.page.2', [row['controlId'] for row in self.fake.inputs])
+        state = next(self.state_root.glob('normal-navigation-*.json'))
+        self.assertEqual(state.stat().st_mode & 0o777, 0o600)
+        self.assertNotIn('controlled.invalid', state.read_text())
+        self.navigation_invoke('places.close'); self.navigation_invoke('places.close')
+        self.assertEqual(self.fake.controllers, ['tablet.open', 'tablet.close'])
+        self.assertFalse(list(self.state_root.iterdir()))
+        self.assertFalse(self.fake.opened)
+        # Every phase retains the original verifier/installed OS-byte guard.
+        self.assertGreater(self.fake.events.count(('pm', 'path', 'org.overte.pico')), 30)
+        self.assertEqual(self.fixture.record['signature']['state'], 'pending')
+
+    def test_native_navigation_requires_explicit_bound_profile(self):
+        from navigation_observation import OPERATIONS
+        self.navigation_setup()
+        self.assertFalse(set(OPERATIONS) & set(adapter.AndroidAdapter('pico').capabilities(self.fake.target)))
+        with patch.dict(os.environ, {'OVERTE_PICO_NORMAL_NAVIGATION': '0'}):
+            self.assertFalse(set(OPERATIONS) & set(self.instance().capabilities(self.fake.target)))
+            with self.assertRaises(ValueError): self.navigation_invoke('places.open')
+        with patch.dict(os.environ, {'OVERTE_E2E_SCENE_URL': ''}):
+            with self.assertRaises(ValueError): self.instance().capabilities(self.fake.target)
+        self.assertEqual(self.fake.inputs + self.fake.controllers, [])
+
+    def test_native_navigation_rejects_foreign_url_and_unowned_open_tablet(self):
+        self.navigation_setup()
+        with self.assertRaises(ValueError):
+            self.navigation_invoke('places.goto', {'url': 'http://foreign.invalid/scene.json'})
+        self.fake.opened = True
+        with self.assertRaises(ValueError): self.navigation_invoke('places.open')
+        self.assertEqual(self.fake.inputs + self.fake.controllers, [])
+        self.assertFalse(list(self.state_root.iterdir()))
+
+    def test_native_navigation_rejects_ordinary_apk_despite_runtime_opt_in(self):
+        self.navigation_setup()
+        self.fixture.rebind_synthetic_archive(e2e_layer=False)
+        self.fake.digest = self.fixture.record['artifactSha256']
+        self.prefix = ['--kind', 'pico', '--native-binding', '--apk', str(self.fixture.apk),
+                       *self.fixture.command[3:], '--expected-version-code', '7']
+        with self.assertRaises(ValueError): self.instance().capabilities(self.fake.target)
+        with self.assertRaises(ValueError): self.navigation_invoke('places.open')
+        self.assertEqual(self.fake.inputs + self.fake.controllers, [])
+
+    def test_native_navigation_changed_apk_before_and_after_input_rejects(self):
+        self.navigation_setup()
+        original = self.fake.digest
+        self.fake.digest = 'f' * 64
+        with self.assertRaises(ValueError): self.navigation_invoke('places.open')
+        self.assertEqual(self.fake.inputs + self.fake.controllers, [])
+        self.fake.digest = original
+        self.fake.after_send = lambda: setattr(self.fake, 'digest', 'f' * 64)
+        with self.assertRaises(ValueError): self.navigation_invoke('places.open')
+        self.assertEqual(len(self.fake.inputs), 1)  # An uncertain page click is never replayed.
+
+    def test_native_navigation_process_replacement_after_native_lookup_stops_before_input(self):
+        self.navigation_setup()
+        self.fake.after_read = lambda: setattr(self.fake, 'identity', '124:replaced-start')
+        with self.assertRaises(ValueError): self.navigation_invoke('places.open')
+        self.assertEqual(self.fake.inputs + self.fake.controllers, [])
+        self.assertFalse(list(self.state_root.iterdir()))
+
+    def test_native_navigation_slow_artifact_verification_does_not_age_out_input(self):
+        self.navigation_setup()
+        self.fake.installation_delay_ms = 1000
+        self.navigation_invoke('places.open')
+        self.assertTrue(self.fake.editor)
+        self.assertTrue(self.fake.input_ages)
+        self.assertTrue(all(0 <= age <= 5000 for age in self.fake.input_ages))
+
+    def test_native_navigation_malformed_status_is_not_a_success_and_input_is_not_replayed(self):
+        self.navigation_setup()
+        self.fake.status_mutation = lambda value: value.update(navigationPassed=True)
+        with self.assertRaises(ValueError): self.navigation_invoke('places.open')
+        self.assertEqual(len(self.fake.inputs), 1)
+        self.assertEqual(self.fake.controllers, ['tablet.open'])
+        self.assertTrue(next(self.state_root.glob('normal-navigation-*.json')).exists())
+
+    def test_native_navigation_rejects_stale_foreign_and_malformed_native_observations(self):
+        self.navigation_setup()
+        for mutate in (lambda value: value.update(processId=999),
+                       lambda value: value.update(updatedEpochMs=1),
+                       lambda value: value.update(lastCommandSequence=True),
+                       lambda value: value.update(expectedScene='forbidden'),
+                       lambda value: value.update(ready=True)):
+            with self.subTest(mutation=mutate.__code__.co_firstlineno):
+                self.fake.snapshot_mutation = mutate
+                with self.assertRaises(ValueError): self.navigation_invoke('places.open')
+                self.assertEqual(self.fake.inputs + self.fake.controllers, [])
+        self.assertFalse(list(self.state_root.iterdir()))
+
+    def test_native_navigation_durable_state_cannot_move_to_another_bridge(self):
+        self.navigation_setup()
+        self.navigation_invoke('places.open')
+        count = len(self.fake.inputs)
+        path = next(self.state_root.glob('normal-navigation-*.json'))
+        value = json.loads(path.read_text()); value['bridgeId'] = '44444444-4444-4444-8444-444444444444'
+        path.write_text(json.dumps(value))
+        with self.assertRaises(ValueError): self.navigation_invoke('places.back')
+        self.assertEqual(len(self.fake.inputs), count)
+
+    def test_native_navigation_native_cleanup_retires_partial_state_with_invalid_candidate(self):
+        self.navigation_setup()
+        self.navigation_invoke('places.open')
+        self.assertTrue(list(self.state_root.glob('normal-navigation-*.json')))
+        self.fake.digest = 'f' * 64
+        result = self.invoke('cleanup', prefix=['--kind', 'pico', '--native-binding'])
+        self.assertEqual(result, {'cleaned': True})
+        self.assertFalse(self.fake.running)
+        self.assertFalse(list(self.state_root.iterdir()))
+
+    def test_native_candidate_network_decoder_bytes_are_rechecked(self):
+        bound = self.instance()
+        self.fixture.fixture.analyzer.write_text('#!/usr/bin/env python3\nraise SystemExit(2)\n')
+        with self.assertRaisesRegex(ValueError, '^OVT_PICO_BINDING_REJECTED$'):
+            bound.describe(self.fake.target)
+        self.assertEqual(self.fake.events, [])
 
     def test_real_dispatch_and_original_candidate_verifier(self):
         result = self.invoke('describe')

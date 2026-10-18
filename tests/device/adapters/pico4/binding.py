@@ -2,10 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 from functools import wraps
 import importlib.util
+import hashlib
+import os
 from pathlib import Path, PurePosixPath
 import re
 
 from execution_identity import file_digest
+from adapters.pico4.navigation import NativeNavigationIO, PicoNavigation, configured_scene, discard_stopped_state
+from navigation_observation import OPERATIONS as NAVIGATION_OPERATIONS
 
 ROOT = Path(__file__).resolve().parents[4]
 _spec = importlib.util.spec_from_file_location(
@@ -121,7 +125,28 @@ def create_adapter(args, base_class):
         @_private
         def capabilities(self, target=None):
             # One pinned candidate cannot establish a two-candidate upgrade.
-            return [value for value in super().capabilities(target) if value != 'app.upgrade']
+            values = [value for value in super().capabilities(target) if value != 'app.upgrade']
+            if configured_scene(os.environ) is not None:
+                _need(not cleanup_only and self.pico_configuration is not None
+                      and candidate['e2e_input_layer'] is True)
+                values.extend(NAVIGATION_OPERATIONS)
+            return sorted(set(values))
+
+        def _navigation_path(self, target):
+            _need(self.pico_configuration is not None)
+            key = hashlib.sha256(('org.overte.pico\0' + target).encode()).hexdigest()[:32]
+            return self.pico_configuration[1] / ('normal-navigation-' + key + '.json')
+
+        def _navigation(self, target):
+            scene = configured_scene(os.environ)
+            _need(scene is not None and self.pico_configuration is not None
+                  and candidate['e2e_input_layer'] is True)
+            identity = self.require_controlled_debug_identity(target)
+            installed = self._installation(target)
+            native = NativeNavigationIO(self, target, identity,
+                lambda operation: super(PicoBoundAdapter, self).invoke(target, operation, {}))
+            return PicoNavigation(native, self._navigation_path(target),
+                                  installed, identity, scene)
 
         @_private
         def discover(self):
@@ -149,7 +174,10 @@ def create_adapter(args, base_class):
             # turn a foreign installation into an accepted initial describe.
             self._installation(target)
             try:
-                result = super().invoke(target, operation, values)
+                if operation in NAVIGATION_OPERATIONS:
+                    result = self._navigation(target).invoke(operation, values)
+                else:
+                    result = super().invoke(target, operation, values)
             finally:
                 self._installation(target)
             return result
@@ -157,6 +185,11 @@ def create_adapter(args, base_class):
         @_private
         def cleanup(self, target):
             # No receipt gate and no identity claim. Keep base teardown intact.
-            return super().cleanup(target)
+            result = super().cleanup(target)
+            # The canonical teardown has now confirmed force-stop. Retire the
+            # owned host intent even when a partial input invalidated receipts.
+            if self.pico_configuration is not None:
+                discard_stopped_state(self._navigation_path(target))
+            return result
 
     return PicoBoundAdapter(args.kind)

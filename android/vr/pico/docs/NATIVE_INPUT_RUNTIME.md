@@ -23,10 +23,22 @@ Text and feature verdicts are absent from delivery status.
 `pico-tablet-e2e-adapter-test.py` now compiles the actual resolver and shared field
 implementation, then runs native Qt pointer/key/IME counterfactuals in an isolated
 network namespace. The `OVERTE_NATIVE_QT_MAJOR=5` and `6` variants are distinct
-host executions. Their controlled Qt widgets qualify the input/protocol boundary;
-they do not build the full Pico application or prove OpenXR/device behavior.
-The normal Go To/history adapter flow and candidate-bound activation are still
-being implemented. The unchanged generic ADB adapter does not advertise them.
+host executions. Qt 5 also executes the unchanged in-tree VR hover/pointer
+methods, actual PointerEvent header/constructors and bridge pointer function on
+a real render-control window. Both variants retain the actual GOTO activation
+and MouseArea handlers with their own QML component scope. The full surface's
+root/window/pause and tablet audio providers are controlled test boundaries.
+Qt 6 exercises the shared resolver with native Qt mouse primitives. A separate
+GLM SDK include root can be selected with `OVERTE_TEST_GLM_INCLUDE`; application
+headers and source always come from this composed checkout. These checks do not
+build the full Pico application or prove OpenXR/device behavior.
+The original candidate-bound Pico adapter now connects normal Go To/history
+under the explicit configuration documented in
+[`NORMAL_NAVIGATION.md`](../../../../tests/device/adapters/pico4/NORMAL_NAVIGATION.md).
+Its owning tablet check also executes the original installed-candidate tests,
+including native input counterfactuals. The generic unbound ADB adapter does not
+advertise these operations. Host input/protocol qualification still does not
+establish a native application build or physical-device acceptance.
 
 ## Earlier runtime integration
 

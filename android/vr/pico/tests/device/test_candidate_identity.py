@@ -57,6 +57,19 @@ class CandidateIdentityTest(unittest.TestCase):
         build_fixture.AndroidEvidence().update(self.build)
         self.command += ['--build-evidence', str(self.build_file),
                          '--expected-artifact-sha256', digest_file(self.apk)]
+    def rebind_synthetic_archive(self, *, e2e_layer):
+        """Rebind ONLY fabricated host evidence after changing the mock ZIP."""
+        self.fixture._apk(e2e_layer=e2e_layer)
+        self.record['artifactSha256'] = digest_file(self.apk)
+        self.record_file.write_text(json.dumps(self.record))
+        index = self.command.index('--expected-artifact-sha256') + 1
+        self.command[index] = self.record['artifactSha256']
+        self.build['evidence'].update(artifactSha256=self.record['artifactSha256'],
+            identityRecordSha256=digest_file(self.record_file))
+        for receipt in self.build['receipts'].values():
+            receipt['artifactSha256'] = self.record['artifactSha256']
+        build_fixture.AndroidEvidence().update(self.build)
+
     def invoke(self, extra=()):
         self.record_file.write_text(json.dumps(self.record))
         return subprocess.run(self.command + list(extra), capture_output=True, text=True, timeout=5)
