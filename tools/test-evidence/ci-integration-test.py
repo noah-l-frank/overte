@@ -160,6 +160,107 @@ class SelectionIntegrationTests(unittest.TestCase):
         policy.candidate_selection.assert_not_called()
 
 
+class FiniteExecutableSelectionTests(unittest.TestCase):
+    """Real finite router and CI37 admission, without capture or execution."""
+    @classmethod
+    def setUpClass(cls):
+        spec=importlib.util.spec_from_file_location('finite_executable_profile_fixtures',
+            Path(__file__).with_name('ci-profile-test.py'))
+        cls.fixtures=importlib.util.module_from_spec(spec);spec.loader.exec_module(cls.fixtures)
+
+    def setUp(self):
+        self.fixture=self.fixtures.SevenTargetProfileTests();self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root=self.fixture.root;self.registry=self.fixture.registry;self.git=self.fixture.f.git
+        self.router=P._host_policy();self.package=self.router.package_policy()
+        self.source=inputs.full_tree(C.ROOT,'HEAD')
+        generation=self.package.validate_tree_wiring(self.source)
+        workflows=next(row['workflows'] for row in self.package.workflow_generations() if row['name']==generation)
+        document=json.loads((C.ROOT/'.github/android-owner-transfer.json').read_bytes())
+        self.items={**document['legacy_workflows'],**document['source_contracts']}
+        required=set(workflows)|{'.github/android-owner-transfer.json',
+            '.github/ios-host-orchestration.json','tools/ios-build-qualification/host.py',
+            'tools/ios-build-qualification/inputs.py','tools/ios-build-qualification/check.py',
+            'tools/ios-build-qualification/host-workflow.yml'}|{item['source'] for item in self.items.values()}
+        for name in required:
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_bytes((C.ROOT/name).read_bytes());path.chmod(0o644)
+        owner=self.root/'.github/workflows/ios-build-qualification.yml'
+        owner.write_bytes((C.ROOT/'tools/ios-build-qualification/host-workflow.yml').read_bytes())
+        self.modes={name:entry['mode'] for name,entry in inputs.INSTALLED_COMPILER_PROFILE.items()}
+        self.installed={}
+        for name,mode in self.modes.items():
+            raw=('old private cache fixture '+name+'\n').encode()
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
+            path.chmod(int(mode,8)&0o777)
+            self.installed[name]={**self.fixture.f.blob(('new private cache fixture '+name+'\n').encode()),'mode':mode}
+        self.commit('Record complete finite owner fixture')
+        tree=inputs.full_tree(self.root,'HEAD')
+        graph=json.loads((self.root/inputs.AFFECTED_POLICY).read_bytes())
+        self.independent=graph['suites']['device-control-plane-full']['native_independent_paths']
+        graph['lookup_digest']=inputs.affected_lookup_digest(tree)
+        graph['suites']['device-control-plane-full']['reviewed_reader_digest']=inputs.device_reader_digest(tree,self.independent)
+        for target,sha in P.source_admission.TARGET_PROFILES.items():
+            current={**tree,'tests/platform-profile.json':P.source_admission.ordinary(sha)}
+            graph['targets'][target]={'profile':current['tests/platform-profile.json'],
+                'lookup_digest':inputs.affected_lookup_digest(current),
+                'reader_digest':inputs.device_reader_digest(current,self.independent)}
+        (self.root/inputs.AFFECTED_POLICY).write_bytes((json.dumps(graph,indent=2)+'\n').encode())
+        self.commit('Enroll exact private reader fixture')
+        self.trusted=inputs.full_tree(self.root,'HEAD')
+        self.stack=ExitStack();self.addCleanup(self.stack.close)
+        self.stack.enter_context(patch.object(self.router,'ROOT',self.root))
+        self.stack.enter_context(patch.object(self.router,'REVIEWED_PROGRAMS',self.router.program_digest(self.trusted,self.root)))
+        self.stack.enter_context(patch.object(C,'SOURCE_READY',True))
+
+    def commit(self,message):
+        self.git('add','--all');self.git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid',
+            'commit','--quiet','-m',message)
+
+    def transition(self,target):
+        base=deepcopy(self.trusted)
+        base['tests/platform-profile.json']=P.source_admission.ordinary(P.source_admission.TARGET_PROFILES[target])
+        candidate=deepcopy(base)
+        if target=='apple-ios':
+            candidate.update(deepcopy(self.installed))
+            self.stack.enter_context(patch.object(inputs,'INSTALLED_COMPILER_PROFILE',self.installed))
+            self.stack.enter_context(patch.object(inputs,'INSTALLED_COMPILER_READER',inputs.device_reader_digest(candidate,self.independent)))
+            self.stack.enter_context(patch.object(self.router,'REVIEWED_INSTALLED_PROGRAMS',
+                {'apple-ios':self.router.program_digest(candidate,self.root)}))
+            approved=self.router.program_digest(base,self.root)
+        else:
+            for name,item in self.items.items():
+                base[name]={'mode':item['mode'],'type':'blob','sha':item['reviewed_blob']}
+                candidate[name]={**self.trusted[item['source']],'mode':item['mode']}
+            approved=self.router.program_digest(candidate,self.root)
+        self.stack.enter_context(patch.dict(self.router.REVIEWED_CHILD_PROGRAMS,{target:approved}))
+        return base,candidate
+
+    def test_ios_cache_and_all_four_android_handoffs_reach_actual_ci37_admission(self):
+        for target in ('apple-ios','android-main','android-phone','android-vr','android-vr-pico'):
+            base,candidate=self.transition(target)
+            with self.subTest(target=target), patch.object(C,'validate_selection',wraps=C.validate_selection) as admit:
+                result=P.selection_profile(self.router,self.registry,candidate,base,self.trusted,root=self.root,target=target)
+                self.assertEqual(result['profile'],C.PROFILE)
+                self.assertEqual(result['suites'],list(C.SUITES))
+                self.assertEqual(result['binding']['suites'],list(C.SUITES))
+                self.assertIs(admit.call_args.kwargs['regular'],True)
+                self.assertIs(result['selection']['full_host'],False)
+                self.assertIs(result['selection']['include_platform'],False)
+
+    def test_selected_json_cannot_replace_the_independent_executable_proof(self):
+        for target in ('apple-ios','android-main'):
+            base,candidate=self.transition(target)
+            paths=sorted(name for name in base.keys()|candidate.keys() if base.get(name)!=candidate.get(name))
+            selected=self.router.select(candidate,paths,False,base_tree=base,trusted_tree=self.trusted,
+                candidate_root=self.root,trusted_root=self.root,target=target)
+            self.assertFalse(selected['full_host'])
+            with self.subTest(target=target), patch.object(self.router,'select',return_value=selected), \
+                    patch.object(self.router,'finite_ci_regularity',return_value=False), \
+                    self.assertRaises(P.PreExecutionUnavailable):
+                P.selection_profile(self.router,self.registry,candidate,base,self.trusted,root=self.root,target=target)
+
+
 class AffectedProtectedAdmissionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
