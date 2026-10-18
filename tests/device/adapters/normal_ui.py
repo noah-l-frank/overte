@@ -14,6 +14,10 @@ from urllib.parse import quote
 
 W3C_ELEMENT = 'element-6066-11e4-a52e-4f735466cecf'
 REFERENCE = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}')
+# W3C WebDriver normalized key table; these are actions, not literal text.
+# https://www.w3.org/TR/webdriver/#keyboard-actions
+WEBDRIVER_KEYS = frozenset((*range(0xE000, 0xE02A), *range(0xE031, 0xE03E),
+                           0xE040, *range(0xE050, 0xE05E)))
 
 
 class NativeUIError(RuntimeError):
@@ -143,7 +147,8 @@ class NativeUI:
         # Enter/control keys into text; ordinary submit has its own UI control.
         try:
             valid = (isinstance(text, str) and len(text.encode('utf-16-le')) // 2 <= 4096
-                     and not any(ord(char) < 32 or ord(char) == 127 for char in text))
+                     and not any(ord(char) < 32 or ord(char) == 127 or ord(char) in WEBDRIVER_KEYS
+                                 for char in text))
         except UnicodeError:
             valid = False
         if not valid:
@@ -153,6 +158,13 @@ class NativeUI:
         self._request('POST', element + '/clear', {})
         self._check()
         self._request('POST', element + '/value', {'text': text, 'value': list(text)})
+        self._check()
+
+    def press_enter(self, locator):
+        """Submit the actual resolved field through one explicit native key input."""
+        element = self._resolve(locator)
+        self._check()
+        self._request('POST', element + '/value', {'text': '\ue007', 'value': ['\ue007']})
         self._check()
 
     def release_actions(self):
