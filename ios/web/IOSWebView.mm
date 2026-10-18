@@ -269,7 +269,7 @@ struct IOSWebView::Private {
     IOSWebDocumentEpoch document;
     IOSInlineDocumentBinding inlineBinding;
     IOSInlineNavigation inlineNavigation;
-    QMetaObject::Connection inlineContextConnection;
+    QMetaObject::Connection inlineRevocationConnection;
     QVariant inlineCarrier;
     QString originalSource, originalScript;
     bool inlineMode { false };
@@ -395,6 +395,7 @@ void IOSWebView::paint(QPainter* painter) {
     }
 }
 void IOSWebView::scheduleOpen() {
+    QObject::disconnect(_private->inlineRevocationConnection); _private->inlineRevocationConnection = {};
     // Revoke before public configuration signals or the queued replacement.
     // The bridge objects stay alive through a possible current Qt invocation.
     if (_private->generation) {
@@ -429,9 +430,22 @@ void IOSWebView::updateNavigation() {
     emit navigationChanged();
 }
 
+bool IOSWebView::observeInlineDocument() {
+    QObject::disconnect(_private->inlineRevocationConnection); _private->inlineRevocationConnection = {};
+    if (!_private->inlineMode || !_private->generation || !_private->inlineBinding.current(this)) { return false; }
+    const auto generation = _private->generation;
+    // Descriptor access and revocation belong to the UI thread. AutoConnection
+    // therefore stops this native lifetime synchronously, before another input,
+    // bridge, script callback or response can use the revoked document.
+    _private->inlineRevocationConnection = _private->inlineBinding.document().onRevoked(this, [this, generation] {
+        if (_private->generation == generation) { stop(); }
+    });
+    return _private->inlineRevocationConnection && _private->generation == generation && _private->inlineBinding.current(this);
+}
+
 void IOSWebView::tearDown() {
     _private->policy.close(); // Shared invalidation precedes every native cleanup.
-    QObject::disconnect(_private->inlineContextConnection); _private->inlineContextConnection = {};
+    QObject::disconnect(_private->inlineRevocationConnection); _private->inlineRevocationConnection = {};
     _private->generation = 0;
     _private->inlineBinding.clear(); _private->inlineNavigation.clear(); _private->inlineMode = false;
     _private->openTimer.stop(); _private->deadline.stop();
@@ -493,12 +507,13 @@ void IOSWebView::open() {
         _private->generation = _private->policy.openInline(_private->inlineBinding.document(),
             _private->inlineBinding.context(), _private->originalSource, surface, _private->identity,
             _private->originalScript);
-        _private->inlineContextConnection = connect(_private->inlineBinding.context(), &QObject::destroyed,
-            this, [this] { stop(); });
     } else {
         _private->generation = _private->policy.open(_private->url, surface, _private->identity, _private->documentRoot);
     }
     if (!_private->generation) { fail(tr("This web URL is not permitted.")); return; }
+    if (_private->inlineMode && !observeInlineDocument()) {
+        fail(tr("This inline document has no current native source owner.")); return;
+    }
     _private->error.clear(); emit errorChanged(); setLoading(true);
     UIWindow* window = nil;
     _private->presenter = presenter(&window); _private->window = window;

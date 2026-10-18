@@ -5,7 +5,9 @@
 #include <QGuiApplication>
 #include <QQmlComponent>
 #include <QQmlEngine>
-#include <QQmlAbstractUrlInterceptor>
+#include <QQmlFileSelector>
+#include <QFileSelector>
+#include <CapabilityProfile.h>
 #include <QQuickItem>
 #include <QJsonDocument>
 #include <QRegularExpression>
@@ -24,16 +26,36 @@ class IOSWebView : public QQuickItem {
     Q_OBJECT
 #include "production-properties.inc"
 public:
-    struct Private { QString originalSource, originalScript; QUrl url, scriptUrl; QVariant inlineCarrier; };
+    struct Private {
+        QString originalSource, originalScript; QUrl url, scriptUrl; QVariant inlineCarrier;
+        ios::IOSInlineDocumentBinding inlineBinding;
+        QMetaObject::Connection inlineRevocationConnection;
+        std::uint64_t generation { 0 };
+        bool inlineMode { false };
+    };
     std::unique_ptr<Private> _private { std::make_unique<Private>() };
-    int revocations { 0 };
+    int revocations { 0 }, nativeStops { 0 };
+    bool configuredAtCompletion { false };
     QString url() const;
     void setUrl(const QString&);
     QString scriptUrl() const;
     void setScriptUrl(const QString&);
     QVariant inlineDocument() const;
     void setInlineDocument(const QVariant&);
-    void scheduleOpen() { ++revocations; } // Explicit native lifecycle boundary.
+    bool observeInlineDocument();
+    void scheduleOpen() { ++revocations; } // Explicit unopened native lifecycle boundary.
+    void stop() {
+        ++nativeStops; // Actual subscription stops at this explicit WK boundary.
+        _private->generation = 0;
+        QObject::disconnect(_private->inlineRevocationConnection); _private->inlineRevocationConnection = {};
+        _private->inlineBinding.clear();
+    }
+protected:
+    void componentComplete() override {
+        QQuickItem::componentComplete();
+        ios::IOSInlineDocumentBinding initial;
+        configuredAtCompletion = initial.bind(inlineDocument(), this, property("sourceIdentity").toString(), url(), scriptUrl());
+    }
 signals:
     void urlChanged();
     void configurationChanged();
@@ -52,21 +74,11 @@ static std::unique_ptr<QObject> createObject(QQmlEngine& engine, QQmlContext* co
 }
 static QObject* endpoint(QObject* root) { return root->property("endpoint").value<QObject*>(); }
 
-class IOSBackendSelector : public QQmlAbstractUrlInterceptor {
-public:
-    QString apiRoot, iosRoot;
-    QUrl intercept(const QUrl& url, DataType type) override {
-        if (type == QmlFile && url == QUrl::fromLocalFile(apiRoot + "/interface/resources/qml/controls/EmbeddedWebBackend.qml")) {
-            return QUrl::fromLocalFile(iosRoot + "/interface/resources/qml/controls/+ios/EmbeddedWebBackend.qml");
-        }
-        return url;
-    }
-};
-
 int main(int argc, char** argv) {
     QGuiApplication app(argc, argv);
-    assert(argc == 3);
-    const QString apiRoot = QString::fromLocal8Bit(argv[1]), iosRoot = QString::fromLocal8Bit(argv[2]);
+    assert(argc == 2);
+    const QString iosRoot = QString::fromLocal8Bit(argv[1]);
+    qmlRegisterType<IOSWebView>("IOSInlineProperties", 1, 0, "NativeProperties");
     QQmlEngine engine;
     QQmlContext issuer(engine.rootContext()), sibling(engine.rootContext());
     auto root = createObject(engine, &issuer), foreign = createObject(engine, &sibling);
@@ -199,20 +211,66 @@ int main(int argc, char** argv) {
     assert(binding.bind(QVariant::fromValue(dying), endpoint(transientRoot.get()), identity, source, script));
     transient.reset();
     assert(!dying.current() && !binding.current(endpoint(transientRoot.get())));
+    QQmlComponent observedComponent(&engine);
+    observedComponent.setData("import IOSInlineProperties 1.0\nNativeProperties {}", QUrl());
+    auto observed = std::unique_ptr<IOSWebView>(qobject_cast<IOSWebView*>(observedComponent.create(&issuer)));
+    assert(observed);
+    QQmlEngine::setObjectOwnership(observed.get(), QQmlEngine::CppOwnership);
+    const auto observe = [&](const web::InlineHtmlDocument& current, std::uint64_t nativeGeneration) {
+        auto& state = *observed->_private;
+        state.generation = nativeGeneration; state.inlineMode = true;
+        assert(state.inlineBinding.bind(QVariant::fromValue(current), observed.get(), identity, source, script));
+        assert(observed->observeInlineDocument());
+    };
+    web::InlineHtmlDocumentOwner observedOwner;
+    auto observedDocument = observedOwner.issue(&issuer, identity, source, script);
+    observe(observedDocument, 1);
+    observedOwner.revoke();
+    assert(observed->nativeStops == 1 && !observed->_private->generation); // Before processEvents.
+    assert(!observed->observeInlineDocument()); // Dead authority never subscribes.
+    observedDocument = observedOwner.issue(&issuer, identity, source, script);
+    observe(observedDocument, 2);
+    auto invalidReplacement = observedOwner.issue(&issuer, identity, "data:text/html;base64,%%%%", script);
+    assert(!invalidReplacement.current() && observed->nativeStops == 2);
+    web::InlineHtmlDocumentOwner retiredOwner, currentOwner;
+    const auto retired = retiredOwner.issue(&issuer, identity, source, script);
+    observe(retired, 3);
+    const auto current = currentOwner.issue(&issuer, identity, source, script);
+    observe(current, 4); // Replaces and disconnects the retired subscription.
+    retiredOwner.revoke();
+    assert(observed->nativeStops == 2 && observed->_private->generation == 4);
+    currentOwner.revoke(); assert(observed->nativeStops == 3);
+    auto mortalOwner = std::make_unique<web::InlineHtmlDocumentOwner>();
+    const auto mortal = mortalOwner->issue(&issuer, identity, source, script);
+    observe(mortal, 5); mortalOwner.reset();
+    assert(observed->nativeStops == 4 && !mortal.current());
+    auto dyingContext = std::make_unique<QQmlContext>(engine.rootContext());
+    auto dyingObserved = std::unique_ptr<IOSWebView>(qobject_cast<IOSWebView*>(observedComponent.create(dyingContext.get())));
+    assert(dyingObserved);
+    QQmlEngine::setObjectOwnership(dyingObserved.get(), QQmlEngine::CppOwnership);
+    web::InlineHtmlDocumentOwner dyingOwner;
+    const auto dyingDocument = dyingOwner.issue(dyingContext.get(), identity, source, script);
+    dyingObserved->_private->generation = 5; dyingObserved->_private->inlineMode = true;
+    assert(dyingObserved->_private->inlineBinding.bind(QVariant::fromValue(dyingDocument), dyingObserved.get(), identity, source, script));
+    assert(dyingObserved->observeInlineDocument());
+    dyingContext.reset(); assert(dyingObserved->nativeStops == 1 && !dyingDocument.current());
+    std::cout << "PASS actual native revocation subscription: synchronous source/invalid-replacement/context teardown and retired subscription isolation (WK stop boundary unopened)" << std::endl;
     std::cout << "PASS independent iOS native property/binding/session/epoch/namespace checks" << std::endl;
     document = owner.issue(&issuer, identity, source, script);
-    // Execute the exact SHA-bound common wrapper through the real selected
-    // iOS backend. The interceptor selects a URL, never copies parent source.
-    qmlRegisterType<IOSWebView>("IOSInlineProperties", 1, 0, "NativeProperties");
+    // Execute the actual inherited wrapper through the real product selectors;
+    // only the UIKit/WK type is substituted at its registered native boundary.
     qmlRegisterType(QUrl::fromLocalFile(iosRoot + "/ios/tests/qml/InlineNativeBoundary.qml"),
         "Overte.iOS", 1, 0, "IOSWebView");
-    IOSBackendSelector selector; selector.apiRoot = apiRoot; selector.iosRoot = iosRoot;
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    engine.addUrlInterceptor(&selector);
-#else
-    engine.setUrlInterceptor(&selector);
-#endif
-    QQmlComponent sharedWrapper(&engine, QUrl::fromLocalFile(apiRoot + "/interface/resources/qml/controls/EmbeddedWebView.qml"));
+    engine.addImportPath(iosRoot + "/interface/resources/qml");
+    QQmlFileSelector platformSelector(&engine);
+    QStringList profile;
+    for (const auto& item : ui::profileSelectors(ui::Product::IOS, true)) {
+        profile.append(QString::fromStdString(item));
+    }
+    platformSelector.setExtraSelectors(profile);
+    assert(platformSelector.selector()->select(iosRoot + "/interface/resources/qml/controls/EmbeddedWebBackend.qml").contains("/+ios/"));
+    assert(platformSelector.selector()->select(iosRoot + "/interface/resources/qml/controls/FlickableWebViewCore.qml").contains("/+ios/"));
+    QQmlComponent sharedWrapper(&engine, QUrl::fromLocalFile(iosRoot + "/interface/resources/qml/controls/EmbeddedWebView.qml"));
     if (!sharedWrapper.isReady()) { std::cerr << sharedWrapper.errorString().toStdString(); std::abort(); }
     QVariantMap initial {{"url", source}, {"scriptUrl", script}, {"sourceIdentity", identity},
         {"inlineDocument", QVariant::fromValue(document)}, {"width", 640}, {"height", 480}};
@@ -220,21 +278,48 @@ int main(int argc, char** argv) {
     if (!surface) { std::cerr << sharedWrapper.errorString().toStdString(); std::abort(); }
     auto* backend = qobject_cast<IOSWebView*>(surface->property("backend").value<QObject*>());
     assert(backend && backend->url() == source && backend->scriptUrl() == script);
+    assert(backend->configuredAtCompletion);
     assert(!backend->property("bridgeAvailable").toBool());
     ios::IOSInlineDocumentBinding callerBinding;
     assert(callerBinding.bind(backend->inlineDocument(), backend, backend->property("sourceIdentity").toString(),
         backend->url(), backend->scriptUrl()));
     assert(callerBinding.context() == &issuer && callerBinding.current(backend));
 
+    // The actual selected +ios Flickable -> NativeFlickable -> EmbeddedWebView
+    // chain must also deliver its descriptor before native completion.
+    std::unique_ptr<QObject> nested;
+    {
+        QQmlComponent nestedComponent(&engine, QUrl::fromLocalFile(iosRoot + "/interface/resources/qml/controls/FlickableWebViewCore.qml"));
+        if (!nestedComponent.isReady()) { std::cerr << nestedComponent.errorString().toStdString(); std::abort(); }
+        QVariantMap nestedInitial = initial;
+        nestedInitial.remove("scriptUrl"); nestedInitial.insert("userScriptUrl", script);
+        nested.reset(nestedComponent.createWithInitialProperties(nestedInitial, &issuer));
+        if (!nested) { std::cerr << nestedComponent.errorString().toStdString(); std::abort(); }
+        auto* nestedWrapper = nested->property("webViewCore").value<QObject*>();
+        auto* nestedNative = qobject_cast<IOSWebView*>(nestedWrapper->property("backend").value<QObject*>());
+        assert(nestedNative && nestedNative->configuredAtCompletion);
+        ios::IOSInlineDocumentBinding nestedBinding;
+        assert(nestedBinding.bind(nestedNative->inlineDocument(), nestedNative, identity, source, script));
+        assert(nestedBinding.context() == &issuer);
+    }
+    // An initially undefined native QVariant must remain assignable on the
+    // ordinary-page -> inline transition, including an explicit clear first.
+    QVariantMap ordinaryInitial = initial;
+    ordinaryInitial.insert("url", "https://ordinary.example/page"); ordinaryInitial.remove("inlineDocument");
+    std::unique_ptr<QObject> ordinary(sharedWrapper.createWithInitialProperties(ordinaryInitial, &issuer));
+    assert(ordinary);
+    auto* transitioned = qobject_cast<IOSWebView*>(ordinary->property("backend").value<QObject*>());
+    assert(transitioned && !transitioned->configuredAtCompletion);
+    assert(ordinary->setProperty("inlineDocument", QVariant()));
+    assert(ordinary->setProperty("inlineDocument", QVariant::fromValue(document)));
+    assert(ordinary->setProperty("url", source));
+    ios::IOSInlineDocumentBinding transitionBinding;
+    assert(transitionBinding.bind(transitioned->inlineDocument(), transitioned, identity, source, script));
+    ordinary.reset(); nested.reset();
     owner.revoke();
     assert(!callerBinding.current(backend));
     surface->setProperty("inlineDocument", QVariant::fromValue(web::InlineHtmlDocument{}));
     assert(!callerBinding.current(backend));
     surface.reset();
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    engine.removeUrlInterceptor(&selector);
-#else
-    engine.setUrlInterceptor(nullptr);
-#endif
     std::cout << "PASS Qt " << qVersion() << " actual inline context ancestry, exact source/charset/bytes, property setters, revocation, epoch and compiled-rule input (WK execution not performed)\n";
 }

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Execute the iOS inline binding against real Qt and a proven owning API.
+"""Execute native Qt properties/lifetime and actual iOS-selected in-tree QML.
 
-Before normal parent propagation, the coordinator-approved Main contract may
-only be a read-only SHA-bound API input. This never copies it into the leaf or
-establishes native SDK/source closure. Missing inputs fail rather than skip.
+The owning Main contract must propagate through Apple into this checkout.
+UIKit/WK remains an explicit unopened native boundary in this host fixture.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
@@ -15,7 +14,6 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-PINNED_MAIN_API = "4a568e57ef28daa8bac42f49e7c1e39917598503"
 
 
 def body(source, signature):
@@ -28,24 +26,10 @@ def body(source, signature):
     return source[start:end]
 
 
-def owning_api():
-    shared = ROOT / "libraries/shared/src"
-    if (shared / "InlineHtmlDocument.h").is_file():
-        return shared, "in-tree owning parent"
-    external = os.environ.get("OVERTE_IOS_INLINE_API_ROOT")
-    if not external:
-        raise SystemExit("InlineHtmlDocument must propagate from its owning parent. For explicitly approved host-only preparation, set OVERTE_IOS_INLINE_API_ROOT to the read-only Main contract checkout at " + PINNED_MAIN_API)
-    checkout = Path(external).resolve()
-    shared = checkout / "libraries/shared/src"
-    for relative in ("libraries/shared/src/InlineHtmlDocument.h", "libraries/shared/src/EmbeddedWebPolicy.h",
-                     "interface/resources/qml/controls/EmbeddedWebView.qml"):
-        original = subprocess.check_output(["git", "-C", str(checkout), "show", PINNED_MAIN_API + ":" + relative])
-        if (checkout / relative).read_bytes() != original:
-            raise SystemExit("Read-only owning Main API differs from the explicitly pinned contract: " + relative)
-    return shared, "read-only Main API " + PINNED_MAIN_API + "; NOT propagated/source-closed"
-
-
-shared, api_binding = owning_api()
+shared = ROOT / "libraries/shared/src"
+for relative in ("InlineHtmlDocument.h", "EmbeddedWebPolicy.h"):
+    if not (shared / relative).is_file():
+        raise SystemExit(relative + " must propagate from the owning Main parent before iOS integration tests.")
 major = os.environ.get("OVERTE_IOS_INLINE_QT_MAJOR", "6")
 if major not in ("5", "6"):
     raise SystemExit("OVERTE_IOS_INLINE_QT_MAJOR must be 5 or 6")
@@ -63,7 +47,8 @@ if len(properties.splitlines()) != 3:
     raise SystemExit("The actual native property declarations must be tested")
 signatures = ("QString IOSWebView::url(", "void IOSWebView::setUrl(",
               "QString IOSWebView::scriptUrl(", "void IOSWebView::setScriptUrl(",
-              "QVariant IOSWebView::inlineDocument(", "void IOSWebView::setInlineDocument(")
+              "QVariant IOSWebView::inlineDocument(", "void IOSWebView::setInlineDocument(",
+              "bool IOSWebView::observeInlineDocument(")
 with tempfile.TemporaryDirectory(prefix="ios-inline-document-") as temporary:
     stage = Path(temporary)
     (stage / "production-properties-methods.inc").write_text("\n".join(body(source, signature) for signature in signatures))
@@ -76,8 +61,8 @@ with tempfile.TemporaryDirectory(prefix="ios-inline-document-") as temporary:
     subprocess.run([str(moc), str(driver), "-o", str(stage / "inline-test.moc")], check=True, timeout=20)
     binary = stage / "inline-document"
     subprocess.run(["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-fPIC",
-        "-I" + str(shared), "-I" + str(stage), "-I" + str(ROOT / "ios/tests"), str(driver), "-o", str(binary), *flags], check=True, timeout=90)
-    subprocess.run([str(binary), str(shared.parents[2]), str(ROOT)], check=True, timeout=30, env=os.environ | {
+        "-I" + str(shared), "-I" + str(stage), "-I" + str(ROOT / "ios/tests"), "-I" + str(ROOT / "libraries/ui/src"), str(driver), "-o", str(binary), *flags], check=True, timeout=90)
+    subprocess.run([str(binary), str(ROOT)], check=True, timeout=30, env=os.environ | {
         "QT_QPA_PLATFORM": "offscreen", "QT_QUICK_BACKEND": "software"})
-print("API binding: " + api_binding)
+print("API binding: in-tree owning parent")
 print("Apple SDK, actual WK rules/origin/network/history and video: NOT_PERFORMED")
