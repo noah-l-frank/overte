@@ -71,6 +71,38 @@
         "type": "blob",
         "oid": "4d29ce8105d1bbf125e92756ad8142c9b5f23295"
       }
+    },
+    "host-v1-protected-pr-compiler-data-v1": {
+      ".github/workflows/ios-build-qualification.yml": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "e9d176dc02268819c377dbb2edcaeea38ae7dd2b"
+      },
+      ".github/workflows/ios-integrated.yml": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "9367feef078a9311919ad920bf15b0d61800cf94"
+      },
+      ".github/workflows/ios-qt-source.yml": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "15689cd66fd4a4b74e79553c31bc80b9e3c7024f"
+      },
+      "ios/tests/run-tests.sh": {
+        "mode": "100755",
+        "type": "blob",
+        "oid": "d8b0f32ae6a404b73e39e2d606faeeb1508075ca"
+      },
+      "ios/ci/host-test-network.sh": {
+        "mode": "100755",
+        "type": "blob",
+        "oid": "b3f391387d705974a957174e625bd137ee9d8460"
+      },
+      "tests/requirements-host.txt": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "4d29ce8105d1bbf125e92756ad8142c9b5f23295"
+      }
     }
   }
 }
