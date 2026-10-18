@@ -712,6 +712,215 @@ class HostSelectionTests(unittest.TestCase):
                 self.assertFalse(plan['full_host'])
                 self.assertNotIn('device-control-plane-full',plan['suites'])
 
+    def test_eligibility_fixtures_keep_the_required_device_owner(self):
+        for path in ('tests/device/self_tests/test_android_adapter.py',
+                     'tests/device/self_tests/test_pico_property_eligibility.py'):
+            previous = copy_git_tree(self.tree)
+            previous[path]['sha'] = 'a' * 40
+            with self.subTest(path=path):
+                selected = self.selected([path], base_tree=previous)
+                self.assertEqual(set(selected['suites']), self.ci_quick | {'device-control-plane-full'})
+                self.assertTrue(selected['full_host'])
+                self.assertFalse(selected['include_platform'])
+
+    def test_artifact_identity_runner_addition_keeps_device_owner_and_program_bytes(self):
+        path = 'tests/device/run_artifact_identity.py'
+        previous, candidate = copy_git_tree(self.tree), copy_git_tree(self.tree)
+        previous.pop(path, None)
+        candidate[path] = {'mode': '100644', 'type': 'blob', 'sha': 'a' * 40}
+        self.assertIn(path, HOST.DEVICE_CONTROL_INPUTS)
+        self.assertTrue(HOST.ci_owned(path))
+        self.assertIn(path, {entry['path'] for entry in
+            HOST.inputs.selected_entries(candidate, list(HOST.PROGRAM_INPUTS))})
+        self.assertNotEqual(HOST.program_digest(previous), HOST.program_digest(candidate))
+        with patch.object(HOST, 'REVIEWED_PROGRAMS', HOST.program_digest(candidate)):
+            selected = self.selected([path], tree=candidate,
+                                     base_tree=previous, trusted_tree=candidate)
+        self.assertIn('device-control-plane-full', self.registry['suites'])
+        self.assertEqual(set(selected['suites']), self.ci_quick | {'device-control-plane-full'})
+        self.assertTrue(selected['full_host'])
+        self.assertFalse(selected['include_platform'])
+
+    def test_artifact_identity_runner_hidden_change_modes_and_neighbors_remain_bound(self):
+        path = 'tests/device/run_artifact_identity.py'
+        previous, candidate = copy_git_tree(self.tree), copy_git_tree(self.tree)
+        previous[path] = {'mode': '100644', 'type': 'blob', 'sha': 'a' * 40}
+        candidate[path] = {'mode': '100644', 'type': 'blob', 'sha': 'b' * 40}
+        self.assertNotEqual(HOST.program_digest(previous), HOST.program_digest(candidate))
+        with patch.object(HOST, 'REVIEWED_PROGRAMS', HOST.program_digest(candidate)):
+            hidden = self.selected(['tests/branch-cleanup-test.py'], tree=candidate,
+                                   base_tree=previous, trusted_tree=candidate)
+            self.assertEqual(set(hidden['suites']), self.ci_quick | {'device-control-plane-full'})
+            self.assertFalse(hidden['include_platform'])
+            for mode in ('100755', '120000', '160000'):
+                malformed = copy_git_tree(candidate)
+                malformed[path] = {'mode': mode, 'type': 'commit' if mode == '160000' else 'blob',
+                                   'sha': 'b' * 40}
+                with self.subTest(mode=mode):
+                    selected = self.selected([path], tree=malformed, base_tree=previous,
+                                             trusted_tree=candidate, regular=False)
+                    self.assertEqual(set(selected['suites']), self.all_names)
+            neighbor = 'tests/device/run_artifact_identity_unreviewed.py'
+            extra = copy_git_tree(candidate)
+            extra[neighbor] = {'mode': '100644', 'type': 'blob', 'sha': 'a' * 40}
+            self.assertEqual(set(self.selected([neighbor], tree=extra, base_tree=candidate,
+                                              trusted_tree=candidate)['suites']), self.all_names)
+
+    def test_hidden_device_input_changes_cannot_use_the_ci_only_route(self):
+        for path in ('tests/device/run_control_plane_tests.py',
+                     'tests/device/self_tests/test_android_adapter.py',
+                     'tests/device/self_tests/test_pico_property_eligibility.py'):
+            previous = copy_git_tree(self.tree)
+            previous[path]['sha'] = 'a' * 40
+            with self.subTest(path=path):
+                selected = self.selected(['tests/branch-cleanup-test.py'], base_tree=previous)
+                self.assertEqual(set(selected['suites']), self.ci_quick | {'device-control-plane-full'})
+                self.assertTrue(selected['full_host'])
+                self.assertFalse(selected['include_platform'])
+
+    def test_device_fixture_ownership_does_not_hide_unreviewed_inputs(self):
+        fixture = 'tests/device/self_tests/test_android_adapter.py'
+        adjacent = next(path for path in self.tree
+                        if path.startswith('tests/device/self_tests/test_')
+                        and path not in {fixture, 'tests/device/self_tests/test_pico_property_eligibility.py'})
+        for paths, options in (([adjacent], {}),
+                               ([fixture, 'libraries/shared/src/SharedUtil.cpp'], {}),
+                               ([fixture], {'unknown': True})):
+            with self.subTest(paths=paths, options=options):
+                self.assertEqual(set(self.selected(paths, **options)['suites']), self.all_names)
+        for mode in ('100755', '120000'):
+            candidate = copy_git_tree(self.tree)
+            candidate[fixture]['mode'] = mode
+            with self.subTest(mode=mode):
+                selected = self.selected([fixture], tree=candidate, base_tree=self.tree, regular=False)
+                self.assertEqual(set(selected['suites']), self.all_names)
+        drift = copy_git_tree(self.tree)
+        drift['libraries/shared/src/unreviewed-fixture-reader.cpp'] = {
+            'mode': '100644', 'type': 'blob', 'sha': 'b' * 40}
+        self.assertEqual(set(self.selected([fixture], tree=drift)['suites']), self.all_names)
+
+    def test_exact_owned_inputs_keep_their_declared_host_and_workflow_owners(self):
+        expected = {
+            '.github/workflows/issue-intake.yml': {'workflow-contracts'},
+            'tests/device/contracts/chat/test_chat_qml.py': {'shared-script-behavior'},
+            'tests/device/contracts/snapshot/test_snapshot_qml.py': {'snapshot-qml', 'snapshot-native'},
+            'tests/device/contracts/snapshot/test_snapshot_native.py': {'snapshot-qml', 'snapshot-native'},
+        }
+        self.assertEqual({path: set(names) for path, names in HOST.REQUIRED_INPUT_OWNERS.items()}, expected)
+        for path, owners in expected.items():
+            previous = copy_git_tree(self.tree);previous[path]['sha'] = 'a' * 40
+            with self.subTest(path=path):
+                selected = self.selected([path], base_tree=previous)
+                self.assertEqual(set(selected['suites']), self.ci_quick | owners)
+                self.assertEqual(selected['full_host'], any(self.registry['suites'][name]['layer'] == 'host' for name in owners))
+                self.assertFalse(selected['include_platform'])
+                self.assertNotIn('device-control-plane-full', selected['suites'])
+                self.assertEqual(len(selected['suites']), len(set(selected['suites'])))
+
+    def test_hidden_owned_inputs_and_device_deltas_preserve_the_complete_owner_union(self):
+        expected = {
+            '.github/workflows/issue-intake.yml': {'workflow-contracts'},
+            'tests/device/contracts/chat/test_chat_qml.py': {'shared-script-behavior'},
+            'tests/device/contracts/snapshot/test_snapshot_qml.py': {'snapshot-qml', 'snapshot-native'},
+            'tests/device/contracts/snapshot/test_snapshot_native.py': {'snapshot-qml', 'snapshot-native'},
+        }
+        for path, owners in expected.items():
+            previous = copy_git_tree(self.tree);previous[path]['sha'] = 'b' * 40
+            with self.subTest(hidden=path):
+                selected = self.selected(['tests/branch-cleanup-test.py'], base_tree=previous)
+                self.assertEqual(set(selected['suites']), self.ci_quick | owners)
+                self.assertFalse(selected['include_platform'])
+        previous = copy_git_tree(self.tree)
+        paths = sorted(expected) + ['tests/device/self_tests/test_android_adapter.py']
+        for path in paths: previous[path]['sha'] = 'c' * 40
+        selected = self.selected(paths, base_tree=previous)
+        self.assertEqual(set(selected['suites']), self.ci_quick |
+                         {'shared-script-behavior', 'snapshot-qml', 'snapshot-native', 'device-control-plane-full'})
+        self.assertTrue(selected['full_host'])
+        self.assertFalse(selected['include_platform'])
+
+    def test_affected_subset_cannot_drop_an_independently_required_input_owner(self):
+        for path, owners in HOST.REQUIRED_INPUT_OWNERS.items():
+            previous = copy_git_tree(self.tree);previous[path]['sha'] = 'a' * 40
+            for omitted in owners:
+                mandatory = self.ci_quick | set(owners)
+                smaller = {'suites': sorted(mandatory - {omitted}),
+                    'full_host': False, 'include_platform': False, 'reason': 'protected-affected-dependencies'}
+                with self.subTest(path=path, omitted=omitted), \
+                        patch.object(HOST, 'affected_selection', return_value=smaller):
+                    selected = self.selected([path], base_tree=previous)
+                self.assertEqual(set(selected['suites']), mandatory)
+
+    def test_owned_inputs_reject_unknown_missing_modes_neighbors_and_reader_drift(self):
+        path = 'tests/device/contracts/chat/test_chat_qml.py'
+        for paths, options in (([path], {'unknown': True}),
+                ([path, 'tests/device/contracts/chat/test_chat_extra.py'], {}),
+                ([path, 'interface/src/Application.cpp'], {})):
+            with self.subTest(paths=paths, options=options):
+                self.assertEqual(set(self.selected(paths, base_tree=self.tree, **options)['suites']), self.all_names)
+        for side in ('base', 'candidate'):
+            for defect in ('missing', '100755', '120000', '160000'):
+                previous, candidate = copy_git_tree(self.tree), copy_git_tree(self.tree)
+                snapshot = previous if side == 'base' else candidate
+                if defect == 'missing': snapshot.pop(path)
+                else: snapshot[path] = {'mode': defect, 'type': 'commit' if defect == '160000' else 'blob', 'sha': 'a' * 40}
+                with self.subTest(side=side, defect=defect):
+                    self.assertEqual(set(self.selected(['tests/branch-cleanup-test.py'], tree=candidate,
+                        base_tree=previous)['suites']), self.all_names)
+        drift = copy_git_tree(self.tree)
+        drift['libraries/shared/src/unreviewed-contract-reader.cpp'] = {'mode': '100644', 'type': 'blob', 'sha': 'c' * 40}
+        self.assertEqual(set(self.selected([path], tree=drift, base_tree=self.tree)['suites']), self.all_names)
+        incomplete = deepcopy(self.registry);del incomplete['suites']['shared-script-behavior']
+        with patch.object(HOST.inputs, 'load_registry', return_value=incomplete), self.assertRaisesRegex(ValueError, 'mandatory input owner'):
+            self.selected([path], base_tree=self.tree)
+
+    def test_ios_unproved_fixture_readers_keep_device_for_direct_and_hidden_deltas(self):
+        paths = ('tests/device/contracts/chat/test_chat_qml.py',
+                 'tests/device/contracts/snapshot/test_snapshot_qml.py',
+                 'tests/device/contracts/snapshot/test_snapshot_native.py')
+        with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS, {'apple-ios': HOST.program_digest(self.tree)}):
+            for path in paths:
+                previous = copy_git_tree(self.tree);previous[path]['sha'] = 'a' * 40
+                owners = set(HOST.REQUIRED_INPUT_OWNERS[path]) | {'device-control-plane-full'}
+                for hint in ([path], ['tests/branch-cleanup-test.py']):
+                    with self.subTest(path=path, hint=hint):
+                        selected = self.selected(hint, base_tree=previous, target='apple-ios')
+                        self.assertEqual(set(selected['suites']), self.ci_quick | owners)
+                        self.assertTrue(selected['full_host'])
+                        self.assertFalse(selected['include_platform'])
+                smaller = {'suites': sorted(self.ci_quick | (owners - {'device-control-plane-full'})),
+                    'full_host': True, 'include_platform': False, 'reason': 'protected-affected-dependencies'}
+                with self.subTest(omission=path), patch.object(HOST, 'affected_selection', return_value=smaller):
+                    selected = self.selected([path], base_tree=previous, target='apple-ios')
+                self.assertEqual(set(selected['suites']), self.ci_quick | owners)
+                self.assertIn('device-control-plane-full', HOST.required_input_owners(
+                    self.tree, [path], previous, target='apple-ios'))
+                self.assertNotIn('device-control-plane-full', HOST.required_input_owners(
+                    self.tree, [path], self.tree, target='apple-ios'))
+
+    def test_ios_fixture_fallback_does_not_broaden_workflow_or_proved_targets(self):
+        reviewed = {target: HOST.program_digest(self.tree) for target in HOST.REVIEWED_CHILD_PROGRAMS}
+        with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS, reviewed):
+            path = '.github/workflows/issue-intake.yml'
+            previous = copy_git_tree(self.tree);previous[path]['sha'] = 'b' * 40
+            selected = self.selected([path], base_tree=previous, target='apple-ios')
+            self.assertEqual(set(selected['suites']), self.ci_quick)
+            self.assertFalse(selected['full_host'])
+            self.assertNotIn('device-control-plane-full', selected['suites'])
+            for target in ('main', 'apple-main', 'android-main', 'android-phone', 'android-vr', 'android-vr-pico'):
+                for path, owners in HOST.REQUIRED_INPUT_OWNERS.items():
+                    previous = copy_git_tree(self.tree);previous[path]['sha'] = 'c' * 40
+                    with self.subTest(target=target, path=path):
+                        selected = self.selected([path], base_tree=previous, target=target)
+                        self.assertEqual(set(selected['suites']), self.ci_quick | set(owners))
+                        self.assertNotIn('device-control-plane-full', selected['suites'])
+                        self.assertFalse(selected['include_platform'])
+            selected = self.selected(['tests/device/contracts/chat/test_chat_qml.py'],
+                                     base_tree=self.tree, target='apple-ios-unknown')
+            self.assertEqual(set(selected['suites']), self.all_names)
+            self.assertTrue(selected['full_host'])
+            self.assertTrue(selected['include_platform'])
+
     def test_qt_script_contracts_are_required_for_product_changes_and_omitted_for_ci_only(self):
         self.assertEqual(self.registry['suites']['shared-script-behavior']['layer'],'host')
         ci=self.selected(['tools/branch-cleanup/cleanup.py'])
@@ -1059,7 +1268,7 @@ class HostSelectionTests(unittest.TestCase):
     def test_producer_transition_cli_requests_full_prerequisites_and_runs_one_complete_owner(self):
         result, controller = self.cli(transition=True, select_only=True)
         self.assertEqual(result, 0)
-        self.assertEqual(controller.selection_output, 'full_host=true\ncomplete_receipt=true\n')
+        self.assertEqual(controller.selection_output, 'full_host=true\ncomplete_receipt=true\nrequires_artifact_namespace=true\n')
         self.assertEqual(controller.selection_report['selection']['reason'], 'reviewed-protected-producer-transition')
         self.assertEqual(controller.selection_report['omitted_suites'], [])
         controller.run_suites.assert_not_called()
@@ -1072,7 +1281,7 @@ class HostSelectionTests(unittest.TestCase):
     def test_metadata_installation_cli_selects_full_prerequisites_and_one_complete_owner(self):
         result,controller=self.cli(transition='metadata',select_only=True)
         self.assertEqual(result,0)
-        self.assertEqual(controller.selection_output,'full_host=true\ncomplete_receipt=true\n')
+        self.assertEqual(controller.selection_output,'full_host=true\ncomplete_receipt=true\nrequires_artifact_namespace=true\n')
         self.assertEqual(controller.selection_report['selection']['reason'],'reviewed-protected-producer-transition')
         self.assertEqual(controller.selection_report['omitted_suites'],[])
         controller.run_suites.assert_not_called()
@@ -1086,7 +1295,7 @@ class HostSelectionTests(unittest.TestCase):
             with self.subTest(transition=transition):
                 result,controller=self.cli(transition=transition,select_only=True)
                 self.assertEqual(result,0)
-                self.assertEqual(controller.selection_output,'full_host=true\ncomplete_receipt=true\n')
+                self.assertEqual(controller.selection_output,'full_host=true\ncomplete_receipt=true\nrequires_artifact_namespace=true\n')
                 self.assertEqual(controller.selection_report['selection']['reason'],'reviewed-protected-producer-transition')
                 self.assertEqual(controller.selection_report['omitted_suites'],[])
                 controller.run_suites.assert_not_called()
@@ -1097,14 +1306,14 @@ class HostSelectionTests(unittest.TestCase):
     def test_new_candidate_host_command_forces_prerequisites_before_execution(self):
         result,controller=self.cli(new_command=True,select_only=True)
         self.assertEqual(result,0)
-        self.assertEqual(controller.selection_output,'full_host=true\ncomplete_receipt=false\n')
+        self.assertEqual(controller.selection_output,'full_host=true\ncomplete_receipt=false\nrequires_artifact_namespace=true\n')
         self.assertFalse(controller.selection_report['complete_receipt_required'])
         controller.run_suites.assert_not_called()
 
     def test_partial_host_owner_keeps_qt_without_claiming_full_receipt(self):
         result,controller=self.cli(control_changed=True,select_only=True,platform=True)
         self.assertEqual(result,0)
-        self.assertEqual(controller.selection_output,'full_host=true\ncomplete_receipt=false\n')
+        self.assertEqual(controller.selection_output,'full_host=true\ncomplete_receipt=false\nrequires_artifact_namespace=true\n')
         report=controller.selection_report
         self.assertFalse(report['complete_receipt_required'])
         self.assertFalse(report['reusable'])
@@ -1139,10 +1348,30 @@ class HostSelectionTests(unittest.TestCase):
         self.assertEqual(controller.selection_report['selection']['platform_suites'],['fixture-platform'])
         self.assertEqual(controller.selection_report['selection']['omitted_platform_suites'],[])
 
+    def test_namespace_utility_follows_partial_full_and_candidate_owners_without_changing_selection(self):
+        for names in (['project-runner'], ['device-control-plane-full'],
+                      ['project-runner-candidate-0123456789ab'],
+                      ['device-control-plane-full-candidate-abcdef012345']):
+            with self.subTest(names=names): self.assertTrue(HOST.requires_artifact_namespace(names))
+        for names in ([], ['documentation'], ['branch-cleanup'], ['device-control-plane-full-candidate-invalid'],
+                      ['project-runner-neighbor']):
+            with self.subTest(names=names): self.assertFalse(HOST.requires_artifact_namespace(names))
+        for names in (None, 'project-runner', {}, [None], ['']):
+            with self.subTest(malformed=names), self.assertRaises(ValueError):
+                HOST.requires_artifact_namespace(names)
+        for options in ({}, {'full_host':True}, {'control_changed':True}, {'new_command':True}):
+            with self.subTest(options=options):
+                result, controller = self.cli(select_only=True, **options)
+                self.assertEqual(result, 0)
+                self.assertIn('requires_artifact_namespace=true\n', controller.selection_output)
+                self.assertNotIn('requires_artifact_namespace', controller.selection_report['selection'])
+                self.assertNotIn('requires_artifact_namespace', controller.selection_report)
+                controller.run_suites.assert_not_called()
+
     def test_partial_parent_plan_cannot_claim_full_or_reused_execution(self):
         result,controller=self.cli(select_only=True)
         self.assertEqual(result,0)
-        self.assertEqual(controller.selection_output,'full_host=false\ncomplete_receipt=false\n')
+        self.assertEqual(controller.selection_output,'full_host=false\ncomplete_receipt=false\nrequires_artifact_namespace=true\n')
         report=controller.selection_report
         self.assertFalse(report['reusable'])
         self.assertEqual(report['kind'],'host-impact-selection')
@@ -1155,7 +1384,7 @@ class HostSelectionTests(unittest.TestCase):
     def test_product_parent_plan_keeps_legacy_complete_receipt_route(self):
         result,controller=self.cli(select_only=True,full_host=True)
         self.assertEqual(result,0)
-        self.assertEqual(controller.selection_output,'full_host=true\ncomplete_receipt=true\n')
+        self.assertEqual(controller.selection_output,'full_host=true\ncomplete_receipt=true\nrequires_artifact_namespace=true\n')
         self.assertTrue(controller.selection_report['complete_receipt_required'])
         self.assertEqual(controller.selection_report['omitted_suites'],[])
         controller.run_suites.assert_not_called()
@@ -1252,6 +1481,147 @@ class HostSelectionTests(unittest.TestCase):
         result,controller=self.cli(runner_result=143,cancel=True)
         self.assertEqual(result,143)
         controller.run_suites.assert_called_once()
+
+    def test_cli_fail_fast_preserves_failure_partial_xml_and_all_success_coverage(self):
+        import xml.etree.ElementTree as ET
+        result, controller = self.cli()
+        self.assertEqual(result, 0)
+        actual = controller.run_suites.call_args.args[0]
+        self.assertTrue(actual.fail_fast)
+        self.assertEqual(actual.timeout, 240)
+        self.assertEqual(actual.host_timeout, 900)
+        runner = HOST.execution._runner()
+        for failing in (True, False):
+            with self.subTest(failing=failing), tempfile.TemporaryDirectory() as folder:
+                canary = Path(folder) / 'later-canary'
+                report = Path(folder) / 'partial.xml'
+                suites = [runner.Suite('early-pass','quick',(sys.executable,'-c','print("early pass")')),
+                    runner.Suite('selected-failure' if failing else 'middle-pass','quick',
+                        (sys.executable,'-c','import sys; print("controlled middle"); sys.exit('+('7' if failing else '0')+')')),
+                    runner.Suite('later-canary','quick',(sys.executable,'-c',
+                        'from pathlib import Path; Path('+repr(str(canary))+').write_text("executed")'))]
+                args = SimpleNamespace(**{**vars(actual),'junit':report})
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    status = runner.run_suites(args,suites,[])
+                self.assertEqual(status, 1 if failing else 0)
+                cases = ET.parse(report).getroot().findall('testcase')
+                self.assertEqual([case.get('name') for case in cases],
+                    ['early-pass','selected-failure'] if failing else ['early-pass','middle-pass','later-canary'])
+                self.assertEqual(sum(case.find('failure') is not None for case in cases), 1 if failing else 0)
+                self.assertTrue(all(case.find('skipped') is None for case in cases))
+                self.assertEqual(canary.exists(), not failing)
+
+
+class InstalledCompilerProgramsTests(unittest.TestCase):
+    PROFILE_MODES = {
+        '.github/workflows/ios-integrated.yml': '100644',
+        'docs/ios/SIGNING_AND_DEVICE_TESTS.md': '100644',
+        'ios/ci/qt-checkpoint-artifact.py': '100755',
+        'ios/tests/ios-full-client-sccache-contract-test.py': '100644',
+        'ios/tests/qt-checkpoint-artifact-test.py': '100755',
+    }
+
+    @contextlib.contextmanager
+    def private_git_profiles(self):
+        """Real private Git inputs; tiny profile bytes are fixture data, not IOS5."""
+        with tempfile.TemporaryDirectory(prefix='overte-installed-compiler-programs-') as folder:
+            root=Path(folder)
+            def write(path,data,mode=0o644):
+                leaf=root/path;leaf.parent.mkdir(parents=True,exist_ok=True)
+                leaf.write_bytes(data);leaf.chmod(mode)
+            def git(*args):
+                return HOST.subprocess.check_output(['git','-c','core.hooksPath=/dev/null',
+                    '-c','commit.gpgsign=false','-c','user.name=Compiler profile fixture',
+                    '-c','user.email=fixture@example.invalid',*args],cwd=root).decode().strip()
+            def snapshot():
+                git('add','--','.');git('commit','-qm','Record private immutable input fixture')
+                return HOST.inputs.full_tree(root,git('rev-parse','HEAD'))
+            git('init','-q','--initial-branch=main')
+            write('.github/test-suites.json',(ROOT/'.github/test-suites.json').read_bytes())
+            write('tests/platform-profile.json',(json.dumps(
+                {'schema':1,'platform':'shared','suites':[]},indent=2)+'\n').encode())
+            write('tools/test-evidence/inputs.py',b'fixed fixture selector authority\n')
+            ci='tools/branch-cleanup/cleanup.py'
+            write(ci,b'old CI bytes\n')
+            for path,mode in self.PROFILE_MODES.items():
+                write(path,('old '+path+'\n').encode(),int(mode,8)&0o777)
+            old=snapshot()
+            write(ci,b'new CI bytes\n');old_ci=snapshot()
+            write(ci,b'old CI bytes\n')
+            for path,mode in self.PROFILE_MODES.items():
+                write(path,('installed '+path+'\n').encode(),int(mode,8)&0o777)
+            new=snapshot()
+            write(ci,b'new CI bytes\n');new_ci=snapshot()
+            profile={path:new[path].copy() for path in self.PROFILE_MODES}
+            old_p,new_p=(HOST.program_digest(tree,root) for tree in (old,new))
+            with (patch.object(HOST,'REVIEWED_PROGRAMS',old_p),
+                  patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{'apple-ios':old_p}),
+                  patch.object(HOST,'REVIEWED_INSTALLED_PROGRAMS',{'apple-ios':new_p},create=True),
+                  patch.object(HOST.inputs,'INSTALLED_COMPILER_PROFILE',profile,create=True)):
+                def select(base,candidate,*,target='apple-ios',unknown=False):
+                    paths=sorted(path for path in base.keys()|candidate.keys() if base.get(path)!=candidate.get(path))
+                    return HOST.select(candidate,paths,True,unknown=unknown,trusted_tree=old,
+                        base_tree=base,candidate_root=root,trusted_root=root,target=target)
+                yield old,old_ci,new,new_ci,select,profile
+
+    def test_same_installed_and_original_families_keep_ci_omission_but_transitions_keep_device(self):
+        with self.private_git_profiles() as (old,old_ci,new,new_ci,select,profile):
+            for base,candidate in ((old,old_ci),(new,new_ci)):
+                with self.subTest(family='installed' if base is new else 'original'):
+                    result=select(base,candidate)
+                    self.assertFalse(result['full_host']);self.assertFalse(result['include_platform'])
+                    self.assertNotIn('device-control-plane-full',result['suites'])
+            for base,candidate in ((old,new_ci),(new,old_ci)):
+                with self.subTest(direction='install' if base is old else 'revert'):
+                    result=select(base,candidate)
+                    self.assertTrue(result['full_host']);self.assertTrue(result['include_platform'])
+                    for name in ('device-control-plane-full','shared-script-behavior','snapshot-native'):
+                        self.assertIn(name,result['suites'])
+            with patch.dict(HOST.REVIEWED_INSTALLED_PROGRAMS,{'apple-ios':None}):
+                self.assertTrue(select(new,new_ci)['full_host'])
+            self.assertEqual(set(HOST.REVIEWED_INSTALLED_PROGRAMS),{'apple-ios'})
+
+    def test_installed_program_family_rejects_partial_modes_bytes_neighbors_and_stale_readers(self):
+        with self.private_git_profiles() as (old,old_ci,new,new_ci,select,profile):
+            guide='docs/ios/SIGNING_AND_DEVICE_TESTS.md'
+            helper='ios/ci/qt-checkpoint-artifact.py'
+            for which in ('base','candidate'):
+                for change in ('guide','helper','mode','missing','neighbor','selector','lookup'):
+                    base,candidate=copy_git_tree(new),copy_git_tree(new_ci)
+                    tree=base if which=='base' else candidate
+                    if change=='missing':del tree[helper]
+                    elif change=='mode':tree[helper]['mode']='100644'
+                    elif change=='neighbor':tree['ios/ci/new-reader.hpp']={'mode':'100644','type':'blob','sha':'a'*40}
+                    elif change=='lookup':tree['ios/ci/new_reader.py']={'mode':'100644','type':'blob','sha':'b'*40}
+                    else:tree[guide if change=='guide' else helper if change=='helper'
+                              else 'tools/test-evidence/inputs.py']['sha']='c'*40
+                    with self.subTest(which=which,change=change):
+                        result=select(base,candidate)
+                        self.assertTrue(result['full_host'])
+                        self.assertIn('device-control-plane-full',result['suites'])
+            self.assertTrue(select(new,new_ci,target='apple-main')['full_host'])
+            self.assertTrue(select(new,new_ci,unknown=True)['full_host'])
+            # Before cache installation Markdown keeps its established legacy CI
+            # route. This is distinct from admission of the new installed family.
+            previous=copy_git_tree(old_ci);previous[guide]['sha']='d'*40
+            self.assertFalse(select(old,previous)['full_host'])
+
+    def test_installed_profile_is_the_exact_five_frozen_ordinary_cache_inputs(self):
+        expected={
+            '.github/workflows/ios-integrated.yml':('100644','9367feef078a9311919ad920bf15b0d61800cf94'),
+            'docs/ios/SIGNING_AND_DEVICE_TESTS.md':('100644','f0777c42ed2b49ed04b9b6650de13c4a4ef14e9f'),
+            'ios/ci/qt-checkpoint-artifact.py':('100755','34a53dea5e99060403d38a90b9f1b6afdbb5021d'),
+            'ios/tests/ios-full-client-sccache-contract-test.py':('100644','c037ab31ab74c0f4cbb9902b6fafba172914cdba'),
+            'ios/tests/qt-checkpoint-artifact-test.py':('100755','2b829c678fac98ba68a12758168e7931f921393c'),
+        }
+        self.assertEqual(HOST.inputs.INSTALLED_COMPILER_PROFILE,
+            {path:{'mode':mode,'type':'blob','sha':sha} for path,(mode,sha) in expected.items()})
+        self.assertEqual(HOST.inputs.INSTALLED_COMPILER_READER,
+            'sha256:d57dea0d6e1db2ccf001d910d6f171f08827e5fef16f91dfcd9153b74198aeb8')
+        for path in expected:
+            self.assertNotIn(path,HOST.DEVICE_CONTROL_INPUTS)
+        self.assertIn('ios',HOST.inputs._DEVICE_INPUTS)
+        self.assertFalse(HOST.inputs.installed_compiler_profile(HOST.inputs.INSTALLED_COMPILER_PROFILE,target='main'))
 
 
 if __name__=='__main__':
