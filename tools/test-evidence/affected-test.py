@@ -383,7 +383,10 @@ class ShippingPolicyTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(payload).hexdigest(),_MAIN_PROJECTION_SHA256)
         tree=json.loads(payload)
         self.assertEqual(len(tree),502)
-        self.assertEqual(tree[inputs.AFFECTED_POLICY],blob(raw))
+        # The authenticated projection is immutable historical Main evidence.
+        # A feature can legitimately register another host test and change the
+        # registry/dependency definitions. Retain the old authority bytes here:
+        # production must refuse using that historical proof for the new graph.
         policy=json.loads(raw)
         self.assertEqual(inputs.affected_lookup_digest(tree),policy['targets']['main']['lookup_digest'])
         self.assertEqual(tree['tests/platform-profile.json'],policy['targets']['main']['profile'])
@@ -421,21 +424,45 @@ class ShippingPolicyTests(unittest.TestCase):
             self.assertNotEqual(lookup,policy['targets'][target]['lookup_digest'])
         return target,self.trusted_main_projection(root,raw,source)
 
-    def assert_unreviewed_namespace_refused(self, registry, raw, base, candidate, trusted, target):
+    def test_historical_projection_does_not_certify_changed_dependency_definitions(self):
+        root,registry,raw,base=self.shipping_context()
+        trusted=self.trusted_main_projection(root,raw,base)
+        historical=json.loads(zlib.decompress(base64.b85decode(_MAIN_PROJECTION_B85)))
+        for path in (inputs.AFFECTED_POLICY,'.github/test-suites.json'):
+            self.assertEqual(trusted[path],historical[path],
+                'current feature registration must not rewrite historical authority')
+        # Exercise the exact protected-policy check with a reviewed bounded
+        # namespace as well, so an unrelated new import cannot mask regression.
+        _,registry,sealed,base=self.bounded_context()
+        candidate=deepcopy(base);candidate['tools/test-evidence/sandbox_host.py']=blob(b'changed CI')
+        inputs.plan_affected(registry,sealed,base,candidate,base)
+        for changed_side in ('base','candidate','trusted'):
+            trees={'base':deepcopy(base),'candidate':deepcopy(candidate),'trusted':deepcopy(base)}
+            trees[changed_side][inputs.AFFECTED_POLICY]=blob(sealed+b'\n')
+            with self.subTest(changed_side=changed_side),self.assertRaisesRegex(inputs.InputError,
+                    'dependency graph must already be identical protected policy'):
+                inputs.plan_affected(registry,sealed,trees['base'],trees['candidate'],trees['trusted'])
+
+    def assert_unreviewed_context_refused(self, registry, raw, base, candidate, trusted, target):
         # Choosing the owning profile does not certify a feature branch's new
         # import membership. Such a source must refuse dependency omissions.
-        if inputs.affected_lookup_digest(base)==json.loads(raw)['targets'][target]['lookup_digest']:
-            return False
-        with self.assertRaisesRegex(inputs.InputError,'lookup membership is not reviewed'):
-            inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
-        return True
+        if inputs.affected_lookup_digest(base)!=json.loads(raw)['targets'][target]['lookup_digest']:
+            with self.assertRaisesRegex(inputs.InputError,'lookup membership is not reviewed'):
+                inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
+            return True
+        if any(tree.get(inputs.AFFECTED_POLICY)!=blob(raw) for tree in (base,candidate,trusted)):
+            with self.assertRaisesRegex(inputs.InputError,'dependency graph must already be identical protected policy'):
+                inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
+            return True
+        return False
 
     def test_shipping_manifest_is_complete_and_backward_compatible_registry_is_unchanged(self):
         root=Path(__file__).resolve().parents[2]
         registry=inputs.load_registry(root/'.github/test-suites.json')
         raw=inputs.load_dependencies(root/inputs.AFFECTED_POLICY,registry)
         manifest=json.loads(raw)
-        self.assertEqual(len(manifest['suites']),60)
+        self.assertEqual(len(manifest['suites']),61)
+        self.assertEqual(manifest['suites']['avatar-pose-native']['kind'],'repository')
         finite=[n for n,r in manifest['suites'].items() if r['kind']=='reviewed-patterns']
         self.assertEqual(finite,['documentation-contracts','release-bundle','embedded-web-qml',
             'places-native-qml','recorded-voice-qml','snapshot-qml'])
@@ -575,7 +602,7 @@ class ShippingPolicyTests(unittest.TestCase):
             candidate['tools/test-evidence/'+name]=blob(('changed '+name).encode())
         target,trusted=self.target_context(root,raw,base)
         native=json.loads(raw)['suites']['device-control-plane-full']
-        if self.assert_unreviewed_namespace_refused(registry,raw,base,candidate,trusted,target):
+        if self.assert_unreviewed_context_refused(registry,raw,base,candidate,trusted,target):
             return
         plan=inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
         if inputs.device_reader_digest(base,native['native_independent_paths']) != json.loads(raw)['targets'][target]['reader_digest']:
@@ -621,7 +648,7 @@ class ShippingPolicyTests(unittest.TestCase):
                 candidate[path]=changed
                 for name in ('attested.py','postmerge.py','producer_workflow.py','sandbox.py','sandbox_host.py'):
                     candidate['tools/test-evidence/'+name]=blob(('changed '+name).encode())
-                if self.assert_unreviewed_namespace_refused(registry,raw,previous,candidate,trusted,target):
+                if self.assert_unreviewed_context_refused(registry,raw,previous,candidate,trusted,target):
                     continue
                 plan=inputs.plan_affected(registry,raw,previous,candidate,trusted,target=target)
                 self.assertIn('device-control-plane-full',plan['required'])
@@ -638,7 +665,7 @@ class ShippingPolicyTests(unittest.TestCase):
         candidate=deepcopy(base)
         candidate['tools/test-evidence/sandbox_host.py']=blob(b'changed preinstallation controller')
         target,trusted=self.target_context(root,raw,base)
-        if self.assert_unreviewed_namespace_refused(registry,raw,base,candidate,trusted,target):
+        if self.assert_unreviewed_context_refused(registry,raw,base,candidate,trusted,target):
             return
         plan=inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
         owners={'device-control-plane-full',*inputs._AFFECTED_PRODUCT_SUITES,*inputs._AFFECTED_SUBJECTS}
@@ -840,7 +867,8 @@ class ShippingPolicyTests(unittest.TestCase):
                         if row['kind']=='reviewed-patterns'}
         self.assertEqual(pattern_owners,{'documentation-contracts','release-bundle',
             'embedded-web-qml','places-native-qml','recorded-voice-qml','snapshot-qml'})
-        self.assertEqual(len(set(plan['required'])-pattern_owners),31)
+        self.assertIn('avatar-pose-native',plan['required'])
+        self.assertEqual(len(set(plan['required'])-pattern_owners-{'avatar-pose-native'}),31)
         _,_,_,source=self.source_context()
         for name in sorted(pattern_owners):
             imports=registry['suites'][name]['python_imports']

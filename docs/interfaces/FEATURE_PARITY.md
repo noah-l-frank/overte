@@ -283,3 +283,19 @@ surface layout, popup actions and ordered messages are tested. Canonical Places
 JavaScript cases separately exercise the production backend. These host boundaries
 do not establish actual device navigation, saved-data durability, network results,
 permission to create a portal or touch/headset/IME qualification.
+
+### Hidden local avatar pose
+
+Hiding the local avatar mesh must preserve the avatar's simulation. Native rig
+animation/IK, child wearable transforms, outbound joint-data updates and head
+position continue while `MyAvatar.shouldRenderLocally` is false. The existing
+rig-disabled joint-copy rule and native loading behavior remain in effect;
+local rendering stays controlled by the mesh visibility setting.
+
+`tests/device/contracts/avatar/test_hidden_avatar_pose.py` executes production
+simulation, override/cancel, rendering guards, manager update/send order and
+outbound joint-cache acquisition with real Qt locks, GLM and `JointData`. Rig
+math, scene/render and packet transport remain explicit host boundaries. Select
+Qt with `OVERTE_NATIVE_QT_MAJOR=5` or `6` and, when needed, supply the real GLM
+include root through `OVERTE_TEST_GLM_INCLUDE`. It does not establish an animated
+peer, a real avatar codec, network transport or a physical-device result.

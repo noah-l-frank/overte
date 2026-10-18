@@ -951,12 +951,10 @@ void MyAvatar::simulate(float deltaTime, bool inView) {
     // before we perform rig animations and IK.
     updateSensorToWorldMatrix();
 
-    // The Pico client does not render its local first-person body.  The model
-    // must still complete its initial load/simulation because other startup
-    // state depends on hasSkeleton(), but after that there is no reason to run
-    // the expensive local rig, animation and IK every world update.
-    const bool updateLocalSkeleton = _shouldRender || !_skeletonModel->hasSkeleton();
-    if (updateLocalSkeleton) {
+    // Local mesh visibility does not control animation or tracking. The rig
+    // must advance for outbound avatar joints, emotes, attached wearables and
+    // head/audio position even when the first-person body is hidden.
+    {
         PerformanceTimer perfTimer("skeleton");
 
         _skeletonModel->getRig().setEnableDebugDrawIKTargets(_enableDebugDrawIKTargets);
@@ -967,9 +965,7 @@ void MyAvatar::simulate(float deltaTime, bool inView) {
 
     // we've achived our final adjusted position and rotation for the avatar
     // and all of its joints, now update our children.
-    if (updateLocalSkeleton) {
-        relayJointDataToChildren();
-    }
+    relayJointDataToChildren();
     if (applyGrabChanges()) {
         _cauterizationNeedsUpdate = true;
     }
@@ -980,7 +976,7 @@ void MyAvatar::simulate(float deltaTime, bool inView) {
         return;
     }
 
-    if (updateLocalSkeleton) {
+    {
         PerformanceTimer perfTimer("joints");
         // copy out the skeleton joints from the model
         if (_rigEnabled) {
@@ -989,7 +985,7 @@ void MyAvatar::simulate(float deltaTime, bool inView) {
         }
     }
 
-    if (updateLocalSkeleton) {
+    {
         PerformanceTimer perfTimer("head");
         Head* head = getHead();
         glm::vec3 headPosition;
@@ -1004,16 +1000,6 @@ void MyAvatar::simulate(float deltaTime, bool inView) {
         head->setPosition(headPosition);
         head->setScale(getModelScale());
         head->simulate(deltaTime);
-    } else {
-        // Keep spatial audio attached to the current tracked head without
-        // requiring the invisible skeleton to be animated.
-        auto sensorHeadPose = getControllerPoseInSensorFrame(controller::Action::HEAD);
-        glm::vec3 headPosition = getWorldPosition();
-        if (sensorHeadPose.isValid()) {
-            headPosition = transformPoint(getSensorToWorldMatrix(), sensorHeadPose.getTranslation());
-        }
-        getHead()->setPosition(headPosition);
-        getHead()->setScale(getModelScale());
     }
 
     // Record avatars movements.
