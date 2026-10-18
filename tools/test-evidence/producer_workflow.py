@@ -1111,6 +1111,27 @@ def legacy_common_fallback(context, event, environment, adapter, *, report):
         if context['binding']['base_ref'] in {'android-main', 'android-vr'} else 'Shared tests')) \
         if 'integration' in context else (lambda: current_run(context, adapter, 'shared'))
     native()
+    target = context['binding']['base_ref']
+    if 'integration' in context and target in {'android-main', 'android-vr'} \
+            and environment.get('GITHUB_EVENT_NAME') == 'push' \
+            and environment.get('GITHUB_JOB') == 'common-parent' \
+            and environment.get('GITHUB_WORKFLOW_REF') == (
+                'noah-l-frank/overte/.github/workflows/parent-qualification.yml@refs/heads/'+target):
+        # This impact-only route cannot publish E or a qualification artifact.
+        # Declining optional common qualification leaves the separately checked
+        # platform owner and every required PR/Sync execution unchanged.
+        _platform_bookend(context, event, environment, adapter)
+        native()
+        value = {'schema': 1, 'kind': 'optional-parent-qualification-unavailable-v1',
+            'reusable': False, 'qualification': False, 'execution': None,
+            'executed_suites': [], 'reused_suites': [],
+            'candidate': context['binding']['merge_sha'],
+            'partition': context['platform_partition']['digest'],
+            'reason': 'impact-only-common-fallback-cannot-publish-qualification'}
+        Path(report).with_suffix('.json').write_bytes(protocol.canonical(value))
+        print('Optional parent common qualification unavailable: no suites executed, '
+              'no test pass or reusable evidence published; platform owner remains required.', flush=True)
+        return value
     status, receipt = execution.execute(context['candidate'], context['platform_partition']['common_owner']['suites'], include_platform=False,
         junit=report, _impact_selection=True)
     host.require(status == 0 and receipt['reusable'] is False and receipt['environment'] is None,

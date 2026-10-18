@@ -195,7 +195,10 @@ an authenticated native parent job whose common-only selection cannot produce
 a complete receipt reports qualification as unavailable and executes no suites;
 it publishes neither passing test results nor reusable evidence. Required PR
 and sync checks, package owners, platform owners and complete qualification
-remain unchanged. Markdown-only and bounded tool-only pushes keep their
+remain unchanged. On Android parents, the impact-only common fallback also
+reports optional qualification as unavailable without executing common suites;
+it cannot publish a complete receipt, and the independent platform owner stays
+mandatory. Markdown-only and bounded tool-only pushes keep their
 separate routes above. A qualification artifact binds the
 repository numeric ID and name, parent commit and tree, qualification workflow
 blob, shared test definitions, workflows, lockfiles, toolchain inputs, test

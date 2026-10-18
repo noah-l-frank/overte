@@ -3992,5 +3992,49 @@ class OptionalParentScheduleTests(unittest.TestCase):
             self.schedule()
 
 
+class OptionalAndroidParentCommonTests(unittest.TestCase):
+    def test_only_native_parent_common_nonqualifying_execution_is_declined(self):
+        import producer_workflow as workflow
+        import tempfile
+        context = {'binding': {'base_ref': 'android-main', 'merge_sha': 'a'*40},
+            'candidate': Path('/unused-candidate'), 'integration': {},
+            'platform_partition': {'digest': 'sha256:'+'b'*64, 'common_owner': {'suites': ['contract']}}}
+        environment = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_JOB': 'common-parent',
+            'GITHUB_WORKFLOW_REF': 'noah-l-frank/overte/.github/workflows/parent-qualification.yml@refs/heads/android-main'}
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory)/'common.xml'
+            with patch.object(workflow, '_push_platform_job') as native, \
+                    patch.object(workflow, '_platform_bookend') as bookend, \
+                    patch.object(workflow.execution, 'execute', side_effect=AssertionError('no duplicate common tests')) as execute:
+                result = workflow.legacy_common_fallback(context, {}, environment, object(), report=report)
+            self.assertEqual(native.call_count, 2)
+            bookend.assert_called_once()
+            execute.assert_not_called()
+            self.assertFalse(report.exists())
+            self.assertEqual(json.loads(report.with_suffix('.json').read_text()), result)
+            self.assertFalse(result['reusable'])
+            self.assertFalse(result['qualification'])
+            self.assertIsNone(result['execution'])
+            self.assertEqual(result['executed_suites'], [])
+            for field, value in (('GITHUB_EVENT_NAME', 'pull_request'), ('GITHUB_JOB', 'project-tests'),
+                                 ('GITHUB_WORKFLOW_REF', 'unknown')):
+                with self.subTest(field=field), patch.dict(environment, {field: value}), \
+                        patch.object(workflow, '_push_platform_job'), \
+                        patch.object(workflow, '_platform_bookend'), \
+                        patch.object(workflow.execution, 'execute', return_value=(0, {'reusable':False, 'environment':None})) as execute:
+                    workflow.legacy_common_fallback(context, {}, environment, object(), report=report)
+                execute.assert_called_once()
+
+    def test_required_pr_common_fallback_still_executes_and_fails_on_failure(self):
+        import producer_workflow as workflow
+        context = {'binding': {'base_ref': 'android-main'}, 'candidate': Path('/unused-candidate'),
+            'platform_partition': {'common_owner': {'suites': ['contract']}}}
+        with patch.object(workflow, 'current_run'), patch.object(workflow, '_platform_bookend'), \
+                patch.object(workflow.execution, 'execute', return_value=(1, {'reusable':False, 'environment':None})) as execute:
+            with self.assertRaises(ValueError):
+                workflow.legacy_common_fallback(context, {}, {'GITHUB_EVENT_NAME':'pull_request'}, object(), report=Path('/unused.xml'))
+        execute.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()
