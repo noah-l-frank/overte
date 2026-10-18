@@ -23,6 +23,9 @@ public final class WebLifecycleBoundary {
         wheels++; wheelHandle=h; wheelGrant=g; wheelPage=p; wheelDocument=document;
         wheelX=x; wheelY=y; wheelPixelX=px; wheelPixelY=py; wheelAngleX=ax; wheelAngleY=ay; wheelPixelMode=pixel;
     }
+    public static int edits;
+    public static String lastEdit;
+    public static void edit(long h,long g,long p,String document,String command) { edits++; lastEdit=command; }
     public static boolean delayCreated;
     static final Object owner = new Object(), activity = new Object();
     static final Map<Long,Object> instances = new HashMap<>();

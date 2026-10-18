@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QGuiApplication>
 #include <QWheelEvent>
+#include <QKeyEvent>
 #include <QQuickWindow>
 #include <QQuickRenderControl>
 #include <QJsonDocument>
@@ -25,7 +26,7 @@ extern "C" void Java_org_overte_web_EmbeddedWebView_nativeResumeRequest(JNIEnv*,
 extern "C" void Java_org_overte_web_EmbeddedWebView_nativeCreated(JNIEnv*, jclass, jlong, jlong, jboolean);
 #include "inline-backend-tests.h"
 class Probe : public NativeWebViewItem {
-public: using NativeWebViewItem::inputMethodQuery; using NativeWebViewItem::wheelEvent;
+public: using NativeWebViewItem::inputMethodQuery; using NativeWebViewItem::wheelEvent; using NativeWebViewItem::keyPressEvent;
 };
 int main(int argc, char** argv) {
     qputenv("QT_QUICK_BACKEND", "software");
@@ -317,6 +318,31 @@ int main(int argc, char** argv) {
         Java_org_overte_web_EmbeddedWebView_nativeCreated(env,boundary,oldHandle,oldRevision,false);
         QCoreApplication::processEvents(); assert(pending.lifecycleRevision() == freshRevision && !env->ExceptionCheck());
         std::puts("PASS: actual Qt hide event crosses JVM/JNI into production lifecycle dispatcher after active grant becomes0; Android WebView/Looper represented, not DOM/audio");
+        {
+            QQuickWindow window; window.resize(100,80); window.show(); window.requestActivate();
+            Probe key; key.setParentItem(window.contentItem()); key.setSize(QSizeF(100,80)); key.acceptForeground(true);
+            key.setSourceIdentity("key-owned-source"); key.setUrl("https://owned.test/key"); key.componentComplete();
+            QCoreApplication::processEvents(); const auto grant=key.generation(); const QUrl document("https://foreign.test/key");
+            key.acceptPage(grant,1,document); key.forceActiveFocus(); QCoreApplication::processEvents(); assert(key.hasActiveFocus());
+            assert(key.acceptMessage(grant,1,document,QUrl("https://foreign.test"),true,"editor",
+                R"({"active":true,"text":"typed","cursor":5,"anchor":5,"kind":"text"})"));
+            QCoreApplication::processEvents(); assert(key.editorFocused() && !key.allowsBridgeDocument(grant,1,document));
+            auto count=[&]{return env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,"edits","I"));};
+            auto command=[&]{auto value=static_cast<jstring>(env->GetStaticObjectField(boundary,env->GetStaticFieldID(boundary,"lastEdit","Ljava/lang/String;")));
+                const auto* bytes=env->GetStringUTFChars(value,nullptr);auto object=QJsonDocument::fromJson(bytes).object();
+                env->ReleaseStringUTFChars(value,bytes);env->DeleteLocalRef(value);return object;};
+            const auto before=count();
+            QKeyEvent enter(QEvent::KeyPress,Qt::Key_Enter,Qt::NoModifier,QString());key.keyPressEvent(&enter);
+            assert(enter.isAccepted() && count()==before+1 && command().value("action")=="enter" && !command().value("shift").toBool());
+            QKeyEvent shifted(QEvent::KeyPress,Qt::Key_Return,Qt::ShiftModifier,"\r");key.keyPressEvent(&shifted);
+            assert(shifted.isAccepted() && count()==before+2 && command().value("action")=="enter" && command().value("shift").toBool());
+            for(auto modifier:{Qt::ControlModifier,Qt::AltModifier,Qt::MetaModifier}) {
+                QKeyEvent modified(QEvent::KeyPress,Qt::Key_Return,modifier,"\r");key.keyPressEvent(&modified);assert(!modified.isAccepted() && count()==before+2);
+            }
+            key.acceptForeground(false);QCoreApplication::processEvents();key.keyPressEvent(&enter);
+            assert(!enter.isAccepted() && count()==before+2 && !env->ExceptionCheck());
+            puts("PASS: actual foreign-page Qt Return/keypad Enter reaches private edit JNI as enter+shift, including empty text; modifiers and inactive input reject");
+        }
         runInlineBackendTests(env,boundary,QString::fromLocal8Bit(argv[2]));
     }
     return 0;

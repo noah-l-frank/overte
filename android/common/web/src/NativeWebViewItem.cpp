@@ -578,7 +578,9 @@ void NativeWebViewItem::editorCommand(const QJsonObject& command) { if (!_editor
 }
 void NativeWebViewItem::keyPressEvent(QKeyEvent* event) {
     if (!_editorActive || (event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))) { event->ignore(); return; }
-    if (event->key() == Qt::Key_Backspace) editorCommand({{"action", "backspace"}});
+    if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)
+        editorCommand({{"action", "enter"}, {"shift", bool(event->modifiers() & Qt::ShiftModifier)}});
+    else if (event->key() == Qt::Key_Backspace) editorCommand({{"action", "backspace"}});
     else if (event->key() == Qt::Key_Delete) editorCommand({{"action", "delete"}});
     else if (event->key() == Qt::Key_Left || event->key() == Qt::Key_Right || event->key() == Qt::Key_Home || event->key() == Qt::Key_End) {
         const auto action = event->key() == Qt::Key_Left ? "left" : event->key() == Qt::Key_Right ? "right" : event->key() == Qt::Key_Home ? "home" : "end";
