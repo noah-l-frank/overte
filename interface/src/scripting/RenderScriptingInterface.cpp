@@ -268,7 +268,10 @@ void RenderScriptingInterface::forceShadowsEnabled(bool enabled) {
         if (_settingsPersistenceEnabled) {
             _shadowsEnabledSetting.set(enabled);
         }
-        Menu::getInstance()->setIsOptionChecked(MenuOption::Shadows, enabled);
+        // Keep legacy menu persistence at the saved user choice during an override.
+        if (_settingsPersistenceEnabled) {
+            Menu::getInstance()->setIsOptionChecked(MenuOption::Shadows, enabled);
+        }
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setShadow(enabled); });
     });
@@ -335,7 +338,10 @@ void RenderScriptingInterface::forceAmbientOcclusionEnabled(bool enabled) {
         if (_settingsPersistenceEnabled) {
             _ambientOcclusionEnabledSetting.set(enabled);
         }
-        Menu::getInstance()->setIsOptionChecked(MenuOption::AmbientOcclusion, enabled);
+        // Keep legacy menu persistence at the saved user choice during an override.
+        if (_settingsPersistenceEnabled) {
+            Menu::getInstance()->setIsOptionChecked(MenuOption::AmbientOcclusion, enabled);
+        }
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setAmbientOcclusion(enabled); });
     });
@@ -358,7 +364,10 @@ void RenderScriptingInterface::forceLocalLightingEnabled(bool enabled) {
         if (_settingsPersistenceEnabled) {
             _localLightingSetting.set(enabled);
         }
-        Menu::getInstance()->setIsOptionChecked(MenuOption::LocalLights, enabled);
+        // Keep legacy menu persistence at the saved user choice during an override.
+        if (_settingsPersistenceEnabled) {
+            Menu::getInstance()->setIsOptionChecked(MenuOption::LocalLights, enabled);
+        }
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setLocalLighting(enabled); });
     });
@@ -382,7 +391,10 @@ void RenderScriptingInterface::forceProceduralMaterialsEnabled(bool enabled) {
             _proceduralMaterialsEnabledSetting.set(enabled);
         }
 
-        Menu::getInstance()->setIsOptionChecked(MenuOption::MaterialProceduralShaders, enabled);
+        // Keep legacy menu persistence at the saved user choice during an override.
+        if (_settingsPersistenceEnabled) {
+            Menu::getInstance()->setIsOptionChecked(MenuOption::MaterialProceduralShaders, enabled);
+        }
         Procedural::enableProceduralShaders = enabled;
     });
 }
