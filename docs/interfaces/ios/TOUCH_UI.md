@@ -30,6 +30,14 @@ Hardware-keyboard capability is currently conservative and fixed to false. A
 future native input-capability adapter should replace that default before
 external keyboard and hybrid pointer support can be considered complete.
 
+Initialization clears the hidden startup editor immediately. Its delayed
+250ms/1000ms cleanup rechecks current OffscreenUi editable focus, the focused
+item's live input-method query, and native UIKit/WK editing or presentation
+before dismissing anything. User-selected editors retain their focus. This
+initialization policy does not change explicit Close/unfocus cleanup. Run
+`python3 ios/tests/startup-keyboard-ownership-test.py` for actual Qt timer and
+focus-policy checks; UIKit responder behavior remains a native validation step.
+
 ## World Web controls
 
 World Web surfaces retain the stationary-tap gesture that prevents camera and

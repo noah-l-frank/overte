@@ -18,6 +18,8 @@
 #include <QtQml/QQmlContext>
 #if defined(Q_OS_IOS)
 #include <QtGui/QInputMethod>
+#include <QtGui/QInputMethodQueryEvent>
+#include <QtQuick/QQuickWindow>
 #include "IOSTouchUiMetrics.h"
 #endif
 #include <QStyle>
@@ -1616,10 +1618,24 @@ void Application::resumeAfterLoginDialogActionTaken() {
     }
     dismissIOSKeyboard();
     // Qt can briefly re-focus its hidden offscreen text editor after UI setup.
-    // Repeat only during startup; later user-selected text fields retain normal
-    // keyboard behaviour.
-    QTimer::singleShot(250, this, [] { dismissIOSKeyboard(); });
-    QTimer::singleShot(1000, this, [] { dismissIOSKeyboard(); });
+    // The delayed initialization cleanup must not dismiss an editor selected
+    // since startup. Recheck both cached text-focus ownership and the current
+    // item's live IM query (native Web input can enable editing asynchronously).
+    auto startupKeyboardCleanup = [offscreenUi = QPointer<OffscreenUi>(getOffscreenUI().data())] {
+        if (!offscreenUi || offscreenUi->isFocusText()) { return; }
+        auto* window = offscreenUi->getWindow();
+        if (!window) { return; }
+        if (auto* focus = window->activeFocusItem()) {
+            QInputMethodQueryEvent query(Qt::ImEnabled);
+            QCoreApplication::sendEvent(focus, &query);
+            if (query.value(Qt::ImEnabled).toBool()) { return; }
+        }
+        // This native helper additionally protects UIKit/WK editors and
+        // presented native controllers, synchronously on the same main queue.
+        dismissIOSStartupKeyboard();
+    };
+    QTimer::singleShot(250, this, startupKeyboardCleanup);
+    QTimer::singleShot(1000, this, startupKeyboardCleanup);
     qInfo().noquote() << "OVERTE_IOS_UI_POLICY menu_hidden=1 keyboard_hidden=1 first_responder_cleared=1";
 #else
     menu->getMenu("Edit")->setVisible(true);

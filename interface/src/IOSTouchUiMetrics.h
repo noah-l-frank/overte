@@ -57,6 +57,10 @@ private:
 
 void registerIOSTouchUiMetricsQmlType();
 void dismissIOSKeyboard();
+// Delayed initialization cleanup only; callers first recheck current QML focus.
+// Native editors/presentations are preserved, and this helper never queues a
+// destructive action after sampling focus ownership.
+void dismissIOSStartupKeyboard();
 void suppressIOSKeyboardAssistant();
 void updateIOSTabletAccessibilityControls(
     TabletProxy* tablet, const IOSTouchUiMetrics* metrics);

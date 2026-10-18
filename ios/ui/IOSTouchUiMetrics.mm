@@ -6,6 +6,7 @@
 #include "IPadLandscapePolicy.h"
 
 #import <UIKit/UIKit.h>
+#import <WebKit/WebKit.h>
 
 #include <algorithm>
 #include <cmath>
@@ -817,6 +818,27 @@ void dismissIOSKeyboard() {
             dismissActiveWindowEditing();
         });
     }
+}
+
+void dismissIOSStartupKeyboard() {
+    // Qt's initialization timers run on its GUI/UIKit main owner. Never queue
+    // a delayed destructive action from a focus snapshot on another thread.
+    if (!NSThread.isMainThread) { return; }
+    for (UIWindow* window in applicationWindows()) {
+        auto controller = window.rootViewController;
+        if (controller.presentedViewController &&
+                !controller.presentedViewController.isBeingDismissed) { return; }
+        // Native pages/providers can edit outside OffscreenUi's QML focus.
+        // Use public UIKit/WebKit types; no private responder class names.
+        auto* responder = findFirstResponder(window);
+        for (UIView* view = [responder isKindOfClass:UIView.class] ? (UIView*)responder : nil;
+                view; view = view.superview) {
+            if ([view isKindOfClass:UITextField.class] ||
+                    [view isKindOfClass:UITextView.class] ||
+                    [view isKindOfClass:WKWebView.class]) { return; }
+        }
+    }
+    dismissActiveWindowEditing();
 }
 
 void suppressIOSKeyboardAssistant() {
