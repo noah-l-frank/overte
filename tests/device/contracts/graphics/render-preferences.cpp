@@ -29,7 +29,7 @@ void Interface::init() { _isInitialized=true;load(); }
 void Interface::maybeInit() const { if(!_isInitialized) const_cast<Interface*>(this)->init(); }
 void Interface::deinit() { if(_isInitialized) save(); }
 void Interface::load() { if(store->contains(_key)) { _isSet=true;setVariant(store->value(_key)); } }
-void Interface::save() { if(_isSet) { auto v=getVariant();store->setValue(_key,v);writes.insert(_key,QJsonValue::fromVariant(v)); } }
+void Interface::save() { if(store && _isSet) { auto v=getVariant();store->setValue(_key,v);writes.insert(_key,QJsonValue::fromVariant(v)); } }
 @HANDLE@
 }
 @LOCK@
@@ -121,5 +121,6 @@ int main(int argc,char** argv){
     bool mirrors=true;for(auto job:app.engine.config.jobs) if(job->enabled!=render.getMirrorsEnabled()) mirrors=false;
     out["mirror_graph_matches"]=mirrors;
     std::cout<<QJsonDocument(out).toJson(QJsonDocument::Compact).constData()<<std::endl;
+    store=nullptr; // Global production handles may outlive the fixture transport.
 }
 #include "test.moc"
