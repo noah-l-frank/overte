@@ -408,6 +408,14 @@ the candidate. Its direct returned cleanup run ID and exact fork URLs appear in
 a bounded native receipt. Missing or ambiguous responses stay unresolved and
 are never redispatched automatically.
 
+The notification sender checks the exact fork identity and `main` default branch.
+Its limited token may omit the administrative `delete_branch_on_merge` field;
+only the sender permits that omission. A present value must still be exactly
+`false`. The cleanup receiver continues to require an explicit `false` before
+authorizing cleanup, including every existing deletion safeguard. Notification
+failures expose a bounded, redacted error code in the native console as well as
+the job summary.
+
 The cleanup receiver authenticates the original validator and notification roles,
 source, native App, originating PR-target gate and immutable candidate identities.
 It waits a bounded time for both source runs to finish and verifies that its own
