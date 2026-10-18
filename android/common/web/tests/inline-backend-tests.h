@@ -12,6 +12,8 @@ extern "C" jboolean Java_org_overte_web_EmbeddedWebView_nativeResourceCurrent(JN
 extern "C" jobject Java_org_overte_web_EmbeddedWebView_nativeRequest(JNIEnv*, jclass, jlong, jlong, jlong, jlong, jlong, jstring, jboolean, jstring);
 extern "C" void Java_org_overte_web_EmbeddedWebView_nativeForeground(JNIEnv*, jclass, jboolean);
 
+#include "inline-script-tests.h"
+
 static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& backendPath) {
     using overte::web::InlineHtmlDocumentOwner;
     auto field = [&](const char* name) { return env->GetStaticLongField(boundary, env->GetStaticFieldID(boundary,name,"J")); };
@@ -64,6 +66,19 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     assert(Java_org_overte_web_EmbeddedWebView_nativeBindResourcePage(env,boundary,handle,birth,grant,load,1,2,transportString));
     response = Java_org_overte_web_EmbeddedWebView_nativeRequest(env,boundary,handle,birth,grant,load,1,transportString,true,head);
     assert(responseAction(response) == 1 && responseBytes(response).isEmpty()); env->DeleteLocalRef(response);
+    // Real native foreground JNI runs off the issuing Qt thread. Publication
+    // must preserve cached bytes/charset while descriptor getters reject IO use.
+    const auto foregroundGrant=grant; const auto foregroundLoad=load;
+    std::thread foregroundThread([&] {
+        Java_org_overte_web_EmbeddedWebView_nativeForeground(nullptr,nullptr,false);
+        Java_org_overte_web_EmbeddedWebView_nativeForeground(nullptr,nullptr,true);
+    }); foregroundThread.join(); QCoreApplication::processEvents();
+    grant=view->generation(); assert(grant>foregroundGrant);
+    assert(!Java_org_overte_web_EmbeddedWebView_nativeResourceCurrent(env,boundary,handle,birth,foregroundGrant,foregroundLoad,1));
+    load=Java_org_overte_web_EmbeddedWebView_nativeBeginResourceLoad(env,boundary,handle,birth,grant,1,transportString); assert(load);
+    assert(Java_org_overte_web_EmbeddedWebView_nativeBindResourcePage(env,boundary,handle,birth,grant,load,1,2,transportString));
+    response=Java_org_overte_web_EmbeddedWebView_nativeRequest(env,boundary,handle,birth,grant,load,1,transportString,true,get);
+    assert(responseAction(response)==1 && responseBytes(response)==document.bytes()); env->DeleteLocalRef(response);
     view->acceptPage(grant,2,transport);
     QUrl origin = transport; origin.setPath(""); origin.setFragment({});
     assert(view->allowsBridgeDocument(grant,2,transport));
@@ -145,7 +160,24 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     foreignContext.setContextProperty("nativeWebSourceIdentity","inline-owner"); foreignContext.setContextProperty("authored",raw); foreignContext.setContextProperty("approvedScript",script);foreignContext.setContextProperty("targetSurface","world-entity");
     std::unique_ptr<QObject> foreign(component.create(&foreignContext)); assert(foreign && !foreign->findChild<NativeWebViewItem*>()->generation());
     assert(count()==rejectedBefore);
+    QQmlContext ordinaryContext(engine.rootContext());
+    ordinaryContext.setContextProperty("nativeWebSourceIdentity","ordinary-owner");
+    ordinaryContext.setContextProperty("nativeInlineHtmlDocument",QVariant());
+    ordinaryContext.setContextProperty("authored","https://ordinary.test/page"); ordinaryContext.setContextProperty("approvedScript",QString());
+    ordinaryContext.setContextProperty("targetSurface","world-entity");
+    std::unique_ptr<QObject> ordinary(component.create(&ordinaryContext)); assert(ordinary && ordinary->findChild<NativeWebViewItem*>()->generation()); ordinary.reset();
+    const auto ordinaryBefore=count();
+    const QVariant denied[] {QVariant::fromValue(overte::web::InlineHtmlDocument()),QVariant::fromValue(document),
+        QVariant(QString()),QVariant(QString("forged")),QVariant(QVariantMap{{"token","forged"}})};
+    for (const auto& carrier:denied) {
+        ordinaryContext.setContextProperty("nativeInlineHtmlDocument",carrier);
+        std::unique_ptr<QObject> invalid(component.create(&ordinaryContext)); assert(invalid && !invalid->findChild<NativeWebViewItem*>()->generation());
+    }
+    assert(count()==ordinaryBefore);
+    ordinaryContext.setContextProperty("nativeInlineHtmlDocument",QVariant::fromValue<QObject*>(nullptr));
+    std::unique_ptr<QObject> nullCarrier(component.create(&ordinaryContext)); assert(nullCarrier && nullCarrier->findChild<NativeWebViewItem*>()->generation());
     assert(!env->ExceptionCheck());
     env->DeleteLocalRef(transportString); env->DeleteLocalRef(get); env->DeleteLocalRef(head); env->DeleteLocalRef(responseType); env->DeleteLocalRef(tabletURL);
-    puts("PASS: real nested shared/Android QML initial descriptor, exact JNI bytes/charset/HEAD, foreign-thread resource IO, inline frame-origin negatives, semantic URL, scoped GET reload, two-view World/Tablet isolation and valid empty HTML, synchronous revoke/scene clear, forged/stale/foreign/script rejection");
+    runInlineScriptCancellationTests(env,boundary,backendPath);
+    puts("PASS: real nested shared/Android QML initial descriptor, exact JNI bytes/charset/HEAD, foreign-thread resource IO/foreground cached publication, ordinary null versus forged/stale/typed-empty carriers, inline frame-origin negatives, semantic URL, scoped GET reload, two-view World/Tablet isolation and valid empty HTML, synchronous revoke/scene clear, forged/stale/foreign/script rejection");
 }
