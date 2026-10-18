@@ -1226,7 +1226,9 @@ print(json.dumps(sorted(reached)))
                 shutil.copy2(source, target)
             # The protected default is shared even when this contract runs in
             # an iOS/Android candidate checkout.
-            (root / 'tests/platform-profile.json').write_text(json.dumps(
+            profile = root / 'tests/platform-profile.json'
+            profile.chmod(profile.stat().st_mode | 0o200)
+            profile.write_text(json.dumps(
                 {'schema': 1, 'platform': 'shared', 'suites': []}, indent=2) + '\n')
             program = r"""
 import hashlib, importlib.util, json, stat, sys
