@@ -111,11 +111,36 @@ class NativeFieldInputTests(unittest.TestCase):
         native = ROOT / "libraries/ui/src/ui"
         with tempfile.TemporaryDirectory(prefix="overte-native-field-input-") as temporary:
             binary = Path(temporary) / "test"
+            source = (ROOT / "interface/resources/qml/hifi/tablet/TabletHome.qml").read_text()
+            marker = source.index('objectName: "tabletPage."')
+            start = source.rfind("MouseArea {", 0, marker)
+            end, depth = start + len("MouseArea {"), 1
+            while depth:
+                depth += (source[end] == "{") - (source[end] == "}")
+                end += 1
+            # Keep the actual pointer/accessibility/key handlers intact; only
+            # their surrounding presentation/model boundary is controlled.
+            pager = Path(temporary) / "pager.qml"
+            pager.write_text('''import QtQuick 2.12
+import QtQuick.Controls 2.5
+Item {
+ id: root; width: 640; height: 260
+ property bool directTouch: false
+ readonly property int currentPage: swipeView.currentIndex
+ QtObject { id: presentation; property int minimumTouchTarget: 60; property bool touchOptimized: root.directTouch }
+ QtObject { id: pageIndicator; property int currentIndex: swipeView.currentIndex }
+ SwipeView { id: swipeView; x: 10; y: 0; width: 200; height: 80; Item {} Item {} }
+ Row { x: 10; y: 120
+  Repeater { model: 2
+   Item { width: 60; height: 60; property bool isHovered: false; ORIGINAL }
+  }
+ }
+}'''.replace("ORIGINAL", source[start:end]))
             subprocess.run(["c++", "-std=c++17", "-fPIC", "-UNDEBUG", "-pthread",
                 "-I" + str(native), str(native / "NativeFieldInput.cpp"),
                 str(here / "native-field-input-test.cpp"), "-o", str(binary), *library_paths, *flags],
                 check=True, timeout=60, env=environment)
-            subprocess.run(["unshare", "--user", "--map-root-user", "--net", str(binary)],
+            subprocess.run(["unshare", "--user", "--map-root-user", "--net", str(binary), str(pager)],
                 check=True, timeout=30, env={**environment, "QT_QPA_PLATFORM": "offscreen",
                                             "QT_QUICK_BACKEND": "software", "QT_FORCE_STDERR_LOGGING": "1"})
 
