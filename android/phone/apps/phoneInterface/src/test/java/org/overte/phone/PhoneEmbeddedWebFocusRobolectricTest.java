@@ -46,7 +46,7 @@ public final class PhoneEmbeddedWebFocusRobolectricTest {
     // including setInputFocused; no substitute API class is used for compilation.
     @Implements(value = EmbeddedWebView.class, isInAndroidSdk = false)
     public static class WebDispatch {
-        static int foregrounds, inputs, detaches;
+        static int foregrounds, inputs, detaches, backs;
         static boolean foreground, focused;
         static EmbeddedWebHost lastForegroundOwner;
         @Implementation protected static void initialize(EmbeddedWebHost owner) { }
@@ -54,6 +54,7 @@ public final class PhoneEmbeddedWebFocusRobolectricTest {
         @Implementation protected static void setInputFocused(EmbeddedWebHost owner, boolean value) { inputs++; focused = value; }
         @Implementation protected static void relayout(EmbeddedWebHost owner) { }
         @Implementation protected static void detach(EmbeddedWebHost owner) { detaches++; }
+        @Implementation protected static boolean goBack(EmbeddedWebHost owner, android.webkit.WebView view) { backs++; return true; }
     }
     @org.junit.Rule public org.junit.rules.TemporaryFolder temporary = new org.junit.rules.TemporaryFolder();
     ActivityController<PhoneInterfaceActivity> controller;
@@ -63,7 +64,7 @@ public final class PhoneEmbeddedWebFocusRobolectricTest {
         int sdk = android.os.Build.VERSION.SDK_INT;
         assertTrue("Unexpected focus-test SDK", sdk == 26 || sdk == 35);
         System.out.println("Phone focus runtime SDK=" + sdk);
-        WebDispatch.foregrounds = WebDispatch.inputs = WebDispatch.detaches = 0;
+        WebDispatch.foregrounds = WebDispatch.inputs = WebDispatch.detaches = WebDispatch.backs = 0;
         controller = Robolectric.buildActivity(PhoneInterfaceActivity.class);
         java.io.File fixture = temporary.newFile("focus-assets.zip");
         try (java.util.zip.ZipOutputStream output = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(fixture))) {
@@ -154,6 +155,31 @@ public final class PhoneEmbeddedWebFocusRobolectricTest {
             assertSame(current, field.get(null)); assertSame(next, current.get());
             assertEquals(before, WebDispatch.foregrounds);
         } finally { field.set(null, original); }
+    }
+    @Test public void physicalBackUsesCommonNavigationFences() throws Exception {
+        android.webkit.WebView view = new android.webkit.WebView(activity) {
+            @Override public boolean hasFocus() { return true; }
+            @Override public boolean canGoBack() { return true; }
+            @Override public void goBack() { fail("Phone must use common audio/resource navigation fences"); }
+        };
+        host.placeTabletView(view, new android.graphics.Rect(0,0,100,100));
+        Field cards = PhoneEmbeddedWebHost.class.getDeclaredField("cards"); cards.setAccessible(true);
+        Object card = ((java.util.Map<?,?>)cards.get(host)).get(view);
+        Field frame = card.getClass().getDeclaredField("frame"); frame.setAccessible(true);
+        ((android.view.View)frame.get(card)).setVisibility(android.view.View.VISIBLE);
+        assertTrue(host.back()); assertEquals(1, WebDispatch.backs);
+        controller.windowFocusChanged(false);
+        assertFalse(host.back()); assertEquals(1, WebDispatch.backs);
+        host.removeTabletView(view); view.destroy();
+    }
+    @Test public void realCommonRejectsReservedOriginsForExternalBrowser() {
+        for (String url : new String[] {"http://token.overte-inline.invalid/index.html",
+                "http://TOKEN.overte-inline.invalid./other", "https://overte-inline.invalid/",
+                "https://overte-embedded.invalid/1/page", "data:text/html,x", "file:///private"}) {
+            assertFalse("Reserved/non-web source opened externally", EmbeddedWebView.isExternalWebURL(Uri.parse(url)));
+            assertFalse(host.openExternal(Uri.parse(url)));
+        }
+        assertTrue(EmbeddedWebView.isExternalWebURL(Uri.parse("https://ordinary.example/page")));
     }
     static WebChromeClient.FileChooserParams picker() {
         return new WebChromeClient.FileChooserParams() {

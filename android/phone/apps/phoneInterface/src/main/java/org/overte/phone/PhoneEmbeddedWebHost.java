@@ -131,12 +131,12 @@ final class PhoneEmbeddedWebHost implements EmbeddedWebHost {
     boolean back() {
         if (!inputAllowed()) return false;
         for (Card card : cards.values()) {
-            if (card.frame.getVisibility() == View.VISIBLE && card.web.hasFocus() && card.web.canGoBack()) { card.web.goBack(); return true; }
+            if (card.frame.getVisibility() == View.VISIBLE && card.web.hasFocus() && EmbeddedWebView.goBack(this, card.web)) return true;
         }
         return false;
     }
     @Override public boolean openExternal(Uri url) {
-        if (!inputAllowed() || !("https".equals(url.getScheme()) || "http".equals(url.getScheme())) || url.getUserInfo() != null) return false;
+        if (!inputAllowed() || !EmbeddedWebView.isExternalWebURL(url)) return false;
         try { activity.startActivity(Intent.createChooser(new Intent(Intent.ACTION_VIEW, url).addCategory(Intent.CATEGORY_BROWSABLE), "Open in browser")); return true; }
         catch (ActivityNotFoundException | SecurityException unavailable) { return false; }
     }
