@@ -114,6 +114,19 @@ jobs:
           qml6-module-qtquick-templates qml6-module-qtquick-window \
           qml6-module-qt-labs-settings qml6-module-qtquick-dialogs qml6-module-qttest
         pkg-config --print-errors --exists Qt5Quick Qt5WebChannel Qt5Network Qt6Quick Qt6WebChannel Qt6Network
+    - name: Install selected artifact namespace utility
+      if: steps.host.outputs.requires_artifact_namespace == 'true'
+      env:
+        FULL_HOST: ${{ steps.host.outputs.full_host }}
+      run: |
+        set -euo pipefail
+        if ! test -x /usr/bin/bwrap; then
+          if test "$FULL_HOST" != true; then
+            sudo apt-get -o Acquire::Retries=4 update
+          fi
+          sudo apt-get -o Acquire::Retries=4 install --no-install-recommends -y bubblewrap
+        fi
+        test -x /usr/bin/bwrap
     - name: Prepare isolated host evidence validators
       if: steps.route.outputs.package_host_mode == 'full'
       run: |
