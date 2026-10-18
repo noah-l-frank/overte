@@ -1454,5 +1454,57 @@ class EffectiveBaseConsumerTests(unittest.TestCase):
         self.assertEqual(f.executed(), [])
 
 
+class NativeCurrentPrConsumerTests(unittest.TestCase):
+    def setUp(self):
+        self.f = IsolatedConsumerTests(); self.f.setUp()
+        self.addCleanup(self.f.doCleanups)
+        f = self.f
+        f.ci_fixture(quick_beta=True)
+        f.args.mode = 'reuse'
+        f.args.expected_selection = f.ci_prepare()['selection']
+        f.gate.NativePrEvidence = VALIDATION._gate().NativePrEvidence
+        self.evidence = f.gate.NativePrEvidence(kind='native-current-pr',
+            original_commit=f.commit, candidate_inputs=deepcopy(f.tree), tested_inputs=deepcopy(f.tree),
+            requested_suites=['alpha', 'beta'], environment=deepcopy(f.environment),
+            results=deepcopy(f.evidence['results']), qualified_at=f.evidence['qualified_at'],
+            expires_at=f.evidence['expires_at'],
+            original_proof={'verified': True, 'run_id': 100, 'attempt': 1, 'receipt_sha256': '1' * 64},
+            qualification=False, reusable=False)
+        f.gate.native_pr_evidence = Mock(side_effect=lambda *args, **kwargs: deepcopy(self.evidence))
+        f.gate.native_parent_evidence = Mock(side_effect=AssertionError('same PR is not parent proof'))
+
+    def test_same_pr_no_setup_rechecks_proof_and_keeps_actual_differential(self):
+        f = self.f
+        selected = f.ci_prepare()
+        f.args.expected_native_setup = selected['native_setup']
+        self.assertEqual(selected['consumer_setup'], 'none')
+        with patch.object(VALIDATION, '_differential') as differential:
+            result = f.validate(runtime_failure=AssertionError('unused consumer E'),
+                ci_execute_override=lambda *args, **kwargs: self.fail('duplicate executor'))
+        differential.assert_called_once()
+        self.assertEqual(result['reused_suites'], ['alpha', 'beta'])
+        self.assertEqual(result['executed_suites'], [])
+        self.assertIsNone(result['parent_evidence'])
+        self.assertIsNone(result['execution'])
+        self.assertEqual(result['original_pr_evidence']['original_commit'], f.commit)
+        self.assertFalse(result['reusable']); self.assertFalse(result['qualification'])
+        self.assertEqual(f.executed(), [])
+
+    def test_selected_failed_stale_or_incomplete_original_never_runs_fallback(self):
+        f = self.f
+        for shape in ('failed', 'changed-tree', 'missing-suite'):
+            with self.subTest(shape=shape):
+                original = deepcopy(self.evidence)
+                if shape == 'failed': f.gate.native_pr_evidence.side_effect = ValueError('selected native producer failed')
+                elif shape == 'changed-tree': self.evidence['candidate_inputs'] = {}
+                else: self.evidence['requested_suites'] = ['alpha']
+                with self.assertRaises(ValueError), patch.object(execution, 'execute', side_effect=AssertionError('no second executor')):
+                    f.validate(ci_execute_override=lambda *args, **kwargs: self.fail('no second executor'))
+                self.evidence = original
+                f.gate.native_pr_evidence.side_effect = lambda *args, **kwargs: deepcopy(self.evidence)
+                self.assertEqual(f.executed(), [])
+                self.assertFalse(f.args.receipt.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

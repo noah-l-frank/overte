@@ -1536,7 +1536,7 @@ class DirectBrowserTests(unittest.TestCase):
             payload = event()
             payload["pull_request"]["base"]["sha"] = base
             payload["pull_request"]["head"]["sha"] = head
-            selected = CHECKS.direct_candidate_plan(candidate, payload, sha)
+            selected = CHECKS.direct_candidate_plan(candidate, payload, sha, policy_root=trusted)
             self.assertTrue(selected["browser"])
             self.assertFalse(selected["native"])
             push = {"repository": payload["repository"], "before": base, "after": sha}
@@ -3153,6 +3153,27 @@ class VerifiedEmptyCandidateTests(unittest.TestCase):
                     broken=deepcopy(outer);broken[name]['outputs']=outputs
                     with self.subTest(name=name,outputs=outputs),self.assertRaises(ValueError):
                         CHECKS.verify(broken,package_plan=plan,require_packages=True,candidate=root,event=payload)
+
+
+class SyncProducerRoutingTests(unittest.TestCase):
+    def test_promotion_requires_protected_source_readiness_not_the_sync_branch_name(self):
+        payload = event('apple-main', 'main')
+        context = {'base': '1' * 40, 'head': '2' * 40, 'candidate': '3' * 40, 'event_base': '1' * 40}
+        for ready in (False, True):
+            controller = SimpleNamespace(sync_source_ready=lambda *args: ready)
+            with patch.object(CHECKS, 'pr_candidate_context', return_value=context), \
+                    patch.object(CHECKS, 'native_owner_policy', return_value=controller):
+                result = CHECKS.effective_plan(Path('/fixture'), payload, context['candidate'],
+                    ['tools/branch-cleanup/cleanup.py'], CONFIG, BRANCHES)
+            self.assertEqual(result['mode'], 'full' if ready else 'delegated-sync')
+
+    def test_bootstrap_source_failure_keeps_delegated_owner_and_ordinary_pr_is_unchanged(self):
+        with patch.object(CHECKS, 'pr_candidate_context', side_effect=ValueError('missing immutable B')):
+            self.assertEqual(CHECKS.effective_plan(Path('/fixture'), event('apple-main', 'main'),
+                '3' * 40, ['tools/branch-cleanup/cleanup.py'], CONFIG, BRANCHES)['mode'], 'delegated-sync')
+        with patch.object(CHECKS, 'native_owner_policy', side_effect=AssertionError('ordinary needs no Sync promotion')):
+            self.assertEqual(CHECKS.effective_plan(Path('/fixture'), event(), '3' * 40,
+                ['tools/branch-cleanup/cleanup.py'], CONFIG, BRANCHES)['mode'], 'full')
 
 
 if __name__ == "__main__":

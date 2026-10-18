@@ -164,6 +164,8 @@ def _read_execution(path, returned):
 def _parent_provenance(evidence, reused, gate):
     if evidence is None:
         return None
+    if isinstance(evidence, getattr(gate, 'NativePrEvidence', ())):
+        return None  # This PR's execution must never be described as parent proof.
     if isinstance(evidence, getattr(gate, 'NativeParentEvidence', ())):
         return {key: evidence[key] for key in ('kind', 'parent_branch', 'parent_commit', 'parent_tree',
             'original_commit', 'original_git_context', 'qualified_at', 'expires_at', 'original_proof')} | {
@@ -416,24 +418,32 @@ def _native_ci_reuse(args, gate, api, config, request, registry, local_tree, sel
     if args.mode != "reuse" or not callable(getattr(gate, 'native_parent_evidence', None)):
         return None, [], list(selected)
     if native_evidence is None:
-        try:
-            evidence = gate.native_parent_evidence(api, config, request)
-        except (gate.EvidenceError, gate.GateError):
-            return None, [], list(selected)
+        current = getattr(gate, 'native_pr_evidence', None)
+        evidence = current(api, config, request) if callable(current) else None
+        if evidence is None:
+            try:
+                evidence = gate.native_parent_evidence(api, config, request)
+            except (gate.EvidenceError, gate.GateError):
+                return None, [], list(selected)
     else:
         evidence = native_evidence
-    if not isinstance(evidence, getattr(gate, 'NativeParentEvidence', ())):
+    original_pr = isinstance(evidence, getattr(gate, 'NativePrEvidence', ()))
+    if not original_pr and not isinstance(evidence, getattr(gate, 'NativeParentEvidence', ())):
         return None, [], list(selected)
     if evidence.get('candidate_inputs') != local_tree:
         raise ValidationError('local immutable CI candidate differs from verified native API inputs')
     try:
-        plan = inputs.plan_reuse(registry, evidence['parent_inputs'], local_tree,
+        plan = inputs.plan_reuse(registry, evidence['tested_inputs'] if original_pr else evidence['parent_inputs'], local_tree,
             evidence['results']['suites'], evidence['environment'], evidence['environment'])
     except (inputs.InputError, KeyError, TypeError):
+        if original_pr:
+            raise ValidationError('selected original PR input proof is invalid; duplicate execution is forbidden') from None
         # No candidate command has started. Existing real selected execution
         # remains required when proof or its input identity is unavailable.
         return None, [], list(selected)
     reused = [name for name in selected if name in plan['reused']]
+    if original_pr and (reused != selected or evidence['requested_suites'] != selected):
+        raise ValidationError('selected original PR proof omits Sync commands; duplicate execution is forbidden')
     if not reused:
         return None, [], list(selected)
     return evidence, reused, [name for name in selected if name not in reused]
@@ -447,8 +457,7 @@ def _native_zero_setup(args, gate, api, config, request, candidate, initial, reg
     authenticates the original proof again after that actual validation.
     """
     if args.mode != 'reuse' or selection['lane'] not in {'affected-ci','complete'} \
-            or request.repair_paths or selection.get('pending_platform_owners') \
-            or execution.platform_suites(candidate, registry['suites']):
+            or request.repair_paths or selection.get('pending_platform_owners'):
         return None, None
     selected = selection['suites'] if selection['lane'] == 'affected-ci' else list(registry['suites'])
     tree = inputs.full_tree(candidate, initial[0])
@@ -456,26 +465,36 @@ def _native_zero_setup(args, gate, api, config, request, candidate, initial, reg
         {'suites': selected})
     if evidence is None or required or reused != selected:
         return None, None
+    original_pr = isinstance(evidence, getattr(gate, 'NativePrEvidence', ()))
+    if not original_pr and execution.platform_suites(candidate, registry['suites']):
+        return None, None
     if gate.parse_time(evidence['expires_at'], 'expires_at') <= datetime.now(timezone.utc):
         return None, None
     value = {'schema':1, 'kind':'native-zero-command-setup-v1',
         'base':request.base_sha, 'head':request.head_sha, 'candidate':initial[0], 'tree':initial[1],
         'selection':selection['selection'], 'suites':selected,
-        'original_commit':evidence['original_commit'], 'parent_commit':evidence['parent_commit'],
+        'original_commit':evidence['original_commit'],
         'qualified_at':evidence['qualified_at'], 'expires_at':evidence['expires_at'],
         'original_proof':evidence['original_proof']}
+    if original_pr:
+        value['kind'] = 'native-current-pr-zero-command-setup-v1'
+    else:
+        value['parent_commit'] = evidence['parent_commit']
     return execution.digest(value), evidence
 
 
 def _recheck_native_ci(gate, api, config, request, evidence, registry, local_tree, reused):
+    original_pr = isinstance(evidence, getattr(gate, 'NativePrEvidence', ()))
     try:
-        final = gate.native_parent_evidence(api, config, request)
+        final = (gate.native_pr_evidence(api, config, request, timeout=0) if original_pr
+                 else gate.native_parent_evidence(api, config, request))
     except (gate.EvidenceError, gate.GateError) as error:
         raise ValidationError('original native CI proof became unavailable after selected validation') from error
-    if not isinstance(final, getattr(gate, 'NativeParentEvidence', ())) or final != evidence:
+    kind = 'NativePrEvidence' if original_pr else 'NativeParentEvidence'
+    if not isinstance(final, getattr(gate, kind, ())) or final != evidence:
         raise ValidationError('original native CI proof changed after selected validation')
     try:
-        plan = inputs.plan_reuse(registry, final['parent_inputs'], local_tree,
+        plan = inputs.plan_reuse(registry, final['tested_inputs'] if original_pr else final['parent_inputs'], local_tree,
             final['results']['suites'], final['environment'], final['environment'])
     except (inputs.InputError, KeyError, TypeError) as error:
         raise ValidationError('original native CI input identities became unverifiable') from error
@@ -733,6 +752,10 @@ def validate_sync(args, *, api=None):
         result["ci_selection"] = selection
         if affected:
             result['not_selected_suites'] = [name for name in registry['suites'] if name not in selection['suites']]
+    if isinstance(evidence, getattr(gate, 'NativePrEvidence', ())):
+        result.update(reusable=False, qualification=False,
+            original_pr_evidence={key: evidence[key] for key in (
+                'kind', 'original_commit', 'qualified_at', 'expires_at', 'original_proof', 'requested_suites')})
     result["receipt_digest"] = execution.digest(result)
     execution._write_receipt(args.receipt, result)
     return result

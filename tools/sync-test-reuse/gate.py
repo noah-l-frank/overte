@@ -62,6 +62,14 @@ class EvidenceError(ValueError):
     """Qualification evidence is absent or unusable, requiring full fallback."""
 
 
+class NativeSyncOwnerError(GateError):
+    """A selected original PR owner must not fall through to another executor."""
+
+
+class NativePrEvidence(dict):
+    """Authenticated completed execution of this exact PR, never parent proof."""
+
+
 def canonical_json(value: object) -> bytes:
     return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
@@ -1116,6 +1124,103 @@ def _native_sync_context(controller, adapter, request):
     return binding, references, local
 
 
+def native_pr_evidence(api, config, request, *, timeout=900, clock=None, monotonic=time.monotonic, sleep=time.sleep):
+    """Consume one completed Repository producer without a second Sync runner.
+
+    Only source non-enrollment returns None. Once the exact native owner is
+    selected, pending waits boundedly and every failure/unknown proof blocks.
+    No in-progress run is promoted to reusable authority.
+    """
+    if os.environ.get('GITHUB_ACTIONS') != 'true' or request.repair_paths \
+            or request.profile in {'documentation', 'tool-dependencies'} \
+            or not callable(getattr(api, 'native_producer_api', None)):
+        return None
+    controller = _native_parent_controller()
+    A, P = controller.A, controller.P
+    clock = clock or (lambda: datetime.now(timezone.utc))
+    adapter = A.Adapter(api.native_producer_api(controller))
+    binding, references, local = _native_sync_context(controller, adapter, request)
+    _, previous = controller.full_tree(adapter, request.base_sha)
+    tree_sha, current = controller.full_tree(adapter, request.merge_sha)
+    event = {'number': request.number, 'repository': {'full_name': request.repository, 'id': request.repository_id},
+        'pull_request': {'number': request.number,
+            'base': {'ref': request.base, 'sha': request.base_sha,
+                     'repo': {'full_name': request.repository, 'id': request.repository_id}},
+            'head': {'ref': request.head, 'sha': request.head_sha,
+                     'repo': {'full_name': request.repository, 'id': request.head_repository_id}}}}
+    if not controller.producer.sync_source_admission(previous, current, local, event):
+        return None
+    try:
+        _native_effective_role(api, event, request.base_sha)
+        A.require(type(timeout) in (int, float) and 0 <= timeout <= 900, 'invalid original PR wait bound')
+        A.require(controller._source_qualified() and config['trusted_actions_app_id'] == 15368,
+            'selected original PR source is unavailable')
+        policy = controller.producer._host_policy()
+        source = controller.integrated_controller(policy, previous, current, local, request.base, ROOT)
+        registry = controller.inputs.load_registry(ROOT / '.github/test-suites.json')
+        profile = controller.producer.selection_profile(policy, registry, current, previous, local,
+            root=ROOT, target=request.base, read_blob=adapter.api.immutable_blob)
+        A.require(profile['profile'] == controller.ci_profile.PROFILE
+            and profile['selection']['full_host'] is False and profile['selection']['include_platform'] is False,
+            'selected original PR no longer has the admitted CI owner')
+        owner = controller.producer.common_owner(profile)
+        plan, api_policy = controller._policy(policy, registry, binding, source, adapter, ROOT, profile['selection'],
+            common_owner=owner, template=controller.producer.PLATFORM_TEMPLATE)
+        deadline = monotonic() + timeout
+        while True:
+            snapshot = adapter.capture(request.number, plan, api_policy, now=clock())
+            A.require(snapshot.binding == binding and snapshot.references == references,
+                'selected original PR source changed while waiting')
+            authority = P.select_authority(snapshot.observations, binding, plan, api_policy.producer,
+                inventory_complete=snapshot.inventory_complete, now=clock())
+            if authority['state'] == 'proof-required':
+                break
+            # An early run can precede its descriptor. Its authenticated native
+            # pending state is scheduling, never a proof or a failure fallback.
+            runs = [item.run for item in snapshot.observations]
+            newest = max((P._time(run.attempt_started_at) for run in runs), default=None)
+            latest = [run for run in runs if P._time(run.attempt_started_at) == newest]
+            waiting = authority['state'] in {'pending', 'absent'} or (
+                authority['state'] == 'unresolved' and len(latest) == 1
+                and latest[0].status in {'queued', 'in_progress', 'waiting', 'pending', 'requested'}
+                and latest[0].conclusion is None)
+            A.require(snapshot.inventory_complete and waiting,
+                'selected original PR failed or has unknown source/attempt/proof')
+            remaining = deadline - monotonic()
+            A.require(remaining > 0, 'selected original PR did not complete within the wait bound')
+            sleep(min(10, remaining))
+        observation = next(item for item in snapshot.observations if item.run.run_id == authority['run_id'])
+        raw, facts = adapter._artifact(observation.run, 'aggregate',
+            snapshot.artifact_inventories[observation.run.run_id], clock(), binding['head_sha'])
+        aggregate = P.read_artifact(raw, 'aggregate', facts, observation.run, now=clock())
+        receipt = aggregate['results']['shared-host']['receipt']
+        retained = controller.producer.retained_receipt_source(receipt, binding, adapter, registry,
+            profile['selection'], observation.run.run_id, root=ROOT)
+        git_context = controller.producer.expected_git_context(adapter, binding)
+        context = P.SharedContext(registry, current, receipt['environment'], request.merge_sha, tree_sha,
+            git_context, retained)
+        verified = adapter.verify(request.number, plan, api_policy, {'shared-host': context}, clock=clock)
+        A.require(verified['run_id'] == observation.run.run_id,
+            'selected original PR authority changed before consumption')
+        controller.runtime_ci.validate_environment(receipt['environment'], verified['qualified_at'],
+            verified['expires_at'], clock(), profile['selection'], current, local, registry, root=ROOT,
+            read_blob=adapter.api.immutable_blob, target=request.base, base_tree=previous)
+        final_snapshot = adapter.capture(request.number, plan, api_policy, now=clock())
+        A.require(final_snapshot == snapshot,
+            'original PR native jobs, attempts, artifacts or authority changed after runtime admission')
+        A.require(_native_sync_context(controller, adapter, request) == (binding, references, local)
+            and controller.integrated_controller(policy, previous, current, local, request.base, ROOT) == source
+            and controller.producer.sync_source_admission(previous, current, local, event)
+            and clock() < P._time(verified['expires_at']), 'original PR/default context changed before Sync acceptance')
+        return NativePrEvidence(kind='native-current-pr', original_commit=request.merge_sha,
+            candidate_inputs=current, tested_inputs=current, requested_suites=list(owner['suites']),
+            environment=receipt['environment'], results={'suites': receipt['results']},
+            qualified_at=verified['qualified_at'], expires_at=verified['expires_at'],
+            original_proof=verified, qualification=False, reusable=False)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, ImportError, subprocess.SubprocessError) as error:
+        raise NativeSyncOwnerError('selected original PR proof unavailable; duplicate Sync execution is forbidden') from error
+
+
 
 def _empty_sync_invocation(controller, adapter, references, environment):
     """Authenticate the current dispatch, separately from its candidate PR M."""
@@ -1474,19 +1579,23 @@ def inspect(args: argparse.Namespace) -> int:
     elif request.profile == "tool-dependencies":
         reason = "bounded tool manifest delta; affected tool checks required"
     else:
-        try:
-            evidence = verify_evidence(api, config, request)
-            plan = evidence["candidate_plan"]
-            if isinstance(evidence, NativeParentEvidence):
-                evidence_run = str(evidence['original_proof']['run_id'])
-                reason = (f"original native parent proofs accepted; {len(plan['reused'])} source matches, "
-                          f"{len(plan['required'])} suites require candidate execution; original proof rechecked in validation")
-            else:
-                evidence_run = str(evidence["workflow"]["run_id"])
-                reason = (f"exact parent suite proofs accepted; {len(plan['reused'])} source matches, "
-                          f"{len(plan['required'])} suites require candidate execution; runtime rechecked in validation")
-        except EvidenceError as error:
-            mode, reason = "fallback", str(error).replace("\n", " ")
+        current = native_pr_evidence(api, config, request)
+        if current is not None:
+            mode, reason, evidence_run = 'reuse', 'completed original PR owner accepted; Sync keeps its differential checks', str(current['original_proof']['run_id'])
+        else:
+            try:
+                evidence = verify_evidence(api, config, request)
+                plan = evidence["candidate_plan"]
+                if isinstance(evidence, NativeParentEvidence):
+                    evidence_run = str(evidence['original_proof']['run_id'])
+                    reason = (f"original native parent proofs accepted; {len(plan['reused'])} source matches, "
+                              f"{len(plan['required'])} suites require candidate execution; original proof rechecked in validation")
+                else:
+                    evidence_run = str(evidence["workflow"]["run_id"])
+                    reason = (f"exact parent suite proofs accepted; {len(plan['reused'])} source matches, "
+                              f"{len(plan['required'])} suites require candidate execution; runtime rechecked in validation")
+            except EvidenceError as error:
+                mode, reason = "fallback", str(error).replace("\n", " ")
     values = {
         "classification": request.classification,
         "mode": mode,

@@ -169,5 +169,61 @@ class QualificationProducerTests(unittest.TestCase):
         self.assertEqual(entry, {"path": "vendor", "mode": "160000", "type": "commit", "sha": self.source})
 
 
+class SyncProtectedSourceTests(unittest.TestCase):
+    """Real complete source equality; no candidate execution or host assertion."""
+    def setUp(self):
+        import producer_workflow as producer
+        spec = importlib.util.spec_from_file_location('sync_source_fixture',
+            Path(__file__).with_name('source-admission-test.py'))
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        class Source(module.SourceFixture, unittest.TestCase):
+            pass
+        self.source = Source(); self.source.setUp()
+        self.producer = producer
+        s = self.source
+        s.bodies['.github/sync-test-reuse.json'] = b'{"reconciliation_repair_paths":{}}'
+        s.default['.github/sync-test-reuse.json'] = producer.source_admission.ordinary(
+            producer.source_admission.blob_id(s.bodies['.github/sync-test-reuse.json']))
+        s.base = deepcopy(s.default)
+        self.current = deepcopy(s.base)
+        self.current['.github/branch-cleanup.json'] = producer.source_admission.ordinary('c' * 40)
+        self.generation = producer.PLATFORM_GENERATION
+        classifier = SimpleNamespace(configuration=lambda: ({}, {}), plan=lambda *args: {'mode': 'delegated-sync'})
+        package = SimpleNamespace(validate_tree_wiring=lambda tree: self.generation,
+            load=lambda *args: classifier, _trusted_bytes=lambda name, **kwargs: s.bodies[name])
+        self.selection = {'suites': ['producer-proof'], 'full_host': False, 'include_platform': False}
+        self.policy = SimpleNamespace(package_policy=lambda: package,
+            ci_owned=lambda name: name == '.github/branch-cleanup.json', select=lambda *args, **kwargs: self.selection)
+        for patcher in (mock.patch.object(producer, 'protected_admission'),
+                mock.patch.object(producer, '_host_policy', return_value=self.policy),
+                mock.patch.object(producer.source_admission, 'actual_import_inventory', side_effect=lambda root: s.imports()),
+                mock.patch.object(producer.ci_profile, 'load_policy', return_value={
+                    'enabled': True, 'generation_kind': producer.ci_profile.SEVEN_CONTROLLER_KIND})):
+            patcher.start(); self.addCleanup(patcher.stop)
+
+    def ready(self):
+        return self.producer.sync_source_admission(self.source.base, self.current,
+            self.source.default, self.source.event)
+
+    def test_exact_base_default_enrollment_can_schedule_only_existing_ci_commands(self):
+        self.assertTrue(self.ready())
+        self.selection['full_host'] = True
+        self.assertFalse(self.ready(), 'unsupported owner must remain delegated')
+
+    def test_old_base_import_bytes_new_shadow_or_mode_cannot_self_enroll(self):
+        for shape in ('old-test', 'missing-import', 'new-shadow', 'mode', 'registry', 'foreign-generation'):
+            with self.subTest(shape=shape):
+                before, current = deepcopy(self.source.base), deepcopy(self.current)
+                generation = self.generation
+                if shape == 'old-test': self.source.base['tools/test-evidence/affected-test.py']['sha'] = 'e' * 40
+                elif shape == 'missing-import': del self.source.base['tools/test-evidence/inputs.py']
+                elif shape == 'new-shadow': self.current['tools/test-evidence/json.py'] = self.producer.source_admission.ordinary('e' * 40)
+                elif shape == 'mode': self.source.base['tools/test-evidence/inputs.py']['mode'] = '100755'
+                elif shape == 'registry': self.current['.github/test-suites.json']['sha'] = 'e' * 40
+                else: self.generation = 'unreviewed-generation'
+                self.assertFalse(self.ready())
+                self.source.base, self.current, self.generation = before, current, generation
+
+
 if __name__ == "__main__":
     unittest.main()
