@@ -411,10 +411,32 @@ The machine-readable contract is
 ### Cleanup retries after manual synchronization validation
 
 `Sync validation` runs on `main` even when it validates a child-target pull
-request. Its authenticated manual completion can retry current closed topic
-heads across the seven permanent targets. Each hint retains its actual target
+request. With a callback-capable recipe activated, its mandatory read-only
+validator is followed by a separate protected `notify-cleanup` job that sends
+one explicit completion dispatch to automatic branch cleanup. The callback
+recipe must first be enrolled in the protected catalog; enrollment alone does
+not activate it. Only that isolated notification job has `actions: write`; it checks out
+its exact protected source without credentials and never checks out or executes
+the candidate. Its direct returned cleanup run ID and exact fork URLs appear in
+a bounded native receipt. Missing or ambiguous responses stay unresolved and
+are never redispatched automatically.
+
+The cleanup receiver authenticates the original validator and notification roles,
+source, native App, originating PR-target gate and immutable candidate identities.
+It waits a bounded time for both source runs to finish and verifies that its own
+run ID is the recipient in the native notification receipt. The associated PR may
+already be merged; its original native association is distinct from current PR
+state. Only then can it retry current closed-topic hints across the seven targets.
+The callback never performs history adoption. Every hint retains its actual target
 and protected base; source retention, activity holds, fresh refs, complete
-integration, verified backup, and exact-head deletion checks remain mandatory.
-Other completion owners retain their existing target scope. A hint grants no
-deletion authority and does not prove that GitHub delivered the completion
-callback; the scheduled cleanup fallback remains available.
+integration, verified backup, independent recovery, and exact-head deletion checks
+remain mandatory. Other completion owners retain their existing target scope.
+
+Notification delivery is administrative and its job-local tolerated failure cannot
+certify a validation pass, callback acceptance, integration or reusable evidence.
+The validator remains mandatory; its failure or overall workflow cancellation still
+fails synchronization. The actual notifier result is retained separately. A genuine
+callback acceptance requires a successful native dispatch receipt and authenticated
+receiver result. Runner loss, cancellation before notification, and a lost response
+can still prevent delivery. Existing manual/report and scheduled recovery remain
+available; a scheduled assessment never counts as the explicit completion callback.
