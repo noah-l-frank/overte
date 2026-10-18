@@ -38,7 +38,7 @@ class LanguageSelectionTests(unittest.TestCase):
         return before, deepcopy(before)
 
     def test_only_four_existing_ci_metadata_leaves_need_no_language_in_the_pinned_generation(self):
-        self.assertEqual(CODEQL._INERT_CI_JSONS, {
+        self.assertEqual(CODEQL._INERT_CI_JSONS - {'.github/package-workflow-generations.json'}, {
             '.github/branch-cleanup.json', '.github/issue-policy.json',
             '.github/repository-health.json', '.github/dependency-releases.json'})
         for path in CODEQL._INERT_CI_JSONS:
@@ -51,6 +51,47 @@ class LanguageSelectionTests(unittest.TestCase):
                     self.assertFalse(plan['full_scan'])
                     self.assertEqual(plan['reasons'], [{'code': 'reviewed-pinned-ci-metadata', 'path': path}])
                     self.assertEqual([change['path'] for change in plan['changes']], [path])
+
+    def test_exact_existing_generation_catalog_is_not_extracted_but_preserves_all_other_owners(self):
+        catalog = '.github/package-workflow-generations.json'
+        self.assertIn(catalog, CODEQL._INERT_CI_JSONS)
+        for changed, expected in (({}, []), ({'tools/helper.py':entry('b')}, ['python']),
+                ({'browser-client/main.ts':entry('b')}, ['javascript-typescript']),
+                ({'tools/helper.py':entry('b'), 'browser-client/main.ts':entry('b')}, list(CODEQL.LANGUAGES)),
+                ({'tools/repository-checks/codeql.py':entry('b')}, list(CODEQL.LANGUAGES)),
+                ({'bin/unknown-input':entry('b')}, list(CODEQL.LANGUAGES)),
+                ({'.github/unknown-metadata.json':entry('b')}, ['javascript-typescript'])):
+            before, after = self.pinned_trees()
+            before[catalog] = entry(); after[catalog] = entry('b'); after.update(changed)
+            with self.subTest(changed=changed):
+                plan = CODEQL.select_languages(before, after)
+                self.assertEqual(plan['languages'], expected)
+                self.assertIn({'code':'reviewed-pinned-ci-metadata','path':catalog}, plan['reasons']) \
+                    if not plan['full_scan'] else None
+        # Every immutable-inventory/control failure retains the original conservative route.
+        for mutation in ('config','workflow','alias','gitlink','pack','unknown-inventory','schedule'):
+            before, after = self.pinned_trees()
+            before[catalog] = entry(); after[catalog] = entry('b')
+            event = 'pull_request'
+            if mutation == 'config': after['.github/codeql/codeql-config.yml'] = entry('c')
+            elif mutation == 'workflow': after['.github/workflows/codeql.yml'] = entry('c')
+            elif mutation in ('alias','gitlink'):
+                before['unchanged-alias'] = after['unchanged-alias'] = entry(mode='120000' if mutation=='alias' else '160000')
+            elif mutation == 'pack': before['.github/qlpack.yml'] = after['.github/qlpack.yml'] = entry()
+            elif mutation == 'unknown-inventory': before = None
+            else: event = 'schedule'
+            with self.subTest(mutation=mutation):
+                self.assertEqual(CODEQL.select_languages(before, after, event=event)['languages'], list(CODEQL.LANGUAGES))
+        # A new/missing/renamed/executable JSON keeps its prior JS owner; aliases and gitlinks remain full above.
+        for mutation in ('new','deleted','renamed','before-executable','after-executable'):
+            before, after = self.pinned_trees(); before[catalog] = entry(); after[catalog] = entry('b')
+            if mutation == 'new': del before[catalog]
+            elif mutation == 'deleted': del after[catalog]
+            elif mutation == 'renamed': after[catalog+'.other.json'] = after.pop(catalog)
+            elif mutation == 'before-executable': before[catalog] = entry(mode='100755')
+            else: after[catalog] = entry('b',mode='100755')
+            with self.subTest(mutation=mutation):
+                self.assertEqual(CODEQL.select_languages(before, after)['languages'], ['javascript-typescript'])
 
     def test_ci_metadata_mixed_changes_retain_every_existing_language_owner(self):
         for changed, expected in (

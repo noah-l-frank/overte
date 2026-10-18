@@ -144,29 +144,30 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = '2f78db664037e86e63c659de558d204f823d8726f6e0fe0ab1ef959c2a06e373'
+REVIEWED_PROGRAMS = 'e82ed2dd06e6d00c7640a7b6b9cdf9435bf45bbaf40c3be743f05b6b77b3f9de'
 REVIEWED_CHILD_PROGRAMS = {
-    'apple-main': 'c36e8f6524583626c5dc1d2a3d6a33ff39585474445df81b5d70f8ec1b33112a',
-    'apple-ios': 'dab29ade46d34044d38d14d438251a06d3e1a0b81c1200a28691c38b93bb2c10',
-    'android-main': '34a0a521545fc5a15b4f06a662ff62410700e8bcba4ae36595c5b8ee79e55b21',
-    'android-phone': '4a9d3a543c0fa6941f97333aaa16833bc710f750e984a2bbb5f49f33537a1889',
-    'android-vr': '34a0a521545fc5a15b4f06a662ff62410700e8bcba4ae36595c5b8ee79e55b21',
-    'android-vr-pico': '3b6adaf319bb4674ff4f8f31f1875c0023346c414380ea4837cd341d486d4b67',
+    'apple-main': '3e099aec4fb9e239699d9267e5dd8a8f403c8afc5553cb746e38e1638ed9f1d3',
+    'apple-ios': 'ad4fc58e80569b844e9c10a5eb06f1c60991424c9ca07e9f82ed58e50610fd11',
+    'android-main': '569dee6cc9864ec22f904161e9b6a4ddc52ed7c25458171c65baec129f0b7b18',
+    'android-phone': 'c644078ff438758fa604795f49e3267bb161c26dda5ff8f4049d341b9cedd522',
+    'android-vr': '569dee6cc9864ec22f904161e9b6a4ddc52ed7c25458171c65baec129f0b7b18',
+    'android-vr-pico': '873e916ba69684bfa48f0ff269b956e20c591dd86a99d7f47d6eff79affdd338',
 }
 REVIEWED_PREDECESSORS = {
     'main': '6c6064992d2e2e189e06af5957c147fd1ac0996b886b8d0b6f30dbf856ee9afe',
     'apple-main': 'ad02726fc123ea762f37e077f6ad11bf54b568542c89ebba9ae6477d9225288a',
     'apple-ios': '5cd6ed41804507a65889ceacbf54133cbcebb4e27bb0fa2b75f482bc75580204',
-    'android-main': '48ffa066aca05d45cb1596ec2410865c01d364711b0964c80007d33e230e8894',
-    'android-phone': '960e7ba488c9749594ba71236a4b134d6a2fb23698e745b572d1a3825bc480c4',
-    'android-vr': '48ffa066aca05d45cb1596ec2410865c01d364711b0964c80007d33e230e8894',
-    'android-vr-pico': '48e1ea3774eacdfedb165d6396add7393c8058dbd3945164a4fe120fb6ca4b7c',
+    'android-main': '781d02b8b666e8b8d564acfdc0793d3d93655db54718d5d8e698d7cd7f62dbae',
+    'android-phone': '4d1c80dad091bcbdd73be71b6ec2d3f40f1bfad766b5449d6bff9de35b890579',
+    'android-vr': '781d02b8b666e8b8d564acfdc0793d3d93655db54718d5d8e698d7cd7f62dbae',
+    'android-vr-pico': 'f4896b71f68ffb3fa00edc8f5d68f098d96377f0118db8a52218d6a5eec05cbf',
 }
 CONTROL_PLANE = 'tests/device/run_control_plane_tests.py'
 # These inputs are read by the full Device suite. They are CI-owned for
 # routing, but remain program/reader inputs and require that suite to execute.
 DEVICE_CONTROL_INPUTS = frozenset({
     CONTROL_PLANE,
+    'tests/device/run_artifact_identity.py',
     'tests/device/self_tests/test_android_adapter.py',
     'tests/device/self_tests/test_pico_property_eligibility.py',
 })
@@ -348,7 +349,7 @@ def _protected_producer_transition(tree, paths, base_tree, trusted_tree, target)
         # The pre-sole-owner source recipe keeps the original Android owners
         # during source propagation. This exact installation still requires a
         # new full producer run; neither recipe grants execution evidence.
-        for name in ('npm-consumers-sync-ci-v1', 'android-owned-npm5-sync-ci-v1'):
+        for name in ('npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'android-owned-npm5-sync-ci-v1'):
             previous = generations.get(name, {})
             if set(previous) != consumers or set(producer) != set(policy.METADATA_WORKFLOW_PATHS) \
                     or {path for path in consumers | set(producer)
@@ -610,6 +611,20 @@ def candidate_selection(candidate, event, sha, expected_plan=None):
         raise ValueError('candidate changed during owned host selection')
     return selected
 
+def requires_artifact_namespace(suite_names):
+    """Schedule the utility for actual owners without changing selection authority."""
+    if type(suite_names) not in (list, tuple) or any(type(name) is not str or not name for name in suite_names):
+        raise ValueError('artifact namespace scheduling requires explicit suite names')
+    for name in suite_names:
+        for owner in ('project-runner', 'device-control-plane-full'):
+            if name == owner: return True
+            prefix = owner + '-candidate-'
+            if name.startswith(prefix) and len(name) == len(prefix) + 12 \
+                    and all(character in '0123456789abcdef' for character in name[len(prefix):]):
+                return True
+    return False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--candidate', type=Path, required=True)
@@ -662,6 +677,8 @@ def main():
             with args.output.open('a') as output:
                 output.write('full_host=' + str(selected['full_host']).lower() + '\n')
                 output.write('complete_receipt=' + str(complete_receipt).lower() + '\n')
+                output.write('requires_artifact_namespace=' + str(requires_artifact_namespace(
+                    selected['suites'] + selected['additional_suites'] + selected['platform_suites'])).lower() + '\n')
             return 0
         if args.junit is None:
             raise ValueError('host execution requires a test report path')
@@ -684,7 +701,7 @@ def main():
         try:
             with execution.candidate_process_environment():
                 status = package.run_suites(SimpleNamespace(timeout=240, host_timeout=900, native_build_dir=None,
-                                           junit=args.junit, fail_fast=False), suites, cancelled)
+                                           junit=args.junit, fail_fast=True), suites, cancelled)
         finally:
             for signum, handler in previous.items():
                 signal.signal(signum, handler)
