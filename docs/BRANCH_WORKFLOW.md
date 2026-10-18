@@ -323,12 +323,12 @@ complete fallback, even for Markdown or valid parent qualification. This is
 conservative: a listed path inherited unchanged from the parent also forces
 fallback. No new direct-sync, topology, or ruleset exception is introduced.
 
-The prospective Android sole-owner transition registers six exact repair targets
+The prospective Android sole-owner transition registers seven exact repair targets
 only for `main` to `android-main`: the two legacy Android workflow files and
 the four contract files listed in `.github/android-owner-transfer.json`. These
 repairs allow the staged ownership handoff to reach full sync validation; they
 always require the complete fallback. The independent Android owner gate checks
-all six files against their trusted handoff bytes and modes, preserves the
+all seven files against their trusted handoff bytes and modes, preserves the
 complete product profile, and requires the approved caller/callee/project
 generation with its independent 40-execution normal PR inventory. Neighboring
 files and other targets gain no repair registration. Hosted qualification is
