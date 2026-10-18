@@ -114,9 +114,19 @@ void NativeWebViewItem::setInlineDocument(const QVariant& value) {
     _inlineCarrier = value;
     QVariant native = value;
     if (native.userType() == qMetaTypeId<QJSValue>()) native = native.value<QJSValue>().toVariant();
-    _inlineProvided = native.isValid() && !native.isNull();
-    _inlineDocument = native.userType() == qMetaTypeId<overte::web::InlineHtmlDocument>()
-        ? native.value<overte::web::InlineHtmlDocument>() : overte::web::InlineHtmlDocument();
+    const auto type = native.userType();
+    const bool absent = !native.isValid() || type == QMetaType::Nullptr
+        || (type == QMetaType::QObjectStar && native.isNull());
+    { QMutexLocker guard(&_mutex);
+      _inlineProvided = !absent;
+      _inlineDocument = type == qMetaTypeId<overte::web::InlineHtmlDocument>()
+          ? native.value<overte::web::InlineHtmlDocument>() : overte::web::InlineHtmlDocument();
+      // Publication on Android's UI thread must never observe a new carrier
+      // paired with the previous source session or its still-live lease.
+      _session.close(); _sourceAuthorized = false;
+      if (_inlineLifetime) _inlineLifetime->store(false,std::memory_order_release);
+      if (_resourceState) _resourceState->revoke();
+    }
     emit inlineDocumentChanged(); navigate();
 }
 void NativeWebViewItem::setScriptUrl(const QString& value) {
@@ -197,9 +207,8 @@ void NativeWebViewItem::navigate() {
       _mapping = overte::android::web::NativeResourceMapping(root, _handle);
       source = _mapping.canonicalSource(source);
       _tabletGrant = _surface == Tablet;
-      authorized = openSourceSession(source, root);
+      authorized = openSourceSession(source, root); _sourceAuthorized = authorized;
       _session.setVisible(isVisible() && isEnabled()); _page = 0; _document = QUrl(); browser = _mapping.toBrowser(_session.url()); }
-    _sourceAuthorized = authorized;
     publishResourceSource();
     if (!authorized) {
         _status = 6; { QMutexLocker guard(&_mutex); _image = QImage(); } update(); emit stateChanged();
@@ -233,10 +242,11 @@ void NativeWebViewItem::create() {
     jstring editorBootstrap = jni.string(editorScript);
     if (!editorBootstrap) { if (jni.env->ExceptionCheck()) jni.env->ExceptionClear(); jni.env->DeleteLocalRef(url); jni.env->DeleteLocalRef(agent); jni.env->DeleteLocalRef(bootstrap); retryCreation(); return; }
     const auto bounds = sceneBounds().toAlignedRect(), clip = sceneClipBounds().toAlignedRect(); jvalue args[16]; args[0].j = _handle; args[1].j = generation();
-    _creationRevision = args[1].j; _creationIdentity = _sourceIdentity;
-    _creationSurface = _surface; _creationPresentation = _presentation;
+    { QMutexLocker guard(&_mutex);
+      _creationRevision = args[1].j; _creationIdentity = _sourceIdentity;
+      _creationSurface = _surface; _creationPresentation = _presentation; _creationSource = _session.url(); }
     publishResourceSource();
-    { QMutexLocker guard(&_mutex); _creationSource = _session.url(); } args[2].l = url; args[3].l = agent;
+    args[2].l = url; args[3].l = agent;
     args[4].z = _background; args[5].z = _presentation == NativeOverlay; args[6].i = bounds.x(); args[7].i = bounds.y();
     args[8].i = bounds.width(); args[9].i = bounds.height();
     args[10].i = clip.x(); args[11].i = clip.y(); args[12].i = clip.width(); args[13].i = clip.height(); args[14].l = bootstrap;
