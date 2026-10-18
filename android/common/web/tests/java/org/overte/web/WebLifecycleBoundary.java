@@ -14,6 +14,18 @@ public final class WebLifecycleBoundary {
     public static long handle, creationRevision, hiddenRevision, hiddenActive;
     public static int hidden, creates, evaluations;
     public static void evaluate(long handle,long grant,long page,String script) { evaluations++; }
+    public static int wheels;
+    public static long wheelHandle, wheelGrant, wheelPage;
+    public static String wheelDocument;
+    public static float wheelX, wheelY, wheelPixelX, wheelPixelY, wheelAngleX, wheelAngleY;
+    public static boolean wheelPixelMode;
+    public static void wheel(long h,long g,long p,String document,float x,float y,float px,float py,float ax,float ay,boolean pixel) {
+        wheels++; wheelHandle=h; wheelGrant=g; wheelPage=p; wheelDocument=document;
+        wheelX=x; wheelY=y; wheelPixelX=px; wheelPixelY=py; wheelAngleX=ax; wheelAngleY=ay; wheelPixelMode=pixel;
+    }
+    public static int edits;
+    public static String lastEdit;
+    public static void edit(long h,long g,long p,String document,String command) { edits++; lastEdit=command; }
     public static boolean delayCreated;
     static final Object owner = new Object(), activity = new Object();
     static final Map<Long,Object> instances = new HashMap<>();
