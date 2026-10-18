@@ -3201,23 +3201,52 @@ class WorkflowSafetyTests(unittest.TestCase):
         self.assertNotIn("continue-on-error", self.source)
 
     def test_only_separate_notification_job_can_tolerate_failure_or_write_actions(self):
-        source = (ROOT / ".github/workflows/sync-validation.yml").read_text()
-        validation, notification = source.split("\n  notify-cleanup:\n", 1)
-        self.assertIn("  actions: read\n", validation)
-        self.assertNotIn("actions: write", validation)
-        self.assertNotIn("continue-on-error", validation)
-        self.assertNotIn("notify-sync-completion", validation)
-        self.assertIn("    needs: validate\n", notification)
-        self.assertIn("    continue-on-error: true\n", notification)
-        self.assertIn("always()", notification)
-        self.assertIn("      actions: write\n", notification)
-        self.assertIn("      contents: read\n", notification)
-        self.assertIn("ref: ${{ github.sha }}", notification)
-        self.assertIn("persist-credentials: false", notification)
-        self.assertIn("cleanup.py notify-sync-completion", notification)
-        self.assertNotIn("candidate", notification)
-        self.assertNotIn("secrets.", notification)
-        self.assertNotIn("create-github-app-token", notification)
+        sources = (
+            ('tools/repository-checks/workflows/sync-ci-selection.yml',
+             {'747bd6424d1e9b533ae35a81b524ceefc06b286b'}),
+            ('.github/workflows/sync-validation.yml', {
+                'cff76b696a4afd8658329a02ab33032672f292b9',
+                'ccc75d37c4f8b5012299bf864bf48dd45ead389b',
+                '747bd6424d1e9b533ae35a81b524ceefc06b286b'}),
+        )
+        for path, approved in sources:
+            with self.subTest(path=path):
+                raw = (ROOT / path).read_bytes()
+                identity = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+                self.assertIn(identity, approved)
+                source = raw.decode('utf-8')
+                if identity == 'cff76b696a4afd8658329a02ab33032672f292b9':
+                    # Source23 remains the active predecessor until the default
+                    # source has registered the complete callback generation.
+                    validation, notification = source, None
+                    self.assertNotIn('\n  notify-cleanup:\n', validation)
+                else:
+                    validation, notification = source.split('\n  notify-cleanup:\n', 1)
+                    predecessor = validation + ('\n' if identity ==
+                        '747bd6424d1e9b533ae35a81b524ceefc06b286b' else '')
+                    previous_raw = predecessor.encode('utf-8')
+                    self.assertEqual(hashlib.sha1(b'blob ' + str(len(previous_raw)).encode() +
+                        b'\0' + previous_raw).hexdigest(),
+                        'fb8b8645f229d924cfebb068ea124ac5910a483e' if identity ==
+                        '747bd6424d1e9b533ae35a81b524ceefc06b286b' else
+                        'cff76b696a4afd8658329a02ab33032672f292b9')
+                self.assertIn("  actions: read\n", validation)
+                self.assertNotIn("actions: write", validation)
+                self.assertNotIn("continue-on-error", validation)
+                self.assertNotIn("notify-sync-completion", validation)
+                if notification is None:
+                    continue
+                self.assertIn("    needs: validate\n", notification)
+                self.assertIn("    continue-on-error: true\n", notification)
+                self.assertIn("always()", notification)
+                self.assertIn("      actions: write\n", notification)
+                self.assertIn("      contents: read\n", notification)
+                self.assertIn("ref: ${{ github.sha }}", notification)
+                self.assertIn("persist-credentials: false", notification)
+                self.assertIn("cleanup.py notify-sync-completion", notification)
+                self.assertNotIn("candidate", notification)
+                self.assertNotIn("secrets.", notification)
+                self.assertNotIn("create-github-app-token", notification)
 
 
 class SyncCompletionNotificationTests(unittest.TestCase):

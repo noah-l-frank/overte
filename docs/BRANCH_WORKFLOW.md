@@ -398,9 +398,11 @@ The machine-readable contract is
 ### Cleanup retries after manual synchronization validation
 
 `Sync validation` runs on `main` even when it validates a child-target pull
-request. After its mandatory read-only validator finishes, a separate protected
-`notify-cleanup` job sends one explicit completion dispatch to automatic branch
-cleanup. Only that isolated notification job has `actions: write`; it checks out
+request. With a callback-capable recipe activated, its mandatory read-only
+validator is followed by a separate protected `notify-cleanup` job that sends
+one explicit completion dispatch to automatic branch cleanup. The callback
+recipe must first be enrolled in the protected catalog; enrollment alone does
+not activate it. Only that isolated notification job has `actions: write`; it checks out
 its exact protected source without credentials and never checks out or executes
 the candidate. Its direct returned cleanup run ID and exact fork URLs appear in
 a bounded native receipt. Missing or ambiguous responses stay unresolved and
