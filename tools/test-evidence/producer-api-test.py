@@ -3950,5 +3950,47 @@ class UnchangedParentTests(unittest.TestCase):
 
 
 
+class OptionalParentScheduleTests(unittest.TestCase):
+    generation_name = 'protected-producer-original-default-v1'
+    setUp = MainConsumerTests.setUp
+
+    def schedule(self):
+        self.environment['GITHUB_JOB'] = 'common-parent'
+        self.tree[self.module.producer.PLATFORM_PARENT_TEMPLATE] = deepcopy(
+            self.tree['.github/workflows/parent-qualification.yml'])
+        return self.module.unavailable_parent_schedule(
+            self.event, self.environment, self.adapter, clock=lambda: NOW)
+
+    def test_actual_native_schedule_has_no_test_or_qualification_authority(self):
+        value = self.schedule()
+        self.assertEqual(value['kind'], 'optional-parent-qualification-schedule-v1')
+        self.assertFalse(value['reusable'])
+        self.assertFalse(value['qualification'])
+        self.assertIsNone(value['execution'])
+        self.assertEqual(value['executed_suites'], [])
+        self.assertEqual(value['reused_suites'], [])
+        with patch.object(self.module, 'verify_main', side_effect=ValueError('missing original proof')):
+            result = self.module.lookup(self.event, self.environment, self.adapter, clock=lambda: NOW)
+        self.assertFalse(result['reused'])
+        self.assertEqual(result['optional_qualification'], value)
+
+    def test_stale_attempt_recipe_source_and_forced_push_cannot_schedule(self):
+        self.schedule()
+        for mapping, key, value in ((self.environment, 'GITHUB_RUN_ATTEMPT', '2'),
+                (self.environment, 'GITHUB_SHA', 'e'*40), (self.event, 'forced', True),
+                (self.event, 'before', 'e'*40),
+                (self.tree, '.github/workflows/parent-qualification.yml',
+                    {'mode':'100644','type':'blob','sha':'e'*40})):
+            with self.subTest(key=key), patch.dict(mapping, {key: value}), self.assertRaises(ValueError):
+                self.schedule()
+        def mutate(endpoint, value):
+            if endpoint.endswith('/actions/runs/500'):
+                value['run_attempt'] = 2
+            return value
+        self.api.mutate = mutate
+        with self.assertRaises(ValueError):
+            self.schedule()
+
+
 if __name__ == "__main__":
     unittest.main()

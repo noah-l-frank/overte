@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 import signal
@@ -635,6 +636,61 @@ def requires_artifact_namespace(suite_names):
     return False
 
 
+def incomplete_parent_qualification(event, plan, selected, report, environment, *, default_source):
+    """Decline optional incomplete qualification, without claiming suite PASS.
+
+    Only the fixed native Parent job consumes its own earlier authenticated
+    scheduling observation. Required PR/Sync tests and complete receipts never
+    use this branch. The observation cannot be used as execution evidence.
+    """
+    target = target_branch(event)
+    if target not in {'main', 'apple-main'} or plan.get('host_mode') != 'full' \
+            or plan.get('unknown') is not False or plan.get('package_set') \
+            or plan.get('tool_projects') or selected.get('include_platform') is not False \
+            or selected.get('additional_suites') or selected.get('platform_suites'):
+        return False
+    required = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'noah-l-frank/overte',
+        'GITHUB_REPOSITORY_ID': '1319052603', 'GITHUB_EVENT_NAME': 'push',
+        'GITHUB_JOB': 'common-parent', 'GITHUB_RUN_ATTEMPT': '1',
+        'GITHUB_REF': 'refs/heads/'+target, 'GITHUB_SHA': plan.get('candidate'),
+        'GITHUB_WORKFLOW_SHA': plan.get('candidate'), 'RUNNER_ENVIRONMENT': 'github-hosted',
+        'ImageOS': 'ubuntu24', 'GITHUB_WORKFLOW_REF':
+            'noah-l-frank/overte/.github/workflows/parent-qualification.yml@refs/heads/'+target}
+    if any(environment.get(key) != value for key, value in required.items()):
+        return False
+    if not isinstance(report, dict) or report.get('reused') is not False \
+            or report.get('reason') != 'original-proof-unavailable':
+        return False
+    observation = report.get('optional_qualification')
+    if not isinstance(observation, dict):
+        return False
+    fixed = {'schema': 1, 'kind': 'optional-parent-qualification-schedule-v1',
+        'authority': 'none', 'reusable': False, 'qualification': False,
+        'executed_suites': [], 'reused_suites': [], 'execution': None}
+    if any(type(observation.get(key)) is not type(value) or observation.get(key) != value
+           for key, value in fixed.items()):
+        return False
+    binding, refs = observation.get('binding'), observation.get('refs')
+    if not isinstance(binding, dict) or not isinstance(refs, dict):
+        return False
+    integration = refs.get('integration')
+    if not isinstance(integration, dict):
+        return False
+    run_id = environment.get('GITHUB_RUN_ID', '')
+    return (run_id.isdecimal() and int(run_id) > 0
+        and integration.get('push_run_id') == int(run_id) and integration.get('push_attempt') == 1
+        and integration.get('workflow_path') == '.github/workflows/parent-qualification.yml'
+        and integration.get('commit') == refs.get('target') == binding.get('merge_sha') == plan.get('candidate')
+        and integration.get('tree') == binding.get('merge_tree') == plan.get('tree')
+        and integration.get('target') == binding.get('base_ref') == target
+        and binding.get('base_sha') == event.get('before') == plan.get('base')
+        and event.get('after') == plan.get('candidate') and event.get('forced') is False
+        and event.get('deleted') is False and refs.get('default_ref') == 'main'
+        and refs.get('default') == default_source
+        and observation.get('default_authority') ==
+            {'name': 'main', 'protected': True, 'commit': default_source})
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--candidate', type=Path, required=True)
@@ -673,12 +729,12 @@ def main():
         complete_receipt = (set(selected['suites']) == set(registry['suites']) and not additions
                             and selected['include_platform'])
         print(json.dumps(selected, sort_keys=True), flush=True)
+        report = {'schema': 1, 'kind': 'host-impact-selection', 'reusable': False,
+                  'candidate': before[0], 'tree': before[1], 'package_plan': plan['plan'],
+                  'selection': selected,
+                  'omitted_suites': [name for name in registry['suites'] if name not in selected['suites']],
+                  'complete_receipt_required': complete_receipt}
         if args.selection_report is not None:
-            report = {'schema': 1, 'kind': 'host-impact-selection', 'reusable': False,
-                      'candidate': before[0], 'tree': before[1], 'package_plan': plan['plan'],
-                      'selection': selected,
-                      'omitted_suites': [name for name in registry['suites'] if name not in selected['suites']],
-                      'complete_receipt_required': complete_receipt}
             args.selection_report.parent.mkdir(parents=True, exist_ok=True)
             args.selection_report.write_text(json.dumps(report, sort_keys=True, indent=2) + '\n')
         if args.select_only:
@@ -692,6 +748,29 @@ def main():
             return 0
         if args.junit is None:
             raise ValueError('host execution requires a test report path')
+        if not complete_receipt and os.environ.get('GITHUB_JOB') == 'common-parent':
+            # The earlier native API lookup owns this workspace file. Candidate
+            # commands have not run, and this branch publishes no test receipt.
+            workspace = Path(os.environ.get('GITHUB_WORKSPACE', '/nonexistent')).resolve()
+            schedule_path = workspace / 'build/parent-qualification/original-proof.json'
+            observation = None
+            try:
+                if candidate == workspace / 'candidate' and ROOT == workspace / 'trusted' \
+                        and all(not path.is_symlink() for path in
+                            (workspace / 'build', schedule_path.parent, schedule_path)) \
+                        and schedule_path.is_file() and schedule_path.stat().st_size <= 2_000_000:
+                    observation = json.loads(schedule_path.read_bytes(), object_pairs_hook=inputs._unique_object)
+            except (OSError, ValueError):
+                pass  # Missing or malformed scheduling data never omits tests.
+            if incomplete_parent_qualification(event, plan, selected, observation, os.environ,
+                                               default_source=execution.checkout_identity(ROOT)[0]):
+                report.update(qualification_status='unavailable', qualification=False,
+                    executed_suites=[], reused_suites=[], execution=None)
+                if args.selection_report is not None:
+                    args.selection_report.write_text(json.dumps(report, sort_keys=True, indent=2) + '\n')
+                print('Optional parent qualification unavailable: incomplete selection; no suites executed, '
+                      'no test pass or reusable evidence published.', flush=True)
+                return 0
         registry = inputs.load_registry(ROOT / '.github/test-suites.json')
         suites = [package.Suite(name, registry['suites'][name]['layer'], tuple(
             sys.executable if index == 0 and value == 'python' else value

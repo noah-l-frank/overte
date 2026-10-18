@@ -187,10 +187,16 @@ checks without publishing complete host-qualification evidence. Such syncs do
 not repeat the native client build, complete host suite, or product suites.
 
 The four permanent branches that have children (`main`, `android-main`,
-`android-vr`, and `apple-main`) qualify each exact pushed commit once, except
-for Markdown-only pushes and the bounded tool-only pushes above. The
-qualification runs the shared project and complete device-control-plane suites,
-then uploads a short-lived machine-readable artifact. The artifact binds the
+`android-vr`, and `apple-main`) first look for the exact original protected PR
+proof instead of executing its suites again. Without that proof, a complete
+qualification runs the shared project and device-control-plane suites, then
+uploads a short-lived machine-readable artifact. On `main` and `apple-main`,
+an authenticated native parent job whose common-only selection cannot produce
+a complete receipt reports qualification as unavailable and executes no suites;
+it publishes neither passing test results nor reusable evidence. Required PR
+and sync checks, package owners, platform owners and complete qualification
+remain unchanged. Markdown-only and bounded tool-only pushes keep their
+separate routes above. A qualification artifact binds the
 repository numeric ID and name, parent commit and tree, qualification workflow
 blob, shared test definitions, workflows, lockfiles, toolchain inputs, test
 configuration, successful results, run identity, GitHub Actions App ID, and

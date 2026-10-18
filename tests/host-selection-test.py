@@ -1624,5 +1624,111 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         self.assertFalse(HOST.inputs.installed_compiler_profile(HOST.inputs.INSTALLED_COMPILER_PROFILE,target='main'))
 
 
+class OptionalParentQualificationTests(unittest.TestCase):
+    def setUp(self):
+        self.source, self.base, self.tree, self.default = ('a'*40, 'b'*40, 'c'*40, 'd'*40)
+        self.event = {'ref': 'refs/heads/apple-main', 'before': self.base,
+                      'after': self.source, 'forced': False, 'deleted': False}
+        self.plan = {'candidate': self.source, 'base': self.base, 'tree': self.tree,
+                     'host_mode': 'full', 'unknown': False, 'package_set': [], 'tool_projects': []}
+        self.selected = {'include_platform': False, 'additional_suites': [], 'platform_suites': []}
+        self.environment = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'noah-l-frank/overte',
+            'GITHUB_REPOSITORY_ID': '1319052603', 'GITHUB_EVENT_NAME': 'push',
+            'GITHUB_JOB': 'common-parent', 'GITHUB_RUN_ATTEMPT': '1',
+            'GITHUB_RUN_ID': '123', 'GITHUB_REF': self.event['ref'], 'GITHUB_SHA': self.source,
+            'GITHUB_WORKFLOW_SHA': self.source, 'RUNNER_ENVIRONMENT': 'github-hosted', 'ImageOS': 'ubuntu24',
+            'GITHUB_WORKFLOW_REF': 'noah-l-frank/overte/.github/workflows/parent-qualification.yml@refs/heads/apple-main'}
+        self.observation = {'schema': 1, 'kind': 'optional-parent-qualification-schedule-v1',
+            'authority': 'none', 'reusable': False, 'qualification': False, 'execution': None,
+            'executed_suites': [], 'reused_suites': [],
+            'binding': {'base_ref': 'apple-main', 'base_sha': self.base,
+                        'merge_sha': self.source, 'merge_tree': self.tree},
+            'refs': {'target': self.source, 'default_ref': 'main', 'default': self.default,
+                'integration': {'push_run_id': 123, 'push_attempt': 1,
+                    'workflow_path': '.github/workflows/parent-qualification.yml',
+                    'target': 'apple-main', 'commit': self.source, 'tree': self.tree}},
+            'default_authority': {'name': 'main', 'protected': True, 'commit': self.default}}
+        self.report = {'reused': False, 'reason': 'original-proof-unavailable',
+                       'optional_qualification': self.observation}
+
+    def accepts(self):
+        return HOST.incomplete_parent_qualification(self.event, self.plan, self.selected,
+            self.report, self.environment, default_source=self.default)
+
+    def test_only_incomplete_optional_common_qualification_is_declined(self):
+        self.assertTrue(self.accepts())
+        self.assertIsNone(self.observation['execution'])
+        self.assertEqual([], self.observation['executed_suites'])
+        self.assertFalse(self.observation['reusable'])
+        for field, value in (('include_platform', True), ('additional_suites', ['new-command']),
+                             ('platform_suites', ['android-test'])):
+            with self.subTest(field=field), patch.dict(self.selected, {field: value}):
+                self.assertFalse(self.accepts())
+        for field, value in (('host_mode', 'delegated-sync'), ('unknown', True),
+                             ('package_set', ['script-archive/marketplace/S3Server']),
+                             ('tool_projects', ['browser-client'])):
+            with self.subTest(field=field), patch.dict(self.plan, {field: value}):
+                self.assertFalse(self.accepts())
+
+    def test_pr_sync_foreign_stale_missing_and_authority_claims_never_skip(self):
+        for field, value in (('GITHUB_EVENT_NAME', 'pull_request'), ('GITHUB_EVENT_NAME', 'workflow_dispatch'),
+                             ('GITHUB_JOB', 'project'), ('GITHUB_RUN_ATTEMPT', '2'),
+                             ('GITHUB_SHA', 'e'*40), ('GITHUB_REPOSITORY', 'overte-org/overte'),
+                             ('GITHUB_WORKFLOW_SHA', 'e'*40), ('GITHUB_RUN_ID', '124')):
+            with self.subTest(field=field, value=value), patch.dict(self.environment, {field: value}):
+                self.assertFalse(self.accepts())
+        for mapping, field, value in ((self.observation, 'reusable', True),
+                (self.observation, 'executed_suites', ['test-evidence']),
+                (self.observation['binding'], 'merge_tree', 'e'*40),
+                (self.observation['refs'], 'default', 'e'*40),
+                (self.event, 'forced', True), (self.event, 'before', 'e'*40)):
+            with self.subTest(field=field), patch.dict(mapping, {field: value}):
+                self.assertFalse(self.accepts())
+        with patch.dict(self.report, {'optional_qualification': None}):
+            self.assertFalse(self.accepts())
+
+    def test_cli_declines_incomplete_qualification_without_running_or_publishing_tests(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory).resolve()
+            trusted, candidate = workspace/'trusted', workspace/'candidate'
+            trusted.mkdir(); candidate.mkdir()
+            schedule = workspace/'build/parent-qualification/original-proof.json'
+            schedule.parent.mkdir(parents=True)
+            schedule.write_text(json.dumps(self.report))
+            event = workspace/'event.json'; event.write_text(json.dumps(self.event))
+            junit, selection_report = workspace/'tests.xml', workspace/'selection.json'
+            plan = {**self.plan, 'plan': 'fixture-plan', 'regular': True, 'paths': ['tools/example.py']}
+            selected = {**self.selected, 'suites': ['contract'], 'full_host': False, 'reason': 'fixture'}
+            registry = {'suites': {'contract': {'layer': 'quick', 'command': ['python', 'contract.py'],
+                                               'environment': 'fixture'}}}
+            package = SimpleNamespace(run_suites=Mock(side_effect=AssertionError('no optional tests')))
+            policy = SimpleNamespace(validate_wiring=lambda _: None, candidate_plan=lambda *_: plan)
+            argv = ['host_selection.py', '--candidate', str(candidate), '--event', str(event),
+                    '--sha', self.source, '--expected-plan', 'fixture-plan', '--junit', str(junit),
+                    '--selection-report', str(selection_report)]
+            with patch.object(HOST, 'ROOT', trusted), patch.object(sys, 'argv', argv), \
+                    patch.dict(HOST.os.environ, {**self.environment, 'GITHUB_WORKSPACE': str(workspace)}, clear=True), \
+                    patch.object(HOST.execution, '_runner', return_value=package), \
+                    patch.object(HOST.execution, 'checkout_identity', side_effect=lambda path:
+                        (self.source,self.tree) if path == candidate else (self.default,'e'*40)), \
+                    patch.object(HOST, 'package_policy', return_value=policy), \
+                    patch.object(HOST.inputs, 'full_tree', return_value={}), \
+                    patch.object(HOST.inputs, 'load_registry', return_value=registry), \
+                    patch.object(HOST, 'candidate_registry', return_value=registry), \
+                    patch.object(HOST, 'select', return_value=selected), \
+                    patch.object(HOST.execution, 'platform_suites', return_value=[]), \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(HOST.main(), 0)
+            package.run_suites.assert_not_called()
+            self.assertFalse(junit.exists())
+            result = json.loads(selection_report.read_text())
+            self.assertEqual(result['qualification_status'], 'unavailable')
+            self.assertEqual(result['executed_suites'], [])
+            self.assertIsNone(result['execution'])
+            self.assertFalse(result['qualification'])
+            self.assertFalse(result['reusable'])
+            self.assertIn('no test pass or reusable evidence published', output.getvalue())
+
+
 if __name__=='__main__':
     unittest.main()
