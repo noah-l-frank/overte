@@ -4009,6 +4009,8 @@ class OptionalParentScheduleTests(unittest.TestCase):
         self.environment['GITHUB_JOB'] = 'common-parent'
         self.tree[self.module.producer.PLATFORM_PARENT_TEMPLATE] = deepcopy(
             self.tree['.github/workflows/parent-qualification.yml'])
+        self.previous[self.module.producer.PLATFORM_PARENT_TEMPLATE] = deepcopy(
+            self.tree[self.module.producer.PLATFORM_PARENT_TEMPLATE])
         return self.module.unavailable_parent_schedule(
             self.event, self.environment, self.adapter, clock=lambda: NOW)
 
@@ -4041,6 +4043,106 @@ class OptionalParentScheduleTests(unittest.TestCase):
         self.api.mutate = mutate
         with self.assertRaises(ValueError):
             self.schedule()
+
+
+class CurrentParentTransitionTests(unittest.TestCase):
+    """Actual native API and materialized import graph; selection is a fixed seam.
+
+    Host-selection tests own the complete product/negative-reader decision.
+    These tests retain the real API/ordinary-file/current-controller authority.
+    """
+    def setUp(self):
+        from types import SimpleNamespace
+        import postmerge as C
+        self.C=C
+        spec=importlib.util.spec_from_file_location('current_parent_source_fixture',Path(__file__).with_name('source-admission-test.py'))
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        self.source=s=module.CurrentParentImportTests('runTest');s.setUp();self.addCleanup(s.doCleanups)
+        self.root=s.root
+        # Copy the actual reviewed finite source graph as data. No historical
+        # or fixture checkout repository module is ever imported/executed.
+        for name in list(s.bodies):
+            raw=(C.ROOT/name).read_bytes()
+            s.bodies[name]=raw;s.default[name]=C.source_admission.ordinary(C.source_admission.blob_id(raw),
+                '100755' if name=='tests/run-project-tests.py' else '100644')
+            path=s.root/name;path.write_bytes(raw)
+        s.base=deepcopy(s.default)
+        s.base['tools/test-evidence/execution.py']=C.source_admission.ordinary('f'*40)
+        f=IntegratedSourceTests('runTest');f.setUp()
+        self.case,self.adapter,self.api=f.case,f.adapter,f.api
+        c=self.case;c.originals[c.binding['base_sha']]=('6'*40,['7'*40])
+        s.default_id=c.integrated;s.base_id=c.binding['base_sha'];s.head_id=c.binding['head_sha']
+        s.env.update(GITHUB_SHA=c.integrated,GITHUB_WORKFLOW_SHA=c.integrated)
+        s.event.update(before=c.binding['base_sha'],after=c.integrated)
+        s.run.update(head_sha=c.integrated);s.job.update(head_sha=c.integrated)
+        self.event,self.environment=s.event,s.env
+        old_json=self.api.json
+        def json_api(endpoint):
+            path=endpoint[len(A.PREFIX):].lstrip('/').split('?',1)[0]
+            if path in {'actions/runs/500/attempts/1/jobs','check-runs/5500'}:
+                return s.source_api.get(endpoint[len(A.PREFIX)+1:])
+            return old_json(endpoint)
+        self.api.json=json_api
+        self.api.immutable_tree=lambda oid:{'sha':oid,'truncated':False,
+            'tree':[{'path':path,**entry} for path,entry in (s.base if oid=='6'*40 else s.default).items()]}
+        self.registry=C.inputs.load_registry(C.ROOT/'.github/test-suites.json')
+        self.policy=C.producer._host_policy();self.package=self.policy.package_policy()
+        self.package_wrapper=SimpleNamespace(**{name:getattr(self.package,name) for name in
+            ('validate_tree_wiring','load','select','_policy_inputs')},validate_wiring=lambda _:C.producer.PLATFORM_GENERATION,
+            candidate_plan=lambda *_:{'host_mode':'full'})
+        quick=[name for name,row in self.registry['suites'].items()
+            if row['layer']=='quick' and name not in self.policy.PRODUCT_QUICK_SUITES]
+        self.selected={'suites':quick,'full_host':False,'include_platform':False,'reason':'reviewed-ci-only-inputs'}
+        self.enterContext(patch.object(self.policy,'package_policy',return_value=self.package_wrapper))
+        self.enterContext(patch.object(self.policy,'select',side_effect=lambda *_args,**_kwargs:deepcopy(self.selected)))
+        self.enterContext(patch.object(C.producer,'_host_policy',return_value=self.policy))
+        self.enterContext(patch.object(C.execution,'checkout_identity',return_value=(c.integrated,c.binding['merge_tree'])))
+        self.enterContext(patch.object(C.inputs,'full_tree',side_effect=lambda *_:deepcopy(s.default)))
+        self.enterContext(patch.object(C,'_source_qualified',return_value=True))
+        self.enterContext(patch.object(C.execution,'execute',side_effect=AssertionError('no duplicate execution/E')))
+        self.enterContext(patch.object(C.execution,'capture_execution_environment',side_effect=AssertionError('no unused E')))
+
+    def schedule(self):
+        return self.C.current_parent_schedule(self.event,self.environment,self.adapter,root=self.root,clock=lambda:NOW)
+
+    def test_current_main_transition_has_no_original_reuse_and_final_independently_rederives_partial_state(self):
+        value=self.schedule()
+        self.assertEqual(value['current_imports']['authority'],'current-imports-only')
+        self.assertEqual(value['selection'],self.selected)
+        self.assertEqual(value['executed_suites'],[]);self.assertEqual(value['reused_suites'],[])
+        self.assertFalse(value['qualification']);self.assertIsNone(value['execution'])
+        with patch.object(self.C,'verify_main',side_effect=ValueError('original B differs')):
+            result=self.C.lookup(self.event,self.environment,self.adapter,root=self.root,clock=lambda:NOW)
+        self.assertFalse(result['reused']);self.assertEqual(result['optional_qualification'],value)
+        self.environment['GITHUB_JOB']='qualify-parent';self.source.job['name']='Qualify exact parent'
+        needs={'route':{'result':'skipped','outputs':{}},'common-parent':{'result':'success'},
+            'platform-tests':{'result':'skipped','outputs':{}}}
+        with patch.object(self.C.producer,'ROOT',self.root):
+            self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
+            with patch.dict(self.selected,{'full_host':True}),self.assertRaises(ValueError):
+                self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
+            for key,row in (('common-parent',{'result':'failure'}),('platform-tests',{'result':'success','outputs':{}})):
+                with self.subTest(key=key),patch.dict(needs,{key:row}),self.assertRaises(ValueError):
+                    self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_full_extra_platform_package_unknown_and_stale_current_source_cannot_decline(self):
+        for key,value in (('full_host',True),('include_platform',True),
+                ('suites',list(self.registry['suites'])),('additional_suites',['new-command'])):
+            with self.subTest(key=key),patch.dict(self.selected,{key:value}),self.assertRaises(ValueError):self.schedule()
+        for path,entry in (('script-archive/marketplace/S3Server/package-lock.json',self.C.source_admission.ordinary('a'*40)),
+                ('tools/test-evidence/new-unknown.py',self.C.source_admission.ordinary('a'*40)),
+                ('tools/test-evidence/execution.py',{'mode':'120000','type':'blob','sha':'a'*40})):
+            with self.subTest(path=path),patch.dict(self.source.default,{path:entry}),self.assertRaises(ValueError):self.schedule()
+        for key,value in (('GITHUB_SHA','f'*40),('GITHUB_JOB','route'),
+                ('GITHUB_REPOSITORY','overte-org/overte'),('GITHUB_RUN_ATTEMPT','2')):
+            with self.subTest(key=key),patch.dict(self.environment,{key:value}),self.assertRaises(ValueError):self.schedule()
+        def changed(endpoint,value):
+            if endpoint.endswith('/git/ref/heads/main'):
+                value['object']['sha']='f'*40
+            return value
+        self.api.mutate=changed
+        with self.assertRaises(ValueError):self.schedule()
 
 
 class LeafOriginalCommonTests(unittest.TestCase):

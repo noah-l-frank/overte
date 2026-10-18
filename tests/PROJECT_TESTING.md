@@ -1074,6 +1074,21 @@ separate Android platform owner remain required. The existing setup step has
 no API token, so this source-only hook saves test execution after setup; it
 does not omit earlier Python, Node or relevant Qt preparation.
 
+For a later controller-only `main` update, the optional Parent jobs may
+authenticate the already protected current controller (`S == D`) without
+claiming compatibility with original `B`. This import-only path requires the
+native original push attempt, job/check App, current protected refs, complete
+installed recipe and immutable current controller/import inventory. Only a
+known partial CI selection with no additional, package or platform work can
+decline qualification; the final parent job independently derives that state
+again. It publishes no suite PASS, JUnit, environment or reusable receipt.
+Original PR/source-4/runtime proof paths keep their strict `B/D` checks. The
+unchanged inline bootstrap still pins `source_admission.py` itself to `B`, so
+the first change to that file deliberately retains its fail-closed bootstrap
+fallback. Deploy this capability before the consumer-only correction: that
+later ordinary source update preserves identical `SELF` bytes and can exercise
+the new partial-current-parent path without a dummy qualification run.
+
 Deployment requires two stages. The trusted helpers and approved templates
 must land on the default branch before installing the exact project, parent and sync
 templates plus the appropriate outer caller. The package caller with direct

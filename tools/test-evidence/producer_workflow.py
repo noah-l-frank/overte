@@ -1244,7 +1244,16 @@ def _empty_parent_source(candidate,event,environment,adapter):
         and current.get('.github/workflows/parent-qualification.yml')==local.get(PLATFORM_PARENT_TEMPLATE)
         and all(snapshot.get(source_admission.PROFILE)==source_admission.ordinary(source_admission.SHARED_PROFILE)
             for snapshot in (previous,current,local)), 'empty parent profile or native source changed')
-    controller=postmerge.integrated_controller_for_reuse(_host_policy(),previous,current,local,target,ROOT)
+    try:
+        controller=postmerge.integrated_controller_for_reuse(_host_policy(),previous,current,local,target,ROOT)
+    except source_admission.SourceUnavailable:
+        # Current protected main can authenticate its optional incomplete job
+        # without claiming original B compatibility, E, suite PASS or reuse.
+        optional=postmerge.current_parent_schedule(event,environment,adapter,root=ROOT,candidate=candidate)
+        host.require(optional['binding']==binding and optional['refs']==refs,
+            'optional current parent source changed')
+        controller={'kind':'current-parent-unavailable-only','selection':optional['selection'],
+            'current_imports':optional['current_imports']}
     authority=postmerge.default_authority(adapter,refs)
     return binding,refs,controller,authority
 
