@@ -42,6 +42,18 @@ test('single-line Enter submits with default button and no input mutation',()=>{
     window.__overteEditor.edit({action:'enter',shift:false});equal(s.submits,1);equal(s.submitter,button);equal(s.el.value,'abc');
     equal(s.events.filter(e=>e.type==='keydown').length,1);equal(s.events.filter(e=>e.type==='input').length,0);
 });
+test('Enter activates and respects default submit button click cancellation',()=>{
+    const s=setup(),button=document.createElement('button');button.type='submit';s.form.append(button);let clicks=0;button.onclick=e=>{++clicks;e.preventDefault();};
+    window.__overteEditor.edit({action:'enter',shift:false});equal(clicks,1);equal(s.submits,0);equal(s.el.value,'abc');
+});
+test('default submit button click and submit retain submitter overrides',()=>{
+    const s=setup(),button=document.createElement('button');button.type='submit';button.formAction='https://example.invalid/override';button.formMethod='post';s.form.append(button);let clicks=0;button.onclick=()=>++clicks;
+    window.__overteEditor.edit({action:'enter',shift:false});equal(clicks,1);equal(s.submits,1);equal(s.submitter,button);equal(s.submitter.formAction,'https://example.invalid/override');equal(s.submitter.formMethod,'post');
+});
+test('default submitter formnovalidate remains effective',()=>{
+    const s=setup('input',''),button=document.createElement('button');s.el.required=true;button.type='submit';button.formNoValidate=true;s.form.append(button);
+    window.__overteEditor.edit({action:'enter',shift:false});equal(s.submits,1);equal(s.submitter,button);
+});
 test('Enter keydown cancellation prevents submission',()=>{
     const s=setup();s.el.addEventListener('keydown',e=>e.preventDefault());window.__overteEditor.edit({action:'enter',shift:false});equal(s.submits,0);
 });
@@ -174,9 +186,9 @@ def run(browser, output):
         'boundary': 'Actual production editor.js and real Chromium DOM; Android WebView/JNI/app/device are separate.'
     }, indent=2) + '\n')
     failures = [case for case in results['cases'] if not case['passed']]
-    if not results.get('completed') or len(results['cases']) != 25 or failures:
+    if not results.get('completed') or len(results['cases']) != 28 or failures:
         raise AssertionError(json.dumps({'cases': len(results['cases']), 'failures': failures}, indent=2))
-    print('PASS: 25 real Chromium editor DOM cases; no Android WebView/device claim')
+    print('PASS: 28 real Chromium editor DOM cases; no Android WebView/device claim')
 
 
 def main():
