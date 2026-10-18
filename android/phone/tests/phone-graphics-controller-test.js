@@ -27,6 +27,10 @@ function run(options = {}) {
     Object.defineProperty(Render, "localLightingEnabled", {
         get() { return lights; }, set(value) { operations.push(["lights", value]); lights = value; }
     });
+    let mirrors = false;
+    Object.defineProperty(Render, "mirrorsEnabled", {
+        get() { return mirrors; }, set(value) { operations.push(["mirrors", value]); mirrors = value; }
+    });
     const tablet = { fromQml: new FakeSignal(), screenChanged: new FakeSignal(),
         sendToQml(message) { frames.push(JSON.parse(JSON.stringify(message))); } };
     const execution = runProductionScript(source, { Script, Render,
@@ -53,6 +57,7 @@ tablet.screenChanged.emit("QML", "unrelated.qml");
 update("mirrors", true);
 assert.equal(operations.length, 0, "other apps cannot update graphics");
 tablet.screenChanged.emit("QML", settingsSource);
+assert.equal(frames.at(-1).values.mirrors, false, "fresh Phone reports its native safe mirror default");
 update("localLights", true);
 for (const view of ["RenderMainView", "RenderSecondView"]) {
     const grid = grids[view + ".RenderForwardTask.LightClustering"];
@@ -61,11 +66,17 @@ for (const view of ["RenderMainView", "RenderSecondView"]) {
 assert.equal(operations.at(-1)[0], "lights", "grid restored before lights are enabled");
 assert.equal(Render.localLightingEnabled, true);
 update("mirrors", true);
-for (const view of ["RenderMainView", "RenderSecondView"]) {
-    for (let index = 0; index < 3; ++index) {
-        assert.equal(grids[view + ".RenderMirrorView" + index + "Depth0"].enabled, true);
-    }
-}
+// The native mirror/graph suite qualifies task traversal and persistence.
+// This caller contract checks the production script reaches that native API.
+assert.equal(Render.mirrorsEnabled, true);
+assert.deepEqual(operations.at(-1), ["mirrors", true]);
+assert.equal(fixture.store.get("phone/graphics/mirrors"), true);
+assert.equal(frames.at(-1).values.mirrors, true);
+update("mirrors", false);
+assert.equal(Render.mirrorsEnabled, false);
+assert.deepEqual(operations.at(-1), ["mirrors", false]);
+assert.equal(frames.at(-1).values.mirrors, false);
+update("mirrors", true);
 update("haze", true);
 update("proceduralMaterials", true);
 update("resolutionScale", 0.7);
@@ -75,9 +86,11 @@ assert.equal(Render.viewportResolutionScale, 0.7);
 const beforeInvalid = writes.length;
 for (const value of [0.49, 0.71, NaN, Infinity, "0.6", null, true]) { update("resolutionScale", value); }
 for (const value of ["true", 1, null, {}]) { update("haze", value); }
+for (const value of ["true", 1, null, {}]) { update("mirrors", value); }
 for (const key of ["__proto__", "constructor", "renderMethod", "targetFps"]) { update(key, true); }
 assert.equal(writes.length, beforeInvalid, "invalid keys/types/budgets never persist");
 assert.equal(Render.viewportResolutionScale, 0.7);
+assert.equal(Render.mirrorsEnabled, true);
 assert.equal(frames.at(-1).values.haze, true);
 update("localLights", false);
 assert.equal(Render.localLightingEnabled, false);
@@ -86,8 +99,16 @@ const reopened = run({ store: Object.fromEntries(fixture.store) });
 assert.equal(reopened.Render.hazeEnabled, true, "user choices restore after native startup resets baseline");
 assert.equal(reopened.Render.proceduralMaterialsEnabled, true);
 assert.equal(reopened.Render.viewportResolutionScale, 0.7);
-assert.equal(reopened.grids["RenderMainView.RenderMirrorView0Depth0"].enabled, true);
-const malformed = run({ store: { "phone/graphics/haze": "yes", "phone/graphics/resolutionScale": 2 } });
+assert.equal(reopened.Render.mirrorsEnabled, true, "saved mirror choice reaches the native setter after baseline reset");
+assert.deepEqual(reopened.operations.find(operation => operation[0] === "mirrors"), ["mirrors", true]);
+const safe = run();
+assert.equal(safe.Render.mirrorsEnabled, false);
+assert.equal(safe.operations.length, 0, "unset choices do not overwrite native defaults");
+const restoredOff = run({ store: { "phone/graphics/mirrors": false } });
+assert.equal(restoredOff.Render.mirrorsEnabled, false);
+assert.deepEqual(restoredOff.operations, [["mirrors", false]], "explicit false still reapplies through the native setter");
+const malformed = run({ store: { "phone/graphics/haze": "yes", "phone/graphics/resolutionScale": 2,
+    "phone/graphics/mirrors": "yes" } });
 assert.equal(malformed.operations.length, 0, "malformed saved values leave safe defaults unchanged");
 fixture.Script.end();
 assert.equal(tablet.fromQml.listenerCount, 0);
