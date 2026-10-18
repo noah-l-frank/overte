@@ -384,6 +384,96 @@ class InstalledIdentityTests(unittest.TestCase):
                 ExecutionIdentity(self.args.artifact, "a" * 40, self.sha).verify_description(
                     json.loads(output.getvalue()))
 
+    def navigation_instance(self):
+        # The UI boundary is shared in-tree. Do not substitute a reference
+        # header/module or stub the real Phone SH009 verifier/installed binding.
+        sys.path.insert(0, str(ROOT / 'tests/device/self_tests'))
+        from test_phone_navigation import NativePhone
+        native = NativePhone()
+        instance, target = self.appium_instance()
+        target.update(scene={'kind': 'android-debug-e2e'},
+            probe={'kind': 'android-run-as', 'relativePath': instance.ANDROID_DEBUG_PROBE},
+            clientControl={'kind': 'android-run-as-command', 'relativePath': instance.ANDROID_CLIENT_COMMAND},
+            controls={'normalNavigation': native.profile})
+        path = self.root / 'normal-navigation-session.json'
+        instance.state_path = lambda _selector: path
+
+        def session(_selector):
+            state = instance.read_session('test-only-appium') if path.exists() else {
+                'sessionId': 'owned-session', 'generation': 1}
+            return native, 'owned-session', state
+
+        for boundary in (
+                patch.object(appium.AppiumAdapter, 'ensure_session', side_effect=session),
+                patch.object(instance, 'query_app_state', return_value=4),
+                patch.object(instance, 'process_state', side_effect=lambda *_arguments:
+                             {'running': True, 'identity': native.process})):
+            boundary.start()
+            self.addCleanup(boundary.stop)
+        native.invoke = lambda operation, values: instance.invoke('test-only-appium', operation, values)
+        return instance, target, native, path
+
+    def test_real_candidate_bound_normal_navigation_reaches_actual_journey_and_native_input(self):
+        instance, target, native, path = self.navigation_instance()
+        required = {'places.open', 'places.close', 'places.goto', 'places.back', 'places.forward'}
+        self.assertTrue(required <= set(instance.advertised_capabilities(target)))
+        result = native.run()
+        self.assertEqual(8, len(result['phases']))
+        self.assertTrue(native.reports[0]['sequenceCompleted'])
+        self.assertFalse(native.reports[0]['deviceAcceptance'])
+        self.assertEqual(2, native.inputs.count('goBack'))
+        self.assertEqual(2, native.inputs.count('goForward'))
+        self.assertIn('PhoneAddressGoButton', native.inputs)
+        self.assertNotIn('normalNavigation', instance.read_session('test-only-appium'))
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertGreater(sum(event[0] == 'sha256sum' for event in self.adb.events), 20)
+
+    def test_normal_navigation_is_unadvertised_and_cannot_create_sessions_without_candidate_or_opt_in(self):
+        instance, target, native, _path = self.navigation_instance()
+        original = instance.candidate
+        for change in ('unbound', 'not-configured'):
+            with self.subTest(change=change):
+                instance.candidate = None if change == 'unbound' else original
+                if change == 'not-configured': target['controls'] = {}
+                self.assertFalse(any(operation.startswith('places.')
+                    for operation in instance.advertised_capabilities(target)))
+                with patch.object(appium.AppiumAdapter, 'ensure_session') as create_session:
+                    with self.assertRaises(ValueError):
+                        native.invoke('places.open', {})
+                    create_session.assert_not_called()
+        self.assertEqual([], native.inputs)
+        self.assertEqual([], self.adb.events)
+
+    def test_changed_installed_apk_rejects_normal_navigation_before_native_session_or_input(self):
+        _instance, _target, native, _path = self.navigation_instance()
+        self.adb.digest = 'b' * 64
+        with patch.object(appium.AppiumAdapter, 'ensure_session') as create_session:
+            with self.assertRaises(ValueError): native.invoke('places.open', {})
+            create_session.assert_not_called()
+        self.assertEqual([], native.inputs)
+
+    def test_normal_navigation_rechecks_installed_bytes_after_the_real_ui_operation(self):
+        _instance, _target, native, _path = self.navigation_instance()
+        original_call = native.call
+        def replacing_native_install(method, path, body=None):
+            value = original_call(method, path, body)
+            if path.endswith('/click'):
+                self.adb.digest = 'b' * 64
+            return value
+        native.call = replacing_native_install
+        with self.assertRaises(ValueError): native.invoke('places.open', {})
+        self.assertEqual(['Go to destination'], native.inputs)
+        self.assertGreaterEqual(sum(event[0] == 'sha256sum' for event in self.adb.events), 4)
+
+    def test_process_replacement_after_native_lookup_prevents_normal_ui_input(self):
+        instance, _target, native, _path = self.navigation_instance()
+        def process(*_arguments):
+            return {'running': True, 'identity': 'replaced' if native.calls else native.process}
+        with patch.object(instance, 'process_state', side_effect=process):
+            with self.assertRaisesRegex(RuntimeError, 'bound application state'):
+                native.invoke('places.open', {})
+        self.assertEqual([], native.inputs)
+
 
 if __name__ == "__main__":
     unittest.main()

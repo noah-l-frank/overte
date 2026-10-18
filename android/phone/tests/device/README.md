@@ -36,6 +36,16 @@ label provenance, microphone/route evidence, screenshots and module/crash-log
 privacy scans, SH-005/006/PX-17 and original node dependency acceptance.
 Host fixture success is never a device or emulator PASS.
 
+The existing installed-candidate test entry now has 26 methods, including five
+normal Go To/Places binding cases. They execute the original SH009 verifier,
+installed-APK checks, actual Phone Appium dispatcher, guarded native input flow
+and the independent navigation journey. Only native ADB/W3C/probe/session/time
+boundaries are synthetic; no external reference module or verifier stub is used.
+The existing mandatory `phone-e2e-runtime-regressions.py` owner executes these
+tests in both dependency-light and prepared-host modes. Candidate-free or
+unconfigured navigation, changed installed bytes before/after input and changed
+processes reject; original cleanup and identity cases remain enforced.
+
 Focused synthetic tests (no device):
 
     PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
