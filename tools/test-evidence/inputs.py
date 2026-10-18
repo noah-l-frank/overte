@@ -438,6 +438,30 @@ _AFFECTED_TARGET_PROFILES = {
     'android-vr-pico': '1314006455751831be60b143e46ce9c6f5398e26',
     'android-phone': 'f91169af7bdfedffb0b6ab9ab0ac1da28fd1f7fe',
 }
+
+# Additional installed apple-ios data family only. The complete raw reader
+# digest still binds every neighboring input; these entries never normalize it.
+INSTALLED_COMPILER_READER = 'sha256:d57dea0d6e1db2ccf001d910d6f171f08827e5fef16f91dfcd9153b74198aeb8'
+INSTALLED_COMPILER_PROFILE = {
+    '.github/workflows/ios-integrated.yml': {'mode': '100644', 'type': 'blob',
+        'sha': '9367feef078a9311919ad920bf15b0d61800cf94'},
+    'docs/ios/SIGNING_AND_DEVICE_TESTS.md': {'mode': '100644', 'type': 'blob',
+        'sha': 'f0777c42ed2b49ed04b9b6650de13c4a4ef14e9f'},
+    'ios/ci/qt-checkpoint-artifact.py': {'mode': '100755', 'type': 'blob',
+        'sha': '34a53dea5e99060403d38a90b9f1b6afdbb5021d'},
+    'ios/tests/ios-full-client-sccache-contract-test.py': {'mode': '100644', 'type': 'blob',
+        'sha': 'c037ab31ab74c0f4cbb9902b6fafba172914cdba'},
+    'ios/tests/qt-checkpoint-artifact-test.py': {'mode': '100755', 'type': 'blob',
+        'sha': '2b829c678fac98ba68a12758168e7931f921393c'},
+}
+
+
+def installed_compiler_profile(tree, *, target):
+    """Recognize only the complete ordinary installed apple-ios data profile."""
+    return target == 'apple-ios' and type(tree) is dict and all(
+        tree.get(path) == entry for path, entry in INSTALLED_COMPILER_PROFILE.items())
+
+
 _DEVICE_INPUTS = (
     'tests/device', 'tests/device/**', 'tests/run-unittest-suite.py',
     'tests/platform-profile.json', 'tests/requirements*.txt',
@@ -546,7 +570,8 @@ def _validate_dependencies(value, registry):
             raise InputError('unsupported reviewed fixed-subject owner')
         if row['kind'] == 'device-control-plane':
             if name != 'device-control-plane-full' or suite['scope'] != 'content' \
-                    or suite['command'][:5] != ['python', 'tests/device/run_control_plane_tests.py', '--profile', 'full', '--require-qml'] \
+                    or not (suite['command'][:5] == ['python', 'tests/device/run_control_plane_tests.py', '--profile', 'full', '--require-qml'] \
+                            or suite['command'][:8] == ['python', '-I', '-S', '-B', 'tests/device/run_control_plane_tests.py', '--profile', 'full', '--require-qml']) \
                     or set(row) != {'kind', 'definition_digest', 'setup', 'reviewed_reader_digest', 'native_independent_paths'} \
                     or row['setup'] != ['host-full'] or not isinstance(row['reviewed_reader_digest'], str) \
                     or not _DIGEST.fullmatch(row['reviewed_reader_digest']):
@@ -636,9 +661,16 @@ def plan_affected(registry, dependency_bytes, base_tree, candidate_tree, trusted
     required, omitted, reasons, setup = [], [], {}, set()
     native_row = dependencies['suites'].get('device-control-plane-full', {})
     native_digest = target_row['reader_digest'] if target_row is not None else native_row.get('reviewed_reader_digest')
-    native_unchanged = native_row.get('kind') == 'device-control-plane' and all(
-        device_reader_digest(tree, native_row['native_independent_paths']) == native_digest
-        for tree in (base_tree, candidate_tree))
+    native_unchanged = False
+    if native_row.get('kind') == 'device-control-plane':
+        readers = tuple(device_reader_digest(tree, native_row['native_independent_paths'])
+                        for tree in (base_tree, candidate_tree))
+        # A transition between reviewed families is still a real reader change.
+        native_unchanged = readers[0] == readers[1] and (
+            readers[0] == native_digest or target_row is not None
+            and readers[0] == INSTALLED_COMPILER_READER
+            and all(installed_compiler_profile(tree, target=target)
+                    for tree in (base_tree, candidate_tree)))
     for name, suite in registry['suites'].items():
         row = dependencies['suites'][name]
         reason = 'candidate-scope' if suite['scope'] == 'candidate' else 'unproved-repository-reader'
