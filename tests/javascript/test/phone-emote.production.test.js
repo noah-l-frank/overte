@@ -219,9 +219,13 @@ test("inactive screens and malformed messages cannot start playback or retain si
     state.tablet.fromQml.emit({ method: "phoneEmote.play", name: "Clapping" });
     button.click();
     assert.equal(state.tablet.navigation.at(-1).type, "home");
+    assert.equal(state.Script.timers.size, 1, "Phone keeps the already selected one-shot after closing its chooser");
+    const callsBeforeHiddenRequest = state.avatarCalls.length;
+    state.tablet.fromQml.emit({ method: "phoneEmote.play", name: "Love" });
+    assert.equal(state.avatarCalls.length, callsBeforeHiddenRequest, "Hidden chooser cannot select another animation");
+    state.Script.end();
     assert.equal(state.Script.timers.size, 0);
     assert.deepEqual(state.avatarCalls.at(-1), ["restore"]);
-    state.Script.end();
     assert.equal(state.tablet.screenChanged.listenerCount, 0);
     assert.equal(state.tablet.fromQml.listenerCount, 0);
     assert.equal(button.clicked.listenerCount, 0);

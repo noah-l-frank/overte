@@ -33,7 +33,8 @@ with tempfile.TemporaryDirectory(prefix='overte-phone-emote-qt5-') as temporary:
     shutil.copy2(source, copied)
     assert copied.read_bytes() == source.read_bytes()
     shutil.copy2(HERE / 'tst_phone_emote.qml', stage)
-    result = subprocess.run([str(runner), '-input', str(stage / 'tst_phone_emote.qml')],
+    result = subprocess.run([str(runner), '-import', str(ROOT / 'interface/resources/qml'),
+                             '-input', str(stage / 'tst_phone_emote.qml')],
         env=os.environ | {'QT_QPA_PLATFORM': 'offscreen', 'QT_QUICK_BACKEND': 'software'},
         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
     print(result.stdout, end='', flush=True)
