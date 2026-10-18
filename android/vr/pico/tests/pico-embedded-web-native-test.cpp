@@ -207,9 +207,16 @@ int main(int argc, char** argv) {
     assert(!common->generation());
     assert(!common->allowsFileChooser(inlineGrant, 1, inlineTransport));
     assert(!common->acceptMessage(inlineGrant, 1, inlineTransport, inlineTransport, true, "editor", "{}"));
+    // A typed but unissued carrier must remain denied even for HTTPS.
+    // Ordinary World navigation clears the context carrier before the URL.
+    engine.rootContext()->setContextProperty("nativeInlineHtmlDocument",
+        QVariant::fromValue(overte::web::InlineHtmlDocument()));
     world->setProperty("url", "https://pico.test/next");
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete); QCoreApplication::processEvents();
-    assert(world->findChild<NativeWebViewItem*>());
+    auto* nextWorld = world->findChild<NativeWebViewItem*>(); assert(nextWorld);
+    nextWorld->acceptForeground(true); assert(!nextWorld->generation());
+    engine.rootContext()->setContextProperty("nativeInlineHtmlDocument", QVariant());
+    QCoreApplication::processEvents(); assert(nextWorld->generation());
     assert(!world->findChild<LegacyBoundary*>());
     world.reset();
     std::unique_ptr<QObject> physicalWorld(create("/+android_picoInterface/Web3DSurface.qml"));
@@ -217,13 +224,16 @@ int main(int argc, char** argv) {
     physicalItem->setParentItem(window.contentItem()); physicalItem->setWidth(640); physicalItem->setHeight(480);
     physicalWorld->setProperty("url", "https://pico.test/physical"); QCoreApplication::processEvents();
     assert(physicalWorld->findChild<NativeWebViewItem*>());
-    physicalWorld->setProperty("url", "data:text/html,<p>physical inline</p>"); QCoreApplication::processEvents();
+    physicalWorld->setProperty("url", "data:text/html,<p>physical inline</p>");
+    QCoreApplication::processEvents(); QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
     auto* physicalNative = physicalWorld->findChild<NativeWebViewItem*>(); assert(physicalNative);
     assert(!physicalWorld->findChild<LegacyBoundary*>() && !physicalNative->generation());
     // The direct physical selector entry must also preserve data bodies that
     // look like a QML filename and reject caller-supplied maps as authority.
     physicalWorld->setProperty("url", "data:text/html,<p>physical inline</p>.qml");
-    QCoreApplication::processEvents(); assert(physicalNative->url().endsWith(".qml"));
+    QCoreApplication::processEvents(); QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+    physicalNative = physicalWorld->findChild<NativeWebViewItem*>(); assert(physicalNative);
+    assert(physicalNative->url().endsWith(".qml"));
     physicalNative->setProperty("inlineDocument", QVariantMap{{"html", "forged"}});
     assert(!physicalNative->generation());
     physicalWorld.reset();
