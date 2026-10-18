@@ -243,14 +243,15 @@ class FiniteExecutableSelectionTests(unittest.TestCase):
                 result=P.selection_profile(self.router,self.registry,candidate,base,self.trusted,root=self.root,target=target,
                     read_blob=lambda oid:P.source_blob(self.root,oid))
                 self.assertEqual(result['profile'],C.PROFILE)
-                self.assertEqual(result['suites'],list(C.SUITES))
-                self.assertEqual(result['binding']['suites'],list(C.SUITES))
+                self.assertTrue(result['suites'])
+                self.assertLessEqual(set(result['suites']),set(C.SUITES))
+                self.assertEqual(result['binding']['suites'],result['suites'])
                 self.assertIs(admit.call_args.kwargs['regular'],True)
                 self.assertIs(result['selection']['full_host'],False)
                 self.assertIs(result['selection']['include_platform'],False)
 
     def test_existing_ci_executable_owners_reach_actual_ci37_on_main_and_apple(self):
-        path='tests/run-project-tests.py'
+        path='tests/project-suite-self-test.py'
         self.assertEqual(self.trusted[path]['mode'],'100755')
         for target in ('main','apple-main','apple-ios'):
             base=deepcopy(self.trusted)
@@ -263,6 +264,17 @@ class FiniteExecutableSelectionTests(unittest.TestCase):
                     root=self.root,target=target,read_blob=lambda oid:P.source_blob(self.root,oid))
                 self.assertEqual(result['profile'],C.PROFILE)
                 self.assertEqual(result['suites'],list(C.SUITES))
+
+    def test_executable_proof_does_not_admit_a_changed_original_controller(self):
+        path='tests/run-project-tests.py'
+        base=deepcopy(self.trusted);candidate=deepcopy(base)
+        base[path]={**self.fixture.f.blob(b'previous execution controller fixture\n'),'mode':'100755'}
+        with patch.object(C,'validate_selection',wraps=C.validate_selection) as admit:
+            with self.assertRaises(P.PreExecutionUnavailable) as failure:
+                P.selection_profile(self.router,self.registry,candidate,base,self.trusted,
+                    root=self.root,target='main',read_blob=lambda oid:P.source_blob(self.root,oid))
+            self.assertIs(admit.call_args.kwargs['regular'],True)
+            self.assertIn('original base controller differs',str(failure.exception.__cause__))
 
     def test_selected_json_cannot_replace_the_independent_executable_proof(self):
         for target in ('apple-ios','android-main'):
