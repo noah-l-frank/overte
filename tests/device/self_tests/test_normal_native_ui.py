@@ -227,6 +227,31 @@ class NormalNativeUITests(unittest.TestCase):
                     native.ui.wait_absent(Locator('id', 'ActualControl'))
                 self.assertEqual([], native.mutations)
 
+    def test_literal_text_rejects_webdriver_control_keys_without_any_native_request(self):
+        for key in ('\ue000', '\ue003', '\ue007', '\ue050', '\ue05d'):
+            with self.subTest(key_codepoint=hex(ord(key))):
+                native = NativeBoundary()
+                with self.assertRaises(NativeUIError):
+                    native.ui.replace_text(Locator('id', 'ActualField'), 'ordinary text' + key)
+                self.assertEqual([], native.calls)
+
+    def test_explicit_enter_is_one_native_key_action_and_never_replayed_after_failure(self):
+        native = NativeBoundary()
+        native.ui.press_enter(Locator('id', 'ActualField'))
+        self.assertEqual([('POST', '/session/owned-session/element/actual-node/value',
+                          {'text': '\ue007', 'value': ['\ue007']})], native.mutations)
+        self.assertGreaterEqual(native.guards, 5)
+        native = NativeBoundary()
+        native.fail_path = '/value'
+        with self.assertRaises(NativeUIError):
+            native.ui.press_enter(Locator('id', 'ActualField'))
+        self.assertEqual(1, len(native.mutations))
+        native = NativeBoundary()
+        # An ordinary private-use glyph outside the WebDriver key table stays
+        # literal Unicode; do not reject every custom-font character.
+        native.ui.replace_text(Locator('id', 'ActualField'), 'ordinary \ue100 glyph')
+        self.assertEqual('ordinary \ue100 glyph', native.text)
+
 
 if __name__ == '__main__':
     unittest.main()
