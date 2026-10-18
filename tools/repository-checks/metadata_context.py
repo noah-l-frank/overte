@@ -36,6 +36,7 @@ LEGACY_HELPER_BLOB = '9c531c34ba559d17255768d8cae3129496fac55d'
 # A guard upgrade requires a reviewed helper upgrade; local Git equality alone
 # cannot let an arbitrary historical/candidate guard authenticate itself.
 SOURCE_GUARD_BLOB = '20580c3ea413e63a6779898fdd3d2c5e051625f4'
+CURRENT_PARENT_IMPORT_GUARD_BLOB = '3b97657d8874a842c74a0cbf5a8032e06b941e65'
 TARGETS = frozenset({'main', 'apple-main', 'apple-ios', 'android-main',
                      'android-phone', 'android-vr', 'android-vr-pico'})
 _READERS = ('inputs', 'runtime', 'execution', 'producer', 'producer_api', 'source_admission')
@@ -181,7 +182,7 @@ def _protected_readers(event, environment, native_value, root):
     raw = _git(root, 'show', 'HEAD:' + relative)
     require(not path.is_symlink() and not path.parent.is_symlink() and path.read_bytes() == raw,
             'stdlib source guard differs from immutable protected checkout')
-    require(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == SOURCE_GUARD_BLOB
+    require(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB)
         and not path.stat().st_mode & 0o111, 'stdlib source guard has no reviewed bootstrap identity')
     # No neighboring import lookup is exposed until the guard has checked its
     # complete reviewed inventory. The bootstrap itself imports only stdlib.

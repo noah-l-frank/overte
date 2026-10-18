@@ -49,6 +49,7 @@ ACTIVATION_READY = False
 # Legacy admission/targets remain separate and unchanged.
 SOURCE_CAPABILITY = True
 SOURCE_GUARD_BLOB = '20580c3ea413e63a6779898fdd3d2c5e051625f4'
+CURRENT_PARENT_IMPORT_GUARD_BLOB = '3b97657d8874a842c74a0cbf5a8032e06b941e65'
 CURRENT_SOURCE_GENERATION = "protected-producer-original-default-v1"
 CURRENT_SOURCE_TARGETS = frozenset({"android-main", "android-vr", "android-vr-pico", "android-phone"})
 CURRENT_JOBS = {
@@ -480,7 +481,7 @@ def _protected_default(policy_root, *, api=None):
         if path.is_symlink():raise ValueError('Android stdlib guard has an aliased source')
     raw=_bootstrap_git(root,'show','HEAD:'+relative)
     if not path.is_file() or path.stat().st_size>128_000 or path.stat().st_mode&0o111 \
-            or path.read_bytes()!=raw or _blob(raw)['sha']!=SOURCE_GUARD_BLOB:
+            or path.read_bytes()!=raw or _blob(raw)['sha'] not in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB):
         raise ValueError('Android stdlib guard has no reviewed bootstrap identity')
     search=list(sys.path);bytecode=sys.dont_write_bytecode;standard=Path(os.__file__).resolve().parent
     sys.path[:]=[str(standard),str(standard/'lib-dynload')]
