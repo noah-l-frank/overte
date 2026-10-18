@@ -18,6 +18,10 @@ ROOT = Path(__file__).resolve().parents[4]
 
 class RenderConfigurations(unittest.TestCase):
     """Keep the native graph and actual settings controls in the owning suite."""
+    def test_native_avatar_pose_ignores_local_mesh_visibility(self):
+        subprocess.run([sys.executable, str(ROOT / 'tests/device/contracts/avatar/test_hidden_avatar_pose.py')],
+                       check=True, timeout=120, env=os.environ | {'OVERTE_NATIVE_QT_MAJOR': '6'})
+
     def test_native_saved_graphics_and_transient_overrides(self):
         subprocess.run([sys.executable, str(ROOT / 'tests/device/contracts/graphics/test_render_preferences.py')],
                        check=True, timeout=180, env=os.environ | {'OVERTE_NATIVE_QT_MAJOR': '6'})
