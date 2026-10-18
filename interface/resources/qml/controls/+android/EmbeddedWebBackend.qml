@@ -7,6 +7,7 @@ FocusScope {
     id: root
     property string url: ""
     property string scriptUrl: ""
+    property var inlineDocument: null
     property string userAgent: ""
     property bool useBackground: true
     property string eventBridgeJavaScript: ""
@@ -42,6 +43,7 @@ FocusScope {
         focus: true
         url: root.url
         scriptUrl: root.scriptUrl
+        inlineDocument: root.inlineDocument
         userAgent: root.userAgent
         useBackground: root.useBackground
         eventBridgeJavaScript: root.eventBridgeJavaScript

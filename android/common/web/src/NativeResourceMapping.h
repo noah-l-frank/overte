@@ -97,11 +97,12 @@ public:
         {
             std::lock_guard<std::mutex> guard(_mutex);
             if (!matches(creation, grant, load, page)) return {};
+            if (reservedInline(url) && url.adjusted(QUrl::RemoveFragment) != _document.adjusted(QUrl::RemoveFragment)) return {};
         }
         NativeResourceResponse result;
         const auto verb = method.toUpper();
         if (reservedInline(url)) {
-            if (_source.inlineURL.isEmpty() || !mainFrame || (verb != "GET" && verb != "HEAD")
+            if (_source.inlineURL.isEmpty() || _source.bytes.size() > 1024 * 1024 || !mainFrame || (verb != "GET" && verb != "HEAD")
                     || url.adjusted(QUrl::RemoveFragment) != _source.inlineURL.adjusted(QUrl::RemoveFragment)) return {};
             result.action = NativeResourceResponse::Local; result.mime = "text/html";
             result.charset = _source.charset;
