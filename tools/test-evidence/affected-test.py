@@ -490,12 +490,13 @@ class ShippingPolicyTests(unittest.TestCase):
             (root/'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml').read_bytes())
         if future is not None and tree['tests/platform-profile.json']!=inputs._AFFECTED_SHARED_PROFILE:
             # Source13 keeps all original owners. Only the installed Android S
-            # fixture applies the separately reviewed exact six-file handoff.
+            # fixture applies the separately reviewed exact seven-file handoff.
             owner=json.loads((root/'.github/android-owner-transfer.json').read_bytes())
             targets={path for group in ('legacy_workflows','source_contracts') for path in owner[group]}
             self.assertEqual(targets,{'.github/workflows/android-tests.yml','.github/workflows/android-vr-tests.yml',
                 'android/common/tests/android-workflow-contract-test.py',
                 'android/common/tests/ci/validate_ci_contract.py','android/common/tests/ci/test_ci_contract.py',
+                'android/common/tests/robolectric/build.gradle',
                 'android/phone/tests/phone-release-metadata-test.py'})
             for group in ('legacy_workflows','source_contracts'):
                 for path,item in owner[group].items():

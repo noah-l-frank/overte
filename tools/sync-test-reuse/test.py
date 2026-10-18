@@ -711,7 +711,8 @@ class ProductRepairContracts(unittest.TestCase):
     def test_android_owner_handoff_repairs_require_full_fallback(self):
         transfer = json.loads((HERE.parents[1] / ".github/android-owner-transfer.json").read_text())
         paths = set(transfer["legacy_workflows"]) | set(transfer["source_contracts"])
-        self.assertEqual(len(paths), 6)
+        self.assertEqual(len(paths), 7)
+        self.assertIn("android/common/tests/robolectric/build.gradle", paths)
         self.assertEqual(gate.allowed_repair_paths(config(), "android-main"), paths)
         event, settings, api = self.fixture(target="android-main")
         request = self.classify(event, settings, api)
