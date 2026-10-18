@@ -15,6 +15,11 @@ import subprocess
 import sys
 
 
+# Native owner verification compares the complete trusted import inventory.
+# Keep these imports from adding bytecode files to that immutable source tree.
+sys.dont_write_bytecode = True
+
+
 ROOT = Path(__file__).resolve().parents[2]
 MODES = {"full", "documentation", "tool-dependencies", "delegated-sync"}
 DIRECT_WORKFLOWS = ("repository-checks.yml", "browser-direct-client.yml")

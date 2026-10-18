@@ -470,6 +470,10 @@ class ProjectSuiteCliTests(unittest.TestCase):
             test_directory = root / "tests/device/schema/artifact-identity"
             test_directory.mkdir(parents=True)
             shutil.copyfile(RUNNER.with_name("run-unittest-suite.py"), root / "tests/run-unittest-suite.py")
+            shutil.copyfile(RUNNER.parent / "device/run_artifact_identity.py",
+                            root / "tests/device/run_artifact_identity.py")
+            (root / "provenance").mkdir()
+            (root / "tools/sbom").mkdir(parents=True)
             fixture = test_directory / "test_regression.py"
             fixture.write_text("import unittest\nclass Regression(unittest.TestCase):\n"
                                "    def test_behavior(self):\n        self.fail('artifact-canary')\n")
@@ -489,6 +493,357 @@ class ProjectSuiteCliTests(unittest.TestCase):
                     self.assertEqual(xml.get("failures"), "1")
                     self.assertEqual(xml.get("skipped"), "0")
                     self.assertIn(failure, xml.find("testcase/failure").text)
+
+
+class ArtifactIdentityConfinementTests(unittest.TestCase):
+    def command(self):
+        spec = importlib.util.spec_from_file_location(
+            "artifact_control_plane", RUNNER.parent / "device/run_control_plane_tests.py")
+        control = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(control)
+        selected = [command for name, command, _ in control.commands("full")
+                    if name == "artifact-identity"]
+        self.assertEqual(len(selected), 1)
+        return selected[0]
+
+    @contextlib.contextmanager
+    def fixture(self, body):
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            root = parent / "repository"
+            directory = root / "tests/device/schema/artifact-identity"
+            directory.mkdir(parents=True)
+            for relative in ("provenance", "tools/sbom", "ios/ci", ".git/objects"):
+                (root / relative).mkdir(parents=True)
+            shutil.copyfile(RUNNER.with_name("run-unittest-suite.py"),
+                            root / "tests/run-unittest-suite.py")
+            confined = RUNNER.parent / "device/run_artifact_identity.py"
+            if confined.exists():
+                shutil.copyfile(confined, root / "tests/device/run_artifact_identity.py")
+            secret = root / "ios/ci/qt-checkpoint-artifact.py"
+            secret.write_text("private-cache-byte-canary\n")
+            (root / ".git/objects/source-canary").write_text("private-cache-byte-canary\n")
+            (directory / "test_boundary.py").write_text(textwrap.dedent(body))
+            yield parent, root
+
+    def execute(self, root, command=None, environment=None):
+        return subprocess.run(command or self.command(), cwd=root, capture_output=True,
+                              text=True, timeout=30, env=environment)
+
+    def artifact_module(self):
+        spec = importlib.util.spec_from_file_location("artifact_stat_boundary",
+            RUNNER.parent / "device/run_artifact_identity.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_source_read_accepts_only_atime_movement(self):
+        module = self.artifact_module()
+        real_fstat = os.fstat
+        observed = []
+
+        class AtimeOnly:
+            def __init__(self, value): self.value = value
+            def __getattr__(self, name):
+                value = getattr(self.value, name)
+                return value + (1 if name == 'st_atime' else 1_000_000_000
+                                if name == 'st_atime_ns' else 0)
+            def __eq__(self, other):
+                # Match the complete-stat inequality caused by a real read's
+                # access-time change; no content or stable field is changed.
+                return False
+
+        def accessed(descriptor):
+            value = real_fstat(descriptor)
+            view = AtimeOnly(value)
+            for name in ('st_dev', 'st_ino', 'st_mode', 'st_nlink', 'st_uid',
+                         'st_gid', 'st_size', 'st_mtime_ns', 'st_ctime_ns'):
+                self.assertEqual(getattr(view, name), getattr(value, name))
+            self.assertNotEqual(view.st_atime_ns, value.st_atime_ns)
+            observed.append(value)
+            return view
+
+        with self.fixture('') as (_, root):
+            with patch.object(module.os, 'fstat', side_effect=accessed):
+                entries = module.source_files(root)
+            self.assertTrue(entries)
+            self.assertTrue(observed)
+
+    def test_source_read_rejects_actual_private_content_mutation(self):
+        module = self.artifact_module()
+        real_fstat = os.fstat
+        with self.fixture('') as (_, root):
+            target = root / 'provenance/actual_reader.py'
+            target.write_bytes(b'ordinary private source\n')
+            before = target.stat()
+            reads = []
+
+            def mutate_after_read(descriptor):
+                value = real_fstat(descriptor)
+                if (value.st_dev, value.st_ino) == (before.st_dev, before.st_ino):
+                    reads.append(value)
+                    if len(reads) == 2:
+                        target.write_bytes(b'actual changed private source and size\n')
+                        value = real_fstat(descriptor)
+                return value
+
+            with patch.object(module.os, 'fstat', side_effect=mutate_after_read):
+                with self.assertRaises(ValueError): module.source_files(root)
+            self.assertEqual(len(reads), 2)
+            self.assertEqual(target.read_bytes(), b'actual changed private source and size\n')
+
+    def test_full_device_parent_and_only_artifact_child_have_fixed_startup(self):
+        spec = importlib.util.spec_from_file_location("artifact_project_registry", RUNNER)
+        registry = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {spec.name: registry}):
+            spec.loader.exec_module(registry)
+        suite = next(item for item in registry.SUITES if item.name == "device-control-plane-full")
+        self.assertEqual(suite.command[:8], (sys.executable, "-I", "-S", "-B",
+            "tests/device/run_control_plane_tests.py", "--profile", "full", "--require-qml"))
+        self.assertEqual(self.command(), [sys.executable, "-I", "-S", "-B",
+                                         "tests/device/run_artifact_identity.py"])
+        spec = importlib.util.spec_from_file_location("artifact_other_children",
+            RUNNER.parent / "device/run_control_plane_tests.py")
+        control = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(control)
+        commands = {name: command for name, command, _ in control.commands("full")}
+        self.assertEqual(commands["python-self-tests"][:3],
+            [sys.executable, "tests/run-unittest-suite.py", "tests/device/self_tests"])
+
+    def test_real_artifact_child_cannot_read_cache_git_or_outer_source_alias(self):
+        body = """
+            from pathlib import Path
+            import os, unittest
+            class Boundary(unittest.TestCase):
+                def test_real_kernel_view(self):
+                    for path in ('/work/ios/ci/qt-checkpoint-artifact.py',
+                                 '/work/.git/objects/source-canary',
+                                 '/proc/self/root/work/ios/ci/qt-checkpoint-artifact.py',
+                                 '/overte-policy/tools/test-evidence/runtime.py',
+                                 os.environ.get('OVERTE_OUTER_SOURCE_CANARY', '')):
+                        if path:
+                            with self.assertRaises(OSError): Path(path).read_bytes()
+                    with self.assertRaises(OSError):
+                        (Path(__file__).resolve().parents[4] / 'tests/run-unittest-suite.py').write_text('write-canary')
+        """
+        with self.fixture(body) as (_, root):
+            # The actual outer host path is also deliberately supplied in a
+            # candidate environment variable. clearenv must discard it, and the
+            # full source mount must be absent independently of that discard.
+            path = root / "tests/device/schema/artifact-identity/test_boundary.py"
+            with path.open("a") as stream:
+                stream.write("\n    def test_absolute_outer_alias(self):\n"
+                             "        with self.assertRaises(OSError):\n"
+                             f"            Path({str(root / 'ios/ci/qt-checkpoint-artifact.py')!r}).read_bytes()\n")
+            environment = dict(os.environ, OVERTE_OUTER_SOURCE_CANARY=str(
+                root / "ios/ci/qt-checkpoint-artifact.py"))
+            result = self.execute(root, environment=environment)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Ran 2 tests", result.stderr)
+            self.assertIn("ArtifactIdentity confined-v1", result.stdout)
+
+    def test_cli_uses_no_site_startup_and_real_package_resources_with_312_venv_layout(self):
+        body = """
+            import os, subprocess, sys, unittest
+            from pathlib import Path
+            class Boundary(unittest.TestCase):
+                def test_cli(self):
+                    self.assertTrue(sys.flags.isolated)
+                    self.assertTrue(sys.flags.no_site)
+                    self.assertNotIn('ARTIFACT_PTH_EXECUTED', os.environ)
+                    process = subprocess.run([sys.executable,
+                        '/work/tools/sbom/verify-artifact-identity.py'],
+                        capture_output=True, text=True, timeout=5)
+                    self.assertEqual(process.returncode, 0, process.stderr)
+                    self.assertEqual(process.stdout.strip(), 'real-resource')
+        """
+        with self.fixture(body) as (parent, root):
+            environment = parent / "venv"
+            (environment / "bin").mkdir(parents=True)
+            interpreter = environment / "bin/python"
+            interpreter.symlink_to(Path(sys.executable).resolve())
+            (environment / "pyvenv.cfg").write_text(
+                f"home = {Path(sys.base_prefix) / 'bin'}\ninclude-system-site-packages = false\n")
+            # Construct the layout directly; do not run pip, site or a private
+            # environment installer. This covers -S's pre-3.14 prefix behavior.
+            version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+            for library in ("lib", "lib64"):
+                packages = environment / library / version / "site-packages"
+                package = packages / "artifact_fixture_resource"
+                package.mkdir(parents=True)
+                (package / "__init__.py").write_text("")
+                (package / "payload.txt").write_text("real-resource")
+                (package / "source-alias.txt").symlink_to(root / "ios/ci/qt-checkpoint-artifact.py")
+                (packages / "must-not-run.pth").write_text(
+                    "import os; os.environ['ARTIFACT_PTH_EXECUTED']='true'\n")
+                (packages / "sitecustomize.py").write_text(
+                    "raise RuntimeError('site startup must not execute')\n")
+            (root / "tools/sbom/verify-artifact-identity.py").write_text(
+                "import os, sys\nfrom importlib.resources import files\n"
+                "assert sys.flags.isolated and sys.flags.no_site\n"
+                "assert 'ARTIFACT_PTH_EXECUTED' not in os.environ\n"
+                "try: files('artifact_fixture_resource').joinpath('source-alias.txt').read_bytes()\n"
+                "except OSError: pass\n"
+                "else: raise AssertionError('prepared resource escaped to candidate source')\n"
+                "print(files('artifact_fixture_resource').joinpath('payload.txt').read_text())\n")
+            command = self.command()
+            command[0] = str(interpreter)
+            result = self.execute(root, command=command)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Ran 1 test", result.stderr)
+
+    def test_source_symlink_cannot_expose_cache_bytes_or_start_a_workload(self):
+        body = """
+            import unittest
+            class Boundary(unittest.TestCase):
+                def test_must_not_start(self): self.fail('source-alias-workload-started')
+        """
+        with self.fixture(body) as (_, root):
+            (root / "provenance/source_alias.py").symlink_to(
+                root / "ios/ci/qt-checkpoint-artifact.py")
+            result = self.execute(root)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn("source-alias-workload-started", result.stdout + result.stderr)
+            self.assertIn("confined execution unavailable", result.stderr)
+
+    def test_python_cli_alias_rejects_an_unlisted_script_before_its_body(self):
+        body = """
+            import subprocess, sys, unittest
+            from pathlib import Path
+            class Boundary(unittest.TestCase):
+                def test_child(self):
+                    script = Path(__file__).resolve().parents[4] / 'tools/sbom/unlisted.py'
+                    process = subprocess.run([sys.executable, str(script)],
+                        capture_output=True, text=True, timeout=5)
+                    self.assertNotEqual(process.returncode, 0)
+                    self.assertNotIn('unlisted-body-executed', process.stdout + process.stderr)
+        """
+        with self.fixture(body) as (_, root):
+            (root / "tools/sbom/unlisted.py").write_text("print('unlisted-body-executed')\n")
+            result = self.execute(root)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Ran 1 test", result.stderr)
+
+
+class DevicePythonFailureDiagnosticsTests(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location(
+            "control_plane_failure_diagnostic", RUNNER.parent / "device/run_control_plane_tests.py")
+        self.control = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.control)
+
+    def aggregate(self, names):
+        return {"schema": 1, "selected": len(names), "loaded": 0, "ran": 0, "skipped": 0,
+                "failed_modules": len(names), "workers": 2,
+                "modules": [{"module": name, "selected_ids": [name + ".Case.test_behavior"],
+                             "result": None, "exit_code": 1, "error": "not printed"}
+                            for name in names]}
+
+    def test_final_module_diagnostic_survives_later_groups_and_preserves_failure_and_junit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = root / "build/test-results/device-self-tests.json"
+            names = ["test_first", "test_second"]
+            def command(*unused):
+                if not report.exists():
+                    report.parent.mkdir(parents=True)
+                    report.write_text(json.dumps(self.aggregate(names)))
+                    return 1, "private traceback must stay out of final diagnostic", "exit code 1"
+                return 0, "later group output", ""
+            args = SimpleNamespace(profile="full", self_test_jobs=2, timeout_seconds=900,
+                                   require_qml=True, junit=root / "device.xml")
+            output = io.StringIO()
+            with (patch.object(self.control, "REPOSITORY", root),
+                  patch.object(self.control, "commands", return_value=[
+                      ("python-self-tests", ["fixture"], False), ("later-group", ["fixture"], False)]),
+                  patch.object(self.control, "run_command", side_effect=command),
+                  contextlib.redirect_stdout(output)):
+                result = self.control.run_checks(args, [])
+            line = output.getvalue().splitlines()[-1]
+            value = json.loads(line)
+            self.assertEqual(result, 1)
+            self.assertIn('Device control plane failed groups: ["python-self-tests"]', output.getvalue())
+            self.assertIn("PASSED  later-group", output.getvalue())
+            self.assertEqual(value["modules"], names)
+            self.assertEqual((value["failed"], value["omitted"], value["report"]), (2, 0, "ok"))
+            self.assertFalse(value["truncated"])
+            self.assertLessEqual(len(line.encode("ascii")), 450)
+            self.assertIn(line, output.getvalue()[-512:])
+            self.assertNotIn("traceback", line)
+            xml = ET.parse(args.junit).getroot()
+            self.assertEqual((xml.get("tests"), xml.get("failures"), xml.get("skipped")), ("2", "1", "0"))
+            self.assertIn("private traceback", xml.find("testcase/failure").text)
+
+    def test_bounded_names_and_unsafe_or_missing_reports_cannot_emit_arbitrary_data(self):
+        item = {"message": "timeout after 900s", "durationSeconds": 12.3456}
+        cases = ("valid", "no-failed-modules", "serial", "missing", "symlink", "hardlink", "fifo", "oversize",
+                 "invalid-json", "nested-json", "bad-shape", "wrong-count", "stale", "parent-symlink")
+        for case in cases:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                report = root / "build/test-results/device-self-tests.json"
+                report.parent.mkdir(parents=True)
+                started = time.time_ns()
+                names = ["test_" + str(index) + "_" + "x" * 60 for index in range(8)]
+                report.write_text(json.dumps(self.aggregate(names)))
+                if case == "no-failed-modules":
+                    value = self.aggregate(names)
+                    value["failed_modules"] = 0
+                    for row in value["modules"]:
+                        row.update(result={"schema": 1, "successful": True}, exit_code=0, error="")
+                    report.write_text(json.dumps(value))
+                elif case == "serial":
+                    started = None
+                elif case == "missing":
+                    report.unlink()
+                elif case == "symlink":
+                    private = root / "private.json"
+                    report.replace(private)
+                    report.symlink_to(private)
+                elif case == "hardlink":
+                    os.link(report, root / "alias.json")
+                elif case == "fifo":
+                    report.unlink()
+                    os.mkfifo(report)
+                elif case == "oversize":
+                    with report.open("wb") as stream:
+                        stream.truncate(4 * 1024 * 1024 + 1)
+                elif case == "invalid-json":
+                    report.write_text("private trace is not JSON")
+                elif case == "nested-json":
+                    report.write_text("[" * 2000 + "0" + "]" * 2000)
+                elif case == "bad-shape":
+                    report.write_text(json.dumps({"modules": "private trace"}))
+                elif case == "wrong-count":
+                    value = self.aggregate(names)
+                    value["failed_modules"] = 1
+                    report.write_text(json.dumps(value))
+                elif case == "stale":
+                    os.utime(report, ns=(1, 1))
+                elif case == "parent-symlink":
+                    actual = root / "actual-results"
+                    report.parent.rename(actual)
+                    (root / "build/test-results").symlink_to(actual, target_is_directory=True)
+                with patch.object(self.control, "REPOSITORY", root):
+                    line = self.control.python_failure_diagnostic(item, started)
+                value = json.loads(line)
+                self.assertLessEqual(len(line.encode("ascii")), 450)
+                self.assertEqual((value["message"], value["seconds"]), ("timeout", 12.346))
+                self.assertNotIn("private", line)
+                if case == "valid":
+                    self.assertEqual((value["report"], value["failed"], value["omitted"]), ("ok", 8, 4))
+                    self.assertEqual(len(value["modules"]), 4)
+                    self.assertTrue(value["truncated"])
+                    self.assertTrue(all(len(name) <= 48 for name in value["modules"]))
+                elif case == "no-failed-modules":
+                    self.assertEqual((value["report"], value["failed"], value["omitted"]), ("ok", 0, 0))
+                    self.assertEqual(value["modules"], [])
+                    self.assertFalse(value["truncated"])
+                else:
+                    self.assertEqual(value["report"], "unavailable")
+                    self.assertIsNone(value["failed"])
+                    self.assertIsNone(value["omitted"])
+                    self.assertEqual(value["modules"], [])
 
 
 if __name__ == "__main__":
