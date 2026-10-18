@@ -173,6 +173,7 @@ private:
     QString _creationIdentity;
     QUrl _creationSource;
     quint64 _page { 0 }, _injectedPage { 0 }, _scriptVersion { 0 };
+    quint64 _scriptAttemptGrant { 0 }, _scriptAttemptPage { 0 };
     mutable QMutex _mutex;
     overte::web::EmbeddedWebSession _session;
     overte::android::web::NativeResourceMapping _mapping;
