@@ -79,8 +79,14 @@ public:
     quint64 begin(quint64 creation, quint64 grant, quint64 page, const QUrl& document) {
         std::lock_guard<std::mutex> guard(_mutex);
         if (!active() || creation != _source.creation || grant != _source.grant || !page
-                || page < _page || !navigation(document, true, "GET") || _load == std::numeric_limits<quint64>::max()) return 0;
-        ++_load; _page = page; _document = document; return _load;
+                || page < _highestPage || !navigation(document, true, "GET") || _load == quint64(std::numeric_limits<qint64>::max())) return 0;
+        ++_load; _page = _highestPage = page; _bound = false; _document = document; return _load;
+    }
+    bool bind(quint64 creation, quint64 grant, quint64 load, quint64 pendingPage, quint64 actualPage, const QUrl& document) {
+        std::lock_guard<std::mutex> guard(_mutex);
+        if (!matches(creation, grant, load, pendingPage) || _bound || actualPage <= _highestPage
+                || document.adjusted(QUrl::RemoveFragment) != _document.adjusted(QUrl::RemoveFragment)) return false;
+        _bound = true; _highestPage = actualPage; return true;
     }
     bool current(quint64 creation, quint64 grant, quint64 load, quint64 page) const {
         std::lock_guard<std::mutex> guard(_mutex);
@@ -136,7 +142,8 @@ private:
     }
     const NativeResourceSource _source;
     mutable std::mutex _mutex;
-    quint64 _load { 0 }, _page { 0 };
+    quint64 _load { 0 }, _page { 0 }, _highestPage { 0 };
+    bool _bound { false };
     QUrl _document;
 };
 }

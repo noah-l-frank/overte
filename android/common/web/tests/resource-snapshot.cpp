@@ -16,6 +16,10 @@ int main(int argc, char** argv) {
     assert(!state.begin(8,11,1,source.inlineURL)); assert(!state.begin(7,12,1,source.inlineURL));
     assert(!state.begin(7,11,0,source.inlineURL));
     auto load = state.begin(7,11,1,source.inlineURL); assert(load);
+    assert(state.bind(7,11,load,1,2,source.inlineURL));
+    assert(state.current(7,11,load,1)); // In-flight initial request survives actual page binding.
+    assert(!state.bind(7,11,load,1,3,source.inlineURL));
+    assert(!state.begin(7,11,1,source.inlineURL));
     auto get = state.response(7,11,load,1,source.inlineURL,true,"GET");
     assert(get.action == NativeResourceResponse::Local && get.bytes == source.bytes);
     assert(get.charset == "windows-1252" && get.mime == "text/html");

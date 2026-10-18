@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicReference;
 final class WebResourceLease {
     interface Native {
         long begin(long creation, long grant, long page, String document);
+        boolean bind(Ticket ticket, long actualPage, String document);
         boolean current(Ticket ticket);
         Response request(Ticket ticket, String url, boolean mainFrame, String method);
     }
@@ -29,6 +30,12 @@ final class WebResourceLease {
             this.mime = mime; this.charset = charset;
         }
     }
+    static boolean reservedInlineHost(String host) {
+        if (host == null) return false;
+        host = host.toLowerCase(java.util.Locale.ROOT);
+        while (host.endsWith(".")) host = host.substring(0, host.length() - 1);
+        return host.equals("overte-inline.invalid") || host.endsWith(".overte-inline.invalid");
+    }
     private final Native source;
     private final AtomicReference<Ticket> current = new AtomicReference<>();
     WebResourceLease(Native source) { this.source = source; }
@@ -37,6 +44,14 @@ final class WebResourceLease {
         long load = source.begin(creation, grant, page, document);
         if (load <= 0) return false;
         current.set(new Ticket(creation, grant, page, load)); return true;
+    }
+    boolean pageStarted(long creation, long grant, long actualPage, String document) {
+        Ticket pending = current.get();
+        // Binding the first actual page preserves a pending main request already
+        // being intercepted. A second start must issue a fresh native load lease.
+        if (valid(pending) && pending.creation == creation && pending.grant == grant
+                && source.bind(pending, actualPage, document) && valid(pending)) return true;
+        return begin(creation, grant, actualPage, document);
     }
     void revoke() { current.set(null); }
     Ticket capture() { return current.get(); }

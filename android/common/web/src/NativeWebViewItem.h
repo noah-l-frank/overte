@@ -114,8 +114,6 @@ public:
     void acceptResult(quint64 grant, quint64 page, quint64 request, const QByteArray& json);
     void acceptForeground(bool active);
     void acceptInputFocus(quint64 revision, quint64 birth, bool focused);
-    QByteArray resource(quint64 grant, const QUrl& browser) const;
-    QString resourceMime(quint64 grant, const QUrl& browser) const;
 signals:
     void editorStateChanged(); void editorFocusChanged(bool active, bool numeric, bool password);
     void urlChanged(); void scriptUrlChanged(); void userAgentChanged(); void useBackgroundChanged();
@@ -132,6 +130,7 @@ protected:
     QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
     void focusInEvent(QFocusEvent*) override; void focusOutEvent(QFocusEvent*) override;
 private:
+    void publishResourceSource();
     void create(); void retryCreation(); void navigate(); void synchronizeVisibility(); void updateGeometry(); void trackGeometry();
     bool evaluate(const QString& script, quint64 grant, quint64 page);
     void pointer(int action, const QPointF& position);
@@ -159,6 +158,8 @@ private:
     overte::web::EmbeddedWebSession _session;
     overte::android::web::NativeResourceMapping _mapping;
     QUrl _document;
+    std::shared_ptr<overte::android::web::NativeResourceState> _resourceState;
+    quint64 _resourceGrant { 0 }, _resourceCreation { 0 };
     QImage _image;
     bool _editorActive { false }, _sensitive { false };
     QString _editorText, _editorKind;
