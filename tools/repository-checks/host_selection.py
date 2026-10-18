@@ -294,7 +294,72 @@ def ci_owned(path):
             or path.endswith('.md') or path.endswith('.mdx'))
 
 
-def _regular_ci_delta(tree, base_tree, paths, package_paths):
+def _android_handoff_scope(tree, base_tree, paths, trusted_tree, trusted_root, target):
+    """Route one complete protected Android handoff without excluding its readers.
+
+    The manifest and payload identities come from actual trusted HEAD, never
+    candidate policy. The ordinary program digest still binds all seven target
+    files, and the separate required Android owner remains responsible for them.
+    """
+    targets = {'android-main', 'android-phone', 'android-vr', 'android-vr-pico'}
+    if target not in targets or not all(isinstance(value, dict) for value in
+            (tree, base_tree, trusted_tree)) or not isinstance(paths, (tuple, list)):
+        return {}
+    try:
+        if len(paths) != len(set(paths)) or set(paths) != {
+                path for path in base_tree.keys() | tree.keys() if base_tree.get(path) != tree.get(path)}:
+            return {}
+        policy = package_policy()
+        if policy.validate_tree_wiring(tree) not in policy._PROTECTED_ROUTE_GENERATIONS:
+            return {}
+        profile = {'mode': '100644', 'type': 'blob', 'sha': inputs._AFFECTED_TARGET_PROFILES[target]}
+        if any(snapshot.get('tests/platform-profile.json') != profile for snapshot in (base_tree, tree)):
+            return {}
+        actual = inputs.full_tree(trusted_root, 'HEAD')
+        manifest = '.github/android-owner-transfer.json'
+        entry = actual.get(manifest, {})
+        if entry.get('mode') != '100644' or entry.get('type') != 'blob' \
+                or any(snapshot.get(manifest) != entry for snapshot in (trusted_tree, tree)):
+            return {}
+        size = subprocess.check_output(['git', '--no-replace-objects', 'cat-file', '-s', entry['sha']],
+                                       cwd=trusted_root, timeout=30)
+        if int(size) > 100_000:
+            return {}
+        raw = subprocess.check_output(['git', '--no-replace-objects', 'cat-file', 'blob', entry['sha']],
+                                      cwd=trusted_root, timeout=30)
+        document = json.loads(raw, object_pairs_hook=inputs._unique_object)
+        if set(document) != {'schema', 'repository', 'repository_id', 'legacy_workflows', 'source_contracts', 'profiles'} \
+                or type(document['schema']) is not int or document['schema'] != 1 \
+                or document['repository'] != 'noah-l-frank/overte' \
+                or type(document['repository_id']) is not int or document['repository_id'] != 1319052603 \
+                or set(document['profiles']) != targets \
+                or len(document['legacy_workflows']) != 2 or len(document['source_contracts']) != 5:
+            return {}
+        items = {**document['legacy_workflows'], **document['source_contracts']}
+        if len(items) != 7:
+            return {}
+        scope = {}
+        for path, item in items.items():
+            source = 'tools/repository-checks/workflows/android-owned/handoff/' + path
+            if set(item) != {'source', 'reviewed_blob', 'mode'} or item['source'] != source \
+                    or item['mode'] not in {'100644', '100755'}:
+                return {}
+            payload = actual.get(source, {})
+            if payload.get('mode') != '100644' or payload.get('type') != 'blob' \
+                    or any(snapshot.get(source) != payload for snapshot in (trusted_tree, tree)):
+                return {}
+            current = {**payload, 'mode': item['mode']}
+            previous = {'mode': item['mode'], 'type': 'blob', 'sha': item['reviewed_blob']}
+            inputs._validate_tree({path: previous})
+            if base_tree.get(path) not in (previous, current) or tree.get(path) != current:
+                return {}
+            scope[path] = item['mode']
+        return scope
+    except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError):
+        return {}
+
+
+def _regular_ci_delta(tree, base_tree, paths, package_paths, *, handoff_scope=None):
     """Distinguish reviewed CI executables from documentation-safe inputs.
 
     The ordinary package/router flag intentionally rejects every executable.
@@ -305,14 +370,15 @@ def _regular_ci_delta(tree, base_tree, paths, package_paths):
         return False
     changed = {path for path in base_tree.keys() | tree.keys()
                if base_tree.get(path) != tree.get(path)}
-    if changed != set(paths) or not changed & CI_EXECUTABLE_PATHS:
+    handoff_scope = handoff_scope or {}
+    if changed != set(paths) or not changed & (CI_EXECUTABLE_PATHS | handoff_scope.keys()):
         return False
-    if any(not (ci_owned(path) or path in package_paths) for path in changed):
+    if any(not (ci_owned(path) or path in package_paths or path in handoff_scope) for path in changed):
         return False
     for path in changed:
         old, new = base_tree.get(path), tree.get(path)
-        expected = '100755' if path in CI_EXECUTABLE_PATHS else '100644'
-        if path in CI_EXECUTABLE_PATHS and (old is None or new is None):
+        expected = handoff_scope.get(path, '100755' if path in CI_EXECUTABLE_PATHS else '100644')
+        if path in CI_EXECUTABLE_PATHS | handoff_scope.keys() and (old is None or new is None):
             return False
         for entry in (old, new):
             if entry is not None and (entry.get('mode') != expected or entry.get('type') != 'blob'):
@@ -447,9 +513,13 @@ def _select_legacy(tree, paths, regular, *, unknown=False, trusted_tree=None, ca
     reason = 'unowned-inputs'
     if not isinstance(package_paths, (tuple, list)) or any(path not in PACKAGE_LOCKS for path in package_paths):
         raise ValueError('host package ownership requires finite separately owned lock paths')
-    if unknown or not paths or (not regular and not _regular_ci_delta(tree, base_tree, paths, package_paths)):
+    handoff_scope = {} if unknown else _android_handoff_scope(
+        tree, base_tree, paths, trusted_tree, trusted_root, target)
+    if unknown or not paths or (not regular and not _regular_ci_delta(
+            tree, base_tree, paths, package_paths, handoff_scope=handoff_scope)):
         reason = 'unknown-or-nonregular-inventory'
-    elif not all(isinstance(path, str) and (ci_owned(path) or path in package_paths) for path in paths):
+    elif not all(isinstance(path, str) and (ci_owned(path) or path in package_paths or path in handoff_scope)
+                 for path in paths):
         reason = 'unowned-inputs'
     else:
         try:

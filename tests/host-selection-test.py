@@ -111,6 +111,108 @@ class HostSelectionTests(unittest.TestCase):
             with self.subTest(path=path,change=change),self.assertRaises(ValueError):
                 policy.validate_tree_wiring(unknown)
 
+    def android_handoff(self, target='android-main'):
+        document=json.loads((ROOT/'.github/android-owner-transfer.json').read_text())
+        items={**document['legacy_workflows'],**document['source_contracts']}
+        previous,candidate=copy_git_tree(self.tree),copy_git_tree(self.tree)
+        profile={'mode':'100644','type':'blob','sha':HOST.inputs._AFFECTED_TARGET_PROFILES[target]}
+        previous['tests/platform-profile.json']=deepcopy(profile)
+        candidate['tests/platform-profile.json']=deepcopy(profile)
+        for path,item in items.items():
+            previous[path]={'mode':item['mode'],'type':'blob','sha':item['reviewed_blob']}
+            candidate[path]={**self.tree[item['source']],'mode':item['mode']}
+        return previous,candidate,items
+
+    def handoff_selected(self, previous, candidate, *, target='android-main', trusted=None, paths=None,
+                         regular=False, unknown=False):
+        if paths is None:
+            paths=sorted(path for path in previous.keys()|candidate.keys()
+                         if previous.get(path)!=candidate.get(path))
+        # Only the candidate fixture's program identity is reviewed here. This
+        # cannot authorize an unknown predecessor or alter the routing manifest.
+        with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{target:HOST.program_digest(candidate)}):
+            return self.selected(paths,tree=candidate,base_tree=previous,target=target,
+                trusted_tree=self.tree if trusted is None else trusted,regular=regular,unknown=unknown)
+
+    def test_complete_trusted_android_handoff_routes_ci_without_excluding_program_inputs(self):
+        for target in ('android-main','android-phone','android-vr','android-vr-pico'):
+            with self.subTest(target=target):
+                previous,candidate,items=self.android_handoff(target)
+                paths=sorted(items)
+                before=HOST.program_digest(candidate)
+                selected=self.handoff_selected(previous,candidate,target=target)
+                self.assertEqual(set(selected['suites']),self.ci_quick)
+                self.assertEqual(selected['reason'],'reviewed-ci-only-inputs')
+                self.assertFalse(selected['full_host']);self.assertFalse(selected['include_platform'])
+                scope=HOST._android_handoff_scope(candidate,previous,paths,self.tree,ROOT,target)
+                self.assertEqual(scope,{path:item['mode'] for path,item in items.items()})
+                self.assertTrue(HOST._regular_ci_delta(candidate,previous,paths,(),handoff_scope=scope))
+                self.assertFalse(HOST._regular_ci_delta(candidate,previous,paths,()))
+                self.assertEqual(HOST.program_digest(candidate),before)
+                for path in items:
+                    self.assertFalse(HOST.ci_owned(path),path)
+                    altered=copy_git_tree(candidate);altered[path]['sha']='f'*40
+                    self.assertNotEqual(HOST.program_digest(altered),before,path)
+                # A previously installed member may coexist with the reviewed
+                # old members, but every final destination must be current.
+                first=next(iter(items));previous[first]=deepcopy(candidate[first])
+                self.assertFalse(self.handoff_selected(previous,candidate,target=target)['full_host'])
+
+    def test_android_handoff_rejects_unknown_predecessor_and_incomplete_or_nonregular_destinations(self):
+        previous,candidate,items=self.android_handoff()
+        for path in items:
+            for side,change in (('base',{'sha':'f'*40}),('candidate',{'sha':'f'*40}),
+                    ('base',{'mode':'100644' if items[path]['mode']=='100755' else '100755'}),
+                    ('candidate',{'mode':'120000'}),('base',{'type':'commit','mode':'160000'})):
+                with self.subTest(path=path,side=side,change=change):
+                    old,new=copy_git_tree(previous),copy_git_tree(candidate)
+                    (old if side=='base' else new)[path].update(change)
+                    # Nonregular inventories must not become reviewed merely
+                    # to reach this gate; use the already reviewed final tree.
+                    with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{'android-main':HOST.program_digest(candidate)}):
+                        paths=sorted(p for p in old.keys()|new.keys() if old.get(p)!=new.get(p))
+                        result=self.selected(paths,tree=new,base_tree=old,target='android-main',regular=True)
+                        self.assertTrue(result['full_host']);self.assertTrue(result['include_platform'])
+            for side in ('base','candidate'):
+                with self.subTest(path=path,missing=side):
+                    old,new=copy_git_tree(previous),copy_git_tree(candidate)
+                    del (old if side=='base' else new)[path]
+                    self.assertTrue(self.handoff_selected(old,new)['full_host'])
+            partial=copy_git_tree(candidate);partial[path]=deepcopy(previous[path])
+            self.assertTrue(self.handoff_selected(previous,partial)['full_host'])
+
+    def test_android_handoff_cannot_authorize_manifest_payload_profile_or_mixed_wiring_changes(self):
+        previous,candidate,items=self.android_handoff()
+        for path in ('.github/android-owner-transfer.json',next(iter(items.values()))['source'],
+                     'tests/platform-profile.json','.github/workflows/project-tests.yml'):
+            with self.subTest(path=path):
+                altered=copy_git_tree(candidate);altered[path]['sha']='f'*40
+                self.assertTrue(self.handoff_selected(previous,altered)['full_host'])
+        trusted=copy_git_tree(self.tree)
+        trusted['.github/android-owner-transfer.json']['sha']='f'*40
+        self.assertTrue(self.handoff_selected(previous,candidate,trusted=trusted)['full_host'])
+        # The older protected manifest/payload is not candidate authority. Its
+        # reviewed destinations remain valid; final payloads must still be D's.
+        previous['.github/android-owner-transfer.json']['sha']='e'*40
+        source=items['android/common/tests/robolectric/build.gradle']['source']
+        previous[source]['sha']='e'*40
+        self.assertFalse(self.handoff_selected(previous,candidate)['full_host'])
+
+    def test_android_handoff_does_not_waive_extra_paths_false_delta_or_non_android_targets(self):
+        previous,candidate,items=self.android_handoff()
+        for path in ('android/common/tests/new-handoff.py','libraries/shared/src/unreviewed.cpp',
+                     'Android/common/tests/ci/test_ci_contract.py'):
+            changed=copy_git_tree(candidate);changed[path]={'mode':'100644','type':'blob','sha':'f'*40}
+            with self.subTest(path=path):
+                self.assertTrue(self.handoff_selected(previous,changed)['full_host'])
+        for target in ('main','apple-main','apple-ios'):
+            with self.subTest(target=target):
+                self.assertTrue(self.handoff_selected(previous,candidate,target=target)['full_host'])
+        paths=sorted(items)
+        for altered in (paths[:-1],paths+[paths[0]]):
+            self.assertTrue(self.handoff_selected(previous,candidate,paths=altered)['full_host'])
+        self.assertTrue(self.handoff_selected(previous,candidate,unknown=True)['full_host'])
+
     def test_consumer_parent_is_preserved_by_each_exact_later_producer_pair(self):
         policy=HOST.package_policy()
         generations={g['name']:g['workflows'] for g in policy.workflow_generations()}
