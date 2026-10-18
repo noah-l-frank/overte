@@ -235,7 +235,7 @@ class LanguageSelectionTests(unittest.TestCase):
         generations = CODEQL.result_workflow_blobs()
         self.assertEqual(generations, (CODEQL._RESULTS_WORKFLOW, CODEQL._RETARGET_RESULTS_WORKFLOW,
                                       CODEQL._PINNED_RESULTS_WORKFLOW, CODEQL._METADATA_RESULTS_WORKFLOW,
-                                      CODEQL._SCHEDULING_RESULTS_WORKFLOW))
+                                      CODEQL._SCHEDULING_RESULTS_WORKFLOW, CODEQL._BOOLEAN_RESULTS_WORKFLOW))
         for old_index, old in enumerate(generations):
             for new_index, new in enumerate(generations):
                 before, after = self.pinned_trees()
@@ -1829,7 +1829,7 @@ class MetadataResultTests(unittest.TestCase):
             self.api.json(RESULTS.PREFIX + '/git/ref/heads/foreign')
 
     def test_future_recipe_is_exact_and_keeps_existing_pinned_language_selection(self):
-        for name, oid in [('codeql-metadata.yml', CODEQL._SCHEDULING_RESULTS_WORKFLOW),
+        for name, oid in [('codeql-metadata.yml', CODEQL._BOOLEAN_RESULTS_WORKFLOW),
                           ('pr-metadata-context.yml', CODEQL._SCHEDULING_SOURCE_WORKFLOW)]:
             raw = (ROOT / 'tools/repository-checks/workflows/metadata-edits' / name).read_bytes()
             self.assertEqual(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest(), oid)
@@ -1861,7 +1861,43 @@ class MetadataResultTests(unittest.TestCase):
         with self.assertRaises(RESULTS.ResultError): self.verify()
         self.assertEqual(CODEQL.result_workflow_sources()[3],
             ('3a273057a38255ca368d3028594fb94227ba7c3b', 'd04a6dc70213d8b549bac30c11cc15eaf0182dea'))
-        self.assertEqual(len(CODEQL.result_workflow_sources()), 5)
+        self.assertEqual(len(CODEQL.result_workflow_sources()[:5]), 5)
+        self.assertEqual(len(CODEQL.result_workflow_sources()), 6)
+
+    def test_staged_boolean_template_preserves_old_and_new_exact_native_analysis_pairs(self):
+        ordinary=lambda oid:{'mode':'100644','type':'blob','sha':oid}
+        for base,active in ((CODEQL._SCHEDULING_RESULTS_WORKFLOW,CODEQL._SCHEDULING_RESULTS_WORKFLOW),
+                (CODEQL._SCHEDULING_RESULTS_WORKFLOW,CODEQL._BOOLEAN_RESULTS_WORKFLOW),
+                (CODEQL._BOOLEAN_RESULTS_WORKFLOW,CODEQL._BOOLEAN_RESULTS_WORKFLOW)):
+            self.setUp()
+            self.runs[12]['display_title']=self.A.ORDINARY_RUN_NAME
+            self.runs[13]['display_title']=self.A.NONPRODUCER_RUN_NAME
+            self.workflows[RESULTS.WORKFLOW]=ordinary(active)
+            self.workflows[self.A.METADATA_WORKFLOW]=ordinary(CODEQL._SCHEDULING_SOURCE_WORKFLOW)
+            for tree in (self.base_tree,self.candidate_tree):
+                tree.update(deepcopy(self.workflows))
+                tree['tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml']=ordinary(CODEQL._BOOLEAN_RESULTS_WORKFLOW)
+                tree['tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml']=ordinary(CODEQL._SCHEDULING_SOURCE_WORKFLOW)
+            self.base_tree[RESULTS.WORKFLOW]=ordinary(base)
+            if base!=active:
+                # A real caller transition selects both languages; supply both
+                # original native analyses rather than hiding that selection.
+                js=deepcopy(self.jobs[12][1]);js.update(id=82,name='CodeQL (javascript-typescript)',
+                    check_run_url='https://api.github.com/'+RESULTS.PREFIX+'/check-runs/82')
+                self.jobs[12].append(js)
+                analysis=deepcopy(self.analyses[0]);analysis.update(id=92,
+                    environment='{"language":"javascript-typescript"}',category='/language:javascript-typescript')
+                self.analyses.append(analysis)
+            with self.subTest(base=base,active=active):
+                value=self.verify()
+                self.assertFalse(value['qualification']);self.assertEqual(value['original_run_id'],12)
+                self.assertIn(91,[analysis['id'] for analysis in value['analyses']])
+        self.base_tree[RESULTS.WORKFLOW]=ordinary(CODEQL._BOOLEAN_RESULTS_WORKFLOW)
+        self.workflows[RESULTS.WORKFLOW]=ordinary(CODEQL._SCHEDULING_RESULTS_WORKFLOW)
+        self.candidate_tree[RESULTS.WORKFLOW]=ordinary(CODEQL._SCHEDULING_RESULTS_WORKFLOW)
+        with self.assertRaisesRegex(RESULTS.ResultError,'rolls back'):self.verify()
+        self.candidate_tree[RESULTS.WORKFLOW]=ordinary('f'*40)
+        with self.assertRaises(RESULTS.ResultError):self.verify()
 
     def test_same_merge_original_native_analysis_is_freshly_revalidated_without_qualification(self):
         result = self.verify()

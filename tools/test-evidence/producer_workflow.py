@@ -40,6 +40,7 @@ TEMPLATE = 'tools/repository-checks/workflows/producers/protected-project-tests.
 PLATFORM_TEMPLATE = 'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml'
 PLATFORM_PARENT_TEMPLATE = 'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'
 PLATFORM_GENERATION = 'protected-producer-original-default-v1'
+PLATFORM_GENERATIONS = ci_profile.RETAINED_SOURCE_GENERATIONS
 PLATFORM_JOB = 'project / Android platform tests'
 _PLATFORM_TARGETS = frozenset({'android-main', 'android-phone', 'android-vr', 'android-vr-pico'})
 _PLATFORM_SOURCES = (
@@ -117,7 +118,7 @@ def _host_policy():
 def execution_schema(policy, tree, target):
     """A new complete reviewed generation alone enrolls retained source proof."""
     generation=policy.package_policy().validate_tree_wiring(tree)
-    if generation==ci_profile.RETAINED_SOURCE_GENERATION:
+    if generation in ci_profile.RETAINED_SOURCE_GENERATIONS:
         return 4
     if target!='main':
         raise PreExecutionUnavailable('child protected proof requires retained original default source generation')
@@ -317,9 +318,10 @@ def metadata_generations(policy, *, root=ROOT):
         and row['workflows'].get(producer_api.METADATA_WORKFLOW) in (template, old_template)}
     if not generations:
         return None, None
-    return generations, {name: {producer_api.METADATA_SOURCE: old_helper
+    sources = {name: {producer_api.METADATA_SOURCE: old_helper
         if workflows[producer_api.METADATA_WORKFLOW] == old_template else helper}
         for name, workflows in generations.items()}
+    return producer_api.retain_native_metadata_sources(generations, sources)
 
 
 def source_blob(repository, oid):
@@ -454,7 +456,7 @@ def project_template(policy, candidate_tree):
     if PLATFORM_TEMPLATE not in candidate_tree:
         return TEMPLATE
     generation = policy.package_policy().validate_tree_wiring(candidate_tree)
-    return PLATFORM_TEMPLATE if generation == PLATFORM_GENERATION else TEMPLATE
+    return PLATFORM_TEMPLATE if generation in PLATFORM_GENERATIONS else TEMPLATE
 
 
 def platform_partition(policy, profile, registry, candidate_tree, base_tree, trusted_tree,
@@ -467,7 +469,7 @@ def platform_partition(policy, profile, registry, candidate_tree, base_tree, tru
     """
     if target not in _PLATFORM_TARGETS or PLATFORM_TEMPLATE not in trusted_tree:
         return None
-    if policy.package_policy().validate_tree_wiring(candidate_tree) != PLATFORM_GENERATION:
+    if policy.package_policy().validate_tree_wiring(candidate_tree) not in PLATFORM_GENERATIONS:
         return None
     # selection_profile independently admits this versioned Qt-free owner.
     # It never selected Android declarations, so there is nothing to split.
@@ -546,7 +548,7 @@ def platform_partition(policy, profile, registry, candidate_tree, base_tree, tru
             entries[path] = dict(candidate_tree[path])
             commands.append({'name': item['name'], 'command': [item['interpreter'], path]})
         value = {'schema': 1, 'kind': 'android-common-platform-partition-v1',
-            'generation': PLATFORM_GENERATION, 'target': target, 'profile': expected,
+            'generation': policy.package_policy().validate_tree_wiring(candidate_tree), 'target': target, 'profile': expected,
             'commands': commands, 'entrypoints': entries,
             'common_owner': {'kind': 'shared', 'suites': names, 'include_platform': False, 'platform': {}}}
         value['digest'] = protocol.digest(value)
@@ -583,7 +585,7 @@ def current_platform_context(candidate, event, environment, adapter, *, root=ROO
         'platform push checkout differs from complete immutable API source')
     policy = _host_policy()
     package = policy.package_policy()
-    host.require(package.validate_tree_wiring(current) == PLATFORM_GENERATION,
+    host.require(package.validate_tree_wiring(current) in PLATFORM_GENERATIONS,
         'platform push needs the complete enrolled future generation')
     workflow = refs['integration']['workflow_path']
     template = PLATFORM_PARENT_TEMPLATE if workflow == '.github/workflows/parent-qualification.yml' else PLATFORM_TEMPLATE
@@ -836,7 +838,7 @@ def _sync_source_admission(previous, current, local, event, *, read_blob):
     package = policy.package_policy()
     for snapshot in (previous, current, local):
         inputs._validate_tree(snapshot)
-    if package.validate_tree_wiring(current) != PLATFORM_GENERATION:
+    if package.validate_tree_wiring(current) not in PLATFORM_GENERATIONS:
         return False
     package.validate_tree_wiring(previous)
     paths = sorted(path for path in previous.keys() | current.keys() if previous.get(path) != current.get(path))
@@ -1088,7 +1090,7 @@ def _run_platform_suites(candidate, commands, report):
 def platform_execution(context, event, environment, adapter, *, report, runner=None):
     """Current mandatory platform execution, isolated from shared artifacts."""
     partition = context.get('platform_partition')
-    host.require(partition is not None and partition['generation'] == PLATFORM_GENERATION,
+    host.require(partition is not None and partition['generation'] in PLATFORM_GENERATIONS,
         'platform execution requires its independently derived future partition')
     candidate = context['candidate']
     host.require(not Path(report).resolve().is_relative_to(candidate), 'platform report is candidate writable')
@@ -1169,7 +1171,7 @@ def verify_platform_project(candidate, event, environment, adapter, needs):
     """A separate mandatory job cannot disappear behind the common receipt."""
     policy = _host_policy()
     package = policy.package_policy()
-    host.require(package.validate_wiring(candidate) == PLATFORM_GENERATION,
+    host.require(package.validate_wiring(candidate) in PLATFORM_GENERATIONS,
         'platform project aggregate requires the complete future generation')
     plan = package.candidate_plan(candidate, event, environment['GITHUB_SHA'])
     host.require(type(needs) is dict and set(needs) == {
@@ -1261,7 +1263,7 @@ def _empty_parent_source(candidate,event,environment,adapter):
 def verify_platform_parent(candidate, event, environment, adapter, needs):
     """The old required parent check stays downstream of BOTH actual owners."""
     package = _host_policy().package_policy()
-    host.require(package.validate_wiring(candidate) == PLATFORM_GENERATION
+    host.require(package.validate_wiring(candidate) in PLATFORM_GENERATIONS
         and type(needs) is dict and set(needs) == {'route','common-parent', 'platform-tests'}
         and all(type(row) is dict for row in needs.values())
         and needs['common-parent'].get('result') == 'success',
@@ -1515,7 +1517,7 @@ def _owner_target_supported(context):
 def _completed_owner_outputs(context, receipt):
     """Dispatch hints only, emitted after actual selected publication validates."""
     supported = (_host_policy().package_policy().validate_wiring(context['candidate']) in {
-                    CURRENT_OWNER_GENERATION,ci_profile.RETAINED_SOURCE_GENERATION}
+                    CURRENT_OWNER_GENERATION,*ci_profile.RETAINED_SOURCE_GENERATIONS}
                  and _owner_target_supported(context))
     passed = {name for name, result in receipt['results'].items() if result['status'] == 'passed'} if supported else set()
     return {'documentation_verified': str(DOCUMENTATION_SUITES <= passed).lower(),
@@ -1540,7 +1542,7 @@ def verify_current_owners(candidate, event, environment, adapter, *, demanded,
     context = prepare(candidate, event, environment, adapter)
     package = _host_policy().package_policy()
     owner_generation=package.validate_wiring(candidate)
-    host.require(owner_generation in {CURRENT_OWNER_GENERATION,ci_profile.RETAINED_SOURCE_GENERATION}
+    host.require(owner_generation in {CURRENT_OWNER_GENERATION,*ci_profile.RETAINED_SOURCE_GENERATIONS}
                  and _owner_target_supported(context)
                  and demanded <= set(context['plan']['owners']['shared-host']['suites']),
                  'current owner requires the exact enrolled generation and every actual command')

@@ -789,7 +789,7 @@ def validate_required_codeql_workflow(event: dict, api: GitHubApi, policy_root: 
     generations = tuple(validate_sha(value, 'approved CodeQL result workflow')
                         for value in trusted.result_workflow_blobs())
     pairs = trusted.result_workflow_sources()
-    if (type(pairs) is not tuple or len(pairs) != 5
+    if (type(pairs) is not tuple or len(pairs) != 6
             or any(type(row) is not tuple or len(row) != 2 for row in pairs)):
         raise GateError('approved CodeQL workflow/helper pairs unavailable')
     sources = {validate_sha(row[0], 'approved CodeQL result workflow'):
@@ -798,10 +798,11 @@ def validate_required_codeql_workflow(event: dict, api: GitHubApi, policy_root: 
     approved = set(generations)
     metadata_workflow = validate_sha(trusted._METADATA_RESULTS_WORKFLOW, 'approved CodeQL metadata workflow')
     metadata_source = validate_sha(trusted._METADATA_SOURCE_WORKFLOW, 'approved CodeQL metadata source')
-    if len(generations) != 5 or len(approved) != 5 or tuple(sources) != generations \
+    if len(generations) != 6 or len(approved) != 6 or tuple(sources) != generations \
             or '0' * 40 in approved or any(sources[oid] is not None for oid in generations[:3]) \
             or pairs[3] != (metadata_workflow, metadata_source) \
             or pairs[4] != (trusted._SCHEDULING_RESULTS_WORKFLOW, trusted._SCHEDULING_SOURCE_WORKFLOW) \
+            or pairs[5] != (trusted._BOOLEAN_RESULTS_WORKFLOW, trusted._SCHEDULING_SOURCE_WORKFLOW) \
             or any(value == '0' * 40 for value in sources.values()):
         raise GateError('approved CodeQL workflow identity is unavailable')
     refs = {f'repos/{repository}/git/ref/heads/{quote(ref, safe="")}': 'refs/heads/' + ref
@@ -1440,7 +1441,7 @@ def verified_empty_sync(api, config, request, candidate, *, environment=None):
                 and suite_inputs.full_tree(candidate,request.merge_sha)==current,
                 'empty sync complete immutable candidate inventory differs')
             package = policy.package_policy()
-            A.require(package.validate_tree_wiring(current)==controller.ci_profile.RETAINED_SOURCE_GENERATION
+            A.require(package.validate_tree_wiring(current) in controller.ci_profile.RETAINED_SOURCE_GENERATIONS
                 and current.get('.github/workflows/sync-validation.yml')==local.get(
                     'tools/repository-checks/workflows/sync-ci-selection.yml')
                 and local.get('.github/workflows/sync-validation.yml')==local.get(
@@ -1525,7 +1526,7 @@ def native_parent_evidence(api, config, request, now=None):
         tree_sha, parent = controller.full_tree(adapter, request.parent_sha)
         _, previous = controller.full_tree(adapter, binding['base_sha'])
         generation=policy.package_policy().validate_tree_wiring(parent)
-        future=generation==controller.producer.PLATFORM_GENERATION
+        future=generation in controller.producer.PLATFORM_GENERATIONS
         parent_template=controller.producer.PLATFORM_PARENT_TEMPLATE if future else controller.TEMPLATE
         project_template=controller.producer.project_template(policy,parent)
         A.require(generation in controller.GENERATIONS

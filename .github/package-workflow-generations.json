@@ -684,6 +684,41 @@
           "sha": "8f6e3e009e201ce6c9980f4f23ff4a994588bb9d"
         }
       }
+    },
+    {
+      "name": "protected-producer-original-default-boolean-v1",
+      "workflows": {
+        ".github/workflows/project-tests.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9"
+        },
+        ".github/workflows/parent-qualification.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "9bfc6f8723b1f59426f913472b78206844a7f201"
+        },
+        ".github/workflows/sync-validation.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "747bd6424d1e9b533ae35a81b524ceefc06b286b"
+        },
+        ".github/workflows/repository-checks.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a"
+        },
+        ".github/workflows/browser-client.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "8f6e3e009e201ce6c9980f4f23ff4a994588bb9d"
+        },
+        ".github/workflows/pr-metadata-context.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "b76ade9fd7a76da21bf2cb2161deae7a262163e8"
+        }
+      }
     }
   ]
 }

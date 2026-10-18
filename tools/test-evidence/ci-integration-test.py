@@ -1286,6 +1286,15 @@ class AndroidPlatformPartitionTests(unittest.TestCase):
                 P.protocol.validate_plan({'owners':{'shared-host':value['common_owner']}})
         self.assertIn(P.PLATFORM_GENERATION,{row['name'] for row in self.package.workflow_generations()})
 
+    def test_boolean_complete_generation_records_its_actual_name_in_platform_partition(self):
+        self.package_boundary.validate_tree_wiring.return_value='protected-producer-original-default-boolean-v1'
+        partition=self.partition()
+        self.assertEqual(partition['generation'],'protected-producer-original-default-boolean-v1')
+        self.assertEqual(partition['common_owner']['suites'],self.names)
+        self.assertEqual(len(partition['commands']),13)
+        self.package_boundary.validate_tree_wiring.return_value='protected-producer-original-default-boolean-v1-neighbor'
+        self.assertIsNone(self.partition())
+
     def test_admitted_seven_target_ci_owner_does_not_invent_platform_work(self):
         names=list(C.SUITES)
         self.profile={'profile':C.PROFILE,'binding':{'generation_kind':C.SEVEN_CONTROLLER_KIND,

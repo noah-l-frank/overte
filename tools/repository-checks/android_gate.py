@@ -50,7 +50,10 @@ ACTIVATION_READY = False
 SOURCE_CAPABILITY = True
 SOURCE_GUARD_BLOB = '20580c3ea413e63a6779898fdd3d2c5e051625f4'
 CURRENT_PARENT_IMPORT_GUARD_BLOB = '3b97657d8874a842c74a0cbf5a8032e06b941e65'
+BOOLEAN_SOURCE_GUARD_BLOB = 'a89e1d51be5039214def84d8f6f5a06f3dfaea29'
 CURRENT_SOURCE_GENERATION = "protected-producer-original-default-v1"
+CURRENT_SOURCE_GENERATIONS = frozenset({CURRENT_SOURCE_GENERATION,
+    "protected-producer-original-default-boolean-v1"})
 CURRENT_SOURCE_TARGETS = frozenset({"android-main", "android-vr", "android-vr-pico", "android-phone"})
 CURRENT_JOBS = {
     "android / route": "Independently select the complete Android union",
@@ -360,7 +363,7 @@ def validate_tree_wiring(tree, *, policy_root=ROOT):
     """Require one complete approved package tuple plus its exact Android callee."""
     policy = load_policy(policy_root)
     generation = packages().validate_tree_wiring(tree)
-    if generation == CURRENT_SOURCE_GENERATION:
+    if generation in CURRENT_SOURCE_GENERATIONS:
         if tree.get(WORKFLOW) != _blob(android()._file(Path(policy_root), OWNED + "/android-required.yml").read_bytes()):
             raise ValueError("current Android source callee is missing or noncanonical")
         return generation
@@ -393,7 +396,7 @@ def validate_owned_generation(candidate, branch, *, policy_root=ROOT, before_sha
     sources = _sources(candidate)
     generation = validate_tree_wiring(sources.entries, policy_root=policy_root)
     approved = load_policy(policy_root)["workflow_generations"]
-    if generation != CURRENT_SOURCE_GENERATION and not any("project" in item and _generation_matches(sources.entries, item, policy_root) for item in approved):
+    if generation not in CURRENT_SOURCE_GENERATIONS and not any("project" in item and _generation_matches(sources.entries, item, policy_root) for item in approved):
         raise ValueError("Android activation requires the complete sole-owner project generation")
     previous = None
     if before_sha is not None:
@@ -481,7 +484,7 @@ def _protected_default(policy_root, *, api=None):
         if path.is_symlink():raise ValueError('Android stdlib guard has an aliased source')
     raw=_bootstrap_git(root,'show','HEAD:'+relative)
     if not path.is_file() or path.stat().st_size>128_000 or path.stat().st_mode&0o111 \
-            or path.read_bytes()!=raw or _blob(raw)['sha'] not in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB):
+            or path.read_bytes()!=raw or _blob(raw)['sha'] not in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB):
         raise ValueError('Android stdlib guard has no reviewed bootstrap identity')
     search=list(sys.path);bytecode=sys.dont_write_bytecode;standard=Path(os.__file__).resolve().parent
     sys.path[:]=[str(standard),str(standard/'lib-dynload')]
@@ -610,9 +613,9 @@ def _current_source(candidate, event, sha, environment, adapter, policy_root):
     # B is authenticated data and may be a finite historical recipe on first
     # install. D alone supplies executable controllers; handoff checks B below.
     A.require(packages().validate_tree_wiring(before) in {
-        "npm-consumers-sync-ci-v1","npm-consumers-sync-ci-budget-v1","npm-consumers-sync-ci-budget-cleanup-v1","android-owned-npm5-sync-ci-v1",CURRENT_SOURCE_GENERATION},
+        "npm-consumers-sync-ci-v1","npm-consumers-sync-ci-budget-v1","npm-consumers-sync-ci-budget-cleanup-v1","android-owned-npm5-sync-ci-v1",*CURRENT_SOURCE_GENERATIONS},
         'current Android predecessor is not a finite protected recipe')
-    A.require(validate_tree_wiring(current,policy_root=root)==CURRENT_SOURCE_GENERATION,
+    A.require(validate_tree_wiring(current,policy_root=root) in CURRENT_SOURCE_GENERATIONS,
         'current Android owner requires the exact complete new generation')
     validate_owned_generation(candidate,binding['base_ref'],policy_root=root,before_sha=binding['base_sha'])
     return binding,refs,current,default,admission
@@ -768,7 +771,7 @@ def _source_generation(candidate,sha,policy_root):
     if type(value) is not dict or set(value)!={'schema','repository','generations'} or type(value['schema']) is not int \
             or value['schema']!=1 or value['repository']!={'full_name':REPOSITORY,'id':REPOSITORY_ID} \
             or type(value['repository'].get('id')) is not int \
-            or type(value['generations']) is not list or not 1<=len(value['generations'])<=24:
+            or type(value['generations']) is not list or not 1<=len(value['generations'])<=25:
         raise ValueError('Android source catalog is not the finite protected schema')
     four={'.github/workflows/'+name+'.yml' for name in ('project-tests','parent-qualification','sync-validation','repository-checks')}
     five=four|{'.github/workflows/browser-client.yml'};six=five|{'.github/workflows/pr-metadata-context.yml'}
@@ -778,7 +781,7 @@ def _source_generation(candidate,sha,policy_root):
                 or not re.fullmatch('[a-z0-9][a-z0-9-]*',row['name']) or row['name'] in names \
                 or type(row['workflows']) is not dict or set(row['workflows']) not in (four,five,six):
             raise ValueError('Android source recipe is unknown or incomplete')
-        if row['name']==CURRENT_SOURCE_GENERATION and set(row['workflows'])!=six:
+        if row['name'] in CURRENT_SOURCE_GENERATIONS and set(row['workflows'])!=six:
             raise ValueError('Android current source recipe is incomplete')
         names.add(row['name'])
         for entry in row['workflows'].values():
@@ -801,7 +804,7 @@ def _source_generation(candidate,sha,policy_root):
 
 def current_source_owner(candidate,event,sha,needs,environment,adapter=None,*,policy_root=ROOT):
     """New recipe dispatch before imports; old recipes keep original admit()."""
-    if _source_generation(candidate,sha,policy_root)!=CURRENT_SOURCE_GENERATION:
+    if _source_generation(candidate,sha,policy_root) not in CURRENT_SOURCE_GENERATIONS:
         return None
     return verify_current_owner(candidate,event,sha,needs,environment,adapter,policy_root=policy_root)
 

@@ -22,6 +22,8 @@ from urllib.parse import quote
 REPOSITORY = 'noah-l-frank/overte'
 REPOSITORY_ID = 1319052603
 SELF = 'tools/test-evidence/source_admission.py'
+CURRENT_PARENT_GENERATIONS = frozenset({'protected-producer-original-default-v1',
+    'protected-producer-original-default-boolean-v1'})
 PROFILE = 'tests/platform-profile.json'
 DOCUMENTATION_WORKFLOW = '.github/workflows/documentation-push-owner.yml'
 DOCUMENTATION_TARGETS = frozenset({'main','android-phone','android-vr-pico','apple-ios'})
@@ -567,7 +569,9 @@ def current_parent_import(context, environment, api, base, default, root):
     require(entry == default.get('.github/package-workflow-generations.json'), 'current generation manifest differs')
     generations = json.loads(manifest, object_pairs_hook=unique)
     matches = [row for row in generations.get('generations',[]) if type(row) is dict
-        and row.get('name') == 'protected-producer-original-default-v1']
+        and row.get('name') in CURRENT_PARENT_GENERATIONS
+        and type(row.get('workflows')) is dict
+        and all(default.get(path) == entry for path,entry in row['workflows'].items())]
     require(len(matches) == 1 and type(matches[0].get('workflows')) is dict
         and set(matches[0]['workflows']) == {'.github/workflows/'+name+'.yml' for name in (
             'repository-checks','project-tests','parent-qualification','sync-validation','browser-client','pr-metadata-context')}

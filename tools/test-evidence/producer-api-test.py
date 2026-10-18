@@ -34,7 +34,14 @@ _HISTORICAL_METADATA_WORKFLOWS = {'tools/repository-checks/workflows/producers/r
 # The active workflow may already be generation22 in a shallow source checkout.
 _HISTORICAL_METADATA_WORKFLOWS['.github/workflows/sync-validation.yml'] = ('55d08b65a987224ce576459cede693cfd49375f6', 'c-rk5YjfMU@w<Kns`Ffun}T{+q#lhs&gIm^J;!!rJ8dU*H6RE|uql!TKsmZ3{q0=<ltk)bD{01;59coyfZfGn-@E()ohve80g_23C__mc&HjP{mPX0UED#A56No00G-8S&B{Hc1{w@(WVU*nA5sR51iYGB5!Guc*znn@;Caj0fXE8-n67j$QR74izjVEaD<445fG*i-{i4ZKZ+n+yIDoNa{pv8T|fXkF9I@X&g$FaW=DxmhzN5O70E?CghOtU{DHA~@UsRWNlpL2{!60ohHbewPst0dJFWe>d<ER(Pik|^>Cy}6o`NktO!i0yc3nnlr212U<0L}4FNMnUdFpGY>8WAdeVV@86n!J9BK+U>$h%0#YzqYy%KsR_8cqLmXX7OUlk76Z=3FyE~J6wN@3F`a25Bavh&+yUl-m*#>C=28@<wimdF#FRyt#~9Qy5==_VaHVpc_=dHd60>$=E%IHy2Tupi&5dJ`#QZmFx*8D7S7L2inV-cf!_AgcZ<!OtCoIVnp71zR4DM^XW}n5=xow`l>klsa!?$mahZp_xi{aq%<fK37p;{(IE#iLdR(Um_$F<u@1SEjr7#zzWgTti@8^<}nFUO4DAh>kllKHC=kwYQ`#tOXTil|YI0SJft!9Hy@nM(+DebTABou(U*w%2OZX`|C<w)cI~t@{o11Ddv-y3<$?yyI%zTdY7LEbO5P;c;OPymQ=}GgaJYLUO4v1q%W@;3NXxz>_3fdD(y&PEo|C44n-SH{fcvpjD8n{`>jGd4G8R`bDo8Mb;d~+Q$6v)$8HK>9740i!*{}Wxk`58y1)0UiV-8vYqzasmeHS`h!>ZFtqTfGS=DU@$qobe|rhWQ9@id@Lcv8SmLJw1<4e`EK5+zQx*~)70%wjN7cQ#psMKLzvw^j>$ppBc=fSW|GbB;u2!MvPu~rC@#x*ai?7Ww8n}C<(XM`4K>+*BNOZ9GbTmdJ<)|uHn#kJTtD}q8mp=oQv(xjVi_^isYFboqP$K?p_3EeBw+IX5Xv1){8lFFY4%_yY>NDWxpd_nx=I0c&`nOY9%5OUbYYUKECtMA;QYy%HL25%77&F8tlS~mmVmb&0HlCR~jOS{og7-agnD_!;upwmegu+S4AoXLYPc%UDYog0h4A?BzKv3OC76B(v<b;Ny)vynVotdmBImG0}bsSQl#oQK?c8xD@PJii_M57CmmB27K{oB!T87i+g%79-J2fz3D_E%ig@eFJ@-k;}|no1IIcbzOTo9Zk<S#6%$vDT!M&I;%lTb*H3*J2Dd4h(>Q<$>h%^5X3BqFTaOy3z6%#wGx9$h5O1_A(4r0isyjtcJVN1xDZC;$Q~`FIOy}Shed-tvaj)S`14VYwhIQ%UA;xwfyt_W#lMbdY#2wAwT0$V8sVTQWhy$Gj*1g5(}IUlgK=lGM;V+UzTOgwM^m_cRPoql%)mfof#!AT`BC@`o^)>I#w&viAc=QpAOKIh>ZxHVL!>hX@e)|)2CH0&`?1_vkCaLVdTk{&;}VYOR+VhLwHu3`gM;INS1CGhV53P+X*^etJ{Iyme=l3uR%<B^PGLBzBRmAf_SP!kS-6a`%a@-eMk@|pm~tk?<t8GSU7C9y4`lY-Ry!eSh(+Yx?Zcrn()tSxy%i8@bA+7j+KLZj~q0)f)tt$%i!;1N*)$Ks3XKU0Z)Q-_(YfT_dn|zs2=(r3q!x|vX<NOn{K`CdZ68I!}IE%A5bq0sULPdqh8l(-}5Z!IHASyGuu`wHpxV(;MLa^p516y*HVsD&@mR?Z632Fw|tEh)@#8mNT66!(4Iq4n4lNbv~IoLfWcdsJZOO;R&whOI6Qv|2Gha$LI(&aU?8PRglFjA1&RnkGowRX7BPIQbnHO4Dqu7sdSozVE~N4)HgOydJR9j?tF*|^)0+{7?l9yd=nVW(G%<iH*R2sRa{v#bH_Z)unz9mb&Bnus%s>lr)6pG|gXFHc#)pRsoGhNSvR8Qd9rNj!K+6{yV0huJa+jO#rpFe!0Umvc!z2orh`?ZVUWqh__Ylk)(E<jn)^|+KisXg^J){9YphD-1d+BP~ZQ5JtVdLRk4-b;Y;H4=Hg4kv{R%!Q=v9f}AqF}hOnMwdfX0mpsjl7r}mR75?JCC7O5h4-bE0}!%B}nvExo?d;;Kx6h|I%t)uTGfKB88vc9KtI>csayMz&V2gg$QT|WTJ%tW$hT20fP9WM^!-vC9loH%b~&lk%%5Hf~&>)BQKcNkJh4?velCvl??kQ?~VqiCvW;Ex@F9ZYOEt-Y0hB6n4C$fAWq#OFi4P<LsF2)BoR<)>S#{YFpEJQQ^=Yy{v1LY5wSd|7wEvSM@tR#qz`prMN%x1M9tSRQ+BSjUZLU%nu0L$nn|;W^;;x{%>wwQV>1J?bTk?0<qJ_4QjzZNFzn7V4z|M*=q49su_jf^hjqFVkVZ(3`k+?q<Q)?{oS|HgYt7HRXPldi$*wz^$-(Ys(*NgK|K&v=3fTTJ{5U$zyQYoA?J}PYe|f+4M>F-!nyJTWjm*UT(Hf(<-0{-Ps(b79`MY&fxx?BK^-}CI(<P({?~4yLpm9BwUZ0+Rv+(|ye*4Fq<O^K;p|tXyyZmEML%w&Xzl4vmBq)9@HFc2|yHMq_jYM~3CZ9e-KmLfGe*0m<vn_3RW;nz|C?3Mzq2H#i=aF{1$voflL*MPNpdL_Y!`=NRX|=mSyWQ!AcBD|hZ=_%(u=@Ege>yJ24Df;>55O;0H;K}{fZ8-*{#2^}Hz=oczA*XP2FRbZrgsO2W)8kAYcmP0ix%~6m8m;ytp?q&fr@(Qj)=H4Q`cWpwKM`yc@MQK{{ur>)>r')
 
+_ORIGINAL_DEFAULT_REPOSITORY_WORKFLOW = ('81bcf1933edc435826e2de411a777cccd4dec7c7', 'c-rk+S#KLT5`OouptFOq1uW&*iFdMEWU)>x#GXSAY&na;U?5Q4l*G72_K<AZ+R6O)Ena=7TSpw*2m<LzO%|`JuTJuB=v2rl;Tma~DNSRPlIVtvDH>BwCDBaqe<2cSHnabcq<>^gQU!lzjNZZkP2`wrl!}B!^Y#uWQ`$k7G!=?zA?GNX(C9|($c$sx_uZd=qWv+`lWf?gGs^YAw4>Lr(O#M*$-pc@mEJ?&e~<Pngl)4C*n}aaF@x<|qTLEjG$DLUReMMjwNo_qYNiv4K7B&XV?{h~wM_T&4J2ep6SITGNlG*s4^%C)l?s{dY1^ak0x99K6fDMx;A0#!GUh^Q7OA~f%Z}Z<m{F-I;vk0^MN_ItOf*4U@KlO8i>O4iBfFagQXyl;2}t6Pj3jKtA}2{h{MTPQf_HWhDl^`EBc$gkRqiiFA_X+W{zKBrr<(I<A_ZsvqrSz7#(#JQ_^+HH@O>-f%_tGKgP5t5=xE|rV?52YUl}2Q4eV<Sh*QjM)%{|sBFR#75<pwVk)BW#iD{ZpIC%`<j3^#SN>MQyX+~u}gE?Ra4TVT3;iY*;BujM1=mX7LJ?i5Q8j(cNos`Ncvvb;wMuKY)sp<eBiFe>L%A}+`nw#FS6j^Gzf=Xbg64)q01rlW`w0Slif=ml^Njd_7*-=}y*lU%C8kDfuV!r}%i*S$+;So(R;}}%MqQT4eqZnEN25rJhWHO=-X3kojWPmKL&4d)azeJkeX^U_N)=>v-V9G4*0%*){0XVMFF{;|;5L0O~3t+!MxhGSgx2S#4cKbRAYNifSiSvWnmG5+WK27YXTOba*Dw&i4vm10qduy{l1DpUnU?-@)4sfD02Ei;qEk_YaZpmEj+cozsZF_+f41faDWH+g@C;}MUgRCdMVQFg4^OP`j+H(brjC5{4OGYrn1>VRjYz%oe%(%|*(aZMpm(B~ZDFqhdDdWIMnE%)|LsQvFgtHF>Pv#D*5X+>>OU+ZaD`d_x*wG@U<w0pecrgY#3sObFurobhN*)M`A<hYx2e_6cD`@aX1JJ&Yz&5pXnF>`g*vD=Iuy-+olP*72jj}$8p<g@RG}ebsKn(^f*;=ElPqG;&8ma4(DXP~_0W`%xuiAsc^Dh~_NLZg@y)<f+^+{GrqfAsE%DB-2P`S0^bILG@r42!#)9ANGZH)rv8H2HLjE{W=;1_pZ$lH(utLs4apBM3q=;aYTCL}r@l2^}<UmYFC<cEK}JbWG<zB)Ym;l+^r^ZD@5&r<eECJGzX9Z|b5DQzFT4TcgN{-of9!2wJZc3iYlshH9@0=XF<53yZ{@B#@$rczNH4$wiL@-BqDi!HSn7^;I>s8^!^Tc$AtsjzHBYrW1wU_(?N%7nthj3qIyggO-=UD8O5O+=2YsmtSH=Rt);##!1Z23aPCRT$vhHu!JKX9fG;oelaIKXrQ*8EA1sd70C_lm7XK?%<bh|K#+fe=<1l^}D^k8`JEmYUbI+9IGb1dVAJAz5e;U_wKVMRv?WyOAJ`^$-(z@(7$nkiMgH#{sQ51gs%{O6F_sYM6?du?Q~vv_A&=SChi+O`|jO&|LpqBp!)$BGI)Q|KYJEBZDzbk(L4F2Ybe|?ir$Os{`>3xvju^Z*rh<Z3DG9`F$!dKmEM74vRcZ*&P>p;-b<P=$ArpzkEqv9IrE+8?IQ|FA&zNkx{tm{Ys;F7tFeg_BN|CDwH%~(a5@ksR5faQx*yMsRvCL+MqGf|#^|!PeGQfh;n$gov6_%#;MLj5rr7d)^3{Z=VV7HMJ;TbD@{4)pc$9N&Lta6T5t|Gg!q&BZRMsT>=&uwJ7v{?528}^IqyS}-X12W!Y_ruNFP;6oE|hVX7{x7D6LJK5!SHRG1^D2o64|>%#_p{#ec5&SHl$GQ`$3MoTRv_Rx#z&HPk3CGxvevPPMvX0{h+LDjfI0E<X<5m3qT*KcfL3yU6y_}<f@OVfBrx#6wp)T8u%5c(S8$sJvB3{jDXLjYQrW&jD<Gdn{pH7GOE^&HyN1O;BUV>9B<Y4A=TFdaE1Qn!kRB6-c3SVl5x|!6dGtP?Oi4JhP*eQre2O%HB*rRdqzEh>-8(GP<>DFHK~3Rd99RDIp<axA5s~^(7@|PeQYj5Z6vyNRj5^yY*dC?HNi%8s8tgz6ry4gWm9Odg^nlC=*oI4^twW~sNKKW_5L10o!=W3eS^(=C+(+MeF@M+6pH`%HWFddFraek0bDgh4GIvqyEPV%Wh^Qj_mu%}Fai<IuO=Q}J!)&NP>~w#*X{)KGi{yUqv5#*iY3wL2ri)WS0W}Ql*ERl{%uA+P0{sD8sJR;+H9)p%-h=Q2gCPg-&(J}P0MSkMfeq}_oYhr6JD>GdU5Fv=6==qaL^A1c5_%`N*Fiy5CNJfhi19j`~KJd*+uX4qSycL<$1sR=GT7r?Zs*L^<hy5wk6-139#8M)PT*~i^XF4w^MDZ9c_gNuF>Wmc*(Pq%1(D1&D=%?tW`3`;pt%R>~S#5{;Lw=__msxSZuFC2bXURa7a5IOjR$bE%0TW%m@Qpk<{N}`bSl0NJm2Ys}h*JbQ`j@vYT7kvOS=8a8-S{?jeGMtoLy88+wWGHM)yOzqK{$O|iRE__9YC)>S}JLW5dP%^T1WOK7;FD{Htdo`6kE;H6h$>yP2SQwwCxU@o)D(+GHu@b;&{W%ug(=l+#Lh890wUG$tuZIuDA$uo-kT@lZmk6m-|X?KLp;en#E@q1j0?))F&V*}*')
+
 def historical_metadata_workflow(relative,generation,root):
+    if generation=='protected-producer-original-default-v1' and relative.endswith('/producers/repository-checks.yml'):
+        oid,encoded=_ORIGINAL_DEFAULT_REPOSITORY_WORKFLOW
+        raw=zlib.decompress(base64.b85decode(encoded))
+        assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()==oid
+        return raw
     historical = generation in {'protected-producer-metadata-ci-v1','protected-producer-seven-target-ci-v1'} \
         and (relative == '.github/workflows/sync-validation.yml'
              or relative.endswith('/metadata-edits/pr-metadata-context.yml')
@@ -831,6 +838,31 @@ class MetadataSchedulingTests(unittest.TestCase):
                         self.assertNotIn(field, value)
         self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
 
+    def test_preinstalled_native_helper_pair_is_retained_exactly_without_overwriting_current_tuple(self):
+        c=self.case;caller=c.policy.caller_path
+        c.generation[caller]['sha']='81bcf1933edc435826e2de411a777cccd4dec7c7'
+        workflows={ 'protected-producer-original-default-v1':deepcopy(c.generation)}
+        current={'protected-producer-original-default-v1':{A.METADATA_SOURCE:{'mode':'100644','type':'blob','sha':'6'*40}}}
+        original=deepcopy(workflows);current_before=deepcopy(current)
+        workflows,helpers=A.retain_native_metadata_sources(workflows,current)
+        self.assertEqual(workflows['protected-producer-original-default-v1'],original['protected-producer-original-default-v1'])
+        self.assertEqual(helpers['protected-producer-original-default-v1'],current_before['protected-producer-original-default-v1'])
+        retained='protected-producer-original-default-v1-reviewed-helper-v1'
+        self.assertEqual(workflows[retained],workflows['protected-producer-original-default-v1'])
+        self.assertEqual(helpers[retained][A.METADATA_SOURCE]['sha'],'c6ce80aa78d2f2161b1ea0caf715a6346187e8b9')
+        self.policy=A.MetadataPolicy(99,caller,workflows,helpers)
+        def retained_source(endpoint,value):
+            if endpoint.endswith('/git/trees/'+'5'*40):
+                value['tree'][0]['sha']='c6ce80aa78d2f2161b1ea0caf715a6346187e8b9'
+            return value
+        c.api.mutate=retained_source
+        value=self.schedule()
+        self.assertEqual(value['original_run_id'],100)
+        self.assertFalse(value['qualification'])
+        c.api.mutate=lambda endpoint,value:({**value,'tree':[{**value['tree'][0],'sha':'f'*40}]}
+            if endpoint.endswith('/git/trees/'+'5'*40) else value)
+        with self.assertRaises(ValueError):self.schedule()
+
     def test_same_second_open_and_label_events_use_native_workflow_sequence(self):
         c = self.case
         # GitHub observed on PR1412: both timestamps are18:44:15, while the
@@ -984,6 +1016,21 @@ class NativeMetadataIntentTests(unittest.TestCase):
             with self.subTest(status=status,conclusion=conclusion): self.assertEqual(self.observe(),queued)
         for field in ('results','environment','receipt','qualified_at','expires_at','verified','jobs','status'):
             self.assertNotIn(field,queued)
+
+    def test_exact_boolean_caller_has_native_metadata_intent_without_result_authority(self):
+        c=self.case
+        caller=c.policy.caller_path
+        for tree in (c.generation,c.policy.metadata_generations['metadata-v2']):
+            tree[caller]['sha']='15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'
+        c.policy.generations['native22'][caller]['sha']='15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'
+        value=self.observe()
+        self.assertEqual(value['kind'],A.METADATA_INTENT_KIND)
+        self.assertEqual(c.verify()['run_id'],100)
+        self.assertNotIn('results',value)
+        self.assertNotIn('qualification',value)
+        c.generation[caller]['sha']='f'*40
+        self.policy.generations['metadata-v2'][caller]['sha']='f'*40
+        self.assertIsNone(self.observe())
 
     def test_progress_during_original_verification_does_not_replace_or_fail_original(self):
         c=self.case; reads=0
@@ -2750,9 +2797,10 @@ class MetadataRetentionConsumerTests(unittest.TestCase):
         real_host = C.producer._host_policy()
         real_package = real_host.package_policy()
         generations = real_package.workflow_generations()
-        self.assertEqual(len(generations), 24)
+        self.assertEqual(len(generations), 25)
+        self.assertEqual(len([row for row in generations if row['name']!='protected-producer-original-default-boolean-v1']),24)
         self.assertEqual(len([row for row in generations
-                              if row['name'] != 'npm-consumers-sync-ci-budget-cleanup-v1']), 23)
+                              if row['name'] not in {'npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-boolean-v1'}]), 23)
         self.generation_name = getattr(self, 'generation_name', 'protected-producer-metadata-ci-v1')
         generation = next(row for row in generations if row["name"] == self.generation_name)
         sources = {".github/workflows/project-tests.yml": C.producer.TEMPLATE,
@@ -3377,7 +3425,8 @@ class RetainedDefaultMetadataTests(unittest.TestCase):
             '.github/workflows/browser-client.yml':'.github/workflows/browser-client.yml',
             A.METADATA_WORKFLOW:'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml'}
         self.generation={path:{'mode':'100644','type':'blob','sha':C.source_admission.blob_id(
-            (C.ROOT/source).read_bytes())} for path,source in self.sources.items()}
+            historical_metadata_workflow(source,'protected-producer-original-default-v1',C.ROOT))}
+            for path,source in self.sources.items()}
         for tree in (c.previous,c.tree):
             tree.update(deepcopy(self.generation))
             tree[C.producer.PLATFORM_TEMPLATE]=deepcopy(self.generation['.github/workflows/project-tests.yml'])
@@ -4045,6 +4094,10 @@ class OptionalParentScheduleTests(unittest.TestCase):
             self.schedule()
 
 
+class BooleanOptionalParentScheduleTests(OptionalParentScheduleTests):
+    generation_name = 'protected-producer-original-default-boolean-v1'
+
+
 class CurrentParentTransitionTests(unittest.TestCase):
     """Actual native API and materialized import graph; selection is a fixed seam.
 
@@ -4125,6 +4178,20 @@ class CurrentParentTransitionTests(unittest.TestCase):
                 with self.subTest(key=key),patch.dict(needs,{key:row}),self.assertRaises(ValueError):
                     self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
         self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_boolean_installed_tuple_reaches_current_parent_without_original_execution_authority(self):
+        caller='.github/workflows/repository-checks.yml'
+        source='tools/repository-checks/workflows/producers/repository-checks.yml'
+        raw=(self.C.ROOT/source).read_bytes()
+        self.source.default[caller]=self.C.source_admission.ordinary(self.C.source_admission.blob_id(raw))
+        self.source.bodies[caller]=raw
+        (self.source.root/caller).write_bytes(raw)
+        self.package_wrapper.validate_wiring=lambda _:'protected-producer-original-default-boolean-v1'
+        value=self.schedule()
+        self.assertEqual(value['current_imports']['authority'],'current-imports-only')
+        self.assertEqual(value['executed_suites'],[]);self.assertEqual(value['reused_suites'],[])
+        self.assertFalse(value['qualification']);self.assertIsNone(value['execution'])
+        self.C.execution.execute.assert_not_called()
 
     def test_full_extra_platform_package_unknown_and_stale_current_source_cannot_decline(self):
         for key,value in (('full_host',True),('include_platform',True),
