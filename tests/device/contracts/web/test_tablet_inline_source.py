@@ -58,7 +58,9 @@ class TabletInlineSource(unittest.TestCase):
                          "controls/EmbeddedWebView.qml", "controls/NativeFlickableWebViewCore.qml",
                          "controls/FlickableWebViewCore.qml", "controls/TabletWebView.qml",
                          "controls/TabletWebScreen.qml", "controls/TabletWebButton.qml",
-                         "controls/WebView.qml", "Web3DSurface.qml"):
+                         "controls/WebView.qml", "controls/qmldir", "Web3DSurface.qml",
+                         "+android_interface/Web3DSurface.qml",
+                         "+android_interface/Web3DSurfaceAndroid.qml"):
                 target = stage / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(qmlroot / name, target)

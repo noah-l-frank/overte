@@ -259,23 +259,33 @@ int main(int argc, char** argv) {
     QQmlComponent unissued(&engine);
     unissued.setData("import QtQml 2.15\nNativeInlineHtmlSource {}", QUrl());
     assert(unissued.isError()); // No QML constructor issues a native source.
-    for (const auto& worldSource : { source, QString("data:text/html,<p>hello</p>.qml"),
-                                     QString("DATA:text/html,last.qml#fragment") }) {
+    for (const auto& worldEntry : { QString("Web3DSurface.qml"),
+                                    QString("+android_interface/Web3DSurface.qml") }) {
+      for (const auto& worldSource : { source, QString("data:text/html,<p>hello</p>.qml"),
+                                     QString("DATA:text/html,last.qml#fragment"),
+                                     QString("data:text/html,<p>hello</p>#document.qml") }) {
         // Complete generic World caller into the same native constructor.
         QQmlContext worldContext(engine.rootContext());
         overte::web::InlineHtmlDocumentOwner worldOwner;
         const auto worldDocument = worldOwner.issue(&worldContext, "world-owner", worldSource, script);
         worldContext.setContextProperty("nativeWebSourceIdentity", "world-owner");
         worldContext.setContextProperty("nativeInlineHtmlDocument", QVariant::fromValue(worldDocument));
-        QQmlComponent worldComponent(&engine, QUrl::fromLocalFile(surface.stage + "/Web3DSurface.qml"));
+        QQmlComponent worldComponent(&engine, QUrl::fromLocalFile(surface.stage + "/" + worldEntry));
         std::unique_ptr<QObject> world(worldComponent.beginCreate(&worldContext));
         assert(world); world->setProperty("scriptUrl", script); world->setProperty("url", worldSource);
         worldComponent.completeCreate();
         auto* endpoint = worldEndpoint(world.get());
+        if (!endpoint || !endpoint->validAtCompletion || !endpoint->session.active()) {
+            std::cerr << "World route failed: " << worldEntry.toStdString() << " source="
+                      << worldSource.toStdString() << " endpoint=" << static_cast<bool>(endpoint)
+                      << " complete=" << (endpoint && endpoint->validAtCompletion)
+                      << " active=" << (endpoint && endpoint->session.active()) << std::endl;
+        }
         assert(endpoint && endpoint->validAtCompletion && endpoint->session.active());
         assert(endpoint->_url == worldSource && endpoint->_script == script && endpoint->bootstrapCount == 1);
         worldOwner.revoke();
         assert(!endpoint->session.active() && endpoint->revokeCount == 1);
+      }
     }
     {
         // An initially unset native QVariant legitimately reads as JS undefined.
