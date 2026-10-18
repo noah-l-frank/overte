@@ -1675,6 +1675,16 @@ def main():
         if getattr(args, "report", None):
             write_json(args.report, report)
         summary(report)
+        if args.command == "notify-sync-completion":
+            # This job's temporary report is not an uploaded artifact. Keep its
+            # fixed failure label available in the native log without payloads.
+            code = report["error"]
+            if re.fullmatch(r"(?:sync_notify_[a-z0-9_]{1,128}|github_api_(?:get|post)_[a-z0-9_]{1,128}"
+                            r"|repository_ownership_mismatch|default_branch_changed"
+                            r"|native_cleanup_would_bypass_guards|trusted_checkout_is_stale"
+                            r"|git_failed_exit_[0-9]{1,3})", code) is None:
+                code = type(error).__name__
+            print("branch_cleanup_error=" + code)
         print("Branch cleanup stopped; inspect its redacted report.")
         return 1
     if args.command in {"retry", "retry-sync-completion"}:

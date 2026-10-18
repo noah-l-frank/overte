@@ -3321,7 +3321,7 @@ class SyncCompletionNotificationTests(unittest.TestCase):
             "url": "https://api.github.com/repos/" + FORK + "/actions/runs/" + str(identifier),
             "html_url": "https://github.com/" + FORK + "/actions/runs/" + str(identifier)}
 
-    def get(self, path):
+    def get(self, path=""):
         self.events.append(("get", path))
         self.assertIn(path, self.data, "unexpected endpoint; offline tests must not discover runs")
         return copy.deepcopy(self.data[path])
@@ -3346,6 +3346,59 @@ class SyncCompletionNotificationTests(unittest.TestCase):
             result = self.module.notify_sync_completion(self.github, self.policy, self.event)
         checkout.assert_called_once_with(ROOT, self.source)
         return result
+
+    def notify_cli(self, error=None):
+        with tempfile.TemporaryDirectory(prefix="cleanup-notification-cli-") as directory:
+            event = Path(directory) / "event.json"
+            report = Path(directory) / "report.json"
+            event.write_text(json.dumps(self.event))
+            with mock.patch.object(sys, "argv", [str(SCRIPT), "notify-sync-completion",
+                    "--event", str(event), "--report", str(report)]), \
+                 mock.patch.dict(os.environ, self.environment, clear=True), \
+                 mock.patch.object(self.module, "Github", return_value=self.github), \
+                 mock.patch.object(self.module, "run", side_effect=self.command), \
+                 mock.patch.object(self.module, "verify_checkout"), \
+                 mock.patch("sys.stdout", self.stdout):
+                if error is None:
+                    result = self.module.main()
+                else:
+                    with mock.patch.object(self.module, "notify_sync_completion", side_effect=error):
+                        result = self.module.main()
+            return result, json.loads(report.read_text())
+
+    def test_notification_cli_exposes_real_owner_guard_failure_without_dispatch(self):
+        owner_check = self.module.Github.verify_owner.__get__(self.github, self.module.Github)
+        for repository, expected in (
+                (dict(self.repo, default_branch="main"), "native_cleanup_would_bypass_guards"),
+                (dict(self.repo, id=1), "repository_ownership_mismatch"),
+                (dict(self.repo, default_branch="other"), "default_branch_changed")):
+            with self.subTest(reason=expected):
+                self.stdout = io.StringIO()
+                self.data[""] = repository
+                self.github.verify_owner = owner_check
+                code, report = self.notify_cli()
+                self.assertEqual((code, report["status"], report["error"], report["deleted"]),
+                                 (1, "blocked", expected, []))
+                self.assertEqual(self.posts, [])
+                self.assertIn("branch_cleanup_error=" + expected, self.stdout.getvalue().splitlines())
+
+    def test_notification_cli_keeps_private_exception_details_out_of_console(self):
+        private = "secret-token https://signed/private?auth=secret"
+        response = subprocess.CompletedProcess([], 1, stdout=private,
+                                               stderr="denied (HTTP 403) " + private)
+        api_error = self.module.api_failure(["gh", "api", "--method", "GET", "repos/" + FORK], response)
+        for error, expected in ((api_error, "github_api_get_repository_http_403_forbidden"),
+                               (ValueError(private), "ValueError"),
+                               (self.module.CleanupError(private), "CleanupError")):
+            with self.subTest(exception=type(error).__name__, expected=expected):
+                self.stdout = io.StringIO()
+                code, report = self.notify_cli(error)
+                self.assertEqual((code, report["status"], report["deleted"]), (1, "blocked", []))
+                self.assertEqual(self.posts, [])
+                output = self.stdout.getvalue()
+                self.assertIn("branch_cleanup_error=" + expected, output.splitlines())
+                self.assertNotIn("secret-token", output)
+                self.assertNotIn("https://signed", output)
 
     def test_one_owned_dispatch_has_typed_direct_id_and_exact_causal_receipt(self):
         receipt = self.notify()
