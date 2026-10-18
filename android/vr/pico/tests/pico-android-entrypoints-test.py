@@ -131,8 +131,13 @@ class AndroidEntrypointsTest(unittest.TestCase):
         body = activity[start:activity.index("\n    }", start)]
         self.assertIn("return true;", body)
         self.assertNotIn("Log.", body)
-        self.assertNotIn("event.getKeyCode()", body)
-        self.assertNotIn("event.getAction()", body)
+        self.assertIn("event.getKeyCode() == KeyEvent.KEYCODE_BACK", body)
+        self.assertIn("event.getAction() == KeyEvent.ACTION_DOWN", body)
+        self.assertIn("embeddedWeb.back()", body)
+        self.assertIn("PicoKeyboardPolicy.forwardToQt", body)
+        self.assertIn("return super.dispatchKeyEvent(event);", body)
+        self.assertTrue(body.rstrip().endswith("return true;"),
+                        "Unforwarded controller events must still be consumed")
 
     def test_restart_url_cannot_split_into_additional_arguments(self):
         source = WINDOW.read_text(encoding="utf-8")

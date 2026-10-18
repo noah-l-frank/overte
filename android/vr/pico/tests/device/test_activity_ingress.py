@@ -84,8 +84,13 @@ public class IngressTest {
         int getKeyboardType() { return type; }
     }
     static class KeyEvent {
+        static final int KEYCODE_BACK = 4, ACTION_DOWN = 0, ACTION_UP = 1;
         InputDevice device = new InputDevice();
         int source = InputDevice.SOURCE_KEYBOARD;
+        int keyCode = 30, action = ACTION_DOWN, repeat;
+        int getKeyCode() { return keyCode; }
+        int getAction() { return action; }
+        int getRepeatCount() { return repeat; }
         InputDevice getDevice() { return device; }
         boolean isFromSource(int value) { return (source & value) == value; }
     }
@@ -96,6 +101,12 @@ public class IngressTest {
     static class Activity extends QtBoundary {
         static final PicoActivityInstancePolicy<Activity> INSTANCE = new PicoActivityInstancePolicy<>();
         boolean resumed, focused = true;
+        boolean embeddedBackConsumed;
+        static class WebBoundary {
+            boolean consume; int backs;
+            boolean back() { ++backs; return consume; }
+        }
+        WebBoundary embeddedWeb;
         boolean hasWindowFocus() { return focused; }
 ''' + dispatch + '''
     }
@@ -119,8 +130,21 @@ public class IngressTest {
         need(replacement.dispatchKeyEvent(key) && replacement.forwarded == 1);
         key.source = InputDevice.SOURCE_KEYBOARD; key.device = null;
         need(replacement.dispatchKeyEvent(key) && replacement.forwarded == 1);
-        Activity.INSTANCE.clear(replacement);
+        key.device = new InputDevice(); key.keyCode = KeyEvent.KEYCODE_BACK;
+        replacement.embeddedWeb = new Activity.WebBoundary(); replacement.embeddedWeb.consume = true;
         need(replacement.dispatchKeyEvent(key) && replacement.forwarded == 1);
+        need(replacement.embeddedWeb.backs == 1 && replacement.embeddedBackConsumed);
+        key.repeat = 1;
+        need(replacement.dispatchKeyEvent(key) && replacement.embeddedWeb.backs == 1);
+        key.action = KeyEvent.ACTION_UP;
+        need(replacement.dispatchKeyEvent(key) && !replacement.embeddedBackConsumed);
+        key.action = KeyEvent.ACTION_DOWN; key.repeat = 0; replacement.embeddedWeb.consume = false;
+        need(!replacement.dispatchKeyEvent(key) && replacement.forwarded == 2);
+        need(replacement.embeddedWeb.backs == 2);
+        replacement.resumed = false;
+        need(replacement.dispatchKeyEvent(key) && replacement.embeddedWeb.backs == 2);
+        Activity.INSTANCE.clear(replacement);
+        need(replacement.dispatchKeyEvent(key) && replacement.forwarded == 2);
     }
 }
 ''')

@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Whole production Qt5 item/QML and real JVM JNI; Android WebView is a declared boundary."""
+"""Retained legacy Qt5 surface/item and real JNI, independent of the selected
+hardware world route exercised by pico-embedded-web-test.py. Android WebView is
+an explicit endpoint; this does not establish current world/video acceptance.
+"""
 import os
 from pathlib import Path
 import shlex
@@ -33,7 +36,7 @@ class LegacyWebQtTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="pico-legacy-qt-jni-") as temporary:
             stage = Path(temporary)
             source = SOURCE
-            qml = ROOT / "interface/resources/qml/+android_picoInterface/Web3DSurface.qml"
+            qml = ROOT / "interface/resources/qml/+android_picoInterface/PicoLegacyWebSurface.qml"
             original = os.environ.get("OVERTE_PICO_EDITOR_ORIGINAL") == "1"
             if original:
                 source = stage / "original/src/PicoWebViewItem.cpp"
@@ -147,10 +150,14 @@ int main(int argc,char** argv) {
     root->setParentItem(window.contentItem()); window.show();
     root->setWidth(640); root->setHeight(600); settle();
     auto* item=root->findChild<PicoWebViewItem*>(); assert(item && item->rendering());
+#ifdef PICO_EDITOR_TEST
+    assert(root->property("item").value<QObject*>()==item);
+#else
     auto* legacy=root->property("item").value<QObject*>(); assert(legacy);
     // Genuine original caller failure: the legacy item property remains null,
     // so the outer production surface cannot unfocus or inspect its native editor.
     assert(legacy->property("item").value<QObject*>()==item);
+#endif
     jlong handle=env->GetStaticLongField(peer,field("handle","J"));
     jlong epoch=env->GetStaticLongField(peer,field("epoch","J")); assert(handle>0 && epoch>0);
     std::vector<uint32_t> pixels(64*64,0xff44aa22);
@@ -180,15 +187,14 @@ int main(int argc,char** argv) {
     QCoreApplication::sendEvent(item,&down); QCoreApplication::sendEvent(item,&up);
     assert(item->hasActiveFocus() && env->GetStaticIntField(peer,field("pointers","I"))==2);
     editor(handle,epoch,++revision,true,false,false);
-    assert(item->editorFocused() && root->property("keyboardRaised").toBool());
-    assert(!root->property("punctuationMode").toBool() && !root->property("passwordField").toBool());
-    assert(item->height()==420);
+    assert(item->editorFocused() && !item->editorNumeric() && !item->editorPassword());
+    assert(item->height()==600); // Standalone retained surface has no selected HMD keyboard wrapper.
     editor(handle,epoch,++revision,true,true,true);
-    assert(root->property("punctuationMode").toBool() && root->property("passwordField").toBool());
+    assert(item->editorNumeric() && item->editorPassword());
     int beforeSignals=editorSignals;
     editor(handle,epoch,revision-1,false,false,false);
     editor(handle,epoch-1,revision+10,false,false,false);
-    assert(editorSignals==beforeSignals && root->property("keyboardRaised").toBool());
+    assert(editorSignals==beforeSignals && item->editorFocused());
     QInputMethodEvent textEvent; textEvent.setCommitString(QString::fromUtf8("Unicode \xc3\x84\xf0\x9f\x99\x82"));
     QCoreApplication::sendEvent(item,&textEvent);
     int edits=env->GetStaticIntField(peer,field("edits","I")); assert(edits==2);
@@ -206,9 +212,9 @@ int main(int argc,char** argv) {
     QKeyEvent backspace(QEvent::KeyPress,Qt::Key_Backspace,Qt::NoModifier); QCoreApplication::sendEvent(item,&backspace);
     assert(env->GetStaticIntField(peer,field("key","I"))==67);
     editor(handle,epoch,++revision,false,false,false);
-    assert(!root->property("keyboardRaised").toBool() && item->height()==600);
+    assert(!item->editorFocused() && item->height()==600);
     item->forceActiveFocus(); editor(handle,epoch,++revision,true,false,true);
-    root->setProperty("keyboardRaised",false); settle();
+    item->unfocus(); settle();
     assert(!item->hasActiveFocus() && !item->editorFocused());
     item->forceActiveFocus(); editor(handle,epoch,++revision,true,false,false);
     const jlong replacedHandle=handle, replacedEpoch=epoch;
@@ -216,17 +222,17 @@ int main(int argc,char** argv) {
     root->setProperty("url","data:text/html,<textarea></textarea>"); settle();
     assert(replacedItem.isNull()); // the real legacy loader replaces its native item
     item=root->findChild<PicoWebViewItem*>(); assert(item && item->rendering());
-    assert(!root->property("keyboardRaised").toBool());
+    assert(!item->editorFocused());
     editor(replacedHandle,replacedEpoch,++revision,true,true,true);
-    assert(!root->property("keyboardRaised").toBool()); // dead source handle is fenced
+    assert(!item->editorFocused()); // dead source handle is fenced
     handle=env->GetStaticLongField(peer,field("handle","J"));
     epoch=env->GetStaticLongField(peer,field("epoch","J"));
     item->forceActiveFocus(); editor(handle,epoch,++revision,true,false,false);
-    assert(root->property("keyboardRaised").toBool());
+    assert(item->editorFocused());
 #endif
     root->setVisible(false); assert(!item->rendering()); frame(handle,epoch);
 #ifdef PICO_EDITOR_TEST
-    assert(!item->editorFocused() && !root->property("keyboardRaised").toBool());
+    assert(!item->editorFocused());
 #endif
     assert(item->frameImage().isNull() && item->frameSource().isEmpty()); settle();
     assert(!env->GetStaticBooleanField(peer,field("visible","Z")));
