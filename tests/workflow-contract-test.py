@@ -229,7 +229,7 @@ def assert_project_caller_routing(case, source):
     """Finite successors bind their whole generation and exact project route."""
     templates = (
         ('tools/repository-checks/workflows/npm-consumers/repository-checks.yml',
-         ('npm-consumers-v1', 'npm-consumers-sync-ci-v1'), False),
+         ('npm-consumers-v1', 'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1'), False),
         ('tools/repository-checks/workflows/metadata-edits/repository-checks.yml',
          ('npm-consumers-metadata-edits-v1',), True),
         ('tools/repository-checks/workflows/android-owned/repository-checks.yml',
@@ -1736,7 +1736,8 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
         workflow = yaml.safe_load(SYNC_VALIDATION_WORKFLOW.read_text())
         steps = workflow['jobs']['validate']['steps']
         installs = [(index, step) for index, step in enumerate(steps)
-                    if 'apt-get' in step.get('run', '') and 'install' in step['run']]
+                    if 'apt-get' in step.get('run', '') and 'install' in step['run']
+                    and step.get('name') != 'Install selected artifact namespace utility']
         self.assertEqual(len(installs), 1, 'Both paths must share one prerequisite installation')
         index, install = installs[0]
         self.assertEqual(install['if'], sync_condition(
@@ -1748,6 +1749,17 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
                       if step.get('name') == 'Verify exact candidate suites and complete runtime identity']
         self.assertEqual(len(executions), 1, 'Reuse and fallback share one trusted execution controller')
         self.assertLess(index, executions[0])
+        namespace = [(i, step) for i, step in enumerate(steps)
+                     if step.get('name') == 'Install selected artifact namespace utility']
+        self.assertEqual(len(namespace), int(reviewed_package_generation() in (
+            'npm-consumers-sync-ci-budget-v1', 'protected-producer-original-default-v1')))
+        if namespace:
+            utility_index, utility = namespace[0]
+            self.assertEqual(utility['if'], "steps.select.outputs.requires_artifact_namespace == 'true'")
+            self.assertEqual(utility['env'], {'FULL_HOST': '${{ steps.select.outputs.full_host }}'})
+            self.assertIn('bubblewrap', utility['run'].split())
+            self.assertLess(index, utility_index)
+            self.assertLess(utility_index, executions[0])
         self.assertEqual(steps[executions[0]]['if'], sync_condition(
             "inputs.mode == 'fallback' || (inputs.profile != 'documentation' && inputs.profile != 'tool-dependencies')", "steps.select.outputs.lane != 'legacy-bounded'"))
 
@@ -1843,7 +1855,8 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
         upload = next(step for step in steps if step['name'] == 'Upload immutable qualification evidence')
         canonical = (ROOT / 'tools/repository-checks/workflows/host/parent-qualification.yml').read_text()
         protected = (ROOT / 'tools/repository-checks/workflows/producers/parent-qualification.yml').read_text()
-        if source in (canonical, protected, platform):
+        budget_owner = reviewed_package_generation() == 'npm-consumers-sync-ci-budget-v1'
+        if source in (canonical, protected, platform) or budget_owner:
             protected_owner = source == protected or platform_owner
             if protected_owner:
                 self.assertIn(reviewed_package_generation(), METADATA_PRODUCER_GENERATIONS)
@@ -1913,7 +1926,9 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
         self.assertEqual(product['if'], sync_condition(
             "inputs.mode == 'fallback' || (inputs.profile != 'documentation' && inputs.profile != 'tool-dependencies')", "steps.select.outputs.lane != 'legacy-bounded'"))
         for step in steps:
-            if 'apt-get' in step.get('run', '') or step.get('name') == 'Set up candidate Java':
+            if step.get('name') == 'Install selected artifact namespace utility':
+                self.assertEqual(step['if'], "steps.select.outputs.requires_artifact_namespace == 'true'")
+            elif 'apt-get' in step.get('run', '') or step.get('name') == 'Set up candidate Java':
                 self.assertEqual(step['if'], sync_condition(
                     "inputs.mode == 'fallback' || (inputs.profile != 'documentation' && inputs.profile != 'tool-dependencies')", "steps.select.outputs.full_host == 'true'", setup=True))
             elif step.get('name') == 'Prepare isolated shared and product Python validators':
