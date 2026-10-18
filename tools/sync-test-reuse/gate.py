@@ -1153,9 +1153,31 @@ def _empty_sync_invocation(controller, adapter, references, environment):
         and suite.get('repository',{}).get('id')==1319052603 and suite.get('app',{}).get('id')==15368,
         'empty sync native check suite is foreign')
     jobs = adapter._pages(f'actions/runs/{run_id}/attempts/1/jobs','jobs')
-    A.require(len(jobs)==1 and jobs[0].get('name')=='Validate exact synchronization',
-        'empty sync native job inventory is incomplete or ambiguous')
-    job = adapter._job(jobs[0],attempt,15368,final_name='Validate exact synchronization')
+    if _callback_sync_recipe():
+        A.require(all(type(row) is dict and type(row.get('id')) is int and row['id']>0 for row in jobs)
+            and len({row['id'] for row in jobs})==len(jobs),
+            'empty callback sync native job identities are invalid or duplicated')
+        names = [row.get('name') for row in jobs]
+        A.require(len(jobs) in (1,2) and len(set(names))==len(jobs)
+            and set(names) in ({'Validate exact synchronization'},
+                {'Validate exact synchronization','Notify completed synchronization cleanup'}),
+            'empty callback sync native roles are incomplete or ambiguous')
+        notifier = [row for row in jobs if row.get('name')=='Notify completed synchronization cleanup']
+        if notifier:
+            item = notifier[0]
+            A.require(type(item.get('id')) is int and item['id']>0
+                and type(item.get('run_id')) is int and item['run_id']==run_id
+                and type(item.get('run_attempt')) is int and item['run_attempt']==1
+                and item.get('head_sha')==source
+                and item.get('status') in {'queued','waiting','pending','requested'}
+                and item.get('conclusion') is item.get('started_at') is item.get('completed_at') is None
+                and item.get('steps')==[], 'empty sync notifier is not needs-blocked')
+        validator = next(row for row in jobs if row.get('name')=='Validate exact synchronization')
+    else:
+        A.require(len(jobs)==1 and jobs[0].get('name')=='Validate exact synchronization',
+            'empty sync native job inventory is incomplete or ambiguous')
+        validator = jobs[0]
+    job = adapter._job(validator,attempt,15368,final_name='Validate exact synchronization')
     A.require((job.status,job.conclusion)==('in_progress',None) and job.completed_at is None
         and controller.P._time(attempt.get('run_started_at'))<=controller.P._time(job.started_at)
         <=datetime.now(timezone.utc), 'empty sync native job is not currently executing')
@@ -1514,7 +1536,109 @@ def _dispatch_source(api, config, repository, checkout_source):
             or workflow.get("path") != ".github/workflows/sync-validation.yml"
             or workflow.get("name") != "Sync validation" or workflow.get("state") != "active"):
         raise GateError("validation dispatch repository, protected source or workflow changed")
+    _callback_sync_recipe()  # Complete ordinary source tuple must be known before the only POST.
     return prefix
+
+
+CALLBACK_SYNC_RECIPE_ENTRIES = ({'mode': '100644', 'type': 'blob', 'sha': 'ccc75d37c4f8b5012299bf864bf48dd45ead389b'}, {'mode': '100644', 'type': 'blob', 'sha': '747bd6424d1e9b533ae35a81b524ceefc06b286b'})
+
+
+def _callback_sync_recipe():
+    """Classify only an ordinary, complete trusted-catalog Sync recipe."""
+    try:
+        tree = suite_inputs.full_tree(ROOT, 'HEAD')
+        generation = package_checks.validate_tree_wiring(tree)
+        rows = [row for row in package_checks.workflow_generations() if row['name'] == generation]
+        if len(rows) != 1:
+            raise ValueError('trusted source generation is not unique')
+        entry = rows[0]['workflows']['.github/workflows/sync-validation.yml']
+        if tree.get('.github/workflows/sync-validation.yml') != entry:
+            raise ValueError('trusted complete Sync recipe changed')
+    except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError) as error:
+        raise GateError('native synchronization workflow has no exact complete trusted recipe') from error
+    return entry in CALLBACK_SYNC_RECIPE_ENTRIES
+
+
+def _dispatch_terminal_roles(api, prefix, run, source):
+    """Validator success is mandatory; notifier result is administrative data."""
+    response = api.json(f"{prefix}/actions/runs/{run['id']}/attempts/1/jobs?per_page=100")
+    if (not isinstance(response, dict) or type(response.get('total_count')) is not int
+            or response['total_count'] != 2 or not isinstance(response.get('jobs'), list)
+            or len(response['jobs']) != 2 or not all(isinstance(job, dict) for job in response['jobs'])
+            or {job.get('name') for job in response['jobs']} != {
+                'Validate exact synchronization', 'Notify completed synchronization cleanup'}
+            or len({job.get('id') for job in response['jobs']}) != 2):
+        raise GateError('validation callback generation requires its exact two native roles')
+    roles = {}
+    for job in response['jobs']:
+        identifier = job.get('id')
+        if (type(identifier) is not int or identifier <= 0
+                or type(job.get('run_id')) is not int or job['run_id'] != run['id']
+                or type(job.get('run_attempt')) is not int or job['run_attempt'] != 1
+                or job.get('head_sha') != source or job.get('status') != 'completed'
+                or job.get('url') != f'{prefix.replace("repos/", "https://api.github.com/repos/", 1)}/actions/jobs/{identifier}'
+                or job.get('html_url') != f'https://github.com/noah-l-frank/overte/actions/runs/{run["id"]}/job/{identifier}'):
+            raise GateError('validation callback native job source or identity changed')
+        check_url = job.get('check_run_url')
+        match = (re.fullmatch(r'https://api\.github\.com/repos/noah-l-frank/overte/check-runs/([1-9][0-9]*)', check_url)
+                 if type(check_url) is str else None)
+        if match is None:
+            raise GateError('validation callback native job check URL changed')
+        check = api.json(prefix + '/check-runs/' + match[1])
+        if (not isinstance(check, dict) or type(check.get('id')) is not int
+                or check['id'] != int(match[1]) or check['id'] != identifier
+                or check.get('head_sha') != source
+                or check.get('name') != job['name'] or check.get('status') != 'completed'
+                or check.get('conclusion') != job.get('conclusion')
+                or not isinstance(check.get('app'), dict) or type(check['app'].get('id')) is not int
+                or check['app']['id'] != 15368
+                or not isinstance(check.get('check_suite'), dict)
+                or type(check['check_suite'].get('id')) is not int
+                or check['check_suite']['id'] != run['check_suite_id']
+                or check.get('details_url') != job['html_url']
+                or not {'started_at','completed_at'} <= set(job) & set(check)
+                or check.get('started_at') != job.get('started_at')
+                or check.get('completed_at') != job.get('completed_at')):
+            raise GateError('validation callback native job check or App changed')
+        not_started = (job['name'] == 'Notify completed synchronization cleanup'
+            and job.get('conclusion') in {'failure','cancelled','skipped','timed_out','startup_failure'}
+            and job.get('started_at') is None and job.get('steps') == [])
+        try:
+            if not_started:
+                if job.get('completed_at') is not None:
+                    parse_time(job['completed_at'], 'unstarted notification completion')
+            elif parse_time(job.get('started_at'), 'native callback job start') > parse_time(
+                    job.get('completed_at'), 'native callback job completion'):
+                raise EvidenceError('native callback job chronology is reversed')
+        except EvidenceError as error:
+            raise GateError('validation callback native job chronology is invalid') from error
+        roles[job['name']] = job
+    validator = roles['Validate exact synchronization']
+    if validator.get('conclusion') != 'success':
+        raise GateError('validation workload did not succeed')
+    notifier = roles['Notify completed synchronization cleanup']
+    if notifier.get('conclusion') not in {
+            'success', 'failure', 'cancelled', 'skipped', 'timed_out', 'neutral', 'action_required', 'startup_failure'}:
+        raise GateError('validation cleanup notification native result is unknown')
+    steps = notifier.get('steps')
+    if not isinstance(steps, list) or not all(isinstance(step, dict) for step in steps):
+        raise GateError('validation cleanup notification native steps are unknown')
+    dispatch = [step for step in steps if step.get('name') == 'Dispatch exact synchronization completion']
+    if len(dispatch) > 1 or any(step.get('status') != 'completed'
+            or step.get('conclusion') not in {'success', 'failure', 'cancelled', 'skipped',
+                'timed_out', 'neutral', 'action_required', 'startup_failure'} for step in dispatch):
+        raise GateError('validation cleanup notification native dispatch step is ambiguous')
+    if not dispatch and notifier['conclusion'] not in {'failure', 'cancelled', 'timed_out', 'startup_failure', 'skipped'}:
+        raise GateError('successful validation cleanup notifier omitted its actual dispatch step')
+    # No cleanup conclusion or receipt grants test/qualification authority.
+    # A tolerated administrative failure stays explicit and observable.
+    value = {'run_id': run['id'], 'job_id': notifier['id'], 'status': notifier['status'],
+        'conclusion': notifier['conclusion'], 'qualification': False,
+        'execution_state': 'not-started' if notifier.get('started_at') is None else 'executed',
+        'dispatch_step': ({key: dispatch[0].get(key) for key in ('name', 'status', 'conclusion')}
+                          if dispatch else None)}
+    print('sync_cleanup_notification=' + json.dumps(value, sort_keys=True, separators=(',', ':')))
+    return value
 
 
 def _dispatch_run(value, run_id, source, correlation, *, allow_pending=False, endpoint="run", known_suite_id=None):
@@ -1617,6 +1741,8 @@ def _dispatch_native(api, prefix, run, source, correlation, identity, *, allow_p
         raise _DispatchRegistrationPending(f"validation registration incomplete (endpoint=check-suite; fields={fields})", run["check_suite_id"])
     if run["status"] == "completed" and (attempt.get("status"), attempt.get("conclusion")) != ("completed", "success"):
         raise GateError("validation terminal native attempt did not succeed (endpoint=attempts/1; fields=status/conclusion)")
+    if run['status'] == 'completed' and _callback_sync_recipe():
+        _dispatch_terminal_roles(api, prefix, run, source)
 
 
 def dispatch_and_wait(args: argparse.Namespace) -> int:
