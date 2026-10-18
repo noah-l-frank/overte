@@ -1634,13 +1634,17 @@ the policy governance tests remain required. Additions, removals, aliases, mode
 changes, older or unknown workflow/configuration, other JSON, YAML, package
 locks and mixed JavaScript inputs keep their existing conservative owners.
 
-The same pinned generation admits four further existing ordinary
+The same pinned generation admits five further existing ordinary
 `100644` metadata leaves: `.github/branch-cleanup.json`, `.github/issue-policy.json`,
-`.github/repository-health.json` and `.github/dependency-releases.json`. Only when
-both immutable trees use the exact pinned workflow and unchanged configuration
-do these leaves contribute no CodeQL language. Neither pinned extractor reads
-these generic JSON files, and no candidate generator runs during the fixed
-no-build analysis. Their governance and functional tests remain required.
+`.github/repository-health.json`, `.github/dependency-releases.json` and
+`.github/package-workflow-generations.json`. Only when both immutable trees use
+the exact pinned workflow and unchanged configuration do these leaves contribute
+no CodeQL language. The JavaScript discovery filter excludes their exact generic
+JSON names; header classification does not extract them. Python discovers
+modules, and the fixed no-build analysis executes no candidate policy consumers
+or generators. The generation catalog remains trusted rollout policy with all
+its required governance and functional checks; this rule grants no runtime,
+source-admission, security-result or receipt authority.
 Mixed Python, JavaScript, package or analysis-control changes retain their
 existing language owners. Unknown siblings, additions, deletions, renames,
 aliases, mode changes and query-pack inputs cannot inherit this exception.
@@ -1694,3 +1698,35 @@ The legacy host CLI stops after a selected suite fails. Its partial report names
 only executed suites; unexecuted suites cannot acquire passing evidence. A
 successful run still executes every selected suite in its original order with
 the same per-suite deadlines and cancellation handling.
+
+
+Linux ArtifactIdentity execution uses the fixed `tests/device/run_artifact_identity.py`
+child from the full Device owner. It runs the same unittest discovery and real SBOM
+validators in a read-only source projection without the iOS cache leaves, checkout
+metadata or outer workspace. The full Device driver and every Python CLI child use
+isolated startup without `site` or `.pth` execution; explicit prepared package roots
+retain the validators and their schema/license resources. Missing confinement fails
+the owner, with no unconfined or skipped-test fallback. Other Device commands and
+non-Linux ArtifactIdentity execution retain their existing behavior.
+
+This execution boundary does not qualify compiler checkpoints or establish a warm
+cache result. The iOS cache owner remains required, and any narrow input omission
+still requires the complete source/lookup comparison against the actual protected
+iOS target and its admitted native execution profile.
+
+The protected evidence producer runs the selected `test-evidence` and
+`host-selection` suites concurrently, once each, in separate kernel scopes with
+their own guardian, private scratch space and 240-second limit. Either failure
+still fails the host result; cancellation and cleanup cover both scopes. The
+pair is fixed in the trusted producer and retains registry order in JUnit.
+Ordinary project-test commands remain serial. The scheduler controller bytes
+are part of the execution identity, so evidence from the previous serial
+controller cannot be reused for this execution.
+
+The existing manual Shared sandbox host diagnostic, profile `boundary`, also
+checks the pair against real kernel controls: private descriptors and
+namespaces, cancellation with detached descendants in both scopes, and an
+actual supervisor SIGKILL followed by both guardians observing controller EOF.
+The before/after probe requires every scope to be empty. This diagnostic is
+an acceptance check, carries no reusable PR evidence authority, and does not
+run on ordinary PR events.
