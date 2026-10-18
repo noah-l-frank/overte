@@ -1123,7 +1123,7 @@ def legacy_common_fallback(context, event, environment, adapter, *, report):
         if context['binding']['base_ref'] in {'android-main', 'android-vr'} else 'Shared tests')) \
         if 'integration' in context else (lambda: current_run(context, adapter, 'shared'))
     native()
-    target = context['binding']['base_ref']
+    target = context['binding']['base_ref'] if 'integration' in context else None
     if 'integration' in context and target in {'android-main', 'android-vr'} \
             and environment.get('GITHUB_EVENT_NAME') == 'push' \
             and environment.get('GITHUB_JOB') == 'common-parent' \

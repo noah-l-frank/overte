@@ -1149,7 +1149,7 @@ class RetainedIntegratedFakeApi(IntegratedFakeApi):
             common = {'run_attempt':1,'repository':{'id':1319052603,'full_name':A.REPOSITORY},
                 'head_repository':{'id':1319052603,'full_name':A.REPOSITORY},
                 'status':'completed','conclusion':'success','updated_at':when}
-            ordinary = {**common,'id':ordinary_id,'workflow_id':99,'check_suite_id':ordinary_id+1000,
+            ordinary = {**common,'id':ordinary_id,'run_number':ordinary_id,'workflow_id':99,'check_suite_id':ordinary_id+1000,
                 'event':'pull_request','path':case.policy.caller_path,'head_sha':head,
                 'head_branch':detail['head']['ref'],'display_title':A.ORDINARY_RUN_NAME,
                 'run_started_at':'2026-10-15T10:04:50Z','pull_requests':[],
