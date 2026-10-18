@@ -246,7 +246,9 @@ tasks.register('preparePhoneQtRuntime', Sync) {
     from(new File(qtPackageDir, 'plugins/bearer')) {
         include "libplugins_bearer_qandroidbearer_${qtAbiSuffix}.so"
     }
+    // Native Snapshot review uses AnimatedImage for the captured GIF preview.
     from(new File(qtPackageDir, 'plugins/imageformats')) {
+        include "libplugins_imageformats_qgif_${qtAbiSuffix}.so"
         include "libplugins_imageformats_qjpeg_${qtAbiSuffix}.so"
         include "libplugins_imageformats_qsvg_${qtAbiSuffix}.so"
     }

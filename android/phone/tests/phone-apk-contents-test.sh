@@ -88,7 +88,8 @@ for item in ElementTree.parse(dependency_xml).findall(
     packaged_path = pathlib.PurePosixPath(item.text.split(':', 1)[0])
     marker = packaged_path if packaged_path.name == 'qmldir' else packaged_path / 'qmldir'
     declared_asset_markers.add('assets/' + marker.as_posix())
-assert len(declared_libraries) == 21
+assert len(declared_libraries) == 22
+assert 'lib/arm64-v8a/libplugins_imageformats_qgif_arm64-v8a.so' in declared_libraries
 assert 'lib/arm64-v8a/libqml_QtQuick.2_qtquick2plugin_arm64-v8a.so' in declared_libraries
 assert len(declared_asset_markers) == 12
 assert 'assets/qml/QtQuick.2/qmldir' in declared_asset_markers
