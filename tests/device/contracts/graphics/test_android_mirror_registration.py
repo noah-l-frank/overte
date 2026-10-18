@@ -50,6 +50,7 @@ class AndroidMirrorRegistration(unittest.TestCase):
 struct MirrorInputs {
     int mirrors, framebuffer;
     MirrorInputs(int m, int f) : mirrors(m), framebuffer(f) {}
+    MirrorInputs asVarying() const { return *this; }
 };
 struct RenderMirrorTask {
     using Inputs = MirrorInputs;
