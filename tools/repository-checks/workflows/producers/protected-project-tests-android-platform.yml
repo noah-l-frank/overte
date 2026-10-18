@@ -500,6 +500,19 @@ jobs:
         python3 --version
         node --version
         java -version
+    - name: Install selected artifact namespace utility
+      if: steps.protected.outputs.protected_executed != 'true' && steps.host.outputs.requires_artifact_namespace == 'true'
+      env:
+        FULL_HOST: ${{ steps.host.outputs.full_host }}
+      run: |
+        set -euo pipefail
+        if ! test -x /usr/bin/bwrap; then
+          if test "$FULL_HOST" != true; then
+            sudo apt-get -o Acquire::Retries=4 update
+          fi
+          sudo apt-get -o Acquire::Retries=4 install --no-install-recommends -y bubblewrap
+        fi
+        test -x /usr/bin/bwrap
     - name: Prepare isolated host evidence validators
       env:
         GH_TOKEN: ''
