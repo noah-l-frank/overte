@@ -17,6 +17,11 @@ import subprocess
 import importlib.util
 from types import SimpleNamespace
 
+# Partial hosted execution uses plain Python, outside the isolated producer.
+# Keep both this supervisor and its commands from changing immutable imports.
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/test-evidence'))
 import execution

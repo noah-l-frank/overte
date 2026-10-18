@@ -1802,5 +1802,40 @@ class LeafOriginalExecutionTests(unittest.TestCase):
                     self.assertIn('platform-contract',[suite[0] for suite in runner.run_suites.call_args.args[1]])
 
 
+class HostImportHygieneTests(unittest.TestCase):
+    def test_plain_entrypoint_and_inherited_commands_preserve_the_immutable_import_tree(self):
+        # The hosted partial fallback invokes Python without -B. Exercise real
+        # imports in a fresh process, including a child, with no ambient opt-out.
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entry = root/'tools/repository-checks/host_selection.py'
+            entry.parent.mkdir(parents=True)
+            entry.write_bytes((ROOT/'tools/repository-checks/host_selection.py').read_bytes())
+            modules = root/'tools/test-evidence'
+            modules.mkdir()
+            for name in ('execution.py', 'inputs.py', 'runtime.py'):
+                (modules/name).write_bytes((ROOT/'tools/test-evidence'/name).read_bytes())
+            wrapper = '''
+import os, runpy, subprocess, sys
+from pathlib import Path
+os.environ.pop('PYTHONDONTWRITEBYTECODE', None)
+os.environ.pop('PYTHONPYCACHEPREFIX', None)
+entry = Path(sys.argv[1])
+sys.argv = [str(entry), '--help']
+try:
+    runpy.run_path(str(entry), run_name='__main__')
+except SystemExit as error:
+    if error.code not in (None, 0):
+        raise
+subprocess.run([sys.executable, '-S', '-c', 'import execution, inputs'],
+    cwd=entry.parents[1]/'test-evidence', check=True)
+'''
+            result = subprocess.run([sys.executable, '-I', '-S', '-c', wrapper, str(entry)],
+                capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(list(root.rglob('__pycache__')), [])
+
+
 if __name__=='__main__':
     unittest.main()
