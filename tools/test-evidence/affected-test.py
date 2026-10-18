@@ -404,10 +404,10 @@ class ShippingPolicyTests(unittest.TestCase):
         self.assertTrue(inputs.AFFECTED_AUTHORITY <= tree.keys())
         for subjects in inputs._AFFECTED_SUBJECTS.values():self.assertTrue(set(subjects) <= tree.keys())
         # Installed workflow authority changes only through a complete enrolled
-        # tuple, exactly as shipping_context overlays the reviewed templates.
+        # tuple, exactly as shipping_context restores the actual installed S.
         generations=json.loads((root/'.github/package-workflow-generations.json').read_bytes())['generations']
         accepted={'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1','android-owned-npm5-sync-ci-v1',
-                  'protected-producer-original-default-v1'}
+                  'protected-producer-original-default-v1','protected-producer-original-default-boolean-v1'}
         matches=[row['workflows'] for row in generations if row['name'] in accepted
                  and all(source.get(path)==entry for path,entry in row['workflows'].items())]
         self.assertEqual(len(matches),1)
@@ -453,27 +453,30 @@ class ShippingPolicyTests(unittest.TestCase):
         previous_rows=[row['workflows'] for row in generations if row['name'] in {
             'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1','android-owned-npm5-sync-ci-v1'}]
         previous=next(row['workflows'] for row in generations if row['name']=='npm-consumers-sync-ci-v1')
-        future=next((row['workflows'] for row in generations
-            if row['name']=='protected-producer-original-default-v1'),None)
-        if future is None:
-            future=next(row['workflows'] for row in generations if row['name']=='protected-producer-seven-target-ci-v1')
+        installed=[row for row in generations if row['name'] in {
+            'protected-producer-original-default-v1','protected-producer-original-default-boolean-v1'}]
+        if not installed:
+            installed=[row for row in generations if row['name']=='protected-producer-seven-target-ci-v1']
         endpoint='.github/workflows/pr-metadata-context.yml'
-        approved=[future] if endpoint in tree else previous_rows
-        matches=[row for row in approved if row is not None and all(tree.get(path)==entry for path,entry in row.items())]
+        approved=[row['workflows'] for row in installed] if endpoint in tree else previous_rows
+        matches=[row for row in approved if all(tree.get(path)==entry for path,entry in row.items())]
         self.assertEqual(len(matches),1,'source must match one complete reviewed current or installed tuple')
-        if endpoint not in tree:previous=matches[0]
-        enrolled22=any(row['name']=='protected-producer-original-default-v1' for row in generations)
-        codeql=blob((root/'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml').read_bytes())['sha'] \
-            if endpoint in tree and enrolled22 else '3a273057a38255ca368d3028594fb94227ba7c3b' if endpoint in tree \
-            else '6d55d0fe4e9edc86204c66e1fa3967681793a2cd'
-        self.assertEqual(tree['.github/workflows/codeql.yml']['sha'],codeql)
+        if endpoint not in tree:
+            previous=matches[0]
+            codeql='6d55d0fe4e9edc86204c66e1fa3967681793a2cd'
+        else:
+            actual=next(row for row in installed if row['workflows']==matches[0])
+            codeql={'protected-producer-original-default-v1':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1',
+                'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
+                'protected-producer-seven-target-ci-v1':'3a273057a38255ca368d3028594fb94227ba7c3b'}[actual['name']]
+        self.assertEqual(tree['.github/workflows/codeql.yml'],dict(mode='100644',type='blob',sha=codeql))
         tree.update(deepcopy(previous));tree.pop(endpoint,None)
         tree['.github/workflows/codeql.yml']=dict(mode='100644',type='blob',
             sha='6d55d0fe4e9edc86204c66e1fa3967681793a2cd')
         return root,registry,raw,tree
 
     def shipping_context(self):
-        """Use the actual complete prospective installed S, not source-only B.
+        """Use the actual complete installed S, not source-only B.
 
         The native inventory includes the new reusable workflow's membership.
         Its protected certificate must already name S; this fixture never
@@ -484,8 +487,13 @@ class ShippingPolicyTests(unittest.TestCase):
         historical=next(row['workflows'] for row in generations if row['name']=='protected-producer-seven-target-ci-v1')
         self.assertEqual(historical['.github/workflows/repository-checks.yml']['sha'],
             'd9fefd275d9e3c6977cf9350a1945a6bbe5051b4')
-        future=next((row['workflows'] for row in generations
-            if row['name']=='protected-producer-original-default-v1'),None)
+        actual=inputs.full_tree(root,'HEAD')
+        installed=[row for row in generations if row['name'] in {
+            'protected-producer-original-default-v1','protected-producer-original-default-boolean-v1'}
+            and all(actual.get(path)==entry for path,entry in row['workflows'].items())]
+        self.assertEqual(len(installed),1,'installed S must be its actual complete old or Boolean tuple')
+        installed=installed[0]
+        future=installed['workflows']
         templates={
             '.github/workflows/project-tests.yml':'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
             '.github/workflows/parent-qualification.yml':'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml',
@@ -497,11 +505,15 @@ class ShippingPolicyTests(unittest.TestCase):
         self.assertEqual(set(historical),set(templates))
         if future is not None:self.assertEqual(set(future),set(templates))
         for path,template in templates.items():
-            expected=blob((root/template).read_bytes())
-            if future is not None:self.assertEqual(future[path],expected,path)
+            if (installed['name']=='protected-producer-original-default-v1'
+                    and path=='.github/workflows/repository-checks.yml'):
+                expected=dict(mode='100644',type='blob',sha='81bcf1933edc435826e2de411a777cccd4dec7c7')
+            else:
+                expected=blob((root/template).read_bytes())
+            self.assertEqual(future[path],expected,path)
+            self.assertEqual(actual.get(path),expected,path)
             tree[path]=dict(expected)
-        tree['.github/workflows/codeql.yml']=blob(
-            (root/'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml').read_bytes())
+        tree['.github/workflows/codeql.yml']=dict(actual['.github/workflows/codeql.yml'])
         if future is not None and tree['tests/platform-profile.json']!=inputs._AFFECTED_SHARED_PROFILE:
             # Source13 keeps all original owners. Only the installed Android S
             # fixture applies the separately reviewed exact seven-file handoff.
@@ -561,6 +573,33 @@ class ShippingPolicyTests(unittest.TestCase):
         sealed=(json.dumps(policy,indent=2)+'\n').encode()
         tree[inputs.AFFECTED_POLICY]=blob(sealed)
         return root,registry,sealed,tree
+
+    def test_source_and_shipping_fixtures_bind_the_actual_deployed_boolean_variant(self):
+        root=Path(__file__).resolve().parents[2]
+        actual=inputs.full_tree(root,'HEAD')
+        generations=json.loads((root/'.github/package-workflow-generations.json').read_bytes())['generations']
+        for name,codeql in (
+                ('protected-producer-original-default-v1','e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'),
+                ('protected-producer-original-default-boolean-v1','3b7a88765b7181a1bc7dd6f48b9b459e590055d3')):
+            variant=deepcopy(actual)
+            row=next(row['workflows'] for row in generations if row['name']==name)
+            variant.update(deepcopy(row))
+            variant['.github/workflows/codeql.yml']=dict(mode='100644',type='blob',sha=codeql)
+            with self.subTest(name=name),patch.object(inputs,'full_tree',side_effect=lambda *_:deepcopy(variant)):
+                _,_,_,before=self.source_context()
+                self.assertNotIn('.github/workflows/pr-metadata-context.yml',before)
+                self.assertEqual(before['.github/workflows/codeql.yml']['sha'],
+                    '6d55d0fe4e9edc86204c66e1fa3967681793a2cd')
+                _,_,_,installed=self.shipping_context()
+                for path,entry in row.items():self.assertEqual(installed[path],entry)
+                self.assertEqual(installed['.github/workflows/codeql.yml'],variant['.github/workflows/codeql.yml'])
+            variant['.github/workflows/codeql.yml']['sha']='f'*40
+            with self.subTest(name=name,invalid='CodeQL'),patch.object(inputs,'full_tree',side_effect=lambda *_:deepcopy(variant)), \
+                    self.assertRaises(AssertionError):self.source_context()
+            variant['.github/workflows/codeql.yml']['sha']=codeql
+            variant['.github/workflows/browser-client.yml']['sha']='f'*40
+            with self.subTest(name=name,invalid='mixed tuple'),patch.object(inputs,'full_tree',side_effect=lambda *_:deepcopy(variant)), \
+                    self.assertRaises(AssertionError):self.source_context()
 
     def test_shipping_five_controller_case_omits_device_without_running_any_suite(self):
         root,registry,raw,base=self.shipping_context()
