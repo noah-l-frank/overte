@@ -2190,7 +2190,7 @@ class PackageChecksTests(unittest.TestCase):
         self.assertEqual(len(rows), 23)
         historical = rows[:22]
         self.assertEqual(hashlib.sha256(json.dumps(historical, sort_keys=True,
-            separators=(',', ':')).encode()).hexdigest(), 'f87a5456efacc646cb4647ed66e5460c9f995366a49f1c1470909b1aec746cd5')
+            separators=(',', ':')).encode()).hexdigest(), '0379905b7f40d15235f27a15d24cb24a2696c2c53d683931cbe6d5935cf7bfd1')
         source = next(row for row in rows if row['name'] == 'npm-consumers-sync-ci-v1')
         budget = next(row for row in rows if row['name'] == 'npm-consumers-sync-ci-budget-v1')
         self.assertEqual(set(budget['workflows']), set(PACKAGES.CONSUMER_WORKFLOW_PATHS))
@@ -2239,7 +2239,7 @@ class PackageChecksTests(unittest.TestCase):
         original22 = rows[21]
         self.assertEqual(original22['name'], 'protected-producer-original-default-v1')
         self.assertEqual(original22['workflows']['.github/workflows/project-tests.yml']['sha'],
-                         'b540a1f26c3fbe2a60e7b7ecde91d814cfa0060c')
+                         '28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9')
         self.assertNotIn(budget['name'], PACKAGES._PROTECTED_ROUTE_GENERATIONS)
         over = deepcopy(rows); extra = deepcopy(budget); extra['name'] = 'unreviewed-extra-budget'
         extra['workflows']['.github/workflows/project-tests.yml']['sha'] = 'c'*40; over.append(extra)

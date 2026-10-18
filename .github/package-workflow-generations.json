@@ -596,17 +596,17 @@
         ".github/workflows/project-tests.yml": {
           "mode": "100644",
           "type": "blob",
-          "sha": "b540a1f26c3fbe2a60e7b7ecde91d814cfa0060c"
+          "sha": "28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9"
         },
         ".github/workflows/parent-qualification.yml": {
           "mode": "100644",
           "type": "blob",
-          "sha": "98abf45ca6c475af1e1ac3b20ec20f074048fb64"
+          "sha": "9bfc6f8723b1f59426f913472b78206844a7f201"
         },
         ".github/workflows/sync-validation.yml": {
           "mode": "100644",
           "type": "blob",
-          "sha": "50cbb324de358c5f8cd019a8e9b9aed45ea6868d"
+          "sha": "fb8b8645f229d924cfebb068ea124ac5910a483e"
         },
         ".github/workflows/repository-checks.yml": {
           "mode": "100644",

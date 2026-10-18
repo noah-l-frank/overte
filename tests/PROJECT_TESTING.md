@@ -1634,13 +1634,17 @@ the policy governance tests remain required. Additions, removals, aliases, mode
 changes, older or unknown workflow/configuration, other JSON, YAML, package
 locks and mixed JavaScript inputs keep their existing conservative owners.
 
-The same pinned generation admits four further existing ordinary
+The same pinned generation admits five further existing ordinary
 `100644` metadata leaves: `.github/branch-cleanup.json`, `.github/issue-policy.json`,
-`.github/repository-health.json` and `.github/dependency-releases.json`. Only when
-both immutable trees use the exact pinned workflow and unchanged configuration
-do these leaves contribute no CodeQL language. Neither pinned extractor reads
-these generic JSON files, and no candidate generator runs during the fixed
-no-build analysis. Their governance and functional tests remain required.
+`.github/repository-health.json`, `.github/dependency-releases.json` and
+`.github/package-workflow-generations.json`. Only when both immutable trees use
+the exact pinned workflow and unchanged configuration do these leaves contribute
+no CodeQL language. The JavaScript discovery filter excludes their exact generic
+JSON names; header classification does not extract them. Python discovers
+modules, and the fixed no-build analysis executes no candidate policy consumers
+or generators. The generation catalog remains trusted rollout policy with all
+its required governance and functional checks; this rule grants no runtime,
+source-admission, security-result or receipt authority.
 Mixed Python, JavaScript, package or analysis-control changes retain their
 existing language owners. Unknown siblings, additions, deletions, renames,
 aliases, mode changes and query-pack inputs cannot inherit this exception.
