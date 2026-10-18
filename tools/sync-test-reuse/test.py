@@ -1046,11 +1046,14 @@ class ProductRepairContracts(unittest.TestCase):
 class InspectionContracts(unittest.TestCase):
     # Legacy topology/evidence fixtures isolate the orthogonal CodeQL policy;
     # RequiredCodeQLInvocationTests exercises its real ordinary-PR hook below.
+    # Native owner fixtures separately exercise completed-original PR proof.
+    # A generic Mock API here must not enter that real path on hosted runners.
     def inspect_request(self, sync_request, evidence_error=None):
         with mock.patch.object(gate, "load_config", return_value=config()), \
              mock.patch.object(gate, "GitHubApi"), \
              trusted_codeql_policy([]), \
              mock.patch.object(gate, "classify_event", return_value=sync_request), \
+             mock.patch.object(gate, "native_pr_evidence", return_value=None), \
              mock.patch.object(gate, "verify_evidence", side_effect=evidence_error) as verify, \
              mock.patch.object(gate, "write_outputs") as output:
             event = mock.Mock()
