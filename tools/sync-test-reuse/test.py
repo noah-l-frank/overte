@@ -1443,6 +1443,85 @@ class DispatchContracts(unittest.TestCase):
                 self.assertTrue(native)
                 self.assertGreater(min(native), reads[2])
 
+    def test_initial_workflow_title_placeholder_waits_for_correlated_run(self):
+        for status in ("queued", "in_progress", "waiting", "pending", "requested"):
+            with self.subTest(status=status):
+                placeholder = self.registration_pending(display_title="Sync validation", status=status)
+                self.assertEqual(self.dispatch([placeholder, self.run_document()]), 0)
+                self.assert_dispatch_binding("reuse")
+                self.assertEqual(self.sleep.call_args_list, [mock.call(2)])
+                self.outputs.assert_called_once()
+
+    def test_initial_native_attempt_workflow_title_can_settle_before_binding(self):
+        reads = [0]
+        def mutate(endpoint, document):
+            if endpoint.endswith("/attempts/1"):
+                reads[0] += 1
+                if reads[0] == 1:
+                    document["display_title"] = "Sync validation"
+            return document
+        pending = self.run_document(status="in_progress", conclusion=None)
+        self.assertEqual(self.dispatch([pending, pending, self.run_document()], mutate=mutate), 0)
+        self.assert_dispatch_binding("reuse")
+        self.assertEqual(self.sleep.call_args_list, [mock.call(2), mock.call(10)])
+        self.outputs.assert_called_once()
+
+    def test_workflow_title_placeholder_has_the_existing_registration_deadline(self):
+        for owner in ("run", "attempts/1"):
+            def mutate(endpoint, document):
+                if owner == "attempts/1" and endpoint.endswith("/attempts/1"):
+                    document["display_title"] = "Sync validation"
+                return document
+            pending = self.registration_pending()
+            if owner == "run":
+                pending["display_title"] = "Sync validation"
+            with self.subTest(owner=owner):
+                with self.assertRaisesRegex(gate.GateError, "timeout|registration") as error:
+                    self.dispatch([pending], mutate=mutate)
+                self.assertIn("endpoint=" + owner, str(error.exception))
+                self.assertIn("display_title", str(error.exception))
+                self.assert_dispatch_binding("reuse")
+                self.outputs.assert_not_called()
+                self.assertTrue(self.sleep.call_args_list)
+                self.assertLessEqual(sum(call.args[0] for call in self.sleep.call_args_list), 30)
+                self.assertTrue(all(0 < call.args[0] <= 2 for call in self.sleep.call_args_list))
+
+    def test_workflow_title_placeholder_never_excuses_foreign_or_bound_identity(self):
+        for title in ("Sync validation ", "sync validation", "Sync validation gate-701-attempt-2"):
+            with self.subTest(title=title):
+                with self.assertRaises(gate.GateError):
+                    self.dispatch([self.registration_pending(display_title=title)])
+                self.sleep.assert_not_called()
+                self.outputs.assert_not_called()
+        for field, value in (("workflow_id", 12), ("head_sha", HEAD), ("run_attempt", 2)):
+            with self.subTest(field=field):
+                with self.assertRaises(gate.GateError):
+                    self.dispatch([self.registration_pending(display_title="Sync validation", **{field: value})])
+                self.sleep.assert_not_called()
+                self.outputs.assert_not_called()
+        completed = self.run_document()
+        completed["display_title"] = "Sync validation"
+        with self.assertRaises(gate.GateError):
+            self.dispatch([completed])
+        self.sleep.assert_not_called()
+        self.outputs.assert_not_called()
+        pending = self.run_document(status="in_progress", conclusion=None)
+        with self.assertRaises(gate.GateError):
+            self.dispatch([pending, self.registration_pending(display_title="Sync validation")])
+        self.assertEqual(self.sleep.call_args_list, [mock.call(10)])
+        self.assert_dispatch_binding("reuse")
+        self.outputs.assert_not_called()
+
+    def test_workflow_title_placeholder_cannot_change_the_staged_suite(self):
+        first = self.registration_pending(display_title="Sync validation")
+        changed = self.registration_pending(display_title="Sync validation", check_suite_id=905)
+        with self.assertRaisesRegex(gate.GateError, "check_suite_id"):
+            self.dispatch([first, changed])
+        self.assert_dispatch_binding("reuse")
+        self.assertEqual(self.sleep.call_args_list, [mock.call(2)])
+        self.outputs.assert_not_called()
+        self.assertFalse(any(call.args[0].endswith("/attempts/1") for call in self.api.json.call_args_list))
+
     def test_registration_wait_then_registered_pending_keeps_normal_poll_interval(self):
         self.assertEqual(self.dispatch([
             self.registration_pending(workflow_id=None, repository=None),
