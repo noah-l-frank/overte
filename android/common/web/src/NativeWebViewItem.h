@@ -154,6 +154,11 @@ private:
     overte::web::InlineHtmlDocument _inlineDocument;
     bool _inlineProvided { false };
     QMetaObject::Connection _inlineRevocation, _resourceRevocation;
+    std::shared_ptr<std::atomic<bool>> _inlineLifetime;
+    QByteArray _inlineBytes;
+    QString _inlineCharset;
+    QUrl _inlineTransport;
+    quint64 _inlineRevision { 0 };
     QVector<QPointer<QNetworkReply>> _scriptReplies;
     QString _currentUrl, _url, _scriptUrl, _userAgent, _sourceIdentity, _bootstrap;
     bool _background { true }, _created { false }, _pending { false }, _retryPending { false }, _pressed { false };

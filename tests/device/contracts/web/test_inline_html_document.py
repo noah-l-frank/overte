@@ -28,7 +28,7 @@ class InlineHtmlDocumentContract(unittest.TestCase):
             "Qt" + major + "Core", "Qt" + major + "Qml"], env=environment, text=True))
         with tempfile.TemporaryDirectory(prefix="overte-inline-document-") as temporary:
             executable = Path(temporary) / "inline-document"
-            subprocess.run(["c++", "-std=c++17", "-fPIC", "-UNDEBUG", "-Wall", "-Wextra", "-Werror",
+            subprocess.run(["c++", "-std=c++17", "-fPIC", "-UNDEBUG", "-Wall", "-Wextra", "-Werror", "-pthread",
                 str(Path(__file__).with_name("inline-html-document-test.cpp")),
                 "-I" + str(ROOT / "libraries/shared/src"), "-o", str(executable), *libraries, *flags],
                 env=environment, check=True, timeout=60)

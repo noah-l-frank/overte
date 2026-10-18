@@ -120,7 +120,7 @@ void NativeWebViewItem::setInlineDocument(const QVariant& value) {
     emit inlineDocumentChanged(); navigate();
 }
 void NativeWebViewItem::setScriptUrl(const QString& value) {
-    if (_scriptUrl == value) return; _scriptUrl = value; ++_scriptVersion; _injectedPage = 0; emit scriptUrlChanged();
+    if (_scriptUrl == value) return; _scriptUrl = value; ++_scriptVersion; cancelSourceScripts(); _injectedPage = 0; emit scriptUrlChanged();
     quint64 grant, page; { QMutexLocker guard(&_mutex); grant = _session.generation(); page = _page; }
     if (_inlineProvided || _url.startsWith("data:", Qt::CaseInsensitive)) { navigate(); return; }
     if (!_loading) injectUserScript(grant, page, QUrl(value));
@@ -149,7 +149,9 @@ QString NativeWebViewItem::scriptRoot(const QUrl& source) const {
 }
 bool NativeWebViewItem::openSourceSession(const QUrl& source, const QString& root) {
     const auto surface = _surface == Tablet ? overte::web::Surface::Tablet : overte::web::Surface::WorldEntity;
-    disconnect(_inlineRevocation);
+    disconnect(_inlineRevocation); disconnect(_resourceRevocation);
+    if (_inlineLifetime) _inlineLifetime->store(false,std::memory_order_release);
+    _inlineLifetime.reset(); _inlineBytes.clear(); _inlineCharset.clear(); _inlineTransport=QUrl(); _inlineRevision=0;
     if (_inlineProvided) {
         auto* owner = _inlineDocument.context();
         bool descendant = false;
@@ -158,6 +160,11 @@ bool NativeWebViewItem::openSourceSession(const QUrl& source, const QString& roo
         }
         if (!descendant || !_inlineDocument.currentFor(owner, _sourceIdentity, _url)
                 || _inlineDocument.scriptURL() != _scriptUrl) { _session.close(); return false; }
+        _inlineBytes=_inlineDocument.bytes(); _inlineCharset=_inlineDocument.charset();
+        _inlineTransport=_inlineDocument.transportURL(); _inlineRevision=_inlineDocument.revision();
+        _inlineLifetime=std::make_shared<std::atomic<bool>>(true);
+        const auto live=_inlineLifetime;
+        _resourceRevocation=_inlineDocument.onRevoked(this,[live] { live->store(false,std::memory_order_release); },Qt::DirectConnection);
         _session.openInline(_inlineDocument, owner, _url, surface, _sourceIdentity, _scriptUrl);
         _inlineRevocation = _inlineDocument.onRevoked(this, [this] { revokeInlineDocument(); }, Qt::AutoConnection);
         return true;
@@ -373,6 +380,7 @@ void NativeWebViewItem::requestResume(quint64 revision, const QUrl& document, qu
             self->_page = 0; self->_document = QUrl(); self->_suspendedDocument = false;
         }
         self->_callbacks.clear(); self->_resumeDocument = document; self->_created = false;
+        self->_status = 0; self->_loading = true; emit self->stateChanged();
         self->create();
     }, Qt::QueuedConnection);
 }
@@ -405,18 +413,13 @@ void NativeWebViewItem::publishResourceSource() {
     const auto grant = _session.active() && _sourceAuthorized ? _session.generation() : 0;
     if (_resourceState && _resourceGrant == grant && _resourceCreation == _creationRevision && _resourceState->active()) return;
     if (_resourceState) _resourceState->revoke();
-    disconnect(_resourceRevocation);
     _resourceState.reset(); _resourceGrant = grant; _resourceCreation = _creationRevision;
     if (grant && _creationRevision) {
         overte::android::web::NativeResourceSource source;
         source.grant = grant; source.creation = _creationRevision; source.mapping = _mapping;
-        if (_inlineProvided && _inlineDocument.current()) {
-            source.inlineURL = _inlineDocument.transportURL(); source.bytes = _inlineDocument.bytes();
-            source.charset = _inlineDocument.charset(); source.revision = _inlineDocument.revision();
-            const auto valid = source.valid;
-            _resourceRevocation = _inlineDocument.onRevoked(this, [valid] {
-                valid->store(false, std::memory_order_release);
-            }, Qt::DirectConnection);
+        if (_inlineProvided && _inlineLifetime && _inlineLifetime->load(std::memory_order_acquire)) {
+            source.inlineURL=_inlineTransport; source.bytes=_inlineBytes; source.charset=_inlineCharset;
+            source.revision=_inlineRevision; source.ownerValid=_inlineLifetime;
         }
         _resourceState = std::make_shared<overte::android::web::NativeResourceState>(std::move(source));
     }
