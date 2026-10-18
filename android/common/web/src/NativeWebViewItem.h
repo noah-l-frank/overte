@@ -162,7 +162,7 @@ private:
     QVector<QPointer<QNetworkReply>> _scriptReplies;
     QString _currentUrl, _url, _scriptUrl, _userAgent, _sourceIdentity, _bootstrap;
     bool _background { true }, _created { false }, _pending { false }, _retryPending { false }, _pressed { false };
-    bool _tabletGrant { false }, _suspendedDocument { false }, _sourceAuthorized { false };
+    bool _suspendedDocument { false }, _sourceAuthorized { false };
     QUrl _resumeDocument;
     bool _loading { false }, _canGoBack { false }, _canGoForward { false }, _bridgeAvailable { false };
     int _status { 0 }, _attempts { 0 };

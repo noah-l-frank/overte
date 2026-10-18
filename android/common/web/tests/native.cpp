@@ -71,7 +71,10 @@ int main(int argc, char** argv) {
     item.setUrl("https://one.test/document"); item.componentComplete();
     auto grant = item.generation(); assert(grant);
     item.acceptPage(grant, 1, QUrl("https://one.test/document"));
-    assert(!item.allowsFileChooser(grant, 1, QUrl("https://one.test/document")));
+    assert(item.allowsFileChooser(grant, 1, QUrl("https://one.test/document")));
+    assert(!item.allowsFileChooser(grant+1, 1, QUrl("https://one.test/document")));
+    assert(!item.allowsFileChooser(grant, 2, QUrl("https://one.test/document")));
+    assert(!item.allowsFileChooser(grant, 1, QUrl("https://other.test/document")));
     Probe tablet; tablet.acceptForeground(true); tablet.setSurface(NativeWebViewItem::Tablet);
     tablet.setPresentation(NativeWebViewItem::Texture); tablet.setSourceIdentity("fixture-tablet");
     tablet.setUrl("https://one.test/document"); tablet.componentComplete();
@@ -121,6 +124,8 @@ int main(int argc, char** argv) {
     auto foreign = [&](quint64 generation, quint64 page, const QUrl& document, const QUrl& origin, bool main, const QString& type, const QByteArray& payload) {
         return item.acceptMessage(generation, page, document, origin, main, type, payload);
     };
+    assert(item.allowsFileChooser(grant, 2, foreignDocument));
+    assert(!item.allowsFileChooser(grant, 1, QUrl("https://one.test/document")));
     assert(item.allowsEditorDocument(grant, 2, foreignDocument));
     assert(!item.allowsBridgeDocument(grant, 2, foreignDocument));
     assert(!item.emitScriptEvent("foreign event") && !item.runJavaScript("foreign script"));
@@ -148,11 +153,12 @@ int main(int argc, char** argv) {
     assert(foreign(grant, 3, thirdDocument, thirdOrigin, true, "editor", editorState));
     QCoreApplication::processEvents(); assert(item.editorFocused());
     assert(!send(grant, 1, QUrl("https://one.test"), true, "{}"));
-    item.setVisible(false); assert(!item.editorFocused() && !item.editorPassword()); assert(!item.generation()); assert(!item.emitScriptEvent("hidden event"));
+    item.setVisible(false); assert(!item.allowsFileChooser(grant,3,thirdDocument)); assert(!item.editorFocused() && !item.editorPassword()); assert(!item.generation()); assert(!item.emitScriptEvent("hidden event"));
     assert(!foreign(grant, 3, thirdDocument, thirdOrigin, true, "editor", editorState));
     item.setVisible(true); assert(item.generation() != grant);
     assert(!send(grant, 2, QUrl("https://one.test"), true, "{}"));
     item.setSourceIdentity("replacement-source");
+    assert(!item.allowsFileChooser(grant, 3, thirdDocument));
     assert(!foreign(grant, 3, thirdDocument, thirdOrigin, true, "editor", editorState));
     QTemporaryDir root, outside; assert(root.isValid() && outside.isValid());
     QFile doc(root.filePath("page.html")); assert(doc.open(QFile::WriteOnly)); doc.write("test"); doc.close();

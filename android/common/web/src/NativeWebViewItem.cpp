@@ -207,7 +207,6 @@ void NativeWebViewItem::navigate() {
     { QMutexLocker guard(&_mutex);
       _mapping = overte::android::web::NativeResourceMapping(root, _handle);
       source = _mapping.canonicalSource(source);
-      _tabletGrant = _surface == Tablet;
       authorized = openSourceSession(source, root); _sourceAuthorized = authorized;
       _session.setVisible(isVisible() && isEnabled()); _page = 0; _document = QUrl(); browser = _mapping.toBrowser(_session.url()); }
     publishResourceSource();
@@ -289,7 +288,7 @@ bool NativeWebViewItem::allowsEditorDocument(quint64 grant, quint64 page, const 
 }
 bool NativeWebViewItem::allowsFileChooser(quint64 grant, quint64 page, const QUrl& document) const {
     QMutexLocker guard(&_mutex);
-    return _tabletGrant && current(grant, page) && sourceURL(document) == sourceURL(_document)
+    return current(grant, page) && sourceURL(document) == sourceURL(_document)
         && _session.allowsNavigation(grant, sourceURL(document), true, "GET");
 }
 void NativeWebViewItem::acceptPage(quint64 grant, quint64 page, const QUrl& document) {

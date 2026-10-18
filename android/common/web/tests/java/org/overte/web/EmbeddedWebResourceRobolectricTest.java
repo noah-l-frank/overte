@@ -5,6 +5,9 @@ package org.overte.web;
 import static org.junit.Assert.*;
 import android.app.Activity;
 import android.graphics.Rect;
+import android.content.Intent;
+import java.util.ArrayList;
+import java.util.List;
 import android.net.Uri;
 import android.os.Looper;
 import android.view.InputDevice;
@@ -46,6 +49,7 @@ public final class EmbeddedWebResourceRobolectricTest {
         static String requestURL, requestMethod;
         static boolean requestMain;
         static int responseAction;
+        @Implementation protected static boolean nativeFileChooserAllowed(long h,long g,long p,String d) { return allowed; }
         @Implementation protected static boolean nativeEditorAllowed(long h,long g,long p,String d) { return allowed; }
         @Implementation protected static void goBack(long handle) { selected=handle; }
         @Implementation protected static long nativeBeginResourceLoad(long h,long c,long g,long p,String d) { return 1; }
@@ -61,13 +65,17 @@ public final class EmbeddedWebResourceRobolectricTest {
     }
     static final class Host implements EmbeddedWebHost {
         OwnerActivity activity;
-        boolean foreground=true;
+        boolean foreground=true, acceptPicker;
+        int pickerRequests;
+        ValueCallback<Uri[]> pendingPicker;
         Host(OwnerActivity activity) { this.activity=activity; }
         public Activity activity() { return activity; }
         public boolean isForeground() { return foreground; }
         public boolean placeTabletView(WebView view,Rect bounds) { return true; }
         public void removeTabletView(WebView view) { }
-        public boolean chooseFiles(ValueCallback<Uri[]> result,WebChromeClient.FileChooserParams request) { return false; }
+        public boolean chooseFiles(ValueCallback<Uri[]> result,WebChromeClient.FileChooserParams request) {
+            if(!acceptPicker)return false;pickerRequests++;pendingPicker=result;return true;
+        }
         public boolean openExternal(Uri url) { return false; }
         public void statusChanged(WebView view,int status) { }
         public void diagnostic(int status) { }
@@ -76,6 +84,7 @@ public final class EmbeddedWebResourceRobolectricTest {
         boolean focused=true;
         MotionEvent lastWheel;
         int wheels;
+        String url="https://document.test/page";
         @Override public boolean dispatchGenericMotionEvent(MotionEvent event) {
             if(lastWheel!=null)lastWheel.recycle();lastWheel=MotionEvent.obtain(event);wheels++;return true;
         }
@@ -85,7 +94,7 @@ public final class EmbeddedWebResourceRobolectricTest {
         @Override public boolean canGoBack() { return true; }
         @Override public String getUrl() {
             assertSame("Interception must not read WebView UI state",ownerThread,Thread.currentThread());
-            return "https://document.test/page";
+            return url;
         }
         @Override public void goBack() { fail("Selection must delegate the common fenced navigation entry"); }
     }
@@ -172,6 +181,82 @@ public final class EmbeddedWebResourceRobolectricTest {
         EmbeddedWebView.wheel(101,11,1,"https://document.test/page",20,30,0,0,0,0,false);
         EmbeddedWebView.wheel(101,11,1,"https://document.test/page",20,30,Float.NaN,0,0,120,true);
         idle();assertEquals(0,view.wheels);
+    }
+    static WebChromeClient.FileChooserParams picker() {
+        return new WebChromeClient.FileChooserParams() {
+            public int getMode(){return MODE_OPEN;}
+            public String[] getAcceptTypes(){return new String[]{"text/plain"};}
+            public boolean isCaptureEnabled(){return false;}
+            public CharSequence getTitle(){return "Choose document";}
+            public String getFilenameHint(){return null;}
+            public Intent createIntent(){return new Intent(Intent.ACTION_OPEN_DOCUMENT);}
+        };
+    }
+    boolean choose(Object instance,WebView caller,List<Uri[]> results) throws Exception {
+        return ((WebChromeClient)get(instance,"chrome")).onShowFileChooser(caller,results::add,picker());
+    }
+    void deniedPicker(Object instance,WebView caller) throws Exception {
+        int before=owner.pickerRequests;List<Uri[]> results=new ArrayList<>();assertTrue(choose(instance,caller,results));
+        assertEquals(before,owner.pickerRequests);assertEquals(1,results.size());assertNull(results.get(0));
+    }
+    @Test public void actualChromeAllowsWorldAndTabletSelectionAfterFocusAndForegroundResumeOnce() throws Exception {
+        owner.acceptPicker=true;
+        for(boolean overlay:new boolean[]{false,true}) {
+            Object instance=instance(overlay?102:101,overlay);FocusView view=(FocusView)get(instance,"view");view.focused=false;
+            inputGate().update(owner,true);List<Uri[]> results=new ArrayList<>();assertTrue(choose(instance,view,results));
+            ValueCallback<Uri[]> callback=owner.pendingPicker;
+            // The product Host uses this real state to retain an OS result
+            // until Activity foreground and window focus both return.
+            WebFilePickerState<Uri[]> os=new WebFilePickerState<>();int code=os.begin(callback::onReceiveValue);
+            owner.foreground=false;activity.focused=false;inputGate().update(owner,false);
+            Uri[] selected={Uri.parse("content://fixture/explicit-document")};assertTrue(os.receive(code,selected,false));assertTrue(results.isEmpty());
+            ((WebDocumentState)get(instance,"document")).grant(12);
+            owner.foreground=true;activity.focused=true;inputGate().update(owner,true);os.deliver(true);
+            assertEquals(1,results.size());assertArrayEquals(selected,results.get(0));
+            callback.onReceiveValue(selected);os.deliver(true);assertEquals(1,results.size());
+            results.clear();assertTrue(choose(instance,view,results));owner.pendingPicker.onReceiveValue(null);
+            owner.pendingPicker.onReceiveValue(selected);assertEquals(1,results.size());assertNull(results.get(0));
+        }
+        assertEquals(4,owner.pickerRequests);
+    }
+    @Test public void actualChromeRejectsForeignViewAndStaleInstanceHostActivityOrInputBeforeLaunch() throws Exception {
+        owner.acceptPicker=true;inputGate().update(owner,true);Object first=instance(101),second=instance(102);
+        WebView view=(WebView)get(first,"view"),other=(WebView)get(second,"view");deniedPicker(first,other);
+        set(first,"visible",false);deniedPicker(first,view);set(first,"visible",true);
+        set(first,"active",false);deniedPicker(first,view);set(first,"active",true);
+        set(first,"destroyedDocument",true);deniedPicker(first,view);set(first,"destroyedDocument",false);
+        owner.foreground=false;deniedPicker(first,view);owner.foreground=true;
+        activity.focused=false;deniedPicker(first,view);activity.focused=true;
+        inputGate().update(owner,false);deniedPicker(first,view);inputGate().update(owner,true);
+        NativeBoundary.allowed=false;deniedPicker(first,view);NativeBoundary.allowed=true;
+        OwnerActivity old=activity,replacement=Robolectric.buildActivity(OwnerActivity.class).setup().get();
+        owner.activity=replacement;deniedPicker(first,view);owner.activity=old;
+        hostField.set(null,new WeakReference<EmbeddedWebHost>(new Host(activity)));deniedPicker(first,view);
+        hostField.set(null,new WeakReference<EmbeddedWebHost>(owner));views.put(101L,second);deniedPicker(first,view);
+        assertEquals(0,owner.pickerRequests);
+    }
+    @Test public void actualChromeSelectionRejectsChangedPageSourceViewOwnerAndUnavailableInputOnce() throws Exception {
+        owner.acceptPicker=true;
+        OwnerActivity replacement=Robolectric.buildActivity(OwnerActivity.class).setup().get();
+        for(int mode=0;mode<12;mode++) {
+            Object first=instance(101);FocusView view=(FocusView)get(first,"view");inputGate().update(owner,true);
+            List<Uri[]> results=new ArrayList<>();assertTrue(choose(first,view,results));ValueCallback<Uri[]> callback=owner.pendingPicker;
+            if(mode==0)((WebDocumentState)get(first,"document")).begin(12);
+            if(mode==1)set(first,"requestedUrl","replacement source");
+            if(mode==2)view.url="https://replacement.test/page";
+            if(mode==3)set(first,"visible",false);
+            if(mode==4)set(first,"active",false);
+            if(mode==5)set(first,"destroyedDocument",true);
+            if(mode==6)views.remove(101L);
+            if(mode==7)hostField.set(null,new WeakReference<EmbeddedWebHost>(new Host(activity)));
+            if(mode==8)owner.activity=replacement;
+            if(mode==9)owner.foreground=false;
+            if(mode==10)activity.focused=false;
+            if(mode==11)inputGate().update(owner,false);
+            Uri[] selected={Uri.parse("content://fixture/stale")};callback.onReceiveValue(selected);callback.onReceiveValue(selected);
+            assertEquals("mode "+mode,1,results.size());assertNull("mode "+mode,results.get(0));
+            hostField.set(null,new WeakReference<EmbeddedWebHost>(owner));owner.activity=activity;owner.foreground=true;activity.focused=true;
+        }
     }
     @Test public void externalURLRequiresNonemptyHostAndRejectsReservedNamespace() {
         for(String value:new String[]{"https:///missing-host","http:///missing-host","https://",

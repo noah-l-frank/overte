@@ -756,12 +756,17 @@ public final class EmbeddedWebView {
                 EmbeddedWebHost owner = host.get();
                 long page = document.page(), lease = ++pickerLease;
                 String sourceIdentity = requestedUrl, documentIdentity = view.getUrl();
-                if (!visible || owner == null || !owner.isForeground()
+                if (source != view || VIEWS.get(handle) != Instance.this || !active || destroyedDocument
+                        || !visible || owner == null || owner != Instance.this.owner || owner.activity() != activity
+                        || !owner.isForeground() || !activity.hasWindowFocus() || !INPUT.permits(INPUT.capture(), owner)
                         || !nativeFileChooserAllowed(handle, document.grant(), page, documentIdentity)) { result.onReceiveValue(null); return true; }
                 WebFileChoiceLease selected = new WebFileChoiceLease(Instance.this, owner, page, sourceIdentity, documentIdentity);
                 ValueCallback<Uri[]> guarded = values -> {
                     int decision = selected.consume(Instance.this, host.get(), document.page(), requestedUrl, view.getUrl(),
-                        lease == pickerLease, active, visible, owner.isForeground(),
+                        lease == pickerLease && VIEWS.get(handle) == Instance.this
+                            && owner == Instance.this.owner && owner.activity() == activity,
+                        active && !destroyedDocument, visible,
+                        owner.isForeground() && activity.hasWindowFocus() && INPUT.permits(INPUT.capture(), owner),
                         nativeFileChooserAllowed(handle, document.grant(), document.page(), view.getUrl()));
                     if (decision == 0) return;
                     if (lease == pickerLease) ++pickerLease;
