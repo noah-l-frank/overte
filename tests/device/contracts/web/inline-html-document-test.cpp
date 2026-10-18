@@ -10,8 +10,86 @@
 #include <QVariantMap>
 #include <cassert>
 #include <memory>
+#include <atomic>
+#include <future>
+#include <thread>
 
 using namespace overte::web;
+
+// Const policy reads use only a UI-published session and immutable URLs. The
+// source owner/context may revoke concurrently, but the session itself is never
+// mutated concurrently. No worker thread accesses descriptor QObject state.
+static void crossThreadPolicyRevocation(QQmlEngine& engine, bool destroyContext) {
+    auto context = std::make_unique<QQmlContext>(engine.rootContext());
+    InlineHtmlDocumentOwner owner;
+    const QString source("data:text/html,cross-thread%2bexact#section");
+    const QString script("https://scripts.invalid/%2fowner.js?raw=%2b+%2f");
+    const QString identity("cross-thread-native-owner");
+    const auto document = owner.issue(context.get(), identity, source, script);
+    const auto transport = document.transportURL();
+    auto otherPath = transport; otherPath.setPath("/unissued.html");
+    auto otherQuery = transport; otherQuery.setQuery("unissued=1");
+    EmbeddedWebSession session;
+    const auto generation = session.openInline(document, context.get(), source, Surface::Tablet, identity, script);
+    assert(generation && document.lifetimeCurrent());
+    QObject observer;
+    std::atomic<unsigned> notifications { 0 };
+    document.onRevoked(&observer, [&] { notifications.fetch_add(1, std::memory_order_release); }, Qt::DirectConnection);
+    std::promise<void> ready;
+    auto readyFuture = ready.get_future();
+    std::atomic<bool> retired { false };
+    std::atomic<unsigned> concurrentReads { 0 };
+    std::thread reader([&] {
+        assert(document.lifetimeCurrent());
+        // UI-only operations reject the wrong thread before QPointer access.
+        assert(!document.current() && !document.currentFor(context.get(), identity, source));
+        assert(!document.context() && document.transportURL().isEmpty());
+        assert(!document.onRevoked(&observer, [] {}));
+        EmbeddedWebSession unvalidated;
+        assert(!unvalidated.openInline(document, context.get(), source, Surface::Tablet, identity, script));
+        for (int i = 0; i < 1000; ++i) {
+            assert(session.active() && session.inlineDocument());
+            assert(session.generation() == generation && session.url() == transport);
+            assert(session.allowsInlineResponse(generation, transport, true, "GET"));
+            assert(session.allowsNavigation(generation, transport, true, "GET"));
+            assert(session.allowsBridge(generation, transport, true, 10));
+            assert(session.allowsNavigation(generation, QUrl("https://ordinary.invalid/page"), false, "GET"));
+            assert(session.allowsScriptURL(QUrl("https://scripts.invalid/owner.js")));
+            for (const auto& unissued : { otherPath, otherQuery }) {
+                assert(!session.allowsInlineResponse(generation, unissued, true, "GET"));
+                assert(!session.allowsNavigation(generation, unissued, true, "GET"));
+                assert(!session.allowsBridge(generation, unissued, true, 10));
+            }
+            assert(!session.allowsBridge(generation - 1, transport, true, 10));
+            assert(!session.allowsInlineResponse(generation, transport, false, "GET"));
+        }
+        ready.set_value();
+        do {
+            // Revocation may occur between any two reads; no session data is
+            // mutated. Exercise the actual policy concurrently with Qt teardown.
+            (void)session.active();
+            (void)session.inlineDocument();
+            (void)session.allowsInlineResponse(generation, transport, true, "GET");
+            (void)session.allowsBridge(generation, transport, true, 10);
+            concurrentReads.fetch_add(1, std::memory_order_relaxed);
+        } while (!retired.load(std::memory_order_acquire));
+        // This runs before any Qt UI event loop delivery. Authority dies via
+        // the release/acquire lifetime atomic on explicit revoke/context death.
+        assert(!document.lifetimeCurrent() && notifications.load(std::memory_order_acquire) == 1);
+        for (int i = 0; i < 1000; ++i) {
+            assert(!session.active() && !session.inlineDocument());
+            assert(!session.allowsInlineResponse(generation, transport, true, "GET"));
+            assert(!session.allowsNavigation(generation, transport, true, "GET"));
+            assert(!session.allowsBridge(generation, transport, true, 10));
+            assert(!session.allowsScriptURL(QUrl("https://scripts.invalid/owner.js")));
+        }
+    });
+    readyFuture.wait();
+    if (destroyContext) { context.reset(); } else { owner.revoke(); }
+    retired.store(true, std::memory_order_release); reader.join();
+    assert(concurrentReads.load(std::memory_order_relaxed) > 0);
+    assert(notifications.load(std::memory_order_acquire) == 1);
+}
 
 int main(int argc, char** argv) {
     QCoreApplication application(argc, argv);
@@ -182,5 +260,39 @@ int main(int argc, char** argv) {
         assert(session.openInline(scripted, &context, source, Surface::WorldEntity, identity, script));
         assert(scripted.scriptURL() == script);
     }
-    qInfo("PASS: actual inline HTML bytes/encoding/bounds, native owner/context/replacement lifetime, opaque QML forwarding, typed session, exact local document response and frame/generation grants; OS interception and device media remain separate");
+    crossThreadPolicyRevocation(engine, false);
+    crossThreadPolicyRevocation(engine, true);
+    {
+        InlineHtmlDocumentOwner affinityOwner;
+        const auto initial = affinityOwner.issue(&context, identity, percent);
+        std::thread foreignCaller([&] {
+            assert(!affinityOwner.issue(&context, identity, base64).lifetimeCurrent());
+        });
+        foreignCaller.join();
+        assert(initial.current()); // Foreign calls cannot revoke a UI request.
+        std::promise<QObject*> foreignReady; auto readyFuture = foreignReady.get_future();
+        std::promise<void> foreignDone; auto doneFuture = foreignDone.get_future();
+        std::thread foreignContext([&] {
+            QObject foreign;
+            foreignReady.set_value(&foreign); doneFuture.wait();
+        });
+        auto* foreign = readyFuture.get();
+        assert(!affinityOwner.issue(foreign, identity, percent).lifetimeCurrent());
+        assert(!initial.current()); // An invalid UI replacement retires its predecessor.
+        foreignDone.set_value(); foreignContext.join();
+    }
+    {
+        QThread destination; destination.start();
+        auto* moving = new QObject;
+        QObject::connect(&destination, &QThread::finished, moving, &QObject::deleteLater);
+        InlineHtmlDocumentOwner movingOwner;
+        const auto movingDocument = movingOwner.issue(moving, identity, percent);
+        int movedNotifications = 0;
+        movingDocument.onRevoked(&observer, [&] { ++movedNotifications; }, Qt::DirectConnection);
+        assert(movingDocument.lifetimeCurrent());
+        moving->moveToThread(&destination);
+        assert(!movingDocument.lifetimeCurrent() && movedNotifications == 1);
+        destination.quit(); destination.wait();
+    }
+    qInfo("PASS: actual inline HTML bytes/encoding/bounds, native owner/context/replacement lifetime, cross-thread atomic policy and context-death/thread-affinity denial, opaque QML forwarding, typed session, exact local document response and frame/generation grants; OS interception and device media remain separate");
 }

@@ -19,6 +19,10 @@ enum class Surface { Tablet, WorldEntity };
 // Interface's original, process-wide contained text-only NativeWebPolicy.
 // Callers own native permission prompts, input, network loading and source
 // consent. A page receives only its isolated EventBridge, never app QObjects.
+// Callers serialize session mutation/publication. Once openInline has validated
+// the real issuing-thread context and exact tuple, const policy reads need only
+// immutable session values and the descriptor's atomic lifetime lease. They do
+// not inspect QPointer/QObject/QQmlContext on native policy/IO threads.
 class EmbeddedWebSession {
 public:
     using Generation = std::uint64_t;
@@ -86,14 +90,14 @@ public:
     Generation generation() const { return _generation; }
     bool active() const {
         return _opened && _visible && _foreground && !_exhausted &&
-            (!_inlineMode || _inlineDocument.current());
+            (!_inlineMode || _inlineDocument.lifetimeCurrent());
     }
     const QUrl& url() const { return _url; }
     Surface surface() const { return _surface; }
     const QString& sourceIdentity() const { return _sourceIdentity; }
     const QString& packagedDocumentRoot() const { return _packagedDocumentRoot; }
 
-    bool inlineDocument() const { return _opened && _inlineMode && _inlineDocument.current(); }
+    bool inlineDocument() const { return _opened && _inlineMode && _inlineDocument.lifetimeCurrent(); }
     // Main-document responses are local and exact. Native adapters must block
     // every other request in the reserved namespace without DNS fallback.
     bool allowsInlineResponse(Generation generation, const QUrl& url, bool mainFrame,
@@ -191,8 +195,8 @@ public:
 
 private:
     bool exactInlineURL(const QUrl& url) const {
-        return _inlineDocument.current() && url.adjusted(QUrl::RemoveFragment) ==
-            _inlineDocument.transportURL().adjusted(QUrl::RemoveFragment);
+        return _inlineDocument.lifetimeCurrent() && url.adjusted(QUrl::RemoveFragment) ==
+            _url.adjusted(QUrl::RemoveFragment);
     }
     static bool containsControls(const QString& text) {
         for (const auto character : text) {
