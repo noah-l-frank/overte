@@ -53,6 +53,12 @@ class FakeAdb:
         assert target == self.target and package == 'org.overte.pico'
         return {'running': False, 'identity': None}
 
+    def properties(self, target):
+        return {name: self.prop(target, name) for name in (
+            'ro.product.manufacturer', 'ro.product.brand', 'ro.product.model',
+            'ro.product.device', 'ro.product.cpu.abilist', 'ro.build.version.sdk',
+            'ro.opengles.version', 'ro.kernel.qemu')}
+
     def shell(self, target, *args, check=True):
         assert target == self.target
         self.events.append(args)
@@ -89,6 +95,7 @@ class NativeExecutionBindingTest(unittest.TestCase):
         native = patch.object(adapter, 'AdbTransport', return_value=self.fake)
         native.start(); self.addCleanup(native.stop)
         environment = patch.dict(os.environ, {'OVERTE_PICO_OPENXR_INPUT': '0',
+            'OVERTE_PICO_NORMAL_NAVIGATION': '0',
             'OVERTE_ANDROID_E2E_DEBUG': '0', 'OVERTE_E2E_UPGRADE_SOURCE_ARTIFACT': ''})
         environment.start(); self.addCleanup(environment.stop)
 

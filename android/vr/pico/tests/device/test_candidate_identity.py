@@ -35,6 +35,7 @@ class CandidateIdentityTest(unittest.TestCase):
             signature=dict(state='pending',receiptSha256=None), upgrade=dict(state='pending',receiptSha256=None))
         self.command = [sys.executable, str(PICO / 'release/verify-candidate.py'), str(self.apk),
             '--aapt',str(self.fixture.aapt),'--apksigner',str(self.fixture.apksigner),
+            '--aapt2',str(self.fixture.aapt2),'--apkanalyzer',str(self.fixture.analyzer),
             '--identity-record',str(self.record_file),'--source-revision','a'*40,
             '--expected-inputs',str(self.input_file),'--minimum-version','6',
             '--expected-version-name','0.4.0','--expected-signer-sha256','0'*64]
