@@ -90,6 +90,22 @@ public:
     // Need to be called on start up to re-initialize the runtime to the saved setting states
     void loadSettings();
 
+    // C++ startup/debug overrides may change the effective pipeline without
+    // replacing the user's saved choices. Hold the recursive setting lock for
+    // the complete scope so other threads cannot inherit transient behavior.
+    // Use only write-setter paths inside this scope. loadSettings() acquires a
+    // read lock and must run before the scope (Qt cannot change lock modes).
+    class ScopedSettingsOverride {
+    public:
+        explicit ScopedSettingsOverride(RenderScriptingInterface& render);
+        ~ScopedSettingsOverride();
+        ScopedSettingsOverride(const ScopedSettingsOverride&) = delete;
+        ScopedSettingsOverride& operator=(const ScopedSettingsOverride&) = delete;
+    private:
+        RenderScriptingInterface& _render;
+        bool _previousPersistenceEnabled;
+    };
+
 public slots:
     /*@jsdoc
      * Gets whether world mirror passes are enabled.
@@ -350,6 +366,8 @@ private:
     float _viewportResolutionScale { 1.0f };
 #endif
     QString _fullScreenScreen;
+
+    bool _settingsPersistenceEnabled { true };
 
     // Actual settings saved on disk
     Setting::Handle<int> _renderMethodSetting { "renderMethod", RENDER_FORWARD ? render::Args::RenderMethod::FORWARD : render::Args::RenderMethod::DEFERRED };

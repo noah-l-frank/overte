@@ -54,6 +54,18 @@ RenderScriptingInterface::RenderScriptingInterface() {
     });
 }
 
+RenderScriptingInterface::ScopedSettingsOverride::ScopedSettingsOverride(RenderScriptingInterface& render) :
+    _render(render) {
+    _render._renderSettingLock.getLock().lockForWrite();
+    _previousPersistenceEnabled = _render._settingsPersistenceEnabled;
+    _render._settingsPersistenceEnabled = false;
+}
+
+RenderScriptingInterface::ScopedSettingsOverride::~ScopedSettingsOverride() {
+    _render._settingsPersistenceEnabled = _previousPersistenceEnabled;
+    _render._renderSettingLock.getLock().unlock();
+}
+
 void RenderScriptingInterface::loadSettings() {
     _renderSettingLock.withReadLock([&] {
         _renderMethod = _renderMethodSetting.get();
@@ -123,7 +135,9 @@ void RenderScriptingInterface::setMirrorsEnabled(bool enabled) {
 void RenderScriptingInterface::forceMirrorsEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _mirrorsEnabled = enabled;
-        _mirrorsEnabledSetting.set(enabled);
+        if (_settingsPersistenceEnabled) {
+            _mirrorsEnabledSetting.set(enabled);
+        }
 
         auto renderConfig = qApp->getRenderEngine()->getConfiguration();
         if (!renderConfig) { return; }
@@ -183,7 +197,9 @@ void recursivelyUpdateMirrorRenderMethods(const QString& parentTaskName, int ren
 void RenderScriptingInterface::forceRenderMethod(RenderMethod renderMethod) {
     _renderSettingLock.withWriteLock([&] {
         _renderMethod = (int)renderMethod;
-        _renderMethodSetting.set((int)renderMethod);
+        if (_settingsPersistenceEnabled) {
+            _renderMethodSetting.set((int)renderMethod);
+        }
 
         auto renderConfig = qApp->getRenderEngine()->getConfiguration();
         QString configName = "RenderMainView.DeferredForwardSwitch";
@@ -249,7 +265,9 @@ void RenderScriptingInterface::setShadowsEnabled(bool enabled) {
 void RenderScriptingInterface::forceShadowsEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _shadowsEnabled = (enabled);
-        _shadowsEnabledSetting.set(enabled);
+        if (_settingsPersistenceEnabled) {
+            _shadowsEnabledSetting.set(enabled);
+        }
         Menu::getInstance()->setIsOptionChecked(MenuOption::Shadows, enabled);
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setShadow(enabled); });
@@ -270,7 +288,9 @@ void RenderScriptingInterface::setHazeEnabled(bool enabled) {
 void RenderScriptingInterface::forceHazeEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _hazeEnabled = (enabled);
-        _hazeEnabledSetting.set(enabled);
+        if (_settingsPersistenceEnabled) {
+            _hazeEnabledSetting.set(enabled);
+        }
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setHaze(enabled); });
     });
@@ -290,7 +310,9 @@ void RenderScriptingInterface::setBloomEnabled(bool enabled) {
 void RenderScriptingInterface::forceBloomEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _bloomEnabled = (enabled);
-        _bloomEnabledSetting.set(enabled);
+        if (_settingsPersistenceEnabled) {
+            _bloomEnabledSetting.set(enabled);
+        }
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setBloom(enabled); });
     });
@@ -310,7 +332,9 @@ void RenderScriptingInterface::setAmbientOcclusionEnabled(bool enabled) {
 void RenderScriptingInterface::forceAmbientOcclusionEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _ambientOcclusionEnabled = (enabled);
-        _ambientOcclusionEnabledSetting.set(enabled);
+        if (_settingsPersistenceEnabled) {
+            _ambientOcclusionEnabledSetting.set(enabled);
+        }
         Menu::getInstance()->setIsOptionChecked(MenuOption::AmbientOcclusion, enabled);
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setAmbientOcclusion(enabled); });
@@ -331,7 +355,9 @@ void RenderScriptingInterface::setLocalLightingEnabled(bool enabled) {
 void RenderScriptingInterface::forceLocalLightingEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _localLightingEnabled = (enabled);
-        _localLightingSetting.set(enabled);
+        if (_settingsPersistenceEnabled) {
+            _localLightingSetting.set(enabled);
+        }
         Menu::getInstance()->setIsOptionChecked(MenuOption::LocalLights, enabled);
 
         recursivelyUpdateLightingModel("", [enabled] (MakeLightingModelConfig *config) { config->setLocalLighting(enabled); });
@@ -352,7 +378,9 @@ void RenderScriptingInterface::setProceduralMaterialsEnabled(bool enabled) {
 void RenderScriptingInterface::forceProceduralMaterialsEnabled(bool enabled) {
     _renderSettingLock.withWriteLock([&] {
         _proceduralMaterialsEnabled = (enabled);
-        _proceduralMaterialsEnabledSetting.set(enabled);
+        if (_settingsPersistenceEnabled) {
+            _proceduralMaterialsEnabledSetting.set(enabled);
+        }
 
         Menu::getInstance()->setIsOptionChecked(MenuOption::MaterialProceduralShaders, enabled);
         Procedural::enableProceduralShaders = enabled;
@@ -433,7 +461,9 @@ void RenderScriptingInterface::forceAntialiasingMode(AntialiasingSetupConfig::Mo
 
     _renderSettingLock.withWriteLock([&] {
         _antialiasingMode = mode;
-        _antialiasingModeSetting.set((int)_antialiasingMode);
+        if (_settingsPersistenceEnabled) {
+            _antialiasingModeSetting.set((int)_antialiasingMode);
+        }
 
         recursivelyUpdateAntialiasingMode("", _antialiasingMode);
     });
@@ -505,7 +535,9 @@ void RenderScriptingInterface::forceViewportResolutionScale(float scale) {
     }
     _renderSettingLock.withWriteLock([&] {
         _viewportResolutionScale = scale;
-        _viewportResolutionScaleSetting.set(scale);
+        if (_settingsPersistenceEnabled) {
+            _viewportResolutionScaleSetting.set(scale);
+        }
 #if defined(Q_OS_IOS)
         logIOSRuntimeMarker(
             "OVERTE_IOS_RENDER_PROFILE stage=resolution-scale-applied",
