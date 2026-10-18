@@ -782,6 +782,8 @@ class DevicePythonFailureDiagnosticsTests(unittest.TestCase):
                 if not report.exists():
                     report.parent.mkdir(parents=True)
                     report.write_text(json.dumps(self.aggregate(names)))
+                    fresh = time.time_ns()
+                    os.utime(report, ns=(fresh, fresh))
                     return 1, "private traceback must stay out of final diagnostic", "exit code 1"
                 return 0, "later group output", ""
             args = SimpleNamespace(profile="full", self_test_jobs=2, timeout_seconds=900,
@@ -820,12 +822,16 @@ class DevicePythonFailureDiagnosticsTests(unittest.TestCase):
                 started = time.time_ns()
                 names = ["test_" + str(index) + "_" + "x" * 60 for index in range(8)]
                 report.write_text(json.dumps(self.aggregate(names)))
+                fresh = time.time_ns()
+                os.utime(report, ns=(fresh, fresh))
                 if case == "no-failed-modules":
                     value = self.aggregate(names)
                     value["failed_modules"] = 0
                     for row in value["modules"]:
                         row.update(result={"schema": 1, "successful": True}, exit_code=0, error="")
                     report.write_text(json.dumps(value))
+                    fresh = time.time_ns()
+                    os.utime(report, ns=(fresh, fresh))
                 elif case == "serial":
                     started = None
                 elif case == "missing":
