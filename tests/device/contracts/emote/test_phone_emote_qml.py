@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -33,7 +34,19 @@ with tempfile.TemporaryDirectory(prefix='overte-phone-emote-qt5-') as temporary:
     shutil.copy2(source, copied)
     assert copied.read_bytes() == source.read_bytes()
     shutil.copy2(HERE / 'tst_phone_emote.qml', stage)
-    result = subprocess.run([str(runner), '-input', str(stage / 'tst_phone_emote.qml')],
+    # Use the real compiled Phone selector with a native sound/enum boundary.
+    # Production controls, touch metrics and all action handlers stay in-tree.
+    moc = runner.parent / 'moc'
+    cpp = HERE / 'phone-native-context.cpp'
+    subprocess.run([str(moc), str(cpp), '-o', str(stage / 'phone-native-context.moc')], check=True)
+    flags = shlex.split(subprocess.check_output(
+        ['pkg-config', '--cflags', '--libs', 'Qt5QuickTest', 'Qt5Quick', 'Qt5Test'], text=True))
+    libdir = subprocess.check_output(['pkg-config', '--variable=libdir', 'Qt5Core'], text=True).strip()
+    binary = stage / 'phone-emote'
+    subprocess.run(['c++', '-std=c++17', '-fPIC', '-I' + str(stage), str(cpp),
+                    '-o', str(binary), '-L' + libdir, *flags], check=True, timeout=60)
+    result = subprocess.run([str(binary), '-import', str(ROOT / 'interface/resources/qml'),
+                             '-input', str(stage / 'tst_phone_emote.qml')],
         env=os.environ | {'QT_QPA_PLATFORM': 'offscreen', 'QT_QUICK_BACKEND': 'software'},
         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
     print(result.stdout, end='', flush=True)
@@ -52,7 +65,11 @@ with tempfile.TemporaryDirectory(prefix='overte-phone-emote-qt5-') as temporary:
     if evidence:
         Path(evidence).write_text(json.dumps({'source': str(source),
             'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
-            'qt_version': versions[0], 'runner': str(runner), 'actions': actions,
+            'qt_version': versions[0], 'runner': str(binary),
+            'runner_kind': 'Compiled Qt Quick Test with native Phone file selectors',
+            'runner_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
+            'native_boundary_source_sha256': hashlib.sha256(cpp.read_bytes()).hexdigest(),
+            'actions': actions,
             'boundary': 'Unchanged production QML with real Qt5 mouse/keyboard and Controls; state feedback enters its actual fromScript handler at the script boundary. These exact mouse events next enter unchanged production JS; cache/avatar/timers are explicit seams.'}, indent=2) + '\n')
     subprocess.run(['node', '--test', str(ROOT / 'tests/javascript/test/phone-emote.production.test.js')],
         env=os.environ | {'OVERTE_EMOTE_QML_ACTIONS': str(trace)}, check=True, timeout=60)
