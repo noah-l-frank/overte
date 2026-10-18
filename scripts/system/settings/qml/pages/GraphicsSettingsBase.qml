@@ -83,7 +83,7 @@ Flickable {
             optionIndex: Performance.getPerformancePreset() - 1;
             options: ["Low Power", "Low", "Medium", "High", "Custom"];
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 Performance.setPerformancePreset(index + 1);
                 if (index !== 4) switchToAGraphicsPreset();
             }
@@ -202,7 +202,7 @@ Flickable {
             settingValue: Render.verticalFieldOfView.toFixed(1);
             roundDisplay: 0;
 
-            onSliderValueChanged: {
+            onSliderValueChanged: function(value) {
                 Render.verticalFieldOfView = value.toFixed(1);
             }
         }
@@ -214,7 +214,7 @@ Flickable {
             maxValue: 2;
             settingValue: Render.viewportResolutionScale.toFixed(1)
 
-            onSliderValueChanged: {
+            onSliderValueChanged: function(value) {
                 Render.viewportResolutionScale = value.toFixed(1)
             }
         }
@@ -246,7 +246,7 @@ Flickable {
 
             Component.onCompleted: syncFromSettings()
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 if (!initialized || scales[index] ===
                         Number(Settings.getValue("pico/renderScale", 0.80))) {
                     return
@@ -308,7 +308,7 @@ Flickable {
             options: ["None", "TAA", "FXAA"];
             disabled: Render.renderMethod;
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 Render.antialiasingMode = index;
             }
 
@@ -327,7 +327,7 @@ Flickable {
             options: ["Low Detail", "Medium Detail",  "High Detail" ];
             optionIndex: LODManager.worldDetailQuality;
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 LODManager.worldDetailQuality = index;
             }
 
@@ -341,7 +341,7 @@ Flickable {
             options: ["Economical", "Interactive", "Real-Time", "Custom"];
             optionIndex: Performance.getRefreshRateProfile();
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 Performance.setRefreshRateProfile(index);
                 fpsAdvancedOptions.isEnabled = index == 3;
             }
@@ -358,7 +358,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(0)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(0, value);
                 }
             }
@@ -370,7 +370,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(1)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(1, value);
                 }
             }
@@ -382,7 +382,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(2)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(2, value);
                 }
             }
@@ -394,7 +394,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(3)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(3, value);
                 }
             }
@@ -406,7 +406,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(4)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(4, value);
                 }
             }
@@ -418,7 +418,7 @@ Flickable {
                 suffixText: "fps";
                 settingValue: Performance.getCustomRefreshRate(5)
 
-                onValueChanged: {
+                onValueChanged: function(value) {
                     Performance.setCustomRefreshRate(5, value);
                 }
             }
@@ -441,7 +441,7 @@ Flickable {
                 }
             }
 
-            onValueChanged: {
+            onValueChanged: function(index) {
                 Render.setFullScreenScreen(optionText);
             }
         }
