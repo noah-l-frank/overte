@@ -3,6 +3,7 @@
 #include "NativeWebViewItem.h"
 #include <QFile>
 #include <QGuiApplication>
+#include <QWheelEvent>
 #include <QQuickWindow>
 #include <QQuickRenderControl>
 #include <QJsonDocument>
@@ -24,7 +25,7 @@ extern "C" void Java_org_overte_web_EmbeddedWebView_nativeResumeRequest(JNIEnv*,
 extern "C" void Java_org_overte_web_EmbeddedWebView_nativeCreated(JNIEnv*, jclass, jlong, jlong, jboolean);
 #include "inline-backend-tests.h"
 class Probe : public NativeWebViewItem {
-public: using NativeWebViewItem::inputMethodQuery;
+public: using NativeWebViewItem::inputMethodQuery; using NativeWebViewItem::wheelEvent;
 };
 int main(int argc, char** argv) {
     qputenv("QT_QUICK_BACKEND", "software");
@@ -223,6 +224,38 @@ int main(int argc, char** argv) {
         };
         assert(env->RegisterNatives(boundary, methods, 4) == JNI_OK);
         Java_org_overte_web_EmbeddedWebView_nativeInitialize(env, boundary);
+        {
+            Probe wheel; wheel.setSize(QSizeF(100,80)); wheel.acceptForeground(true);
+            wheel.setSourceIdentity("wheel-owned-source"); wheel.setUrl("https://owned.test/page"); wheel.componentComplete();
+            QCoreApplication::processEvents(); const auto grant=wheel.generation(); const QUrl foreign("https://foreign.test/page");
+            wheel.acceptPage(grant,2,foreign); assert(wheel.allowsEditorDocument(grant,2,foreign));
+            assert(!wheel.allowsBridgeDocument(grant,2,foreign) && !wheel.runJavaScript("forbidden"));
+            auto number=[&](const char* name){return env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,name,"I"));};
+            auto real=[&](const char* name){return env->GetStaticFloatField(boundary,env->GetStaticFieldID(boundary,name,"F"));};
+            const auto before=number("wheels"), scripts=number("evaluations");
+            QWheelEvent angle(QPointF(20,30),QPointF(20,30),QPoint(),QPoint(60,120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+            wheel.wheelEvent(&angle); assert(angle.isAccepted() && number("wheels")==before+1);
+            assert(env->GetStaticLongField(boundary,env->GetStaticFieldID(boundary,"wheelHandle","J"))
+                ==env->GetStaticLongField(boundary,env->GetStaticFieldID(boundary,"handle","J")));
+            assert(real("wheelX")==20 && real("wheelY")==30 && real("wheelAngleX")==60 && real("wheelAngleY")==120);
+            assert(!env->GetStaticBooleanField(boundary,env->GetStaticFieldID(boundary,"wheelPixelMode","Z")));
+            assert(env->GetStaticLongField(boundary,env->GetStaticFieldID(boundary,"wheelGrant","J"))==jlong(grant));
+            assert(env->GetStaticLongField(boundary,env->GetStaticFieldID(boundary,"wheelPage","J"))==2);
+            auto document=static_cast<jstring>(env->GetStaticObjectField(boundary,env->GetStaticFieldID(boundary,"wheelDocument","Ljava/lang/String;")));
+            const auto* text=env->GetStringUTFChars(document,nullptr);assert(QByteArray(text)==foreign.toEncoded());env->ReleaseStringUTFChars(document,text);env->DeleteLocalRef(document);
+            QWheelEvent pixel(QPointF(25,35),QPointF(25,35),QPoint(4,-9),QPoint(0,120),Qt::NoButton,Qt::NoModifier,Qt::ScrollUpdate,false);
+            wheel.wheelEvent(&pixel); assert(pixel.isAccepted() && number("wheels")==before+2);
+            assert(real("wheelPixelX")==4 && real("wheelPixelY")==-9);
+            assert(env->GetStaticBooleanField(boundary,env->GetStaticFieldID(boundary,"wheelPixelMode","Z")));
+            assert(number("evaluations")==scripts && !wheel.hasActiveFocus());
+            wheel.acceptForeground(false);wheel.wheelEvent(&angle);assert(!angle.isAccepted() && number("wheels")==before+2);
+            wheel.acceptForeground(true);QCoreApplication::processEvents();wheel.setVisible(false);wheel.wheelEvent(&pixel);
+            assert(!pixel.isAccepted() && number("wheels")==before+2);
+            wheel.setVisible(true);QCoreApplication::processEvents();wheel.setUrl("https://replacement.test/page");wheel.wheelEvent(&angle);
+            assert(!angle.isAccepted() && number("wheels")==before+2);
+            assert(!env->ExceptionCheck());
+            puts("PASS: actual QWheelEvent reaches private JNI with document/grant/page/position/horizontal/pixel intent; foreign bridge remains denied and inactive input rejects");
+        }
         Probe wire; wire.setSize(QSizeF(100,100)); wire.acceptForeground(true);
         wire.setSourceIdentity("wire-owned-source"); wire.setUrl("https://wire.test/page"); wire.componentComplete();
         QCoreApplication::processEvents();
@@ -247,11 +280,12 @@ int main(int argc, char** argv) {
         Java_org_overte_web_EmbeddedWebView_nativeInputFocus(env,boundary,handle,birth+1,wire.lifecycleRevision(),false);
         QCoreApplication::processEvents(); assert(wire.editorFocused()); // A stale instance cannot revoke current input.
         std::puts("PASS: actual Qt/JNI focus-only revocation rejects queued old editors without changing active document/bridge generation");
+        const auto hiddenBefore=env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,"hidden","I"));
         wire.setVisible(false); assert(!wire.generation());
         assert(!env->ExceptionCheck());
         assert(field("hiddenRevision") == jlong(wire.lifecycleRevision()) && field("hiddenRevision") != jlong(before));
         assert(field("hiddenActive") == 0);
-        assert(env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,"hidden","I")) == 1);
+        assert(env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,"hidden","I")) == hiddenBefore+1);
         wire.setVisible(true); assert(wire.generation() > before);
         wire.acceptSuspended(wire.lifecycleRevision(),QUrl("https://wire.test/page"),true,false,field("creationRevision"));
         QCoreApplication::processEvents(); assert(wire.reloadRequired() && !wire.warningText().isEmpty());

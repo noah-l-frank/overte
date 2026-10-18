@@ -6,6 +6,11 @@ import static org.junit.Assert.*;
 import android.app.Activity;
 import android.graphics.Rect;
 import android.net.Uri;
+import android.os.Looper;
+import android.view.InputDevice;
+import android.view.MotionEvent;
+import android.view.ViewConfiguration;
+import org.robolectric.Shadows;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -69,6 +74,11 @@ public final class EmbeddedWebResourceRobolectricTest {
     }
     static final class FocusView extends WebView {
         boolean focused=true;
+        MotionEvent lastWheel;
+        int wheels;
+        @Override public boolean dispatchGenericMotionEvent(MotionEvent event) {
+            if(lastWheel!=null)lastWheel.recycle();lastWheel=MotionEvent.obtain(event);wheels++;return true;
+        }
         final Thread ownerThread=Thread.currentThread();
         FocusView(Activity activity) { super(activity); }
         @Override public boolean hasFocus() { return focused; }
@@ -96,7 +106,7 @@ public final class EmbeddedWebResourceRobolectricTest {
             WebResourceLease resources=(WebResourceLease)get(instance,"resources"); resources.revoke();
             ((WebView)get(instance,"view")).destroy();
         }
-        views.clear(); hostField.set(null,previousHost);
+        views.clear(); inputGate().update(null,false); hostField.set(null,previousHost);
     }
     static Object get(Object target,String name) throws Exception {
         Field f=target.getClass().getDeclaredField(name); f.setAccessible(true); return f.get(target);
@@ -104,12 +114,64 @@ public final class EmbeddedWebResourceRobolectricTest {
     static void set(Object target,String name,Object value) throws Exception {
         Field f=target.getClass().getDeclaredField(name); f.setAccessible(true); f.set(target,value);
     }
-    Object instance(long handle) throws Exception {
+    Object instance(long handle) throws Exception { return instance(handle,true); }
+    Object instance(long handle,boolean overlay) throws Exception {
         Class<?> type=Class.forName("org.overte.web.EmbeddedWebView$Instance");
         Constructor<?> constructor=type.getDeclaredConstructor(long.class,WebView.class,boolean.class,String.class,String.class,
                 EmbeddedWebHost.class,Activity.class,WebTextureRenderer.class); constructor.setAccessible(true);
-        Object result=constructor.newInstance(handle,new FocusView(activity),true,"","",owner,activity,null);
+        Object result=constructor.newInstance(handle,new FocusView(activity),overlay,"","",owner,activity,null);
         set(result,"creationRevision",7L); ((WebDocumentState)get(result,"document")).begin(11L); views.put(handle,result); return result;
+    }
+    static WebInputGate inputGate() throws Exception {
+        Field f=EmbeddedWebView.class.getDeclaredField("INPUT");f.setAccessible(true);return (WebInputGate)f.get(null);
+    }
+    void sendWheel(long handle,long grant,long page) {
+        EmbeddedWebView.wheel(handle,grant,page,"https://document.test/page",20,30,0,0,60,120,false);
+    }
+    void idle() { Shadows.shadowOf(Looper.getMainLooper()).idle(); }
+    @Test public void wheelTargetsExactHoveredViewWithoutEditorFocusAndKeepsBothAxes() throws Exception {
+        Object first=instance(101),second=instance(102);set(first,"bounds",new Rect(0,0,100,80));set(second,"bounds",new Rect(0,0,100,80));
+        FocusView view=(FocusView)get(first,"view"),other=(FocusView)get(second,"view");view.focused=false;
+        inputGate().update(owner,true);sendWheel(101,11,1);idle();
+        assertEquals(1,view.wheels);assertEquals(0,other.wheels);assertEquals(MotionEvent.ACTION_SCROLL,view.lastWheel.getAction());
+        assertEquals(InputDevice.SOURCE_MOUSE,view.lastWheel.getSource());assertEquals(MotionEvent.TOOL_TYPE_MOUSE,view.lastWheel.getToolType(0));
+        assertEquals(20f,view.lastWheel.getX(),0.001f);assertEquals(30f,view.lastWheel.getY(),0.001f);
+        assertEquals(.5f,view.lastWheel.getAxisValue(MotionEvent.AXIS_HSCROLL),0.001f);
+        assertEquals(1f,view.lastWheel.getAxisValue(MotionEvent.AXIS_VSCROLL),0.001f);
+        // The texture transform also applies to precision pixel deltas. The
+        // real Android scroll factor converts pixels to generic-event units.
+        Object texture=instance(103,false);set(texture,"textureScale",new WebTextureScale(100,80,2));
+        FocusView textureView=(FocusView)get(texture,"view");textureView.focused=false;
+        EmbeddedWebView.wheel(103,11,1,"https://document.test/page",25,35,4,-9,120,240,true);idle();
+        assertEquals(1,textureView.wheels);assertEquals(1,view.wheels);
+        assertEquals(50f,textureView.lastWheel.getX(),0.001f);assertEquals(70f,textureView.lastWheel.getY(),0.001f);
+        ViewConfiguration config=ViewConfiguration.get(activity);
+        assertEquals(8f/config.getScaledHorizontalScrollFactor(),textureView.lastWheel.getAxisValue(MotionEvent.AXIS_HSCROLL),0.001f);
+        assertEquals(-18f/config.getScaledVerticalScrollFactor(),textureView.lastWheel.getAxisValue(MotionEvent.AXIS_VSCROLL),0.001f);
+    }
+    @Test public void queuedWheelRejectsWrongDocumentGrantPageAndLifecycleOwnerChanges() throws Exception {
+        Object first=instance(101);set(first,"bounds",new Rect(0,0,100,80));FocusView view=(FocusView)get(first,"view");
+        inputGate().update(owner,true);
+        sendWheel(101,10,1);sendWheel(101,11,2);idle();assertEquals(0,view.wheels);
+        NativeBoundary.allowed=false;sendWheel(101,11,1);idle();assertEquals(0,view.wheels);NativeBoundary.allowed=true;
+        sendWheel(101,11,1);((WebDocumentState)get(first,"document")).begin(12);idle();assertEquals(0,view.wheels);
+        sendWheel(101,12,2);inputGate().update(owner,false);inputGate().update(owner,true);idle();assertEquals(0,view.wheels);
+        sendWheel(101,12,2);activity.focused=false;idle();assertEquals(0,view.wheels);activity.focused=true;
+        sendWheel(101,12,2);owner.foreground=false;idle();assertEquals(0,view.wheels);owner.foreground=true;
+        sendWheel(101,12,2);set(first,"visible",false);idle();assertEquals(0,view.wheels);set(first,"visible",true);
+        sendWheel(101,12,2);set(first,"destroyedDocument",true);idle();assertEquals(0,view.wheels);set(first,"destroyedDocument",false);
+        OwnerActivity old=activity,replacement=Robolectric.buildActivity(OwnerActivity.class).setup().get();
+        sendWheel(101,12,2);owner.activity=replacement;idle();assertEquals(0,view.wheels);owner.activity=old;
+        sendWheel(101,12,2);hostField.set(null,new WeakReference<EmbeddedWebHost>(new Host(activity)));idle();assertEquals(0,view.wheels);hostField.set(null,new WeakReference<EmbeddedWebHost>(owner));
+        Object replacementInstance=instance(102);views.remove(102L);
+        sendWheel(101,12,2);views.put(101L,replacementInstance);idle();assertEquals(0,view.wheels);
+    }
+    @Test public void wheelRejectsInvalidCoordinatesAndEmptyDeltas() throws Exception {
+        Object first=instance(101);set(first,"bounds",new Rect(0,0,100,80));FocusView view=(FocusView)get(first,"view");inputGate().update(owner,true);
+        for(float x:new float[]{-1,100,Float.NaN,Float.POSITIVE_INFINITY})EmbeddedWebView.wheel(101,11,1,"https://document.test/page",x,30,0,0,0,120,false);
+        EmbeddedWebView.wheel(101,11,1,"https://document.test/page",20,30,0,0,0,0,false);
+        EmbeddedWebView.wheel(101,11,1,"https://document.test/page",20,30,Float.NaN,0,0,120,true);
+        idle();assertEquals(0,view.wheels);
     }
     @Test public void externalURLRequiresNonemptyHostAndRejectsReservedNamespace() {
         for(String value:new String[]{"https:///missing-host","http:///missing-host","https://",

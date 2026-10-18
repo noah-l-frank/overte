@@ -15,6 +15,7 @@ import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.InputDevice;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.webkit.CookieManager;
 import android.webkit.PermissionRequest;
 import android.webkit.RenderProcessGoneDetail;
@@ -421,6 +422,16 @@ public final class EmbeddedWebView {
             });
         });
     }
+    /** Private native input: never grants evaluateJavascript or EventBridge authority. */
+    public static void wheel(long handle, long grant, long page, String expectedDocument,
+            float x, float y, float pixelX, float pixelY, float angleX, float angleY, boolean pixelMode) {
+        input(handle, instance -> {
+            if (!instance.document.admits(grant, page, true, 1)
+                    || !nativeEditorAllowed(handle, grant, page, expectedDocument)
+                    || !nativeEditorAllowed(handle, grant, page, instance.view.getUrl())) return;
+            instance.dispatchWheel(x, y, pixelX, pixelY, angleX, angleY, pixelMode);
+        });
+    }
     public static void pointer(long handle, int action, float x, float y) {
         input(handle, instance -> instance.dispatchPointer(action, x, y));
     }
@@ -624,6 +635,34 @@ public final class EmbeddedWebView {
             event.setSource(hover ? InputDevice.SOURCE_MOUSE : InputDevice.SOURCE_TOUCHSCREEN);
             try { if (hover) view.dispatchGenericMotionEvent(event); else view.dispatchTouchEvent(event); }
             finally { event.recycle(); }
+        }
+        void dispatchWheel(float x, float y, float pixelX, float pixelY, float angleX, float angleY, boolean pixelMode) {
+            if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(pixelX) || !Float.isFinite(pixelY)
+                    || !Float.isFinite(angleX) || !Float.isFinite(angleY)) return;
+            float px = overlay ? x : textureScale.pointer(x), py = overlay ? y : textureScale.pointer(y);
+            int width = overlay ? bounds.width() : textureScale.layoutWidth;
+            int height = overlay ? bounds.height() : textureScale.layoutHeight;
+            if (px < 0 || py < 0 || px >= width || py >= height) return;
+            ViewConfiguration configuration = ViewConfiguration.get(activity);
+            float horizontal = angleX / 120f, vertical = angleY / 120f;
+            if (pixelMode) {
+                float factorX = configuration.getScaledHorizontalScrollFactor(), factorY = configuration.getScaledVerticalScrollFactor();
+                if (!Float.isFinite(factorX) || !Float.isFinite(factorY) || factorX <= 0 || factorY <= 0) return;
+                horizontal = (overlay ? pixelX : textureScale.pointer(pixelX)) / factorX;
+                vertical = (overlay ? pixelY : textureScale.pointer(pixelY)) / factorY;
+            }
+            if (!Float.isFinite(horizontal) || !Float.isFinite(vertical) || horizontal == 0 && vertical == 0) return;
+            MotionEvent.PointerProperties pointer = new MotionEvent.PointerProperties();
+            pointer.id = 0; pointer.toolType = MotionEvent.TOOL_TYPE_MOUSE;
+            MotionEvent.PointerCoords coordinates = new MotionEvent.PointerCoords();
+            coordinates.x = px; coordinates.y = py;
+            coordinates.setAxisValue(MotionEvent.AXIS_HSCROLL, horizontal);
+            coordinates.setAxisValue(MotionEvent.AXIS_VSCROLL, vertical);
+            long now = SystemClock.uptimeMillis();
+            MotionEvent event = MotionEvent.obtain(now, now, MotionEvent.ACTION_SCROLL, 1,
+                new MotionEvent.PointerProperties[] { pointer }, new MotionEvent.PointerCoords[] { coordinates },
+                0, 0, 1, 1, 0, 0, InputDevice.SOURCE_MOUSE, 0);
+            try { view.dispatchGenericMotionEvent(event); } finally { event.recycle(); }
         }
         void cancelInput() {
             if (pointerState.pressed()) dispatchPointer(MotionEvent.ACTION_CANCEL, 0, 0);

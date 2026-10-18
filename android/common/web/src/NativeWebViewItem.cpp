@@ -541,7 +541,28 @@ void NativeWebViewItem::hoverEnterEvent(QHoverEvent* event) { pointer(9, event->
 void NativeWebViewItem::hoverMoveEvent(QHoverEvent* event) { pointer(7, event->posF()); event->accept(); }
 void NativeWebViewItem::hoverLeaveEvent(QHoverEvent* event) { pointer(10, event->posF()); event->accept(); }
 void NativeWebViewItem::wheelEvent(QWheelEvent* event) {
-    const auto dy = event->angleDelta().y(); runJavaScript(QStringLiteral("window.scrollBy(0,%1);").arg(-dy)); event->accept();
+    event->ignore();
+    const auto position = event->position();
+    if (!isVisible() || !isEnabled() || !boundingRect().contains(position) || width() <= 0 || height() <= 0) return;
+    quint64 grant, page; QUrl document;
+    { QMutexLocker guard(&_mutex);
+      if (!_inputFocused) return;
+      grant = _session.generation(); page = _page; document = _document;
+    }
+    // Scrolling is private document input, independent of source EventBridge
+    // authority and of whether a text editor currently has focus.
+    if (!allowsEditorDocument(grant, page, document)) return;
+    Jni jni; if (!jni.env || !backend.load()) return;
+    const auto size = sceneBounds().size();
+    const qreal sx = size.width() / width(), sy = size.height() / height();
+    const auto pixel = event->pixelDelta(), angle = event->angleDelta();
+    jstring url = jni.string(document.toString(QUrl::FullyEncoded)); if (!url) return;
+    jvalue args[11]; args[0].j = _handle; args[1].j = grant; args[2].j = page; args[3].l = url;
+    args[4].f = position.x() * sx; args[5].f = position.y() * sy;
+    args[6].f = pixel.x() * sx; args[7].f = pixel.y() * sy;
+    args[8].f = angle.x(); args[9].f = angle.y(); args[10].z = !pixel.isNull();
+    if (call("wheel", "(JJJLjava/lang/String;FFFFFFZ)V", args)) event->accept();
+    jni.env->DeleteLocalRef(url);
 }
 void NativeWebViewItem::editorCommand(const QJsonObject& command) { if (!_editorActive || !hasActiveFocus()) return;
     quint64 grant, page; QUrl document;
