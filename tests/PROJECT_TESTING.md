@@ -185,6 +185,14 @@ QFileSelector-selected system export boundaries. The shared JavaScript suite
 also executes the production SNAP script for all four capture modes, desktop
 compatibility, errors and closing while capture or upload is pending.
 Set `OVERTE_SNAPSHOT_TEST_QT=Qt5` or `Qt6` to select the native fixture SDK.
+The same command also executes the production format list and preference methods
+against real Qt encoders, both with installed plugins and an empty plugin path.
+Every offered format must encode and decode pixels; unavailable saved formats
+fall back without erasing the preference. Run
+`python3 tests/device/contracts/snapshot/test_snapshot_native.py --formats-only`
+for that bounded encoder check without the render/capture fixture. An explicit
+`OVERTE_SNAPSHOT_FORMATS_BASELINE` revision is a failing-baseline diagnostic for
+this bounded check only; it cannot qualify the current source.
 The same extracted-SDK variables documented for voice tests apply. GLM uses
 the existing `OVERTE_TEST_GLM_INCLUDE` override when it is not installed globally.
 These checks do not prove Photos/system chooser behavior, GPU capture or image
