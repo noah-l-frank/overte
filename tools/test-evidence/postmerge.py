@@ -35,9 +35,10 @@ TEMPLATE = 'tools/repository-checks/workflows/producers/parent-qualification.yml
 SOURCE_READY = True
 GENERATIONS = {'postmerge-original-e-v1', 'protected-producer-postmerge-original-e-v1',
                'protected-producer-ci37-v1', 'protected-producer-metadata-ci-v1',
-               'protected-producer-seven-target-ci-v1', producer.PLATFORM_GENERATION,
-               ci_profile.RETAINED_SOURCE_GENERATION}
+               'protected-producer-seven-target-ci-v1', *producer.PLATFORM_GENERATIONS,
+               *ci_profile.RETAINED_SOURCE_GENERATIONS}
 DOCUMENTATION_SUITES = frozenset({'documentation-contracts','documentation','policy-consistency'})
+LEAF_TARGETS = frozenset({'apple-ios', 'android-phone', 'android-vr-pico'})
 
 
 def _source_qualified():
@@ -61,6 +62,9 @@ def _native(event, environment):
     # from its common job. verify_main still authenticates the complete recipe.
     if workflow == 'parent-qualification' and environment.get('GITHUB_JOB') == 'common-parent':
         expected['GITHUB_JOB'] = 'common-parent'
+    if workflow == 'project-tests' and target in LEAF_TARGETS \
+            and environment.get('GITHUB_JOB') == 'project-tests':
+        expected['GITHUB_JOB'] = 'project-tests'
     A.require(all(environment.get(key) == value for key, value in expected.items()),
               'consumer requires the original current protected push job')
     source = A.sha(environment.get('GITHUB_SHA'))
@@ -256,7 +260,7 @@ def verify_main(event, environment, adapter, *, root=ROOT, clock=lambda: datetim
               'current target does not contain the exact complete consumer generation')
     workflow=references['integration']['workflow_path']
     documentation=workflow==A.DOCUMENTATION_PUSH_WORKFLOW
-    future = generation == producer.PLATFORM_GENERATION
+    future = generation in producer.PLATFORM_GENERATIONS
     template = (workflow if documentation else
         producer.PLATFORM_PARENT_TEMPLATE if future and workflow=='.github/workflows/parent-qualification.yml' else
         producer.PLATFORM_TEMPLATE if future else
@@ -404,9 +408,67 @@ def verify_main(event, environment, adapter, *, root=ROOT, clock=lambda: datetim
         'original_commit': snapshot.binding['merge_sha'], 'original_git_context': original_git,
         'original_proof': verified, 'original_protected_source':retained, 'original_environment_digest': admission['environment_digest'],
         'runtime_admission': runtime_admission, 'reused_suites': reused_suites, 'executed_suites': [],
+        'shared_include_platform': owner['include_platform'],
         'package_work': package_work,
         **({'external_platform_required': True, 'platform_partition': partition['digest'],
             'original_platform_job': platform_observation} if partition is not None else {})}
+
+
+def leaf_common_reuse(candidate, event, environment, required_suites, *, include_platform,
+                      partition=None, adapter=None, root=ROOT, clock=lambda: datetime.now(timezone.utc)):
+    """Late native leaf hook: genuine original proof or unchanged actual fallback.
+
+    Only common commands are omitted. Current package/platform jobs retain their
+    separate owners. This cannot turn an optional no-proof report into evidence,
+    publish a new receipt, or retry any candidate command after it has started.
+    """
+    try:
+        A.require(_source_qualified() and environment.get('GITHUB_JOB') == 'project-tests'
+            and environment.get('GITHUB_REF', '').removeprefix('refs/heads/') in LEAF_TARGETS,
+            'not the fixed native leaf shared job')
+        source, run_id = _native(event, environment)
+        A.require(type(required_suites) is list and required_suites
+            and all(type(name) is str for name in required_suites)
+            and len(set(required_suites)) == len(required_suites) and type(include_platform) is bool,
+            'leaf common command inventory is unavailable')
+        adapter = adapter or A.Adapter()
+        binding, refs = adapter._integrated_current(run_id, 15368, clock())
+        A.require(binding['base_ref'] in LEAF_TARGETS and refs['target'] == source,
+            'leaf push target changed')
+        context = {'run_id': run_id, 'binding': binding, 'refs': refs, 'integration': refs['integration']}
+        before = execution.checkout_identity(candidate)
+        A.require(before == (source, binding['merge_tree']), 'leaf checkout differs from the current push')
+        native = producer._push_platform_job(context, adapter, 'Shared tests')
+        proof = verify_main(event, environment, adapter, root=root, clock=clock)
+        A.require(type(proof.get('original_protected_source')) is dict
+            and proof['current_commit'] == source and proof['current_tree'] == before[1]
+            and proof['current_push_run_id'] == run_id and proof['target'] == binding['base_ref']
+            and proof['reused_suites'] == required_suites and proof['executed_suites'] == []
+            and proof['shared_include_platform'] is include_platform
+            and proof['reusable'] is False,
+            'original schema4 proof does not cover the exact leaf common commands')
+        if partition is None:
+            A.require(proof.get('external_platform_required') is not True,
+                'independent Android owner cannot disappear behind shared reuse')
+        else:
+            A.require(include_platform is False and proof.get('external_platform_required') is True
+                and proof.get('platform_partition') == partition,
+                'leaf Android common partition differs from original proof')
+        A.require(execution.checkout_identity(candidate) == before
+            and producer._push_platform_job(context, adapter, 'Shared tests') == native
+            and clock() < P._time(proof['original_proof']['expires_at']),
+            'leaf source or active native shared job changed during original proof verification')
+        return {'schema': 1, 'kind': 'leaf-original-common-reuse-v1', 'reusable': False,
+            'qualification': False, 'execution': None, 'executed_suites': [],
+            'reused_suites': required_suites, 'proof': proof,
+            'external_platform_required': partition is not None}
+    except (P.ProtocolError, attested.AttestedReuseUnavailable, inputs.InputError, execution.ExecutionError,
+            sandbox.SandboxUnavailable, ci_profile.CIProfileError, runtime_ci.CIEnvironmentError,
+            producer.PreExecutionUnavailable, OSError, subprocess.SubprocessError, KeyError, TypeError,
+            ValueError, AttributeError, StopIteration):
+        # This hook runs strictly before any candidate execution. Unavailable
+        # proof never waives required tests and API bodies never enter output.
+        return None
 
 
 def _metadata_module(root=ROOT):
@@ -497,7 +559,7 @@ def metadata_outer_jobs(adapter, run_id, binding, current, local, security, *, s
     delegated = set()
     publication = None
     generation = producer._host_policy().package_policy().validate_tree_wiring(current)
-    current_owners = generation in {'protected-producer-seven-target-ci-v1', ci_profile.RETAINED_SOURCE_GENERATION}
+    current_owners = generation in {'protected-producer-seven-target-ci-v1', *ci_profile.RETAINED_SOURCE_GENERATIONS}
     if current_owners and shared_receipt is not None:
         # This is an observation used on both sides of verify_metadata's full
         # adapter.verify call below. It never supplies standalone proof. Bind
@@ -505,7 +567,7 @@ def metadata_outer_jobs(adapter, run_id, binding, current, local, security, *, s
         # the unchanged original aggregate protocol authenticates its complete
         # source, versioned runtime, descriptor, jobs, results and artifacts.
         A.require(type(shared_receipt) is dict and shared_receipt.get('schema') ==
-            (4 if generation == ci_profile.RETAINED_SOURCE_GENERATION else 3)
+            (4 if generation in ci_profile.RETAINED_SOURCE_GENERATIONS else 3)
             and shared_receipt.get('candidate_commit') == binding['merge_sha']
             and shared_receipt.get('candidate_tree') == binding['merge_tree']
             and shared_receipt.get('reusable') is True
@@ -526,7 +588,7 @@ def metadata_outer_jobs(adapter, run_id, binding, current, local, security, *, s
             'metadata delegated owner was not natively published')
         delegated = set(shared_receipt['results'])
     fallback = None
-    if generation == ci_profile.RETAINED_SOURCE_GENERATION:
+    if generation in ci_profile.RETAINED_SOURCE_GENERATIONS:
         matches = [job for job in jobs if job.get('name') == producer.PLATFORM_JOB]
         A.require(len(matches) == 1, 'metadata platform owner native record is missing or ambiguous')
         fact = adapter._job(matches[0], run, 15368, final_name=producer.PLATFORM_JOB)
@@ -624,9 +686,9 @@ def verify_metadata(event, environment, adapter, *, root=ROOT, clock=lambda: dat
     policy = producer._host_policy()
     package = policy.package_policy()
     generation = package.validate_tree_wiring(current)
-    future = generation == ci_profile.RETAINED_SOURCE_GENERATION
+    future = generation in ci_profile.RETAINED_SOURCE_GENERATIONS
     A.require(generation in {'protected-producer-metadata-ci-v1',
-        'protected-producer-seven-target-ci-v1', ci_profile.RETAINED_SOURCE_GENERATION},
+        'protected-producer-seven-target-ci-v1', *ci_profile.RETAINED_SOURCE_GENERATIONS},
               'metadata requires the exact complete six-file source generation')
     source_context = None
     if future:
@@ -763,7 +825,7 @@ def no_execution_context(event, environment, adapter, *, candidate=None, root=RO
     policy = producer._host_policy()
     package = policy.package_policy()
     template = workflow if documentation else producer.PLATFORM_PARENT_TEMPLATE
-    A.require(package.validate_tree_wiring(current) == producer.PLATFORM_GENERATION
+    A.require(package.validate_tree_wiring(current) in producer.PLATFORM_GENERATIONS
         and current.get(workflow) == local.get(template)
         and local.get(template, {}).get('mode') == '100644',
         'unchanged consumer requires the complete fixed future recipe')
@@ -828,6 +890,64 @@ def verify_no_execution(event, environment, adapter, *, candidate, root=ROOT,
     return before
 
 
+def current_parent_schedule(event, environment, adapter, *, root=ROOT, candidate=None,
+                            clock=lambda: datetime.now(timezone.utc)):
+    """Decline only optional partial current-main qualification; no B/E claim."""
+    A.require(_source_qualified(), 'current parent source unavailable')
+    source, run_id = _native(event, environment)
+    A.require(environment.get('GITHUB_JOB') in {'common-parent','qualify-parent'},
+        'not a fixed optional parent role')
+    binding, refs = adapter._integrated_current(run_id, 15368, clock())
+    A.require(binding['base_ref'] == 'main' and refs['target'] == refs['default'] == source
+        and event.get('before') == binding['base_sha'], 'current parent must be the exact protected default')
+    authority = default_authority(adapter, refs)
+    tree, current = full_tree(adapter, source)
+    _, previous = full_tree(adapter, binding['base_sha'])
+    A.require(execution.checkout_identity(root) == (source,tree) and inputs.full_tree(root,source) == current,
+        'current parent controller differs from immutable current main')
+    api = SimpleNamespace(get=adapter._object)
+    context = {'target':'main','base':binding['base_sha'],'source':source,'default':source}
+    policy = producer._host_policy(); package = policy.package_policy()
+    A.require(package.validate_tree_wiring(current) in producer.PLATFORM_GENERATIONS
+        and previous.get('.github/workflows/parent-qualification.yml') == current.get('.github/workflows/parent-qualification.yml')
+        and previous.get('.github/test-suites.json') == current.get('.github/test-suites.json')
+        and all(snapshot.get('tests/platform-profile.json') == inputs._AFFECTED_SHARED_PROFILE
+            for snapshot in (previous,current)), 'partial current parent declarations changed')
+    imported = source_admission.current_parent_import(context,environment,api,previous,current,root)
+    paths = sorted(path for path in previous.keys() | current.keys() if previous.get(path) != current.get(path))
+    A.require(paths and all(policy.ci_owned(path) for path in paths)
+        and all(entry is None or entry.get('mode') == '100644' and entry.get('type') == 'blob'
+            for path in paths for entry in (previous.get(path),current.get(path))),
+        'current optional parent requires complete ordinary CI-only inputs')
+    checks = package.load('current_parent_repository_policy','tools/repository-checks/check.py')
+    config, branches = checks.configuration()
+    legacy = checks.plan(event, paths, config, branches, True)
+    A.require(package.select(paths, True, legacy_mode=legacy['mode'],
+        legacy_projects=legacy.get('tool_projects','').split(',') if legacy.get('tool_projects') else (),
+        include_browser=True) == {'host_mode':'full','tool_projects':[],'package_set':[]},
+        'current optional parent cannot omit package or tool ownership')
+    registry = inputs.load_registry(root/'.github/test-suites.json')
+    selected = policy.select(current,paths,True,trusted_tree=current,candidate_root=root,
+        trusted_root=root,target='main',base_tree=previous)
+    quick = [name for name,suite in registry['suites'].items()
+        if suite['layer'] == 'quick' and name not in policy.PRODUCT_QUICK_SUITES]
+    A.require(selected['suites'] == quick and bool(quick) and set(quick) < set(registry['suites'])
+        and selected['full_host'] is False and selected['include_platform'] is False
+        and not selected.get('additional_suites') and not selected.get('platform_suites'),
+        'current optional parent selection cannot produce complete qualification')
+    if candidate is not None:
+        A.require(execution.checkout_identity(candidate) == (source,tree)
+            and inputs.full_tree(candidate,source) == current, 'current optional parent candidate changed')
+    A.require(adapter._integrated_current(run_id,15368,clock()) == (binding,refs)
+        and default_authority(adapter,refs) == authority
+        and source_admission.current_parent_import(context,environment,api,previous,current,root) == imported,
+        'current optional parent source or native authority changed')
+    return {'schema':1,'kind':'optional-parent-qualification-schedule-v1','authority':'none',
+        'reusable':False,'qualification':False,'execution':None,'executed_suites':[],'reused_suites':[],
+        'binding':binding,'refs':refs,'default_authority':authority,'selection':selected,
+        'current_imports':imported,'reason':'current-protected-main-partial-qualification-unavailable'}
+
+
 def unavailable_parent_schedule(event, environment, adapter, *, root=ROOT,
                                 clock=lambda: datetime.now(timezone.utc)):
     """Schedule optional qualification only; grant no test or reuse authority.
@@ -841,6 +961,11 @@ def unavailable_parent_schedule(event, environment, adapter, *, root=ROOT,
     A.require(environment.get('GITHUB_JOB') == 'common-parent', 'not the optional parent common owner')
     binding, refs = adapter._integrated_current(run_id, 15368, clock())
     target = binding['base_ref']
+    if target == 'main' and refs['default'] == source:
+        _, before = full_tree(adapter,binding['base_sha'])
+        _, after = full_tree(adapter,source)
+        if any(before.get(path) != after.get(path) for path in source_admission.CONTROLLERS):
+            return current_parent_schedule(event,environment,adapter,root=root,clock=clock)
     A.require(target in {'main', 'apple-main'} and refs['target'] == source
         and event.get('before') == binding['base_sha']
         and refs['integration']['workflow_path'] == '.github/workflows/parent-qualification.yml',
@@ -854,7 +979,7 @@ def unavailable_parent_schedule(event, environment, adapter, *, root=ROOT,
         'optional parent scheduling source differs')
     policy = producer._host_policy()
     package = policy.package_policy()
-    A.require(package.validate_tree_wiring(current) == ci_profile.RETAINED_SOURCE_GENERATION
+    A.require(package.validate_tree_wiring(current) in ci_profile.RETAINED_SOURCE_GENERATIONS
         and current.get('.github/workflows/parent-qualification.yml') == local.get(producer.PLATFORM_PARENT_TEMPLATE)
         and current.get('tests/platform-profile.json') == inputs._AFFECTED_SHARED_PROFILE,
         'optional parent scheduling requires the exact common-only native recipe')

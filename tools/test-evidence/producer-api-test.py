@@ -34,7 +34,14 @@ _HISTORICAL_METADATA_WORKFLOWS = {'tools/repository-checks/workflows/producers/r
 # The active workflow may already be generation22 in a shallow source checkout.
 _HISTORICAL_METADATA_WORKFLOWS['.github/workflows/sync-validation.yml'] = ('55d08b65a987224ce576459cede693cfd49375f6', 'c-rk5YjfMU@w<Kns`Ffun}T{+q#lhs&gIm^J;!!rJ8dU*H6RE|uql!TKsmZ3{q0=<ltk)bD{01;59coyfZfGn-@E()ohve80g_23C__mc&HjP{mPX0UED#A56No00G-8S&B{Hc1{w@(WVU*nA5sR51iYGB5!Guc*znn@;Caj0fXE8-n67j$QR74izjVEaD<445fG*i-{i4ZKZ+n+yIDoNa{pv8T|fXkF9I@X&g$FaW=DxmhzN5O70E?CghOtU{DHA~@UsRWNlpL2{!60ohHbewPst0dJFWe>d<ER(Pik|^>Cy}6o`NktO!i0yc3nnlr212U<0L}4FNMnUdFpGY>8WAdeVV@86n!J9BK+U>$h%0#YzqYy%KsR_8cqLmXX7OUlk76Z=3FyE~J6wN@3F`a25Bavh&+yUl-m*#>C=28@<wimdF#FRyt#~9Qy5==_VaHVpc_=dHd60>$=E%IHy2Tupi&5dJ`#QZmFx*8D7S7L2inV-cf!_AgcZ<!OtCoIVnp71zR4DM^XW}n5=xow`l>klsa!?$mahZp_xi{aq%<fK37p;{(IE#iLdR(Um_$F<u@1SEjr7#zzWgTti@8^<}nFUO4DAh>kllKHC=kwYQ`#tOXTil|YI0SJft!9Hy@nM(+DebTABou(U*w%2OZX`|C<w)cI~t@{o11Ddv-y3<$?yyI%zTdY7LEbO5P;c;OPymQ=}GgaJYLUO4v1q%W@;3NXxz>_3fdD(y&PEo|C44n-SH{fcvpjD8n{`>jGd4G8R`bDo8Mb;d~+Q$6v)$8HK>9740i!*{}Wxk`58y1)0UiV-8vYqzasmeHS`h!>ZFtqTfGS=DU@$qobe|rhWQ9@id@Lcv8SmLJw1<4e`EK5+zQx*~)70%wjN7cQ#psMKLzvw^j>$ppBc=fSW|GbB;u2!MvPu~rC@#x*ai?7Ww8n}C<(XM`4K>+*BNOZ9GbTmdJ<)|uHn#kJTtD}q8mp=oQv(xjVi_^isYFboqP$K?p_3EeBw+IX5Xv1){8lFFY4%_yY>NDWxpd_nx=I0c&`nOY9%5OUbYYUKECtMA;QYy%HL25%77&F8tlS~mmVmb&0HlCR~jOS{og7-agnD_!;upwmegu+S4AoXLYPc%UDYog0h4A?BzKv3OC76B(v<b;Ny)vynVotdmBImG0}bsSQl#oQK?c8xD@PJii_M57CmmB27K{oB!T87i+g%79-J2fz3D_E%ig@eFJ@-k;}|no1IIcbzOTo9Zk<S#6%$vDT!M&I;%lTb*H3*J2Dd4h(>Q<$>h%^5X3BqFTaOy3z6%#wGx9$h5O1_A(4r0isyjtcJVN1xDZC;$Q~`FIOy}Shed-tvaj)S`14VYwhIQ%UA;xwfyt_W#lMbdY#2wAwT0$V8sVTQWhy$Gj*1g5(}IUlgK=lGM;V+UzTOgwM^m_cRPoql%)mfof#!AT`BC@`o^)>I#w&viAc=QpAOKIh>ZxHVL!>hX@e)|)2CH0&`?1_vkCaLVdTk{&;}VYOR+VhLwHu3`gM;INS1CGhV53P+X*^etJ{Iyme=l3uR%<B^PGLBzBRmAf_SP!kS-6a`%a@-eMk@|pm~tk?<t8GSU7C9y4`lY-Ry!eSh(+Yx?Zcrn()tSxy%i8@bA+7j+KLZj~q0)f)tt$%i!;1N*)$Ks3XKU0Z)Q-_(YfT_dn|zs2=(r3q!x|vX<NOn{K`CdZ68I!}IE%A5bq0sULPdqh8l(-}5Z!IHASyGuu`wHpxV(;MLa^p516y*HVsD&@mR?Z632Fw|tEh)@#8mNT66!(4Iq4n4lNbv~IoLfWcdsJZOO;R&whOI6Qv|2Gha$LI(&aU?8PRglFjA1&RnkGowRX7BPIQbnHO4Dqu7sdSozVE~N4)HgOydJR9j?tF*|^)0+{7?l9yd=nVW(G%<iH*R2sRa{v#bH_Z)unz9mb&Bnus%s>lr)6pG|gXFHc#)pRsoGhNSvR8Qd9rNj!K+6{yV0huJa+jO#rpFe!0Umvc!z2orh`?ZVUWqh__Ylk)(E<jn)^|+KisXg^J){9YphD-1d+BP~ZQ5JtVdLRk4-b;Y;H4=Hg4kv{R%!Q=v9f}AqF}hOnMwdfX0mpsjl7r}mR75?JCC7O5h4-bE0}!%B}nvExo?d;;Kx6h|I%t)uTGfKB88vc9KtI>csayMz&V2gg$QT|WTJ%tW$hT20fP9WM^!-vC9loH%b~&lk%%5Hf~&>)BQKcNkJh4?velCvl??kQ?~VqiCvW;Ex@F9ZYOEt-Y0hB6n4C$fAWq#OFi4P<LsF2)BoR<)>S#{YFpEJQQ^=Yy{v1LY5wSd|7wEvSM@tR#qz`prMN%x1M9tSRQ+BSjUZLU%nu0L$nn|;W^;;x{%>wwQV>1J?bTk?0<qJ_4QjzZNFzn7V4z|M*=q49su_jf^hjqFVkVZ(3`k+?q<Q)?{oS|HgYt7HRXPldi$*wz^$-(Ys(*NgK|K&v=3fTTJ{5U$zyQYoA?J}PYe|f+4M>F-!nyJTWjm*UT(Hf(<-0{-Ps(b79`MY&fxx?BK^-}CI(<P({?~4yLpm9BwUZ0+Rv+(|ye*4Fq<O^K;p|tXyyZmEML%w&Xzl4vmBq)9@HFc2|yHMq_jYM~3CZ9e-KmLfGe*0m<vn_3RW;nz|C?3Mzq2H#i=aF{1$voflL*MPNpdL_Y!`=NRX|=mSyWQ!AcBD|hZ=_%(u=@Ege>yJ24Df;>55O;0H;K}{fZ8-*{#2^}Hz=oczA*XP2FRbZrgsO2W)8kAYcmP0ix%~6m8m;ytp?q&fr@(Qj)=H4Q`cWpwKM`yc@MQK{{ur>)>r')
 
+_ORIGINAL_DEFAULT_REPOSITORY_WORKFLOW = ('81bcf1933edc435826e2de411a777cccd4dec7c7', 'c-rk+S#KLT5`OouptFOq1uW&*iFdMEWU)>x#GXSAY&na;U?5Q4l*G72_K<AZ+R6O)Ena=7TSpw*2m<LzO%|`JuTJuB=v2rl;Tma~DNSRPlIVtvDH>BwCDBaqe<2cSHnabcq<>^gQU!lzjNZZkP2`wrl!}B!^Y#uWQ`$k7G!=?zA?GNX(C9|($c$sx_uZd=qWv+`lWf?gGs^YAw4>Lr(O#M*$-pc@mEJ?&e~<Pngl)4C*n}aaF@x<|qTLEjG$DLUReMMjwNo_qYNiv4K7B&XV?{h~wM_T&4J2ep6SITGNlG*s4^%C)l?s{dY1^ak0x99K6fDMx;A0#!GUh^Q7OA~f%Z}Z<m{F-I;vk0^MN_ItOf*4U@KlO8i>O4iBfFagQXyl;2}t6Pj3jKtA}2{h{MTPQf_HWhDl^`EBc$gkRqiiFA_X+W{zKBrr<(I<A_ZsvqrSz7#(#JQ_^+HH@O>-f%_tGKgP5t5=xE|rV?52YUl}2Q4eV<Sh*QjM)%{|sBFR#75<pwVk)BW#iD{ZpIC%`<j3^#SN>MQyX+~u}gE?Ra4TVT3;iY*;BujM1=mX7LJ?i5Q8j(cNos`Ncvvb;wMuKY)sp<eBiFe>L%A}+`nw#FS6j^Gzf=Xbg64)q01rlW`w0Slif=ml^Njd_7*-=}y*lU%C8kDfuV!r}%i*S$+;So(R;}}%MqQT4eqZnEN25rJhWHO=-X3kojWPmKL&4d)azeJkeX^U_N)=>v-V9G4*0%*){0XVMFF{;|;5L0O~3t+!MxhGSgx2S#4cKbRAYNifSiSvWnmG5+WK27YXTOba*Dw&i4vm10qduy{l1DpUnU?-@)4sfD02Ei;qEk_YaZpmEj+cozsZF_+f41faDWH+g@C;}MUgRCdMVQFg4^OP`j+H(brjC5{4OGYrn1>VRjYz%oe%(%|*(aZMpm(B~ZDFqhdDdWIMnE%)|LsQvFgtHF>Pv#D*5X+>>OU+ZaD`d_x*wG@U<w0pecrgY#3sObFurobhN*)M`A<hYx2e_6cD`@aX1JJ&Yz&5pXnF>`g*vD=Iuy-+olP*72jj}$8p<g@RG}ebsKn(^f*;=ElPqG;&8ma4(DXP~_0W`%xuiAsc^Dh~_NLZg@y)<f+^+{GrqfAsE%DB-2P`S0^bILG@r42!#)9ANGZH)rv8H2HLjE{W=;1_pZ$lH(utLs4apBM3q=;aYTCL}r@l2^}<UmYFC<cEK}JbWG<zB)Ym;l+^r^ZD@5&r<eECJGzX9Z|b5DQzFT4TcgN{-of9!2wJZc3iYlshH9@0=XF<53yZ{@B#@$rczNH4$wiL@-BqDi!HSn7^;I>s8^!^Tc$AtsjzHBYrW1wU_(?N%7nthj3qIyggO-=UD8O5O+=2YsmtSH=Rt);##!1Z23aPCRT$vhHu!JKX9fG;oelaIKXrQ*8EA1sd70C_lm7XK?%<bh|K#+fe=<1l^}D^k8`JEmYUbI+9IGb1dVAJAz5e;U_wKVMRv?WyOAJ`^$-(z@(7$nkiMgH#{sQ51gs%{O6F_sYM6?du?Q~vv_A&=SChi+O`|jO&|LpqBp!)$BGI)Q|KYJEBZDzbk(L4F2Ybe|?ir$Os{`>3xvju^Z*rh<Z3DG9`F$!dKmEM74vRcZ*&P>p;-b<P=$ArpzkEqv9IrE+8?IQ|FA&zNkx{tm{Ys;F7tFeg_BN|CDwH%~(a5@ksR5faQx*yMsRvCL+MqGf|#^|!PeGQfh;n$gov6_%#;MLj5rr7d)^3{Z=VV7HMJ;TbD@{4)pc$9N&Lta6T5t|Gg!q&BZRMsT>=&uwJ7v{?528}^IqyS}-X12W!Y_ruNFP;6oE|hVX7{x7D6LJK5!SHRG1^D2o64|>%#_p{#ec5&SHl$GQ`$3MoTRv_Rx#z&HPk3CGxvevPPMvX0{h+LDjfI0E<X<5m3qT*KcfL3yU6y_}<f@OVfBrx#6wp)T8u%5c(S8$sJvB3{jDXLjYQrW&jD<Gdn{pH7GOE^&HyN1O;BUV>9B<Y4A=TFdaE1Qn!kRB6-c3SVl5x|!6dGtP?Oi4JhP*eQre2O%HB*rRdqzEh>-8(GP<>DFHK~3Rd99RDIp<axA5s~^(7@|PeQYj5Z6vyNRj5^yY*dC?HNi%8s8tgz6ry4gWm9Odg^nlC=*oI4^twW~sNKKW_5L10o!=W3eS^(=C+(+MeF@M+6pH`%HWFddFraek0bDgh4GIvqyEPV%Wh^Qj_mu%}Fai<IuO=Q}J!)&NP>~w#*X{)KGi{yUqv5#*iY3wL2ri)WS0W}Ql*ERl{%uA+P0{sD8sJR;+H9)p%-h=Q2gCPg-&(J}P0MSkMfeq}_oYhr6JD>GdU5Fv=6==qaL^A1c5_%`N*Fiy5CNJfhi19j`~KJd*+uX4qSycL<$1sR=GT7r?Zs*L^<hy5wk6-139#8M)PT*~i^XF4w^MDZ9c_gNuF>Wmc*(Pq%1(D1&D=%?tW`3`;pt%R>~S#5{;Lw=__msxSZuFC2bXURa7a5IOjR$bE%0TW%m@Qpk<{N}`bSl0NJm2Ys}h*JbQ`j@vYT7kvOS=8a8-S{?jeGMtoLy88+wWGHM)yOzqK{$O|iRE__9YC)>S}JLW5dP%^T1WOK7;FD{Htdo`6kE;H6h$>yP2SQwwCxU@o)D(+GHu@b;&{W%ug(=l+#Lh890wUG$tuZIuDA$uo-kT@lZmk6m-|X?KLp;en#E@q1j0?))F&V*}*')
+
 def historical_metadata_workflow(relative,generation,root):
+    if generation=='protected-producer-original-default-v1' and relative.endswith('/producers/repository-checks.yml'):
+        oid,encoded=_ORIGINAL_DEFAULT_REPOSITORY_WORKFLOW
+        raw=zlib.decompress(base64.b85decode(encoded))
+        assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()==oid
+        return raw
     historical = generation in {'protected-producer-metadata-ci-v1','protected-producer-seven-target-ci-v1'} \
         and (relative == '.github/workflows/sync-validation.yml'
              or relative.endswith('/metadata-edits/pr-metadata-context.yml')
@@ -831,6 +838,31 @@ class MetadataSchedulingTests(unittest.TestCase):
                         self.assertNotIn(field, value)
         self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
 
+    def test_preinstalled_native_helper_pair_is_retained_exactly_without_overwriting_current_tuple(self):
+        c=self.case;caller=c.policy.caller_path
+        c.generation[caller]['sha']='81bcf1933edc435826e2de411a777cccd4dec7c7'
+        workflows={ 'protected-producer-original-default-v1':deepcopy(c.generation)}
+        current={'protected-producer-original-default-v1':{A.METADATA_SOURCE:{'mode':'100644','type':'blob','sha':'6'*40}}}
+        original=deepcopy(workflows);current_before=deepcopy(current)
+        workflows,helpers=A.retain_native_metadata_sources(workflows,current)
+        self.assertEqual(workflows['protected-producer-original-default-v1'],original['protected-producer-original-default-v1'])
+        self.assertEqual(helpers['protected-producer-original-default-v1'],current_before['protected-producer-original-default-v1'])
+        retained='protected-producer-original-default-v1-reviewed-helper-v1'
+        self.assertEqual(workflows[retained],workflows['protected-producer-original-default-v1'])
+        self.assertEqual(helpers[retained][A.METADATA_SOURCE]['sha'],'c6ce80aa78d2f2161b1ea0caf715a6346187e8b9')
+        self.policy=A.MetadataPolicy(99,caller,workflows,helpers)
+        def retained_source(endpoint,value):
+            if endpoint.endswith('/git/trees/'+'5'*40):
+                value['tree'][0]['sha']='c6ce80aa78d2f2161b1ea0caf715a6346187e8b9'
+            return value
+        c.api.mutate=retained_source
+        value=self.schedule()
+        self.assertEqual(value['original_run_id'],100)
+        self.assertFalse(value['qualification'])
+        c.api.mutate=lambda endpoint,value:({**value,'tree':[{**value['tree'][0],'sha':'f'*40}]}
+            if endpoint.endswith('/git/trees/'+'5'*40) else value)
+        with self.assertRaises(ValueError):self.schedule()
+
     def test_same_second_open_and_label_events_use_native_workflow_sequence(self):
         c = self.case
         # GitHub observed on PR1412: both timestamps are18:44:15, while the
@@ -984,6 +1016,21 @@ class NativeMetadataIntentTests(unittest.TestCase):
             with self.subTest(status=status,conclusion=conclusion): self.assertEqual(self.observe(),queued)
         for field in ('results','environment','receipt','qualified_at','expires_at','verified','jobs','status'):
             self.assertNotIn(field,queued)
+
+    def test_exact_boolean_caller_has_native_metadata_intent_without_result_authority(self):
+        c=self.case
+        caller=c.policy.caller_path
+        for tree in (c.generation,c.policy.metadata_generations['metadata-v2']):
+            tree[caller]['sha']='15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'
+        c.policy.generations['native22'][caller]['sha']='15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'
+        value=self.observe()
+        self.assertEqual(value['kind'],A.METADATA_INTENT_KIND)
+        self.assertEqual(c.verify()['run_id'],100)
+        self.assertNotIn('results',value)
+        self.assertNotIn('qualification',value)
+        c.generation[caller]['sha']='f'*40
+        self.policy.generations['metadata-v2'][caller]['sha']='f'*40
+        self.assertIsNone(self.observe())
 
     def test_progress_during_original_verification_does_not_replace_or_fail_original(self):
         c=self.case; reads=0
@@ -2750,9 +2797,10 @@ class MetadataRetentionConsumerTests(unittest.TestCase):
         real_host = C.producer._host_policy()
         real_package = real_host.package_policy()
         generations = real_package.workflow_generations()
-        self.assertEqual(len(generations), 24)
+        self.assertEqual(len(generations), 25)
+        self.assertEqual(len([row for row in generations if row['name']!='protected-producer-original-default-boolean-v1']),24)
         self.assertEqual(len([row for row in generations
-                              if row['name'] != 'npm-consumers-sync-ci-budget-cleanup-v1']), 23)
+                              if row['name'] not in {'npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-boolean-v1'}]), 23)
         self.generation_name = getattr(self, 'generation_name', 'protected-producer-metadata-ci-v1')
         generation = next(row for row in generations if row["name"] == self.generation_name)
         sources = {".github/workflows/project-tests.yml": C.producer.TEMPLATE,
@@ -3377,7 +3425,8 @@ class RetainedDefaultMetadataTests(unittest.TestCase):
             '.github/workflows/browser-client.yml':'.github/workflows/browser-client.yml',
             A.METADATA_WORKFLOW:'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml'}
         self.generation={path:{'mode':'100644','type':'blob','sha':C.source_admission.blob_id(
-            (C.ROOT/source).read_bytes())} for path,source in self.sources.items()}
+            historical_metadata_workflow(source,'protected-producer-original-default-v1',C.ROOT))}
+            for path,source in self.sources.items()}
         for tree in (c.previous,c.tree):
             tree.update(deepcopy(self.generation))
             tree[C.producer.PLATFORM_TEMPLATE]=deepcopy(self.generation['.github/workflows/project-tests.yml'])
@@ -4009,6 +4058,8 @@ class OptionalParentScheduleTests(unittest.TestCase):
         self.environment['GITHUB_JOB'] = 'common-parent'
         self.tree[self.module.producer.PLATFORM_PARENT_TEMPLATE] = deepcopy(
             self.tree['.github/workflows/parent-qualification.yml'])
+        self.previous[self.module.producer.PLATFORM_PARENT_TEMPLATE] = deepcopy(
+            self.tree[self.module.producer.PLATFORM_PARENT_TEMPLATE])
         return self.module.unavailable_parent_schedule(
             self.event, self.environment, self.adapter, clock=lambda: NOW)
 
@@ -4043,7 +4094,340 @@ class OptionalParentScheduleTests(unittest.TestCase):
             self.schedule()
 
 
+class BooleanOptionalParentScheduleTests(OptionalParentScheduleTests):
+    generation_name = 'protected-producer-original-default-boolean-v1'
+
+
+class CurrentParentTransitionTests(unittest.TestCase):
+    """Actual native API and materialized import graph; selection is a fixed seam.
+
+    Host-selection tests own the complete product/negative-reader decision.
+    These tests retain the real API/ordinary-file/current-controller authority.
+    """
+    def setUp(self):
+        from types import SimpleNamespace
+        import postmerge as C
+        self.C=C
+        spec=importlib.util.spec_from_file_location('current_parent_source_fixture',Path(__file__).with_name('source-admission-test.py'))
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        self.source=s=module.CurrentParentImportTests('runTest');s.setUp();self.addCleanup(s.doCleanups)
+        self.root=s.root
+        # Copy the actual reviewed finite source graph as data. No historical
+        # or fixture checkout repository module is ever imported/executed.
+        for name in list(s.bodies):
+            raw=(C.ROOT/name).read_bytes()
+            s.bodies[name]=raw;s.default[name]=C.source_admission.ordinary(C.source_admission.blob_id(raw),
+                '100755' if name=='tests/run-project-tests.py' else '100644')
+            path=s.root/name;path.write_bytes(raw)
+        s.base=deepcopy(s.default)
+        s.base['tools/test-evidence/execution.py']=C.source_admission.ordinary('f'*40)
+        f=IntegratedSourceTests('runTest');f.setUp()
+        self.case,self.adapter,self.api=f.case,f.adapter,f.api
+        c=self.case;c.originals[c.binding['base_sha']]=('6'*40,['7'*40])
+        s.default_id=c.integrated;s.base_id=c.binding['base_sha'];s.head_id=c.binding['head_sha']
+        s.env.update(GITHUB_SHA=c.integrated,GITHUB_WORKFLOW_SHA=c.integrated)
+        s.event.update(before=c.binding['base_sha'],after=c.integrated)
+        s.run.update(head_sha=c.integrated);s.job.update(head_sha=c.integrated)
+        self.event,self.environment=s.event,s.env
+        old_json=self.api.json
+        def json_api(endpoint):
+            path=endpoint[len(A.PREFIX):].lstrip('/').split('?',1)[0]
+            if path in {'actions/runs/500/attempts/1/jobs','check-runs/5500'}:
+                return s.source_api.get(endpoint[len(A.PREFIX)+1:])
+            return old_json(endpoint)
+        self.api.json=json_api
+        self.api.immutable_tree=lambda oid:{'sha':oid,'truncated':False,
+            'tree':[{'path':path,**entry} for path,entry in (s.base if oid=='6'*40 else s.default).items()]}
+        self.registry=C.inputs.load_registry(C.ROOT/'.github/test-suites.json')
+        self.policy=C.producer._host_policy();self.package=self.policy.package_policy()
+        self.package_wrapper=SimpleNamespace(**{name:getattr(self.package,name) for name in
+            ('validate_tree_wiring','load','select','_policy_inputs')},validate_wiring=lambda _:C.producer.PLATFORM_GENERATION,
+            candidate_plan=lambda *_:{'host_mode':'full'})
+        quick=[name for name,row in self.registry['suites'].items()
+            if row['layer']=='quick' and name not in self.policy.PRODUCT_QUICK_SUITES]
+        self.selected={'suites':quick,'full_host':False,'include_platform':False,'reason':'reviewed-ci-only-inputs'}
+        self.enterContext(patch.object(self.policy,'package_policy',return_value=self.package_wrapper))
+        self.enterContext(patch.object(self.policy,'select',side_effect=lambda *_args,**_kwargs:deepcopy(self.selected)))
+        self.enterContext(patch.object(C.producer,'_host_policy',return_value=self.policy))
+        self.enterContext(patch.object(C.execution,'checkout_identity',return_value=(c.integrated,c.binding['merge_tree'])))
+        self.enterContext(patch.object(C.inputs,'full_tree',side_effect=lambda *_:deepcopy(s.default)))
+        self.enterContext(patch.object(C,'_source_qualified',return_value=True))
+        self.enterContext(patch.object(C.execution,'execute',side_effect=AssertionError('no duplicate execution/E')))
+        self.enterContext(patch.object(C.execution,'capture_execution_environment',side_effect=AssertionError('no unused E')))
+
+    def schedule(self):
+        return self.C.current_parent_schedule(self.event,self.environment,self.adapter,root=self.root,clock=lambda:NOW)
+
+    def test_current_main_transition_has_no_original_reuse_and_final_independently_rederives_partial_state(self):
+        value=self.schedule()
+        self.assertEqual(value['current_imports']['authority'],'current-imports-only')
+        self.assertEqual(value['selection'],self.selected)
+        self.assertEqual(value['executed_suites'],[]);self.assertEqual(value['reused_suites'],[])
+        self.assertFalse(value['qualification']);self.assertIsNone(value['execution'])
+        with patch.object(self.C,'verify_main',side_effect=ValueError('original B differs')):
+            result=self.C.lookup(self.event,self.environment,self.adapter,root=self.root,clock=lambda:NOW)
+        self.assertFalse(result['reused']);self.assertEqual(result['optional_qualification'],value)
+        self.environment['GITHUB_JOB']='qualify-parent';self.source.job['name']='Qualify exact parent'
+        needs={'route':{'result':'skipped','outputs':{}},'common-parent':{'result':'success'},
+            'platform-tests':{'result':'skipped','outputs':{}}}
+        with patch.object(self.C.producer,'ROOT',self.root):
+            self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
+            with patch.dict(self.selected,{'full_host':True}),self.assertRaises(ValueError):
+                self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
+            for key,row in (('common-parent',{'result':'failure'}),('platform-tests',{'result':'success','outputs':{}})):
+                with self.subTest(key=key),patch.dict(needs,{key:row}),self.assertRaises(ValueError):
+                    self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_boolean_installed_tuple_reaches_current_parent_without_original_execution_authority(self):
+        caller='.github/workflows/repository-checks.yml'
+        source='tools/repository-checks/workflows/producers/repository-checks.yml'
+        raw=(self.C.ROOT/source).read_bytes()
+        self.source.default[caller]=self.C.source_admission.ordinary(self.C.source_admission.blob_id(raw))
+        self.source.bodies[caller]=raw
+        (self.source.root/caller).write_bytes(raw)
+        self.package_wrapper.validate_wiring=lambda _:'protected-producer-original-default-boolean-v1'
+        value=self.schedule()
+        self.assertEqual(value['current_imports']['authority'],'current-imports-only')
+        self.assertEqual(value['executed_suites'],[]);self.assertEqual(value['reused_suites'],[])
+        self.assertFalse(value['qualification']);self.assertIsNone(value['execution'])
+        self.C.execution.execute.assert_not_called()
+
+    def test_full_extra_platform_package_unknown_and_stale_current_source_cannot_decline(self):
+        for key,value in (('full_host',True),('include_platform',True),
+                ('suites',list(self.registry['suites'])),('additional_suites',['new-command'])):
+            with self.subTest(key=key),patch.dict(self.selected,{key:value}),self.assertRaises(ValueError):self.schedule()
+        for path,entry in (('script-archive/marketplace/S3Server/package-lock.json',self.C.source_admission.ordinary('a'*40)),
+                ('tools/test-evidence/new-unknown.py',self.C.source_admission.ordinary('a'*40)),
+                ('tools/test-evidence/execution.py',{'mode':'120000','type':'blob','sha':'a'*40})):
+            with self.subTest(path=path),patch.dict(self.source.default,{path:entry}),self.assertRaises(ValueError):self.schedule()
+        for key,value in (('GITHUB_SHA','f'*40),('GITHUB_JOB','route'),
+                ('GITHUB_REPOSITORY','overte-org/overte'),('GITHUB_RUN_ATTEMPT','2')):
+            with self.subTest(key=key),patch.dict(self.environment,{key:value}),self.assertRaises(ValueError):self.schedule()
+        def changed(endpoint,value):
+            if endpoint.endswith('/git/ref/heads/main'):
+                value['object']['sha']='f'*40
+            return value
+        self.api.mutate=changed
+        with self.assertRaises(ValueError):self.schedule()
+
+
+class LeafOriginalCommonTests(unittest.TestCase):
+    """Real schema4/hash/API verification; source reconstruction uses fixed seams.
+
+    Original B/D projection validation remains covered by ci-profile-test. No
+    consumer environment capture or candidate command is substituted for proof.
+    """
+    def setUp(self):
+        f = MainConsumerTests('runTest')
+        f.generation_name = 'protected-producer-original-default-v1'
+        f.setUp(); self.addCleanup(f.doCleanups)
+        self.f, self.C, self.c, self.adapter = f, f.module, f.case, f.adapter
+        C, c = self.C, self.c
+        run = f.adapter.capture_integrated(500, c.plan, c.policy, now=NOW).observations[0].run
+        self.original_run = run
+        self.profile = deepcopy(C.producer.selection_profile.return_value)
+        c.binding['base_ref'] = 'apple-ios'
+        c.push.update(workflow_id=330551824, path='.github/workflows/project-tests.yml', head_branch='apple-ios')
+        c.originals['6'*40] = ('c'*40, ['7'*40])
+        f.tree[C.producer.PLATFORM_TEMPLATE] = deepcopy(f.tree['.github/workflows/project-tests.yml'])
+        self.candidate = Path('/immutable-leaf-candidate')
+        C.execution.checkout_identity.side_effect = lambda path: ((c.integrated, c.binding['merge_tree'])
+            if path == self.candidate else ('6'*40, 'c'*40))
+        f.environment.update(GITHUB_REF='refs/heads/apple-ios', GITHUB_JOB='project-tests',
+            GITHUB_WORKFLOW_REF=A.REPOSITORY+'/.github/workflows/project-tests.yml@refs/heads/apple-ios')
+        f.event['ref'] = 'refs/heads/apple-ios'
+        self.source = deepcopy(FIXTURES.RetainedSourceProtocolTests().fixture().context.protected_source)
+        self.source['binding'].update(source=c.binding['merge_sha'], git_context=f.git,
+            selection=self.profile['selection'], registry=P.digest(f.registry))
+        self.receipt = deepcopy(f.receipt)
+        self.receipt.update(schema=4, protected_source=deepcopy(self.source))
+        self.receipt = FIXTURES.signed(self.receipt, 'receipt_digest')
+        c.pp = replace(c.pp, required_execution_schema=4)
+        c.policy = replace(c.policy, producer=c.pp)
+        C._policy.return_value = c.plan, c.policy
+        c.aggregate['results']['shared-host']['receipt'] = self.receipt
+        c.add_run(replace(run, final_publisher=replace(run.final_publisher,
+            receipt_sha256=hashlib.sha256(P.canonical(self.receipt)).hexdigest())))
+        c.runs[100]['pull_requests'] = []
+        self.job = {'id':5500, 'run_id':500, 'run_attempt':1, 'head_sha':c.integrated,
+            'name':'Shared tests', 'status':'in_progress', 'conclusion':None,
+            'started_at':'2026-10-15T10:04:52Z', 'completed_at':None,
+            'check_run_url':'https://api.github.com/'+A.PREFIX+'/check-runs/5500'}
+        original_json = f.api.json
+        def native_json(endpoint):
+            path = endpoint[len(A.PREFIX):].lstrip('/').split('?',1)[0]
+            if path == 'branches/main':
+                value = {'name':'main', 'protected':True, 'commit':{'sha':'6'*40}}
+            elif path == 'actions/runs/500/attempts/1/jobs':
+                value = {'total_count':1, 'jobs':[deepcopy(self.job)]}
+            elif path == 'check-runs/5500':
+                value = {key:self.job[key] for key in ('id','head_sha','name','status','conclusion','started_at','completed_at')}
+                value.update(app={'id':15368}, check_suite={'id':1500})
+            else: return original_json(endpoint)
+            f.api.calls.append(endpoint)
+            return f.api.mutate(endpoint, deepcopy(value))
+        f.api.json = native_json
+        self.enterContext(patch.object(C.producer, 'selection_profile_for_reuse', return_value=self.profile))
+        self.enterContext(patch.object(C.producer, 'reuse_source_profile',
+            side_effect=lambda *args, **kwargs:(deepcopy(self.profile), deepcopy(f.tree))))
+        self.enterContext(patch.object(C, 'integrated_controller_for_reuse', return_value=c.pp.controller_digest))
+        def retained(receipt, *args, **kwargs):
+            A.require(receipt.get('schema') == 4 and receipt.get('protected_source') == self.source,
+                'fixed original source reconstruction differs')
+            return deepcopy(self.source)
+        self.enterContext(patch.object(C.producer, 'retained_receipt_source', side_effect=retained))
+        def original(adapter, invocation, plan, policy, context, receipt, binding, *, integrated, root, clock):
+            A.require(integrated and context.protected_source == self.source,
+                'actual schema4 source context differs')
+            return A.Adapter.verify_integrated(adapter, invocation, plan, policy,
+                {'shared-host':context}, clock=clock), object()
+        self.enterContext(patch.object(C.producer, 'verify_original_source', side_effect=original))
+
+    def reuse(self, *, include_platform=True, **kwargs):
+        return self.C.leaf_common_reuse(self.candidate, self.f.event, self.f.environment,
+            list(self.f.registry['suites']), include_platform=include_platform, adapter=self.adapter,
+            clock=lambda:NOW, **kwargs)
+
+    def test_actual_original_schema4_whole_hash_full_E_and_current_native_leaf_are_required(self):
+        for target in sorted(self.C.LEAF_TARGETS):
+            self.c.binding['base_ref'] = target; self.c.push['head_branch'] = target
+            self.f.event['ref'] = self.f.environment['GITHUB_REF'] = 'refs/heads/'+target
+            self.f.environment['GITHUB_WORKFLOW_REF'] = A.REPOSITORY+'/.github/workflows/project-tests.yml@refs/heads/'+target
+            partition = None if target == 'apple-ios' else {'digest':'sha256:'+'b'*64,
+                'common_owner':{'kind':'shared','suites':list(self.f.registry['suites']),
+                    'include_platform':False,'platform':{}}}
+            self.c.plan['owners']['shared-host']['include_platform'] = partition is None
+            self.receipt['include_platform'] = partition is None
+            self.receipt = FIXTURES.signed(self.receipt, 'receipt_digest')
+            self.c.aggregate['results']['shared-host']['receipt'] = self.receipt
+            run = replace(self.original_run, final_publisher=replace(self.original_run.final_publisher,
+                receipt_sha256=hashlib.sha256(P.canonical(self.receipt)).hexdigest()))
+            self.c.add_run(run); self.c.runs[100]['pull_requests'] = []
+            if partition is not None:
+                self.c.jobs[100].append({'id':140, 'run_id':100, 'run_attempt':1,
+                    'head_sha':self.c.binding['head_sha'], 'name':self.C.producer.PLATFORM_JOB,
+                    'status':'completed','conclusion':'success',
+                    'started_at':'2026-10-15T10:02:00Z','completed_at':'2026-10-15T10:03:00Z',
+                    'check_run_url':'https://api.github.com/'+A.PREFIX+'/check-runs/140',
+                    'steps':[{'name':'Execute and verify the complete Android platform inventory',
+                        'status':'completed','conclusion':'success',
+                        'started_at':'2026-10-15T10:02:01Z','completed_at':'2026-10-15T10:02:59Z'}]})
+            with self.subTest(target=target), patch.object(self.C.producer,'platform_partition',return_value=partition):
+                value = self.reuse(include_platform=partition is None,
+                    **({'partition':partition['digest']} if partition is not None else {}))
+                self.assertIsNotNone(value)
+                self.assertEqual(value['reused_suites'], list(self.f.registry['suites']))
+                self.assertEqual(value['executed_suites'], [])
+                self.assertIsNone(value['execution']); self.assertFalse(value['qualification'])
+                proof = value['proof']
+                self.assertEqual(proof['original_commit'], self.c.binding['merge_sha'])
+                self.assertNotEqual(proof['original_commit'], proof['current_commit'])
+                self.assertEqual(proof['original_protected_source'], self.source)
+                self.assertEqual(proof['original_proof']['receipt_sha256'], hashlib.sha256(P.canonical(self.receipt)).hexdigest())
+                self.assertEqual(value['external_platform_required'], partition is not None)
+                if partition is not None:
+                    self.assertFalse(proof['original_platform_job']['reusable'])
+                    self.c.jobs[100][-1]['conclusion'] = 'failure'
+                    self.assertIsNone(self.reuse(include_platform=False, partition=partition['digest']))
+        self.C.execution.execute.assert_not_called()
+        self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_absent_pending_failed_retry_native_hash_or_stale_context_never_skip_actual_fallback(self):
+        original = deepcopy((self.c.runs, self.c.jobs, self.c.artifacts))
+        for change in ('missing','pending','failed','attempt','hash','tree','runtime','git','source'):
+            with self.subTest(change=change):
+                if change=='missing': self.c.runs.clear()
+                elif change=='pending': self.c.runs[100].update(status='in_progress',conclusion=None)
+                elif change=='failed': self.c.runs[100]['conclusion']='failure'
+                elif change=='attempt': self.c.runs[100]['run_attempt']=2
+                elif change=='hash': self.c.jobs[100][-1]['name']=self.c.policy.final_publisher_prefix+'0'*64
+                elif change=='tree':
+                    with patch.object(self.C.execution,'checkout_identity',return_value=('f'*40,'e'*40)):
+                        self.assertIsNone(self.reuse())
+                    continue
+                elif change=='runtime':
+                    with patch.object(self.C.attested,'validate_environment',side_effect=ValueError('old E')):
+                        self.assertIsNone(self.reuse())
+                    continue
+                elif change=='git':
+                    with patch.object(self.C.producer,'expected_git_context',return_value={'wrong':'S is not M'}):
+                        self.assertIsNone(self.reuse())
+                    continue
+                else:
+                    with patch.object(self.C.producer,'retained_receipt_source',side_effect=ValueError('changed original D')):
+                        self.assertIsNone(self.reuse())
+                    continue
+                self.assertIsNone(self.reuse())
+            self.c.runs,self.c.jobs,self.c.artifacts = deepcopy(original)
+
+    def test_current_native_job_foreign_attempt_target_and_selected_owner_changes_never_waive(self):
+        for key, value in (('GITHUB_JOB','route'),('GITHUB_REF','refs/heads/apple-main'),
+                ('GITHUB_EVENT_NAME','pull_request'),('GITHUB_RUN_ATTEMPT','2'),
+                ('GITHUB_WORKFLOW_SHA','f'*40),('GITHUB_REPOSITORY','overte-org/overte')):
+            with self.subTest(key=key), patch.dict(self.f.environment,{key:value}):
+                self.assertIsNone(self.reuse())
+        for key, value in (('status','completed'),('run_attempt',2),('head_sha','f'*40),('name','fake Shared tests')):
+            with self.subTest(key=key), patch.dict(self.job,{key:value}):
+                self.assertIsNone(self.reuse())
+        with patch.object(self.C,'verify_main',wraps=self.C.verify_main):
+            value = self.C.leaf_common_reuse(self.candidate,self.f.event,self.f.environment,['first'],
+                include_platform=True,adapter=self.adapter,clock=lambda:NOW)
+            self.assertIsNone(value)
+
+    def test_package_delta_keeps_its_external_owner_and_current_native_job_is_bookended(self):
+        path = self.C.producer._host_policy().package_policy().S3+'/package-lock.json'
+        self.f.tree[path] = {'mode':'100644','type':'blob','sha':'f'*40}
+        value = self.reuse()
+        self.assertIsNotNone(value)
+        self.assertTrue(value['proof']['package_work'])
+        self.assertEqual(value['reused_suites'],list(self.f.registry['suites']))
+        self.assertEqual(value['executed_suites'],[])
+        reads = 0
+        def changed(endpoint, value):
+            nonlocal reads
+            if '/actions/runs/500/attempts/1/jobs?' in endpoint:
+                reads += 1
+                if reads >= 2:
+                    value['jobs'][0]['status'] = 'completed'
+                    value['jobs'][0]['conclusion'] = 'cancelled'
+            return value
+        self.f.api.mutate = changed
+        self.assertIsNone(self.reuse())
+        self.assertGreaterEqual(reads,2)
+
+
 class OptionalAndroidParentCommonTests(unittest.TestCase):
+    def test_leaf_omits_only_common_on_verified_original_proof_and_never_retries_failed_execution(self):
+        import postmerge
+        import producer_workflow as workflow
+        import tempfile
+        context = {'binding':{'base_ref':'android-phone','merge_sha':'a'*40},
+            'candidate':Path('/unused-candidate'),'integration':{},
+            'platform_partition':{'digest':'sha256:'+'b'*64,'common_owner':{'suites':['contract']}}}
+        proof = {'kind':'leaf-original-common-reuse-v1','reusable':False,'qualification':False,
+            'execution':None,'executed_suites':[],'reused_suites':['contract'],
+            'external_platform_required':True}
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory)/'common.xml'
+            with patch.object(workflow,'_push_platform_job') as native, \
+                    patch.object(workflow,'_platform_bookend') as bookend, \
+                    patch.object(postmerge,'leaf_common_reuse',return_value=proof) as lookup, \
+                    patch.object(workflow.execution,'execute',side_effect=AssertionError('duplicate common commands')):
+                value = workflow.legacy_common_fallback(context,{}, {},object(),report=report)
+            self.assertEqual(value,proof);self.assertEqual(native.call_count,2);bookend.assert_called_once()
+            self.assertFalse(report.exists());self.assertEqual(json.loads(report.with_suffix('.json').read_text()),proof)
+            self.assertEqual(lookup.call_args.kwargs['partition'],context['platform_partition']['digest'])
+            self.assertIs(lookup.call_args.kwargs['include_platform'],False)
+            with patch.object(workflow,'_push_platform_job'),patch.object(workflow,'_platform_bookend'), \
+                    patch.object(postmerge,'leaf_common_reuse',return_value=None) as lookup, \
+                    patch.object(workflow.execution,'execute',return_value=(1,{'reusable':False,'environment':None})) as execute:
+                with self.assertRaises(ValueError):
+                    workflow.legacy_common_fallback(context,{}, {},object(),report=report)
+            lookup.assert_called_once();execute.assert_called_once()
+            self.assertEqual(execute.call_args.args[1],['contract'])
+            self.assertFalse(execute.call_args.kwargs['include_platform'])
+
     def test_only_native_parent_common_nonqualifying_execution_is_declined(self):
         import producer_workflow as workflow
         import tempfile

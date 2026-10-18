@@ -60,6 +60,8 @@ _METADATA_SOURCE_WORKFLOW = "d04a6dc70213d8b549bac30c11cc15eaf0182dea"
 # of native invocation identity and cannot follow an unrelated newest pin.
 _SCHEDULING_RESULTS_WORKFLOW = "e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1"
 _SCHEDULING_SOURCE_WORKFLOW = "b76ade9fd7a76da21bf2cb2161deae7a262163e8"
+# Exact Boolean-input successor; every prior caller/helper remains supported.
+_BOOLEAN_RESULTS_WORKFLOW = "3b7a88765b7181a1bc7dd6f48b9b459e590055d3"
 _PYTHON_POLICY_JSONS = frozenset({
     ".github/test-suite-dependencies.json",
     ".github/android-orchestration.json", ".github/test-suites.json",
@@ -126,7 +128,8 @@ def result_workflow_sources():
     return ((_RESULTS_WORKFLOW, None), (_RETARGET_RESULTS_WORKFLOW, None),
             (_PINNED_RESULTS_WORKFLOW, None),
             (_METADATA_RESULTS_WORKFLOW, _METADATA_SOURCE_WORKFLOW),
-            (_SCHEDULING_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))
+            (_SCHEDULING_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW),
+            (_BOOLEAN_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))
 
 
 def pinned_workflow_entries():

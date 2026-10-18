@@ -1046,11 +1046,14 @@ class ProductRepairContracts(unittest.TestCase):
 class InspectionContracts(unittest.TestCase):
     # Legacy topology/evidence fixtures isolate the orthogonal CodeQL policy;
     # RequiredCodeQLInvocationTests exercises its real ordinary-PR hook below.
+    # Native owner fixtures separately exercise completed-original PR proof.
+    # A generic Mock API here must not enter that real path on hosted runners.
     def inspect_request(self, sync_request, evidence_error=None):
         with mock.patch.object(gate, "load_config", return_value=config()), \
              mock.patch.object(gate, "GitHubApi"), \
              trusted_codeql_policy([]), \
              mock.patch.object(gate, "classify_event", return_value=sync_request), \
+             mock.patch.object(gate, "native_pr_evidence", return_value=None), \
              mock.patch.object(gate, "verify_evidence", side_effect=evidence_error) as verify, \
              mock.patch.object(gate, "write_outputs") as output:
             event = mock.Mock()
@@ -2365,13 +2368,15 @@ class RequiredCodeQLInvocationTests(unittest.TestCase):
                           f"_METADATA_SOURCE_WORKFLOW = '{METADATA_SOURCE_BLOB}'\n"
                           "_SCHEDULING_RESULTS_WORKFLOW = '" + "e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1" + "'\n"
                           "_SCHEDULING_SOURCE_WORKFLOW = '" + "b76ade9fd7a76da21bf2cb2161deae7a262163e8" + "'\n"
+                          "_BOOLEAN_RESULTS_WORKFLOW = '3b7a88765b7181a1bc7dd6f48b9b459e590055d3'\n"
                           "def result_workflow_blobs():\n"
                           "    return (_RESULTS_WORKFLOW, _RETARGET_RESULTS_WORKFLOW, "
-                          "_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW)\n"
+                          "_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW)\n"
                           "def result_workflow_sources():\n"
                           "    return ((_RESULTS_WORKFLOW, None), (_RETARGET_RESULTS_WORKFLOW, None), "
                           "(_PINNED_RESULTS_WORKFLOW, None), (_METADATA_RESULTS_WORKFLOW, _METADATA_SOURCE_WORKFLOW), "
-                          "(_SCHEDULING_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))\n")
+                          "(_SCHEDULING_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW), "
+                          "(_BOOLEAN_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))\n")
         self.write_policy()
         side = lambda ref, sha: {'ref': ref, 'sha': sha, 'repo': {'full_name': REPOSITORY, 'id': REPOSITORY_ID}}
         self.pr = {'number': 610, 'state': 'open', 'mergeable': True, 'merge_commit_sha': MERGE,
@@ -2565,8 +2570,8 @@ class RequiredCodeQLInvocationTests(unittest.TestCase):
         for mutation in (original.replace(METADATA_WORKFLOW_BLOB, WORKFLOW_BLOB),
                          original.replace(METADATA_WORKFLOW_BLOB, '0' * 40),
                          original.replace(METADATA_SOURCE_BLOB, '0' * 40),
-                         original.replace('_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW)',
-                                          '_METADATA_RESULTS_WORKFLOW, _PINNED_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW)')):
+                         original.replace('_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW)',
+                                          '_METADATA_RESULTS_WORKFLOW, _PINNED_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW)')):
             source.write_text(mutation)
             with self.subTest(mutation=mutation), self.assertRaises(gate.GateError):
                 self.validate()
@@ -3635,6 +3640,14 @@ class VerifiedEmptySyncSourceTests(unittest.TestCase):
         self.assertEqual(result['native']['job']['job_id'],702)
         self.assertGreaterEqual(self.source_guard.call_count,2)
         self.assertFalse(any('artifact' in endpoint for endpoint in self.calls))
+
+    def test_boolean_complete_generation_retains_empty_proof_without_test_authority(self):
+        self.package.validate_tree_wiring=lambda tree:'protected-producer-original-default-boolean-v1'
+        result=self.verify()
+        self.assertEqual(result['kind'],'verified-empty-sync-v1')
+        self.assertFalse(result['reusable']);self.assertFalse(result['qualification'])
+        self.package.validate_tree_wiring=lambda tree:'protected-producer-original-default-boolean-v1-neighbor'
+        self.assertIsNone(self.verify())
 
     def test_actual_gate_topology_remains_mandatory_for_an_empty_candidate(self):
         actual=gate.classify_event({'repository':self.repository,'pull_request':self.pr},config(),self.api)

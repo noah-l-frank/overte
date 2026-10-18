@@ -81,6 +81,136 @@ class SourceFixture:
                 return deepcopy(value)
         return Api()
 
+class CurrentParentImportTests(SourceFixture,unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.target='main'; self.merge_id=self.default_id
+        self.event={'repository':{'full_name':S.REPOSITORY,'id':S.REPOSITORY_ID},
+            'ref':'refs/heads/main','before':self.base_id,'after':self.default_id,'forced':False,'deleted':False}
+        self.env.update(GITHUB_EVENT_NAME='push',GITHUB_REF='refs/heads/main',GITHUB_RUN_ID='500',
+            GITHUB_JOB='common-parent',GITHUB_SHA=self.default_id,GITHUB_WORKFLOW_SHA=self.default_id,
+            GITHUB_WORKFLOW_REF=S.REPOSITORY+'/.github/workflows/parent-qualification.yml@refs/heads/main')
+        parent='tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'
+        self.put(parent,b'name: fixed parent fixture\n')
+        workflows={}
+        for name in ('repository-checks','project-tests','parent-qualification','sync-validation','browser-client','pr-metadata-context'):
+            path='.github/workflows/'+name+'.yml'
+            self.put(path,self.bodies[parent] if name=='parent-qualification' else (name+' fixture\n').encode())
+            workflows[path]=self.default[path]
+        self.put('.github/package-workflow-generations.json',json.dumps({'schema':1,'generations':[
+            {'name':'protected-producer-original-default-v1','workflows':workflows}]}).encode())
+        self.base['tools/test-evidence/execution.py']=S.ordinary('a'*40)
+        self.run={'id':500,'run_attempt':1,'workflow_id':350930890,'check_suite_id':1500,
+            'path':'.github/workflows/parent-qualification.yml','event':'push','head_sha':self.default_id,
+            'head_branch':'main','status':'in_progress','conclusion':None,
+            **{key:{'id':S.REPOSITORY_ID,'full_name':S.REPOSITORY} for key in ('repository','head_repository')}}
+        self.job={'id':5500,'run_id':500,'run_attempt':1,'head_sha':self.default_id,
+            'name':'Common parent tests','status':'in_progress','conclusion':None,
+            'started_at':'2026-10-18T19:56:00Z','completed_at':None,
+            'check_run_url':'https://api.github.com/repos/'+S.REPOSITORY+'/check-runs/5500'}
+        api=self.api(); original=api.get
+        self.mutate=lambda endpoint,value:value
+        def get(endpoint):
+            if endpoint in {'actions/runs/500','actions/runs/500/attempts/1'}: value=self.run
+            elif endpoint=='actions/workflows/350930890': value={'id':350930890,'path':self.run['path']}
+            elif endpoint=='check-suites/1500': value={'id':1500,'head_sha':self.default_id,
+                'repository':{'id':S.REPOSITORY_ID},'app':{'id':15368}}
+            elif endpoint=='actions/runs/500/attempts/1/jobs?per_page=100&page=1': value={'total_count':1,'jobs':[self.job]}
+            elif endpoint=='check-runs/5500': value={**self.job,'app':{'id':15368},'check_suite':{'id':1500}}
+            elif endpoint=='git/commits/'+self.default_id:
+                value={'sha':self.default_id,'tree':{'sha':'2'*40},'parents':[{'sha':self.base_id},{'sha':self.head_id}]}
+            elif endpoint=='branches/main': value={'name':'main','protected':True,'commit':{'sha':self.default_id}}
+            elif endpoint=='git/ref/heads/main': value={'ref':'refs/heads/main','object':{'type':'commit','sha':self.default_id}}
+            elif endpoint=='git/commits/'+self.base_id: value={'sha':self.base_id,'tree':{'sha':'1'*40}}
+            elif endpoint.startswith('git/trees/'):
+                tree=self.base if '1'*40 in endpoint else self.default
+                value={'sha':'1'*40 if tree is self.base else '2'*40,'truncated':False,
+                    'tree':[{'path':path,**entry} for path,entry in tree.items()]}
+            elif endpoint=='': value={'id':S.REPOSITORY_ID,'full_name':S.REPOSITORY,'default_branch':'main'}
+            else: raise AssertionError('unexpected current parent source endpoint: '+endpoint)
+            api.calls.append(endpoint); return self.mutate(endpoint,deepcopy(value))
+        api.get=get;self.source_api=api
+        self.directory=tempfile.TemporaryDirectory();self.addCleanup(self.directory.cleanup)
+        self.root=Path(self.directory.name)
+        for name,raw in self.bodies.items():
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
+            path.chmod(0o755 if self.default[name]['mode']=='100755' else 0o644)
+
+    def authenticate(self):
+        with patch.object(S.subprocess,'run',return_value=SimpleNamespace(stdout=(self.default_id+'\n').encode())):
+            return S.authenticate(self.event,self.env,self.source_api,self.root)
+
+    def test_current_native_main_imports_do_not_claim_old_B_or_original_execution_authority(self):
+        for role,name in (('common-parent','Common parent tests'),('qualify-parent','Qualify exact parent')):
+            self.env['GITHUB_JOB']=role;self.job['name']=name
+            value=self.authenticate()
+            self.assertEqual(value['kind'],'current-protected-parent-imports-v1')
+            self.assertEqual(value['authority'],'current-imports-only')
+            self.assertEqual(value['source'],value['default'])
+            self.assertNotEqual(value['base'],value['default'])
+            self.assertEqual(value['native_job']['name'],name)
+            for forbidden in ('environment','receipt','results','verified','qualification','expires_at'):
+                self.assertNotIn(forbidden,value)
+            with self.assertRaises(S.SourceUnavailable):self.admit(target='main')
+            with self.assertRaises(S.SourceUnavailable):
+                S.reuse_compatibility(self.base,self.default,'main',read_actual=self.read,actual_imports=self.imports())
+
+    def test_pre_enrolled_boolean_tuple_uses_the_actual_complete_current_generation(self):
+        catalog_path='.github/package-workflow-generations.json'
+        caller='.github/workflows/repository-checks.yml'
+        catalog=json.loads(self.bodies[catalog_path])
+        previous=deepcopy(catalog['generations'][0])
+        following=deepcopy(previous)
+        following['name']='protected-producer-original-default-boolean-v1'
+        raw=b'repository-checks boolean fixture\n'
+        following['workflows'][caller]=S.ordinary(S.blob_id(raw))
+        catalog['generations'].append(following)
+        self.put(catalog_path,json.dumps(catalog).encode())
+        (self.root/catalog_path).write_bytes(self.bodies[catalog_path])
+        # Catalog enrollment alone leaves the old complete installed tuple valid.
+        self.assertEqual(self.authenticate()['authority'],'current-imports-only')
+        old=self.base[caller]
+        self.put(caller,raw)
+        self.base[caller]=old
+        (self.root/caller).write_bytes(raw)
+        value=self.authenticate()
+        self.assertEqual(value['authority'],'current-imports-only')
+        self.assertNotEqual(self.base[caller],self.default[caller])
+        self.assertNotIn('receipt',value)
+        for mutation in ('unknown-name','wrong-mode','mixed-sibling'):
+            changed=deepcopy(catalog)
+            if mutation=='unknown-name': changed['generations'][1]['name']+='-neighbor'
+            elif mutation=='wrong-mode': changed['generations'][1]['workflows'][caller]['mode']='100755'
+            else: changed['generations'][1]['workflows']['.github/workflows/browser-client.yml']=S.ordinary('f'*40)
+            data=json.dumps(changed).encode()
+            self.put(catalog_path,data);(self.root/catalog_path).write_bytes(data)
+            with self.subTest(mutation=mutation),self.assertRaises(S.SourceUnavailable):self.authenticate()
+
+    def test_foreign_stale_non_normal_wrong_role_failed_attempt_and_unknown_jobs_reject(self):
+        cases=[('actions/runs/500','run_attempt',2),('actions/runs/500/attempts/1','head_sha','f'*40),
+            ('check-suites/1500','app',{'id':42}),('check-runs/5500','app',{'id':42}),
+            ('branches/main','protected',False),('git/commits/'+self.default_id,'parents',[{'sha':self.head_id}]),
+            ('git/ref/heads/main','object',{'type':'commit','sha':'f'*40}),
+            ('actions/runs/500/attempts/1/jobs?per_page=100&page=1','total_count',2)]
+        for endpoint,key,value in cases:
+            self.mutate=lambda actual,row,endpoint=endpoint,key=key,value=value:({**row,key:value} if actual==endpoint else row)
+            with self.subTest(endpoint=endpoint,key=key),self.assertRaises(S.SourceUnavailable):self.authenticate()
+        self.mutate=lambda endpoint,value:value
+        for key,value in (('GITHUB_EVENT_NAME','pull_request'),('GITHUB_JOB','route'),
+                ('GITHUB_REF','refs/heads/apple-main'),('GITHUB_WORKFLOW_SHA','f'*40)):
+            with self.subTest(key=key),patch.dict(self.env,{key:value}),self.assertRaises(S.SourceUnavailable):self.authenticate()
+        for key,value in (('status','completed'),('run_attempt',2),('name','forged common')):
+            with self.subTest(key=key),patch.dict(self.job,{key:value}),self.assertRaises(S.SourceUnavailable):self.authenticate()
+
+    def test_changed_SELF_keeps_first_source_bootstrap_denied_and_current_lookup_is_immutable(self):
+        self.base[S.SELF]=S.ordinary('f'*40)
+        with self.assertRaises(S.SourceUnavailable):self.authenticate()
+        self.assertFalse(any(endpoint.startswith('actions/') for endpoint in self.source_api.calls))
+        self.base[S.SELF]=self.default[S.SELF]
+        for name in ('.github/workflows/parent-qualification.yml','tools/test-evidence/runtime.py'):
+            with self.subTest(name=name),patch.dict(self.default,{name:S.ordinary('f'*40)}),self.assertRaises(S.SourceUnavailable):self.authenticate()
+
+
 class SourceAdmissionTests(SourceFixture,unittest.TestCase):
     def test_repository_root_transport_has_no_slash_and_relative_requests_stay_exact(self):
         calls=[]
@@ -740,6 +870,7 @@ class EffectiveBaseResolutionTests(SourceFixture,unittest.TestCase):
 
 if __name__=='__main__':
     suite=unittest.defaultTestLoader.loadTestsFromTestCase(SourceAdmissionTests)
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(CurrentParentImportTests))
     suite.addTests(BootstrapTests(name) for name in (
         'test_bootstrap_validates_all_source_without_importing_any_controller',
         'test_bootstrap_rejects_changed_helper_before_exec_and_changed_controller_before_import',

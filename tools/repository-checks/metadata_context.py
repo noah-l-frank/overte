@@ -36,6 +36,8 @@ LEGACY_HELPER_BLOB = '9c531c34ba559d17255768d8cae3129496fac55d'
 # A guard upgrade requires a reviewed helper upgrade; local Git equality alone
 # cannot let an arbitrary historical/candidate guard authenticate itself.
 SOURCE_GUARD_BLOB = '20580c3ea413e63a6779898fdd3d2c5e051625f4'
+CURRENT_PARENT_IMPORT_GUARD_BLOB = '3b97657d8874a842c74a0cbf5a8032e06b941e65'
+BOOLEAN_SOURCE_GUARD_BLOB = 'a89e1d51be5039214def84d8f6f5a06f3dfaea29'
 TARGETS = frozenset({'main', 'apple-main', 'apple-ios', 'android-main',
                      'android-phone', 'android-vr', 'android-vr-pico'})
 _READERS = ('inputs', 'runtime', 'execution', 'producer', 'producer_api', 'source_admission')
@@ -181,7 +183,7 @@ def _protected_readers(event, environment, native_value, root):
     raw = _git(root, 'show', 'HEAD:' + relative)
     require(not path.is_symlink() and not path.parent.is_symlink() and path.read_bytes() == raw,
             'stdlib source guard differs from immutable protected checkout')
-    require(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == SOURCE_GUARD_BLOB
+    require(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB)
         and not path.stat().st_mode & 0o111, 'stdlib source guard has no reviewed bootstrap identity')
     # No neighboring import lookup is exposed until the guard has checked its
     # complete reviewed inventory. The bootstrap itself imports only stdlib.
@@ -287,17 +289,34 @@ def _source_policy(root, adapter, binding, references, native_value, protected, 
         catalog = json.loads(_git(root, 'show', 'HEAD:.github/package-workflow-generations.json'),
                              object_pairs_hook=source.unique)
         require(type(catalog) is dict and catalog.get('schema') == 1
-            and type(catalog.get('generations')) is list and len(catalog['generations']) <= 24,
+            and type(catalog.get('generations')) is list and len(catalog['generations']) <= 25,
             'scheduling trusted generation catalog unavailable')
         for row in catalog['generations']:
             entries = row.get('workflows', {})
-            if set(entries) == A.METADATA_WORKFLOWS and entries.get(SOURCE_WORKFLOW) == old_source:
-                generations[row['name']] = entries
-                sources[row['name']] = old_helper
+            if set(entries) != A.METADATA_WORKFLOWS:
+                continue
+            historical = entries.get(SOURCE_WORKFLOW) == old_source
+            current = row.get('name') in A.RETAINED_OWNER_GENERATIONS and entries.get(SOURCE_WORKFLOW) == default[SOURCE_TEMPLATE]
+            if not (historical or current):
+                continue
+            pair = old_helper if historical else {SOURCE: base[SOURCE]}
+            if entries == workflows and pair == sources.get('metadata-scheduling-v2'):
+                # Use its actual catalog name, not a duplicate tuple/helper alias.
+                generations.pop('metadata-scheduling-v2', None)
+                sources.pop('metadata-scheduling-v2', None)
+            generations[row['name']], sources[row['name']] = entries, pair
     else:
         generations['codeql-metadata-v1'] = {caller: {'mode': '100644', 'type': 'blob',
             'sha': '3a273057a38255ca368d3028594fb94227ba7c3b'}, SOURCE_WORKFLOW: old_source}
         sources['codeql-metadata-v1'] = old_helper
+        installed = {caller: {'mode':'100644','type':'blob',
+            'sha':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'},
+            SOURCE_WORKFLOW: {'mode':'100644','type':'blob',
+                'sha':'b76ade9fd7a76da21bf2cb2161deae7a262163e8'}}
+        if installed != workflows:
+            generations['codeql-original-default-v1'] = installed
+            sources['codeql-original-default-v1'] = {SOURCE: base[SOURCE]}
+    generations, sources = A.retain_native_metadata_sources(generations, sources)
     policy = A.MetadataPolicy(A.positive(registered.get('id')), caller,
                               generations, sources)
     return policy, context

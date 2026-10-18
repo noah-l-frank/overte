@@ -712,7 +712,9 @@ class IsolatedConsumerTests(unittest.TestCase):
                 target.write_bytes((VALIDATION.ROOT/relative).read_bytes());target.chmod(0o644)
             self.assertEqual(yaml.safe_load((snapshot/'.github/workflows/sync-validation.yml').read_bytes()),data)
             self.assertEqual(len(list((snapshot/'.github/workflows').iterdir())),6)
-            future=next((row for row in catalog if row['name']=='protected-producer-original-default-v1'),None)
+            future=next((row for row in catalog if row['name']=='protected-producer-original-default-boolean-v1'),None)
+            if future is None:
+                future=next((row for row in catalog if row['name']=='protected-producer-original-default-v1'),None)
             if future is not None:
                 for path in sources:
                     raw=(snapshot/path).read_bytes()
@@ -1238,7 +1240,8 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         source=Path(__file__).resolve().parents[1]/'repository-checks/package_checks.py'
         packages=VALIDATION._trusted_module('verified_empty_fixture_packages',source)
         generation=packages.validate_wiring(root)
-        self.assertIn(generation,{'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-v1'})
+        self.assertIn(generation,{'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-v1',
+            'protected-producer-original-default-boolean-v1'})
         return packages,generation
 
     def setUp(self):
@@ -1361,7 +1364,8 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         self.assertIn("steps.select.outputs.lane != 'verified-empty'",normal['if'])
         active=(VALIDATION.ROOT/'.github/workflows/sync-validation.yml').read_text()
         packages,generation=self.workflow_fixture_generation(VALIDATION.ROOT)
-        if generation=='protected-producer-original-default-v1':
+        if generation in {'protected-producer-original-default-v1',
+                'protected-producer-original-default-boolean-v1'}:
             self.assertEqual(active,path.read_text())
             self.assertIn('expected-empty-setup',active)
             # Bind every independently stored canonical endpoint as well as the
@@ -1374,8 +1378,16 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
                 '.github/workflows/pr-metadata-context.yml':'metadata-edits/pr-metadata-context.yml'}
             self.assertEqual(set(sources),set(packages.METADATA_WORKFLOW_PATHS))
             for target,relative in sources.items():
-                self.assertEqual((VALIDATION.ROOT/target).read_bytes(),
-                    (VALIDATION.ROOT/'tools/repository-checks/workflows'/relative).read_bytes(),target)
+                actual=(VALIDATION.ROOT/target).read_bytes()
+                if (generation=='protected-producer-original-default-v1'
+                        and target=='.github/workflows/repository-checks.yml'):
+                    import hashlib
+                    self.assertEqual(hashlib.sha1(b'blob '+str(len(actual)).encode()+b'\0'+actual).hexdigest(),
+                        '81bcf1933edc435826e2de411a777cccd4dec7c7')
+                    self.assertEqual(packages.validate_wiring(VALIDATION.ROOT),generation)
+                else:
+                    self.assertEqual(actual,
+                        (VALIDATION.ROOT/'tools/repository-checks/workflows'/relative).read_bytes(),target)
         else:
             self.assertNotIn('expected-empty-setup',active)
 

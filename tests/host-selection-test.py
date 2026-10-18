@@ -2,6 +2,7 @@
 """Negative selection coverage against the real trusted host program closure."""
 from copy import deepcopy
 import importlib.util
+import hashlib
 import json
 import base64
 import zlib
@@ -78,6 +79,37 @@ class HostSelectionTests(unittest.TestCase):
         self.assertEqual(result, {'suites': list(self.registry['suites']),
             'reason': 'reviewed-protected-producer-transition', 'full_host': True, 'include_platform': True})
         self.assertEqual(len(result['suites']), len(set(result['suites'])))
+
+    def test_boolean_caller_pair_activation_uses_ordinary_ci_only_selection(self):
+        policy=HOST.package_policy()
+        rows={row['name']:row['workflows'] for row in policy.workflow_generations()}
+        previous=copy_git_tree(self.tree)
+        previous.update(deepcopy(rows['protected-producer-original-default-v1']))
+        templates={'.github/workflows/repository-checks.yml':'tools/repository-checks/workflows/producers/repository-checks.yml',
+            '.github/workflows/codeql.yml':'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml'}
+        for template in templates.values():
+            raw=(ROOT/template).read_bytes()
+            previous[template]={'mode':'100644','type':'blob',
+                'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+        previous['.github/workflows/codeql.yml']={'mode':'100644','type':'blob',
+            'sha':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'}
+        candidate=copy_git_tree(previous)
+        for caller,template in templates.items():candidate[caller]=deepcopy(previous[template])
+        paths=sorted(templates)
+        self.assertEqual(policy.validate_tree_wiring(previous),'protected-producer-original-default-v1')
+        self.assertEqual(policy.validate_tree_wiring(candidate),'protected-producer-original-default-boolean-v1')
+        with patch.object(HOST,'REVIEWED_PROGRAMS',HOST.program_digest(previous)):
+            result=self.selected(paths,tree=candidate,trusted_tree=previous,base_tree=previous)
+        self.assertEqual(result['reason'],'reviewed-ci-only-inputs')
+        self.assertEqual(result['suites'],json.loads((ROOT/'.github/ci37-runtime.json').read_text())['suites'])
+        self.assertFalse(result['full_host']);self.assertFalse(result['include_platform'])
+        self.assertFalse(HOST._protected_producer_transition(candidate,paths,previous,previous,'main'))
+        for path,change in (('.github/workflows/repository-checks.yml',{'sha':'f'*40}),
+                ('.github/workflows/repository-checks.yml',{'mode':'100755'}),
+                ('.github/workflows/browser-client.yml',{'sha':'f'*40})):
+            unknown=copy_git_tree(candidate);unknown[path].update(change)
+            with self.subTest(path=path,change=change),self.assertRaises(ValueError):
+                policy.validate_tree_wiring(unknown)
 
     def test_consumer_parent_is_preserved_by_each_exact_later_producer_pair(self):
         policy=HOST.package_policy()
@@ -1728,6 +1760,113 @@ class OptionalParentQualificationTests(unittest.TestCase):
             self.assertFalse(result['qualification'])
             self.assertFalse(result['reusable'])
             self.assertIn('no test pass or reusable evidence published', output.getvalue())
+
+
+class LeafOriginalExecutionTests(unittest.TestCase):
+    def cli(self, *, proof=True, target='apple-ios', event_name='push', platform=False,
+            select_only=False, failure=False, additions=False):
+        import postmerge
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory)/'candidate'; candidate.mkdir()
+            event = Path(directory)/'event.json'
+            event.write_text(json.dumps({'ref':'refs/heads/'+target}))
+            junit, report, output = (Path(directory)/name for name in ('tests.xml','report.json','outputs'))
+            plan = {'candidate':'a'*40,'plan':'fixture','host_mode':'full','base':None,
+                'regular':True,'unknown':False,'paths':['tools/branch-cleanup/cleanup.py']}
+            registry = {'suites':{'contract':{'layer':'quick','environment':'fixture',
+                'command':['python','contract.py']}}}
+            selected = {'suites':['contract'],'include_platform':platform,'full_host':platform,'reason':'fixture'}
+            proposed = deepcopy(registry)
+            if additions:
+                proposed['suites']['new-contract'] = {**deepcopy(registry['suites']['contract']),
+                    'command':['python','new-contract.py']}
+            value = {'kind':'leaf-original-common-reuse-v1','reusable':False,'qualification':False,
+                'execution':None,'executed_suites':[],'reused_suites':['contract'],
+                'proof':{'original_commit':'b'*40,'current_commit':'a'*40}}
+            runner = SimpleNamespace(Suite=lambda *args:args,run_suites=Mock(return_value=1 if failure else 0))
+            policy = SimpleNamespace(validate_wiring=lambda _:None,candidate_plan=lambda *_:plan)
+            argv = ['host_selection.py','--candidate',str(candidate),'--event',str(event),
+                '--sha','a'*40,'--expected-plan','fixture','--junit',str(junit),'--selection-report',str(report)]
+            if select_only: argv += ['--select-only','--output',str(output)]
+            with patch.object(sys,'argv',argv), patch.dict(HOST.os.environ,
+                    {'GITHUB_EVENT_NAME':event_name,'GITHUB_JOB':'project-tests'},clear=True), \
+                    patch.object(HOST.execution,'_runner',return_value=runner), \
+                    patch.object(HOST.execution,'checkout_identity',return_value=('a'*40,'c'*40)), \
+                    patch.object(HOST,'package_policy',return_value=policy), \
+                    patch.object(HOST.inputs,'full_tree',return_value={}), \
+                    patch.object(HOST.inputs,'load_registry',return_value=registry), \
+                    patch.object(HOST,'candidate_registry',return_value=proposed), \
+                    patch.object(HOST,'select',return_value=selected), \
+                    patch.object(HOST.execution,'platform_suites',return_value=(
+                        [('platform-contract',['python','platform.py'])] if platform else [])), \
+                    patch.object(postmerge,'leaf_common_reuse',return_value=value if proof else None) as lookup, \
+                    contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
+                status = HOST.main()
+            return status,runner,lookup,json.loads(report.read_text()),junit.exists()
+
+    def test_late_common_hook_preserves_original_provenance_without_new_junit_or_execution(self):
+        status,runner,lookup,report,junit = self.cli()
+        self.assertEqual(status,0); runner.run_suites.assert_not_called(); lookup.assert_called_once()
+        self.assertFalse(junit)
+        self.assertEqual(report['executed_suites'],[])
+        self.assertEqual(report['reused_suites'],['contract'])
+        self.assertNotEqual(report['original_common']['proof']['original_commit'],report['candidate'])
+        self.assertIsNone(report['execution']);self.assertFalse(report['reusable'])
+        # Setup cannot use an unauthenticated speculative early lookup.
+        _,runner,lookup,_,_ = self.cli(select_only=True)
+        runner.run_suites.assert_not_called();lookup.assert_not_called()
+
+    def test_unavailable_proof_runs_exactly_once_and_failure_is_not_retried(self):
+        for failure in (False,True):
+            with self.subTest(failure=failure):
+                status,runner,lookup,report,_ = self.cli(proof=False,failure=failure)
+                self.assertEqual(status, int(failure));runner.run_suites.assert_called_once();lookup.assert_called_once()
+                self.assertNotIn('original_common',report)
+
+    def test_pr_foreign_leaf_new_command_and_actual_platform_work_retain_their_owners(self):
+        for options in ({'event_name':'pull_request'},{'target':'apple-main'},
+                        {'platform':True},{'additions':True}):
+            with self.subTest(options=options):
+                status,runner,lookup,report,_ = self.cli(**options)
+                self.assertEqual(status,0);runner.run_suites.assert_called_once();lookup.assert_not_called()
+                self.assertNotIn('original_common',report)
+                if options.get('platform'):
+                    self.assertIn('platform-contract',[suite[0] for suite in runner.run_suites.call_args.args[1]])
+
+
+class HostImportHygieneTests(unittest.TestCase):
+    def test_plain_entrypoint_and_inherited_commands_preserve_the_immutable_import_tree(self):
+        # The hosted partial fallback invokes Python without -B. Exercise real
+        # imports in a fresh process, including a child, with no ambient opt-out.
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entry = root/'tools/repository-checks/host_selection.py'
+            entry.parent.mkdir(parents=True)
+            entry.write_bytes((ROOT/'tools/repository-checks/host_selection.py').read_bytes())
+            modules = root/'tools/test-evidence'
+            modules.mkdir()
+            for name in ('execution.py', 'inputs.py', 'runtime.py'):
+                (modules/name).write_bytes((ROOT/'tools/test-evidence'/name).read_bytes())
+            wrapper = '''
+import os, runpy, subprocess, sys
+from pathlib import Path
+os.environ.pop('PYTHONDONTWRITEBYTECODE', None)
+os.environ.pop('PYTHONPYCACHEPREFIX', None)
+entry = Path(sys.argv[1])
+sys.argv = [str(entry), '--help']
+try:
+    runpy.run_path(str(entry), run_name='__main__')
+except SystemExit as error:
+    if error.code not in (None, 0):
+        raise
+subprocess.run([sys.executable, '-S', '-c', 'import execution, inputs'],
+    cwd=entry.parents[1]/'test-evidence', check=True)
+'''
+            result = subprocess.run([sys.executable, '-I', '-S', '-c', wrapper, str(entry)],
+                capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(list(root.rglob('__pycache__')), [])
 
 
 if __name__=='__main__':

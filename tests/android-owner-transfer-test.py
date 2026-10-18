@@ -231,16 +231,17 @@ class AndroidOwnerTransferTests(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 gate.validate_tree_wiring(forged)
         generations = gate.packages().workflow_generations()
-        self.assertEqual(len(generations),24)
+        self.assertEqual(len(generations),25)
+        self.assertEqual(len([row for row in generations if row['name']!='protected-producer-original-default-boolean-v1']),24)
         self.assertEqual(len([row for row in generations
-                              if row['name'] != 'npm-consumers-sync-ci-budget-cleanup-v1']),23)
+                              if row['name'] not in {'npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-boolean-v1'}]),23)
         self.assertEqual(len([row for row in generations
-                              if row['name'] not in {'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1'}]),22)
+                              if row['name'] not in {'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-boolean-v1'}]),22)
         prior = next(row for row in generations if row['name']=='protected-producer-ci37-v1')
         self.assertEqual(len(prior['workflows']),5)
         self.assertEqual(gate.packages().validate_tree_wiring(prior['workflows']),prior['name'])
         for name in ('protected-producer-metadata-ci-v1', 'protected-producer-seven-target-ci-v1',
-                     'protected-producer-original-default-v1'):
+                     'protected-producer-original-default-v1','protected-producer-original-default-boolean-v1'):
             enrolled = next(row for row in generations if row['name'] == name)
             self.assertEqual(set(enrolled['workflows']), set(gate.packages().METADATA_WORKFLOW_PATHS))
             self.assertEqual(gate.packages().validate_tree_wiring(enrolled['workflows']), name)

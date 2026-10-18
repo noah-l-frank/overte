@@ -547,7 +547,8 @@ class MetadataVerifier:
         require(type(processing_seconds) in (int, float) and 0 <= processing_seconds <= PROCESSING_SECONDS,
                 'invalid result-processing bound')
         A, postmerge, marker = _metadata_modules()
-        native, workflows, sources = self._trusted(marker, postmerge)
+        native, trusted_workflows, sources = self._trusted(marker, postmerge)
+        workflows = trusted_workflows
         adapter = A.Adapter(self.api)
         before = adapter.current(native['number'])
         binding, references = before
@@ -574,6 +575,21 @@ class MetadataVerifier:
         _, base_tree = postmerge.full_tree(adapter, binding['base_sha'])
         candidate_tree_sha, candidate_tree = postmerge.full_tree(adapter, binding['merge_sha'])
         require(candidate_tree_sha == binding['merge_tree'], 'candidate source inventory differs')
+        # The protected Boolean template is pre-enrolled while its exact old
+        # active caller is retained. Select that actual immutable pair without
+        # relabelling an original analysis as the new caller.
+        ordinary = lambda oid: {'mode':'100644','type':'blob','sha':oid}
+        if trusted_workflows.get(WORKFLOW) == ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW):
+            require((base_tree.get(WORKFLOW), candidate_tree.get(WORKFLOW)) in (
+                (ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW), ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW)),
+                (ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW), ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW)),
+                (ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW), ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW))),
+                'Boolean metadata caller source is unknown or rolls back an installed successor')
+        if (trusted_workflows.get(WORKFLOW) == ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW)
+                and candidate_tree.get(WORKFLOW) == ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW)):
+            workflows = {**trusted_workflows, WORKFLOW: ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW)}
+            policy = A.MetadataPolicy(policy.caller_workflow_id, WORKFLOW,
+                {'codeql-metadata-v1': workflows}, {'codeql-metadata-v1': sources})
         require(all(candidate_tree.get(path) == expected for path, expected in workflows.items())
                 and base_tree.get(WORKFLOW) in codeql.pinned_workflow_entries(),
                 'metadata reuse requires the protected reviewed native-source workflow')
@@ -649,7 +665,7 @@ class MetadataVerifier:
         require(self._inventory(adapter, binding, policy, now) == snapshot,
                 'ordinary inventory or authenticated metadata observations changed')
         require(adapter.current(native['number']) == before and
-                self._trusted(marker, postmerge) == (native, workflows, sources),
+                self._trusted(marker, postmerge) == (native, trusted_workflows, sources),
                 'live candidate, protected source or default branch changed')
         validate_native_snapshot()
         return {'schema': 1, 'kind': 'revalidated-original-codeql', 'metadata_only': 'true',

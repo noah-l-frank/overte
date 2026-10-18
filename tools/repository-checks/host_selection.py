@@ -17,6 +17,11 @@ import subprocess
 import importlib.util
 from types import SimpleNamespace
 
+# Partial hosted execution uses plain Python, outside the isolated producer.
+# Keep both this supervisor and its commands from changing immutable imports.
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/test-evidence'))
 import execution
@@ -145,18 +150,18 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = '918f0138f5bb48f5c5615607fd1761bde24a06ff1fd3a8808e76972bd5b4f63a'
+REVIEWED_PROGRAMS = 'd8acd0ca9f78558bee03e6a1b30c4a8bde1ea836d3e19deac26774a7e47fb661'
 REVIEWED_CHILD_PROGRAMS = {
-    'apple-main': '0cb16f0cbb486715e01f601696fcbeec4d2d8615e5b83a55e84b932ae8fb3395',
-    'apple-ios': 'bb63ed769e05a928e0240307b1e160744230be79a2d852ff2d887894812c7a21',
-    'android-main': '1cbfc71584cf7146924284cd72837dac56388d99c240a3511c69ff82b4aa8307',
-    'android-phone': '05e3ba9c9b19a500f92c972b9990a8bf2cf5385c467c8eb6f6fb277606a917c1',
-    'android-vr': '1cbfc71584cf7146924284cd72837dac56388d99c240a3511c69ff82b4aa8307',
-    'android-vr-pico': 'd6cc33723ca32912a45972490c0118023fae8747bec754d7b1c3260b090a6871',
+    'apple-main': '5630fb70e0efa24292d2750bdae769708de03859fa752b2485c3064577e8e1af',
+    'apple-ios': '764c6f8d70ede6287b97882a0b34ce9caca92b482648dd72bb2790d4fd554e95',
+    'android-main': 'd9b60344732b70c6e229cb6c3f647d0d40b5809261818221c1712ecdf60e7bab',
+    'android-phone': '9fe6e3f2beb13bbdd3affb0fd08a5c15f43ad55fbc76ee3c8649babce382326d',
+    'android-vr': 'd9b60344732b70c6e229cb6c3f647d0d40b5809261818221c1712ecdf60e7bab',
+    'android-vr-pico': '22b45baceff505e6f9bc3a4f8770b4ed7cdea53bf2b1442f64e37402269dca90',
 }
 # Separate exact installed family; None admits nothing until genuine enrollment.
 REVIEWED_INSTALLED_PROGRAMS = {
-    'apple-ios': '42636993e35608afe68c487681b25ab2e5ffdad036bbc5e7519f10700898f8eb',
+    'apple-ios': 'bcd263f283542d4e57f4cdb3289765019d749ee1bba5ea100e0d4d4e45cf7186',
 }
 REVIEWED_PREDECESSORS = {
     'main': '6c6064992d2e2e189e06af5957c147fd1ac0996b886b8d0b6f30dbf856ee9afe',
@@ -748,6 +753,20 @@ def main():
             return 0
         if args.junit is None:
             raise ValueError('host execution requires a test report path')
+        if (os.environ.get('GITHUB_EVENT_NAME') == 'push'
+                and os.environ.get('GITHUB_JOB') == 'project-tests'
+                and target_branch(event) in {'apple-ios', 'android-phone', 'android-vr-pico'}
+                and not additions and not selected['platform_suites']):
+            import postmerge
+            original = postmerge.leaf_common_reuse(candidate, event, os.environ, selected['suites'],
+                include_platform=selected['include_platform'], root=ROOT)
+            if original is not None:
+                report.update(original_common=original, executed_suites=[],
+                    reused_suites=selected['suites'], qualification=False, execution=None)
+                if args.selection_report is not None:
+                    args.selection_report.write_text(json.dumps(report, sort_keys=True, indent=2) + '\n')
+                print(json.dumps(original, sort_keys=True), flush=True)
+                return 0
         if not complete_receipt and os.environ.get('GITHUB_JOB') == 'common-parent':
             # The earlier native API lookup owns this workspace file. Candidate
             # commands have not run, and this branch publishes no test receipt.
