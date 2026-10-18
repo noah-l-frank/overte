@@ -561,6 +561,16 @@ class Github:
         require(value.get("delete_branch_on_merge") is False, "native_cleanup_would_bypass_guards")
         return value
 
+    def verify_notification_owner(self):
+        """A read-only sender may lack administrative fields; deletion never may."""
+        value = self.get()
+        require(value.get("full_name") == REPOSITORY and value.get("id") == REPOSITORY_ID,
+                "repository_ownership_mismatch")
+        require(value.get("default_branch") == "main", "default_branch_changed")
+        if "delete_branch_on_merge" in value:
+            require(value["delete_branch_on_merge"] is False, "native_cleanup_would_bypass_guards")
+        return value
+
     def branches(self):
         rows = self.get("branches?per_page=100", paginate=True)
         return [{"name": r["name"], "sha": r["commit"]["sha"], "protected": r["protected"]} for r in rows]
@@ -1403,7 +1413,7 @@ def _sync_notify_native(github, run_id, workflow_id, path, source, event, *, com
 
 def _sync_notify_dispatch(github, payload):
     """One fixed POST. Empty/lost/malformed responses never cause a second POST."""
-    github.verify_owner()
+    github.verify_notification_owner()
     args = ["gh", "api", "--method", "POST",
             f"repos/{REPOSITORY}/actions/workflows/{CLEANUP_WORKFLOW_ID}/dispatches",
             "-H", "X-GitHub-Api-Version: 2022-11-28", "-F", "return_run_details=true",
@@ -1456,7 +1466,7 @@ def notify_sync_completion(github, policy, event):
     gate_id, number = int(correlation[1]), int(inputs["pull_request"])
     base, head, merge = (inputs[key] for key in (
         "expected_base_sha", "expected_head_sha", "expected_merge_sha"))
-    github.verify_owner()
+    github.verify_notification_owner()
     sender = _sync_notify_native(github, sender_id, SYNC_VALIDATION_ID,
         ".github/workflows/sync-validation.yml", source, "workflow_dispatch")
     require(sender.get("head_branch") == "main" and sender.get("status") == "in_progress"
