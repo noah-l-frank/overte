@@ -1837,3 +1837,13 @@ qualification. Its successful context mirrors original truth, not new evidence.
 The marker CLI separately allows at most 180 seconds for original tiny-source
 registration, without changing the pure scheduling contract or accepting an
 unknown source. No rule/context bypass, new dispatch or rerun is involved.
+
+The shared producer revalidates executable CI handoffs before CI37 admission.
+Only the complete reviewed seven-file Android owner handoff, or the exact
+five-file protected iOS compiler-cache installation, can establish this finite
+source-mode proof. The iOS transition requires both enrolled raw program/reader
+families, the actual protected policy and the unchanged canonical iOS required
+owner. It retains CI37 and the independent iOS host contracts while avoiding
+unrelated shared product suites and an application build. Global CI path
+ownership and reader digests remain unchanged; partial, mixed, unknown,
+nonregular or differently targeted changes retain conservative coverage.
