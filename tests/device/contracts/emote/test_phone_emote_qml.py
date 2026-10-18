@@ -65,7 +65,11 @@ with tempfile.TemporaryDirectory(prefix='overte-phone-emote-qt5-') as temporary:
     if evidence:
         Path(evidence).write_text(json.dumps({'source': str(source),
             'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
-            'qt_version': versions[0], 'runner': str(runner), 'actions': actions,
+            'qt_version': versions[0], 'runner': str(binary),
+            'runner_kind': 'Compiled Qt Quick Test with native Phone file selectors',
+            'runner_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
+            'native_boundary_source_sha256': hashlib.sha256(cpp.read_bytes()).hexdigest(),
+            'actions': actions,
             'boundary': 'Unchanged production QML with real Qt5 mouse/keyboard and Controls; state feedback enters its actual fromScript handler at the script boundary. These exact mouse events next enter unchanged production JS; cache/avatar/timers are explicit seams.'}, indent=2) + '\n')
     subprocess.run(['node', '--test', str(ROOT / 'tests/javascript/test/phone-emote.production.test.js')],
         env=os.environ | {'OVERTE_EMOTE_QML_ACTIONS': str(trace)}, check=True, timeout=60)
