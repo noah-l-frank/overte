@@ -6,6 +6,8 @@
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
+#include <QQmlFileSelector>
+#include <QFileSelector>
 #include <QSettings>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -167,6 +169,11 @@ int main(int argc,char** argv) {
     if(action=="qml") {
         QQmlEngine engine;engine.addImportPath(root+"/interface/resources/qml");
         qmlRegisterModule("TabletScriptingInterface",1,0);qmlRegisterModule("PerformanceEnums",1,0);
+        auto metrics=api(engine,R"(import QtQml 2.15; QtObject { property real safeInsetLeft: 0;property real safeInsetTop: 0;property real safeInsetRight: 0;property real safeInsetBottom: 0;property real imeInsetBottom: 0;property bool keyboardVisible: false;property real surfaceWidth: 1024;property real surfaceHeight: 768;property real density: 1;property real fontScale: 1 })");
+        qmlRegisterSingletonInstance("OverteIOS",1,0,"IOSTouchUiMetrics",metrics);
+        QQmlFileSelector selector(&engine);
+        selector.setExtraSelectors(qEnvironmentVariable("OVERTE_MIRROR_QML_SELECTORS").split(',',Qt::SkipEmptyParts));
+        out["selected_qml"]=selector.selector()->select(root+"/scripts/system/settings/qml/pages/GraphicsSettings.qml");
         engine.rootContext()->setContextProperty("Render",&render);
         engine.rootContext()->setContextProperty("Tablet",api(engine,R"(import QtQml 2.15; QtObject { function playSound(x) {} })"));
         engine.rootContext()->setContextProperty("TabletEnums",api(engine,R"(import QtQml 2.15; QtObject { property int buttonClicked: 0 })"));
@@ -176,12 +183,13 @@ int main(int argc,char** argv) {
         engine.rootContext()->setContextProperty("currentPage",QString("Graphics"));
         engine.rootContext()->setContextProperty("header",api(engine,R"(import QtQml 2.15; QtObject { property real height: 40 })"));
         QQuickItem parent;parent.setWidth(1024);parent.setHeight(768);
-        QQmlComponent c(&engine,QUrl::fromLocalFile(root+"/scripts/system/settings/qml/pages/GraphicsSettingsBase.qml"));
+        QQmlComponent c(&engine,QUrl::fromLocalFile(root+"/scripts/system/settings/Settings.qml"));
         auto item=qobject_cast<QQuickItem*>(c.create());if(!item){for(auto error:c.errors())std::cerr<<error.toString().toStdString()<<'\n';return 2;}
-        item->setParentItem(&parent);app.processEvents();auto control=item->findChild<QObject*>("settings.graphics.mirrors");assert(control);
+        item->setParentItem(&parent);item->setProperty("currentPage","Graphics");app.processEvents();auto control=item->findChild<QObject*>("settings.graphics.mirrors");assert(control);
         out["qml_initial"]=control->property("settingEnabled").toBool();
-        control->setProperty("settingEnabled",false);out["qml_false"]=!render.getMirrorsEnabled()&&allMatch(config,false);
-        control->setProperty("settingEnabled",true);out["qml_true"]=render.getMirrorsEnabled()&&allMatch(config,true);delete item;
+        QObject* toggle=nullptr;for(auto child:control->findChildren<QObject*>()) if(child->inherits("QQuickSwitch")) { toggle=child;break; }assert(toggle);
+        assert(QMetaObject::invokeMethod(toggle,"toggle"));out["qml_false"]=!render.getMirrorsEnabled()&&allMatch(config,false);
+        assert(QMetaObject::invokeMethod(toggle,"toggle"));out["qml_true"]=render.getMirrorsEnabled()&&allMatch(config,true);delete item;
     }
     int count=0;for(auto job:config.findChildren<task::JobConfig*>()) if(job->objectName().startsWith("RenderMirror")) ++count;
     out["value"]=render.getMirrorsEnabled();out["configs"]=count;out["all_match"]=allMatch(config,render.getMirrorsEnabled());out["safe"]=safe;
