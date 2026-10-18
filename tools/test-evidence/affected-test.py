@@ -833,15 +833,24 @@ class ShippingPolicyTests(unittest.TestCase):
         self.assertTrue(set(inputs._AFFECTED_SUBJECTS).issubset(plan['omitted']))
         self.assertIn('documentation-contracts',plan['required'])
         self.assertEqual(plan['reasons']['documentation-contracts'],'unreviewed-import-or-missing-required-input')
-        # Apple retains two additional audio Python readers and a changed mute
-        # caller. Their genuine import variant must keep this extra owner.
-        if 'recorded-voice-qml' in plan['required']:
-            self.assertEqual(plan['reasons']['recorded-voice-qml'],'unreviewed-import-or-missing-required-input')
-            self.assertEqual(len(plan['required']),33)
-        else:
-            self.assertIn('recorded-voice-qml',plan['omitted'])
-            self.assertEqual(plan['reasons']['recorded-voice-qml'],'unchanged-reviewed-dependencies')
-            self.assertEqual(len(plan['required']),32)
+        # Feature branches can legitimately change additional import roots.
+        # Check each reviewed-pattern owner against its actual source bytes
+        # instead of assuming a fixed main/Apple total of selected owners.
+        pattern_owners={name for name,row in json.loads(raw)['suites'].items()
+                        if row['kind']=='reviewed-patterns'}
+        self.assertEqual(pattern_owners,{'documentation-contracts','release-bundle',
+            'embedded-web-qml','places-native-qml','recorded-voice-qml','snapshot-qml'})
+        self.assertEqual(len(set(plan['required'])-pattern_owners),31)
+        _,_,_,source=self.source_context()
+        for name in sorted(pattern_owners):
+            imports=registry['suites'][name]['python_imports']
+            reviewed=inputs.python_import_digest(source,imports['roots'])==imports['reviewed']
+            with self.subTest(import_owner=name,reviewed=reviewed):
+                self.assertIn(name,plan['omitted'] if reviewed else plan['required'])
+                self.assertEqual(plan['reasons'][name],
+                    'unchanged-reviewed-dependencies' if reviewed
+                    else 'unreviewed-import-or-missing-required-input')
+        self.assertTrue(inputs._AFFECTED_PRODUCT_SUITES.issubset(plan['omitted']))
         for name,subjects in inputs._AFFECTED_SUBJECTS.items():
             for subject in subjects:
                 for shape in ('changed','removed','historical','executable'):
