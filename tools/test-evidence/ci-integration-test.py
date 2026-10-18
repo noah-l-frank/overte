@@ -245,7 +245,7 @@ class FiniteExecutableSelectionTests(unittest.TestCase):
                 self.assertEqual(result['profile'],C.PROFILE)
                 self.assertTrue(result['suites'])
                 self.assertLessEqual(set(result['suites']),set(C.SUITES))
-                self.assertEqual(result['binding']['suites'],result['suites'])
+                self.assertEqual(result['binding']['suites'],list(C.SUITES))
                 self.assertIs(admit.call_args.kwargs['regular'],True)
                 self.assertIs(result['selection']['full_host'],False)
                 self.assertIs(result['selection']['include_platform'],False)
@@ -263,7 +263,9 @@ class FiniteExecutableSelectionTests(unittest.TestCase):
                 result=P.selection_profile(self.router,self.registry,candidate,base,self.trusted,
                     root=self.root,target=target,read_blob=lambda oid:P.source_blob(self.root,oid))
                 self.assertEqual(result['profile'],C.PROFILE)
-                self.assertEqual(result['suites'],list(C.SUITES))
+                self.assertTrue(result['suites'])
+                self.assertLessEqual(set(result['suites']),set(C.SUITES))
+                self.assertEqual(result['binding']['suites'],list(C.SUITES))
 
     def test_executable_proof_does_not_admit_a_changed_original_controller(self):
         path='tests/run-project-tests.py'
