@@ -325,3 +325,12 @@ PICO_REBUILD_QT=1 PICO_BUILD_JOBS="$(nproc)" ./prepare-pico-deps.sh
 The script also stages the release TBB runtime, creates the legacy Draco
 compatibility layout, and resolves shader host tools from explicit `PICO_*`
 variables or `PATH`.
+
+### Animated Snapshot preview decoder
+
+The Qt GIF image plugin is declared in `qt_dependencies.xml` and the Activity's
+local-library metadata. The source-input validator requires its staged native
+payload before packaging; QtActivityLoader extracts it under
+`plugins/imageformats/libqgif.so`. Animated Snapshot previews use that decoder.
+An APK containing an unextracted plugin library does not establish a working
+Qt image format. Full APK validation and headset preview remain separate checks.

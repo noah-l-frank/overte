@@ -7,6 +7,7 @@
     <string-array name="bundled_in_lib">
         <item>libplugins_platforms_qtforandroid_arm64-v8a.so:plugins/platforms/android/libqtforandroid.so</item>
         <item>libplugins_bearer_qandroidbearer_arm64-v8a.so:plugins/bearer/libqandroidbearer.so</item>
+        <item>libplugins_imageformats_qgif_arm64-v8a.so:plugins/imageformats/libqgif.so</item>
         <item>libplugins_imageformats_qjpeg_arm64-v8a.so:plugins/imageformats/libqjpeg.so</item>
         <item>libplugins_imageformats_qsvg_arm64-v8a.so:plugins/imageformats/libqsvg.so</item>
         <item>libplugins_audio_qtaudio_opensles_arm64-v8a.so:plugins/audio/libqtaudio_opensles.so</item>

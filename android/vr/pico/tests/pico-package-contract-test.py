@@ -66,6 +66,17 @@ class PicoPackageContractTests(unittest.TestCase):
         self.assertIn("common/cmake/overte-android-bootstrap.cmake", bootstrap)
         self.assertIn("-DUSE_BREAKPAD=OFF", GRADLE)
 
+    def test_animated_snapshot_decoder_is_extracted_to_the_qt_plugin_path(self):
+        resources = ET.parse(APP / "src/main/res/values/qt_dependencies.xml")
+        pairs = [item.text.split(":", 1) for item in resources.findall(
+            "./string-array[@name='bundled_in_lib']/item")]
+        self.assertIn(["libplugins_imageformats_qgif_arm64-v8a.so",
+                       "plugins/imageformats/libqgif.so"], pairs)
+        metadata = MANIFEST.find(
+            "application/activity[@android:name='.PicoInterfaceActivity']/meta-data"
+            "[@android:name='android.app.load_local_libs']", {"android": NS[1:-1]})
+        self.assertIn("plugins/imageformats/libqgif.so", metadata.attrib[NS + "value"].split(":"))
+
     def test_runtime_comes_from_verified_source_inputs(self):
         self.assertIn("picoInputs", GRADLE)
         self.assertIn("release/source-inputs.groovy", GRADLE)
