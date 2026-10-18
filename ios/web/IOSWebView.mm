@@ -3,6 +3,7 @@
 #include "IOSWebView.h"
 #include "IOSWebChannel.h"
 #include "IOSWebDocumentEpoch.h"
+#include "IOSInlineDocument.h"
 #include "WKWebSnapshot.h"
 #include <EmbeddedWebPolicy.h>
 #include <QCoreApplication>
@@ -42,6 +43,8 @@ struct IOSWebViewNative {
     static void started(IOSWebView*, std::uint64_t);
     static void failed(IOSWebView*, std::uint64_t);
     static void close(IOSWebView*);
+    static void load(IOSWebView*, std::uint64_t, NSURLRequest*);
+    static bool replayInline(IOSWebView*, std::uint64_t, NSURL*, bool, bool);
 };
 }
 
@@ -161,7 +164,7 @@ QVariant qtValue(id value) {
         if (owner && !action.shouldPerformDownload &&
                 overte::ios::IOSWebViewNative::navigation(owner, generation, action.request.URL, true, action.request.HTTPMethod)) {
             overte::ios::IOSWebViewNative::prepare(owner, generation, action.request.URL);
-            [view loadRequest:action.request];
+            overte::ios::IOSWebViewNative::load(owner, generation, action.request);
         }
         return;
     }
@@ -171,6 +174,13 @@ QVariant qtValue(id value) {
     const auto previous = qtURL(view.URL);
     const auto destination = qtURL(action.request.URL);
     const bool fragmentOnly = overte::ios::IOSWebDocumentEpoch::isFragmentNavigation(previous, destination);
+    if (allowed && action.targetFrame.mainFrame && !fragmentOnly &&
+            overte::ios::IOSWebViewNative::replayInline(owner, generation, action.request.URL,
+                action.navigationType == WKNavigationTypeBackForward, fragmentOnly)) {
+        decisionHandler(WKNavigationActionPolicyCancel);
+        overte::ios::IOSWebViewNative::load(owner, generation, action.request);
+        return;
+    }
     // Fragment links retain the same JavaScript document, including its nonce.
     if (allowed && action.targetFrame.mainFrame && !fragmentOnly) { overte::ios::IOSWebViewNative::prepare(owner, generation, action.request.URL); }
     decisionHandler(allowed ? WKNavigationActionPolicyAllow : WKNavigationActionPolicyCancel);
@@ -227,7 +237,7 @@ QVariant qtValue(id value) {
     (void)configuration; (void)features;
     // Ordinary target=_blank links stay in this isolated view, under policy.
     if (owner && overte::ios::IOSWebViewNative::navigation(owner, generation, action.request.URL, true, action.request.HTTPMethod)) {
-        [view loadRequest:action.request];
+        overte::ios::IOSWebViewNative::load(owner, generation, action.request);
     }
     return nil;
 }
@@ -257,6 +267,12 @@ struct IOSWebView::Private {
     web::EmbeddedWebSession policy;
     web::EmbeddedWebSession::Generation generation { 0 };
     IOSWebDocumentEpoch document;
+    IOSInlineDocumentBinding inlineBinding;
+    IOSInlineNavigation inlineNavigation;
+    QMetaObject::Connection inlineContextConnection;
+    QVariant inlineCarrier;
+    QString originalSource, originalScript;
+    bool inlineMode { false };
     IOSWebChannel channel;
     WKWebSnapshot snapshot;
     QTimer openTimer, deadline;
@@ -316,14 +332,26 @@ IOSWebView::IOSWebView(QQuickItem* parent) : QQuickPaintedItem(parent), _private
     });
 }
 IOSWebView::~IOSWebView() { tearDown(); }
-QUrl IOSWebView::url() const { return _private->url; }
+QString IOSWebView::url() const { return _private->originalSource; }
 QUrl IOSWebView::currentUrl() const { return _private->view.URL ? qtURL(_private->view.URL) : _private->url; }
-void IOSWebView::setUrl(const QUrl& value) {
-    if (_private->url == value) { return; }
-    _private->url = value; scheduleOpen(); emit urlChanged();
+void IOSWebView::setUrl(const QString& value) {
+    if (_private->originalSource == value) { return; }
+    _private->originalSource = value; _private->url = QUrl(value);
+    scheduleOpen(); emit urlChanged();
 }
-QUrl IOSWebView::scriptUrl() const { return _private->scriptUrl; }
-void IOSWebView::setScriptUrl(const QUrl& value) { if (_private->scriptUrl != value) { _private->scriptUrl = value; scheduleOpen(); emit configurationChanged(); } }
+QString IOSWebView::scriptUrl() const { return _private->originalScript; }
+void IOSWebView::setScriptUrl(const QString& value) {
+    if (_private->originalScript == value) { return; }
+    _private->originalScript = value; _private->scriptUrl = QUrl(value);
+    scheduleOpen(); emit configurationChanged();
+}
+QVariant IOSWebView::inlineDocument() const { return _private->inlineCarrier; }
+void IOSWebView::setInlineDocument(const QVariant& value) {
+    // Even an invalid replacement revokes the old native lifetime. Comparing
+    // token() on two revoked descriptors would collapse them to empty strings.
+    _private->inlineCarrier = value;
+    scheduleOpen(); emit inlineDocumentChanged();
+}
 QString IOSWebView::userAgent() const { return _private->userAgent; }
 void IOSWebView::setUserAgent(const QString& value) { if (_private->userAgent != value) { _private->userAgent = value; scheduleOpen(); emit configurationChanged(); } }
 bool IOSWebView::useBackground() const { return _private->background; }
@@ -371,15 +399,17 @@ void IOSWebView::scheduleOpen() {
     // The bridge objects stay alive through a possible current Qt invocation.
     if (_private->generation) {
         _private->policy.close(); _private->generation = 0;
-        _private->document.invalidate(); _private->snapshot.detach();
+        _private->document.invalidate(); _private->inlineNavigation.clear(); _private->snapshot.detach();
         _private->bridgeReady = false; _private->bridgeFrame = QUrl();
         _private->deadline.stop(); [_private->view stopLoading];
+        [_private->view setAllMediaPlaybackSuspended:YES completionHandler:nil];
         _private->image = QImage(); emit frameChanged(); emit bridgeAvailableChanged(); update();
     }
     if (_private->complete) { _private->openTimer.start(0); }
 }
 bool IOSWebView::active() const {
     return NSThread.isMainThread && _private->generation && _private->policy.active() &&
+        (!_private->inlineMode || _private->inlineBinding.current(this)) &&
         _private->generation == _private->policy.generation() && _private->window.isKeyWindow &&
         _private->window.windowScene.activationState == UISceneActivationStateForegroundActive &&
         UIApplication.sharedApplication.applicationState == UIApplicationStateActive && isVisible() && isEnabled();
@@ -392,14 +422,18 @@ void IOSWebView::updateNavigation() {
     _private->back = _private->view.canGoBack;
     _private->forward = _private->view.canGoForward;
     if (_private->presentation) {
-        _private->presentation.topViewController.navigationItem.title = nativeString(qtURL(_private->view.URL).host());
+        const auto current = qtURL(_private->view.URL);
+        const bool inlinePage = _private->policy.allowsInlineResponse(_private->generation, current, true, QStringLiteral("GET"));
+        _private->presentation.topViewController.navigationItem.title = nativeString(inlinePage ? tr("Overte app") : current.host());
     }
     emit navigationChanged();
 }
 
 void IOSWebView::tearDown() {
     _private->policy.close(); // Shared invalidation precedes every native cleanup.
+    QObject::disconnect(_private->inlineContextConnection); _private->inlineContextConnection = {};
     _private->generation = 0;
+    _private->inlineBinding.clear(); _private->inlineNavigation.clear(); _private->inlineMode = false;
     _private->openTimer.stop(); _private->deadline.stop();
     _private->snapshot.detach(); _private->channel.reset();
     _private->document.invalidate();
@@ -414,6 +448,7 @@ void IOSWebView::tearDown() {
         if (_private->delegate) { _private->delegate->owner.clear(); }
         if (_private->qrcHandler) { _private->qrcHandler->owner.clear(); }
         [_private->view stopLoading];
+        [_private->view setAllMediaPlaybackSuspended:YES completionHandler:nil];
         _private->view.navigationDelegate = nil; _private->view.UIDelegate = nil;
         [_private->view.configuration.userContentController removeAllScriptMessageHandlers];
         [_private->view.configuration.userContentController removeAllUserScripts];
@@ -448,9 +483,21 @@ void IOSWebView::open() {
     if (!_private->packagedRoot.isEmpty() && _private->packagedRoot != _private->scriptRoot) {
         fail(tr("The packaged script root does not match the native resource owner.")); return;
     }
-    _private->generation = _private->policy.open(_private->url,
-        _private->surface == QStringLiteral("tablet") ? web::Surface::Tablet : web::Surface::WorldEntity, _private->identity,
-        _private->documentRoot);
+    const auto surface = _private->surface == QStringLiteral("tablet") ? web::Surface::Tablet : web::Surface::WorldEntity;
+    _private->inlineMode = _private->url.scheme() == QStringLiteral("data");
+    if (_private->inlineMode) {
+        if (!_private->inlineBinding.bind(_private->inlineCarrier, this, _private->identity,
+                _private->originalSource, _private->originalScript)) {
+            fail(tr("This inline document has no current native source owner.")); return;
+        }
+        _private->generation = _private->policy.openInline(_private->inlineBinding.document(),
+            _private->inlineBinding.context(), _private->originalSource, surface, _private->identity,
+            _private->originalScript);
+        _private->inlineContextConnection = connect(_private->inlineBinding.context(), &QObject::destroyed,
+            this, [this] { stop(); });
+    } else {
+        _private->generation = _private->policy.open(_private->url, surface, _private->identity, _private->documentRoot);
+    }
     if (!_private->generation) { fail(tr("This web URL is not permitted.")); return; }
     _private->error.clear(); emit errorChanged(); setLoading(true);
     UIWindow* window = nil;
@@ -465,11 +512,12 @@ void IOSWebView::open() {
     _private->deadline.start();
     // Script bytes are prepared before the WK configuration is constructed.
     // A source assignment grants this URL; pages cannot assign scriptUrl.
-    auto createView = [owner, generation] {
+    auto createConfiguredView = [owner, generation](WKContentRuleList* rules) {
         if (!owner || !owner->active() || owner->_private->generation != generation) { return; }
         auto& state = *owner->_private;
         @try {
             WKWebViewConfiguration* configuration = [WKWebViewConfiguration new];
+            [configuration.userContentController addContentRuleList:rules];
             configuration.websiteDataStore = [WKWebsiteDataStore nonPersistentDataStore];
             configuration.defaultWebpagePreferences.allowsContentJavaScript = YES;
             configuration.preferences.javaScriptCanOpenWindowsAutomatically = NO;
@@ -509,14 +557,33 @@ void IOSWebView::open() {
                 [state.observers addObject:token];
             }
             if (state.surface == QStringLiteral("tablet") && !owner->openNative()) { owner->fail(owner->tr("Unable to present the native browser.")); return; }
-            NSURL* url = nativeURL(state.url);
+            NSURL* url = nativeURL(state.inlineMode ? state.policy.url() : state.url);
             if (!owner->allowsNavigation(qtURL(url), true, QStringLiteral("GET"))) { owner->fail(owner->tr("This web request is not permitted.")); return; }
-            if (state.url.isLocalFile()) {
+            if (state.inlineMode) {
+                owner->loadInlineDocument(qtURL(url));
+            } else if (state.url.isLocalFile()) {
                 [state.view loadFileURL:url allowingReadAccessToURL:[NSURL fileURLWithPath:nativeString(state.documentRoot) isDirectory:YES]];
             } else {
                 [state.view loadRequest:[NSURLRequest requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:30]];
             }
         } @catch (NSException*) { owner->fail(owner->tr("Unable to create the native browser.")); }
+    };
+    auto createView = [owner, generation, createConfiguredView] {
+        if (!owner || !owner->active() || owner->_private->generation != generation) { return; }
+        // Every isolated WK view blocks the reserved namespace, including pages
+        // reached by ordinary browsing. There is no DNS/network fallback for a
+        // synthetic document or a foreign subresource in that namespace.
+        [WKContentRuleListStore.defaultStore compileContentRuleListForIdentifier:@"org.overte.inline-reserved.v1"
+            encodedContentRuleList:nativeString(iosInlineNamespaceRules())
+            completionHandler:^(WKContentRuleList* rules, NSError* error) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (!owner || !owner->active() || owner->_private->generation != generation) { return; }
+                    if (error || !rules) {
+                        owner->fail(owner->tr("The web document isolation rules could not be installed.")); return;
+                    }
+                    createConfiguredView(rules);
+                });
+            }];
     };
     if (_private->scriptUrl.isEmpty()) { createView(); return; }
     if (!_private->policy.allowsScriptURL(_private->scriptUrl, _private->scriptRoot)) { fail(tr("This injected script URL is not permitted.")); return; }
@@ -530,12 +597,12 @@ void IOSWebView::open() {
     _private->scriptReply = _private->network.get(request);
     auto* reply = _private->scriptReply.data();
     connect(reply, &QNetworkReply::readyRead, this, [owner, generation, reply] {
-        if (!owner || owner->_private->generation != generation) { return; }
+        if (!owner || !owner->active() || owner->_private->generation != generation) { return; }
         owner->_private->script.append(reply->readAll());
         if (owner->_private->script.size() > 1024 * 1024) { owner->fail(owner->tr("The web script exceeds the allowed size.")); }
     });
     connect(reply, &QNetworkReply::finished, this, [owner, generation, reply, createView] {
-        if (!owner || owner->_private->generation != generation) { reply->deleteLater(); return; }
+        if (!owner || !owner->active() || owner->_private->generation != generation) { reply->deleteLater(); return; }
         owner->_private->scriptReply = nullptr;
         const bool success = reply->error() == QNetworkReply::NoError &&
             !reply->attribute(QNetworkRequest::RedirectionTargetAttribute).isValid();
@@ -543,6 +610,24 @@ void IOSWebView::open() {
         if (!success || owner->_private->script.size() > 1024 * 1024) { owner->fail(owner->tr("The web script could not be loaded.")); return; }
         createView();
     });
+}
+
+void IOSWebView::loadInlineDocument(const QUrl& url, bool bypassCache) {
+    if (!active() || !_private->view || !_private->inlineMode ||
+            !_private->policy.allowsInlineResponse(_private->generation, url, true, QStringLiteral("GET"))) { return; }
+    const auto bytes = _private->inlineBinding.document().bytes();
+    const auto charset = _private->inlineBinding.document().charset();
+    if (!active()) { return; } // Source revocation also invalidates copied descriptors.
+    NSURL* requestURL = nativeURL(url);
+    NSURLRequest* request = [NSURLRequest requestWithURL:requestURL
+        cachePolicy:bypassCache ? NSURLRequestReloadIgnoringLocalAndRemoteCacheData : NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:30];
+    NSURLResponse* response = [[NSURLResponse alloc] initWithURL:requestURL MIMEType:@"text/html"
+        expectedContentLength:bytes.size() textEncodingName:(charset.isEmpty() ? nil : nativeString(charset))];
+    NSData* data = [NSData dataWithBytes:bytes.constData() length:bytes.size()];
+    // Public since iOS15. The main response never sends a network request.
+    // Unlike loadHTMLString, this preserves the original bytes and encoding.
+    _private->inlineNavigation.issued(_private->generation, url, _private->inlineBinding.document().token());
+    [_private->view loadSimulatedRequest:request response:response responseData:data];
 }
 
 bool IOSWebView::openNative() {
@@ -670,8 +755,22 @@ void IOSWebView::evaluate(const QString& code) {
 }
 void IOSWebView::goBack() { if (active() && _private->view.canGoBack) { _private->document.resetRecovery(); [_private->view goBack]; } }
 void IOSWebView::goForward() { if (active() && _private->view.canGoForward) { _private->document.resetRecovery(); [_private->view goForward]; } }
-void IOSWebView::reload() { if (active() && _private->view) { _private->document.resetRecovery(); [_private->view reload]; } else { scheduleOpen(); } }
-void IOSWebView::reloadAndBypassCache() { if (active() && _private->view) { _private->document.resetRecovery(); [_private->view reloadFromOrigin]; } else { scheduleOpen(); } }
+void IOSWebView::reload() {
+    if (!active() || !_private->view) { scheduleOpen(); return; }
+    _private->document.resetRecovery();
+    const auto current = qtURL(_private->view.URL);
+    if (_private->policy.allowsInlineResponse(_private->generation, current, true, QStringLiteral("GET"))) {
+        loadInlineDocument(current);
+    } else { [_private->view reload]; }
+}
+void IOSWebView::reloadAndBypassCache() {
+    if (!active() || !_private->view) { scheduleOpen(); return; }
+    _private->document.resetRecovery();
+    const auto current = qtURL(_private->view.URL);
+    if (_private->policy.allowsInlineResponse(_private->generation, current, true, QStringLiteral("GET"))) {
+        loadInlineDocument(current, true);
+    } else { [_private->view reloadFromOrigin]; }
+}
 void IOSWebView::unfocus() { evaluate(QStringLiteral("if(document.activeElement)document.activeElement.blur();")); }
 void IOSWebView::runJavaScript(const QString& code, const QJSValue& callback) {
     if (!active() || !_private->view || code.toUtf8().size() > 1024 * 1024) { return; }
@@ -756,6 +855,25 @@ void IOSWebViewNative::started(IOSWebView* owner, std::uint64_t generation) {
 }
 void IOSWebViewNative::failed(IOSWebView* owner, std::uint64_t generation) { if (current(owner, generation)) { owner->fail(owner->tr("The web page could not be loaded. Reload to try again.")); } }
 void IOSWebViewNative::close(IOSWebView* owner) { if (owner) { owner->closePresentation(); } }
+bool IOSWebViewNative::replayInline(IOSWebView* owner, std::uint64_t generation, NSURL* requestURL,
+        bool backForward, bool fragmentOnly) {
+    if (!current(owner, generation) || !owner->_private->inlineMode || fragmentOnly) { return false; }
+    const auto url = qtURL(requestURL);
+    if (!web::EmbeddedWebSession::isInlineNamespace(url)) { return false; }
+    if (owner->_private->inlineNavigation.consume(generation, url, owner->_private->inlineBinding.document().token())) {
+        return false; // The already supplied native SubstituteData response.
+    }
+    // Keep real history traversal. A restored old JS context must pass the
+    // current nonce check; its one recovery reload is replayed locally here.
+    return !backForward;
+}
+void IOSWebViewNative::load(IOSWebView* owner, std::uint64_t generation, NSURLRequest* request) {
+    if (!navigation(owner, generation, request.URL, true, request.HTTPMethod)) { return; }
+    const auto url = qtURL(request.URL);
+    owner->prepareDocument(url);
+    if (web::EmbeddedWebSession::isInlineNamespace(url)) { owner->loadInlineDocument(url); }
+    else { [owner->_private->view loadRequest:request]; }
+}
 } // namespace overte::ios
 
 namespace {
