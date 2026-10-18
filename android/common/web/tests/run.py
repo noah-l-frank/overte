@@ -29,6 +29,8 @@ with tempfile.TemporaryDirectory(prefix='overte-embedded-web-') as temporary:
     stage = Path(temporary)
     subprocess.run(['javac', '-d', str(stage),
         str(WEB / 'java/org/overte/web/WebInputGate.java'),
+        str(WEB / 'java/org/overte/web/WebResourceLease.java'),
+        str(WEB / 'tests/java/org/overte/web/WebResourceLeaseTest.java'),
         str(WEB / 'java/org/overte/web/WebAudioLifecycle.java'),
         str(WEB / 'java/org/overte/web/WebLifecycleDispatch.java'),
         str(WEB / 'java/org/overte/web/WebNavigationArchive.java'),
@@ -44,6 +46,7 @@ with tempfile.TemporaryDirectory(prefix='overte-embedded-web-') as temporary:
         str(WEB / 'tests/java/org/overte/web/WebLifetimeTest.java'),
         str(WEB / 'tests/java/org/overte/web/WebFrameTest.java')], check=True)
     subprocess.run(['java', '-cp', str(stage), 'org.overte.web.WebLifetimeTest'], check=True)
+    subprocess.run(['java', '-cp', str(stage), 'org.overte.web.WebResourceLeaseTest'], check=True)
     subprocess.run(['java', '-cp', str(stage), 'org.overte.web.WebAudioLifecycleTest'], check=True)
     subprocess.run(['java', '-cp', str(stage), 'org.overte.web.WebFrameTest'], check=True)
     if args.android_jar or args.webkit_jar:
