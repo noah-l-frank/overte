@@ -620,6 +620,154 @@ class PythonControlSelectionTests(unittest.TestCase):
             self.assertTrue(CODEQL.select_languages(left, right)['full_scan'])
 
 
+class BooleanRecipeSelectionTests(unittest.TestCase):
+    recipes = {
+        'tools/repository-checks/workflows/producers/repository-checks.yml':
+            ('81bcf1933edc435826e2de411a777cccd4dec7c7','15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'),
+        'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml':
+            ('e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1','3b7a88765b7181a1bc7dd6f48b9b459e590055d3'),
+    }
+
+    def trees(self):
+        before=reviewed_tree()
+        before['.github/workflows/codeql.yml']={'mode':'100644','type':'blob','sha':CODEQL._SCHEDULING_RESULTS_WORKFLOW}
+        before['.github/workflows/pr-metadata-context.yml']={'mode':'100644','type':'blob','sha':CODEQL._SCHEDULING_SOURCE_WORKFLOW}
+        before['.github/workflows/repository-checks.yml']={'mode':'100644','type':'blob',
+            'sha':'81bcf1933edc435826e2de411a777cccd4dec7c7'}
+        for path,(old,_) in self.recipes.items():before[path]={'mode':'100644','type':'blob','sha':old}
+        for path in CODEQL._PINNED_PYTHON_CONTROLS:before[path]=entry()
+        return before,deepcopy(before)
+
+    def transition(self,path):
+        before,after=self.trees()
+        after[path]={'mode':'100644','type':'blob','sha':self.recipes[path][1]}
+        return before,after
+
+    def test_exact_existing_passive_pairs_need_no_analysis_and_keep_python_owner(self):
+        self.assertEqual(CODEQL._BOOLEAN_PASSIVE_RECIPES,self.recipes)
+        for path in self.recipes:
+            for event in ('pull_request','push'):
+                before,after=self.transition(path)
+                with self.subTest(path=path,event=event):
+                    plan=CODEQL.select_languages(before,after,event=event,
+                        read_blob=lambda _:self.fail('selection must not load candidate recipe code'))
+                    self.assertEqual(plan['languages'],[])
+                    self.assertEqual(plan['reasons'],[{'code':'reviewed-boolean-metadata-recipe','path':path}])
+                    after['tools/repository-checks/check.py']=entry('b')
+                    self.assertEqual(CODEQL.select_languages(before,after,event=event)['languages'],['python'])
+        before,after=self.trees()
+        for path,(_,new) in self.recipes.items():after[path]['sha']=new
+        self.assertEqual(CODEQL.select_languages(before,after)['languages'],[])
+
+    def test_exact_forward_active_pair_keeps_zero_or_python_only_analysis(self):
+        for control in CODEQL._PINNED_PYTHON_CONTROLS:
+            before,after=self.trees();after['.github/workflows/codeql.yml']['sha']=CODEQL._BOOLEAN_RESULTS_WORKFLOW
+            self.assertEqual(CODEQL.select_languages(before,after)['languages'],[])
+            after[control]=entry('b')
+            with self.subTest(control=control):
+                plan=CODEQL.select_languages(before,after)
+                self.assertEqual(plan['languages'],['python'])
+                self.assertIn({'code':'reviewed-pinned-python-control','path':control},plan['reasons'])
+                after['browser/src/main.ts']=entry('b')
+                self.assertEqual(CODEQL.select_languages(before,after)['languages'],list(CODEQL.LANGUAGES))
+
+    def test_real_two_caller_activation_needs_zero_or_only_changed_python_analysis(self):
+        before,after=self.trees()
+        after['.github/workflows/repository-checks.yml']['sha']=CODEQL._BOOLEAN_REPOSITORY_PAIR[1]
+        after['.github/workflows/codeql.yml']['sha']=CODEQL._BOOLEAN_RESULTS_WORKFLOW
+        self.assertEqual(CODEQL.select_languages(before,after)['languages'],[])
+        for control in CODEQL._PINNED_PYTHON_CONTROLS:
+            mixed=deepcopy(after);mixed[control]=entry('b')
+            with self.subTest(control=control):
+                plan=CODEQL.select_languages(before,mixed)
+                self.assertEqual(plan['languages'],['python'])
+                self.assertFalse(plan['full_scan'])
+        for mutation in ('unknown-before','unknown-after','removal','addition','mode','rollback'):
+            left,right=deepcopy(before),deepcopy(after)
+            path='.github/workflows/repository-checks.yml'
+            if mutation=='unknown-before':left[path]['sha']='f'*40
+            elif mutation=='unknown-after':right[path]['sha']='f'*40
+            elif mutation=='removal':del right[path]
+            elif mutation=='addition':del left[path]
+            elif mutation=='mode':right[path]['mode']='100755'
+            else:left[path],right[path]=right[path],left[path]
+            with self.subTest(mutation=mutation):
+                self.assertTrue(CODEQL.select_languages(left,right)['full_scan'])
+
+    def test_passive_unknown_bytes_membership_modes_and_rollback_stay_full(self):
+        for path in self.recipes:
+            for mutation in ('new-path','removal','before-unknown','after-unknown','before-mode','after-mode',
+                    'symlink','gitlink','rollback'):
+                before,after=self.transition(path)
+                if mutation=='new-path':del before[path]
+                elif mutation=='removal':del after[path]
+                elif mutation=='before-unknown':before[path]['sha']='f'*40
+                elif mutation=='after-unknown':after[path]['sha']='f'*40
+                elif mutation=='before-mode':before[path]['mode']='100755'
+                elif mutation=='after-mode':after[path]['mode']='100755'
+                elif mutation=='symlink':after[path]['mode']='120000'
+                elif mutation=='gitlink':after[path].update(mode='160000',type='commit')
+                else:before[path],after[path]=after[path],before[path]
+                with self.subTest(path=path,mutation=mutation):
+                    self.assertEqual(CODEQL.select_languages(before,after)['languages'],list(CODEQL.LANGUAGES))
+
+    def test_configuration_helpers_packs_aliases_options_and_unknown_inputs_cannot_hide(self):
+        for subject in (*self.recipes,'.github/workflows/codeql.yml','.github/workflows/repository-checks.yml'):
+            for mutation in ('config','helper','helper-mode','pack','overlap-pack','alias','unknown','javascript'):
+                before,after=self.trees()
+                after[subject]['sha']=CODEQL._BOOLEAN_RESULTS_WORKFLOW if subject=='.github/workflows/codeql.yml' else CODEQL._BOOLEAN_REPOSITORY_PAIR[1] if subject=='.github/workflows/repository-checks.yml' else self.recipes[subject][1]
+                after['tools/repository-checks/check.py']=entry('b')
+                if mutation=='config':after['.github/codeql/codeql-config.yml']=entry('b')
+                elif mutation=='helper':after['.github/workflows/pr-metadata-context.yml']=entry('b')
+                elif mutation=='helper-mode':after['.github/workflows/pr-metadata-context.yml']['mode']='100755'
+                elif mutation in ('pack','overlap-pack'):
+                    name='custom/qlpack.yml' if mutation=='pack' else str(Path(subject).parent/'qlpack.yml')
+                    before[name]=after[name]=entry()
+                elif mutation=='alias':before['unmodified-alias']=after['unmodified-alias']=entry(mode='120000')
+                elif mutation=='unknown':after['unreviewed-source']=entry('b')
+                else:after['browser/src/main.ts']=entry('b')
+                with self.subTest(subject=subject,mutation=mutation):
+                    self.assertEqual(CODEQL.select_languages(before,after)['languages'],list(CODEQL.LANGUAGES))
+            before,after=self.trees();after[subject]['sha']=CODEQL._BOOLEAN_RESULTS_WORKFLOW if subject=='.github/workflows/codeql.yml' else CODEQL._BOOLEAN_REPOSITORY_PAIR[1] if subject=='.github/workflows/repository-checks.yml' else self.recipes[subject][1]
+            for name in ('LGTM_INDEX_FILTERS','CODEQL_EXTRACTOR_JAVASCRIPT_OPTION_TEST','CODEQL_EXTRACTOR_PYTHON_OPTION_TEST'):
+                with self.subTest(subject=subject,option=name),patch.dict(CODEQL.os.environ,{name:'unreviewed'}):
+                    self.assertTrue(CODEQL.select_languages(before,after)['full_scan'])
+
+    def test_other_active_transitions_and_wrong_relative_helper_remain_full(self):
+        for old,new in ((CODEQL._PINNED_RESULTS_WORKFLOW,CODEQL._METADATA_RESULTS_WORKFLOW),
+                (CODEQL._METADATA_RESULTS_WORKFLOW,CODEQL._SCHEDULING_RESULTS_WORKFLOW),
+                (CODEQL._BOOLEAN_RESULTS_WORKFLOW,CODEQL._SCHEDULING_RESULTS_WORKFLOW)):
+            before,after=self.trees();before['.github/workflows/codeql.yml']['sha']=old;after['.github/workflows/codeql.yml']['sha']=new
+            with self.subTest(old=old,new=new):self.assertTrue(CODEQL.select_languages(before,after)['full_scan'])
+        before,after=self.trees();after['.github/workflows/codeql.yml']['sha']=CODEQL._BOOLEAN_RESULTS_WORKFLOW
+        after['.github/workflows/pr-metadata-context.yml']['sha']='f'*40
+        self.assertTrue(CODEQL.select_languages(before,after)['full_scan'])
+
+    def test_known_raw_pairs_change_only_boolean_metadata_input_not_analysis_payload(self):
+        import yaml
+        spec=importlib.util.spec_from_file_location('boolean_recipe_frozen_sources',ROOT/'tests/workflow-contract-test.py')
+        frozen=importlib.util.module_from_spec(spec);spec.loader.exec_module(frozen)
+        for path,(old,new) in self.recipes.items():
+            name='codeql' if path.endswith('codeql-metadata.yml') else 'repository-checks'
+            before=frozen.original_default_workflow(name);after=(ROOT/path).read_bytes()
+            with self.subTest(path=path):
+                for raw,oid in ((before,old),(after,new)):
+                    self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),oid)
+                old_lines=before.splitlines(keepends=True);new_lines=after.splitlines(keepends=True)
+                self.assertEqual(len(old_lines),len(new_lines))
+                changes=[(a,b) for a,b in zip(old_lines,new_lines) if a!=b]
+                self.assertEqual(len(changes),1)
+                old_line,new_line=changes[0]
+                self.assertIn(b'nonproducer_intent: ${{ ',old_line)
+                self.assertEqual(new_line,old_line.replace(b'${{ ',b'${{ !(!(',1).replace(b' }}',b')) }}',1))
+                a,b=yaml.safe_load(before),yaml.safe_load(after)
+                a['jobs']['metadata-source']['with'].pop('nonproducer_intent')
+                b['jobs']['metadata-source']['with'].pop('nonproducer_intent')
+                self.assertEqual(a,b)
+        helper=(ROOT/'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml').read_bytes()
+        self.assertEqual(hashlib.sha1(b'blob '+str(len(helper)).encode()+b'\0'+helper).hexdigest(),CODEQL._SCHEDULING_SOURCE_WORKFLOW)
+
+
 class NativeLeafSelectionTests(unittest.TestCase):
     def setUp(self):
         self.before = reviewed_tree()
@@ -1879,8 +2027,8 @@ class MetadataResultTests(unittest.TestCase):
                 tree['tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml']=ordinary(CODEQL._BOOLEAN_RESULTS_WORKFLOW)
                 tree['tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml']=ordinary(CODEQL._SCHEDULING_SOURCE_WORKFLOW)
             self.base_tree[RESULTS.WORKFLOW]=ordinary(base)
-            if base!=active:
-                # A real caller transition selects both languages; supply both
+            if CODEQL.select_languages(self.base_tree,self.candidate_tree)['full_scan']:
+                # A transition selected for both languages must supply both
                 # original native analyses rather than hiding that selection.
                 js=deepcopy(self.jobs[12][1]);js.update(id=82,name='CodeQL (javascript-typescript)',
                     check_run_url='https://api.github.com/'+RESULTS.PREFIX+'/check-runs/82')
