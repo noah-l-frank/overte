@@ -57,11 +57,11 @@
                 }
                 if (blockers > 1) return;
             }
-            // requestSubmit preserves validation, the default submitter and the
-            // cancelable submit event; form.submit() would bypass all three.
-            if (typeof form.requestSubmit === "function") {
-                if (submitter) form.requestSubmit(submitter); else form.requestSubmit();
-            }
+            // Implicit Enter activates the default button, including its
+            // cancelable click handlers and submitter-specific overrides.
+            // Without a button, requestSubmit retains validation and submit.
+            if (submitter) submitter.click();
+            else if (typeof form.requestSubmit === "function") form.requestSubmit();
             return;
         }
         var text = value(element), selected = selection(element);
