@@ -30,6 +30,17 @@ Hardware-keyboard capability is currently conservative and fixed to false. A
 future native input-capability adapter should replace that default before
 external keyboard and hybrid pointer support can be considered complete.
 
+## World Web controls
+
+World Web surfaces retain the stationary-tap gesture that prevents camera and
+virtual-pad drags from clicking page content. Their iOS toolbar adds **Scroll
+up**, **Scroll down**, and **Open browser**. Scrolling keeps the existing world
+document and bridge; the native browser presents that same document for nested
+scrolling, native media controls, and accessibility. Tablet pages retain their
+automatic native presentation. Test these selected controls and real DOM
+scrolling on the host with `python3 ios/tests/ios-world-web-controls-test.py`;
+WK video pixels and native presentation still require device observations.
+
 ## iPad orientation policy
 
 The Full Client stays in landscape on iPad, including when the device is held

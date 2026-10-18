@@ -459,7 +459,9 @@ int main(int argc, char** argv) {
         assert(world);
         for (int turn = 0; turn < 5; ++turn) { QCoreApplication::processEvents(); }
         auto* wrapper = world->property("item").value<QObject*>();
-        auto* endpoint = wrapper ? qobject_cast<IOSWebView*>(wrapper->property("backend").value<QObject*>()) : nullptr;
+        // The selected iOS world adapter retains its native endpoint below
+        // shared navigation/touch controls, rather than exposing it directly.
+        auto* endpoint = wrapper ? wrapper->findChild<IOSWebView*>() : nullptr;
         assert(world->property("webViewLoaded").toBool() && endpoint && endpoint->sourceOpenedAtCompletion);
         assert(endpoint->url() == worldSource && endpoint->_private->inlineMode);
         ios::IOSInlineDocumentBinding worldBinding;
