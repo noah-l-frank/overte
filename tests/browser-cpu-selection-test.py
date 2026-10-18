@@ -582,6 +582,7 @@ class CanonicalTemplateTests(unittest.TestCase):
                 'npm-consumers-v1': 'npm-consumers/repository-checks.yml',
                 'npm-consumers-sync-ci-v1': 'npm-consumers/repository-checks.yml',
                 'npm-consumers-sync-ci-budget-v1': 'npm-consumers/repository-checks.yml',
+                'npm-consumers-sync-ci-budget-cleanup-v1': 'npm-consumers/repository-checks.yml',
                 'npm-consumers-metadata-edits-v1': 'metadata-edits/repository-checks.yml',
                 'android-owned-npm5-sync-ci-v1': 'android-owned/repository-checks.yml',
                 'protected-producer-original-default-v1': 'producers/repository-checks.yml',
@@ -589,7 +590,7 @@ class CanonicalTemplateTests(unittest.TestCase):
             self.assertIn(generation, callers)
             self.assertEqual(outer, BROWSER.trusted_bytes(
                 'tools/repository-checks/workflows/' + callers[generation]))
-            if generation in ('npm-consumers-v1', 'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1'):
+            if generation in ('npm-consumers-v1', 'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1'):
                 self.assertEqual(BROWSER._blob(outer), '7f7ec83f15581ebc9cd693201aac1d8cd77d944f')
             else:
                 spec = importlib.util.spec_from_file_location(
