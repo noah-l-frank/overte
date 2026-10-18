@@ -2,10 +2,12 @@
 """Device-free tests for release manifest, SBOM and provenance creation."""
 
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
+import tarfile
 import tempfile
 import unittest
 import zipfile
@@ -28,10 +30,19 @@ class PhoneReleaseMetadataTests(unittest.TestCase):
         self.apk = self.directory / "phone-release.apk"
         with zipfile.ZipFile(self.apk, "w") as archive:
             archive.writestr("lib/arm64-v8a/libphone.so", b"ELF synthetic")
-        self.revision = subprocess.run(
-            ["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True,
-            stdout=subprocess.PIPE, check=True,
-        ).stdout.strip()
+        # Exercise the real Git archive path without archiving the product checkout.
+        self.repository = self.directory / "legacy-source-repository"
+        subprocess.run(["git", "init", "-q", "--template=", str(self.repository)], check=True)
+        hooks = self.directory / "fixture-hooks"
+        hooks.mkdir()
+        for key, value in (("user.name", "Test"), ("user.email", "test@example.invalid"),
+                           ("commit.gpgSign", "false"), ("core.hooksPath", str(hooks))):
+            self.git("config", key, value)
+        self.source = self.repository / "source.txt"
+        self.source.write_text("source\n", encoding="utf-8")
+        self.git("add", "source.txt")
+        self.git("commit", "-qm", "Fixture source")
+        self.revision = self.git("rev-parse", "HEAD").strip()
         self.version = {
             "tag": "android-phone-v0.1.0-alpha.5", "version_name": "0.1.0-alpha.5",
             "version_code": 100005, "source_revision": self.revision,
@@ -59,7 +70,14 @@ class PhoneReleaseMetadataTests(unittest.TestCase):
         path.write_text(json.dumps(value), encoding="utf-8")
         return path
 
-    def command(self, apk_manifest=None, version_manifest=None, repository=ROOT):
+    def git(self, *arguments, input=None):
+        return subprocess.run(
+            ["git", "-C", str(self.repository), *arguments], input=input,
+            text=True, capture_output=True, check=True,
+        ).stdout
+
+    def command(self, apk_manifest=None, version_manifest=None, repository=None):
+        repository = self.repository if repository is None else repository
         return [
             str(TOOL), "--repository", str(repository), "--apk", str(self.apk),
             "--apk-manifest", str(apk_manifest or self.apk_path),
@@ -71,6 +89,27 @@ class PhoneReleaseMetadataTests(unittest.TestCase):
         return subprocess.run([
             *self.command(),
         ], text=True, capture_output=True, check=False, env=environment)
+
+    def assert_source_metadata(self, revision, source):
+        blob = self.git("hash-object", "--stdin", input=source).strip()
+        self.assertEqual(self.git("ls-tree", "-r", revision).splitlines(), [
+            f"100644 blob {blob}\tsource.txt",
+        ])
+        archive = subprocess.check_output([
+            "git", "-C", str(self.repository), "archive", "--format=tar", revision,
+        ])
+        with tarfile.open(fileobj=io.BytesIO(archive)) as contents:
+            self.assertEqual(contents.getnames(), ["source.txt"])
+            self.assertEqual(contents.extractfile("source.txt").read(), source.encode("utf-8"))
+        expected = hashlib.sha256(archive).hexdigest()
+        release = json.loads((self.output / "android-phone-release-manifest.json").read_text())
+        provenance = json.loads((self.output / "android-phone-provenance.intoto.json").read_text())
+        self.assertEqual(release["source_revision"], revision)
+        self.assertEqual(release["source_archive_sha256"], expected)
+        dependencies = provenance["predicate"]["buildDefinition"]["resolvedDependencies"]
+        self.assertEqual(len(dependencies), 1)
+        self.assertEqual(dependencies[0]["digest"], {"gitCommit": revision, "sha256": expected})
+        return expected
 
     def seed_finals(self, content="stale"):
         self.output.mkdir(parents=True, exist_ok=True)
@@ -151,6 +190,8 @@ class PhoneReleaseMetadataTests(unittest.TestCase):
             "kind": "store-neutral", "signing_state": "unsigned",
         })
         self.assertRegex(release["source_archive_sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(self.git("rev-parse", "HEAD").strip(), self.revision)
+        self.assert_source_metadata(self.revision, "source\n")
         self.assertEqual(sbom["bomFormat"], "CycloneDX")
         self.assertEqual(sbom["components"][0]["name"], "lib/arm64-v8a/libphone.so")
         self.assertEqual(provenance["subject"][0]["digest"]["sha256"], self.apk_data["sha256"])
@@ -166,6 +207,31 @@ class PhoneReleaseMetadataTests(unittest.TestCase):
                 "android-phone-release-manifest.json"):
             self.assertEqual(self.digest(self.output / name), checksums[name])
         self.assertEqual([], list(self.output.glob(".phone-release-metadata.????????")))
+
+    def test_source_metadata_follows_requested_committed_revision(self):
+        original_tree = self.git("rev-parse", "HEAD^{tree}").strip()
+        self.source.write_text("changed committed source\n", encoding="utf-8")
+        self.git("add", "source.txt")
+        self.git("commit", "-qm", "Change fixture source")
+        changed_revision = self.git("rev-parse", "HEAD").strip()
+        self.assertNotEqual(changed_revision, self.revision)
+        self.assertNotEqual(self.git("rev-parse", "HEAD^{tree}").strip(), original_tree)
+        self.source.write_text("uncommitted source\n", encoding="utf-8")
+        (self.repository / "untracked.txt").write_text("untracked source\n", encoding="utf-8")
+
+        # A newer HEAD and dirty files cannot replace the requested old commit.
+        result = self.run_tool()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        original_digest = self.assert_source_metadata(self.revision, "source\n")
+
+        self.version["source_revision"] = changed_revision
+        self.apk_data["source_revision"] = changed_revision
+        self.version_path = self.write("version.json", self.version)
+        self.apk_path = self.write("apk.json", self.apk_data)
+        result = self.run_tool()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        changed_digest = self.assert_source_metadata(changed_revision, "changed committed source\n")
+        self.assertNotEqual(changed_digest, original_digest)
 
     def test_complete_mode_uses_common_bundle_contract(self):
         repository, source, inventory, notices, environment = self.complete_evidence()

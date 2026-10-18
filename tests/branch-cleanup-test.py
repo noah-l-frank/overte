@@ -3023,11 +3023,14 @@ class SyncCompletionReceiverTests(unittest.TestCase):
         method = getattr(type(self.github), "job_log", None)
         self.assertTrue(callable(method), "bounded native console transport is absent")
         original_popen = subprocess.Popen
-        for content, expected in ((b"native line\n", "native line\n"), (b"x" * 70000, None), (b"\xff", None)):
+        for content, expected in ((b"native line\n", "native line\n"),
+                                  (b"\x1b[32msetup\x1b[0m\nnative receipt\n",
+                                   "\x1b[32msetup\x1b[0m\nnative receipt\n"),
+                                  (b"x" * 70000, None), (b"\xff", None)):
             with self.subTest(bytes=len(content)):
                 children = []
                 def launch(args, **kwargs):
-                    self.assertEqual(args, ["gh", "api", "--method", "GET", "repos/" + FORK + "/actions/jobs/810/logs"])
+                    self.assertEqual(args, ["gh", "api", "--allow-escape-sequences", "--method", "GET", "repos/" + FORK + "/actions/jobs/810/logs"])
                     child = original_popen([sys.executable, "-I", "-B", "-c",
                         "import sys; sys.stdout.buffer.write(" + repr(content) + ")"], **kwargs)
                     children.append(child)
@@ -3287,6 +3290,7 @@ class SyncCompletionNotificationTests(unittest.TestCase):
              "name": "Notify completed synchronization cleanup", "status": "in_progress", "conclusion": None},
         ]}
         self.data = {
+            "": dict(self.repo, default_branch="main"),
             "actions/runs/700/attempts/1": self.sender,
             "actions/runs/701/attempts/1": self.parent,
             "actions/runs/700/attempts/1/jobs?per_page=100": self.jobs,
@@ -3309,7 +3313,12 @@ class SyncCompletionNotificationTests(unittest.TestCase):
         self.post_error = None
         self.github = self.module.Github()
         self.github.get = self.get
-        self.github.verify_owner = lambda: self.events.append(("owner",))
+        notification_check = self.module.Github.verify_notification_owner
+        def notification_owner():
+            value = notification_check(self.github)
+            self.events.append(("owner",))
+            return value
+        self.github.verify_notification_owner = notification_owner
         self.original_run = self.module.run
         self.stdout = io.StringIO()
 
@@ -3321,7 +3330,7 @@ class SyncCompletionNotificationTests(unittest.TestCase):
             "url": "https://api.github.com/repos/" + FORK + "/actions/runs/" + str(identifier),
             "html_url": "https://github.com/" + FORK + "/actions/runs/" + str(identifier)}
 
-    def get(self, path):
+    def get(self, path=""):
         self.events.append(("get", path))
         self.assertIn(path, self.data, "unexpected endpoint; offline tests must not discover runs")
         return copy.deepcopy(self.data[path])
@@ -3346,6 +3355,87 @@ class SyncCompletionNotificationTests(unittest.TestCase):
             result = self.module.notify_sync_completion(self.github, self.policy, self.event)
         checkout.assert_called_once_with(ROOT, self.source)
         return result
+
+    def notify_cli(self, error=None):
+        with tempfile.TemporaryDirectory(prefix="cleanup-notification-cli-") as directory:
+            event = Path(directory) / "event.json"
+            report = Path(directory) / "report.json"
+            event.write_text(json.dumps(self.event))
+            with mock.patch.object(sys, "argv", [str(SCRIPT), "notify-sync-completion",
+                    "--event", str(event), "--report", str(report)]), \
+                 mock.patch.dict(os.environ, self.environment, clear=True), \
+                 mock.patch.object(self.module, "Github", return_value=self.github), \
+                 mock.patch.object(self.module, "run", side_effect=self.command), \
+                 mock.patch.object(self.module, "verify_checkout"), \
+                 mock.patch("sys.stdout", self.stdout):
+                if error is None:
+                    result = self.module.main()
+                else:
+                    with mock.patch.object(self.module, "notify_sync_completion", side_effect=error):
+                        result = self.module.main()
+            return result, json.loads(report.read_text())
+
+    def test_notification_cli_exposes_real_owner_guard_failure_without_dispatch(self):
+        for repository, expected in (
+                (dict(self.repo, default_branch="main", delete_branch_on_merge=True),
+                 "native_cleanup_would_bypass_guards"),
+                (dict(self.repo, id=1), "repository_ownership_mismatch"),
+                (dict(self.repo, default_branch="other"), "default_branch_changed")):
+            with self.subTest(reason=expected):
+                self.stdout = io.StringIO()
+                self.data[""] = repository
+                code, report = self.notify_cli()
+                self.assertEqual((code, report["status"], report["error"], report["deleted"]),
+                                 (1, "blocked", expected, []))
+                self.assertEqual(self.posts, [])
+                self.assertIn("branch_cleanup_error=" + expected, self.stdout.getvalue().splitlines())
+
+    def test_sender_accepts_missing_admin_field_but_deletion_still_requires_explicit_false(self):
+        for setting in ("absent", False):
+            with self.subTest(setting=setting):
+                self.data[""] = dict(self.repo, default_branch="main")
+                if setting is False:
+                    self.data[""]["delete_branch_on_merge"] = False
+                self.posts.clear()
+                self.stdout = io.StringIO()
+                self.assertEqual(self.notify()["outcome"], "dispatched")
+                self.assertEqual(len(self.posts), 1)
+                if setting == "absent":
+                    with self.assertRaisesRegex(self.module.CleanupError,
+                                                "native_cleanup_would_bypass_guards"):
+                        self.github.verify_owner()
+                else:
+                    self.github.verify_owner()
+
+    def test_sender_rejects_present_unsafe_or_malformed_admin_field_without_post(self):
+        for setting in (True, None, 0, "false"):
+            with self.subTest(setting=setting):
+                self.data[""] = dict(self.repo, default_branch="main", delete_branch_on_merge=setting)
+                with self.assertRaisesRegex(self.module.CleanupError,
+                                            "native_cleanup_would_bypass_guards"):
+                    self.notify()
+                self.assertEqual(self.posts, [])
+                with self.assertRaisesRegex(self.module.CleanupError,
+                                            "native_cleanup_would_bypass_guards"):
+                    self.github.verify_owner()
+
+    def test_notification_cli_keeps_private_exception_details_out_of_console(self):
+        private = "secret-token https://signed/private?auth=secret"
+        response = subprocess.CompletedProcess([], 1, stdout=private,
+                                               stderr="denied (HTTP 403) " + private)
+        api_error = self.module.api_failure(["gh", "api", "--method", "GET", "repos/" + FORK], response)
+        for error, expected in ((api_error, "github_api_get_repository_http_403_forbidden"),
+                               (ValueError(private), "ValueError"),
+                               (self.module.CleanupError(private), "CleanupError")):
+            with self.subTest(exception=type(error).__name__, expected=expected):
+                self.stdout = io.StringIO()
+                code, report = self.notify_cli(error)
+                self.assertEqual((code, report["status"], report["deleted"]), (1, "blocked", []))
+                self.assertEqual(self.posts, [])
+                output = self.stdout.getvalue()
+                self.assertIn("branch_cleanup_error=" + expected, output.splitlines())
+                self.assertNotIn("secret-token", output)
+                self.assertNotIn("https://signed", output)
 
     def test_one_owned_dispatch_has_typed_direct_id_and_exact_causal_receipt(self):
         receipt = self.notify()
@@ -3479,7 +3569,7 @@ class SyncCompletionNotificationTests(unittest.TestCase):
             calls.append(1)
             if len(calls) == 2:
                 raise self.module.CleanupError("foreign_repository")
-        self.github.verify_owner = owner
+        self.github.verify_notification_owner = owner
         with self.assertRaisesRegex(self.module.CleanupError, "do_not_redispatch"):
             self.notify()
         self.assertEqual(len(calls), 2)
