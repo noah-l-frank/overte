@@ -421,12 +421,23 @@ the candidate. Its direct returned cleanup run ID and exact fork URLs appear in
 a bounded native receipt. Missing or ambiguous responses stay unresolved and
 are never redispatched automatically.
 
+The notification sender checks the exact fork identity and `main` default branch.
+Its limited token may omit the administrative `delete_branch_on_merge` field;
+only the sender permits that omission. A present value must still be exactly
+`false`. The cleanup receiver continues to require an explicit `false` before
+authorizing cleanup, including every existing deletion safeguard. Notification
+failures expose a bounded, redacted error code in the native console as well as
+the job summary.
+
 The cleanup receiver authenticates the original validator and notification roles,
 source, native App, originating PR-target gate and immutable candidate identities.
 It waits a bounded time for both source runs to finish and verifies that its own
 run ID is the recipient in the native notification receipt. The associated PR may
 already be merged; its original native association is distinct from current PR
 state. Only then can it retry current closed-topic hints across the seven targets.
+The receiver captures raw console bytes through its bounded pipe, allowing the
+GitHub CLI's control-sequence option only for this internal log read. The console
+is parsed as data; byte/time limits and exact receipt authentication still apply.
 The callback never performs history adoption. Every hint retains its actual target
 and protected base; source retention, activity holds, fresh refs, complete
 integration, verified backup, independent recovery, and exact-head deletion checks
