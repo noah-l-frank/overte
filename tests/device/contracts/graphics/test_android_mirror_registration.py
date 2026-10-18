@@ -39,7 +39,7 @@ class AndroidMirrorRegistration(unittest.TestCase):
         mirror_class = header[header.index('class RenderMirrorTask {'):]
         maximum = int(re.search(r'MAX_MIRRORS_PER_LEVEL\s*\{\s*(\d+)\s*\}', mirror_class)[1])
         cls.depth = int(re.search(r'MAX_MIRROR_DEPTH\s*\{\s*(\d+)\s*\}', mirror_class)[1])
-        if maximum != 3 or cls.depth != 1:
+        if maximum != 3 or cls.depth != 3:
             raise AssertionError('Review changed native mirror resource budget')
         template = r'''
 #include <cassert>
@@ -61,7 +61,8 @@ struct Task {
     template<class Job> void addJob(const std::string& name, const MirrorInputs& inputs,
                                     size_t index, int cull, int offset, int depth) {
         assert(inputs.mirrors == 7 && inputs.framebuffer == 11);
-        assert(cull == 13 && offset == 17 && depth == 0);
+        assert(cull == 13 && offset == 17 && depth >= 0);
+        assert(static_cast<size_t>(depth) < RenderMirrorTask::MAX_MIRROR_DEPTH);
         assert(index == names.size());
         names.push_back(name);
     }
@@ -116,10 +117,11 @@ int main(int argc, char** argv) {
 
     def test_phone_pico_and_existing_native_products_register_the_bounded_jobs(self):
         for profile in PROFILES:
-            with self.subTest(profile=profile):
-                expected = [] if profile == 'legacy-android' else [
-                    'RenderMirrorTask' + str(index) + 'Depth0' for index in range(3)]
-                self.assertEqual(self.invoke(profile, 0), expected)
+            for depth in range(self.depth):
+                with self.subTest(profile=profile, depth=depth):
+                    expected = [] if profile == 'legacy-android' else [
+                        'RenderMirrorTask' + str(index) + 'Depth' + str(depth) for index in range(3)]
+                    self.assertEqual(self.invoke(profile, depth), expected)
 
     def test_recursion_depth_cap_remains_enforced_for_every_product(self):
         for profile in PROFILES:
