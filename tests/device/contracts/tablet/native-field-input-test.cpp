@@ -8,6 +8,7 @@
 #include <QQuickWindow>
 #include <QtTest/QTest>
 #include <cstdio>
+#include <functional>
 #include <thread>
 
 int main(int argc, char** argv) {
@@ -106,6 +107,31 @@ Item {
     check(!overte::ui::replaceFocusedField(nullptr, &window, "private input"), "missing field rejected");
     check(!overte::ui::submitFocusedField(first, nullptr), "missing surface rejected");
     check(first->property("acceptedCount").toInt() == 1, "rejected operations never submitted the field");
-    std::printf("Native field input: %d actual Qt checks passed (Qt %s).\n", checks, QT_VERSION_STR);
     delete root;
+    if (argc != 2) { qFatal("the in-tree tablet page fixture is required"); }
+    QQmlComponent pages(&engine, QUrl::fromLocalFile(QString::fromLocal8Bit(argv[1])));
+    std::function<QQuickItem*(QQuickItem*, const QString&)> visualItem = [&](QQuickItem* item, const QString& name) -> QQuickItem* {
+        if (item->objectName() == name) { return item; }
+        for (auto child : item->childItems()) {
+            if (auto match = visualItem(child, name)) { return match; }
+        }
+        return nullptr;
+    };
+    for (bool touch : { false, true }) {
+        auto pager = qobject_cast<QQuickItem*>(pages.create());
+        if (!pager) { qFatal("%s", qPrintable(pages.errorString())); }
+        pager->setProperty("directTouch", touch);
+        pager->setParentItem(window.contentItem());
+        QCoreApplication::processEvents();
+        auto page1 = visualItem(pager, "tabletPage.1");
+        auto page2 = visualItem(pager, "tabletPage.2");
+        check(page1 && page2, "actual repeated page handlers expose distinct native identities");
+        check(pager->property("currentPage").toInt() == 0, "actual tablet pager starts on first page");
+        QTest::mouseClick(&window, Qt::LeftButton, Qt::NoModifier, page2->mapToScene(QPointF(30, 30)).toPoint());
+        check(pager->property("currentPage").toInt() == 1, "original page handler changes actual SwipeView on native pointer");
+        QTest::mouseClick(&window, Qt::LeftButton, Qt::NoModifier, page1->mapToScene(QPointF(30, 30)).toPoint());
+        check(pager->property("currentPage").toInt() == 0, "original first-page handler restores actual SwipeView");
+        delete pager;
+    }
+    std::printf("Native field/page input: %d actual Qt checks passed (Qt %s).\n", checks, QT_VERSION_STR);
 }

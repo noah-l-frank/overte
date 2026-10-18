@@ -37,14 +37,16 @@ std::optional<Editor> focusedText(QQuickItem* field, QQuickWindow* surface) {
             return std::nullopt;
         }
     }
-    QRectF visible = field->mapRectToScene(field->boundingRect());
+    // A TextInput paint bound can be only its cursor or current glyphs.
+    // Editing visibility belongs to the real control area, not its text width.
+    QRectF visible = field->mapRectToScene(QRectF(0, 0, field->width(), field->height()));
     if (!std::isfinite(visible.x()) || !std::isfinite(visible.y())
             || !std::isfinite(visible.width()) || !std::isfinite(visible.height())) {
         return std::nullopt;
     }
     visible = visible.intersected(QRectF(0, 0, surface->width(), surface->height()));
     for (auto parent = field->parentItem(); parent; parent = parent->parentItem()) {
-        if (parent->clip()) { visible = visible.intersected(parent->mapRectToScene(parent->boundingRect())); }
+        if (parent->clip()) { visible = visible.intersected(parent->mapRectToScene(parent->clipRect())); }
     }
     if (visible.isEmpty()) { return std::nullopt; }
     auto focus = surface->activeFocusItem();
