@@ -935,32 +935,56 @@ class MetadataSchedulingTests(unittest.TestCase):
         self.assertEqual(self.schedule()['original_run_id'], 100)
 
     def test_installed_repository_recipe_accepts_later_label_without_new_execution(self):
-        c = self.case
-        raw = (Path(__file__).resolve().parents[2] / c.policy.caller_path).read_bytes()
-        current = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
-        self.assertEqual(current, '81bcf1933edc435826e2de411a777cccd4dec7c7')
-        c.generation[c.policy.caller_path]['sha'] = current
-        c.policy = replace(c.policy, metadata_generations={'metadata-v2': deepcopy(c.generation)})
-        self.policy = A.MetadataPolicy(99, c.policy.caller_path,
-            c.policy.metadata_generations, c.policy.metadata_sources)
-        for status, conclusion in [('completed', 'success'), ('completed', 'failure')]:
-            with self.subTest(status=status, conclusion=conclusion):
-                c.runs[100].update(status=status, conclusion=conclusion)
-                value = self.schedule()
-                self.assertEqual(value['original_run_id'], 100)
-                self.assertEqual((value['original_status'], value['original_conclusion']),
-                    (status, conclusion))
-                self.assertFalse(value['qualification'])
-                self.assertNotIn('results', value)
-                self.assertNotIn('environment', value)
-        intent = c.adapter.metadata_observation(c.runs[101], c.binding, self.policy, now=NOW)
-        self.assertEqual(intent['kind'], A.METADATA_INTENT_KIND)
-        self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
-        c.labels.append({'id': 8, 'name': 'android-long-diagnostics'})
-        with self.assertRaises(P.ProtocolError): self.schedule()
-        with self.assertRaises(P.ProtocolError): self.schedule(diagnostics=True)
-        c.jobs[100][0]['steps'][0]['name'] = A.ORDINARY_SOURCE_STEP + ' (diagnostics requested)'
-        self.assertEqual(self.schedule(diagnostics=True)['original_run_id'], 100)
+        root=Path(__file__).resolve().parents[2]
+        spec=importlib.util.spec_from_file_location('installed_metadata_fixture_packages',
+            root/'tools/repository-checks/package_checks.py')
+        packages=importlib.util.module_from_spec(spec);spec.loader.exec_module(packages)
+        installed=packages.validate_wiring(root)
+        variants={
+            'protected-producer-original-default-v1':
+                ('81bcf1933edc435826e2de411a777cccd4dec7c7','e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'),
+            'protected-producer-original-default-boolean-v1':
+                ('15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a','3b7a88765b7181a1bc7dd6f48b9b459e590055d3'),
+        }
+        self.assertIn(installed,variants)
+        caller=self.case.policy.caller_path
+        raw=(root/caller).read_bytes()
+        current=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+        row=next(row['workflows'] for row in packages.workflow_generations() if row['name']==installed)
+        self.assertEqual(row[caller],{'mode':'100644','type':'blob','sha':current})
+        self.assertEqual(current,variants[installed][0])
+        codeql=root/'.github/workflows/codeql.yml'
+        self.assertFalse(codeql.is_symlink())
+        self.assertIn(codeql.stat().st_mode & 0o777,(0o444,0o644))
+        raw=codeql.read_bytes()
+        self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),variants[installed][1])
+        # The authentic current tuple and original22 recipe are independent
+        # variants. Neither a label nor canonical staging supplies a new run.
+        for recipe in dict.fromkeys((current,variants['protected-producer-original-default-v1'][0])):
+            self.setUp();c=self.case
+            c.generation[caller]['sha']=recipe
+            c.policy=replace(c.policy,metadata_generations={'metadata-v2':deepcopy(c.generation)})
+            self.policy=A.MetadataPolicy(99,caller,c.policy.metadata_generations,c.policy.metadata_sources)
+            with self.subTest(recipe=recipe):
+                for status,conclusion in [('completed','success'),('completed','failure')]:
+                    with self.subTest(status=status,conclusion=conclusion):
+                        c.runs[100].update(status=status,conclusion=conclusion)
+                        value=self.schedule()
+                        self.assertEqual(value['original_run_id'],100)
+                        self.assertEqual((value['original_status'],value['original_conclusion']),(status,conclusion))
+                        self.assertFalse(value['qualification'])
+                        self.assertNotIn('results',value)
+                        self.assertNotIn('environment',value)
+                intent=c.adapter.metadata_observation(c.runs[101],c.binding,self.policy,now=NOW)
+                self.assertEqual(intent['kind'],A.METADATA_INTENT_KIND)
+                self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
+                c.labels.append({'id':8,'name':'android-long-diagnostics'})
+                with self.assertRaises(P.ProtocolError):self.schedule()
+                with self.assertRaises(P.ProtocolError):self.schedule(diagnostics=True)
+                c.jobs[100][0]['steps'][0]['name']=A.ORDINARY_SOURCE_STEP+' (diagnostics requested)'
+                self.assertEqual(self.schedule(diagnostics=True)['original_run_id'],100)
+                c.generation[caller]['sha']='f'*40
+                with self.assertRaises(P.ProtocolError):self.schedule(diagnostics=True)
 
     def test_native_job_label_run_and_ref_bookends_are_fresh(self):
         for shape in ('job', 'check', 'run', 'ref', 'labels'):
