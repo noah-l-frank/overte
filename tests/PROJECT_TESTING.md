@@ -169,6 +169,15 @@ Run `tests/device/contracts/graphics/test_render_configuration_traversal.py` and
 for independent toolkit variants. Each selected SDK must provide matching
 development libraries, `pkg-config` files and tools; no fallback is accepted.
 
+The `avatar-pose-native` host suite requires Qt Core development files and real
+GLM headers (`OVERTE_TEST_GLM_INCLUDE` when not installed globally). It compiles
+the production hidden/visible avatar simulation slice, native animation override
+and cancellation, complete manager update, and outbound joint-cache acquisition.
+Rig/model math, rendering and network transport are explicit endpoints. This
+checks that mesh visibility cannot freeze animation or transmitted joint state;
+actual animated peers and wearable rendering still need device observation.
+`OVERTE_NATIVE_QT_MAJOR=5` or `6` selects an exact toolkit, with no fallback.
+
 The `recorded-voice-native` host suite requires Qt Core development files and
 matching `moc`. It executes the actual AudioClient capture/playback callback and
 AudioScriptingInterface methods with real Qt signals, queued calls and timers;
