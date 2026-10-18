@@ -406,12 +406,29 @@ class ShippingPolicyTests(unittest.TestCase):
         lookup=inputs.affected_lookup_digest(source)
         matches=[name for name,row in policy['targets'].items()
                  if row['lookup_digest']==lookup and row['profile']==source['tests/platform-profile.json']]
-        self.assertTrue(matches,'actual source namespace must match an unchanged protected target row')
+        reviewed=bool(matches)
+        if not reviewed:
+            # This choice is only for testing refusal, never an alias proof.
+            matches=[name for name,row in policy['targets'].items()
+                     if row['profile']==source['tests/platform-profile.json']]
+        self.assertTrue(matches,'actual source platform must match a protected target profile')
         target='main' if 'main' in matches else matches[0]
         # Equal namespace aliases (Android main/VR) must also share the complete
         # native reader proof, rather than choosing among incompatible variants.
-        self.assertTrue(all(policy['targets'][name]==policy['targets'][target] for name in matches))
+        if reviewed:
+            self.assertTrue(all(policy['targets'][name]==policy['targets'][target] for name in matches))
+        else:
+            self.assertNotEqual(lookup,policy['targets'][target]['lookup_digest'])
         return target,self.trusted_main_projection(root,raw,source)
+
+    def assert_unreviewed_namespace_refused(self, registry, raw, base, candidate, trusted, target):
+        # Choosing the owning profile does not certify a feature branch's new
+        # import membership. Such a source must refuse dependency omissions.
+        if inputs.affected_lookup_digest(base)==json.loads(raw)['targets'][target]['lookup_digest']:
+            return False
+        with self.assertRaisesRegex(inputs.InputError,'lookup membership is not reviewed'):
+            inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
+        return True
 
     def test_shipping_manifest_is_complete_and_backward_compatible_registry_is_unchanged(self):
         root=Path(__file__).resolve().parents[2]
@@ -547,7 +564,7 @@ class ShippingPolicyTests(unittest.TestCase):
         tree[inputs.AFFECTED_POLICY]=blob(sealed)
         return root,registry,sealed,tree
 
-    def test_shipping_five_controller_case_omits_device_without_running_any_suite(self):
+    def test_shipping_controller_delta_respects_device_certificate_without_running_any_suite(self):
         root,registry,raw,base=self.shipping_context()
         _,_,_,source=self.source_context()
         self.assertEqual(inputs.affected_lookup_digest(source),inputs.affected_lookup_digest(base))
@@ -558,9 +575,22 @@ class ShippingPolicyTests(unittest.TestCase):
             candidate['tools/test-evidence/'+name]=blob(('changed '+name).encode())
         target,trusted=self.target_context(root,raw,base)
         native=json.loads(raw)['suites']['device-control-plane-full']
+        if self.assert_unreviewed_namespace_refused(registry,raw,base,candidate,trusted,target):
+            return
+        plan=inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
+        if inputs.device_reader_digest(base,native['native_independent_paths']) != json.loads(raw)['targets'][target]['reader_digest']:
+            # Feature branches legitimately change native components before a
+            # new reader certificate is reviewed. Test the required conservative
+            # decision; never rewrite that certificate to make an omission pass.
+            self.assertIn('device-control-plane-full',plan['required'])
+            self.assertNotIn('device-control-plane-full',plan['omitted'])
+            self.assertEqual(plan['reasons']['device-control-plane-full'],
+                             'product-component-or-reader-not-reviewed')
+            self.assertEqual(plan['required_setup'],['host-full'])
+            self.assertFalse(plan['reusable'])
+            return
         self.assertEqual(inputs.device_reader_digest(base,native['native_independent_paths']),
                          json.loads(raw)['targets'][target]['reader_digest'])
-        plan=inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
         self.assertIn('device-control-plane-full',plan['omitted'])
         self.assertLess(len(plan['required']),60)
         self.assertIn('attested-runtime',plan['required'])
@@ -575,12 +605,41 @@ class ShippingPolicyTests(unittest.TestCase):
         self.assertEqual(selected['include_platform'],base['tests/platform-profile.json']!=inputs._AFFECTED_SHARED_PROFILE)
         self.assertFalse(selected['affected']['reusable'])
 
+    def test_native_feature_source_cannot_inherit_shipping_device_omission(self):
+        root,registry,raw,base=self.shipping_context()
+        target,trusted=self.target_context(root,raw,base)
+        path='libraries/shared/src/EmbeddedWebPolicy.h'
+        self.assertIn(path,base)
+        certificate=json.loads(raw)['targets'][target]['reader_digest']
+        for already_in_base in (False,True):
+            with self.subTest(native_feature_already_in_base=already_in_base):
+                previous=deepcopy(base)
+                candidate=deepcopy(base)
+                changed=blob(b'changed native feature source for certificate regression')
+                if already_in_base:
+                    previous[path]=changed
+                candidate[path]=changed
+                for name in ('attested.py','postmerge.py','producer_workflow.py','sandbox.py','sandbox_host.py'):
+                    candidate['tools/test-evidence/'+name]=blob(('changed '+name).encode())
+                if self.assert_unreviewed_namespace_refused(registry,raw,previous,candidate,trusted,target):
+                    continue
+                plan=inputs.plan_affected(registry,raw,previous,candidate,trusted,target=target)
+                self.assertIn('device-control-plane-full',plan['required'])
+                self.assertNotIn('device-control-plane-full',plan['omitted'])
+                self.assertEqual(plan['reasons']['device-control-plane-full'],
+                                 'product-component-or-reader-not-reviewed')
+                self.assertEqual(plan['required_setup'],['host-full'])
+                self.assertFalse(plan['reusable'])
+                self.assertEqual(json.loads(raw)['targets'][target]['reader_digest'],certificate)
+
     def test_preinstallation_source_cannot_inherit_the_prospective_native_omissions(self):
         root,registry,raw,base=self.source_context()
         self.assertNotIn('.github/workflows/pr-metadata-context.yml',base)
         candidate=deepcopy(base)
         candidate['tools/test-evidence/sandbox_host.py']=blob(b'changed preinstallation controller')
         target,trusted=self.target_context(root,raw,base)
+        if self.assert_unreviewed_namespace_refused(registry,raw,base,candidate,trusted,target):
+            return
         plan=inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
         owners={'device-control-plane-full',*inputs._AFFECTED_PRODUCT_SUITES,*inputs._AFFECTED_SUBJECTS}
         self.assertEqual(len(owners),23)
@@ -774,15 +833,24 @@ class ShippingPolicyTests(unittest.TestCase):
         self.assertTrue(set(inputs._AFFECTED_SUBJECTS).issubset(plan['omitted']))
         self.assertIn('documentation-contracts',plan['required'])
         self.assertEqual(plan['reasons']['documentation-contracts'],'unreviewed-import-or-missing-required-input')
-        # Apple retains two additional audio Python readers and a changed mute
-        # caller. Their genuine import variant must keep this extra owner.
-        if 'recorded-voice-qml' in plan['required']:
-            self.assertEqual(plan['reasons']['recorded-voice-qml'],'unreviewed-import-or-missing-required-input')
-            self.assertEqual(len(plan['required']),33)
-        else:
-            self.assertIn('recorded-voice-qml',plan['omitted'])
-            self.assertEqual(plan['reasons']['recorded-voice-qml'],'unchanged-reviewed-dependencies')
-            self.assertEqual(len(plan['required']),32)
+        # Feature branches can legitimately change additional import roots.
+        # Check each reviewed-pattern owner against its actual source bytes
+        # instead of assuming a fixed main/Apple total of selected owners.
+        pattern_owners={name for name,row in json.loads(raw)['suites'].items()
+                        if row['kind']=='reviewed-patterns'}
+        self.assertEqual(pattern_owners,{'documentation-contracts','release-bundle',
+            'embedded-web-qml','places-native-qml','recorded-voice-qml','snapshot-qml'})
+        self.assertEqual(len(set(plan['required'])-pattern_owners),31)
+        _,_,_,source=self.source_context()
+        for name in sorted(pattern_owners):
+            imports=registry['suites'][name]['python_imports']
+            reviewed=inputs.python_import_digest(source,imports['roots'])==imports['reviewed']
+            with self.subTest(import_owner=name,reviewed=reviewed):
+                self.assertIn(name,plan['omitted'] if reviewed else plan['required'])
+                self.assertEqual(plan['reasons'][name],
+                    'unchanged-reviewed-dependencies' if reviewed
+                    else 'unreviewed-import-or-missing-required-input')
+        self.assertTrue(inputs._AFFECTED_PRODUCT_SUITES.issubset(plan['omitted']))
         for name,subjects in inputs._AFFECTED_SUBJECTS.items():
             for subject in subjects:
                 for shape in ('changed','removed','historical','executable'):
