@@ -3,6 +3,8 @@
 #include "NativeWebViewItem.h"
 #include <QFile>
 #include <QGuiApplication>
+#include <QWheelEvent>
+#include <QKeyEvent>
 #include <QQuickWindow>
 #include <QQuickRenderControl>
 #include <QJsonDocument>
@@ -24,7 +26,7 @@ extern "C" void Java_org_overte_web_EmbeddedWebView_nativeResumeRequest(JNIEnv*,
 extern "C" void Java_org_overte_web_EmbeddedWebView_nativeCreated(JNIEnv*, jclass, jlong, jlong, jboolean);
 #include "inline-backend-tests.h"
 class Probe : public NativeWebViewItem {
-public: using NativeWebViewItem::inputMethodQuery;
+public: using NativeWebViewItem::inputMethodQuery; using NativeWebViewItem::wheelEvent; using NativeWebViewItem::keyPressEvent;
 };
 int main(int argc, char** argv) {
     qputenv("QT_QUICK_BACKEND", "software");
@@ -69,7 +71,10 @@ int main(int argc, char** argv) {
     item.setUrl("https://one.test/document"); item.componentComplete();
     auto grant = item.generation(); assert(grant);
     item.acceptPage(grant, 1, QUrl("https://one.test/document"));
-    assert(!item.allowsFileChooser(grant, 1, QUrl("https://one.test/document")));
+    assert(item.allowsFileChooser(grant, 1, QUrl("https://one.test/document")));
+    assert(!item.allowsFileChooser(grant+1, 1, QUrl("https://one.test/document")));
+    assert(!item.allowsFileChooser(grant, 2, QUrl("https://one.test/document")));
+    assert(!item.allowsFileChooser(grant, 1, QUrl("https://other.test/document")));
     Probe tablet; tablet.acceptForeground(true); tablet.setSurface(NativeWebViewItem::Tablet);
     tablet.setPresentation(NativeWebViewItem::Texture); tablet.setSourceIdentity("fixture-tablet");
     tablet.setUrl("https://one.test/document"); tablet.componentComplete();
@@ -119,6 +124,8 @@ int main(int argc, char** argv) {
     auto foreign = [&](quint64 generation, quint64 page, const QUrl& document, const QUrl& origin, bool main, const QString& type, const QByteArray& payload) {
         return item.acceptMessage(generation, page, document, origin, main, type, payload);
     };
+    assert(item.allowsFileChooser(grant, 2, foreignDocument));
+    assert(!item.allowsFileChooser(grant, 1, QUrl("https://one.test/document")));
     assert(item.allowsEditorDocument(grant, 2, foreignDocument));
     assert(!item.allowsBridgeDocument(grant, 2, foreignDocument));
     assert(!item.emitScriptEvent("foreign event") && !item.runJavaScript("foreign script"));
@@ -146,11 +153,12 @@ int main(int argc, char** argv) {
     assert(foreign(grant, 3, thirdDocument, thirdOrigin, true, "editor", editorState));
     QCoreApplication::processEvents(); assert(item.editorFocused());
     assert(!send(grant, 1, QUrl("https://one.test"), true, "{}"));
-    item.setVisible(false); assert(!item.editorFocused() && !item.editorPassword()); assert(!item.generation()); assert(!item.emitScriptEvent("hidden event"));
+    item.setVisible(false); assert(!item.allowsFileChooser(grant,3,thirdDocument)); assert(!item.editorFocused() && !item.editorPassword()); assert(!item.generation()); assert(!item.emitScriptEvent("hidden event"));
     assert(!foreign(grant, 3, thirdDocument, thirdOrigin, true, "editor", editorState));
     item.setVisible(true); assert(item.generation() != grant);
     assert(!send(grant, 2, QUrl("https://one.test"), true, "{}"));
     item.setSourceIdentity("replacement-source");
+    assert(!item.allowsFileChooser(grant, 3, thirdDocument));
     assert(!foreign(grant, 3, thirdDocument, thirdOrigin, true, "editor", editorState));
     QTemporaryDir root, outside; assert(root.isValid() && outside.isValid());
     QFile doc(root.filePath("page.html")); assert(doc.open(QFile::WriteOnly)); doc.write("test"); doc.close();
@@ -223,6 +231,38 @@ int main(int argc, char** argv) {
         };
         assert(env->RegisterNatives(boundary, methods, 4) == JNI_OK);
         Java_org_overte_web_EmbeddedWebView_nativeInitialize(env, boundary);
+        {
+            Probe wheel; wheel.setSize(QSizeF(100,80)); wheel.acceptForeground(true);
+            wheel.setSourceIdentity("wheel-owned-source"); wheel.setUrl("https://owned.test/page"); wheel.componentComplete();
+            QCoreApplication::processEvents(); const auto grant=wheel.generation(); const QUrl foreign("https://foreign.test/page");
+            wheel.acceptPage(grant,2,foreign); assert(wheel.allowsEditorDocument(grant,2,foreign));
+            assert(!wheel.allowsBridgeDocument(grant,2,foreign) && !wheel.runJavaScript("forbidden"));
+            auto number=[&](const char* name){return env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,name,"I"));};
+            auto real=[&](const char* name){return env->GetStaticFloatField(boundary,env->GetStaticFieldID(boundary,name,"F"));};
+            const auto before=number("wheels"), scripts=number("evaluations");
+            QWheelEvent angle(QPointF(20,30),QPointF(20,30),QPoint(),QPoint(60,120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+            wheel.wheelEvent(&angle); assert(angle.isAccepted() && number("wheels")==before+1);
+            assert(env->GetStaticLongField(boundary,env->GetStaticFieldID(boundary,"wheelHandle","J"))
+                ==env->GetStaticLongField(boundary,env->GetStaticFieldID(boundary,"handle","J")));
+            assert(real("wheelX")==20 && real("wheelY")==30 && real("wheelAngleX")==60 && real("wheelAngleY")==120);
+            assert(!env->GetStaticBooleanField(boundary,env->GetStaticFieldID(boundary,"wheelPixelMode","Z")));
+            assert(env->GetStaticLongField(boundary,env->GetStaticFieldID(boundary,"wheelGrant","J"))==jlong(grant));
+            assert(env->GetStaticLongField(boundary,env->GetStaticFieldID(boundary,"wheelPage","J"))==2);
+            auto document=static_cast<jstring>(env->GetStaticObjectField(boundary,env->GetStaticFieldID(boundary,"wheelDocument","Ljava/lang/String;")));
+            const auto* text=env->GetStringUTFChars(document,nullptr);assert(QByteArray(text)==foreign.toEncoded());env->ReleaseStringUTFChars(document,text);env->DeleteLocalRef(document);
+            QWheelEvent pixel(QPointF(25,35),QPointF(25,35),QPoint(4,-9),QPoint(0,120),Qt::NoButton,Qt::NoModifier,Qt::ScrollUpdate,false);
+            wheel.wheelEvent(&pixel); assert(pixel.isAccepted() && number("wheels")==before+2);
+            assert(real("wheelPixelX")==4 && real("wheelPixelY")==-9);
+            assert(env->GetStaticBooleanField(boundary,env->GetStaticFieldID(boundary,"wheelPixelMode","Z")));
+            assert(number("evaluations")==scripts && !wheel.hasActiveFocus());
+            wheel.acceptForeground(false);wheel.wheelEvent(&angle);assert(!angle.isAccepted() && number("wheels")==before+2);
+            wheel.acceptForeground(true);QCoreApplication::processEvents();wheel.setVisible(false);wheel.wheelEvent(&pixel);
+            assert(!pixel.isAccepted() && number("wheels")==before+2);
+            wheel.setVisible(true);QCoreApplication::processEvents();wheel.setUrl("https://replacement.test/page");wheel.wheelEvent(&angle);
+            assert(!angle.isAccepted() && number("wheels")==before+2);
+            assert(!env->ExceptionCheck());
+            puts("PASS: actual QWheelEvent reaches private JNI with document/grant/page/position/horizontal/pixel intent; foreign bridge remains denied and inactive input rejects");
+        }
         Probe wire; wire.setSize(QSizeF(100,100)); wire.acceptForeground(true);
         wire.setSourceIdentity("wire-owned-source"); wire.setUrl("https://wire.test/page"); wire.componentComplete();
         QCoreApplication::processEvents();
@@ -247,11 +287,12 @@ int main(int argc, char** argv) {
         Java_org_overte_web_EmbeddedWebView_nativeInputFocus(env,boundary,handle,birth+1,wire.lifecycleRevision(),false);
         QCoreApplication::processEvents(); assert(wire.editorFocused()); // A stale instance cannot revoke current input.
         std::puts("PASS: actual Qt/JNI focus-only revocation rejects queued old editors without changing active document/bridge generation");
+        const auto hiddenBefore=env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,"hidden","I"));
         wire.setVisible(false); assert(!wire.generation());
         assert(!env->ExceptionCheck());
         assert(field("hiddenRevision") == jlong(wire.lifecycleRevision()) && field("hiddenRevision") != jlong(before));
         assert(field("hiddenActive") == 0);
-        assert(env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,"hidden","I")) == 1);
+        assert(env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,"hidden","I")) == hiddenBefore+1);
         wire.setVisible(true); assert(wire.generation() > before);
         wire.acceptSuspended(wire.lifecycleRevision(),QUrl("https://wire.test/page"),true,false,field("creationRevision"));
         QCoreApplication::processEvents(); assert(wire.reloadRequired() && !wire.warningText().isEmpty());
@@ -283,6 +324,31 @@ int main(int argc, char** argv) {
         Java_org_overte_web_EmbeddedWebView_nativeCreated(env,boundary,oldHandle,oldRevision,false);
         QCoreApplication::processEvents(); assert(pending.lifecycleRevision() == freshRevision && !env->ExceptionCheck());
         std::puts("PASS: actual Qt hide event crosses JVM/JNI into production lifecycle dispatcher after active grant becomes0; Android WebView/Looper represented, not DOM/audio");
+        {
+            QQuickWindow window; window.resize(100,80); window.show(); window.requestActivate();
+            Probe key; key.setParentItem(window.contentItem()); key.setSize(QSizeF(100,80)); key.acceptForeground(true);
+            key.setSourceIdentity("key-owned-source"); key.setUrl("https://owned.test/key"); key.componentComplete();
+            QCoreApplication::processEvents(); const auto grant=key.generation(); const QUrl document("https://foreign.test/key");
+            key.acceptPage(grant,1,document); key.forceActiveFocus(); QCoreApplication::processEvents(); assert(key.hasActiveFocus());
+            assert(key.acceptMessage(grant,1,document,QUrl("https://foreign.test"),true,"editor",
+                R"({"active":true,"text":"typed","cursor":5,"anchor":5,"kind":"text"})"));
+            QCoreApplication::processEvents(); assert(key.editorFocused() && !key.allowsBridgeDocument(grant,1,document));
+            auto count=[&]{return env->GetStaticIntField(boundary,env->GetStaticFieldID(boundary,"edits","I"));};
+            auto command=[&]{auto value=static_cast<jstring>(env->GetStaticObjectField(boundary,env->GetStaticFieldID(boundary,"lastEdit","Ljava/lang/String;")));
+                const auto* bytes=env->GetStringUTFChars(value,nullptr);auto object=QJsonDocument::fromJson(bytes).object();
+                env->ReleaseStringUTFChars(value,bytes);env->DeleteLocalRef(value);return object;};
+            const auto before=count();
+            QKeyEvent enter(QEvent::KeyPress,Qt::Key_Enter,Qt::NoModifier,QString());key.keyPressEvent(&enter);
+            assert(enter.isAccepted() && count()==before+1 && command().value("action")=="enter" && !command().value("shift").toBool());
+            QKeyEvent shifted(QEvent::KeyPress,Qt::Key_Return,Qt::ShiftModifier,"\r");key.keyPressEvent(&shifted);
+            assert(shifted.isAccepted() && count()==before+2 && command().value("action")=="enter" && command().value("shift").toBool());
+            for(auto modifier:{Qt::ControlModifier,Qt::AltModifier,Qt::MetaModifier}) {
+                QKeyEvent modified(QEvent::KeyPress,Qt::Key_Return,modifier,"\r");key.keyPressEvent(&modified);assert(!modified.isAccepted() && count()==before+2);
+            }
+            key.acceptForeground(false);QCoreApplication::processEvents();key.keyPressEvent(&enter);
+            assert(!enter.isAccepted() && count()==before+2 && !env->ExceptionCheck());
+            puts("PASS: actual foreign-page Qt Return/keypad Enter reaches private edit JNI as enter+shift, including empty text; modifiers and inactive input reject");
+        }
         runInlineBackendTests(env,boundary,QString::fromLocal8Bit(argv[2]));
     }
     return 0;

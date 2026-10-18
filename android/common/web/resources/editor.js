@@ -4,9 +4,72 @@
     if (window !== window.top || window.__overteEditor) { return; }
     var composing = null;
     function editable(element) {
-        return element && (element instanceof HTMLTextAreaElement ||
+        return element && !element.readOnly && !element.disabled
+            && !(element.matches && element.matches(":disabled")) && (element instanceof HTMLTextAreaElement ||
             element instanceof HTMLInputElement && /^(text|search|email|url|tel|password|number)$/.test(element.type)
             || element.isContentEditable);
+    }
+    function current(element) {
+        return document.activeElement === element && element.isConnected !== false && editable(element);
+    }
+    function value(element) { return element.value === undefined ? element.textContent : element.value; }
+    function keydown(element, key, command) {
+        var accepted = element.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true,
+            key: key, shiftKey: command.shift === true || command.extend === true,
+            isComposing: !!(composing && composing.element === element) })) !== false;
+        if (!current(element)) { composing = null; publish(); return false; }
+        if (!accepted) publish();
+        return accepted;
+    }
+    function beforeinput(element, inputType, data, isComposing, text, selected) {
+        var accepted = element.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true,
+            inputType: inputType, data: data, isComposing: isComposing })) !== false;
+        if (!current(element)) { composing = null; publish(); return false; }
+        // An application callback may replace the value or selection itself.
+        // Never apply an older native edit over its newly chosen state.
+        var now = selection(element);
+        if (value(element) !== text || now[0] !== selected[0] || now[1] !== selected[1]) {
+            composing = null; publish(); return false;
+        }
+        return accepted;
+    }
+    function enter(element, command) {
+        if (!keydown(element, "Enter", command)) return;
+        // The IME owns completion of its current preedit. Enter must not
+        // submit it or replace it with a newline before the commit arrives.
+        if (composing && composing.element === element) return;
+        if (element instanceof HTMLInputElement) {
+            if (command.shift || !element.form) return;
+            var form = element.form, controls = document.querySelectorAll("button,input"), submitter = null;
+            for (var i = 0; i < controls.length; ++i) {
+                var candidate = controls[i];
+                if (candidate.form === form && (candidate.type === "submit" || candidate.type === "image")) {
+                    submitter = candidate; break;
+                }
+            }
+            if (submitter && (submitter.disabled || submitter.matches(":disabled"))) return;
+            if (!submitter) {
+                var blockers = 0;
+                for (var j = 0; j < form.elements.length; ++j) {
+                    var control = form.elements[j];
+                    if (control instanceof HTMLInputElement
+                            && /^(text|search|url|tel|email|password|date|month|week|time|datetime-local|number)$/.test(control.type)) ++blockers;
+                }
+                if (blockers > 1) return;
+            }
+            // requestSubmit preserves validation, the default submitter and the
+            // cancelable submit event; form.submit() would bypass all three.
+            if (typeof form.requestSubmit === "function") {
+                if (submitter) form.requestSubmit(submitter); else form.requestSubmit();
+            }
+            return;
+        }
+        var text = value(element), selected = selection(element);
+        if (!beforeinput(element, "insertLineBreak", null, false, text, selected)) return;
+        var emitted = replace(element, text, Math.min(selected[0], selected[1]), Math.max(selected[0], selected[1]), "\n");
+        composing = null;
+        if (!emitted) element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertLineBreak", data: null }));
+        publish();
     }
     function selection(element) {
         if (typeof element.selectionStart === "number") {
@@ -25,7 +88,7 @@
     }
     function publish() {
         var element = document.activeElement;
-        if (!editable(element)) { window.__overteEditorTransport.editor({ active: false }); return; }
+        if (!editable(element)) { composing = null; window.__overteEditorTransport.editor({ active: false }); return; }
         var sensitive = element.type === "password", text = element.value === undefined ? element.textContent : element.value;
         var selected = selection(element), start = Math.max(0, selected[1] - 8192), bounds = element.getBoundingClientRect();
         // Password contents never cross the DOM/native boundary.
@@ -56,9 +119,16 @@
         selected.removeAllRanges(); selected.addRange(range);
     }
     function replace(element, text, start, end, insertion) {
-        if (element instanceof HTMLInputElement && element.type === "number") element.value = text.slice(0, start) + insertion + text.slice(end);
-        else if (typeof element.setRangeText === "function") element.setRangeText(insertion, start, end, "end");
-        else { select(element, start, end); document.execCommand("insertText", false, insertion); }
+        // execCommand on rich text may emit its own native input event. Plain
+        // input/textarea setRangeText does not; report each edit only once.
+        var emitted = false, observe = function () { emitted = true; };
+        element.addEventListener("input", observe, true);
+        try {
+            if (element instanceof HTMLInputElement && element.type === "number") element.value = text.slice(0, start) + insertion + text.slice(end);
+            else if (typeof element.setRangeText === "function") element.setRangeText(insertion, start, end, "end");
+            else { select(element, start, end); document.execCommand("insertText", false, insertion); }
+        } finally { element.removeEventListener("input", observe, true); }
+        return emitted;
     }
     function ime(element, command, text, selected) {
         var previous = composing && composing.element === element, left = previous ? composing.start : Math.min(selected[0], selected[1]);
@@ -81,26 +151,33 @@
         if (!boundary(result, newEnd)) ++newEnd;
         var entering = preedit.length > 0, completed = previous && (commit.length > 0 || !entering);
         var inputType = entering ? "insertCompositionText" : "insertText";
-        if (element.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true,
-                inputType: inputType, data: commit + preedit, isComposing: entering })) === false) return;
+        if (!beforeinput(element, inputType, commit + preedit, entering, text, selected)) return;
         if (completed) element.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: commit }));
         if (entering && (!previous || completed)) element.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
-        replace(element, text, first, oldEnd, result.slice(first, newEnd));
+        if (!current(element) || value(element) !== text) { composing = null; publish(); return; }
+        var emitted = replace(element, text, first, oldEnd, result.slice(first, newEnd));
         composing = entering ? { element: element, start: position, end: position + preedit.length } : null;
         var caret = position + Math.max(0, Math.min(preedit.length, command.cursor));
         if (boundary(result, caret)) select(element, caret, caret);
         if (!entering && command.selection && boundary(result, position + command.selection.length)) select(element, position, position + command.selection.length);
         if (entering) element.dispatchEvent(new CompositionEvent("compositionupdate", { bubbles: true, data: preedit }));
-        element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: inputType, data: commit + preedit, isComposing: entering }));
+        if (!emitted) element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: inputType, data: commit + preedit, isComposing: entering }));
         publish();
     }
     window.__overteEditor = {
         publish: publish,
         edit: function (command) {
             var element = document.activeElement;
-            if (!editable(element)) { return; }
-            var text = element.value === undefined ? element.textContent : element.value, selected = selection(element);
+            if (!current(element)) { composing = null; publish(); return; }
+            if (command.action === "enter") { enter(element, command); return; }
+            var text = value(element), selected = selection(element);
             if (command.action === "ime") { ime(element, command, text, selected); return; }
+            if (command.action !== "selection" && !command.composing) {
+                var keys = { backspace: "Backspace", delete: "Delete", left: "ArrowLeft", right: "ArrowRight", home: "Home", end: "End" };
+                var key = keys[command.action] || command.text;
+                if (key && !keydown(element, key, command)) return;
+                text = value(element); selected = selection(element);
+            }
             var start = Math.min(selected[0], selected[1]), end = Math.max(selected[0], selected[1]);
             if (composing && composing.element === element) { start = composing.start; end = composing.end; }
             if (command.replaceStart || command.replaceLength) {
@@ -134,20 +211,18 @@
             }
             var insertion = command.text || "";
             var wasComposing = composing && composing.element === element;
+            var inputType = command.composing ? "insertCompositionText" :
+                command.action === "backspace" ? "deleteContentBackward" :
+                command.action === "delete" ? "deleteContentForward" : "insertText";
+            if (!beforeinput(element, inputType, insertion, command.composing === true, text, selected)) return;
             if (command.composing && !wasComposing) element.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
-            if (element instanceof HTMLInputElement && element.type === "number") {
-                element.value = text.slice(0, start) + insertion + text.slice(end);
-            } else if (typeof element.setRangeText === "function") {
-                element.setRangeText(insertion, start, end, "end");
-            } else {
-                select(element, start, end);
-                document.execCommand("insertText", false, insertion);
-            }
+            if (!current(element) || value(element) !== text) { composing = null; publish(); return; }
+            var emitted = replace(element, text, start, end, insertion);
             if (command.composing) element.dispatchEvent(new CompositionEvent("compositionupdate", { bubbles: true, data: insertion }));
             else if (wasComposing) element.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: insertion }));
             composing = command.composing ? { element: element, start: start, end: start + insertion.length } : null;
-            element.dispatchEvent(new InputEvent("input", { bubbles: true,
-                inputType: command.composing ? "insertCompositionText" : "insertText", data: insertion,
+            if (!emitted) element.dispatchEvent(new InputEvent("input", { bubbles: true,
+                inputType: inputType, data: insertion,
                 isComposing: command.composing === true }));
             if (command.composing && typeof command.cursor === "number") {
                 var caret = start + Math.max(0, Math.min(insertion.length, command.cursor));

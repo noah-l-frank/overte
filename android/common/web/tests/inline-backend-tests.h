@@ -81,6 +81,10 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     assert(responseAction(response)==1 && responseBytes(response)==document.bytes()); env->DeleteLocalRef(response);
     view->acceptPage(grant,2,transport);
     QUrl origin = transport; origin.setPath(""); origin.setFragment({});
+    assert(view->allowsFileChooser(grant,2,transport));
+    assert(!view->allowsFileChooser(grant-1,2,transport));
+    assert(!view->allowsFileChooser(grant,1,transport));
+    assert(!view->allowsFileChooser(grant,2,QUrl("http://other.overte-inline.invalid/index.html")));
     assert(view->allowsBridgeDocument(grant,2,transport));
     assert(view->acceptMessage(grant,2,transport,origin,true,"editor","{}"));
     assert(!view->acceptMessage(grant,2,transport,origin,false,"editor","{}"));
@@ -110,6 +114,9 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     std::unique_ptr<QObject> tabletRoot(component.create(&tabletContext)); assert(tabletRoot); QCoreApplication::processEvents();
     auto* tabletView=tabletRoot->findChild<NativeWebViewItem*>(); assert(tabletView && tabletView->generation());
     auto tabletHandle=field("handle"),tabletBirth=field("creationRevision"); auto tabletGrant=tabletView->generation();
+    tabletView->acceptPage(tabletGrant,1,emptyDocument.transportURL());
+    assert(tabletView->allowsFileChooser(tabletGrant,1,emptyDocument.transportURL()));
+    assert(!tabletView->allowsFileChooser(tabletGrant,1,transport));
     auto tabletURL=jstringFor(emptyDocument.transportURL().toString(QUrl::FullyEncoded));
     auto tabletLoad=Java_org_overte_web_EmbeddedWebView_nativeBeginResourceLoad(env,boundary,tabletHandle,tabletBirth,tabletGrant,1,tabletURL); assert(tabletLoad);
     response=Java_org_overte_web_EmbeddedWebView_nativeRequest(env,boundary,tabletHandle,tabletBirth,tabletGrant,tabletLoad,1,tabletURL,true,get);
@@ -140,6 +147,7 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     owner.revoke();
     assert(!Java_org_overte_web_EmbeddedWebView_nativeResourceCurrent(env,boundary,handle,birth,grant,load,1));
     assert(!view->generation() && !view->allowsBridgeDocument(grant,2,transport));
+    assert(!view->allowsFileChooser(grant,2,transport));
     assert(Java_org_overte_web_EmbeddedWebView_nativeResourceCurrent(env,boundary,tabletHandle,tabletBirth,tabletGrant,tabletLoad,1));
     control.polishItems(); control.sync(); control.render(); assert(control.grab().pixelColor(1,1).alpha()==0);
     view->setParentItem(nullptr); control.invalidate();
@@ -149,7 +157,8 @@ static void runInlineBackendTests(JNIEnv* env, jclass boundary, const QString& b
     // Real nested QML rejects forged, stale, wrong-script and unrelated-context carriers before creation.
     const auto rejectedBefore=count();
     ownerContext.setContextProperty("nativeInlineHtmlDocument",QVariantMap{{"bytes","forged"}});
-    std::unique_ptr<QObject> forged(component.create(&nested)); assert(forged && !forged->findChild<NativeWebViewItem*>()->generation()); forged.reset();
+    std::unique_ptr<QObject> forged(component.create(&nested)); assert(forged && !forged->findChild<NativeWebViewItem*>()->generation());
+    assert(!forged->findChild<NativeWebViewItem*>()->allowsFileChooser(grant,2,transport)); forged.reset();
     ownerContext.setContextProperty("nativeInlineHtmlDocument",QVariant::fromValue(document));
     std::unique_ptr<QObject> stale(component.create(&nested)); assert(stale && !stale->findChild<NativeWebViewItem*>()->generation()); stale.reset();
     InlineHtmlDocumentOwner nextOwner; const auto next=nextOwner.issue(&ownerContext,"inline-owner",raw,script);
