@@ -186,6 +186,37 @@ class CurrentParentImportTests(SourceFixture,unittest.TestCase):
             self.put(catalog_path,data);(self.root/catalog_path).write_bytes(data)
             with self.subTest(mutation=mutation),self.assertRaises(S.SourceUnavailable):self.authenticate()
 
+    def test_pre_enrolled_required_context_tuple_preserves_exact_current_parent_admission(self):
+        catalog_path='.github/package-workflow-generations.json'
+        caller='.github/workflows/repository-checks.yml'
+        catalog=json.loads(self.bodies[catalog_path])
+        previous=deepcopy(catalog['generations'][0])
+        following=deepcopy(previous)
+        following['name']='protected-producer-original-default-required-context-v1'
+        raw=b'repository-checks required-context fixture\n'
+        following['workflows'][caller]=S.ordinary(S.blob_id(raw))
+        catalog['generations'].append(following)
+        self.put(catalog_path,json.dumps(catalog).encode())
+        (self.root/catalog_path).write_bytes(self.bodies[catalog_path])
+        # Catalog enrollment alone leaves the old complete installed tuple valid.
+        self.assertEqual(self.authenticate()['authority'],'current-imports-only')
+        old=self.base[caller]
+        self.put(caller,raw)
+        self.base[caller]=old
+        (self.root/caller).write_bytes(raw)
+        value=self.authenticate()
+        self.assertEqual(value['authority'],'current-imports-only')
+        self.assertNotEqual(self.base[caller],self.default[caller])
+        self.assertNotIn('receipt',value)
+        for mutation in ('unknown-name','wrong-mode','mixed-sibling'):
+            changed=deepcopy(catalog)
+            if mutation=='unknown-name': changed['generations'][1]['name']+='-neighbor'
+            elif mutation=='wrong-mode': changed['generations'][1]['workflows'][caller]['mode']='100755'
+            else: changed['generations'][1]['workflows']['.github/workflows/browser-client.yml']=S.ordinary('f'*40)
+            data=json.dumps(changed).encode()
+            self.put(catalog_path,data);(self.root/catalog_path).write_bytes(data)
+            with self.subTest(mutation=mutation),self.assertRaises(S.SourceUnavailable):self.authenticate()
+
     def test_foreign_stale_non_normal_wrong_role_failed_attempt_and_unknown_jobs_reject(self):
         cases=[('actions/runs/500','run_attempt',2),('actions/runs/500/attempts/1','head_sha','f'*40),
             ('check-suites/1500','app',{'id':42}),('check-runs/5500','app',{'id':42}),

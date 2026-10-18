@@ -53,6 +53,10 @@ _SCHEDULING_RUN_FIELDS = ('id', 'workflow_id', 'check_suite_id', 'path', 'event'
 # recipes. Their nonproducer intent structurally excludes every heavy job even
 # when recognition is missing/failed. Historical recipes require their marker.
 _NATIVE_INTENT_RECIPES = frozenset({
+    ('.github/workflows/repository-checks.yml', '22fe0d6d39d120f800099136d7d1ab5280d80b41',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
+    ('.github/workflows/codeql.yml', 'ad03cef5088499f08361265850b0191009deada5',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/repository-checks.yml', '15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/codeql.yml', '3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
@@ -65,7 +69,8 @@ _NATIVE_INTENT_RECIPES = frozenset({
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
 })
 RETAINED_OWNER_GENERATIONS = frozenset({'protected-producer-original-default-v1',
-    'protected-producer-original-default-boolean-v1'})
+    'protected-producer-original-default-boolean-v1',
+    'protected-producer-original-default-required-context-v1'})
 
 
 def retain_native_metadata_sources(generations, sources):
@@ -83,6 +88,25 @@ def retain_native_metadata_sources(generations, sources):
             key = name + '-reviewed-helper-v1'
             require(key not in generations, 'retained helper pair name collides')
             generations[key], sources[key] = workflows, prior
+    # The Boolean generation was deployed with this exact helper before the
+    # canonical required-context successor. Preserve its real native pair too;
+    # a current template cannot rewrite an original invocation's helper.
+    boolean_prior = {METADATA_SOURCE: {'mode':'100644','type':'blob',
+        'sha':'8f157f4bb98f56fc431dfff301f566727096bf7c'}}
+    for name, workflows in list(generations.items()):
+        caller = ('.github/workflows/repository-checks.yml' if set(workflows) == METADATA_WORKFLOWS
+                  else '.github/workflows/codeql.yml' if set(workflows) == METADATA_CALLERS['.github/workflows/codeql.yml']
+                  else None)
+        if caller is None or workflows[METADATA_WORKFLOW].get('sha') != 'b76ade9fd7a76da21bf2cb2161deae7a262163e8':
+            continue
+        approved = ({'81bcf1933edc435826e2de411a777cccd4dec7c7','15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'}
+                    if caller.endswith('/repository-checks.yml') else
+                    {'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1','3b7a88765b7181a1bc7dd6f48b9b459e590055d3'})
+        if workflows[caller].get('sha') in approved and not any(
+                workflows == row and sources[key] == boolean_prior for key, row in generations.items()):
+            key = name + '-reviewed-helper-v2'
+            require(key not in generations, 'retained Boolean helper pair name collides')
+            generations[key], sources[key] = workflows, boolean_prior
     return generations, sources
 
 
@@ -1273,7 +1297,8 @@ class Adapter:
             if steps[0]['name'] == ORDINARY_SOURCE_STEP + (
                     ' (diagnostics requested)' if diagnostics else ' (diagnostics absent)'):
                 ordinary.append(source)
-        require(bool(ordinary), 'matching ordinary scheduling source unavailable')
+        if not ordinary:
+            raise SchedulingPending('matching ordinary scheduling source unavailable')
         newest = max(row['run']['run_number'] for row in ordinary)
         originals = [row for row in ordinary if row['run']['run_number'] == newest]
         require(len(originals) == 1 and newest < current['run']['run_number'],
@@ -1307,7 +1332,74 @@ class Adapter:
         return {'kind': 'native-nonproducer-scheduling', 'qualification': False,
                 'metadata_only': 'true', 'binding': binding, 'references': references,
                 'current_run_id': current_run_id, 'original_run_id': original['id'],
-                'original_status': original['status'], 'original_conclusion': original.get('conclusion')}
+                'original_status': original['status'], 'original_conclusion': original.get('conclusion'),
+                'diagnostics': diagnostics,
+                'original_identity': {key: original.get(key) for key in _SCHEDULING_RUN_FIELDS}}
+
+    def metadata_result_status(self, observed):
+        """One fixed-ID native read between full source admissions; no discovery."""
+        require(type(observed) is dict and observed.get('kind') == 'native-nonproducer-scheduling'
+            and observed.get('qualification') is False and observed.get('metadata_only') == 'true',
+            'metadata result requires an authenticated scheduling observation')
+        identity = observed.get('original_identity')
+        require(type(identity) is dict and set(identity) == set(_SCHEDULING_RUN_FIELDS)
+            and positive(identity.get('id')) == positive(observed.get('original_run_id'))
+            and identity.get('run_attempt') == 1
+            and identity.get('display_title') == ORDINARY_RUN_NAME
+            and identity.get('path') in METADATA_CALLERS, 'original result native identity unavailable')
+        run = self._object(f"actions/runs/{identity['id']}")
+        require(all(run.get(key) == value for key, value in identity.items())
+            and type(run.get('run_attempt')) is int and run['run_attempt'] == 1,
+            'original result native identity or attempt changed')
+        binding = observed['binding']
+        require(run.get('head_sha') == binding['head_sha'] and run.get('head_branch') == binding['head_ref']
+            and all(run.get(key, {}).get('id') == 1319052603 and run[key].get('full_name') == REPOSITORY
+                    for key in ('repository','head_repository')),
+            'original result repository or head changed')
+        require(run.get('status') in P._PENDING | {'completed'}
+            and ((run['status'] == 'completed' and run.get('conclusion') in P._CONCLUSIONS)
+                 or run['status'] in P._PENDING and run.get('conclusion') is None),
+            'original result native status unavailable')
+        return run
+
+    def metadata_result_success(self, observed, *, now=None):
+        """Authenticate the real canonical native job before mirroring success.
+
+        No producer artifact, execution receipt or qualification is minted.
+        """
+        now = _now() if now is None else now
+        P._now(now)
+        run = self.metadata_result_status(observed)
+        require(run['status'] == 'completed' and run.get('conclusion') == 'success',
+                'original workflow did not succeed')
+        attempt = self._object(f"actions/runs/{run['id']}/attempts/1")
+        fields = (*_SCHEDULING_RUN_FIELDS, 'repository', 'head_repository', 'pull_requests',
+                  'referenced_workflows', 'status', 'conclusion', 'run_started_at', 'updated_at')
+        require(type(attempt.get('run_attempt')) is int and attempt['run_attempt'] == 1
+            and all(attempt.get(key) == run.get(key) for key in fields),
+            'original successful attempt changed')
+        canonical = {'repository-checks.yml':'repository-checks',
+                     'codeql.yml':'codeql-security-results'}[run['path'].rsplit('/',1)[1]]
+        jobs = self._pages(f"actions/runs/{run['id']}/attempts/1/jobs", 'jobs')
+        identities = [positive(row.get('id')) for row in jobs]
+        require(len(identities) == len(set(identities)), 'original canonical job inventory repeats an identity')
+        matches = [row for row in jobs if row.get('name') == canonical]
+        require(len(matches) == 1, 'original canonical native aggregate unavailable or ambiguous')
+        fact = self._job(matches[0], run, 15368, final_name=canonical)
+        require(fact.status == 'completed' and fact.conclusion == 'success'
+            and P._time(run.get('run_started_at')) <= P._time(fact.started_at)
+            <= P._time(fact.completed_at) <= P._time(run.get('updated_at')) <= now,
+            'original canonical native aggregate did not succeed in its workflow')
+        require(self.metadata_result_status(observed) == run
+            and self._object(f"actions/runs/{run['id']}/attempts/1") == attempt
+            and self._pages(f"actions/runs/{run['id']}/attempts/1/jobs", 'jobs') == jobs
+            and vars(self._job(matches[0], run, 15368, final_name=canonical)) == vars(fact),
+            'original canonical result changed before output')
+        require(type(observed.get('diagnostics')) is bool
+            and self._scheduling_diagnostics(observed['binding']['pull_request'],
+                SimpleNamespace(caller_path=run['path'])) == observed['diagnostics'],
+            'original result diagnostic demand changed before output')
+        return {'job_id':fact.job_id,'qualification':False}
 
     def _metadata_observation(self, listed, policy, binding, now, *, integrated=False):
         if policy.metadata_generations is None:

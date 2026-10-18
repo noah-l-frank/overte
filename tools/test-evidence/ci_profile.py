@@ -336,7 +336,8 @@ def load_controller_projection(root):
 RETAINED_SOURCE_KIND = 'original-protected-default-source-v1'
 RETAINED_SOURCE_GENERATION = 'protected-producer-original-default-v1'
 RETAINED_SOURCE_GENERATIONS = frozenset({RETAINED_SOURCE_GENERATION,
-    'protected-producer-original-default-boolean-v1'})
+    'protected-producer-original-default-boolean-v1',
+    'protected-producer-original-default-required-context-v1'})
 _RETAINED_FIELDS = frozenset({'schema','kind','default_commit','default_tree','commit_object',
     'admission','manifest_digest','projection_digest','binding'})
 _PROJECTION_BINDING = frozenset({'source','run_id','run_attempt','profile','snapshot','git_context',

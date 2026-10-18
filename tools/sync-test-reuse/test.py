@@ -2369,14 +2369,16 @@ class RequiredCodeQLInvocationTests(unittest.TestCase):
                           "_SCHEDULING_RESULTS_WORKFLOW = '" + "e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1" + "'\n"
                           "_SCHEDULING_SOURCE_WORKFLOW = '" + "b76ade9fd7a76da21bf2cb2161deae7a262163e8" + "'\n"
                           "_BOOLEAN_RESULTS_WORKFLOW = '3b7a88765b7181a1bc7dd6f48b9b459e590055d3'\n"
+                          "_REQUIRED_CONTEXT_RESULTS_WORKFLOW = 'ad03cef5088499f08361265850b0191009deada5'\n"
                           "def result_workflow_blobs():\n"
                           "    return (_RESULTS_WORKFLOW, _RETARGET_RESULTS_WORKFLOW, "
-                          "_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW)\n"
+                          "_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW)\n"
                           "def result_workflow_sources():\n"
                           "    return ((_RESULTS_WORKFLOW, None), (_RETARGET_RESULTS_WORKFLOW, None), "
                           "(_PINNED_RESULTS_WORKFLOW, None), (_METADATA_RESULTS_WORKFLOW, _METADATA_SOURCE_WORKFLOW), "
                           "(_SCHEDULING_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW), "
-                          "(_BOOLEAN_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))\n")
+                          "(_BOOLEAN_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW), "
+                          "(_REQUIRED_CONTEXT_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))\n")
         self.write_policy()
         side = lambda ref, sha: {'ref': ref, 'sha': sha, 'repo': {'full_name': REPOSITORY, 'id': REPOSITORY_ID}}
         self.pr = {'number': 610, 'state': 'open', 'mergeable': True, 'merge_commit_sha': MERGE,
@@ -2570,8 +2572,8 @@ class RequiredCodeQLInvocationTests(unittest.TestCase):
         for mutation in (original.replace(METADATA_WORKFLOW_BLOB, WORKFLOW_BLOB),
                          original.replace(METADATA_WORKFLOW_BLOB, '0' * 40),
                          original.replace(METADATA_SOURCE_BLOB, '0' * 40),
-                         original.replace('_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW)',
-                                          '_METADATA_RESULTS_WORKFLOW, _PINNED_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW)')):
+                         original.replace('_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW)',
+                                          '_METADATA_RESULTS_WORKFLOW, _PINNED_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW)')):
             source.write_text(mutation)
             with self.subTest(mutation=mutation), self.assertRaises(gate.GateError):
                 self.validate()
