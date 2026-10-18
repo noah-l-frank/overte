@@ -28,6 +28,7 @@
  * @hifi-avatar
  *
  * @property {Render.RenderMethod} renderMethod - The render method being used.
+ * @property {boolean} deferredRenderingAvailable - Whether this native renderer supports deferred rendering.
  * @property {boolean} shadowsEnabled - <code>true</code> if shadows are enabled, <code>false</code> if they're disabled.
  * @property {boolean} hazeEnabled - <code>true</code> if haze (fog) is enabled, <code>false</code> if it's disabled.
  * @property {boolean} bloomEnabled - <code>true</code> if bloom is enabled, <code>false</code> if it's disabled.
@@ -44,6 +45,7 @@
 class RenderScriptingInterface : public QObject {
     Q_OBJECT
     Q_PROPERTY(RenderMethod renderMethod READ getRenderMethod WRITE setRenderMethod NOTIFY settingsChanged)
+    Q_PROPERTY(bool deferredRenderingAvailable READ isDeferredRenderingAvailable CONSTANT)
     Q_PROPERTY(bool shadowsEnabled READ getShadowsEnabled WRITE setShadowsEnabled NOTIFY settingsChanged)
     Q_PROPERTY(bool hazeEnabled READ getHazeEnabled WRITE setHazeEnabled NOTIFY settingsChanged)
     Q_PROPERTY(bool bloomEnabled READ getBloomEnabled WRITE setBloomEnabled NOTIFY settingsChanged)
@@ -107,6 +109,9 @@ public:
     };
 
 public slots:
+    // Android registers a direct forward task rather than a deferred switch.
+    bool isDeferredRenderingAvailable() const;
+
     /*@jsdoc
      * Gets whether world mirror passes are enabled.
      * @function Render.getMirrorsEnabled

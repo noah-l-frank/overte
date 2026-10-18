@@ -160,6 +160,24 @@ substituted, including the first EventBridge message before channel idle,
 single message delivery, source replacement, and keyboard transitions.
 Set `OVERTE_QML_TEST_RUNNER` to select a matching Qt Quick Test executable.
 
+The `lod-preferences` host suite also runs the production render-configuration
+traversal and the complete shared Graphics settings page on Qt6. Native job
+names and mirror recursion budgets are read from actual registrations; GPU,
+engine/configuration and platform settings endpoints remain explicit fixtures.
+Run `tests/device/contracts/graphics/test_render_configuration_traversal.py` and
+`test_graphics_settings_qml.py` directly with `OVERTE_NATIVE_QT_MAJOR=5` or `6`
+for independent toolkit variants. Each selected SDK must provide matching
+development libraries, `pkg-config` files and tools; no fallback is accepted.
+
+The `avatar-pose-native` host suite requires Qt Core development files and real
+GLM headers (`OVERTE_TEST_GLM_INCLUDE` when not installed globally). It compiles
+the production hidden/visible avatar simulation slice, native animation override
+and cancellation, complete manager update, and outbound joint-cache acquisition.
+Rig/model math, rendering and network transport are explicit endpoints. This
+checks that mesh visibility cannot freeze animation or transmitted joint state;
+actual animated peers and wearable rendering still need device observation.
+`OVERTE_NATIVE_QT_MAJOR=5` or `6` selects an exact toolkit, with no fallback.
+
 The `recorded-voice-native` host suite requires Qt Core development files and
 matching `moc`. It executes the actual AudioClient capture/playback callback and
 AudioScriptingInterface methods with real Qt signals, queued calls and timers;
@@ -185,6 +203,14 @@ QFileSelector-selected system export boundaries. The shared JavaScript suite
 also executes the production SNAP script for all four capture modes, desktop
 compatibility, errors and closing while capture or upload is pending.
 Set `OVERTE_SNAPSHOT_TEST_QT=Qt5` or `Qt6` to select the native fixture SDK.
+The same command also executes the production format list and preference methods
+against real Qt encoders, both with installed plugins and an empty plugin path.
+Every offered format must encode and decode pixels; unavailable saved formats
+fall back without erasing the preference. Run
+`python3 tests/device/contracts/snapshot/test_snapshot_native.py --formats-only`
+for that bounded encoder check without the render/capture fixture. An explicit
+`OVERTE_SNAPSHOT_FORMATS_BASELINE` revision is a failing-baseline diagnostic for
+this bounded check only; it cannot qualify the current source.
 The same extracted-SDK variables documented for voice tests apply. GLM uses
 the existing `OVERTE_TEST_GLM_INCLUDE` override when it is not installed globally.
 These checks do not prove Photos/system chooser behavior, GPU capture or image
