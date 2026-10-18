@@ -11,6 +11,8 @@ Flickable {
         availableHeight: graphicsPage.height
     }
 
+    readonly property bool deferredRenderingAvailable: Render.deferredRenderingAvailable
+
     property var verticalScrollBarWidth: 20;
     property bool hasPresetBeenModified: false;
     property bool isChangingPreset: false;
@@ -98,7 +100,19 @@ Flickable {
         }
 
         SettingBoolean {
+            objectName: "settings.graphics.haze"
+            settingText: "Haze";
+            settingEnabledCondition: () => { return Render.hazeEnabled }
+
+            onSettingEnabledChanged: {
+                Render.hazeEnabled = settingEnabled;
+            }
+        }
+
+        SettingBoolean {
             settingText: "Bloom";
+            visible: graphicsPage.deferredRenderingAvailable
+            height: visible ? 50 : 0
             settingEnabledCondition: () => { return Render.bloomEnabled }
 
             onSettingEnabledChanged: {
@@ -134,6 +148,9 @@ Flickable {
         }
 
         SettingBoolean {
+            objectName: "settings.graphics.deferred"
+            visible: graphicsPage.deferredRenderingAvailable
+            height: visible ? 50 : 0
             settingText: "Deferred Rendering";
             settingEnabledCondition: function () { return Render.renderMethod === 0; }
 
@@ -147,13 +164,15 @@ Flickable {
             wrapMode: Text.Wrap
             font.pixelSize: 16
             color: "white"
-            text: "May affect performance, especially on mobile devices. Not compatible with MSAA. Haze is always enabled when not using deferred rendering."
+            visible: graphicsPage.deferredRenderingAvailable
+            height: visible ? implicitHeight : 0
+            text: "May affect performance. Deferred rendering is not compatible with MSAA."
         }
 
         // Rendering Effects sub options
         AdvancedOptions {
             id: renderingEffectsAdvancedOptions;
-            isEnabled: Render.renderMethod === 0;
+            isEnabled: graphicsPage.deferredRenderingAvailable && Render.renderMethod === 0;
 
             SettingBoolean {
                 settingText: "Shadows";
@@ -173,14 +192,6 @@ Flickable {
                 }
             }
 
-            SettingBoolean {
-                settingText: "Haze";
-                settingEnabledCondition: () => { return Render.hazeEnabled }
-
-                onSettingEnabledChanged: {
-                    Render.hazeEnabled = settingEnabled;
-                }
-            }
         }
 
         SettingSlider {
@@ -289,6 +300,9 @@ Flickable {
         }
 
         SettingComboBox {
+            objectName: "settings.graphics.antialiasing"
+            visible: graphicsPage.deferredRenderingAvailable
+            height: visible ? 50 : 0
             settingText: "Anti-aliasing";
             optionIndex: Render.antialiasingMode;
             options: ["None", "TAA", "FXAA"];
