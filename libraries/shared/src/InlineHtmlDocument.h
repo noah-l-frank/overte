@@ -7,6 +7,8 @@
 #include <QCryptographicHash>
 #include <QMetaType>
 #include <QObject>
+#include <QEvent>
+#include <QThread>
 #include <QPointer>
 #include <QStringList>
 #include <QUuid>
@@ -120,15 +122,31 @@ struct InlineHtmlBytes {
 };
 
 namespace detail {
+struct InlineDocumentLifetime;
+class InlineDocumentContextFence final : public QObject {
+public:
+    std::weak_ptr<InlineDocumentLifetime> lifetime;
+    bool eventFilter(QObject*, QEvent* event) override;
+};
 struct InlineDocumentLifetime {
     std::atomic<bool> live { true };
-    std::unique_ptr<QObject> revocation { new QObject };
+    std::unique_ptr<InlineDocumentContextFence> revocation { new InlineDocumentContextFence };
     void revoke() {
         if (live.exchange(false, std::memory_order_acq_rel)) { revocation.reset(); }
     }
     ~InlineDocumentLifetime() { revoke(); }
 };
+inline bool InlineDocumentContextFence::eventFilter(QObject*, QEvent* event) {
+    // ThreadChange is delivered on the old thread before QObject migration.
+    // Retire authority there, so the destroyed callback never has to dispatch
+    // across threads or delete its notifier from a different thread.
+    if (event->type() == QEvent::ThreadChange) {
+        if (const auto current = lifetime.lock()) { current->revoke(); }
+    }
+    return false;
+}
 struct InlineDocumentPayload {
+    QThread* issuingThread { nullptr };
     QPointer<QObject> context;
     QString sourceIdentity, sourceURL, scriptURL, charset, token;
     QByteArray body, sha256;
@@ -139,16 +157,22 @@ struct InlineDocumentPayload {
 
 class InlineHtmlDocumentOwner;
 
-// Descriptor access and subscriptions belong to the issuing UI thread. Native
-// IO threads use immutable copied bytes and an independently invalidated lease.
+// Only lifetimeCurrent() is a cross-thread authority read: it touches immutable
+// ownership and an atomic bool, never QObject/QPointer/context. Other descriptor
+// access/subscription belongs to the issuing UI thread. Native policy/IO threads
+// use UI-validated immutable copies plus that atomic lifetime lease.
 // An opaque QVariant carrier. No QML constructor, writable fields or map/string
 // conversion issues a document. The native backend checks its own real context.
 class InlineHtmlDocument {
 public:
     InlineHtmlDocument() = default;
-    bool current() const {
+    bool lifetimeCurrent() const {
         const auto lifetime = _lifetime.lock();
-        return _payload && !_payload->context.isNull() && lifetime && lifetime->live.load(std::memory_order_acquire);
+        return _payload && lifetime && lifetime->live.load(std::memory_order_acquire);
+    }
+    bool current() const {
+        return lifetimeCurrent() && _payload->issuingThread == QThread::currentThread() &&
+            !_payload->context.isNull();
     }
     bool currentFor(const QObject* context, const QString& identity, const QString& source) const {
         return current() && _payload->context == context && _payload->sourceIdentity == identity && _payload->sourceURL == source;
@@ -180,6 +204,8 @@ private:
 // The entity/surface owner keeps this native object for one acquisition. Issue,
 // invalid replacement, explicit revoke, context death and owner death invalidate
 // every copied old descriptor. Source revisions never wrap or reuse a token.
+// Mutation is serialized on the first request's real context thread; rejecting a
+// foreign caller does not retire that thread's existing request.
 class InlineHtmlDocumentOwner {
 public:
     InlineHtmlDocumentOwner() = default;
@@ -192,12 +218,18 @@ public:
     }
     InlineHtmlDocument issue(QObject* context, const QString& identity, const QString& source,
                              const QString& sourceScriptURL = QString()) {
-        revoke();
         InlineHtmlDocument document;
-        if (!context || identity.trimmed().isEmpty() || _revision == std::numeric_limits<std::uint64_t>::max()) { return document; }
+        // A foreign caller must not mutate/revoke an existing UI-owned request.
+        auto* callingThread = QThread::currentThread();
+        if (_issuingThread && callingThread != _issuingThread) { return document; }
+        if (!context || context->thread() != callingThread) { revoke(); return document; }
+        _issuingThread = callingThread;
+        revoke();
+        if (identity.trimmed().isEmpty() || _revision == std::numeric_limits<std::uint64_t>::max()) { return document; }
         const auto decoded = InlineHtmlBytes::decode(source);
         if (!decoded.valid()) { return document; }
         auto payload = std::make_shared<detail::InlineDocumentPayload>();
+        payload->issuingThread = _issuingThread;
         payload->context = context; payload->sourceIdentity = identity; payload->sourceURL = source;
         payload->scriptURL = sourceScriptURL;
         payload->body = decoded.body; payload->charset = decoded.charset;
@@ -211,13 +243,16 @@ public:
         payload->revision = ++_revision;
         _lifetime = std::make_shared<detail::InlineDocumentLifetime>();
         const std::weak_ptr<detail::InlineDocumentLifetime> weakLifetime(_lifetime);
+        _lifetime->revocation->lifetime = weakLifetime;
+        context->installEventFilter(_lifetime->revocation.get());
         QObject::connect(context, &QObject::destroyed, _lifetime->revocation.get(), [weakLifetime] {
             if (const auto lifetime = weakLifetime.lock()) { lifetime->revoke(); }
-        });
+        }, Qt::DirectConnection);
         document._payload = payload; document._lifetime = _lifetime;
         return document;
     }
 private:
+    QThread* _issuingThread { nullptr };
     std::shared_ptr<detail::InlineDocumentLifetime> _lifetime;
     std::uint64_t _revision { 0 };
 };
