@@ -14,7 +14,7 @@ Appium session guards. The actual loaded animation resource URL is distinct from
 its requested URL. Stale poses and candidate/process changes fail. These sources
 are not complete area adapters and advertise no `feature.*` capability. Native
 compilation and devices remain untested; focused Phone boundary tests now number
-**36**. See [the native source contract](../../native/README.md).
+**37**. See [the native source contract](../../native/README.md).
 
 The internal `_recorded_preview_evidence()` now acquires the normal memory
 preview's original pre-normalization capture and accepted sink-write PCM through
@@ -79,7 +79,7 @@ URI rather than guessing the application sandbox. General cleanup still reaches
 process/session teardown, then rejects unresolved file intent. It never deletes
 files instead of stopping an active script. Four added wrapper counterexamples
 cover original roundtrip, ACK-only Stage, lost installed candidate and unresolved
-files after teardown; all **36** focused cases pass. Native filesystem C++ is
+files after teardown; all **37** focused cases pass. Native filesystem C++ is
 uncompiled; these are transport/control simulations only. See
 [the storage contract](../../native/SCRIPT_FIXTURE_STORAGE.md).
 
@@ -153,5 +153,13 @@ states and independent original input/acoustic bytes. The old manual Save or
 Preview commands are rejected. Phone's internal preview sources remain narrower;
 normal Audio controls, native cycle/frame projection, acoustic actor and verified
 restart/cleanup handoff are not yet a full area adapter. The updated shared
-suite has 351 no-build cases; the Phone wrapper still passes 36 cases after the
+suite has 351 no-build cases; the Phone wrapper now passes 37 cases after the
 parent merge. No device qualification is inferred.
+
+The atomic Audio history extension is now connected through the existing native
+source reader: `read(...,require_recorded_history=True)` checks real per-cycle
+event/format/live-buffer metadata and refuses an older producer. The added Phone
+wrapper case preserves terminal recording frames after empty live buffers and
+rejects source downgrade. All 37 wrapper cases pass. Native C++ is uncompiled;
+normal Audio UI inputs and independent acoustic/journal/restart joins remain
+required. See [the history contract](../../native/RECORDED_PREVIEW_HISTORY.md).

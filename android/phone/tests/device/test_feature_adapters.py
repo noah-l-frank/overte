@@ -21,6 +21,8 @@ from create_journey import INITIAL, EDITED
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from adapters.native_feature_observation import NativeFeatureObservation
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
+from self_tests.test_recorded_preview_history import complete as completed_voice
+from adapters.recorded_preview_history import measured_state as measured_audio_state
 from adapters.recorded_preview_evidence import RecordedPreviewEvidence
 from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, RUN as EFFECT_RUN
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
@@ -226,6 +228,21 @@ class FeatureAdapterTests(unittest.TestCase):
                 monotonic=lambda: source.clock, sleep=source.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
+
+    def test_phone_atomic_audio_history_keeps_native_terminal_frames_and_refuses_source_downgrade(self):
+        source = self.native_feature_boundaries(); original = source.mutate
+        def history(value):
+            original(value); value['audio']['recordedVoice'] = completed_voice()
+        source.mutate = history
+        reader = self.adapter._native_feature_observer(SELECTOR)
+        first = reader.read(0, require_recorded_history=True)
+        actual = measured_audio_state(first)
+        self.assertEqual(144000, actual['recordedFrames']); self.assertEqual(0, actual['bufferedFrames'])
+        second = reader.read(first['sequence'], require_recorded_history=True)
+        self.assertEqual(first['audio']['recordedVoice'], second['audio']['recordedVoice'])
+        source.mutate = original
+        with self.assertRaises(RuntimeError): reader.read(second['sequence'], require_recorded_history=True)
+        self.assertEqual([], self.native.inputs)
 
     def test_native_feature_packet_is_original_and_bound_to_actual_installed_candidate_and_pid(self):
         source = self.native_feature_boundaries()
