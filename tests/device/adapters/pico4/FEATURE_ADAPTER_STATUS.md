@@ -241,3 +241,14 @@ delivers no login input. The controlled HTTPS backend is available, but native
 login/cancel, trusted-origin/current-credential protected probe and independent
 actor composition remain open. No Authentication feature triple is enabled;
 native source remains uncompiled and devices untested.
+
+The internal `_account_probe` factory now uses the actual private command/file
+transport under existing installed-candidate/PID/OpenXR and normal-Script profile
+guards, with one persisted original network intent. Release requires separately
+observed native reply/body/authority drain. Adapter-wide cleanup attempts it
+before base teardown, retains unresolved ownership and cannot report green on
+failure. Five new wrapper counterexamples pass; the normal Script/Audio/Graphics/
+world/probe group has 31 passing host cases. The native HTTPS-origin provisioner,
+normal login/cancel/UI/restart and independent actor coordinator remain missing.
+No complete Authentication triple or device acceptance is enabled; native code
+is uncompiled.

@@ -32,6 +32,7 @@ from adapters.world_render_storage import receipt_file
 from self_tests.test_world_render_evidence import Boundary as WorldBoundary
 from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
 from self_tests.test_owned_world_render import LocalAdb
+from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
 
 
 class PicoNormalScriptsTests(unittest.TestCase):
@@ -158,6 +159,60 @@ class PicoNormalScriptsTests(unittest.TestCase):
             boundary.start();self.addCleanup(boundary.stop)
         factory=self.instance._graphics_controls if graphics else self.instance._audio_controls
         return native,factory(self.native.target,native.intent)
+
+    def account_probe(self):
+        source=AccountProbeBoundary()
+        def captured(value):
+            epoch=self.native.epoch_milliseconds(self.native.target)
+            value.update(processId=123,requestedEpochMs=epoch,capturedEpochMs=epoch)
+            if value['operation']=='read':value['source'].update(sentEpochMs=epoch,completedEpochMs=epoch)
+        source.mutate=captured
+        original_write=self.native.write_debug_app_file;original_read=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            command=json.loads(raw)
+            if command['action']!='feature-account-probe':return original_write(target,package,path,raw)
+            self.assertEqual('org.overte.pico',package);self.assertEqual(adapter.ANDROID_CONTROL_COMMAND,path)
+            journal=self.instance._account_probe_store(target).read()
+            self.assertEqual(command['requestId'],journal['probe']['commandId']);source.send(command)
+        def read(target,package,path,**kwargs):
+            if path.endswith('/feature-account-probe.json'):
+                self.assertEqual({'attempts':1},kwargs);return source.read()
+            return original_read(target,package,path,**kwargs)
+        active=type(self.instance)._account_probe.__wrapped__.__globals__
+        for boundary in (patch.object(self.native,'write_debug_app_file',side_effect=write),
+                         patch.object(self.native,'read_debug_app_file',side_effect=read),
+                         patch.dict(active,NativeFeatureObservation=partial(NativeFeatureObservation,
+                             monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.instance._account_probe(self.native.target)
+
+    def test_pico_protected_probe_uses_actual_candidate_transport_and_observed_owner_cleanup(self):
+        source,probe=self.account_probe();value=probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
+        self.assertEqual(123,value['processId']);self.assertEqual(401,value['source']['httpStatus'])
+        probe.release();self.assertIsNone(self.instance._account_probe_store(self.native.target).read())
+        self.assertEqual([],self.native.inputs)
+
+    def test_pico_protected_probe_undrained_reply_retains_original_owner(self):
+        source,probe=self.account_probe();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET);source.pending=True
+        with self.assertRaises(RuntimeError):probe.release()
+        self.assertIsNotNone(self.instance._account_probe_store(self.native.target).read())
+        source.pending=False;probe.release();self.assertIsNone(self.instance._account_probe_store(self.native.target).read())
+
+    def test_pico_protected_probe_candidate_loss_refuses_owned_cleanup_before_new_dispatch(self):
+        source,probe=self.account_probe();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
+        self.native.digest='f'*64;before=len(source.commands)
+        with self.assertRaises((ValueError,RuntimeError)):probe.release()
+        self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.instance._account_probe_store(self.native.target).read())
+
+    def test_pico_adapter_cleanup_drains_probe_before_original_process_teardown(self):
+        source,probe=self.account_probe();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
+        self.assertEqual({'cleaned':True},self.cleanup_instance().cleanup(self.native.target))
+        self.assertFalse(self.native.running);self.assertIsNone(self.instance._account_probe_store(self.native.target).read())
+
+    def test_pico_adapter_cleanup_keeps_failed_probe_owner_after_base_teardown(self):
+        source,probe=self.account_probe();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET);source.pending=True
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertIsNotNone(self.instance._account_probe_store(self.native.target).read())
 
     def world_capture(self):
         source=WorldBoundary()
