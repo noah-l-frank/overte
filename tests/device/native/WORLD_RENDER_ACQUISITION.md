@@ -127,7 +127,37 @@ the owned capture timer before cleanup, so periodic polling cannot recreate a
 deleted receipt. Deliberate original acquisition metadata remains private run
 evidence; all chunk copies and release/inspect transport receipts are removed.
 The PNG itself never needs a writable filesystem fallback. Concrete platform
-factories and an iOS equivalent receipt-removal route remain to be connected.
+factories are connected separately in the owning platform branches. Full
+feature coordinators remain missing. Cleanup has one total 45-second default
+budget (the existing session default), including native memory inventory,
+unlink and every independent existence query. A stricter caller budget can be
+passed; expiry/regressing clocks preserve ownership.
+
+The shared native `feature-world-render-receipt` operation supplies the iOS
+removal route without assuming an unsupported driver delete command. The
+separate version-1 command has schemaVersion 1, commandId, action, requestId,
+receiptId (original storage command nonce) and operation `remove|inspect`.
+Native state records each issued storage result's original JSON digest and
+capture identity, bounded to 65536 historical receipts per context; quota
+exhaustion fails closed. Receipt cleanup requires that exact issued nonce to
+belong to a retired acquisition. The results root must retain its existing
+private nonsymlink/canonical permissions boundary. A present receipt must
+match the native original digest; foreign/changed/symlink files are refused.
+The private writer also refuses non-native content or wrong nonce paths, and
+does not rewrite an existing foreign document.
+
+Native remove and later inspect are distinct actual filesystem operations.
+Replies have receiptVersion 1, commandId, requestId, receiptId, operation,
+native context instance, advancing source sequence, actual processId, original
+capturedEpochMs and source. Remove source has performed:boolean; inspect source
+has exists:boolean. No caller-supplied existence, digest, content or arbitrary
+path is accepted. The original atomic private result is
+`world-render-receipt-result.json`, retained as bounded run metadata like the
+original acquisition receipt; it contains no image bytes. The reader correlates
+fresh nonces, PID/context, exact issued owner journal and advancing source
+cursor. iOS bounds the whole query to 1.5 seconds without equating wall clocks.
+It retries only original reads and never replays uncertain deletion. The probe
+deduplicates the command, preventing periodic writes after receipt consumption.
 
 `NativeWorldRenderCapture` requires a durable owner intent callback before the
 request because observation can create private native artifacts. A failed intent
@@ -141,11 +171,14 @@ unpredictable nonce causality bounds image age without assuming equal native and
 host clocks. Full-area clock/lifecycle joins remain required. No read is replayed
 as a mutation. Failed ownership/release must keep a run red.
 
-Thirty-seven device-free cases cover ignored GPU versus fresh control cursor,
+Forty-eight device-free cases cover ignored GPU versus fresh control cursor,
 missing/stale/foreign originals, RGBA/PNG checksum/shape errors, timing/context
 changes, unsupported Vulkan/stereo/post-UI sources, original probe dispatch,
 finite retries, transfer/decode budgets, original chunk offsets/digests, ignored
 release, undrained callbacks, separate fresh inventories, durable intent failure,
 real local journal/receipt cleanup, ignored unlink, symlink/foreign-context
-rejection and recovery with ownership retained. These prove
+rejection, whole-cleanup budgets and recovery with ownership retained. The
+native removal reader additionally rejects unissued paths, foreign/stale
+inventories and numeric existence flags; actual local files demonstrate ignored
+delete ACK versus a separate existence query. These prove
 test/reader logic only, not GL correctness, product rendering or device acceptance.
