@@ -16,6 +16,8 @@ from adapters.normal_ui import NativeUI, W3C_ELEMENT
 from adapters.shared_appium.adapter import AppiumAdapter
 from create_observation import PREFIX
 from create_journey import INITIAL, EDITED
+from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
+from adapters.native_feature_observation import NativeFeatureObservation
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -192,6 +194,55 @@ class FeatureAdapterTests(unittest.TestCase):
     def load(self):
         self.invoke('scripts.manager.open')
         self.invoke('scripts.load-url', {'url': SOURCE})
+
+    def native_feature_boundaries(self):
+        source = NativeFeatureBoundary()
+        source.mutate = lambda value: value.update(processId=31)
+        def send(_client, _session, target, command, process):
+            self.assertEqual(PACKAGE, target['appId'])
+            self.assertEqual({'running': True, 'identity': '31:14'}, process)
+            source.send(command)
+        def read(_device, package, path, **kwargs):
+            self.assertEqual(PACKAGE, package)
+            self.assertEqual('files/overte-e2e/feature-native-observation.json', path)
+            self.assertEqual({'attempts': 1}, kwargs)
+            return source.original()
+        for boundary in (
+            patch.object(self.adapter, 'write_android_client_command', side_effect=send),
+            patch.object(self.fixture.adb, 'read_debug_app_file', side_effect=read, create=True),
+            patch.object(self.fixture.adb, 'epoch_milliseconds', return_value=20000, create=True),
+            patch.object(appium, 'NativeFeatureObservation', partial(NativeFeatureObservation,
+                monotonic=lambda: source.clock, sleep=source.sleep))):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source
+
+    def test_native_feature_packet_is_original_and_bound_to_actual_installed_candidate_and_pid(self):
+        source = self.native_feature_boundaries()
+        reader = self.adapter._native_feature_observer(SELECTOR)
+        value = reader.read(0, require_animation=True)
+        self.assertEqual(source.sample, value)
+        self.assertEqual(31, value['processId'])
+        self.assertEqual('file:///actual/bundled/Sit2.fbx', value['animation']['clip']['url'])
+        self.assertEqual([], self.native.inputs)
+        self.assertFalse(any(cap.startswith('feature.') for cap in self.adapter.advertised_capabilities(self.target)))
+
+    def test_native_feature_reader_rejects_process_change_and_does_not_replay_request(self):
+        source = self.native_feature_boundaries()
+        def mutate(value):
+            value['processId'] = 31
+            self.native.identity = '99:foreign-process'
+        source.mutate = mutate
+        reader = self.adapter._native_feature_observer(SELECTOR)
+        with self.assertRaises(RuntimeError): reader.read(0)
+        self.assertEqual(1, len(source.commands))
+        self.assertEqual(0, reader.sequence)
+
+    def test_native_feature_reader_rejects_changed_candidate_before_delivery(self):
+        source = self.native_feature_boundaries()
+        reader = self.adapter._native_feature_observer(SELECTOR)
+        self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): reader.read(0)
+        self.assertEqual([], source.commands)
 
     def test_original_wrapper_native_input_and_candidate_checks_execute_complete_script_packet(self):
         self.load()

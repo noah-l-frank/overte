@@ -29,6 +29,7 @@ from scripts_observation import OPERATIONS as SCRIPT_OPERATIONS
 from create_observation import OPERATIONS as CREATE_OPERATIONS
 from overte_phone_create_ui import PhoneCreateUI
 from adapters.normal_create import NormalCreate
+from adapters.native_feature_observation import NativeFeatureObservation, FILE as NATIVE_FEATURE_FILE
 
 
 class PhoneAppiumAdapter(AppiumAdapter):
@@ -127,6 +128,32 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def script_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-script-session.json'))
+
+    def _native_feature_observer(self, selector):
+        # Internal native sources, not a complete feature.* capability. The
+        # source hook is opt-in at build time and cannot be faked by an env flag.
+        target = self.target(selector)
+        require(self.candidate is not None and self.controlled_android_client(target),
+                'PHONE_NATIVE_FEATURE_BOUND_DEBUG_TARGET_REQUIRED')
+        _native, _scripts, context, check, installed = self.normal_feature_runtime(selector)
+        client, session, _state = self.ensure_session(selector)
+        device = target['capabilities']['appium:udid']
+        binding = PhoneAdapter(self.candidate)
+
+        def guard():
+            check()
+            require(self.installed_identity(selector) == installed, 'PHONE_NATIVE_FEATURE_INSTALL_CHANGED')
+
+        def send(command):
+            guard()
+            self.write_android_client_command(client, session, target, command,
+                {'running': True, 'identity': context['processIdentity']})
+
+        return NativeFeatureObservation(send,
+            lambda: binding.adb.read_debug_app_file(device, target['appId'],
+                'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
+            lambda: binding.adb.epoch_milliseconds(device), guard,
+            int(context['processIdentity'].split(':')[0]))
 
     def normal_scripts(self, selector, operation, values):
         arguments = validate_operation_arguments(operation, values)

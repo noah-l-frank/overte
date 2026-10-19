@@ -5,6 +5,17 @@ Product base: `718d069add` (Phone typed-config parity repair), composed with the
 Main common-journey branch through ordinary local parent-to-child merges.
 No protected integration, build, install or device execution was performed.
 
+Continuation: the user explicitly authorized E2E-only instrumentation in native
+client sources. The opt-in `OVERTE_E2E_FEATURE_TESTS=ON` source packet now supplies
+actual lifecycle notifications, evaluated animation/pose metadata, and labelled
+native render/audio/account reads. `_native_feature_observer()` joins these
+original private bytes to the existing installed-APK, PID/start, foreground and
+Appium session guards. The actual loaded animation resource URL is distinct from
+its requested URL. Stale poses and candidate/process changes fail. These sources
+are not complete area adapters and advertise no `feature.*` capability. Native
+compilation and devices remain untested; focused Phone boundary tests now number
+**16**. See [the native source contract](../../native/README.md).
+
 New implementations in the existing candidate-bound Appium entrypoint:
 
 | Operations | Source implementation | Product/device evidence |
