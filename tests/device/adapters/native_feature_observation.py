@@ -52,9 +52,10 @@ def decode(raw):
         parse_constant=lambda _value: need(False))
 
 
-def validate(value, request, pid, epoch, *, require_animation=False, require_recorded_voice=False, require_recorded_history=False):
+def validate(value, request, pid, epoch, *, require_animation=False, require_recorded_voice=False,
+             require_recorded_history=False, require_animation_history=False):
     need(type(value) is dict and all(type(flag) is bool for flag in
-         (require_animation, require_recorded_voice, require_recorded_history)))
+         (require_animation, require_recorded_voice, require_recorded_history, require_animation_history)))
     optional = {'requestedEpochMs', 'animationFence'} & set(value)
     exact(value, {'schemaVersion', 'requestId', 'instance', 'sequence', 'capturedEpochMs',
                   'processId', 'lifecycle', 'animation', 'graphics', 'audio', 'account'} | optional)
@@ -130,7 +131,7 @@ def validate(value, request, pid, epoch, *, require_animation=False, require_rec
     if animation:
         fields = {'rigId', 'capturedEpochMs', 'evaluationSequence', 'animationsEnabled',
                   'graphLoaded', 'overrideActive', 'joints'}
-        exact(animation, fields | ({'clip'} if 'clip' in animation else set()))
+        exact(animation, fields | ({'clip'} if 'clip' in animation else set()) | ({'history'} if 'history' in animation else set()))
         need(integer(animation['rigId']) and integer(animation['evaluationSequence'])
              and integer(animation['capturedEpochMs'], 1)
              and all(type(animation[key]) is bool for key in
@@ -140,14 +141,12 @@ def validate(value, request, pid, epoch, *, require_animation=False, require_rec
                  for joint in animation['joints']))
         need('clip' not in animation or animation['overrideActive'])
         if 'clip' in animation:
-            clip = animation['clip']
-            exact(clip, {'url', 'requestedUrl', 'frame', 'firstFrame', 'lastFrame', 'framesPerSecond', 'loop',
-                         'loadedFrames', 'evaluatedEpochMs', 'evaluationSequence'})
-            need(all(type(clip[key]) is str and len(clip[key]) <= 4096
-                     and not any(ord(c) < 32 for c in clip[key]) for key in ('url', 'requestedUrl'))
-                 and all(number(clip[key]) for key in ('frame', 'firstFrame', 'lastFrame', 'framesPerSecond'))
-                 and type(clip['loop']) is bool and integer(clip['loadedFrames'], 0, 1000000)
-                 and integer(clip['evaluatedEpochMs']) and integer(clip['evaluationSequence']))
+            from adapters.native_animation_history import clip
+            clip(animation['clip'])
+        if 'history' in animation:
+            from adapters.native_animation_history import validate as history
+            history(animation['history'],animation,value['capturedEpochMs'])
+        else: need(not require_animation_history)
         if require_animation:
             fresh(animation['capturedEpochMs'], epoch)
             if fence:
@@ -162,7 +161,7 @@ def validate(value, request, pid, epoch, *, require_animation=False, require_rec
                      and animation['clip']['evaluationSequence'] > 0)
                 fresh(animation['clip']['evaluatedEpochMs'], epoch)
     else:
-        need(not require_animation)
+        need(not require_animation and not require_animation_history)
     return value
 
 
@@ -177,11 +176,13 @@ class NativeFeatureObservation:
         self.lifecycle = None
         self.voice_event_sequence = 0
         self.voice_history = None
+        self.animation_history = None
 
-    def read(self, after_sequence, *, require_animation=False, require_recorded_voice=False, require_recorded_history=False):
+    def read(self, after_sequence, *, require_animation=False, require_recorded_voice=False,
+             require_recorded_history=False, require_animation_history=False):
         try:
             need(integer(after_sequence) and after_sequence >= self.sequence
-                 and type(require_animation) is bool and type(require_recorded_voice) is bool and type(require_recorded_history) is bool
+                 and all(type(v) is bool for v in (require_animation,require_recorded_voice,require_recorded_history,require_animation_history))
                  and self.guard() is not False)
             requested_at = self.clock_ms()
             need(integer(requested_at, 1))
@@ -192,6 +193,7 @@ class NativeFeatureObservation:
             source_floor, pinned_instance, pinned_rig = after_sequence, self.instance, self.rig
             seen_lifecycle, voice_floor = self.lifecycle, self.voice_event_sequence
             seen_history = self.voice_history
+            seen_animation_history = self.animation_history
             for _attempt in range(51):
                 need(self.guard() is not False)
                 raw = self.original()
@@ -211,7 +213,8 @@ class NativeFeatureObservation:
                         need(integer(value.get('requestedEpochMs'), 1))
                         epoch = value.get('capturedEpochMs')
                     value = validate(value, request, self.pid, epoch, require_animation=False,
-                                     require_recorded_voice=require_recorded_voice, require_recorded_history=require_recorded_history)
+                                     require_recorded_voice=require_recorded_voice, require_recorded_history=require_recorded_history,
+                                     require_animation_history=require_animation_history)
                     need(pinned_instance in (None, value['instance']) and value['sequence'] > source_floor
                          and (self.ios or value['capturedEpochMs'] >= requested_at))
                     pinned_instance, source_floor = value['instance'], value['sequence']
@@ -219,6 +222,10 @@ class NativeFeatureObservation:
                         need(all(value['lifecycle'][key] >= seen_lifecycle[key] for key in seen_lifecycle))
                     seen_lifecycle = value['lifecycle'].copy()
                     animation = value['animation']
+                    if 'history' in animation:
+                        from adapters.native_animation_history import accept
+                        seen_animation_history=accept(seen_animation_history,animation['rigId'],animation['history'])
+                    else: need(seen_animation_history is None)
                     voice_event = value['audio'].get('recordedVoice', {}).get('event', {})
                     voice_sequence = voice_event.get('eventSequence', 0)
                     need(voice_sequence >= voice_floor)
@@ -252,6 +259,7 @@ class NativeFeatureObservation:
                         self.lifecycle = value['lifecycle'].copy()
                         self.voice_event_sequence = voice_sequence
                         self.voice_history = deepcopy(seen_history)
+                        self.animation_history = deepcopy(seen_animation_history)
                         if require_animation:
                             self.rig, self.rig_sequence = animation['rigId'], animation['evaluationSequence']
                         return value

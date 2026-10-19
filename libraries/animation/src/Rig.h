@@ -23,6 +23,7 @@
 #include <QReadWriteLock>
 #include <ScriptValue.h>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "AnimationObservationHistory.h"
 #include <QVariantMap>
 #endif
 
@@ -498,6 +499,7 @@ protected:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     mutable QReadWriteLock _e2eAnimationLock;
     QVariantMap _e2eAnimationObservation;
+    overte::e2e::AnimationObservationHistory _e2eAnimationHistory;
 #endif
 };
 
