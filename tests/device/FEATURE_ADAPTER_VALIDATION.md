@@ -6,14 +6,15 @@ all physical qualification remain open. See
 
 Validated locally:
 
-* Existing quick common Python selection plus the new native flow tests, with
+* **261** quick common Python tests pass, with zero failures/errors/skips, including
+  the new native flow tests. The selection has
   three explicitly excluded pre-existing compiler cases in `test_voice_roundtrip`.
-* Phone's real candidate-bound wrapper: original installed-identity/native input
+* Phone's real candidate-bound wrapper: **43 original + 13 new tests pass**. Original installed-identity/native input
   tests and the new `test_feature_adapters.py`. The new group is registered in
   the existing Phone runtime runner. W3C/ADB/time boundaries and candidate bytes
   are explicit host fixtures, not an APK execution.
-* Pico's real candidate-bound wrapper: original 31 native binding/navigation/
-  Snapshot tests; new seven native-feature reader tests; existing suite-runner
+* Pico's real candidate-bound wrapper: original **31** native binding/navigation/
+  Snapshot tests; new **seven** native-feature reader tests; existing suite-runner
   and coverage checks. The new group passes through the actual existing Pico
   suite selector as `feature-observation`, with zero skipped selected groups.
 * iOS's new eight reader tests, original five canonical binding tests, and the
