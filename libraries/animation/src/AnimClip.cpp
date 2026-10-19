@@ -11,10 +11,15 @@
 #include "AnimClip.h"
 
 #include <assert.h>
+#include <cmath>
 
 #include "GLMHelpers.h"
 #include "AnimationLogging.h"
 #include "AnimUtil.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QDateTime>
+#include <QCoreApplication>
+#endif
 
 #ifdef USE_CUSTOM_ASSERT
 #undef ASSERT
@@ -265,6 +270,9 @@ const AnimPoseVec& AnimClip::evaluate(const AnimVariantMap& animVars, const Anim
         if (_networkAnim && _networkAnim->isLoaded() && _skeleton) {
             // loading is complete, copy & retarget animation.
             _anim = copyAndRetargetFromNetworkAnim(_networkAnim, _skeleton);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            _e2eLoadedUrl = _networkAnim->getURL().toString();
+#endif
 
             // we no longer need the actual animation resource anymore.
             _networkAnim.reset();
@@ -279,6 +287,9 @@ const AnimPoseVec& AnimClip::evaluate(const AnimVariantMap& animVars, const Anim
         if (_networkAnim && _networkAnim->isLoaded() && _baseNetworkAnim && _baseNetworkAnim->isLoaded() && _skeleton) {
             // loading is complete, copy & retarget animation.
             _anim = copyAndRetargetFromNetworkAnim(_networkAnim, _skeleton);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            _e2eLoadedUrl = _networkAnim->getURL().toString();
+#endif
 
             // we no longer need the actual animation resource anymore.
             _networkAnim.reset();
@@ -331,8 +342,26 @@ const AnimPoseVec& AnimClip::evaluate(const AnimVariantMap& animVars, const Anim
 
     processOutputJoints(triggersOut);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    static const bool testLaunch = QCoreApplication::arguments().contains("--testScript");
+    if (testLaunch && std::isfinite(dt) && dt > 0.0f) {
+        _e2eEvaluatedEpochMs = QDateTime::currentMSecsSinceEpoch();
+        ++_e2eEvaluationSequence;
+    }
+#endif
+
     return _poses;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap AnimClip::e2eClipObservation() const {
+    return {{"url", _e2eLoadedUrl}, {"requestedUrl", _url}, {"frame", _frame}, {"firstFrame", _startFrame},
+        {"lastFrame", _endFrame}, {"framesPerSecond", _timeScale * 30.0f},
+        {"loop", _loopFlag}, {"loadedFrames", static_cast<int>(_anim.size())},
+        {"evaluatedEpochMs", _e2eEvaluatedEpochMs},
+        {"evaluationSequence", static_cast<qulonglong>(_e2eEvaluationSequence)}};
+}
+#endif
 
 void AnimClip::setCurrentFrameInternal(float frame) {
     // because dt is 0, we should not encounter any triggers
