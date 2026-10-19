@@ -44,7 +44,7 @@ class Boundary:
         return NativeAccountProbe(self.send,self.read,lambda:20000,lambda:self.guard_ok,123,intent=self.intents.append,
             monotonic=lambda:self.clock,sleep=self.sleep,**kwargs)
     def proof(self,native):
-        return dict(providerVersion=1,instance=PROVIDER,eventSequence=1,capturedEpochMs=9000000,
+        return dict(providerVersion=2,instance=PROVIDER,eventSequence=1,capturedEpochMs=9000000,
             kind='profile-request',runId=RUN,ticket=TICKET,requestId=native['requestId'],status=401,principal='anonymous',protectedAccess=False)
 
 

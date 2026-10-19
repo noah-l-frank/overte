@@ -1,4 +1,48 @@
-# Common feature journey migration: current version 5
+# Common feature journey migration: current version 6
+
+## Version 5 to 6: view dismissal, retired responses and actual delayed authority
+
+Closing the login view deliberately does not cancel AccountManager's request.
+This is explicit in PhoneLoginState and consistent with generic LoginDialog/
+overlay/tablet destruction. Version 6 observes pending=true after close and
+reopen, without submitting twice. It then closes the view and performs an actual
+app restart before the fixture releases the old grant. New native process/source
+identity and actual lifecycle counters must change; no input ACK or view close
+can stand in for this boundary. Optional anonymous startup prompts are observed
+and dismissed through the ordinary idempotent login-cancel action.
+
+The new measured boolean delayedGrantOutstanding comes from the fixture's
+actual retained access/refresh authority for a real held request. It becomes
+true only after actual valid credentials were issued, and stays true through
+native logout until separate controlled fixture revocation. Thus a server
+503/expired hold or an ACK without a real old success cannot pass the stale
+response checkpoint. Native logout makes the current client anonymous; it is
+not claimed to revoke remote tokens. Fixture cleanup blocks new grants,
+cancels held handlers and revokes issued authority before baseline/quiet checks.
+
+The independent Authentication witness now measures all six fields: principal,
+dialog, error, pending, protectedAccess and delayedGrantOutstanding. It must
+acquire actual UI/error state too; a primary error echo with unchanged backend/
+UI cannot pass invalid login. Neither actor nor adapter receives expectations.
+The public sanitized delayed-grant endpoint returns original request identity/
+times/status and fresh actual authority validity, without credentials. Consumers
+pin provider/run, retain original records and reject missing/rewritten history.
+
+Account provider version 2 holds the real server request for at most 90 seconds
+so an old consumer can be retired and a new process can start before release.
+The native client's unchanged 15-second token/profile deadlines still apply
+while it lives. Preserve a genuinely pending old request before restart and
+prove actual valid issuance afterwards; a native/server timeout is insufficient.
+The source fixture itself is not native UI, native trust or a complete actor.
+Clean current native probe/origin scopes before intentional restart, then
+acquire the independently verified new context; never copy old ownership into
+it. Controlled provider arming/release/revocation are reader-side stimuli bound
+to the current closed action, not product-state setters or desired facts.
+
+Seventeen Authentication checkpoints replace the previous twelve. Other area
+flows retain version 5 semantics. Full native UI/action/actor/restart producers
+remain incomplete, native instrumentation is uncompiled and device qualification
+is absent on every platform.
 
 ## Version 4 to 5: ordinary Emote effects, completion and early restoration
 
@@ -41,12 +85,12 @@ clocks must remain distinct from iOS host epochs. The actual history helpers
 supply narrower prerequisites, not this complete coordinator.
 
 Current actions, observations, registry and generated files use contractVersion
-5. Only version 5 requests are accepted; versions 1..4 have no qualified complete
-producer and remain available in Git history. There is no silent translation of
-old ordinary override:false semantics. Current files are adapter-contract.v5.json
-and coverage.v5.json. Observation schema 1, resource/journal transport v1, source
-pins v1 and independently versioned native primitive contracts remain unchanged.
-No capability/device acceptance is granted by this correction.
+6. Only version 6 requests are accepted; versions 1..5 have no qualified complete
+producer and remain in Git history. Current files are adapter-contract.v6.json
+and coverage.v6.json. Observation schema 1, resource/journal transport v1 and
+independently versioned native primitives remain unchanged. The account fixture
+is independently versioned 2; it does not relax native OAuth deadlines or TLS.
+
 
 ## Historical version 3 to 4: immediate Graphics controls and measured originals
 
@@ -144,7 +188,7 @@ There were no qualified version 1 product producers on Phone, Pico or iOS.
 Version 1 host simulations are historical logic checks, not producers or
 accepted product evidence. No deployed producer/acceptance migration is needed;
 that registry read only 2 and rejected version 1; the current registry now
-reads only 4.
+reads only 6.
 The old inventory and implementation remain recoverable in Git history; the
 version 2 files remain available in Git history.
 

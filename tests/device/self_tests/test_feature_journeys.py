@@ -65,6 +65,7 @@ class Boundary:
         self.ignored = False
         self.emote_started=self.emote_restored=self.emote_due=None
         self.emote_final=False
+        self.auth_process=1;self.auth_delayed_process=None;self.auth_delayed_held=False;self.auth_delayed_valid=False
 
     def epoch(self):
         return 2_000_000 + getattr(self, 'clock', 0) * 1000
@@ -72,6 +73,15 @@ class Boundary:
     def activate(self, ticket, verb='baseline', inputs=None):
         self.ticket = ticket
         self.journal.activate(RUN, ticket, verb, inputs)
+        if self.area=='authentication':
+            if verb=='release-stale-response':
+                if not self.auth_delayed_held:raise AssertionError('No actual model delayed request')
+                self.auth_delayed_held=False
+                self.auth_delayed_valid=self.fault!='delayed-grant-not-issued'
+                if self.auth_delayed_valid and (self.auth_delayed_process==self.auth_process or self.fault=='old-response-adopted'):
+                    self.state.update(principal='owned',pending=False,protectedAccess=True)
+            elif verb=='cleanup' and self.fault!='backend-revocation-ignored':
+                self.auth_delayed_valid=False;self.auth_delayed_held=False
 
     def reduce(self, verb, data):
         s, a = self.state, self.area
@@ -79,6 +89,9 @@ class Boundary:
             if self.fault != 'restart-ignored':
                 self.lifecycle['launches'] += 1
                 self.lifecycle['activations'] += 1
+                if a=='authentication':
+                    self.auth_process+=1
+                    s.update(dialog=self.fault=='startup-login-open' and s['principal']=='anonymous',pending=False,error='none')
             return
         if verb == 'background-resume':
             if self.fault != 'background-ignored':
@@ -102,10 +115,13 @@ class Boundary:
             elif verb == 'bookmark-delete': s.update(bookmark=False, bookmarkName='')
         elif a == 'authentication':
             if verb == 'login-open': s['dialog'] = True
-            elif verb == 'login-cancel': s.update(dialog=False, error='none', pending=False)
+            elif verb == 'login-cancel':
+                s.update(dialog=False,error='none')
+                if self.fault=='cancel-invents-network-abort':s['pending']=False
             elif verb == 'login-submit':
                 if data['account'] == 'invalid': s['error'] = 'invalid-credentials'
-                elif data['account'] == 'delayed': s['pending'] = True
+                elif data['account'] == 'delayed':
+                    s['pending']=True;self.auth_delayed_held=True;self.auth_delayed_process=self.auth_process
                 else: s.update(principal='owned', dialog=False, protectedAccess=True)
             elif verb == 'logout': s.update(principal='anonymous', protectedAccess=False)
         elif a == 'avatar-people':
@@ -286,6 +302,7 @@ class Boundary:
 
     def observe(self, fields):
         self.sequence += 1
+        if self.area=='authentication':self.state['delayedGrantOutstanding']=self.auth_delayed_valid
         if self.area=='emotes':
             if self.emote_due is not None and self.clock>=self.emote_due and self.fault!='emote-timer-ignored':
                 self.state.update(animation='idle',sit='none',override=False,poseProgress=0.)
@@ -460,11 +477,11 @@ class FeatureJourneys(unittest.TestCase):
         with self.assertRaises(AssertionError):boundary.execute()
         self.assertFalse(boundary.reports[0]['sequenceCompleted'])
 
-    def test_emote_v5_rejects_prior_contract_and_accepts_only_closed_no_input_completion(self):
+    def test_current_emote_contract_rejects_prior_contract_and_accepts_only_closed_no_input_completion(self):
         request=dict(contractVersion=VERSION,runId=RUN,ticket=TICKET,
             fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/',verb='wait-complete',inputs={})
         self.assertEqual(request,arguments('feature.emotes.act',request))
-        for edit in ({'contractVersion':4},{'inputs':{'expected':'idle'}},{'inputs':{'restore':True}}):
+        for edit in ({'contractVersion':5},{'contractVersion':4},{'inputs':{'expected':'idle'}},{'inputs':{'restore':True}}):
             with self.assertRaises(ValueError):arguments('feature.emotes.act',request|edit)
 
     def test_script_picker_cancellation_and_real_companion_resolution_are_observed(self):
@@ -734,6 +751,35 @@ class FeatureEvidenceCounterexamples(unittest.TestCase):
                 Boundary(area,fault).execute()
             if area=='scripts': self.assertIn('05-picker-accept',str(error.exception))
 
+    def test_auth_view_close_preserves_pending_and_real_restart_retires_its_consumer(self):
+        boundary=Boundary('authentication');boundary.execute()
+        self.assertEqual(4,boundary.lifecycle['launches'])
+        samples=boundary.reports[0]['samples']
+        self.assertTrue(any(s['state']['pending'] and not s['state']['dialog'] for s in samples))
+        self.assertTrue(any(s['state']['pending'] and s['state']['dialog'] for s in samples))
+        self.assertTrue(any(s['state']['delayedGrantOutstanding'] and s['state']['principal']=='anonymous' for s in samples))
+
+    def test_auth_fake_network_cancel_missing_valid_old_grant_and_adopted_response_fail(self):
+        for fault in ('cancel-invents-network-abort','delayed-grant-not-issued','old-response-adopted'):
+            with self.subTest(fault=fault),self.assertRaises(AssertionError):Boundary('authentication',fault).execute()
+
+    def test_auth_primary_error_echo_without_actual_independent_ui_error_cannot_pass(self):
+        boundary=Boundary('authentication','product-echo-without-peer',target='login-submit')
+        boundary.echo={'error':'invalid-credentials'};original=boundary.reduce
+        def no_input(verb,data):
+            if not (verb=='login-submit' and data['account']=='invalid'):original(verb,data)
+        boundary.reduce=no_input
+        with self.assertRaises(AssertionError):boundary.execute()
+        self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_auth_startup_prompt_variant_is_closed_through_the_same_normal_action(self):
+        Boundary('authentication','startup-login-open').execute()
+
+    def test_auth_backend_revocation_is_separate_from_native_logout_and_required_for_cleanup(self):
+        boundary=Boundary('authentication','backend-revocation-ignored')
+        with self.assertRaises(AssertionError):boundary.execute()
+        self.assertFalse(boundary.reports[0]['cleanupSucceeded'])
+
     def test_delayed_old_success_is_not_a_cancellation_result(self):
         boundary=Boundary('authentication')
         original=boundary.reduce
@@ -792,9 +838,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v5.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v6.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v5.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v6.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():
