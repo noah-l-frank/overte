@@ -15,5 +15,7 @@ test("native Scripts/Assets execute models, routes, keyboard, files and request 
     const file = path.resolve(__dirname, "../../device/contracts/script_assets/test_script_assets_qml.py");
     const result = spawnSync("python3", [file], { encoding: "utf8", timeout: 120000 });
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.match(result.stdout, /22 passed, 0 failed/);
+    assert.match(result.stdout, /Totals: 23 passed, 0 failed, 0 skipped/);
+    assert.match(result.stdout,
+        /PASS\s+:.*::test_normalTouchAppEntriesLoadActualScriptsAndReadOnlyAssets\(\)/);
 });
