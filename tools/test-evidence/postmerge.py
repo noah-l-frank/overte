@@ -931,7 +931,15 @@ def current_parent_schedule(event, environment, adapter, *, root=ROOT, candidate
         trusted_root=root,target='main',base_tree=previous)
     quick = [name for name,suite in registry['suites'].items()
         if suite['layer'] == 'quick' and name not in policy.PRODUCT_QUICK_SUITES]
-    A.require(selected['suites'] == quick and bool(quick) and set(quick) < set(registry['suites'])
+    names=selected['suites'];affected=selected.get('affected')
+    # The trusted selector may narrow the existing Qt-free roster. This only
+    # declines an incomplete optional qualification; it grants no suite PASS/E.
+    partial=(type(names) is list and bool(names) and len(names)<len(quick)
+        and names==[name for name in quick if name in names]
+        and selected.get('reason')=='protected-ci-dependencies' and type(affected) is dict
+        and type(affected.get('dependency_schema')) is int and affected['dependency_schema']==2
+        and affected.get('target')=='main' and affected.get('required')==names)
+    A.require((names == quick or partial) and bool(quick) and set(quick) < set(registry['suites'])
         and selected['full_host'] is False and selected['include_platform'] is False
         and not selected.get('additional_suites') and not selected.get('platform_suites'),
         'current optional parent selection cannot produce complete qualification')
