@@ -9,6 +9,7 @@ the inputs used to authorize reuse.
 from __future__ import annotations
 
 from fnmatch import fnmatchcase
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 import hashlib
 import json
@@ -46,11 +47,23 @@ def _canonical(value: object) -> bytes:
         raise InputError("input identity must contain canonical JSON values") from error
 
 
+@lru_cache(maxsize=8192)
+def _normalized_relative_path(value: str) -> bool:
+    # Only lexical normalization is memoized. Entry modes, types, object IDs,
+    # membership and source provenance are still validated on every call.
+    relative = PurePosixPath(value)
+    return not (relative.is_absolute() or ".." in relative.parts
+                or str(relative) != value or value == ".")
+
+
 def _path(value: object, label: str) -> str:
     if not isinstance(value, str) or not value or "\0" in value:
         raise InputError(f"{label} must be a nonempty relative path")
-    relative = PurePosixPath(value)
-    if relative.is_absolute() or ".." in relative.parts or str(relative) != value or value == ".":
+    # Preserve the original behavior for custom str subclasses too, including
+    # unhashable subclasses; native JSON paths use ordinary immutable strings.
+    normalized = (_normalized_relative_path(value) if type(value) is str
+                  else _normalized_relative_path.__wrapped__(value))
+    if not normalized:
         raise InputError(f"{label} must be a normalized relative path")
     return value
 
