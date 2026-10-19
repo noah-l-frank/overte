@@ -473,6 +473,28 @@ QStringList ScriptEngines::getRunningScripts() {
     return result;
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap ScriptEngines::featureScriptObservation() {
+    if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    QMultiHash<QUrl, ScriptManagerPointer> managers;
+    {
+        QReadLocker lock(&_scriptManagersHashLock);
+        if (_scriptManagersHash.size() > 128) { return {}; }
+        managers = _scriptManagersHash;
+    }
+    QVariantList rows;
+    for (auto it = managers.cbegin(); it != managers.cend(); ++it) {
+        const auto manager = it.value();
+        if (!manager) { return {}; }
+        const auto required = manager->featureRequiredModules();
+        if (required.isEmpty()) { return {}; }
+        rows.append(QVariantMap{{"url", it.key().toString()}, {"running", manager->isRunning()},
+            {"stopping", manager->isStopping()}, {"finished", manager->isFinished()}, {"required", required}});
+    }
+    return {{"complete", true}, {"engines", rows}};
+}
+#endif
+
 void ScriptEngines::stopAllScripts(bool restart) {
     QtConcurrent::run([this, restart] {
         QMultiHash<QUrl, ScriptManagerPointer> scriptManagersHashCopy;
