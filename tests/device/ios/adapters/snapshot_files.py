@@ -206,18 +206,30 @@ class SnapshotFiles:
         before = self._list(prefix)
         pending = {}
         for name, row in before.items():
-            if row['size'] == 0:
-                continue
             path = self._cached(row)
             if path is None:
                 pending[name] = self._read(prefix, row)
         after = self._list(prefix)
+        # A native encoder may reserve an empty original before finishing it.
+        # Keep that entry visible to freshness checks, and allow one bounded
+        # read-only completion retry. A nonempty original may never change.
+        for name, row in before.items():
+            if row['size'] == 0 and after.get(name) != row:
+                current = after.get(name)
+                if current is None:
+                    raise NativeUIError('Original iOS Snapshot reservation disappeared')
+                pending[name] = self._read(prefix, current)
+                after = self._list(prefix)
+                if after.get(name) != current:
+                    raise NativeUIError('Original iOS Snapshot reservation did not settle')
         result = []
         for name, row in before.items():
-            if row['size'] == 0:
-                continue
-            if after.get(name) != row:
+            if row['size'] > 0 and after.get(name) != row:
                 raise NativeUIError('Original iOS Snapshot changed before artifact publication')
+            row = after[name]
+            if name in pending and (len(pending[name]) != row['size']
+                    or hashlib.sha256(pending[name]).hexdigest() != row['sha256']):
+                raise NativeUIError('Original iOS Snapshot reservation bytes did not settle')
             path = self._cached(row)
             if path is None:
                 self._artifact_root()
@@ -226,6 +238,6 @@ class SnapshotFiles:
                 with os.fdopen(descriptor, 'wb') as stream:
                     stream.write(pending[name]); stream.flush(); os.fsync(stream.fileno())
                 path = self._cached(row)
-            result.append({'basename': name, 'artifact': str(path)})
+            result.append({'basename': name, 'artifact': path.name})
         self._check()
         return {'files': result}

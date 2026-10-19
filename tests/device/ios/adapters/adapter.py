@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import json
 import math
+import os
 import re
 import time
 from urllib.error import HTTPError, URLError
@@ -28,6 +29,8 @@ from adapters.collaboration_observation import actor_receipt, portable_observati
 from adapters.normal_ui import NativeUI
 from ios.adapters.normal_input import NativeInput
 from ios.adapters import normal_navigation
+from ios.adapters import normal_snapshot
+from ios.adapters.snapshot_files import SnapshotFiles
 from navigation_observation import OPERATIONS as NORMAL_NAVIGATION_OPERATIONS, viewpoint_urls
 
 
@@ -66,6 +69,8 @@ class IOSAdapter(AppiumAdapter):
                 values |= IOSAdapter.COLLABORATION_OPERATIONS
             if normal_navigation.configuration(target) is not None:
                 values |= NORMAL_NAVIGATION_OPERATIONS
+            if normal_snapshot.configuration(target) is not None:
+                values |= normal_snapshot.OPERATIONS
         return sorted(values)
 
     @staticmethod
@@ -516,6 +521,31 @@ class IOSAdapter(AppiumAdapter):
             ui = NativeUI(client, session, continuity)
             native = NativeInput(client, session, target, process)
             flow = normal_navigation.IOSNavigation(ui, native, profile, state,
+                lambda: self.save_session(selector, state))
+            return flow.invoke(operation, arguments)
+        if operation in normal_snapshot.OPERATIONS:
+            target = self.target(selector)
+            profile = normal_snapshot.configuration(target)
+            if profile is None or operation not in self.advertised_capabilities(target):
+                fail("normal iOS SNAP requires its explicit native input/file component profile")
+            arguments = validate_operation_arguments(operation, values)
+            artifact_directory = os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR')
+            if not artifact_directory:
+                fail("normal iOS SNAP requires the private module artifact directory")
+            client, session, state = self.ensure_session(selector)
+            def continuity():
+                self.assert_ios_process_identity(selector, client, session, state, target)
+            def process():
+                observed = self.native_process(client, session, target)
+                if (observed is None or observed['foreground'] is not True
+                        or str(observed['pid']) != state.get('processIdentity')):
+                    fail("normal iOS SNAP crossed its foreground process")
+                return observed
+            continuity()
+            native = NativeInput(client, session, target, process)
+            observed = native.capture()
+            files = SnapshotFiles(client, session, target, process, observed['instance'], artifact_directory)
+            flow = normal_snapshot.IOSSnapshot(NativeUI(client, session, continuity), native, files, profile, state,
                 lambda: self.save_session(selector, state))
             return flow.invoke(operation, arguments)
         if operation in {"accessibility.snapshot", "tablet.open", "tablet.close", "tablet.activate", "tablet.snapshot"}:

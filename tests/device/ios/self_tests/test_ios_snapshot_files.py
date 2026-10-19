@@ -142,7 +142,8 @@ class OriginalSnapshotFiles(unittest.TestCase):
             files = boundary.files()
             result = files.files(boundary.prefix)
             self.assertEqual(len(result['files']), 1)
-            row = result['files'][0]; path = Path(row['artifact'])
+            row = result['files'][0]; path = boundary.artifacts / row['artifact']
+            self.assertEqual(row['artifact'], path.name)
             self.assertEqual(row['basename'], boundary.name)
             self.assertEqual(path.read_bytes(), boundary.content)
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
@@ -182,7 +183,9 @@ class OriginalSnapshotFiles(unittest.TestCase):
         (boundary.root / boundary.name).write_bytes(b'')
         with patch.object(snapshot_files, 'urlopen', boundary.post):
             files = boundary.files()
-            self.assertEqual(files.files(boundary.prefix), {'files': []})
+            first = files.files(boundary.prefix)
+            self.assertEqual(len(first['files']), 1)
+            self.assertEqual((boundary.artifacts / first['files'][0]['artifact']).read_bytes(), boundary.content)
             self.assertEqual(len(files.files(boundary.prefix)['files']), 1)
         boundary = self.boundary('companion-completed')
         with patch.object(snapshot_files, 'urlopen', boundary.post):
@@ -195,7 +198,7 @@ class OriginalSnapshotFiles(unittest.TestCase):
             boundary = self.boundary()
             with self.subTest(mutation=mutation), patch.object(snapshot_files, 'urlopen', boundary.post):
                 files = boundary.files(); result = files.files(boundary.prefix)
-                path = Path(result['files'][0]['artifact'])
+                path = boundary.artifacts / result['files'][0]['artifact']
                 if mutation == 'corrupt': path.write_bytes(b'altered')
                 elif mutation == 'symbolic':
                     original = boundary.root.parent / 'foreign'; original.write_bytes(boundary.content)
@@ -226,6 +229,14 @@ class OriginalSnapshotFiles(unittest.TestCase):
                     boundary.artifacts.chmod(0o755)
                 with self.assertRaises(NativeUIError): files.files(boundary.prefix)
                 self.assertEqual(boundary.requests, [])
+
+    def test_stable_empty_original_remains_visible_to_precapture_freshness_checks(self):
+        boundary = self.boundary()
+        (boundary.root / boundary.name).write_bytes(b'')
+        with patch.object(snapshot_files, 'urlopen', boundary.post):
+            result = boundary.files().files(boundary.prefix)
+        self.assertEqual(len(result['files']), 1)
+        self.assertEqual((boundary.artifacts / result['files'][0]['artifact']).read_bytes(), b'')
 
 
 if __name__ == '__main__':

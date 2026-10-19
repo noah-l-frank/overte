@@ -234,6 +234,36 @@ New E2E packages carry `OverteE2ESnapshotFilesVersion=1`; activation requires
 fresh authenticated installation inventory of that marker. This does not
 establish the still unavailable cryptographic installed-code association.
 
+The owning `IOSAdapter` enables the normal five-case capture component only
+with this explicit target configuration, in addition to its physical E2E
+client, Documents probe and native UI observation configuration:
+
+```json
+"normalSnapshot": {
+  "contractVersion": 1,
+  "profile": "ios-native-snapshot-v1",
+  "sceneUrl": "http://lab.example:49121/scene.json"
+},
+"snapshotFilesObservation": {"kind": "ios-documents", "version": 1}
+```
+
+The existing module runner supplies its private `OVERTE_DEVICE_ARTIFACT_DIR`.
+Returned artifact names are direct relative names, never private paths. The
+component retains tablet intent and original mode/format across the five cases,
+uses ordinary Home/SNAP/radio/capture inputs, cancels owned pending work and
+restores preferences before confirmed closure. A failed/covered close keeps its
+intent; generic session cleanup still requires its original independent DVT
+stop confirmation. A pre-existing panel, foreign process/input instance,
+nonempty or empty prior prefix, ignored input and missing GIF cannot pass.
+Popup observation may wait for a later frame; clicks are not replayed.
+
+Host checks execute the actual adapter and native original-file reader with
+explicit WDA/render fixtures and the independent full-image decoder. They are
+`NATIVE_UI_COMPONENT_ONLY`. The canonical installed-code binding continues to
+reject unavailable association; these operations do not bypass that gate or
+claim motion, scene fidelity, system sharing, uploads or whole-feature/device
+acceptance.
+
 Open normal SNAP and select `Still`, `Still + animated GIF`, `360° panorama` and
 `360° cubemap`. Use a known moving scene for GIF and known directional landmarks
 for 360 captures. Observe capture/processing/complete status and real previews.
