@@ -61,6 +61,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
+#include "../../../tests/device/native/PrivateScriptFiles.h"
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
@@ -488,6 +489,39 @@ QVariantMap TestScriptingInterface::featureRecordedVoiceFiles(const QString& req
         {"sequence", static_cast<qulonglong>(++_featurePreviewSequence)}, {"requestedEpochMs", requested},
         {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"processId", QCoreApplication::applicationPid()},
         {"memoryEmpty", memoryEmpty}, {"files", files}};
+}
+
+QVariantMap TestScriptingInterface::featureScriptFiles(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this, [&] { result = featureScriptFiles(command); }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto json = QJsonObject::fromVariantMap(command);
+    const auto action = json.value("operation").toString();
+    QStringList expected {"schemaVersion", "commandId", "action", "operation", "runId", "ownerToken"};
+    if (action == "stage") { expected.append("files"); }
+    auto keys = json.keys(); expected.sort(); keys.sort();
+    const auto id = json.value("commandId").toString();
+    if (keys != expected || json.value("schemaVersion") != QJsonValue(1)
+            || !json.value("runId").isString() || !json.value("ownerToken").isString()
+            || !json.value("operation").isString()
+            || json.value("action") != QJsonValue(QStringLiteral("feature-script-files"))
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch()
+            || QJsonDocument(json).toJson(QJsonDocument::Compact).size() > 49152) { return {}; }
+    if (_featureScriptFilesCommand.value("commandId") == QVariant(id)) {
+        return command == _featureScriptFilesCommand ? _featureScriptFilesResult : QVariantMap{};
+    }
+    const auto requested = QDateTime::currentMSecsSinceEpoch();
+    const auto source = overte::e2e::PrivateScriptFiles::request(_testResultsLocation, command);
+    QVariantMap result{{"schemaVersion", 1}, {"requestId", id}, {"instance", _featureObservationInstance},
+        {"sequence", static_cast<qulonglong>(++_featureScriptFilesSequence)}, {"requestedEpochMs", requested},
+        {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"processId", QCoreApplication::applicationPid()},
+        {"runId", command.value("runId")}, {"operation", action}, {"source", source}};
+    _featureScriptFilesCommand = command; _featureScriptFilesResult = result;
+    return result;
 }
 
 QVariantMap TestScriptingInterface::featureScriptObservation(const QString& requestId) {
@@ -930,7 +964,8 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
-            || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json") {
+            || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
+            || filename == "feature-script-files.json") {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
         QSaveFile output(filepath);
         output.setDirectWriteFallback(false);
