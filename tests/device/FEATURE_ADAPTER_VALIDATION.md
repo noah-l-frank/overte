@@ -4,7 +4,39 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
-Validated locally:
+Current continuation validation (all source only):
+
+* **323** common quick-selection Python/JavaScript cases pass, zero failures,
+  errors or skips. Three original Voice compile cases are explicitly omitted;
+  the compiler guard observed zero build attempts. This includes the version 2
+  Script flow and native module/preview source counterexamples.
+* Phone's focused real candidate wrapper group passes **21** cases. Pico's
+  focused original-observation wrapper group passes **15** cases; its separate
+  normal Script group previously passed six cases. No device is contacted.
+* The broad iOS Python component selection passes **235** cases, zero failures,
+  errors or skips, with the same 20 native compiler-dependent cases omitted
+  and zero build attempts. Its focused source group has **20** cases; the
+  canonical installed-code binding group passes five cases including rejection
+  of every new internal source reader.
+* Contract versions, focused original fixture/probe dispatch tests, and diff
+  whitespace checks pass. Native C++ instrumentation remains **uncompiled**.
+
+The current receipts are in the private sibling directory
+`overte-shared-feature-journeys-20261019-validation/adapter-continuation`:
+`common-no-build.json/.log`, `ios-no-build.json/.log`, and `host_checks.py`.
+The reviewed selection script excludes compiler cases before execution and
+rejects compiler process launches. Earlier 308/233-case source receipts are
+retained separately. Exact selected/omitted IDs are in the JSON/log records.
+The focused commands are the existing unittest discovery groups:
+
+```sh
+python3 -m unittest discover -s android/phone/tests/device -p test_feature_adapters.py
+python3 -m unittest discover -s android/vr/pico/tests/device -p test_feature_observation.py
+python3 -m unittest discover -s tests/device/ios/self_tests -p test_ios_feature_observation.py
+python3 ios/tests/appium-native-binding-test.py
+```
+
+Historical initial adapter packet (superseded counts, retained audit record):
 
 * **261** quick common Python tests pass, with zero failures/errors/skips, including
   the new native flow tests. The selection has
@@ -34,7 +66,7 @@ That initial result is labelled `ios-initial-mixed-host`, with two native host
 compilations and `noBuildScopeRespected:false`; it must not be cited as a no-build
 validation receipt.
 
-The corrected broad iOS selection passes **215 tests, zero failures/errors and
+That packet's corrected broad iOS selection passed **215 tests, zero failures/errors and
 zero skips**. It explicitly excludes the acoustic native compile test and all
 19 tests in the two native Snapshot classes. A process audit hook rejects direct
 compiler launches before execution; it observed zero blocked build attempts.
