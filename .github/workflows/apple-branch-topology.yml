@@ -16,9 +16,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          sparse-checkout: |
+            tests/apple-branch-topology-check.py
+            tests/apple-branch-path-ownership.json
+          sparse-checkout-cone-mode: false
           persist-credentials: false
       - name: Fetch current Apple base
-        run: git fetch --no-tags origin apple-main:refs/remotes/origin/apple-main
+        run: git fetch --no-tags --filter=blob:none origin apple-main:refs/remotes/origin/apple-main
       - name: Load trusted parent checker
         run: git show origin/apple-main:tests/apple-branch-topology-check.py > "$RUNNER_TEMP/apple-branch-topology-check.py"
       - name: Validate ancestry and path ownership
