@@ -199,6 +199,18 @@ class NormalScriptManagerTests(unittest.TestCase):
                         monotonic=lambda: clock[0], sleep=sleep)
                 self.assertNotIn('secret', str(error.exception))
 
+    def test_correlated_reader_waits_for_current_request_and_rejects_foreign_receipts(self):
+        value, epoch = self.native.observe(0)
+        request = '1' * 32
+        captures = iter(('', json.dumps(value | {'requestId': '2' * 32, 'sampleEpochMs': 1}),
+                         json.dumps(value | {'requestId': request})))
+        clock = [0.0]
+        def sleep(seconds): clock[0] += seconds
+        result, _ = read_native_diagnostic(lambda: next(captures), lambda: epoch, lambda: True, 0,
+            expected_request=request, monotonic=lambda: clock[0], sleep=sleep)
+        self.assertEqual(request, result['requestId'])
+        self.assertGreaterEqual(clock[0], 0.2)
+
     def test_nonnative_input_locator_classes_and_unmeasured_text_are_rejected(self):
         for kind in ('android.widget.Button', 'arbitrary.selector', '*'):
             with self.assertRaises(NativeUIError): Locator('class name', kind)
@@ -257,6 +269,30 @@ context.ScriptDiscoveryService.getRunning=()=>{throw Error('native failure')};
 context.saveNormalFeatureObservation(1235,8);
 if(result.value.complete || result.value.scripts.length || result.name!=='normal-feature-observation.json')process.exit(2);
 '''.replace('SOURCE', json.dumps(probe[start:end]))
+        subprocess.run(['node', '-e', program], check=True, timeout=10, capture_output=True)
+
+    def test_actual_read_only_command_correlates_deduplicates_and_filters_actual_avatar_ownership(self):
+        probe = (Path(__file__).resolve().parents[1] / 'probe/overte_e2e_probe.js').read_text()
+        start = probe.index('    var normalFeatureInstance =')
+        end = probe.index('    var phoneTouchHistory', start)
+        branch = probe.index('    function applyClientCommand(command)')
+        branch_end = probe.index('        if (command && command.schemaVersion === 1\n                && /^ios-', branch)
+        source = probe[start:end] + probe[branch:branch_end] + '\n return false; }'
+        program = '''const vm=require('vm'); let result, reads=0;
+const owner='{11111111-1111-1111-1111-111111111111}';
+const context={Uuid:{generate:()=>owner},Test:{saveObject:v=>{result=v}},
+ ScriptDiscoveryService:{getRunning:()=>{reads++;return [{url:'http://actual/a.js',path:'actual'}]}},
+ MyAvatar:{position:{x:0,y:0,z:0},sessionUUID:owner,SELF_ID:owner},
+ Entities:{findEntities:()=>['owned','foreign'],getEntityProperties:id=>({name:id,type:'Box',entityHostType:'avatar',owningAvatarID:id==='owned'?owner:'{22222222-1111-1111-1111-111111111111}'})},
+ objectKeysMatch:(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort())};
+vm.createContext(context);vm.runInContext(SOURCE,context);
+const command={schemaVersion:1,commandId:'a'.repeat(32),action:'normal-feature-observe',includeAvatarEntities:true};
+context.applyClientCommand(command);
+if(result.requestId!==command.commandId||result.sampleSequence!==1||!result.entitiesComplete||result.avatarEntities.length!==1||result.avatarEntities[0].name!=='owned')process.exit(1);
+context.applyClientCommand(command);if(reads!==1)process.exit(2);
+command.commandId='b'.repeat(32);command.includeAvatarEntities=false;context.applyClientCommand(command);
+if(reads!==2||result.sampleSequence!==2||'avatarEntities' in result)process.exit(3);
+'''.replace('SOURCE', json.dumps(source))
         subprocess.run(['node', '-e', program], check=True, timeout=10, capture_output=True)
 
 

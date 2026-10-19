@@ -7,10 +7,13 @@ does not implement or advertise the larger `feature.scripts.*` v1 contract.
 UI recipe is used for actions. The independent existing `scripts_journey.py`
 still decides actual execution, companion loading, new instances and silence.
 
-The probe writes a separate private diagnostic, `normal-feature-observation.json`:
+The existing app-private client command channel accepts the read-only command
+`{schemaVersion:1, commandId:<32hex>, action:"normal-feature-observe",
+includeAvatarEntities:false}`. It samples once per new command ID into the
+separate private diagnostic, `normal-feature-observation.json`:
 
 ```json
-{"schemaVersion":1,"instance":"<probe UUID without punctuation>",
+{"schemaVersion":1,"requestId":"<actual command ID>","instance":"<probe UUID without punctuation>",
  "sampleSequence":1,"sampleEpochMs":1234,"complete":true,
  "scripts":[{"url":"<actual native URL>","path":"<actual native path>"}]}
 ```
@@ -23,9 +26,11 @@ identity data; do not copy it into public artifacts. The existing execution
 journal is a separate observer and remains mandatory. A diagnostic alone does
 not prove that a script executed. The probe shipped in the later candidate must
 include this new producer. An old installed probe cannot enable these operations.
+No periodic service/entity query is added to unrelated journeys. Repeating a
+request never manufactures a new capture or sequence.
 
 Readers require complete bounded original JSON, unique keys/URLs, a source
-sequence advancing past the previous read, an unchanged probe instance, and a
+sequence advancing past the previous read, the current request ID, an unchanged probe instance, and a
 native sample age from -250 to 1500 ms against a separately read target clock.
 They wait at most five seconds/51 reads for advancement and never refresh the
 sample timestamp themselves. The owning adapter verifies candidate bytes,
@@ -59,7 +64,9 @@ Tablet or source cannot become owned. Repeat Stop after actual disappearance is
 idempotent; a subsequently appearing source cannot be stopped after ownership
 was retired. Close verifies modal/tablet absence and releases owned inputs.
 It refuses success while a source might still run. Failed cleanup retains the
-sidecar. App-wide process stop does not prove removal from persisted Running
+sidecar. The script ownership schema is v2, with a closed `sourceKind` of
+`scripts` or `create-observer`; a source owned by one cannot be adopted by the
+other. App-wide process stop does not prove removal from persisted Running
 Scripts; do not discard unresolved source intent merely because the app stopped.
 
 Host self-tests replace only the native boundary and clocks; they execute the
