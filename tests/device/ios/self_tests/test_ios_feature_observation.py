@@ -18,6 +18,7 @@ from fixture.serve import FixtureState
 from ios.adapters import feature_observation
 from ios.adapters.adapter import IOSAdapter
 from ios.adapters.appium_adapter import WebDriverRequestError
+from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 
 
 class Native:
@@ -72,6 +73,77 @@ class FeatureObservationTests(unittest.TestCase):
         boundary = patch.object(feature_observation, 'post_request', side_effect=self.native.post)
         boundary.start(); self.addCleanup(boundary.stop)
         self.observer = self.native.observer()
+
+    def native_feature_boundaries(self):
+        source = NativeFeatureBoundary()
+        def mutate(value):
+            value['processId'] = 42
+            value['capturedEpochMs'] = value['animation']['capturedEpochMs'] = 10000
+            value['animation']['clip']['evaluatedEpochMs'] = 10000
+        source.mutate = mutate
+        def post(request, timeout):
+            command = self.native.fixture.set_client_command(json.loads(request.data))
+            self.native.commands.append(command)
+            self.native.echo = json.dumps(command).encode()
+            source.send(command)
+            return self.native
+        def execute(session, operation, values):
+            if operation == 'mobile: overteProcessInfo': return self.native.process()
+            self.assertEqual('mobile: pullFile', operation)
+            self.assertEqual({'remotePath': '@org.example.client:documents/owned-results/feature-native-observation.json'}, values)
+            self.native.reads.append(values)
+            if self.native.missing:
+                self.native.missing -= 1
+                raise WebDriverRequestError(500)
+            return base64.b64encode(source.original().encode()).decode()
+        for boundary in (patch.object(feature_observation, 'post_request', side_effect=post),
+                         patch.object(self.native, 'execute', side_effect=execute)):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source
+
+    def test_original_native_feature_packet_uses_closed_http_and_actual_afc_documents(self):
+        source = self.native_feature_boundaries()
+        reader = self.observer.native_observer()
+        value = reader.read(0, require_animation=True)
+        self.assertEqual(source.sample, value)
+        self.assertEqual(42, value['processId'])
+        self.assertEqual(10000, value['animation']['clip']['evaluatedEpochMs'])
+        self.assertRegex(source.commands[0]['commandId'], '^ios-[0-9a-f]{32}$')
+        self.assertEqual(1, len(self.native.reads))
+
+    def test_native_feature_process_change_cannot_consume_original_result(self):
+        source = self.native_feature_boundaries()
+        original = source.mutate
+        def change(value):
+            original(value)
+            self.native.pid = 43
+        source.mutate = change
+        reader = self.observer.native_observer()
+        with self.assertRaises(NativeUIError): reader.read(0)
+        self.assertEqual(0, reader.sequence)
+        self.assertEqual([], self.native.reads)
+
+    def test_native_feature_unavailable_hook_and_foreign_pid_are_rejected(self):
+        for fault in ('hook', 'pid'):
+            with self.subTest(fault=fault):
+                source = self.native_feature_boundaries()
+                source.mutate = (lambda value: value.update(available=False)) if fault == 'hook' else (
+                    lambda value: value.update(processId=123))
+                with self.assertRaises(NativeUIError): self.observer.native_observer().read(0)
+
+    def test_native_feature_missing_afc_file_is_polled_without_replaying_http_command(self):
+        self.native_feature_boundaries()
+        self.native.missing = 1
+        value = self.observer.native_observer().read(0)
+        self.assertEqual(1, value['sequence'])
+        self.assertEqual(2, len(self.native.reads))
+        self.assertEqual(1, len(self.native.commands))
+
+    def test_native_feature_fixture_rejects_expected_values_and_nonliteral_versions(self):
+        command = dict(schemaVersion=1, commandId='ios-' + 'b' * 32, action='feature-native-observe')
+        for extra in ({'expected': {'animation': 'Waving'}}, {'schemaVersion': True}, {'file': '/foreign'}):
+            with self.subTest(extra=extra), self.assertRaises(ValueError):
+                self.native.fixture.set_client_command(command | extra)
 
     def test_original_rows_request_ids_sequences_and_capture_times_are_retained(self):
         first = self.observer.read(0)

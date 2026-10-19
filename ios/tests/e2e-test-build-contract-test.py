@@ -97,6 +97,7 @@ def main() -> None:
     cmake = (ROOT / "interface/CMakeLists.txt").read_text(encoding="utf-8")
     setup = (ROOT / "interface/src/Application_Setup.cpp").read_text(encoding="utf-8")
     assert "-DOVERTE_IOS_E2E_TEST_BUILD=" in build_script
+    assert '"-DOVERTE_E2E_FEATURE_TESTS=$([[ $e2e_test_build -eq 1 ]] && echo ON || echo OFF)"' in build_script
     assert "verify-e2e-test-build.py" in build_script
     assert "Verify packaged E2E release boundary" in integrated_workflow
     assert "--archive-root Payload/Overte.app" in integrated_workflow

@@ -56,6 +56,9 @@ class IOSAdapter(AppiumAdapter):
         return FeatureObservation(client, session, target,
                                   lambda: self.native_process(client, session, target))
 
+    def _native_feature_observer(self, selector, client, session, state, target):
+        return self._feature_observer(selector, client, session, state, target).native_observer()
+
     @staticmethod
     def advertised_capabilities(target):
         values = set(AppiumAdapter.advertised_capabilities(target))

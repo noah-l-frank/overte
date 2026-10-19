@@ -6,6 +6,17 @@ helpers through local parent-to-child merges. Neither Phone nor Pico history
 was merged into iOS. No application build, signing, installation, device access or protected
 integration was performed.
 
+Continuation: the user has explicitly authorized E2E-only native
+instrumentation. The shared default-off native feature source now records real
+lifecycle notifications and evaluated clips/poses, alongside labelled native
+render/audio/account reads. The iOS component's `_native_feature_observer` uses
+the original bounded HTTP/AFC transport and native foreground PID. The
+canonical binding explicitly rejects this new method too; it cannot bypass
+installed-code verification. The existing `--e2e-test-build` selector enables
+the new source option, while normal builds pass it as OFF. No build was run.
+The focused observation group now has **13** passing host cases. See the
+[native observation contract](../../native/README.md).
+
 The existing iOS native component now has an internal `_feature_observer` and
 `ios/adapters/feature_observation.py` (under `tests/device`). It uses the real
 native process observer, the existing owned fixture command endpoint and AFC
@@ -39,7 +50,7 @@ rows/dialogs, assets or their cancellation/ownership observations. General
 UIKit accessibility existence is not proof of the same native controls. The
 next packet needs source-reviewed ordinary Qt pointer/IME mappings and actual
 control tokens on those live roots, with stale context and cleanup handling.
-No product/target-automation code was changed under the current scope.
+The new approved read-only instrumentation does not yet add these input controls.
 
 The larger fourteen-area v1 contracts additionally need native lifecycle event
 counters, complete product state readers, an independent real account/domain/

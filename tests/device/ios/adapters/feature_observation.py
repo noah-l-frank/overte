@@ -16,6 +16,8 @@ import uuid
 from adapters.normal_create import avatar_entities
 from adapters.normal_script_manager import DIAGNOSTIC_FILE, read_native_diagnostic
 from adapters.normal_ui import NativeUIError
+from adapters.native_feature_observation import (NativeFeatureObservation,
+    FILE as NATIVE_FEATURE_FILE, LIMIT as NATIVE_FEATURE_LIMIT)
 from ios.adapters.appium_adapter import AppiumAdapter, WebDriverRequestError
 
 
@@ -66,19 +68,47 @@ class FeatureObservation:
             raise NativeUIError('Native iOS feature observation lost its foreground process')
         self.process = dict(value)
 
-    def original(self):
+    def original(self, *, remote=None, limit=65536):
         try:
-            encoded = self.client.execute(self.session, 'mobile: pullFile', {'remotePath': self.remote})
+            encoded = self.client.execute(self.session, 'mobile: pullFile', {'remotePath': remote or self.remote})
         except WebDriverRequestError as error:
             if error.status == 500:
                 return ''  # The requested diagnostic may not have been created yet.
             raise
-        if type(encoded) is not str or len(encoded) > 87384:
+        if type(encoded) is not str or len(encoded) > 4 * ((limit + 2) // 3):
             raise NativeUIError('Native iOS feature diagnostic exceeds its transport bound')
         raw = base64.b64decode(encoded, validate=True)
-        if len(raw) > 65536:
+        if len(raw) > limit:
             raise NativeUIError('Native iOS feature diagnostic exceeds its byte bound')
         return raw.decode('utf-8')
+
+    def send(self, command):
+        self.guard()
+        payload = json.dumps(command).encode()
+        with post_request(Request(self.origin + '/e2e-client-command.json', data=payload,
+                method='POST', headers={'Content-Type': 'application/json'}), timeout=5) as response:
+            content = response.read(4097)
+            def pairs(items):
+                value = {}
+                for key, item in items:
+                    if key in value:
+                        raise ValueError()
+                    value[key] = item
+                return value
+            echo = json.loads(content, object_pairs_hook=pairs)
+            if (response.status != 200 or len(content) > 4096 or echo != command
+                    or type(echo) is not dict
+                    or any(type(echo[key]) is not type(command[key]) for key in command)):
+                raise ValueError()
+        self.guard()
+
+    def native_observer(self):
+        self.guard()
+        remote = self.remote.rsplit('/', 1)[0] + '/' + NATIVE_FEATURE_FILE
+        return NativeFeatureObservation(self.send,
+            lambda: self.original(remote=remote, limit=NATIVE_FEATURE_LIMIT),
+            self.epoch_ms, self.guard, self.process['pid'], ios=True,
+            monotonic=self.monotonic, sleep=self.sleep)
 
     def read(self, after_sequence, *, include_avatar_entities=False):
         try:
@@ -88,23 +118,7 @@ class FeatureObservation:
             request = 'ios-' + uuid.uuid4().hex
             command = dict(schemaVersion=1, commandId=request, action='normal-feature-observe',
                            includeAvatarEntities=include_avatar_entities)
-            payload = json.dumps(command).encode()
-            with post_request(Request(self.origin + '/e2e-client-command.json', data=payload,
-                    method='POST', headers={'Content-Type': 'application/json'}), timeout=5) as response:
-                content = response.read(4097)
-                def pairs(items):
-                    value = {}
-                    for key, item in items:
-                        if key in value:
-                            raise ValueError()
-                        value[key] = item
-                    return value
-                echo = json.loads(content, object_pairs_hook=pairs)
-                if (response.status != 200 or len(content) > 4096 or echo != command
-                        or type(echo['schemaVersion']) is not int
-                        or type(echo['includeAvatarEntities']) is not bool):
-                    raise ValueError()
-            self.guard()
+            self.send(command)
             value, _epoch = read_native_diagnostic(self.original, self.epoch_ms, self.guard,
                 after_sequence, expected_request=request, monotonic=self.monotonic, sleep=self.sleep)
             if self.instance is not None and value['instance'] != self.instance:
