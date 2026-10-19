@@ -11,6 +11,7 @@ from execution_identity import file_digest
 from adapters.pico4.navigation import NativeNavigationIO, PicoNavigation, configured_scene, discard_stopped_state
 from navigation_observation import OPERATIONS as NAVIGATION_OPERATIONS
 from adapters.android_snapshot_files import AndroidSnapshotFiles
+from adapters.pico4.feature_observation import PicoFeatureObservation
 from adapters.pico4.snapshot import (PicoSnapshot, OPERATIONS as SNAPSHOT_OPERATIONS,
                                     configured_scene as configured_snapshot)
 
@@ -161,6 +162,19 @@ def create_adapter(args, base_class):
             directory = self.pico_configuration[1]
             return (directory / ('normal-snapshot-ui-' + key + '.json'),
                     directory / ('normal-snapshot-preferences-' + key + '.json'))
+
+        @_private
+        def _feature_observer(self, target):
+            # Internal original-observation transport only. Complete feature
+            # input, lifecycle/peer/artifact observers are not available yet,
+            # so capabilities() deliberately advertises no feature.* triple.
+            _need(not cleanup_only and self.pico_configuration is not None
+                  and candidate['e2e_input_layer'] is True)
+            self._installation(target)
+            identity = self.require_controlled_debug_identity(target)
+            observer = PicoFeatureObservation(self, target, identity)
+            observer.guard()
+            return observer
 
         def _snapshot(self, target):
             scene = configured_snapshot(os.environ)
