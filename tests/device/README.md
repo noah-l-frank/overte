@@ -31,6 +31,11 @@ assertion failure.
 
 ## Portable suites
 
+The fourteen-area [feature journeys](FEATURE_JOURNEYS.md) compose the existing
+modules with missing feature workflows. See the [coverage matrix](FEATURE_COVERAGE.md)
+and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md): shared logic is implemented;
+new product adapter capabilities and physical-device qualification are pending.
+
 - `smoke`: stable process launch and foreground state.
 - `asset-smoke`: one launch followed by controlled local texture delivery,
   ready resource state, uniquely tagged Image-entity use, and stable
@@ -163,8 +168,9 @@ product-adapter handoff are documented in [`TABLET_E2E.md`](TABLET_E2E.md).
 The runner deliberately does not expose the selected policy path to adapter
 processes.
 
-[`adapters/mock/`](adapters/mock/) is a deterministic state machine that proves
-every common scenario without hardware. The integrated
+[`adapters/mock/`](adapters/mock/) is a deterministic state machine for the established portable suites. New
+feature extensions additionally use direct boundary-model counterexamples;
+the stock mock does not advertise their product capabilities. The integrated
 [`adapters/desktop_oculix/`](adapters/desktop_oculix/) and
 [`adapters/appium/`](adapters/appium/) implementations advertise smaller,
 truthful capability sets. The shared Appium layer contains no Android or iOS

@@ -114,6 +114,7 @@ def adapter_call(command: list[str], action: str, target: str | None = None,
         argv += ["--operation", operation, "--arguments", "{}"]
     adapter_environment = os.environ.copy() if environment is None else environment.copy()
     for name in ('OVERTE_E2E_TABLET_POLICY', 'OVERTE_E2E_WEB_VIDEO_ROIS',
+                 'OVERTE_E2E_FEATURE_READER_TOKEN', 'OVERTE_E2E_FEATURE_IMAGE_POLICY',
                  'OVERTE_E2E_SCRIPTS_CONTROL_TOKEN', 'OVERTE_E2E_CREATE_CONTROL_TOKEN'):
         adapter_environment.pop(name, None)
     try:
@@ -282,6 +283,7 @@ def run_module(module: dict, catalog: Path, environment: dict[str, str],
         try:
             capture_environment = environment.copy()
             for name in ('OVERTE_E2E_TABLET_POLICY', 'OVERTE_E2E_WEB_VIDEO_ROIS',
+                         'OVERTE_E2E_FEATURE_READER_TOKEN', 'OVERTE_E2E_FEATURE_IMAGE_POLICY',
                          'OVERTE_E2E_SCRIPTS_CONTROL_TOKEN', 'OVERTE_E2E_CREATE_CONTROL_TOKEN'):
                 capture_environment.pop(name, None)
             capture = subprocess.run(

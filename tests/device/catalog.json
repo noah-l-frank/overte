@@ -5,25 +5,128 @@
       "id": "launch-smoke",
       "description": "Launch the application and verify a stable foreground process.",
       "command": ["modules/launch_smoke.py"],
-      "suites": ["asset-smoke", "audio-controls", "crash-recovery-under-load", "create-management-parity", "domain-recovery", "domain-smoke", "e2e-core", "e2e-recovery", "entity-sync-smoke", "interaction-smoke", "lifecycle-under-load", "multi-user-smoke", "network-fault-recovery", "permission-recovery", "places-navigation-parity", "portable-smoke", "render-health", "scripted-entity-smoke", "scripts-management-parity", "settings-persistence", "smoke", "snapshot-output-parity", "sound-smoke", "stability", "tablet-e2e", "text-input-smoke", "vertical-locomotion", "voice-roundtrip", "web-video-parity"],
+      "suites": ["asset-smoke", "audio-controls", "crash-recovery-under-load", "create-management-parity", "domain-recovery", "domain-smoke", "e2e-core", "e2e-recovery", "entity-sync-smoke", "feature-assets", "feature-audio", "feature-authentication", "feature-avatar-people", "feature-chat", "feature-create", "feature-emotes", "feature-graphics", "feature-journeys", "feature-lifecycle-input", "feature-scripts", "feature-snapshots", "feature-tablet-web", "feature-world-navigation", "feature-world-web", "interaction-smoke", "lifecycle-under-load", "multi-user-smoke", "network-fault-recovery", "permission-recovery", "places-navigation-parity", "portable-smoke", "render-health", "scripted-entity-smoke", "scripts-management-parity", "settings-persistence", "smoke", "snapshot-output-parity", "sound-smoke", "stability", "tablet-e2e", "text-input-smoke", "vertical-locomotion", "voice-roundtrip", "web-video-parity"],
       "requires": ["app.foreground", "app.launch", "app.process"],
       "timeoutSeconds": 120
     },
     {
+      "id": "feature-world-navigation-required",
+      "description": "Enforce mandatory world-navigation capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "world-navigation"],
+      "suites": ["feature-journeys", "feature-world-navigation"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-authentication-required",
+      "description": "Enforce mandatory authentication capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "authentication"],
+      "suites": ["feature-authentication", "feature-journeys"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-avatar-people-required",
+      "description": "Enforce mandatory avatar-people capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "avatar-people"],
+      "suites": ["feature-avatar-people", "feature-journeys"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-create-required",
+      "description": "Enforce mandatory create capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "create"],
+      "suites": ["feature-create", "feature-journeys"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-emotes-required",
+      "description": "Enforce mandatory emotes capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "emotes"],
+      "suites": ["feature-emotes", "feature-journeys"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-world-web-required",
+      "description": "Enforce mandatory world-web capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "world-web"],
+      "suites": ["feature-journeys", "feature-world-web"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-graphics-required",
+      "description": "Enforce mandatory graphics capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "graphics"],
+      "suites": ["feature-graphics", "feature-journeys"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-audio-required",
+      "description": "Enforce mandatory audio capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "audio"],
+      "suites": ["feature-audio", "feature-journeys"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-chat-required",
+      "description": "Enforce mandatory chat capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "chat"],
+      "suites": ["feature-chat", "feature-journeys"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-snapshots-required",
+      "description": "Enforce mandatory snapshots capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "snapshots"],
+      "suites": ["feature-journeys", "feature-snapshots"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-scripts-required",
+      "description": "Enforce mandatory scripts capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "scripts"],
+      "suites": ["feature-journeys", "feature-scripts"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-assets-required",
+      "description": "Enforce mandatory assets capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "assets"],
+      "suites": ["feature-assets", "feature-journeys"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-lifecycle-input-required",
+      "description": "Enforce mandatory lifecycle-input capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "lifecycle-input"],
+      "suites": ["feature-journeys", "feature-lifecycle-input"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
+      "id": "feature-tablet-web-required",
+      "description": "Enforce mandatory tablet-web capabilities even in exploratory runs.",
+      "command": ["modules/feature_capability_gate.py", "--area", "tablet-web"],
+      "suites": ["feature-journeys", "feature-tablet-web"],
+      "requires": [],
+      "timeoutSeconds": 15
+    },
+    {
       "id": "voice-roundtrip",
       "description": "Verify fresh bidirectional microphone-path challenges and muted negative controls against an owned PC peer.",
-      "command": [
-        "modules/voice_roundtrip.py"
-      ],
-      "suites": [
-        "voice-roundtrip"
-      ],
-      "requires": [
-        "app.foreground",
-        "app.process",
-        "probe.snapshot",
-        "voice.exchange"
-      ],
+      "command": ["modules/voice_roundtrip.py"],
+      "suites": ["feature-audio", "feature-journeys", "voice-roundtrip"],
+      "requires": ["app.foreground", "app.process", "probe.snapshot", "voice.exchange"],
       "timeoutSeconds": 180
     },
     {
@@ -54,7 +157,7 @@
       "id": "domain-enter",
       "description": "Enter a controlled domain and observe its connection and assignment-owned scene.",
       "command": ["modules/domain_enter.py"],
-      "suites": ["domain-recovery", "domain-smoke", "entity-sync-smoke", "multi-user-smoke", "network-fault-recovery"],
+      "suites": ["domain-recovery", "domain-smoke", "entity-sync-smoke", "feature-journeys", "feature-world-navigation", "multi-user-smoke", "network-fault-recovery"],
       "requires": ["app.foreground", "app.process", "navigation.enter-domain", "probe.snapshot"],
       "timeoutSeconds": 180
     },
@@ -62,7 +165,7 @@
       "id": "domain-roundtrip",
       "description": "Leave and re-enter the controlled domain while preserving one foreground process.",
       "command": ["modules/domain_roundtrip.py"],
-      "suites": ["domain-recovery"],
+      "suites": ["domain-recovery", "feature-journeys", "feature-world-navigation"],
       "requires": ["app.foreground", "app.process", "navigation.enter-domain", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 240
     },
@@ -70,7 +173,7 @@
       "id": "world-interaction",
       "description": "Perform one platform-native primary action on the controlled world target and observe the entity event.",
       "command": ["modules/world_interaction.py"],
-      "suites": ["interaction-smoke"],
+      "suites": ["feature-create", "feature-journeys", "interaction-smoke"],
       "requires": ["app.foreground", "app.process", "input.primary", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -78,7 +181,7 @@
       "id": "scripted-entity",
       "description": "Activate the controlled client entity script and observe its independent entity-state mutation.",
       "command": ["modules/scripted_entity.py"],
-      "suites": ["scripted-entity-smoke"],
+      "suites": ["feature-journeys", "feature-scripts", "scripted-entity-smoke"],
       "requires": ["app.foreground", "app.process", "input.primary", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -86,7 +189,7 @@
       "id": "multi-user",
       "description": "Observe one controlled moving peer avatar across a local leave and reconnect cycle.",
       "command": ["modules/multi_user.py"],
-      "suites": ["multi-user-smoke"],
+      "suites": ["feature-avatar-people", "feature-journeys", "multi-user-smoke"],
       "requires": ["app.foreground", "app.process", "navigation.enter-domain", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 300
     },
@@ -102,7 +205,7 @@
       "id": "text-input",
       "description": "Enter bounded Unicode text through the native target path and verify editing, submit, dismissal, and world isolation.",
       "command": ["modules/text_input.py"],
-      "suites": ["text-input-smoke"],
+      "suites": ["feature-chat", "feature-journeys", "feature-lifecycle-input", "text-input-smoke"],
       "requires": ["app.foreground", "app.process", "probe.snapshot", "text.dismiss", "text.focus", "text.snapshot", "text.type"],
       "timeoutSeconds": 150
     },
@@ -110,7 +213,7 @@
       "id": "audio-controls",
       "description": "Toggle microphone mute through the native product control and observe both exact states in Interface.",
       "command": ["modules/audio_controls.py"],
-      "suites": ["audio-controls"],
+      "suites": ["audio-controls", "feature-audio", "feature-journeys"],
       "requires": ["app.foreground", "app.process", "audio.mute", "probe.snapshot"],
       "timeoutSeconds": 120
     },
@@ -126,7 +229,7 @@
       "id": "lifecycle-under-load",
       "description": "Background and reactivate one loaded scene and open tablet without process, content, input, or render loss.",
       "command": ["modules/lifecycle_under_load.py"],
-      "suites": ["lifecycle-under-load"],
+      "suites": ["feature-journeys", "feature-lifecycle-input", "lifecycle-under-load"],
       "requires": ["app.foreground", "app.launch", "app.process", "lifecycle.background", "probe.snapshot", "scene.load", "tablet.close", "tablet.open"],
       "timeoutSeconds": 180
     },
@@ -134,7 +237,7 @@
       "id": "render-health",
       "description": "Require a visible hardware-accelerated presentation and independently advancing renderer frames.",
       "command": ["modules/render_health.py"],
-      "suites": ["render-health"],
+      "suites": ["feature-graphics", "feature-journeys", "render-health"],
       "requires": ["app.foreground", "app.process", "probe.snapshot", "render.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -142,7 +245,7 @@
       "id": "entity-sync",
       "description": "Mutate one controlled domain entity through an independent fixture actor and observe its exact revision.",
       "command": ["modules/entity_sync.py"],
-      "suites": ["entity-sync-smoke"],
+      "suites": ["entity-sync-smoke", "feature-create", "feature-journeys"],
       "requires": ["app.foreground", "app.process", "collaboration.edit", "collaboration.snapshot", "navigation.enter-domain", "probe.snapshot"],
       "timeoutSeconds": 180
     },
@@ -150,7 +253,7 @@
       "id": "permission-recovery",
       "description": "Deny and grant microphone permission through the native OS path, verifying continuity or an observed iOS Settings restart and recovery.",
       "command": ["modules/permission_recovery.py"],
-      "suites": ["permission-recovery"],
+      "suites": ["feature-audio", "feature-journeys", "permission-recovery"],
       "requires": ["app.foreground", "app.process", "permission.set", "permission.snapshot"],
       "timeoutSeconds": 300
     },
@@ -166,7 +269,7 @@
       "id": "asset-load",
       "description": "Load a controlled local texture and verify HTTP, resource, entity, and process evidence.",
       "command": ["modules/asset_load.py"],
-      "suites": ["asset-smoke"],
+      "suites": ["asset-smoke", "feature-assets", "feature-journeys"],
       "requires": ["app.foreground", "app.process", "asset.load", "probe.snapshot"],
       "timeoutSeconds": 120
     },
@@ -174,7 +277,7 @@
       "id": "sound-playback",
       "description": "Load and decode the controlled WAV and observe a stable in-client injector lifecycle.",
       "command": ["modules/sound_playback.py"],
-      "suites": ["sound-smoke"],
+      "suites": ["feature-audio", "feature-journeys", "sound-smoke"],
       "requires": ["app.process", "probe.snapshot", "sound.play"],
       "timeoutSeconds": 120
     },
@@ -182,7 +285,7 @@
       "id": "look",
       "description": "Apply look input and observe signed left, right, up, and down camera rotations.",
       "command": ["modules/look.py"],
-      "suites": ["e2e-core", "portable-smoke", "update-upgrade"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "portable-smoke", "update-upgrade"],
       "requires": ["input.look", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 180
     },
@@ -190,7 +293,7 @@
       "id": "move",
       "description": "Apply forward, backward, left, and right input and verify body-relative displacement.",
       "command": ["modules/move.py"],
-      "suites": ["e2e-core", "portable-smoke", "update-upgrade"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "portable-smoke", "update-upgrade"],
       "requires": ["input.move", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 180
     },
@@ -198,7 +301,7 @@
       "id": "input-neutral",
       "description": "Verify bounded emulated controls leave no stuck movement or view input.",
       "command": ["modules/input_neutral.py"],
-      "suites": ["e2e-core"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation"],
       "requires": ["probe.snapshot", "scene.load"],
       "timeoutSeconds": 90
     },
@@ -206,7 +309,7 @@
       "id": "collision",
       "description": "Move into the deterministic wall and verify avatar collision blocks passage.",
       "command": ["modules/collision.py"],
-      "suites": ["e2e-core"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation"],
       "requires": ["input.move", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -214,7 +317,7 @@
       "id": "scene-reload",
       "description": "Reload the fixture and verify it restores a free grounded spawn before vertical locomotion.",
       "command": ["modules/scene_reload.py"],
-      "suites": ["e2e-core", "e2e-recovery"],
+      "suites": ["e2e-core", "e2e-recovery", "feature-journeys", "feature-world-navigation"],
       "requires": ["probe.snapshot", "scene.load", "scene.reload"],
       "timeoutSeconds": 120
     },
@@ -222,7 +325,7 @@
       "id": "jump",
       "description": "Jump once, observe a non-flying ascent, and verify landing near the baseline.",
       "command": ["modules/jump.py"],
-      "suites": ["e2e-core", "vertical-locomotion"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "vertical-locomotion"],
       "requires": ["app.process", "input.jump", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -230,7 +333,7 @@
       "id": "fly",
       "description": "Fly for a bounded duration and observe active flight with vertical ascent.",
       "command": ["modules/fly.py"],
-      "suites": ["e2e-core", "vertical-locomotion"],
+      "suites": ["e2e-core", "feature-journeys", "feature-world-navigation", "vertical-locomotion"],
       "requires": ["app.process", "input.fly", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 120
     },
@@ -238,7 +341,7 @@
       "id": "tablet",
       "description": "Open and close the system tablet and observe both state transitions.",
       "command": ["modules/tablet.py"],
-      "suites": ["e2e-core", "portable-smoke", "update-upgrade"],
+      "suites": ["e2e-core", "feature-journeys", "feature-tablet-web", "portable-smoke", "update-upgrade"],
       "requires": ["probe.snapshot", "scene.load", "tablet.close", "tablet.open"],
       "timeoutSeconds": 90
     },
@@ -246,7 +349,7 @@
       "id": "tablet-input-isolation",
       "description": "Verify tablet-focused emulated input cannot move the avatar in the world.",
       "command": ["modules/tablet_input_isolation.py"],
-      "suites": ["e2e-core"],
+      "suites": ["e2e-core", "feature-journeys", "feature-lifecycle-input"],
       "requires": ["input.move", "probe.snapshot", "scene.load", "tablet.close", "tablet.open"],
       "timeoutSeconds": 90
     },
@@ -270,7 +373,7 @@
       "id": "world-web-video",
       "description": "Use normal world Web controls and prove native video playback, pause, seek and resumed motion from encoded pixels.",
       "command": ["modules/web_video_parity.py", "--surface", "world"],
-      "suites": ["web-video-parity"],
+      "suites": ["feature-journeys", "feature-world-web", "web-video-parity"],
       "requires": ["app.foreground", "app.process", "artifact.screenshot", "web.reference.close", "web.reference.open", "web.reference.pause", "web.reference.play", "web.reference.seek"],
       "timeoutSeconds": 300
     },
@@ -278,7 +381,7 @@
       "id": "tablet-web-video",
       "description": "Use normal tablet Web controls and prove native video playback, pause, seek and resumed motion from encoded pixels.",
       "command": ["modules/web_video_parity.py", "--surface", "tablet"],
-      "suites": ["web-video-parity"],
+      "suites": ["feature-journeys", "feature-tablet-web", "web-video-parity"],
       "requires": ["app.foreground", "app.process", "artifact.screenshot", "web.reference.close", "web.reference.open", "web.reference.pause", "web.reference.play", "web.reference.seek"],
       "timeoutSeconds": 300
     },
@@ -286,7 +389,7 @@
       "id": "snapshot-output-parity",
       "description": "Use normal SNAP controls and decode complete fresh PNG, JPEG, GIF, panorama and cubemap output files.",
       "command": ["modules/snapshot_capture.py"],
-      "suites": ["snapshot-output-parity"],
+      "suites": ["feature-journeys", "feature-snapshots", "snapshot-output-parity"],
       "requires": ["app.foreground", "app.process", "probe.snapshot", "scene.load", "snapshot.capture", "snapshot.close", "snapshot.files", "snapshot.open"],
       "timeoutSeconds": 600
     },
@@ -294,7 +397,7 @@
       "id": "scripts-management",
       "description": "Use normal Running Scripts URL load, restart and stop controls; independently observe execution, companion loading, silence and failed-load requests.",
       "command": ["modules/scripts_management.py"],
-      "suites": ["scripts-management-parity"],
+      "suites": ["feature-journeys", "feature-scripts", "scripts-management-parity"],
       "requires": ["app.foreground", "app.process", "scripts.load-url", "scripts.manager.close", "scripts.manager.open", "scripts.restart", "scripts.stop"],
       "timeoutSeconds": 360
     },
@@ -302,7 +405,7 @@
       "id": "create-management",
       "description": "Use normal owned Cube create/edit/history/delete and parent-child JSON import controls, with fresh read-only actual entity observations.",
       "command": ["modules/create_management.py"],
-      "suites": ["create-management-parity"],
+      "suites": ["create-management-parity", "feature-create", "feature-journeys"],
       "requires": ["app.foreground", "app.process", "create.cube", "create.delete", "create.import", "create.redo", "create.reference.close", "create.reference.open", "create.undo", "create.update", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 600
     },
@@ -318,7 +421,7 @@
       "id": "places-navigation",
       "description": "Use normal Go To and Back/Forward controls; observe actual controlled scene URLs, grounded avatar viewpoints and fresh presentation.",
       "command": ["modules/places_navigation.py"],
-      "suites": ["places-navigation-parity"],
+      "suites": ["feature-journeys", "feature-world-navigation", "places-navigation-parity"],
       "requires": ["app.foreground", "app.process", "places.back", "places.close", "places.forward", "places.goto", "places.open", "probe.snapshot", "scene.load"],
       "timeoutSeconds": 600
     },
@@ -337,6 +440,118 @@
       "suites": ["stability"],
       "requires": ["app.foreground", "app.launch", "app.process"],
       "timeoutSeconds": 7800
+    },
+    {
+      "id": "feature-world-navigation",
+      "description": "Bookmarks, directory, failed arrival and recovery. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "world-navigation"],
+      "suites": ["feature-journeys", "feature-world-navigation"],
+      "requires": ["app.foreground", "app.process", "feature.world-navigation.act", "feature.world-navigation.cleanup", "feature.world-navigation.observe", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1160
+    },
+    {
+      "id": "feature-authentication",
+      "description": "Owned login, cancellation, stale response and persistence. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "authentication"],
+      "suites": ["feature-authentication", "feature-journeys"],
+      "requires": ["app.foreground", "app.process", "feature.authentication.act", "feature.authentication.cleanup", "feature.authentication.observe", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1260
+    },
+    {
+      "id": "feature-avatar-people",
+      "description": "Avatar chooser and mutual connection consent. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "avatar-people"],
+      "suites": ["feature-avatar-people", "feature-journeys"],
+      "requires": ["app.foreground", "app.process", "feature.avatar-people.act", "feature.avatar-people.cleanup", "feature.avatar-people.observe", "navigation.enter-domain", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1660
+    },
+    {
+      "id": "feature-create",
+      "description": "Create imports, export and permission denial. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "create"],
+      "suites": ["feature-create", "feature-journeys"],
+      "requires": ["app.foreground", "app.process", "feature.create.act", "feature.create.cleanup", "feature.create.observe", "navigation.enter-domain", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1560
+    },
+    {
+      "id": "feature-emotes",
+      "description": "Ten emotes, three Sit modes, override and cancellation. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "emotes"],
+      "suites": ["feature-emotes", "feature-journeys"],
+      "requires": ["app.foreground", "app.process", "feature.emotes.act", "feature.emotes.cleanup", "feature.emotes.observe", "navigation.enter-domain", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1860
+    },
+    {
+      "id": "feature-world-web",
+      "description": "World browser text, bridge origin, navigation and resume. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "world-web"],
+      "suites": ["feature-journeys", "feature-world-web"],
+      "requires": ["app.foreground", "app.process", "feature.world-web.act", "feature.world-web.cleanup", "feature.world-web.observe", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1060
+    },
+    {
+      "id": "feature-graphics",
+      "description": "Normal graphics effects, cancellation and restart durability. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "graphics"],
+      "suites": ["feature-graphics", "feature-journeys"],
+      "requires": ["app.foreground", "app.process", "feature.graphics.act", "feature.graphics.cleanup", "feature.graphics.observe", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1160
+    },
+    {
+      "id": "feature-audio",
+      "description": "Recording permission, cancel, preview, mute and lifecycle. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "audio"],
+      "suites": ["feature-audio", "feature-journeys"],
+      "requires": ["app.foreground", "app.process", "feature.audio.act", "feature.audio.cleanup", "feature.audio.observe", "navigation.enter-domain", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1360
+    },
+    {
+      "id": "feature-chat",
+      "description": "Owned peer send, receive, filter, history and input cancellation. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "chat"],
+      "suites": ["feature-chat", "feature-journeys"],
+      "requires": ["app.foreground", "app.process", "feature.chat.act", "feature.chat.cleanup", "feature.chat.observe", "navigation.enter-domain", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1660
+    },
+    {
+      "id": "feature-snapshots",
+      "description": "Capture cancellation, permission, share/upload and resume. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "snapshots"],
+      "suites": ["feature-journeys", "feature-snapshots"],
+      "requires": ["app.foreground", "app.process", "feature.snapshots.act", "feature.snapshots.cleanup", "feature.snapshots.observe", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1260
+    },
+    {
+      "id": "feature-scripts",
+      "description": "File/folder execution, consent and application restart. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "scripts"],
+      "suites": ["feature-journeys", "feature-scripts"],
+      "requires": ["app.foreground", "app.process", "feature.scripts.act", "feature.scripts.cleanup", "feature.scripts.observe", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1160
+    },
+    {
+      "id": "feature-assets",
+      "description": "Asset mappings, companion import, bake, permissions and deletion. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "assets"],
+      "suites": ["feature-assets", "feature-journeys"],
+      "requires": ["app.foreground", "app.process", "feature.assets.act", "feature.assets.cleanup", "feature.assets.observe", "navigation.enter-domain", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1560
+    },
+    {
+      "id": "feature-lifecycle-input",
+      "description": "Feature editor focus, Back and background ownership. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "lifecycle-input"],
+      "suites": ["feature-journeys", "feature-lifecycle-input"],
+      "requires": ["app.foreground", "app.process", "feature.lifecycle-input.act", "feature.lifecycle-input.cleanup", "feature.lifecycle-input.observe", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1360
+    },
+    {
+      "id": "feature-tablet-web",
+      "description": "Tablet browser and inline app isolation. Shared logic only; target adapters and device evidence remain pending.",
+      "command": ["modules/feature_journey.py", "--area", "tablet-web"],
+      "suites": ["feature-journeys", "feature-tablet-web"],
+      "requires": ["app.foreground", "app.process", "feature.tablet-web.act", "feature.tablet-web.cleanup", "feature.tablet-web.observe", "probe.snapshot", "scene.load"],
+      "timeoutSeconds": 1160
     }
   ]
 }

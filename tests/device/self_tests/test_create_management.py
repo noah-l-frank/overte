@@ -184,12 +184,27 @@ class CreateJourneyTests(unittest.TestCase):
         self.assertEqual(['baseline-live-empty', 'create-cube', 'edit-color-and-dimensions',
             'undo-edit', 'redo-edit', 'delete', 'undo-delete', 'redo-delete',
             'json-import-parent-and-child', 'undo-import', 'redo-import',
-            'remove-owned-import', 'failed-import-remains-empty'], [row['phase'] for row in result['phases']])
+            'remove-owned-import', 'failed-import-remains-empty', 'cleanup-live-empty'], [row['phase'] for row in result['phases']])
         self.assertTrue(native.reports[0]['sequenceCompleted'])
         self.assertTrue(all(row['stableNativeSamples'] >= 3 for row in result['phases']))
         self.assertFalse(native.reports[0]['deviceAcceptance'])
         self.assertEqual([], native.world)
         self.assertFalse(native.active)
+
+    def test_cleanup_acknowledgment_cannot_hide_a_remaining_owned_entity(self):
+        native = NativeBoundary()
+        original = native.invoke
+        def invoke(name, arguments):
+            if name == 'create.delete' and len(arguments['names']) > 1:
+                native.world = [native.cube(arguments['names'][0], INITIAL)]
+                return {'performed': True}
+            return original(name, arguments)
+        native.invoke = invoke
+        with self.assertRaisesRegex(AssertionError, 'cleanup-live-empty'):
+            native.run()
+        self.assertFalse(native.reports[0]['cleanupObservedEmpty'])
+        self.assertFalse(native.reports[0]['sequenceCompleted'])
+        self.assertEqual('create.reference.close', native.actions[-1][0])
 
     def test_native_legacy_box_serialization_still_requires_actual_cube_semantics(self):
         native = NativeBoundary('legacy-box')

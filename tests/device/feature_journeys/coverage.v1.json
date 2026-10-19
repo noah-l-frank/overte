@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "sourceBase": "7636452f2124029798948aafae70ecff5c5fa7d0",
+  "historicalOverviewUsedAsAuthority": false,
+  "repositoryWrites": "local-only",
+  "physicalRuns": 0,
+  "qualification": "Device-free simulation proves common test logic only.",
+  "rows": [
+    {
+      "area": "world-navigation",
+      "existingModules": [
+        "domain-enter",
+        "domain-roundtrip",
+        "places-navigation",
+        "look",
+        "move",
+        "input-neutral",
+        "collision",
+        "jump",
+        "fly",
+        "scene-reload"
+      ],
+      "commonModule": "feature-world-navigation",
+      "addedFlow": "Bookmark CRUD and restart durability; directory/search, failed navigation, recovery.",
+      "declaredCheckpoints": 11,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "authentication",
+      "existingModules": [],
+      "commonModule": "feature-authentication",
+      "addedFlow": "Invalid login, cancel, delayed stale completion, successful login, restart, logout and revocation.",
+      "declaredCheckpoints": 12,
+      "requiredEvidence": [
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "avatar-people",
+      "existingModules": [
+        "multi-user"
+      ],
+      "commonModule": "feature-avatar-people",
+      "addedFlow": "Avatar URL/bookmark, scale, wearable, invalid URL, mutual contact consent/cancel/reject/removal.",
+      "declaredCheckpoints": 16,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "create",
+      "existingModules": [
+        "create-management",
+        "entity-sync",
+        "world-interaction"
+      ],
+      "commonModule": "feature-create",
+      "addedFlow": "Model/texture/voxel import/edit, original export, cancellation and rez permission denial/recovery.",
+      "declaredCheckpoints": 15,
+      "requiredEvidence": [
+        "changed",
+        "file",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "emotes",
+      "existingModules": [],
+      "commonModule": "feature-emotes",
+      "addedFlow": "Ten real Emote choices, all three actually observed Sit variants, override/cancel and resume.",
+      "declaredCheckpoints": 18,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "world-web",
+      "existingModules": [
+        "world-web-video"
+      ],
+      "commonModule": "feature-world-web",
+      "addedFlow": "Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume.",
+      "declaredCheckpoints": 10,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "graphics",
+      "existingModules": [
+        "render-health"
+      ],
+      "commonModule": "feature-graphics",
+      "addedFlow": "Preset cancel, actual render scale/shadow graph, mirror, apply/restart durability and restore.",
+      "declaredCheckpoints": 11,
+      "requiredEvidence": [
+        "changed",
+        "image"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "audio",
+      "existingModules": [
+        "audio-controls",
+        "permission-recovery",
+        "sound-playback",
+        "voice-roundtrip"
+      ],
+      "commonModule": "feature-audio",
+      "addedFlow": "Recording permission, cancel, save, preview/stop, mute, background silence and discard.",
+      "declaredCheckpoints": 13,
+      "requiredEvidence": [
+        "audio",
+        "file",
+        "peer",
+        "silence"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "chat",
+      "existingModules": [
+        "text-input"
+      ],
+      "commonModule": "feature-chat",
+      "addedFlow": "Unicode send/receive, keyboard Back, filter, history reopen, offline failure and exactly-once retry.",
+      "declaredCheckpoints": 16,
+      "requiredEvidence": [
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "snapshots",
+      "existingModules": [
+        "snapshot-output-parity"
+      ],
+      "commonModule": "feature-snapshots",
+      "addedFlow": "Cancel/permission denial, original capture/share bytes, share cancel, upload failure/retry and resume.",
+      "declaredCheckpoints": 12,
+      "requiredEvidence": [
+        "file",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "scripts",
+      "existingModules": [
+        "scripts-management",
+        "scripted-entity"
+      ],
+      "commonModule": "feature-scripts",
+      "addedFlow": "Local/folder companions, consent cancel/reject/accept, application restart, stop and 404.",
+      "declaredCheckpoints": 11,
+      "requiredEvidence": [
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "assets",
+      "existingModules": [
+        "asset-load"
+      ],
+      "commonModule": "feature-assets",
+      "addedFlow": "Upload cancel, browse, companion mappings, rename, bake, Add to World and original resolved bytes, permission denial, delete and 404.",
+      "declaredCheckpoints": 16,
+      "requiredEvidence": [
+        "changed",
+        "file",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "lifecycle-input",
+      "existingModules": [
+        "lifecycle-under-load",
+        "tablet-input-isolation",
+        "text-input"
+      ],
+      "commonModule": "feature-lifecycle-input",
+      "addedFlow": "Create/Chat/Scripts editor focus, Back, world-input isolation, resume, context replacement and stale input.",
+      "declaredCheckpoints": 13,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    },
+    {
+      "area": "tablet-web",
+      "existingModules": [
+        "tablet-web-video",
+        "tablet"
+      ],
+      "commonModule": "feature-tablet-web",
+      "addedFlow": "Same browser flows plus ordinary inline app routing and input ownership.",
+      "declaredCheckpoints": 11,
+      "requiredEvidence": [
+        "changed",
+        "image",
+        "peer"
+      ],
+      "testLogic": "implemented",
+      "adapter": "missing",
+      "device": "untested",
+      "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
+    }
+  ]
+}

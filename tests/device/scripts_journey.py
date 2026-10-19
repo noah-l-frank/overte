@@ -19,6 +19,7 @@ def scripts_journey(source, missing, *, invoke, observe, assert_session,
     snapshots, phases = [], []
     primary_error = None
     cleanup_delivered = False
+    may_have_loaded = False
     last_clock = None
 
     def now():
@@ -108,6 +109,7 @@ def scripts_journey(source, missing, *, invoke, observe, assert_session,
         baseline = sample('baseline')
         if baseline['instances'] or any(baseline[key] for key in ('sourceGets', 'companionGets', 'missingGets')):
             raise AssertionError('Script fixture session was already used')
+        may_have_loaded = True
         action('scripts.load-url', {'url': source})
         first, _state = new_instance(set(), 'initial-load')
         action('scripts.restart', {'url': source})
@@ -130,13 +132,22 @@ def scripts_journey(source, missing, *, invoke, observe, assert_session,
         raise
     finally:
         cleanup_errors = []
-        for name, arguments in (('scripts.stop', {'url': source}), ('scripts.manager.close', {})):
+        cleanup_observed_stopped = False
+        actions = [('scripts.stop', {'url': source})] if may_have_loaded else []
+        actions.append(('scripts.manager.close', {}))
+        for name, arguments in actions:
             try:
                 action(name, arguments)
+                if name == 'scripts.stop':
+                    cleanup_state = sample('cleanup-instance-inventory')
+                    quiet(set(instances(cleanup_state)), set(), 'cleanup-owned-execution-stopped')
+                    cleanup_observed_stopped = True
             except BaseException as error:
                 cleanup_errors.append(error)
         cleanup_delivered = not cleanup_errors
         report({'schemaVersion': 1, 'phases': phases, 'snapshots': snapshots,
+                'cleanupObservedStopped': cleanup_observed_stopped,
+                'ownedScriptCleanupEnabled': may_have_loaded,
                 'cleanupInputsDelivered': cleanup_delivered,
                 'lifecycleSequenceCompleted': primary_error is None and cleanup_delivered,
                 'deviceAcceptance': False,
