@@ -46,6 +46,9 @@
 #include <QtCore/QThreadPool>
 #include <QtCore/QBuffer>
 #include <QtCore/QCoreApplication>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QDateTime>
+#endif
 #include <QtCore/QEvent>
 
 #include <shared/QtHelpers.h>
@@ -1755,11 +1758,32 @@ bool AudioClient::recordedVoiceTestInputAvailable() const {
 }
 
 void AudioClient::publishRecordedVoiceTestStatus(const QString& phase, const QString& error) {
-    emit recordedVoiceTestStatusChanged({ { "phase", phase }, { "error", error },
+    const QVariantMap status { { "phase", phase }, { "error", error },
         { "capturedBytes", static_cast<qint64>(_recordedVoiceTest.capturedBytes()) },
         { "playedBytes", static_cast<qint64>(_recordedVoiceTest.playedBytes()) },
-        { "totalBytes", _recordedVoiceTestLimit } });
+        { "totalBytes", _recordedVoiceTestLimit } };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    static const bool testLaunch = QCoreApplication::arguments().contains("--testScript");
+    if (testLaunch) {
+        _e2eRecordedVoiceEvent = status;
+        _e2eRecordedVoiceEvent["schemaVersion"] = 1;
+        _e2eRecordedVoiceEvent["eventSequence"] = static_cast<qulonglong>(++_e2eRecordedVoiceSequence);
+        _e2eRecordedVoiceEvent["publishedEpochMs"] = QDateTime::currentMSecsSinceEpoch();
+    }
+#endif
+    emit recordedVoiceTestStatusChanged(status);
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap AudioClient::featureRecordedVoiceObservation() const {
+    if (QThread::currentThread() != thread() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    return {{"active", _recordedVoiceTestActive},
+        {"capturedBytes", static_cast<qint64>(_recordedVoiceTest.capturedBytes())},
+        {"playedBytes", static_cast<qint64>(_recordedVoiceTest.playedBytes())},
+        {"frameBytes", _outputFormat.bytesPerFrame()}, {"sampleRate", _outputFormat.sampleRate()},
+        {"channels", _outputFormat.channelCount()}, {"event", _e2eRecordedVoiceEvent}};
+}
+#endif
 
 void AudioClient::finishRecordedVoiceTest(const QString& phase, const QString& error) {
     _recordedVoiceTestActive = false;

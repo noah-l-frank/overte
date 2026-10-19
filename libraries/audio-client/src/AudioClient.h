@@ -280,6 +280,9 @@ public slots:
     virtual void toggleLocalEcho() override { setLocalEcho(!_shouldEchoLocally); }
     void startRecordedVoiceTest() override;
     void cancelRecordedVoiceTest() override;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureRecordedVoiceObservation() const;
+#endif
 
     virtual bool getServerEcho() override { return _shouldEchoToServer; }
     virtual void setServerEcho(bool serverEcho) override { _shouldEchoToServer = serverEcho; }
@@ -437,6 +440,10 @@ private:
     QTimer* _recordedVoiceTestTimer { nullptr };
     QElapsedTimer _recordedVoiceTestElapsed;
     QElapsedTimer _recordedVoiceTestDrainElapsed;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap _e2eRecordedVoiceEvent;
+    quint64 _e2eRecordedVoiceSequence {0};
+#endif
     void finishRecordedVoiceTest(const QString& phase, const QString& error = QString());
     void publishRecordedVoiceTestStatus(const QString& phase, const QString& error = QString());
     bool recordedVoiceTestInputAvailable() const;
