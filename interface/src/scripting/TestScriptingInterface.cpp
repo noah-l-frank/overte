@@ -27,7 +27,7 @@
 #include "NetworkingConstants.h"
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-#include "../../../../tests/device/native/FeatureLifecycle.h"
+#include "../../../tests/device/native/FeatureLifecycle.h"
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
