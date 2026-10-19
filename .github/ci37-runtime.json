@@ -44,6 +44,6 @@
     "host-selection",
     "android-owner-transfer"
   ],
-  "definition_digest": "sha256:17840b8a4fd10209b6780f0d28a3cb6ed0131e59ae6f87db62df1bdb7e64b091",
+  "definition_digest": "sha256:c6d6a2e2485961e36bb7b622400a1eeb58ebe3936955fb747696db2e6a983eeb",
   "generation_kind": "ci37-seven-target-dependencies-v1"
 }
