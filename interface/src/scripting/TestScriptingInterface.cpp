@@ -331,12 +331,34 @@ QVariantMap TestScriptingInterface::featureNativeObservation(const QString& requ
     if (_testResultsLocation.isEmpty() || !_featureLifecycle
             || !QCoreApplication::arguments().contains("--testScript")
             || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(requestId).hasMatch()) { return {}; }
+    if (requestId == _featureCompletedRequest) { return _featureCompletedObservation; }
     const auto lifecycle = _featureLifecycle->snapshot();
     if (lifecycle.isEmpty()) { return {}; }
     const auto avatar = DependencyManager::get<AvatarManager>()->getMyAvatar();
     if (!avatar) { return {}; }
     const auto model = avatar->getSkeletonModel();
     const auto animation = model ? model->getRig().e2eAnimationObservation() : QVariantMap();
+    if (requestId != _featurePendingRequest) {
+        _featurePendingRequest = requestId;
+        _featurePendingEpochMs = QDateTime::currentMSecsSinceEpoch();
+        _featurePendingAnimationSequence = animation.value("evaluationSequence").toULongLong();
+        _featurePendingRigId = animation.value("rigId", -1).toInt();
+        _featurePendingAnimationFence = animation.value("graphLoaded").toBool()
+            && animation.value("animationsEnabled").toBool();
+    }
+    QVariantMap animationFence;
+    if (_featurePendingAnimationFence) {
+        if (animation.value("rigId", -1).toInt() != _featurePendingRigId) { return {}; }
+        if (animation.value("evaluationSequence").toULongLong() <= _featurePendingAnimationSequence
+                || animation.value("capturedEpochMs").toLongLong() < _featurePendingEpochMs) {
+            // Never block the GUI/animation owner. The probe retries this
+            // read-only request ID until an actual later evaluation exists.
+            return {{"schemaVersion", 1}, {"requestId", requestId}, {"pending", true}};
+        }
+        animationFence = {{"rigId", _featurePendingRigId},
+            {"sequence", static_cast<qulonglong>(_featurePendingAnimationSequence)},
+            {"requestedEpochMs", _featurePendingEpochMs}};
+    }
     auto render = RenderScriptingInterface::getInstance();
     QVariantMap graphics {{"requestedResolutionScale", render->getViewportResolutionScale()},
         {"applicationResolutionScale", qApp->getRenderResolutionScale()},
@@ -361,11 +383,15 @@ QVariantMap TestScriptingInterface::featureNativeObservation(const QString& requ
     };
     if (QThread::currentThread() == account->thread()) { readAccount(); }
     else { QMetaObject::invokeMethod(account.data(), readAccount, Qt::BlockingQueuedConnection); }
-    return {{"schemaVersion", 1}, {"requestId", requestId}, {"instance", _featureObservationInstance},
+    QVariantMap result {{"schemaVersion", 1}, {"requestId", requestId}, {"instance", _featureObservationInstance},
         {"sequence", static_cast<qulonglong>(++_featureObservationSequence)},
-        {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()},
+        {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"requestedEpochMs", _featurePendingEpochMs},
         {"processId", QCoreApplication::applicationPid()}, {"lifecycle", lifecycle.toVariantMap()},
-        {"animation", animation}, {"graphics", graphics}, {"audio", audioState}, {"account", accountState}};
+        {"animation", animation}, {"animationFence", animationFence},
+        {"graphics", graphics}, {"audio", audioState}, {"account", accountState}};
+    _featureCompletedRequest = requestId;
+    _featureCompletedObservation = result;
+    return result;
 }
 #endif
 

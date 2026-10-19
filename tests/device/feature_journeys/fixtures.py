@@ -19,9 +19,9 @@ def challenge(run, ticket):
     return hashlib.sha256((run + ':' + ticket).encode('ascii')).digest()[:16]
 
 
-def wav_bytes(run, ticket):
+def wav_bytes(run, ticket, *, profile='voice-v1'):
     output = io.BytesIO()
-    data = samples(challenge(run, ticket).hex())
+    data = samples(challenge(run, ticket).hex(), profile=profile)
     import sys
     if sys.byteorder != 'little':
         data.byteswap()
@@ -77,6 +77,8 @@ def payload(resource, run, ticket):
         return 'image/png', marker_bytes(run, ticket)
     if resource == 'challenge.wav':
         return 'audio/wav', wav_bytes(run, ticket)
+    if resource == 'preview-challenge.v1.wav':
+        return 'audio/wav', wav_bytes(run, ticket, profile='recorded-preview-v1')
     if resource == 'export.json':
         return 'application/json', json.dumps(document(run), sort_keys=True).encode()
     if resource in {'reference.html', 'page-b.html', 'inline.html'}:

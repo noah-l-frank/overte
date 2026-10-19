@@ -211,6 +211,13 @@ private:
     overte::e2e::FeatureLifecycle* _featureLifecycle {nullptr};
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
+    QString _featurePendingRequest;
+    qint64 _featurePendingEpochMs {0};
+    quint64 _featurePendingAnimationSequence {0};
+    int _featurePendingRigId {-1};
+    bool _featurePendingAnimationFence {false};
+    QString _featureCompletedRequest;
+    QVariantMap _featureCompletedObservation;
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     QString _voiceCapturePath;
