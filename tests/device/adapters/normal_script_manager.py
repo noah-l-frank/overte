@@ -14,14 +14,17 @@ from adapters.normal_feature_state import context, need
 from adapters.normal_ui import NativeUIError
 from contracts import validate_operation_arguments
 from scripts_observation import OPERATIONS, script_url
+from create_observation import owned_url
 
 DIAGNOSTIC_FILE = 'normal-feature-observation.json'
 
 
 def read_native_diagnostic(read, clock_ms, guard, after_sequence, *,
-                           monotonic=time.monotonic, sleep=time.sleep):
+                           expected_request=None, monotonic=time.monotonic, sleep=time.sleep):
     """Poll only original private native bytes; never relabel a cached sample."""
     need(type(after_sequence) is int and after_sequence >= 0)
+    need(expected_request is None or type(expected_request) is str
+         and re.fullmatch('[0-9a-f]{32}', expected_request) is not None)
     started = previous = monotonic()
     need(type(started) in (int, float) and math.isfinite(started))
     for _attempt in range(51):
@@ -35,12 +38,13 @@ def read_native_diagnostic(read, clock_ms, guard, after_sequence, *,
                     need(key not in value)
                     value[key] = item
                 return value
-            value = json.loads(raw, object_pairs_hook=pairs)
+            value = json.loads(raw, object_pairs_hook=pairs) if raw else None
             epoch = clock_ms()
             need(guard() is not False)
-            value = diagnostic(value, epoch)
-            if value['sampleSequence'] > after_sequence:
-                return value, epoch
+            if expected_request is None or type(value) is dict and value.get('requestId') == expected_request:
+                value = diagnostic(value, epoch)
+                if value['sampleSequence'] > after_sequence:
+                    return value, epoch
             now = monotonic()
             need(type(now) in (int, float) and math.isfinite(now) and now >= previous)
             previous = now
@@ -53,7 +57,10 @@ def read_native_diagnostic(read, clock_ms, guard, after_sequence, *,
 
 
 def diagnostic(value, epoch_ms):
-    need(type(value) is dict and set(value) == {'schemaVersion', 'instance', 'sampleSequence',
+    need(type(value) is dict and set(value) - {'requestId'} in ({'schemaVersion', 'instance', 'sampleSequence',
+         'sampleEpochMs', 'complete', 'scripts'}, {'schemaVersion', 'instance', 'sampleSequence',
+         'sampleEpochMs', 'complete', 'scripts', 'avatarEntities', 'entitiesComplete'})
+         and set(value) >= {'schemaVersion', 'instance', 'sampleSequence',
          'sampleEpochMs', 'complete', 'scripts'}
          and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and type(value['complete']) is bool and value['complete']
@@ -62,6 +69,8 @@ def diagnostic(value, epoch_ms):
          and type(value['sampleEpochMs']) is int and type(epoch_ms) is int
          and -250 <= epoch_ms - value['sampleEpochMs'] <= 1500
          and type(value['scripts']) is list and len(value['scripts']) <= 128)
+    need('requestId' not in value or type(value['requestId']) is str
+         and re.fullmatch('[0-9a-f]{32}', value['requestId']) is not None)
     urls = set()
     for row in value['scripts']:
         need(type(row) is dict and set(row) == {'url', 'path'}
@@ -78,18 +87,22 @@ def filename(value):
 
 
 class NormalScriptManager:
-    def __init__(self, ui, observe, store, binding, *, monotonic=time.monotonic, sleep=time.sleep):
+    def __init__(self, ui, observe, store, binding, *, source_kind='scripts',
+                 monotonic=time.monotonic, sleep=time.sleep):
         self.ui, self.observe, self.store = ui, observe, store
         self.binding = dict(context(binding))
         self.monotonic, self.sleep = monotonic, sleep
+        need(source_kind in {'scripts', 'create-observer'})
+        self.source_kind = source_kind
         self.previous = store.read()
-        self.state = self.previous or dict(schemaVersion=1, binding=self.binding,
+        self.state = self.previous or dict(schemaVersion=2, sourceKind=source_kind, binding=self.binding,
             tabletOwned=False, managerOwned=False, dialogOwned=False, source=None,
             loadAttempted=False, observerInstance=None, afterSequence=0)
         value = self.state
-        need(type(value) is dict and set(value) == {'schemaVersion', 'binding', 'tabletOwned',
+        need(type(value) is dict and set(value) == {'schemaVersion', 'sourceKind', 'binding', 'tabletOwned',
              'managerOwned', 'dialogOwned', 'source', 'loadAttempted', 'observerInstance', 'afterSequence'}
-             and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
+             and type(value['schemaVersion']) is int and value['schemaVersion'] == 2
+             and value['sourceKind'] == source_kind
              and context(value['binding']) == self.binding
              and all(type(value[key]) is bool for key in
                      ('tabletOwned', 'managerOwned', 'dialogOwned', 'loadAttempted'))
@@ -100,7 +113,12 @@ class NormalScriptManager:
              and (not value['dialogOwned'] or value['managerOwned'])
              and (not value['loadAttempted'] or value['source'] is not None))
         if value['source'] is not None:
-            script_url(value['source'])
+            self.validate_url(value['source'])
+
+    def validate_url(self, url):
+        if self.source_kind == 'scripts':
+            return script_url(url, missing=url.endswith('/missing.js'))
+        return owned_url(url, {'observer.js'})
 
     def mark(self, **changes):
         value = self.state | changes
@@ -108,12 +126,15 @@ class NormalScriptManager:
         self.state = self.previous = value
 
     def sample(self):
+        return self.sample_full()['scripts']
+
+    def sample_full(self):
         value, epoch = self.observe(self.state['afterSequence'])
         value = diagnostic(value, epoch)
         need(self.state['observerInstance'] in (None, value['instance'])
              and value['sampleSequence'] > self.state['afterSequence'])
         self.mark(observerInstance=value['instance'], afterSequence=value['sampleSequence'])
-        return value['scripts']
+        return value
 
     def wait_rows(self, predicate, seconds=10):
         started = self.monotonic()
@@ -140,16 +161,18 @@ class NormalScriptManager:
             need(not self.ui.manager_visible())
             self.mark(managerOwned=True)
             self.ui.open_manager()
+        elif not self.ui.manager_visible():
+            self.ui.open_manager()
         self.ui.wait_manager()
 
     def source(self, url):
-        script_url(url, missing=url.endswith('/missing.js'))
+        self.validate_url(url)
         source = url.removesuffix('missing.js') + 'client.js' if url.endswith('/missing.js') else url
         need(self.state['source'] in (None, source))
         if self.state['source'] is None:
             rows = self.sample()
             # Never adopt an existing source, including aliases of its basename.
-            need(not any(filename(row['url']) in {'client.js', 'missing.js'} for row in rows))
+            need(not any(filename(row['url']) in {filename(source), 'missing.js'} for row in rows))
             self.mark(source=source)
         return source
 
@@ -206,6 +229,7 @@ class NormalScriptManager:
             self.mark(tabletOwned=False, managerOwned=False)
 
     def invoke(self, operation, arguments):
+        need(self.source_kind == 'scripts')
         need(operation in OPERATIONS)
         arguments = validate_operation_arguments(operation, arguments)
         if operation == 'scripts.manager.open':
@@ -217,18 +241,26 @@ class NormalScriptManager:
             self.ui.wait_manager()
             source = self.source(arguments['url'])
             if operation == 'scripts.load-url':
-                self.close_dialog()
-                rows = self.sample()
-                need(not any(item['url'] == arguments['url'] for item in rows))
-                self.mark(dialogOwned=True)
-                self.ui.open_url_dialog()
-                self.ui.fill_url(arguments['url'])
-                self.mark(loadAttempted=self.state['loadAttempted'] or arguments['url'] == source)
-                self.ui.submit_url()
-                self.ui.wait_dialog_absent()
-                self.mark(dialogOwned=False)
+                self.load_source(arguments['url'])
             else:
                 self.owned_row_action(source, 'restart' if operation == 'scripts.restart' else 'stop')
                 if operation == 'scripts.stop':
                     self.mark(loadAttempted=False)
         return {'performed': True}
+
+    def load_source(self, url):
+        source = self.source(url)
+        self.close_dialog()
+        rows = self.sample()
+        need(not any(item['url'] == url for item in rows))
+        self.mark(dialogOwned=True)
+        self.ui.open_url_dialog()
+        self.ui.fill_url(url)
+        self.mark(loadAttempted=self.state['loadAttempted'] or url == source)
+        self.ui.submit_url()
+        self.ui.wait_dialog_absent()
+        self.mark(dialogOwned=False)
+
+    def stop_source(self, url):
+        self.owned_row_action(url, 'stop')
+        self.mark(loadAttempted=False)
