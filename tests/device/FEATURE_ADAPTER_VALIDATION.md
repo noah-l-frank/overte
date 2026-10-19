@@ -4,6 +4,23 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+Protected-probe platform factories now pass **62** focused Phone cases,
+**31** Pico normal Script/Audio/Graphics/world/probe cases, **20** Pico native
+source cases and **37** iOS Script/Audio/Graphics/world/probe component cases.
+The original Pico candidate/navigation/Snapshot group still passes **31**, and
+canonical iOS rejection passes five including the new factory. Five new factory
+cases per platform cover actual source transport, persisted intent, unresolved
+native drain, changed candidate/process and adapter-wide cleanup that still
+reaches base teardown while retaining unresolved ownership.
+
+The broad guarded iOS selection passes **269** cases, zero failures/errors/skips
+or compiler attempts, with the same 20 native exclusions. It first exposed three
+old JavaScript fragment tests calling an unrelated new validator. The shared
+dispatch now calls that validator only for its closed account-probe action; the
+seven original probe tests and broad 269-case selection pass after correction.
+The post-merge Phone group was rerun successfully. No native code, installed
+client identity, actual credentials, rendering or device behavior is qualified.
+
 The native protected-account probe v1 packet passes **532** common host cases,
 zero failures/errors/skips or compiler attempts, with the same native exclusions.
 Its **18** probe/ownership/actual-JavaScript cases cover ignored dispatch, stale/
