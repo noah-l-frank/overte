@@ -142,15 +142,20 @@ def create_journey(observer_url, import_url, missing_url, *, invoke, observe,
         raise
     finally:
         cleanup_errors = []
+        cleanup_observed_empty = False
         actions = [('create.delete', {'names': names})] if may_have_created else []
         actions.append(('create.reference.close', {'scriptUrl': observer_url}))
         for name, arguments in actions:
             try:
                 action(name, arguments)
+                if name == 'create.delete':
+                    wait('cleanup-live-empty', {})
+                    cleanup_observed_empty = True
             except BaseException as error:
                 cleanup_errors.append(error)
         report({'schemaVersion': 1, 'phases': phases, 'samples': samples,
             'cleanupInputsDelivered': not cleanup_errors,
+            'cleanupObservedEmpty': cleanup_observed_empty,
             'ownedObjectCleanupEnabled': may_have_created,
             'sequenceCompleted': primary_error is None and not cleanup_errors,
             'deviceAcceptance': False,

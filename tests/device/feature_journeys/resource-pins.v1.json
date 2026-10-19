@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "license": "Existing repository resource licenses apply; no resources are copied or relicensed.",
+  "resources": {
+    "avatar-a.fst": {
+      "source": "interface/resources/meshes/defaultAvatar_full.fst",
+      "sha256": "0519e02f2f3d6afe19f680dd824a29f14a3baa65acb06b87ace33b1836717c50"
+    },
+    "mannequin/Eyes.png": {
+      "source": "interface/resources/meshes/mannequin/Eyes.png",
+      "sha256": "e8be0da314bfa0e3ad7e0f9d2315dddc38f39510dd421c9edbafc5406086700d"
+    },
+    "mannequin/Eyes.texmeta.json": {
+      "source": "interface/resources/meshes/mannequin/Eyes.texmeta.json",
+      "sha256": "e2f1c8bef253191d58d046c224e0056e0afdc9547fdb20c0b62c935a02a419ca"
+    },
+    "mannequin/Eyes_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC.ktx": {
+      "source": "interface/resources/meshes/mannequin/Eyes_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC.ktx",
+      "sha256": "0098b8a224250044438b70ec48dc07cd317d41068cb5e424e5af1290f658f8f0"
+    },
+    "mannequin/Eyes_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT.ktx": {
+      "source": "interface/resources/meshes/mannequin/Eyes_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT.ktx",
+      "sha256": "a624dc830611784ebafccb8f238ed00f6b24f6c484e900b453aff29c0149b7d1"
+    },
+    "mannequin/lambert1_Base_Color.png": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Base_Color.png",
+      "sha256": "70b544b69ea325ee03f726694d9392ea8a12ddc66d47559382d142da12b9bdc6"
+    },
+    "mannequin/lambert1_Base_Color.texmeta.json": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Base_Color.texmeta.json",
+      "sha256": "cc68287b6bb67d89687ffa47829792d7243148763eed444dcdf87d8a5c63f992"
+    },
+    "mannequin/lambert1_Base_Color_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC.ktx": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Base_Color_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC.ktx",
+      "sha256": "b46571a79e692c89957b45ed32f16974fd4a69f6c4ee42ce24b10618b4cc5ab1"
+    },
+    "mannequin/lambert1_Base_Color_COMPRESSED_SRGB_S3TC_DXT1_EXT.ktx": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Base_Color_COMPRESSED_SRGB_S3TC_DXT1_EXT.ktx",
+      "sha256": "0bbde516bb5624f1d653e36d9ed31689c942df886b3a1f634f401d372483d2d1"
+    },
+    "mannequin/lambert1_Normal_OpenGL.png": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Normal_OpenGL.png",
+      "sha256": "ead05dbdca83bc70c7546a3bd88ab2d58ccea85fed8f9f19b845cbfcd7b1fc05"
+    },
+    "mannequin/lambert1_Normal_OpenGL.texmeta.json": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Normal_OpenGL.texmeta.json",
+      "sha256": "d3b24396569103d7ed1c17e73764993627117046c9ac54eff6e0081fb056248d"
+    },
+    "mannequin/lambert1_Normal_OpenGL_COMPRESSED_RG11_EAC.ktx": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Normal_OpenGL_COMPRESSED_RG11_EAC.ktx",
+      "sha256": "505e6f5c7ce8ace89db1452a7f202b9d81f36f6cc13ecdc1414aeca76e76bc80"
+    },
+    "mannequin/lambert1_Normal_OpenGL_COMPRESSED_RG_RGTC2.ktx": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Normal_OpenGL_COMPRESSED_RG_RGTC2.ktx",
+      "sha256": "4f773aa4a7f022e9a09fe5896ad7309488caad1b19991d9d50f1993f3b262901"
+    },
+    "mannequin/lambert1_Roughness.png": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Roughness.png",
+      "sha256": "2f3c696977e1a8bf888b107f4935c0b3e0dca1bee2540cec8f780228468771a8"
+    },
+    "mannequin/lambert1_Roughness.texmeta.json": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Roughness.texmeta.json",
+      "sha256": "2255b61e3f61b03338ddfec7771ec0236b2fd48ac73b079ed3792769172b87d5"
+    },
+    "mannequin/lambert1_Roughness_COMPRESSED_R11_EAC.ktx": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Roughness_COMPRESSED_R11_EAC.ktx",
+      "sha256": "afed977e6104be8f49f9958124fe90f6aadd68a61f9297a0fd42314f2a031a33"
+    },
+    "mannequin/lambert1_Roughness_COMPRESSED_RED_RGTC1.ktx": {
+      "source": "interface/resources/meshes/mannequin/lambert1_Roughness_COMPRESSED_RED_RGTC1.ktx",
+      "sha256": "deaaac32f85602394c376125c2ae3854f1b7968618927cbacf206398a95dd62f"
+    },
+    "mannequin/mannequin.fbx": {
+      "source": "interface/resources/meshes/mannequin/mannequin.fbx",
+      "sha256": "b9ca9d23f488bbc579968708895c8d998a0e49a5f24cbfc25157ffaebf14d7a8"
+    }
+  }
+}
