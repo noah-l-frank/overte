@@ -14,7 +14,7 @@ Appium session guards. The actual loaded animation resource URL is distinct from
 its requested URL. Stale poses and candidate/process changes fail. These sources
 are not complete area adapters and advertise no `feature.*` capability. Native
 compilation and devices remain untested; focused Phone boundary tests now number
-**35**. See [the native source contract](../../native/README.md).
+**36**. See [the native source contract](../../native/README.md).
 
 The internal `_recorded_preview_evidence()` now acquires the normal memory
 preview's original pre-normalization capture and accepted sink-write PCM through
@@ -31,6 +31,15 @@ and PID/start/session guards. It never sends source names or code. The current
 shared feature contract is **version 2**, with a real client file-bundle picker
 flow; these history/URL foundations still do not implement that full area. See
 [the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
+
+The Script source now also requires `effectSourceVersion:1` when the caller
+passes `require_effects=True`. Actual native local-entity UUIDs, raw user data,
+RGB and original edit timestamps are independent of the loaded engine/require
+history. Observed UUIDs remain directly tracked outside the initial discovery
+radius; native tombstones, rather than missing name rows, establish absence.
+One new candidate-bound wrapper case preserves a stalled real source counter
+and rejects changed PID/start before another request. These are source/control
+checks; the full picker/engine/effect/journal/restart coordinator remains open.
 
 The internal `_script_file_picker(selector,directory)` now binds the shared
 ordinary file-bundle recipe to a dedicated E2E-only Qt source/input core on
@@ -70,7 +79,7 @@ URI rather than guessing the application sandbox. General cleanup still reaches
 process/session teardown, then rejects unresolved file intent. It never deletes
 files instead of stopping an active script. Four added wrapper counterexamples
 cover original roundtrip, ACK-only Stage, lost installed candidate and unresolved
-files after teardown; all **35** focused cases pass. Native filesystem C++ is
+files after teardown; all **36** focused cases pass. Native filesystem C++ is
 uncompiled; these are transport/control simulations only. See
 [the storage contract](../../native/SCRIPT_FIXTURE_STORAGE.md).
 

@@ -22,8 +22,8 @@ from self_tests.test_native_feature_observation import Boundary as NativeFeature
 from adapters.native_feature_observation import NativeFeatureObservation
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
 from adapters.recorded_preview_evidence import RecordedPreviewEvidence
-from self_tests.test_native_script_observation import Boundary as ScriptBoundary
-from adapters.native_script_observation import loaded_relative_modules, running_owned_engine
+from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, RUN as EFFECT_RUN
+from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 from self_tests.test_native_feature_observation import probe_source
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
@@ -269,6 +269,18 @@ class FeatureAdapterTests(unittest.TestCase):
             monotonic=lambda: source.clock, sleep=source.sleep))
         boundary.start(); self.addCleanup(boundary.stop)
         return source, self.adapter._script_files(SELECTOR)
+
+    def test_phone_native_effect_counters_are_actual_rows_and_process_loss_blocks_new_reads(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        source.mutate = effect_source
+        reader = self.adapter._script_execution_observer(SELECTOR)
+        first = reader.read(0, require_effects=True)
+        self.assertEqual(2, measured_effect(first, EFFECT_RUN)['ticks'])
+        second = reader.read(first['sequence'], require_effects=True)
+        self.assertEqual(measured_effect(first, EFFECT_RUN), measured_effect(second, EFFECT_RUN))
+        self.native.identity = '32:foreign-start'; before = len(source.commands)
+        with self.assertRaises(RuntimeError): reader.read(second['sequence'], require_effects=True)
+        self.assertEqual(before, len(source.commands)); self.assertEqual([], self.native.inputs)
 
     def test_phone_fixture_originals_stage_readback_and_release_through_actual_bound_factory(self):
         source, files = self.script_file_storage()
