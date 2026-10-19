@@ -8,7 +8,7 @@ the inputs used to authorize reuse.
 
 from __future__ import annotations
 
-from fnmatch import fnmatchcase
+from fnmatch import fnmatchcase, translate
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
 import hashlib
@@ -215,8 +215,13 @@ def full_tree(root: Path | str, commit: str = "HEAD") -> dict[str, dict[str, str
 
 
 def _selected_entries(tree: dict, patterns: list[str]) -> list[dict[str, str]]:
+    if not patterns:
+        return []
+    # Each stdlib translation retains its own DOTALL scope and end anchor.
+    # Match every path once without changing glob semantics or caching inputs.
+    matches = re.compile('|'.join(translate(pattern) for pattern in patterns)).match
     return [{"path": path, **tree[path]} for path in sorted(tree)
-            if any(fnmatchcase(path, pattern) for pattern in patterns)]
+            if matches(path)]
 
 
 def selected_entries(tree: dict, patterns: list[str]) -> list[dict[str, str]]:
