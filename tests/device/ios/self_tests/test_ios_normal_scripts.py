@@ -221,7 +221,7 @@ class IOSNormalScriptsTests(unittest.TestCase):
         return native,self.adapter._graphics_controls('test-only-selector',native.intent)
 
     def test_ios_graphics_actual_slider_scroll_and_uikit_toggles_restore_originals(self):
-        native,ui=self.graphics_controls();initial=native.resolution
+        native,ui=self.graphics_controls();native.flick_duration=0.3;initial=native.resolution
         ui.set_resolution(0.5);ui.set_resolution(0.8);ui.set_resolution(initial)
         ui.toggle('graphics.haze',True);ui.toggle('graphics.mirrors',True)
         ui.toggle('graphics.haze',False);ui.toggle('graphics.mirrors',False)
