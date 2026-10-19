@@ -14,7 +14,7 @@ def block(s, marker):
  a=s.index(marker); z=s.index('{',a)+1; depth=1
  while depth: depth+=(s[z]=='{')-(s[z]=='}'); z+=1
  return s[a:z]
-paths=['interface/src/scripting/RenderScriptingInterface.cpp','interface/src/scripting/RenderScriptingInterface.h','libraries/render-utils/src/RenderForwardTask.cpp','libraries/render-utils/src/RenderDeferredTask.cpp','libraries/render-utils/src/RenderViewTask.cpp','libraries/render-utils/src/RenderCommonTask.cpp','libraries/render-utils/src/RenderCommonTask.h']
+paths=['interface/src/scripting/RenderScriptingInterface.cpp','interface/src/scripting/RenderScriptingInterface.h','libraries/render-utils/src/RenderForwardTask.cpp','libraries/render-utils/src/RenderDeferredTask.cpp','libraries/render-utils/src/RenderViewTask.cpp','libraries/render-utils/src/RenderCommonTask.cpp','libraries/render-utils/src/RenderCommonTask.h','libraries/task/src/task/Config.h']
 src={p:(root/p).read_text() for p in paths}; render=src[paths[0]]
 header=src['interface/src/scripting/RenderScriptingInterface.h']
 if ('Q_PROPERTY(bool deferredRenderingAvailable READ isDeferredRenderingAvailable CONSTANT)' not in header or 'bool isDeferredRenderingAvailable() const;' not in header): raise AssertionError('Native QML capability property or declaration changed')
@@ -34,6 +34,10 @@ names={k:re.search(pattern,src[p])[1] for k,(p,pattern) in registrations.items()
 header=src['libraries/render-utils/src/RenderCommonTask.h']; names['depth']=re.search(r'MAX_MIRROR_DEPTH\s*\{\s*(\d+)',header)[1]; names['count']=re.search(r'MAX_MIRRORS_PER_LEVEL\s*\{\s*(\d+)',header)[1]
 functions='\n\n'.join(block(render,m) for m in (['void forEachRenderViewConfiguration('] if 'void forEachRenderViewConfiguration(' in render else []) + ['void recursivelyUpdateMirrorRenderMethods(', 'void recursivelyUpdateLightingModel(', 'void setAntialiasingModeForView(', 'void recursivelyUpdateAntialiasingMode('])
 cpp=(P(__file__).with_name('render-configuration-traversal.cpp')).read_text().replace('@FUNCTIONS@',functions).replace('@CAPABILITY@', block(render,'bool RenderScriptingInterface::isDeferredRenderingAvailable('))
+# Compile the actual typed getter, including its native std::string boundary.
+# A fixture-only QString overload previously hid invalid production calls.
+cpp=cpp.replace('@TYPED_CONFIG_GETTER@', block(src['libraries/task/src/task/Config.h'],
+    'template <class T> typename T::Config* getConfig('))
 for k,v in names.items(): cpp=cpp.replace('@'+k.upper()+'@',v)
 with tempfile.TemporaryDirectory(prefix='overte-pico-render-traversal-') as t:
  p=P(t); (p/'probe.cpp').write_text(cpp)
