@@ -478,7 +478,7 @@ class FixtureState:
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None
                      and command.get("operation") in {"prepare", "restore"})
-        elif action in {"native-crash", "native-ui-snapshot", "native-geometry-snapshot", "native-probe-snapshot"}:
+        elif action in {"native-crash", "native-ui-snapshot", "native-geometry-snapshot", "native-probe-snapshot", "feature-native-observe"}:
             valid = (set(command) == {"schemaVersion", "commandId", "action"}
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None)

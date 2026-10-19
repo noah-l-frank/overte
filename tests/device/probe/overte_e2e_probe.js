@@ -99,6 +99,17 @@
     var normalFeatureInstance = String(Uuid.generate()).replace(/[{}-]/g, "").toLowerCase();
     var normalFeatureSequence = 0;
     var lastNormalFeatureRequest = "";
+    var lastNativeFeatureRequest = "";
+    function saveNativeFeatureObservation(requestId) {
+        var value = {schemaVersion: 1, requestId: requestId, available: false};
+        try {
+            if (typeof Test.featureNativeObservation === "function") {
+                var native = Test.featureNativeObservation(requestId);
+                if (native && native.requestId === requestId) { value = native; }
+            }
+        } catch (_nativeFeatureReadError) { /* An unavailable native read is not success. */ }
+        Test.saveObject(value, "feature-native-observation.json");
+    }
     function saveNormalFeatureObservation(now, sequence, includeEntities, requestId) {
         var observation = {schemaVersion: 1, instance: normalFeatureInstance,
             sampleSequence: sequence, sampleEpochMs: now, complete: false, scripts: []};
@@ -884,6 +895,16 @@
     function applyClientCommand(command) {
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                && command.action === "feature-native-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId !== lastNativeFeatureRequest) {
+                saveNativeFeatureObservation(command.commandId);
+                lastNativeFeatureRequest = String(command.commandId);
+            }
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
                 && command.action === "normal-feature-observe"
                 && typeof command.includeAvatarEntities === "boolean"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "includeAvatarEntities"])) {
@@ -1141,7 +1162,7 @@
     }
 
     function applyAndroidControlCommand(command) {
-        if (command && command.action === "normal-feature-observe") {
+        if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse only the closed read-only path.
             applyClientCommand(command);
