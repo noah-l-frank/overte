@@ -40,6 +40,11 @@ replayed after an uncertain mutation. Field readback verifies text delivery;
 the independent common journey still verifies execution/companion effects.
 
 The shared `NormalScriptManager` continues owning private intent and cleanup.
+Candidate-bound Phone/Pico flows retain the exact original candidate context.
+An explicit internal `component_only=True` constructor permits iOS's existing
+`NATIVE_UI_COMPONENT_ONLY` scope with native session/process/fingerprint fields,
+without inventing source/artifact hashes. That private state cannot be adopted
+by a candidate-bound flow; the canonical iOS installed-code gate is unchanged.
 An ignored Stop or changed candidate/process retains unresolved source intent;
 force-stopping the app does not establish removal from persisted running scripts.
 Host boundary simulations verify these rules, not native compilation, Qt/VR
