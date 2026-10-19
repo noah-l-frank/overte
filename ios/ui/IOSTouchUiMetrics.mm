@@ -1151,6 +1151,14 @@ void setIOSGraphicsUiContextReader(std::function<overte::e2e::GraphicsUiContext(
 #endif
 
 #if defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap performIOSPrivateLoginInput(const QVariantMap& input,const QString& origin) {
+    if (!NSThread.isMainThread || !qApp || QThread::currentThread()!=qApp->thread()
+            || UIApplication.sharedApplication.applicationState!=UIApplicationStateActive) { return {}; }
+    auto window=activeWindow();
+    if (window==nil || !window.isKeyWindow) { return {}; }
+    refreshNormalUiInput();
+    return normalUiInput().privateLoginEdit(QJsonObject::fromVariantMap(input),origin).toVariantMap();
+}
 void setIOSLoginUiContextReader(std::function<overte::e2e::LoginUiContext()> reader) {
     if (qApp && NSThread.isMainThread && QThread::currentThread()==qApp->thread()
             && QCoreApplication::arguments().contains("--testScript")) {

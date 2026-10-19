@@ -170,6 +170,22 @@ class IOSAdapter(AppiumAdapter):
         owner=WorldRenderOwner(self.world_render_store(selector),manager.binding,observer.guard,component_only=True)
         return observer.world_render_capture(owner)
 
+    def private_login_input_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('private-login-input-owner.json'))
+
+    def _private_login_input(self,selector,run):
+        from adapters.private_login_input import PrivateLoginInput
+        from ios.adapters.private_login_transport import IOSPrivateLoginTransport
+        manager=self._scripts(selector);native=manager.ui.io.native
+        observer=FeatureObservation(native.client,native.session,native.target,native.observe_process)
+        return PrivateLoginInput(IOSPrivateLoginTransport(observer),self.private_login_input_store(selector),manager.binding,run)
+
+    def _login_controls(self,selector,intent,run,origin):
+        from adapters.token_login_ui import TokenLoginUI
+        from ios.adapters.normal_login import IOSLoginIO
+        manager=self._scripts(selector)
+        return TokenLoginUI(IOSLoginIO(manager.ui.io,self._private_login_input(selector,run)),intent,run,origin)
+
     def _audio_controls(self, selector, intent):
         from adapters.token_audio_ui import TokenAudioUI
         from ios.adapters.normal_audio import IOSAudioIO
@@ -182,6 +198,11 @@ class IOSAdapter(AppiumAdapter):
         return TokenScriptFilePicker(manager.ui.io, directory)
 
     def cleanup(self, selector):
+        private_error=False
+        try:
+            owned=self.private_login_input_store(selector).read()
+            if owned is not None:self._private_login_input(selector,owned['runId']).retire()
+        except Exception:private_error=True
         probe_error=False
         try:
             if self.account_probe_store(selector).read() is not None:self._account_probe(selector).release()
@@ -204,7 +225,8 @@ class IOSAdapter(AppiumAdapter):
         # The canonical installed-code gate still rejects _scripts(). Always
         # reach original native/session teardown and retain unresolved sources.
         result = super().cleanup(selector)
-        need(not script_error and not probe_error and not origin_error and store.read() is None
+        need(not script_error and not private_error and not probe_error and not origin_error and store.read() is None
+             and self.private_login_input_store(selector).read() is None
              and self.script_files_store(selector).read() is None and self.account_probe_store(selector).read() is None
              and self.account_origin_store(selector).read() is None)
         return result

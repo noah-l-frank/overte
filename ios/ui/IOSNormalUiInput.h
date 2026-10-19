@@ -24,6 +24,7 @@ public:
     NormalUiInput();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     void setAudioReader(std::function<overte::e2e::AudioUiContext()> reader) { _audioReader = std::move(reader); }
+    QJsonObject privateLoginEdit(const QJsonObject& command,const QString& origin);
     void setLoginReader(std::function<overte::e2e::LoginUiContext()> reader) { _loginReader = std::move(reader); }
     void setGraphicsReader(std::function<overte::e2e::GraphicsUiContext()> reader) { _graphicsReader = std::move(reader); }
 #endif

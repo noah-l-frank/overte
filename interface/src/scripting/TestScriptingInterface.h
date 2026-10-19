@@ -20,7 +20,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QSet>
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class PrivateLoginInput; }
 #endif
 
 class AudioInjector;
@@ -175,6 +175,9 @@ public slots:
     // Read actual native accessibility widgets without traversing Qt's AX tree.
     Q_INVOKABLE QVariantMap iosNativeUiSnapshot();
     Q_INVOKABLE bool iosNormalUiRequest(const QVariantMap& command);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    Q_INVOKABLE QVariantMap iosPrivateLoginInput(const QVariantMap& command);
+#endif
     Q_INVOKABLE bool iosSnapshotFilesRequest(const QVariantMap& command);
     Q_INVOKABLE bool iosTextTest(const QVariantMap& command);
     Q_INVOKABLE bool iosEntityScriptConsentTest(const QVariantMap& command);
@@ -222,6 +225,7 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::FeatureLifecycle* _featureLifecycle {nullptr};
     overte::e2e::AccountOriginLease* _featureAccountOriginLease {nullptr};
+    QSharedPointer<overte::e2e::PrivateLoginInput> _privateLoginInput;
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
     QString _featurePendingRequest;

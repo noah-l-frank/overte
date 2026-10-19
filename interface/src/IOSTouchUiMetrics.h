@@ -74,6 +74,7 @@ QVariantMap performIOSNormalUiRequest(const QVariantMap& command);
 #include <functional>
 namespace overte::e2e { struct AudioUiContext; struct GraphicsUiContext; struct LoginUiContext; }
 // Source supplier is installed only by the explicit private E2E launch owner.
+QVariantMap performIOSPrivateLoginInput(const QVariantMap& input,const QString& origin);
 void setIOSLoginUiContextReader(std::function<overte::e2e::LoginUiContext()> reader);
 void setIOSAudioUiContextReader(std::function<overte::e2e::AudioUiContext()> reader);
 void setIOSGraphicsUiContextReader(std::function<overte::e2e::GraphicsUiContext()> reader);

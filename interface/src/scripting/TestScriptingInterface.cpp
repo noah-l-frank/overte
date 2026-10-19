@@ -63,6 +63,7 @@
 #include "../../../tests/device/native/NormalAudioControls.h"
 #include "../../../tests/device/native/NormalGraphicsControls.h"
 #include "../../../tests/device/native/NormalLoginControls.h"
+#include "../../../tests/device/native/PrivateLoginInput.h"
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
 #include "../../../tests/device/native/PrivateAccountOrigin.h"
@@ -185,6 +186,28 @@ QVariantMap TestScriptingInterface::iosNativeUiSnapshot() {
     saveObject(diagnostic, "ios-native-ui-diagnostic.json");
     return result;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap TestScriptingInterface::iosPrivateLoginInput(const QVariantMap& command) {
+    if (!qApp) { return {}; }
+    QVariantMap result;const QPointer<TestScriptingInterface> owner(this);
+    const auto request=[&] {
+        if (!owner || owner->_testResultsLocation.isEmpty() || !owner->_featureLifecycle
+                || owner->_featureLifecycle->snapshot().isEmpty()
+                || !QCoreApplication::arguments().contains("--testScript")) { return; }
+        if (!owner->_privateLoginInput) { owner->_privateLoginInput=QSharedPointer<overte::e2e::PrivateLoginInput>::create(); }
+        const auto perform=[](const QJsonObject& input,const QString& origin) {
+            return QJsonObject::fromVariantMap(performIOSPrivateLoginInput(input.toVariantMap(),origin));
+        };
+        result=owner->_privateLoginInput->request(owner->_testResultsLocation,QJsonObject::fromVariantMap(command),perform).toVariantMap();
+    };
+    // Private bytes stay entirely in native code, on the actual GUI owner.
+    // Only this closed metadata receipt returns through the script/HTTP channel.
+    if (QThread::currentThread()==qApp->thread()) { request(); }
+    else if (!QMetaObject::invokeMethod(qApp,request,Qt::BlockingQueuedConnection)) { return {}; }
+    return result;
+}
+#endif
 
 bool TestScriptingInterface::iosNormalUiRequest(const QVariantMap& command) {
     const QString directory = _testResultsLocation;

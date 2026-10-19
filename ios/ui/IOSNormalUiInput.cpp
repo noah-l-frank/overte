@@ -464,6 +464,42 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     return result;
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QJsonObject NormalUiInput::privateLoginEdit(const QJsonObject& command,const QString& origin) {
+    if (!guiThread()) { return {}; }
+    QJsonObject result{{"schemaVersion",1},{"commandId",command.value("commandId")},{"instance",_instance},
+        {"sequence",command.value("sequence")},{"performed",false},
+        {"processId",static_cast<double>(QCoreApplication::applicationPid())},
+        {"sampleEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())}};
+    const auto keys=command.keys();qint64 sequence{0},observed{0};
+    const QSet<QString> expected{"schemaVersion","commandId","instance","sequence","observedElapsedMs","fieldToken","operation","text"};
+    const auto id=command.value("commandId").toString();
+    if (QSet<QString>(keys.begin(),keys.end())!=expected || command.value("schemaVersion")!=QJsonValue(1)
+            || command.value("instance")!=QJsonValue(_instance) || command.value("operation")!=QJsonValue("replace")
+            || QUuid(id).isNull() || QUuid(id).toString(QUuid::WithoutBraces)!=id
+            || !integer(command.value("sequence"),sequence) || sequence!=_sequence+1
+            || !integer(command.value("observedElapsedMs"),observed) || observed>_clock.elapsed() || _clock.elapsed()-observed>5000
+            || !command.value("text").isString() || !overte::e2e::validLoginText(command.value("text").toString())
+            || !overte::e2e::accountOriginText(origin)) { return result; }
+    _sequence=sequence; // Consume intent before uncertain GUI input.
+    const auto token=command.value("fieldToken").toString();QString controlId;
+    QQuickItem* target=item("login.username",token);
+    if (target) { controlId="login.username"; }
+    else { target=item("login.password",token);controlId="login.password"; }
+    if (!target || !enabled(target)) { return result; }
+    const auto context=_loginReader ? _loginReader() : overte::e2e::LoginUiContext();
+    QJsonObject row;overte::e2e::appendLoginControlObservation(row,target,controlId,context);
+    if (!context.valid || !row.value("inputReady").toBool()
+            || (context.endpoint!=overte::e2e::loginEndpointDigest(origin) && context.endpoint!=overte::e2e::loginEndpointDigest(origin+'/'))
+            || overte::e2e::loginControlSource(target,controlId,context)!=_controls.value(controlId).source
+            || !overte::e2e::NormalControlUi::ownsPoint(target,target->window(),
+                target->mapToScene(QPointF(target->width()/2,target->height()/2)))) { return result; }
+    result["performed"]=overte::ui::replaceFocusedField(target,target->window(),command.value("text").toString());
+    result["sampleEpochMs"]=static_cast<double>(QDateTime::currentMSecsSinceEpoch());
+    return result;
+}
+#endif
+
 bool NormalUiInput::validRequest(const QJsonObject& command) {
     const auto operation = command.value("operation").toString();
     QSet<QString> expected { "schemaVersion", "commandId", "action", "operation" };

@@ -322,3 +322,26 @@ component cases and **282** guarded broad iOS cases with zero failures/errors/
 skips/compiler attempts and the same 20 native exclusions. Actual Qt/UIKit
 source is uncompiled and no device was accessed. The canonical installed-code
 association remains unavailable. See [the exact partial boundary](../../ios/adapters/NORMAL_LOGIN.md).
+
+## Private credential input continuation
+
+`_private_login_input` and `_login_controls` now connect private lease v2 to the
+existing component-only native UI/session scope. Credentials use original
+app-private AFC files; HTTP/script commands contain only closed metadata. The
+native GUI callback uses real focused IME input with actual account/submission
+origin, token/sequence, hit point and active UIKit checks. An uncertain upload
+must complete its serialized private read fence before file/FD retirement.
+Adapter-wide cleanup drains this scope before probes/origin/base teardown and
+retains unresolved ownership on failure. The canonical installed-code gate
+explicitly rejects both factories. Full Authentication coordination/independent
+actors remain open and devices are untested.
+
+Twelve new wrapper cases pass with real local originals/FDs and synthetic native
+Qt/AFC execution. An earlier broad run exposed a module-name collision on the
+legacy utility import path; naming the platform module private_login_transport
+fixes it, and all 17 extended-adapter cases pass. Native source/driver semantics
+remain uncompiled/unqualified. See [the complete private boundary](../../ios/adapters/NORMAL_LOGIN.md).
+
+The completed guarded iOS selection passes **294** cases, with zero failures,
+errors, skips or compiler attempts. The same 20 compiler-dependent native cases
+remain explicitly excluded; no native source or physical behavior was qualified.
