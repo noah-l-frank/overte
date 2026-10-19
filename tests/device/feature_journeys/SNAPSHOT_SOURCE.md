@@ -77,3 +77,11 @@ must also independently witness actual pending state, review/system sheets,
 backend/permission and errors, with original artifact provenance for each sink.
 Existing `snapshot-output-parity` remains the owner of still/animated/panorama/
 cubemap decoding; extend it rather than creating a parallel output runner.
+
+The existing ten `tests/javascript/test/snapshot.production.test.js` cases are
+now registered in the common control-plane selection through
+`test_snapshot_source_semantics.py`. They run the original script on explicit
+synthetic native/timer seams: normal modes/preferences/readiness, pre-render
+cancellation, old callback rejection, GIF review, upload cancellation/errors and
+shutdown. They do not execute renderer, OS export services or a full feature
+scenario, and do not correct the v8 common draft by themselves.
