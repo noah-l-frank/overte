@@ -35,6 +35,20 @@ def historical_workflow_bytes():
         if actual != oid:
             raise ValueError("historical workflow fixture whole hash differs")
         result[oid] = raw
+    # Preserve deployed25 independently of active26 and shallow Git history.
+    # This is the exact finite Boolean edit to the already frozen22 recipe.
+    original = result['81bcf1933edc435826e2de411a777cccd4dec7c7']
+    lines = [line for line in original.splitlines(keepends=True)
+             if b'nonproducer_intent: ${{ ' in line]
+    if len(lines) != 1:
+        raise ValueError('historical Boolean input is not unique')
+    old = lines[0]
+    new = old.replace(b'${{ ', b'${{ !(!(', 1).replace(b' }}', b')) }}', 1)
+    raw = original.replace(old, new, 1)
+    oid = '15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'
+    if hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() != oid:
+        raise ValueError('historical Boolean workflow fixture whole hash differs')
+    result[oid] = raw
     return result
 
 
@@ -86,6 +100,7 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         # Immutable historical fixtures must survive later template edits and
         # remain available in shallow source snapshots without Git history.
         for oid in ('93f35c99ec6580b8796420997b1dcc586b7bfd95',
+                    '15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a',
                     '861db7b76a11b9b8772e91cb24ec7cb9d918e339',
                     '6684e18785719813c51f9e3f5481a82ca40f0baf',
                     '84d98cac819755f98eecffba847e0bbcf667a6ca',
