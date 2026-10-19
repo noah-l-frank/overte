@@ -585,13 +585,17 @@ def _compiler_comparison(snapshot, inputs, *, guide=False):
                      and (guide or entry.path != "docs/ios/SIGNING_AND_DEVICE_TESTS.md")
                      else inputs.Entry(entry.path, entry.mode, entry.object_type, entry.oid)
                      for entry in snapshot.entries)
-    return inputs.Snapshot(snapshot.revision, snapshot.tree, replaced)
+    comparison = inputs.Snapshot(snapshot.revision, snapshot.tree, replaced)
+    return inputs.routing_data_comparison(comparison) or comparison
 
 
 def compiler_data_selection(previous, current, head, *, policy_root=ROOT):
     """Exact reviewed cache transition/continuation; no product result authority."""
     inputs = selector(policy_root)
     snapshots = (previous, current, head)
+    routing = [inputs.routing_data_changes(previous, snapshot) for snapshot in snapshots[1:]]
+    if any(paths is None for paths in routing) or inputs.routing_data_stage(current) != inputs.routing_data_stage(head):
+        return None
     if any(entry.mode not in {"100644", "100755"} or entry.object_type != "blob"
            for snapshot in snapshots for entry in snapshot.entries):
         return None
@@ -607,7 +611,7 @@ def compiler_data_selection(previous, current, head, *, policy_root=ROOT):
         and _compiler_profile(previous, COMPILER_DATA_ORIGINAL)
         and all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_DATA_UPDATED)
                 for tree, snapshot in zip(observed[1:], snapshots[1:]))
-        and all(paths == set(COMPILER_DATA_ORIGINAL) for paths in changed))
+        and all(paths == set(COMPILER_DATA_ORIGINAL) | extra for paths, extra in zip(changed, routing)))
     continuation = (all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_DATA_UPDATED, guide=False)
                         for tree, snapshot in zip(observed, snapshots))
         and all(paths for paths in changed)
@@ -629,6 +633,9 @@ def compiler_pr_data_selection(previous, current, head, *, policy_root=ROOT):
     """Exact reviewed cache transition/continuation; no product result authority."""
     inputs = selector(policy_root)
     snapshots = (previous, current, head)
+    routing = [inputs.routing_data_changes(previous, snapshot) for snapshot in snapshots[1:]]
+    if any(paths is None for paths in routing) or inputs.routing_data_stage(current) != inputs.routing_data_stage(head):
+        return None
     if any(entry.mode not in {"100644", "100755"} or entry.object_type != "blob"
            for snapshot in snapshots for entry in snapshot.entries):
         return None
@@ -647,7 +654,7 @@ def compiler_pr_data_selection(previous, current, head, *, policy_root=ROOT):
     transition = ((original_base or installed_v3_base)
         and all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_PR_DATA_UPDATED)
                 for tree, snapshot in zip(observed[1:], snapshots[1:]))
-        and all(paths == set(COMPILER_DATA_ORIGINAL) for paths in changed))
+        and all(paths == set(COMPILER_DATA_ORIGINAL) | extra for paths, extra in zip(changed, routing)))
     continuation = (all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_PR_DATA_UPDATED, guide=False)
                         for tree, snapshot in zip(observed, snapshots))
         and all(paths for paths in changed)

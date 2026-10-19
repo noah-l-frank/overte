@@ -23,6 +23,13 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def reviewed_routing_sources():
+    spec = importlib.util.spec_from_file_location("ios_routing_source_fixture", ROOT / "tests/ios-input-selection-test.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.reviewed_routing_sources()
+
+
 REVIEWED_ANDROID_CI_PATHS = (
     ".github/workflows/android-required.yml",
     ".github/android-owner-transfer.json",
@@ -1070,6 +1077,70 @@ class HostGenerationTests(unittest.TestCase):
         replacement.start()
         self.addCleanup(replacement.stop)
         return base, v3_changes, changes
+
+    def routing_compiler_fixture(self):
+        base,v3,updated=self.compiler_pr_input_fixture()
+        sources=reviewed_routing_sources()
+        base=self.commit(base,{path:bodies[0] for path,bodies in sources.items()})
+        inputs=self.host.selector(self.trusted)
+        before=inputs.read_snapshot(self.root,base)
+        leaf=self.trusted/"tools/ios-build-qualification/inputs.py"
+        leaf.write_text(leaf.read_text().replace(inputs.REVIEWED_BOUNDARY,inputs.review_boundary(self.root,base)["boundary"]))
+        replacement=patch.object(self.host,"REVIEWED_CI_HOST_BOUNDARY",self.host.ci_host_boundary(before))
+        replacement.start();self.addCleanup(replacement.stop)
+        return base,v3,updated,sources
+
+    def test_reviewed_routing_parent_child_and_mixed_cache_transitions_keep_one_own_host_no_app(self):
+        base,v3,updated,sources=self.routing_compiler_fixture()
+        topology,bootstrap=sources
+        for label,previous in (("original",base),("v3",self.commit(base,v3)),
+                ("protected-pr",self.commit(base,updated))):
+            event,source=self.candidate({topology:sources[topology][1]},base=previous)
+            output=self.route(event,source)
+            with self.subTest(profile=label,transition="topology"):
+                self.assertEqual((output["required"],output["host_required"]),("false","true"))
+                self.assertEqual(self.verify(output,event,source),output)
+            parent=self.commit(previous,{topology:sources[topology][1]})
+            event,source=self.candidate({bootstrap:sources[bootstrap][1]},base=parent)
+            output=self.route(event,source)
+            with self.subTest(profile=label,transition="bootstrap"):
+                self.assertEqual((output["required"],output["host_required"]),("false","true"))
+                self.assertEqual(self.verify(output,event,source),output)
+                needs=self.needs(output);needs["host"]["result"]="skipped"
+                with self.assertRaises(ValueError):self.verify(output,event,source,required=needs)
+        parent=self.commit(base,{topology:sources[topology][1]})
+        event,source=self.candidate({**updated,bootstrap:sources[bootstrap][1]},base=parent)
+        output=self.route(event,source)
+        self.assertEqual((output["required"],output["host_required"]),("false","true"))
+        self.assertEqual(self.verify(output,event,source),output)
+        # Once both exact data and cache profiles are installed, ordinary CI
+        # retains its existing independent host omission and actual identities.
+        installed=self.commit(parent,{**updated,bootstrap:sources[bootstrap][1]})
+        event,source=self.candidate({"tools/test-evidence/source-admission-test.py":"# Independent CI update\n"},base=installed)
+        output=self.route(event,source)
+        self.assertEqual((output["required"],output["host_required"]),("false","false"))
+        self.assertEqual(self.verify(output,event,source),output)
+        manual={"repository":{"full_name":CHECK.REPOSITORY,"id":CHECK.REPOSITORY_ID},"ref":"apple-ios"}
+        self.assertEqual((self.route(manual,source)["required"],self.route(manual,source)["host_required"]),("true","true"))
+
+    def test_reviewed_routing_keeps_unknown_rollback_mixed_core_and_native_readers_required(self):
+        base,_,updated,sources=self.routing_compiler_fixture();topology,bootstrap=sources
+        parent=self.commit(base,{topology:sources[topology][1]})
+        installed=self.commit(parent,{**updated,bootstrap:sources[bootstrap][1]})
+        for previous,changes in ((base,{bootstrap:sources[bootstrap][1]}),
+                (base,{**updated,topology:sources[topology][1],bootstrap:sources[bootstrap][1]}),
+                (installed,{bootstrap:sources[bootstrap][0]}),
+                (installed,{topology:"# Unknown routing data\n"}),
+                (installed,{bootstrap:("100755",sources[bootstrap][1])}),
+                (installed,{bootstrap:None}),
+                (parent,{**updated,bootstrap:sources[bootstrap][1],"CMakeLists.txt":"file(READ .github/workflows/ios-bootstrap.yml INPUT)\n"}),
+                (installed,{"ios/ci/new-native-reader.hpp":"# Unreviewed reader\n"})):
+            with self.subTest(previous=previous,paths=sorted(changes)):
+                event,source=self.candidate(changes,base=previous)
+                output=self.route(event,source)
+                self.assertEqual((output["required"],output["host_required"]),("true","true"))
+        event,source=self.candidate({".github/workflows/ios-qt-source.yml":"# Unknown core source\n"},base=installed)
+        with self.assertRaises(ValueError):self.route(event,source)
 
     def test_protected_pr_registration_is_additive_exact_six_and_cannot_change_old_tuples(self):
         approved = self.host.generations()

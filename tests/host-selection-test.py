@@ -22,6 +22,13 @@ HOST = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(HOST)
 
 
+def reviewed_routing_sources():
+    spec = importlib.util.spec_from_file_location("ios_routing_source_fixture", ROOT / "tests/ios-input-selection-test.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.reviewed_routing_sources()
+
+
 def historical_workflows():
     # Exact reviewed source20/21 bytes; independent of active22 and shallow Git.
     result = {}
@@ -1786,7 +1793,7 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         self.assertFalse(HOST.inputs.installed_compiler_profile(HOST.inputs.INSTALLED_COMPILER_PROFILE,target='main'))
 
     @contextlib.contextmanager
-    def transition_profiles(self):
+    def transition_profiles(self, *, routing=False):
         """Real small Git trees; no historical iOS objects or product execution."""
         package=HOST.package_policy()
         source=HOST.inputs.full_tree(ROOT,'HEAD')
@@ -1810,6 +1817,8 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
                 return git('rev-parse','HEAD'),HOST.inputs.full_tree(root,'HEAD')
             git('init','-q','--initial-branch=main')
             for path in required:write(path,(ROOT/path).read_bytes())
+            if routing:
+                for path,bodies in reviewed_routing_sources().items():write(path,bodies[0].encode())
             write('.github/workflows/ios-build-qualification.yml',
                   (ROOT/'tools/ios-build-qualification/host-workflow.yml').read_bytes())
             shared=(json.dumps({'schema':1,'platform':'shared','suites':[]},indent=2)+'\n').encode()
@@ -1833,6 +1842,59 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
                   patch.object(HOST.inputs,'INSTALLED_COMPILER_PROFILE',profile),
                   patch.object(HOST.inputs,'INSTALLED_COMPILER_READER',HOST.inputs.device_reader_digest(new,independent))):
                 yield root,old,new,registry
+
+    def test_exact_routing_data_and_installed_continuation_keep_raw_inputs_and_ci37(self):
+        sources=reviewed_routing_sources();topology,bootstrap=sources
+        ordinary=lambda text:{"mode":"100644","type":"blob","sha":hashlib.sha1(b"blob "+str(len(text.encode())).encode()+b"\0"+text.encode()).hexdigest()}
+        with self.transition_profiles(routing=True) as (root,old,new,registry):
+            def select(base,current,target="apple-ios"):
+                paths=sorted(p for p in base.keys()|current.keys() if base.get(p)!=current.get(p))
+                regular=all(e is None or e["mode"]=="100644"and e["type"]=="blob"for p in paths for e in(base.get(p),current.get(p)))
+                return HOST.select(current,paths,regular,base_tree=base,trusted_tree=old,
+                    candidate_root=root,trusted_root=root,target=target)
+            for family in (old,new):
+                parent=copy_git_tree(family);parent[topology]=ordinary(sources[topology][1])
+                child=copy_git_tree(parent);child[bootstrap]=ordinary(sources[bootstrap][1])
+                for before,current in ((family,parent),(parent,child)):
+                    raw=deepcopy((before,current));result=select(before,current)
+                    self.assertEqual(len(result["suites"]),37);self.assertFalse(result["full_host"])
+                    self.assertFalse(result["include_platform"]);self.assertEqual((before,current),raw)
+                later=copy_git_tree(child);later["tools/branch-cleanup/cleanup.py"]={"mode":"100644","type":"blob","sha":"a"*40}
+                result=select(child,later);self.assertEqual(len(result["suites"]),37)
+                self.assertFalse(result["full_host"]);self.assertNotIn("device-control-plane-full",result["suites"])
+            parent=copy_git_tree(old);parent[topology]=ordinary(sources[topology][1])
+            mixed=copy_git_tree(new);mixed[topology]=ordinary(sources[topology][1]);mixed[bootstrap]=ordinary(sources[bootstrap][1])
+            result=select(parent,mixed);self.assertEqual(len(result["suites"]),37);self.assertFalse(result["full_host"])
+            # Parent topology belongs to apple-main, never an IOS-only bypass.
+            with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{"apple-main":HOST.program_digest(old,root)}):
+                result=select(old,parent,"apple-main");self.assertEqual(len(result["suites"]),37)
+                self.assertFalse(result["full_host"]);self.assertFalse(result["include_platform"])
+            self.assertNotEqual(HOST.program_digest(parent,root),HOST.program_digest(old,root))
+
+    def test_routing_comparison_rejects_unknown_modes_rollback_wrong_target_and_reader_drift(self):
+        sources=reviewed_routing_sources();topology,bootstrap=sources
+        ordinary=lambda text:{"mode":"100644","type":"blob","sha":hashlib.sha1(b"blob "+str(len(text.encode())).encode()+b"\0"+text.encode()).hexdigest()}
+        with self.transition_profiles(routing=True) as (root,old,new,registry):
+            parent=copy_git_tree(old);parent[topology]=ordinary(sources[topology][1])
+            child=copy_git_tree(parent);child[bootstrap]=ordinary(sources[bootstrap][1])
+            for label in ("bootstrap-first","unknown","missing","mode","rollback","reader","cache","target","mixed"):
+                before,current=copy_git_tree(parent),copy_git_tree(child);target="apple-ios"
+                if label=="bootstrap-first":before=copy_git_tree(old)
+                elif label=="unknown":current[bootstrap]["sha"]="a"*40
+                elif label=="missing":del current[topology]
+                elif label=="mode":current[bootstrap]["mode"]="100755"
+                elif label=="rollback":before,current=current,before
+                elif label=="reader":current["ios/new-native-reader.hpp"]={"mode":"100644","type":"blob","sha":"b"*40}
+                elif label=="cache":current["ios/ci/qt-checkpoint-artifact.py"]["sha"]="c"*40
+                elif label=="target":target="android-main"
+                else:current[topology]=ordinary(sources[topology][0])
+                paths=sorted(p for p in before.keys()|current.keys() if before.get(p)!=current.get(p))
+                with self.subTest(change=label):
+                    result=HOST.select(current,paths,True,base_tree=before,trusted_tree=old,
+                        candidate_root=root,trusted_root=root,target=target)
+                    self.assertTrue(result["full_host"]);self.assertTrue(result["include_platform"])
+            leaf=root/"tools/ios-build-qualification/inputs.py";leaf.write_text(leaf.read_text()+"\n# Unauthenticated physical policy\n")
+            self.assertIsNone(HOST._ios_routing_views(child,parent,old,root,"apple-ios"))
 
     def test_exact_cache_installation_selects_only_ci37_without_changing_raw_readers(self):
         with self.transition_profiles() as (root,old,new,registry):

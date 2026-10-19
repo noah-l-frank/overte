@@ -646,8 +646,14 @@ class ShippingPolicyTests(unittest.TestCase):
             candidate['tools/test-evidence/'+name]=blob(('changed '+name).encode())
         target,trusted=self.target_context(root,raw,base)
         native=json.loads(raw)['suites']['device-control-plane-full']
-        self.assertEqual(inputs.device_reader_digest(base,native['native_independent_paths']),
-                         json.loads(raw)['targets'][target]['reader_digest'])
+        # The installed compiler-data family has a separate complete raw
+        # reader certificate; retain the original target certificate as well.
+        reader=inputs.device_reader_digest(base,native['native_independent_paths'])
+        if inputs.installed_compiler_profile(base,target=target):
+            self.assertEqual(target,'apple-ios')
+            self.assertEqual(reader,inputs.INSTALLED_COMPILER_READER)
+        else:
+            self.assertEqual(reader,json.loads(raw)['targets'][target]['reader_digest'])
         plan=inputs.plan_affected(registry,raw,base,candidate,trusted,target=target)
         self.assertIn('device-control-plane-full',plan['omitted'])
         self.assertLess(len(plan['required']),60)

@@ -394,6 +394,48 @@ def regular_ci_inventory(plan, base_tree, candidate_tree):
         candidate_tree, base_tree, plan.get('paths', ()), package_owned_paths(plan))
 
 
+
+def _ios_routing_views(tree, base_tree, trusted_tree, trusted_root, target):
+    """Exact protected routing-data comparisons, never candidate code or E."""
+    if target not in {"apple-main", "apple-ios"} or not all(type(value) is dict
+            for value in (tree, base_tree, trusted_tree)):
+        return None
+    try:
+        path = Path(trusted_root) / "tools/ios-build-qualification/inputs.py"
+        if any(part.is_symlink() for part in (path, *path.parents)):
+            return None
+        raw = path.read_bytes()
+        entry = {"mode": "100644", "type": "blob", "sha": hashlib.sha1(
+            b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()}
+        if trusted_tree.get("tools/ios-build-qualification/inputs.py") != entry:
+            return None
+        spec = importlib.util.spec_from_file_location("host_protected_ios_routing", path)
+        policy = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = policy
+        spec.loader.exec_module(policy)
+        snapshots = []
+        for value in (base_tree, tree):
+            inputs._validate_tree(value)
+            if any(item["mode"] not in {"100644", "100755"} or item["type"] != "blob"
+                   for item in value.values()):
+                return None
+            snapshots.append(policy.Snapshot("", "", tuple(policy.Entry(
+                name, item["mode"], item["type"], item["sha"]) for name, item in sorted(value.items()))))
+        stages = [policy.routing_data_stage(snapshot) for snapshot in snapshots]
+        if None in stages or stages == [0, 0] or target == "apple-main" and 2 in stages:
+            return None
+        changed = policy.routing_data_changes(*snapshots)
+        if changed is None:
+            return None
+        comparisons = [policy.routing_data_comparison(snapshot) for snapshot in snapshots]
+        return {"paths": changed, "base": {entry.path: {"mode": entry.mode,
+                    "type": entry.object_type, "sha": entry.oid} for entry in comparisons[0].entries},
+                "candidate": {entry.path: {"mode": entry.mode, "type": entry.object_type,
+                    "sha": entry.oid} for entry in comparisons[1].entries}}
+    except (ValueError, OSError, KeyError, TypeError, AttributeError, ImportError):
+        return None
+
+
 def finite_ci_regularity(tree, base_tree, paths, trusted_tree, *, candidate_root=ROOT,
                          trusted_root=ROOT, target=None, unknown=False):
     """Recompute only the enrolled Android handoff or exact iOS cache transition.
@@ -409,8 +451,6 @@ def finite_ci_regularity(tree, base_tree, paths, trusted_tree, *, candidate_root
     try:
         if not paths or len(paths) != len(set(paths)) or set(paths) != {
                 path for path in base_tree.keys() | tree.keys() if base_tree.get(path) != tree.get(path)}:
-            return False
-        if target == 'apple-ios' and set(paths) != set(inputs.INSTALLED_COMPILER_PROFILE):
             return False
         for snapshot in (base_tree, tree, trusted_tree):
             inputs._validate_tree(snapshot)
@@ -433,12 +473,16 @@ def finite_ci_regularity(tree, base_tree, paths, trusted_tree, *, candidate_root
             return bool(scope) and _regular_ci_delta(tree, base_tree, paths, (), handoff_scope=scope) \
                 and program_digest(tree, candidate_root) == REVIEWED_CHILD_PROGRAMS.get(target)
         profile = inputs.INSTALLED_COMPILER_PROFILE
-        if before_generation != current_generation or set(paths) != set(profile) \
+        routing = _ios_routing_views(tree,base_tree,actual,trusted_root,target)
+        before_inputs = base_tree if routing is None else routing['base']
+        current_inputs = tree if routing is None else routing['candidate']
+        extra = set() if routing is None else routing['paths']
+        if before_generation != current_generation or set(paths) != set(profile) | extra \
                 or not inputs.installed_compiler_profile(tree, target=target) \
                 or any(base_tree.get(path, {}).get('mode') != entry['mode']
                     or base_tree[path].get('type') != 'blob' for path, entry in profile.items()) \
-                or program_digest(base_tree, candidate_root) != REVIEWED_CHILD_PROGRAMS.get(target) \
-                or program_digest(tree, candidate_root) != REVIEWED_INSTALLED_PROGRAMS.get(target):
+                or program_digest(before_inputs, candidate_root) != REVIEWED_CHILD_PROGRAMS.get(target) \
+                or program_digest(current_inputs, candidate_root) != REVIEWED_INSTALLED_PROGRAMS.get(target):
             return False
         # The independent iOS required owner must retain its protected decision
         # rules. Its exact compiler_pr_data_selection still requires own-host
@@ -466,8 +510,8 @@ def finite_ci_regularity(tree, base_tree, paths, trusted_tree, *, candidate_root
         return (all(snapshot.get('tests/platform-profile.json') == row['profile']
                 and inputs.affected_lookup_digest(snapshot) == row['lookup_digest']
                 for snapshot in (base_tree, tree))
-            and inputs.device_reader_digest(base_tree, independent) == row['reader_digest']
-            and inputs.device_reader_digest(tree, independent) == inputs.INSTALLED_COMPILER_READER)
+            and inputs.device_reader_digest(before_inputs, independent) == row['reader_digest']
+            and inputs.device_reader_digest(current_inputs, independent) == inputs.INSTALLED_COMPILER_READER)
     except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError, AttributeError,
             execution.ExecutionError):
         return False
@@ -600,10 +644,12 @@ def _select_legacy(tree, paths, regular, *, unknown=False, trusted_tree=None, ca
                 'reason': 'reviewed-ci-only-inputs', 'full_host': False, 'include_platform': False}
     handoff_scope = {} if unknown else _android_handoff_scope(
         tree, base_tree, paths, trusted_tree, trusted_root, target)
+    routing = None if unknown else _ios_routing_views(tree,base_tree,trusted_tree,trusted_root,target)
+    routing_paths = set() if routing is None else routing['paths']
     if unknown or not paths or (not regular and not _regular_ci_delta(
             tree, base_tree, paths, package_paths, handoff_scope=handoff_scope)):
         reason = 'unknown-or-nonregular-inventory'
-    elif not all(isinstance(path, str) and (ci_owned(path) or path in package_paths or path in handoff_scope)
+    elif not all(isinstance(path, str) and (ci_owned(path) or path in package_paths or path in handoff_scope or path in routing_paths)
                  for path in paths):
         reason = 'unowned-inputs'
     else:
@@ -612,7 +658,8 @@ def _select_legacy(tree, paths, regular, *, unknown=False, trusted_tree=None, ca
             # These exact foreign lock bytes are not product reader inputs.
             # Changed locks still require their separate mandatory owner and
             # ordinary entries on both sides; unchanged locks need no new run.
-            reviewed_tree = tree
+            reviewed_tree = tree if routing is None else routing['candidate']
+            reviewed_base = base_tree if routing is None else routing['base']
             if package_paths:
                 if base_tree is None or any(
                         not isinstance(snapshot.get(path), dict)
@@ -628,7 +675,10 @@ def _select_legacy(tree, paths, regular, *, unknown=False, trusted_tree=None, ca
                     inputs.installed_compiler_profile(snapshot, target=target)
                     for snapshot in (base_tree, tree)):
                 reviewed = all(program_digest(snapshot, candidate_root) == installed
-                               for snapshot in (base_tree, tree))
+                               for snapshot in (reviewed_base, reviewed_tree))
+            if routing is not None:
+                reviewed &= program_digest(reviewed_base,candidate_root) in {expected,
+                    REVIEWED_PREDECESSORS.get(target),installed}
             if trusted_tree is not None:
                 reviewed &= program_digest(trusted_tree, trusted_root) in {
                     REVIEWED_PROGRAMS, REVIEWED_PREDECESSORS['main']}

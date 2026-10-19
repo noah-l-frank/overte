@@ -2,6 +2,9 @@
 """Exercise dormant iOS input selection against actual immutable Git histories."""
 
 import importlib.util
+import base64
+import hashlib
+import zlib
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -54,6 +57,38 @@ REVIEWED_SANDBOX_CI_PATHS = (
     "tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml",
     "tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml",
 )
+
+BOOTSTRAP_SOURCE = 'c%1DU{Z|_|@^}7<shd|!u4@|-AazP!DL4%;d=;DYdbymRygO^F>`IHIHKB$3+wV!*^?vge+TQiTPgt56jpj=;BP}B#_JJM^VZynRN|0!2iL?F^zy%j)e!wrr9+eSM?o1B?P!`2X+W!F}fdT_0633I623|T2;GuK{jTGgq58vxKAPizA>6D=dk>FnJ>RE6J^QcD@0%sr<VIC14{6N*4cmg4DkA@&(#!$$Yz_@~BK_F2i_?!fbB?X?xRG`-fp9B&Y<LWZPzTRMfgyk6YNgSvmFl7p-f+%d-$+6&bDmB}45*V&M_)&p7L-#D=lqm^>c@Pp7lOVVRBNb3H%x!&kDXB{W$HO^w5e91ma07}=J?2g>xCp#4&Z&pY#T)gaxqBT40qhtqK+-S{h~mO*#U+u71%gB|M-iZuUCsi^&@KVe6^KmExRQ_0zlfQlA&y-loA$6zL#niG@kpWPP?qqONS*^{nA?)3bVokj8K*8**(5<`bKGztGu{B40)YNaqZw!DWD=~KwL&e;5U&}Fctso^Jub)?*KlmT3q^y-PGSa}1(!zik>CnlZO4gyzBY8gTBj3`38ds6Q@;@k$r%a83Q1^~KBMX`{JH`?WQvl&@df7m>NueYBP5~msxzwo0N(i=g~GAGSfV!AF>MMSgO5=_UBeXR0%YvED5W0<I+g|KP%eQeg<+(eRUP!e<xCOED4P~zNES1o-Ls~y0}o!T+;N{$3CgC`Z7%nglfiQ}o^h$hE^%i#KEun#O;M>dgCzE75)L;&qdJQ7K!PCvXLt#|2`PqoA{6zBdvE;|_&!%-%H;z&)Q8^h%9@d0N^Ben^y$Y24tHZgCIL2zaKREIA<Brjm}mGAMED78YB~Ns{6(=$l8%WW%$?yP%sQFFn30I6S#EN9=YX8yK9x##)JL_PO?0MI&EiQnO>ShDa_KB`pU!0%+zM^utb=Rlq&vG4UY1+j2|Nuljt(+rwKJ+pm~KeUu=}Ih;bBBn$Na2JQ%0MnTpmU=K+!NA5?6599iob(H`J&5bRvkjyd(6n;J={Tv~(GIgi`Ggi8q6fh?t^!_u@`aad1Xh6D0TI0A=?zW!?b~6tZ`3E1+6q!Y3|v8x1N05h!^qT$J7OFz7ygS_>qF+ub`Fj(F_OPU!(EL0#EthTWd<Se+^wblfOvgbE2|C4j)FilXdV|8<Z}DYM}77u}&59GEdJ%_iI#5$GAD<lomcK+TVA#EGeaF9;x;ou8FN!)0;ci>FV!PdlNvYyv<KjCHU;nWP4v9sRSTe|Gf0n4>R6C_*Y_T1e@n7nzcM5J<eGC6_Zd76O@TGQ2P0Ag!(?2DWrbN@-oMn(EI<3ttGihZ6V&1CPpIbcJryWkW~_MA@}j;39RA9XQt2a1wZILC?4dNnlbElqNOT>6u|w5Z9ExUz!@_B?O#JVO!@X@C%>FG~3bH5T*q{8UY|}u5^|Frh>;&A6_}O(UOl>&XeDM0~<X$0)4o?)+329+sOpZk*TrX2W)M@a;1T@3}1bf^lv)l#*Lm@&IXrP;OgoV$QQd0hPWB}RJt`at|6X<>Q7yvwl1~ODaYwgT`D^#4E^k9p73%~npw}ezSjOhn2Ui!nLd`L0;Nn7=_PG&+D9@?I=Q|a_4}C-MO;$F#iiksaWZpsK~30M*A}#f(?_r@vob^UWZ#xFd7m-0bl&&%A8~C@1ug_tX?0Kv3VJA(DErXq)*q{d{p;h@;9O8OOV?R+@RC9|<!dZwqz^fdlQUu^54Cl%0Zn#anJpj|tJM--VY0ejxkRg5wFFaH`xY8CAew}+r=;!aoGV>*RqW~EcHbyCO=tNQ>$%wk&Xr@2>RR<j0!?qtbZ&HAJNAeoeNZCCPchA<d>dH{%OSo(;hd{KMQUZ${k~pT%zYop<wD|eIkuMoef!H<+qkP58(r22s8g0thsWw+u6#Sahq(A1xqOi8-;Lu&()x5%C{=Rzlh@w^ExSN^5;HGA-A)BArX71Mbru<M2iLI1*?hr6CwCw7M>yRVcL-JgTQ2wicgj6Zs42UInOaIOX9~T9%rKLTAMRtJ3C4|iaS^6Iv;AVr@K}M)S$-2pDalX3{wz0W=+;#H;s4dLlWVHG1XYW0;gJUDpK!7(=p4oN6q!0P&SJ8}x=z+(nt4-kcDpnDWz4*>Tlm?~i-umfkIm!XdV8DHJhqXPyg+b@FDV|FP83b)&oZIH#%fKc@a!TlyXvb9xVnO65(LYM)QTIi1VzlGqc0HSNz7F2tUd4ao|_p>hR4bYDT|fnd97#0rNSuJ=V#`b(vD8*fX6Cr&7lVZZR(nUrdv-0)irq_kJWe2yl3w7HC!jeU7wH_z4aGs>mJ$Mc)r?mS6{5IZ9bcjZ+eqe_!8!uonEK6Aefg+q83T@9vANrvi3`n-xJhrajhRepsu-rw(o*$Q*uEQ**w3%;N9SGG(Oxu7&K+n3scvBC#Q$w<CDS3V1KYZ9270R+~m8uvYb{a>>Z8<Kb&lj2D=3cx$xMG`_s|M{_c42Zf|#RxHG7+mqqMsrtx~Pdvvlr9;_Ad>q2=mk>kP1@aS-Re>@s&A5>`7A0GA8j@}JUMuYLm;B+_`8~N<sGlpDUL9a;j$I<xB(Qq_=JNWsokvKuyI~vwuHN@fkTE{1Y*L#1zUkJ`ET91BX^flhzhpQYhi3%KyIYcx<pV0i{DC)!e_t1Kh8GTEiu$3qZA3nU)PheOM7XUv}1-;ymPYdhX+kveD1Q)s_iV-M-){~<5w33m`8`6=Yjkn;R1wJfHX2U5~#UNWR!Q%zgQ~-vjmOesE5>mU}+?JlS+l$MOzrpItN&&DS29Fn>l~Ets?d;~{6|BO_N}X)o8HbjI1EL_*_Z|8zT@u6eyN|^+h7M>gc=gp<RXwXs>PdHA7I-RxtE(FQ+$bLzM^Qja3a_X<=Z7u(Gx4uhZqizQZax{P=r7%e!!jkN%w-H|btV5>b-gUgqN1gRo>HtYwxFjoiTuFxdd;P}%LVVO9|9&yrI%7tzf}aE$3j2mnNa3YHkDOP*66aN&B70(*P0mGf~|kUzuxzpZ$A9(34HiaG0Pepcm=)seJ-r0>Sj4RDe_o4qW73oS_0{1UV6_60?oyWe(39AgiN1bG<RlKgIw%!AdzyWs34BaduHeSya|FP3p<zKIE*{VZ%3fZ!w{J#;aqJv6Mci>;T)o~sm`i=I)#8v=H|xROayc?4MOv;M)1%Lh#-p2v1u%MQ>JGwaN^DgV;I;)F4c^)XU-hiycFTi!(hX)cj?Z#IuC>Di2i|^aAiV=2^98z`ewQ@b<gU?Y(~ke)Xii-E_tlv?W7(3wlW|J>*-uj=JAUg$>{g6(vhfiI#;G*Cw(4xC;}>#5lHPy9wh;<;OoXw*+P#6MnoV`$phoc##9#>Rnpz#qA{KP;mvq-^mcIAhgK^;yf=Dt`hCq*#j+Et04D@v7$%i8g@k>fsPD)fWb+(K6G(SLS=Z9j<RThnj^KFI^wgY)M$TL(*__!vE;s@ViEa|LLS60{()y7`Ze1Jqo+Nww>FDI`@OXP?(7lPD7QA|u;T&&|-n1%-e9T~<viPI!07k}@ID=xfRwMZ&nEiO51JiJ%<JsZhqz~O#if%wB-E*~JByt`GnkCzHtP(H>lA&-o80k$dDCNon?PK=k<@L4RY1gIQ#bzCbN&|G{tf*%Vn20uJRxTQ539=XSkJ-O@aJS`?dOY`Qd{&C4yES|kHEyA2T&ZuLt^W_#w;7O+%AGkLMrziFUfEyXp`iXH{N3dqYNw!rv#{`eOKN*Y!sgCN&cNfY{zAiXbcpu32s0xruV6o1Sv-f&eX$Znx2$57TDJ%|$q^eT9=?l{c-pWz5=CIUqs@^sal^U6a7YyC^^2#=g0=2~4dcCLX~%vVlFb~MLUZqE`2FG`quy|d!=cUDbKkt^0+mcNPIX6YG3`i~M>p&u5|k+)mVFY^fTG;8T$wLW{>hdL;q&NpbbLCh1kimFGk3Ol_nobMTkO=C_i*pvbbotvbTZ!GK0VxdGal_74317m<KbZE=x}$~hmBtERwd-N8}c*!eKb)bnQNJ6FHd!%)wHrl$&_)as9R2ES~}F5sL?4YZgE?i>Ibf`D+)M`0#5RNqRVjoRab7s%sTvjI^SMt2t2VN=%j6c?<Sk>`o;#?++4$r$;QN=tiM37=ecX^z4d2n<oV_|-sa|uZ+snpHg1eRmSHP4bD^8<H^*$@LENHin=@LXBU7zp3q^;{y?q*>PTOMU^?^<q7x_>pP<K~#GUAa-*@w+ahDO{oGR22QqbNascs#18Hr2_Wq`8t}SR77J=m(2Am1gf6Gv(e%p;rx#lkP@#pE_07bgU0A*6RF9qsJlii{$KPdqN?&xXqkW(@8!Fb)<LpIqiDPwCk^Qt&k)j$&=^d?%PjFu`HSL8awuT0rT`ZD#te>!j0#PC)W=NaS85y@~y?{*}9LLe_6VfBcIDhJ?m4VciiRP@%9}GbNKe#<>Q~1^E(eCE)>j&oCS1JohZjGJE~)BE%>iA(m`!0HzPP#u$7{8j)|JJTQzaCmG4Z4gi+tTsow(KAZcqVooT=)?bZ$PHi?R<a7@%~6<XdzN)!qLWbMToD>^)`ew{5^!^l|k4_g_```(8dFxWB@>*$kHwhPD|ed#(@_))cyxm@>8w_36Cofkz8X+&VlO0Bz~`@WURsr8|{n+z&-oYn`ur&el2t($O&aA#D1*&Pc^@QmZ$h-3xa`T$hI>r%~E0Zx0!Lps%8C|j&i_7<uZ$(YEYNeV1iP5DBVNMg<Uq1xK|Mw>>&3V(8`P_|cAIy3y}(J4yRHoDJk%U~2_yr@OC;J1Q@0<@0FrPg$V<9GL%&pVN}-`3anM6C|ro5Zo8bK+haCO*26{dI3D$yWuP5Ow#BP6`C_ve)NS>i?a8&`5t5q(#31M1Pm;&gdNbrNt9{C9@sfR{E7j?G<ewhvj<?n>Xr+AW^kb96e?tM4g*2bocF+MgBS)vH>;k>!yBf`z;e<_0365knO{7G$Pl9V0HX+L#lmKkpAz>wM)VC56H92;hIL|G08nf&ix;1Fjng'
+TOPOLOGY_SOURCE = 'name: Apple path ownership\n\non:\n  pull_request:\n    branches:\n      - apple-ios\n\npermissions:\n  contents: read\n\njobs:\n  enforce-apple-path-ownership:\n    name: Enforce apple-main sync path\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0\n        with:\n          fetch-depth: 0\n          persist-credentials: false\n      - name: Fetch current Apple base\n        run: git fetch --no-tags origin apple-main:refs/remotes/origin/apple-main\n      - name: Load trusted parent checker\n        run: git show origin/apple-main:tests/apple-branch-topology-check.py > "$RUNNER_TEMP/apple-branch-topology-check.py"\n      - name: Validate ancestry and path ownership\n        env:\n          TARGET_BRANCH: ${{ github.base_ref }}\n        run: >-\n          python3 "$RUNNER_TEMP/apple-branch-topology-check.py"\n          --apple-main origin/apple-main\n          --head HEAD\n          --target "$TARGET_BRANCH"\n'
+
+
+def reviewed_routing_sources():
+    """Exact source data; no historical Git object or caller workflow needed."""
+    bootstrap = zlib.decompress(base64.b85decode(BOOTSTRAP_SOURCE)).decode()
+    topology = TOPOLOGY_SOURCE
+    condition = "        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.base_ref != 'apple-ios')\n"
+    updated = bootstrap
+    for label in ("Check out requested revision", "Install host concurrency regression dependencies",
+                  "Prepare isolated host evidence validators", "Run Linux preparation contracts"):
+        start = updated.index("  host-contracts:\n")
+        before = "      - name: " + label + "\n"
+        offset = updated.index(before, start) + len(before)
+        updated = updated[:offset] + condition + updated[offset:]
+    sparse = topology.replace("          fetch-depth: 0\n", "          fetch-depth: 0\n"
+        "          sparse-checkout: |\n            tests/apple-branch-topology-check.py\n"
+        "            tests/apple-branch-path-ownership.json\n          sparse-checkout-cone-mode: false\n").replace(
+        "git fetch --no-tags origin apple-main:", "git fetch --no-tags --filter=blob:none origin apple-main:")
+    result = {".github/workflows/apple-branch-topology.yml": (topology, sparse),
+              ".github/workflows/ios-bootstrap.yml": (bootstrap, updated)}
+    expected = {".github/workflows/apple-branch-topology.yml": (
+        "9a8aa6f7a9fc28924b5212c9be703c213f3dd694", "455fdd13c7580f474e291f67595c4d97a0891f04"),
+        ".github/workflows/ios-bootstrap.yml": (
+        "e8df02954fc83cc1efefcf36adbaeb19fe21cdae", "787651befbf7a627633b80185d798d7567db2466")}
+    for path, bodies in result.items():
+        observed = tuple(hashlib.sha1(b"blob " + str(len(raw.encode())).encode() + b"\0" + raw.encode()).hexdigest() for raw in bodies)
+        if observed != expected[path]:
+            raise AssertionError("reviewed routing fixture bytes changed: " + path)
+    return result
 
 
 class ImmutableInputTests(unittest.TestCase):
@@ -712,6 +747,82 @@ class ImmutableInputTests(unittest.TestCase):
             after = INPUTS.input_fingerprint(self.root, self.base)
         self.assertEqual(before["boundary"], after["boundary"])
         self.assertNotEqual(before["fingerprint"], after["fingerprint"])
+
+
+class RoutingDataInputTests(unittest.TestCase):
+    git = ImmutableInputTests.git
+    write = ImmutableInputTests.write
+    commit = ImmutableInputTests.commit
+    plan = ImmutableInputTests.plan
+
+    def setUp(self):
+        ImmutableInputTests.setUp(self)
+        self.routing = reviewed_routing_sources()
+        for path, bodies in self.routing.items():
+            self.write(path, bodies[0])
+        self.base = self.commit("Seed complete original reviewed routing data")
+        replacement = patch.object(INPUTS, "REVIEWED_BOUNDARY", INPUTS.review_boundary(self.root, self.base)["boundary"])
+        replacement.start();self.addCleanup(replacement.stop)
+
+    def test_parent_topology_then_child_bootstrap_and_installed_documentation_omit_only_app(self):
+        topology, bootstrap = self.routing
+        self.write(topology, self.routing[topology][1])
+        parent = self.commit("Install parent-owned sparse topology data")
+        self.assertFalse(self.plan(parent)["requires_application_build"])
+        self.write(bootstrap, self.routing[bootstrap][1])
+        child = self.commit("Retire only duplicate automatic iOS host workload")
+        self.assertFalse(self.plan(child, parent)["requires_application_build"])
+        self.write("docs/README.md", "# Independent installed update\n")
+        later = self.commit("Edit a normal guide after exact routing installation")
+        self.assertFalse(self.plan(later, child)["requires_application_build"])
+        snapshot = INPUTS.read_snapshot(self.root, child)
+        actual = tuple(entry.identity() for entry in snapshot.entries)
+        comparison = INPUTS.routing_data_comparison(snapshot)
+        self.assertEqual(tuple(entry.identity() for entry in snapshot.entries), actual)
+        self.assertEqual((comparison.revision, comparison.tree), (snapshot.revision, snapshot.tree))
+        self.assertNotEqual(comparison.entries, snapshot.entries)
+        self.assertEqual(self.plan(child, parent)["candidate"]["tree"], snapshot.tree)
+
+    def test_routing_transition_rejects_unknown_mixed_missing_modes_rollback_and_reader_changes(self):
+        topology, bootstrap = self.routing
+        cases = ({bootstrap: self.routing[bootstrap][1]},
+            {topology: self.routing[topology][1], bootstrap: self.routing[bootstrap][1]},
+            {topology: "# Unknown topology\n"}, {topology: None},
+            {topology: self.routing[topology][1], "CMakeLists.txt": "file(GLOB APP .github/workflows/*)\n"},
+            {topology: self.routing[topology][1], "ios/new-native-reader.hpp": "# Unreviewed app reader\n"})
+        for changes in cases:
+            self.git("checkout", "--detach", "-q", self.base)
+            for path, body in changes.items():
+                if body is None:(self.root/path).unlink()
+                else:self.write(path, body)
+            with self.subTest(paths=sorted(changes)):
+                self.assertTrue(self.plan(self.commit("Reject unreviewed routing profile"))["requires_application_build"])
+        for mode in (0o755, 0o644):
+            self.git("checkout", "--detach", "-q", self.base)
+            self.write(topology,self.routing[topology][1])
+            if mode==0o755:(self.root/topology).chmod(mode)
+            else:(self.root/topology).unlink();(self.root/topology).symlink_to("outside")
+            self.assertTrue(self.plan(self.commit("Reject nonordinary routing data"))["requires_application_build"])
+        self.git("checkout", "--detach", "-q", self.base)
+        self.write(topology,self.routing[topology][1]);parent=self.commit("Install reviewed topology")
+        self.write(topology,self.routing[topology][0]);rollback=self.commit("Reject topology rollback")
+        self.assertTrue(self.plan(rollback,parent)["requires_application_build"])
+
+    def test_frozen_bootstrap_guards_preserve_every_manual_and_other_base_case(self):
+        old,new=self.routing[".github/workflows/ios-bootstrap.yml"]
+        line="        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.base_ref != 'apple-ios')\n"
+        self.assertEqual(new.count(line),4)
+        self.assertEqual(new.replace(line,""),old)
+        for event,base,expected in (("workflow_dispatch","apple-ios",True),
+                ("workflow_dispatch","other",True),("pull_request","apple-ios",False),
+                ("pull_request","apple-main",True),("pull_request","main",True),
+                ("push","apple-ios",False),("schedule","",False)):
+            with self.subTest(event=event,base=base):
+                actual=event=="workflow_dispatch"or(event=="pull_request"and base!="apple-ios")
+                self.assertIs(actual,expected)
+        old,new=self.routing[".github/workflows/apple-branch-topology.yml"]
+        self.assertIn("fetch-depth: 0",new);self.assertIn("--filter=blob:none",new)
+        self.assertEqual(new.replace("          sparse-checkout: |\n            tests/apple-branch-topology-check.py\n            tests/apple-branch-path-ownership.json\n          sparse-checkout-cone-mode: false\n","").replace(" --filter=blob:none",""),old)
 
 
 if __name__ == "__main__":

@@ -810,6 +810,24 @@ mode and required-package-owner proofs plus the complete installed profile;
 cache transitions and guide changes keep the own-host checks. Unknown bytes,
 modes, neighboring inputs or changed application readers retain their gates.
 
+The protected selector also enrolls two exact routing-only workflow revisions.
+The parent-owned Apple topology revision keeps complete commit history and every
+topology assertion while fetching blobs only for its trusted checker and ownership
+map. After that parent revision is installed, the iOS bootstrap revision skips its
+legacy host launcher and prerequisite setup on protected `apple-ios` PR and push
+events; the required iOS qualification owner still verifies its selected host
+contracts. Manual bootstrap requests and PRs to other bases keep their commands.
+
+Only the original, topology-installed and topology-plus-bootstrap states are
+accepted, in that order. Exact workflow blobs, ordinary modes and complete reader
+boundaries remain required. These comparisons can also accompany the reviewed
+five-file compiler-cache installation after the topology revision is present.
+Routing changes retain the required iOS host checks while omitting application
+compilation. Installed routing data may accompany later independently selected CI
+changes; reversed, partial, unknown or mixed application changes retain the
+ordinary gates. Comparison entries never replace actual Git identities or create
+passing results.
+
 A relevant feature or fix PR can read compiler DATA through the protected base's
 isolated parser, accepting only a matching protected `apple-ios` native producer
 and its verified upload, archive and final source bookends. Existing per-object
