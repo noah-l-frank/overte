@@ -72,7 +72,7 @@ public:
             _used.insert(request);_request=request;_run=run;_ticket=ticket;_origin=origin;_state=state;
             _released=false;_failed=false;_finishing=false;_completed.clear();_pending.clear();_body.clear();
             _requested=QDateTime::currentMSecsSinceEpoch();_elapsed.start();
-            if (_requested<=0) { _failed=true;return {}; }
+            if (_requested<=0 || _requested<_lastEpoch) { _failed=true;clearPrivate();return {}; }
             auto target=owned;target.setPath("/api/v1/user/profile");
             QNetworkRequest network(target);
             network.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
@@ -159,15 +159,16 @@ private:
     }
     QVariantMap envelope(const QString& id,const QString& operation,const QVariantMap& source,qint64 requested) {
         const auto now=QDateTime::currentMSecsSinceEpoch();
-        if (_sequence>=9007199254740991ULL || now<requested || now<=0
+        if (_sequence>=9007199254740991ULL || now<requested || now<=0 || requested<_lastEpoch || now<_lastEpoch
                 || (operation=="read" && (now-requested>=2000 || _elapsed.elapsed()>=2000))) { return {}; }
+        _lastEpoch=now;
         return {{"probeVersion",1},{"commandId",id},{"requestId",_request},{"runId",_run},{"ticket",_ticket},
             {"operation",operation},{"instance",_instance},{"sequence",static_cast<qulonglong>(++_sequence)},
             {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},{"capturedEpochMs",now},{"source",source}};
     }
     QString _instance,_request,_run,_ticket,_origin;
     Reader _reader;State _state;QPointer<QNetworkReply> _reply;
-    QElapsedTimer _elapsed;qint64 _requested {0};quint64 _sequence {0};
+    QElapsedTimer _elapsed;qint64 _requested {0},_lastEpoch {0};quint64 _sequence {0};
     bool _released {false},_failed {false},_finishing {false};QSet<QString> _used;
     QByteArray _body;QVariantMap _completed,_pending,_lastCommand,_lastCommandResult;
 };

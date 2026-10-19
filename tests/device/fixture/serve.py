@@ -483,6 +483,12 @@ class FixtureState:
             valid = (set(command) == {"schemaVersion", "commandId", "action"}
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None)
+        elif action == "feature-account-origin":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_account_origin import command as account_origin_command
+            try:account_origin_command(command,ios=True)
+            except (ValueError,RuntimeError):raise ValueError("invalid native account origin request") from None
+            valid=True
         elif action == "feature-account-probe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_account_probe import command as account_probe_command

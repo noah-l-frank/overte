@@ -255,3 +255,10 @@ current credential/origin fences, native deadlines, persisted intent and actual
 reply/body/authority cleanup. Independent account/server joins exist as typed
 components. Native origin provisioning and full normal-input/UI/actor/restart
 composition remain required; no full area capability is enabled.
+
+The [account-origin fixture ownership v1](native/ACCOUNT_ORIGIN_OWNERSHIP.md)
+now defines exclusive native configuration files, original inode/write evidence,
+source-instance fencing and retirement before actual cleanup. Its common reader
+and persistent owner reject ACK-only staging and late recreation. Platform
+transport/cleanup factories, ordinary account UI and full actor/restart joins
+remain open; native source is uncompiled.

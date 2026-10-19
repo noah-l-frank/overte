@@ -30,6 +30,7 @@
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
 #include "../../../tests/device/native/PrivateAccountOrigin.h"
+#include "../../../tests/device/native/PrivateAccountOriginLease.h"
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
@@ -75,6 +76,18 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap TestScriptingInterface::featureAccountOrigin(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&] { result=featureAccountOrigin(command); },Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    if (!_featureAccountOriginLease) { _featureAccountOriginLease=new overte::e2e::AccountOriginLease(this,_featureObservationInstance); }
+    return _featureAccountOriginLease->request(_testResultsLocation,command);
+}
+
 QVariantMap TestScriptingInterface::featureAccountProbe(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
         QVariantMap result;

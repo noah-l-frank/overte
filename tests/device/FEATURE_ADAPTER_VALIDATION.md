@@ -4,6 +4,18 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The native account-origin ownership v1 packet passes **550** guarded common
+host cases, zero failures/errors/skips/compiler attempts, with the same three
+native exclusions. Its **17** origin cases use real private temporary originals
+at an explicitly synthetic native seam, covering ACK-only/missing files, retired
+late stages, partial-write cleanup, copied valid bytes in a foreign inode,
+changed ownership and retained intents. The actual JavaScript dispatch runs.
+The account source/origin/probe group passes **48** focused cases; protected-probe
+cases now total **19**, including native epoch regression across iOS requests.
+Native Qt/POSIX code remains uncompiled and unexecuted. Concrete platform origin
+factories/cleanup, native trust and all full Authentication composition remain
+open; no device or complete feature result is inferred.
+
 Protected-probe platform factories now pass **62** focused Phone cases,
 **31** Pico normal Script/Audio/Graphics/world/probe cases, **20** Pico native
 source cases and **37** iOS Script/Audio/Graphics/world/probe component cases.

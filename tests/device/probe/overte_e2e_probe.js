@@ -102,6 +102,7 @@
     var lastNativeFeatureRequest = "";
     var nativeFeatureTimer = null;
     var lastAccountProbeCommand = "";
+    var lastAccountOriginCommand = "";
     var accountProbeTimer = null;
     var lastRecordedPreviewRequest = "";
     var lastWorldRenderRequest = "";
@@ -152,6 +153,16 @@
             }
         } catch (_recordedPreviewReadError) { /* Missing source is never a feature result. */ }
         Test.saveObject(value, "recorded-preview-observation.json");
+    }
+    function validAccountOriginCommand(command) {
+        return command && command.schemaVersion === 1 && command.action === "feature-account-origin"
+            && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+            && /^[0-9a-f]{32}$/.test(String(command.runId)) && /^[0-9a-f]{32}$/.test(String(command.instance))
+            && /^[0-9a-f]{64}$/.test(String(command.ownerToken)) && /^(stage|observe|release)$/.test(String(command.operation))
+            && (command.operation !== "stage" || (typeof command.origin === "string" && command.origin.length <= 1024))
+            && objectKeysMatch(command,command.operation === "stage"
+                ? ["schemaVersion","commandId","action","operation","runId","ownerToken","instance","origin"]
+                : ["schemaVersion","commandId","action","operation","runId","ownerToken","instance"]);
     }
     function validAccountProbeCommand(command) {
         return command && command.schemaVersion === 1 && command.action === "feature-account-probe"
@@ -988,6 +999,20 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "feature-account-origin" && validAccountOriginCommand(command)) {
+            if (command.commandId !== lastAccountOriginCommand) {
+                lastAccountOriginCommand = String(command.commandId);
+                var originResult = {commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureAccountOrigin === "function") {
+                        var originSource = Test.featureAccountOrigin(command);
+                        if (originSource && originSource.commandId === command.commandId) { originResult = originSource; }
+                    }
+                } catch (_accountOriginError) { /* Missing ownership/readback never proves a fixture. */ }
+                Test.saveObject(originResult,"feature-account-origin-result.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-account-probe" && validAccountProbeCommand(command)) {
             if (command.commandId !== lastAccountProbeCommand) {
                 if (accountProbeTimer !== null) { Script.clearTimeout(accountProbeTimer); accountProbeTimer = null; }
@@ -1359,7 +1384,7 @@
 
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
-                || command.action === "feature-account-probe"
+                || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-world-render-observe"
