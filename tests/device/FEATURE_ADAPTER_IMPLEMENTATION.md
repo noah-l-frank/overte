@@ -9,6 +9,15 @@ All fourteen complete v1 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.
 
+Continuation authorization: the user explicitly approved E2E-only native
+instrumentation, with no functional product changes. The first native packet
+adds a default-off build option, actual lifecycle notification counters and
+original evaluated animation/pose observations, with labelled native
+render/audio/account settings reads. Platform transports are being connected
+in Phone, Pico, iOS order. See [the native source contract](native/README.md).
+The initial source-only readers and full-area adapter status remain distinct;
+these new sources do not by themselves complete any v1 triple.
+
 ## Local branches and ownership
 
 | Owner | Local branch | Worktree basename | Product/source base |
@@ -91,8 +100,8 @@ Common blockers affecting the full triples:
   second Overte client. No such real measuring actor has been implemented by
   relabelling fixture simulation or by forwarding expectations to the adapter.
 * The v1 `lifecycle` counters must come from actual native lifecycle events;
-  request counts cannot fill them. The current adapter probes do not publish
-  those required complete event counters.
+  request counts cannot fill them. The continuation's native packet implements
+  that source, but the full-area observer/cleanup joins remain to be completed.
 * Fullscreen panels can occlude the current in-world challenge/feature subject.
   The required original world-render-target capture with actual acquisition
   provenance is not available through these feature bindings. Compositing or
@@ -113,8 +122,9 @@ Common blockers affecting the full triples:
   cannot be replaced by an archive hash or self-reported native diagnostic.
 
 Resolving these needs additional reviewed native automation/observation seams
-and real controlled actor/service implementations. Product/target-automation
-sources were left unchanged under the current no-product-change constraint.
+and real controlled actor/service implementations. Native E2E-only observation
+seams are now being added under the explicit continuation authorization;
+functional product changes remain outside scope.
 Each blocked area was audited and the next area/platform processed; no missing
 area has been silently marked complete.
 
