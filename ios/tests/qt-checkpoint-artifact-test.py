@@ -18,6 +18,10 @@ import warnings
 from unittest import mock
 import zipfile
 import datetime as dt
+import base64
+import copy
+import hashlib
+import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -548,3 +552,656 @@ try:
 except SystemExit:
     pass
 print("Qt checkpoint workflow-artifact tests passed")
+
+
+class CompilerNativeFixture:
+    """Immutable tiny Git objects and native API records, with no network."""
+
+    def __init__(self):
+        self.responses, self.log_reads = {}, 0
+        self.token = "fake-token"
+        entries = []
+        for name in module.COMPILER_WRITER_PATHS:
+            path = ROOT / name
+            raw = path.read_bytes()
+            oid = self.object_id("blob", raw)
+            mode = "100755" if path.stat().st_mode & 0o111 else "100644"
+            entries.append({"path": name, "mode": mode, "type": "blob", "sha": oid})
+            self.responses["git/blobs/" + oid] = {
+                "sha": oid, "size": len(raw), "encoding": "base64",
+                "content": base64.b64encode(raw).decode()}
+        self.tree = self.object_id("tree", json.dumps(entries, sort_keys=True).encode())
+        self.responses[f"git/trees/{self.tree}?recursive=1"] = {
+            "sha": self.tree, "truncated": False, "tree": entries}
+        self.base = self.commit("base", [])
+        self.head = self.commit("accepted feature", [self.base])
+        self.merge = self.commit("native tested merge", [self.base, self.head])
+        self.normal = self.commit("normal protected integration", [self.base, self.head])
+        self.current = self.commit("current protected apple-ios", [self.normal])
+        self.key = "c" * 64
+        self.prefix = "overte-ios-client-objects-v2-ARM64-" + self.key
+        self.env = {
+            "GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": module.COMPILER_REPOSITORY,
+            "GITHUB_REPOSITORY_ID": str(module.COMPILER_REPOSITORY_ID),
+            "GITHUB_REF": "refs/heads/apple-ios", "GITHUB_REF_PROTECTED": "true",
+            "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_JOB": "integrated-configure",
+            "GITHUB_RUN_ID": "900", "GITHUB_RUN_ATTEMPT": "1", "GITHUB_SHA": self.current,
+            "GITHUB_WORKFLOW_SHA": self.current,
+            "GITHUB_WORKFLOW_REF": module.COMPILER_REPOSITORY +
+                "/.github/workflows/ios-integrated.yml@refs/heads/apple-ios"}
+        self.responses["branches/apple-ios"] = {
+            "name": "apple-ios", "protected": True, "commit": {"sha": self.current}}
+        self.responses["actions/workflows/ios-integrated.yml"] = {
+            "id": 80, "path": ".github/workflows/ios-integrated.yml", "state": "active"}
+        self.responses["actions/workflows/ios-build-qualification.yml"] = {
+            "id": 70, "path": module.COMPILER_WORKFLOW, "state": "active",
+            "name": "iOS device build qualification"}
+        self.responses["actions/runs/900"] = self.run(900, self.current, "apple-ios", "in_progress")
+        self.responses["actions/runs/900/attempts/1/jobs?per_page=100"] = {"total_count": 1, "jobs": [{
+            "id": 910, "run_id": 900, "run_attempt": 1, "head_sha": self.current,
+            "status": "in_progress", "name": "Toolchain, dependencies, build and package",
+            "check_run_url": f"https://api.github.com/repos/{module.COMPILER_REPOSITORY}/check-runs/911"}]}
+        self.responses["check-runs/911"] = {
+            "id": 911, "app": {"id": 15368}, "head_sha": self.current, "status": "in_progress",
+            "conclusion": None, "check_suite": {"id": 700}, "name": "Toolchain, dependencies, build and package"}
+        original = self.run(400, self.head, "fix/ios/accepted-feature", "completed")
+        original.update({"event": "pull_request", "path": module.COMPILER_WORKFLOW, "workflow_id": 70,
+                         "check_suite_id": 600, "referenced_workflows": [
+            {"path": f"{module.COMPILER_REPOSITORY}/.github/workflows/{name}@{self.merge}",
+             "sha": self.merge, "ref": "refs/pull/17/merge"}
+            for name in ("ios-integrated.yml", "ios-qt-source.yml")]})
+        self.responses["actions/runs/400"] = original
+        self.responses["pulls/17"] = {
+            "state": "closed", "merged": True, "merge_commit_sha": self.normal,
+            "merged_at": "2026-10-17T02:00:00Z",
+            "head": {"sha": self.head, "repo": {"id": module.COMPILER_REPOSITORY_ID}},
+            "base": {"ref": "apple-ios", "repo": {"id": module.COMPILER_REPOSITORY_ID}}}
+        self.job = {
+            "id": 500, "name": module.COMPILER_JOB, "run_id": 400, "run_attempt": 1,
+            "head_sha": self.head, "status": "completed", "conclusion": "success",
+            "check_run_url": f"https://api.github.com/repos/{module.COMPILER_REPOSITORY}/check-runs/501",
+            "started_at": "2026-10-17T00:00:00Z", "completed_at": "2026-10-17T01:02:00Z",
+            "steps": [
+                {"name": name, "number": number, "status": "completed", "conclusion": "success",
+                 "started_at": f"2026-10-17T01:00:{second:02d}Z",
+                 "completed_at": f"2026-10-17T01:00:{second + 1:02d}Z"}
+                for number, second, name in (
+                    (46, 0, "Verify full-client compiler checkpoint activity"),
+                    (48, 2, "Stop full-client compiler checkpoint server"),
+                    (50, 4, "Save reusable full-client compiler checkpoint"),
+                    (51, 6, module.COMPILER_UPLOAD))]}
+        self.responses["actions/runs/400/attempts/1/jobs?per_page=100"] = {
+            "total_count": 1, "jobs": [self.job]}
+        self.check = {
+            "id": 501, "app": {"id": 15368}, "name": module.COMPILER_JOB, "head_sha": self.head,
+            "status": "completed", "conclusion": "success", "check_suite": {"id": 600},
+            "started_at": self.job["started_at"], "completed_at": self.job["completed_at"]}
+        self.responses["check-runs/501"] = self.check
+        self.artifact = self.artifact_record(300, 400, "fix/ios/accepted-feature", self.head,
+                                            "2026-10-17T01:00:07Z")
+        self.protected = self.artifact_record(100, 200, "apple-ios", self.base,
+                                             "2026-10-16T01:00:07Z")
+        self.responses["actions/artifacts/300"] = self.artifact
+        self.responses["actions/artifacts/100"] = self.protected
+
+    @staticmethod
+    def object_id(kind, raw):
+        return hashlib.sha1(f"{kind} {len(raw)}\0".encode() + raw).hexdigest()
+
+    def commit(self, name, parents):
+        raw = f"tree {self.tree}\n".encode()
+        raw += b"".join(f"parent {parent}\n".encode() for parent in parents)
+        raw += b"author Fixture <fixture@example.invalid> 1 +0000\ncommitter Fixture <fixture@example.invalid> 1 +0000\n\n"
+        raw += name.encode() + b"\n"
+        sha = self.object_id("commit", raw)
+        self.responses["git/commits/" + sha] = {
+            "sha": sha, "tree": {"sha": self.tree}, "parents": [{"sha": item} for item in parents]}
+        return sha
+
+    def run(self, identity, head, branch, status):
+        return {"id": identity, "run_attempt": 1,
+                "repository": {"id": module.COMPILER_REPOSITORY_ID, "full_name": module.COMPILER_REPOSITORY},
+                "head_repository": {"id": module.COMPILER_REPOSITORY_ID}, "head_sha": head,
+                "head_branch": branch, "status": status,
+                "conclusion": "success" if status == "completed" else None,
+                "path": ".github/workflows/ios-integrated.yml", "workflow_id": 80,
+                "event": "workflow_dispatch", "check_suite_id": 700}
+
+    def artifact_record(self, identity, run, branch, head, created):
+        return {"id": identity, "name": f"{self.prefix}-{run}-1", "expired": False,
+                "created_at": created, "size_in_bytes": 1, "digest": "sha256:" + "a" * 64,
+                "archive_download_url": f"https://api.github.com/repos/{module.COMPILER_REPOSITORY}/actions/artifacts/{identity}/zip",
+                "workflow_run": {"id": run, "repository_id": module.COMPILER_REPOSITORY_ID,
+                                 "head_repository_id": module.COMPILER_REPOSITORY_ID,
+                                 "head_branch": branch, "head_sha": head}}
+
+    def get(self, endpoint):
+        if endpoint.startswith("compare/"):
+            ancestor, protected = endpoint.removeprefix("compare/").removesuffix("?per_page=1").split("...")
+            assert protected == self.current
+            assert ancestor in (self.head, self.normal)
+            return {"status": "ahead", "ahead_by": 1, "behind_by": 0,
+                    "base_commit": {"sha": ancestor}, "merge_base_commit": {"sha": ancestor}}
+        if endpoint not in self.responses:
+            raise AssertionError("unexpected native API endpoint: " + endpoint)
+        return copy.deepcopy(self.responses[endpoint])
+
+    def log(self, job_id):
+        assert job_id == 500
+        self.log_reads += 1
+        return self.upload_log()
+
+    def archive(self, artifact, destination):
+        # Fake transport only; the real deadline/copy implementation has its
+        # own slow-response regression below.
+        module.download_artifact(artifact["archive_download_url"], self.token, destination,
+                                 module.DOWNLOAD_LIMITS["client-sccache"])
+
+    def upload_log(self):
+        return (f"2026-10-17T01:00:06.1000000Z ##[group]Run {module.COMPILER_UPLOAD_ACTION}\n"
+                f"2026-10-17T01:00:06.2000000Z   name: {self.artifact['name']}\n"
+                "2026-10-17T01:00:06.3000000Z ##[endgroup]\n"
+                f"2026-10-17T01:00:07.2000000Z SHA256 digest of uploaded artifact zip is {self.artifact['digest'][7:]}\n"
+                f"2026-10-17T01:00:07.4000000Z Artifact ID {self.artifact['id']}\n").encode()
+
+    def selected(self):
+        return mock.patch.multiple(module, _CompilerAPI=mock.Mock(return_value=self),
+                                   _artifact_listing=mock.Mock(return_value=([self.protected, self.artifact], self.token)))
+
+
+class IntegratedCompilerDataTests(unittest.TestCase):
+    def test_json_and_origin_logs_share_a_hard_deadline_for_slow_bodies(self):
+        for operation, seconds in (("JSON", 30), ("origin log", 60)):
+            with self.subTest(operation=operation):
+                api = module._CompilerAPI("fake-token")
+                clock, calls = [100.0], []
+                api.deadline = 1000.0
+
+                class SlowResponse(FakeResponse):
+                    def read(self, size=-1):
+                        clock[0] += seconds + 1
+                        return super().read(size)
+
+                def opener(request, timeout):
+                    self.assertGreater(timeout, 0)
+                    self.assertLessEqual(timeout, 30)
+                    calls.append(request)
+                    if operation == "origin log" and len(calls) == 1:
+                        return FakeResponse(headers={"Location": "https://objects.example/original-native-log"})
+                    return SlowResponse(b'{"id": 1}')
+
+                api.opener = opener
+                with mock.patch.object(module.time, "monotonic", side_effect=lambda: clock[0]), \
+                        mock.patch.object(module.signal, "getitimer", return_value=(0.0, 0.0)), \
+                        mock.patch.object(module.signal, "getsignal", return_value=module.signal.SIG_DFL), \
+                        mock.patch.object(module.signal, "signal") as handler, \
+                        mock.patch.object(module.signal, "setitimer") as timer:
+                    with self.assertRaisesRegex(module.CompilerUnavailable, operation + " deadline exhausted"):
+                        api.get("actions/runs/400") if operation == "JSON" else api.log(500)
+                    self.assertEqual(timer.call_args_list, [mock.call(module.signal.ITIMER_REAL, float(seconds)),
+                                                           mock.call(module.signal.ITIMER_REAL, 0)])
+                    self.assertEqual(handler.call_args_list[-1], mock.call(module.signal.SIGALRM, module.signal.SIG_DFL))
+                    # The installed real-time signal also interrupts a blocked
+                    # read that has not returned a chunk to the clock checks.
+                    with self.assertRaisesRegex(module.CompilerUnavailable, operation + " deadline exhausted"):
+                        handler.call_args_list[0].args[1](module.signal.SIGALRM, None)
+                self.assertEqual(len(calls), 1 if operation == "JSON" else 2)
+                self.assertEqual(calls[0].get_header("Authorization"), "Bearer fake-token")
+                if operation == "origin log":
+                    self.assertIsNone(calls[1].get_header("Authorization"))
+                self.assertEqual(api.remaining, 199)
+
+    def test_new_archive_transport_bounds_open_and_slow_copy_without_changing_old_transport(self):
+        api = module._CompilerAPI("fake-token")
+        clock = [100.0]
+        api.deadline = 1000.0
+        calls = []
+
+        class SlowResponse(FakeResponse):
+            def read(self, size=-1):
+                clock[0] += module.COMPILER_ARCHIVE_SECONDS + 1
+                return super().read(size)
+
+        def opener(request, timeout):
+            self.assertGreater(timeout, 0)
+            self.assertLessEqual(timeout, 30)
+            calls.append(request)
+            if len(calls) % 2:
+                return FakeResponse(headers={"Location": "https://objects.example/one-compiler-zip"})
+            return SlowResponse(b"must not be installed")
+
+        api.opener = opener
+        artifact = {"archive_download_url": "https://api.github.com/repos/noah-l-frank/overte/actions/artifacts/300/zip"}
+        with tempfile.TemporaryDirectory() as temporary, \
+                mock.patch.object(module.time, "monotonic", side_effect=lambda: clock[0]), \
+                mock.patch.object(module.signal, "getitimer", return_value=(0.0, 0.0)), \
+                mock.patch.object(module.signal, "getsignal", return_value=module.signal.SIG_DFL), \
+                mock.patch.object(module.signal, "signal") as handler, \
+                mock.patch.object(module.signal, "setitimer") as timer:
+            destination = Path(temporary) / "artifact.zip"
+            with self.assertRaisesRegex(module.CompilerUnavailable, "archive deadline exhausted"):
+                api.archive(artifact, destination)
+            self.assertEqual(destination.read_bytes(), b"")
+            self.assertEqual(timer.call_args_list, [mock.call(module.signal.ITIMER_REAL, 600.0),
+                                                   mock.call(module.signal.ITIMER_REAL, 0)])
+            self.assertEqual(handler.call_args_list[-1], mock.call(module.signal.SIGALRM, module.signal.SIG_DFL))
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0].get_header("Authorization"), "Bearer fake-token")
+        self.assertIsNone(calls[1].get_header("Authorization"))
+
+    def test_origin_log_transport_is_bounded_and_drops_authorization_at_storage(self):
+        api = module._CompilerAPI("fake-token")
+        calls = []
+
+        def opener(request, timeout):
+            self.assertGreater(timeout, 0)
+            self.assertLessEqual(timeout, 30)
+            calls.append(request)
+            if len(calls) == 1:
+                return FakeResponse(headers={"Location": "https://objects.example/native-log"})
+            return FakeResponse(b"bounded native log")
+
+        api.opener = opener
+        self.assertEqual(api.log(500), b"bounded native log")
+        self.assertEqual(calls[0].full_url,
+                         "https://api.github.com/repos/noah-l-frank/overte/actions/jobs/500/logs")
+        self.assertEqual(calls[0].get_header("Authorization"), "Bearer fake-token")
+        self.assertIsNone(calls[1].get_header("Authorization"))
+        with mock.patch.object(module.time, "monotonic", return_value=api.deadline + 1):
+            with self.assertRaises(module.CompilerUnavailable):
+                api.log(500)
+        self.assertEqual(len(calls), 2)
+
+    def test_newest_integrated_native_writer_selected_without_archive_download(self):
+        case = CompilerNativeFixture()
+        with mock.patch.dict(os.environ, case.env), case.selected(), \
+                mock.patch.object(module, "download_artifact") as download:
+            result = module._select_compiler_data(case.prefix)
+        self.assertEqual(result.artifact["id"], 300)
+        self.assertEqual(result.origin["source"], case.merge)
+        self.assertEqual(case.log_reads, 1)
+        download.assert_not_called()
+
+    def test_failed_build_preserves_successfully_published_partial_data(self):
+        case = CompilerNativeFixture()
+        case.responses["actions/runs/400"]["conclusion"] = "failure"
+        case.job["conclusion"] = case.check["conclusion"] = "failure"
+        with mock.patch.dict(os.environ, case.env), case.selected():
+            result = module._select_compiler_data(case.prefix)
+        self.assertEqual(result.artifact["id"], 300)
+        self.assertEqual(result.origin["job"]["conclusion"], "failure")
+
+    def test_unrelated_pr_presentation_drift_is_not_a_compiler_input(self):
+        case = CompilerNativeFixture()
+        with mock.patch.dict(os.environ, case.env), case.selected():
+            selected = module._select_compiler_data(case.prefix)
+            case.responses["pulls/17"]["comments"] = 9
+            case.responses["pulls/17"]["title"] = "A later presentation edit"
+            selected.recheck()
+            case.responses["pulls/17"]["head"]["sha"] = "0" * 40
+            with self.assertRaises(module.CompilerUnavailable):
+                selected.recheck()
+
+    def test_foreign_retried_unreviewed_or_incomplete_origins_fall_back_before_download(self):
+        changes = (
+            lambda c: c.responses["actions/runs/400"].update(run_attempt=2),
+            lambda c: c.responses["actions/runs/400"]["head_repository"].update(id=99),
+            lambda c: c.check["app"].update(id=99),
+            lambda c: c.job["steps"][-1].update(conclusion="failure"),
+            lambda c: c.job["steps"][0].update(conclusion="skipped"),
+            lambda c: c.responses["actions/runs/400"].update(status="in_progress"),
+            lambda c: c.responses["pulls/17"].update(merged=False),
+            lambda c: c.responses[f"git/trees/{c.tree}?recursive=1"].update(truncated=True),
+            lambda c: c.responses["actions/runs/400"]["referenced_workflows"].pop(),
+            lambda c: c.responses["git/commits/" + c.merge]["parents"].reverse(),
+            lambda c: c.responses["actions/runs/400/attempts/1/jobs?per_page=100"].update(total_count=2),
+            lambda c: c.responses["pulls/17"].update(merged_at="2026-10-17T00:30:00Z"),
+        )
+        for change in changes:
+            with self.subTest(change=changes.index(change)):
+                case = CompilerNativeFixture()
+                change(case)
+                # A truncated current tree declines the entire new mode, rather
+                # than turning a missing original proof into protected authority.
+                with mock.patch.dict(os.environ, case.env), case.selected(), \
+                        mock.patch.object(module, "download_artifact") as download:
+                    if case.responses[f"git/trees/{case.tree}?recursive=1"]["truncated"]:
+                        with self.assertRaises(module.CompilerUnavailable):
+                            module._select_compiler_data(case.prefix)
+                    else:
+                        self.assertEqual(module._select_compiler_data(case.prefix).artifact["id"], 100)
+                download.assert_not_called()
+
+    def test_nonancestor_and_changed_writer_modes_or_bytes_decline(self):
+        for field, value in (("mode", "120000"), ("sha", "0" * 40)):
+            case = CompilerNativeFixture()
+            # Use a distinct original tree so protected source remains intact.
+            original_tree = "1" * 40
+            old = copy.deepcopy(case.responses[f"git/trees/{case.tree}?recursive=1"])
+            old["sha"] = original_tree
+            old["tree"][3][field] = value
+            case.responses[f"git/trees/{original_tree}?recursive=1"] = old
+            for sha in (case.merge, case.head, case.normal):
+                case.responses["git/commits/" + sha]["tree"]["sha"] = original_tree
+            with self.subTest(field=field), mock.patch.dict(os.environ, case.env), case.selected():
+                self.assertEqual(module._select_compiler_data(case.prefix).artifact["id"], 100)
+        case = CompilerNativeFixture()
+        actual_get = case.get
+        case.get = lambda endpoint: ({"status": "diverged"} if endpoint.startswith("compare/") else actual_get(endpoint))
+        with mock.patch.dict(os.environ, case.env), case.selected():
+            self.assertEqual(module._select_compiler_data(case.prefix).artifact["id"], 100)
+
+    def test_upload_id_digest_name_and_precision_are_native_bound(self):
+        case = CompilerNativeFixture()
+        log = case.upload_log()
+        step = case.job["steps"][-1]
+        module._compiler_upload_binding(log, case.artifact, step)
+        for bad in (
+            log.replace(b"Artifact ID 300", b"Artifact ID 301"),
+            log.replace(b"a" * 64, b"b" * 64),
+            log.replace(case.artifact["name"].encode(), b"unrelated-checkpoint"),
+            log.replace(b"01:00:07.2000000Z", b"01:00:08.0000000Z"),
+            log + log,
+        ):
+            with self.subTest(log=hashlib.sha256(bad).hexdigest()), self.assertRaises(module.CompilerUnavailable):
+                module._compiler_upload_binding(bad, case.artifact, step)
+
+    def test_wrong_protected_native_context_cannot_enable_the_new_mode(self):
+        for field, value in (("GITHUB_REF", "refs/pull/17/merge"), ("GITHUB_REF_PROTECTED", "false"),
+                             ("GITHUB_REPOSITORY", "overte-org/overte"), ("GITHUB_JOB", "other-job"),
+                             ("GITHUB_RUN_ATTEMPT", "2"), ("GITHUB_WORKFLOW_SHA", "0" * 40)):
+            case = CompilerNativeFixture()
+            case.env[field] = value
+            with self.subTest(field=field), mock.patch.dict(os.environ, case.env), case.selected():
+                with self.assertRaises(module.CompilerUnavailable):
+                    module._select_compiler_data(case.prefix)
+
+    def test_one_whole_zip_then_original_manifest_and_staged_restore(self):
+        with tempfile.TemporaryDirectory(prefix="integrated-compiler-data-") as temporary_name:
+            temporary = Path(temporary_name)
+            case = CompilerNativeFixture()
+            source = temporary / "source"
+            source.mkdir()
+            (source / "object").write_bytes(b"compiler semantic key and object")
+            payload = temporary / "payload"
+            module.create(type("Args", (), dict(prefix=source, kind="client-sccache", cache_key=case.key,
+                          producer_repository_id=module.COMPILER_REPOSITORY_ID,
+                          producer_branch="fix/ios/accepted-feature", output_dir=payload))())
+            archive = temporary / "fixture.zip"
+            artifact_zip(payload, archive)
+            case.artifact.update(size_in_bytes=archive.stat().st_size, digest="sha256:" + module.sha256(archive))
+            args = type("Args", (), dict(artifact_prefix=case.prefix, cache_key=case.key,
+                        install_root=temporary / "installed", github_output=temporary / "output",
+                        kind="client-sccache", expected_repository_id=module.COMPILER_REPOSITORY_ID,
+                        expected_branch="apple-ios", max_age_days=21))()
+            with mock.patch.dict(os.environ, case.env), case.selected(), \
+                    mock.patch.object(module, "download_artifact",
+                                      side_effect=lambda url, token, destination, limit: destination.write_bytes(archive.read_bytes())) as download:
+                module.restore_protected_compiler(args)
+            self.assertEqual(download.call_count, 1)
+            self.assertEqual((args.install_root / "client-sccache/object").read_bytes(), b"compiler semantic key and object")
+            self.assertIn("restored=true", args.github_output.read_text())
+
+    def test_outer_digest_corruption_and_changed_bookend_never_install(self):
+        for mutation in ("zip", "branch"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temporary_name:
+                temporary = Path(temporary_name)
+                case = CompilerNativeFixture()
+                with mock.patch.dict(os.environ, case.env), case.selected():
+                    selected = module._select_compiler_data(case.prefix)
+                    if mutation == "zip":
+                        selected.artifact["size_in_bytes"] = 3
+                        args = type("Args", (), dict(artifact_prefix=case.prefix, kind="client-sccache", cache_key=case.key,
+                            install_root=temporary / "installed", github_output=temporary / "output",
+                            expected_repository_id=module.COMPILER_REPOSITORY_ID, expected_branch="apple-ios", max_age_days=21))()
+                        with mock.patch.object(module, "download_artifact", side_effect=lambda u, t, p, l: p.write_bytes(b"bad")):
+                            with self.assertRaises(module.CompilerUnavailable):
+                                module.restore(args, selection=selected)
+                    else:
+                        case.responses["branches/apple-ios"]["commit"]["sha"] = "0" * 40
+                        with self.assertRaises(module.CompilerUnavailable):
+                            selected.recheck()
+                self.assertFalse((temporary / "installed/client-sccache").exists())
+
+
+class PRCompilerNativeFixture(CompilerNativeFixture):
+    """Only private copies and fake native metadata; never a live PR/device."""
+
+    def __init__(self):
+        super().__init__()
+        self.temporary = tempfile.TemporaryDirectory(prefix="pr-compiler-data-")
+        self.workspace = Path(self.temporary.name)
+        self.parser_path = self.workspace / module.COMPILER_PR_DIRECTORY / "ios/ci/qt-checkpoint-artifact.py"
+        self.parser_path.parent.mkdir(parents=True)
+        self.parser_path.write_bytes(TOOL.read_bytes())
+        self.parser_path.chmod(TOOL.stat().st_mode & 0o777)
+        key_path = self.parser_path.with_name("client-compiler-cache-key.py")
+        key_path.write_bytes((ROOT / "ios/ci/client-compiler-cache-key.py").read_bytes())
+        key_path.chmod((ROOT / "ios/ci/client-compiler-cache-key.py").stat().st_mode & 0o777)
+        self.pr_head = self.commit("live feature consumer", [self.current])
+        self.pr_merge = self.commit("current native consumer merge", [self.current, self.pr_head])
+        self.pr_branch = "fix/ios/matching-compiler-consumer"
+        self.env.update(GITHUB_REF="refs/pull/29/merge", GITHUB_EVENT_NAME="pull_request",
+                        GITHUB_BASE_REF="apple-ios", GITHUB_HEAD_REF=self.pr_branch,
+                        GITHUB_SHA=self.pr_merge, GITHUB_WORKFLOW_SHA=self.pr_merge,
+                        GITHUB_WORKFLOW_REF=module.COMPILER_REPOSITORY +
+                            "/" + module.COMPILER_WORKFLOW + "@refs/pull/29/merge",
+                        GITHUB_WORKSPACE=str(self.workspace))
+        self.responses["pulls/29"] = {
+            "number": 29, "state": "open", "merged": False, "merge_commit_sha": self.pr_merge,
+            "head": {"sha": self.pr_head, "ref": self.pr_branch, "repo": {
+                "id": module.COMPILER_REPOSITORY_ID, "full_name": module.COMPILER_REPOSITORY}},
+            "base": {"sha": self.current, "ref": "apple-ios", "repo": {
+                "id": module.COMPILER_REPOSITORY_ID, "full_name": module.COMPILER_REPOSITORY}}}
+        current = self.responses["actions/runs/900"]
+        current.update(head_sha=self.pr_head, head_branch=self.pr_branch, event="pull_request",
+                       path=module.COMPILER_WORKFLOW, workflow_id=70, pull_requests=[{
+                           "number": 29, "base": {"sha": self.current}, "head": {"sha": self.pr_head}}],
+                       referenced_workflows=[{
+                           "path": f"{module.COMPILER_REPOSITORY}/.github/workflows/{name}@{self.pr_merge}",
+                           "sha": self.pr_merge, "ref": "refs/pull/29/merge"}
+                           for name in ("ios-integrated.yml", "ios-qt-source.yml")])
+        self.responses["actions/runs/900/attempts/1"] = copy.deepcopy(current)
+        owner = self.responses["actions/runs/900/attempts/1/jobs?per_page=100"]["jobs"][0]
+        owner.update(head_sha=self.pr_head, name=module.COMPILER_JOB, conclusion=None, steps=[{
+            "name": module.COMPILER_PR_CHECKOUT, "number": 30, "status": "completed", "conclusion": "success",
+            "started_at": "2026-10-17T03:00:00Z", "completed_at": "2026-10-17T03:00:01Z"}, {
+            "name": module.COMPILER_PR_NAMESPACE, "number": 31, "status": "completed", "conclusion": "success",
+            "started_at": "2026-10-17T03:00:02Z", "completed_at": "2026-10-17T03:00:03Z"}, {
+            "name": module.COMPILER_PR_RESTORE, "number": 32, "status": "in_progress", "conclusion": None,
+            "started_at": "2026-10-17T03:00:04Z"}])
+        self.responses["check-runs/911"].update(head_sha=self.pr_head, name=module.COMPILER_JOB)
+        self.responses["actions/runs/200"] = self.run(200, self.base, "apple-ios", "completed")
+        producer = copy.deepcopy(self.job)
+        producer.update(id=250, run_id=200, head_sha=self.base,
+                        name="Toolchain, dependencies, build and package",
+                        check_run_url=f"https://api.github.com/repos/{module.COMPILER_REPOSITORY}/check-runs/251")
+        self.responses["actions/runs/200/attempts/1/jobs?per_page=100"] = {"total_count": 1, "jobs": [producer]}
+        protected_check = copy.deepcopy(self.check)
+        protected_check.update(id=251, head_sha=self.base, name=producer["name"], check_suite={"id": 700})
+        self.responses["check-runs/251"] = protected_check
+        self.protected.update(created_at="2026-10-17T01:00:07Z")
+        self.published_digest = self.protected["digest"]
+
+    def get(self, endpoint):
+        if endpoint.startswith("compare/"):
+            ancestor, protected = endpoint.removeprefix("compare/").removesuffix("?per_page=1").split("...")
+            assert protected == self.current and ancestor in (self.base, self.head, self.normal)
+            return {"status": "ahead", "ahead_by": 1, "behind_by": 0,
+                    "base_commit": {"sha": ancestor}, "merge_base_commit": {"sha": ancestor}}
+        return super().get(endpoint)
+
+    def log(self, job_id):
+        assert job_id == 250
+        self.log_reads += 1
+        return (f"2026-10-17T01:00:06.1000000Z ##[group]Run {module.COMPILER_UPLOAD_ACTION}\n"
+                f"2026-10-17T01:00:06.2000000Z   name: {self.protected['name']}\n"
+                "2026-10-17T01:00:06.3000000Z ##[endgroup]\n"
+                f"2026-10-17T01:00:07.2000000Z SHA256 digest of uploaded artifact zip is {self.published_digest[7:]}\n"
+                f"2026-10-17T01:00:07.4000000Z Artifact ID {self.protected['id']}\n").encode()
+
+    def __enter__(self):
+        from contextlib import ExitStack
+        self.stack = ExitStack()
+        self.stack.callback(self.temporary.cleanup)
+        self.stack.enter_context(mock.patch.dict(os.environ, self.env))
+        self.stack.enter_context(mock.patch.object(module, "__file__", str(self.parser_path)))
+        # These are offline API/parser checks. The actual isolated startup flags
+        # are also mandatory in the immutable workflow contract below.
+        self.stack.enter_context(mock.patch.object(sys, "flags", type("Flags", (), {
+            "isolated": 1, "ignore_environment": 1, "no_site": 1})()))
+        self.stack.enter_context(mock.patch.object(sys, "dont_write_bytecode", True))
+        self.stack.enter_context(self.selected())
+        return self
+
+    def __exit__(self, *args):
+        return self.stack.__exit__(*args)
+
+
+class PRCompilerDataTests(unittest.TestCase):
+    def test_current_original_pr_reads_only_one_actual_protected_writer(self):
+        with PRCompilerNativeFixture() as case, mock.patch.object(module, "download_artifact") as download:
+            selected = module._select_pr_compiler_data(case.prefix)
+            self.assertEqual(selected.artifact["id"], case.protected["id"])
+            self.assertEqual(selected.protected_origin["source"], case.base)
+            self.assertEqual(selected.consumer["sha"], case.current)
+            self.assertEqual((selected.consumer["head"], selected.consumer["merge"]), (case.pr_head, case.pr_merge))
+            self.assertEqual(case.log_reads, 1)
+            self.assertIsNone(selected.origin)
+            download.assert_not_called()
+
+    def test_newer_invalid_protected_label_falls_back_before_the_single_download(self):
+        with PRCompilerNativeFixture() as case, mock.patch.object(module, "download_artifact") as download:
+            later = case.artifact_record(101, 201, "apple-ios", case.base, "2026-10-17T02:00:00Z")
+            case.responses["actions/artifacts/101"] = later
+            foreign = case.run(201, case.base, "apple-ios", "completed")
+            foreign["event"] = "pull_request"
+            case.responses["actions/runs/201"] = foreign
+            with mock.patch.object(module, "_artifact_listing", return_value=([case.protected, later], case.token)):
+                selected = module._select_pr_compiler_data(case.prefix)
+            self.assertEqual(selected.artifact["id"], 100)
+            self.assertEqual(case.log_reads, 1)
+            download.assert_not_called()
+
+    def test_integrated_feature_artifact_is_never_a_direct_pr_candidate(self):
+        with PRCompilerNativeFixture() as case, mock.patch.object(module, "download_artifact") as download:
+            case.responses.pop("actions/artifacts/100")
+            with mock.patch.object(module, "_artifact_listing", return_value=([case.artifact], case.token)):
+                self.assertIsNone(module._select_pr_compiler_data(case.prefix))
+            self.assertEqual(case.log_reads, 0)
+            download.assert_not_called()
+
+    def test_foreign_retry_stale_base_merge_app_or_native_association_declines_before_download(self):
+        changes = (
+            lambda c: c.env.update(GITHUB_EVENT_NAME="pull_request_target"),
+            lambda c: c.env.update(GITHUB_RUN_ATTEMPT="2"),
+            lambda c: c.env.update(GITHUB_WORKFLOW_SHA="0" * 40),
+            lambda c: c.responses["pulls/29"]["head"]["repo"].update(id=99),
+            lambda c: c.responses["pulls/29"]["head"].update(ref="docs/ios/foreign-kind"),
+            lambda c: c.responses["branches/apple-ios"]["commit"].update(sha=c.base),
+            lambda c: c.responses["pulls/29"].update(merge_commit_sha=c.merge),
+            lambda c: c.responses["git/commits/" + c.pr_merge]["parents"].reverse(),
+            lambda c: c.responses["actions/runs/900/attempts/1"].update(run_attempt=2),
+            lambda c: c.responses["actions/runs/900"]["pull_requests"][0].update(number=30),
+            lambda c: c.responses["check-runs/911"]["app"].update(id=99),
+            lambda c: c.responses["actions/runs/900"]["referenced_workflows"].pop(),
+            lambda c: c.responses["actions/runs/900/attempts/1/jobs?per_page=100"]["jobs"][0]["steps"].insert(0,
+                {"name": "Set Apple compiler budget", "number": 1, "status": "completed", "conclusion": "success"}),
+            lambda c: c.responses["actions/runs/900/attempts/1/jobs?per_page=100"]["jobs"][0]["steps"][0].update(conclusion="failure"),
+        )
+        for index, change in enumerate(changes):
+            with self.subTest(change=index), PRCompilerNativeFixture() as case, \
+                    mock.patch.object(module, "download_artifact") as download:
+                change(case)
+                # patch.dict has copied the environment; explicit changed env
+                # values must be made current before executing the real parser.
+                with mock.patch.dict(os.environ, case.env), self.assertRaises(module.CompilerUnavailable):
+                    module._select_pr_compiler_data(case.prefix)
+                download.assert_not_called()
+
+    def test_changed_candidate_tooling_and_protected_parser_alias_or_bytes_are_rejected(self):
+        for mutation in ("candidate-mode", "candidate-key", "parser-bytes", "parser-symlink", "startup"):
+            with self.subTest(mutation=mutation), PRCompilerNativeFixture() as case:
+                if mutation.startswith("candidate-"):
+                    tree = copy.deepcopy(case.responses[f"git/trees/{case.tree}?recursive=1"])
+                    tree["sha"] = "d" * 40
+                    row = next(row for row in tree["tree"] if row["path"] == "ios/ci/client-compiler-cache-key.py")
+                    row["mode" if mutation == "candidate-mode" else "sha"] = "120000" if mutation == "candidate-mode" else "e" * 40
+                    case.responses[f"git/trees/{tree['sha']}?recursive=1"] = tree
+                    case.responses["git/commits/" + case.pr_merge]["tree"]["sha"] = tree["sha"]
+                elif mutation == "parser-bytes":
+                    case.parser_path.write_bytes(b"foreign parser")
+                elif mutation == "parser-symlink":
+                    original = case.parser_path.with_suffix(".real")
+                    case.parser_path.rename(original)
+                    case.parser_path.symlink_to(original.name)
+                else:
+                    sys.flags.no_site = 0
+                with self.assertRaises(module.CompilerUnavailable):
+                    module._select_pr_compiler_data(case.prefix)
+
+    def test_protected_label_without_original_native_upload_or_ancestor_is_not_authority(self):
+        changes = (
+            lambda c: c.responses["actions/runs/200"].update(event="pull_request"),
+            lambda c: c.responses["actions/runs/200"].update(run_attempt=2),
+            lambda c: c.responses["check-runs/251"]["app"].update(id=99),
+            lambda c: c.responses["actions/runs/200/attempts/1/jobs?per_page=100"]["jobs"][0]["steps"][-1].update(conclusion="skipped"),
+            lambda c: c.protected.update(digest="sha256:" + "b" * 64),
+        )
+        for index, change in enumerate(changes):
+            with self.subTest(change=index), PRCompilerNativeFixture() as case, \
+                    mock.patch.object(module, "download_artifact") as download:
+                change(case)
+                self.assertIsNone(module._select_pr_compiler_data(case.prefix))
+                download.assert_not_called()
+        with PRCompilerNativeFixture() as case:
+            get = case.get
+            case.get = lambda endpoint: ({"status": "diverged"} if endpoint.startswith("compare/") else get(endpoint))
+            self.assertIsNone(module._select_pr_compiler_data(case.prefix))
+
+    def test_safe_partial_protected_data_and_changed_final_bookends(self):
+        with PRCompilerNativeFixture() as case:
+            case.responses["actions/runs/200"]["conclusion"] = "failure"
+            case.responses["actions/runs/200/attempts/1/jobs?per_page=100"]["jobs"][0]["conclusion"] = "failure"
+            case.responses["check-runs/251"]["conclusion"] = "failure"
+            selected = module._select_pr_compiler_data(case.prefix)
+            self.assertEqual(selected.protected_origin["job"]["conclusion"], "failure")
+            case.responses["pulls/29"]["head"]["sha"] = case.head
+            with self.assertRaises(module.CompilerUnavailable):
+                selected.recheck()
+
+    def test_one_verified_zip_installs_only_after_final_pr_and_writer_bookends(self):
+        for race in (False, True):
+            with self.subTest(race=race), PRCompilerNativeFixture() as case:
+                source = case.workspace / "objects"
+                source.mkdir()
+                (source / "semantic-key").write_bytes(b"unchanged source/header/argv object")
+                payload = case.workspace / "payload"
+                module.create(type("Args", (), dict(prefix=source, kind="client-sccache", cache_key=case.key,
+                    producer_repository_id=module.COMPILER_REPOSITORY_ID, producer_branch="apple-ios", output_dir=payload))())
+                archive = case.workspace / "artifact.zip"
+                artifact_zip(payload, archive)
+                case.protected.update(size_in_bytes=archive.stat().st_size, digest="sha256:" + module.sha256(archive))
+                case.published_digest = case.protected["digest"]
+                args = type("Args", (), dict(artifact_prefix=case.prefix, cache_key=case.key, kind="client-sccache",
+                    install_root=case.workspace / "installed", github_output=case.workspace / "output",
+                    expected_repository_id=module.COMPILER_REPOSITORY_ID, expected_branch="apple-ios", max_age_days=21))()
+                def copy_once(url, token, destination, limit):
+                    destination.write_bytes(archive.read_bytes())
+                    if race:
+                        case.responses["branches/apple-ios"]["commit"]["sha"] = case.base
+                with mock.patch.object(module, "download_artifact", side_effect=copy_once) as download:
+                    if race:
+                        with self.assertRaises(module.CompilerUnavailable):
+                            module.restore_pr_compiler(args)
+                    else:
+                        module.restore_pr_compiler(args)
+                    self.assertEqual(download.call_count, 1)
+                self.assertEqual((args.install_root / "client-sccache/semantic-key").exists(), not race)
+                if not race:
+                    self.assertEqual((args.install_root / "client-sccache/semantic-key").read_bytes(),
+                                     b"unchanged source/header/argv object")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -509,6 +509,46 @@ jobs:
           persist-credentials: false
           clean: ${{ inputs.macos_runner != 'overte-ios-getmac' }}
 
+      - name: Check out protected compiler DATA verifier
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'apple-ios' && github.event.pull_request.head.repo.full_name == github.repository && github.repository == 'noah-l-frank/overte'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: noah-l-frank/overte
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: build-ios/compiler-data-protected
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /ios/ci/qt-checkpoint-artifact.py
+            /ios/ci/client-compiler-cache-key.py
+
+      - name: Select protected full-client compiler cache namespace
+        id: client-sccache-pr-key
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'apple-ios' && github.event.pull_request.head.repo.full_name == github.repository && github.repository == 'noah-l-frank/overte'
+        run: |
+          python3 -I -S -B build-ios/compiler-data-protected/ios/ci/client-compiler-cache-key.py \
+            --arch "$RUNNER_ARCH" \
+            --xcode-build "$(xcodebuild -version | awk '/Build version/{print $3}')" \
+            --sdk-version "$(xcrun --sdk iphoneos --show-sdk-version)" \
+            --sdk-build "$(xcrun --sdk iphoneos --show-sdk-build-version)" \
+            --compiler "$(xcrun --sdk iphoneos --find clang)" \
+            --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --github-output "$GITHUB_OUTPUT" --github-env "$GITHUB_ENV"
+
+      - name: Restore verified protected compiler DATA for feature and fix PRs
+        id: client-sccache-pr-artifact
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'apple-ios' && github.event.pull_request.head.repo.full_name == github.repository && github.repository == 'noah-l-frank/overte'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I -S -B build-ios/compiler-data-protected/ios/ci/qt-checkpoint-artifact.py restore-pr-compiler \
+            --artifact-prefix "${{ steps.client-sccache-pr-key.outputs.artifact-prefix }}" \
+            --cache-key "${{ steps.client-sccache-pr-key.outputs.namespace }}" \
+            --install-root "build-ios/client-checkpoint-restore/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: Set Apple compiler budget
         run: python3 ios/tools/ci-build-budget.py --jobs 2 --github-env "$GITHUB_ENV"
 
@@ -753,6 +793,7 @@ jobs:
 
       - name: Restore durable full-client compiler checkpoint
         id: client-sccache-artifact
+        if: github.event_name != 'pull_request' && github.ref_name != 'apple-ios'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -766,9 +807,22 @@ jobs:
             --install-root "build-ios/client-checkpoint-restore/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --github-output "$GITHUB_OUTPUT"
 
+      - name: Restore newest verified protected or integrated compiler DATA
+        id: client-sccache-integrated-artifact
+        if: github.ref == 'refs/heads/apple-ios' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 ios/ci/qt-checkpoint-artifact.py restore-protected-compiler \
+            --artifact-prefix "${{ steps.client-sccache-key.outputs.artifact-prefix }}" \
+            --cache-key "${{ steps.client-sccache-key.outputs.namespace }}" \
+            --install-root "build-ios/client-checkpoint-restore/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: Restore trusted apple-ios full-client compiler checkpoint
         id: client-sccache-apple-ios-artifact
-        if: steps.client-sccache-artifact.outputs.restored != 'true' && github.ref_name != 'apple-ios'
+        if: github.event_name != 'pull_request' && steps.client-sccache-artifact.outputs.restored != 'true' && github.ref_name != 'apple-ios'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -783,7 +837,7 @@ jobs:
             --github-output "$GITHUB_OUTPUT"
 
       - name: Merge validated compiler objects without deleting existing entries
-        if: steps.client-sccache-artifact.outputs.restored == 'true' || steps.client-sccache-apple-ios-artifact.outputs.restored == 'true'
+        if: steps.client-sccache-artifact.outputs.restored == 'true' || steps.client-sccache-apple-ios-artifact.outputs.restored == 'true' || steps.client-sccache-integrated-artifact.outputs.restored == 'true' || (steps.client-sccache-pr-artifact.outputs.restored == 'true' && steps.client-sccache-pr-key.outputs.namespace == steps.client-sccache-key.outputs.namespace)
         run: |
           python3 ios/ci/merge-compiler-checkpoint.py \
             "build-ios/client-checkpoint-restore/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/client-sccache" \
@@ -791,7 +845,7 @@ jobs:
 
       - name: Restore compatible full-client compiler checkpoint
         id: client-sccache-cache
-        if: steps.client-sccache-artifact.outputs.restored != 'true' && steps.client-sccache-apple-ios-artifact.outputs.restored != 'true'
+        if: github.event_name != 'pull_request' && steps.client-sccache-artifact.outputs.restored != 'true' && steps.client-sccache-apple-ios-artifact.outputs.restored != 'true' && steps.client-sccache-integrated-artifact.outputs.restored != 'true'
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ${{ github.workspace }}/build-ios/client-sccache
