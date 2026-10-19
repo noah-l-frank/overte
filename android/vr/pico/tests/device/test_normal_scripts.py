@@ -21,6 +21,8 @@ from self_tests.test_token_script_ui import NativeBoundary, SOURCE
 from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
+from adapters.token_graphics_ui import TokenGraphicsUI
+from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
 from self_tests.test_token_audio_ui import AudioBoundary
 from self_tests.test_native_script_files import Boundary as FilesBoundary
@@ -114,14 +116,15 @@ class PicoNormalScriptsTests(unittest.TestCase):
             boundary.start(); self.addCleanup(boundary.stop)
         self.instance = self.fixture.instance()
 
-    def audio_controls(self):
-        native = AudioBoundary()
+    def audio_controls(self,*,graphics=False):
+        native = GraphicsBoundary(generic=True) if graphics else AudioBoundary()
         self.native.opened = True  # This fixture begins on an already visible Audio page.
         snapshot_original = self.native.snapshot
         write_original = self.native.write_debug_app_file
         def snapshot():
             value = snapshot_original(); measured = native.capture()
-            value['audioControlsVersion'] = measured['audioControlsVersion']
+            version='graphicsControlsVersion' if graphics else 'audioControlsVersion'
+            value[version] = measured[version]
             value['controls'] = measured['controls']
             for row in value['controls']:
                 row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL,row['token']))
@@ -135,17 +138,48 @@ class PicoNormalScriptsTests(unittest.TestCase):
             original=next(r for r in native.capture()['controls'] if r['id']==command['controlId'])
             self.assertEqual(self.native.sequence+1,command['sequence']); self.native.sequence+=1
             self.native.inputs.append(command)
-            if command['action']=='scroll': native.scroll(command['controlId'],command['direction'],token=original['token'])
+            if command['action']=='set-value':native.set_value(command['controlId'],command['value'],token=original['token'])
+            elif command['action']=='scroll': native.scroll(command['controlId'],command['direction'],token=original['token'])
             else: native.activate(command['controlId'],token=original['token'])
             self.native.status=dict(schemaVersion=1,bridgeId=current['bridgeId'],commandId=command['commandId'],
                 sequence=command['sequence'],performed=True,error='',processId=123,
                 updatedEpochMs=self.native.epoch_milliseconds(target))
         for boundary in (patch.object(self.native,'snapshot',side_effect=snapshot),
                          patch.object(self.native,'write_debug_app_file',side_effect=write),
-                         patch('adapters.token_audio_ui.TokenAudioUI',partial(TokenAudioUI,
+                         patch('adapters.token_graphics_ui.TokenGraphicsUI' if graphics else 'adapters.token_audio_ui.TokenAudioUI',
+                             partial(TokenGraphicsUI if graphics else TokenAudioUI,
                              monotonic=lambda: native.clock,sleep=native.sleep))):
             boundary.start();self.addCleanup(boundary.stop)
-        return native,self.instance._audio_controls(self.native.target,native.intent)
+        factory=self.instance._graphics_controls if graphics else self.instance._audio_controls
+        return native,factory(self.native.target,native.intent)
+
+    def test_pico_graphics_actual_vr_track_inputs_toggle_and_restore_original_grid(self):
+        native,ui=self.audio_controls(graphics=True);original=native.resolution
+        ui.set_resolution(0.5);ui.set_resolution(0.6);ui.set_resolution(0.8);ui.set_resolution(original)
+        ui.toggle('graphics.haze',True);ui.toggle('graphics.mirrors',True)
+        ui.toggle('graphics.haze',False);ui.toggle('graphics.mirrors',False)
+        self.assertEqual(original,native.resolution);self.assertFalse(native.haze);self.assertFalse(native.mirrors)
+        self.assertEqual('generic-immediate-v1',ui.profile)
+
+    def test_pico_graphics_ignored_slider_and_missing_marker_cannot_prove_settings(self):
+        native,ui=self.audio_controls(graphics=True);native.fault='resolution'
+        with self.assertRaises(RuntimeError):ui.set_resolution(0.5)
+        self.assertEqual(0.6,native.resolution);self.assertEqual(1,native.actions.count('resolution'))
+        native.transform=lambda value:dict(value,graphicsControlsVersion=2)
+        before=list(self.native.inputs)
+        with self.assertRaises(RuntimeError):ui.toggle('graphics.haze',True)
+        self.assertEqual(before,self.native.inputs)
+
+    def test_pico_graphics_retired_original_token_refuses_before_new_input(self):
+        native,ui=self.audio_controls(graphics=True);row=ui.visible('graphics.resolution')
+        native.resolution=0.7;before=list(self.native.inputs);actions=list(native.actions)
+        with self.assertRaises(RuntimeError):ui.io.set_value('graphics.resolution',0.5,token=row['token'])
+        self.assertEqual(before,self.native.inputs);self.assertEqual(actions,native.actions)
+
+    def test_pico_graphics_candidate_change_cannot_authorize_control_delivery(self):
+        native,ui=self.audio_controls(graphics=True);self.native.digest='f'*64
+        with self.assertRaises((RuntimeError,ValueError)):ui.set_resolution(0.5)
+        self.assertEqual([],native.actions);self.assertEqual([],self.native.inputs)
 
     def test_pico_audio_actual_token_route_start_cancel_scroll_and_mute(self):
         native,ui=self.audio_controls(); ui.mute(True); ui.mute(False)

@@ -195,6 +195,12 @@ def create_adapter(args, base_class):
                 native.clock_ms, native.guard, native.pid)
             return OwnedScriptFiles(files, self._script_files_store(target), manager.binding)
 
+        def _graphics_controls(self, target, intent):
+            from adapters.token_graphics_ui import TokenGraphicsUI
+            from adapters.pico4.normal_graphics import PicoGraphicsIO
+            manager = self._scripts(target)
+            return TokenGraphicsUI(PicoGraphicsIO(manager.ui.io),intent)
+
         def _audio_controls(self, target, intent):
             from adapters.token_audio_ui import TokenAudioUI
             from adapters.pico4.normal_audio import PicoAudioIO

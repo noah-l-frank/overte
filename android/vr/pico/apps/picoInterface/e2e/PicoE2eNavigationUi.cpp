@@ -18,6 +18,7 @@
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
 #include <AudioClient.h>
 #include <Application.h>
+#include <scripting/RenderScriptingInterface.h>
 #endif
 
 namespace overte::pico::e2e {
@@ -55,6 +56,8 @@ bool enabled(QQuickItem* item) {
 
 QString controlId(QQuickItem* item) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto graphics = overte::e2e::graphicsControlId(item);
+    if (!graphics.isEmpty()) { return graphics; }
     const auto audio = overte::e2e::audioControlId(item);
     if (!audio.isEmpty()) { return audio; }
 #endif
@@ -132,6 +135,12 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     bool ready = open && root && window && root->thread() == qApp->thread()
         && window->thread() == qApp->thread() && root->window() == window;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::GraphicsUiContext graphicsContext;
+    if (QCoreApplication::arguments().contains("--testScript")) {
+        auto render = RenderScriptingInterface::getInstance();
+        graphicsContext = overte::e2e::GraphicsUiContext::fromNative(render->getViewportResolutionScale(),
+            render->getHazeEnabled(),render->getMirrorsEnabled());
+    }
     overte::e2e::AudioUiContext audioContext;
     if (DependencyManager::isSet<AudioClient>() && QCoreApplication::arguments().contains("--testScript")) {
         const auto audio = DependencyManager::get<AudioClient>();
@@ -149,7 +158,11 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     std::function<void(QQuickItem*, int)> walk = [&](QQuickItem* item, int depth) {
         if (!item || ambiguous) { return; }
         if (++count > 4096 || depth > 128) { ambiguous = true; return; }
-        if (visible(item, window)) {
+        if (visible(item, window)
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                || overte::e2e::graphicsObservable(item)
+#endif
+                ) {
             const auto id = controlId(item);
             if (!id.isEmpty()) {
                 if (controls.contains(id)) { ambiguous = true; return; }
@@ -157,7 +170,10 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 const auto fileSource = overte::e2e::scriptFileControlSource(item);
                 auto source = fileSource.isEmpty() ? overte::e2e::scriptRowSource(item) : fileSource;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                if (id.startsWith("audio.") || id == "settings.entry") {
+                if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
+                    if (!graphicsContext.valid) { return; }
+                    source = overte::e2e::graphicsControlSource(item,id,graphicsContext);
+                } else if (id.startsWith("audio.") || id == "settings.entry") {
                     if (!audioContext.valid) { return; }
                     source = overte::e2e::audioControlSource(item, id, audioContext);
                 }
@@ -205,7 +221,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        if (id.startsWith("audio.") || id == "settings.entry") {
+        if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
+            overte::e2e::appendGraphicsControlObservation(row,control.item,id,graphicsContext);
+        } else if (id.startsWith("audio.") || id == "settings.entry") {
             overte::e2e::appendAudioControlObservation(row, control.item, id, audioContext);
         }
 #endif
@@ -221,6 +239,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     result["featureControlsVersion"] = 1;
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
+    if (graphicsContext.valid) { result["graphicsControlsVersion"] = 1; }
 #endif
     return result;
 }
@@ -244,6 +263,7 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
     if (action == "select-index") { expected.insert("index"); }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (action == "scroll") { expected.insert("direction"); }
+    if (action == "set-value") { expected.insert("value"); }
 #endif
     qint64 sequence { 0 }, observedAt { 0 };
     const auto uuid = QUuid(id);
@@ -257,7 +277,7 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
             || observedAt > _clock.elapsed() || _clock.elapsed() - observedAt > 5000
             || (action != "activate" && action != "replace" && action != "submit" && action != "select-index"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                && action != "scroll"
+                && action != "scroll" && action != "set-value"
 #endif
                 )) { return result; }
     // Consume an admitted sequence before any input. An uncertain result may
@@ -273,7 +293,28 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
     }
     bool delivered { false };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (controlId.startsWith("audio.") || controlId == "settings.entry") {
+    if (controlId.startsWith("graphics.") || (controlId == "settings.entry" && current.contains("graphicsControlsVersion"))) {
+        QJsonObject row;
+        for (const auto& value : current.value("controls").toArray()) {
+            const auto candidate = value.toObject(); if (candidate.value("id").toString() == controlId) { row = candidate; }
+        }
+        if (!row.value("inputReady").toBool()) { return result; }
+        QPointF point;
+        if (action == "set-value" && controlId == "graphics.resolution" && command.value("value").isDouble()) {
+            if (overte::e2e::graphicsSliderPoint(control.item,command.value("value").toDouble(),point)
+                    && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point) && pointerAt) {
+                delivered = pointerAt(control.item,point);
+            }
+        } else if (action == "scroll" && controlId == "graphics.scrollbar") {
+            if (overte::e2e::graphicsScrollPoint(control.item,command.value("direction").toString(),point)
+                    && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point) && pointerAt) {
+                delivered = pointerAt(control.item,point);
+            }
+        } else if (action == "activate" && controlId != "graphics.page" && controlId != "graphics.scrollbar" && controlId != "graphics.resolution") {
+            point = control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+            if (overte::e2e::NormalControlUi::ownsPoint(control.item,window,point) && pointerClick) { delivered = pointerClick(control.item); }
+        }
+    } else if (controlId.startsWith("audio.") || controlId == "settings.entry") {
         QJsonObject row;
         for (const auto& value : current.value("controls").toArray()) {
             const auto candidate = value.toObject(); if (candidate.value("id").toString() == controlId) { row = candidate; }

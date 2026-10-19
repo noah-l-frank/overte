@@ -201,3 +201,19 @@ The host fixture now keeps historical native PCM/module event times fixed while
 request/acquisition clocks advance, matching the reader's original-event rules.
 These are source/control checks, not installed Emote or device qualification;
 native C++ remains uncompiled and full-area capabilities stay unadvertised.
+
+The internal `_graphics_controls(target, intent)` now reuses the existing
+candidate/OpenXR/normal Script context and original native VR pointer route.
+`NavigationUi` records actual Render settings separately from original Qt
+Switch/Slider range/grid/readiness. Read-only offscreen above/below metadata
+supplies scrolling direction; native input is restricted to visible original
+tokens and actual track/groove geometry. The closed set-value action carries
+only a normal slider target, never desired observations or a renderer setter.
+Pico's separate runtime-eye-resolution/restart control is not substituted.
+
+The normal Script/Audio/Graphics group passes 23 host cases (four new Graphics
+cases); the original binding/navigation/Snapshot group passes 31. Actual native
+Graphics input, rendered frame/pass effects, preference/page/restart ownership
+and cleanup remain unqualified. The internal component requires the existing
+explicit normal-Scripts fixture profile; no full feature.graphics capability
+is advertised. See [the shared contract](../../native/NORMAL_GRAPHICS_CONTROLS.md).

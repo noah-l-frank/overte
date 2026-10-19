@@ -13,6 +13,7 @@ import uuid
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
+from adapters.token_graphics_ui import graphics_control,metadata_fields as graphics_metadata_fields,validate_metadata as validate_graphics_metadata,on_grid
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, metadata_fields as file_metadata_fields,
     validate_metadata as validate_file_metadata, folder_text)
@@ -74,6 +75,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'audioControlsVersion' in value:
         fields.add('audioControlsVersion')
         need(type(value['audioControlsVersion']) is int and value['audioControlsVersion'] == 1)
+    if type(value) is dict and 'graphicsControlsVersion' in value:
+        fields.add('graphicsControlsVersion')
+        need(type(value['graphicsControlsVersion']) is int and value['graphicsControlsVersion']==1)
     need(type(value) is dict and set(value) == fields
          and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and identifier(value['bridgeId']) and identifier(value['generation'])
@@ -88,7 +92,11 @@ def validate_snapshot(value, process_id, epoch_ms):
     for control in value['controls']:
         need(type(control) is dict and isinstance(control.get('id'), str))
         fields = {'id', 'token', 'enabled', 'focused'}
-        if audio_control(control['id']):
+        if control['id'].startswith('graphics.'):need(value.get('graphicsControlsVersion')==1)
+        is_graphics=graphics_control(control['id']) and value.get('graphicsControlsVersion')==1
+        if is_graphics:
+            fields |= graphics_metadata_fields(control['id'])
+        elif audio_control(control['id']):
             need(value.get('audioControlsVersion') == 1)
             fields |= audio_metadata_fields(control['id'])
         elif file_control(control['id']):
@@ -100,13 +108,14 @@ def validate_snapshot(value, process_id, epoch_ms):
         if control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
         need(set(control) == fields
-             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']))
+             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']))
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
         if control['id'] in SNAPSHOT_CHOICES:
             need(type(control['checked']) is bool)
-        if audio_control(control['id']): validate_audio_metadata(control)
+        if is_graphics:validate_graphics_metadata(control)
+        elif audio_control(control['id']): validate_audio_metadata(control)
         elif file_control(control['id']): validate_file_metadata(control)
         elif script_control(control['id']):
             validate_metadata(control)
@@ -212,7 +221,7 @@ class PicoNavigation:
                 return value
         return None
 
-    def input(self, control_id, action='activate', text=None, *, source=None, index=None, token=None, direction=None):
+    def input(self, control_id, action='activate', text=None, *, source=None, index=None, token=None, direction=None, value=None):
         # SDK/package verification can take longer than the native input's
         # freshness window. Bind bytes first, then capture the current UI.
         self.io.bind_input()
@@ -220,12 +229,19 @@ class PicoNavigation:
         control = self.control(snapshot, control_id)
         need(snapshot['ready'] and control is not None and snapshot['lastCommandSequence'] < MAX_INTEGER)
         if token is not None: need(control['token'] == token)
-        if audio_control(control_id):
+        if graphics_control(control_id) and snapshot.get('graphicsControlsVersion')==1:
+            need(token is not None and control['inputReady'] and control['viewport']=='visible'
+                 and control_id!='graphics.page' and action in ('activate','scroll','set-value'))
+            if action=='set-value':need(control_id=='graphics.resolution' and direction is None and on_grid(value,control))
+            elif action=='scroll':need(control_id=='graphics.scrollbar' and direction in ('up','down') and value is None)
+            else:need(control_id not in ('graphics.scrollbar','graphics.resolution') and direction is None and value is None)
+        elif audio_control(control_id):
+            need(value is None)
             need(snapshot.get('audioControlsVersion') == 1 and control['inputReady']
                  and token is not None and control_id != 'audio.page' and action in ('activate','scroll'))
             if action == 'activate': need(control_id != 'audio.scrollbar' and direction is None)
             else: need(control_id == 'audio.scrollbar' and direction in ('up','down'))
-        else: need(direction is None and action in ('activate','replace','submit','select-index'))
+        else: need(direction is None and value is None and action in ('activate','replace','submit','select-index'))
         if source is not None:
             need(control.get('sourceUrl') == source)
         if file_control(control_id):
@@ -259,6 +275,7 @@ class PicoNavigation:
             need(control_id == 'script-file.primary' and type(index) is int and 0 <= index < 32)
             command['index'] = index
         if action == 'scroll': command['direction'] = direction
+        if action == 'set-value':command['value']=value
         self.io.guard()
         # The owning transport writes exactly once, then only polls status.
         try:
