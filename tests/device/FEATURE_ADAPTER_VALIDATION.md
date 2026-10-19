@@ -4,6 +4,18 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The platform Chat source/factory follow-ups pass **81** Phone wrapper cases,
+**41** Pico normal component cases (135.668 seconds) and **300** guarded broad
+iOS cases with zero failures/errors/skips/compiler attempts and the same 20
+iOS native exclusions. All **21** shared Chat cases pass on each platform tree;
+all **5** iOS native-binding entry checks pass. Pico's initial fixed-clock
+fixture conflicted with existing host/native freshness checks; that owned run
+was interrupted and is not acceptance. The corrected fixture preserves normal
+source time without weakening those checks. The Phone probe merge preserves
+its private credential cleanup/cache-bypass branches alongside the new reader.
+Every source is still uncompiled/device-unqualified and every full-area triple
+remains missing; no local or Proxmox device access occurred in this packet.
+
 The native Chat reception packet passes **621** guarded common cases (zero
 failures/errors/skips/compiler attempts, same three native exclusions). Its final
 focused group passes **21** cases, including one additional identity-admission
