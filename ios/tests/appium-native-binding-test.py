@@ -46,7 +46,10 @@ class Binding(unittest.TestCase):
             self.assertEqual(native.describe("test-only"), {"adapter": "appium-ios"})
             self.assertEqual(preflight.call_count, 2)
             for call in (lambda: native.ensure_session("test-only"),
-                         lambda: native.invoke("test-only", "app.version", {})):
+                         lambda: native.invoke("test-only", "app.version", {}),
+                         lambda: native.invoke("test-only", "places.open", {}),
+                         lambda: native.invoke("test-only", "places.goto", {"url": "http://controlled.invalid/scene.json"}),
+                         lambda: native.invoke("test-only", "places.close", {})):
                 with self.assertRaisesRegex(ValueError, "INSTALLED_CODE_BINDING_UNAVAILABLE"):
                     call()
             preflight.side_effect = ValueError("candidate changed")

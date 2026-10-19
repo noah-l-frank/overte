@@ -119,7 +119,8 @@ def main() -> None:
     assert 'text: "GO TO"' in action_bar
     assert 'DialogsManager.showAddressBar()' in action_bar
     assert 'normalModal' not in production_bridge
-    assert "button.enabled = !button.hidden;" in native_bridge
+    assert "button.enabled = !button.hidden && nativeTabletControlEnabled;" in native_bridge
+    assert 'nativeTabletControlEnabled = row.value("enabled").toBool();' in test_bridge
     assert "OverteTabletScreen.%s" in native_bridge
     assert "OverteTabletReady.%s" in native_bridge
     assert "OverteTabletControl.%s" in native_bridge

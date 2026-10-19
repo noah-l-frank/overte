@@ -245,6 +245,7 @@ cmake -P "$script_dir/qt5-compat-test.cmake"
 cmake -P "$script_dir/find-moltenvk-test.cmake"
 
 # Product-owned native adapters and acceptance regressions run in the iOS gate.
+python3 "$script_dir/appium-native-binding-test.py"
 python3 "$script_dir/native-web-wiring-test.py"
 python3 "$script_dir/snapshot-export-operation-test.py"
 python3 "$script_dir/snapshot-export-bundle-test.py"

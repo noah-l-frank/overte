@@ -701,6 +701,7 @@ void updateIOSTabletAccessibilityControls(
     BOOL (^activationHandler)(void) = nil;
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
     QString nativeTabletControlToken;
+    bool nativeTabletControlEnabled { false };
     normalUiTablet() = tablet;
     const auto normalObservation = refreshNormalUiInput();
     bool normalModal { false };
@@ -717,6 +718,7 @@ void updateIOSTabletAccessibilityControls(
             const auto row = value.toObject();
             if (row.value("id").toString() == QStringLiteral("tablet.close")) {
                 nativeTabletControlToken = row.value("token").toString();
+                nativeTabletControlEnabled = row.value("enabled").toBool();
             }
         }
         controlFrame = normalUiFrame(QStringLiteral("tablet.close"), nativeTabletControlToken, window, safeBounds);
@@ -754,6 +756,7 @@ void updateIOSTabletAccessibilityControls(
             const auto row = value.toObject();
             if (row.value("id").toString() == QStringLiteral("hud.tablet")) {
                 nativeTabletControlToken = row.value("token").toString();
+                nativeTabletControlEnabled = row.value("enabled").toBool();
             }
         }
         controlFrame = normalUiFrame(QStringLiteral("hud.tablet"), nativeTabletControlToken, window, safeBounds);
@@ -796,7 +799,7 @@ void updateIOSTabletAccessibilityControls(
     button.activationHandler = activationHandler;
     // A missing/hidden QML Close must never leave an invisible fallback button.
     button.hidden = normalModal || CGRectIsNull(controlFrame) || CGRectIsEmpty(controlFrame);
-    button.enabled = !button.hidden;
+    button.enabled = !button.hidden && nativeTabletControlEnabled;
     if (!button.hidden) {
         UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, button);
     }

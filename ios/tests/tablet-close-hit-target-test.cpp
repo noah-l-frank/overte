@@ -5,6 +5,8 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QPointer>
+#include <QJsonArray>
+#include "IOSNormalUiInput.h"
 #include <QtTest/QTest>
 #include <algorithm>
 #include <cstdio>
@@ -51,6 +53,17 @@ int main(int argc, char** argv) {
         if (item->objectName() == "nav.close") { close = item; }
     }
     require(home && close, "Missing real QML navigation controls");
+    overte::ios::NormalUiInput input;
+    const auto nativeE2EFrame = [&](const CGRect& safeBounds) {
+        const auto observed = input.observe(window.contentItem(), root, true);
+        QString token;
+        for (const auto& value : observed["controls"].toArray()) {
+            const auto row = value.toObject();
+            if (row["id"] == QJsonValue(QStringLiteral("tablet.close"))) { token = row["token"].toString(); }
+        }
+        return input.projectedFrame("tablet.close", token,
+            QRectF(0, 0, window.width(), window.height()), safeBounds);
+    };
     for (const QSize size : {QSize(768, 900), QSize(1024, 700), QSize(360, 640)}) {
         for (qreal scale : {1.0, 1.25}) {
             for (qreal ime : {0.0, 240.0}) {
@@ -66,6 +79,12 @@ int main(int argc, char** argv) {
                         "Native Close intercepts the visible Home button");
                 require(nativeFrame == closeFrame,
                         "Native Close must use the visible Close geometry");
+                const auto e2eFrame = nativeE2EFrame(safeBounds);
+                const auto sourceCloseFrame = close->mapRectToScene(QRectF(0, 0, close->width(), close->height()));
+                const auto sourceHomeFrame = home->mapRectToScene(QRectF(0, 0, home->width(), home->height()));
+                require(e2eFrame == sourceCloseFrame.intersected(safeBounds),
+                        "E2E Close must project actual control dimensions without adding a second safe inset");
+                require(!e2eFrame.contains(sourceHomeFrame.center()), "E2E Close must not cover actual Home");
                 const int homes = root->property("homes").toInt();
                 QTest::mouseClick(&window, Qt::LeftButton, Qt::NoModifier,
                     home->mapToScene(home->boundingRect().center()).toPoint());
@@ -74,6 +93,7 @@ int main(int argc, char** argv) {
                 close->setVisible(false);
                 require(nativeCloseFrame(root, safeBounds).isEmpty(),
                         "Hidden Close must not leave a fallback hit target");
+                require(nativeE2EFrame(safeBounds).isEmpty(), "Hidden E2E Close must not leave an input target");
                 close->setVisible(true);
             }
         }
@@ -83,15 +103,25 @@ int main(int argc, char** argv) {
     const CGRect safeBounds(0, 0, root->width(), root->height());
     require(nativeCloseFrame(root, safeBounds) == tabletItemFrame(close, safeBounds),
             "Tablet Home Close must retain its own visible target");
+    require(!nativeE2EFrame(safeBounds).isEmpty(), "E2E Tablet Home Close retains its actual target");
     close->setEnabled(false);
     require(nativeCloseFrame(root, safeBounds).isEmpty(), "Disabled Close must not intercept input");
+    const auto disabled = input.observe(window.contentItem(), root, true);
+    for (const auto& value : disabled["controls"].toArray()) {
+        const auto row = value.toObject();
+        if (row["id"] == QJsonValue(QStringLiteral("tablet.close"))) {
+            require(!row["enabled"].toBool() && !input.press("tablet.close", row["token"].toString()),
+                "Disabled E2E Close must not receive native input");
+        }
+    }
     close->setEnabled(true);
     QQuickItem duplicate(root);
     duplicate.setObjectName("nav.close");
     duplicate.setSize(QSizeF(48, 48));
     require(nativeCloseFrame(root, safeBounds).isEmpty(), "Ambiguous Close targets must not intercept input");
+    require(nativeE2EFrame(safeBounds).isEmpty(), "Ambiguous E2E Close targets must not intercept input");
     duplicate.setParentItem(nullptr);
     duplicate.setParent(nullptr);
     object.reset();
-    std::puts("PASS native Close follows shared QML geometry and never covers Home");
+    std::puts("PASS shipping and actual E2E Close follow real shared QML geometry and never cover Home");
 }
