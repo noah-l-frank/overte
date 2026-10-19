@@ -17,7 +17,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_script_manager import NormalScriptManager
 from adapters.normal_ui import NativeUIError
 from create_journey import INITIAL
-from test_normal_create_adapter import NativeCreate, BINDING, URL, NAME, UUID
+from self_tests.test_normal_create_adapter import NativeCreate, BINDING, URL, NAME, UUID
 
 ID=UUID.strip('{}')
 
