@@ -15,6 +15,7 @@ from adapters.pico4.feature_observation import PicoFeatureObservation
 from adapters.native_feature_observation import NativeFeatureObservation, FILE as NATIVE_FEATURE_FILE
 from adapters.native_account_probe import (NativeAccountProbe, AccountProbeOwner, OwnedAccountProbe,
     FILE as ACCOUNT_PROBE_FILE)
+from adapters.native_chat_observation import NativeChatObservation, ChatCaptureOwner, OwnedChatCapture, FILE as CHAT_FILE
 from adapters.native_account_origin import NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, AndroidPreviewFiles,
     FILE as RECORDED_PREVIEW_FILE)
@@ -314,6 +315,20 @@ def create_adapter(args, base_class):
                 lambda: self.adb.epoch_milliseconds(target), guard,
                 int(original.identity.split(':')[0]))
 
+        def _chat_capture_store(self,target):
+            state,_ui=self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','chat-capture-owner-')))
+
+        @_private
+        def _chat_capture(self,target,run):
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            owner=ChatCaptureOwner(self._chat_capture_store(target),manager.binding,native.guard)
+            reader=NativeChatObservation(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+CHAT_FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+            native.guard();_need(native.pid==int(manager.binding['processIdentity'].split(':')[0]))
+            return OwnedChatCapture(reader,owner,run)
+
         def _account_origin_store(self, target):
             state,_ui=self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-','account-origin-owner-')))
@@ -398,6 +413,14 @@ def create_adapter(args, base_class):
 
         @_private
         def cleanup(self, target):
+            chat_error=False
+            try:
+                if self.pico_configuration is not None:
+                    owned=self._chat_capture_store(target).read()
+                    if owned is not None:
+                        if cleanup_only:self._recover_cleanup_candidate()
+                        self._chat_capture(target,owned['runId']).retire()
+            except Exception:chat_error=True
             probe_error=False
             try:
                 if self.pico_configuration is not None and self._account_probe_store(target).read() is not None:
@@ -438,11 +461,11 @@ def create_adapter(args, base_class):
                     discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not script_error and not probe_error and not origin_error and PrivateFeatureState(state).read() is None
+                _need(not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
-                      and self._account_origin_store(target).read() is None)
+                      and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None)
             else:
-                _need(not script_error and not probe_error and not origin_error)
+                _need(not script_error and not probe_error and not origin_error and not chat_error)
             return result
 
     return PicoBoundAdapter(args.kind)

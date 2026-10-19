@@ -283,3 +283,23 @@ world/account cases and **20** bound native-source cases; the Pico suite runner'
 login cases additionally pass when invoked directly, so the registered entry
 executes tests rather than exiting without discovery. Native source remains
 uncompiled and no device was accessed.
+
+## Native Chat reception continuation
+
+`_chat_capture(target,run)` now composes native reception v1 with the actual
+installed candidate, PID/start/OpenXR continuity and the existing normal Script
+profile's private state root. Its original native cache/session identity is
+pinned before creation. Local-only/self echoes never establish remote peer
+delivery. Cleanup-only entry recovers only the reviewed candidate and drains
+the cache before the original force-stop. Unresolved source/cache intent still
+fails after base teardown. No full Chat capability is advertised.
+
+All five new wrapper cases pass on synthetic native boundaries with real
+private journals. An initial fixture replaced the general native epoch with a
+fixed test clock, conflicting with existing freshness guards. That own run was
+interrupted and is not acceptance. The fixture now preserves normal native
+time and separately timestamps synthetic original reception/open events; the
+actual freshness checks are unchanged. The completed full normal component
+group passes **41** cases in 135.668 seconds; all **21** shared receive-source
+cases also pass. Native C++/Qt/network/peer behavior remains uncompiled/unqualified;
+common feature contract is now v7. See [the exact source](../../native/CHAT_OBSERVATION.md).

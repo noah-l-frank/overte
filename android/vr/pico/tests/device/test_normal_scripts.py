@@ -32,6 +32,8 @@ from adapters.world_render_storage import receipt_file
 from self_tests.test_world_render_evidence import Boundary as WorldBoundary
 from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
 from self_tests.test_owned_world_render import LocalAdb
+from self_tests.test_native_chat_observation import Boundary as ChatBoundary, RUN as CHAT_RUN, SELF as CHAT_SELF, PEER as CHAT_PEER
+from adapters.native_chat_observation import NativeChatObservation, received_texts
 from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
 from self_tests.test_native_account_origin import Boundary as AccountOriginBoundary, ORIGIN as ACCOUNT_ORIGIN
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
@@ -223,6 +225,71 @@ class PicoNormalScriptsTests(unittest.TestCase):
         source,_native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);source.fault='keep-files'
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertTrue(source.path.exists());self.assertIsNotNone(self.instance._account_origin_store(self.native.target).read())
+
+    def chat_capture(self):
+        source=ChatBoundary();source.store=self.instance._chat_capture_store(self.native.target)
+        source.original_open_epoch=None
+        def captured(value):
+            epoch=self.native.epoch_milliseconds(self.native.target);value['capturedEpochMs']=epoch
+            if value['source']['scopePresent']:
+                if source.original_open_epoch is None:source.original_open_epoch=epoch
+                source.opened=source.original_open_epoch;value['source']['openedEpochMs']=source.opened
+        source.mutate=captured
+        original_event=source.event
+        def receive(**kwargs):
+            original_event(**kwargs);source.events[-1]['capturedEpochMs']=self.native.epoch_milliseconds(self.native.target)
+        source.event=receive
+        original_write=self.native.write_debug_app_file;original_read=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            request=json.loads(raw)
+            if request['action']!='feature-chat-observe':return original_write(target,package,path,raw)
+            self.assertEqual('org.overte.pico',package);self.assertEqual(adapter.ANDROID_CONTROL_COMMAND,path)
+            source.send(request)
+        def read(target,package,path,**kwargs):
+            if path.endswith('/feature-chat-observation.json'):
+                self.assertEqual({'attempts':1},kwargs);return source.read()
+            return original_read(target,package,path,**kwargs)
+        active=type(self.instance)._chat_capture.__wrapped__.__globals__
+        for boundary in (patch.object(self.native,'write_debug_app_file',side_effect=write),
+                         patch.object(self.native,'read_debug_app_file',side_effect=read),
+                         patch.dict(active,NativeChatObservation=partial(NativeChatObservation,
+                             monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.instance._chat_capture(self.native.target,CHAT_RUN)
+
+    def test_pico_chat_factory_preserves_original_reception_and_observed_retirement(self):
+        source,capture=self.chat_capture();capture.observe();source.event();value=capture.observe()
+        self.assertEqual(123,value['processId']);self.assertEqual(1,len(received_texts(value,
+            sender_sha256=CHAT_PEER,receiver_sha256=CHAT_SELF,channel='domain')))
+        capture.retire();self.assertIsNone(self.instance._chat_capture_store(self.native.target).read())
+        self.assertEqual([],self.native.inputs)
+
+    def test_pico_chat_local_echo_and_foreign_source_never_become_remote_delivery(self):
+        source,capture=self.chat_capture();capture.observe();source.event(local=True);value=capture.observe()
+        self.assertEqual([],received_texts(value,sender_sha256=CHAT_PEER,receiver_sha256=CHAT_SELF,channel='domain'))
+        original=source.mutate
+        def foreign(value):original(value);value['instance']='f'*32
+        source.mutate=foreign
+        with self.assertRaises(RuntimeError):self.instance._chat_capture(self.native.target,CHAT_RUN).retire()
+        self.assertIsNotNone(self.instance._chat_capture_store(self.native.target).read())
+        self.assertFalse(any(c['operation']=='retire' for c in source.commands))
+
+    def test_pico_chat_candidate_change_blocks_dispatch_and_keeps_owner(self):
+        source,capture=self.chat_capture();capture.observe();before=len(source.commands);self.native.digest='f'*64
+        with self.assertRaises((ValueError,RuntimeError)):capture.observe()
+        self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.instance._chat_capture_store(self.native.target).read())
+
+    def test_pico_chat_cleanup_retires_cache_before_original_process_stop(self):
+        source,capture=self.chat_capture();capture.observe();source.event()
+        self.assertEqual({'cleaned':True},self.cleanup_instance().cleanup(self.native.target))
+        self.assertFalse(self.native.running);self.assertEqual(2,source.inspect_after_retire)
+        self.assertIsNone(self.instance._chat_capture_store(self.native.target).read())
+
+    def test_pico_chat_failed_cleanup_reaches_process_stop_and_refuses_green(self):
+        source,capture=self.chat_capture();capture.observe();source.ignore_retire=True
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertTrue(source.present)
+        self.assertIsNotNone(self.instance._chat_capture_store(self.native.target).read())
 
     def account_probe(self):
         source=AccountProbeBoundary()
