@@ -12,6 +12,7 @@ REQUIRED = {
     "native-feature-observation": 1,
     "native-script-controls": 1,
     "native-audio-controls": 1,
+    "native-graphics-controls": 1,
     "graphics-subject": 1,
     "native-script-code-identity": 1,
     "emote-source-profile": 1,
