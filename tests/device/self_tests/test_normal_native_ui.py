@@ -24,6 +24,7 @@ class NativeBoundary:
         self.text = 'previous native field text'
         self.click_count = 0
         self.arrive_after = None
+        self.ignore_keys = False
         self.ui = NativeUI(self, 'owned-session', self.check, timeout=0.3,
                            monotonic=lambda: self.clock, sleep=self.sleep)
 
@@ -42,6 +43,13 @@ class NativeBoundary:
             return self.visible
         if path.endswith('/enabled'):
             return self.enabled
+        if path.endswith('/text'):
+            return self.text
+        if method == 'POST' and path.endswith('/actions'):
+            if not self.ignore_keys:
+                keys = body['actions'][0]['actions'][4:]
+                self.text = ''.join(value['value'] for value in keys if value['type'] == 'keyDown')
+            return None
         if path.endswith('/clear'):
             self.text = ''
         if path.endswith('/value'):
@@ -59,6 +67,26 @@ class NativeBoundary:
 
 
 class NormalNativeUITests(unittest.TestCase):
+    def test_owned_ascii_replacement_uses_actual_keyboard_events_and_releases_modifiers(self):
+        native = NativeBoundary()
+        native.ui.replace_ascii_keys(Locator('id', 'ActualField'), 'OVERTE_123.5')
+        self.assertEqual('OVERTE_123.5', native.text)
+        self.assertFalse(any(path.endswith(('/clear', '/value')) for _, path, _ in native.calls))
+        self.assertEqual(1, sum(method == 'POST' and path.endswith('/actions') for method, path, _ in native.calls))
+        self.assertTrue(any(method == 'DELETE' and path.endswith('/actions') for method, path, _ in native.calls))
+
+    def test_ignored_or_uncertain_keyboard_input_never_becomes_success_or_replay(self):
+        native = NativeBoundary()
+        native.ignore_keys = True
+        with self.assertRaises(NativeUIError):
+            native.ui.replace_ascii_keys(Locator('id', 'ActualField'), 'owned')
+        native.fail_path = '/actions'
+        with self.assertRaises(NativeUIError):
+            native.ui.replace_ascii_keys(Locator('id', 'ActualField'), 'owned')
+        self.assertEqual(2, sum(method == 'POST' and path.endswith('/actions') for method, path, _ in native.calls))
+        with self.assertRaises(NativeUIError):
+            native.ui.replace_ascii_keys(Locator('id', 'ActualField'), 'unbounded' * 100)
+
     def test_click_resolves_one_actual_visible_enabled_node_and_checks_application_binding(self):
         native = NativeBoundary()
         native.ui.click(Locator('accessibility id', 'ActualControl'))
