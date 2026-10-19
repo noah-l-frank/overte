@@ -102,6 +102,7 @@
     var lastNativeFeatureRequest = "";
     var nativeFeatureTimer = null;
     var lastAccountProbeCommand = "";
+    var lastPrivateLoginInputCommand = "";
     var lastAccountOriginCommand = "";
     var accountProbeTimer = null;
     var lastRecordedPreviewRequest = "";
@@ -236,6 +237,14 @@
             }
         } catch (_recordedPreviewReadError) { /* Missing source is never a feature result. */ }
         Test.saveObject(value, "recorded-preview-observation.json");
+    }
+    function validPrivateLoginInputCommand(command) {
+        return command && command.schemaVersion === 1 && command.action === "feature-private-login-input"
+            && typeof command.commandId === "string" && /^ios-[0-9a-f]{32}$/.test(command.commandId)
+            && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+            && typeof command.inputId === "string" && /^[0-9a-f]{32}$/.test(command.inputId)
+            && /^(inspect|reserve|deliver|retire)$/.test(String(command.operation))
+            && objectKeysMatch(command,["schemaVersion","commandId","action","operation","runId","inputId"]);
     }
     function validAccountOriginCommand(command) {
         return command && command.schemaVersion === 1 && command.action === "feature-account-origin"
@@ -1158,6 +1167,21 @@
             }
             return;
         }
+        if (command && command.action === "feature-private-login-input" && validPrivateLoginInputCommand(command)) {
+            if (command.commandId !== lastPrivateLoginInputCommand) {
+                lastPrivateLoginInputCommand=String(command.commandId);
+                var privateInput={commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.iosPrivateLoginInput === "function") {
+                        var original=Test.iosPrivateLoginInput(command);
+                        if (original && original.commandId===command.commandId) { privateInput=original; }
+                    }
+                } catch (_privateInputError) { /* No entered text or native exception export. */ }
+                Test.saveObject(privateInput,"feature-private-login-input.json");
+            }
+            return;
+        }
+
         if (command && command.action === "feature-account-origin" && validAccountOriginCommand(command)) {
             if (command.commandId !== lastAccountOriginCommand) {
                 lastAccountOriginCommand = String(command.commandId);
