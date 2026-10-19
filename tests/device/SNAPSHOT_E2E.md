@@ -59,7 +59,12 @@ or system save/share. Those still require their own normal-UI observations.
 The optional iOS native producer uses the closed `snapshot-files` command
 channel. `list` accepts only the owned capture prefix; `read` additionally
 accepts an original basename, its native metadata revision and an integer
-offset. Reads return at most64KiB. No command accepts a root, output bytes,
+offset. Reads return at most4MiB, within the original WebDriver response bound.
+Only `snapshot.files` has a120-second outer transfer deadline; normal capture
+inputs retain their60-second deadline and the module retains its total timeout.
+The original native command channel polls at250ms. Small64KiB blocks require
+over100 seconds for25MiB before byte/OS overhead; large bounded blocks avoid
+that failure. No command accepts a root, output bytes,
 capture instruction or success verdict. The native producer must resolve the
 actual application Snapshot storage, reject aliases and nonregular/hard-linked
 files, and bound its original file count and sizes. Native request receipts
