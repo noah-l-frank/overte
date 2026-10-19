@@ -46,6 +46,17 @@ test("all four modes retain real capture API arguments and filenames",()=>{
         h.Script.end();assert.equal(h.Script.timers.size,0);
     }
 });
+test("ordinary GIF selection persists before capture and is restored through ready",()=>{
+    const h=start();
+    for(const [action,expected] of [["captureStillAndGif",true],["captureStillOnly",false]]){
+        h.message(action);
+        assert.equal(h.settings.get("alsoTakeAnimatedSnapshot"),expected);
+        assert.equal(h.calls.filter(row=>row[0]==="still"||row[0]==="360").length,0);
+        h.message("ready");
+        const observed=h.messages.filter(row=>row.action==="captureSettings").at(-1);
+        assert.equal(observed.setting,expected);
+    }
+});
 test("cancel before renderer submission clears delays and restores overlays",()=>{
     const h=start();h.message("takeSnapshot",{mode:"still"});assert.equal(h.Reticle.visible,false);assert.equal(h.Menu.overlays,false);
     h.message("cancelSnapshotCapture");assert.equal(h.Script.timers.size,0);assert.equal(h.Reticle.visible,true);assert.equal(h.Menu.overlays,true);

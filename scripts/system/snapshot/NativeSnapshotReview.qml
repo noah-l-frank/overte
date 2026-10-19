@@ -7,6 +7,7 @@ import QtQuick.Layouts 1.3
 
 Rectangle {
     id: root
+    objectName: "snapshotReview"
     color: "#17212a"
     signal sendToScript(var message)
     property var images: []
@@ -24,6 +25,7 @@ Rectangle {
     property bool keyboardEnabled: true
     property bool keyboardRaised: false
     property bool punctuationMode: false
+    property bool captureSettingsLoaded: false
     property var keyboardItem: null
     onKeyboardRaisedChanged: {
         if (typeof KeyboardScriptingInterface !== "undefined" && KeyboardScriptingInterface.use3DKeyboard) {
@@ -36,7 +38,9 @@ Rectangle {
                 + ' anchors.bottom: parent.bottom; raised: parent.keyboardEnabled && parent.keyboardRaised;'
                 + ' numeric: parent.punctuationMode }', root, "SnapshotKeyboard")
         }
-        send("ready")
+        // The native loader connects the new root after constructing it.
+        // Keep the initialization request until its signal bridge can listen.
+        Qt.callLater(function() { if (root) { root.send("ready") } })
     }
     Component.onDestruction: {
         cancelExport()
@@ -128,6 +132,7 @@ Rectangle {
             uploadPath = ""
         } else if (message.action === "captureSettings") {
             captureMode.currentIndex = message.setting ? 1 : 0
+            captureSettingsLoaded = true
         } else if (message.action === "setPrintButtonEnabled") {
             printEnabled = true; printProcessing = false
         } else if (message.action === "setPrintButtonLoading") {
@@ -160,12 +165,27 @@ Rectangle {
                 objectName: "snapshotMode"
                 Layout.fillWidth: true
                 model: [qsTr("Still"), qsTr("Still + animated GIF"), qsTr("360° panorama"), qsTr("360° cubemap")]
+                delegate: Controls.ItemDelegate {
+                    objectName: "snapshotMode.option." + ["still", "animated", "panorama", "cubemap"][index]
+                    width: captureMode.width
+                    text: modelData
+                    highlighted: captureMode.highlightedIndex === index
+                }
+                onActivated: function(index) {
+                    root.send(index === 1 ? "captureStillAndGif" : "captureStillOnly")
+                }
             }
             Controls.ComboBox {
                 id: captureFormat
                 objectName: "snapshotFormat"
                 Layout.fillWidth: true
                 model: typeof Snapshot !== "undefined" ? Snapshot.getAvailableSnapshotFormats() : ["png"]
+                delegate: Controls.ItemDelegate {
+                    objectName: "snapshotFormat.option." + modelData
+                    width: captureFormat.width
+                    text: modelData
+                    highlighted: captureFormat.highlightedIndex === index
+                }
                 Component.onCompleted: {
                     if (typeof Snapshot !== "undefined") { currentIndex = Math.max(0, model.indexOf(Snapshot.getSnapshotFormat() || "png")) }
                 }
