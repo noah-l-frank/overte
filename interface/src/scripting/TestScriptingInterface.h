@@ -154,6 +154,8 @@ public slots:
     // Read-only native sources. Requires both a dedicated test build and the
     // existing explicit --testScript/--testResultsLocation launch boundary.
     Q_INVOKABLE QVariantMap featureNativeObservation(const QString& requestId);
+    Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);
+    Q_INVOKABLE QVariantMap releaseFeatureRecordedVoiceEvidence(const QString& requestId);
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     Q_INVOKABLE QVariantMap voiceTest(const QVariantMap& command);
@@ -218,6 +220,10 @@ private:
     bool _featurePendingAnimationFence {false};
     QString _featureCompletedRequest;
     QVariantMap _featureCompletedObservation;
+    QString _featurePreviewRequest;
+    QVariantMap _featurePreviewObservation;
+    QByteArray _featurePreviewInputDigest, _featurePreviewSinkDigest;
+    quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     QString _voiceCapturePath;

@@ -22,6 +22,7 @@
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QVariantMap>
+#include "RecordedPreviewObservation.h"
 #endif
 
 #include <fstream>
@@ -286,6 +287,8 @@ public slots:
     void cancelRecordedVoiceTest() override;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureRecordedVoiceObservation() const;
+    QVariantMap featureRecordedVoiceEvidence() const;
+    void releaseFeatureRecordedVoiceEvidence();
 #endif
 
     virtual bool getServerEcho() override { return _shouldEchoToServer; }
@@ -447,6 +450,7 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap _e2eRecordedVoiceEvent;
     quint64 _e2eRecordedVoiceSequence {0};
+    overte::e2e::RecordedPreviewObservation _e2eRecordedPreview;
 #endif
     void finishRecordedVoiceTest(const QString& phase, const QString& error = QString());
     void publishRecordedVoiceTestStatus(const QString& phase, const QString& error = QString());

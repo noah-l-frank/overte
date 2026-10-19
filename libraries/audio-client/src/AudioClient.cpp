@@ -1769,6 +1769,7 @@ void AudioClient::publishRecordedVoiceTestStatus(const QString& phase, const QSt
         _e2eRecordedVoiceEvent["schemaVersion"] = 1;
         _e2eRecordedVoiceEvent["eventSequence"] = static_cast<qulonglong>(++_e2eRecordedVoiceSequence);
         _e2eRecordedVoiceEvent["publishedEpochMs"] = QDateTime::currentMSecsSinceEpoch();
+        _e2eRecordedPreview.event(_e2eRecordedVoiceEvent);
     }
 #endif
     emit recordedVoiceTestStatusChanged(status);
@@ -1782,6 +1783,17 @@ QVariantMap AudioClient::featureRecordedVoiceObservation() const {
         {"playedBytes", static_cast<qint64>(_recordedVoiceTest.playedBytes())},
         {"frameBytes", _outputFormat.bytesPerFrame()}, {"sampleRate", _outputFormat.sampleRate()},
         {"channels", _outputFormat.channelCount()}, {"event", _e2eRecordedVoiceEvent}};
+}
+
+QVariantMap AudioClient::featureRecordedVoiceEvidence() const {
+    if (QThread::currentThread() != thread() || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    return _e2eRecordedPreview.snapshot();
+}
+
+void AudioClient::releaseFeatureRecordedVoiceEvidence() {
+    if (QThread::currentThread() == thread() && QCoreApplication::arguments().contains("--testScript")) {
+        _e2eRecordedPreview.clear();
+    }
 }
 #endif
 
@@ -1826,6 +1838,14 @@ void AudioClient::startRecordedVoiceTest() {
     _recordedVoiceTest.reset();
     _recordedVoiceTestLimit = 0;
     QString error;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (QCoreApplication::arguments().contains("--testScript")) {
+        const auto cycle = _e2eRecordedPreview.begin(_outputFormat);
+        QTimer::singleShot(30000, this, [this, cycle] {
+            if (_e2eRecordedPreview.cycle() == cycle) { _e2eRecordedPreview.clear(); }
+        });
+    }
+#endif
     if (_isMuted) { error = "microphone-muted"; }
     else if (!_audioLifecycleRunning || _audioPaused) { error = "audio-inactive"; }
     else if (_shouldEchoLocally) { error = "live-echo-enabled"; }
@@ -1978,8 +1998,17 @@ void AudioClient::handleLocalEchoAndReverb(QByteArray& inputByteArray) {
     // remainder instead of dropping it and introducing a discontinuity.
     if (_recordedVoiceTestActive) {
         if (!_recordedVoiceTest.finished()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            const auto capturedBefore = _recordedVoiceTest.capturedBytes();
+#endif
             const auto testOutput = _recordedVoiceTest.process(outputBytes->constData(),
                 outputBytes->size(), static_cast<std::size_t>(_recordedVoiceTestLimit), true);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            const auto capturedAfter = _recordedVoiceTest.capturedBytes();
+            if (capturedAfter >= capturedBefore) {
+                _e2eRecordedPreview.input(outputBytes->constData(), static_cast<qint64>(capturedAfter - capturedBefore));
+            }
+#endif
             if (_recordedVoiceTest.playing() && !_recordedVoiceTest.hasSignal()) {
                 finishRecordedVoiceTest("error", "no-microphone-signal");
                 return;
@@ -2011,6 +2040,9 @@ void AudioClient::handleLocalEchoAndReverb(QByteArray& inputByteArray) {
         const qint64 bytesWritten = _loopbackOutputDevice->write(
             _loopbackPendingAudio.constData(), bytesToWrite);
         if (bytesWritten > 0) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (_recordedVoiceTestActive) { _e2eRecordedPreview.sink(_loopbackPendingAudio.constData(), bytesWritten); }
+#endif
             _loopbackPendingAudio.remove(0, static_cast<int>(bytesWritten));
         } else if (bytesWritten < 0) {
             if (_recordedVoiceTestActive) {

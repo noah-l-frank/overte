@@ -81,6 +81,10 @@ be polled; a matching invalid complete observation fails.
   must be fresh, sequences cannot regress, and consumers requiring this feature
   reject an older producer missing the source. These counters do not replace
   original PCM or acoustic evidence.
+  The separate [original preview PCM source](RECORDED_PREVIEW_EVIDENCE.md)
+  now supplies capture-before-normalization and actual accepted sink writes,
+  with native cycle/event provenance and explicit private-data cleanup. This
+  source is E2E-only, uncompiled and still needs platform/device qualification.
 * `account` reads login state and a SHA256 of the actual principal on the
   AccountManager thread. It exports no username, token or endpoint. Protected
   access/revocation still needs a real controlled server observation.
