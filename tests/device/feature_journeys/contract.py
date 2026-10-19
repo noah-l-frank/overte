@@ -1,4 +1,4 @@
-"""Strict v2 action/read boundary for feature additions to the existing harness."""
+"""Strict v3 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
@@ -106,6 +106,25 @@ def state(area, value, run=None):
                 allowed = {item for row in checkpoints for item in row[key]}
                 if any(item not in allowed for item in value[key]):
                     raise ValueError('Product list contains private or unowned values')
+    if area == 'audio':
+        phase, history = value['phase'], value['history']
+        if (any(value[key] < 0 for key in ('recordedFrames', 'playedFrames', 'bufferedFrames'))
+                or not history and phase != 'idle' or history and history[-1] != phase
+                or any(a == b for a, b in zip(history, history[1:]))
+                or value['recording'] != (phase == 'capturing')
+                or value['preview'] != (phase in ('playing', 'draining'))
+                or value['playedFrames'] > value['recordedFrames']
+                or value['bufferedFrames'] > value['recordedFrames']):
+            raise ValueError('Audio phase, original history and measured counters disagree')
+        if (phase == 'error' and value['error'] == 'none'
+                or phase in ('idle', 'capturing', 'playing', 'draining', 'completed') and value['error'] != 'none'
+                or phase == 'idle' and (history or value['recordedFrames'] or value['playedFrames'])):
+            raise ValueError('Audio state lacks its actual native phase/error history')
+        if phase in ('idle', 'error', 'cancelled', 'completed') and value['bufferedFrames'] != 0:
+            raise ValueError('Inactive audio retained product preview buffers')
+        if phase == 'completed' and (history != ['capturing', 'playing', 'draining', 'completed']
+                or value['playedFrames'] != value['recordedFrames'] or value['recordedFrames'] <= 0):
+            raise ValueError('Audio completion lacks actual whole-cycle playback')
     return value
 
 

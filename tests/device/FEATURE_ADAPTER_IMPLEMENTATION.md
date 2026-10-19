@@ -5,7 +5,7 @@ implemented**: Phone has new ordinary Create/script foundation bindings; Pico
 has a candidate-bound original-observation backend; iOS has an original-read
 component behind its unchanged installed-code gate. **No complete new
 `feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
-All fourteen complete version 2 adapters remain missing, and all device qualification
+All fourteen complete version 3 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.
 
@@ -16,7 +16,7 @@ original evaluated animation/pose observations, with labelled native
 render/audio/account settings reads. Platform transports are being connected
 in Phone, Pico, iOS order. See [the native source contract](native/README.md).
 The initial source-only readers and full-area adapter status remain distinct;
-these new sources do not by themselves complete any version 2 triple.
+these new sources do not by themselves complete any version 3 triple.
 The [source compatibility audit](FEATURE_SOURCE_COMPATIBILITY.md) also records
 draft common workflow assumptions that must be corrected before area activation.
 
@@ -73,8 +73,8 @@ Reusable protocol/bounds/cleanup details are in
 [normal scripts](adapters/NORMAL_SCRIPT_MANAGER.md) and
 [normal Create](adapters/NORMAL_CREATE.md).
 
-The shared [version 2 migration](feature_journeys/CONTRACT_MIGRATION.md)
-corrects client Script import to the existing file-bundle picker. URL Script
+The shared [current migration](feature_journeys/CONTRACT_MIGRATION.md)
+retains the corrected client Script import to the existing file-bundle picker. URL Script
 foundations remain narrower. All three source branches now connect the normal
 local file-bundle picker with actual control/model tokens and add exclusive
 private Script fixture staging, original-byte readback and persisted file
@@ -88,7 +88,7 @@ audio adapter or independent acoustic proof.
 
 ## Fourteen-area source audit
 
-All rows below mean: **test logic present; full version 2 adapter missing; devices
+All rows below mean: **test logic present; full version 3 adapter missing; devices
 untested**. Existing/new foundations are narrower implementation scopes.
 
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
@@ -114,7 +114,7 @@ Common blockers affecting the full triples:
   an account backend, domain administrator, external upload/share service or
   second Overte client. No such real measuring actor has been implemented by
   relabelling fixture simulation or by forwarding expectations to the adapter.
-* The version 2 `lifecycle` counters must come from actual native lifecycle events;
+* The version 3 `lifecycle` counters must come from actual native lifecycle events;
   request counts cannot fill them. The continuation's native packet implements
   that source, but the full-area observer/cleanup joins remain to be completed.
 * Fullscreen panels can occlude the current in-world challenge/feature subject.
