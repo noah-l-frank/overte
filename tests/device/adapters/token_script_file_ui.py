@@ -40,6 +40,13 @@ def file_url(value):
     return path.rstrip('/')
 
 
+def folder_text(value):
+    need(bounded_text(value) and re.fullmatch(
+        r'/(?:[^/\x00-\x1f]+/)*feature-script-[0-9a-f]{32}(?:/script-bundle)?', value)
+        and not any(part in ('.', '..') for part in value.split('/')))
+    return value
+
+
 def metadata_fields(identifier):
     need(file_control(identifier))
     if identifier.startswith('script-file.row.'):
