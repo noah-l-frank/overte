@@ -17,6 +17,8 @@ render/audio/account settings reads. Platform transports are being connected
 in Phone, Pico, iOS order. See [the native source contract](native/README.md).
 The initial source-only readers and full-area adapter status remain distinct;
 these new sources do not by themselves complete any v1 triple.
+The [source compatibility audit](FEATURE_SOURCE_COMPATIBILITY.md) also records
+draft common workflow assumptions that must be corrected before area activation.
 
 ## Local branches and ownership
 

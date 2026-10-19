@@ -8,6 +8,7 @@
     "feature-journey": {"current": 1, "reads": [1]},
     "native-feature-observation": {"current": 1, "reads": [1]},
     "native-script-controls": {"current": 1, "reads": [1]},
+    "recorded-preview-signal": {"current": 1, "reads": [1]},
     "fixture-environment": {"current": 1, "reads": [1]},
     "matrix-summary": {"current": 1, "reads": [1]},
     "probe-snapshot": {"current": 2, "reads": [2]},

@@ -9,13 +9,21 @@ Nothing builds or installs a client when an adapter requests an observation.
 The closed `feature-native-observe` command has exactly `schemaVersion:1`,
 `commandId:<32hex>` (`ios-<32hex>` on HTTP/AFC) and `action`. It accepts no
 expected state, field selection, filename, script, renderer setting or result.
-The probe calls `Test.featureNativeObservation(requestId)` once and saves its
-original object to `feature-native-observation.json`. An absent/failed hook
+The probe calls `Test.featureNativeObservation(requestId)` and saves its
+original completed object to `feature-native-observation.json`. A pending native
+animation fence schedules the same read-only request every 50 ms, at most 50
+times (2.5 seconds), without blocking the GUI or publishing a pending packet.
+A newer request and script shutdown retire the pending timer. Re-reading a
+completed native request returns the original cached packet, without retiming.
+An absent/failed hook or exhausted fence
 writes `{schemaVersion:1,requestId,available:false}` and readers reject it.
 
 The native object has exactly `schemaVersion`, `requestId`, `instance`,
 `sequence`, `capturedEpochMs`, `processId`, `lifecycle`, `animation`, `graphics`,
-`audio`, `account`. The schema is enforced by
+`audio`, `account`, `requestedEpochMs`, `animationFence`. The last two fields are
+optional for legacy Android diagnostic readers; iOS requires the native request
+epoch and, for animation evidence, the populated native animation fence.
+The schema is enforced by
 `adapters/native_feature_observation.py`. A read is bounded to 262144 UTF-8
 bytes, five seconds and 51 attempts. Duplicate keys, nonfinite numbers,
 incorrect types/PID/request/instance, regressing cursors/counters and captures
@@ -45,6 +53,19 @@ be polled; a matching invalid complete observation fails.
   Animation consumers require fresh advancing Rig evaluations, a loaded graph
   and, for overrides, a loaded actually evaluated clip. Native joint/image/peer
   evidence must still establish the visible feature effect.
+  The native GUI thread records its own request epoch, Rig identity and current
+  evaluation sequence at the first call. A populated `animationFence` carries
+  `rigId`, `sequence`, `requestedEpochMs`; a completed animation must belong to
+  that Rig, advance that counter and postdate that native epoch. Being merely
+  less than 1500 ms old is insufficient after an input. iOS never compares a
+  host wall clock with a native animation wall clock: its unique correlated
+  request, native request-to-capture interval (at most five seconds) and bounded
+  local monotonic acquisition establish freshness. All native pose/clip/event
+  ages retain the original native clock. A missing native fence cannot qualify
+  iOS animation. For legacy Android packets, the reader may request a new
+  **read-only** native sample while awaiting
+  a later evaluation, within the same five-second/51-attempt bound. Click/key/
+  script inputs are never replayed, and old poses are never retimed.
 * `graphics` explicitly distinguishes requested resolution and the native
   Application resolution read. Shadows/mirrors/haze/local-light/material flags
   are **settings**, not evidence that a render pass ran or pixels changed.

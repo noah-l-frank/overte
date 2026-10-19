@@ -23,26 +23,43 @@ DURATION = LEAD * 2 + SYMBOLS * CELL
 WINDOW = 0.04
 HOP = 0.02
 
+LEGACY_PROFILE = 'voice-v1'
+PREVIEW_PROFILE = 'recorded-preview-v1'
 
-def sequence(challenge: str) -> list[int]:
+
+def profile_parameters(profile: str) -> tuple[float, float, float, float, str]:
+    if profile == LEGACY_PROFILE:
+        return LEAD, TONE, CELL, DURATION, 'overte-voice-v1:'
+    if profile == PREVIEW_PROFILE:
+        # All twelve symbols fit inside the real three-second memory preview,
+        # with head/tail margin for acoustic startup. Keep a full three-second
+        # capture requirement, including for quiet negative controls.
+        return 0.20, 0.12, 0.16, 3.0, 'overte-recorded-preview-v1:'
+    raise ValueError('unsupported closed voice signal profile')
+
+
+def sequence(challenge: str, *, profile: str = LEGACY_PROFILE) -> list[int]:
     if not isinstance(challenge, str) or not re.fullmatch(r"[0-9a-f]{32}", challenge):
         raise ValueError("challenge must be 32 lowercase hexadecimal characters")
-    digest = hashlib.sha256(("overte-voice-v1:" + challenge).encode("ascii")).digest()
+    prefix = profile_parameters(profile)[4]
+    digest = hashlib.sha256((prefix + challenge).encode("ascii")).digest()
     result = [digest[0] % len(FREQUENCIES)]
     for value in digest[1:SYMBOLS]:
         result.append((result[-1] + 1 + value % (len(FREQUENCIES) - 1)) % len(FREQUENCIES))
     return result
 
 
-def samples(challenge: str, rate: int = RATE, amplitude: float = 0.15) -> array.array:
+def samples(challenge: str, rate: int = RATE, amplitude: float = 0.15, *,
+            profile: str = LEGACY_PROFILE) -> array.array:
     if rate not in (8000, 16000, 24000, 44100, 48000):
         raise ValueError("unsupported challenge sample rate")
     if not 0 < amplitude <= 0.25:
         raise ValueError("challenge amplitude must be in (0, 0.25]")
-    output = array.array("h", [0]) * round(DURATION * rate)
-    for index, symbol in enumerate(sequence(challenge)):
-        start = round((LEAD + index * CELL) * rate)
-        length = round(TONE * rate)
+    lead, tone, cell, duration, _prefix = profile_parameters(profile)
+    output = array.array("h", [0]) * round(duration * rate)
+    for index, symbol in enumerate(sequence(challenge, profile=profile)):
+        start = round((lead + index * cell) * rate)
+        length = round(tone * rate)
         ramp = max(1, round(0.008 * rate))
         for frame in range(length):
             envelope = min(1.0, frame / ramp, (length - frame - 1) / ramp)
@@ -51,8 +68,8 @@ def samples(challenge: str, rate: int = RATE, amplitude: float = 0.15) -> array.
     return output
 
 
-def write_wav(path: Path, challenge: str) -> None:
-    pcm = samples(challenge)
+def write_wav(path: Path, challenge: str, *, profile: str = LEGACY_PROFILE) -> None:
+    pcm = samples(challenge, profile=profile)
     if sys.byteorder != "little":
         pcm.byteswap()
     with wave.open(str(path), "wb") as output:
@@ -112,8 +129,9 @@ def features(pcm: array.array, rate: int) -> list[tuple[float, int | None]]:
     return result
 
 
-def analyze(path: Path, challenge: str, expect: str = "present") -> dict:
-    expected = sequence(challenge)
+def analyze(path: Path, challenge: str, expect: str = "present", *, profile: str = LEGACY_PROFILE) -> dict:
+    expected = sequence(challenge, profile=profile)
+    _lead, tone, cell, minimum_duration, _prefix = profile_parameters(profile)
     if expect not in ("present", "absent"):
         raise ValueError("expect must be present or absent")
     rate, channels = read_wav(path)
@@ -130,12 +148,12 @@ def analyze(path: Path, challenge: str, expect: str = "present") -> dict:
         times = [timestamp for timestamp, _ in observed]
         for frame in range(len(observed)):
             offset = observed[frame][0] - WINDOW / 2
-            if offset + (SYMBOLS - 1) * CELL + TONE > duration:
+            if offset + (SYMBOLS - 1) * cell + tone > duration:
                 break
             coverage = []
             for symbol_index, symbol in enumerate(expected):
-                low = offset + symbol_index * CELL + WINDOW
-                high = offset + symbol_index * CELL + TONE - WINDOW
+                low = offset + symbol_index * cell + WINDOW
+                high = offset + symbol_index * cell + tone - WINDOW
                 lo = bisect.bisect_left(times, low - 1e-6)
                 hi = bisect.bisect_right(times, high + 1e-6)
                 labels = by_frame[lo:hi]
@@ -150,10 +168,10 @@ def analyze(path: Path, challenge: str, expect: str = "present") -> dict:
     rms_db = 20 * math.log10(max(rms, 1e-9))
     clipping = sum(abs(value) >= 32760 for channel in channels for value in channel) / count
     found = min(best_coverage) >= 0.65 and sum(best_coverage) / SYMBOLS >= 0.85
-    complete = duration >= DURATION
+    complete = duration >= minimum_duration
     passed = complete and ((found and clipping < 0.01) if expect == "present"
                            else (not found and rms_db < -55))
-    return {
+    result = {
         "schemaVersion": VERSION, "challenge": challenge, "expected": expect,
         "passed": passed, "patternDetected": found, "completeCapture": complete,
         "durationSeconds": round(duration, 4), "sampleRate": rate,
@@ -163,3 +181,6 @@ def analyze(path: Path, challenge: str, expect: str = "present") -> dict:
         "rmsDbFS": round(rms_db, 2), "clippingFraction": round(clipping, 6),
         "proof": "PCM pattern detection; no physical microphone or loudspeaker claim",
     }
+    if profile != LEGACY_PROFILE:
+        result['signalProfile'] = profile
+    return result

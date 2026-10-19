@@ -100,12 +100,24 @@
     var normalFeatureSequence = 0;
     var lastNormalFeatureRequest = "";
     var lastNativeFeatureRequest = "";
-    function saveNativeFeatureObservation(requestId) {
+    var nativeFeatureTimer = null;
+    function saveNativeFeatureObservation(requestId, remaining) {
+        if (requestId !== lastNativeFeatureRequest) { return; }
+        if (remaining === undefined) { remaining = 50; }
         var value = {schemaVersion: 1, requestId: requestId, available: false};
         try {
             if (typeof Test.featureNativeObservation === "function") {
                 var native = Test.featureNativeObservation(requestId);
-                if (native && native.requestId === requestId) { value = native; }
+                if (native && native.requestId === requestId && native.pending === true) {
+                    if (remaining > 0) {
+                        nativeFeatureTimer = Script.setTimeout(function () {
+                            if (requestId !== lastNativeFeatureRequest) { return; }
+                            nativeFeatureTimer = null;
+                            saveNativeFeatureObservation(requestId, remaining - 1);
+                        }, 50);
+                        return;
+                    }
+                } else if (native && native.requestId === requestId) { value = native; }
             }
         } catch (_nativeFeatureReadError) { /* An unavailable native read is not success. */ }
         Test.saveObject(value, "feature-native-observation.json");
@@ -898,8 +910,9 @@
                 && command.action === "feature-native-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
             if (command.commandId !== lastNativeFeatureRequest) {
-                saveNativeFeatureObservation(command.commandId);
+                if (nativeFeatureTimer !== null) { Script.clearTimeout(nativeFeatureTimer); nativeFeatureTimer = null; }
                 lastNativeFeatureRequest = String(command.commandId);
+                saveNativeFeatureObservation(command.commandId);
             }
             return;
         }
@@ -1860,6 +1873,8 @@
 
     Script.update.connect(updateProbe);
     Script.scriptEnding.connect(function () {
+        lastNativeFeatureRequest = "";
+        if (nativeFeatureTimer !== null) { Script.clearTimeout(nativeFeatureTimer); nativeFeatureTimer = null; }
         Script.update.disconnect(updateProbe);
         Script.clearInterval(interactionPointerDiscovery);
         Messages.messageReceived.disconnect(observeDispatcherPointers);
