@@ -58,6 +58,8 @@ QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
         if (!graphics.isEmpty()) { return graphics; }
         const auto audio = overte::e2e::audioControlId(item);
         if (!audio.isEmpty()) { return audio; }
+        const auto login=overte::e2e::loginControlId(item);
+        if (!login.isEmpty()) { return login; }
     }
 #endif
     const auto name = item->objectName();
@@ -130,9 +132,14 @@ bool NormalUiInput::guiThread() const { return qApp && QThread::currentThread() 
 
 QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tabletShown) {
     if (!guiThread()) { return {}; }
-    if (_hud != hud || _tablet != tablet || _tabletShown != tabletShown) { _controls.clear(); }
+    const bool changed=_hud!=hud || _tablet!=tablet || _tabletShown!=tabletShown;
+    if (changed) { _controls.clear(); }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (changed || _loginGeneration.isEmpty()) { _loginGeneration=nonce(); }
+#endif
     _hud = hud; _tablet = tablet; _tabletShown = tabletShown;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto loginContext=_loginReader ? _loginReader() : overte::e2e::LoginUiContext();
     const auto audioContext = _audioReader ? _audioReader() : overte::e2e::AudioUiContext();
     const auto graphicsContext = _graphicsReader ? _graphicsReader() : overte::e2e::GraphicsUiContext();
 #endif
@@ -161,7 +168,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 auto source = overte::e2e::scriptFileControlSource(node);
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
+                if (id.startsWith("login.")) {
+                    if (!loginContext.valid) { return; }
+                    source=overte::e2e::loginControlSource(node,id,loginContext);
+                } else if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
                     if (!graphicsContext.valid) { return; }
                     source = overte::e2e::graphicsControlSource(node,id,graphicsContext);
                 } else if (id.startsWith("audio.") || id == "settings.entry") {
@@ -238,7 +248,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
+        if (id.startsWith("login.")) {
+            overte::e2e::appendLoginControlObservation(row,control.item,id,loginContext);
+        } else if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
             overte::e2e::appendGraphicsControlObservation(row,control.item,id,graphicsContext);
             if (row.value("viewport").toString() != "visible") { row["frame"] = QJsonValue(); }
         } else if (id.startsWith("audio.") || id == "settings.entry") {
@@ -258,6 +270,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
     if (graphicsContext.valid) { result["graphicsControlsVersion"] = 1; }
+    if (loginContext.valid) { result["loginControlsVersion"]=2;result["generation"]=_loginGeneration; }
 #endif
     return result;
 }
@@ -293,7 +306,14 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     if (!control || !enabled(control)) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     const auto graphicsContext = _graphicsReader ? _graphicsReader() : overte::e2e::GraphicsUiContext();
-    if (controlId.startsWith("graphics.") || (controlId == "settings.entry" && graphicsContext.valid)) {
+    if (controlId.startsWith("login.")) {
+        const auto context=_loginReader ? _loginReader() : overte::e2e::LoginUiContext();
+        QJsonObject row;overte::e2e::appendLoginControlObservation(row,control,controlId,context);
+        const auto point=control->mapToScene(QPointF(control->width()/2,control->height()/2));
+        if (!context.valid || controlId=="login.page" || !row.value("inputReady").toBool()
+                || overte::e2e::loginControlSource(control,controlId,context)!=_controls.value(controlId).source
+                || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),point)) { return false; }
+    } else if (controlId.startsWith("graphics.") || (controlId == "settings.entry" && graphicsContext.valid)) {
         if (controlId == "graphics.page" || controlId == "graphics.scrollbar" || controlId == "graphics.resolution"
                 || !graphicsContext.valid || overte::e2e::graphicsControlSource(control,controlId,graphicsContext) != _controls.value(controlId).source) { return false; }
         QJsonObject row;
@@ -405,6 +425,18 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
         field = item(QStringLiteral("script-file.primary"), fieldToken);
         scriptPrimary = field != nullptr;
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    bool loginServer {false};
+    if (!field) { field=item("login.server",fieldToken);loginServer=field!=nullptr; }
+    if (loginServer) {
+        const auto context=_loginReader ? _loginReader() : overte::e2e::LoginUiContext();
+        QJsonObject row;overte::e2e::appendLoginControlObservation(row,field,"login.server",context);
+        if (!context.valid || !row.value("inputReady").toBool()
+                || overte::e2e::loginControlSource(field,"login.server",context)!=_controls.value("login.server").source
+                || action!="replace" || !command.value("text").isString()
+                || !overte::e2e::accountOriginText(command.value("text").toString())) { return result; }
+    }
+#endif
     if (!field || !enabled(field)) { return result; }
     if (action == QStringLiteral("select-index")) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)

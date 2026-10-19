@@ -349,7 +349,7 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         const auto id = row.value("id").toString();
         // Existing OverteTabletOpen owns this actual native control identity.
         if (id == QStringLiteral("hud.tablet") || id == QStringLiteral("tablet.close")
-                || id == "audio.page" || id == "audio.scrollbar" || id == "graphics.page"
+                || id == "login.page" || id == "audio.page" || id == "audio.scrollbar" || id == "graphics.page"
                 || id == "graphics.scrollbar" || id == "graphics.resolution"
                 || (id.startsWith("graphics.") && row.value("viewport").toString() != "visible")) { continue; }
         const auto token = row.value("token").toString();
@@ -368,7 +368,7 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         OverteIOSE2EAccessibilityButton* control = tabletE2EAccessibilityButton(window, identifier);
         control.sourceControlToken = sourceToken;
         if (id.startsWith(QStringLiteral("scripts.")) || id.startsWith(QStringLiteral("script-file."))
-                || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
+                || id.startsWith("login.") || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
             // The adapter checks this original token on the resolved UIKit
             // object. Replacing a row also retires that UIKit object above.
             control.accessibilityValue = sourceToken;
@@ -376,6 +376,9 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         control.frame = frame;
         control.accessibilityIdentifier = identifier;
         static const QHash<QString, QString> labels {
+            { "login.entry", "Log in" }, { "login.username", "Login username" },
+            { "login.password", "Login password" }, { "login.server", "Directory server" },
+            { "login.submit", "Submit login" }, { "login.cancel", "Close login" },
             { "hud.goto", "Go to destination" }, { "address.field", "Destination address" },
             { "address.go", "Go" }, { "address.cancel", "Cancel" }, { "address.back", "Back" },
             { "places.back", "Back" }, { "places.forward", "Forward" },
@@ -1143,6 +1146,15 @@ void setIOSGraphicsUiContextReader(std::function<overte::e2e::GraphicsUiContext(
     if (qApp && NSThread.isMainThread && QThread::currentThread() == qApp->thread()
             && QCoreApplication::arguments().contains("--testScript")) {
         normalUiInput().setGraphicsReader(std::move(reader));
+    }
+}
+#endif
+
+#if defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_FEATURE_TESTS)
+void setIOSLoginUiContextReader(std::function<overte::e2e::LoginUiContext()> reader) {
+    if (qApp && NSThread.isMainThread && QThread::currentThread()==qApp->thread()
+            && QCoreApplication::arguments().contains("--testScript")) {
+        normalUiInput().setLoginReader(std::move(reader));
     }
 }
 #endif

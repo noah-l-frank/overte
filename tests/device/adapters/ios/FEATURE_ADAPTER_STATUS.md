@@ -50,7 +50,7 @@ hardware playback claim is introduced. See
 The internal `_script_execution_observer()` now reads actual engine identities
 and CommonJS completion/cache/error history through original HTTP/AFC bytes.
 The canonical candidate binding explicitly rejects this method too. The
-current shared feature contract is **version 3**, with the actual Script
+current shared feature contract is **version 6**, with the actual Script
 file-bundle picker flow; no complete area adapter is claimed by these sources.
 See [the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
 
@@ -190,7 +190,7 @@ selection excludes both native Snapshot classes and the acoustic compiler case;
 zero compiler attempts occurred. See `tests/device/FEATURE_ADAPTER_VALIDATION.md`
 for the retained initial mixed-run record and exact limits.
 
-The current common Audio contract is version 3: actual automatic memory
+The current common Audio contract is version 6: actual automatic memory
 capture/play/drain/completion, native phase/history/frame consistency, normal
 mute/cancel/background behavior and separate original input/acoustic evidence.
 OS permission recovery stays in its existing foundation. Normal Audio input,
@@ -306,3 +306,19 @@ explicitly includes the origin factory (five existing checks pass). No product
 endpoint or TLS trust changes; normal login/cancel/UI/restart/actor composition
 and complete Authentication activation remain open. Native code is uncompiled
 and every device remains unqualified.
+
+## Login observation and privacy admission
+
+E2E-only NormalUiInput now reads common login-control metadata v2 from actual
+generic QML roots/error/spinner/server fields and passive owner-thread native
+account context. Original root generations/tokens bind normal UIKit pointer
+input; supported server-origin edits use the existing normal IME path. Private
+username/password edits are explicitly refused before any public fixture call.
+The dedicated private credential lease/transport remains the next prerequisite;
+this packet advertises no full Authentication operations.
+
+Eight new device-free counterexamples pass, as do the **42** existing normal
+component cases and **282** guarded broad iOS cases with zero failures/errors/
+skips/compiler attempts and the same 20 native exclusions. Actual Qt/UIKit
+source is uncompiled and no device was accessed. The canonical installed-code
+association remains unavailable. See [the exact partial boundary](../../ios/adapters/NORMAL_LOGIN.md).

@@ -20,6 +20,8 @@ from adapters.normal_ui import NativeUIError
 from ios.adapters.appium_adapter import AppiumAdapter
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
 from adapters.token_graphics_ui import graphics_control,metadata_fields as graphics_metadata_fields,validate_metadata as validate_graphics_metadata,on_grid
+from adapters.token_login_ui import IDS as LOGIN_IDS, VERSION as LOGIN_VERSION,metadata_fields as login_metadata_fields,validate_metadata as validate_login_metadata
+from adapters.native_account_origin import origin_text
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
@@ -70,6 +72,10 @@ def observation(value, pid, now_ms=None):
         if type(value['graphicsControlsVersion']) is not int or value['graphicsControlsVersion']!=1:
             raise NativeUIError('Native iOS Graphics control version is invalid')
         fields.add('graphicsControlsVersion')
+    if type(value) is dict and 'loginControlsVersion' in value:
+        if type(value['loginControlsVersion']) is not int or value['loginControlsVersion']!=LOGIN_VERSION or not _uuid(value.get('generation')):
+            raise NativeUIError('Native iOS login control version/context is invalid')
+        fields |= {'loginControlsVersion','generation'}
     if (not isinstance(value, dict) or set(value) != fields
             or type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
             or not _uuid(value['instance']) or value['frameSpace'] != 'qt-window-logical'
@@ -85,7 +91,10 @@ def observation(value, pid, now_ms=None):
         is_graphics=type(control) is dict and graphics_control(control.get('id')) and value.get('graphicsControlsVersion')==1
         if type(control) is dict and type(control.get('id')) is str and control['id'].startswith('graphics.') and not is_graphics:
             raise NativeUIError('Native iOS Graphics controls lack their source extension')
-        if is_graphics:
+        if type(control) is dict and type(control.get('id')) is str and control['id'] in LOGIN_IDS:
+            if value.get('loginControlsVersion')!=LOGIN_VERSION:raise NativeUIError('Native iOS login controls lack their source extension')
+            fields |= login_metadata_fields(control['id'])
+        elif is_graphics:
             fields |= graphics_metadata_fields(control['id'])
         elif type(control) is dict and audio_control(control.get('id')):
             if value.get('audioControlsVersion') != 1:
@@ -103,13 +112,15 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
         if control['id'] in SNAPSHOT_CHOICES and type(control['checked']) is not bool:
             raise NativeUIError('Native iOS Snapshot choice state is invalid')
-        if is_graphics:validate_graphics_metadata(control)
+        if control['id'] in LOGIN_IDS:
+            original=dict(control);original.pop('frame');validate_login_metadata(original)
+        elif is_graphics:validate_graphics_metadata(control)
         elif audio_control(control['id']): validate_audio_metadata(control)
         if script_control(control['id']): validate_metadata(control)
         if file_control(control['id']): validate_file_metadata(control)
@@ -208,7 +219,7 @@ class NativeInput:
         return value
 
     def edit(self, operation, text=None, *, field='address.field', index=None):
-        if (field not in {'address.field', 'snapshot.name', 'scripts.url.field', 'script-file.folder', 'script-file.primary'}
+        if (field not in {'address.field', 'snapshot.name', 'scripts.url.field', 'script-file.folder', 'script-file.primary','login.server'}
                 or operation not in {'replace', 'submit', 'select-index'}
                 or operation == 'submit' and (text is not None or field not in {'address.field', 'script-file.folder'})
                 or operation == 'select-index' and (text is not None or field != 'script-file.primary'
@@ -223,7 +234,9 @@ class NativeInput:
                 valid = False
             if not valid:
                 raise NativeUIError('Native iOS field text is invalid')
-            if field == 'snapshot.name':
+            if field=='login.server':
+                origin_text(text) # Non-secret supported origin only; no credentials on HTTP.
+            elif field == 'snapshot.name':
                 from contracts import validate_operation_arguments
                 validate_operation_arguments('snapshot.files', {'prefix': text})
             elif field == 'script-file.folder':
@@ -238,6 +251,8 @@ class NativeInput:
         observed = self.capture()
         if field == 'scripts.url.field' and observed.get('featureControlsVersion') != 1:
             raise NativeUIError('Native iOS Script field lacks its source extension')
+        if field=='login.server' and observed.get('loginControlsVersion')!=LOGIN_VERSION:
+            raise NativeUIError('Native iOS server field lacks its login extension')
         if file_control(field) and observed.get('fileControlsVersion') != 1:
             raise NativeUIError('Native iOS file field lacks its source extension')
         fields = [c for c in observed['controls'] if c['id'] == field and c['focused'] and c['enabled']]

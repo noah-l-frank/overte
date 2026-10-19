@@ -62,6 +62,7 @@
 #include "../../../tests/device/native/FeatureLifecycle.h"
 #include "../../../tests/device/native/NormalAudioControls.h"
 #include "../../../tests/device/native/NormalGraphicsControls.h"
+#include "../../../tests/device/native/NormalLoginControls.h"
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
 #include "../../../tests/device/native/PrivateAccountOrigin.h"
@@ -332,6 +333,18 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
 #if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
         const QPointer<TestScriptingInterface> owner(this);
+        setIOSLoginUiContextReader([owner] {
+            overte::e2e::LoginUiContext result;
+            if (!owner || owner->_testResultsLocation.isEmpty() || !owner->_featureLifecycle
+                    || owner->_featureLifecycle->snapshot().isEmpty()
+                    || !QCoreApplication::arguments().contains("--testScript")
+                    || !DependencyManager::isSet<AccountManager>()) { return result; }
+            const auto account=DependencyManager::get<AccountManager>();QVariantMap original;
+            const auto read=[&] { original=account->featureAccountObservation(); };bool okay {true};
+            if (QThread::currentThread()==account->thread()) { read(); }
+            else { okay=QMetaObject::invokeMethod(account.data(),read,Qt::BlockingQueuedConnection); }
+            return okay ? overte::e2e::LoginUiContext::fromNative(original) : result;
+        });
         setIOSGraphicsUiContextReader([owner] {
             if (!owner || owner->_testResultsLocation.isEmpty() || !owner->_featureLifecycle
                     || owner->_featureLifecycle->snapshot().isEmpty()
