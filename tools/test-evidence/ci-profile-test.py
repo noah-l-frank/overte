@@ -903,7 +903,9 @@ class RetainedOriginalDefaultTests(unittest.TestCase):
         import producer_workflow as W
         from types import SimpleNamespace
         for generation, target, expected in (('protected-producer-seven-target-ci-v1','main',3),
-                (C.RETAINED_SOURCE_GENERATION,'apple-ios',4),(C.RETAINED_SOURCE_GENERATION,'main',4)):
+                (C.RETAINED_SOURCE_GENERATION,'apple-ios',4),(C.RETAINED_SOURCE_GENERATION,'main',4),
+                ('protected-producer-original-default-boolean-v1','apple-ios',4),
+                ('protected-producer-original-default-boolean-v1','main',4)):
             policy=SimpleNamespace(package_policy=lambda:SimpleNamespace(validate_tree_wiring=lambda tree:generation))
             self.assertEqual(W.execution_schema(policy,{},target),expected)
         for generation in ('protected-producer-seven-target-ci-v1','unknown'):

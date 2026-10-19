@@ -1,14 +1,6 @@
 name: Android VR integration tests
 
 on:
-  pull_request:
-    paths:
-      - "android/**"
-      - "interface/**"
-      - "libraries/**"
-      - "scripts/**"
-      - ".github/workflows/android-vr-tests.yml"
-      - "!**/*.md"
   push:
     branches:
       - android-main

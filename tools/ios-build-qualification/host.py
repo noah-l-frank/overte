@@ -71,6 +71,10 @@ VARIANTS = ["complete-reviewed-launcher", "Qt6Core/Gui/Qml/Concurrent/WebChannel
 # This proves only that the own host run is unaffected; it is not a passing
 # test receipt, shared-owner handoff or application-build selection authority.
 REVIEWED_CI_HOST_BOUNDARY = "90da341e226f56b8dfb8b925af7c0273ecc41772ca424e3426b04c80acdb9a7b"
+# Complete actual f2c8408 compiler-PR reader complement, independently executed
+# by the required iOS host owner. Only its exact installed five-file profile
+# may use this additional negative dependency certificate; it is no test/E.
+REVIEWED_COMPILER_PR_CI_HOST_BOUNDARY = "c5c7e6b868df7b10b4f5b713b7f7640600e1aa7b67760987a274c2b6961ac3a4"
 CI_HOST_INDEPENDENT_PATHS = frozenset({
     # Linux-only shared Device launcher; its required Device owner is unchanged.
     "tests/device/run_artifact_identity.py",
@@ -585,13 +589,17 @@ def _compiler_comparison(snapshot, inputs, *, guide=False):
                      and (guide or entry.path != "docs/ios/SIGNING_AND_DEVICE_TESTS.md")
                      else inputs.Entry(entry.path, entry.mode, entry.object_type, entry.oid)
                      for entry in snapshot.entries)
-    return inputs.Snapshot(snapshot.revision, snapshot.tree, replaced)
+    comparison = inputs.Snapshot(snapshot.revision, snapshot.tree, replaced)
+    return inputs.routing_data_comparison(comparison) or comparison
 
 
 def compiler_data_selection(previous, current, head, *, policy_root=ROOT):
     """Exact reviewed cache transition/continuation; no product result authority."""
     inputs = selector(policy_root)
     snapshots = (previous, current, head)
+    routing = [inputs.routing_data_changes(previous, snapshot) for snapshot in snapshots[1:]]
+    if any(paths is None for paths in routing) or inputs.routing_data_stage(current) != inputs.routing_data_stage(head):
+        return None
     if any(entry.mode not in {"100644", "100755"} or entry.object_type != "blob"
            for snapshot in snapshots for entry in snapshot.entries):
         return None
@@ -607,7 +615,7 @@ def compiler_data_selection(previous, current, head, *, policy_root=ROOT):
         and _compiler_profile(previous, COMPILER_DATA_ORIGINAL)
         and all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_DATA_UPDATED)
                 for tree, snapshot in zip(observed[1:], snapshots[1:]))
-        and all(paths == set(COMPILER_DATA_ORIGINAL) for paths in changed))
+        and all(paths == set(COMPILER_DATA_ORIGINAL) | extra for paths, extra in zip(changed, routing)))
     continuation = (all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_DATA_UPDATED, guide=False)
                         for tree, snapshot in zip(observed, snapshots))
         and all(paths for paths in changed)
@@ -629,6 +637,9 @@ def compiler_pr_data_selection(previous, current, head, *, policy_root=ROOT):
     """Exact reviewed cache transition/continuation; no product result authority."""
     inputs = selector(policy_root)
     snapshots = (previous, current, head)
+    routing = [inputs.routing_data_changes(previous, snapshot) for snapshot in snapshots[1:]]
+    if any(paths is None for paths in routing) or inputs.routing_data_stage(current) != inputs.routing_data_stage(head):
+        return None
     if any(entry.mode not in {"100644", "100755"} or entry.object_type != "blob"
            for snapshot in snapshots for entry in snapshot.entries):
         return None
@@ -647,7 +658,7 @@ def compiler_pr_data_selection(previous, current, head, *, policy_root=ROOT):
     transition = ((original_base or installed_v3_base)
         and all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_PR_DATA_UPDATED)
                 for tree, snapshot in zip(observed[1:], snapshots[1:]))
-        and all(paths == set(COMPILER_DATA_ORIGINAL) for paths in changed))
+        and all(paths == set(COMPILER_DATA_ORIGINAL) | extra for paths, extra in zip(changed, routing)))
     continuation = (all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_PR_DATA_UPDATED, guide=False)
                         for tree, snapshot in zip(observed, snapshots))
         and all(paths for paths in changed)
@@ -673,10 +684,15 @@ def _compiler_pr_ci_comparison(previous, current, head, *, policy_root=ROOT):
     snapshots = (previous, current, head)
     if updated is None or any(not _compiler_profile(snapshot, COMPILER_PR_DATA_UPDATED)
             or any(entries(snapshot).get(path) != identity for path, identity in updated.items())
-            or ci_host_boundary(_compiler_comparison(snapshot, inputs, guide=True)) != REVIEWED_CI_HOST_BOUNDARY
             for snapshot in snapshots):
         return None
+    boundaries = [ci_host_boundary(_compiler_comparison(snapshot, inputs, guide=True))
+                  for snapshot in snapshots]
+    if len(set(boundaries)) != 1 or boundaries[0] not in {
+            REVIEWED_CI_HOST_BOUNDARY, REVIEWED_COMPILER_PR_CI_HOST_BOUNDARY}:
+        return None
     return {"profile": digest(COMPILER_PR_DATA_UPDATED), "head": {"revision": head.revision, "tree": head.tree},
+            "reviewed_comparison_boundary": boundaries[0],
             "actual_boundaries": [ci_host_boundary(snapshot) for snapshot in snapshots]}
 
 
@@ -717,7 +733,8 @@ def ci_host_omission(previous, current, *, repository=None, package_owner=None, 
                           "actual_boundaries": [ci_host_boundary(snapshot) for snapshot in snapshots]}
     result = {"schema": 1, "reason": "reviewed-ci-only-host-inputs" if npm is None
               else "reviewed-ci-and-required-npm-host-inputs",
-            "boundary": REVIEWED_CI_HOST_BOUNDARY, "changedPaths": sorted(changed),
+            "boundary": comparison.get("reviewed_comparison_boundary", REVIEWED_CI_HOST_BOUNDARY)
+                if comparison is not None else REVIEWED_CI_HOST_BOUNDARY, "changedPaths": sorted(changed),
             "base": {"revision": previous.revision, "tree": previous.tree},
             "candidate": {"revision": current.revision, "tree": current.tree}}
     if npm is not None:
