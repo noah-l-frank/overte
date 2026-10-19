@@ -127,6 +127,9 @@ def create_adapter(args, base_class):
         def _private_login_input(self,*args,**kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
+        def _create_controls(self,*args,**kwargs):
+            raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
+
         def _login_controls(self,*args,**kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 

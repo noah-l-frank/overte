@@ -13,3 +13,9 @@ iOS calls here; Android and generic imports use the shared implementation.
 This is a namespace package so legacy utility search paths cannot shadow shared
 Python adapters. See [Wi-Fi transport](WIFI_LAB.md) and the
 [product test guide](../README.md) for host and physical qualification boundaries.
+
+The [Create controls v1 component](CREATE_CONTROLS.md) now supplies the shared
+original-reference recipe through sequenced normal Qt pointer/field/choice/
+scrollbar input. It retains the installed-code binding refusal and does not
+advertise a full Create capability. Its six new cases and the complete 306-case
+permitted host selection pass; native source and physical devices are untested.

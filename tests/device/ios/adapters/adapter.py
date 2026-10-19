@@ -190,6 +190,12 @@ class IOSAdapter(AppiumAdapter):
         observer=FeatureObservation(native.client,native.session,native.target,native.observe_process)
         return PrivateLoginInput(IOSPrivateLoginTransport(observer),self.private_login_input_store(selector),manager.binding,run)
 
+    def _create_controls(self,selector,intent):
+        from adapters.token_create_ui import TokenCreateUI
+        from ios.adapters.create_controls import IOSCreateIO
+        manager=self._scripts(selector) # Canonical installed-code gate remains unchanged.
+        return TokenCreateUI(IOSCreateIO(manager.ui.io),intent)
+
     def _login_controls(self,selector,intent,run,origin):
         from adapters.token_login_ui import TokenLoginUI
         from ios.adapters.normal_login import IOSLoginIO

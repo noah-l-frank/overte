@@ -349,6 +349,7 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         const auto id = row.value("id").toString();
         // Existing OverteTabletOpen owns this actual native control identity.
         if (id == QStringLiteral("hud.tablet") || id == QStringLiteral("tablet.close")
+                || id.startsWith("create.") // Create uses the sequenced native normal-pointer route.
                 || id == "login.page" || id == "audio.page" || id == "audio.scrollbar" || id == "graphics.page"
                 || id == "graphics.scrollbar" || id == "graphics.resolution"
                 || (id.startsWith("graphics.") && row.value("viewport").toString() != "visible")) { continue; }

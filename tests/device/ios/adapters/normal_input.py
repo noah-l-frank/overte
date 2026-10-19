@@ -2,7 +2,7 @@
 
 UIKit controls receive ordinary W3C clicks. Only replacing/submitting the already
 focused real Qt address/owned fields, and original Graphics slider or
-Audio/Graphics scrollbar pointer input, use this closed E2E transport. A process/nonce
+Audio/Graphics scrollbar pointer input and sequenced original Create pointer/field/choice input use this closed E2E transport. A process/nonce
 join is deliberately not a cryptographic association with installed code.
 """
 # Copyright 2026 Overte contributors.
@@ -20,6 +20,7 @@ from adapters.normal_ui import NativeUIError
 from ios.adapters.appium_adapter import AppiumAdapter
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
 from adapters.token_graphics_ui import graphics_control,metadata_fields as graphics_metadata_fields,validate_metadata as validate_graphics_metadata,on_grid
+from adapters.token_create_ui import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,ascii_text,same_reference
 from adapters.token_login_ui import IDS as LOGIN_IDS, VERSION as LOGIN_VERSION,metadata_fields as login_metadata_fields,validate_metadata as validate_login_metadata
 from adapters.native_account_origin import origin_text
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
@@ -72,6 +73,10 @@ def observation(value, pid, now_ms=None):
         if type(value['graphicsControlsVersion']) is not int or value['graphicsControlsVersion']!=1:
             raise NativeUIError('Native iOS Graphics control version is invalid')
         fields.add('graphicsControlsVersion')
+    if type(value) is dict and 'createControlsVersion' in value:
+        if type(value['createControlsVersion']) is not int or value['createControlsVersion']!=1 or not _uuid(value.get('createGeneration')):
+            raise NativeUIError('Native iOS Create control version/context is invalid')
+        fields |= {'createControlsVersion','createGeneration'}
     if type(value) is dict and 'loginControlsVersion' in value:
         if type(value['loginControlsVersion']) is not int or value['loginControlsVersion']!=LOGIN_VERSION or not _uuid(value.get('generation')):
             raise NativeUIError('Native iOS login control version/context is invalid')
@@ -91,7 +96,11 @@ def observation(value, pid, now_ms=None):
         is_graphics=type(control) is dict and graphics_control(control.get('id')) and value.get('graphicsControlsVersion')==1
         if type(control) is dict and type(control.get('id')) is str and control['id'].startswith('graphics.') and not is_graphics:
             raise NativeUIError('Native iOS Graphics controls lack their source extension')
-        if type(control) is dict and type(control.get('id')) is str and control['id'] in LOGIN_IDS:
+        is_create=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('create.')
+        if is_create:
+            if value.get('createControlsVersion')!=1:raise NativeUIError('Native iOS Create controls lack their source extension')
+            original=dict(control);original.pop('frame',None);create_metadata(original);fields=set(control)
+        elif type(control) is dict and type(control.get('id')) is str and control['id'] in LOGIN_IDS:
             if value.get('loginControlsVersion')!=LOGIN_VERSION:raise NativeUIError('Native iOS login controls lack their source extension')
             fields |= login_metadata_fields(control['id'])
         elif is_graphics:
@@ -112,7 +121,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or is_create and create_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
@@ -265,6 +274,29 @@ class NativeInput:
             command['text'] = text
         if operation == 'select-index':
             command['index'] = index
+        return self.deliver(command)
+
+    def create_input(self,identifier,action,*,reference,value=None):
+        from ios.adapters.create_controls import project
+        if not create_control(identifier) or identifier=='create.page' or action not in ('activate','replace','select-index','scroll'):
+            raise NativeUIError('Native iOS Create input is invalid')
+        observed=project(self.capture());row=same_reference(reference,observed,identifier)
+        if not observed['open'] or not observed['ready'] or not row['enabled'] or not row.get('inputReady',True):
+            raise NativeUIError('Native iOS Create control is unavailable')
+        if action=='replace':
+            if not create_field(identifier) or not row['focused']:raise NativeUIError('Native iOS Create field lacks focus')
+            ascii_text(value)
+        elif action=='select-index':
+            if not create_choice(identifier) or type(value) is not int or not 0<=value<row['count']:raise NativeUIError('Native iOS Create choice is invalid')
+        elif action=='scroll':
+            if identifier!='create.scrollbar' or value not in ('up','down'):raise NativeUIError('Native iOS Create scroll is invalid')
+        elif identifier=='create.scrollbar' or value is not None:raise NativeUIError('Native iOS Create activation is invalid')
+        original=reference['scope']
+        command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=original['instance'],
+            sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation=action)
+        if action=='replace':command['text']=value
+        elif action=='select-index':command['index']=value
+        elif action=='scroll':command['direction']=value
         return self.deliver(command)
 
     def scroll(self, direction, *, token, field='audio.scrollbar'):

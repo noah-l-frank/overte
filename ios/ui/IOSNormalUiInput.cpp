@@ -54,6 +54,8 @@ QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
     }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (fileAllowed) {
+        const auto create=overte::e2e::createControlId(item);
+        if (!create.isEmpty()) { return create; }
         const auto graphics = overte::e2e::graphicsControlId(item);
         if (!graphics.isEmpty()) { return graphics; }
         const auto audio = overte::e2e::audioControlId(item);
@@ -168,7 +170,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 auto source = overte::e2e::scriptFileControlSource(node);
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                if (id.startsWith("login.")) {
+                if (id.startsWith("create.")) {
+                    source=overte::e2e::createControlSource(node,id);
+                } else if (id.startsWith("login.")) {
                     if (!loginContext.valid) { return; }
                     source=overte::e2e::loginControlSource(node,id,loginContext);
                 } else if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
@@ -211,7 +215,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         for (const auto& id : controls.keys()) {
             if (id.startsWith(QStringLiteral("tablet.")) || id.startsWith(QStringLiteral("places."))
                     || id.startsWith(QStringLiteral("snapshot.")) || id.startsWith(QStringLiteral("scripts."))
-                    || id.startsWith(QStringLiteral("script-file.")) || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
+                    || id.startsWith(QStringLiteral("script-file.")) || id.startsWith("create.") || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
                 controls.remove(id);
             }
         }
@@ -248,7 +252,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        if (id.startsWith("login.")) {
+        if (id.startsWith("create.")) {
+            overte::e2e::appendCreateControlObservation(row,control.item,id);
+        } else if (id.startsWith("login.")) {
             overte::e2e::appendLoginControlObservation(row,control.item,id,loginContext);
         } else if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
             overte::e2e::appendGraphicsControlObservation(row,control.item,id,graphicsContext);
@@ -267,6 +273,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         { "tabletShown", tabletShown }, { "ready", !ambiguous && hud && hud->window() }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
+    result["createControlsVersion"]=1;result["createGeneration"]=_loginGeneration;
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
     if (graphicsContext.valid) { result["graphicsControlsVersion"] = 1; }
@@ -367,12 +374,55 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
             || !integer(command.value("observedElapsedMs"), observed) || observed > _clock.elapsed()
             || _clock.elapsed() - observed > 5000 || (action != "replace" && action != "submit" && action != "select-index"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                && action != "scroll" && action != "set-value"
+                && action != "activate" && action != "scroll" && action != "set-value"
 #endif
                 )) { return result; }
     _sequence = sequence;
     const auto fieldToken = command.value("fieldToken").toString();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    // One native sequence covers normal Create pointer/key/IME input. The
+    // original token resolves the item; no desired entity state is accepted.
+    observe(_hud,_tablet,_tabletShown);
+    QString createId;
+    for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+        if (it.value().token==fieldToken && (it.key().startsWith("create.") || it.key()=="tablet.home" || it.key().startsWith("tablet.page."))) {
+            if (!createId.isEmpty()) { return result; } createId=it.key();
+        }
+    }
+    if (!createId.isEmpty()) {
+        auto target=item(createId,fieldToken);
+        if (!target || !enabled(target)) { return result; }
+        QJsonObject row;overte::e2e::appendCreateControlObservation(row,target,createId);
+        if (!row.value("inputReady").toBool() || createId=="create.page"
+                || (createId.startsWith("create.") && overte::e2e::createControlSource(target,createId)!=_controls.value(createId).source)) { return result; }
+        const auto point=target->mapToScene(QPointF(target->width()/2,target->height()/2));
+        if (action=="activate" && createId!="create.scrollbar"
+                && overte::e2e::NormalControlUi::ownsPoint(target,target->window(),point)) {
+            result["performed"]=press(createId,fieldToken);
+        } else if (action=="replace" && overte::e2e::createField(createId) && command.value("text").isString()
+                && overte::e2e::createText(command.value("text").toString())
+                && overte::e2e::NormalControlUi::ownsPoint(target,target->window(),point)) {
+            result["performed"]=overte::ui::replaceFocusedField(target,target->window(),command.value("text").toString());
+        } else if (action=="select-index" && overte::e2e::createChoice(createId)) {
+            qint64 index{0};if (integer(command.value("index"),index)) {
+                result["performed"]=overte::e2e::NormalControlUi::selectCreateChoice(target,target->window(),index);
+            }
+        } else if (action=="scroll" && createId=="create.scrollbar") {
+            QPointF scrollPoint;
+            if (!overte::e2e::createScrollPoint(target,command.value("direction").toString(),scrollPoint)
+                    || !overte::e2e::NormalControlUi::ownsPoint(target,target->window(),scrollPoint)) { return result; }
+            QPointer<QQuickWindow> window(target->window());
+            QMouseEvent down(QEvent::MouseButtonPress,scrollPoint,scrollPoint,scrollPoint,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+            const bool delivered=QCoreApplication::sendEvent(window,&down);bool released{false};
+            if (window) {
+                QMouseEvent up(QEvent::MouseButtonRelease,scrollPoint,scrollPoint,scrollPoint,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+                released=QCoreApplication::sendEvent(window,&up);
+            }
+            result["performed"]=delivered && released;
+        }
+        return result;
+    }
+    if (action=="activate") { return result; } // No non-Create pointer shortcut.
     if (action == "scroll" || action == "set-value") {
         QQuickItem* target {nullptr}; QPointF point;
         if (action == "scroll") {
@@ -540,6 +590,7 @@ bool NormalUiInput::validRequest(const QJsonObject& command) {
         return integer(input.value("index"), index) && index < 32;
     }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (action == "activate") { return true; }
     if (action == "scroll") { return input.value("direction") == QJsonValue("up") || input.value("direction") == QJsonValue("down"); }
     if (action == "set-value") { return input.value("value").isDouble() && std::isfinite(input.value("value").toDouble())
         && input.value("value").toDouble() >= 0.1 && input.value("value").toDouble() <= 2.0; }
