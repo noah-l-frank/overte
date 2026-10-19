@@ -165,6 +165,7 @@ Rectangle {
             Controls.ComboBox {
                 id: captureMode
                 objectName: "snapshotMode"
+                Accessible.onPressAction: if (enabled) { popup.open() }
                 Layout.fillWidth: true
                 enabled: root.captureSettingsLoaded && !root.capturing
                 model: [qsTr("Still"), qsTr("Still + animated GIF"), qsTr("360° panorama"), qsTr("360° cubemap")]
@@ -183,6 +184,7 @@ Rectangle {
             Controls.ComboBox {
                 id: captureFormat
                 objectName: "snapshotFormat"
+                Accessible.onPressAction: if (enabled) { popup.open() }
                 Layout.fillWidth: true
                 model: typeof Snapshot !== "undefined" ? Snapshot.getAvailableSnapshotFormats() : ["png"]
                 delegate: Controls.RadioDelegate {
