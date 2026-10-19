@@ -2,8 +2,10 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from io import BytesIO
+import ast
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 from PIL import Image, ImageDraw
@@ -153,6 +155,29 @@ class SnapshotJourneyTests(unittest.TestCase):
         native.run()
         self.assertTrue(native.reports[0]['outputSequenceCompleted'])
         self.assertEqual(5, sum('pendingReason' in row for row in native.reports[0]['polls']))
+
+    def test_actual_module_reader_preserves_empty_pending_file_and_path_guards(self):
+        # Execute the original nested module reader without its device runner.
+        # Only the artifact directory and infrastructure exception are seams.
+        path = DEVICE / 'modules/snapshot_capture.py'
+        source = ast.parse(path.read_text())
+        main = next(node for node in source.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
+        reader = next(node for node in main.body if isinstance(node, ast.FunctionDef) and node.name == 'read_artifact')
+        with tempfile.TemporaryDirectory(prefix='snapshot-module-original-') as temporary:
+            directory = Path(temporary)
+            namespace = {'ARTIFACT_DIR': directory, 'MAX_BYTES': 256 * 1024 * 1024,
+                         'InfrastructureError': RuntimeError}
+            exec(compile(ast.Module(body=[reader], type_ignores=[]), str(path), 'exec'), namespace)
+            read = namespace['read_artifact']
+            (directory / 'original.png').touch()
+            self.assertEqual(read('original.png'), b'')
+            with self.assertRaises(ValueError): inspect_snapshot(read('original.png'), mode='still', file_format='png')
+            (directory / 'original.png').write_bytes(self.fixtures['still-png'])
+            self.assertEqual(read('original.png'), self.fixtures['still-png'])
+            self.assertEqual(inspect_snapshot(read('original.png'), mode='still', file_format='png')['format'], 'png')
+            (directory / 'alias.png').symlink_to(directory / 'original.png')
+            for name in ('../outside.png', 'alias.png', 'missing.png'):
+                with self.subTest(name=name), self.assertRaises(RuntimeError): read(name)
 
     def test_restart_and_clock_failures_keep_cleanup(self):
         for mutation, expected in (('restart', AssertionError), ('clock-backwards', ValueError)):
