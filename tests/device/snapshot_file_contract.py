@@ -4,7 +4,7 @@
 import re
 
 MAX_FILE_BYTES = 256 * 1024 * 1024
-CHUNK_BYTES = 64 * 1024
+CHUNK_BYTES = 4 * 1024 * 1024
 MAX_FILES = 8
 PREFIX = r'parity-[0-9a-f]{16}-(?:still-png|still-jpg|animated|panorama|cubemap)'
 
