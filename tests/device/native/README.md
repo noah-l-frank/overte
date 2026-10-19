@@ -51,6 +51,15 @@ be polled; a matching invalid complete observation fails.
   Original renderer/framebuffer acquisition remains a separate required source.
 * `audio` reads the real AudioClient recording/mute flags on its owning thread.
   Flags do not prove microphone/preview PCM or an independently audible peer.
+  The optional `recordedVoice` source separately describes the actual memory-only
+  three-second Record-and-Play feature: active/current byte counts and native
+  frame format, plus the last real phase event's original sequence/time/counts.
+  It does not confuse AudioClient file recording with this memory preview.
+  Completed/cancelled event counts are historical; current buffer counts may
+  already be zero. Reading never stamps that old event current. Active events
+  must be fresh, sequences cannot regress, and consumers requiring this feature
+  reject an older producer missing the source. These counters do not replace
+  original PCM or acoustic evidence.
 * `account` reads login state and a SHA256 of the actual principal on the
   AccountManager thread. It exports no username, token or endpoint. Protected
   access/revocation still needs a real controlled server observation.

@@ -51,7 +51,7 @@ def decode(raw):
         parse_constant=lambda _value: need(False))
 
 
-def validate(value, request, pid, epoch, *, require_animation=False):
+def validate(value, request, pid, epoch, *, require_animation=False, require_recorded_voice=False):
     exact(value, {'schemaVersion', 'requestId', 'instance', 'sequence', 'capturedEpochMs',
                   'processId', 'lifecycle', 'animation', 'graphics', 'audio', 'account'})
     need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1
@@ -70,8 +70,37 @@ def validate(value, request, pid, epoch, *, require_animation=False):
              ('requestedResolutionScale', 'applicationResolutionScale'))
          and all(type(item) is bool for key, item in value['graphics'].items()
                  if key not in {'requestedResolutionScale', 'applicationResolutionScale'}))
-    exact(value['audio'], {'recording', 'muted'})
-    need(all(type(item) is bool for item in value['audio'].values()))
+    audio_fields = {'recording', 'muted'}
+    if type(value['audio']) is dict and 'recordedVoice' in value['audio']:
+        audio_fields.add('recordedVoice')
+    need(not require_recorded_voice or 'recordedVoice' in audio_fields)
+    exact(value['audio'], audio_fields)
+    need(all(type(value['audio'][key]) is bool for key in ('recording', 'muted')))
+    if 'recordedVoice' in value['audio']:
+        recorded = value['audio']['recordedVoice']
+        exact(recorded, {'active', 'capturedBytes', 'playedBytes', 'frameBytes', 'sampleRate', 'channels', 'event'})
+        need(type(recorded['active']) is bool
+             and all(integer(recorded[key], 0, 16 * 1024 * 1024) for key in ('capturedBytes', 'playedBytes'))
+             and recorded['playedBytes'] <= recorded['capturedBytes']
+             and integer(recorded['frameBytes'], 0, 1024) and integer(recorded['sampleRate'], 0, 768000)
+             and integer(recorded['channels'], 0, 256) and type(recorded['event']) is dict)
+        event = recorded['event']
+        if event:
+            exact(event, {'schemaVersion', 'eventSequence', 'publishedEpochMs', 'phase', 'error',
+                          'capturedBytes', 'playedBytes', 'totalBytes'})
+            need(type(event['schemaVersion']) is int and event['schemaVersion'] == 1
+                 and integer(event['eventSequence'], 1) and integer(event['publishedEpochMs'], 1)
+                 and type(event['phase']) is str
+                 and event['phase'] in {'capturing', 'playing', 'draining', 'completed', 'cancelled', 'error'}
+                 and type(event['error']) is str and len(event['error']) <= 128
+                 and not any(ord(c) < 32 for c in event['error'])
+                 and all(integer(event[key], 0, 16 * 1024 * 1024)
+                         for key in ('capturedBytes', 'playedBytes', 'totalBytes'))
+                 and event['playedBytes'] <= event['capturedBytes'] <= event['totalBytes'])
+        if recorded['active']:
+            need(bool(event) and recorded['frameBytes'] > 0 and recorded['channels'] > 0
+                 and recorded['sampleRate'] > 0 and event['phase'] in {'capturing', 'playing', 'draining'})
+            fresh(event['publishedEpochMs'], epoch)
     exact(value['account'], {'loggedIn', 'principalSha256'})
     need(type(value['account']['loggedIn']) is bool
          and type(value['account']['principalSha256']) is str
@@ -122,11 +151,13 @@ class NativeFeatureObservation:
         self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
         self.instance, self.sequence, self.rig, self.rig_sequence = None, 0, None, 0
         self.lifecycle = None
+        self.voice_event_sequence = 0
 
-    def read(self, after_sequence, *, require_animation=False):
+    def read(self, after_sequence, *, require_animation=False, require_recorded_voice=False):
         try:
             need(integer(after_sequence) and after_sequence >= self.sequence
-                 and type(require_animation) is bool and self.guard() is not False)
+                 and type(require_animation) is bool and type(require_recorded_voice) is bool
+                 and self.guard() is not False)
             request = ('ios-' if self.ios else '') + uuid.uuid4().hex
             self.send(dict(schemaVersion=1, commandId=request, action='feature-native-observe'))
             started = previous = self.monotonic()
@@ -141,11 +172,15 @@ class NativeFeatureObservation:
                 epoch = self.clock_ms()
                 need(self.guard() is not False)
                 if type(value) is dict and value.get('requestId') == request:
-                    value = validate(value, request, self.pid, epoch, require_animation=require_animation)
+                    value = validate(value, request, self.pid, epoch, require_animation=require_animation,
+                                     require_recorded_voice=require_recorded_voice)
                     need(self.instance in (None, value['instance']) and value['sequence'] > after_sequence)
                     if self.lifecycle is not None:
                         need(all(value['lifecycle'][key] >= self.lifecycle[key] for key in self.lifecycle))
                     animation = value['animation']
+                    voice_event = value['audio'].get('recordedVoice', {}).get('event', {})
+                    voice_sequence = voice_event.get('eventSequence', 0)
+                    need(voice_sequence >= self.voice_event_sequence)
                     if require_animation:
                         # Do not accept a newly stamped request around an old
                         # native pose, nor replace an existing rig silently.
@@ -154,6 +189,7 @@ class NativeFeatureObservation:
                     need(self.guard() is not False)
                     self.instance, self.sequence = value['instance'], value['sequence']
                     self.lifecycle = value['lifecycle'].copy()
+                    self.voice_event_sequence = voice_sequence
                     if require_animation:
                         self.rig, self.rig_sequence = animation['rigId'], animation['evaluationSequence']
                     return value
