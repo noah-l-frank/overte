@@ -102,10 +102,11 @@
     var lastNativeFeatureRequest = "";
     var nativeFeatureTimer = null;
     var lastRecordedPreviewRequest = "";
-    function saveRecordedPreviewObservation(requestId, release) {
+    function saveRecordedPreviewObservation(requestId, action) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
         try {
-            var hook = release ? Test.releaseFeatureRecordedVoiceEvidence : Test.featureRecordedVoiceEvidence;
+            var hook = action === "feature-recorded-audio-release" ? Test.releaseFeatureRecordedVoiceEvidence
+                : action === "feature-recorded-audio-files" ? Test.featureRecordedVoiceFiles : Test.featureRecordedVoiceEvidence;
             if (typeof hook === "function") {
                 var native = hook.call(Test, requestId);
                 if (native && native.requestId === requestId) { value = native; }
@@ -919,11 +920,12 @@
     function applyClientCommand(command) {
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
-                && (command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release")
+                && (command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
+                    || command.action === "feature-recorded-audio-files")
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
             if (command.commandId !== lastRecordedPreviewRequest) {
                 lastRecordedPreviewRequest = String(command.commandId);
-                saveRecordedPreviewObservation(command.commandId, command.action === "feature-recorded-audio-release");
+                saveRecordedPreviewObservation(command.commandId, command.action);
             }
             return;
         }
@@ -1198,7 +1200,8 @@
 
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
-                || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release")) {
+                || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
+                || command.action === "feature-recorded-audio-files")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse only the closed read-only path.
             applyClientCommand(command);

@@ -30,6 +30,13 @@ class Boundary:
     def send(self, command):
         self.commands.append(command)
         if self.ignore: return
+        if command['action'].endswith('files'):
+            self.sequence += 1
+            self.value = dict(schemaVersion=1, requestId=command['commandId'], instance='c' * 32,
+                sequence=self.sequence, requestedEpochMs=20000, capturedEpochMs=20000, processId=31,
+                memoryEmpty=True, files=[dict(name=name, exists=name in self.files) for name in (INPUT, SINK)])
+            if self.mutate: self.mutate(self.value)
+            return
         if command['action'].endswith('release'):
             if not self.retain: self.files.clear()
             self.value = dict(schemaVersion=1, requestId=command['commandId'], released=True)
@@ -115,7 +122,7 @@ class RecordedPreviewEvidenceTests(unittest.TestCase):
         native = Boundary(); reader = native.reader()
         reader.read(0); reader.release(); reader.release()
         self.assertEqual({}, native.files)
-        self.assertEqual(3, len(native.commands))
+        self.assertEqual(5, len(native.commands))
 
     def test_quitted_cleanup_with_remaining_files_and_lost_process_cannot_pass(self):
         native = Boundary(); native.retain = True; reader = native.reader()
@@ -123,7 +130,26 @@ class RecordedPreviewEvidenceTests(unittest.TestCase):
         self.assertIn(INPUT, native.files)
         native.okay = False
         with self.assertRaises(NativeUIError): reader.release()
-        self.assertEqual(1, len(native.commands))
+        self.assertEqual(2, len(native.commands))
+
+    def test_separate_cleanup_query_rejects_foreign_stale_or_incomplete_actual_observations(self):
+        for fault in ('pid', 'foreign', 'old', 'missing-file-row', 'memory-not-empty', 'false-absence'):
+            with self.subTest(fault=fault):
+                native = Boundary(); reader = native.reader(ios=fault != 'false-absence')
+                reader.read(0)
+                if fault == 'false-absence': native.retain = True
+                def mutate(value):
+                    if 'files' not in value: return
+                    if fault == 'pid': value['processId'] = 999
+                    elif fault == 'foreign': value['instance'] = 'd' * 32
+                    elif fault == 'old': value['sequence'] = 1
+                    elif fault == 'missing-file-row': value['files'].pop()
+                    elif fault == 'memory-not-empty': value['memoryEmpty'] = False
+                    else:
+                        for row in value['files']: row['exists'] = False
+                native.mutate = mutate
+                with self.assertRaises(NativeUIError): reader.release()
+                self.assertEqual(1, reader.sequence)
 
     def test_ignored_or_foreign_request_is_bounded_without_replaying_any_input(self):
         for fault in ('ignored', 'foreign'):
@@ -151,7 +177,7 @@ class RecordedPreviewEvidenceTests(unittest.TestCase):
 
     def test_closed_fixture_http_command_inventory_rejects_expected_audio_or_paths(self):
         fixture = FixtureState()
-        for action in ('feature-recorded-audio-observe', 'feature-recorded-audio-release'):
+        for action in ('feature-recorded-audio-observe', 'feature-recorded-audio-release', 'feature-recorded-audio-files'):
             command = dict(schemaVersion=1, commandId='ios-' + 'c' * 32, action=action)
             self.assertEqual(command, fixture.set_client_command(command))
             for extra in ({'expected': 'silence'}, {'filename': INPUT}, {'samples': [0]}):
@@ -163,6 +189,7 @@ const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
 const objectKeysMatch=(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort());
 let reads=0,releases=0,files=[];
 const Test={featureRecordedVoiceEvidence:requestId=>{reads++;return {schemaVersion:1,requestId,source:{cycle:7}};},
+ featureRecordedVoiceFiles:requestId=>({schemaVersion:1,requestId,files:[],memoryEmpty:true}),
  releaseFeatureRecordedVoiceEvidence:requestId=>{releases++;return {schemaVersion:1,requestId,released:true};},
  saveObject:(v,name)=>files.push({v,name})};
 SOURCE
@@ -173,9 +200,11 @@ applyClientCommand({...c,commandId:"b".repeat(32),samples:[1,2,3]});
 if(reads!==1)throw Error("supplied samples");
 applyClientCommand({...c,commandId:"ios-"+"c".repeat(32),action:"feature-recorded-audio-release"});
 if(releases!==1||files[1].v.released!==true)throw Error("native release");
+applyClientCommand({...c,commandId:"e".repeat(32),action:"feature-recorded-audio-files"});
+if(files[2].v.memoryEmpty!==true||releases!==1)throw Error("independent filesystem read");
 delete Test.featureRecordedVoiceEvidence;
 applyClientCommand({...c,commandId:"d".repeat(32)});
-if(files[2].v.available!==false)throw Error("missing native source green");
+if(files[3].v.available!==false)throw Error("missing native source green");
 '''.replace('SOURCE', probe_source())
         result = subprocess.run(['node', '-e', program], capture_output=True, text=True, timeout=5)
         self.assertEqual(0, result.returncode, result.stderr)
