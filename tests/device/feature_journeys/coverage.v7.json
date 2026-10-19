@@ -165,8 +165,8 @@
         "text-input"
       ],
       "commonModule": "feature-chat",
-      "addedFlow": "Unicode send/receive, keyboard Back, filter, history reopen, offline failure and exactly-once retry.",
-      "declaredCheckpoints": 16,
+      "addedFlow": "Actual Local/Domain histories, cancelled draft, distant Local rejection, no-mixer local fallback and explicit retyped resend; independent peer delivery.",
+      "declaredCheckpoints": 24,
       "requiredEvidence": [
         "peer"
       ],
@@ -269,5 +269,5 @@
       "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
     }
   ],
-  "contractVersion": 6
+  "contractVersion": 7
 }

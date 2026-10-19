@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 6
+VERSION = 7
 
 
 def emote_rows():
@@ -187,24 +187,41 @@ SCENARIOS = {
         bufferedFrames=0, error={'oneOf': ['backgrounded', 'lifecycle-stopped', 'input-or-lifecycle-changed']}), ['silence', 'peer']),
     ('close', {}, dict(open=False), []),
 ]),
-'chat': scenario('Owned peer send, receive, filter, history and input cancellation',
-    dict(draft='', messages=[], filtered=False, focused=False, keyboard=False, open=False, error='none'), [
+# ArmoredChat has separate local/domain models and no peer filter, transport
+# error UI, queued retry or delivery ACK. A missing mixer produces local echo;
+# only an independent actual peer ledger proves remote delivery.
+'chat': scenario('Channel histories, cancelled draft, local fallback and explicit resend',
+    dict(draft='', messages=[], localMessages=[], domainMessages=[], peerMessages=[],
+         channel='local', mixerConnected=True, focused=False, keyboard=False, open=False), [
     ('open', {}, dict(open=True), []),
     ('type', dict(text='$unicode'), dict(draft='$unicode', focused=True, keyboard=True), []),
-    ('back', {}, dict(focused=False, keyboard=False), ['peer']),
-    ('send', {}, dict(draft='', messages=['$unicode']), ['peer']),
-    ('peer-send', dict(text='$reply'), dict(messages=['$unicode', '$reply']), ['peer']),
-    ('filter-peer', dict(enabled=True), dict(filtered=True), ['peer']),
-    ('peer-send', dict(text='$hidden'), {}, ['peer']),
-    ('filter-peer', dict(enabled=False), dict(filtered=False), ['peer']),
-    ('close', {}, dict(open=False), []),
+    ('close', {}, dict(open=False, draft='', focused=False, keyboard=False), ['peer']),
     ('open', {}, dict(open=True), []),
-    ('network-disconnect', {}, dict(error='offline'), ['peer']),
+    ('select-channel', dict(channel='domain'), dict(channel='domain'), ['peer']),
+    ('type', dict(text='$unicode'), dict(draft='$unicode', focused=True, keyboard=True), []),
+    ('send', {}, dict(draft='', messages=['$unicode'], domainMessages=['$unicode'], peerMessages=['$unicode'],
+        focused={'oneOf':[False,True]}, keyboard={'oneOf':[False,True]}), ['peer']),
+    ('peer-send', dict(text='$reply', channel='domain'), dict(messages=['$unicode','$reply'], domainMessages=['$unicode','$reply']), ['peer']),
+    ('select-channel', dict(channel='local'), dict(channel='local', messages=[], focused=False, keyboard=False), ['peer']),
+    ('peer-send', dict(text='$hidden', channel='domain'), dict(domainMessages=['$unicode','$reply','$hidden']), ['peer']),
+    ('peer-send', dict(text='$reply', channel='local'), dict(messages=['$reply'], localMessages=['$reply']), ['peer']),
+    ('peer-send-distant', dict(text='$hidden', channel='local'), {}, ['peer']),
+    ('select-channel', dict(channel='domain'), dict(channel='domain', messages=['$unicode','$reply','$hidden']), ['peer']),
+    ('close', {}, dict(open=False, draft='', focused=False, keyboard=False, channel='local', messages=[]), ['peer']),
+    ('open', {}, dict(open=True, messages=['$reply']), ['peer']),
+    ('select-channel', dict(channel='domain'), dict(channel='domain', messages=['$unicode','$reply','$hidden']), ['peer']),
+    ('network-remove-mixer', {}, dict(mixerConnected=False), ['peer']),
     ('type', dict(text='$retry'), dict(draft='$retry', focused=True, keyboard=True), []),
-    ('send', {}, {}, ['peer']),
-    ('network-reconnect', {}, dict(error='none'), ['peer']),
-    ('send', {}, dict(draft='', messages=['$unicode', '$reply', '$retry']), ['peer']),
-    ('close', {}, dict(open=False, focused=False, keyboard=False), []),
+    ('send', {}, dict(draft='', messages=['$unicode','$reply','$hidden','$retry'],
+        domainMessages=['$unicode','$reply','$hidden','$retry'],
+        focused={'oneOf':[False,True]}, keyboard={'oneOf':[False,True]}), ['peer']),
+    ('network-restore-mixer', {}, dict(mixerConnected=True), ['peer']),
+    ('await-no-replay', {}, {}, ['peer']),
+    ('type', dict(text='$retry'), dict(draft='$retry', focused=True, keyboard=True), []),
+    ('send', {}, dict(draft='', messages=['$unicode','$reply','$hidden','$retry','$retry'],
+        domainMessages=['$unicode','$reply','$hidden','$retry','$retry'], peerMessages=['$unicode','$retry'],
+        focused={'oneOf':[False,True]}, keyboard={'oneOf':[False,True]}), ['peer']),
+    ('close', {}, dict(open=False, draft='', channel='local', messages=[], focused=False, keyboard=False), ['peer']),
 ]),
 'snapshots': scenario('Capture cancellation, permission, share/upload and resume',
     dict(open=False, pending=False, files=0, uploads=0, shares=0, permission='granted', error='none'), [

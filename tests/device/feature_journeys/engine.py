@@ -286,7 +286,8 @@ class Journey:
                     self.capture_ticket = ticket
                 # Negative/cancellation/quiet assertions must remain true for a
                 # full observation window; an early empty sample is insufficient.
-                negative = any(word in step['verb'] for word in ('cancel', 'denied', 'reject', 'stale', 'foreign', 'stop', 'delete', 'discard'))
+                negative = (any(word in step['verb'] for word in ('cancel', 'denied', 'reject', 'stale', 'foreign', 'stop', 'delete', 'discard'))
+                    or self.area=='chat' and step['verb'] in {'close','peer-send-distant','network-remove-mixer','network-restore-mixer','await-no-replay'})
                 self.wait(f'{index + 1:02d}-{step["verb"]}', ticket, barrier,
                     expected_step(step), step['evidence'], duration=3.0 if negative else 0.5)
         except BaseException as error:

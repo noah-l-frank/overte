@@ -24,8 +24,8 @@ The source of truth for actions and checkpoints is
 is in [`contract.py`](feature_journeys/contract.py), execution in
 [`engine.py`](feature_journeys/engine.py), and byte inspection in
 [`evidence.py`](feature_journeys/evidence.py). The checked
-[adapter inventory](feature_journeys/adapter-contract.v6.json) contains input
-vocabularies, observation field types and independent witness fields. Its v6
+[adapter inventory](feature_journeys/adapter-contract.v7.json) contains input
+vocabularies, observation field types and independent witness fields. Its v7
 contract is registered in `contract-versions.json`; breaking changes require a
 new version and explicit compatibility policy for still-supported producers.
 

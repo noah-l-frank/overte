@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": 6,
+  "contractVersion": 7,
   "operationPattern": "feature.<area>.act|observe|cleanup",
   "qualification": "Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.",
   "areas": {
@@ -306,6 +306,7 @@
       "inputVerbs": {
         "open": [
           {},
+          {},
           {}
         ],
         "type": [
@@ -313,11 +314,33 @@
             "text": "$unicode"
           },
           {
+            "text": "$unicode"
+          },
+          {
+            "text": "$retry"
+          },
+          {
             "text": "$retry"
           }
         ],
-        "back": [
+        "close": [
+          {},
+          {},
           {}
+        ],
+        "select-channel": [
+          {
+            "channel": "domain"
+          },
+          {
+            "channel": "local"
+          },
+          {
+            "channel": "domain"
+          },
+          {
+            "channel": "domain"
+          }
         ],
         "send": [
           {},
@@ -326,45 +349,55 @@
         ],
         "peer-send": [
           {
-            "text": "$reply"
+            "text": "$reply",
+            "channel": "domain"
           },
           {
-            "text": "$hidden"
-          }
-        ],
-        "filter-peer": [
-          {
-            "enabled": true
+            "text": "$hidden",
+            "channel": "domain"
           },
           {
-            "enabled": false
+            "text": "$reply",
+            "channel": "local"
           }
         ],
-        "close": [
-          {},
+        "peer-send-distant": [
+          {
+            "text": "$hidden",
+            "channel": "local"
+          }
+        ],
+        "network-remove-mixer": [
           {}
         ],
-        "network-disconnect": [
+        "network-restore-mixer": [
           {}
         ],
-        "network-reconnect": [
+        "await-no-replay": [
           {}
         ]
       },
       "observationFields": {
         "draft": "str",
         "messages": "list",
-        "filtered": "bool",
+        "localMessages": "list",
+        "domainMessages": "list",
+        "peerMessages": "list",
+        "channel": "str",
+        "mixerConnected": "bool",
         "focused": "bool",
         "keyboard": "bool",
-        "open": "bool",
-        "error": "str"
+        "open": "bool"
       },
       "measuredBaselineFields": [],
       "independentFields": [
         "messages",
-        "filtered",
-        "error"
+        "localMessages",
+        "domainMessages",
+        "peerMessages",
+        "channel",
+        "mixerConnected",
+        "open"
       ],
       "existingModules": [
         "text-input"

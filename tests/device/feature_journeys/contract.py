@@ -1,4 +1,4 @@
-"""Strict v6 action/read boundary for feature additions to the existing harness."""
+"""Strict v7 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
@@ -118,6 +118,14 @@ def state(area, value, run=None):
                 allowed = {item for row in checkpoints for item in row[key]}
                 if any(item not in allowed for item in value[key]):
                     raise ValueError('Product list contains private or unowned values')
+    if area == 'chat':
+        if value['channel'] not in {'local','domain'}:
+            raise ValueError('Unsupported actual Chat channel')
+        visible = value[value['channel']+'Messages'] if value['open'] else []
+        if value['messages'] != visible:
+            raise ValueError('Chat visible rows disagree with original channel history')
+        if value['keyboard'] and not value['focused']:
+            raise ValueError('Chat keyboard has no actual editor focus')
     if area == 'graphics':
         number(value['resolution'],0.1,2.0); number(value['renderScale'],0.1,2.0)
     if area == 'audio':
