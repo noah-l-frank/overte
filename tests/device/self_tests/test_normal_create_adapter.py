@@ -15,7 +15,7 @@ from adapters.normal_script_manager import NormalScriptManager
 from adapters.normal_ui import NativeUIError
 from create_journey import INITIAL, EDITED
 from create_observation import PREFIX
-from test_normal_script_manager import Boundary, BINDING
+from self_tests.test_normal_script_manager import Boundary, BINDING
 
 NONCE = 'a' * 32
 URL = 'http://fixture.test/create/' + NONCE + '/observer.js'
