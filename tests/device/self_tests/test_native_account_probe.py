@@ -148,6 +148,15 @@ class AccountProbeTests(unittest.TestCase):
         reader.original=backwards
         with self.assertRaises(NativeUIError):reader.acquire(RUN,TICKET)
 
+    def test_native_epoch_regression_between_separate_ios_requests_is_not_hidden_by_new_cursor(self):
+        boundary=Boundary();reader=boundary.reader(ios=True);reader.acquire(RUN,TICKET)
+        def backwards(value):
+            value.update(requestedEpochMs=19999,capturedEpochMs=19999)
+            value['source'].update(sentEpochMs=19999,completedEpochMs=19999)
+        boundary.mutate=backwards
+        with self.assertRaises(NativeUIError):reader.acquire(RUN,TICKET)
+        self.assertEqual(2,len(boundary.intents))
+
     def test_ios_native_clock_and_closed_fixture_command_preserve_original_nonce(self):
         boundary=Boundary();reader=boundary.reader(ios=True);reader.clock_ms=lambda:9000000
         value=reader.acquire(RUN,TICKET);self.assertEqual(20000,value['capturedEpochMs'])

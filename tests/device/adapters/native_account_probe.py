@@ -121,7 +121,7 @@ class NativeAccountProbe:
         need(all(callable(v) for v in (send,read,clock_ms,guard,intent,monotonic,sleep)) and integer(pid,1) and type(ios) is bool)
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,read,clock_ms,guard,pid
         self.intent,self.ios,self.monotonic,self.sleep=intent,ios,monotonic,sleep
-        self.instance,self.sequence=None,0
+        self.instance,self.sequence=None,0;self.captured=0
 
     def acquire(self,run,ticket):
         nonce=('ios-' if self.ios else '')+uuid.uuid4().hex
@@ -146,9 +146,10 @@ class NativeAccountProbe:
                     epoch=value.get('capturedEpochMs') if self.ios else self.clock_ms()
                     value=validate(value,request,self.pid,epoch)
                     need(self.instance in (None,value['instance']) and value['sequence']>self.sequence
+                         and value['requestedEpochMs']>=self.captured
                          and (self.ios or value['requestedEpochMs']>=requested) and self.guard() is not False)
                     now=self.monotonic();need(number(now,0,1e15) and previous<=now and now-started<5)
-                    self.instance,self.sequence=value['instance'],value['sequence']
+                    self.instance,self.sequence=value['instance'],value['sequence'];self.captured=value['capturedEpochMs']
                     return value
                 now=self.monotonic();need(number(now,0,1e15) and now>=previous);previous=now
                 if now-started>=5 or attempt==50:break

@@ -14,6 +14,15 @@
 #endif
 
 namespace overte::e2e {
+inline bool accountOriginText(const QString& text) {
+    const QUrl origin(text,QUrl::StrictMode);
+    return !text.isEmpty() && text.size()<=1024 && origin.isValid() && !origin.isRelative()
+        && origin.scheme()=="https" && !origin.host().isEmpty() && origin.userInfo().isEmpty()
+        && !text.contains('@') && !origin.authority().endsWith(':') && origin.port(-1)!=0
+        && origin.path().isEmpty() && !origin.hasQuery() && !origin.hasFragment()
+        && QString::fromLatin1(origin.toEncoded())==text;
+}
+
 // Read only an explicitly provisioned private origin. This never configures the
 // product account endpoint or changes native TLS trust.
 inline QString privateAccountOrigin(const QString& directory, const QString& run) {
@@ -53,11 +62,7 @@ inline QString privateAccountOrigin(const QString& directory, const QString& run
             || value.value("schemaVersion") != QJsonValue(1) || value.value("runId") != QJsonValue(run)
             || !value.value("origin").isString()) { return {}; }
     const auto text=value.value("origin").toString();
-    const QUrl origin(text,QUrl::StrictMode);
-    if (text.isEmpty() || text.size() > 1024 || !origin.isValid() || origin.isRelative()
-            || origin.scheme() != "https" || origin.host().isEmpty() || !origin.userInfo().isEmpty()
-            || !origin.path().isEmpty() || origin.hasQuery() || origin.hasFragment()
-            || QString::fromLatin1(origin.toEncoded()) != text) { return {}; }
+    if (!accountOriginText(text)) { return {}; }
     return text;
 #else
     Q_UNUSED(directory)
