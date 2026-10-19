@@ -38,7 +38,15 @@ def read_native_diagnostic(read, clock_ms, guard, after_sequence, *,
                     need(key not in value)
                     value[key] = item
                 return value
-            value = json.loads(raw, object_pairs_hook=pairs) if raw else None
+            try:
+                value = json.loads(raw, object_pairs_hook=pairs) if raw else None
+            except json.JSONDecodeError:
+                # Test.saveObject currently truncates/writes its fixed file.
+                # A partial read is not an observation; wait only for the
+                # requested original complete document within the same bound.
+                if expected_request is None:
+                    raise
+                value = None
             epoch = clock_ms()
             need(guard() is not False)
             if expected_request is None or type(value) is dict and value.get('requestId') == expected_request:

@@ -1141,6 +1141,12 @@
     }
 
     function applyAndroidControlCommand(command) {
+        if (command && command.action === "normal-feature-observe") {
+            // Android's existing private channel is separate from the HTTP
+            // fixture command endpoint. Reuse only the closed read-only path.
+            applyClientCommand(command);
+            return;
+        }
         if (applyVoice(command)) { return; }
         if (!command || command.schemaVersion !== 1 || !command.commandId
                 || command.commandId === lastAndroidControlCommandId) {

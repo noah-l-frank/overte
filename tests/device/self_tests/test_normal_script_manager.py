@@ -201,7 +201,7 @@ class NormalScriptManagerTests(unittest.TestCase):
     def test_correlated_reader_waits_for_current_request_and_rejects_foreign_receipts(self):
         value, epoch = self.native.observe(0)
         request = '1' * 32
-        captures = iter(('', json.dumps(value | {'requestId': '2' * 32, 'sampleEpochMs': 1}),
+        captures = iter(('', '{"requestId":', json.dumps(value | {'requestId': '2' * 32, 'sampleEpochMs': 1}),
                          json.dumps(value | {'requestId': request})))
         clock = [0.0]
         def sleep(seconds): clock[0] += seconds
@@ -260,6 +260,9 @@ if(result.value.complete || result.value.scripts.length || result.name!=='normal
         branch = probe.index('    function applyClientCommand(command)')
         branch_end = probe.index('        if (command && command.schemaVersion === 1\n                && /^ios-', branch)
         source = probe[start:end] + probe[branch:branch_end] + '\n return false; }'
+        android = probe.index('    function applyAndroidControlCommand(command)')
+        android_end = probe.index('        if (applyVoice(command))', android)
+        source += probe[android:android_end] + '\n return false; }'
         program = '''const vm=require('vm'); let result, reads=0;
 const owner='{11111111-1111-1111-1111-111111111111}';
 const context={Uuid:{generate:()=>owner},Test:{saveObject:v=>{result=v}},
@@ -269,10 +272,10 @@ const context={Uuid:{generate:()=>owner},Test:{saveObject:v=>{result=v}},
  objectKeysMatch:(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort())};
 vm.createContext(context);vm.runInContext(SOURCE,context);
 const command={schemaVersion:1,commandId:'a'.repeat(32),action:'normal-feature-observe',includeAvatarEntities:true};
-context.applyClientCommand(command);
+context.applyAndroidControlCommand(command);
 if(result.requestId!==command.commandId||result.sampleSequence!==1||!result.entitiesComplete||result.avatarEntities.length!==1||result.avatarEntities[0].name!=='owned')process.exit(1);
-context.applyClientCommand(command);if(reads!==1)process.exit(2);
-command.commandId='b'.repeat(32);command.includeAvatarEntities=false;context.applyClientCommand(command);
+context.applyAndroidControlCommand(command);if(reads!==1)process.exit(2);
+command.commandId='b'.repeat(32);command.includeAvatarEntities=false;context.applyAndroidControlCommand(command);
 if(reads!==2||result.sampleSequence!==2||'avatarEntities' in result)process.exit(3);
 '''.replace('SOURCE', json.dumps(source))
         subprocess.run(['node', '-e', program], check=True, timeout=10, capture_output=True)
