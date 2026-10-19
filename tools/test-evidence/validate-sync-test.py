@@ -1662,5 +1662,81 @@ class NativeProductPrConsumerTests(unittest.TestCase):
             self.assertFalse(f.args.receipt.exists())
 
 
+
+class ExactTreeParentConsumerTests(unittest.TestCase):
+    """The distinct native report path never captures consumer E or reruns CI."""
+    def setUp(self):
+        self.f=IsolatedConsumerTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
+        f=self.f;f.ci_fixture();f.args.mode='reuse'
+        self.kind=VALIDATION._gate().NativeExactTreeParentEvidence
+        f.gate.NativeExactTreeParentEvidence=self.kind
+        now=datetime.now(timezone.utc)
+        self.evidence=self.kind({'kind':'original-sync-identical-android-tree-v1','source':'a'*40,
+            'qualification':False,'reusable':False,'parent_branch':'android-main','parent_commit':f.parent,
+            'parent_tree':f.tree_sha,'candidate_inputs':deepcopy(f.tree),'requested_suites':['alpha'],
+            'original_commit':'c'*40,'qualified_at':(now-timedelta(minutes=5)).isoformat().replace('+00:00','Z'),
+            'expires_at':(now+timedelta(hours=1)).isoformat().replace('+00:00','Z'),
+            'original_proof':{'parent_pr':40,'gate_run_id':100,'run_id':101,'attempt':1,
+                'artifact_id':102,'artifact_digest':'sha256:'+'1'*64,'receipt_digest':'sha256:'+'2'*64},
+            'original_report':{'mode':'affected-ci','reused_suites':[],'executed_suites':['alpha']}})
+        f.gate.native_exact_tree_parent_evidence=Mock(side_effect=lambda *a:deepcopy(self.evidence))
+        f.gate.native_parent_evidence=Mock(side_effect=EvidenceError('legacy parent proof unavailable'))
+
+    def prepare(self):
+        f=self.f;selected=f.ci_prepare();f.args.expected_native_setup=selected.get('native_setup','')
+        return selected
+
+    def test_zero_setup_differential_and_original_report_coverage_without_environment_or_commands(self):
+        f=self.f;selected=self.prepare()
+        self.assertEqual(selected['consumer_setup'],'none')
+        self.assertEqual(selected['suites'],['alpha'])
+        with patch.object(VALIDATION,'_differential') as differential, \
+                patch.object(inputs,'plan_reuse',side_effect=AssertionError('no generic reuse/E')):
+            result=f.validate(runtime_failure=AssertionError('no consumer environment'),
+                execute_override=lambda *a,**k:(_ for _ in ()).throw(AssertionError('no full executor')),
+                ci_execute_override=lambda *a,**k:(_ for _ in ()).throw(AssertionError('no duplicate CI')))
+        differential.assert_called_once()
+        self.assertEqual(result['mode'],'native-exact-tree-parent')
+        self.assertEqual(result['reused_suites'],['alpha']);self.assertEqual(result['executed_suites'],[])
+        self.assertIsNone(result['execution']);self.assertIs(result['reusable'],False);self.assertIs(result['qualification'],False)
+        self.assertEqual(result['parent_evidence']['original_report'],self.evidence['original_report'])
+        self.assertNotIn('reused_results',result['parent_evidence'])
+        f.gate.native_parent_evidence.assert_not_called()
+        self.assertEqual(f.executed(),[])
+        self.assertFalse(Path(str(f.args.receipt)+'.ci-execution.json').exists())
+        import xml.etree.ElementTree as ET
+        self.assertEqual([c.get('name')for c in ET.parse(f.args.junit).iter('testcase')],['sync-differential'])
+
+    def test_absent_initial_original_proof_retains_mandatory_real_selected_execution(self):
+        f=self.f;f.gate.native_exact_tree_parent_evidence.return_value=None
+        f.gate.native_exact_tree_parent_evidence.side_effect=None
+        selected=self.prepare();self.assertNotIn('consumer_setup',selected)
+        with patch.object(VALIDATION,'_differential'):
+            result=f.validate(runtime_failure=AssertionError('no reusable runtime needed'))
+        self.assertEqual(result['mode'],'affected-ci');self.assertEqual(result['executed_suites'],['alpha'])
+        self.assertEqual(f.executed(),['alpha']);self.assertEqual(result['reused_suites'],[])
+
+    def test_missing_changed_or_expired_proof_after_no_setup_never_executes_unprepared_fallback(self):
+        for shape in ('missing','digest','tree','expired'):
+            f=self.f
+            if shape!='missing':self.evidence['original_proof']['artifact_digest']='sha256:'+'1'*64;self.evidence['candidate_inputs']=deepcopy(f.tree)
+            self.prepare()
+            def change(*args):
+                if shape=='missing':f.gate.native_exact_tree_parent_evidence.side_effect=lambda *a:None
+                elif shape=='digest':self.evidence['original_proof']['artifact_digest']='sha256:'+'0'*64
+                elif shape=='tree':self.evidence['candidate_inputs']['libraries/alpha.cpp']['sha']='0'*40
+                else:self.evidence['expires_at']='2020-01-01T00:00:00Z'
+            with self.subTest(shape=shape),patch.object(VALIDATION,'_differential',side_effect=change), \
+                    self.assertRaises(VALIDATION.ValidationError):
+                f.validate(ci_execute_override=lambda *a,**k:(_ for _ in ()).throw(AssertionError('no unprepared CI')))
+            self.assertEqual(f.executed(),[])
+            f.gate.native_exact_tree_parent_evidence.side_effect=lambda *a:deepcopy(self.evidence)
+
+    def test_changed_command_coverage_never_uses_parent_report_as_generic_E(self):
+        f=self.f;self.evidence['requested_suites']=['beta']
+        with self.assertRaises(VALIDATION.ValidationError):self.prepare()
+        self.evidence['requested_suites']=['alpha'];self.evidence['reusable']=True
+        with self.assertRaises(VALIDATION.ValidationError):self.prepare()
+
 if __name__ == "__main__":
     unittest.main()

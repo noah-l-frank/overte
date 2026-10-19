@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from fnmatch import fnmatch
 from pathlib import Path
@@ -1058,6 +1058,10 @@ class NativeParentEvidence(dict):
     """Internal native API result; an artifact JSON field cannot create this."""
 
 
+
+class NativeExactTreeParentEvidence(dict):
+    """Successful original Sync CI data on this identical tree; never E."""
+
 def _native_parent_controller():
     """Close the real protected import lookup before importing proof modules.
 
@@ -1745,9 +1749,15 @@ def _metadata_check(api, prefix, run, job, source):
     return check
 
 
-def _metadata_gate_run(api, prefix, identifier, request):
+def _metadata_gate_run(api, prefix, identifier, request, *, normal_parent=None):
     run = api.json(prefix + '/actions/runs/' + str(identifier))
     attempt = api.json(prefix + '/actions/runs/' + str(identifier) + '/attempts/1')
+    integrated = False
+    if normal_parent is not None:
+        normal = commit(api, request.repository, normal_parent)
+        integrated = commit_parents(normal) == (request.base_sha, request.head_sha)
+        if not integrated:
+            raise GateError('original gate has no exact normal integration')
     fields = {'id': identifier, 'workflow_id': 350930894, 'run_attempt': 1,
         'path': '.github/workflows/sync-test-reuse.yml', 'event': 'pull_request_target',
         'head_sha': request.head_sha, 'head_branch': request.head}
@@ -1758,9 +1768,10 @@ def _metadata_gate_run(api, prefix, identifier, request):
                        (1319052603, 'noah-l-frank/overte') for k in ('repository', 'head_repository')) \
                 or type(value.get('pull_requests')) is not list \
                 or not all(type(p) is dict for p in value['pull_requests']) \
-                or not any(type(p.get('number')) is int and p['number'] == request.number
+                or not (any(type(p.get('number')) is int and p['number'] == request.number
                     and p.get('base', {}).get('sha') == request.base_sha
-                    and p.get('head', {}).get('sha') == request.head_sha for p in value.get('pull_requests', [])):
+                    and p.get('head', {}).get('sha') == request.head_sha for p in value.get('pull_requests', []))
+                    or integrated and value['pull_requests'] == []):
             raise GateError('metadata original gate source/attempt/PR association differs')
     pending = {'queued', 'in_progress', 'waiting', 'pending', 'requested'}
     if any(run.get(k) != attempt.get(k) for k in (*fields, 'check_suite_id')) or (
@@ -1781,7 +1792,8 @@ def _metadata_step(job, name):
     return value
 
 
-def _metadata_report(api, prefix, run, item, request, source, validator, registry, selected, tree, now):
+def _metadata_report(api, prefix, run, item, request, source, validator, registry, selected, tree, now,
+                     *, normal_parent=None):
     """Read genuine independently executed affected-CI data; grant no E/reuse."""
     expected_owner = {'id': run['id'], 'repository_id': 1319052603, 'head_repository_id': 1319052603,
                       'head_branch': 'main', 'head_sha': source}
@@ -1825,6 +1837,15 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
         def bad(_): raise GateError('metadata original nonfinite JSON')
         return json.loads(data, object_pairs_hook=suite_inputs._unique_object, parse_constant=bad)
     report, observed = decode(payload[report_path]), decode(payload[report_path + '.ci-execution.json'])
+    if normal_parent is not None:
+        # Keep the original temporary M in its report. The current normal N is
+        # a separate immutable commit with precisely the same tree and parents.
+        original_merge = validate_sha(report['candidate']['merge_commit'], 'original Sync merge')
+        for revision in (normal_parent, original_merge):
+            actual = commit(api, request.repository, revision)
+            if commit_parents(actual) != (request.base_sha, request.head_sha) or commit_tree(actual) != tree:
+                raise GateError('original Sync tested merge differs from exact normal parent')
+        request = replace(request, merge_sha=original_merge)
     selection = report['ci_selection']
     for value, field in ((report, 'receipt_digest'), (selection, 'selection')):
         unsigned = dict(value); claimed = unsigned.pop(field)
@@ -1867,6 +1888,76 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
             or any(c.find(k) is not None for c in cases for k in ('failure', 'error', 'skipped')):
         raise GateError('metadata original ordered JUnit incomplete/failed/skipped')
     return report, observed
+
+
+def _completed_sync_report(api, prefix, original, check, request, source,
+                           before, candidate, trusted, tree, now, *, normal_parent=None):
+    """Verify original native execution data; do not create reusable evidence."""
+    if (original.get('status'), original.get('conclusion'), check.get('status'), check.get('conclusion')) != (
+            'completed', 'success', 'completed', 'success'):
+        raise GateError('original independent Sync owner is not successful')
+    jobs = _metadata_list(api, prefix + '/actions/runs/' + str(original['id']) + '/attempts/1/jobs?per_page=100', 'jobs')
+    rows = [j for j in jobs if j.get('name') == 'sync-test-reuse']
+    if len(rows) != 1 or rows[0].get('conclusion') != 'success':
+        raise GateError('metadata original canonical native job unavailable')
+    job = rows[0]
+    if _metadata_check(api, prefix, original, job, request.head_sha) != check:
+        raise GateError('metadata original canonical native check differs')
+    for name in ('Inspect topology and exact parent evidence', 'Dispatch isolated read-only validation', 'Publish decision'):
+        _metadata_step(job, name)
+    log = api.bytes(prefix + '/actions/jobs/' + str(job['id']) + '/logs')
+    if len(log) > 8_000_000:
+        raise GateError('metadata original gate log exceeds bound')
+    child_ids = set(re.findall(rb'\bvalidation_run_id=([1-9][0-9]*)\b', log))
+    if len(child_ids) != 1:
+        raise GateError('metadata original lacks one authenticated validator ID')
+    child = int(child_ids.pop()); correlation = 'gate-' + str(original['id']) + '-attempt-1'
+    if ('validation_url=https://github.com/' + request.repository + '/actions/runs/' + str(child)).encode() not in log:
+        raise GateError('metadata original validator URL differs')
+    run = api.json(prefix + '/actions/runs/' + str(child))
+    identity = _dispatch_run(run, child, source, correlation)
+    if (run['status'], run['conclusion']) != ('completed', 'success'):
+        raise GateError('metadata original validator did not succeed')
+    _dispatch_native(api, prefix, run, source, correlation, identity)
+    child_jobs = _metadata_list(api, prefix + '/actions/runs/' + str(child) + '/attempts/1/jobs?per_page=100', 'jobs')
+    validators = [j for j in child_jobs if j.get('name') == 'Validate exact synchronization']
+    if len(validators) != 1:
+        raise GateError('metadata original validator native role missing')
+    validator_job = validators[0]; validator_check = _metadata_check(api, prefix, run, validator_job, source)
+    executed = _metadata_step(validator_job, 'Verify exact candidate suites and complete runtime identity')
+    upload = _metadata_step(validator_job, 'Upload validation test reports')
+    artifacts = _metadata_list(api, prefix + '/actions/runs/' + str(child) + '/artifacts?per_page=100', 'artifacts')
+    if len(artifacts) != 1 or artifacts[0].get('name') != 'sync-validation-reports-' + str(child) + '-1':
+        raise GateError('metadata original sole validation artifact unavailable')
+    item = artifacts[0]
+    if not parse_time(upload['started_at'], 'upload start') <= parse_time(item['created_at'], 'artifact creation') \
+            <= parse_time(upload['completed_at'], 'upload completion'):
+        raise GateError('metadata original artifact outside native upload')
+    host = package_checks.load('sync_metadata_host', 'tools/repository-checks/host_selection.py')
+    registry = suite_inputs.load_registry(ROOT / '.github/test-suites.json')
+    regular = all(entry is None or entry['type'] == 'blob' and entry['mode'] in {'100644', '100755'}
+        for name in request.changed_paths for entry in (before.get(name), candidate.get(name)))
+    selected = host.select(candidate, list(request.changed_paths), regular, base_tree=before, trusted_tree=trusted,
+                           candidate_root=ROOT, trusted_root=ROOT, target=request.base)
+    if selected.get('full_host') is not False or selected.get('include_platform') is not False \
+            or not selected.get('suites') or len(selected['suites']) != len(set(selected['suites'])) \
+            or any(name not in registry['suites'] for name in selected['suites']):
+        raise GateError('metadata original selection is not independently bounded CI')
+    directory = str(ROOT / 'tools/test-evidence'); search = list(sys.path)
+    try:
+        sys.path.insert(0, directory)
+        validator = package_checks.load('sync_metadata_validator', 'tools/test-evidence/validate-sync.py')
+    finally:
+        sys.path[:] = search
+    report, observed = _metadata_report(api, prefix, run, item, request, source, validator, registry, selected, tree, now, normal_parent=normal_parent)
+    if not parse_time(executed['started_at'], 'execution start') <= parse_time(report['started_at'], 'report start') \
+            <= parse_time(observed['started_at'], 'observed start') <= parse_time(observed['completed_at'], 'observed completion') \
+            <= parse_time(report['completed_at'], 'report completion') \
+            < parse_time(executed['completed_at'], 'execution completion') + timedelta(seconds=1):
+        raise GateError('metadata original report outside native execution')
+    return {name: value for name, value in locals().items() if name in {
+        'jobs', 'job', 'child', 'correlation', 'run', 'identity', 'validator_job',
+        'validator_check', 'artifacts', 'item', 'report', 'observed', 'selected'}}
 
 
 def _metadata_pending_owner(api, prefix, original, attempt, request, source, event, current_id, tree):
@@ -1997,65 +2088,10 @@ def retain_metadata_owner(event, config, api, *, environment=None, now=None):
             'completed', 'success', 'completed', 'success'):
         # No waiting runner, fallback, status conversion or new canonical PASS.
         raise GateError('metadata original Sync owner remains pending/failed/cancelled')
-    jobs = _metadata_list(api, prefix + '/actions/runs/' + str(original['id']) + '/attempts/1/jobs?per_page=100', 'jobs')
-    rows = [j for j in jobs if j.get('name') == 'sync-test-reuse']
-    if len(rows) != 1 or rows[0].get('conclusion') != 'success':
-        raise GateError('metadata original canonical native job unavailable')
-    job = rows[0]
-    if _metadata_check(api, prefix, original, job, request.head_sha) != check:
-        raise GateError('metadata original canonical native check differs')
-    for name in ('Inspect topology and exact parent evidence', 'Dispatch isolated read-only validation', 'Publish decision'):
-        _metadata_step(job, name)
-    log = api.bytes(prefix + '/actions/jobs/' + str(job['id']) + '/logs')
-    if len(log) > 8_000_000:
-        raise GateError('metadata original gate log exceeds bound')
-    child_ids = set(re.findall(rb'\bvalidation_run_id=([1-9][0-9]*)\b', log))
-    if len(child_ids) != 1:
-        raise GateError('metadata original lacks one authenticated validator ID')
-    child = int(child_ids.pop()); correlation = 'gate-' + str(original['id']) + '-attempt-1'
-    if ('validation_url=https://github.com/' + request.repository + '/actions/runs/' + str(child)).encode() not in log:
-        raise GateError('metadata original validator URL differs')
-    run = api.json(prefix + '/actions/runs/' + str(child))
-    identity = _dispatch_run(run, child, source, correlation)
-    if (run['status'], run['conclusion']) != ('completed', 'success'):
-        raise GateError('metadata original validator did not succeed')
-    _dispatch_native(api, prefix, run, source, correlation, identity)
-    child_jobs = _metadata_list(api, prefix + '/actions/runs/' + str(child) + '/attempts/1/jobs?per_page=100', 'jobs')
-    validators = [j for j in child_jobs if j.get('name') == 'Validate exact synchronization']
-    if len(validators) != 1:
-        raise GateError('metadata original validator native role missing')
-    validator_job = validators[0]; validator_check = _metadata_check(api, prefix, run, validator_job, source)
-    executed = _metadata_step(validator_job, 'Verify exact candidate suites and complete runtime identity')
-    upload = _metadata_step(validator_job, 'Upload validation test reports')
-    artifacts = _metadata_list(api, prefix + '/actions/runs/' + str(child) + '/artifacts?per_page=100', 'artifacts')
-    if len(artifacts) != 1 or artifacts[0].get('name') != 'sync-validation-reports-' + str(child) + '-1':
-        raise GateError('metadata original sole validation artifact unavailable')
-    item = artifacts[0]
-    if not parse_time(upload['started_at'], 'upload start') <= parse_time(item['created_at'], 'artifact creation') \
-            <= parse_time(upload['completed_at'], 'upload completion'):
-        raise GateError('metadata original artifact outside native upload')
-    host = package_checks.load('sync_metadata_host', 'tools/repository-checks/host_selection.py')
-    registry = suite_inputs.load_registry(ROOT / '.github/test-suites.json')
-    regular = all(entry is None or entry['type'] == 'blob' and entry['mode'] in {'100644', '100755'}
-        for name in request.changed_paths for entry in (before.get(name), candidate.get(name)))
-    selected = host.select(candidate, list(request.changed_paths), regular, base_tree=before, trusted_tree=trusted,
-                           candidate_root=ROOT, trusted_root=ROOT, target=request.base)
-    if selected.get('full_host') is not False or selected.get('include_platform') is not False \
-            or not selected.get('suites') or len(selected['suites']) != len(set(selected['suites'])) \
-            or any(name not in registry['suites'] for name in selected['suites']):
-        raise GateError('metadata original selection is not independently bounded CI')
-    directory = str(ROOT / 'tools/test-evidence'); search = list(sys.path)
-    try:
-        sys.path.insert(0, directory)
-        validator = package_checks.load('sync_metadata_validator', 'tools/test-evidence/validate-sync.py')
-    finally:
-        sys.path[:] = search
-    report, observed = _metadata_report(api, prefix, run, item, request, source, validator, registry, selected, tree, now)
-    if not parse_time(executed['started_at'], 'execution start') <= parse_time(report['started_at'], 'report start') \
-            <= parse_time(observed['started_at'], 'observed start') <= parse_time(observed['completed_at'], 'observed completion') \
-            <= parse_time(report['completed_at'], 'report completion') \
-            < parse_time(executed['completed_at'], 'execution completion') + timedelta(seconds=1):
-        raise GateError('metadata original report outside native execution')
+    proof = _completed_sync_report(api, prefix, original, check, request, source,
+        before, candidate, trusted, tree, now)
+    jobs, job, child, correlation, run, identity, validator_check, artifacts = (
+        proof[key] for key in ('jobs', 'job', 'child', 'correlation', 'run', 'identity', 'validator_check', 'artifacts'))
     _dispatch_native(api, prefix, run, source, correlation, identity)
     immutable = ('id', 'workflow_id', 'run_attempt', 'path', 'event', 'head_sha', 'head_branch',
                  'check_suite_id', 'repository', 'head_repository', 'pull_requests')
@@ -2095,6 +2131,214 @@ def metadata_owner(args):
     return 0
 
 
+def _exact_tree_required_owners(api, prefix, parent_pr, before, trusted):
+    """Read every current required native owner on the real introducing H."""
+    rules = api.json(prefix + '/rules/branches/android-main')
+    if type(rules) is not list or len(rules) > 100 or any(type(r) is not dict for r in rules):
+        raise EvidenceError('exact-tree parent rules unavailable')
+    required = []
+    for rule in rules:
+        if rule.get('type') == 'required_status_checks':
+            parameters = rule.get('parameters', {})
+            if parameters.get('strict_required_status_checks_policy') is not True:
+                raise EvidenceError('exact-tree parent checks are not strict')
+            required.extend(parameters.get('required_status_checks', []))
+    paths = {'dependency-release-policy': '.github/workflows/dependency-releases.yml',
+        'branch-policy': '.github/workflows/branch-policy.yml',
+        'sync-test-reuse': '.github/workflows/sync-test-reuse.yml',
+        'repository-checks': '.github/workflows/repository-checks.yml',
+        'codeql-security-results': '.github/workflows/codeql.yml'}
+    if len(required) != len(paths) or any(type(r) is not dict or r.get('integration_id') != 15368
+            or type(r.get('integration_id')) is not int for r in required) \
+            or {r.get('context') for r in required} != set(paths):
+        raise EvidenceError('exact-tree parent mandatory native contexts differ')
+    head = parent_pr['head']['sha']
+    checks = _metadata_list(api, prefix + '/commits/' + head + '/check-runs?filter=all&per_page=100', 'check_runs')
+    owners = {}
+    for name, path in paths.items():
+        found = [c for c in checks if c.get('name') == name and c.get('app', {}).get('id') == 15368]
+        if len(found) != 1 or (found[0].get('status'), found[0].get('conclusion')) != ('completed', 'success'):
+            raise EvidenceError('exact-tree parent required native owner is not uniquely successful')
+        check = found[0]
+        match = re.fullmatch(r'https://github\.com/noah-l-frank/overte/actions/runs/([1-9][0-9]*)/job/([1-9][0-9]*)',
+                            check.get('details_url', ''))
+        if match is None:
+            raise EvidenceError('exact-tree parent native job URL differs')
+        identifier, job_id = map(int, match.groups())
+        run = api.json(prefix + '/actions/runs/' + str(identifier))
+        attempt = api.json(prefix + '/actions/runs/' + str(identifier) + '/attempts/1')
+        fields = {'id':identifier, 'head_sha':head, 'head_branch':parent_pr['head']['ref'],
+            'path':path, 'run_attempt':1, 'status':'completed', 'conclusion':'success'}
+        for value in (run, attempt):
+            if type(value) is not dict or any(type(value.get(k)) is not type(v) or value[k] != v for k,v in fields.items()) \
+                    or value.get('event') not in {'pull_request', 'pull_request_target'} \
+                    or any(type(value.get(k)) is not dict or type(value[k].get('id')) is not int
+                        or (value[k]['id'],value[k].get('full_name')) != (1319052603,'noah-l-frank/overte')
+                        for k in ('repository','head_repository')):
+                raise EvidenceError('exact-tree parent native source/attempt differs')
+        if any(run.get(k) != attempt.get(k) for k in ('workflow_id','check_suite_id','event','run_started_at')):
+            raise EvidenceError('exact-tree parent native attempt identity differs')
+        registration = api.json(prefix + '/actions/workflows/' + str(run['workflow_id']))
+        if (registration.get('id'), registration.get('path'), registration.get('state')) != (run['workflow_id'],path,'active'):
+            raise EvidenceError('exact-tree parent native recipe registration differs')
+        expected = trusted.get(path)
+        legacy = {'mode':'100644','type':'blob','sha':'6229491872ac60ce2149b68eb53b3e67055c354c'}
+        if expected is None or before.get(path) != expected and not (name == 'sync-test-reuse' and before.get(path) == legacy):
+            raise EvidenceError('exact-tree parent native recipe was not reviewed')
+        jobs = _metadata_list(api, prefix + '/actions/runs/' + str(identifier) + '/attempts/1/jobs?per_page=100', 'jobs')
+        found_jobs = [j for j in jobs if j.get('id') == job_id and j.get('name') == name]
+        if len(found_jobs) != 1 or _metadata_check(api,prefix,run,found_jobs[0],head) != check:
+            raise EvidenceError('exact-tree parent native job/App differs')
+        owners[name] = {'run':run,'attempt':attempt,'jobs':jobs,'check':check,'registration':registration}
+    return {'rules':rules,'checks':checks,'owners':owners}
+
+
+def native_exact_tree_parent_evidence(api, config, request, now=None):
+    """Native runtime entry; the separate read-only proof API grants no E."""
+    if os.environ.get('GITHUB_ACTIONS') != 'true' or (request.base,request.parent,request.profile) != (
+            'android-vr','android-main','android-vr') or request.repair_paths or not request.changed_paths:
+        return None
+    try:
+        source = _dispatch_checkout_source()
+        event = {'repository': api.json('repos/' + request.repository), 'number': request.number,
+                 'pull_request': api.json('repos/' + request.repository + '/pulls/' + str(request.number))}
+        _native_effective_role(api, event, request.base_sha)
+        return verify_exact_tree_parent_evidence(api, config, request, protected_source=source,
+            protected_tree=commit_tree(commit(api,request.repository,source)), now=now)
+    except (EvidenceError,GateError,ValueError,OSError,KeyError,TypeError,AttributeError,ImportError,
+            subprocess.SubprocessError):
+        return None
+
+
+def verify_exact_tree_parent_evidence(api, config, request, *, protected_source, protected_tree, now=None):
+    """Only AndroidMain -> VR may inherit actual CI37 on the identical whole T.
+
+    This independently executed schema1 report remains nonreusable data. No
+    consumer environment, fingerprints, receipt/E or successful push is made.
+    Missing proof before setup retains the mandatory selected execution route.
+    """
+    if (request.base,request.parent,request.profile) != (
+            'android-vr','android-main','android-vr') or request.repair_paths or not request.changed_paths:
+        return None
+    try:
+        now = datetime.now(timezone.utc) if now is None else now
+        source = validate_sha(protected_source, 'exact-tree protected source')
+        validate_sha(protected_tree, 'exact-tree protected source tree')
+        prefix = _dispatch_source(api,config,request.repository,source)
+        source_tree,trusted = recursive_tree(api,request.repository,source)
+        if source_tree != protected_tree or suite_inputs.full_tree(ROOT,'HEAD') != trusted:
+            raise EvidenceError('exact-tree actual reader is not the complete protected source tree')
+        _native_parent_controller()  # Authenticate the existing physical import closure, not B/D reuse/E.
+
+        repo = api.json(prefix); current_pr = api.json(prefix + '/pulls/' + str(request.number))
+        event = {'repository':repo,'number':request.number,'pull_request':current_pr}
+        if classify_event(event,config,api) != request:
+            raise EvidenceError('exact-tree current synchronization changed')
+        current = commit(api,request.repository,request.merge_sha)
+        head = commit(api,request.repository,request.head_sha)
+        parent = commit(api,request.repository,request.parent_sha)
+        if commit_parents(head) != (request.base_sha,request.parent_sha) \
+                or commit_parents(current) != (request.base_sha,request.head_sha) \
+                or len(commit_parents(parent)) != 2 or commit_tree(current) != commit_tree(head) \
+                or commit_tree(parent) != commit_tree(current):
+            raise EvidenceError('exact-tree direct normal/candidate topology differs')
+        if branch_sha(api,request.repository,'android-main') != request.parent_sha:
+            raise EvidenceError('exact-tree protected parent moved')
+        branch = api.json(prefix + '/branches/android-main')
+        if branch.get('name') != 'android-main' or branch.get('protected') is not True \
+                or branch.get('commit',{}).get('sha') != request.parent_sha:
+            raise EvidenceError('exact-tree parent is not the current protected normal')
+        rows = api.json(prefix + '/commits/' + request.parent_sha + '/pulls?per_page=100')
+        if type(rows) is not list or len(rows) >= 100 or any(type(r) is not dict for r in rows):
+            raise EvidenceError('exact-tree normal introducing PR inventory unavailable')
+        numbers = [r.get('number') for r in rows]
+        if any(type(n) is not int or n <= 0 for n in numbers) or len(set(numbers)) != len(numbers):
+            raise EvidenceError('exact-tree normal introducing PR numbers differ')
+        # Commit associations can omit merge_commit_sha; only the full native
+        # PR detail supplies the actual normal integration identity.
+        details = [api.json(prefix + '/pulls/' + str(n)) for n in numbers]
+        introduced = [r for r in details if r.get('merge_commit_sha') == request.parent_sha and r.get('base',{}).get('ref') == 'android-main']
+        if len(introduced) != 1:
+            raise EvidenceError('exact-tree normal introducing PR is ambiguous')
+        parent_pr = introduced[0]
+        bp,hp = commit_parents(parent)
+        if parent_pr.get('state') != 'closed' or parent_pr.get('merged') is not True \
+                or parent_pr.get('merge_commit_sha') != request.parent_sha or parent_pr.get('base',{}).get('ref') != 'android-main' \
+                or parent_pr.get('head',{}).get('sha') != hp \
+                or any((parent_pr.get(k,{}).get('repo',{}).get('id'),parent_pr.get(k,{}).get('repo',{}).get('full_name')) != (
+                    1319052603,'noah-l-frank/overte') for k in ('base','head')):
+            raise EvidenceError('exact-tree introducing native PR differs')
+        if commit_parents(commit(api,request.repository,hp)) != (bp,source):
+            raise EvidenceError('exact-tree parent was not the current source reconciliation')
+        tree,candidate = recursive_tree(api,request.repository,request.merge_sha)
+        parent_tree,parent_inputs = recursive_tree(api,request.repository,request.parent_sha)
+        _,before = recursive_tree(api,request.repository,bp)
+        _,child_before = recursive_tree(api,request.repository,request.base_sha)
+        profile = {'mode':'100644','type':'blob','sha':suite_inputs._AFFECTED_TARGET_PROFILES['android-main']}
+        if tree != parent_tree or candidate != parent_inputs \
+                or any(t.get('tests/platform-profile.json') != profile for t in (candidate,before,child_before)) \
+                or any(e['type'] != 'blob' or e['mode'] not in {'100644','100755'} for e in candidate.values()) \
+                or any(t.get('.github/test-suites.json') != trusted.get('.github/test-suites.json') for t in (before,candidate)):
+            raise EvidenceError('exact-tree complete inputs/profile/registry differ')
+        host = package_checks.load('sync_identical_tree_host','tools/repository-checks/host_selection.py')
+        registry = suite_inputs.load_registry(ROOT/'.github/test-suites.json')
+        names = json.loads((ROOT/'.github/ci37-runtime.json').read_bytes())['suites']
+        if len(names) != 37 or len(set(names)) != 37 or any(registry['suites'][n]['scope'] != 'content' for n in names):
+            raise EvidenceError('exact-tree ordered content-scoped CI37 differs')
+        parent_paths = tuple(sorted(p for p in before.keys() | candidate.keys() if before.get(p) != candidate.get(p)))
+        original_request = SyncRequest(request.repository,request.repository_id,parent_pr['number'],'android-main',bp,
+            parent_pr['head']['ref'],hp,request.head_repository_id,request.parent_sha,'reconciliation','main',source,
+            'android-family',parent_paths,parent_paths)
+        for target,base,paths in (('android-main',before,parent_paths),('android-vr',child_before,request.changed_paths)):
+            selected = host.select(candidate,list(paths),True,base_tree=base,trusted_tree=trusted,
+                candidate_root=ROOT,trusted_root=ROOT,target=target)
+            if selected.get('suites') != names or selected.get('full_host') is not False or selected.get('include_platform') is not False:
+                raise EvidenceError('exact-tree current and original commands are not independent CI37')
+        packages = package_checks.select(list(request.changed_paths),True,include_browser=True)
+        if packages['package_set'] or packages['tool_projects']:
+            raise EvidenceError('exact-tree package/product owner is not covered')
+        native = package_checks.load('sync_identical_tree_native','tools/native-tests/check.py')
+        if native.plan(list(request.changed_paths),True)['mode'] != 'skip':
+            raise EvidenceError('exact-tree native product owner is not covered')
+        owners = _exact_tree_required_owners(api,prefix,parent_pr,before,trusted)
+        native_owner = owners['owners']['sync-test-reuse']
+        original,attempt = _metadata_gate_run(api,prefix,native_owner['run']['id'],original_request,normal_parent=request.parent_sha)
+        if original != native_owner['run'] or attempt != native_owner['attempt']:
+            raise EvidenceError('exact-tree original gate changed')
+        proof = _completed_sync_report(api,prefix,original,native_owner['check'],original_request,source,
+            before,candidate,trusted,tree,now,normal_parent=request.parent_sha)
+        report = proof['report']; completed = parse_time(report['completed_at'],'original CI completion')
+        expires = min(parse_time(proof['item']['expires_at'],'original artifact expiry'),
+            completed + timedelta(hours=int(config['evidence_max_age_hours'])))
+        if not completed < now < expires or completed >= parse_time(parent_pr['merged_at'],'normal integration') + timedelta(seconds=1):
+            raise EvidenceError('exact-tree original execution is expired or was not premerge')
+        _dispatch_native(api,prefix,proof['run'],source,proof['correlation'],proof['identity'])
+        if _exact_tree_required_owners(api,prefix,parent_pr,before,trusted) != owners \
+                or _metadata_gate_run(api,prefix,original['id'],original_request,normal_parent=request.parent_sha) != (original,attempt) \
+                or _metadata_list(api,prefix+'/actions/runs/'+str(proof['child'])+'/artifacts?per_page=100','artifacts') != proof['artifacts'] \
+                or api.json(prefix+'/check-runs/'+str(proof['validator_check']['id'])) != proof['validator_check'] \
+                or api.json(prefix+'/actions/runs/'+str(proof['child'])) != proof['run'] \
+                or api.json(prefix+'/pulls/'+str(parent_pr['number'])) != parent_pr \
+                or api.json(prefix+'/pulls/'+str(request.number)) != current_pr \
+                or api.json(prefix+'/commits/'+request.parent_sha+'/pulls?per_page=100') != rows \
+                or classify_event(event,config,api) != request or branch_sha(api,request.repository,'android-main') != request.parent_sha \
+                or suite_inputs.full_tree(ROOT,'HEAD') != trusted:
+            raise EvidenceError('exact-tree native/source/normal closing bookend changed')
+        _dispatch_source(api,config,request.repository,source)
+        return NativeExactTreeParentEvidence({'kind':'original-sync-identical-android-tree-v1',
+            'qualification':False,'reusable':False,'source':source,'parent_branch':request.parent,
+            'parent_commit':request.parent_sha,'parent_tree':tree,'candidate_inputs':candidate,
+            'requested_suites':names,'original_commit':report['candidate']['merge_commit'],
+            'qualified_at':report['completed_at'],'expires_at':expires.isoformat().replace('+00:00','Z'),
+            'original_proof':{'parent_pr':parent_pr['number'],'gate_run_id':original['id'],
+                'run_id':proof['child'],'attempt':1,'artifact_id':proof['item']['id'],
+                'artifact_digest':proof['item']['digest'],'receipt_digest':report['receipt_digest']},
+            'original_report':report})
+    except (EvidenceError,GateError,ValueError,OSError,KeyError,TypeError,AttributeError,ImportError,
+            subprocess.SubprocessError,zipfile.BadZipFile,ET.ParseError):
+        return None
+
+
 def inspect(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     event = json.loads(args.event.read_text(encoding="utf-8"))
@@ -2120,8 +2364,11 @@ def inspect(args: argparse.Namespace) -> int:
     elif request.profile == "tool-dependencies":
         reason = "bounded tool manifest delta; affected tool checks required"
     else:
-        current = native_pr_evidence(api, config, request)
-        if current is not None:
+        identical = native_exact_tree_parent_evidence(api, config, request)
+        current = native_pr_evidence(api, config, request) if identical is None else None
+        if identical is not None:
+            mode, reason, evidence_run = 'reuse', 'original native CI37 on the identical Android parent tree; differential remains required', str(identical['original_proof']['run_id'])
+        elif current is not None:
             mode, reason, evidence_run = 'reuse', 'completed original PR owner accepted; Sync keeps its differential checks', str(current['original_proof']['run_id'])
         else:
             try:

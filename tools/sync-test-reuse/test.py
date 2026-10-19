@@ -4267,5 +4267,190 @@ class RetainedSyncMetadataTests(unittest.TestCase):
         for root in ('tools/sync-test-reuse','tools/branch-policy','tools/repository-checks','tools/test-evidence'):
             self.assertIn('            '+root,text)
 
+
+class ExactAndroidTreeParentTests(unittest.TestCase):
+    """Actual native/report validators with finite fake GET observations."""
+    def setUp(self):
+        self.f = RetainedSyncMetadataTests(); self.f.setUp(); self.addCleanup(self.f.doCleanups)
+        f=self.f; self.normal='c'*40; self.child_base='d'*40; self.child_head='e'*40; self.child_merge='f'*40
+        f.request=replace(f.request,base='android-main',head='reconcile/android/source',parent='main',profile='android-family')
+        f.report['candidate'].update(base_branch='android-main',head_branch=f.request.head,profile='android-family')
+        f.selection.update(target='android-main',profile='android-family')
+        f.original['head_branch']=f.request.head; f.original['pull_requests']=[]
+        f.docs[f.prefix+'/actions/runs/100/attempts/1']=deepcopy(f.original)
+        self.request=replace(f.request,number=611,base='android-vr',base_sha=self.child_base,
+            head='reconcile/android-vr/source',head_sha=self.child_head,merge_sha=self.child_merge,
+            parent='android-main',parent_sha=self.normal,profile='android-vr')
+        repo={'id':REPOSITORY_ID,'full_name':REPOSITORY}
+        self.parent_pr={'number':610,'state':'closed','merged':True,'merged_at':'2026-10-19T21:47:00Z',
+            'merge_commit_sha':self.normal,'base':{'ref':'android-main','sha':self.normal,'repo':repo},
+            'head':{'ref':f.request.head,'sha':HEAD,'repo':repo}}
+        self.docs=f.docs; self.binary=f.binary
+        self.docs[f.prefix] = {'id':REPOSITORY_ID,'full_name':REPOSITORY,'default_branch':'main'}
+        self.docs[f.prefix+'/branches/main']={'name':'main','protected':True,'commit':{'sha':PARENT}}
+        self.docs[f.prefix+'/actions/workflows/sync-validation.yml']={'id':350930895,
+            'path':'.github/workflows/sync-validation.yml','name':'Sync validation','state':'active'}
+        self.docs[f.prefix+'/pulls/610']=self.parent_pr
+        self.docs[f.prefix+'/pulls/611']={'number':611,'state':'open','base':{'ref':'android-vr','sha':self.child_base,'repo':repo},
+            'head':{'ref':self.request.head,'sha':self.child_head,'repo':repo},'merge_commit_sha':self.child_merge}
+        self.docs[f.prefix+'/branches/android-main']={'name':'android-main','protected':True,'commit':{'sha':self.normal}}
+        self.docs[f.prefix+'/git/ref/heads/android-main']={'object':{'type':'commit','sha':self.normal}}
+        self.docs[f.prefix+'/commits/'+self.normal+'/pulls?per_page=100']=[deepcopy(self.parent_pr)]
+        for revision,parents in ((self.normal,[BASE,HEAD]),(HEAD,[BASE,PARENT]),(MERGE,[BASE,HEAD]),
+                (self.child_head,[self.child_base,self.normal]),(self.child_merge,[self.child_base,self.child_head]),(PARENT,[])):
+            self.docs[f.prefix+'/git/commits/'+revision]={'sha':revision,'tree':{'sha':TREE},'parents':[{'sha':p}for p in parents]}
+        self.paths={'dependency-release-policy':'.github/workflows/dependency-releases.yml',
+            'branch-policy':'.github/workflows/branch-policy.yml','sync-test-reuse':'.github/workflows/sync-test-reuse.yml',
+            'repository-checks':'.github/workflows/repository-checks.yml','codeql-security-results':'.github/workflows/codeql.yml'}
+        self.docs[f.prefix+'/rules/branches/android-main']=[{'type':'required_status_checks','parameters':{
+            'strict_required_status_checks_policy':True,'required_status_checks':[{'context':n,'integration_id':15368}for n in self.paths]}}]
+        for n,path in self.paths.items():
+            raw=(gate.ROOT/path).read_bytes()
+            f.tree[path]={'mode':'100644','type':'blob','sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+        f.tree['tests/platform-profile.json']={'mode':'100644','type':'blob','sha':gate.suite_inputs._AFFECTED_TARGET_PROFILES['android-main']}
+        f.tree['.github/android-orchestration.json']={'mode':'100644','type':'blob','sha':'6'*40}
+        self.before=deepcopy(f.tree);self.before['.github/android-orchestration.json']['sha']='7'*40
+        self.before['.github/workflows/sync-test-reuse.yml']['sha']='6229491872ac60ce2149b68eb53b3e67055c354c'
+        checks=[f.canonical]
+        for index,(name,path) in enumerate(self.paths.items()):
+            if name=='sync-test-reuse':continue
+            run_id,job_id,suite=400+index,500+index,600+index
+            run=deepcopy(f.original);run.update(id=run_id,path=path,workflow_id=700+index,check_suite_id=suite)
+            job=deepcopy(f.original_job);job.update(id=job_id,run_id=run_id,name=name,
+                check_run_url='https://api.github.com/'+f.prefix+'/check-runs/'+str(job_id))
+            check=deepcopy(f.canonical);check.update(id=job_id,name=name,check_suite={'id':suite},
+                details_url='https://github.com/'+REPOSITORY+'/actions/runs/'+str(run_id)+'/job/'+str(job_id))
+            self.docs[f.prefix+'/actions/runs/'+str(run_id)]=run
+            self.docs[f.prefix+'/actions/runs/'+str(run_id)+'/attempts/1']=deepcopy(run)
+            self.docs[f.prefix+'/actions/workflows/'+str(run['workflow_id'])]={'id':run['workflow_id'],'path':path,'state':'active'}
+            self.docs[f.prefix+'/actions/runs/'+str(run_id)+'/attempts/1/jobs?per_page=100']={'total_count':1,'jobs':[job]}
+            self.docs[f.prefix+'/check-runs/'+str(job_id)]=check;checks.append(check)
+        self.docs[f.prefix+'/commits/'+HEAD+'/check-runs?filter=all&per_page=100']={'total_count':len(checks),'check_runs':checks}
+        f.pack()
+
+    def verify(self, *, mutate=None, pure=False):
+        owner=self; f=self.f
+        class API:
+            def json(self,path,**kwargs):
+                if kwargs.get('method','GET')!='GET':raise AssertionError('proof attempted a mutation')
+                f.calls.append(('GET',path));value=deepcopy(owner.docs[path])
+                return mutate(path,value)if mutate else value
+            def bytes(self,path):f.calls.append(('BYTES',path));return owner.binary[path]
+        real_load=gate.package_checks.load
+        host=SimpleNamespace(select=mock.Mock(return_value=deepcopy(f.selected)))
+        native=SimpleNamespace(plan=lambda *a,**k:{'mode':'skip'})
+        def load(name,path):
+            if path=='tools/repository-checks/host_selection.py':return host
+            if path=='tools/native-tests/check.py':return native
+            return real_load(name,path)
+        def tree(api,repo,revision):
+            return (TREE,deepcopy(self.before if revision in (BASE,self.child_base)else f.tree))
+        with mock.patch.dict(gate.os.environ,{'GITHUB_ACTIONS':'true'},clear=True), \
+                mock.patch.object(gate,'_dispatch_checkout_source',return_value=PARENT), \
+                mock.patch.object(gate,'_native_effective_role'), \
+                mock.patch.object(gate,'classify_event',return_value=self.request), \
+                mock.patch.object(gate,'recursive_tree',side_effect=tree), \
+                mock.patch.object(gate.suite_inputs,'full_tree',return_value=deepcopy(f.tree)), \
+                mock.patch.object(gate,'_native_parent_controller'), \
+                mock.patch.object(gate,'_callback_sync_recipe',return_value=True), \
+                mock.patch.object(gate.package_checks,'select',return_value={'package_set':[],'tool_projects':[]}), \
+                mock.patch.object(gate.package_checks,'load',side_effect=load):
+            if pure:
+                with mock.patch.dict(gate.os.environ,{},clear=True):
+                    return gate.verify_exact_tree_parent_evidence(API(),config(),self.request,
+                        protected_source=PARENT,protected_tree=TREE,now=f.now)
+            return gate.native_exact_tree_parent_evidence(API(),config(),self.request,now=f.now)
+
+    def test_real_report_whole_tree_native_normal_and_all_37_are_retained_without_E(self):
+        proof=self.verify();self.assertIsInstance(proof,gate.NativeExactTreeParentEvidence)
+        self.assertEqual(proof['requested_suites'],self.f.names)
+        self.assertEqual(proof['original_commit'],MERGE);self.assertEqual(proof['parent_commit'],self.normal)
+        self.assertEqual(proof['original_report'],self.f.report)
+        self.assertIs(proof['reusable'],False);self.assertIs(proof['qualification'],False)
+        self.assertNotIn('environment',proof);self.assertNotIn('results',proof)
+        self.assertEqual(proof['original_proof']['run_id'],300)
+        self.assertTrue(proof['expires_at'].startswith('2026-10-22T21:45:15.669186'))
+
+    def test_commit_association_number_only_uses_full_actual_normal_PR(self):
+        self.docs[self.f.prefix+'/commits/'+self.normal+'/pulls?per_page=100']=[{'number':610}]
+        self.assertIsInstance(self.verify(),gate.NativeExactTreeParentEvidence)
+
+    def test_pure_read_api_binds_closed_live_base_and_cleared_associations_without_native_env(self):
+        self.assertEqual(self.parent_pr['base']['sha'],self.normal)
+        self.assertEqual(self.f.original['pull_requests'],[])
+        proof=self.verify(pure=True)
+        self.assertIsInstance(proof,gate.NativeExactTreeParentEvidence)
+        self.assertEqual(proof['original_commit'],MERGE)
+        self.assertEqual(proof['parent_commit'],self.normal)
+
+    def test_source_and_current_PR_closing_bookends_reject_real_native_drift(self):
+        for shape in ('source','current'):
+            reads=0
+            def change(path,value):
+                nonlocal reads
+                endpoint='/branches/main'if shape=='source'else'/pulls/611'
+                if path.endswith(endpoint):
+                    reads+=1
+                    if reads>1:
+                        if shape=='source':value['commit']['sha']='0'*40
+                        else:value['head']['sha']='0'*40
+                return value
+            with self.subTest(shape=shape):self.assertIsNone(self.verify(mutate=change,pure=True))
+
+    def test_resigned_command_and_JUnit_changes_do_not_become_37_success(self):
+        for shape in ('command','xml'):
+            if shape=='command':
+                self.f.observed['results'][0]['command']=['python','wrong.py'];self.f.pack()
+            else:
+                self.f.observed['results'][0]['command']=self.f.registry['suites'][self.f.names[0]]['command']
+                self.f.pack(mutate=lambda payload:payload.__setitem__('build/test-results/sync-selected.xml',
+                    b'<testsuite tests="37" failures="0" errors="0" skipped="1"><testcase name="foreign"/></testsuite>'))
+            with self.subTest(shape=shape):self.assertIsNone(self.verify(pure=True))
+
+    def test_wrong_complete_tree_parents_or_current_profile_never_reuse(self):
+        for shape in ('tree','head-parents','normal-parents','original-M','profile'):
+            def change(path,value):
+                if shape=='tree'and path.endswith('/git/commits/'+self.child_merge):value['tree']['sha']='0'*40
+                elif shape=='head-parents'and path.endswith('/git/commits/'+self.child_head):value['parents'].reverse()
+                elif shape=='normal-parents'and path.endswith('/git/commits/'+self.normal):value['parents'].reverse()
+                elif shape=='original-M'and path.endswith('/git/commits/'+MERGE):value['tree']['sha']='0'*40
+                return value
+            if shape=='profile':self.before['tests/platform-profile.json']['mode']='100755'
+            with self.subTest(shape=shape):self.assertIsNone(self.verify(mutate=change))
+
+    def test_missing_failed_or_foreign_original_owners_and_expiry_keep_fallback(self):
+        for shape in ('failed','attempt2','foreign-App','unknown-recipe','missing-owner','unmerged','expired','truncated'):
+            def change(path,value):
+                if shape=='failed'and '/actions/runs/400' in path:value['conclusion']='failure'
+                elif shape=='attempt2'and '/actions/runs/400' in path:value['run_attempt']=2
+                elif shape=='foreign-App'and path.endswith('/check-runs/500'):value['app']['id']=1
+                elif shape=='missing-owner'and '/commits/'+HEAD+'/check-runs?'in path:value['check_runs']=value['check_runs'][:-1];value['total_count']-=1
+                elif shape=='unmerged'and path.endswith('/pulls/610'):value['merged']=False
+                elif shape=='expired'and path.endswith('/actions/runs/300/artifacts?per_page=100'):value['artifacts'][0]['expires_at']='2026-10-19T21:47:00Z'
+                elif shape=='truncated'and '/commits/'+HEAD+'/check-runs?'in path:value['total_count']+=1
+                return value
+            if shape=='unknown-recipe':self.before['.github/workflows/sync-test-reuse.yml']['sha']='0'*40
+            with self.subTest(shape=shape):self.assertIsNone(self.verify(mutate=change))
+            self.before['.github/workflows/sync-test-reuse.yml']['sha']='6229491872ac60ce2149b68eb53b3e67055c354c'
+
+    def test_changed_native_closing_bookend_and_malformed_report_never_reuse(self):
+        reads=0
+        def change(path,value):
+            nonlocal reads
+            if path.endswith('/rules/branches/android-main'):
+                reads+=1
+                if reads>1:value=[]
+            return value
+        self.assertIsNone(self.verify(mutate=change))
+        self.f.report['executed_suites']=self.f.names[:-1];self.f.pack()
+        self.assertIsNone(self.verify())
+
+    def test_other_edges_or_pending_original_never_receive_this_finite_proof(self):
+        self.request=replace(self.request,base='android-phone',profile='android-phone')
+        self.assertIsNone(self.verify())
+        self.request=replace(self.request,base='android-vr',profile='android-vr')
+        self.f.original['status']='in_progress';self.f.original['conclusion']=None
+        self.assertIsNone(self.verify())
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
