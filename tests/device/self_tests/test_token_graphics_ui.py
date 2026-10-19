@@ -12,12 +12,14 @@ from adapters.token_graphics_ui import TokenGraphicsUI
 
 
 class GraphicsBoundary:
-    def __init__(self):
-        self.clock,self.position,self.resolution=0.0,0.0,0.65
+    def __init__(self,*,generic=False):
+        self.clock,self.position,self.resolution=0.0,0.0,0.6 if generic else 0.65
+        self.minimum,self.maximum,self.step=(0.1,2.0,0.1) if generic else (0.5,0.7,0.05)
         self.haze,self.mirrors=False,False
         self.instance,self.generation='a'*32,'b'*32
-        self.profile='phone-immediate-v1';self.fault=''
+        self.profile='generic-immediate-v1' if generic else 'phone-immediate-v1';self.fault=''
         self.actions,self.intents=[],[];self.transform=lambda value:value
+        self.moving_until,self.flick_duration=0.0,0.0
 
     def sleep(self,seconds):self.clock+=seconds
 
@@ -28,18 +30,19 @@ class GraphicsBoundary:
     def capture(self):
         def row(identifier,location,**fields):
             viewport='above' if location<self.position else 'below' if location>self.position+0.35 else 'visible'
-            source=repr((identifier,fields,viewport,self.position))
+            ready=viewport=='visible' and self.clock>=self.moving_until
+            source=repr((identifier,fields,viewport,self.position,ready))
             return dict(id=identifier,token=hashlib.sha256(source.encode()).hexdigest()[:32],enabled=True,
-                        inputReady=viewport=='visible',viewport=viewport,**fields)
+                        inputReady=ready,viewport=viewport,**fields)
         controls=[dict(id='graphics.page',token='c'*32,enabled=True,inputReady=False,viewport='visible',profile=self.profile),
-            row('graphics.resolution',0.9,value=self.resolution,nativeValue=self.resolution,minimum=0.5,maximum=0.7,step=0.05),
+            row('graphics.resolution',0.9,value=self.resolution,nativeValue=self.resolution,minimum=self.minimum,maximum=self.maximum,step=self.step),
             row('graphics.haze',0.2,checked=self.haze,nativeChecked=self.haze),
             row('graphics.mirrors',0.55,checked=self.mirrors,nativeChecked=self.mirrors),
             row('graphics.scrollbar',self.position+0.1,position=self.position,size=0.35)]
         if self.fault=='ui-only':
             current=next(r for r in controls if r['id']=='graphics.resolution')
             current['value']=getattr(self,'ui_resolution',self.resolution)
-            current['inputReady']=current['viewport']=='visible' and current['value']==self.resolution
+            current['inputReady']=current['viewport']=='visible' and self.clock>=self.moving_until and current['value']==self.resolution
         return self.transform(dict(graphicsControlsVersion=1,ready=True,instance=self.instance,
                                    generation=self.generation,controls=controls))
 
@@ -52,7 +55,9 @@ class GraphicsBoundary:
 
     def scroll(self,identifier,direction,*,token):
         self.original(identifier,token);self.actions.append('scroll-'+direction)
-        if self.fault!='scroll':self.position=max(0,min(0.65,self.position+(0.3 if direction=='down' else -0.3)))
+        if self.fault!='scroll':
+            self.position=max(0,min(0.65,self.position+(0.3 if direction=='down' else -0.3)))
+            self.moving_until=self.clock+self.flick_duration
 
     def set_value(self,identifier,value,*,token):
         assert identifier=='graphics.resolution'
@@ -69,9 +74,17 @@ class GraphicsBoundary:
 
 
 class GraphicsUiTests(unittest.TestCase):
-    def ui(self,fault=''):
-        native=GraphicsBoundary();native.fault=fault
+    def ui(self,fault='',*,generic=False):
+        native=GraphicsBoundary(generic=generic);native.fault=fault
         return native,TokenGraphicsUI(native,native.intent,monotonic=lambda:native.clock,sleep=native.sleep)
+
+    def test_generic_slider_uses_its_actual_range_step_and_original_value(self):
+        native,ui=self.ui(generic=True)
+        ui.set_resolution(0.5);ui.set_resolution(0.8);ui.set_resolution(0.6)
+        self.assertEqual(0.6,native.resolution);self.assertEqual('generic-immediate-v1',ui.profile)
+        before=list(native.actions)
+        with self.assertRaises(NativeUIError):ui.set_resolution(0.65)
+        self.assertEqual(before,native.actions)
 
     def test_normal_resolution_toggles_and_nondefault_restore_require_native_readback(self):
         native,ui=self.ui();original=native.resolution
@@ -81,6 +94,13 @@ class GraphicsUiTests(unittest.TestCase):
         self.assertEqual(original,native.resolution);self.assertFalse(native.haze);self.assertFalse(native.mirrors)
         self.assertEqual(3,native.actions.count('resolution'))
         self.assertIn('scroll-up',native.actions);self.assertIn('scroll-down',native.actions)
+
+    def test_scroll_motion_must_settle_before_followup_original_input(self):
+        native,ui=self.ui();native.flick_duration=0.3
+        ui.set_resolution(0.5)
+        self.assertGreaterEqual(native.clock,0.6);self.assertEqual(0.5,native.resolution)
+        self.assertEqual(1,native.actions.count('resolution'))
+        self.assertTrue(all(intent[0].startswith(('scroll-','set-')) for intent in native.intents))
 
     def test_native_viewport_directions_choose_scroll_without_guessing_feature_order(self):
         native,ui=self.ui();native.position=0.6
@@ -162,6 +182,18 @@ class GraphicsUiTests(unittest.TestCase):
                 native.transform=corrupt
                 with self.assertRaises(NativeUIError):ui.toggle('graphics.haze',True)
                 self.assertEqual([],native.actions)
+
+    def test_existing_ios_fixture_admits_only_closed_finite_slider_input(self):
+        from fixture.serve import FixtureState
+        fixture=FixtureState()
+        request=dict(schemaVersion=1,commandId='11111111-1111-4111-8111-111111111111',
+            instance='22222222-2222-4222-8222-222222222222',sequence=1,observedElapsedMs=0,
+            fieldToken='33333333-3333-4333-8333-333333333333',operation='set-value',value=0.5)
+        outer=dict(schemaVersion=1,commandId='ios-'+'a'*32,action='normal-ui-input',operation='edit',input=request)
+        self.assertEqual(outer,fixture.set_client_command(outer))
+        for change in ({'value':True},{'value':float('nan')},{'value':3},{'expected':0.5},{'position':0.5}):
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                fixture.set_client_command(outer|{'input':request|change})
 
     def test_late_success_and_backward_clock_are_refused(self):
         native,ui=self.ui();original=native.capture

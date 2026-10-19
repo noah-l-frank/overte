@@ -137,7 +137,10 @@ inline void appendGraphicsControlObservation(QJsonObject& row, QQuickItem* item,
     row["viewport"] = viewport;
     bool ready = context.valid && item->isEnabled() && id != "graphics.page" && viewport == "visible";
     if (page) {
-        ready = ready && (profile == "phone-immediate-v1" ? page->property("ready").toBool() : !page->property("isChangingPreset").toBool());
+        const auto moving = page->property("moving"), dragging = page->property("dragging");
+        ready = ready && moving.userType() == QMetaType::Bool && dragging.userType() == QMetaType::Bool
+            && !moving.toBool() && !dragging.toBool()
+            && (profile == "phone-immediate-v1" ? page->property("ready").toBool() : !page->property("isChangingPreset").toBool());
     }
     if (id == "graphics.page") { row["profile"] = profile; }
     else if (id == "graphics.resolution") {
@@ -163,6 +166,8 @@ inline QString graphicsControlSource(QQuickItem* item, const QString& id, const 
     appendGraphicsControlObservation(value,item,id,context);
     if (value.isEmpty()) { return {}; }
     value["profile"] = graphicsProfile(item);
+    const auto center = item->mapToScene(QPointF(item->width()/2,item->height()/2));
+    value["sceneCenterX"] = center.x(); value["sceneCenterY"] = center.y();
     if (id == "graphics.resolution" || id == "graphics.scrollbar") {
         value["width"] = item->width(); value["height"] = item->height();
         if (id == "graphics.resolution") {

@@ -103,7 +103,15 @@ class TokenGraphicsUI:
                 observed=self.wait(lambda v:(self.row(v,identifier) or {}).get('inputReady') is True)
                 ready=self.row(observed,identifier);need(ready['enabled']);return ready
             need(row['viewport'] in ('above','below'))
-            bar=self.row(value,'graphics.scrollbar');need(bar is not None and bar['enabled'] and bar['inputReady'])
+            bar=self.row(value,'graphics.scrollbar');need(bar is not None and bar['enabled'])
+            if not bar['inputReady']:
+                value=self.wait(lambda v:(self.row(v,'graphics.scrollbar') or {}).get('inputReady') is True)
+                row=self.row(value,identifier);need(row is not None)
+                if row['viewport']=='visible':
+                    value=self.wait(lambda v:(self.row(v,identifier) or {}).get('inputReady') is True)
+                    row=self.row(value,identifier);need(row is not None and row['enabled']);return row
+                need(row['viewport'] in ('above','below'))
+                bar=self.row(value,'graphics.scrollbar');need(bar is not None and bar['enabled'] and bar['inputReady'])
             direction='up' if row['viewport']=='above' else 'down';before=bar['position']
             need(before>0 if direction=='up' else before<1-bar['size']-1e-6)
             self.intent('scroll-'+direction,value,'graphics.scrollbar')
