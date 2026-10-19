@@ -63,6 +63,9 @@ class IOSAdapter(AppiumAdapter):
     def _native_feature_observer(self, selector, client, session, state, target):
         return self._feature_observer(selector, client, session, state, target).native_observer()
 
+    def _recorded_preview_evidence(self, selector, client, session, state, target):
+        return self._feature_observer(selector, client, session, state, target).recorded_preview_observer()
+
     @staticmethod
     def advertised_capabilities(target):
         values = set(AppiumAdapter.advertised_capabilities(target))

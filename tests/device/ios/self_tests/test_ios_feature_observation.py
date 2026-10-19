@@ -19,6 +19,7 @@ from ios.adapters import feature_observation
 from ios.adapters.adapter import IOSAdapter
 from ios.adapters.appium_adapter import WebDriverRequestError
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
+from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
 
 
 class Native:
@@ -111,6 +112,63 @@ class FeatureObservationTests(unittest.TestCase):
         self.assertEqual(10000, value['animation']['clip']['evaluatedEpochMs'])
         self.assertRegex(source.commands[0]['commandId'], '^ios-[0-9a-f]{32}$')
         self.assertEqual(1, len(self.native.reads))
+
+    def preview_boundaries(self):
+        source = PreviewBoundary()
+        source.mutate = lambda value: value.update(processId=42)
+        def post(request, timeout):
+            command = self.native.fixture.set_client_command(json.loads(request.data))
+            self.native.commands.append(command)
+            self.native.echo = json.dumps(command).encode()
+            source.send(command)
+            return self.native
+        def execute(session, operation, values):
+            if operation == 'mobile: overteProcessInfo': return self.native.process()
+            self.assertEqual('mobile: pullFile', operation)
+            remote = values['remotePath']
+            self.assertTrue(remote.startswith('@org.example.client:documents/owned-results/'))
+            self.native.reads.append(values)
+            name = remote.rsplit('/', 1)[-1]
+            if name == 'recorded-preview-observation.json': raw = json.dumps(source.value).encode()
+            elif self.native.missing: raise WebDriverRequestError(500)
+            else: raw = source.files[name]
+            return base64.b64encode(raw).decode()
+        for boundary in (patch.object(feature_observation, 'post_request', side_effect=post),
+                         patch.object(self.native, 'execute', side_effect=execute)):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source
+
+    def test_original_ios_preview_pcm_keeps_native_cycle_and_separate_afc_files(self):
+        source = self.preview_boundaries()
+        reader = self.observer.recorded_preview_observer()
+        value, raw = reader.read(0, after_cycle=6)
+        self.assertEqual(source.value, value)
+        self.assertEqual(source.files['recorded-preview-input.pcm16le'], raw['input'])
+        reader.release(); reader.release()
+        self.assertEqual({}, source.files)
+        self.assertEqual(2, sum('pcm16le' in row['remotePath'] for row in self.native.reads))
+
+    def test_ios_preview_afc_error_is_never_reported_as_empty_original_audio(self):
+        self.preview_boundaries(); self.native.missing = 1
+        reader = self.observer.recorded_preview_observer()
+        with self.assertRaises(NativeUIError): reader.read(0)
+        self.assertEqual(0, reader.sequence)
+
+    def test_ios_preview_cleanup_requires_actual_file_and_memory_absence(self):
+        source = self.preview_boundaries(); source.retain = True
+        reader = self.observer.recorded_preview_observer(); reader.read(0)
+        with self.assertRaises(NativeUIError): reader.release()
+        self.assertTrue(source.files)
+
+    def test_ios_preview_process_change_after_http_request_prevents_afc_acceptance(self):
+        source = self.preview_boundaries()
+        def change(value):
+            value['processId'] = 42
+            self.native.pid = 43
+        source.mutate = change
+        reader = self.observer.recorded_preview_observer()
+        with self.assertRaises(NativeUIError): reader.read(0)
+        self.assertEqual([], self.native.reads)
 
     def test_native_feature_original_fence_handles_device_host_clock_skew(self):
         source = self.native_feature_boundaries()

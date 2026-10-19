@@ -18,6 +18,8 @@ from adapters.normal_script_manager import DIAGNOSTIC_FILE, read_native_diagnost
 from adapters.normal_ui import NativeUIError
 from adapters.native_feature_observation import (NativeFeatureObservation,
     FILE as NATIVE_FEATURE_FILE, LIMIT as NATIVE_FEATURE_LIMIT)
+from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, FILE as RECORDED_PREVIEW_FILE,
+    INPUT as PREVIEW_INPUT, SINK as PREVIEW_SINK, MAX_BYTES as PREVIEW_LIMIT)
 from ios.adapters.appium_adapter import AppiumAdapter, WebDriverRequestError
 
 
@@ -108,6 +110,28 @@ class FeatureObservation:
         return NativeFeatureObservation(self.send,
             lambda: self.original(remote=remote, limit=NATIVE_FEATURE_LIMIT),
             self.epoch_ms, self.guard, self.process['pid'], ios=True,
+            monotonic=self.monotonic, sleep=self.sleep)
+
+    def recorded_preview_observer(self):
+        self.guard()
+        root = self.remote.rsplit('/', 1)[0] + '/'
+        def original_bytes(name):
+            if name not in (PREVIEW_INPUT, PREVIEW_SINK):
+                raise NativeUIError('Original iOS preview filename is outside its closed inventory')
+            self.guard()
+            # A transfer error must propagate; a 500 response never means that
+            # an original file is absent. Release uses a separate native query.
+            encoded = self.client.execute(self.session, 'mobile: pullFile', {'remotePath': root + name})
+            if type(encoded) is not str or len(encoded) > 4 * ((PREVIEW_LIMIT + 2) // 3):
+                raise NativeUIError('Original iOS preview transfer exceeds its bound')
+            raw = base64.b64decode(encoded, validate=True)
+            if len(raw) > PREVIEW_LIMIT:
+                raise NativeUIError('Original iOS preview bytes exceed their bound')
+            self.guard()
+            return raw
+        return RecordedPreviewEvidence(self.send,
+            lambda: self.original(remote=root + RECORDED_PREVIEW_FILE, limit=NATIVE_FEATURE_LIMIT),
+            original_bytes, self.epoch_ms, self.guard, self.process['pid'], ios=True,
             monotonic=self.monotonic, sleep=self.sleep)
 
     def read(self, after_sequence, *, include_avatar_entities=False):
