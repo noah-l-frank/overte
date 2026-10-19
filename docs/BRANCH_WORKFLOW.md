@@ -200,10 +200,19 @@ checks without publishing complete host-qualification evidence. Such syncs do
 not repeat the native client build, complete host suite, or product suites.
 
 The four permanent branches that have children (`main`, `android-main`,
-`android-vr`, and `apple-main`) qualify each exact pushed commit once, except
-for Markdown-only pushes and the bounded tool-only pushes above. The
-qualification runs the shared project and complete device-control-plane suites,
-then uploads a short-lived machine-readable artifact. The artifact binds the
+`android-vr`, and `apple-main`) first look for the exact original protected PR
+proof instead of executing its suites again. Without that proof, a complete
+qualification runs the shared project and device-control-plane suites, then
+uploads a short-lived machine-readable artifact. On `main` and `apple-main`,
+an authenticated native parent job whose common-only selection cannot produce
+a complete receipt reports qualification as unavailable and executes no suites;
+it publishes neither passing test results nor reusable evidence. Required PR
+and sync checks, package owners, platform owners and complete qualification
+remain unchanged. On Android parents, the impact-only common fallback also
+reports optional qualification as unavailable without executing common suites;
+it cannot publish a complete receipt, and the independent platform owner stays
+mandatory. Markdown-only and bounded tool-only pushes keep their
+separate routes above. A qualification artifact binds the
 repository numeric ID and name, parent commit and tree, qualification workflow
 blob, shared test definitions, workflows, lockfiles, toolchain inputs, test
 configuration, successful results, run identity, GitHub Actions App ID, and
@@ -222,6 +231,24 @@ fingerprinting code, attestor and recursively included requirement manifests.
 Older parent-tree copies cannot hide a change to the helpers actually executed.
 
 The trusted `sync-test-reuse` check is loaded only from the default branch. For
+an enrolled current PR, synchronization consumes the original Repository
+producer's exact selected shared-suite receipt instead of running those suites
+again. This includes complete and affected selections. Actual Android commands
+must have their own successful native owner; the separately required Pico
+handoff remains explicit and does not become passing platform evidence.
+
+The selected descriptor, shared owner and receipt-hash publisher must have
+completed successfully. An unrelated native build may still be running: this
+current-PR consumer waits up to 30 minutes for its selected owners, checks fresh
+native attempts, jobs, artifacts and immutable inputs, and rejects observed
+failures or cancellations. It neither qualifies the overall pending run nor
+publishes reusable evidence. The independent required Repository check still
+blocks merging until all its required work succeeds. Once this native owner is
+selected, missing proof blocks synchronization rather than starting another
+executor. Initial enrollment and unsupported selections retain their existing
+conservative verification route.
+
+For an exact-parent reuse candidate on
 one of the six direct edges it re-reads the current base and parent refs,
 validates the exact merge parents and merge tree, rejects paths outside the
 parent delta, and accepts exactly one matching non-expired qualification from a
@@ -324,6 +351,14 @@ unchanged draft ready does not restart synchronization validation. The
 `reopened` and `edited` events remain enabled; retargeting a pull request must
 still validate its current base, head, and exact merge candidate.
 
+Inert title, body and label events retain the independently authenticated
+ordinary owner instead of starting its tests again. Scheduling orders runs by
+their native workflow-specific run number: GitHub start timestamps can be
+identical to the second for separate events. The number must agree across the
+listed run, latest run and original attempt. This observation preserves a
+pending or failed owner's state and supplies no passing result or reusable
+evidence.
+
 The trusted default-branch `reconciliation_repair_paths` configuration can
 authorize exact nonprivileged product paths per target. A reconciliation
 touching one of these paths (including either side of a rename) must pass the
@@ -336,12 +371,13 @@ complete fallback, even for Markdown or valid parent qualification. This is
 conservative: a listed path inherited unchanged from the parent also forces
 fallback. No new direct-sync, topology, or ruleset exception is introduced.
 
-The prospective Android sole-owner transition registers six exact repair targets
+The prospective Android sole-owner transition registers seven exact repair targets
 only for `main` to `android-main`: the two legacy Android workflow files and
-the four contract files listed in `.github/android-owner-transfer.json`. These
+the five contract files listed in `.github/android-owner-transfer.json`, including
+the Robolectric Gradle report destination. These
 repairs allow the staged ownership handoff to reach full sync validation; they
 always require the complete fallback. The independent Android owner gate checks
-all six files against their trusted handoff bytes and modes, preserves the
+all seven files against their trusted handoff bytes and modes, preserves the
 complete product profile, and requires the approved caller/callee/project
 generation with its independent 40-execution normal PR inventory. Neighboring
 files and other targets gain no repair registration. Hosted qualification is

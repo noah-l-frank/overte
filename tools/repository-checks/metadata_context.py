@@ -36,10 +36,18 @@ LEGACY_HELPER_BLOB = '9c531c34ba559d17255768d8cae3129496fac55d'
 # A guard upgrade requires a reviewed helper upgrade; local Git equality alone
 # cannot let an arbitrary historical/candidate guard authenticate itself.
 SOURCE_GUARD_BLOB = '20580c3ea413e63a6779898fdd3d2c5e051625f4'
+CURRENT_PARENT_IMPORT_GUARD_BLOB = '3b97657d8874a842c74a0cbf5a8032e06b941e65'
+BOOLEAN_SOURCE_GUARD_BLOB = 'a89e1d51be5039214def84d8f6f5a06f3dfaea29'
+REQUIRED_CONTEXT_SOURCE_GUARD_BLOB = 'aed06c587034f2762552eeb666bda1f4b6efff23'
 TARGETS = frozenset({'main', 'apple-main', 'apple-ios', 'android-main',
                      'android-phone', 'android-vr', 'android-vr-pico'})
 _READERS = ('inputs', 'runtime', 'execution', 'producer', 'producer_api', 'source_admission')
 CALLERS = frozenset({'.github/workflows/repository-checks.yml', '.github/workflows/codeql.yml'})
+RESULT_ROLES = {'.github/workflows/repository-checks.yml': 'repository-checks',
+                '.github/workflows/codeql.yml': 'codeql-checks'}
+# Android verification may legitimately take 90 minutes. Allow its original
+# invocation to finish, plus 5 minutes of queue/finalization, without new work.
+RESULT_WAIT_SECONDS = 95 * 60
 _SHA = re.compile(r'[0-9a-f]{40}')
 
 
@@ -50,6 +58,37 @@ class MetadataUnavailable(ValueError):
 def require(condition, message):
     if not condition:
         raise MetadataUnavailable(message)
+
+
+def scheduling_role(environment, *, result=False):
+    """Only the exact native caller may execute its canonical result role."""
+    role = environment.get('GITHUB_JOB')
+    if not result and role in {'recognize', 'route', 'select'}:
+        return True  # Existing scheduling roles retain their native() admission.
+    caller = next((path for path in CALLERS if environment.get('GITHUB_WORKFLOW_REF') ==
+        REPOSITORY + '/' + path + '@' + environment.get('GITHUB_REF', '')), None)
+    return caller is not None and role == RESULT_ROLES[caller]
+
+
+def _same_scheduling_merge(get, original, live, base, head):
+    """Result/scheduling comparison only; never rewrite either native source."""
+    require(all(type(value) is str and _SHA.fullmatch(value) and value != '0' * 40
+                for value in (original, live, base, head)), 'scheduling merge identity unavailable')
+    if original == live:
+        return True  # The existing live source admission remains mandatory.
+    trees = []
+    for revision in (original, live):
+        value = get('git/commits/' + revision)
+        require(type(value) is dict and value.get('sha') == revision
+            and type(value.get('parents')) is list
+            and all(type(parent) is dict for parent in value['parents'])
+            and [parent.get('sha') for parent in value['parents']] == [base, head],
+            'scheduling regenerated merge ordered parents differ')
+        tree = value.get('tree', {}).get('sha')
+        require(type(tree) is str and _SHA.fullmatch(tree) and tree != '0' * 40,
+                'scheduling immutable merge tree unavailable')
+        trees.append(tree)
+    return trees[0] == trees[1]
 
 
 def event_only(event, event_name):
@@ -181,7 +220,7 @@ def _protected_readers(event, environment, native_value, root):
     raw = _git(root, 'show', 'HEAD:' + relative)
     require(not path.is_symlink() and not path.parent.is_symlink() and path.read_bytes() == raw,
             'stdlib source guard differs from immutable protected checkout')
-    require(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == SOURCE_GUARD_BLOB
+    require(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB, REQUIRED_CONTEXT_SOURCE_GUARD_BLOB)
         and not path.stat().st_mode & 0o111, 'stdlib source guard has no reviewed bootstrap identity')
     # No neighboring import lookup is exposed until the guard has checked its
     # complete reviewed inventory. The bootstrap itself imports only stdlib.
@@ -204,7 +243,9 @@ def _protected_readers(event, environment, native_value, root):
     current_merge = api.get('commits/refs/pull/' + str(native_value['number']) + '/merge')
     resolved = source.resolve_pr_base(api, current_pr, current_merge, event_pr=event['pull_request'])
     target, effective_base = resolved['target'], resolved['base']
-    require(resolved['head'] == native_value['head'] and resolved['source'] == native_value['merge']
+    require(resolved['head'] == native_value['head']
+        and _same_scheduling_merge(api.get, native_value['merge'], resolved['source'],
+            effective_base, native_value['head'])
         and resolved['head_ref'] == event['pull_request']['head']['ref']
         and target == event['pull_request']['base']['ref'], 'scheduling native M/head/target differs')
     reference = api.get('git/ref/heads/main')
@@ -226,7 +267,7 @@ def _protected_readers(event, environment, native_value, root):
             and source.blob_id(raw) == entry['sha'], 'scheduling actual protected controller changed')
         return raw, entry
     require(event_only(event, environment.get('GITHUB_EVENT_NAME'))
-        and environment.get('GITHUB_JOB') in {'recognize','route','select'},
+        and scheduling_role(environment),
         'source precheck requires the one-way metadata scheduling role')
     context = {**source.reuse_compatibility(base, default, target,
         read_actual=actual, actual_imports=source.actual_import_inventory(root)), 'base': effective_base}
@@ -287,17 +328,35 @@ def _source_policy(root, adapter, binding, references, native_value, protected, 
         catalog = json.loads(_git(root, 'show', 'HEAD:.github/package-workflow-generations.json'),
                              object_pairs_hook=source.unique)
         require(type(catalog) is dict and catalog.get('schema') == 1
-            and type(catalog.get('generations')) is list and len(catalog['generations']) <= 24,
+            and type(catalog.get('generations')) is list and len(catalog['generations']) <= 26,
             'scheduling trusted generation catalog unavailable')
         for row in catalog['generations']:
             entries = row.get('workflows', {})
-            if set(entries) == A.METADATA_WORKFLOWS and entries.get(SOURCE_WORKFLOW) == old_source:
-                generations[row['name']] = entries
-                sources[row['name']] = old_helper
+            if set(entries) != A.METADATA_WORKFLOWS:
+                continue
+            historical = entries.get(SOURCE_WORKFLOW) == old_source
+            current = row.get('name') in A.RETAINED_OWNER_GENERATIONS and entries.get(SOURCE_WORKFLOW) == default[SOURCE_TEMPLATE]
+            if not (historical or current):
+                continue
+            pair = old_helper if historical else {SOURCE: base[SOURCE]}
+            if entries == workflows and pair == sources.get('metadata-scheduling-v2'):
+                # Use its actual catalog name, not a duplicate tuple/helper alias.
+                generations.pop('metadata-scheduling-v2', None)
+                sources.pop('metadata-scheduling-v2', None)
+            generations[row['name']], sources[row['name']] = entries, pair
     else:
         generations['codeql-metadata-v1'] = {caller: {'mode': '100644', 'type': 'blob',
             'sha': '3a273057a38255ca368d3028594fb94227ba7c3b'}, SOURCE_WORKFLOW: old_source}
         sources['codeql-metadata-v1'] = old_helper
+        for name, blob in (('codeql-original-default-v1', 'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'),
+                           ('codeql-original-default-boolean-v1', '3b7a88765b7181a1bc7dd6f48b9b459e590055d3')):
+            installed = {caller: {'mode':'100644','type':'blob','sha':blob},
+                SOURCE_WORKFLOW: {'mode':'100644','type':'blob',
+                    'sha':'b76ade9fd7a76da21bf2cb2161deae7a262163e8'}}
+            if installed != workflows:
+                generations[name] = installed
+                sources[name] = {SOURCE: base[SOURCE]}
+    generations, sources = A.retain_native_metadata_sources(generations, sources)
     policy = A.MetadataPolicy(A.positive(registered.get('id')), caller,
                               generations, sources)
     return policy, context
@@ -306,13 +365,15 @@ def _source_policy(root, adapter, binding, references, native_value, protected, 
 def schedule(event, environment, *, root=ROOT, adapter=None, clock=lambda: datetime.now(timezone.utc)):
     """Scheduling-only same-M observation. Pending and failed remain unchanged."""
     native_value = native(event, environment, root=root)
-    require(environment.get('GITHUB_JOB') in {'recognize', 'route', 'select'}, 'unreviewed scheduling role')
+    require(scheduling_role(environment), 'unreviewed scheduling role')
     protected = _protected_readers(event, environment, native_value, root)
     A = protected[0]
     adapter = A.Adapter() if adapter is None else adapter
     binding, references = adapter.current(native_value['number'])
     require(binding['base_ref'] == event['pull_request']['base']['ref']
-        and all(binding[key + '_sha'] == native_value[key] for key in ('head', 'merge'))
+        and binding['head_sha'] == native_value['head']
+        and _same_scheduling_merge(adapter._object, native_value['merge'], binding['merge_sha'],
+            binding['base_sha'], binding['head_sha'])
         and references['default_ref'] == 'main', 'scheduling live native candidate differs')
     caller = next(path for path in CALLERS if environment['GITHUB_WORKFLOW_REF'] ==
         REPOSITORY + '/' + path + '@' + environment['GITHUB_REF'])
@@ -323,13 +384,72 @@ def schedule(event, environment, *, root=ROOT, adapter=None, clock=lambda: datet
     diagnostics = caller.endswith('/repository-checks.yml') and any(
         row['name'] == 'android-long-diagnostics' for row in labels)
     value = adapter.metadata_schedule(native_value['number'], native_value['run_id'], policy,
-        diagnostics=diagnostics, now=clock())
-    require(value['binding'] == binding and value['references'] == references
-        and adapter.current(native_value['number']) == (binding, references)
+        diagnostics=diagnostics, now=clock(), observation_clock=clock)
+    require(A._scheduling_context_matches((binding, references), (value['binding'], value['references']))
+        and value['current_merge_sha'] == native_value['merge']
+        and A._scheduling_context_matches((binding, references), adapter.current(native_value['number']))
         and _source_policy(root, adapter, binding, references, native_value,
             _protected_readers(event, environment, native_value, root), caller=caller) == (policy, context)
         and native(event, environment, root=root) == native_value, 'scheduling source changed before output')
     return value
+
+
+def result(event, environment, *, root=ROOT, adapter=None, clock=time.monotonic,
+           sleep=time.sleep, wait_seconds=RESULT_WAIT_SECONDS):
+    """Mirror only a freshly authenticated original success, never its proof/E.
+
+    Polling reads one fixed original run, not its expensive source inventory.
+    Complete source/native admission runs again immediately before acceptance.
+    """
+    require(scheduling_role(environment, result=True), 'unreviewed metadata result role')
+    require(type(wait_seconds) in (int, float) and 0 <= wait_seconds <= RESULT_WAIT_SECONDS,
+            'invalid original result wait bound')
+    started = clock()
+    if adapter is None:
+        value = native(event, environment, root=root)
+        adapter = _protected_readers(event, environment, value, root)[0].Adapter()
+    observed = schedule(event, environment, root=root, adapter=adapter)
+    # schedule() has authenticated and imported the protected reader closure.
+    import producer_api as A
+    while True:
+        state = adapter.metadata_result_status(observed)
+        require(clock() - started <= wait_seconds, 'original result wait expired')
+        if state['status'] == 'completed':
+            require(state['conclusion'] == 'success', 'original workflow did not succeed')
+            fresh = schedule(event, environment, root=root, adapter=adapter)
+            require(all(fresh[key] == observed[key] for key in (
+                'current_run_id', 'original_run_id', 'original_identity', 'diagnostics',
+                'current_merge_sha', 'original_merge_sha'))
+                and A._scheduling_context_matches((observed['binding'], observed['references']),
+                    (fresh['binding'], fresh['references'])),
+                'original result source changed while waiting')
+            require(fresh['original_status'] == 'completed' and fresh['original_conclusion'] == 'success',
+                    'original successful result changed')
+            native_result = adapter.metadata_result_success(fresh)
+            require(A._scheduling_context_matches((fresh['binding'], fresh['references']),
+                    adapter.current(fresh['binding']['pull_request'])),
+                    'metadata result candidate changed before output')
+            require(clock() - started <= wait_seconds, 'original result admission exceeded its bound')
+            return {**fresh, 'kind': 'native-metadata-original-result', 'qualification': False,
+                    'original_canonical_job_id': native_result['job_id']}
+        remaining = wait_seconds - (clock() - started)
+        require(remaining > 0, 'original result wait expired')
+        sleep(min(15, remaining))
+
+
+def recognize_cli(event, environment, *, root=ROOT, clock=time.monotonic, sleep=time.sleep):
+    """CLI-only wait for genuine ordinary source registration, never fallback."""
+    deadline = clock() + 180
+    while True:
+        try:
+            value = recognize(event, environment, root=root)
+            require(clock() <= deadline, 'ordinary source registration exceeded its bound')
+            return value
+        except ValueError as error:
+            reader = sys.modules.get('producer_api')
+            if reader is None or not isinstance(error, reader.SchedulingPending) or clock() >= deadline:
+                raise
+            sleep(min(2, max(0, deadline - clock())))
 
 
 def recognize(event, environment, *, root=ROOT):
@@ -364,16 +484,19 @@ def main():
     parser.add_argument('--event', type=Path, required=True)
     parser.add_argument('--event-name', required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--result', action='store_true')
     args = parser.parse_args()
     try:
         require(str(args.event) == os.environ.get('GITHUB_EVENT_PATH')
             and args.event_name == os.environ.get('GITHUB_EVENT_NAME')
             and str(args.output) == os.environ.get('GITHUB_OUTPUT'), 'marker requires native server files')
-        result = recognize(document(args.event), os.environ)
-        with args.output.open('a') as output:
-            output.write('metadata_intent=' + result['metadata_intent'] + '\n')
-            output.write('metadata_scheduling=' + result['metadata_scheduling'] + '\n')
-        print(json.dumps(result, sort_keys=True))
+        value = (result(document(args.event), os.environ) if args.result else
+                 recognize_cli(document(args.event), os.environ))
+        if not args.result:
+            with args.output.open('a') as output:
+                output.write('metadata_intent=' + value['metadata_intent'] + '\n')
+                output.write('metadata_scheduling=' + value['metadata_scheduling'] + '\n')
+        print(json.dumps(value, sort_keys=True))
         return 0
     except (MetadataUnavailable, ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError):
         print('Native metadata context unavailable; no retained qualification asserted.', file=sys.stderr)

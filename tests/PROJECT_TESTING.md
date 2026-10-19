@@ -1061,6 +1061,34 @@ does not run S3 again or claim a successful S3 JUnit case: it records the extern
 required package owner. Parent qualification owns parent pushes, and the shared
 project workflow owns leaf pushes, preserving the current branch partition.
 
+On `apple-ios`, `android-phone` and `android-vr-pico`, the token-bearing late
+`Shared tests` push step can consume the original PR's completed schema-4 native
+proof instead of executing matching common commands again. It independently
+checks the current protected push/job, complete source inventories, original
+M/Git context, retained protected source, full original environment, native
+whole-receipt hash, expiry and exact selected common inventory. This publishes
+neither new PASS cases nor a new qualification receipt. Missing, stale, failed,
+pending or unsupported proof retains the existing actual execution once;
+execution failure never retries another executor. Package checks and the
+separate Android platform owner remain required. The existing setup step has
+no API token, so this source-only hook saves test execution after setup; it
+does not omit earlier Python, Node or relevant Qt preparation.
+
+For a later controller-only `main` update, the optional Parent jobs may
+authenticate the already protected current controller (`S == D`) without
+claiming compatibility with original `B`. This import-only path requires the
+native original push attempt, job/check App, current protected refs, complete
+installed recipe and immutable current controller/import inventory. Only a
+known partial CI selection with no additional, package or platform work can
+decline qualification; the final parent job independently derives that state
+again. It publishes no suite PASS, JUnit, environment or reusable receipt.
+Original PR/source-4/runtime proof paths keep their strict `B/D` checks. The
+unchanged inline bootstrap still pins `source_admission.py` itself to `B`, so
+the first change to that file deliberately retains its fail-closed bootstrap
+fallback. Deploy this capability before the consumer-only correction: that
+later ordinary source update preserves identical `SELF` bytes and can exercise
+the new partial-current-parent path without a dummy qualification run.
+
 Deployment requires two stages. The trusted helpers and approved templates
 must land on the default branch before installing the exact project, parent and sync
 templates plus the appropriate outer caller. The package caller with direct
@@ -1776,3 +1804,46 @@ actual supervisor SIGKILL followed by both guardians observing controller EOF.
 The before/after probe requires every scope to be empty. This diagnostic is
 an acceptance check, carries no reusable PR evidence authority, and does not
 run on ordinary PR events.
+
+The Boolean metadata-input successor is deployed in two stages. First, protect
+`protected-producer-original-default-boolean-v1` as a complete six-workflow tuple
+and stage the Repository and CodeQL canonical callers with Boolean reusable
+inputs. All 24 previous tuples and the active callers remain supported. Then
+install exactly those two callers from the protected templates. Their ordinary
+CI-only selection remains Qt-free; the change grants no test, build, receipt or
+reuse result. Native metadata observations bind the actual complete old or new
+tuple and its exact helper source, including the retained original helper pair.
+The optional current-parent import capability also requires the complete actual
+installed tuple and unchanged protected admission source; it never certifies the
+original execution environment or replaces the original native proof.
+
+
+The canonical required-context successor is staged separately as
+`protected-producer-original-default-required-context-v1`. Protect its complete
+six-workflow tuple and both canonical callers before activating the two callers;
+all 25 previous tuples and their exact native helper pairs remain supported.
+On inert PR metadata events, `repository-checks` and `codeql-security-results`
+keep their canonical names and execute a read-only original-status branch.
+It independently authenticates the same current B/H/M, original attempt 1, source
+recipe and native Actions canonical job. Only completed successful original
+workflows with successful canonical jobs can produce successful contexts.
+Pending originals are polled by their bound run ID, at most 95 minutes (the
+supported Android verifier permits 90 minutes, plus finalization); the metadata
+job allows 100 minutes while ordinary aggregate verification retains 5 minutes.
+Failure, cancellation, missing proof, changed refs, attempts or timeout fail
+closed. Full source/native admission is repeated before success. This branch
+runs no tests, builds or CodeQL analyses and creates no receipt or execution
+qualification. Its successful context mirrors original truth, not new evidence.
+The marker CLI separately allows at most 180 seconds for original tiny-source
+registration, without changing the pure scheduling contract or accepting an
+unknown source. No rule/context bypass, new dispatch or rerun is involved.
+
+The shared producer revalidates executable CI handoffs before CI37 admission.
+Only the complete reviewed seven-file Android owner handoff, or the exact
+five-file protected iOS compiler-cache installation, can establish this finite
+source-mode proof. The iOS transition requires both enrolled raw program/reader
+families, the actual protected policy and the unchanged canonical iOS required
+owner. It retains CI37 and the independent iOS host contracts while avoiding
+unrelated shared product suites and an application build. Global CI path
+ownership and reader digests remain unchanged; partial, mixed, unknown,
+nonregular or differently targeted changes retain conservative coverage.

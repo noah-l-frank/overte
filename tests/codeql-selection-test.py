@@ -18,6 +18,17 @@ CODEQL = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader
 SPEC.loader.exec_module(CODEQL)
 
+# Exact deployed25 recipes remain test data after canonical26 is staged.
+_BOOLEAN_RECIPE_BYTES = {'tools/repository-checks/workflows/producers/repository-checks.yml': ('15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a', 'c-rk6Yi}Dj^1FWpohxb!ILfgTUvoO-a84}5?n4f2IftSs1ZtO(7_Z1J$(5~Z`rmK(+J|=ah+`W;Abrx3GedITGvwdUsgP5`HPSLun#L$4(G3|>G^U(NqM6|TLL|~`X8$8e|Hzo63jWL(y#)kK<d|xdiiAb;_6{dg+Ci5z6^dyg=O~)c=tk|xjAJ+V-JgG={V~&%Y}lqV%JsmEqt~y|UYaGzz$`(P-b3GikM=8oZL<;BgaM^7gY8<N-3m-JA$&|#dq@<uBpPQm(+NeNKA~n@5zkvKGrfER2^rGF>|l{d2`1wKs%5rP0kbo0d-PoZB|Mgb#W)dsjAKT|Tqw;VwbyD{+`Wq#m6{?Ba+pyxrJBS<6T}5irHHeLN;EsNyIBAgGG?5BB>u=q!bU7|k~F}7{k0=_X9uA&<IOihdY)3{{$eCj(1zH5NLu++a~@5k;Ou|Yk2ulz56=Mql`{msZ-u-WCE|7vGnEn@P26gXr<wLEBLr##`x=ABDdx87elb;%WT`m`Xj{gSo=_BtX_`<tc?`-KQ9P2Aq5>OfMrBUH9I%6iLL`*%65SEW65TQOK=V<r^>GJ{NTTRYO68PUns%d+;2K1#Isi!G9r%ngDJhTUW_Bz^mYS(x64;ppHil49iLw;hJev+driFG%Is$=NtgTt>waTbQOIU1mzoO(;!$CfTM>N5VV=xt~4PL$<#n1{cSQAzvlM!`l=DgKO2AajSAxP2tOQh+Ywi@n~b<{x{xH1d7pfu*Upg3;OF{(P|G^R3S7QlXi@=T_{Zc+Q7?e=vL%uF4m66XiCE8pq%e41FSTL2EbD!G&avm10ydv||#>$gA0Z?}y40aL*N=%7@T#vq;rh0Aq`B)4R)_U)?s7Ph?r3T{AwgR<LHSrmaX+oP-pzF}!<PV|(@=xpc;SQ+Wui<Vqr$PT=#SJ=4oY?yJK;iH%B=Pz9>Vp9q%#8bwBkwE|04#QA6RD`n+1W)EpV<DqSm6w}`ZdbsZf3Vmhre&lwA-uqW$pTbSaPLgdmx2d?0>y>mGJ+dfvVw-FGyog?2y9bJm#IJ%$UcJ`fY*x|oOJoIYLImz27WER8LXpDzz_y2*;<3F6WNRtjnH*sit4o_0H#3n#yu$F{}Sv)z&eTb(x^e!iL8`H8K{oRxUm8-xwZH?WFTT;Ln`Pj`mHfrV}N<xV0;|oV_ygO#a%4&KIFjKI)MG>Mf@Uqc|?y1iH?Wl)$`+5N5?Vw;U6y#pGSwU4v&6#F(m(dK0NeP%CX7hVk38iidQaNO53M!gQ0}5KPfn2^Z*Ej9T%fiDyB4!KyD_|LxvafyZ{3EsZ<n)19Z@*d<r2SXiFnT4b?#{;j2M_FVh%ORaiEnwOQvOumP&0GNJG=V@ZrF2~R~xmoyS%lb0jw>hkQ^#ZV!U370mPL6(VO6$W~42mCkXvx5Ea&IbL9pSrz@479kRyv*s|N&oyqckoNMe{y=#KN+0&`rTgN;WS68ntOJc$10*%Z_m1?*FT^4-hCEf1=5JK#3*Y{9AZxg{TmlLG1n8pUm$#r@D;*ug3=r;5v|khb~-O2dzphE6ZegtefRFXe|G(5(ER`m8N5H~pFIncwmx2j=$-u1H4yF?#q7m(|NV9U*@D1H><XdWg=kX(83Qu5O79>rSu15>XC~=bA0<tqV-n`QN3?5aocYf4@ezg65XUq%(??%qwPj1i)!f915sjpnS`N}XI2{NRdK<Mp-H&I+s*JxaYg|yXjkU}A_BFax2*1uujMan`h*xJPo9dS5lkX`!4ZGZ8>ls$|lwZs%$D^EM8}bTfjM!x05VoQ9qp~j9XMd%PxNujtHfT)hp#&&{G_&n>V4Lj`dFkxu-Jy)T(kO1Z&X5Dx3yyEoD!?a4mCW81GIno`<;$+Cx}k`2-w$%!-STmpz&!_ceZk}E%x%^BIaTYLE<)MZ8rug&%D+NDRsnsc-udE+bXob?P^&(w{rLl}FhCEHTi{n<M*B_h_0r6&G6FuAx(%D47!PftH{~YFWmK)jHx-!K;BUV>J>Ht{Lz=Hwz!mnJ3v0emcsB`cNySa?QW&7MvUio-8|vPiOuZekic(PldqzD$==CeDFntg4HJN@Bc&(LDIp@|GAJP~DYT$LFJvKL?HWJ;sF4QU_8?~WU5!k2?wTi$(BPteAHiZG(=y(E)uB^Aht}Aeh*8Q7Z@9!bi`MuH5H`u%n(w@xfOMoVz(EPu*lL$luLgmy0xNwFZ6lmP;)>%B3v#4;~cLuz}2tYW$ns|KksI9reL~5{Kdl1aev<-fbrq4B{Sdxv7;2JuAD`HAQNo-2$UufiHim7kX0dJz9&91u6ysf`}F#Z1QTkF-gX?ZWTNWVh&zSQY{!s|8DFD~7|+^-uS4*J2U-5l1K62{FvL{LqXt7f^|`~KJd*+uX4qSycL<$1sR=GT7r?Zs*L^<mKmwk_Y93$WEK^nlIVi^XR8x6^H^9c@JfuEFLJc*(Pq%1(D1-P}eFtW|Qx;Q?VD>~V0*{;QJW__11;SRAja4ldss;81ovn5kY;+u+MMnGpuQBB{T~^iQkMkdB1(S0zBabQ`kuvYUI^vOl1Aa8-S{?jeFxSs&r#H}n$WYYZ2Uers#Yn__pT@MVuOY^Z>yga)&mnwOv>me6oTSGI85JOQ7Wz)P>h_8-H2rxwV%!CYpQrxEZR;q6a@%kI_n&;2W>8Cv{!b<uM!wN+MtO`cKQ?}~WlV(glWPrD;*4i6BOjo;&1bm#v}IRwc'), 'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml': ('3b7a88765b7181a1bc7dd6f48b9b459e590055d3', 'c-rk*>vI}8693L$A+xCr<UE5PICjW7wIrqz?|HE|;MC=^E=tS@P%=mpNrOWk|NFHbGtA&2@A7?#Qx${MYIUo-fBo=p=!A<oW(v)T!Vy*&$uta!lw3SSi6D}Q1wrH;4i!o$V<bYD;duF;2>1{o$x{&$grhl?l5!T*7@m_3dcq^}_gPJ(%(n}7K72rpDOIy{9FPTJYNXfE@iFp}G>%7tyiJKz9=dxMHA;j5+zp%!DT$~eks;bD(S$S1rbGr~EQw)JxvQv(3HtaERiEY2vf0$zn+1sRn8aFwbtVOxlx0*+ElP>Z>;y*jEg*#_6r4tW%-PhBD4sGd6%D1=Y?`y)`GN>V5W|Xs9daWv&Jw|+Gz2p&_KY-Zq+CRlVX;JSQykL?4Y83=6My<tt8vz;A(W(Yrhg+e7MO)IB0K2S98<Q9aFWEtFMg(6Zlg?Kx8c4eGtS8B>p~Pi`w0#CmANIsY9@UOS_)$CMaW0>d-q!Rf_YRo60Ll}QmAEO#Nr77@7qR#WS`^`L>8RU_i(rMjH_EyM#2SA8ap+76oMcfRNp;B`{*A0Yu9VFga{WFQj>+8DewUhOAs8@YVbWwg&-_k>h0f97b)^i8CB3cl?pL%8i7L4hQ!Fysx^ah0o;-pLl9CW;j>I*6#%=b;Azr<OC$0&_I3C<N4)0Z%_Qd6;0MKJ>z~E<4_G=M!~H8)7i5y1`W2&Ivv?GcZbTy!h$RD=a6`_9K4m_{?G&s8UZ6xuYPHvVY`i0jZQnww^(%{=-Bis$FwK#mi{~pZF*J12L0<u^HUP^WsejhI(k|MUDzAaVhi}SD`U2lwP~1tS4!)ojSh-r6%gI(E{9I9U^E(wR=dn3;4aAvL1%Mk-BcM$oTaB$>S>#)?NYlVQ;1#e69i%csBCyYz$K}q1<7>Q>4RdY7&<1OyfrS|(r>hr?E?*{oLz6_SberC&l?U*oYU!KjEAH6<8<@vIcrt-sP~zC?1;t>|6oXL>DMYyRHOQyql&RF;YX>`Ro1*BP@KpJ8%2K60|G+H6Qj)4%wd`3&oW)D)%~Fv>I-5G`phRZDL;vKm6i))~v;1IAu{tCHb~e)M&5YD+uQIZ$;q()0Ei_U|m6d*yN|f-JhD%4E#k(_8%a{g^{jneIhwVLbfN^**#z#8`M|%emKD^)F-3fP(cJ~hV$N0g{co$ON;xO0=c5{YBC@^nNCRUG97(n9Vk}58iK}04PoNQ!M|LO&@s-u(XP+TVhbWwgNNTlHv$DqUn{wD<@nP4G_pXt;=9}Amcdd_3nS_xtaWd#j5h64Yia23Sb+EYI#A)o3(1{te|d=5nlfW3tp$nhFgY++zsIKO~K9lMmT5Vj~j-P32I;rYLN{nGm>{)VvfEA_j>(-*zbU%g@Xq&w`6PW!`Ne`rrt$Mp@5wLtxOwu2|ndMB4>r~Rkj#M+fxlue85AtXEKkzcgwQbGB)kNi{Q50L*jGka@;p{%n8$#R8;<<|ro*%eg3^YnE1?DFxb_W~YfbkQ9?t7n_0$yul9cmL{X3aiX&_xy5raXGBt^Z^_pNc67Tg6NEBq%%Hc`U;SFWps#!FJp&J4Z6ngZZA%4sO6#;b|yrHGe07UCfNJoD0G#@`WreR&*LXY^b8ywgc13}Z>a-M<LRcjd)yuLMuTVF3fw9c*}B#U<P6`a1;%6oZBk)b6P04?Nw<G;3Q=|Qo*SeqkGv_5t)bS#s)%!vDCCor!w4V&prvs|#C<W)Oe3Nr?Vl1l`o7@2=<dF+pTyTH)bC`ksN*OnaeF28>o?eDQCkegM_E5)GU02<SrvAm-+%WmUV4QsI#0MzNFUfnya?|T!RN;9V>-^rF5qjCFWiNW&EX*CIFb!b(D2qp@tT3IOGdgVZZw+(4y)9DY`DGh@)hr@K!+vFYm_6=kU7WRl`gz?&9H__%B0erNFzVLjbezt=1nGrJCD(;1&&jKz#)<SL>X#$ukixQP|!sArb{;;y=|z)%}YYzN+&D&oMBO74IoH2^bHOH$QBgZ=vQ6|D7`D-h=CcFuB7UeES(iv!8Me4q_KLMV-NkyzIv3-6S>m43G3cJ%xiv@kFJjl3#mk73|?Je&;&zX6Va&RlnBU!jl#X!95Af_&ltTSOL;s594VRi;-$thH&-h*eyap&%lFE<8>;jYO*McWX8>l#O0K|d<O8LY+5RPJnnHe}r-G`H(|y?a)C9xAnxOCUO0$`PhHEIS0F`~jmTiEcow474l2%(qtt#nFm0ME&R|EM?4dl1>KKnc0)Z5)?%}n&UrbGbPPnX$wop}5ShQVN|KCn)?!i3B_ZTM(>{&R5NZ&Z3m0TRBh6LRxz4O{wap=i0qB5QNSv?li{qk3ES6>cD3tX?RiYE5c4uW^~l>d?}3e}vJbeRMQAcyJIM?L_y<&LP>^kJ|SS+Y>U54)C~rFu@P@kF@yhVE-_9uu*<fA#~78DR}8t%Q+_0Y^}=c1(*!NNwy+>&2;|E_Q4e+809YZg1y6FZ*3J?h4kJ1cA&5b-b+=LOs#{gVOqIt8mBad`7m(q=#f;hBn5At(5XM6Fas`(x~vqLFqX(nxNcPYZ&M28oq(2*T(4#hkoyHFt`n^`Gv8QWJ~=<>{e3oi(R)5PJ?|I0d~L7X!<`_G*>_iYx_i|nSLxC^lq2@>*R|`~T=q5I<<j2IbTB<9okHme^Y~Vd2GzDUU07x;J5suh{OfMa!O!xQn-lV;6JBP~4THO~+*_6Ny06Qy&0?m1WzTG9Ma$LqO~`&^0Qf!AzDjV<B2oXXW$9{|!mMjk{0(|%y(h!b^WNa{Y`ED~N^mlOmZgHUY9eQUy8Z6i%m4N&ZgCG^an1L{bx9c=*3L^xK_&Hs!>DklELR;;NqOQ04%2ZgKAOzbag*OBdibzJdasE{IOE70WDoCvFrPI-&j;A6tVp`%d31O0A>bs;!gkBth{R#-i$l!J!Y+h<%`$)bEOWygOLvcy!3c;jEu;HerL#vd)7`oWZj4L*-*c=Cld`}0=02OJt_<YdE6N`o|GLcH`_BacLGNUA*6lyN>^|)cK7&^ke{uNSO!n(0L?fpVOp0osof6r>tFFH)N3*s60WK)(v;')}
+
+def boolean_recipe_bytes(relative):
+    import base64,zlib
+    oid,encoded=_BOOLEAN_RECIPE_BYTES[relative]
+    raw=zlib.decompress(base64.b85decode(encoded))
+    if hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()!=oid:
+        raise AssertionError('frozen Boolean recipe changed')
+    return raw
+
 
 def entry(sha="a", mode="100644"):
     return {"mode": mode, "type": "commit" if mode == "160000" else "blob", "sha": sha * 40}
@@ -233,9 +244,11 @@ class LanguageSelectionTests(unittest.TestCase):
 
     def test_result_generations_advance_without_allowing_deployed_rollbacks(self):
         generations = CODEQL.result_workflow_blobs()
-        self.assertEqual(generations, (CODEQL._RESULTS_WORKFLOW, CODEQL._RETARGET_RESULTS_WORKFLOW,
+        self.assertEqual(generations[:6], (CODEQL._RESULTS_WORKFLOW, CODEQL._RETARGET_RESULTS_WORKFLOW,
                                       CODEQL._PINNED_RESULTS_WORKFLOW, CODEQL._METADATA_RESULTS_WORKFLOW,
-                                      CODEQL._SCHEDULING_RESULTS_WORKFLOW))
+                                      CODEQL._SCHEDULING_RESULTS_WORKFLOW, CODEQL._BOOLEAN_RESULTS_WORKFLOW))
+        self.assertEqual(len(generations),7)
+        self.assertEqual(generations[6],CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW)
         for old_index, old in enumerate(generations):
             for new_index, new in enumerate(generations):
                 before, after = self.pinned_trees()
@@ -620,6 +633,154 @@ class PythonControlSelectionTests(unittest.TestCase):
             self.assertTrue(CODEQL.select_languages(left, right)['full_scan'])
 
 
+class BooleanRecipeSelectionTests(unittest.TestCase):
+    recipes = {
+        'tools/repository-checks/workflows/producers/repository-checks.yml':
+            ('81bcf1933edc435826e2de411a777cccd4dec7c7','15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'),
+        'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml':
+            ('e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1','3b7a88765b7181a1bc7dd6f48b9b459e590055d3'),
+    }
+
+    def trees(self):
+        before=reviewed_tree()
+        before['.github/workflows/codeql.yml']={'mode':'100644','type':'blob','sha':CODEQL._SCHEDULING_RESULTS_WORKFLOW}
+        before['.github/workflows/pr-metadata-context.yml']={'mode':'100644','type':'blob','sha':CODEQL._SCHEDULING_SOURCE_WORKFLOW}
+        before['.github/workflows/repository-checks.yml']={'mode':'100644','type':'blob',
+            'sha':'81bcf1933edc435826e2de411a777cccd4dec7c7'}
+        for path,(old,_) in self.recipes.items():before[path]={'mode':'100644','type':'blob','sha':old}
+        for path in CODEQL._PINNED_PYTHON_CONTROLS:before[path]=entry()
+        return before,deepcopy(before)
+
+    def transition(self,path):
+        before,after=self.trees()
+        after[path]={'mode':'100644','type':'blob','sha':self.recipes[path][1]}
+        return before,after
+
+    def test_exact_existing_passive_pairs_need_no_analysis_and_keep_python_owner(self):
+        self.assertEqual(CODEQL._BOOLEAN_PASSIVE_RECIPES,self.recipes)
+        for path in self.recipes:
+            for event in ('pull_request','push'):
+                before,after=self.transition(path)
+                with self.subTest(path=path,event=event):
+                    plan=CODEQL.select_languages(before,after,event=event,
+                        read_blob=lambda _:self.fail('selection must not load candidate recipe code'))
+                    self.assertEqual(plan['languages'],[])
+                    self.assertEqual(plan['reasons'],[{'code':'reviewed-boolean-metadata-recipe','path':path}])
+                    after['tools/repository-checks/check.py']=entry('b')
+                    self.assertEqual(CODEQL.select_languages(before,after,event=event)['languages'],['python'])
+        before,after=self.trees()
+        for path,(_,new) in self.recipes.items():after[path]['sha']=new
+        self.assertEqual(CODEQL.select_languages(before,after)['languages'],[])
+
+    def test_exact_forward_active_pair_keeps_zero_or_python_only_analysis(self):
+        for control in CODEQL._PINNED_PYTHON_CONTROLS:
+            before,after=self.trees();after['.github/workflows/codeql.yml']['sha']=CODEQL._BOOLEAN_RESULTS_WORKFLOW
+            self.assertEqual(CODEQL.select_languages(before,after)['languages'],[])
+            after[control]=entry('b')
+            with self.subTest(control=control):
+                plan=CODEQL.select_languages(before,after)
+                self.assertEqual(plan['languages'],['python'])
+                self.assertIn({'code':'reviewed-pinned-python-control','path':control},plan['reasons'])
+                after['browser/src/main.ts']=entry('b')
+                self.assertEqual(CODEQL.select_languages(before,after)['languages'],list(CODEQL.LANGUAGES))
+
+    def test_real_two_caller_activation_needs_zero_or_only_changed_python_analysis(self):
+        before,after=self.trees()
+        after['.github/workflows/repository-checks.yml']['sha']=CODEQL._BOOLEAN_REPOSITORY_PAIR[1]
+        after['.github/workflows/codeql.yml']['sha']=CODEQL._BOOLEAN_RESULTS_WORKFLOW
+        self.assertEqual(CODEQL.select_languages(before,after)['languages'],[])
+        for control in CODEQL._PINNED_PYTHON_CONTROLS:
+            mixed=deepcopy(after);mixed[control]=entry('b')
+            with self.subTest(control=control):
+                plan=CODEQL.select_languages(before,mixed)
+                self.assertEqual(plan['languages'],['python'])
+                self.assertFalse(plan['full_scan'])
+        for mutation in ('unknown-before','unknown-after','removal','addition','mode','rollback'):
+            left,right=deepcopy(before),deepcopy(after)
+            path='.github/workflows/repository-checks.yml'
+            if mutation=='unknown-before':left[path]['sha']='f'*40
+            elif mutation=='unknown-after':right[path]['sha']='f'*40
+            elif mutation=='removal':del right[path]
+            elif mutation=='addition':del left[path]
+            elif mutation=='mode':right[path]['mode']='100755'
+            else:left[path],right[path]=right[path],left[path]
+            with self.subTest(mutation=mutation):
+                self.assertTrue(CODEQL.select_languages(left,right)['full_scan'])
+
+    def test_passive_unknown_bytes_membership_modes_and_rollback_stay_full(self):
+        for path in self.recipes:
+            for mutation in ('new-path','removal','before-unknown','after-unknown','before-mode','after-mode',
+                    'symlink','gitlink','rollback'):
+                before,after=self.transition(path)
+                if mutation=='new-path':del before[path]
+                elif mutation=='removal':del after[path]
+                elif mutation=='before-unknown':before[path]['sha']='f'*40
+                elif mutation=='after-unknown':after[path]['sha']='f'*40
+                elif mutation=='before-mode':before[path]['mode']='100755'
+                elif mutation=='after-mode':after[path]['mode']='100755'
+                elif mutation=='symlink':after[path]['mode']='120000'
+                elif mutation=='gitlink':after[path].update(mode='160000',type='commit')
+                else:before[path],after[path]=after[path],before[path]
+                with self.subTest(path=path,mutation=mutation):
+                    self.assertEqual(CODEQL.select_languages(before,after)['languages'],list(CODEQL.LANGUAGES))
+
+    def test_configuration_helpers_packs_aliases_options_and_unknown_inputs_cannot_hide(self):
+        for subject in (*self.recipes,'.github/workflows/codeql.yml','.github/workflows/repository-checks.yml'):
+            for mutation in ('config','helper','helper-mode','pack','overlap-pack','alias','unknown','javascript'):
+                before,after=self.trees()
+                after[subject]['sha']=CODEQL._BOOLEAN_RESULTS_WORKFLOW if subject=='.github/workflows/codeql.yml' else CODEQL._BOOLEAN_REPOSITORY_PAIR[1] if subject=='.github/workflows/repository-checks.yml' else self.recipes[subject][1]
+                after['tools/repository-checks/check.py']=entry('b')
+                if mutation=='config':after['.github/codeql/codeql-config.yml']=entry('b')
+                elif mutation=='helper':after['.github/workflows/pr-metadata-context.yml']=entry('b')
+                elif mutation=='helper-mode':after['.github/workflows/pr-metadata-context.yml']['mode']='100755'
+                elif mutation in ('pack','overlap-pack'):
+                    name='custom/qlpack.yml' if mutation=='pack' else str(Path(subject).parent/'qlpack.yml')
+                    before[name]=after[name]=entry()
+                elif mutation=='alias':before['unmodified-alias']=after['unmodified-alias']=entry(mode='120000')
+                elif mutation=='unknown':after['unreviewed-source']=entry('b')
+                else:after['browser/src/main.ts']=entry('b')
+                with self.subTest(subject=subject,mutation=mutation):
+                    self.assertEqual(CODEQL.select_languages(before,after)['languages'],list(CODEQL.LANGUAGES))
+            before,after=self.trees();after[subject]['sha']=CODEQL._BOOLEAN_RESULTS_WORKFLOW if subject=='.github/workflows/codeql.yml' else CODEQL._BOOLEAN_REPOSITORY_PAIR[1] if subject=='.github/workflows/repository-checks.yml' else self.recipes[subject][1]
+            for name in ('LGTM_INDEX_FILTERS','CODEQL_EXTRACTOR_JAVASCRIPT_OPTION_TEST','CODEQL_EXTRACTOR_PYTHON_OPTION_TEST'):
+                with self.subTest(subject=subject,option=name),patch.dict(CODEQL.os.environ,{name:'unreviewed'}):
+                    self.assertTrue(CODEQL.select_languages(before,after)['full_scan'])
+
+    def test_other_active_transitions_and_wrong_relative_helper_remain_full(self):
+        for old,new in ((CODEQL._PINNED_RESULTS_WORKFLOW,CODEQL._METADATA_RESULTS_WORKFLOW),
+                (CODEQL._METADATA_RESULTS_WORKFLOW,CODEQL._SCHEDULING_RESULTS_WORKFLOW),
+                (CODEQL._BOOLEAN_RESULTS_WORKFLOW,CODEQL._SCHEDULING_RESULTS_WORKFLOW)):
+            before,after=self.trees();before['.github/workflows/codeql.yml']['sha']=old;after['.github/workflows/codeql.yml']['sha']=new
+            with self.subTest(old=old,new=new):self.assertTrue(CODEQL.select_languages(before,after)['full_scan'])
+        before,after=self.trees();after['.github/workflows/codeql.yml']['sha']=CODEQL._BOOLEAN_RESULTS_WORKFLOW
+        after['.github/workflows/pr-metadata-context.yml']['sha']='f'*40
+        self.assertTrue(CODEQL.select_languages(before,after)['full_scan'])
+
+    def test_known_raw_pairs_change_only_boolean_metadata_input_not_analysis_payload(self):
+        import yaml
+        spec=importlib.util.spec_from_file_location('boolean_recipe_frozen_sources',ROOT/'tests/workflow-contract-test.py')
+        frozen=importlib.util.module_from_spec(spec);spec.loader.exec_module(frozen)
+        for path,(old,new) in self.recipes.items():
+            name='codeql' if path.endswith('codeql-metadata.yml') else 'repository-checks'
+            before=frozen.original_default_workflow(name);after=boolean_recipe_bytes(path)
+            with self.subTest(path=path):
+                for raw,oid in ((before,old),(after,new)):
+                    self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),oid)
+                old_lines=before.splitlines(keepends=True);new_lines=after.splitlines(keepends=True)
+                self.assertEqual(len(old_lines),len(new_lines))
+                changes=[(a,b) for a,b in zip(old_lines,new_lines) if a!=b]
+                self.assertEqual(len(changes),1)
+                old_line,new_line=changes[0]
+                self.assertIn(b'nonproducer_intent: ${{ ',old_line)
+                self.assertEqual(new_line,old_line.replace(b'${{ ',b'${{ !(!(',1).replace(b' }}',b')) }}',1))
+                a,b=yaml.safe_load(before),yaml.safe_load(after)
+                a['jobs']['metadata-source']['with'].pop('nonproducer_intent')
+                b['jobs']['metadata-source']['with'].pop('nonproducer_intent')
+                self.assertEqual(a,b)
+        helper=(ROOT/'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml').read_bytes()
+        self.assertEqual(hashlib.sha1(b'blob '+str(len(helper)).encode()+b'\0'+helper).hexdigest(),CODEQL._SCHEDULING_SOURCE_WORKFLOW)
+
+
 class NativeLeafSelectionTests(unittest.TestCase):
     def setUp(self):
         self.before = reviewed_tree()
@@ -871,6 +1032,10 @@ class FakeCodeScanningApi:
         if path.startswith('git/ref/'):
             ref = path[len('git/ref/'):]
             return {'ref': 'refs/' + ref, 'object': {'type': 'commit', 'sha': o.refs[ref]}}
+        if path.startswith('git/commits/'):
+            revision = path.removeprefix('git/commits/')
+            return {'sha': revision, 'tree': {'sha': o.git('rev-parse', revision + '^{tree}')},
+                    'parents': [{'sha': x} for x in o.git('show', '-s', '--format=%P', revision).split()]}
         if path.startswith('branches/'):
             ref = path[len('branches/'):]
             return {'name': ref, 'protected': True, 'commit': {'sha': o.refs['heads/' + ref]}}
@@ -954,6 +1119,49 @@ class SelectedResultTests(unittest.TestCase):
 
     def verify(self, **options):
         return RESULTS.Verifier(self.root, self.event, self.env, api=self.api, **options).verify(processing_seconds=0)
+
+    def regenerated_merge(self, *, tree=None, parents=None):
+        tree = tree or self.git('rev-parse', self.candidate + '^{tree}')
+        arguments = [arg for parent in (parents or [self.base, self.head]) for arg in ('-p', parent)]
+        live = self.git('commit-tree', tree, *arguments, '-m', 'Regenerated GitHub test merge')
+        self.merge = {'sha': live, 'parents': [{'sha': x} for x in (parents or [self.base, self.head])]}
+        self.pr['merge_commit_sha'] = live
+        return live
+
+    def test_regenerated_test_merge_keeps_original_analysis_identity(self):
+        live = self.regenerated_merge()
+        self.assertNotEqual(live, self.candidate)
+        result = self.verify()
+        self.assertEqual(result['source_commit'], self.candidate)
+        self.assertEqual(result['observed_merge_commits'], sorted([live, self.candidate]))
+        self.assertEqual(self.analyses[0]['commit_sha'], self.candidate)
+
+    def test_equivalent_regeneration_at_final_bookend_is_accepted(self):
+        reads = [0]
+        def regenerate(endpoint):
+            if endpoint.endswith('/commits/refs/pull/42/merge?per_page=1&page=1'):
+                reads[0] += 1
+                if reads[0] == 2:
+                    self.regenerated_merge()
+        self.api.change = regenerate
+        self.assertEqual(self.verify()['source_commit'], self.candidate)
+        self.assertEqual(reads[0], 2)
+
+    def test_regenerated_merge_with_changed_tree_or_ordered_parents_rejects(self):
+        for shape in ('tree', 'reversed', 'extra', 'base', 'head'):
+            self.setUp()
+            parents = {'reversed': [self.head, self.base], 'extra': [self.base, self.head, self.candidate],
+                       'base': [self.candidate, self.head], 'head': [self.base, self.candidate]}.get(shape)
+            self.regenerated_merge(tree=self.git('rev-parse', self.base + '^{tree}') if shape == 'tree' else None,
+                                   parents=parents)
+            with self.subTest(shape=shape), self.assertRaises(RESULTS.ResultError):
+                self.verify()
+
+    def test_live_merge_cannot_replace_original_sarif_identity(self):
+        live = self.regenerated_merge()
+        self.analyses[0]['commit_sha'] = live
+        with self.assertRaises(RESULTS.ResultError):
+            self.verify()
 
     def pinned_policy_candidate(self, changed_path='.github/test-suites.json', extra_sources=None,
                                 existing_sources=None,replacement='{"fixture":2}\n'):
@@ -1765,12 +1973,12 @@ class MetadataResultTests(unittest.TestCase):
         self.env = {'GITHUB_JOB': 'select'}
         edge = {'path': RESULTS.REPOSITORY + '/' + self.A.METADATA_WORKFLOW + '@' + 'c' * 40,
                 'sha': 'c' * 40, 'ref': 'refs/pull/42/merge'}
-        run = {'id': 12, 'workflow_id': 7, 'check_suite_id': 112, 'path': RESULTS.WORKFLOW,
+        run = {'id': 12, 'run_number': 12, 'workflow_id': 7, 'check_suite_id': 112, 'path': RESULTS.WORKFLOW,
             'event': 'pull_request', 'head_sha': 'b' * 40, 'head_branch': 'fix/main/example', 'run_attempt': 1,
             'status': 'completed', 'conclusion': 'success', 'run_started_at': '2026-10-15T21:00:00Z',
             'updated_at': '2026-10-15T21:01:00Z', 'repository': self.repository,
             'head_repository': self.repository, 'pull_requests': [{'number': 42}], 'referenced_workflows': [edge]}
-        self.runs = {12: run, 13: {**deepcopy(run), 'id': 13, 'check_suite_id': 113,
+        self.runs = {12: run, 13: {**deepcopy(run), 'id': 13, 'run_number': 13, 'check_suite_id': 113,
             'status': 'in_progress', 'conclusion': None, 'run_started_at': '2026-10-15T21:04:00Z',
             'updated_at': '2026-10-15T21:04:21Z'}}
         def job(identity, run_id, name, start, end, steps):
@@ -1829,7 +2037,7 @@ class MetadataResultTests(unittest.TestCase):
             self.api.json(RESULTS.PREFIX + '/git/ref/heads/foreign')
 
     def test_future_recipe_is_exact_and_keeps_existing_pinned_language_selection(self):
-        for name, oid in [('codeql-metadata.yml', CODEQL._SCHEDULING_RESULTS_WORKFLOW),
+        for name, oid in [('codeql-metadata.yml', CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW),
                           ('pr-metadata-context.yml', CODEQL._SCHEDULING_SOURCE_WORKFLOW)]:
             raw = (ROOT / 'tools/repository-checks/workflows/metadata-edits' / name).read_bytes()
             self.assertEqual(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest(), oid)
@@ -1861,7 +2069,81 @@ class MetadataResultTests(unittest.TestCase):
         with self.assertRaises(RESULTS.ResultError): self.verify()
         self.assertEqual(CODEQL.result_workflow_sources()[3],
             ('3a273057a38255ca368d3028594fb94227ba7c3b', 'd04a6dc70213d8b549bac30c11cc15eaf0182dea'))
-        self.assertEqual(len(CODEQL.result_workflow_sources()), 5)
+        self.assertEqual(len(CODEQL.result_workflow_sources()[:5]), 5)
+        self.assertEqual(len(CODEQL.result_workflow_sources()[:6]), 6)
+        self.assertEqual(len(CODEQL.result_workflow_sources()), 7)
+
+    def test_staged_boolean_template_preserves_old_and_new_exact_native_analysis_pairs(self):
+        ordinary=lambda oid:{'mode':'100644','type':'blob','sha':oid}
+        for base,active in ((CODEQL._SCHEDULING_RESULTS_WORKFLOW,CODEQL._SCHEDULING_RESULTS_WORKFLOW),
+                (CODEQL._SCHEDULING_RESULTS_WORKFLOW,CODEQL._BOOLEAN_RESULTS_WORKFLOW),
+                (CODEQL._BOOLEAN_RESULTS_WORKFLOW,CODEQL._BOOLEAN_RESULTS_WORKFLOW)):
+            self.setUp()
+            self.runs[12]['display_title']=self.A.ORDINARY_RUN_NAME
+            self.runs[13]['display_title']=self.A.NONPRODUCER_RUN_NAME
+            self.workflows[RESULTS.WORKFLOW]=ordinary(active)
+            self.workflows[self.A.METADATA_WORKFLOW]=ordinary(CODEQL._SCHEDULING_SOURCE_WORKFLOW)
+            for tree in (self.base_tree,self.candidate_tree):
+                tree.update(deepcopy(self.workflows))
+                tree['tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml']=ordinary(CODEQL._BOOLEAN_RESULTS_WORKFLOW)
+                tree['tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml']=ordinary(CODEQL._SCHEDULING_SOURCE_WORKFLOW)
+            self.base_tree[RESULTS.WORKFLOW]=ordinary(base)
+            if CODEQL.select_languages(self.base_tree,self.candidate_tree)['full_scan']:
+                # A transition selected for both languages must supply both
+                # original native analyses rather than hiding that selection.
+                js=deepcopy(self.jobs[12][1]);js.update(id=82,name='CodeQL (javascript-typescript)',
+                    check_run_url='https://api.github.com/'+RESULTS.PREFIX+'/check-runs/82')
+                self.jobs[12].append(js)
+                analysis=deepcopy(self.analyses[0]);analysis.update(id=92,
+                    environment='{"language":"javascript-typescript"}',category='/language:javascript-typescript')
+                self.analyses.append(analysis)
+            with self.subTest(base=base,active=active):
+                value=self.verify()
+                self.assertFalse(value['qualification']);self.assertEqual(value['original_run_id'],12)
+                self.assertIn(91,[analysis['id'] for analysis in value['analyses']])
+        self.base_tree[RESULTS.WORKFLOW]=ordinary(CODEQL._BOOLEAN_RESULTS_WORKFLOW)
+        self.workflows[RESULTS.WORKFLOW]=ordinary(CODEQL._SCHEDULING_RESULTS_WORKFLOW)
+        self.candidate_tree[RESULTS.WORKFLOW]=ordinary(CODEQL._SCHEDULING_RESULTS_WORKFLOW)
+        with self.assertRaisesRegex(RESULTS.ResultError,'rolls back'):self.verify()
+        self.candidate_tree[RESULTS.WORKFLOW]=ordinary('f'*40)
+        with self.assertRaises(RESULTS.ResultError):self.verify()
+
+    def test_staged_required_context_template_preserves_each_real_installed_pair(self):
+        ordinary=lambda oid:{'mode':'100644','type':'blob','sha':oid}
+        for base,active in ((CODEQL._SCHEDULING_RESULTS_WORKFLOW,CODEQL._SCHEDULING_RESULTS_WORKFLOW),
+                (CODEQL._SCHEDULING_RESULTS_WORKFLOW,CODEQL._BOOLEAN_RESULTS_WORKFLOW),
+                (CODEQL._BOOLEAN_RESULTS_WORKFLOW,CODEQL._BOOLEAN_RESULTS_WORKFLOW),
+                (CODEQL._BOOLEAN_RESULTS_WORKFLOW,CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW),
+                (CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW,CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW)):
+            self.setUp()
+            self.runs[12]['display_title']=self.A.ORDINARY_RUN_NAME
+            self.runs[13]['display_title']=self.A.NONPRODUCER_RUN_NAME
+            self.workflows[RESULTS.WORKFLOW]=ordinary(active)
+            self.workflows[self.A.METADATA_WORKFLOW]=ordinary(CODEQL._SCHEDULING_SOURCE_WORKFLOW)
+            for tree in (self.base_tree,self.candidate_tree):
+                tree.update(deepcopy(self.workflows))
+                tree['tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml']=ordinary(CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW)
+                tree['tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml']=ordinary(CODEQL._SCHEDULING_SOURCE_WORKFLOW)
+            self.base_tree[RESULTS.WORKFLOW]=ordinary(base)
+            if CODEQL.select_languages(self.base_tree,self.candidate_tree)['full_scan']:
+                # A transition selected for both languages must supply both
+                # original native analyses rather than hiding that selection.
+                js=deepcopy(self.jobs[12][1]);js.update(id=82,name='CodeQL (javascript-typescript)',
+                    check_run_url='https://api.github.com/'+RESULTS.PREFIX+'/check-runs/82')
+                self.jobs[12].append(js)
+                analysis=deepcopy(self.analyses[0]);analysis.update(id=92,
+                    environment='{"language":"javascript-typescript"}',category='/language:javascript-typescript')
+                self.analyses.append(analysis)
+            with self.subTest(base=base,active=active):
+                value=self.verify()
+                self.assertFalse(value['qualification']);self.assertEqual(value['original_run_id'],12)
+                self.assertIn(91,[analysis['id'] for analysis in value['analyses']])
+        self.base_tree[RESULTS.WORKFLOW]=ordinary(CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW)
+        self.workflows[RESULTS.WORKFLOW]=ordinary(CODEQL._SCHEDULING_RESULTS_WORKFLOW)
+        self.candidate_tree[RESULTS.WORKFLOW]=ordinary(CODEQL._SCHEDULING_RESULTS_WORKFLOW)
+        with self.assertRaisesRegex(RESULTS.ResultError,'rolls back'):self.verify()
+        self.candidate_tree[RESULTS.WORKFLOW]=ordinary('f'*40)
+        with self.assertRaises(RESULTS.ResultError):self.verify()
 
     def test_same_merge_original_native_analysis_is_freshly_revalidated_without_qualification(self):
         result = self.verify()
