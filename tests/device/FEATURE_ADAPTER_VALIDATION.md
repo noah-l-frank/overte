@@ -16,6 +16,15 @@ cases and **7** source-profile cases on each source tree. Original canonical
 iOS binding rejection still passes five cases. These are source/control results
 only; native sources remain uncompiled and all devices unqualified.
 
+The normal Graphics input packet passes **414** common host cases and **259**
+broad iOS component cases, zero failures/errors/skips or compiler attempts.
+Focused groups pass **52** Phone, **23** Pico Script/Audio/Graphics component
+cases and **29** iOS Script/Audio/Graphics component cases; the original Pico
+binding/navigation/Snapshot group passes **31** cases. The subsequent scroll-
+settling/scene-token correction passes **14** common Graphics input cases;
+platform follow-up receipts are recorded when complete. Native source remains
+uncompiled and no full-area capability or device acceptance is claimed.
+
 Earlier continuation validation before the version 4 Graphics correction (all source only):
 
 * **378** common quick-selection Python/JavaScript cases pass, zero failures,

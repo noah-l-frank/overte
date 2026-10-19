@@ -19,6 +19,7 @@ class GraphicsBoundary:
         self.instance,self.generation='a'*32,'b'*32
         self.profile='generic-immediate-v1' if generic else 'phone-immediate-v1';self.fault=''
         self.actions,self.intents=[],[];self.transform=lambda value:value
+        self.moving_until,self.flick_duration=0.0,0.0
 
     def sleep(self,seconds):self.clock+=seconds
 
@@ -29,9 +30,10 @@ class GraphicsBoundary:
     def capture(self):
         def row(identifier,location,**fields):
             viewport='above' if location<self.position else 'below' if location>self.position+0.35 else 'visible'
-            source=repr((identifier,fields,viewport,self.position))
+            ready=viewport=='visible' and self.clock>=self.moving_until
+            source=repr((identifier,fields,viewport,self.position,ready))
             return dict(id=identifier,token=hashlib.sha256(source.encode()).hexdigest()[:32],enabled=True,
-                        inputReady=viewport=='visible',viewport=viewport,**fields)
+                        inputReady=ready,viewport=viewport,**fields)
         controls=[dict(id='graphics.page',token='c'*32,enabled=True,inputReady=False,viewport='visible',profile=self.profile),
             row('graphics.resolution',0.9,value=self.resolution,nativeValue=self.resolution,minimum=self.minimum,maximum=self.maximum,step=self.step),
             row('graphics.haze',0.2,checked=self.haze,nativeChecked=self.haze),
@@ -40,7 +42,7 @@ class GraphicsBoundary:
         if self.fault=='ui-only':
             current=next(r for r in controls if r['id']=='graphics.resolution')
             current['value']=getattr(self,'ui_resolution',self.resolution)
-            current['inputReady']=current['viewport']=='visible' and current['value']==self.resolution
+            current['inputReady']=current['viewport']=='visible' and self.clock>=self.moving_until and current['value']==self.resolution
         return self.transform(dict(graphicsControlsVersion=1,ready=True,instance=self.instance,
                                    generation=self.generation,controls=controls))
 
@@ -53,7 +55,9 @@ class GraphicsBoundary:
 
     def scroll(self,identifier,direction,*,token):
         self.original(identifier,token);self.actions.append('scroll-'+direction)
-        if self.fault!='scroll':self.position=max(0,min(0.65,self.position+(0.3 if direction=='down' else -0.3)))
+        if self.fault!='scroll':
+            self.position=max(0,min(0.65,self.position+(0.3 if direction=='down' else -0.3)))
+            self.moving_until=self.clock+self.flick_duration
 
     def set_value(self,identifier,value,*,token):
         assert identifier=='graphics.resolution'
@@ -90,6 +94,13 @@ class GraphicsUiTests(unittest.TestCase):
         self.assertEqual(original,native.resolution);self.assertFalse(native.haze);self.assertFalse(native.mirrors)
         self.assertEqual(3,native.actions.count('resolution'))
         self.assertIn('scroll-up',native.actions);self.assertIn('scroll-down',native.actions)
+
+    def test_scroll_motion_must_settle_before_followup_original_input(self):
+        native,ui=self.ui();native.flick_duration=0.3
+        ui.set_resolution(0.5)
+        self.assertGreaterEqual(native.clock,0.6);self.assertEqual(0.5,native.resolution)
+        self.assertEqual(1,native.actions.count('resolution'))
+        self.assertTrue(all(intent[0].startswith(('scroll-','set-')) for intent in native.intents))
 
     def test_native_viewport_directions_choose_scroll_without_guessing_feature_order(self):
         native,ui=self.ui();native.position=0.6
