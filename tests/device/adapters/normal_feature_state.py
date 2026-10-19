@@ -47,15 +47,23 @@ class PrivateFeatureState:
     def read(self):
         self._parent()
         try:
-            descriptor = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW)
+            before = self.path.lstat()
         except FileNotFoundError:
             return None
+        need(stat.S_ISREG(before.st_mode) and before.st_nlink == 1)
+        try:
+            descriptor = os.open(self.path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0)
+                                 | getattr(os, 'O_NONBLOCK', 0))
         except OSError:
             raise NativeUIError('Normal feature ownership file is unavailable') from None
         try:
             with os.fdopen(descriptor, 'r', encoding='utf-8') as stream:
                 info = os.fstat(stream.fileno())
+                current = self.path.lstat()
                 need(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_size <= 65536
+                     and stat.S_ISREG(current.st_mode)
+                     and (info.st_dev, info.st_ino) == (before.st_dev, before.st_ino)
+                     == (current.st_dev, current.st_ino)
                      and (os.name == 'nt' or info.st_uid == os.geteuid()
                           and stat.S_IMODE(info.st_mode) == 0o600))
                 def pairs(items):

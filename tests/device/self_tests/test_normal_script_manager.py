@@ -240,6 +240,7 @@ class NormalScriptManagerTests(unittest.TestCase):
         path = self.native.store.path
         os.chmod(path, 0o644)
         with self.assertRaises(NativeUIError): self.native.store.read()
+
         os.chmod(path, 0o600)
         flow = self.native.flow()
         original = self.native.store.read()
@@ -248,6 +249,11 @@ class NormalScriptManagerTests(unittest.TestCase):
         path.unlink()
         path.symlink_to(Path(self.temp.name) / 'foreign')
         with self.assertRaises(NativeUIError): self.native.store.read()
+
+    def test_nonregular_private_state_is_rejected_before_a_blocking_open(self):
+        if hasattr(os, 'mkfifo'):
+            os.mkfifo(self.native.store.path, 0o600)
+            with self.assertRaises(NativeUIError): self.native.store.read()
 
     def test_actual_probe_diagnostic_reads_native_service_and_marks_failures_incomplete(self):
         probe = (Path(__file__).resolve().parents[1] / 'probe/overte_e2e_probe.js').read_text()
