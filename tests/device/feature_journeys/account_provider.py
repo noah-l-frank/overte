@@ -16,7 +16,7 @@ import time
 from urllib.parse import parse_qsl
 from .contract import exact,identifier,number
 
-VERSION=1
+VERSION=2
 TOKEN_PATH='/oauth/token'
 PROFILE_PATH='/api/v1/user/profile'
 REQUEST_HEADER='X-Overte-E2E-Request'
@@ -50,8 +50,8 @@ def form(raw):
 
 class AccountProvider:
     """Bounded provider state behind the existing fixture HTTP handler."""
-    def __init__(self,*,epoch_ms=lambda:int(time.time()*1000),monotonic=time.monotonic,hold_seconds=12):
-        number(hold_seconds,.01,12)
+    def __init__(self,*,epoch_ms=lambda:int(time.time()*1000),monotonic=time.monotonic,hold_seconds=90):
+        number(hold_seconds,.01,90)
         if not callable(epoch_ms) or not callable(monotonic):raise ValueError('Invalid provider clock')
         self.epoch_ms,self.monotonic,self.hold_seconds=epoch_ms,monotonic,hold_seconds
         self.changed=threading.Condition(threading.RLock())
@@ -81,7 +81,8 @@ class AccountProvider:
             password=secrets.token_urlsafe(32)
             if password in self._reserved:raise ValueError('Fixture credential entropy is unavailable')
             self.runs[run]=dict(username='e2e-'+run,password=password,active=True,
-                ticket=None,events=[],droppedEvents=0,held=None,holdNext=False,closed=False,usedRequests=set(),inflight=0)
+                ticket=None,events=[],droppedEvents=0,held=None,holdNext=False,closed=False,usedRequests=set(),inflight=0,
+                grantsEnabled=True,delayed={},grantRequests=set())
 
     @contextmanager
     def transaction(self,*,run=None,username=None,refresh=None,authorization=None):
@@ -104,7 +105,7 @@ class AccountProvider:
     def credentials(self,run,role):
         with self.changed:
             row=self.runs[identifier(run)]
-            if not row['active'] or role not in ('owned','invalid','delayed'):raise ValueError('Owned account is unavailable')
+            if not row['active'] or not row['grantsEnabled'] or role not in ('owned','invalid','delayed'):raise ValueError('Owned account is unavailable')
             # Invalid login uses a genuinely incorrect password. Delayed login
             # uses the same real account; only actual response delivery is held.
             return dict(username=row['username'],password=row['password'] if role!='invalid' else 'invalid-'+row['password'])
@@ -127,13 +128,22 @@ class AccountProvider:
             if run in self.retired and operation=='cleanup':return
             row=self.runs[identifier(run)]
             if operation=='hold-next':
-                if not row['active'] or row['holdNext'] or row['held'] is not None:raise ValueError('A delayed grant is already owned')
+                if not row['active'] or not row['grantsEnabled'] or row['ticket'] is None or row['holdNext'] or row['held'] is not None:raise ValueError('A delayed grant is already owned')
                 row['holdNext']=True
             elif operation=='release-delayed':
-                if row['held'] is None or row['held']['released']:raise ValueError('No actual delayed grant is waiting')
-                row['held']['released']=True;self._record(run,'grant-released');self.changed.notify_all()
+                if row['held'] is None or row['held']['released'] or row['held']['cancelled']:raise ValueError('No actual delayed grant is waiting')
+                row['held']['released']=True
+                row['delayed'][row['held']['requestId']]['releasedEpochMs']=self.now()
+                self._record(run,'grant-released',grantRequestId=row['held']['requestId']);self.changed.notify_all()
+            elif operation=='revoke-issued':
+                row.update(grantsEnabled=False,holdNext=False)
+                if row['held'] is not None:row['held']['cancelled']=True
+                self.access={k:v for k,v in self.access.items() if v['run']!=run}
+                self.refresh={k:v for k,v in self.refresh.items() if v['run']!=run}
+                self._record(run,'issued-authority-revoked');self.changed.notify_all()
             elif operation=='cleanup':
-                row.update(active=False,closed=True,holdNext=False)
+                row.update(active=False,closed=True,holdNext=False,grantsEnabled=False)
+                if row['held'] is not None:row['held']['cancelled']=True
                 row['username']=row['password']=None
                 self.access={k:v for k,v in self.access.items() if v['run']!=run}
                 self.refresh={k:v for k,v in self.refresh.items() if v['run']!=run}
@@ -156,31 +166,59 @@ class AccountProvider:
                 if token is not None and token['expires']>self.now() and self.runs[token['run']]['active']:
                     run=token['run'];row=self.runs[run]
                 else:return 400,dict(error='invalid_grant')
-            self._record(run,'grant-request',grantType=value['grant_type'])
+            if not row['grantsEnabled']:return 503,dict(error='temporarily_unavailable')
+            request=secrets.token_hex(16)
+            if request in row['grantRequests'] or len(row['grantRequests'])>=4096:
+                return 503,dict(error='temporarily_unavailable')
+            row['grantRequests'].add(request)
+            self._record(run,'grant-request',grantType=value['grant_type'],grantRequestId=request)
+            delayed=None
             if row['holdNext']:
-                row['holdNext']=False;row['held']=dict(released=False)
-                self._record(run,'grant-held');self.changed.notify_all()
-                started=self.monotonic();number(started)
-                previous=started
-                while not row['held']['released'] and row['active']:
+                if len(row['delayed'])>=64:return 503,dict(error='temporarily_unavailable')
+                row['holdNext']=False;row['held']=dict(released=False,cancelled=False,requestId=request)
+                delayed=dict(requestId=request,requestTicket=row['ticket'],startedEpochMs=self.now(),
+                    releasedEpochMs=0,issuedEpochMs=0,status=0,state='held')
+                row['delayed'][request]=delayed
+                self._record(run,'grant-held',grantRequestId=request);self.changed.notify_all()
+                started=self.monotonic();number(started);previous=started
+                while not row['held']['released'] and not row['held']['cancelled'] and row['active']:
                     now=self.monotonic();number(now)
                     if now<previous or now-started>=self.hold_seconds:
-                        row['held']=None;self._record(run,'grant-hold-expired');self.changed.notify_all()
+                        row['held']=None;delayed.update(status=503,state='expired')
+                        self._record(run,'grant-hold-expired',grantRequestId=request);self.changed.notify_all()
                         return 503,dict(error='temporarily_unavailable')
                     previous=now;self.changed.wait(min(.05,self.hold_seconds-(now-started)))
-                row['held']=None;self.changed.notify_all()
-                if not row['active']:return 503,dict(error='temporarily_unavailable')
-            if sum(t['run']==run for t in self.access.values())>=64:
+                cancelled=row['held']['cancelled'];row['held']=None;self.changed.notify_all()
+                if cancelled or not row['active'] or not row['grantsEnabled']:
+                    delayed.update(status=503,state='cancelled');return 503,dict(error='temporarily_unavailable')
+            def unavailable():
+                if delayed is not None:delayed.update(status=503,state='rejected')
+                self._record(run,'grant-unavailable',status=503,grantRequestId=request)
                 return 503,dict(error='temporarily_unavailable')
+            if sum(t['run']==run for t in self.access.values())>=64:return unavailable()
             now=self.now();access=secrets.token_urlsafe(32);refresh=secrets.token_urlsafe(32)
             if (access==refresh or any(t in self.access or t in self.refresh or t in self._reserved
-                    or any(r['password']==t for r in self.runs.values()) for t in (access,refresh))):
-                self._record(run,'grant-unavailable',status=503)
-                return 503,dict(error='temporarily_unavailable')
-            self.access[access]=dict(run=run,expires=now+3600000)
-            self.refresh[refresh]=dict(run=run,expires=now+86400000)
-            self._record(run,'grant-issued',status=200)
+                    or any(r['password']==t for r in self.runs.values()) for t in (access,refresh))):return unavailable()
+            self.access[access]=dict(run=run,expires=now+3600000,grantRequestId=request)
+            self.refresh[refresh]=dict(run=run,expires=now+86400000,grantRequestId=request)
+            if delayed is not None:delayed.update(issuedEpochMs=now,status=200,state='issued')
+            self._record(run,'grant-issued',status=200,grantRequestId=request)
             return 200,dict(access_token=access,token_type='Bearer',expires_in=3600,refresh_token=refresh)
+
+    def delayed_status(self,run):
+        """Public sanitized original request/authority facts; no credentials or setters."""
+        with self.changed:
+            row=self.runs[identifier(run)];now=self.now()
+            if not row['active']:raise ValueError('Retired account scope is unavailable')
+            records=[]
+            for request,original in row['delayed'].items():
+                actual={}
+                for kind,table in (('accessValid',self.access),('refreshValid',self.refresh)):
+                    actual[kind]=any(t['run']==run and t['grantRequestId']==request and t['expires']>now for t in table.values())
+                records.append(deepcopy(original)|actual)
+            return dict(providerVersion=VERSION,instance=self.instance,runId=run,capturedEpochMs=now,
+                eventSequence=self.sequence,grantsEnabled=row['grantsEnabled'],requests=records,
+                delayedGrantOutstanding=any(r['accessValid'] or r['refreshValid'] for r in records))
 
     def profile(self,authorization,*,run=None,ticket=None,request=None):
         with self.changed:
@@ -214,10 +252,10 @@ class AccountProvider:
         with self.changed:
             identifier(run)
             if run in self.retired:
-                row=dict(active=False,held=None,holdNext=False,inflight=0)
+                row=dict(active=False,held=None,holdNext=False,inflight=0,grantsEnabled=False)
             else:row=self.runs[run]
             return dict(providerVersion=VERSION,instance=self.instance,runId=run,capturedEpochMs=self.now(),eventSequence=self.sequence,
-                accountExists=row['active'],heldRequests=int(row['held'] is not None),armedHold=row['holdNext'],
+                accountExists=row['active'],grantsEnabled=row['grantsEnabled'],heldRequests=int(row['held'] is not None),armedHold=row['holdNext'],
                 inflightRequests=row['inflight'],
                 accessTokens=sum(t['run']==run for t in self.access.values()),
                 refreshTokens=sum(t['run']==run for t in self.refresh.values()))
@@ -236,5 +274,5 @@ class AccountProvider:
         # a bad clock makes a normal observed cleanup unavailable.
         with self.changed:
             self.closed=True;self.access.clear();self.refresh.clear()
-            for row in self.runs.values():row.update(active=False,closed=True,holdNext=False,username=None,password=None)
+            for row in self.runs.values():row.update(active=False,closed=True,holdNext=False,grantsEnabled=False,username=None,password=None)
             self.changed.notify_all()

@@ -159,6 +159,85 @@ class AccountProviderTests(unittest.TestCase):
         self.assertEqual(200,status);self.assertTrue(refreshed['access_token']!=token['access_token'],'Access token must rotate')
         self.assertEqual(200,self.profile(refreshed['access_token'])[1])
 
+    def test_closed_journey_stimuli_hold_release_and_revoke_actual_requests(self):
+        self.client.activate('d'*32,'login-submit',{'account':'delayed'})
+        self.assertTrue(self.client.account_status()['armedHold'])
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future=pool.submit(self.grant,'delayed')
+            with self.provider.changed:
+                self.assertTrue(self.provider.changed.wait_for(lambda:self.provider.snapshot(self.run)['heldRequests']==1,timeout=2))
+            self.client.activate('e'*32,'release-stale-response');status,token=future.result(timeout=3)
+        self.assertEqual(200,status);self.assertTrue(self.provider.delayed_status(self.run)['delayedGrantOutstanding'])
+        self.client.activate('f'*32,'cleanup')
+        self.assertFalse(self.provider.delayed_status(self.run)['delayedGrantOutstanding'])
+        self.assertFalse(self.client.account_status()['grantsEnabled']);self.assertEqual(401,self.profile(token['access_token'],ticket='f'*32)[1])
+
+    def test_duplicate_or_nonfinite_json_controls_are_rejected_without_mutating_authority(self):
+        path=PREFIX+f'/runs/{self.run}/account/control'
+        for raw in (b'{"operation":"hold-next","operation":"cleanup"}',b'{"operation":NaN}'):
+            self.assertEqual(400,self.request(path,body=raw,role="reader")[0])
+        self.assertTrue(self.client.account_status()['accountExists']);self.assertFalse(self.client.account_status()['armedHold'])
+
+    def test_public_delayed_metadata_proves_actual_issued_authority_and_preserves_original_times(self):
+        from adapters.account_fixture_observation import DelayedGrantObservation
+        observation=DelayedGrantObservation(self.run,self.provider.instance)
+        path=PREFIX+f'/runs/{self.run}/account/delayed'
+        status,value=self.request(path);self.assertEqual(200,status);self.assertFalse(observation.accept(value))
+        self.assertEqual(90,self.provider.hold_seconds);self.client.account_control('hold-next')
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future=pool.submit(self.grant,'delayed')
+            with self.provider.changed:
+                self.assertTrue(self.provider.changed.wait_for(lambda:self.provider.snapshot(self.run)['heldRequests']==1,timeout=2))
+            _,held=self.request(path);self.assertFalse(observation.accept(held));self.assertEqual('held',held['requests'][0]['state'])
+            self.client.activate('d'*32);self.client.account_control('release-delayed');status,token=future.result(timeout=3)
+        self.assertEqual(200,status);_,issued=self.request(path);self.assertTrue(observation.accept(issued))
+        self.assertEqual(TICKET,issued['requests'][0]['requestTicket']);self.assertEqual(200,issued['requests'][0]['status'])
+        self.assertEqual(200,self.profile(token['access_token'],ticket='d'*32)[1])
+        self.epoch+=1000;_,later=self.request(path);self.assertTrue(observation.accept(later))
+        self.assertEqual(issued['requests'][0],later['requests'][0])
+        for secret in (token['access_token'],token['refresh_token'],self.client.account_credentials('owned')['password']):
+            self.assertNotIn(secret,json.dumps(later))
+        self.client.account_control('revoke-issued');_,revoked=self.request(path)
+        self.assertFalse(observation.accept(revoked));self.assertFalse(revoked['grantsEnabled'])
+        self.assertEqual(401,self.profile(token['access_token'],ticket='d'*32)[1])
+
+    def test_revocation_drains_a_real_held_grant_and_blocks_late_issuance_without_retiring_profile_scope(self):
+        credentials=self.client.account_credentials('owned');self.client.account_control('hold-next')
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future=pool.submit(self.grant,'delayed')
+            with self.provider.changed:
+                self.assertTrue(self.provider.changed.wait_for(lambda:self.provider.snapshot(self.run)['heldRequests']==1,timeout=2))
+            self.client.account_control('revoke-issued');self.assertEqual(503,future.result(timeout=3)[0])
+        self.assertEqual(0,self.client.account_status()['accessTokens']);self.assertTrue(self.client.account_status()['accountExists'])
+        self.assertFalse(self.client.account_status()['grantsEnabled']);self.assertEqual(401,self.profile()[1])
+        status,_=self.request(TOKEN_PATH,body=dict(grant_type='password',scope='owner',**credentials),form_body=True)
+        self.assertEqual(503,status);self.assertFalse(self.provider.delayed_status(self.run)['delayedGrantOutstanding'])
+
+    def test_expired_or_unreleased_delayed_request_cannot_look_like_valid_old_success(self):
+        from adapters.account_fixture_observation import DelayedGrantObservation
+        self.provider.hold_seconds=.03;self.client.account_control('hold-next')
+        self.assertEqual(503,self.grant('delayed')[0]);value=self.provider.delayed_status(self.run)
+        self.assertEqual('expired',value['requests'][0]['state'])
+        self.assertFalse(DelayedGrantObservation(self.run,self.provider.instance).accept(value))
+
+    def test_delayed_observation_refuses_forged_foreign_dropped_or_rewritten_original_facts(self):
+        from adapters.account_fixture_observation import DelayedGrantObservation
+        from copy import deepcopy
+        self.client.account_control('hold-next')
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future=pool.submit(self.grant,'delayed')
+            with self.provider.changed:
+                self.assertTrue(self.provider.changed.wait_for(lambda:self.provider.snapshot(self.run)['heldRequests']==1,timeout=2))
+            original=self.provider.delayed_status(self.run)
+            for edit in ({'providerVersion':1},{'instance':'e'*32},{'delayedGrantOutstanding':True},{'grantsEnabled':1}):
+                with self.assertRaises(RuntimeError):DelayedGrantObservation(self.run,self.provider.instance).accept(original|edit)
+            observer=DelayedGrantObservation(self.run,self.provider.instance);observer.accept(original)
+            for edit in ({'requests':[]},{'capturedEpochMs':19999}):
+                with self.assertRaises(RuntimeError):observer.accept(original|edit)
+            rewritten=deepcopy(original);rewritten['requests'][0]['requestTicket']='e'*32
+            with self.assertRaises(RuntimeError):observer.accept(rewritten)
+            self.client.account_control('release-delayed');future.result(timeout=3)
+
     def test_delayed_grant_is_an_actual_waiting_request_until_explicit_release(self):
         self.client.account_control('hold-next')
         with ThreadPoolExecutor(max_workers=1) as pool:

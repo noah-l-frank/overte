@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 5
+VERSION = 6
 
 
 def emote_rows():
@@ -48,20 +48,29 @@ SCENARIOS = {
     ('bookmark-delete', dict(name='$renamed'), dict(bookmark=False, bookmarkName=''), ['peer']),
     ('close', {}, dict(panel=False), []),
 ]),
-'authentication': scenario('Owned login, cancellation, stale response and persistence',
-    dict(principal='anonymous', dialog=False, error='none', pending=False, protectedAccess=False), [
-    ('login-open', {}, dict(dialog=True), []),
+'authentication': scenario('Owned login, view dismissal, retired response and persistence',
+    dict(principal='anonymous', dialog=False, error='none', pending=False, protectedAccess=False, delayedGrantOutstanding=False), [
+    ('login-open', {}, dict(dialog=True), ['peer']),
     ('login-submit', dict(account='invalid'), dict(error='invalid-credentials'), ['peer']),
     ('login-cancel', {}, dict(dialog=False, error='none'), ['peer']),
-    ('login-open', {}, dict(dialog=True), []),
+    ('login-open', {}, dict(dialog=True), ['peer']),
     ('login-submit', dict(account='delayed'), dict(pending=True), ['peer']),
-    ('login-cancel', {}, dict(pending=False, dialog=False), ['peer']),
-    ('release-stale-response', {}, {}, ['peer']),
-    ('login-open', {}, dict(dialog=True), []),
+    # Ordinary Cancel dismisses the view; it deliberately leaves the real
+    # AccountManager request alive. Reopening must not create a second request.
+    ('login-cancel', {}, dict(pending=True, dialog=False), ['peer']),
+    ('login-open', {}, dict(pending=True, dialog=True), ['peer']),
+    ('login-cancel', {}, dict(pending=True, dialog=False), ['peer']),
+    # The actual process boundary, rather than view dismissal, retires the
+    # consumer of the delayed valid response. Startup prompts may be present.
+    ('restart-app', {}, dict(pending=False, dialog={'oneOf':[False,True]}), ['peer']),
+    ('login-cancel', {}, dict(dialog=False), ['peer']),
+    ('release-stale-response', {}, dict(delayedGrantOutstanding=True), ['peer']),
+    ('login-open', {}, dict(dialog=True), ['peer']),
     ('login-submit', dict(account='owned'), dict(principal='owned', dialog=False, protectedAccess=True), ['peer']),
     ('restart-app', {}, {}, ['peer']),
     ('logout', {}, dict(principal='anonymous', protectedAccess=False), ['peer']),
-    ('restart-app', {}, {}, ['peer']),
+    ('restart-app', {}, dict(dialog={'oneOf':[False,True]}), ['peer']),
+    ('login-cancel', {}, dict(dialog=False), ['peer']),
 ]),
 'avatar-people': scenario('Avatar chooser and mutual connection consent',
     dict(avatar='original', scale=1.0, wearable=False, bookmarked=False, connection='none', dialog=False, error='none'), [

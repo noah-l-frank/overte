@@ -37,8 +37,8 @@
       "area": "authentication",
       "existingModules": [],
       "commonModule": "feature-authentication",
-      "addedFlow": "Invalid login, cancel, delayed stale completion, successful login, restart, logout and revocation.",
-      "declaredCheckpoints": 12,
+      "addedFlow": "Invalid login; pending view close/reopen; real restart before valid old grant issuance; owned login persistence; native logout and separate fixture revocation.",
+      "declaredCheckpoints": 17,
       "requiredEvidence": [
         "peer"
       ],
@@ -269,5 +269,5 @@
       "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
     }
   ],
-  "contractVersion": 5
+  "contractVersion": 6
 }
