@@ -113,3 +113,13 @@ permission recovery, crash recovery under load, and update/upgrade contracts.
 These remain common contract implementations until each real adapter advertises
 the required operations and governed physical evidence is registered. No
 R11–R15 or evidence-campaign result is claimed by this document.
+
+## Feature journey extension
+
+The [fourteen-area coverage matrix](FEATURE_COVERAGE.md) and
+[v1 adapter handoff](FEATURE_ADAPTER_HANDOFF.md) describe the additional common
+flows. They use this catalog, execution-plan, result and privacy pipeline.
+Each area has a mandatory capability gate even for exploratory runs. The fixture
+coordinator owns challenge data and an independent actor journal; it does not
+substitute for a real account, domain, asset service, peer or native observer.
+No acceptance policy or physical evidence is promoted by the device-free tests.

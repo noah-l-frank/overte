@@ -1,0 +1,158 @@
+"""Strict v1 action/read boundary for feature additions to the existing harness."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+import math
+import re
+from urllib.parse import urlsplit
+from .fixtures import context
+from .scenarios import SCENARIOS, actions, expand
+
+VERSION = 1
+HEX = re.compile(r'[0-9a-f]{32}')
+
+
+def exact(value, fields, label):
+    if type(value) is not dict or set(value) != set(fields):
+        raise ValueError('Invalid ' + label + ' fields')
+
+
+def identifier(value):
+    if type(value) is not str or HEX.fullmatch(value) is None:
+        raise ValueError('A fresh 128-bit owned identifier is required')
+    return value
+
+
+def number(value, minimum=0, maximum=1e15):
+    if type(value) not in (int, float) or not math.isfinite(value) or not minimum <= value <= maximum:
+        raise ValueError('Invalid bounded finite observation number')
+    return value
+
+
+def operation_parts(operation):
+    parts = operation.split('.')
+    if len(parts) != 3 or parts[0] != 'feature' or parts[1] not in SCENARIOS or parts[2] not in {'act', 'observe', 'cleanup'}:
+        raise ValueError('Unknown feature operation')
+    return parts[1:]
+
+
+def arguments(operation, value):
+    area, kind = operation_parts(operation)
+    fields = {'contractVersion', 'runId'}
+    fields |= {'verb', 'inputs', 'ticket', 'fixtureUrl'} if kind == 'act' else {'afterSequence'} if kind == 'observe' else set()
+    exact(value, fields, 'feature input')
+    if type(value['contractVersion']) is not int or value['contractVersion'] != VERSION:
+        raise ValueError('Unsupported feature contract version')
+    run = identifier(value['runId'])
+    if kind == 'observe':
+        if type(value['afterSequence']) is not int or not 0 <= value['afterSequence'] <= 1_000_000_000:
+            raise ValueError('Invalid feature observation cursor')
+    elif kind == 'act':
+        identifier(value['ticket'])
+        url = value['fixtureUrl']
+        if type(url) is not str or len(url) > 512:
+            raise ValueError('Invalid owned fixture URL')
+        parsed = urlsplit(url)
+        if (parsed.scheme not in {'http', 'https'} or not parsed.hostname or parsed.username is not None
+                or parsed.password is not None or parsed.query or parsed.fragment
+                or parsed.path != '/feature-fixture/v1/runs/' + run + '/'):
+            raise ValueError('Feature fixture URL requires the exact owned run path')
+        parsed.port  # Fail malformed ports before any input.
+        verb = value['verb']
+        if type(verb) is not str or verb not in actions(area):
+            raise ValueError('Unsupported ordinary feature action')
+        allowed = [expand(candidate, context(run)) for candidate in actions(area)[verb]]
+        # Equality alone would equate bools and numbers. Canonical types must match.
+        if not any(typed_equal(value['inputs'], candidate) for candidate in allowed):
+            raise ValueError('Feature input is outside the closed owned fixture inventory')
+    return value
+
+
+def typed_equal(left, right):
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return set(left) == set(right) and all(typed_equal(left[k], right[k]) for k in right)
+    if isinstance(left, list):
+        return len(left) == len(right) and all(typed_equal(a, b) for a, b in zip(left, right))
+    return left == right
+
+
+def state(area, value, run=None):
+    baseline = SCENARIOS[area]['baseline']
+    exact(value, baseline, 'actual product state')
+    for key, prototype in baseline.items():
+        item = value[key]
+        if type(prototype) in (int, float):
+            number(item, -1000000, 1000000)
+            if type(prototype) is int and type(item) is not int:
+                raise ValueError('Integer product counter required')
+        elif type(item) is not type(prototype):
+            raise ValueError('Invalid product state type')
+        elif isinstance(item, str) and (len(item) > 256 or any(ord(ch) < 32 for ch in item)):
+            raise ValueError('Product state string exceeds the public fixed-text contract')
+        elif isinstance(item, list):
+            if len(item) > 32 or any(type(x) is not str or len(x) > 256 or any(ord(ch) < 32 for ch in x) for x in item):
+                raise ValueError('Invalid bounded product list')
+    if run is not None:
+        checkpoints = [expand(baseline, context(run))] + [expand(step['state'], context(run)) for step in SCENARIOS[area]['steps']]
+        for key, prototype in baseline.items():
+            if isinstance(prototype, str):
+                allowed = set()
+                for row in checkpoints:
+                    candidate = row[key]
+                    allowed.update(candidate['oneOf'] if type(candidate) is dict and 'oneOf' in candidate else [candidate])
+                if value[key] not in allowed:
+                    raise ValueError('Product string is outside the selector-free public vocabulary')
+            if isinstance(prototype, list):
+                allowed = {item for row in checkpoints for item in row[key]}
+                if any(item not in allowed for item in value[key]):
+                    raise ValueError('Product list contains private or unowned values')
+    return value
+
+
+def result(operation, value):
+    area, kind = operation_parts(operation)
+    if kind in {'act', 'cleanup'}:
+        exact(value, {'performed'}, 'feature acknowledgment')
+        if value['performed'] is not True:
+            raise ValueError('Feature input delivery was not confirmed')
+        return value
+    exact(value, {'schemaVersion', 'contractVersion', 'runId', 'sequence', 'capturedEpochMs', 'state', 'artifacts', 'resources', 'lifecycle'}, 'feature observation')
+    if any(type(value[k]) is not int or value[k] != 1 for k in ('schemaVersion', 'contractVersion')):
+        raise ValueError('Unsupported feature observation version')
+    identifier(value['runId'])
+    if type(value['sequence']) is not int or not 1 <= value['sequence'] <= 1_000_000_000:
+        raise ValueError('Invalid product sequence')
+    number(value['capturedEpochMs'], 1)
+    state(area, value['state'], value['runId'])
+    if (type(value['resources']) is not list or len(value['resources']) > 64
+            or any(type(x) is not str or re.fullmatch(r'(entity|script|file|panel|input|connection):[a-z0-9-]{1,64}', x) is None for x in value['resources'])
+            or len(set(value['resources'])) != len(value['resources'])):
+        raise ValueError('Invalid public owned-resource inventory')
+    exact(value['lifecycle'], {'backgrounds', 'activations', 'launches'}, 'native lifecycle counters')
+    if any(type(x) is not int or not 0 <= x <= 1000000 for x in value['lifecycle'].values()):
+        raise ValueError('Native lifecycle counts must be bounded actual integers')
+    if type(value['artifacts']) is not list or len(value['artifacts']) > 4:
+        raise ValueError('Invalid artifact inventory')
+    kinds, names = set(), set()
+    for artifact in value['artifacts']:
+        fields = {'kind', 'name', 'sequence', 'capturedEpochMs', 'ticket'}
+        if type(artifact) is dict and artifact.get('kind') == 'image':
+            fields.add('source')
+        exact(artifact, fields, 'feature artifact')
+        if artifact['kind'] == 'image' and artifact['source'] not in {'native-screen', 'world-render-target'}:
+            raise ValueError('Unsupported original image acquisition source')
+        if artifact['kind'] not in {'image', 'audio', 'file'} or artifact['kind'] in kinds:
+            raise ValueError('Unsupported or duplicate artifact kind')
+        kinds.add(artifact['kind'])
+        name = artifact['name']
+        if type(name) is not str or re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}', name) is None or name in names:
+            raise ValueError('Artifacts require distinct direct private-run filenames')
+        names.add(name)
+        identifier(artifact['ticket'])
+        if type(artifact['sequence']) is not int or artifact['sequence'] != value['sequence']:
+            raise ValueError('Artifact and product sample sequences differ')
+        number(artifact['capturedEpochMs'], 1)
+        if abs(artifact['capturedEpochMs'] - value['capturedEpochMs']) > 1500:
+            raise ValueError('Artifact is stale relative to the product observation')
+    return value

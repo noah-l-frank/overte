@@ -142,7 +142,7 @@ class ScriptManagementJourneyTests(unittest.TestCase):
         result = native.run()
         self.assertEqual(['initial-load', 'restart', 'restart-old-stopped-new-active',
             'stop', 'load-after-stop', 'reloaded-old-stopped-new-active',
-            'final-stop', 'failed-load-remains-stopped'], [row['phase'] for row in result['phases']])
+            'final-stop', 'failed-load-remains-stopped', 'cleanup-owned-execution-stopped'], [row['phase'] for row in result['phases']])
         identifiers = [row['instance'] for row in result['phases'] if 'instance' in row]
         self.assertEqual(3, len(set(identifiers)))
         self.assertTrue(native.reports[0]['lifecycleSequenceCompleted'])
@@ -196,11 +196,28 @@ class ScriptManagementJourneyTests(unittest.TestCase):
         self.assertFalse(native.reports[0]['cleanupInputsDelivered'])
         self.assertFalse(native.reports[0]['lifecycleSequenceCompleted'])
 
-    def test_partial_entry_preserves_original_error_and_attempts_both_cleanup_actions(self):
+    def test_partial_entry_preserves_original_error_and_only_closes_owned_ui(self):
         native = NativeBoundary('open-close-error')
         with self.assertRaisesRegex(RuntimeError, 'entry unavailable'):
             native.run()
-        self.assertEqual(['scripts.stop', 'scripts.manager.close'], [name for name, _ in native.actions[-2:]])
+        self.assertEqual('scripts.manager.close', native.actions[-1][0])
+        self.assertFalse(native.reports[0]['ownedScriptCleanupEnabled'])
+        self.assertFalse(any(name == 'scripts.stop' for name, _ in native.actions))
+
+    def test_cleanup_acknowledgment_cannot_hide_a_new_executing_instance(self):
+        native = NativeBoundary()
+        original = native.invoke
+        def invoke(name, arguments):
+            if name == 'scripts.stop' and native.loads >= 2 and native.observe()['missingGets']:
+                native.start()
+                return {'performed': True}
+            return original(name, arguments)
+        native.invoke = invoke
+        with self.assertRaises(AssertionError):
+            native.run()
+        self.assertFalse(native.reports[0]['cleanupObservedStopped'])
+        self.assertFalse(native.reports[0]['lifecycleSequenceCompleted'])
+        self.assertEqual('scripts.manager.close', native.actions[-1][0])
 
     def test_used_session_and_wrong_original_source_cannot_qualify(self):
         native = NativeBoundary()

@@ -94,6 +94,58 @@
     // the actual loaded address, rather than losing the reload confirmation.
     var lastSceneCommandId = reloadCommandIdFromAddress(location.href);
     var sampleSequence = 0;
+    // Private read-only diagnostic for normal Running Scripts row identity.
+    // Actual execution is still judged by the independent fixture journal.
+    var normalFeatureInstance = String(Uuid.generate()).replace(/[{}-]/g, "").toLowerCase();
+    var normalFeatureSequence = 0;
+    var lastNormalFeatureRequest = "";
+    function saveNormalFeatureObservation(now, sequence, includeEntities, requestId) {
+        var observation = {schemaVersion: 1, instance: normalFeatureInstance,
+            sampleSequence: sequence, sampleEpochMs: now, complete: false, scripts: []};
+        if (typeof requestId === "string") { observation.requestId = requestId; }
+        try {
+            var running = ScriptDiscoveryService.getRunning();
+            if (Array.isArray(running) && running.length <= 128) {
+                running.forEach(function (row) {
+                    if (typeof row.url !== "string" || typeof row.path !== "string"
+                            || !row.url.length || !row.path.length
+                            || row.url.length > 4096 || row.path.length > 4096) {
+                        throw new Error("invalid-native-script-row");
+                    }
+                    observation.scripts.push({url: row.url, path: row.path});
+                });
+                // Preserve the service's real order. The input adapter performs
+                // the same explicit sorting as TabletRunningScripts.qml.
+                observation.complete = true;
+            }
+        } catch (_normalFeatureError) {
+            observation.scripts = [];
+        }
+        if (includeEntities === true) {
+          observation.avatarEntities = [];
+          observation.entitiesComplete = false;
+          try {
+            var ids = Entities.findEntities(MyAvatar.position, 64);
+            if (!Array.isArray(ids) || ids.length > 4096) { throw new Error("entity-query-budget"); }
+            var me = String(MyAvatar.sessionUUID).replace(/[{}-]/g, "").toLowerCase();
+            var self = String(MyAvatar.SELF_ID).replace(/[{}-]/g, "").toLowerCase();
+            ids.forEach(function (id) {
+                var properties = Entities.getEntityProperties(id, ["name", "type", "entityHostType", "owningAvatarID"]);
+                var owner = String(properties.owningAvatarID || "").replace(/[{}-]/g, "").toLowerCase();
+                if (properties.entityHostType === "avatar" && owner.length === 32
+                        && owner !== "00000000000000000000000000000000" && (owner === me || owner === self)) {
+                    observation.avatarEntities.push({id: String(id), name: String(properties.name || ""),
+                        type: String(properties.type)});
+                }
+            });
+            if (observation.avatarEntities.length > 256) { throw new Error("owned-entity-budget"); }
+            observation.entitiesComplete = true;
+          } catch (_entityReadError) {
+            observation.avatarEntities = [];
+          }
+        }
+        Test.saveObject(observation, "normal-feature-observation.json");
+    }
     var phoneTouchHistory = [];
     var orientationHistory = [];
     var verticalObservationPrevious = null;
@@ -830,6 +882,21 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.schemaVersion === 1
+                && /^[0-9a-f]{32}$/.test(command.commandId)
+                && command.action === "normal-feature-observe"
+                && typeof command.includeAvatarEntities === "boolean"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "includeAvatarEntities"])) {
+            // One original read per correlated request. Do not poll expensive
+            // entity queries or export unrelated script paths in other suites.
+            if (command.commandId !== lastNormalFeatureRequest) {
+                normalFeatureSequence += 1;
+                saveNormalFeatureObservation(Date.now(), normalFeatureSequence,
+                    command.includeAvatarEntities, command.commandId);
+                lastNormalFeatureRequest = String(command.commandId);
+            }
+            return;
+        }
         if (command && command.schemaVersion === 1
                 && /^ios-[0-9a-f]{32}$/.test(command.commandId)
                 && command.action === "native-probe-snapshot"
