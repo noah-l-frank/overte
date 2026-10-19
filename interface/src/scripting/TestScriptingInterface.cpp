@@ -40,6 +40,10 @@
 #include <QUuid>
 #include <QTimer>
 #include <ScriptEngines.h>
+#include <EntityScriptingInterface.h>
+#include <EntityItemProperties.h>
+#include <EntityTypes.h>
+#include <PickFilter.h>
 #endif
 
 #if defined(OVERTE_E2E_VOICE_TESTS)
@@ -279,8 +283,46 @@ QVariantMap TestScriptingInterface::featureScriptObservation(const QString& requ
     const auto requested = QDateTime::currentMSecsSinceEpoch();
     // Atomic manager membership plus locked source histories; never invoke or
     // evaluate code on every script thread while the probe's thread is waiting.
-    const auto source = DependencyManager::get<ScriptEngines>()->featureScriptObservation();
-    if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size() > 240000) { return {}; }
+    auto source = DependencyManager::get<ScriptEngines>()->featureScriptObservation();
+    if (source.isEmpty()) { return {}; }
+    const auto entities = DependencyManager::get<EntityScriptingInterface>();
+    const auto avatars = DependencyManager::get<AvatarManager>();
+    if (!entities || !entities->getEntityTree() || !avatars || !avatars->getMyAvatar()) { return {}; }
+    // Independent application entity reads, not values returned by the loaded
+    // fixture script. No requested name, run, tick, color or effect is input.
+    const auto ids = entities->findEntities(avatars->getMyAvatarPosition(), 64.0f,
+        PickFilter::getBitMask(PickFilter::FlagBit::LOCAL_ENTITIES) | PickFilter::getBitMask(PickFilter::FlagBit::COARSE));
+    if (ids.size() > 4096) { return {}; }
+    QVariantList effects, absent;
+    static const QRegularExpression fixtureName("\\Ae2e-[0-9a-f]{32}-script\\z");
+    for (const auto& id : ids) {
+        if (fixtureName.match(entities->getEntityProperties(id).getName()).hasMatch()) {
+            _featureScriptEffectIds.insert(id);
+        }
+    }
+    if (_featureScriptEffectIds.size() > 256) { return {}; }
+    // Keep querying every observed UUID even after it moves outside the scan
+    // radius or is renamed. A hidden/moved object cannot become fake cleanup.
+    for (const auto& id : _featureScriptEffectIds) {
+        const auto properties = entities->getEntityProperties(id);
+        if (properties.getType() == EntityTypes::Unknown) {
+            absent.append(id.toString(QUuid::WithoutBraces)); continue;
+        }
+        const auto name = properties.getName();
+        if (effects.size() >= 32 || name.size() > 256 || properties.getUserData().size() > 1024) { return {}; }
+        const auto host = properties.getEntityHostType();
+        const auto hostName = host == entity::HostType::LOCAL ? QStringLiteral("local")
+            : host == entity::HostType::AVATAR ? QStringLiteral("avatar") : QStringLiteral("domain");
+        const auto color = properties.getColor();
+        effects.append(QVariantMap{{"id", id.toString(QUuid::WithoutBraces)}, {"name", name},
+            {"type", EntityTypes::getEntityTypeName(properties.getType())}, {"hostType", hostName},
+            {"userData", properties.getUserData()}, {"lastEditedEpochUs", static_cast<qulonglong>(properties.getLastEdited())},
+            {"color", QVariantList{static_cast<int>(color.x), static_cast<int>(color.y), static_cast<int>(color.z)}}});
+    }
+    source["effectSourceVersion"] = 1;
+    source["effects"] = QVariantMap{{"complete", true}, {"scanRadiusMeters", 64},
+        {"scannedEntities", ids.size()}, {"entities", effects}, {"absentIds", absent}};
+    if (QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size() > 240000) { return {}; }
     return {{"schemaVersion", 1}, {"requestId", requestId}, {"instance", _featureObservationInstance},
         {"sequence", static_cast<qulonglong>(++_featureScriptSequence)}, {"requestedEpochMs", requested},
         {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"processId", QCoreApplication::applicationPid()},
