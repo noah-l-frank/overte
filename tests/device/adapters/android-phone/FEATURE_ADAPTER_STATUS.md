@@ -263,3 +263,25 @@ The shared login-control metadata migration to v2 is integrated and the **76**
 focused Phone cases pass again. Phone retains its actual native endpoint as the
 submission target; the generic server-field recipe is not a Phone input. The
 private-command reader remains version 1 and all full-area gates remain closed.
+
+## Native Chat reception component
+
+The internal `_chat_capture(selector,run)` binds native reception source v1 to
+the original installed APK bytes, PID/start ticks and Appium session/fingerprint.
+Its private process-bound journal precedes native cache creation and pins the
+actual native source/session digest. Local-only or self echoes cannot establish
+remote peer delivery. Cleanup retires the owned cache, independently inspects
+it twice, and reaches original base teardown even if scope retirement fails;
+unresolved intent prevents green. No full Chat capability is enabled.
+
+Five new wrapper cases exercise original file/command/cleanup factories against
+synthetic native receptions. They cover original history, local echo, changed
+source/candidate and successful/ignored cleanup. The changed-candidate case
+initially expected the generic exception class; it now checks the existing
+PHONE_INSTALLED_BYTES_MISMATCH refusal. Native C++/network/UI and actual remote
+peer composition remain unqualified. Common feature contract is now v7.
+See [the reception contract](../../native/CHAT_OBSERVATION.md).
+
+All **81** Phone wrapper cases pass after this packet; the shared **21** Chat
+source/owner cases pass on the Phone tree too. Zero native compilation/device
+qualification is inferred.

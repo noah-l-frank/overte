@@ -46,6 +46,8 @@ from self_tests.test_owned_world_render import LocalAdb
 from self_tests.test_native_animation_history import history_source
 from adapters.native_animation_history import clip_run
 from self_tests.test_native_account_observation import account_source
+from self_tests.test_native_chat_observation import Boundary as ChatBoundary, RUN as CHAT_RUN, SELF as CHAT_SELF, PEER as CHAT_PEER
+from adapters.native_chat_observation import NativeChatObservation, received_texts
 from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
 from self_tests.test_native_account_origin import Boundary as AccountOriginBoundary, ORIGIN as ACCOUNT_ORIGIN
 
@@ -434,6 +436,53 @@ class FeatureAdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'PHONE_ACCOUNT_ORIGIN_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
             base.assert_called_once()
         self.assertTrue(source.path.exists());self.assertIsNotNone(self.adapter.account_origin_store(SELECTOR).read())
+
+    def chat_capture_boundaries(self):
+        source=self.preview_boundaries(ChatBoundary(),'feature-chat-observation.json')
+        source.mutate=lambda value:value.update(processId=31)
+        source.store=self.adapter.chat_capture_store(SELECTOR)
+        boundary=patch.object(appium,'NativeChatObservation',partial(NativeChatObservation,
+            monotonic=lambda:source.clock,sleep=source.sleep))
+        boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._chat_capture(SELECTOR,CHAT_RUN)
+
+    def test_phone_chat_factory_reads_original_reception_and_retires_actual_scope(self):
+        source,capture=self.chat_capture_boundaries();capture.observe();source.event();value=capture.observe()
+        self.assertEqual(31,value['processId']);self.assertEqual(1,len(received_texts(value,
+            sender_sha256=CHAT_PEER,receiver_sha256=CHAT_SELF,channel='domain')))
+        capture.retire();self.assertIsNone(self.adapter.chat_capture_store(SELECTOR).read())
+        self.assertEqual([],self.native.inputs)
+        self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_chat_factory_does_not_adopt_foreign_source_or_local_echo(self):
+        source,capture=self.chat_capture_boundaries();capture.observe();source.event(local=True)
+        value=capture.observe();self.assertEqual([],received_texts(value,sender_sha256=CHAT_PEER,receiver_sha256=CHAT_SELF,channel='domain'))
+        source.mutate=lambda value:value.update(processId=31,instance='f'*32)
+        with self.assertRaises(RuntimeError):self.adapter._chat_capture(SELECTOR,CHAT_RUN).retire()
+        self.assertIsNotNone(self.adapter.chat_capture_store(SELECTOR).read())
+        self.assertFalse(any(c['operation']=='retire' for c in source.commands))
+
+    def test_phone_chat_changed_candidate_blocks_request_and_keeps_journal(self):
+        source,capture=self.chat_capture_boundaries();capture.observe();before=len(source.commands)
+        self.fixture.adb.digest='f'*64
+        with self.assertRaisesRegex(ValueError,'PHONE_INSTALLED_BYTES_MISMATCH'):capture.observe()
+        self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.adapter.chat_capture_store(SELECTOR).read())
+
+    def test_phone_chat_cleanup_drains_before_original_base_teardown(self):
+        source,capture=self.chat_capture_boundaries();capture.observe();source.event()
+        def base(*_):
+            self.assertFalse(source.present);self.assertEqual(2,source.inspect_after_retire)
+            return {'cleaned':True}
+        with patch.object(AppiumAdapter,'cleanup',side_effect=base) as original:
+            self.assertEqual({'cleaned':True},self.adapter.cleanup(SELECTOR));original.assert_called_once()
+        self.assertIsNone(self.adapter.chat_capture_store(SELECTOR).read())
+
+    def test_phone_chat_failed_cleanup_reaches_base_and_refuses_green(self):
+        source,capture=self.chat_capture_boundaries();capture.observe();source.ignore_retire=True
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as original:
+            with self.assertRaisesRegex(ValueError,'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+            original.assert_called_once()
+        self.assertTrue(source.present);self.assertIsNotNone(self.adapter.chat_capture_store(SELECTOR).read())
 
     def account_probe_boundaries(self):
         source=self.preview_boundaries(AccountProbeBoundary(),'feature-account-probe.json')
