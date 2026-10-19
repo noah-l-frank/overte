@@ -1,32 +1,32 @@
-# Feature adapter handoff, contract v2
+# Feature adapter handoff, contract v3
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
-packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v2.json) and
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v3.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 tracks subsequent local platform packets and prerequisites. These do not change
-the complete v2 contract or grant device acceptance.
+the complete v3 contract or grant device acceptance.
 
 ## Action and read boundary
 
 For each closed area, advertise all three operations only after implementing
-and qualifying their complete v2 contract:
+and qualifying their complete v3 contract:
 
-- `feature.<area>.act` accepts exactly `{contractVersion: 2, runId, ticket,
+- `feature.<area>.act` accepts exactly `{contractVersion: 3, runId, ticket,
   fixtureUrl, verb, inputs}`. `runId` and `ticket` are fresh 32-character lowercase
   hexadecimal strings. `fixtureUrl` is a credential-free HTTP(S) URL whose exact
   path is `/feature-fixture/v1/runs/<runId>/`. `verb` and `inputs` must match the
   closed inventory, including expanded owned text. Return exactly
   `{"performed": true}` after delivering ordinary input, never a result verdict.
-- `feature.<area>.observe` accepts exactly `{contractVersion: 2, runId,
-  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 2,
+- `feature.<area>.observe` accepts exactly `{contractVersion: 3, runId,
+  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 3,
   runId, sequence, capturedEpochMs, state, artifacts, resources, lifecycle}`.
   `state` has every field declared for that area, measured from current product
   state. Unknown, inaccessible or unsupported observations are errors. Empty
   lists and default values cannot substitute for a failed read.
-- `feature.<area>.cleanup` accepts exactly `{contractVersion: 2, runId}` and
+- `feature.<area>.cleanup` accepts exactly `{contractVersion: 3, runId}` and
   returns exactly `{"performed": true}`. Restore only the captured owned test
   scope. The common test calls it twice and then independently observes the
   initial state, empty owned-resource inventory and three seconds of stable
@@ -118,8 +118,10 @@ order/timing, complete duration and low clipping must pass on original PCM.
 Negative captures require absence of that challenge and RMS below −55 dBFS.
 Use bounded 16-bit mono/stereo WAV captures at 8–48 kHz, including the full
 challenge duration. The source fixture is 24 kHz. Record/test-preview output
-must carry the challenge from the actual recording-start ticket; live unmuted
-output carries the current ticket. A current label on foreign, truncated or
+uses the three-second `recorded-preview-v1` profile and must carry the challenge
+from the actual recording-start ticket. The original instrumented input and
+independent acoustic output remain distinct, with native cycle/event/byte
+provenance retained; acquisition timestamps do not relabel old source samples. A current label on foreign, truncated or
 silent PCM cannot pass. Declare exactly which physical input/output or peer
 capture point is measured. Product/physical audibility still requires the later
 real-path qualification; simulated PCM is test-logic evidence only.
@@ -137,7 +139,7 @@ relative bundle. Apply the distinct generated `checker.png` from the texture
 input ticket. Ordinary import must use the owned name and unit dimensions via
 real property fields. If a platform's local importer exports a different source
 representation, qualify a new explicit contract reader; never rewrite the
-original export to satisfy v2. Original source bytes of the selected Assets server mapping, read independently
+original export to satisfy v3. Original source bytes of the selected Assets server mapping, read independently
 of any baked/rendered derivative, must match the pinned original glTF bytes exactly and the independent server mapping must bind them to this run.
 
 ## Independent fixture observer
@@ -199,7 +201,7 @@ receipt, requested value or UI text alone cannot substitute for an effect.
 | emotes | Independent peer samples replicated skeleton joint poses and active animation resource. `poseProgress` is the fraction of a nonempty joint set which changed across native animation frames, not UI progress. The normal ten names match the real Emote sources. Stop precedes each ordinary Sit press; the common sampler collects Sit1/2/3 from real observations with at most 24 attempts per new variant. The adapter receives no requested variant. Override/cancel must release the actual animation. |
 | world-web/tablet-web | Read the actual document URL/DOM field, focus ownership and receiver-side origin-bound bridge delivery count. Submit delivers exactly one Unicode payload. Foreign-origin traffic is actually attempted by the controlled secondary origin and delivers zero additional messages. Back restores the prior text; missing page feedback and resume must be observed. Inline app stays on the normal tablet. |
 | graphics | Read actual render task graph/viewport scale and mirror presentation, independently of preference-control values. `renderScale` is measured framebuffer/viewport ratio and `shadowPass` is actual graph state. Cancel restores original values; apply and restart retain changed settings; final restore returns to initial profile. |
-| audio | Actual recording engine state, decoded saved frames, peer mute state and independent PCM at the declared capture point. A denied recording produces no frames. Cancel discards them. Preview/stop and muted/background silence are measured from bytes. Discard leaves no owned recording. |
+| audio | Actual automatic three-second preview cycle: original native phase/history and capture/played/live-buffer frames, original pre-normalization input PCM plus independent acoustic PCM with the recorded-preview-v1 challenge. Completion requires capture/play/drain/completed history, equal captured/played frames and empty product buffers. The normal Record button cancels only an observed active cycle. Muted Start and mute/background cancellation are measured from real events/bytes. There are no Save/Preview Start/Stop/Discard controls. OS denial/recovery remains in the composed permission foundation. Cleanup releases E2E evidence separately and requires a verified restart to restore initial native idle history. |
 | chat | Independent peer's delivered message ledger and product's rendered history must match exact run-scoped Unicode payloads and order. Back dismisses keyboard without sending. Filtering suppresses the hidden payload. Offline send creates no duplicate; reconnect plus explicit retry delivers exactly once. Persist history through close/reopen. |
 | snapshots | Independently enumerate original app files, share-sink files and authenticated upload-sink deliveries. Cancel/denial/share-cancel produce zero side effects. Upload failure produces zero server deliveries; retry produces exactly one. Inspect original capture/share bytes and retain capture provenance across resume. |
 | scripts | `picker-open` activates the existing Running Scripts **From File** control and observes the real **Open Script and Companion Files** picker. `picker-cancel` dismisses it and leaves zero running engines/effects. `picker-accept` chooses the owned `script.js` plus companion or `script-bundle/main.js` with its relative `companion.js`, using the platform's real file/bundle picker. The accepted source loads directly; no client-script consent dialog is invented. `companions` lists actual relative modules resolved by the current owned engine, not requested filenames or retained staged-file presence. Read actual running engines and the ticking owned entity independently. Restart starts actual execution from the retained owned source again. `effects` must advance at least two actual ticks in a successful observation window; Stop leaves zero active effects/engines/entities/companions. The separate `load-url` uses From URL with the owned missing.js URL; actual load failure leaves no running engine. Entity-script consent remains in the reused `scripted-entity` suite. |
