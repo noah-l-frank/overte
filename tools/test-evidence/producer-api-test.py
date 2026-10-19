@@ -822,6 +822,71 @@ class MetadataSchedulingTests(unittest.TestCase):
         c = self.case
         return c.adapter.metadata_schedule(17, 101, self.policy, diagnostics=diagnostics, now=NOW)
 
+    def alias_source(self, run_id, revision):
+        c = self.case
+        c.originals[revision] = (c.binding['merge_tree'], list(c.binding['merge_parents']))
+        for edge in c.runs[run_id]['referenced_workflows']:
+            edge['path'] = edge['path'].rsplit('@', 1)[0] + '@' + revision
+            edge['sha'] = revision
+
+    def test_regenerated_merges_preserve_actual_original_and_current_native_sources(self):
+        self.alias_source(100, 'a1' * 20)
+        self.alias_source(101, 'a2' * 20)
+        value = self.schedule()
+        self.assertEqual(value['original_run_id'], 100)
+        self.assertEqual(value['original_merge_sha'], 'a1' * 20)
+        self.assertEqual(value['current_merge_sha'], 'a2' * 20)
+        self.assertEqual(value['binding']['merge_sha'], self.case.binding['merge_sha'])
+        self.assertFalse(value['qualification'])
+
+    def test_equivalent_live_regeneration_at_scheduling_bookend_is_accepted(self):
+        c = self.case
+        reads = [0]
+        original = c.binding['merge_sha']
+        c.originals[original] = (c.binding['merge_tree'], list(c.binding['merge_parents']))
+        def regenerate(endpoint, value):
+            if endpoint.endswith('/pulls/17'):
+                reads[0] += 1
+                if reads[0] == 3:  # Labels, opening current(), closing current().
+                    c.binding['merge_sha'] = 'a3' * 20
+                    value['merge_commit_sha'] = c.binding['merge_sha']
+            return value
+        c.api.mutate = regenerate
+        value = self.schedule()
+        self.assertEqual(reads[0], 4)
+        self.assertEqual(value['original_merge_sha'], original)
+        self.assertEqual(value['current_merge_sha'], original)
+        self.assertFalse(value['qualification'])
+
+    def test_regenerated_current_merge_cannot_hide_changed_tree_or_ordered_parents(self):
+        for shape in ('tree', 'base', 'head', 'reversed', 'extra'):
+            self.setUp(); c = self.case
+            self.alias_source(101, 'a2' * 20)
+            tree, parents = c.originals['a2' * 20]
+            if shape == 'tree': tree = 'a3' * 20
+            elif shape == 'base':
+                parents[0] = 'a3' * 20
+                c.originals[parents[0]] = deepcopy(c.originals[c.binding['base_sha']])
+            elif shape == 'head': parents[1] = 'a3' * 20
+            elif shape == 'reversed': parents.reverse()
+            else: parents.append('a3' * 20)
+            c.originals['a2' * 20] = tree, parents
+            with self.subTest(shape=shape), self.assertRaises(P.ProtocolError):
+                self.schedule()
+
+    def test_original_from_other_base_or_tree_is_never_mirrored(self):
+        for shape in ('tree', 'base'):
+            self.setUp(); c = self.case
+            self.alias_source(100, 'a1' * 20)
+            tree, parents = c.originals['a1' * 20]
+            if shape == 'tree': tree = 'a3' * 20
+            else:
+                parents[0] = 'a3' * 20
+                c.originals[parents[0]] = deepcopy(c.originals[c.binding['base_sha']])
+            c.originals['a1' * 20] = tree, parents
+            with self.subTest(shape=shape), self.assertRaises(P.ProtocolError):
+                self.schedule()
+
     def test_all_seven_pending_failed_and_successful_sources_preserve_status_without_results(self):
         c = self.case
         for target in sorted(A.METADATA_TARGETS):
@@ -1070,6 +1135,20 @@ class MetadataCanonicalResultTests(unittest.TestCase):
             check_run_url=f'https://api.github.com/{A.PREFIX}/check-runs/151')
         c.jobs[100].append(job)
         self.observed=MetadataSchedulingTests.schedule(self)
+
+    def test_equivalent_merges_still_require_actual_original_workflow_and_job_success(self):
+        MetadataSchedulingTests.alias_source(self, 100, 'a1' * 20)
+        MetadataSchedulingTests.alias_source(self, 101, 'a2' * 20)
+        self.observed = MetadataSchedulingTests.schedule(self)
+        self.assertEqual(self.case.adapter.metadata_result_success(self.observed, now=NOW)['job_id'], 151)
+        for failed in ('workflow', 'canonical-job'):
+            c = self.case
+            if failed == 'workflow': c.runs[100]['conclusion'] = 'failure'
+            else: c.jobs[100][-1]['conclusion'] = 'failure'
+            with self.subTest(failed=failed), self.assertRaises(ValueError):
+                c.adapter.metadata_result_success(self.observed, now=NOW)
+            c.runs[100]['conclusion'] = 'success'
+            c.jobs[100][-1]['conclusion'] = 'success'
 
     def test_original_success_requires_the_actual_canonical_actions_job_and_empty_new_authority(self):
         value=self.case.adapter.metadata_result_success(self.observed,now=NOW)

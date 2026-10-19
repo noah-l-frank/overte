@@ -1032,6 +1032,10 @@ class FakeCodeScanningApi:
         if path.startswith('git/ref/'):
             ref = path[len('git/ref/'):]
             return {'ref': 'refs/' + ref, 'object': {'type': 'commit', 'sha': o.refs[ref]}}
+        if path.startswith('git/commits/'):
+            revision = path.removeprefix('git/commits/')
+            return {'sha': revision, 'tree': {'sha': o.git('rev-parse', revision + '^{tree}')},
+                    'parents': [{'sha': x} for x in o.git('show', '-s', '--format=%P', revision).split()]}
         if path.startswith('branches/'):
             ref = path[len('branches/'):]
             return {'name': ref, 'protected': True, 'commit': {'sha': o.refs['heads/' + ref]}}
@@ -1115,6 +1119,49 @@ class SelectedResultTests(unittest.TestCase):
 
     def verify(self, **options):
         return RESULTS.Verifier(self.root, self.event, self.env, api=self.api, **options).verify(processing_seconds=0)
+
+    def regenerated_merge(self, *, tree=None, parents=None):
+        tree = tree or self.git('rev-parse', self.candidate + '^{tree}')
+        arguments = [arg for parent in (parents or [self.base, self.head]) for arg in ('-p', parent)]
+        live = self.git('commit-tree', tree, *arguments, '-m', 'Regenerated GitHub test merge')
+        self.merge = {'sha': live, 'parents': [{'sha': x} for x in (parents or [self.base, self.head])]}
+        self.pr['merge_commit_sha'] = live
+        return live
+
+    def test_regenerated_test_merge_keeps_original_analysis_identity(self):
+        live = self.regenerated_merge()
+        self.assertNotEqual(live, self.candidate)
+        result = self.verify()
+        self.assertEqual(result['source_commit'], self.candidate)
+        self.assertEqual(result['observed_merge_commits'], sorted([live, self.candidate]))
+        self.assertEqual(self.analyses[0]['commit_sha'], self.candidate)
+
+    def test_equivalent_regeneration_at_final_bookend_is_accepted(self):
+        reads = [0]
+        def regenerate(endpoint):
+            if endpoint.endswith('/commits/refs/pull/42/merge?per_page=1&page=1'):
+                reads[0] += 1
+                if reads[0] == 2:
+                    self.regenerated_merge()
+        self.api.change = regenerate
+        self.assertEqual(self.verify()['source_commit'], self.candidate)
+        self.assertEqual(reads[0], 2)
+
+    def test_regenerated_merge_with_changed_tree_or_ordered_parents_rejects(self):
+        for shape in ('tree', 'reversed', 'extra', 'base', 'head'):
+            self.setUp()
+            parents = {'reversed': [self.head, self.base], 'extra': [self.base, self.head, self.candidate],
+                       'base': [self.candidate, self.head], 'head': [self.base, self.candidate]}.get(shape)
+            self.regenerated_merge(tree=self.git('rev-parse', self.base + '^{tree}') if shape == 'tree' else None,
+                                   parents=parents)
+            with self.subTest(shape=shape), self.assertRaises(RESULTS.ResultError):
+                self.verify()
+
+    def test_live_merge_cannot_replace_original_sarif_identity(self):
+        live = self.regenerated_merge()
+        self.analyses[0]['commit_sha'] = live
+        with self.assertRaises(RESULTS.ResultError):
+            self.verify()
 
     def pinned_policy_candidate(self, changed_path='.github/test-suites.json', extra_sources=None,
                                 existing_sources=None,replacement='{"fixture":2}\n'):

@@ -693,6 +693,21 @@ except (ValueError,OSError):
                 return json.loads(result.stdout)
             self.assertEqual(run(),{'success':True,'target':'android-main',
                 'api_source':str(root/'tools/test-evidence/producer_api.py')})
+            # A real native event may retain the first temporary M after
+            # GitHub regenerates its live test merge. Authenticate both.
+            immutable = {'tree':{'sha':'f'*40},'parents':[{'sha':base},{'sha':'c'*40}]}
+            responses['git/commits/'+'d'*40] = {'sha':'d'*40,**deepcopy(immutable)}
+            responses['git/commits/'+'a'*40] = {'sha':'a'*40,**deepcopy(immutable)}
+            responses['commits/refs/pull/23/merge']['sha'] = 'a'*40
+            data.write_text(json.dumps(responses))
+            self.assertTrue(run()['success'])
+            for field,value in (('tree',{'sha':'9'*40}),
+                                ('parents',[{'sha':'c'*40},{'sha':base}])):
+                responses['git/commits/'+'d'*40][field] = value
+                data.write_text(json.dumps(responses))
+                self.assertEqual(run(),{'success':False,'api_loaded':False})
+                responses['git/commits/'+'d'*40] = {'sha':'d'*40,**deepcopy(immutable)}
+            data.write_text(json.dumps(responses))
             shadow=root/'tools/test-evidence/json.py'; shadow.write_text('raise RuntimeError("unreviewed import")\n')
             self.assertEqual(run(),{'success':False,'api_loaded':False}); shadow.unlink()
             guard=root/'tools/test-evidence/source_admission.py'
