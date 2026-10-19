@@ -1,5 +1,11 @@
 # Phone adapter implementation, local source only
 
+The native reader additionally accepts the bounded original Rig call/pose
+history with `require_animation_history=True`. One new bound source case keeps
+historical clip frames immutable across fresh acquisitions and rejects a later
+source downgrade; the focused group now passes **56** host cases. The history
+does not establish input cause, pixels, peers or a full Emote implementation.
+
 Branch: `test/android-phone/shared-feature-adapters-20261019`.
 Product base: `718d069add` (Phone typed-config parity repair), composed with the
 Main common-journey branch through ordinary local parent-to-child merges.

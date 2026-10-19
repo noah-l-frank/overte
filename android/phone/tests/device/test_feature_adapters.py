@@ -40,6 +40,8 @@ from adapters.world_render_storage import receipt_file
 from self_tests.test_world_render_evidence import Boundary as WorldBoundary
 from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
 from self_tests.test_owned_world_render import LocalAdb
+from self_tests.test_native_animation_history import history_source
+from adapters.native_animation_history import clip_run
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -307,6 +309,19 @@ class FeatureAdapterTests(unittest.TestCase):
         source.mutate = original
         with self.assertRaises(RuntimeError): reader.read(second['sequence'], require_recorded_history=True)
         self.assertEqual([], self.native.inputs)
+
+    def test_phone_animation_history_preserves_original_effect_frames_and_refuses_downgrade(self):
+        source=self.native_feature_boundaries();original=source.mutate
+        def observed(value):original(value);history_source(value)
+        source.mutate=observed;reader=self.adapter._native_feature_observer(SELECTOR)
+        first=reader.read(0,require_animation_history=True)
+        event,frames=clip_run(first,'file:///actual/bundled/Sit2.fbx',after_event=0,after_epoch=19000)
+        self.assertEqual(19000,event['capturedEpochMs']);self.assertEqual(2,len(frames))
+        second=reader.read(first['sequence'],require_animation_history=True)
+        self.assertEqual(first['animation']['history'],second['animation']['history'])
+        source.mutate=original
+        with self.assertRaises(RuntimeError):reader.read(second['sequence'])
+        self.assertEqual([],self.native.inputs)
 
     def test_native_feature_packet_is_original_and_bound_to_actual_installed_candidate_and_pid(self):
         source = self.native_feature_boundaries()
