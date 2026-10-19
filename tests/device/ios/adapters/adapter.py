@@ -122,6 +122,19 @@ class IOSAdapter(AppiumAdapter):
         return normal_scripts.flow(NativeUI(client, session, continuity), native, observer,
                                    self.script_store(selector), session, state)
 
+    def script_files_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('normal-script-files.json'))
+
+    def _script_files(self, selector):
+        from adapters.native_script_files import OwnedScriptFiles
+        manager = self._scripts(selector)
+        native = manager.ui.io.native
+        # Reuse the actual session/fingerprint/PID continuity closure, rather
+        # than creating a process-only component reader for persistent files.
+        observer = FeatureObservation(native.client, native.session, native.target, native.observe_process)
+        return OwnedScriptFiles(observer.script_fixture_files(), self.script_files_store(selector),
+                                manager.binding, component_only=True)
+
     def _script_file_picker(self, selector, directory):
         from adapters.token_script_file_ui import TokenScriptFilePicker
         manager = self._scripts(selector)
@@ -142,7 +155,7 @@ class IOSAdapter(AppiumAdapter):
         # The canonical installed-code gate still rejects _scripts(). Always
         # reach original native/session teardown and retain unresolved sources.
         result = super().cleanup(selector)
-        need(not script_error and store.read() is None)
+        need(not script_error and store.read() is None and self.script_files_store(selector).read() is None)
         return result
 
     @staticmethod

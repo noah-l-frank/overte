@@ -106,6 +106,9 @@ def create_adapter(args, base_class):
         def _script_execution_observer(self, *args, **kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
+        def _script_files(self, *args, **kwargs):
+            raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
+
         def _script_file_picker(self, *args, **kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 

@@ -22,6 +22,7 @@ from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, FILE as
     INPUT as PREVIEW_INPUT, SINK as PREVIEW_SINK, MAX_BYTES as PREVIEW_LIMIT)
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from ios.adapters.appium_adapter import AppiumAdapter, WebDriverRequestError
+from adapters.native_script_files import NativeScriptFiles, FILE as SCRIPT_FIXTURE_FILE, command as script_files_command
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -87,10 +88,16 @@ class FeatureObservation:
 
     def send(self, command):
         self.guard()
+        limit = 4096
+        if command.get("action") == "feature-script-files":
+            script_files_command(command, ios=True)
+            limit = 49152
         payload = json.dumps(command).encode()
+        if len(payload) > limit:
+            raise NativeUIError("Native iOS feature command exceeds its transport bound")
         with post_request(Request(self.origin + '/e2e-client-command.json', data=payload,
                 method='POST', headers={'Content-Type': 'application/json'}), timeout=5) as response:
-            content = response.read(4097)
+            content = response.read(limit + 1)
             def pairs(items):
                 value = {}
                 for key, item in items:
@@ -99,7 +106,7 @@ class FeatureObservation:
                     value[key] = item
                 return value
             echo = json.loads(content, object_pairs_hook=pairs)
-            if (response.status != 200 or len(content) > 4096 or echo != command
+            if (response.status != 200 or len(content) > limit or echo != command
                     or type(echo) is not dict
                     or any(type(echo[key]) is not type(command[key]) for key in command)):
                 raise ValueError()
@@ -140,6 +147,14 @@ class FeatureObservation:
         remote = self.remote.rsplit('/', 1)[0] + '/' + SCRIPT_EXECUTION_FILE
         return NativeScriptObservation(self.send,
             lambda: self.original(remote=remote, limit=NATIVE_FEATURE_LIMIT),
+            self.epoch_ms, self.guard, self.process['pid'], ios=True,
+            monotonic=self.monotonic, sleep=self.sleep)
+
+    def script_fixture_files(self):
+        self.guard()
+        remote = self.remote.rsplit('/', 1)[0] + '/' + SCRIPT_FIXTURE_FILE
+        return NativeScriptFiles(self.send,
+            lambda: self.original(remote=remote, limit=65536),
             self.epoch_ms, self.guard, self.process['pid'], ios=True,
             monotonic=self.monotonic, sleep=self.sleep)
 

@@ -25,6 +25,8 @@ from self_tests.test_token_script_ui import NativeBoundary, SOURCE
 from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
 from adapters import token_script_file_ui as file_module
 from adapters.token_script_file_ui import TokenScriptFilePicker
+from adapters.native_script_files import NativeScriptFiles
+from self_tests.test_native_script_files import Boundary as FilesBoundary
 
 
 class Native:
@@ -37,6 +39,7 @@ class Native:
         self.elements, self.commands = {}, []
         self.fixture = FixtureState()
         self.retire_on_click = False
+        self.file_source = None
         self.target = dict(platform='ios', physical=True, appId='org.example.client',
             serverUrl='http://controlled.invalid:49121', probe={'kind': 'ios-documents'},
             nativeUiObservation={'kind': 'uikit-documents', 'version': 1},
@@ -90,6 +93,8 @@ class Native:
                 self.receipt = dict(schemaVersion=1, commandId=command['commandId'], status=dict(
                     schemaVersion=1, commandId=native['commandId'], instance=self.instance, sequence=self.sequence,
                     performed=True, processId=42, sampleEpochMs=self.epoch()))
+        elif command['action'] == 'feature-script-files':
+            self.file_source.send(command)
         elif command['action'] == 'normal-feature-observe':
             self.diagnostic, _ = self.qt.observe(0)
             self.diagnostic.update(requestId=command['commandId'], sampleEpochMs=self.epoch())
@@ -108,7 +113,9 @@ class Native:
         assert operation == 'mobile: pullFile'
         root = '@org.example.client:documents/owned-results/'
         name = values['remotePath'].removeprefix(root)
-        assert name in {'ios-normal-ui-request-result.json', 'normal-feature-observation.json'}
+        assert name in {'ios-normal-ui-request-result.json', 'normal-feature-observation.json', 'feature-script-files.json'}
+        if name == 'feature-script-files.json':
+            return base64.b64encode(self.file_source.read().encode()).decode()
         value = self.receipt if name.startswith('ios-normal-ui') else self.diagnostic
         return base64.b64encode(json.dumps(value).encode()).decode()
 
@@ -197,6 +204,50 @@ class IOSNormalScriptsTests(unittest.TestCase):
             monotonic=lambda: self.native.file_ui.clock, sleep=self.native.file_ui.sleep))
         boundary.start(); self.addCleanup(boundary.stop)
         return self.adapter._script_file_picker('test-only-selector', root.as_uri())
+
+    def file_storage(self):
+        source = FilesBoundary(self.path.parent); self.native.file_source = source
+        source.mutate = lambda value: value.update(processId=42, requestedEpochMs=self.native.epoch(),
+                                                  capturedEpochMs=self.native.epoch())
+        boundary = patch.object(feature_observation, 'NativeScriptFiles', partial(NativeScriptFiles,
+            monotonic=lambda: source.clock, sleep=source.sleep))
+        boundary.start(); self.addCleanup(boundary.stop)
+        return source, self.adapter._script_files('test-only-selector')
+
+    def test_ios_staged_originals_use_actual_http_afc_and_separate_native_absence(self):
+        source, files = self.file_storage()
+        self.assertEqual(source.root.as_uri(), files.stage('a' * 32))
+        intent = self.adapter.script_files_store('test-only-selector').read()
+        self.assertEqual('NATIVE_UI_COMPONENT_ONLY', intent['binding']['scope'])
+        self.assertNotIn('artifactSha256', intent['binding'])
+        files.release(); self.assertFalse(source.root.exists())
+        self.assertIsNone(self.adapter.script_files_store('test-only-selector').read())
+        self.assertEqual([], self.native.qt.inputs)
+
+    def test_ios_staged_ack_without_original_files_cannot_pass_readback(self):
+        source, files = self.file_storage(); source.fault = 'ack-only'
+        with self.assertRaises(NativeUIError): files.stage('a' * 32)
+        self.assertIsNotNone(self.adapter.script_files_store('test-only-selector').read())
+        self.assertEqual(1, sum(c['operation'] == 'stage' for c in source.commands))
+
+    def test_ios_staged_file_foreign_process_cannot_release_or_retire_intent(self):
+        source, files = self.file_storage(); files.stage('a' * 32)
+        before = len(source.commands); self.native.pid = 43
+        with self.assertRaises(NativeUIError): files.release()
+        self.assertEqual(before, len(source.commands)); self.assertTrue(source.root.exists())
+        self.assertIsNotNone(self.adapter.script_files_store('test-only-selector').read())
+
+    def test_ios_staged_file_ignored_release_keeps_files_and_intent(self):
+        source, files = self.file_storage(); files.stage('a' * 32); source.fault = 'ignored-release'
+        with self.assertRaises(NativeUIError): files.release()
+        self.assertTrue(source.root.exists())
+        self.assertIsNotNone(self.adapter.script_files_store('test-only-selector').read())
+
+    def test_ios_general_cleanup_fails_with_persistent_files_after_original_process_teardown(self):
+        source, files = self.file_storage(); files.stage('a' * 32)
+        with self.assertRaises(NativeUIError): self.adapter.cleanup('test-only-selector')
+        self.assertFalse(self.native.running); self.assertTrue(source.root.exists())
+        self.assertIsNotNone(self.adapter.script_files_store('test-only-selector').read())
 
     def test_ios_file_bundle_and_relative_companion_use_original_native_controls_and_review(self):
         picker = self.file_picker(); picker.open(); picker.choose('script-bundle/main.js')

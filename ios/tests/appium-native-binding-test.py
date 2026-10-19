@@ -62,6 +62,8 @@ class Binding(unittest.TestCase):
                 native._script_execution_observer('test-only', object(), 'session', {}, {})
             with self.assertRaisesRegex(ValueError, 'OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE'):
                 native._script_file_picker('test-only', 'file:///private')
+            with self.assertRaisesRegex(ValueError, 'OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE'):
+                native._script_files('test-only')
             preflight.side_effect = ValueError("candidate changed")
             with self.assertRaises(ValueError):
                 native.describe("test-only")

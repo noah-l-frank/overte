@@ -64,20 +64,30 @@ Home/Down/Return events with actual model/focus checks, followed by readback.
 The closed `select-index` extension carries only an integer 0..31, never a
 preferred filename, model assignment or script load command.
 
-**Fourteen** Script component boundary tests pass (eight existing plus six file
+**Nineteen** Script component boundary tests pass (eight foundations, six picker and five storage
 cases), including ignored row/selector input, actual relative companion review,
 foreign UIKit token, missing marker and changed process. The broad no-build
-selection passes **241** tests, zero failures/errors/skips and zero compiler
+selection passes **246** tests, zero failures/errors/skips and zero compiler
 attempts, with the same 20 compiler-dependent tests explicitly omitted. Five
 canonical candidate binding tests pass, explicitly rejecting the new private
 picker method even after candidate preflight. Native C++/Objective-C++ remains
 **uncompiled and device unqualified**. These simulated boundaries prove control
 logic only. See [the file control contract](../../native/NORMAL_SCRIPT_FILES.md).
 
-The file primitive does not yet own staged app files or persist an open picker
-intent; failed inputs can leave that dialog unresolved for the future owner.
-The owning full adapter still needs original staged-byte verification, persisted
-file/picker/engine cleanup and an advancing actual entity-effect/journal join.
+The new internal `_script_files()` joins exclusive native fixture staging to
+the same actual native input process/session/fingerprint continuity closure.
+It persists explicitly component-only file ownership before Stage, verifies
+separately returned original bytes and requires Release plus a separate fresh
+absence query. HTTP/AFC transfer bounds remain closed; only this validated
+fixture command admits its bounded 49152-byte echo. General cleanup reaches
+original teardown and then fails if any persistent file intent remains. Lost
+process, ACK-only staging and ignored release are counterexamples. The canonical
+binding explicitly refuses this private method too. See
+[the storage contract](../../native/SCRIPT_FIXTURE_STORAGE.md).
+
+The full owner still needs persisted open-picker/engine cleanup intent, verified
+restart handoff and an advancing actual entity-effect/journal join. A failed
+picker input can leave that dialog unresolved for the future owner.
 No new `feature.*` capability is advertised. Canonical installed-code association
 remains blocked; the private method has an explicit refusal in that binding.
 
@@ -131,7 +141,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/device/ios/self_
 PYTHONDONTWRITEBYTECODE=1 python3 ios/tests/appium-native-binding-test.py
 ```
 
-The fourteen-case Script file is discovered by the existing
+The nineteen-case Script file is discovered by the existing
 `ios/tests/run-tests.sh` Python self-test group. No global workflow was changed.
 Tests replace HTTP/AFC/process/time boundaries and use one owned loopback server
 to verify redirect refusal. That server is a protocol fixture, not an Appium or
