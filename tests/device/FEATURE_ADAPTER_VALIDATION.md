@@ -6,18 +6,19 @@ all physical qualification remain open. See
 
 Current continuation validation (all source only):
 
-* **341** common quick-selection Python/JavaScript cases pass, zero failures,
+* **351** common quick-selection Python/JavaScript cases pass, zero failures,
   errors or skips. Three original Voice compile cases are explicitly omitted;
-  the compiler guard observed zero build attempts. This includes the version 2
-  Script flow, normal file-picker recipe and private fixture-storage
-  counterexamples, alongside native module/preview source checks.
-* Phone's focused real candidate wrapper group passes **35** cases. Pico's
-  focused original-observation wrapper group passes **15** cases; its separate
+  the compiler guard observed zero build attempts. This includes version 3 Audio phase/history/PCM counterexamples, corrected
+  Script flow, normal file-picker recipe and private fixture-storage, alongside
+  actual native effect/module/preview source checks. The shared journey group
+  passes **33** cases; the native Script source group passes **19** cases.
+* Phone's focused real candidate wrapper group passes **36** cases. Pico's
+  focused original-observation wrapper group passes **16** cases; its separate
   normal Script group passes **14** cases and the original binding/navigation
   group passes **31** cases. No device is contacted.
-* The broad iOS Python component selection passes **246** cases, zero failures,
+* The broad iOS Python component selection passes **247** cases, zero failures,
   errors or skips, with the same 20 native compiler-dependent cases omitted
-  and zero build attempts. Its focused source group has **20** cases; the
+  and zero build attempts. Its focused source group has **21** cases; the
   canonical installed-code binding group passes five cases including rejection
   of every new internal source reader and file-picker component. The Script
   component group passes **19** cases.

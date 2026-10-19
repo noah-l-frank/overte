@@ -69,14 +69,14 @@ def image_observation(content, run, ticket, policy, previous=None, changed=False
     return dict(sha256=hashlib.sha256(content).hexdigest(), subjectChangedFraction=difference), subject
 
 
-def audio_observation(content, run, ticket, silence=False):
+def audio_observation(content, run, ticket, silence=False, *, profile='voice-v1'):
     from voice_peer.voice_signal import analyze
     with tempfile.TemporaryDirectory(prefix='overte-feature-pcm-') as directory:
         path = Path(directory) / 'capture.wav'
         path.write_bytes(content)
         import wave
         try:
-            result = analyze(path, challenge(run, ticket).hex(), 'absent' if silence else 'present')
+            result = analyze(path, challenge(run, ticket).hex(), 'absent' if silence else 'present', profile=profile)
         except (ValueError, EOFError, wave.Error) as error:
             raise AssertionError('Original PCM capture is malformed or incomplete') from error
     if not result['passed']:
@@ -86,7 +86,7 @@ def audio_observation(content, run, ticket, silence=False):
 
 def file_observation(content, area, run, ticket, policy, fixture_url=None, model_ticket=None, texture_ticket=None):
     if area == 'audio':
-        return audio_observation(content, run, ticket)
+        return audio_observation(content, run, ticket, profile='recorded-preview-v1')
     if area == 'snapshots':
         from snapshot_observation import inspect_snapshot
         try:

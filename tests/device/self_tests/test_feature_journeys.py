@@ -82,6 +82,9 @@ class Boundary:
             if self.fault != 'background-ignored':
                 self.lifecycle['backgrounds'] += 1
                 self.lifecycle['activations'] += 1
+            if a == 'audio' and s['recording']:
+                s.update(recording=False, phase='cancelled', history=['capturing', 'cancelled'],
+                         bufferedFrames=0, error='backgrounded')
             if a == 'lifecycle-input':
                 s.update(keyboard=False, focused=False)
             return
@@ -158,18 +161,26 @@ class Boundary:
             elif verb == 'mirror-enable': s['mirror'] = True
             elif verb == 'restore': s.update(resolution=1.0, renderScale=1.0, shadows=True, shadowPass=True, mirror=False)
         elif a == 'audio':
-            if verb == 'set-microphone-permission': s.update(permission=data['state'], error='none')
+            if verb in ('open', 'close'): s['open'] = verb == 'open'
             elif verb == 'record-start':
-                if s['permission'] == 'denied': s['error'] = 'permission-denied'
+                if s['muted']:
+                    s.update(phase='error', history=['error'], error='microphone-muted',
+                             recordedFrames=0, playedFrames=0, bufferedFrames=0)
                 else:
-                    s.update(recording=True, recordedFrames=120000)
+                    s.update(recording=True, preview=False, phase='capturing', history=['capturing'],
+                             error='none', recordedFrames=24000, playedFrames=0, bufferedFrames=24000)
                     self.recorded_ticket = self.ticket
-            elif verb == 'record-cancel': s.update(recording=False, recordedFrames=0)
-            elif verb == 'record-stop': s['recording'] = False
-            elif verb == 'preview-start': s['preview'] = True
-            elif verb == 'preview-stop': s['preview'] = False
-            elif verb == 'mute': s['muted'] = data['enabled']
-            elif verb == 'discard': s['recordedFrames'] = 0
+            elif verb == 'record-cancel':
+                s.update(recording=False, phase='cancelled', history=['capturing', 'cancelled'], bufferedFrames=0)
+            elif verb == 'await-completion':
+                s.update(recording=False, preview=False, phase='completed',
+                    history=['capturing', 'playing', 'draining', 'completed'],
+                    recordedFrames=144000, playedFrames=144000, bufferedFrames=0)
+            elif verb == 'mute':
+                s['muted'] = data['enabled']
+                if s['muted'] and s['recording']:
+                    s.update(recording=False, phase='cancelled', history=['capturing', 'cancelled'],
+                             bufferedFrames=0, error='microphone-muted')
         elif a == 'chat':
             if verb in {'open','close'}:
                 s['open'] = verb == 'open'
@@ -285,12 +296,12 @@ class Boundary:
             self.last_image = content
             values = {'image': content}
             if self.area == 'audio':
-                source = self.recorded_ticket if state['preview'] or self.verb == 'record-stop' else self.ticket
-                audible = state['preview'] or self.verb == 'mute' and not state['muted']
-                audio = wav_bytes(RUN, source or self.ticket)
+                source = self.recorded_ticket if state['phase'] == 'completed' else self.ticket
+                audible = state['phase'] == 'completed'
+                audio = wav_bytes(RUN, source or self.ticket, profile='recorded-preview-v1')
                 if not audible:
                     audio = audio[:44] + bytes(len(audio) - 44)
-                values.update(audio=audio, file=wav_bytes(RUN, self.recorded_ticket or self.ticket))
+                values.update(audio=audio, file=wav_bytes(RUN, self.recorded_ticket or self.ticket, profile='recorded-preview-v1'))
             elif self.area == 'snapshots': values['file'] = self.image(self.capture_ticket or self.ticket)
             elif self.area == 'create': values['file'] = json.dumps(document(RUN, model_ticket=self.model_ticket, texture_ticket=self.texture_ticket)).encode()
             elif self.area == 'assets': values['file'] = companion('gltf-bundle/main.gltf')
@@ -355,6 +366,53 @@ class FeatureJourneys(unittest.TestCase):
                     boundary.execute()
                 self.assertFalse(boundary.reports[0]['sequenceCompleted'])
 
+    def test_audio_contract_rejects_invented_save_preview_commands_and_old_version(self):
+        request = dict(contractVersion=VERSION, runId=RUN, ticket=TICKET,
+            fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/', verb='await-completion', inputs={})
+        self.assertEqual(request, arguments('feature.audio.act', request))
+        for change in ({'contractVersion':2}, *({'verb':verb} for verb in ('record-stop', 'preview-start', 'preview-stop', 'discard'))):
+            with self.subTest(change=change), self.assertRaises(ValueError): arguments('feature.audio.act', request | change)
+
+    def test_audio_completion_needs_whole_native_history_equal_played_frames_and_empty_buffers(self):
+        boundary = Boundary('audio'); boundary.reduce('record-start', {}); boundary.reduce('await-completion', {})
+        original = boundary.observe({'afterSequence':0})
+        for change in ({'history':['completed']}, {'playedFrames':120000}, {'bufferedFrames':1},
+                       {'recording':True}, {'preview':True}, {'error':'microphone-muted'}):
+            value = copy.deepcopy(original); value['state'].update(change)
+            with self.subTest(change=change), self.assertRaises(ValueError): result('feature.audio.observe', value)
+        value = copy.deepcopy(original); value['state']['phase'] = 'playing'
+        with self.assertRaises(ValueError): result('feature.audio.observe', value)
+        value = copy.deepcopy(original)
+        value['state'].update(phase='playing', history=['capturing', 'playing'], preview=True,
+                              playedFrames=120000, bufferedFrames=144000)
+        self.assertEqual(value, result('feature.audio.observe', value))
+        from feature_journeys.engine import matches
+        completed = next(step['state'] for step in SCENARIOS['audio']['steps'] if step['verb'] == 'await-completion')
+        self.assertFalse(matches(value['state'], completed))
+
+    def test_audio_ignored_cancel_and_automatic_completion_do_not_pass_by_acknowledgment(self):
+        for verb in ('record-cancel', 'await-completion'):
+            with self.subTest(verb=verb):
+                boundary = Boundary('audio', 'input-ignored', verb)
+                with self.assertRaises((AssertionError, ValueError)): boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+                self.assertTrue(boundary.reports[0]['cleanupSucceeded'])
+
+    def test_audio_current_receipt_with_foreign_recording_or_acoustic_bytes_is_rejected(self):
+        for kind in ('file', 'audio'):
+            with self.subTest(kind=kind):
+                boundary = Boundary('audio'); original = boundary.observe
+                def observe(fields):
+                    value = original(fields)
+                    if boundary.state['phase'] == 'completed':
+                        for artifact in value['artifacts']:
+                            if artifact['kind'] == kind:
+                                boundary.files[artifact['name']] = wav_bytes(RUN, TICKET, profile='recorded-preview-v1')
+                    return value
+                boundary.observe = observe
+                with self.assertRaises(AssertionError): boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
     def test_script_picker_cancellation_and_real_companion_resolution_are_observed(self):
         for fault in ('execution-on-cancel', 'missing-relative-companion'):
             with self.subTest(fault=fault):
@@ -370,11 +428,11 @@ class FeatureJourneys(unittest.TestCase):
                 with self.assertRaises(AssertionError): boundary.execute()
                 self.assertFalse(boundary.reports[0]['sequenceCompleted'])
 
-    def test_v2_script_contract_rejects_old_consent_flow_and_v1_observations(self):
-        request = dict(contractVersion=2, runId=RUN, ticket=TICKET,
+    def test_current_script_contract_rejects_old_consent_flow_and_prior_observations(self):
+        request = dict(contractVersion=VERSION, runId=RUN, ticket=TICKET,
             fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/', verb='picker-open', inputs={})
         self.assertEqual(request, arguments('feature.scripts.act', request))
-        for changed in ({'contractVersion':1}, {'verb':'consent-accept'}, {'verb':'load-folder', 'inputs':{'resource':'script-bundle'}}):
+        for changed in ({'contractVersion':1}, {'contractVersion':2}, {'verb':'consent-accept'}, {'verb':'load-folder', 'inputs':{'resource':'script-bundle'}}):
             with self.assertRaises(ValueError): arguments('feature.scripts.act', request | changed)
         boundary = Boundary('scripts'); sample = boundary.observe({'afterSequence':0})
         sample['contractVersion'] = 1
@@ -608,9 +666,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v2.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v3.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v2.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v3.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():
