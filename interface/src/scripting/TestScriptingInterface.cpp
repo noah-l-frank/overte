@@ -71,6 +71,7 @@
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
+#include <MessagesClient.h>
 #include <AudioClient.h>
 #include <avatars-renderer/SkeletonModel.h>
 #include <QCryptographicHash>
@@ -486,6 +487,23 @@ QVariantMap TestScriptingInterface::featureWorldRenderReceipt(const QVariantMap&
     return {{"receiptVersion",1},{"commandId",id},{"requestId",request},{"receiptId",receipt},
         {"operation",operation},{"instance",state->instance()}, {"sequence",static_cast<qulonglong>(++_featureWorldReceiptSequence)},
         {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()}, {"source",source}};
+}
+
+QVariantMap TestScriptingInterface::featureChatObservation(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this, [&] { result = featureChatObservation(command); }, Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !overte::e2e::previewDirectory(_testResultsLocation)
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto messages = DependencyManager::get<MessagesClient>();
+    QVariantMap result;
+    const auto read = [&] { result = messages->featureChatObservation(command); };
+    if (QThread::currentThread() == messages->thread()) { read(); }
+    else if (!QMetaObject::invokeMethod(messages.data(), read, Qt::BlockingQueuedConnection)) { return {}; }
+    return result;
 }
 
 QVariantMap TestScriptingInterface::featureNativeObservation(const QString& requestId) {
@@ -1160,7 +1178,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
+    if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"
