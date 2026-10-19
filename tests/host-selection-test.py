@@ -1963,8 +1963,11 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
                     result=HOST.select(current,paths,True,base_tree=before,trusted_tree=old,
                         candidate_root=root,trusted_root=root,target=target)
                     self.assertTrue(result["full_host"]);self.assertTrue(result["include_platform"])
-            leaf=root/"tools/ios-build-qualification/inputs.py";leaf.write_text(leaf.read_text()+"\n# Unauthenticated physical policy\n")
-            self.assertIsNone(HOST._ios_routing_views(child,parent,old,root,"apple-ios"))
+            policy="tools/ios-build-qualification/inputs.py"
+            for field,value in (("sha","a"*40),("mode","120000")):
+                with self.subTest(untrusted_policy_field=field):
+                    untrusted=copy_git_tree(old);untrusted[policy][field]=value
+                    self.assertIsNone(HOST._ios_routing_views(child,parent,untrusted,root,"apple-ios"))
 
     def test_exact_cache_installation_selects_only_ci37_without_changing_raw_readers(self):
         with self.transition_profiles() as (root,old,new,registry):
