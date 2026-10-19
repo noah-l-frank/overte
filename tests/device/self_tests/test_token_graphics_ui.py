@@ -12,11 +12,12 @@ from adapters.token_graphics_ui import TokenGraphicsUI
 
 
 class GraphicsBoundary:
-    def __init__(self):
-        self.clock,self.position,self.resolution=0.0,0.0,0.65
+    def __init__(self,*,generic=False):
+        self.clock,self.position,self.resolution=0.0,0.0,0.6 if generic else 0.65
+        self.minimum,self.maximum,self.step=(0.1,2.0,0.1) if generic else (0.5,0.7,0.05)
         self.haze,self.mirrors=False,False
         self.instance,self.generation='a'*32,'b'*32
-        self.profile='phone-immediate-v1';self.fault=''
+        self.profile='generic-immediate-v1' if generic else 'phone-immediate-v1';self.fault=''
         self.actions,self.intents=[],[];self.transform=lambda value:value
 
     def sleep(self,seconds):self.clock+=seconds
@@ -32,7 +33,7 @@ class GraphicsBoundary:
             return dict(id=identifier,token=hashlib.sha256(source.encode()).hexdigest()[:32],enabled=True,
                         inputReady=viewport=='visible',viewport=viewport,**fields)
         controls=[dict(id='graphics.page',token='c'*32,enabled=True,inputReady=False,viewport='visible',profile=self.profile),
-            row('graphics.resolution',0.9,value=self.resolution,nativeValue=self.resolution,minimum=0.5,maximum=0.7,step=0.05),
+            row('graphics.resolution',0.9,value=self.resolution,nativeValue=self.resolution,minimum=self.minimum,maximum=self.maximum,step=self.step),
             row('graphics.haze',0.2,checked=self.haze,nativeChecked=self.haze),
             row('graphics.mirrors',0.55,checked=self.mirrors,nativeChecked=self.mirrors),
             row('graphics.scrollbar',self.position+0.1,position=self.position,size=0.35)]
@@ -69,9 +70,17 @@ class GraphicsBoundary:
 
 
 class GraphicsUiTests(unittest.TestCase):
-    def ui(self,fault=''):
-        native=GraphicsBoundary();native.fault=fault
+    def ui(self,fault='',*,generic=False):
+        native=GraphicsBoundary(generic=generic);native.fault=fault
         return native,TokenGraphicsUI(native,native.intent,monotonic=lambda:native.clock,sleep=native.sleep)
+
+    def test_generic_slider_uses_its_actual_range_step_and_original_value(self):
+        native,ui=self.ui(generic=True)
+        ui.set_resolution(0.5);ui.set_resolution(0.8);ui.set_resolution(0.6)
+        self.assertEqual(0.6,native.resolution);self.assertEqual('generic-immediate-v1',ui.profile)
+        before=list(native.actions)
+        with self.assertRaises(NativeUIError):ui.set_resolution(0.65)
+        self.assertEqual(before,native.actions)
 
     def test_normal_resolution_toggles_and_nondefault_restore_require_native_readback(self):
         native,ui=self.ui();original=native.resolution
