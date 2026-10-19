@@ -29,6 +29,7 @@ private:
         QPointer<QQuickItem> item;
         QPointer<QQuickWindow> window;
         QString token;
+        QString source;
     };
     bool guiThread() const;
     QPointer<QQuickItem> _hud;

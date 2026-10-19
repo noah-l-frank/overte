@@ -11,6 +11,7 @@ verify execution, and the portable modules verify the resulting behavior.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import math
 import os
@@ -30,6 +31,9 @@ from adapters.normal_ui import NativeUI
 from ios.adapters.normal_input import NativeInput
 from ios.adapters import normal_navigation
 from ios.adapters import normal_snapshot
+from ios.adapters import normal_scripts
+from scripts_observation import OPERATIONS as SCRIPT_OPERATIONS
+from adapters.normal_feature_state import PrivateFeatureState, need
 from ios.adapters.snapshot_files import SnapshotFiles
 from ios.adapters.feature_observation import FeatureObservation
 from navigation_observation import OPERATIONS as NORMAL_NAVIGATION_OPERATIONS, viewpoint_urls
@@ -82,7 +86,53 @@ class IOSAdapter(AppiumAdapter):
                 values |= NORMAL_NAVIGATION_OPERATIONS
             if normal_snapshot.configuration(target) is not None:
                 values |= normal_snapshot.OPERATIONS
+            if normal_scripts.configuration(target) is not None:
+                values |= SCRIPT_OPERATIONS
         return sorted(values)
+
+    def script_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('normal-scripts.json'))
+
+    def _scripts(self, selector):
+        target = self.target(selector)
+        need(normal_scripts.configuration(target) is not None)
+        client, session, state = self.ensure_session(selector)
+        fingerprint = hashlib.sha256(json.dumps(target, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+        need(state.get('targetFingerprint') == fingerprint)
+        generation = state['generation']
+        def continuity():
+            self.assert_ios_process_identity(selector, client, session, state, target)
+            current = self.read_session(selector)
+            need(current is not None and current.get('sessionId') == session
+                 and current.get('generation') == generation and current.get('targetFingerprint') == fingerprint
+                 and hashlib.sha256(json.dumps(self.target(selector), sort_keys=True,
+                     separators=(',', ':')).encode()).hexdigest() == fingerprint)
+        def process():
+            continuity()
+            return self.native_process(client, session, target)
+        continuity()
+        native = NativeInput(client, session, target, process)
+        observer = FeatureObservation(client, session, target, process)
+        return normal_scripts.flow(NativeUI(client, session, continuity), native, observer,
+                                   self.script_store(selector), session, state)
+
+    def cleanup(self, selector):
+        store, script_error = self.script_store(selector), False
+        try:
+            owned = store.read()
+            if owned is not None:
+                scripts = self._scripts(selector)
+                if owned['loadAttempted']:
+                    scripts.invoke('scripts.manager.open', {})
+                    scripts.invoke('scripts.stop', {'url': owned['source']})
+                scripts.invoke('scripts.manager.close', {})
+        except Exception:
+            script_error = True
+        # The canonical installed-code gate still rejects _scripts(). Always
+        # reach original native/session teardown and retain unresolved sources.
+        result = super().cleanup(selector)
+        need(not script_error and store.read() is None)
+        return result
 
     @staticmethod
     def native_process(client, session, target):
@@ -511,6 +561,12 @@ class IOSAdapter(AppiumAdapter):
                 "frameSequence": document["frameSequence"]}
 
     def invoke(self, selector, operation, values):
+        if operation in SCRIPT_OPERATIONS:
+            try:
+                arguments = validate_operation_arguments(operation, values)
+                return self._scripts(selector).invoke(operation, arguments)
+            except Exception:
+                raise RuntimeError('Normal iOS Script component operation failed') from None
         if operation in NORMAL_NAVIGATION_OPERATIONS:
             target = self.target(selector)
             profile = normal_navigation.configuration(target)

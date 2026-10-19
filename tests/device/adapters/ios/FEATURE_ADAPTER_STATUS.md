@@ -17,6 +17,32 @@ the new source option, while normal builds pass it as OFF. No build was run.
 The focused observation group now has **13** passing host cases. See the
 [native observation contract](../../native/README.md).
 
+The normal Script component now implements the existing five `scripts.*`
+foundation operations through native SCRIPTS/From URL/row controls. Opt in with
+`normalScripts:{contractVersion:1,profile:"ios-native-qt-scripts-v1"}` in the
+private physical E2E component configuration. The real producer must expose
+`featureControlsVersion:1` before any input. Source entry uses focused native
+Qt key/IME events; native UIKit widgets activate their original current Qt
+controls. Full actual delegate URLs bind row tokens. The adapter validates the
+observed token on the same resolved UIKit element before clicking, and reused
+source rows retire their UIKit element. This prevents a same-basename foreign
+source from inheriting an action during re-resolution.
+
+Private Script ownership explicitly says `NATIVE_UI_COMPONENT_ONLY`, recording
+the actual process, Appium generation, target fingerprint and native UI instance
+without invented source/artifact hashes. It cannot be adopted as verified
+candidate ownership. Cleanup observes Stop/absence before original teardown;
+ignored Stop, lost process/session or failed source cleanup retains intent and
+fails even if the app has stopped. The canonical installed-code gate still
+blocks all invocations and cannot be bypassed through this component.
+
+Eight new component boundary tests pass and are automatically discovered by
+the existing iOS Python self-test group. The corrected broad no-build selection
+now passes **228** tests, zero failures/errors/skips and zero compiler attempts,
+with the same 20 native compiler-dependent tests explicitly omitted. Native
+compilation, UIKit delivery and device qualification remain unperformed. See
+[the native Script contract](../../native/NORMAL_SCRIPTS.md).
+
 The existing iOS native component now has an internal `_feature_observer` and
 `ios/adapters/feature_observation.py` (under `tests/device`). It uses the real
 native process observer, the existing owned fixture command endpoint and AFC
@@ -45,8 +71,9 @@ This new component must never be used to bypass that gate.
 Concrete native input blocker after that prerequisite:
 `tests/device/ios/adapters/normal_input.py::CONTROLS` and the actual E2E-only
 `IOSNormalUiInput` producer currently cover HUD/address, Places/history and SNAP.
-They do not expose Create fields/history/entity selection, full-URL script
-rows/dialogs, assets or their cancellation/ownership observations. General
+The new Script packet extends these with current source rows/dialogs. Create
+fields/history/entity selection, assets and other complete feature controls
+remain missing. General
 UIKit accessibility existence is not proof of the same native controls. The
 next packet needs source-reviewed ordinary Qt pointer/IME mappings and actual
 control tokens on those live roots, with stale context and cleanup handling.

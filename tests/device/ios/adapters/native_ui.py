@@ -5,6 +5,7 @@ import math
 import time
 import xml.etree.ElementTree as ET
 from contracts import load_tablet_ui_contract
+from adapters.token_script_ui import FIXED as SCRIPT_CONTROLS
 
 
 def validate(document, process_id, now_ms=None):
@@ -32,6 +33,9 @@ def validate(document, process_id, now_ms=None):
         "hud.goto", "address.field", "address.go", "address.cancel", "address.back",
         "tablet.home", "tablet.places", "places.back", "places.forward")}
     allowed |= {"OverteNavigation.tablet.page." + str(page) for page in range(1, 33)}
+    allowed |= {"OverteNavigation." + item for item in SCRIPT_CONTROLS}
+    allowed |= {"OverteNavigation.scripts." + action + '.' + str(row)
+                for action in ('restart', 'stop') for row in range(128)}
     for element in elements:
         if (not isinstance(element, dict) or set(element) != {"identifier", "visible", "enabled", "frame"}
                 or type(element["visible"]) is not bool or type(element["enabled"]) is not bool):

@@ -16,6 +16,7 @@
 #include <cmath>
 #include <functional>
 #include <ui/NativeFieldInput.h>
+#include "../../tests/device/native/NormalScriptControls.h"
 
 namespace overte::ios {
 namespace {
@@ -54,6 +55,8 @@ QString identify(QQuickItem* item, bool hud) {
         if (item->property("text").toString() == QStringLiteral("GO TO")
                 && item->metaObject()->indexOfSignal("clicked()") >= 0) { return QStringLiteral("hud.goto"); }
     } else {
+        const auto script = overte::e2e::scriptControlId(item);
+        if (!script.isEmpty()) { return script; }
         static const QHash<QString, QString> controls {
             { "nav.home", "tablet.home" }, { "goBack", "places.back" }, { "goForward", "places.forward" },
             { "nav.close", "tablet.close" }, { "OverteTabletClose", "tablet.close" },
@@ -124,8 +127,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
             if (!id.isEmpty()) {
                 if (controls.contains(id)) { ambiguous = true; return; }
                 const auto old = _controls.value(id);
-                const auto token = old.item == node && old.window == node->window() ? old.token : nonce();
-                controls.insert(id, { node, node->window(), token });
+                const auto source = overte::e2e::scriptRowSource(node);
+                const auto token = old.item == node && old.window == node->window() && old.source == source ? old.token : nonce();
+                controls.insert(id, { node, node->window(), token, source });
             }
         }
         const auto children = node->childItems();
@@ -155,11 +159,17 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     if (controls.contains(QStringLiteral("address.field"))) {
         for (const auto& id : controls.keys()) {
             if (id.startsWith(QStringLiteral("tablet.")) || id.startsWith(QStringLiteral("places."))
-                    || id.startsWith(QStringLiteral("snapshot."))) {
+                    || id.startsWith(QStringLiteral("snapshot.")) || id.startsWith(QStringLiteral("scripts."))) {
                 controls.remove(id);
             }
         }
     }
+    if (controls.contains(QStringLiteral("scripts.url.field"))) {
+        for (const auto& id : controls.keys()) {
+            if (!id.startsWith(QStringLiteral("scripts.url."))) { controls.remove(id); }
+        }
+    }
+    if (controls.size() > 384) { ambiguous = true; }
     if (ambiguous) { controls.clear(); }
     _controls = controls;
     auto ids = controls.keys(); std::sort(ids.begin(), ids.end());
@@ -174,14 +184,19 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         if (id.startsWith(QStringLiteral("snapshot.mode.")) || id.startsWith(QStringLiteral("snapshot.format."))) {
             row["checked"] = control.item->property("checked").toBool();
         }
+        overte::e2e::appendScriptControlObservation(row, control.item, id);
         observed.append(row);
     }
-    return { { "schemaVersion", 1 }, { "instance", _instance },
+    QJsonObject result { { "schemaVersion", 1 }, { "instance", _instance },
         { "frameSpace", QStringLiteral("qt-window-logical") },
         { "processId", static_cast<double>(QCoreApplication::applicationPid()) },
         { "sampleEpochMs", static_cast<double>(QDateTime::currentMSecsSinceEpoch()) },
         { "elapsedMs", static_cast<double>(_clock.elapsed()) }, { "lastSequence", static_cast<double>(_sequence) },
         { "tabletShown", tabletShown }, { "ready", !ambiguous && hud && hud->window() }, { "controls", observed } };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    result["featureControlsVersion"] = 1;
+#endif
+    return result;
 }
 
 QQuickItem* NormalUiInput::item(const QString& controlId, const QString& token) {
@@ -248,12 +263,18 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     const auto fieldToken = command.value("fieldToken").toString();
     auto field = item(QStringLiteral("address.field"), fieldToken);
     bool snapshotName { false };
+    bool scriptUrl { false };
     if (!field) {
         field = item(QStringLiteral("snapshot.name"), fieldToken);
         snapshotName = field != nullptr;
     }
+    if (!field) {
+        field = item(QStringLiteral("scripts.url.field"), fieldToken);
+        scriptUrl = field != nullptr;
+    }
     if (!field || !enabled(field)) { return result; }
     if (action == QStringLiteral("replace") && command.value("text").isString()) {
+        if (scriptUrl && !overte::e2e::validScriptUrlText(command.value("text").toString())) { return result; }
         if (snapshotName) {
             static const QRegularExpression ownedName {
                 QStringLiteral("\\Aparity-[0-9a-f]{16}-(still-png|still-jpg|animated|panorama|cubemap)\\z") };
@@ -261,7 +282,7 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
             if (text.size() > 48 || !ownedName.match(text).hasMatch()) { return result; }
         }
         result["performed"] = overte::ui::replaceFocusedField(field, field->window(), command.value("text").toString());
-    } else if (action == QStringLiteral("submit") && !snapshotName) {
+    } else if (action == QStringLiteral("submit") && !snapshotName && !scriptUrl) {
         result["performed"] = overte::ui::submitFocusedField(field, field->window());
     }
     return result;

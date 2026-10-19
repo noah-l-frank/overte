@@ -364,6 +364,11 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         }
         OverteIOSE2EAccessibilityButton* control = tabletE2EAccessibilityButton(window, identifier);
         control.sourceControlToken = sourceToken;
+        if (id.startsWith(QStringLiteral("scripts."))) {
+            // The adapter checks this original token on the resolved UIKit
+            // object. Replacing a row also retires that UIKit object above.
+            control.accessibilityValue = sourceToken;
+        }
         control.frame = frame;
         control.accessibilityIdentifier = identifier;
         static const QHash<QString, QString> labels {
@@ -371,6 +376,11 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
             { "address.go", "Go" }, { "address.cancel", "Cancel" }, { "address.back", "Back" },
             { "places.back", "Back" }, { "places.forward", "Forward" },
             { "tablet.home", "Tablet home" }, { "tablet.places", "Places" },
+            { "scripts.entry", "Running Scripts" }, { "scripts.menu", "Menu" },
+            { "scripts.menu-edit", "Edit" }, { "scripts.menu-running", "Running Scripts" },
+            { "scripts.from-url", "From URL" }, { "scripts.list", "Running scripts list" },
+            { "scripts.url.field", "Script URL" }, { "scripts.url.submit", "OK" },
+            { "scripts.url.cancel", "Cancel" },
             { "snapshot.entry", "Snapshots" }, { "snapshot.name", "Snapshot name" },
             { "snapshot.mode", "Snapshot capture mode" }, { "snapshot.format", "Snapshot file format" },
             { "snapshot.capture", "Take snapshot" }, { "snapshot.cancel", "Cancel capture" },
@@ -379,7 +389,9 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
             { "snapshot.format.png", "PNG" }, { "snapshot.format.jpg", "JPEG" }, { "snapshot.format.webp", "WEBP" },
         };
         const auto label = id.startsWith(QStringLiteral("tablet.page."))
-            ? QStringLiteral("Tablet page %1").arg(id.section('.', -1)) : labels.value(id);
+            ? QStringLiteral("Tablet page %1").arg(id.section('.', -1))
+            : id.startsWith(QStringLiteral("scripts.restart.")) ? QStringLiteral("Restart ") + row.value("rowLabel").toString()
+            : id.startsWith(QStringLiteral("scripts.stop.")) ? QStringLiteral("Stop ") + row.value("rowLabel").toString() : labels.value(id);
         control.accessibilityLabel = [NSString stringWithUTF8String:label.toUtf8().constData()];
         control.accessibilityHint = nil;
         control.hidden = NO;

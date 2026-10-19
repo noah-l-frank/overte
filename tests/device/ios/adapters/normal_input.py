@@ -13,10 +13,12 @@ import math
 import re
 import time
 import uuid
-from urllib.request import Request, urlopen
+from urllib.request import Request
+from ios.adapters.feature_observation import post_request as urlopen
 
 from adapters.normal_ui import NativeUIError
 from ios.adapters.appium_adapter import AppiumAdapter
+from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
 
 CONTROLS = frozenset({'hud.goto', 'hud.tablet', 'address.field', 'address.go',
     'address.cancel', 'address.back', 'tablet.home', 'tablet.close', 'tablet.places',
@@ -46,28 +48,39 @@ def _fresh(value, now_ms):
 
 def observation(value, pid, now_ms=None):
     now_ms = time.time() * 1000 if now_ms is None else now_ms
-    if (not isinstance(value, dict) or set(value) != {'schemaVersion', 'instance', 'frameSpace',
-            'processId', 'sampleEpochMs', 'elapsedMs', 'lastSequence', 'tabletShown', 'ready', 'controls'}
+    fields = {'schemaVersion', 'instance', 'frameSpace', 'processId', 'sampleEpochMs',
+              'elapsedMs', 'lastSequence', 'tabletShown', 'ready', 'controls'}
+    if type(value) is dict and 'featureControlsVersion' in value:
+        if type(value['featureControlsVersion']) is not int or value['featureControlsVersion'] != 1:
+            raise NativeUIError('Native iOS feature control version is invalid')
+        fields.add('featureControlsVersion')
+    if (not isinstance(value, dict) or set(value) != fields
             or type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
             or not _uuid(value['instance']) or value['frameSpace'] != 'qt-window-logical'
             or not _integer(value['processId'], 1) or value['processId'] != pid
             or not _fresh(value['sampleEpochMs'], now_ms)
             or not _integer(value['elapsedMs']) or not _integer(value['lastSequence'])
             or type(value['tabletShown']) is not bool or value['ready'] is not True
-            or not isinstance(value['controls'], list) or len(value['controls']) > len(CONTROLS)):
+            or not isinstance(value['controls'], list) or len(value['controls']) > 384):
         raise NativeUIError('Native iOS input observation is invalid')
     seen, tokens = set(), set()
     for control in value['controls']:
         fields = {'id', 'token', 'enabled', 'focused', 'frame'}
+        if type(control) is dict and script_control(control.get('id')):
+            if value.get('featureControlsVersion') != 1:
+                raise NativeUIError('Native iOS Script controls lack their source extension')
+            fields |= metadata_fields(control['id'])
         if isinstance(control, dict) and isinstance(control.get('id'), str) and control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
-                or not isinstance(control['id'], str) or control['id'] not in CONTROLS or control['id'] in seen
+                or not isinstance(control['id'], str)
+                or not (control['id'] in CONTROLS or script_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
         if control['id'] in SNAPSHOT_CHOICES and type(control['checked']) is not bool:
             raise NativeUIError('Native iOS Snapshot choice state is invalid')
+        if script_control(control['id']): validate_metadata(control)
         frame = control['frame']
         if (not isinstance(frame, dict) or set(frame) != {'x', 'y', 'width', 'height'}
                 or any(type(n) not in (int, float) or not math.isfinite(n) or not 0 <= n <= 10000
@@ -159,7 +172,7 @@ class NativeInput:
         return value
 
     def edit(self, operation, text=None, *, field='address.field'):
-        if (field not in {'address.field', 'snapshot.name'} or operation not in {'replace', 'submit'}
+        if (field not in {'address.field', 'snapshot.name', 'scripts.url.field'} or operation not in {'replace', 'submit'}
                 or operation == 'submit' and (text is not None or field != 'address.field')):
             raise NativeUIError('Native iOS input operation is invalid')
         if operation == 'replace':
@@ -173,7 +186,16 @@ class NativeInput:
             if field == 'snapshot.name':
                 from contracts import validate_operation_arguments
                 validate_operation_arguments('snapshot.files', {'prefix': text})
+            elif field == 'scripts.url.field':
+                from scripts_observation import script_url
+                from create_observation import owned_url
+                if '/script-management/' in text:
+                    script_url(text, missing=text.endswith('/missing.js'))
+                else:
+                    owned_url(text, {'observer.js'})
         observed = self.capture()
+        if field == 'scripts.url.field' and observed.get('featureControlsVersion') != 1:
+            raise NativeUIError('Native iOS Script field lacks its source extension')
         fields = [c for c in observed['controls'] if c['id'] == field and c['focused'] and c['enabled']]
         if len(fields) != 1:
             raise NativeUIError('Native iOS input requires the actual focused requested field')
