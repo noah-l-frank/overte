@@ -155,6 +155,7 @@ public slots:
     Q_INVOKABLE QVariantMap releaseFeatureRecordedVoiceEvidence(const QString& requestId);
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
+    Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     Q_INVOKABLE QVariantMap voiceTest(const QVariantMap& command);
@@ -213,6 +214,8 @@ private:
     QByteArray _featurePreviewInputDigest, _featurePreviewSinkDigest;
     quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
     quint64 _featureScriptSequence {0};
+    quint64 _featureScriptFilesSequence {0};
+    QVariantMap _featureScriptFilesCommand, _featureScriptFilesResult;
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     QString _voiceCapturePath;
