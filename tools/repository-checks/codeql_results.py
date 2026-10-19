@@ -116,6 +116,7 @@ class Verifier:
         self.api = api if api is not None else default_api()
         self.clock, self.sleep = clock, sleep
         self.pinned = False
+        self.observed_merges = set()
         require(type(event) is dict and environment.get('GITHUB_ACTIONS') == 'true', 'Actions server context required')
         require(environment.get('GITHUB_REPOSITORY') == REPOSITORY
                 and environment.get('GITHUB_REPOSITORY_ID') == str(REPOSITORY_ID), 'foreign Actions repository')
@@ -225,8 +226,7 @@ class Verifier:
             require(attempt.get(key) == run.get(key), 'run attempt changed or is not original current execution')
         if self.number:
             pr = self.obj(f'pulls/{self.number}')
-            require(pr.get('number') == self.number and pr.get('state') == 'open'
-                    and (pr.get('merge_commit_sha') is None or pr['merge_commit_sha'] == self.source),
+            require(pr.get('number') == self.number and pr.get('state') == 'open',
                     'PR candidate changed')
             for side, expected_ref, expected_sha in (('base', self.base_ref, self.event_base), ('head', self.head_ref, self.head)):
                 value = pr.get(side, {})
@@ -252,16 +252,38 @@ class Verifier:
                 except (source.SourceUnavailable, ValueError, KeyError, TypeError, OSError) as error:
                     raise ResultError('current protected base cannot be independently resolved') from error
                 require((resolved['base'], resolved['head'], resolved['target'], resolved['head_ref'], resolved['source']) ==
-                        (live_base, self.head, self.base_ref, self.head_ref, self.source), 'live native CodeQL base differs')
+                        (live_base, self.head, self.base_ref, self.head_ref, commit.get('sha')), 'live native CodeQL base differs')
             self.base = live_base
-            require(commit.get('sha') == self.source and type(commit.get('parents')) is list
+            live_source = sha(commit.get('sha'))
+            require(type(commit.get('parents')) is list
+                    and all(type(p) is dict for p in commit['parents'])
                     and [p.get('sha') for p in commit['parents']] == [self.base, self.head], 'PR ordered merge parents mismatch')
+            # GitHub can regenerate a PR test merge without changing its tree
+            # or ordered parents. Authenticate both immutable objects, while
+            # keeping checkout, analysis and SARIF bound to the ORIGINAL SHA.
+            original = self.obj('git/commits/' + self.source)
+            require(original.get('sha') == self.source and type(original.get('parents')) is list
+                    and all(type(p) is dict for p in original['parents'])
+                    and [p.get('sha') for p in original['parents']] == [self.base, self.head],
+                    'PR ordered merge parents mismatch')
+            original_tree = sha(original.get('tree', {}).get('sha'))
+            if live_source != self.source:
+                live = self.obj('git/commits/' + live_source)
+                require(live.get('sha') == live_source and type(live.get('parents')) is list
+                        and all(type(p) is dict for p in live['parents'])
+                        and [p.get('sha') for p in live['parents']] == [self.base, self.head],
+                        'PR ordered merge parents mismatch')
+                require(sha(live.get('tree', {}).get('sha')) == original_tree,
+                        'PR regenerated merge differs from analyzed candidate')
+            require(pr.get('merge_commit_sha') in (None, self.source, live_source), 'PR candidate changed')
+            self.observed_merges.update((self.source, live_source))
         else:
             require(self.ref_sha('heads/' + self.base_ref) == self.source, 'branch has advanced beyond this analysis')
             if self.event_name == 'schedule':
                 require(repo.get('default_branch') == self.base_ref, 'schedule is not the default branch')
         return {'workflow_id': workflow['id'], 'run_started_at': run['run_started_at'], 'start': start,
-                'base': self.base, 'event_base': self.event_base}
+                'base': self.base, 'event_base': self.event_base,
+                'analyzed_tree': original_tree if self.number else None}
 
     def plan(self):
         try:
@@ -402,6 +424,7 @@ class Verifier:
         self.phase = 'context-bookend'
         require(self.context() == before, 'server candidate or run context changed during verification')
         return {'schema': 1, 'run_id': self.run_id, 'run_attempt': self.attempt, 'languages': selected,
+                'source_commit': self.source, 'observed_merge_commits': sorted(self.observed_merges),
                 'analyses': [{'id': chosen[x]['id'], 'category': chosen[x]['category'],
                               'rules_count': chosen[x]['rules_count'], 'job_id': windows[x][2]} for x in selected],
                 'open_selected_findings': 0}
@@ -547,7 +570,8 @@ class MetadataVerifier:
         require(type(processing_seconds) in (int, float) and 0 <= processing_seconds <= PROCESSING_SECONDS,
                 'invalid result-processing bound')
         A, postmerge, marker = _metadata_modules()
-        native, workflows, sources = self._trusted(marker, postmerge)
+        native, trusted_workflows, sources = self._trusted(marker, postmerge)
+        workflows = trusted_workflows
         adapter = A.Adapter(self.api)
         before = adapter.current(native['number'])
         binding, references = before
@@ -574,6 +598,31 @@ class MetadataVerifier:
         _, base_tree = postmerge.full_tree(adapter, binding['base_sha'])
         candidate_tree_sha, candidate_tree = postmerge.full_tree(adapter, binding['merge_sha'])
         require(candidate_tree_sha == binding['merge_tree'], 'candidate source inventory differs')
+        # The protected Boolean template is pre-enrolled while its exact old
+        # active caller is retained. Select that actual immutable pair without
+        # relabelling an original analysis as the new caller.
+        ordinary = lambda oid: {'mode':'100644','type':'blob','sha':oid}
+        if trusted_workflows.get(WORKFLOW) == ordinary(codeql._REQUIRED_CONTEXT_RESULTS_WORKFLOW):
+            variants = [ordinary(value) for value in (codeql._SCHEDULING_RESULTS_WORKFLOW,
+                codeql._BOOLEAN_RESULTS_WORKFLOW, codeql._REQUIRED_CONTEXT_RESULTS_WORKFLOW)]
+            base_caller, candidate_caller = base_tree.get(WORKFLOW), candidate_tree.get(WORKFLOW)
+            require(base_caller in variants and candidate_caller in variants
+                    and variants.index(base_caller) <= variants.index(candidate_caller),
+                    'required-context metadata caller is unknown or rolls back an installed successor')
+            workflows = {**trusted_workflows, WORKFLOW: candidate_caller}
+            policy = A.MetadataPolicy(policy.caller_workflow_id, WORKFLOW,
+                {'codeql-metadata-v1': workflows}, {'codeql-metadata-v1': sources})
+        if trusted_workflows.get(WORKFLOW) == ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW):
+            require((base_tree.get(WORKFLOW), candidate_tree.get(WORKFLOW)) in (
+                (ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW), ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW)),
+                (ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW), ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW)),
+                (ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW), ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW))),
+                'Boolean metadata caller source is unknown or rolls back an installed successor')
+        if (trusted_workflows.get(WORKFLOW) == ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW)
+                and candidate_tree.get(WORKFLOW) == ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW)):
+            workflows = {**trusted_workflows, WORKFLOW: ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW)}
+            policy = A.MetadataPolicy(policy.caller_workflow_id, WORKFLOW,
+                {'codeql-metadata-v1': workflows}, {'codeql-metadata-v1': sources})
         require(all(candidate_tree.get(path) == expected for path, expected in workflows.items())
                 and base_tree.get(WORKFLOW) in codeql.pinned_workflow_entries(),
                 'metadata reuse requires the protected reviewed native-source workflow')
@@ -649,7 +698,7 @@ class MetadataVerifier:
         require(self._inventory(adapter, binding, policy, now) == snapshot,
                 'ordinary inventory or authenticated metadata observations changed')
         require(adapter.current(native['number']) == before and
-                self._trusted(marker, postmerge) == (native, workflows, sources),
+                self._trusted(marker, postmerge) == (native, trusted_workflows, sources),
                 'live candidate, protected source or default branch changed')
         validate_native_snapshot()
         return {'schema': 1, 'kind': 'revalidated-original-codeql', 'metadata_only': 'true',

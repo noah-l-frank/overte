@@ -44,6 +44,8 @@ _PROTECTED_ROUTE_GENERATIONS = frozenset({
     'protected-producer-metadata-ci-v1',
     'protected-producer-seven-target-ci-v1',
     'protected-producer-original-default-v1',
+    'protected-producer-original-default-boolean-v1',
+    'protected-producer-original-default-required-context-v1',
 })
 
 
@@ -142,7 +144,7 @@ def workflow_generations():
             or type(document["repository"].get("id")) is not int:
         raise ValueError("invalid trusted package workflow-generation policy")
     generations = document["generations"]
-    if not isinstance(generations, list) or not 1 <= len(generations) <= 24:
+    if not isinstance(generations, list) or not 1 <= len(generations) <= 26:
         raise ValueError("invalid trusted package workflow-generation inventory")
     names, tuples = set(), set()
     for generation in generations:
@@ -297,7 +299,8 @@ def candidate_plan(candidate, event, sha, *, include_browser=False, include_cons
             paths, regular, unknown = [], False, True
     else:
         paths, regular, unknown = [], False, True
-    legacy = checks.plan(event, paths, config, branches, regular)
+    legacy = checks.effective_plan(candidate, event, sha, paths, config, branches, regular,
+                                  pr_context=pr_context)
     current_consumers = consumer_generation(candidate)
     if consumer_base(candidate, base) and (not current_consumers or include_consumers is False):
         raise ValueError('deployed required npm consumer ownership cannot be disabled')

@@ -18,6 +18,7 @@ from pathlib import Path
 import re
 import signal
 import stat
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -39,6 +40,7 @@ TEMPLATE = 'tools/repository-checks/workflows/producers/protected-project-tests.
 PLATFORM_TEMPLATE = 'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml'
 PLATFORM_PARENT_TEMPLATE = 'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'
 PLATFORM_GENERATION = 'protected-producer-original-default-v1'
+PLATFORM_GENERATIONS = ci_profile.RETAINED_SOURCE_GENERATIONS
 PLATFORM_JOB = 'project / Android platform tests'
 _PLATFORM_TARGETS = frozenset({'android-main', 'android-phone', 'android-vr', 'android-vr-pico'})
 _PLATFORM_SOURCES = (
@@ -116,7 +118,7 @@ def _host_policy():
 def execution_schema(policy, tree, target):
     """A new complete reviewed generation alone enrolls retained source proof."""
     generation=policy.package_policy().validate_tree_wiring(tree)
-    if generation==ci_profile.RETAINED_SOURCE_GENERATION:
+    if generation in ci_profile.RETAINED_SOURCE_GENERATIONS:
         return 4
     if target!='main':
         raise PreExecutionUnavailable('child protected proof requires retained original default source generation')
@@ -316,9 +318,10 @@ def metadata_generations(policy, *, root=ROOT):
         and row['workflows'].get(producer_api.METADATA_WORKFLOW) in (template, old_template)}
     if not generations:
         return None, None
-    return generations, {name: {producer_api.METADATA_SOURCE: old_helper
+    sources = {name: {producer_api.METADATA_SOURCE: old_helper
         if workflows[producer_api.METADATA_WORKFLOW] == old_template else helper}
         for name, workflows in generations.items()}
+    return producer_api.retain_native_metadata_sources(generations, sources)
 
 
 def source_blob(repository, oid):
@@ -405,6 +408,16 @@ def _selection_profile(policy, registry, candidate_tree, base_tree, trusted_tree
                 for snapshot in (candidate_tree,base_tree)), 'CI37 command registry differs from original trusted policy')
             runtime_policy = ci_profile.load_policy(root)
             if runtime_policy.get('generation_kind') == ci_profile.SEVEN_CONTROLLER_KIND:
+                # Executable handoff leaves need their complete finite source
+                # proof again here; the selected JSON is never mode authority.
+                existing_regularity = getattr(policy, 'regular_ci_inventory', None)
+                if not regular and callable(existing_regularity):
+                    regular = existing_regularity({'unknown': False, 'regular': False, 'paths': paths},
+                        base_tree, candidate_tree)
+                finite_regularity = getattr(policy, 'finite_ci_regularity', None)
+                if not regular and callable(finite_regularity):
+                    regular = finite_regularity(candidate_tree, base_tree, paths, trusted_tree,
+                        candidate_root=root, trusted_root=root, target=target)
                 host.require(execution_schema(policy,candidate_tree,target) == 4,
                     'seven-target CI execution requires retained original default source')
                 legacy = policy._select_legacy(candidate_tree,paths,regular,base_tree=base_tree,
@@ -453,7 +466,7 @@ def project_template(policy, candidate_tree):
     if PLATFORM_TEMPLATE not in candidate_tree:
         return TEMPLATE
     generation = policy.package_policy().validate_tree_wiring(candidate_tree)
-    return PLATFORM_TEMPLATE if generation == PLATFORM_GENERATION else TEMPLATE
+    return PLATFORM_TEMPLATE if generation in PLATFORM_GENERATIONS else TEMPLATE
 
 
 def platform_partition(policy, profile, registry, candidate_tree, base_tree, trusted_tree,
@@ -466,7 +479,7 @@ def platform_partition(policy, profile, registry, candidate_tree, base_tree, tru
     """
     if target not in _PLATFORM_TARGETS or PLATFORM_TEMPLATE not in trusted_tree:
         return None
-    if policy.package_policy().validate_tree_wiring(candidate_tree) != PLATFORM_GENERATION:
+    if policy.package_policy().validate_tree_wiring(candidate_tree) not in PLATFORM_GENERATIONS:
         return None
     # selection_profile independently admits this versioned Qt-free owner.
     # It never selected Android declarations, so there is nothing to split.
@@ -545,7 +558,7 @@ def platform_partition(policy, profile, registry, candidate_tree, base_tree, tru
             entries[path] = dict(candidate_tree[path])
             commands.append({'name': item['name'], 'command': [item['interpreter'], path]})
         value = {'schema': 1, 'kind': 'android-common-platform-partition-v1',
-            'generation': PLATFORM_GENERATION, 'target': target, 'profile': expected,
+            'generation': policy.package_policy().validate_tree_wiring(candidate_tree), 'target': target, 'profile': expected,
             'commands': commands, 'entrypoints': entries,
             'common_owner': {'kind': 'shared', 'suites': names, 'include_platform': False, 'platform': {}}}
         value['digest'] = protocol.digest(value)
@@ -582,7 +595,7 @@ def current_platform_context(candidate, event, environment, adapter, *, root=ROO
         'platform push checkout differs from complete immutable API source')
     policy = _host_policy()
     package = policy.package_policy()
-    host.require(package.validate_tree_wiring(current) == PLATFORM_GENERATION,
+    host.require(package.validate_tree_wiring(current) in PLATFORM_GENERATIONS,
         'platform push needs the complete enrolled future generation')
     workflow = refs['integration']['workflow_path']
     template = PLATFORM_PARENT_TEMPLATE if workflow == '.github/workflows/parent-qualification.yml' else PLATFORM_TEMPLATE
@@ -806,6 +819,87 @@ def reuse_source_context(adapter, binding, references, policy):
     return _protected_source_context(adapter,binding,references,policy,_reuse_only=True)
 
 
+def sync_source_ready(candidate, event, context):
+    """Strict immutable B/D admission for scheduling a canonical Sync owner.
+
+    Read-only Git fallback supports the existing sparse routing checkout. No
+    candidate code is loaded, no environment is captured, and this result is
+    never accepted as the producer's actual native pre-import admission.
+    """
+    return sync_source_admission(inputs.full_tree(candidate, context['base']),
+        inputs.full_tree(candidate, context['candidate']), inputs.full_tree(ROOT, 'HEAD'), event,
+        read_blob=lambda oid: source_blob(candidate, oid))
+
+
+def sync_source_admission(previous, current, local, event, *, read_blob=None):
+    """The same pure source decision for routing and the trusted Sync reader."""
+    try:
+        return _sync_source_admission(previous, current, local, event, read_blob=read_blob)
+    except (source_admission.SourceUnavailable, PreExecutionUnavailable, ci_profile.CIProfileError,
+            OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        return False
+
+
+def _sync_source_admission(previous, current, local, event, *, read_blob):
+    protected_admission()
+    pr = event['pull_request']
+    target = pr['base']['ref']
+    policy = _host_policy()
+    package = policy.package_policy()
+    for snapshot in (previous, current, local):
+        inputs._validate_tree(snapshot)
+    if package.validate_tree_wiring(current) not in PLATFORM_GENERATIONS:
+        return False
+    package.validate_tree_wiring(previous)
+    paths = sorted(path for path in previous.keys() | current.keys() if previous.get(path) != current.get(path))
+    config, branches = package.load('sync_source_repository_policy', 'tools/repository-checks/check.py').configuration()
+    checks = package.load('sync_source_legacy_classifier', 'tools/repository-checks/check.py')
+    if not paths or checks.plan(event, paths, config, branches)['mode'] != 'delegated-sync':
+        return False
+    repair = json.loads(package._trusted_bytes('.github/sync-test-reuse.json', git_fallback=True))
+    if pr['head']['ref'].startswith('reconcile/') and set(paths).intersection(
+            repair.get('reconciliation_repair_paths', {}).get(target, ())):
+        return False
+    if any(snapshot.get('.github/test-suites.json') != local.get('.github/test-suites.json')
+            for snapshot in (previous, current)):
+        return False
+    if any(entry['type'] != 'blob' or entry['mode'] not in {'100644', '100755'}
+            for snapshot in (previous, current, local) for entry in snapshot.values()):
+        return False
+    imports = source_admission.actual_import_inventory(ROOT)
+    candidate_imports = {name: entry for name, entry in current.items()
+        if any(name == root or name.startswith(root + '/') for root in source_admission.IMPORT_ROOTS)}
+    if set(candidate_imports) != set(source_admission.IMPORT_MEMBERS):
+        return False
+    def read(name):
+        raw = package._trusted_bytes(name, git_fallback=True)
+        entry = local.get(name)
+        host.require(entry is not None and source_admission.blob_id(raw) == entry['sha'],
+                     'immutable Sync routing source differs from actual trusted bytes')
+        return raw, entry
+    source_admission.compatibility(previous, local, target, read_actual=read, actual_imports=imports)
+    registry = inputs.load_registry(ROOT / '.github/test-suites.json')
+    profile = selection_profile(policy, registry, current, previous, local,
+        root=ROOT, target=target, read_blob=read_blob)
+    selected = profile['selection']
+    partition = platform_partition(policy, profile, registry, current, previous, local,
+        root=ROOT, target=target, read_blob=read_blob)
+    if partition is None and not source_admission.shared_platform_supported(
+            selected, target, current.get(source_admission.PROFILE)):
+        return False
+    if profile['profile'] == FULL_PROFILE:
+        # The existing producer derives full/affected common commands and any
+        # Android partition. New definitions still require monotonic fallback.
+        return selected['full_host'] is True and bool(profile['suites'])
+    runtime_policy = ci_profile.load_policy(ROOT)
+    return profile['profile'] == ci_profile.PROFILE and ci_profile.SOURCE_READY is True \
+        and runtime_policy['enabled'] is True \
+        and runtime_policy.get('generation_kind') == ci_profile.SEVEN_CONTROLLER_KIND \
+        and selected['full_host'] is False and selected['include_platform'] is False \
+        and bool(selected['suites']) \
+        and selected['suites'] == [name for name in ci_profile.SUITES if name in selected['suites']]
+
+
 def prepare(candidate, event, environment, adapter):
     """Independently select a supported protected owner and source generation."""
     number, identifier = _native(environment)
@@ -1006,7 +1100,7 @@ def _run_platform_suites(candidate, commands, report):
 def platform_execution(context, event, environment, adapter, *, report, runner=None):
     """Current mandatory platform execution, isolated from shared artifacts."""
     partition = context.get('platform_partition')
-    host.require(partition is not None and partition['generation'] == PLATFORM_GENERATION,
+    host.require(partition is not None and partition['generation'] in PLATFORM_GENERATIONS,
         'platform execution requires its independently derived future partition')
     candidate = context['candidate']
     host.require(not Path(report).resolve().is_relative_to(candidate), 'platform report is candidate writable')
@@ -1041,6 +1135,39 @@ def legacy_common_fallback(context, event, environment, adapter, *, report):
         if context['binding']['base_ref'] in {'android-main', 'android-vr'} else 'Shared tests')) \
         if 'integration' in context else (lambda: current_run(context, adapter, 'shared'))
     native()
+    target = context['binding']['base_ref'] if 'integration' in context else None
+    if 'integration' in context and target in {'android-phone', 'android-vr-pico'}:
+        import postmerge
+        original = postmerge.leaf_common_reuse(context['candidate'], event, environment,
+            context['platform_partition']['common_owner']['suites'], include_platform=False,
+            partition=context['platform_partition']['digest'], adapter=adapter, root=ROOT)
+        if original is not None:
+            _platform_bookend(context, event, environment, adapter)
+            native()
+            Path(report).with_suffix('.json').write_bytes(protocol.canonical(original))
+            print('Original native PR proof covers the leaf common commands; '
+                  'package and platform owners remain independently required.', flush=True)
+            return original
+    if 'integration' in context and target in {'android-main', 'android-vr'} \
+            and environment.get('GITHUB_EVENT_NAME') == 'push' \
+            and environment.get('GITHUB_JOB') == 'common-parent' \
+            and environment.get('GITHUB_WORKFLOW_REF') == (
+                'noah-l-frank/overte/.github/workflows/parent-qualification.yml@refs/heads/'+target):
+        # This impact-only route cannot publish E or a qualification artifact.
+        # Declining optional common qualification leaves the separately checked
+        # platform owner and every required PR/Sync execution unchanged.
+        _platform_bookend(context, event, environment, adapter)
+        native()
+        value = {'schema': 1, 'kind': 'optional-parent-qualification-unavailable-v1',
+            'reusable': False, 'qualification': False, 'execution': None,
+            'executed_suites': [], 'reused_suites': [],
+            'candidate': context['binding']['merge_sha'],
+            'partition': context['platform_partition']['digest'],
+            'reason': 'impact-only-common-fallback-cannot-publish-qualification'}
+        Path(report).with_suffix('.json').write_bytes(protocol.canonical(value))
+        print('Optional parent common qualification unavailable: no suites executed, '
+              'no test pass or reusable evidence published; platform owner remains required.', flush=True)
+        return value
     status, receipt = execution.execute(context['candidate'], context['platform_partition']['common_owner']['suites'], include_platform=False,
         junit=report, _impact_selection=True)
     host.require(status == 0 and receipt['reusable'] is False and receipt['environment'] is None,
@@ -1054,7 +1181,7 @@ def verify_platform_project(candidate, event, environment, adapter, needs):
     """A separate mandatory job cannot disappear behind the common receipt."""
     policy = _host_policy()
     package = policy.package_policy()
-    host.require(package.validate_wiring(candidate) == PLATFORM_GENERATION,
+    host.require(package.validate_wiring(candidate) in PLATFORM_GENERATIONS,
         'platform project aggregate requires the complete future generation')
     plan = package.candidate_plan(candidate, event, environment['GITHUB_SHA'])
     host.require(type(needs) is dict and set(needs) == {
@@ -1129,7 +1256,16 @@ def _empty_parent_source(candidate,event,environment,adapter):
         and current.get('.github/workflows/parent-qualification.yml')==local.get(PLATFORM_PARENT_TEMPLATE)
         and all(snapshot.get(source_admission.PROFILE)==source_admission.ordinary(source_admission.SHARED_PROFILE)
             for snapshot in (previous,current,local)), 'empty parent profile or native source changed')
-    controller=postmerge.integrated_controller_for_reuse(_host_policy(),previous,current,local,target,ROOT)
+    try:
+        controller=postmerge.integrated_controller_for_reuse(_host_policy(),previous,current,local,target,ROOT)
+    except source_admission.SourceUnavailable:
+        # Current protected main can authenticate its optional incomplete job
+        # without claiming original B compatibility, E, suite PASS or reuse.
+        optional=postmerge.current_parent_schedule(event,environment,adapter,root=ROOT,candidate=candidate)
+        host.require(optional['binding']==binding and optional['refs']==refs,
+            'optional current parent source changed')
+        controller={'kind':'current-parent-unavailable-only','selection':optional['selection'],
+            'current_imports':optional['current_imports']}
     authority=postmerge.default_authority(adapter,refs)
     return binding,refs,controller,authority
 
@@ -1137,7 +1273,7 @@ def _empty_parent_source(candidate,event,environment,adapter):
 def verify_platform_parent(candidate, event, environment, adapter, needs):
     """The old required parent check stays downstream of BOTH actual owners."""
     package = _host_policy().package_policy()
-    host.require(package.validate_wiring(candidate) == PLATFORM_GENERATION
+    host.require(package.validate_wiring(candidate) in PLATFORM_GENERATIONS
         and type(needs) is dict and set(needs) == {'route','common-parent', 'platform-tests'}
         and all(type(row) is dict for row in needs.values())
         and needs['common-parent'].get('result') == 'success',
@@ -1391,7 +1527,7 @@ def _owner_target_supported(context):
 def _completed_owner_outputs(context, receipt):
     """Dispatch hints only, emitted after actual selected publication validates."""
     supported = (_host_policy().package_policy().validate_wiring(context['candidate']) in {
-                    CURRENT_OWNER_GENERATION,ci_profile.RETAINED_SOURCE_GENERATION}
+                    CURRENT_OWNER_GENERATION,*ci_profile.RETAINED_SOURCE_GENERATIONS}
                  and _owner_target_supported(context))
     passed = {name for name, result in receipt['results'].items() if result['status'] == 'passed'} if supported else set()
     return {'documentation_verified': str(DOCUMENTATION_SUITES <= passed).lower(),
@@ -1416,7 +1552,7 @@ def verify_current_owners(candidate, event, environment, adapter, *, demanded,
     context = prepare(candidate, event, environment, adapter)
     package = _host_policy().package_policy()
     owner_generation=package.validate_wiring(candidate)
-    host.require(owner_generation in {CURRENT_OWNER_GENERATION,ci_profile.RETAINED_SOURCE_GENERATION}
+    host.require(owner_generation in {CURRENT_OWNER_GENERATION,*ci_profile.RETAINED_SOURCE_GENERATIONS}
                  and _owner_target_supported(context)
                  and demanded <= set(context['plan']['owners']['shared-host']['suites']),
                  'current owner requires the exact enrolled generation and every actual command')
