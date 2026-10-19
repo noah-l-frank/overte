@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 3
+VERSION = 4
 
 
 def scenario(title, baseline, rows):
@@ -115,19 +115,26 @@ SCENARIOS = {
     ('background-resume', {}, {}, ['image', 'peer']),
     ('close', {}, dict(open=False, focused=False), ['peer']),
 ]),
-'graphics': scenario('Normal graphics effects, cancellation and restart durability',
-    dict(preset='original', shadows=True, resolution=1.0, renderScale=1.0, shadowPass=True, dialog=False, mirror=False), [
-    ('open', {}, dict(dialog=True), []),
-    ('preview-preset', dict(preset='low'), dict(preset='low', shadows=False, shadowPass=False), ['image']),
-    ('cancel', {}, dict(dialog=False, preset='original', shadows=True, shadowPass=True), ['image']),
+# These are state type prototypes, not assumed user defaults. The engine
+# independently establishes and freezes the actual original preference/render
+# baseline before any input, then uses it for restoration and cleanup.
+'graphics': scenario('Immediate graphics settings, close durability and original restoration',
+    dict(resolution=0.6, renderScale=0.6, haze=False, hazePass=False, mirror=False, mirrorPass=False, dialog=False), [
     ('open', {}, dict(dialog=True), []),
     ('set-resolution', dict(value=0.5), dict(resolution=0.5, renderScale=0.5), ['image']),
-    ('set-shadows', dict(enabled=False), dict(shadows=False, shadowPass=False), ['image']),
-    ('apply', {}, dict(dialog=False), []),
-    ('mirror-enable', {}, dict(mirror=True), ['changed']),
+    ('close', {}, dict(dialog=False), ['image']),
+    ('open', {}, dict(dialog=True), []),
+    ('set-resolution', dict(value=0.6), dict(resolution=0.6, renderScale=0.6), ['image']),
+    ('set-haze', dict(enabled=False), dict(haze=False, hazePass=False), ['image']),
+    ('set-haze', dict(enabled=True), dict(haze=True, hazePass=True), ['changed']),
+    ('set-mirrors', dict(enabled=False), dict(mirror=False, mirrorPass=False), ['image']),
+    ('set-mirrors', dict(enabled=True), dict(mirror=True, mirrorPass=True), ['changed']),
+    ('close', {}, dict(dialog=False), ['image']),
     ('background-resume', {}, {}, ['image']),
     ('restart-app', {}, {}, ['image']),
-    ('restore', {}, dict(resolution=1.0, renderScale=1.0, shadows=True, shadowPass=True, mirror=False), ['changed']),
+    ('open', {}, dict(dialog=True), []),
+    ('restore-original', {}, {}, ['image']),
+    ('close', {}, dict(dialog=False), ['image']),
 ]),
 # OS permission denial/recovery remains in the composed permission-recovery
 # foundation. This workflow covers the actual in-memory automatic preview.
@@ -261,6 +268,21 @@ inline = dict(verb='open-inline-app', inputs=dict(resource='inline.html'),
 SCENARIOS['tablet-web']['steps'].insert(-1, inline)
 # The close checkpoint must retain the last actual page.
 SCENARIOS['tablet-web']['steps'][-1]['state']['page'] = 'inline'
+
+
+# Fields retain their independently measured initial values until a real
+# setting change, and again after restore-original. No original value is sent
+# as an observation result, desired state or adapter input.
+_graphics = SCENARIOS['graphics']
+_graphics['measuredBaselineFields'] = ['resolution','renderScale','haze','hazePass','mirror','mirrorPass']
+_original = set(_graphics['measuredBaselineFields'])
+for _step in _graphics['steps']:
+    if _step['verb'] == 'set-resolution': _original -= {'resolution','renderScale'}
+    elif _step['verb'] == 'set-haze': _original -= {'haze','hazePass'}
+    elif _step['verb'] == 'set-mirrors': _original -= {'mirror','mirrorPass'}
+    elif _step['verb'] == 'restore-original': _original = set(_graphics['measuredBaselineFields'])
+    _step['originalFields'] = sorted(_original)
+del _graphics, _original, _step
 
 
 def expand(value, context):

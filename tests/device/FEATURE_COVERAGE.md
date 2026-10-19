@@ -9,7 +9,7 @@ sessions, frozen builds, global workflows and acceptance evidence stay unchanged
 Every row means **test logic exists · adapter missing · untested on devices**.
 These are implementation statuses, not complete product-feature acceptance.
 The [source compatibility review](FEATURE_SOURCE_COMPATIBILITY.md) identifies
-remaining draft assumptions in Phone Graphics and Emotes. Version 2 corrected Scripts to the real file-bundle picker; version 3 corrects
+remaining platform Emote assumptions. Version 4 corrects Graphics to immediate settings and independently measured original preferences. Version 2 corrected Scripts to the real file-bundle picker; version 3 corrected
 Audio to automatic in-memory capture/play/drain/completion;
 its adapter input/observer join is still incomplete. Host logic is present; it is not yet a qualified
 product workflow. No complete area adapter is advertised.
@@ -27,7 +27,7 @@ to implement the new complete area contract.
 | create | `create-management`, `entity-sync`, `world-interaction` | Model/texture/voxel import/edit, original export, cancellation and rez permission denial/recovery. | changed, file, image, peer | Logic present; adapter missing; device untested |
 | emotes | No prior feature journey | Ten real Emote choices, all three actually observed Sit variants, override/cancel and resume. | changed, image, peer | Logic present; adapter missing; device untested |
 | world-web | `world-web-video` | Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume. | changed, image, peer | Logic present; adapter missing; device untested |
-| graphics | `render-health` | Preset cancel, actual render scale/shadow graph, mirror, apply/restart durability and restore. | changed, image | Logic present; adapter missing; device untested |
+| graphics | `render-health` | Immediate resolution/Haze/Mirrors, actual completed-frame/pass effects, close/restart durability and measured original restoration. | changed, image | Logic present; adapter missing; device untested |
 | audio | `audio-controls`, `permission-recovery`, `sound-playback`, `voice-roundtrip` | Automatic memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation; OS permissions remain in the composed foundation. | audio, file, peer, silence | Logic present; adapter missing; device untested |
 | chat | `text-input` | Unicode send/receive, keyboard Back, filter, history reopen, offline failure and exactly-once retry. | peer | Logic present; adapter missing; device untested |
 | snapshots | `snapshot-output-parity` | Cancel/permission denial, original capture/share bytes, share cancel, upload failure/retry and resume. | file, image, peer | Logic present; adapter missing; device untested |
@@ -43,7 +43,7 @@ also requires changed feature-subject pixels; `audio`/`silence` inspect PCM;
 `file` inspects original bytes; `peer` reads the independent actor journal.
 Existing modules retain their additional image, PCM, process and file checks.
 
-The [machine matrix](feature_journeys/coverage.v3.json), [journey guide](FEATURE_JOURNEYS.md)
+The [machine matrix](feature_journeys/coverage.v4.json), [journey guide](FEATURE_JOURNEYS.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md) record the exact contracts.
 All rows currently depend on real product transports and independently measuring
 target observers. That dependency belongs to the later adapter implementation

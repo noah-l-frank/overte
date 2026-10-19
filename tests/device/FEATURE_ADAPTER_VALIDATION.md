@@ -4,25 +4,25 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
-Current continuation validation (all source only):
+Continuation validation before the version 4 Graphics correction (all source only):
 
-* **361** common quick-selection Python/JavaScript cases pass, zero failures,
+* **378** common quick-selection Python/JavaScript cases pass, zero failures,
   errors or skips. Three original Voice compile cases are explicitly omitted;
   the compiler guard observed zero build attempts. This includes version 3 Audio phase/history/PCM counterexamples, corrected
   Script flow, normal file-picker recipe and private fixture-storage, alongside
-  actual native effect/module/preview source checks. The shared journey group
+  actual native effect/module/preview source checks. The common Audio input group has **16** host cases. The shared journey group
   passes **33** cases; the native Script source group passes **19** cases, and
-  the atomic Audio history/projection group passes **10** cases.
-* Phone's focused real candidate wrapper group passes **36** cases. Pico's
-  focused original-observation wrapper group passes **16** cases; its separate
-  normal Script group passes **14** cases and the original binding/navigation
+  the atomic Audio history/projection group passes **11** cases.
+* Phone's focused real candidate wrapper group passes **44** cases. Pico's
+  focused original-observation wrapper group passes **17** cases; its separate
+  normal Script group passes **19** cases and the original binding/navigation
   group passes **31** cases. No device is contacted.
-* The broad iOS Python component selection passes **247** cases, zero failures,
+* The broad iOS Python component selection passes **253** cases, zero failures,
   errors or skips, with the same 20 native compiler-dependent cases omitted
-  and zero build attempts. Its focused source group has **21** cases; the
+  and zero build attempts. Its focused source group has **22** cases; the
   canonical installed-code binding group passes five cases including rejection
   of every new internal source reader and file-picker component. The Script
-  component group passes **19** cases.
+  component group passes **24** cases.
 * Contract versions, focused original fixture/probe dispatch tests, and diff
   whitespace checks pass. Native C++ instrumentation remains **uncompiled**.
 
