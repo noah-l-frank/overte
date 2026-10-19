@@ -31,6 +31,7 @@ from ios.adapters.normal_input import NativeInput
 from ios.adapters import normal_navigation
 from ios.adapters import normal_snapshot
 from ios.adapters.snapshot_files import SnapshotFiles
+from ios.adapters.feature_observation import FeatureObservation
 from navigation_observation import OPERATIONS as NORMAL_NAVIGATION_OPERATIONS, viewpoint_urls
 
 
@@ -47,6 +48,13 @@ class IOSAdapter(AppiumAdapter):
 
     def __init__(self):
         super().__init__("ios")
+
+    def _feature_observer(self, selector, client, session, state, target):
+        # Component transport only. It deliberately contributes no feature.*
+        # capabilities and cannot replace canonical installed-code binding.
+        self.assert_ios_process_identity(selector, client, session, state, target)
+        return FeatureObservation(client, session, target,
+                                  lambda: self.native_process(client, session, target))
 
     @staticmethod
     def advertised_capabilities(target):

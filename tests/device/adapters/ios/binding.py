@@ -92,6 +92,11 @@ def create_adapter(args, base_class):
         def ensure_session(self, selector):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
+        def _feature_observer(self, *args, **kwargs):
+            # The unbound component's original native rows are not a reviewed
+            # cryptographic/installation association with the selected IPA.
+            raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
+
         def invoke(self, selector, operation, values):
             # Includes operations that bypass ensure_session in the base class.
             # The v003 bound runner normally rejects missing identity earlier.

@@ -1,0 +1,158 @@
+"""Original iOS HTTP/AFC observation transport, with native boundaries replaced."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+import base64
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+from pathlib import Path
+import sys
+import threading
+import unittest
+from unittest.mock import patch
+from urllib.error import HTTPError
+from urllib.request import Request
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from adapters.normal_ui import NativeUIError
+from fixture.serve import FixtureState
+from ios.adapters import feature_observation
+from ios.adapters.adapter import IOSAdapter
+from ios.adapters.appium_adapter import WebDriverRequestError
+
+
+class Native:
+    def __init__(self):
+        self.target = dict(platform='ios', physical=True, appId='org.example.client',
+            probe={'kind': 'ios-documents'}, testBuild=dict(
+                fixtureOrigin='http://controlled.invalid:49121', resultsDirectory='owned-results'))
+        self.pid = 42
+        self.sequence = 0
+        self.clock = 0.0
+        self.mutation = None
+        self.commands, self.reads = [], []
+        self.fixture = FixtureState()
+        self.missing = 0
+
+    def process(self): return dict(bundleId=self.target['appId'], pid=self.pid, foreground=True)
+    def sleep(self, seconds): self.clock += seconds
+    def post(self, request, timeout):
+        command = self.fixture.set_client_command(json.loads(request.data))
+        self.commands.append(command)
+        self.echo = json.dumps(command).encode()
+        self.sequence += 1
+        self.value = dict(schemaVersion=1, requestId=command['commandId'], instance='a' * 32,
+            sampleEpochMs=10000, sampleSequence=self.sequence, complete=True,
+            scripts=[dict(url='http://actual.native/script.js', path='actual.native/script.js')])
+        if command['includeAvatarEntities']:
+            self.value.update(entitiesComplete=True, avatarEntities=[dict(
+                id='{11111111-1111-1111-1111-111111111111}', name='actual-avatar-entity', type='Shape')])
+        if self.mutation: self.mutation(self.value)
+        return self
+    def read(self, limit): return self.echo[:limit]
+    status = 200
+    def __enter__(self): return self
+    def __exit__(self, *_): return False
+    def execute(self, session, operation, values):
+        if operation == 'mobile: overteProcessInfo': return self.process()
+        assert operation == 'mobile: pullFile'
+        assert values == {'remotePath': '@org.example.client:documents/owned-results/normal-feature-observation.json'}
+        self.reads.append(values)
+        if self.missing:
+            self.missing -= 1
+            raise WebDriverRequestError(500)
+        return base64.b64encode(json.dumps(self.value).encode()).decode()
+    def observer(self):
+        return feature_observation.FeatureObservation(self, 'native-session', self.target, self.process,
+            monotonic=lambda: self.clock, sleep=self.sleep, epoch_ms=lambda: 10000)
+
+
+class FeatureObservationTests(unittest.TestCase):
+    def setUp(self):
+        self.native = Native()
+        boundary = patch.object(feature_observation, 'post_request', side_effect=self.native.post)
+        boundary.start(); self.addCleanup(boundary.stop)
+        self.observer = self.native.observer()
+
+    def test_original_rows_request_ids_sequences_and_capture_times_are_retained(self):
+        first = self.observer.read(0)
+        second = self.observer.read(first['sampleSequence'], include_avatar_entities=True)
+        self.assertEqual('http://actual.native/script.js', first['scripts'][0]['url'])
+        self.assertEqual(10000, first['sampleEpochMs'])
+        self.assertGreater(second['sampleSequence'], first['sampleSequence'])
+        self.assertEqual(self.native.commands[1]['commandId'], second['requestId'])
+        self.assertEqual('actual-avatar-entity', second['avatarEntities'][0]['name'])
+        self.assertEqual({'schemaVersion', 'commandId', 'action', 'includeAvatarEntities'}, set(self.native.commands[0]))
+
+    def test_missing_old_foreign_stale_and_incomplete_samples_cannot_be_results(self):
+        self.native.missing = 2
+        self.assertEqual(1, self.observer.read(0)['sampleSequence'])
+        for changes in ({'requestId': 'ios-' + 'f' * 32}, {'sampleEpochMs': 1}, {'complete': False},
+                        {'sampleSequence': 0}, {'entitiesComplete': False}):
+            with self.subTest(changes=changes):
+                self.native.mutation = lambda value: value.update(changes)
+                with self.assertRaisesRegex(NativeUIError, '^Native iOS feature observation failed$'):
+                    self.observer.read(self.observer.sequence, include_avatar_entities=True)
+
+    def test_observer_instance_and_actual_process_change_fail_without_relabeling(self):
+        self.observer.read(0)
+        self.native.mutation = lambda value: value.update(instance='b' * 32)
+        with self.assertRaises(NativeUIError): self.observer.read(1)
+        self.native.mutation = None
+        self.native.pid = 43
+        with self.assertRaises(NativeUIError): self.observer.read(1)
+        self.assertEqual(2, len(self.native.commands))
+
+    def test_process_loss_after_capture_blocks_acceptance(self):
+        self.native.mutation = lambda value: setattr(self.native, 'pid', 43)
+        with self.assertRaises(NativeUIError): self.observer.read(0)
+        self.assertEqual(0, self.observer.sequence)
+
+    def test_native_base64_and_transport_errors_are_closed(self):
+        for value in ('not-base64', 'a' * 100000):
+            with patch.object(self.native, 'execute', return_value=value), self.assertRaises(NativeUIError) as error:
+                self.observer.read(0)
+            self.assertNotIn('controlled.invalid', str(error.exception))
+        with patch.object(self.native, 'execute', side_effect=RuntimeError('private native selector')):
+            with self.assertRaisesRegex(NativeUIError, '^Native iOS feature observation failed$'):
+                self.observer.read(0)
+
+    def test_unsafe_documents_paths_and_nonphysical_profiles_are_rejected(self):
+        for path in ('../owned', '/owned', 'owned/../other', 'owned//other', 'owned?query'):
+            self.native.target['testBuild']['resultsDirectory'] = path
+            with self.assertRaises(NativeUIError): self.native.observer()
+        self.native.target['testBuild']['resultsDirectory'] = 'owned-results'
+        self.native.target['physical'] = False
+        with self.assertRaises(NativeUIError): self.native.observer()
+        self.assertEqual([], self.native.commands)
+
+    def test_existing_ios_component_factory_uses_actual_native_process_reads(self):
+        component = IOSAdapter.__new__(IOSAdapter)
+        observer = component._feature_observer('private-target', self.native, 'native-session',
+            {'processIdentity': '42'}, self.native.target)
+        observer.epoch_ms = lambda: 10000
+        self.assertEqual(1, observer.read(0)['sampleSequence'])
+        self.assertFalse(any(value.startswith('feature.') for value in IOSAdapter.advertised_capabilities(self.native.target)))
+
+    def test_post_transport_does_not_follow_redirects(self):
+        # This owned loopback server is a protocol fixture, never a device lab.
+        paths = []
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                paths.append(self.path)
+                self.send_response(302); self.send_header('Location', '/foreign'); self.end_headers()
+            def do_GET(self): paths.append(self.path); self.send_response(200); self.end_headers()
+            def log_message(self, *_): pass
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True); worker.start()
+        try:
+            request = Request('http://127.0.0.1:' + str(server.server_port) + '/owned', data=b'{}', method='POST')
+            # Call the original implementation, not the component's HTTP mock.
+            with self.assertRaises(HTTPError) as error:
+                feature_observation.build_opener(feature_observation.NoRedirect()).open(request, timeout=2)
+            error.exception.close()
+            self.assertEqual(['/owned'], paths)
+        finally:
+            server.shutdown(); worker.join(timeout=2); server.server_close()
+
+
+if __name__ == '__main__': unittest.main()
