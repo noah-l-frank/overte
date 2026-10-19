@@ -26,7 +26,7 @@
 #include "NetworkingConstants.h"
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-#include "../../../../tests/device/native/FeatureLifecycle.h"
+#include "../../../tests/device/native/FeatureLifecycle.h"
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
@@ -103,7 +103,8 @@ QVariantMap TestScriptingInterface::featureNativeObservation(const QString& requ
         {"deferredRenderingAvailable", render->isDeferredRenderingAvailable()}};
     QVariantMap audioState;
     const auto audio = DependencyManager::get<AudioClient>();
-    const auto readAudio = [&] { audioState = {{"recording", audio->getRecording()}, {"muted", audio->isMuted()}}; };
+    const auto readAudio = [&] { audioState = {{"recording", audio->getRecording()}, {"muted", audio->isMuted()},
+        {"recordedVoice", audio->featureRecordedVoiceObservation()}}; };
     if (QThread::currentThread() == audio->thread()) { readAudio(); }
     else { QMetaObject::invokeMethod(audio.data(), readAudio, Qt::BlockingQueuedConnection); }
     QVariantMap accountState;

@@ -96,9 +96,9 @@ def filename(value):
 
 class NormalScriptManager:
     def __init__(self, ui, observe, store, binding, *, source_kind='scripts',
-                 monotonic=time.monotonic, sleep=time.sleep):
+                 monotonic=time.monotonic, sleep=time.sleep, component_only=False):
         self.ui, self.observe, self.store = ui, observe, store
-        self.binding = dict(context(binding))
+        self.binding = dict(context(binding, component_only=component_only))
         self.monotonic, self.sleep = monotonic, sleep
         need(source_kind in {'scripts', 'create-observer'})
         self.source_kind = source_kind
@@ -111,7 +111,7 @@ class NormalScriptManager:
              'managerOwned', 'dialogOwned', 'source', 'loadAttempted', 'observerInstance', 'afterSequence'}
              and type(value['schemaVersion']) is int and value['schemaVersion'] == 2
              and value['sourceKind'] == source_kind
-             and context(value['binding']) == self.binding
+             and context(value['binding'], component_only=component_only) == self.binding
              and all(type(value[key]) is bool for key in
                      ('tabletOwned', 'managerOwned', 'dialogOwned', 'loadAttempted'))
              and type(value['afterSequence']) is int and value['afterSequence'] >= 0
@@ -205,7 +205,11 @@ class NormalScriptManager:
         need(self.state['loadAttempted'])
         # Observe the actual visible row label, then recheck the independently
         # read service order immediately before one normal native click.
-        self.ui.check_row(*row, action)
+        check_source = getattr(self.ui, 'check_source_row', None)
+        if callable(check_source):
+            check_source(*row, action, url)
+        else:
+            self.ui.check_row(*row, action)
         need(self.sample() == rows)
         self.ui.row_action(*row, action)
         if action == 'stop':

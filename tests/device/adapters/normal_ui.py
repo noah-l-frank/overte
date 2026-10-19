@@ -145,6 +145,24 @@ class NativeUI:
         self._request('POST', element + '/click', {})
         self._check()
 
+    def click_with_token(self, locator, token):
+        """Activate the same actual native element whose source token was read.
+
+        iOS E2E widgets expose their real source token as accessibilityValue and
+        retire the UIKit object when that token changes. Never resolve the ID
+        again after checking its value: a reused row may now mean another URL.
+        """
+        if (type(token) is not str
+                or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', token) is None):
+            raise NativeUIError('Normal native source token is invalid')
+        element = self._resolve(locator)
+        self._check()
+        if self._request('GET', element + '/attribute/value') != token:
+            raise NativeUIError('Normal native control source token changed')
+        self._check()
+        self._request('POST', element + '/click', {})
+        self._check()
+
     def replace_text(self, locator, text):
         # Match the public native text providers' UTF-16 bound. Do not smuggle
         # Enter/control keys into text; ordinary submit has its own UI control.
