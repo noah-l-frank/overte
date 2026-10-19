@@ -276,7 +276,7 @@ class Journey:
                 self.call('act', dict(verb=step['verb'], inputs=expand(step['inputs'], context(self.run)),
                                      ticket=ticket, fixtureUrl=self.url))
                 self.continuity('after', step['verb'])
-                if self.area == 'create' and step['verb'] == 'import-local':
+                if self.area == 'create' and step['verb'] == 'model-create':
                     self.model_ticket = ticket
                 if self.area == 'create' and step['verb'] == 'apply-texture':
                     self.texture_ticket = ticket

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": 7,
+  "contractVersion": 8,
   "operationPattern": "feature.<area>.act|observe|cleanup",
   "qualification": "Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.",
   "areas": {
@@ -408,17 +408,23 @@
         "open": [
           {}
         ],
-        "import-cancel": [
+        "import-picker-open": [
           {
-            "resource": "model.gltf"
-          }
-        ],
-        "import-local": [
-          {
-            "resource": "model.gltf"
+            "resource": "entity-import.json"
           },
           {
-            "resource": "model.obj"
+            "resource": "entity-import.json"
+          }
+        ],
+        "import-picker-cancel": [
+          {}
+        ],
+        "model-create": [
+          {
+            "resource": "gltf-bundle/main.gltf"
+          },
+          {
+            "resource": "obj-bundle/main.obj"
           }
         ],
         "apply-texture": [
@@ -432,6 +438,11 @@
         "delete-owned": [
           {},
           {},
+          {},
+          {},
+          {}
+        ],
+        "import-picker-accept": [
           {}
         ],
         "voxel-create": [
@@ -454,6 +465,9 @@
         "create-denied": [
           {}
         ],
+        "create-retry": [
+          {}
+        ],
         "close": [
           {}
         ]
@@ -461,6 +475,7 @@
       "observationFields": {
         "objects": "list",
         "editor": "bool",
+        "picker": "bool",
         "error": "str",
         "canRez": "bool",
         "selection": "list",
@@ -470,6 +485,9 @@
       "measuredBaselineFields": [],
       "independentFields": [
         "objects",
+        "editor",
+        "picker",
+        "error",
         "canRez",
         "selection",
         "textured",
