@@ -14,10 +14,10 @@ from adapters.native_account_origin import origin_text
 from adapters.native_feature_observation import exact,integer,need
 from adapters.normal_ui import NativeUIError
 
-VERSION=1
-IDS=frozenset({'login.entry','login.page','login.username','login.password','login.submit','login.cancel'})
+VERSION=2
+IDS=frozenset({'login.entry','login.page','login.username','login.password','login.submit','login.cancel','login.server'})
 PAGE={'profile','domain','waiting','closing','error','accountInstance','credentialGeneration',
-      'endpointSha256','nativePending','tokenPresent'}
+      'endpointSha256','nativePending','tokenPresent','stage','submitEndpointSha256'}
 
 
 def metadata_fields(identifier):
@@ -28,11 +28,14 @@ def metadata_fields(identifier):
 def validate_metadata(row):
     identifier=row.get('id');fields=metadata_fields(identifier)
     exact(row,{'id','token','enabled','focused'}|fields)
-    need(type(row['token']) is str and re.fullmatch('[0-9a-f]{32}',row['token'])
+    need(type(row['token']) is str and re.fullmatch('(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})',row['token'])
          and all(type(row[k]) is bool for k in ('enabled','focused','inputReady'))
          and (not row['inputReady'] or row['enabled']))
     if identifier=='login.page':
-        need(row['inputReady'] is False and row['profile']=='phone-login-v1'
+        need(row['inputReady'] is False and row['profile'] in ('phone-login-v1','qml-login-v1')
+             and row['stage'] in ('credentials','pending','completion')
+             and type(row['submitEndpointSha256']) is str and re.fullmatch('[0-9a-f]{64}',row['submitEndpointSha256'])
+             and row['waiting']==(row['stage']=='pending')
              and all(type(row[k]) is bool for k in ('domain','waiting','closing','nativePending','tokenPresent'))
              and type(row['error']) is str and row['error'] in ('none','invalid-credentials','other','unavailable')
              and type(row['accountInstance']) is str and re.fullmatch('[0-9a-f]{32}',row['accountInstance'])
@@ -45,7 +48,7 @@ class TokenLoginUI:
         need(all(callable(v) for v in (intent,monotonic,sleep))
              and type(run) is str and re.fullmatch('[0-9a-f]{32}',run))
         self.io,self.intent,self.run=io,intent,run
-        origin_text(origin)
+        self.origin=origin_text(origin)
         self.endpoints={hashlib.sha256(v.encode()).hexdigest() for v in (origin,origin+'/')}
         self.monotonic,self.sleep=monotonic,sleep
         self.identity=self.account_instance=self.last_clock=None;self.account_generation=0
@@ -65,9 +68,9 @@ class TokenLoginUI:
     def capture(self):
         value=self.io.capture()
         need(type(value) is dict and type(value.get('loginControlsVersion')) is int and value['loginControlsVersion']==VERSION
-             and value.get('ready') is True and type(value.get('controls')) is list and len(value['controls'])<=6)
-        identity=(value.get('instance'),value.get('generation'))
-        need(all(type(k) is str and re.fullmatch('[0-9a-f]{32}',k) for k in identity)
+             and value.get('ready') is True and type(value.get('controls')) is list and len(value['controls'])<=7)
+        identity=(value.get('instance',value.get('bridgeId')),value.get('generation'))
+        need(all(type(k) is str and re.fullmatch('(?:[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})',k) for k in identity)
              and self.identity in (None,identity))
         ids=set();tokens=set()
         for row in value['controls']:
@@ -79,10 +82,12 @@ class TokenLoginUI:
             need(self.account_instance in (None,page['accountInstance'])
                  and page['credentialGeneration']>=self.account_generation
                  and page['endpointSha256'] in self.endpoints and page['error']!='unavailable')
+            need(page['profile']!='phone-login-v1' or 'login.server' not in ids)
             self.account_instance=page['accountInstance'];self.account_generation=page['credentialGeneration']
             for row in value['controls']:
                 if row['id'] in {'login.username','login.password','login.submit'} and row['inputReady']:
-                    need(not any(page[k] for k in ('domain','waiting','closing','nativePending','tokenPresent')))
+                    need(page['stage']=='credentials' and page['submitEndpointSha256'] in self.endpoints
+                         and not any(page[k] for k in ('domain','waiting','closing','nativePending','tokenPresent')))
                 if row['id']=='login.cancel' and row['inputReady']:need(not page['domain'] and not page['closing'])
         else:need(ids<={'login.entry'})
         self.identity=identity;return value
@@ -105,6 +110,10 @@ class TokenLoginUI:
         need(row is not None and row['enabled'] and row['inputReady'])
         page=self.row(value,'login.page')
         if identifier!='login.entry':need(page is not None and not page['domain'] and not page['closing'])
+        if identifier in ('login.username','login.password','login.submit'):
+            need(page['stage']=='credentials' and page['submitEndpointSha256'] in self.endpoints)
+        if identifier=='login.server':need(page['profile']=='qml-login-v1' and page['stage']=='credentials'
+            and not page['nativePending'] and not page['tokenPresent'])
         if action in ('replace','submit'):need(row['focused'])
         # Intent contains native scope/control metadata only; never text.
         self.intent('login-'+action,value,identifier)
@@ -116,11 +125,23 @@ class TokenLoginUI:
         return self.wait(lambda v:self.row(v,'login.page') is not None
             and not self.row(v,'login.page')['domain'] and not self.row(v,'login.page')['closing'])
 
+    def configure_origin(self):
+        value=self.capture();page=self.row(value,'login.page');need(page is not None)
+        if page['profile']=='qml-login-v1' and page['submitEndpointSha256'] not in self.endpoints:
+            self._input('login.server','activate')
+            self.wait(lambda v:self.row(v,'login.server') is not None and self.row(v,'login.server')['focused'])
+            self._input('login.server','replace',text=self.origin)
+            # Ordinary focus loss runs the existing preference/auth URL logic.
+            self._input('login.username','activate')
+            self.wait(lambda v:self.row(v,'login.page') is not None
+                and self.row(v,'login.page')['submitEndpointSha256'] in self.endpoints)
+
     def fill(self,credentials):
         try:
             exact(credentials,{'username','password'})
             need(credentials['username']=='e2e-'+self.run
                  and all(type(v) is str and 0<len(v)<=4096 and all(32<=ord(c)<=126 for c in v) for v in credentials.values()))
+            self.configure_origin()
             for identifier,key in (('login.username','username'),('login.password','password')):
                 self._input(identifier,'activate')
                 self.wait(lambda v:self.row(v,identifier) is not None and self.row(v,identifier)['focused'])
@@ -133,5 +154,12 @@ class TokenLoginUI:
         self._input('login.password','submit')
 
     def cancel(self):
-        if self.row(self.capture(),'login.page') is not None:self._input('login.cancel','activate')
+        value=self.capture()
+        if self.row(value,'login.page') is not None:
+            row=self.row(value,'login.cancel')
+            if row is not None and row['enabled'] and row['inputReady']:self._input('login.cancel','activate')
+            else:
+                close=getattr(self.io,'close_view',None);need(callable(close))
+                self.intent('login-close',value,'login.page')
+                close() # Platform's separately bound ordinary navigation input only.
         return self.wait(lambda v:self.row(v,'login.page') is None,stable=0.3)

@@ -93,7 +93,7 @@ public:
             {"ready", ready}, {"controls", rows}};
         result[_surface == Surface::Audio ? "audioControlsVersion"
             : _surface == Surface::Graphics ? "graphicsControlsVersion"
-            : _surface == Surface::Login ? "loginControlsVersion" : "fileControlsVersion"] = 1;
+            : _surface == Surface::Login ? "loginControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
         return result;
     }
 
@@ -142,7 +142,7 @@ public:
             if (action == "activate" && id != "login.page") {
                 const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
                 if (ownsPoint(control.item,window,point) && pointerClick) { delivered=pointerClick(control.item); }
-            } else if ((id=="login.username" || id=="login.password") && action=="replace"
+            } else if ((id=="login.username" || id=="login.password" || id=="login.server") && action=="replace"
                     && command.value("text").isString() && validLoginText(command.value("text").toString())) {
                 delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
             } else if (id=="login.password" && action=="submit") {
