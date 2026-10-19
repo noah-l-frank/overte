@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from adapters.recorded_preview_evidence import RecordedPreviewEvidence, AndroidPreviewFiles, INPUT, SINK
 from adapters.normal_ui import NativeUIError
 from fixture.serve import FixtureState
-from test_native_feature_observation import probe_source
+from self_tests.test_native_feature_observation import probe_source
 
 
 class Boundary:
