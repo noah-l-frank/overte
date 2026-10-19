@@ -765,6 +765,95 @@ if(files[2].v.available!==false)throw Error("missing hook green");
         completed = subprocess.run(['node', '-e', program], capture_output=True, text=True, timeout=5)
         self.assertEqual(0, completed.returncode, completed.stderr)
 
+    def create_boundaries(self):
+        from create_native_boundary import CreateNativeBoundary
+        from adapters.token_create_ui import TokenCreateUI
+        source=CreateNativeBoundary(self.fixture.root)
+        self.native.screen='create'
+        def send(client,session,target,command,process):
+            self.assertEqual({'running':True,'identity':'31:14'},process);source.send(command)
+        def read(_device,package,path,**kwargs):
+            self.assertEqual('files/overte-e2e/phone-create-ui.json',path)
+            self.assertEqual({'attempts':1},kwargs);return json.dumps(source.value)
+        for boundary in (
+            patch.object(self.adapter,'write_android_client_command',side_effect=send),
+            patch.object(self.fixture.adb,'read_debug_app_file',side_effect=read,create=True),
+            patch.object(self.fixture.adb,'epoch_milliseconds',return_value=20000,create=True),
+            patch.object(appium,'PhoneCreateIO',partial(appium.PhoneCreateIO,
+                monotonic=lambda:source.native.clock,sleep=source.native.sleep)),
+            patch.object(appium,'TokenCreateUI',partial(TokenCreateUI,
+                monotonic=lambda:source.native.clock,sleep=source.native.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._create_controls(SELECTOR,source.ui.intents.append)
+
+    def test_phone_create_original_fields_choices_and_scroll_use_bound_reference(self):
+        source,ui=self.create_boundaries()
+        ui.choose('create.host',1)
+        self.assertEqual(1,source.ui.indexes['create.host'])
+        source.ui.hidden='create.resource';ui.replace('create.resource','owned-resource')
+        self.assertEqual('owned-resource',source.ui.texts['create.resource'])
+        self.assertTrue(any(r['action']=='scroll' for r in source.input_requests))
+        self.assertTrue(all(r['sequence']==n+1 for n,r in enumerate(source.input_requests)))
+        self.assertFalse(any(c.startswith('feature.create.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_create_ignored_choice_and_text_are_not_success(self):
+        source,ui=self.create_boundaries();source.ui.ignore={'create.host'}
+        with self.assertRaises(RuntimeError):ui.choose('create.host',1)
+        self.assertEqual(0,source.ui.indexes['create.host'])
+        source.ui.ignore={'create.resource'}
+        with self.assertRaises(RuntimeError):ui.replace('create.resource','owned-resource')
+        self.assertNotIn('create.resource',source.ui.texts)
+
+    def test_phone_create_changed_native_context_refuses_before_mutation(self):
+        source,ui=self.create_boundaries();reference=ui.capture()
+        source.ui.selected=['22222222-2222-2222-2222-222222222222']
+        with self.assertRaises(RuntimeError):ui.io.activate('create.tab.0',reference=reference)
+        self.assertEqual([],source.input_requests)
+        source.ui.selected=[];source.before_input=lambda:setattr(source.ui,'generation','c'*32)
+        with self.assertRaises(RuntimeError):ui.tab(0)
+        self.assertEqual(0,source.ui.sequence)
+
+    def test_phone_create_missing_marker_false_types_and_changed_candidate_refuse_input(self):
+        for fault in ('version','missing','pid','epoch'):
+            with self.subTest(fault=fault):
+                source,ui=self.create_boundaries()
+                def mutate(v):
+                    if fault=='missing':v.pop('createControlsVersion',None)
+                    elif fault=='version':v['createControlsVersion']=True
+                    elif fault=='pid':v['processId']=99
+                    else:v['capturedEpochMs']=1
+                source.mutate=mutate
+                with self.assertRaises(RuntimeError):ui.tab(0)
+                self.assertEqual([],source.input_requests)
+        self.fixture.adb.digest='f'*64
+        with self.assertRaises(ValueError):self.adapter._create_controls(SELECTOR,lambda _:None)
+
+    def test_actual_phone_probe_create_grammar_rejects_shortcuts_and_extra_results(self):
+        program=r'''
+const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort());
+let calls=[],files=[];
+const Test={phoneCreateUi:r=>{calls.push(r);return {commandId:r.commandId,performed:true};},saveObject:(v,name)=>files.push({v,name})};
+SOURCE
+const outer=r=>({schemaVersion:1,commandId:r.commandId,action:"phone-create-ui",request:r});
+const observe={schemaVersion:1,commandId:"a".repeat(32),action:"observe"};
+applyAndroidControlCommand(outer(observe));applyAndroidControlCommand(outer(observe));
+if(calls.length!==1||files[0].name!=="phone-create-ui.json")throw Error("original observe or dedup");
+const input={schemaVersion:1,commandId:"b".repeat(32),action:"replace",instance:"c".repeat(32),generation:"d".repeat(32),
+sequence:1,observedElapsedMs:0,controlId:"create.name",controlToken:"e".repeat(32),text:"test-only"};
+applyAndroidControlCommand(outer(input));
+for(const change of [{sequence:true},{text:"line\nsecret"},{controlId:"create.page"},{action:"create-direct"},{expected:{entities:[]}}]){
+ applyAndroidControlCommand(outer({...input,...change,commandId:"f".repeat(32)}));}
+if(calls.length!==2)throw Error("untyped or shortcut input");
+let choice={...input,commandId:"1".repeat(32),action:"select-index",controlId:"create.host",index:1};delete choice.text;
+applyAndroidControlCommand(outer(choice));applyAndroidControlCommand(outer({...choice,index:2,commandId:"2".repeat(32)}));
+if(calls.length!==3)throw Error("host bounds");
+delete Test.phoneCreateUi;applyAndroidControlCommand(outer({...observe,commandId:"3".repeat(32)}));
+if(files[3].v.available!==false)throw Error("missing native hook green");
+'''.replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
+
     def graphics_boundaries(self):
         source=ControlNativeBoundary(GraphicsBoundary(),'phone-graphics-ui')
         def send(client,session,target,command,process):

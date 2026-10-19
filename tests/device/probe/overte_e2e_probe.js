@@ -204,6 +204,28 @@
         }
         return /^(?:settings\.entry|audio\.(?:entry|settings-entry|record|live-echo|mute|mode\.(?:desktop|vr)|back))$/.test(String(request.controlId));
     }
+    var lastPhoneCreateRequest = "";
+    function validPhoneCreateRequest(request) {
+        if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
+        if (request.action === "observe") { return objectKeysMatch(request,["schemaVersion","commandId","action"]); }
+        var keys=["schemaVersion","commandId","action","instance","generation","sequence","observedElapsedMs","controlId","controlToken"];
+        if (request.action === "replace") { keys.push("text"); }
+        if (request.action === "select-index") { keys.push("index"); }
+        if (request.action === "scroll") { keys.push("direction"); }
+        if (["activate","replace","select-index","scroll"].indexOf(request.action) === -1 || !objectKeysMatch(request,keys)
+                || !/^[0-9a-f]{32}$/.test(String(request.instance)) || !/^[0-9a-f]{32}$/.test(String(request.generation))
+                || !/^[0-9a-f]{32}$/.test(String(request.controlToken))
+                || !phoneFileInteger(request.sequence,1,9007199254740991)
+                || !phoneFileInteger(request.observedElapsedMs,0,9007199254740991) || typeof request.controlId !== "string") { return false; }
+        var field=/^create\.(?:name|resource|import-url|filter|textures|field\.(?:(?:position|rotation|dimensions)\.[xyz]|color\.(?:red|green|blue)))$/.test(request.controlId);
+        var choice=/^create\.(?:host|import-host|shape)$/.test(request.controlId);
+        if (request.action === "replace") { return field && typeof request.text === "string" && /^[\x20-\x7e]{0,4096}$/.test(request.text); }
+        if (request.action === "select-index") { return choice && phoneFileInteger(request.index,0,request.controlId === "create.shape" ? 5 : 1); }
+        if (request.action === "scroll") { return request.controlId === "create.scrollbar" && (request.direction === "up" || request.direction === "down"); }
+        return field || choice || /^(?:tablet\.(?:home|page\.(?:[1-9]|[12][0-9]|3[0-2]))|create\.(?:entry|new-shape|new-model|new-voxel|refresh|apply|delete|undo|redo|import-submit|import-browse|apply-typed|export|tab\.[0-4]))$/.test(request.controlId)
+            || (/^create\.entity\.[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(request.controlId)
+                && request.controlId !== "create.entity.00000000-0000-0000-0000-000000000000");
+    }
     var lastPhoneGraphicsRequest = "";
     function validPhoneGraphicsRequest(request) {
         if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
@@ -1101,6 +1123,24 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "phone-create-ui") {
+            if (command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
+                    && validPhoneCreateRequest(command.request) && command.request.commandId === command.commandId
+                    && command.commandId !== lastPhoneCreateRequest) {
+                lastPhoneCreateRequest=String(command.commandId);
+                var createUi={schemaVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.phoneCreateUi === "function") {
+                        var createOriginal=Test.phoneCreateUi(command.request);
+                        if (createOriginal && createOriginal.commandId === command.commandId) { createUi=createOriginal; }
+                    }
+                } catch (_phoneCreateError) { /* No raw private field/exception export. */ }
+                Test.saveObject(createUi,"phone-create-ui.json");
+            }
+            return;
+        }
+
         if (command && command.action === "phone-login-ui") {
             try {
                 if (command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
@@ -1595,7 +1635,7 @@
                 || command.action === "feature-chat-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
-                || command.action === "phone-login-ui"
+                || command.action === "phone-login-ui" || command.action === "phone-create-ui"
                 || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui"
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"

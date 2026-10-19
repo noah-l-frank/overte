@@ -285,3 +285,24 @@ See [the reception contract](../../native/CHAT_OBSERVATION.md).
 All **81** Phone wrapper cases pass after this packet; the shared **21** Chat
 source/owner cases pass on the Phone tree too. Zero native compilation/device
 qualification is inferred.
+
+### Original Create controls v1
+
+`_create_controls(selector, intent)` now returns the shared `TokenCreateUI`
+recipe on `PhoneCreateIO` and the private `phone-create-ui` probe route.
+`Test.phoneCreateUi` reuses the E2E-only normal Qt dispatcher. The reader pins
+native instance/generation/PID, original source/input counters and timestamps;
+the backend retains the caller's original row/selection reference across its
+fresh admission read. Actual tablet visibility comes from the bound normal
+Phone UI. Ordinary pointer, focused field IME/key, combo key and scrollbar
+trough inputs never call the Create bridge or Entity services.
+
+The mandatory caller intent must be durable before input. This is an internal
+component for composing the existing Create owner and independent entity
+observer; the legacy `create.*` registration still uses its existing reviewed
+accessibility UI until durable full-run composition is finished. No
+`feature.create.*` operation is advertised. Shared metadata/recipe counterexamples
+and Phone wrapper/probe tests use synthetic native boundaries, not a compiled
+client or device. Actual layout, scrolling, combo focus and native compilation
+remain unqualified. Model/texture, import picker/export, PolyVox, permission
+actors and their original resource/file/peer evidence are still required.

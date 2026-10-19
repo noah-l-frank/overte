@@ -39,6 +39,8 @@ from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, Android
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from adapters.token_graphics_ui import TokenGraphicsUI
 from overte_phone_graphics import PhoneGraphicsIO, FILE as GRAPHICS_UI_FILE
+from adapters.token_create_ui import TokenCreateUI
+from overte_phone_create_controls import PhoneCreateIO, FILE as CREATE_UI_FILE
 from adapters.token_login_ui import TokenLoginUI
 from overte_phone_login import PhoneLoginIO, FILE as LOGIN_UI_FILE
 from adapters.token_audio_ui import TokenAudioUI
@@ -304,6 +306,20 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + GRAPHICS_UI_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid)
         return TokenGraphicsUI(io, intent)
+
+    def _create_controls(self, selector, intent):
+        # Internal normal-input component. The caller owns the panel/entities
+        # and persists intent; this never enables feature.create capabilities.
+        native=self._native_feature_observer(selector)
+        target=self.target(selector);device=target['capabilities']['appium:udid']
+        transport=PhoneAdapter(self.candidate).adb
+        native_ui,_observe,_context,check,_installed=self.normal_feature_runtime(selector)
+        ui=PhoneScriptUI(native_ui,target['appId'])
+        check()
+        io=PhoneCreateIO(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+CREATE_UI_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,tablet_shown=ui.tablet_visible)
+        return TokenCreateUI(io,intent)
 
     def _login_controls(self, selector, intent, run, origin):
         # Input component only. The owner supplies actual private fixture
