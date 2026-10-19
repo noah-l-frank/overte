@@ -413,6 +413,27 @@ def plan(event: dict, paths: list[str], config: dict, branches: dict,
     return result
 
 
+def effective_plan(candidate, event, sha, paths, config, branches, regular=True, *, pr_context=None):
+    """Choose one executor only after the protected base enrolls its source.
+
+    The legacy classifier still recognizes synchronization independently. This
+    scheduling decision grants no execution/proof authority: the producer must
+    repeat its native API and materialized-source admission before execution.
+    """
+    result = plan(event, paths, config, branches, regular)
+    if result['mode'] != 'delegated-sync' or not paths:
+        return result
+    try:
+        context = pr_candidate_context(candidate, event, sha, pr_context=pr_context)
+        controller = native_owner_policy()
+        if controller.sync_source_ready(candidate, event, context):
+            result = {**result, 'mode': 'full'}
+    except (ValueError, OSError, KeyError, TypeError, ImportError, subprocess.SubprocessError):
+        # An unenrolled bootstrap keeps the independently required Sync owner.
+        pass
+    return result
+
+
 def pr_candidate_context(candidate: Path, event: dict, sha: str, *, pr_context=None) -> dict:
     """Provisional immutable B/H/M for routing; never receipt/admission authority.
 
@@ -698,7 +719,9 @@ def bound_project_owners(needs, candidate, event, sha):
         raise ValueError('native owner output inventory is malformed')
     present = _NATIVE_OWNER_OUTPUTS & outputs.keys()
     generation = package_policy().validate_wiring(candidate) if candidate is not None else None
-    if generation not in {_NATIVE_OWNER_GENERATION, 'protected-producer-original-default-v1'}:
+    if generation not in {_NATIVE_OWNER_GENERATION, 'protected-producer-original-default-v1',
+            'protected-producer-original-default-boolean-v1',
+            'protected-producer-original-default-required-context-v1'}:
         if 'workflow-contracts' in needs:
             raise ValueError('contract fallback requires an exact complete native-owner generation')
         if present:
@@ -928,7 +951,7 @@ def main() -> int:
             build_policy.validate_wiring(args.candidate, event)
             if direct_browser_required(config, event):
                 validate_direct_wiring(args.candidate)
-            result = plan(event, paths, config, branches, documentation_safe)
+            result = effective_plan(args.candidate, event, args.sha, paths, config, branches, documentation_safe)
             result.update(direct_outputs(direct_candidate_plan(args.candidate, event, args.sha)))
             packages = package_policy()
             if packages.activated(event) or packages.has_staged_caller(args.candidate):
