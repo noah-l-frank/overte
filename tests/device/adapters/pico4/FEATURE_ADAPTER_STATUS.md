@@ -11,7 +11,7 @@ and evaluated animation/pose observations plus labelled render/audio/account
 reads. `_native_feature_observer(target)` preserves the original candidate,
 installed-byte, foreground and OpenXR process guards around that separate
 read-only file. This source backend still advertises no `feature.*` triple.
-The existing registered observation group now runs **16** host boundary cases,
+The existing registered observation group now runs **17** host boundary cases,
 including changed candidates, foreign PIDs and unavailable native hooks.
 Native compilation and device behavior remain untested. See the
 [native observation contract](../../native/README.md).
@@ -37,7 +37,7 @@ refuses older producers and preserves original entity UUIDs, edit times, raw
 counter data and RGB. A stalled counter remains stalled despite fresh captures;
 it cannot become synthetic progression. The new bound-wrapper case retains
 candidate/OpenXR guards and rejects candidate loss before a further request.
-All **16** observation cases pass. The native source remains uncompiled; the
+All **17** observation cases pass. The native source remains uncompiled; the
 full independently journaled effect/picker/engine/restart coordinator is open.
 
 The next packet now implements the five existing `scripts.*` foundation
@@ -69,7 +69,7 @@ Normal Script UI captures now recheck installed bytes before and after reads.
 The fourteen-case group includes actual native token/recipe transactions, ignored
 row delivery despite a successful ACK, primary readback and missing-marker/
 candidate failures. The existing **31** candidate/navigation/Snapshot boundary
-cases and **16** original-observation cases also pass after the extension.
+cases and **17** original-observation cases also pass after the extension.
 All are device-free; native C++ remains uncompiled and actual VR/keyboard
 delivery remains unqualified. A complete version 3 Script adapter still needs
 persistent picker/engine cleanup intent, verified restart handoff and
@@ -158,6 +158,14 @@ memory capture/play/drain/completion cycle. It rejects invented manual Save or
 Preview controls and separately requires original recording/acoustic evidence.
 The existing preview sources are not full normal Audio input/cycle/acoustic
 bindings. Those and the verified restart/cleanup handoff remain open. The
-updated common suite passes 351 no-build cases; Pico's 16 observation wrapper
+updated common suite passes 351 no-build cases; Pico's 17 observation wrapper
 cases also pass after the parent merge. Neither native compilation nor devices
 were qualified.
+
+The atomic Audio history extension now uses the original candidate/OpenXR-bound
+native reader with `require_recorded_history=True`. It preserves native cycle,
+event times and historical frame format while checking actual empty live
+buffers. The added wrapper case rejects an older source and never advances
+terminal event metadata on reads. All 17 observation cases pass. C++ remains
+uncompiled; Audio UI, independent acoustic/journal and verified restart/cleanup
+joins remain open. See [the history source](../../native/RECORDED_PREVIEW_HISTORY.md).

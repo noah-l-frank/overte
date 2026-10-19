@@ -1,6 +1,7 @@
 """Real Pico candidate wrapper and observation transport; native boundaries only."""
 # SPDX-License-Identifier: Apache-2.0
 from functools import partial
+from copy import deepcopy
 import json
 import shlex
 from pathlib import Path
@@ -16,6 +17,8 @@ from adapters.pico4 import feature_observation
 from adapters.android.adapter import ANDROID_CONTROL_COMMAND
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
+from self_tests.test_recorded_preview_history import complete as completed_voice
+from adapters.recorded_preview_history import measured_state as measured_audio_state
 from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, RUN as EFFECT_RUN
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 
@@ -86,6 +89,26 @@ class FeatureObservationTests(unittest.TestCase):
                          patch.object(self.native, 'read_debug_app_file', side_effect=read)):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
+
+    def test_pico_atomic_audio_history_keeps_terminal_events_and_refuses_an_older_source(self):
+        source = self.native_feature_boundaries(); original = source.mutate
+        recorded = completed_voice()
+        offset = self.native.epoch_milliseconds(self.native.target) - 20000
+        recorded['startedEpochMs'] += offset
+        for event in recorded['events']: event['publishedEpochMs'] += offset
+        recorded['event'] = deepcopy(recorded['events'][-1])
+        def history(value):
+            original(value); value['audio']['recordedVoice'] = deepcopy(recorded)
+        source.mutate = history
+        reader = self.adapter._native_feature_observer(self.native.target)
+        first = reader.read(0, require_recorded_history=True)
+        self.assertEqual(144000, measured_audio_state(first)['recordedFrames'])
+        self.assertEqual(0, measured_audio_state(first)['bufferedFrames'])
+        second = reader.read(first['sequence'], require_recorded_history=True)
+        self.assertEqual(first['audio']['recordedVoice'], second['audio']['recordedVoice'])
+        source.mutate = original
+        with self.assertRaises(RuntimeError): reader.read(second['sequence'], require_recorded_history=True)
+        self.assertEqual([], self.native.inputs)
 
     def test_native_feature_original_evaluated_clip_and_native_lifecycle_keep_candidate_binding(self):
         source = self.native_feature_boundaries()
