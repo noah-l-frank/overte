@@ -115,9 +115,12 @@ unexpected process replacement preserves unresolved ownership. The complete
 Authentication restart coordinator remains missing.
 
 The common Test API, both existing command channels, fixture validation, typed
-reader and persisted owner now exist. The Phone/Pico/unbound iOS factories and
-their adapter-wide cleanup integration are subsequent platform work. Canonical
-iOS installed-code binding remains unavailable. Actual trusted native origin
+reader and persisted owner now exist. Phone/Pico and the unbound iOS component
+now acquire the actual native Test instance through their existing guards,
+connect the original file transport and persist this independent scope. Their
+adapter-wide cleanup drains probes first, then origin files before base teardown,
+and preserves unresolved ownership. Canonical iOS explicitly rejects this
+factory; installed-code binding remains unavailable. Actual trusted native origin
 setup, ordinary login/cancel/UI/error observations, verified restart and complete
 independent actor composition still gate the full Authentication capabilities.
 

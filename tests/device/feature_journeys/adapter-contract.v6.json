@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": 5,
+  "contractVersion": 6,
   "operationPattern": "feature.<area>.act|observe|cleanup",
   "qualification": "Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.",
   "areas": {
@@ -162,6 +162,7 @@
         "login-open": [
           {},
           {},
+          {},
           {}
         ],
         "login-submit": [
@@ -177,13 +178,17 @@
         ],
         "login-cancel": [
           {},
-          {}
-        ],
-        "release-stale-response": [
+          {},
+          {},
+          {},
           {}
         ],
         "restart-app": [
           {},
+          {},
+          {}
+        ],
+        "release-stale-response": [
           {}
         ],
         "logout": [
@@ -195,13 +200,17 @@
         "dialog": "bool",
         "error": "str",
         "pending": "bool",
-        "protectedAccess": "bool"
+        "protectedAccess": "bool",
+        "delayedGrantOutstanding": "bool"
       },
       "measuredBaselineFields": [],
       "independentFields": [
         "principal",
+        "dialog",
+        "error",
         "pending",
-        "protectedAccess"
+        "protectedAccess",
+        "delayedGrantOutstanding"
       ],
       "existingModules": []
     },

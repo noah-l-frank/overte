@@ -5,7 +5,7 @@ implemented**: Phone has new ordinary Create/script foundation bindings; Pico
 has a candidate-bound original-observation backend; iOS has an original-read
 component behind its unchanged installed-code gate. **No complete new
 `feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
-All fourteen complete version 5 adapters remain missing, and all device qualification
+All fourteen complete version 6 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.
 
@@ -16,7 +16,7 @@ original evaluated animation/pose observations, with labelled native
 render/audio/account settings reads. Platform transports are being connected
 in Phone, Pico, iOS order. See [the native source contract](native/README.md).
 The initial source-only readers and full-area adapter status remain distinct;
-these new sources do not by themselves complete any version 5 triple.
+these new sources do not by themselves complete any version 6 triple.
 The [source compatibility audit](FEATURE_SOURCE_COMPATIBILITY.md) also records
 draft common workflow assumptions that must be corrected before area activation.
 
@@ -99,13 +99,13 @@ trust/origin setup or a complete actor/coordinator; no capability is enabled.
 
 ## Fourteen-area source audit
 
-All rows below mean: **test logic present; full version 5 adapter missing; devices
+All rows below mean: **test logic present; full version 6 adapter missing; devices
 untested**. Existing/new foundations are narrower implementation scopes.
 
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
 | --- | --- | --- | --- | --- |
 | Worlds/navigation | Existing normal Go To/history retained | Existing real VR Go To/history retained | Existing native component navigation retained; bound execution blocked | Actual bookmark CRUD/persistence, directory/search/failure state and independent arrival/directory actor |
-| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled HTTPS account/profile fixture now exists; passive native pending/token/reply history now exists; explicit-origin protected-probe source now exists; native origin provisioning, login inputs and independent actor joins remain missing |
+| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled HTTPS account/profile fixture now exists; passive native pending/token/reply history now exists; explicit-origin protected-probe and owned origin-file factories now exist; native trust/setup, login inputs and independent actor joins remain missing |
 | Avatar/people | Existing replication foundations retained | Existing replication foundations retained | Existing component peer/replication code retained | Actual avatar chooser/bookmark/scale/wearable readers, mutual contact consent peer and original visible avatar effects |
 | Create | **New** ordinary cube/edit/history/delete/JSON import + observer/source cleanup | **New** original avatar-owned native ID reader; VR input controls missing | **New** original avatar-owned native ID reader component; bound execution blocked | glTF/OBJ local picker + companions, voxel stroke/settled data, texture/render effect, original export bytes and real domain rez-denial actor |
 | Emotes | Evaluated Rig/clip/pose and immutable native call/frame history | Same candidate-bound history reader | Same original native history component; canonical binding blocked | Full source-profile/normal-input/history/peer/image coordinator, measured completion/early-restoration timing and actual Sit identities; the original tablet Sit end-frame concern remains unresolved |
@@ -125,7 +125,7 @@ Common blockers affecting the full triples:
   an account backend, domain administrator, external upload/share service or
   second Overte client. No such real measuring actor has been implemented by
   relabelling fixture simulation or by forwarding expectations to the adapter.
-* The version 5 `lifecycle` counters must come from actual native lifecycle events;
+* The version 6 `lifecycle` counters must come from actual native lifecycle events;
   request counts cannot fill them. The continuation's native packet implements
   that source, but the full-area observer/cleanup joins remain to be completed.
 * Fullscreen panels can occlude the current in-world challenge/feature subject.
@@ -234,3 +234,10 @@ retirement before independently observed file cleanup. It can clean its own
 partial writes but refuses copied/modified originals. It does not set product
 endpoints or trust; platform factory/cleanup integration is still the next step.
 Native code remains uncompiled and no full Authentication triple is enabled.
+
+The origin-file factories are now connected in Phone/Pico and the unbound iOS
+component, including actual Test-instance acquisition and their existing process/
+artifact/session guards. Adapter cleanup drains network probes then owned
+configuration before base teardown and preserves unresolved ownership. Native
+trust/ordinary endpoint setup, login/cancel/UI/error and verified restart/actor
+composition still gate Authentication activation; all native code is uncompiled.

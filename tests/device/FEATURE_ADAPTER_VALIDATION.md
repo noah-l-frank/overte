@@ -4,6 +4,28 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The Authentication journey v6/account-provider v2 packet passes **561** guarded
+common host cases with zero failures/errors/skips/compiler attempts and the same
+three native exclusions. Its **48** journey cases reject invented network aborts,
+old-response adoption, absent valid delayed issuance, unrevoked backend authority
+and primary error echoes without independent UI effects. The **30** real HTTPS
+provider cases retain original delayed identities/times, observe actual valid
+issuance and revocation, reject rewritten/foreign authority and exercise the
+closed reader stimuli. One added malformed-control test initially omitted its
+reader role and correctly received 403; after fixing that test, the complete
+561-case selection passes. This verifies fixture/test logic only. No native
+source was compiled, ordinary login executed or device qualified.
+
+Origin-file platform follow-ups pass **67** Phone cases, **36** Pico normal
+Script/Audio/Graphics/world/account cases and **42** iOS component cases. Five
+new cases per platform cover actual native Test-context acquisition, original
+file readback, ACK-only staging, foreign scope and adapter-wide cleanup that
+reaches base teardown but refuses green for retained files. The guarded broad
+iOS selection passes **274** cases with zero failures/errors/skips or compiler
+attempts and the same 20 native exclusions; five canonical binding checks and
+seven original probe/dispatch cases also pass. Native source remains uncompiled,
+complete Authentication composition is open and all device qualification absent.
+
 The native account-origin ownership v1 packet passes **550** guarded common
 host cases, zero failures/errors/skips/compiler attempts, with the same three
 native exclusions. Its **17** origin cases use real private temporary originals

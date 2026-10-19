@@ -12,7 +12,7 @@ import secrets
 import threading
 import time
 from urllib.request import HTTPRedirectHandler, Request, build_opener
-from .contract import exact, identifier, number, state
+from .contract import exact, identifier, number, state, json_document
 from .fixtures import context
 from .scenarios import SCENARIOS
 
@@ -20,7 +20,7 @@ from .scenarios import SCENARIOS
 # Full checkpoint semantics and actor measurement sources are in the handoff.
 WITNESS_KEYS = {
  'world-navigation': ['location', 'bookmark', 'bookmarkName', 'searchResults', 'error'],
- 'authentication': ['principal', 'pending', 'protectedAccess'],
+ 'authentication': ['principal', 'dialog', 'error', 'pending', 'protectedAccess', 'delayedGrantOutstanding'],
  'avatar-people': ['avatar', 'scale', 'wearable', 'bookmarked', 'connection'],
  'create': ['objects', 'canRez', 'selection', 'textured', 'voxelValue'],
  'emotes': ['animation', 'sit', 'override', 'poseProgress','restoredBeforeNominalEnd'],
@@ -147,7 +147,7 @@ class Client:
                 body = response.read(1024 * 1024 + 1)
             if len(body) > 1024 * 1024:
                 raise ValueError('Feature fixture response exceeds the bounded limit')
-            return json.loads(body)
+            return json_document(body)
         except Exception as error:
             if hasattr(error, 'close'):
                 error.close()
@@ -162,7 +162,7 @@ class Client:
             if urlsplit(self.url).scheme!='https':raise ValueError('Authentication requires the trusted HTTPS account fixture')
             provider=self.request('/account-provider')
             exact(provider,{'providerVersion','instance','transport','tlsVersion','internalErrors'},'account provider readiness')
-            if (type(provider['providerVersion']) is not int or provider['providerVersion']!=1 or provider['transport']!='https'
+            if (type(provider['providerVersion']) is not int or provider['providerVersion']!=2 or provider['transport']!='https'
                     or provider['tlsVersion'] not in ('TLSv1.2','TLSv1.3') or type(provider['internalErrors']) is not int
                     or provider['internalErrors']!=0):raise ValueError('Required account provider is unavailable')
             self.account_instance=identifier(provider['instance'])
@@ -203,9 +203,9 @@ class Client:
         from .contract import number
         value=self.request('/runs/'+self.run+'/account/status')
         exact(value,{'providerVersion','instance','runId','capturedEpochMs','eventSequence','accountExists',
-            'heldRequests','armedHold','inflightRequests','accessTokens','refreshTokens'},'account provider status')
-        if (type(value['providerVersion']) is not int or value['providerVersion']!=1 or value['instance']!=self.account_instance
-                or value['runId']!=self.run or any(type(value[k]) is not bool for k in ('accountExists','armedHold'))
+            'heldRequests','armedHold','inflightRequests','accessTokens','refreshTokens','grantsEnabled'},'account provider status')
+        if (type(value['providerVersion']) is not int or value['providerVersion']!=2 or value['instance']!=self.account_instance
+                or value['runId']!=self.run or any(type(value[k]) is not bool for k in ('accountExists','armedHold','grantsEnabled'))
                 or any(type(value[k]) is not int or value[k]<0 for k in ('eventSequence','heldRequests','inflightRequests','accessTokens','refreshTokens'))
                 or type(value['capturedEpochMs']) is not int or value['capturedEpochMs']<self.account_epoch
                 or value['eventSequence']<self.account_sequence
@@ -216,7 +216,7 @@ class Client:
         return value
 
     def account_control(self,operation):
-        if self.area!='authentication' or self.closed or operation not in ('hold-next','release-delayed','cleanup'):
+        if self.area!='authentication' or self.closed or operation not in ('hold-next','release-delayed','revoke-issued','cleanup'):
             raise ValueError('Unknown or retired account control')
         self.request('/runs/'+self.run+'/account/control',{'operation':operation})
 
