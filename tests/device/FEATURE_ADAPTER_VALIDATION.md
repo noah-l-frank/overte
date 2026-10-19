@@ -22,6 +22,14 @@ Native C++ remains uncompiled. Mono-only version 1 explicitly rejects stereo
 and unsupported backends; no Pico rendering or iOS installed-code qualification
 can be inferred from these host checks.
 
+The actual Rig call/pose-history packet passes **474** common host cases, zero
+failures/errors/skips or compiler attempts, with the same native exclusions.
+Its **11** new history cases retain original historical times and reject stale
+calls, standing poses, missing loaded frames, delayed completion, rewritten
+history and Rig/graph replacement. These are reader/source-logic checks, not
+native compilation or an Emote product result. The common Emote source-semantics
+correction and its complete input/peer/image coordinator remain open.
+
 Version 4 Graphics validation: **388** common host cases pass with zero failures,
 errors, skips or compiler attempts; the same three native compiler cases remain
 excluded. Its journey group has **39** cases, and four additional Graphics

@@ -377,6 +377,12 @@ void Rig::overrideAnimation(const QString& url, float fps, bool loop, float firs
     _animVars.set("userAnimNone", false);
     _animVars.set("userAnimA", clipNodeEnum == UserAnimState::A);
     _animVars.set("userAnimB", clipNodeEnum == UserAnimState::B);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    {
+        QWriteLocker lock(&_e2eAnimationLock);
+        _e2eAnimationHistory.overrideCalled(url,fps,loop,firstFrame,lastFrame);
+    }
+#endif
 }
 
 void Rig::restoreAnimation() {
@@ -387,6 +393,10 @@ void Rig::restoreAnimation() {
         _animVars.set("userAnimNone", true);
         _animVars.set("userAnimA", false);
         _animVars.set("userAnimB", false);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        QWriteLocker lock(&_e2eAnimationLock);
+        _e2eAnimationHistory.restoreCalled();
+#endif
     }
 }
 
@@ -1827,6 +1837,7 @@ void Rig::updateAnimations(float deltaTime, const glm::mat4& rootTransform, cons
         }
         observed["joints"] = joints;
         QWriteLocker lock(&_e2eAnimationLock);
+        _e2eAnimationHistory.evaluated(observed,deltaTime,_animNode,_animSkeleton);
         _e2eAnimationObservation = observed;
     }
 #endif
@@ -1835,7 +1846,9 @@ void Rig::updateAnimations(float deltaTime, const glm::mat4& rootTransform, cons
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 QVariantMap Rig::e2eAnimationObservation() const {
     QReadLocker lock(&_e2eAnimationLock);
-    return _e2eAnimationObservation;
+    auto value = _e2eAnimationObservation;
+    if (!value.isEmpty()) { value.insert("history",_e2eAnimationHistory.snapshot()); }
+    return value;
 }
 #endif
 

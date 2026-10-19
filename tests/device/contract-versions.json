@@ -7,6 +7,7 @@
     "capability-registry": {"current": 1, "reads": [1]},
     "feature-journey": {"current": 4, "reads": [4]},
     "native-feature-observation": {"current": 1, "reads": [1]},
+    "native-animation-history": {"current": 1, "reads": [1]},
     "native-script-code-identity": {"current": 1, "reads": [1]},
     "emote-source-profile": {"current": 1, "reads": [1]},
     "graphics-subject": {"current": 1, "reads": [1]},

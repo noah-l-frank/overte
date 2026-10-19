@@ -10,6 +10,11 @@ The separate [Script execution observation](SCRIPT_EXECUTION_OBSERVATION.md)
 provides actual native manager identities and historical CommonJS completion/
 cache/error events. It supplies no code or desired module path to the client.
 
+The [actual Rig call/pose history](ANIMATION_HISTORY.md) retains bounded original
+override/restore events and evaluated clip/joint frames for short Emotes. It
+records no inferred UI/timer cause, enables no full area producer and remains
+uncompiled. Fresh acquisitions cannot relabel its historical timestamps current.
+
 The separate [world-render acquisition](WORLD_RENDER_ACQUISITION.md) connects a
 native request to a later main-mono tone-map GPU callback and retains original
 PNG memory with an independently observed release inventory. Its private

@@ -46,3 +46,11 @@ host profile checks include an execution of original tablet emote.js: its Sit
 branch supplies an undefined endFrame, while non-Sit supplies a number. Native
 conversion/pose behavior remains unqualified. This is a concrete source concern
 to resolve before full Emote acceptance, not a functional change in this phase.
+
+The [original Rig call/evaluated-pose history](native/ANIMATION_HISTORY.md) now
+retains short-clip evidence after the live override ends. It distinguishes
+native calls from actual loaded/advancing/changed pose frames, preserves original
+timestamps and requires a later inactive evaluation after restore. It labels no
+timer/button cause and does not yet correct the draft's ordinary override or
+chooser assumptions. Those common semantic changes need a versioned migration
+before full area activation. The original Sit concern remains unresolved.
