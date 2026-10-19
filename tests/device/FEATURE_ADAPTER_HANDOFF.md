@@ -1,32 +1,32 @@
-# Feature adapter handoff, contract v1
+# Feature adapter handoff, contract v2
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
-packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v1.json) and
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v2.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 tracks subsequent local platform packets and prerequisites. These do not change
-the complete v1 contract or grant device acceptance.
+the complete v2 contract or grant device acceptance.
 
 ## Action and read boundary
 
 For each closed area, advertise all three operations only after implementing
-and qualifying their complete v1 contract:
+and qualifying their complete v2 contract:
 
-- `feature.<area>.act` accepts exactly `{contractVersion: 1, runId, ticket,
+- `feature.<area>.act` accepts exactly `{contractVersion: 2, runId, ticket,
   fixtureUrl, verb, inputs}`. `runId` and `ticket` are fresh 32-character lowercase
   hexadecimal strings. `fixtureUrl` is a credential-free HTTP(S) URL whose exact
   path is `/feature-fixture/v1/runs/<runId>/`. `verb` and `inputs` must match the
   closed inventory, including expanded owned text. Return exactly
   `{"performed": true}` after delivering ordinary input, never a result verdict.
-- `feature.<area>.observe` accepts exactly `{contractVersion: 1, runId,
-  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 1,
+- `feature.<area>.observe` accepts exactly `{contractVersion: 2, runId,
+  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 2,
   runId, sequence, capturedEpochMs, state, artifacts, resources, lifecycle}`.
   `state` has every field declared for that area, measured from current product
   state. Unknown, inaccessible or unsupported observations are errors. Empty
   lists and default values cannot substitute for a failed read.
-- `feature.<area>.cleanup` accepts exactly `{contractVersion: 1, runId}` and
+- `feature.<area>.cleanup` accepts exactly `{contractVersion: 2, runId}` and
   returns exactly `{"performed": true}`. Restore only the captured owned test
   scope. The common test calls it twice and then independently observes the
   initial state, empty owned-resource inventory and three seconds of stable
@@ -137,7 +137,7 @@ relative bundle. Apply the distinct generated `checker.png` from the texture
 input ticket. Ordinary import must use the owned name and unit dimensions via
 real property fields. If a platform's local importer exports a different source
 representation, qualify a new explicit contract reader; never rewrite the
-original export to satisfy v1. Original source bytes of the selected Assets server mapping, read independently
+original export to satisfy v2. Original source bytes of the selected Assets server mapping, read independently
 of any baked/rendered derivative, must match the pinned original glTF bytes exactly and the independent server mapping must bind them to this run.
 
 ## Independent fixture observer
@@ -202,7 +202,7 @@ receipt, requested value or UI text alone cannot substitute for an effect.
 | audio | Actual recording engine state, decoded saved frames, peer mute state and independent PCM at the declared capture point. A denied recording produces no frames. Cancel discards them. Preview/stop and muted/background silence are measured from bytes. Discard leaves no owned recording. |
 | chat | Independent peer's delivered message ledger and product's rendered history must match exact run-scoped Unicode payloads and order. Back dismisses keyboard without sending. Filtering suppresses the hidden payload. Offline send creates no duplicate; reconnect plus explicit retry delivers exactly once. Persist history through close/reopen. |
 | snapshots | Independently enumerate original app files, share-sink files and authenticated upload-sink deliveries. Cancel/denial/share-cancel produce zero side effects. Upload failure produces zero server deliveries; retry produces exactly one. Inspect original capture/share bytes and retain capture provenance across resume. |
-| scripts | Read actual running engines, companion resolution and ticking owned entity effects. Consent cancel/reject leaves no engine or effects. Folder import retains `companion.js` relatively. Restart starts actual execution again. `effects` is active-run tick progress and must advance by at least two actual ticks during a successful active observation window; stopped engines leave zero active effects and owned entities. 404 creates no engine. |
+| scripts | `picker-open` activates the existing Running Scripts **From File** control and observes the real **Open Script and Companion Files** picker. `picker-cancel` dismisses it and leaves zero running engines/effects. `picker-accept` chooses the owned `script.js` plus companion or `script-bundle/main.js` with its relative `companion.js`, using the platform's real file/bundle picker. The accepted source loads directly; no client-script consent dialog is invented. `companions` lists actual relative modules resolved by the current owned engine, not requested filenames or retained staged-file presence. Read actual running engines and the ticking owned entity independently. Restart starts actual execution from the retained owned source again. `effects` must advance at least two actual ticks in a successful observation window; Stop leaves zero active effects/engines/entities/companions. The separate `load-url` uses From URL with the owned missing.js URL; actual load failure leaves no running engine. Entity-script consent remains in the reused `scripted-entity` suite. |
 | assets | Independently enumerate owned server mappings, selected resolved resource, finished bake output, actual rezzed model and effective write permissions. `import-selected` uses the real Add to World button and model dialog; `remove-owned-model` deletes only that owned entity through normal Create controls. Only this run's unpredictable mapping names may change. `mappings` lists owned bundle roots; `companions` lists every mapped relative dependency (glTF mesh/texture or OBJ material/texture), so partial uploads and leaked companions fail. glTF and OBJ companions must remain resolvable. Bake `ready` means usable derived output, not queued work. Denied delete preserves mapping; permitted delete removes it; missing upload cannot create one. |
 | lifecycle-input | Observe actual editor/focus/keyboard ownership, held-input routes, world displacement from independent native positions and context generations. World input while editing produces no displacement. Back first releases keyboard, then closes editor. Replace context before delayed input; the new context remains empty. World input works once focus is released and remains bounded; cleanup releases every held route and restores position. |
 

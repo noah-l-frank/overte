@@ -5,7 +5,7 @@ implemented**: Phone has new ordinary Create/script foundation bindings; Pico
 has a candidate-bound original-observation backend; iOS has an original-read
 component behind its unchanged installed-code gate. **No complete new
 `feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
-All fourteen complete v1 adapters remain missing, and all device qualification
+All fourteen complete version 2 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.
 
@@ -72,6 +72,14 @@ Detailed platform packets are documented in each owning branch under
 Reusable protocol/bounds/cleanup details are in
 [normal scripts](adapters/NORMAL_SCRIPT_MANAGER.md) and
 [normal Create](adapters/NORMAL_CREATE.md).
+
+The shared [version 2 migration](feature_journeys/CONTRACT_MIGRATION.md)
+corrects client Script import to the existing file-bundle picker. URL Script
+foundations remain narrower; the local picker/actual companion observer joins
+are still open. The [original memory-preview PCM source](native/RECORDED_PREVIEW_EVIDENCE.md)
+now has internal transports on all three platform branches. It retains actual
+capture/sink bytes, native cycles/events and observed cleanup; it is not a full
+audio adapter or independent acoustic proof.
 
 ## Fourteen-area source audit
 

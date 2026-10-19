@@ -5,7 +5,7 @@
     "adapter-manifest": {"current": 1, "reads": [1]},
     "artifact-manifest": {"current": 1, "reads": [1]},
     "capability-registry": {"current": 1, "reads": [1]},
-    "feature-journey": {"current": 1, "reads": [1]},
+    "feature-journey": {"current": 2, "reads": [2]},
     "native-feature-observation": {"current": 1, "reads": [1]},
     "native-script-controls": {"current": 1, "reads": [1]},
     "recorded-preview-signal": {"current": 1, "reads": [1]},
