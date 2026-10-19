@@ -10,6 +10,9 @@ import re
 from execution_identity import file_digest
 from adapters.pico4.navigation import NativeNavigationIO, PicoNavigation, configured_scene, discard_stopped_state
 from navigation_observation import OPERATIONS as NAVIGATION_OPERATIONS
+from adapters.android_snapshot_files import AndroidSnapshotFiles
+from adapters.pico4.snapshot import (PicoSnapshot, OPERATIONS as SNAPSHOT_OPERATIONS,
+                                    configured_scene as configured_snapshot)
 
 ROOT = Path(__file__).resolve().parents[4]
 _spec = importlib.util.spec_from_file_location(
@@ -130,6 +133,10 @@ def create_adapter(args, base_class):
                 _need(not cleanup_only and self.pico_configuration is not None
                       and candidate['e2e_input_layer'] is True)
                 values.extend(NAVIGATION_OPERATIONS)
+            if configured_snapshot(os.environ) is not None:
+                _need(not cleanup_only and self.pico_configuration is not None
+                      and candidate['e2e_input_layer'] is True)
+                values.extend(SNAPSHOT_OPERATIONS)
             return sorted(set(values))
 
         def _navigation_path(self, target):
@@ -147,6 +154,28 @@ def create_adapter(args, base_class):
                 lambda operation: super(PicoBoundAdapter, self).invoke(target, operation, {}))
             return PicoNavigation(native, self._navigation_path(target),
                                   installed, identity, scene)
+
+        def _snapshot_paths(self, target):
+            _need(self.pico_configuration is not None)
+            key = hashlib.sha256(('org.overte.pico\0' + target).encode()).hexdigest()[:32]
+            directory = self.pico_configuration[1]
+            return (directory / ('normal-snapshot-ui-' + key + '.json'),
+                    directory / ('normal-snapshot-preferences-' + key + '.json'))
+
+        def _snapshot(self, target):
+            scene = configured_snapshot(os.environ)
+            _need(scene is not None and self.pico_configuration is not None
+                  and candidate['e2e_input_layer'] is True)
+            identity = self.require_controlled_debug_identity(target)
+            installed = self._installation(target)
+            native = NativeNavigationIO(self, target, identity,
+                lambda operation: super(PicoBoundAdapter, self).invoke(target, operation, {}))
+            ui_path, preference_path = self._snapshot_paths(target)
+            ui = PicoNavigation(native, ui_path, installed, identity, scene)
+            files = AndroidSnapshotFiles(self.adb, target, 'org.overte.pico',
+                {key: installed[key] for key in ('sourceRevision', 'artifactSha256')}
+                | {'processIdentity': identity}, native.guard, os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR', ''))
+            return PicoSnapshot(ui, files, preference_path)
 
         @_private
         def discover(self):
@@ -176,6 +205,8 @@ def create_adapter(args, base_class):
             try:
                 if operation in NAVIGATION_OPERATIONS:
                     result = self._navigation(target).invoke(operation, values)
+                elif operation in SNAPSHOT_OPERATIONS:
+                    result = self._snapshot(target).invoke(operation, values)
                 else:
                     result = super().invoke(target, operation, values)
             finally:
@@ -190,6 +221,8 @@ def create_adapter(args, base_class):
             # owned host intent even when a partial input invalidated receipts.
             if self.pico_configuration is not None:
                 discard_stopped_state(self._navigation_path(target))
+                for path in self._snapshot_paths(target):
+                    discard_stopped_state(path)
             return result
 
     return PicoBoundAdapter(args.kind)

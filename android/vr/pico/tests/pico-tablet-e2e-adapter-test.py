@@ -32,6 +32,10 @@ class PicoTabletE2EAdapterTest(unittest.TestCase):
         subprocess.run([sys.executable, str(Path(__file__).parent / "device/test_native_execution_binding.py")],
                        check=True, timeout=90)
 
+    def test_original_candidate_binding_and_normal_snapshot_output_journey(self):
+        subprocess.run([sys.executable, str(Path(__file__).parent / 'pico-snapshot-journey-test.py')],
+                       check=True, timeout=90)
+
     def test_actual_navigation_resolver_and_native_qt_input(self):
         self.run_native_ui('navigation')
 

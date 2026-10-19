@@ -379,6 +379,37 @@ OVERTE_NATIVE_QT_MAJOR=5 python3 -B android/vr/pico/tests/pico-tablet-e2e-adapte
 
 The existing `OVERTE_QT5_HOST_ROOT` and `OVERTE_TEST_GLM_INCLUDE` overrides may
 select legitimate matching SDK headers. Application APIs and pointer bodies
-always come from the composed source tree. The normal Pico Snapshot host flow,
-original-file dispatch and explicit capability opt-in remain a subsequent owning
-component; these native primitives alone do not advertise `snapshot.*` actions.
+always come from the composed source tree. These native primitives alone do not
+establish a capture or qualify an installed application.
+
+The original candidate-bound Pico wrapper additionally provides normal Snapshot
+operations under explicit `OVERTE_PICO_NORMAL_SNAPSHOT=1`, alongside the existing
+controlled debug/OpenXR flags and owned scene URL. The candidate must include its
+actual E2E input layer. Original native candidate and installed-APK verification
+remain mandatory before and after operations; expensive verification runs before
+capturing a fresh UI observation. A PID without actual start ticks is rejected.
+
+The flow owns a separate native UI state and preference sidecar. It follows the
+ordinary SNAP entry, chooses actual radio controls, edits the focused bounded
+name and activates the actual capture button. It restores the original mode and
+format through normal controls and uses the existing owned OpenXR close route.
+Partial input, failed restore and changed code/process/session retain retry
+intent. Original native cleanup can retire managed state after confirmed
+force-stop even when candidate evidence has become invalid. A pre-existing
+foreign tablet or another run prefix cannot be adopted.
+
+`snapshot.files` reuses the shared original Android file reader in the fixed
+private `files/Snapshots` root. It transfers bounded immutable original bytes to
+the runner's private artifact directory. It cannot manufacture or re-encode an
+image, choose a capture format or report a capture success verdict. The original
+shared Snapshot journey owns every freshness, encoding and projection assertion.
+
+The existing original-binding test entry now includes Snapshot cases with only
+native UI/OpenXR/SDK/process/time seams. The same tablet owner registers
+`pico-snapshot-journey-test.py` once. It executes the actual canonical CLI, original
+candidate verifier/installed-byte reader, native flow, file scripts and original
+independent decoder. Five modes produce six decoded synthetic renderer outputs;
+ignored capture and missing GIF fail. Slow verification cannot age out admitted
+input. Pillow uses the existing `tests/requirements-host.txt` prerequisite.
+Fixture pictures and host results are never device/GPU or system save/share
+acceptance. Explicit later source selection is required before native packages.

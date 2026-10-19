@@ -256,6 +256,113 @@ class NativeExecutionBindingTest(unittest.TestCase):
         self.assertEqual(result, {'performed': True})
         return result
 
+    def snapshot_setup(self, mutation='', images=None):
+        self.navigation_setup()
+        spec = importlib.util.spec_from_file_location('_overte_pico_snapshot_native_boundary',
+            Path(__file__).with_name('snapshot_native_boundary.py'))
+        boundary = importlib.util.module_from_spec(spec); spec.loader.exec_module(boundary)
+        self.fake = boundary.create(NavigationAdb, self.fixture.record['artifactSha256'], self.state_root,
+                                    mutation=mutation, fixtures=images)
+        from adapters.pico4.navigation import PicoNavigation
+        original_init = PicoNavigation.__init__
+        def timed_init(instance, *arguments, **keywords):
+            keywords.update(monotonic=lambda: self.fake.clock, sleep=self.fake.sleep)
+            original_init(instance, *arguments, **keywords)
+        for change in (
+                patch.object(adapter, 'AdbTransport', return_value=self.fake),
+                patch.object(adapter.AndroidAdapter, 'pico_input_session', return_value=self.fake),
+                patch.object(PicoNavigation, '__init__', timed_init),
+                patch.dict(os.environ, {'OVERTE_PICO_NORMAL_NAVIGATION': '0',
+                    'OVERTE_PICO_NORMAL_SNAPSHOT': '1', 'OVERTE_DEVICE_ARTIFACT_DIR': str(self.fake.artifacts),
+                    'OVERTE_PICO_SNAPSHOT_TEST_APP': str(self.fake.app)})):
+            change.start(); self.addCleanup(change.stop)
+
+    def snapshot_invoke(self, operation, arguments=None):
+        return self.invoke('invoke', ['--operation', operation, '--arguments', json.dumps(arguments or {})])
+
+    def test_snapshot_original_candidate_wrapper_reads_original_bytes_and_restores_own_ui(self):
+        self.snapshot_setup()
+        self.assertTrue({'snapshot.open', 'snapshot.capture', 'snapshot.files', 'snapshot.close'}
+                        <= set(self.instance().capabilities(self.fake.target)))
+        self.snapshot_invoke('snapshot.open')
+        prefix = 'parity-0123456789abcdef-still-png'
+        self.assertEqual(self.snapshot_invoke('snapshot.files', {'prefix': prefix}), {'files': []})
+        self.snapshot_invoke('snapshot.capture', {'name': prefix, 'mode': 'still', 'format': 'png'})
+        observed = self.snapshot_invoke('snapshot.files', {'prefix': prefix})['files']
+        self.assertEqual(1, len(observed))
+        self.assertEqual((self.fake.artifacts / observed[0]['artifact']).read_bytes(), b'original synthetic Pico bytes')
+        self.assertNotIn('passed', observed[0])
+        self.snapshot_invoke('snapshot.close')
+        self.assertEqual((self.fake.mode, self.fake.format), ('animated', 'webp'))
+        self.assertFalse(self.fake.opened)
+        self.assertEqual([], list(self.state_root.glob('normal-snapshot-*.json')))
+        self.assertEqual(1, self.fake.captures)
+
+    def test_snapshot_requires_opt_in_and_current_installed_bytes_before_input(self):
+        self.snapshot_setup()
+        with patch.dict(os.environ, {'OVERTE_PICO_NORMAL_SNAPSHOT': '0'}):
+            self.assertNotIn('snapshot.open', self.instance().capabilities(self.fake.target))
+            with self.assertRaises(ValueError): self.snapshot_invoke('snapshot.open')
+        self.fake.digest = 'f' * 64
+        with self.assertRaises(ValueError): self.snapshot_invoke('snapshot.open')
+        self.assertEqual([], self.fake.inputs)
+        self.assertEqual([], self.fake.controllers)
+
+    def test_snapshot_partial_entry_can_close_its_original_owned_openxr_panel(self):
+        self.snapshot_setup('partial-entry-error')
+        with self.assertRaises(ValueError): self.snapshot_invoke('snapshot.open')
+        self.assertTrue(self.fake.opened)
+        self.assertTrue(list(self.state_root.glob('normal-snapshot-ui-*.json')))
+        self.snapshot_invoke('snapshot.close')
+        self.assertFalse(self.fake.opened)
+        self.assertEqual((self.fake.mode, self.fake.format), ('animated', 'webp'))
+        self.assertEqual([], list(self.state_root.glob('normal-snapshot-*.json')))
+
+    def test_snapshot_owned_pending_capture_is_cancelled_and_preferences_restored(self):
+        self.snapshot_setup('capture-pending')
+        prefix = 'parity-0123456789abcdef-still-png'
+        self.snapshot_invoke('snapshot.open')
+        self.snapshot_invoke('snapshot.files', {'prefix': prefix})
+        self.snapshot_invoke('snapshot.capture', {'name': prefix, 'mode': 'still', 'format': 'png'})
+        self.assertTrue(self.fake.capturing)
+        self.snapshot_invoke('snapshot.close')
+        self.assertIn('snapshot.cancel', [value['controlId'] for value in self.fake.inputs])
+        self.assertFalse(self.fake.capturing)
+        self.assertEqual((self.fake.mode, self.fake.format), ('animated', 'webp'))
+
+    def test_snapshot_install_replacement_after_input_retains_original_cleanup_path(self):
+        self.snapshot_setup()
+        self.fake.after_send = lambda: setattr(self.fake, 'digest', 'f' * 64)
+        with self.assertRaises(ValueError): self.snapshot_invoke('snapshot.open')
+        self.assertTrue(list(self.state_root.glob('normal-snapshot-ui-*.json')))
+        self.assertEqual(self.invoke('cleanup', prefix=['--kind', 'pico', '--native-binding']), {'cleaned': True})
+        self.assertIn(('am', 'force-stop', 'org.overte.pico'), self.fake.events)
+        self.assertEqual([], list(self.state_root.glob('normal-snapshot-*.json')))
+
+    def test_snapshot_does_not_adopt_foreign_open_tablets_or_unknown_process_start(self):
+        self.snapshot_setup()
+        self.fake.opened = True
+        with self.assertRaises(ValueError): self.snapshot_invoke('snapshot.open')
+        self.snapshot_invoke('snapshot.close')
+        self.assertTrue(self.fake.opened)
+        self.assertEqual([], self.fake.controllers)
+        self.fake.opened = False; self.fake.identity = '123:unknown'
+        with self.assertRaises(ValueError): self.snapshot_invoke('snapshot.open')
+        self.assertEqual([], self.fake.controllers)
+
+    def test_snapshot_cannot_capture_into_an_old_or_foreign_run_prefix(self):
+        self.snapshot_setup()
+        self.snapshot_invoke('snapshot.open')
+        prefix = 'parity-0123456789abcdef-still-png'
+        (self.fake.files / (prefix + '-old.png')).write_bytes(b'old original')
+        self.assertEqual(1, len(self.snapshot_invoke('snapshot.files', {'prefix': prefix})['files']))
+        with self.assertRaises(ValueError):
+            self.snapshot_invoke('snapshot.capture', {'name': prefix, 'mode': 'still', 'format': 'png'})
+        with self.assertRaises(ValueError):
+            self.snapshot_invoke('snapshot.files', {'prefix': 'parity-fedcba9876543210-still-png'})
+        self.assertEqual(0, self.fake.captures)
+        self.snapshot_invoke('snapshot.close')
+
     def test_native_navigation_actual_dispatch_candidate_reader_and_private_ownership(self):
         from navigation_observation import OPERATIONS, viewpoint_urls
         self.navigation_setup()

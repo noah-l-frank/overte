@@ -199,7 +199,12 @@ class PicoNavigation:
             'observedElapsedMs': snapshot['elapsedMs'], 'controlId': control_id,
             'controlToken': control['token'], 'action': action}
         if action == 'replace':
-            need(control_id == 'navigation.address' and text in self.urls)
+            if control_id == 'navigation.address':
+                need(text in self.urls)
+            elif control_id == 'snapshot.name':
+                validate_operation_arguments('snapshot.files', {'prefix': text})
+            else:
+                raise NavigationError()
             command['text'] = text
         self.io.guard()
         # The owning transport writes exactly once, then only polls status.
