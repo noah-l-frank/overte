@@ -1,8 +1,8 @@
 # Feature adapter handoff, contract v1
 
-Implement only the seams listed here in the later adapter phase. This change
-contains no iOS, Phone or Pico product adapter implementation and no device
-results. The [machine inventory](feature_journeys/adapter-contract.v1.json) and
+The original shared-test packet defined the seams below without iOS, Phone or
+Pico product adapter implementations or device results. Subsequent local adapter
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v1.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
