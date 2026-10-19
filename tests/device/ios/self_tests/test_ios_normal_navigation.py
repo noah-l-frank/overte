@@ -1,21 +1,28 @@
 """Actual iOS UI flow and journey oracle with explicit OS/UI/world boundaries."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
-import copy
+import importlib.util
 import json
 from pathlib import Path
 import sys
-import time
 import unittest
 from unittest.mock import patch
 import uuid
 
 DEVICE = Path(__file__).resolve().parents[2]
-sys.path[:0] = [str(DEVICE), str(DEVICE / 'self_tests'), str(Path(__file__).parent)]
+sys.path.insert(0, str(DEVICE))
 from adapters.normal_ui import NativeUIError
 from ios.adapters import normal_input, normal_navigation
-from test_phone_navigation import NativePhone
 from test_ios_normal_input import Boundary
+
+# Load this one shared native boundary by its exact source path. Adding the
+# shared self-test directory globally makes its test_voice_roundtrip shadow the
+# distinct iOS test of the same name during full unittest discovery.
+_spec = importlib.util.spec_from_file_location('_overte_ios_phone_native_boundary',
+    DEVICE / 'self_tests/test_phone_navigation.py')
+_boundary_module = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_boundary_module)
+NativePhone = _boundary_module.NativePhone
 
 
 class IOSBoundary(NativePhone):
