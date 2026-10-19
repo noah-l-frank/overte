@@ -137,7 +137,10 @@ inline void appendGraphicsControlObservation(QJsonObject& row, QQuickItem* item,
     row["viewport"] = viewport;
     bool ready = context.valid && item->isEnabled() && id != "graphics.page" && viewport == "visible";
     if (page) {
-        ready = ready && (profile == "phone-immediate-v1" ? page->property("ready").toBool() : !page->property("isChangingPreset").toBool());
+        const auto moving = page->property("moving"), dragging = page->property("dragging");
+        ready = ready && moving.userType() == QMetaType::Bool && dragging.userType() == QMetaType::Bool
+            && !moving.toBool() && !dragging.toBool()
+            && (profile == "phone-immediate-v1" ? page->property("ready").toBool() : !page->property("isChangingPreset").toBool());
     }
     if (id == "graphics.page") { row["profile"] = profile; }
     else if (id == "graphics.resolution") {

@@ -3,7 +3,7 @@
 This internal input component implements no complete `feature.graphics.*`
 operation. It proves no rendered effect, framebuffer acquisition, pass execution,
 persistence, application restart or device acceptance. Native C++ remains
-uncompiled. Its thirteen host boundary checks validate the ordinary-input recipe.
+uncompiled. Its fourteen host boundary checks validate the ordinary-input recipe.
 
 The read-only `NormalGraphicsControls.h` resolver recognizes the actual existing
 `settings.graphics` Flickable and original QQuickSwitch/QQuickSlider controls.
@@ -33,6 +33,9 @@ The closed metadata fields/types are defined by `token_graphics_ui`. Resolution
 rows have actual Qt value/range/step plus separate original nativeValue; toggle
 rows have actual checked/nativeChecked. Readiness requires a ready current page
 and coherent original Qt/native setting, including an attainable slider grid.
+Actual Flickable moving/dragging flags must both be available and false.
+After measured scroll progress the recipe waits for original page readiness
+before another scroll or control input; no uncertain input is replayed.
 Scrollbar position/size are original finite values. Source tokens retire on
 actual value/check/readiness/profile/viewport/scroll and slider geometry changes.
 

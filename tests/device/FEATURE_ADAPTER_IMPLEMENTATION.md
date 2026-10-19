@@ -190,7 +190,7 @@ original generic Sit end-frame source concern remains explicitly unresolved.
 
 The shared [immediate Graphics input component](native/NORMAL_GRAPHICS_CONTROLS.md)
 now has native original-widget metadata/point calculations and a token guarded
-recipe, with thirteen host counterexample cases. It observes actual above/below
+recipe, with fourteen host counterexample cases. It observes actual above/below
 viewport directions and original Qt/native setting coherence. Platform Graphics
 transport wiring, original render/pass evidence and full ownership remain open;
 no complete Graphics capability is advertised and native source is uncompiled.
