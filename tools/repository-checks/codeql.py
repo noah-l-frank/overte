@@ -60,6 +60,22 @@ _METADATA_SOURCE_WORKFLOW = "d04a6dc70213d8b549bac30c11cc15eaf0182dea"
 # of native invocation identity and cannot follow an unrelated newest pin.
 _SCHEDULING_RESULTS_WORKFLOW = "e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1"
 _SCHEDULING_SOURCE_WORKFLOW = "b76ade9fd7a76da21bf2cb2161deae7a262163e8"
+# Exact Boolean-input successor; every prior caller/helper remains supported.
+_BOOLEAN_RESULTS_WORKFLOW = "3b7a88765b7181a1bc7dd6f48b9b459e590055d3"
+# Canonical metadata results mirror the authenticated original, never new analysis.
+_REQUIRED_CONTEXT_RESULTS_WORKFLOW = "7b0703d88d404f38c1b3dec92f77f03586c9144c"
+# These exact passive recipes change only job-level Boolean metadata intent.
+# The pinned Actions model reads .github/workflows, not these stored templates;
+# Python does not extract YAML. The corresponding exact active Repository
+# pair also changes no runtime command or inline JS. No other pair is exempt.
+_BOOLEAN_REPOSITORY_PAIR = ('81bcf1933edc435826e2de411a777cccd4dec7c7',
+    '15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a')
+_BOOLEAN_PASSIVE_RECIPES = {
+    'tools/repository-checks/workflows/producers/repository-checks.yml':
+        _BOOLEAN_REPOSITORY_PAIR,
+    'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml':
+        (_SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW),
+}
 _PYTHON_POLICY_JSONS = frozenset({
     ".github/test-suite-dependencies.json",
     ".github/android-orchestration.json", ".github/test-suites.json",
@@ -126,7 +142,9 @@ def result_workflow_sources():
     return ((_RESULTS_WORKFLOW, None), (_RETARGET_RESULTS_WORKFLOW, None),
             (_PINNED_RESULTS_WORKFLOW, None),
             (_METADATA_RESULTS_WORKFLOW, _METADATA_SOURCE_WORKFLOW),
-            (_SCHEDULING_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))
+            (_SCHEDULING_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW),
+            (_BOOLEAN_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW),
+            (_REQUIRED_CONTEXT_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))
 
 
 def pinned_workflow_entries():
@@ -140,6 +158,36 @@ def result_workflow_rollback(base_entry, candidate_entry):
                    for sha in result_workflow_blobs()]
     return (base_entry in generations and (candidate_entry not in generations
             or generations.index(candidate_entry) < generations.index(base_entry)))
+
+
+def _boolean_analysis_transition(base_tree, candidate_tree):
+    """Exact forward caller coercion, with identical analysis and native helper."""
+    ordinary = lambda sha: {'mode':'100644','type':'blob','sha':sha}
+    workflow = '.github/workflows/codeql.yml'
+    helper = '.github/workflows/pr-metadata-context.yml'
+    return (base_tree.get(workflow) == ordinary(_SCHEDULING_RESULTS_WORKFLOW)
+        and candidate_tree.get(workflow) == ordinary(_BOOLEAN_RESULTS_WORKFLOW)
+        and all(tree.get(helper) == ordinary(_SCHEDULING_SOURCE_WORKFLOW)
+                for tree in (base_tree,candidate_tree)))
+
+
+def _pinned_boolean_recipe(change, base_tree, candidate_tree, pack_roots):
+    """Known Boolean-only bytes cannot hide packs, source changes or new paths."""
+    if (pack_roots or any(name.startswith(('LGTM_INDEX_', 'CODEQL_EXTRACTOR_JAVASCRIPT_OPTION_',
+                                          'CODEQL_EXTRACTOR_PYTHON_OPTION_')) for name in os.environ)):
+        return False
+    if change['path'] == '.github/workflows/codeql.yml':
+        return _boolean_analysis_transition(base_tree,candidate_tree)
+    pair = (_BOOLEAN_REPOSITORY_PAIR if change['path'] == '.github/workflows/repository-checks.yml'
+            else _BOOLEAN_PASSIVE_RECIPES.get(change['path']))
+    ordinary = lambda sha: {'mode':'100644','type':'blob','sha':sha}
+    helper = '.github/workflows/pr-metadata-context.yml'
+    return (pair is not None and change['before'] == ordinary(pair[0])
+        and change['after'] == ordinary(pair[1])
+        and all(tree.get('.github/workflows/codeql.yml') in (
+                    ordinary(_SCHEDULING_RESULTS_WORKFLOW),ordinary(_BOOLEAN_RESULTS_WORKFLOW))
+                and tree.get(helper) == ordinary(_SCHEDULING_SOURCE_WORKFLOW)
+                for tree in (base_tree,candidate_tree)))
 
 
 def _pinned_policy_json(change, base_tree, candidate_tree):
@@ -261,7 +309,8 @@ def _native_blob_reader(root):
 def _global_input(path: str, pack_roots=()) -> bool:
     relative = PurePosixPath(path)
     name = relative.name.lower()
-    return (path in _GLOBAL_PATHS or path in _REVIEWED_CONTROLS
+    return (path in _GLOBAL_PATHS or path in _REVIEWED_CONTROLS or path in _BOOLEAN_PASSIVE_RECIPES
+            or path == '.github/workflows/repository-checks.yml'
             or any(relative.is_relative_to(root) for root in pack_roots)
             or any("codeql" in part.lower() or part.lower() in {"qlpack", "qlpacks"}
                    for part in relative.parts[:-1])
@@ -273,13 +322,15 @@ def _pinned_python_control(change, base_tree, candidate_tree, pack_roots):
     """Only existing ordinary Python controls outside every custom query pack.
 
     Complete workflow/configuration and alias guards run before this exception.
-    The same pinned workflow must remain on both sides: a deployment cannot
-    certify itself. Candidate controller bytes are source, never selection code.
+    The workflow stays fixed except its exact Boolean-only forward pair with
+    the same native helper. Other deployments cannot certify themselves.
+    Candidate controller bytes are source, never selection code.
     """
     workflow = '.github/workflows/codeql.yml'
     return (change['path'] in _PINNED_PYTHON_CONTROLS
-            and base_tree.get(workflow) == candidate_tree.get(workflow)
-            and base_tree.get(workflow) in pinned_workflow_entries()
+            and ((base_tree.get(workflow) == candidate_tree.get(workflow)
+                  and base_tree.get(workflow) in pinned_workflow_entries())
+                 or _boolean_analysis_transition(base_tree,candidate_tree))
             and not any(PurePosixPath(change['path']).is_relative_to(root) for root in pack_roots)
             and not any(name.startswith(('LGTM_INDEX_', 'CODEQL_EXTRACTOR_JAVASCRIPT_OPTION_',
                                          'CODEQL_EXTRACTOR_PYTHON_OPTION_')) for name in os.environ)
@@ -366,9 +417,11 @@ def select_languages(base_tree: dict | None, candidate_tree: dict | None, *, eve
     # its whole directory is shared control, including removed/renamed packs.
     pack_roots = {PurePosixPath(path).parent for path in base_tree.keys() | candidate_tree.keys()
                   if PurePosixPath(path).name.lower() in _PACK_MANIFESTS}
+    boolean_recipes = {change['path'] for change in changes
+        if _pinned_boolean_recipe(change,base_tree,candidate_tree,pack_roots)}
     python_controls = set()
     for change in changes:
-        if _global_input(change['path'], pack_roots):
+        if _global_input(change['path'], pack_roots) and change['path'] not in boolean_recipes:
             if not _pinned_python_control(change, base_tree, candidate_tree, pack_roots):
                 return _result(LANGUAGES, [{"code": "shared-analysis-control", "path": change['path']}], changes)
             python_controls.add(change['path'])
@@ -378,7 +431,7 @@ def select_languages(base_tree: dict | None, candidate_tree: dict | None, *, eve
         inert_metadata = _pinned_ci_metadata(change, base_tree, candidate_tree)
         inert_lock = _pinned_npm_lock(change, base_tree, candidate_tree)
         inert_native = _pinned_native_source(change, base_tree, candidate_tree, read_blob)
-        if inert_metadata or inert_lock or inert_native:
+        if path in boolean_recipes or inert_metadata or inert_lock or inert_native:
             selected = ()
         elif _pinned_policy_json(change, base_tree, candidate_tree):
             selected = ("python",)
@@ -387,7 +440,8 @@ def select_languages(base_tree: dict | None, candidate_tree: dict | None, *, eve
         if selected is None:
             return _result(LANGUAGES, [{"code": "unknown-analysis-input", "path": path}], changes)
         languages.update(selected)
-        reasons.append({"code": ("reviewed-pinned-native-source" if inert_native else
+        reasons.append({"code": ("reviewed-boolean-metadata-recipe" if path in boolean_recipes else
+                                 "reviewed-pinned-native-source" if inert_native else
                                  "reviewed-pinned-npm-lock" if inert_lock else
                                  "reviewed-pinned-ci-metadata" if inert_metadata else
                                  "reviewed-pinned-python-control" if path in python_controls else
