@@ -16,7 +16,7 @@ original evaluated animation/pose observations, with labelled native
 render/audio/account settings reads. Platform transports are being connected
 in Phone, Pico, iOS order. See [the native source contract](native/README.md).
 The initial source-only readers and full-area adapter status remain distinct;
-these new sources do not by themselves complete any v1 triple.
+these new sources do not by themselves complete any version 2 triple.
 The [source compatibility audit](FEATURE_SOURCE_COMPATIBILITY.md) also records
 draft common workflow assumptions that must be corrected before area activation.
 
@@ -75,15 +75,20 @@ Reusable protocol/bounds/cleanup details are in
 
 The shared [version 2 migration](feature_journeys/CONTRACT_MIGRATION.md)
 corrects client Script import to the existing file-bundle picker. URL Script
-foundations remain narrower; the local picker/actual companion observer joins
-are still open. The [original memory-preview PCM source](native/RECORDED_PREVIEW_EVIDENCE.md)
+foundations remain narrower. All three source branches now connect the normal
+local file-bundle picker with actual control/model tokens and add exclusive
+private Script fixture staging, original-byte readback and persisted file
+cleanup intent. Missing/changed files and unresolved cleanup fail. The actual
+companion/advancing-effect/observer joins and verified restart handoff remain
+open. See [file controls](native/NORMAL_SCRIPT_FILES.md) and
+[fixture storage](native/SCRIPT_FIXTURE_STORAGE.md). The [original memory-preview PCM source](native/RECORDED_PREVIEW_EVIDENCE.md)
 now has internal transports on all three platform branches. It retains actual
 capture/sink bytes, native cycles/events and observed cleanup; it is not a full
 audio adapter or independent acoustic proof.
 
 ## Fourteen-area source audit
 
-All rows below mean: **test logic present; full v1 adapter missing; devices
+All rows below mean: **test logic present; full version 2 adapter missing; devices
 untested**. Existing/new foundations are narrower implementation scopes.
 
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
@@ -99,7 +104,7 @@ untested**. Existing/new foundations are narrower implementation scopes.
 | Audio | New bound original memory-preview capture/sink PCM source | New bound original memory-preview capture/sink PCM source | New original memory-preview HTTP/AFC component | Normal automatic three-second Record-and-Play/cancel UI, permission/mute/resume joins, independent acoustic capture and real peer; native accepted-write bytes do not prove audible output |
 | Chat | Existing text-input foundation retained | Existing native text-input foundation retained | Existing native text-input component retained | Actual draft/history/filter/offline state, meaningful Back/focus ownership and real receiving/sending peer with exactly-once retry receipts |
 | Snapshots | Existing original normal SNAP capture/file contract retained | Existing original normal SNAP capture/file contract retained | Existing native SNAP component retained; bound execution blocked | Actual export/share permission path, original share/upload bytes/completion/cancel/failure receipts and controlled external sink; private capture-file presence alone is insufficient |
-| Scripts | **New** ordinary From URL/load/restart/stop and independent execution/silence checks | **New** original actual running-source reader; VR script/dialog controls missing | **New** original running-source reader component; bound execution blocked | Local file/folder picker with real companions, source-bound consent cancel/reject/accept and application-restart durability. Current From URL source entry loads directly without that consent path |
+| Scripts | Ordinary From URL/row foundations; normal file-bundle picker; private staged originals and persisted file ownership | Same normal Script/VR file-bundle controls and staged-original ownership under candidate/OpenXR guards | Same native UIKit/Qt component and staged originals; bound execution blocked | Persist picker/engine ownership, join actual loaded companions and advancing entity effects to an independent observer, and implement verified restart ownership handoff. Script import itself has no consent modal; entity-script consent remains in its existing foundation |
 | Assets | No new asset-browser capability | No new asset-browser capability | No new asset-browser capability | Native mapping/path row identity and import/rename/delete/bake inputs, actual complete ATP/companion/bake state, original resolved bytes and real domain write-permission actor |
 | Lifecycle/input | Existing process/input foundations retained | Existing process/OpenXR foundations retained | Existing foreground PID/native input component retained | Actual native lifecycle notification counters, feature-editor context generations/focus, retired input rejection and independent ownership/displacement/resume observations |
 
@@ -109,7 +114,7 @@ Common blockers affecting the full triples:
   an account backend, domain administrator, external upload/share service or
   second Overte client. No such real measuring actor has been implemented by
   relabelling fixture simulation or by forwarding expectations to the adapter.
-* The v1 `lifecycle` counters must come from actual native lifecycle events;
+* The version 2 `lifecycle` counters must come from actual native lifecycle events;
   request counts cannot fill them. The continuation's native packet implements
   that source, but the full-area observer/cleanup joins remain to be completed.
 * Fullscreen panels can occlude the current in-world challenge/feature subject.
@@ -122,9 +127,9 @@ Common blockers affecting the full triples:
   these additional results.
 * Pico's E2E `PicoE2eNavigationUi::controlId/apply` and
   `PicoE2eTabletBridge::CONTROL_IDS` have closed native control sets for existing
-  navigation/SNAP/settings and the new normal Script URL/row controls. Local
-  file-bundle pickers, Create/Assets and their current row/dialog tokens are
-  still missing. Its Android accessibility bridge's OffscreenUi root does
+  navigation/SNAP/settings, normal Script URL/rows and the new source-bound
+  file-bundle controls. Create/Assets and their current row/dialog tokens remain
+  missing. Its Android accessibility bridge's OffscreenUi root does
   not itself prove export of the real VR Tablet root. Phone input recipes cannot
   be substituted for that native VR route.
 * iOS's canonical installed-code association is explicitly unavailable. Its

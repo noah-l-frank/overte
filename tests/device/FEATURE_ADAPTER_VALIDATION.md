@@ -11,16 +11,16 @@ Current continuation validation (all source only):
   the compiler guard observed zero build attempts. This includes the version 2
   Script flow, normal file-picker recipe and private fixture-storage
   counterexamples, alongside native module/preview source checks.
-* Phone's focused real candidate wrapper group passes **31** cases. Pico's
+* Phone's focused real candidate wrapper group passes **35** cases. Pico's
   focused original-observation wrapper group passes **15** cases; its separate
-  normal Script group passes **10** cases and the original binding/navigation
+  normal Script group passes **14** cases and the original binding/navigation
   group passes **31** cases. No device is contacted.
-* The broad iOS Python component selection passes **241** cases, zero failures,
+* The broad iOS Python component selection passes **246** cases, zero failures,
   errors or skips, with the same 20 native compiler-dependent cases omitted
   and zero build attempts. Its focused source group has **20** cases; the
   canonical installed-code binding group passes five cases including rejection
   of every new internal source reader and file-picker component. The Script
-  component group passes **14** cases.
+  component group passes **19** cases.
 * Contract versions, focused original fixture/probe dispatch tests, and diff
   whitespace checks pass. Native C++ instrumentation remains **uncompiled**.
 

@@ -65,6 +65,15 @@ I/O failure while first persisting the ownership manifest, or after removing
 it during final directory retirement, can require operator repair of that
 reserved root; the host intent must be retained and the run must fail.
 
+The isolated platform branches now supply internal `_script_files()` factories.
+Phone uses its original Appium/private run-as channel with installed-APK and
+PID/start/session guards. Pico uses its original candidate/OpenXR channel and
+same normal Script context. iOS uses original HTTP/AFC bytes and the actual
+normal-input session/fingerprint/process continuity closure, explicitly labelled
+`NATIVE_UI_COMPONENT_ONLY`; its canonical binding refuses this method. Platform
+general cleanup reaches original teardown and then rejects persistent file
+intent. It does not blindly release files that might belong to a running engine.
+
 Process/session binding currently cannot be rebound automatically after an app
 restart. The full journey coordinator still needs an explicit verified restart
 handoff, dialog and engine cleanup before file release, real advancing effect
