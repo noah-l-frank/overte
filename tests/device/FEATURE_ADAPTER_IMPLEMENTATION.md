@@ -182,3 +182,8 @@ The shared [normal Audio input component](native/NORMAL_AUDIO_CONTROLS.md) now
 has a token/cycle guarded ordinary-input recipe and sixteen independent host
 counterexample cases. It is an internal prerequisite, not a full Audio adapter;
 native delivery and acoustic/cleanup coordination remain unqualified.
+
+The [submitted-code source](native/SCRIPT_CODE_IDENTITY.md) identifies actual
+ScriptEngine input, with immutable code-unit hashes and reviewed Emote profiles.
+It selects source semantics only and does not complete Emote adapters. The
+original generic Sit end-frame source concern remains explicitly unresolved.
