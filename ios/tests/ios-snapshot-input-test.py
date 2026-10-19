@@ -60,7 +60,9 @@ Item { width:480; height:900
                 str(ROOT / 'ios/ui/IOSNormalUiInput.cpp'), str(ROOT / 'libraries/ui/src/ui/NativeFieldInput.cpp'),
                 str(Path(__file__).with_suffix('.cpp')), '-o', str(binary), *libraries, *flags],
                 env=env, check=True, timeout=60)
-            subprocess.run(['unshare', '--user', '--map-root-user', '--net', str(binary), str(stage)],
+            runner = env.get('OVERTE_HOST_TEST_NETWORK_RUNNER')
+            isolation = [runner] if runner else ['unshare', '--user', '--map-root-user', '--net']
+            subprocess.run([*isolation, str(binary), str(stage)],
                 env=env | {'QT_QPA_PLATFORM': 'offscreen', 'QT_QUICK_BACKEND': 'software',
                            'QT_FORCE_STDERR_LOGGING': '1'}, check=True, timeout=30)
 

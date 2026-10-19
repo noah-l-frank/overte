@@ -38,7 +38,9 @@ class NormalInput(unittest.TestCase):
                 str(ROOT / 'libraries/ui/src/ui/NativeFieldInput.cpp'),
                 str(Path(__file__).with_suffix('.cpp')), '-o', str(binary), *libraries, *flags],
                 check=True, timeout=60, env=environment)
-            subprocess.run(['unshare', '--user', '--map-root-user', '--net', str(binary)],
+            runner = environment.get('OVERTE_HOST_TEST_NETWORK_RUNNER')
+            isolation = [runner] if runner else ['unshare', '--user', '--map-root-user', '--net']
+            subprocess.run([*isolation, str(binary)],
                 check=True, timeout=30, env=environment | {'QT_QPA_PLATFORM': 'offscreen',
                     'QT_QUICK_BACKEND': 'software', 'QT_FORCE_STDERR_LOGGING': '1'})
 
