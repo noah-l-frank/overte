@@ -140,14 +140,24 @@ class Boundary:
             elif verb == 'avatar-restore': s['avatar'] = 'original'
         elif a == 'create':
             if verb in {'open','close'}: s['editor'] = verb == 'open'
-            elif verb == 'import-local':
+            elif verb == 'model-create':
                 s.update(objects=['model'], selection=['model']); self.model_ticket=self.ticket
+            elif verb == 'import-picker-open':s['picker']=True
+            elif verb == 'import-picker-cancel':
+                s['picker']=False
+                if self.fault=='create-on-cancel':s.update(objects=['model'],selection=['model'])
+            elif verb == 'import-picker-accept':
+                s.update(picker=False,objects=['model'],selection=['model'])
+                if self.fault=='picker-ack-only':s.update(objects=[],selection=[])
+            elif verb == 'create-retry':s.update(objects=['cube'],selection=['cube'],error='permission-denied' if self.fault=='retry-retains-error' else 'none')
             elif verb == 'apply-texture':
                 s['textured'] = True; self.texture_ticket=self.ticket
             elif verb == 'delete-owned': s.update(objects=[], selection=[], textured=False, voxelValue=0)
             elif verb == 'voxel-create': s.update(objects=['voxel'], selection=['voxel'])
             elif verb == 'voxel-edit': s['voxelValue'] = 1
-            elif verb == 'set-rez-permission': s.update(canRez=data['allowed'], error='none')
+            elif verb == 'set-rez-permission':
+                s['canRez']=data['allowed']
+                if data['allowed'] and self.fault=='permission-invents-ui-clear':s['error']='none'
             elif verb == 'create-denied': s['error'] = 'permission-denied'
         elif a == 'emotes':
             if verb in {'open','close'}: s['panel'] = verb == 'open'
@@ -413,7 +423,7 @@ class FeatureJourneys(unittest.TestCase):
                 self.assertEqual(2, sum(op.endswith('.cleanup') for op,_ in boundary.actions))
 
     def test_ignored_effectful_actions_fail_in_each_area(self):
-        targets = dict(zip(SCENARIOS, ['bookmark-add','login-submit','avatar-url','import-local','play','focus-type',
+        targets = dict(zip(SCENARIOS, ['bookmark-add','login-submit','avatar-url','model-create','play','focus-type',
             'set-resolution','record-start','type','capture','picker-accept','upload','open-editor','focus-type']))
         for area, target in targets.items():
             with self.subTest(area=area):
@@ -421,6 +431,57 @@ class FeatureJourneys(unittest.TestCase):
                 with self.assertRaises((AssertionError, ValueError)):
                     boundary.execute()
                 self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_create_picker_is_observed_before_cancel_and_accept_and_rez_retry_is_real(self):
+        boundary=Boundary('create');boundary.execute()
+        states=[row['state'] for row in boundary.reports[0]['samples']]
+        self.assertTrue(any(row['picker'] and row['objects']==[] for row in states))
+        self.assertTrue(any(not row['canRez'] and row['error']=='permission-denied' and row['objects']==[] for row in states))
+        self.assertTrue(any(row['canRez'] and row['objects']==['cube'] for row in states))
+        verbs=[value['verb'] for op,value in boundary.actions if op.endswith('.act')]
+        self.assertEqual(2,verbs.count('model-create'));self.assertEqual(2,verbs.count('import-picker-open'))
+        for verb in ('import-picker-open','import-picker-cancel','import-picker-accept','create-retry'):
+            failed=Boundary('create','input-ignored',verb)
+            with self.assertRaises((ValueError,AssertionError)):failed.execute()
+
+    def test_create_cancel_side_effect_and_picker_ack_without_entities_fail(self):
+        for fault in ('create-on-cancel','picker-ack-only'):
+            boundary=Boundary('create',fault)
+            with self.assertRaises((ValueError,AssertionError)):boundary.execute()
+            self.assertTrue(boundary.reports[0]['cleanupSucceeded'])
+            self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_create_primary_permission_error_without_independent_ui_effect_fails(self):
+        boundary=Boundary('create','product-echo-without-peer','create-denied')
+        original=boundary.reduce;boundary.echo={'error':'permission-denied'}
+        boundary.reduce=lambda verb,data:None if verb=='create-denied' else original(verb,data)
+        with self.assertRaises(AssertionError):boundary.execute()
+        self.assertTrue(boundary.reports[0]['cleanupSucceeded'])
+
+    def test_create_permission_restore_keeps_old_error_until_actual_successful_retry(self):
+        for fault in ('permission-invents-ui-clear','retry-retains-error'):
+            boundary=Boundary('create',fault)
+            with self.assertRaises((ValueError,AssertionError)):boundary.execute()
+            self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_create_v8_rejects_old_raw_model_picker_and_version(self):
+        request=dict(contractVersion=VERSION,runId=RUN,ticket=TICKET,
+            fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/',verb='model-create',inputs={'resource':'gltf-bundle/main.gltf'})
+        self.assertEqual(request,arguments('feature.create.act',request))
+        for edit in ({'contractVersion':7},{'verb':'import-local','inputs':{'resource':'model.gltf'}},
+                     {'verb':'import-cancel','inputs':{'resource':'model.gltf'}},
+                     {'verb':'import-picker-open','inputs':{'resource':'model.obj'}}):
+            with self.assertRaises(ValueError):arguments('feature.create.act',request|edit)
+
+    def test_create_json_fixture_is_owned_input_and_not_an_export_measurement(self):
+        from feature_journeys.fixtures import import_document,payload
+        origin=f'https://controlled.invalid:4433/feature-fixture/v1/runs/{RUN}/'
+        source=import_document(RUN,TICKET,origin)
+        self.assertEqual(origin+'tickets/'+TICKET+'/gltf-bundle/main.gltf',source['Entities'][0]['modelURL'])
+        self.assertEqual(3,source['DataVersion']);self.assertEqual(0,document(RUN)['DataVersion'])
+        self.assertNotIn('textures',source['Entities'][0]);self.assertIsNone(payload('export.json',RUN,TICKET))
+        for url in (origin.replace(RUN,'f'*32),'https://user:private@controlled.invalid/feature-fixture/v1/runs/'+RUN+'/',origin+'../'):
+            with self.assertRaises(ValueError):import_document(RUN,TICKET,url)
 
     def test_chat_retyped_resend_distinguishes_local_echo_from_actual_peer_delivery(self):
         boundary=Boundary('chat');boundary.execute()
@@ -747,17 +808,29 @@ class FeatureEvidenceCounterexamples(unittest.TestCase):
         fixture_url=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/'
         good=document(RUN,fixture_url,TICKET)
         file_observation(json.dumps(good).encode(),'create',RUN,TICKET,POLICY,fixture_url,TICKET)
-        for change in ('geometry','source','owner','empty','foreign-extra'):
+        for change in ('geometry','source','owner','empty','foreign-extra','wrong-texture-slot','wrong-data-version','null-entity'):
             candidate=copy.deepcopy(good)
             if change=='geometry': candidate['Entities'][0]['dimensions']['x']=99
             elif change=='source': candidate['Entities'][0]['modelURL']='http://foreign.test/mesh.gltf'
             elif change=='owner': candidate['Entities'][0]['name']='someone-else'
             elif change=='empty': candidate['Entities']=[]
+            elif change=='null-entity':candidate['Entities']=[None]
+            elif change=='wrong-data-version':candidate['DataVersion']=3
+            elif change=='wrong-texture-slot':candidate['Entities'][0]['textures']={'not-the-rendered-slot':next(iter(candidate['Entities'][0]['textures'].values()))}
             else: candidate['Entities'].append(copy.deepcopy(candidate['Entities'][0]))
             with self.subTest(change=change),self.assertRaises(AssertionError):
                 file_observation(json.dumps(candidate).encode(),'create',RUN,TICKET,POLICY,fixture_url,TICKET)
         with self.assertRaises(AssertionError):
             file_observation(b'wrong mapping','assets',RUN,TICKET,POLICY)
+
+    def test_create_export_rejects_duplicate_json_fields_and_accepts_actual_texture_json_string(self):
+        from feature_journeys.evidence import file_observation
+        value=document(RUN,model_ticket=TICKET)
+        value['Entities'][0]['textures']=json.dumps(value['Entities'][0]['textures'])
+        file_observation(json.dumps(value).encode(),'create',RUN,TICKET,POLICY,model_ticket=TICKET)
+        for raw in (json.dumps(value).replace('"DataVersion": 0','"DataVersion": 3, "DataVersion": 0').encode(),
+                    json.dumps({**value,'Entities':[{**value['Entities'][0],'textures':'{"checker.png":"foreign","checker.png":"'+document(RUN,model_ticket=TICKET)['Entities'][0]['textures']['checker.png']+'"}'}]}).encode()):
+            with self.assertRaises(AssertionError):file_observation(raw,'create',RUN,TICKET,POLICY,model_ticket=TICKET)
 
     def test_blank_truncated_foreign_and_same_subject_images_are_not_visual_success(self):
         from feature_journeys.evidence import image_observation
@@ -886,9 +959,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v7.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v8.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v7.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v8.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():

@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 7
+VERSION = 8
 
 
 def emote_rows():
@@ -91,23 +91,31 @@ SCENARIOS = {
     ('avatar-restore', {}, dict(avatar='original'), ['image', 'peer']),
     ('avatar-bookmark-delete', dict(name='$name'), dict(bookmarked=False), ['peer']),
 ]),
-'create': scenario('Create imports, export and permission denial',
-    dict(objects=[], editor=False, error='none', canRez=True, selection=[], textured=False, voxelValue=0), [
+# NativeCreate's file picker imports entity JSON. glTF/OBJ use the ordinary
+# NEW Model resource URL, not a fictitious local raw-model import dialog.
+'create': scenario('Model URL creation, actual JSON picker, export and rez recovery',
+    dict(objects=[], editor=False, picker=False, error='none', canRez=True, selection=[], textured=False, voxelValue=0), [
     ('open', {}, dict(editor=True), []),
-    ('import-cancel', dict(resource='model.gltf'), {}, ['peer']),
-    ('import-local', dict(resource='model.gltf'), dict(objects=['model'], selection=['model']), ['image', 'peer']),
+    ('import-picker-open', dict(resource='entity-import.json'), dict(picker=True), ['peer']),
+    ('import-picker-cancel', {}, dict(picker=False), ['peer']),
+    ('model-create', dict(resource='gltf-bundle/main.gltf'), dict(objects=['model'], selection=['model']), ['image', 'peer']),
     ('apply-texture', dict(resource='checker.png'), dict(textured=True), ['changed', 'peer']),
     ('export-selection', {}, {}, ['file', 'peer']),
     ('delete-owned', {}, dict(objects=[], selection=[], textured=False, voxelValue=0), ['changed', 'peer']),
-    ('import-local', dict(resource='model.obj'), dict(objects=['model'], selection=['model']), ['changed', 'peer']),
+    ('model-create', dict(resource='obj-bundle/main.obj'), dict(objects=['model'], selection=['model']), ['changed', 'peer']),
+    ('delete-owned', {}, dict(objects=[], selection=[], textured=False, voxelValue=0), ['changed', 'peer']),
+    ('import-picker-open', dict(resource='entity-import.json'), dict(picker=True), ['peer']),
+    ('import-picker-accept', {}, dict(picker=False, objects=['model'], selection=['model']), ['changed', 'peer']),
     ('delete-owned', {}, dict(objects=[], selection=[], textured=False, voxelValue=0), ['changed', 'peer']),
     ('voxel-create', {}, dict(objects=['voxel'], selection=['voxel']), ['changed', 'peer']),
     ('voxel-edit', dict(mode='remove', brushMeters=0.5), dict(voxelValue=1), ['changed', 'peer']),
     ('delete-owned', {}, dict(objects=[], selection=[], textured=False, voxelValue=0), ['changed', 'peer']),
     ('set-rez-permission', dict(allowed=False), dict(canRez=False), ['peer']),
     ('create-denied', {}, dict(error='permission-denied'), ['peer']),
-    ('set-rez-permission', dict(allowed=True), dict(canRez=True, error='none'), ['peer']),
-    ('close', {}, dict(editor=False), []),
+    ('set-rez-permission', dict(allowed=True), dict(canRez=True), ['peer']),
+    ('create-retry', {}, dict(objects=['cube'], selection=['cube'], error='none'), ['changed', 'peer']),
+    ('delete-owned', {}, dict(objects=[], selection=[], textured=False, voxelValue=0), ['changed', 'peer']),
+    ('close', {}, dict(editor=False), ['peer']),
 ]),
 'emotes': scenario('Ten emotes, three Sit modes, override and cancellation',
     dict(animation='idle', sit='none', override=False, poseProgress=0.0, panel=False,restoredBeforeNominalEnd=False), [
