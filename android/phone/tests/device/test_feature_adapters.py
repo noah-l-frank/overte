@@ -31,7 +31,9 @@ from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
 from self_tests.test_native_script_files import Boundary as ScriptFilesBoundary
 from script_file_native_boundary import FileNativeBoundary
-from audio_native_boundary import AudioNativeBoundary
+from audio_native_boundary import AudioNativeBoundary, ControlNativeBoundary
+from adapters.token_graphics_ui import TokenGraphicsUI
+from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
 
 appium = identity.appium
@@ -517,6 +519,96 @@ if(files[2].v.available!==false)throw Error("missing hook green");
 '''.replace('SOURCE', probe_source())
         completed = subprocess.run(['node', '-e', program], capture_output=True, text=True, timeout=5)
         self.assertEqual(0, completed.returncode, completed.stderr)
+
+    def graphics_boundaries(self):
+        source=ControlNativeBoundary(GraphicsBoundary(),'phone-graphics-ui')
+        def send(client,session,target,command,process):
+            self.assertEqual({'running':True,'identity':'31:14'},process);source.send(command)
+        def read(_device,package,path,**kwargs):
+            self.assertEqual('files/overte-e2e/phone-graphics-ui.json',path)
+            self.assertEqual({'attempts':1},kwargs);return json.dumps(source.value)
+        for boundary in (
+            patch.object(self.adapter,'write_android_client_command',side_effect=send),
+            patch.object(self.fixture.adb,'read_debug_app_file',side_effect=read,create=True),
+            patch.object(self.fixture.adb,'epoch_milliseconds',return_value=20000,create=True),
+            patch.object(appium,'PhoneGraphicsIO',partial(appium.PhoneGraphicsIO,
+                monotonic=lambda:source.ui.clock,sleep=source.ui.sleep)),
+            patch.object(appium,'TokenGraphicsUI',partial(TokenGraphicsUI,
+                monotonic=lambda:source.ui.clock,sleep=source.ui.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._graphics_controls(SELECTOR,source.ui.intent)
+
+    def test_phone_graphics_normal_settings_scroll_and_nondefault_restore_use_original_readback(self):
+        source,ui=self.graphics_boundaries();initial=source.ui.resolution
+        ui.set_resolution(0.5);ui.set_resolution(0.6);ui.set_resolution(initial)
+        ui.toggle('graphics.haze',True);ui.toggle('graphics.mirrors',True)
+        ui.toggle('graphics.haze',False);ui.toggle('graphics.mirrors',False)
+        self.assertEqual(initial,source.ui.resolution);self.assertFalse(source.ui.haze);self.assertFalse(source.ui.mirrors)
+        self.assertEqual(3,source.ui.actions.count('resolution'));self.assertEqual([],self.native.inputs)
+
+    def test_phone_graphics_ignored_and_ui_only_slider_cannot_be_success(self):
+        source,ui=self.graphics_boundaries();source.ui.fault='resolution'
+        with self.assertRaises(RuntimeError):ui.set_resolution(0.5)
+        self.assertEqual(0.65,source.ui.resolution);self.assertEqual(1,source.ui.actions.count('resolution'))
+        source.ui.fault='ui-only'
+        with self.assertRaises(RuntimeError):ui.set_resolution(0.5)
+        self.assertEqual(0.65,source.ui.resolution);self.assertEqual(2,source.ui.actions.count('resolution'))
+
+    def test_phone_graphics_candidate_change_and_missing_marker_refuse_before_input(self):
+        source,ui=self.graphics_boundaries();original=self.fixture.adb.digest;self.fixture.adb.digest='f'*64
+        with self.assertRaises(RuntimeError):ui.set_resolution(0.5)
+        self.assertEqual([],source.commands);self.fixture.adb.digest=original
+        source.mutate=lambda value:value.pop('graphicsControlsVersion',None)
+        with self.assertRaises(RuntimeError):ui.set_resolution(0.5)
+        self.assertEqual([],source.input_requests)
+
+    def test_phone_graphics_retired_original_token_cannot_adopt_layout_or_setting_change(self):
+        source,ui=self.graphics_boundaries();source.ui.position=0.6
+        source.before_input=lambda:setattr(source.ui,'resolution',0.7)
+        with self.assertRaises(RuntimeError):ui.set_resolution(0.5)
+        self.assertEqual([],source.ui.actions);self.assertEqual(1,len(source.input_requests))
+
+    def test_phone_graphics_missing_reply_after_slider_delivery_never_replays(self):
+        source,ui=self.graphics_boundaries();source.ui.position=0.6
+        def mutate(value):
+            if value.get('action')!='observe':value['commandId']='f'*32
+        source.mutate=mutate
+        with self.assertRaises(RuntimeError):ui.set_resolution(0.5)
+        self.assertEqual(['resolution'],source.ui.actions);self.assertEqual(0.5,source.ui.resolution)
+
+    def test_phone_graphics_foreign_native_process_or_generation_cannot_authorize_input(self):
+        source,ui=self.graphics_boundaries();ui.capture()
+        for field,value in (('processId',99),('generation','f'*32),('sourceSequence',0)):
+            with self.subTest(field=field):
+                source.mutate=lambda packet:packet.update({field:value})
+                with self.assertRaises(RuntimeError):ui.toggle('graphics.haze',True)
+        self.assertEqual([],source.input_requests)
+
+    def test_actual_phone_probe_graphics_requests_are_closed_typed_and_source_owned(self):
+        program=r'''
+const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort());
+let calls=[],files=[];
+const Test={phoneGraphicsUi:r=>{calls.push(r);return {commandId:r.commandId,performed:true};},
+ saveObject:(v,name)=>files.push({v,name})};
+SOURCE
+function outer(request){return {schemaVersion:1,commandId:request.commandId,action:"phone-graphics-ui",request};}
+const observe={schemaVersion:1,commandId:"a".repeat(32),action:"observe"};
+applyAndroidControlCommand(outer(observe));applyAndroidControlCommand(outer(observe));
+if(calls.length!==1||files[0].name!=="phone-graphics-ui.json")throw Error("original dispatch");
+const input={schemaVersion:1,commandId:"b".repeat(32),action:"set-value",instance:"c".repeat(32),generation:"d".repeat(32),
+ sequence:1,observedElapsedMs:0,controlId:"graphics.resolution",controlToken:"e".repeat(32),value:0.5};
+applyAndroidControlCommand(outer(input));
+for(const change of [{value:true},{value:3},{expected:0.5},{controlId:"graphics.page"},{action:"apply-preset"}]){
+ applyClientCommand(outer({...input,...change,commandId:"f".repeat(32)}));}
+if(calls.length!==2)throw Error("untyped or extra input");
+const scroll={...input,commandId:"1".repeat(32),action:"scroll",controlId:"graphics.scrollbar",direction:"down"};delete scroll.value;
+applyAndroidControlCommand(outer(scroll));if(calls.length!==3)throw Error("scroll missing");
+delete Test.phoneGraphicsUi;applyClientCommand(outer({...observe,commandId:"2".repeat(32)}));
+if(files[3].v.available!==false)throw Error("missing hook green");
+'''.replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
 
     def audio_boundaries(self):
         source = AudioNativeBoundary()

@@ -347,12 +347,13 @@ QVariantMap TestScriptingInterface::featureScriptObservation(const QString& requ
         {"source", source}};
 }
 #if defined(ANDROID_APP_PHONE_INTERFACE)
-QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command) { return phoneControlUi(command, false); }
-QVariantMap TestScriptingInterface::phoneAudioUi(const QVariantMap& command) { return phoneControlUi(command, true); }
-QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, bool audioSurface) {
+QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command) { return phoneControlUi(command, 0); }
+QVariantMap TestScriptingInterface::phoneAudioUi(const QVariantMap& command) { return phoneControlUi(command, 1); }
+QVariantMap TestScriptingInterface::phoneGraphicsUi(const QVariantMap& command) { return phoneControlUi(command, 2); }
+QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, int surfaceKind) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;
-        QMetaObject::invokeMethod(this, [&] { result = phoneControlUi(command, audioSurface); }, Qt::BlockingQueuedConnection);
+        QMetaObject::invokeMethod(this, [&] { result = phoneControlUi(command, surfaceKind); }, Qt::BlockingQueuedConnection);
         return result;
     }
     if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
@@ -360,6 +361,9 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, b
     const auto ui = DependencyManager::get<OffscreenUi>();
     const auto root = ui->getRootItem();
     const auto window = ui->getWindow();
+    const bool audioSurface = surfaceKind == 1;
+    if (surfaceKind < 0 || surfaceKind > 2) { return {}; }
+    overte::e2e::GraphicsUiContext graphicsContext;
     overte::e2e::AudioUiContext audioContext;
     if (audioSurface) {
         if (!DependencyManager::isSet<AudioClient>()) { return {}; }
@@ -371,8 +375,15 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, b
         audioContext = overte::e2e::AudioUiContext::fromNative(voice, muted, echo, qApp->isHMDMode());
         if (!audioContext.valid) { return {}; }
         if (!_phoneAudioUi) { _phoneAudioUi = std::make_shared<overte::e2e::AudioUi>(); }
+    } else if (surfaceKind == 2) {
+        auto render = RenderScriptingInterface::getInstance();
+        graphicsContext = overte::e2e::GraphicsUiContext::fromNative(render->getViewportResolutionScale(),
+            render->getHazeEnabled(), render->getMirrorsEnabled());
+        if (!graphicsContext.valid) { return {}; }
+        if (!_phoneGraphicsUi) { _phoneGraphicsUi = std::make_shared<overte::e2e::GraphicsUi>(); }
     } else if (!_phoneScriptFileUi) { _phoneScriptFileUi = std::make_shared<overte::e2e::ScriptFileUi>(); }
     auto controls = audioSurface ? static_cast<overte::e2e::NormalControlUi*>(_phoneAudioUi.get())
+        : surfaceKind == 2 ? static_cast<overte::e2e::NormalControlUi*>(_phoneGraphicsUi.get())
         : static_cast<overte::e2e::NormalControlUi*>(_phoneScriptFileUi.get());
     const auto request = QJsonObject::fromVariantMap(command);
     const auto id = request.value("commandId").toString();
@@ -382,7 +393,7 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, b
     const auto keys = request.keys();
     if (action == "observe") {
         if (QSet<QString>(keys.begin(), keys.end()) != QSet<QString>{"schemaVersion", "commandId", "action"}) { return {}; }
-        auto observed = controls->observe(root, window, audioContext);
+        auto observed = controls->observe(root, window, audioContext, graphicsContext);
         if (observed.isEmpty()) { return {}; }
         observed["commandId"] = id;
         observed["action"] = action;
@@ -390,12 +401,12 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, b
     }
     // Events enter the actual rendered Qt window. No QML clicked/accepted
     // handler, file helper or script service is invoked as an input shortcut.
-    const auto pointClick = [window, audioSurface](QQuickItem* item, const QPointF& position) {
+    const auto pointClick = [window, surfaceKind](QQuickItem* item, const QPointF& position) {
         if (overte::e2e::ScriptFileUi::visibleRect(item, window).isEmpty()) { return false; }
         QPointer<QQuickItem> original = item;
         QPointer<QQuickWindow> surface = window;
         if (!overte::e2e::ScriptFileUi::visibleRect(item, window).contains(position)) { return false; }
-        if (!audioSurface) {
+        if (surfaceKind == 0) {
             QMouseEvent move(QEvent::MouseMove, position, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
             QCoreApplication::sendEvent(surface, &move);
             if (!original || !surface) { return false; }
@@ -412,7 +423,7 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, b
     const auto click = [pointClick](QQuickItem* item) {
         return pointClick(item, item->mapToScene(QPointF(item->width()/2, item->height()/2)));
     };
-    auto result = controls->apply(root, window, request, click, audioContext, pointClick);
+    auto result = controls->apply(root, window, request, click, audioContext, pointClick, graphicsContext);
     if (!result.isEmpty()) { result["action"] = action; }
     return result.toVariantMap();
 }
@@ -798,7 +809,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
-            || filename == "phone-script-file-ui.json" || filename == "phone-audio-ui.json" || filename == "feature-script-files.json") {
+            || filename == "phone-script-file-ui.json" || filename == "phone-audio-ui.json" || filename == "phone-graphics-ui.json" || filename == "feature-script-files.json") {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
         QSaveFile output(filepath);
         output.setDirectWriteFallback(false);

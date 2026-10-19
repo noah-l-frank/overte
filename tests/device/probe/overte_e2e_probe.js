@@ -147,6 +147,27 @@
         }
         return /^(?:settings\.entry|audio\.(?:entry|settings-entry|record|live-echo|mute|mode\.(?:desktop|vr)|back))$/.test(String(request.controlId));
     }
+    var lastPhoneGraphicsRequest = "";
+    function validPhoneGraphicsRequest(request) {
+        if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
+        if (request.action === "observe") { return objectKeysMatch(request, ["schemaVersion", "commandId", "action"]); }
+        var keys = ["schemaVersion", "commandId", "action", "instance", "generation", "sequence", "observedElapsedMs", "controlId", "controlToken"];
+        if (request.action === "scroll") { keys.push("direction"); }
+        if (request.action === "set-value") { keys.push("value"); }
+        if (["activate", "scroll", "set-value"].indexOf(request.action) === -1 || !objectKeysMatch(request, keys)
+                || !/^[0-9a-f]{32}$/.test(String(request.instance)) || !/^[0-9a-f]{32}$/.test(String(request.generation))
+                || !/^[0-9a-f]{32}$/.test(String(request.controlToken))
+                || !phoneFileInteger(request.sequence, 1, 9007199254740991)
+                || !phoneFileInteger(request.observedElapsedMs, 0, 9007199254740991)) { return false; }
+        if (request.action === "scroll") {
+            return request.controlId === "graphics.scrollbar" && (request.direction === "up" || request.direction === "down");
+        }
+        if (request.action === "set-value") {
+            return request.controlId === "graphics.resolution" && typeof request.value === "number"
+                && isFinite(request.value) && request.value >= 0.1 && request.value <= 2;
+        }
+        return /^(?:settings\.entry|graphics\.(?:settings-entry|haze|mirrors))$/.test(String(request.controlId));
+    }
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
@@ -975,6 +996,23 @@
 
     function applyClientCommand(command) {
         if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                && command.action === "phone-graphics-ui"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "request"])
+                && validPhoneGraphicsRequest(command.request) && command.request.commandId === command.commandId) {
+            if (command.commandId !== lastPhoneGraphicsRequest) {
+                lastPhoneGraphicsRequest = String(command.commandId);
+                var graphicsUi = {schemaVersion: 1, commandId: command.commandId, available: false};
+                try {
+                    if (typeof Test.phoneGraphicsUi === "function") {
+                        var graphicsOriginal = Test.phoneGraphicsUi(command.request);
+                        if (graphicsOriginal && graphicsOriginal.commandId === command.commandId) { graphicsUi = graphicsOriginal; }
+                    }
+                } catch (_phoneGraphicsError) { /* Missing native input is never successful delivery. */ }
+                Test.saveObject(graphicsUi, "phone-graphics-ui.json");
+            }
+            return;
+        }
+        if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "phone-audio-ui"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "request"])
                 && validPhoneAudioRequest(command.request) && command.request.commandId === command.commandId) {
@@ -1325,9 +1363,9 @@
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
-                || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "feature-script-files")) {
+                || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui" || command.action === "feature-script-files")) {
             // Android's existing private channel is separate from the HTTP
-            // fixture command endpoint. Reuse only the closed read-only path.
+            // fixture command endpoint. Reuse only the closed source-owned dispatch.
             applyClientCommand(command);
             return;
         }

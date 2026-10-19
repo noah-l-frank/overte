@@ -177,3 +177,9 @@ The focused group has 45 passing cases; seven reviewed Emote source-profile
 checks also pass on this Phone source tree. This identifies runtime Script
 semantics only; full Emote input/pose/image/peer coordination is still missing.
 Native C++ remains uncompiled; no device acceptance is implied.
+
+The [immediate Graphics input component](NORMAL_GRAPHICS_PROTOCOL.md) now joins
+the shared original-widget recipe to the existing Phone native/private channel.
+The focused group passes 52 host cases. Native Render settings are readback only;
+actual frame/pass evidence and full preference/page/restart ownership remain
+open. No complete Graphics capability or physical qualification is claimed.
