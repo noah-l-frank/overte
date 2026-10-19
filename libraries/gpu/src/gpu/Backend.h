@@ -106,6 +106,7 @@ public:
     // Caller must require true and a newly acquired image; false supplies no
     // evidence and cannot authorize reuse of an old destination.
     virtual bool featureReadFramebuffer(const FramebufferPointer&, QImage&);
+    virtual bool featureTextureExtent(const TexturePointer&, Vec2i&);
 #endif
 
 

@@ -1,10 +1,11 @@
 # World render acquisition, version 1: partial instrumentation
 
-This packet supplies an E2E-only GL readback primitive, a strict original-image
-reader and the closed existing probe/fixture dispatch. **No native main-frame
-capture hook or platform image-file transport is connected yet.** No world image
-can be obtained through these adapters at this stage. Full feature capabilities
-remain unadvertised. Native C++ is uncompiled and all devices unqualified.
+This source packet supplies E2E-only GL readback, a main-mono frame hook,
+original-memory/chunk readers and the closed existing probe/fixture dispatch.
+**Concrete platform transport/receipt cleanup and persistent ownership
+coordination are not connected yet.** No world image can be obtained through a
+complete feature adapter at this stage. Full capabilities remain unadvertised.
+Native C++ is uncompiled and all devices unqualified.
 
 ## Implemented GPU primitive
 
@@ -19,6 +20,12 @@ context. It reads only an already created, nondefault original GPU framebuffer
 that is the actual current draw target with color attachment 0 selected.
 It never synchronizes/creates a missing framebuffer or falls back to the UI/default
 target. Extents are 1..4096 on each axis and at most 8,388,608 pixels. It acquires
+only a single-sample 2D color texture. Its actual attachment object, mip level,
+GPU texture width/height and current full-target viewport must agree with the
+CPU framebuffer description. Requested dimensions alone cannot authorize a
+read. The original texture binding on the current active unit is restored;
+renderbuffers, multisample textures and unsupported query paths fail closed.
+It acquires
 original RGBA unsigned bytes synchronously, checks framebuffer completeness and
 GL errors, and publishes only a newly acquired nonnull image. Failure clears the
 output. Explicit RGBA byte order covers GL/GLES and does not borrow legacy ARGB
@@ -36,14 +43,14 @@ establish those facts.
 
 The existing private probe accepts exactly
 `{schemaVersion:1,commandId:<32hex or ios-32hex>,action:"feature-world-render-observe"}`.
-It calls `Test.featureWorldRenderCapture(requestId)` only if that future native
-hook exists. The hook is currently absent, so dispatch saves `available:false`.
+It calls `Test.featureWorldRenderCapture(requestId)` only if that native hook
+exists in the installed E2E build. Absent/unsupported sources save unavailable.
 Native pending reads are retried for at most 50 callbacks/50ms with the same ID;
 they cannot issue new capture intents. Superseded requests and script teardown
 cancel the timer. Missing/foreign/late native results never acquire an image.
 The original JSON receipt is `world-render-observation.json`.
 
-The complete future original receipt has exactly:
+The original receipt has exactly:
 
 * schemaVersion 1, original requestId, native context instance (32 hex), advancing
   source sequence, original requestedEpochMs/capturedEpochMs and actual processId.
@@ -68,25 +75,48 @@ never for control requests, repeated polling, file copies or reconstructed bytes
 An unchanged static image can be a valid new acquisition; it proves no changed
 feature effect. Required challenge/subject/actor assertions remain separate.
 
-## Required native hook and ownership work
+## Native frame hook and remaining ownership work
 
-Before activation, join a fresh native request to a later actual main-view
-ToneMapAndResample GPU execution before RenderHUDLayer. A CPU job invocation
-or recorded-but-unexecuted batch is insufficient. Preserve actual render args,
-source viewport, source texture and destination extent from that execution.
-Exclude mirror/secondary/shadow/UI captures. Version 1 rejects stereo and
-unimplemented Vulkan; neither a left-eye guess nor an empty QImage is success.
-A later backend/view extension needs a reviewed version/reader migration.
+`gpu::Context` owns one `FeatureWorldRender` state. An explicit request reserves
+only a later original main/default, mirror-depth-zero, mono ToneMapAndResample
+batch. Its `runLambda` follows the original draw before subsequent HUD jobs;
+recording alone publishes nothing. The callback measures the original source
+texture's actual GPU extent, requires agreement with the source description,
+and retains the original source subregion used in the recorded tone-map
+transform. This is distinct from a preference getter. Qualification must still
+verify backend execution/order and effective sampled subregions on hardware.
+Mirror/secondary/shadow/stereo are excluded. Vulkan/default backend methods
+return false. A backend/view extension needs a reviewed contract migration.
 
-The native hook must reject retired request reuse, preserve completed original
-metadata without retiming, bound pending acquisition/memory leases, and expose
-original PNG files only in its exclusively owned private context. Files require
-exclusive no-follow creation with private permissions, actual content hashing,
-known native ownership and separately observed cleanup/absence. Never overwrite
-or adopt another session's path. Capture-file/observer buffers must appear in
-owned resource inventories until verified release, including timeout/error cases.
-No native file writer, release/absence hook or complete cleanup coordinator is
-implemented by this packet. They are prerequisites, not simulated successes.
+Only one request or undrained callback may exist per context. A 1500ms native
+monotonic deadline includes waiting, readback and PNG encoding. Up to 256 retired
+IDs are retained without eviction/reuse; after exhaustion a new process/context
+is required. Completed receipts preserve original times. A captured ticket
+survives execution or discarded-frame destruction, and remains inventoried
+until its local image/chunk buffers and callback have drained. Cancellation
+clears retained result/PNG immediately and prevents publication by later work.
+Memory owns at most one 32MiB PNG plus bounded temporary RGBA/encoding buffers.
+
+PNG names are logical nonce identities, not physical paths. The private storage
+contract is independently versioned at 1. A command has exactly schemaVersion 1,
+commandId, action `feature-world-render-storage`, requestId (the acquisition ID),
+operation `read|release|inspect`, and offset only for read. Reads return at most
+65536 original encoded bytes as canonical base64, without recompression.
+Replies have exactly storageVersion 1, commandId, requestId, instance, advancing
+source sequence, actual processId, original capturedEpochMs, present:boolean,
+callbacks:0|1 and pngBytes:0..33554432. Read additionally has offset and data.
+No arbitrary path, expected pixel, dimensions or requested content is accepted.
+
+`release` retires the active ID and clears retained bytes. The reader then issues
+fresh `inspect` commands until present is false, callbacks is zero and pngBytes
+is zero. A release ACK alone cannot establish absence. Each storage command's
+original receipt is `world-render-storage-<normalized command nonce>.json` in
+the existing private results channel. Platform IO must remove these owned
+receipt artifacts and independently verify absence, including partial/timeout
+receipts; **that receipt cleanup and the persistent acquisition owner journal
+are still missing**. Memory absence does not prove file-artifact cleanup. Full
+area activation must remain closed until both are implemented. The PNG itself
+never needs a writable filesystem fallback.
 
 `NativeWorldRenderCapture` requires a durable owner intent callback before the
 request because observation can create private native artifacts. A failed intent
@@ -100,8 +130,9 @@ unpredictable nonce causality bounds image age without assuming equal native and
 host clocks. Full-area clock/lifecycle joins remain required. No read is replayed
 as a mutation. Failed ownership/release must keep a run red.
 
-Seventeen device-free cases cover ignored GPU versus fresh control cursor,
+Twenty-eight device-free cases cover ignored GPU versus fresh control cursor,
 missing/stale/foreign originals, RGBA/PNG checksum/shape errors, timing/context
 changes, unsupported Vulkan/stereo/post-UI sources, original probe dispatch,
-finite retries, transfer/decode budgets and durable intent failure. These prove
+finite retries, transfer/decode budgets, original chunk offsets/digests, ignored
+release, undrained callbacks, separate fresh inventories and durable intent failure. These prove
 test/reader logic only, not GL correctness, product rendering or device acceptance.

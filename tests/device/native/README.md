@@ -10,6 +10,12 @@ The separate [Script execution observation](SCRIPT_EXECUTION_OBSERVATION.md)
 provides actual native manager identities and historical CommonJS completion/
 cache/error events. It supplies no code or desired module path to the client.
 
+The separate [world-render acquisition](WORLD_RENDER_ACQUISITION.md) connects a
+native request to a later main-mono tone-map GPU callback and retains original
+PNG memory with an independently observed release inventory. Its private
+platform transport/receipt cleanup and full ownership coordinator remain open;
+native code is uncompiled and no area capability is enabled by this source.
+
 The closed `feature-native-observe` command has exactly `schemaVersion:1`,
 `commandId:<32hex>` (`ios-<32hex>` on HTTP/AFC) and `action`. It accepts no
 expected state, field selection, filename, script, renderer setting or result.
