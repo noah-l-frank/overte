@@ -25,6 +25,8 @@ from self_tests.test_recorded_preview_history import complete as completed_voice
 from adapters.recorded_preview_history import measured_state as measured_audio_state
 from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, code_source, RUN as EFFECT_RUN
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
+from self_tests.test_native_animation_history import history_source
+from adapters.native_animation_history import clip_run
 
 
 class Native:
@@ -79,6 +81,18 @@ class FeatureObservationTests(unittest.TestCase):
         boundary = patch.object(feature_observation, 'post_request', side_effect=self.native.post)
         boundary.start(); self.addCleanup(boundary.stop)
         self.observer = self.native.observer()
+
+    def test_ios_animation_history_preserves_native_times_and_refuses_an_older_producer(self):
+        source=self.native_feature_boundaries();original=source.mutate
+        def observed(value):original(value);history_source(value,event_epoch=9000)
+        source.mutate=observed;reader=self.observer.native_observer()
+        first=reader.read(0,require_animation_history=True)
+        event,frames=clip_run(first,'file:///actual/bundled/Sit2.fbx',after_event=0,after_epoch=9000)
+        self.assertEqual(9000,event['capturedEpochMs']);self.assertEqual(2,len(frames))
+        second=reader.read(first['sequence'],require_animation_history=True)
+        self.assertEqual(first['animation']['history'],second['animation']['history'])
+        source.mutate=original
+        with self.assertRaises(RuntimeError):reader.read(second['sequence'])
 
     def native_feature_boundaries(self):
         source = NativeFeatureBoundary()

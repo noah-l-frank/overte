@@ -1,5 +1,12 @@
 # iOS feature adapter implementation status
 
+One new component source case preserves original native Rig call/pose times
+without comparing host/native wall clocks and rejects later source downgrade.
+The focused source group now passes **24** host cases; the broad no-build iOS
+selection passes **263**, with the same 20 native exclusions and zero compiler
+attempts/failures/errors/skips. All five canonical binding checks remain green.
+Historical poses prove no installed-code association or complete Emote feature.
+
 The explicit native component's `_world_render_capture()` now connects the
 main-mono source to original HTTP/AFC bytes and durable component-only ownership.
 It verifies original encoded/RGBA digests, native PID/context/nonces, and the
