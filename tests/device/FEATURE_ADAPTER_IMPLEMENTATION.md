@@ -105,7 +105,7 @@ untested**. Existing/new foundations are narrower implementation scopes.
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
 | --- | --- | --- | --- | --- |
 | Worlds/navigation | Existing normal Go To/history retained | Existing real VR Go To/history retained | Existing native component navigation retained; bound execution blocked | Actual bookmark CRUD/persistence, directory/search/failure state and independent arrival/directory actor |
-| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled HTTPS account/profile fixture now exists; native trusted-origin/protected-probe, login inputs, principal/pending/error and independent actor joins remain missing |
+| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled HTTPS account/profile fixture now exists; passive native pending/token/reply history now exists; trusted-origin/protected-probe, login inputs and independent actor joins remain missing |
 | Avatar/people | Existing replication foundations retained | Existing replication foundations retained | Existing component peer/replication code retained | Actual avatar chooser/bookmark/scale/wearable readers, mutual contact consent peer and original visible avatar effects |
 | Create | **New** ordinary cube/edit/history/delete/JSON import + observer/source cleanup | **New** original avatar-owned native ID reader; VR input controls missing | **New** original avatar-owned native ID reader component; bound execution blocked | glTF/OBJ local picker + companions, voxel stroke/settled data, texture/render effect, original export bytes and real domain rez-denial actor |
 | Emotes | Evaluated Rig/clip/pose and immutable native call/frame history | Same candidate-bound history reader | Same original native history component; canonical binding blocked | Full source-profile/normal-input/history/peer/image coordinator, measured completion/early-restoration timing and actual Sit identities; the original tablet Sit end-frame concern remains unresolved |
@@ -213,3 +213,10 @@ original GL creation context must match actual GPU objects. Native code remains
 uncompiled. Pico stereo and Vulkan/unknown backends provide no image; no default
 buffer, UI composite or guessed eye substitutes. Scene/camera/pass and complete
 feature coordinators remain missing. No full capability is activated.
+
+The [passive native account packet](native/ACCOUNT_OBSERVATION.md) replaces an
+instrumentation read that could itself refresh credentials. Actual native
+pending/context flags and bounded original current reply/signal history are now
+available to the existing internal reader with a mandatory source option.
+This does not establish remote protected access, native UI success or a full
+Authentication coordinator. Native source remains uncompiled.

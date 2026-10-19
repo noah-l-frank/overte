@@ -100,9 +100,13 @@ be polled; a matching invalid complete observation fails.
   now supplies capture-before-normalization and actual accepted sink writes,
   with native cycle/event provenance and explicit private-data cleanup. This
   source is E2E-only, uncompiled and still needs platform/device qualification.
-* `account` reads login state and a SHA256 of the actual principal on the
-  AccountManager thread. It exports no username, token or endpoint. Protected
-  access/revocation still needs a real controlled server observation.
+* `account` now uses a [passive native source](ACCOUNT_OBSERVATION.md) on the
+  AccountManager thread. Its independently versioned optional observation adds
+  actual pending/token/context flags and original reply/signal history. It avoids
+  the ordinary isLoggedIn helper, which can initiate token refresh. No username,
+  token or endpoint is exported. Protected access still needs the separate real
+  native request and controlled server proof; a cached token or HTTP ACK is
+  insufficient. Readers requiring the new source reject older narrow packets.
 
 All instrumented branches must be compiled and qualified later in the Proxmox
 laboratory. Current checks run Python and the actual JavaScript dispatch with

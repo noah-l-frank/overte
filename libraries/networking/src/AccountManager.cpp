@@ -14,6 +14,11 @@
 #include "OAuthTokenValidation.h"
 #include "CredentialTransportPolicy.h"
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QCryptographicHash>
+#include <QUuid>
+#endif
+
 #include <memory>
 
 #include <QtCore/QDataStream>
@@ -103,6 +108,14 @@ AccountManager::AccountManager(bool accountSettingsEnabled, UserAgentGetter user
     qRegisterMetaType<QHttpMultiPart*>("QHttpMultiPart*");
 
     qRegisterMetaType<AccountManagerAuth::Type>();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _featureAccountInstance = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+    connect(this, &AccountManager::loginComplete, this, [this] { recordFeatureAccountEvent("login-complete"); });
+    connect(this, &AccountManager::loginFailed, this, [this] { recordFeatureAccountEvent("login-failed"); });
+    connect(this, &AccountManager::logoutComplete, this, [this] { recordFeatureAccountEvent("logout-complete"); });
+    connect(this, &AccountManager::profileChanged, this, [this] { recordFeatureAccountEvent("profile-changed"); });
+    connect(this, &AccountManager::authEndpointChanged, this, [this] { recordFeatureAccountEvent("auth-endpoint-changed"); });
+#endif
     connect(this, &AccountManager::loginComplete, this, &AccountManager::uploadPublicKey);
     connect(this, &AccountManager::loginComplete, this, &AccountManager::requestAccountSettings);
 
@@ -118,6 +131,54 @@ AccountManager::AccountManager(bool accountSettingsEnabled, UserAgentGetter user
     connect(_postSettingsTimer, &QTimer::timeout, this, &AccountManager::postAccountSettings);
     connect(qApp, &QCoreApplication::aboutToQuit, this, &AccountManager::postAccountSettings);
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void AccountManager::recordFeatureAccountEvent(const char* kind, const QNetworkReply* reply) {
+    const auto now = QDateTime::currentMSecsSinceEpoch();
+    const auto credentials = _credentialContext.snapshot();
+    if (!_featureAccountAvailable || QThread::currentThread() != thread() || now <= 0
+            || now < _featureAccountEventEpochMs || _featureAccountEventSequence >= 9007199254740991ULL
+            || credentials.featureGeneration() == 0 || credentials.featureGeneration() > 9007199254740991ULL) {
+        _featureAccountAvailable = false; return;
+    }
+    const QVariantMap event{{"sequence", static_cast<qulonglong>(++_featureAccountEventSequence)},
+        {"capturedEpochMs", now}, {"kind", QString::fromLatin1(kind)},
+        {"credentialGeneration", static_cast<qulonglong>(credentials.featureGeneration())},
+        {"hasReply", bool(reply)},
+        {"httpStatus", reply ? reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() : 0},
+        {"networkError", reply ? static_cast<int>(reply->error()) : 0},
+        {"transportRejected", reply && reply->property("_overte_credential_transport_rejected").toBool()},
+        {"timedOut", reply && reply->property("_overte_account_auth_timed_out").toBool()}};
+    _featureAccountEventEpochMs = now;
+    _featureAccountEvents.append(event);
+    if (_featureAccountEvents.size() > 64) { _featureAccountEvents.removeFirst(); }
+}
+
+QVariantMap AccountManager::featureAccountObservation() const {
+    if (!_featureAccountAvailable || QThread::currentThread() != thread()) { return {}; }
+    const auto now = QDateTime::currentMSecsSinceEpoch();
+    const auto credentials = _credentialContext.snapshot();
+    if (now <= 0 || now < _featureAccountEventEpochMs || credentials.featureGeneration() == 0
+            || credentials.featureGeneration() > 9007199254740991ULL) { return {}; }
+    const auto& token = _accountInfo.getAccessToken();
+    const bool present = !token.token.isEmpty();
+    const bool valid = present && !token.isExpired(); // Pure syntax/type/expiry check; no network call.
+    const auto digest = [](const QByteArray& input) {
+        return QString::fromLatin1(QCryptographicHash::hash(input,QCryptographicHash::Sha256).toHex());
+    };
+    const QVariantMap observation{{"accountVersion",1},{"instance",_featureAccountInstance}, {"capturedEpochMs",now},
+        {"credentialGeneration",static_cast<qulonglong>(credentials.featureGeneration())},
+        {"credentialActive",credentials.featureActive()}, {"endpointPresent",!_authURL.isEmpty()},
+        {"endpointSha256",digest(_authURL.toEncoded())}, {"loginPending",_isWaitingForAccessToken},
+        {"refreshPending",_isWaitingForTokenRefresh}, {"tokenPresent",present}, {"tokenValid",valid},
+        {"refreshPresent",!token.refreshToken.isEmpty()}, {"transportRejected",_lastLoginTransportRejected},
+        {"eventSequence",static_cast<qulonglong>(_featureAccountEventSequence)},
+        {"droppedEvents",static_cast<qulonglong>(_featureAccountEventSequence-_featureAccountEvents.size())},
+        {"events",_featureAccountEvents}};
+    return {{"loggedIn",!_authURL.isEmpty() && valid},
+        {"principalSha256",digest(_accountInfo.getUsername().toUtf8())}, {"observation",observation}};
+}
+#endif
 
 const QString ACCOUNT_MANAGER_REQUESTED_SCOPE = "owner";
 
@@ -988,6 +1049,9 @@ void AccountManager::requestAccessTokenFinished() {
     }
     _isWaitingForAccessToken = false;
     _lastLoginTransportRejected = requestReply->property("_overte_credential_transport_rejected").toBool();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    recordFeatureAccountEvent("login-reply",requestReply);
+#endif
 
     constexpr qint64 MAX_RESPONSE_BYTES = 1024 * 1024;
     const auto payload = requestReply->read(MAX_RESPONSE_BYTES + 1);
@@ -1068,6 +1132,9 @@ void AccountManager::refreshAccessTokenFinished() {
         return;
     }
     _isWaitingForTokenRefresh = false;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    recordFeatureAccountEvent("refresh-reply",requestReply);
+#endif
 
     constexpr qint64 MAX_RESPONSE_BYTES = 1024 * 1024;
     const auto payload = requestReply->read(MAX_RESPONSE_BYTES + 1);
@@ -1156,6 +1223,9 @@ void AccountManager::requestProfileFinished() {
     if (!credentials.current() || !profileContext.current() ||
             !credentials.sameRequest(_credentialContext.snapshot()) ||
             !profileContext.sameRequest(_profileContext.snapshot())) { return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    recordFeatureAccountEvent("profile-reply",profileReply);
+#endif
     QPointer<AccountManager> owner(this);
     QPointer<QNetworkReply> survivingReply(profileReply);
     constexpr qint64 MAX_PROFILE_BYTES = 1024 * 1024;

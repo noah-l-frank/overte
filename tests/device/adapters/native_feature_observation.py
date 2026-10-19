@@ -53,9 +53,9 @@ def decode(raw):
 
 
 def validate(value, request, pid, epoch, *, require_animation=False, require_recorded_voice=False,
-             require_recorded_history=False, require_animation_history=False):
+             require_recorded_history=False, require_animation_history=False, require_account=False):
     need(type(value) is dict and all(type(flag) is bool for flag in
-         (require_animation, require_recorded_voice, require_recorded_history, require_animation_history)))
+         (require_animation, require_recorded_voice, require_recorded_history, require_animation_history, require_account)))
     optional = {'requestedEpochMs', 'animationFence'} & set(value)
     exact(value, {'schemaVersion', 'requestId', 'instance', 'sequence', 'capturedEpochMs',
                   'processId', 'lifecycle', 'animation', 'graphics', 'audio', 'account'} | optional)
@@ -122,10 +122,16 @@ def validate(value, request, pid, epoch, *, require_animation=False, require_rec
                  and recorded['sampleRate'] > 0 and event['phase'] in {'capturing', 'playing', 'draining'})
             fresh(event['publishedEpochMs'], epoch)
         if history: validate_history(recorded, value['capturedEpochMs'])
-    exact(value['account'], {'loggedIn', 'principalSha256'})
+    account=value['account']
+    need(type(account) is dict)
+    exact(account, {'loggedIn', 'principalSha256'} | ({'observation'} if 'observation' in account else set()))
     need(type(value['account']['loggedIn']) is bool
          and type(value['account']['principalSha256']) is str
          and re.fullmatch('[0-9a-f]{64}', value['account']['principalSha256']))
+    if 'observation' in account:
+        from adapters.native_account_observation import validate as account_observation
+        account_observation(account,value['capturedEpochMs'],value.get('requestedEpochMs'))
+    else: need(not require_account)
     animation = value['animation']
     need(type(animation) is dict)
     if animation:
@@ -177,12 +183,13 @@ class NativeFeatureObservation:
         self.voice_event_sequence = 0
         self.voice_history = None
         self.animation_history = None
+        self.account_history = None
 
     def read(self, after_sequence, *, require_animation=False, require_recorded_voice=False,
-             require_recorded_history=False, require_animation_history=False):
+             require_recorded_history=False, require_animation_history=False, require_account=False):
         try:
             need(integer(after_sequence) and after_sequence >= self.sequence
-                 and all(type(v) is bool for v in (require_animation,require_recorded_voice,require_recorded_history,require_animation_history))
+                 and all(type(v) is bool for v in (require_animation,require_recorded_voice,require_recorded_history,require_animation_history,require_account))
                  and self.guard() is not False)
             requested_at = self.clock_ms()
             need(integer(requested_at, 1))
@@ -194,6 +201,7 @@ class NativeFeatureObservation:
             seen_lifecycle, voice_floor = self.lifecycle, self.voice_event_sequence
             seen_history = self.voice_history
             seen_animation_history = self.animation_history
+            seen_account_history = self.account_history
             for _attempt in range(51):
                 need(self.guard() is not False)
                 raw = self.original()
@@ -214,13 +222,17 @@ class NativeFeatureObservation:
                         epoch = value.get('capturedEpochMs')
                     value = validate(value, request, self.pid, epoch, require_animation=False,
                                      require_recorded_voice=require_recorded_voice, require_recorded_history=require_recorded_history,
-                                     require_animation_history=require_animation_history)
+                                     require_animation_history=require_animation_history, require_account=require_account)
                     need(pinned_instance in (None, value['instance']) and value['sequence'] > source_floor
                          and (self.ios or value['capturedEpochMs'] >= requested_at))
                     pinned_instance, source_floor = value['instance'], value['sequence']
                     if seen_lifecycle is not None:
                         need(all(value['lifecycle'][key] >= seen_lifecycle[key] for key in seen_lifecycle))
                     seen_lifecycle = value['lifecycle'].copy()
+                    if 'observation' in value['account']:
+                        from adapters.native_account_observation import accept as accept_account
+                        seen_account_history=accept_account(seen_account_history,value['account'])
+                    else: need(seen_account_history is None)
                     animation = value['animation']
                     if 'history' in animation:
                         from adapters.native_animation_history import accept
@@ -260,6 +272,7 @@ class NativeFeatureObservation:
                         self.voice_event_sequence = voice_sequence
                         self.voice_history = deepcopy(seen_history)
                         self.animation_history = deepcopy(seen_animation_history)
+                        self.account_history = deepcopy(seen_account_history)
                         if require_animation:
                             self.rig, self.rig_sequence = animation['rigId'], animation['evaluationSequence']
                         return value
