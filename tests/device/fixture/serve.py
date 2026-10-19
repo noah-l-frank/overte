@@ -512,10 +512,12 @@ class FixtureState:
                 input_operation = request.get("operation") if isinstance(request, dict) else None
                 if input_operation == "replace":
                     keys.add("text")
+                if input_operation == "select-index":
+                    keys.add("index")
                 uuid_pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
                 valid = (isinstance(request, dict) and set(request) == keys
                          and type(request["schemaVersion"]) is int and request["schemaVersion"] == 1
-                         and isinstance(input_operation, str) and input_operation in {"replace", "submit"}
+                         and isinstance(input_operation, str) and input_operation in {"replace", "submit", "select-index"}
                          and all(isinstance(request.get(key), str)
                                  and re.fullmatch(uuid_pattern, request[key]) is not None
                                  and request[key] != "00000000-0000-0000-0000-000000000000"
@@ -529,6 +531,8 @@ class FixtureState:
                                  and all(ord(character) >= 32 and ord(character) != 127 for character in text))
                     except UnicodeError:
                         valid = False
+                if valid and input_operation == "select-index":
+                    valid = type(request["index"]) is int and 0 <= request["index"] < 32
         elif action == "entity-script-consent":
             source = urlsplit(command.get("source") if isinstance(command.get("source"), str) else "")
             valid = (set(command) == {"schemaVersion", "commandId", "action", "operation", "source"}
