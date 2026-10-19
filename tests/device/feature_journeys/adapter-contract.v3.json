@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": 2,
+  "contractVersion": 3,
   "operationPattern": "feature.<area>.act|observe|cleanup",
   "qualification": "Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.",
   "areas": {
@@ -88,29 +88,7 @@
     },
     "audio": {
       "inputVerbs": {
-        "set-microphone-permission": [
-          {
-            "state": "denied"
-          },
-          {
-            "state": "granted"
-          }
-        ],
-        "record-start": [
-          {},
-          {},
-          {}
-        ],
-        "record-cancel": [
-          {}
-        ],
-        "record-stop": [
-          {}
-        ],
-        "preview-start": [
-          {}
-        ],
-        "preview-stop": [
+        "open": [
           {}
         ],
         "mute": [
@@ -119,27 +97,56 @@
           },
           {
             "enabled": false
+          },
+          {
+            "enabled": true
+          },
+          {
+            "enabled": false
           }
+        ],
+        "record-start": [
+          {},
+          {},
+          {},
+          {},
+          {}
+        ],
+        "record-cancel": [
+          {}
+        ],
+        "await-completion": [
+          {}
         ],
         "background-resume": [
           {}
         ],
-        "discard": [
+        "close": [
           {}
         ]
       },
       "observationFields": {
-        "permission": "str",
         "recording": "bool",
         "preview": "bool",
         "muted": "bool",
         "recordedFrames": "int",
-        "error": "str"
+        "playedFrames": "int",
+        "bufferedFrames": "int",
+        "phase": "str",
+        "history": "list",
+        "error": "str",
+        "open": "bool"
       },
       "independentFields": [
         "recording",
+        "preview",
+        "muted",
         "recordedFrames",
-        "muted"
+        "playedFrames",
+        "bufferedFrames",
+        "phase",
+        "history",
+        "error"
       ],
       "existingModules": [
         "audio-controls",

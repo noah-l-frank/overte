@@ -89,6 +89,6 @@ not Qt accessibility, keyboard delivery, native picker behavior or script
 execution. The separate [fixture storage source](SCRIPT_FIXTURE_STORAGE.md) now defines
 exclusive staging, original readback and persistent file cleanup intent. The
 full owner still needs dialog/engine cleanup, verified restart handoff and the
-complete version 2 Script state/effect/journal join. System folder
+complete version 3 Script state/effect/journal join. System folder
 picker and OS permission paths need their own concrete normal UI bindings;
 this packet does not pretend to implement those paths.

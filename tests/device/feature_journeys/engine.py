@@ -134,7 +134,7 @@ class Journey:
             if type(content) is not bytes or not 0 < len(content) <= bytes_evidence.MAX_BYTES:
                 raise ValueError('Invalid bounded original artifact bytes')
             digest = hashlib.sha256(content).hexdigest()
-            source_ticket = (self.recorded_ticket if self.area == 'audio' and (kind == 'file' or value['state']['preview'])
+            source_ticket = (self.recorded_ticket if self.area == 'audio' and (kind == 'file' or value['state']['phase'] == 'completed' and requested == 'audio')
                              else self.capture_ticket if self.area == 'snapshots' and kind == 'file' else ticket)
             key = (requested, digest, source_ticket, self.model_ticket)
             if key in self.evidence_cache:
@@ -144,7 +144,8 @@ class Journey:
                     self.policy['screen'], self.previous_subject, requested == 'changed')
                 self.evidence_cache[key] = (observed, cached_subject)
             elif kind == 'audio':
-                observed = bytes_evidence.audio_observation(content, self.run, source_ticket, requested == 'silence')
+                observed = bytes_evidence.audio_observation(content, self.run, source_ticket, requested == 'silence',
+                    profile='recorded-preview-v1' if self.area == 'audio' else 'voice-v1')
                 cached_subject = None
                 self.evidence_cache[key] = (observed, None)
             else:

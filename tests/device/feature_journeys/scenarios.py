@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 2
+VERSION = 3
 
 
 def scenario(title, baseline, rows):
@@ -129,21 +129,37 @@ SCENARIOS = {
     ('restart-app', {}, {}, ['image']),
     ('restore', {}, dict(resolution=1.0, renderScale=1.0, shadows=True, shadowPass=True, mirror=False), ['changed']),
 ]),
-'audio': scenario('Recording permission, cancel, preview, mute and lifecycle',
-    dict(permission='granted', recording=False, preview=False, muted=False, recordedFrames=0, error='none'), [
-    ('set-microphone-permission', dict(state='denied'), dict(permission='denied'), []),
-    ('record-start', {}, dict(error='permission-denied'), ['silence', 'peer']),
-    ('set-microphone-permission', dict(state='granted'), dict(permission='granted', error='none'), []),
-    ('record-start', {}, dict(recording=True, recordedFrames={'min': 8000, 'max': 480000}), ['peer']),
-    ('record-cancel', {}, dict(recording=False, recordedFrames=0), ['silence', 'peer']),
-    ('record-start', {}, dict(recording=True, recordedFrames={'min': 8000, 'max': 480000}), ['peer']),
-    ('record-stop', {}, dict(recording=False), ['file', 'peer']),
-    ('preview-start', {}, dict(preview=True), ['audio']),
-    ('preview-stop', {}, dict(preview=False), ['silence']),
+# OS permission denial/recovery remains in the composed permission-recovery
+# foundation. This workflow covers the actual in-memory automatic preview.
+'audio': scenario('Automatic recorded preview, cancellation, muted rejection and resume',
+    dict(recording=False, preview=False, muted=False, recordedFrames=0, playedFrames=0,
+         bufferedFrames=0, phase='idle', history=[], error='none', open=False), [
+    ('open', {}, dict(open=True), []),
     ('mute', dict(enabled=True), dict(muted=True), ['silence', 'peer']),
-    ('background-resume', {}, {}, ['silence', 'peer']),
-    ('mute', dict(enabled=False), dict(muted=False), ['audio', 'peer']),
-    ('discard', {}, dict(recordedFrames=0), ['peer']),
+    ('record-start', {}, dict(phase='error', history=['error'], error='microphone-muted'), ['silence', 'peer']),
+    ('mute', dict(enabled=False), dict(muted=False), ['peer']),
+    ('record-start', {}, dict(recording=True, phase='capturing', history=['capturing'], error='none',
+        recordedFrames={'min': 8000, 'max': 480000}, bufferedFrames={'min': 8000, 'max': 480000}), ['peer']),
+    ('record-cancel', {}, dict(recording=False, phase='cancelled', history=['capturing', 'cancelled'], bufferedFrames=0), ['silence', 'peer']),
+    ('record-start', {}, dict(recording=True, phase='capturing', history=['capturing'],
+        bufferedFrames={'min': 8000, 'max': 480000}), ['peer']),
+    # No Stop/Save/Preview command exists on this surface. Observe the native
+    # cycle's automatic capture -> play -> drain -> completion, then inspect
+    # the whole original recording and independent acoustic capture.
+    ('await-completion', {}, dict(recording=False, preview=False, bufferedFrames=0,
+        phase={'oneOf': ['playing', 'draining', 'completed']},
+        history=['capturing', 'playing', 'draining', 'completed'],
+        recordedFrames={'min': 24000, 'max': 144000}, playedFrames={'min': 24000, 'max': 144000}), ['file', 'audio', 'peer']),
+    ('record-start', {}, dict(recording=True, phase='capturing', history=['capturing'], playedFrames=0,
+        recordedFrames={'min': 8000, 'max': 480000}, bufferedFrames={'min': 8000, 'max': 480000}), ['peer']),
+    ('mute', dict(enabled=True), dict(muted=True, recording=False, phase='cancelled',
+        history=['capturing', 'cancelled'], bufferedFrames=0, error='microphone-muted'), ['silence', 'peer']),
+    ('mute', dict(enabled=False), dict(muted=False), ['peer']),
+    ('record-start', {}, dict(recording=True, phase='capturing', history=['capturing'], error='none',
+        bufferedFrames={'min': 8000, 'max': 480000}), ['peer']),
+    ('background-resume', {}, dict(recording=False, phase='cancelled', history=['capturing', 'cancelled'],
+        bufferedFrames=0, error={'oneOf': ['backgrounded', 'lifecycle-stopped', 'input-or-lifecycle-changed']}), ['silence', 'peer']),
+    ('close', {}, dict(open=False), []),
 ]),
 'chat': scenario('Owned peer send, receive, filter, history and input cancellation',
     dict(draft='', messages=[], filtered=False, focused=False, keyboard=False, open=False, error='none'), [

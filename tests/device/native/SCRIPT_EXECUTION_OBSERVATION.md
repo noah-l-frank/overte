@@ -118,7 +118,7 @@ The caller must still cancel a real file picker, stop the owned engine, observe
 owned effect/entity absence, and remove owned staged companions through its
 ordinary feature cleanup. Never Stop All or delete unrelated imports.
 
-The current complete feature contract is version 2; its Script picker and
+The current complete feature contract is version 3; its Script picker and
 actual companion/effect observer joins are not implemented merely by this
 source. A full Script observer must map only genuinely loaded dependencies of
 the current owned engine to the public `companions` names and independently
