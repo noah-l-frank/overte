@@ -90,3 +90,12 @@ unresolved import. They exercise Python control logic only; C++/Qt and all
 physical devices remain untested. This packet does not implement model/texture,
 JSON file picker/export, PolyVox, permission actors or the full
 `feature.create.*` v8 coordinator, and advertises no such capability.
+
+The existing iOS `normal-ui-input` fixture grammar also admits a closed
+`edit` input with `operation:activate`, an original `fieldToken` and the same
+instance/input-sequence/elapsed reference as field edits. It has no text,
+coordinates, control ID, desired state or entity payload. Native dispatch must
+restrict this action to actual Create/tablet navigation items and use a normal
+Qt pointer event. Missing feature instrumentation must refuse it. This route
+allows consumed-input sequencing for pointer and field input in one native
+counter; an accessibility click ACK cannot be converted into that counter.
