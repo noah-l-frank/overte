@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import base64
+from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
@@ -20,6 +21,8 @@ from ios.adapters.adapter import IOSAdapter
 from ios.adapters.appium_adapter import WebDriverRequestError
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
+from self_tests.test_recorded_preview_history import complete as completed_voice
+from adapters.recorded_preview_history import measured_state as measured_audio_state
 from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, RUN as EFFECT_RUN
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 
@@ -204,6 +207,23 @@ class FeatureObservationTests(unittest.TestCase):
         source.mutate = change
         with self.assertRaises(NativeUIError): reader.read(0)
         self.assertEqual([], self.native.reads)
+
+    def test_ios_atomic_audio_history_preserves_native_events_and_does_not_downgrade_source(self):
+        source = self.native_feature_boundaries(); original = source.mutate
+        recorded = completed_voice(); recorded['startedEpochMs'] -= 10000
+        for event in recorded['events']: event['publishedEpochMs'] -= 10000
+        recorded['event'] = deepcopy(recorded['events'][-1])
+        def history(value):
+            original(value); value['audio']['recordedVoice'] = deepcopy(recorded)
+        source.mutate = history
+        reader = self.observer.native_observer()
+        first = reader.read(0, require_recorded_history=True)
+        self.assertEqual(144000, measured_audio_state(first)['recordedFrames'])
+        self.assertEqual(0, measured_audio_state(first)['bufferedFrames'])
+        second = reader.read(first['sequence'], require_recorded_history=True)
+        self.assertEqual(first['audio']['recordedVoice'], second['audio']['recordedVoice'])
+        source.mutate = original
+        with self.assertRaises(NativeUIError): reader.read(second['sequence'], require_recorded_history=True)
 
     def test_native_feature_original_fence_handles_device_host_clock_skew(self):
         source = self.native_feature_boundaries()

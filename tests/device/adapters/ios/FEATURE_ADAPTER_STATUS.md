@@ -14,7 +14,7 @@ the original bounded HTTP/AFC transport and native foreground PID. The
 canonical binding explicitly rejects this new method too; it cannot bypass
 installed-code verification. The existing `--e2e-test-build` selector enables
 the new source option, while normal builds pass it as OFF. No build was run.
-The focused observation group now has **21** passing host cases. See the
+The focused observation group now has **22** passing host cases. See the
 [native observation contract](../../native/README.md).
 
 The component `_recorded_preview_evidence()` now uses the same original HTTP/AFC
@@ -37,9 +37,9 @@ The Script source extension now additionally carries original local-entity
 UUIDs, raw user data, RGB, edit times and persistent native absence tombstones.
 `read(...,require_effects=True)` requires its typed version before qualification.
 The original HTTP/AFC component preserves stalled counters and original event
-times, and a changed native process prevents another request. All **21** source
+times, and a changed native process prevents another request. All **22** source
 cases pass, including the new effect extension; the broad no-build selection
-passes **247** cases with the same explicit native omissions. The canonical
+passes **248** cases with the same explicit native omissions. The canonical
 iOS installed-code gate continues refusing the enclosing reader entirely.
 The native source is uncompiled, and full journal/restart/picker/engine cleanup
 coordination remains open.
@@ -78,7 +78,7 @@ preferred filename, model assignment or script load command.
 **Nineteen** Script component boundary tests pass (eight foundations, six picker and five storage
 cases), including ignored row/selector input, actual relative companion review,
 foreign UIKit token, missing marker and changed process. The broad no-build
-selection passes **247** tests, zero failures/errors/skips and zero compiler
+selection passes **248** tests, zero failures/errors/skips and zero compiler
 attempts, with the same 20 compiler-dependent tests explicitly omitted. Five
 canonical candidate binding tests pass, explicitly rejecting the new private
 picker method even after candidate preflight. Native C++/Objective-C++ remains
@@ -175,5 +175,15 @@ mute/cancel/background behavior and separate original input/acoustic evidence.
 OS permission recovery stays in its existing foundation. Normal Audio input,
 cycle projection, acoustic actor and verified restart/cleanup handoff remain
 open; the component preview source does not supply them. The common suite
-passes 351 no-build cases and the iOS observation group passes 21 cases after
+passes 351 no-build cases and the iOS observation group passes 22 cases after
 the parent merge. The canonical installed-code gate remains unchanged.
+
+Atomic Audio cycle/history metadata now travels through the same original
+HTTP/AFC native component reader with `require_recorded_history=True`. The new
+case retains original terminal event/format/frame facts despite empty live
+buffers and refuses source downgrade. The focused observation group passes 22
+cases; the broad guarded no-build selection passes 248 with the same explicit
+20 native omissions. No compiler was attempted. Native C++ remains uncompiled,
+and canonical installed-code binding continues to block the enclosing reader.
+Normal Audio UI/acoustic/journal/restart joins remain required. See
+[the history source](../../native/RECORDED_PREVIEW_HISTORY.md).
