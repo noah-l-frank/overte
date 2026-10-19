@@ -11,6 +11,9 @@
 #include "GLBackend.h"
 #include "GLShared.h"
 #include "GLFramebuffer.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "GLTexture.h"
+#endif
 
 #include <QtGui/QImage>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
@@ -205,6 +208,25 @@ void GLBackend::downloadFramebuffer(const FramebufferPointer& srcFramebuffer, co
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+bool GLBackend::featureTextureExtent(const TexturePointer& texture, Vec2i& extent) {
+    extent = Vec2i(0);
+    if (!QCoreApplication::arguments().contains("--testScript") || !QOpenGLContext::currentContext()
+            || !texture || texture->getType() != Texture::TEX_2D || texture->getNumSamples() > 1) { return false; }
+    const auto object = Backend::getGPUObject<GLTexture>(*texture);
+    if (!object || object->_target != GL_TEXTURE_2D || !object->_texture || !glIsTexture(object->_texture)) { return false; }
+    GLint bound {0}, width {0}, height {0};
+    glGetIntegerv(GL_TEXTURE_BINDING_2D,&bound);
+    glBindTexture(GL_TEXTURE_2D,object->_texture);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D,0,GL_TEXTURE_WIDTH,&width);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D,0,GL_TEXTURE_HEIGHT,&height);
+    glBindTexture(GL_TEXTURE_2D,static_cast<GLuint>(bound));
+    if (glGetError() != GL_NO_ERROR || width != texture->getWidth() || height != texture->getHeight()
+            || width < 1 || height < 1 || width > 4096 || height > 4096
+            || static_cast<quint64>(width)*height > 8388608ULL) { return false; }
+    extent = Vec2i(width,height);
+    return true;
+}
+
 bool GLBackend::featureReadFramebuffer(const FramebufferPointer& framebuffer, QImage& image) {
     image = QImage();
     if (!QCoreApplication::arguments().contains("--testScript") || !QOpenGLContext::currentContext()
@@ -220,7 +242,30 @@ bool GLBackend::featureReadFramebuffer(const FramebufferPointer& framebuffer, QI
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&drawFbo);
     glGetIntegerv(GL_DRAW_BUFFER0,&drawBuffer);
     if (static_cast<GLuint>(drawFbo) != object->_fbo || drawBuffer != GL_COLOR_ATTACHMENT0) { return false; }
-    QImage pixels(framebuffer->getWidth(),framebuffer->getHeight(),QImage::Format_RGBA8888);
+    // CPU framebuffer dimensions describe a requested allocation, not its
+    // successful realization. Measure the attached GPU texture before reading;
+    // reading beyond its actual extent can otherwise leave undefined bytes.
+    const auto& texture = framebuffer->getRenderBuffer(0);
+    if (!texture || texture->getType() != Texture::TEX_2D || texture->getNumSamples() > 1) { return false; }
+    GLint attachmentType {0}, attachmentName {0}, attachmentLevel {0}, boundTexture {0};
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,
+        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE,&attachmentType);
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,
+        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME,&attachmentName);
+    glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,
+        GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL,&attachmentLevel);
+    if (attachmentType != GL_TEXTURE || attachmentName <= 0 || attachmentLevel < 0
+            || !glIsTexture(static_cast<GLuint>(attachmentName))) { return false; }
+    glGetIntegerv(GL_TEXTURE_BINDING_2D,&boundTexture);
+    glBindTexture(GL_TEXTURE_2D,static_cast<GLuint>(attachmentName));
+    GLint width {0}, height {0};
+    glGetTexLevelParameteriv(GL_TEXTURE_2D,attachmentLevel,GL_TEXTURE_WIDTH,&width);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D,attachmentLevel,GL_TEXTURE_HEIGHT,&height);
+    glBindTexture(GL_TEXTURE_2D,static_cast<GLuint>(boundTexture));
+    GLint viewport[4] {0,0,0,0}; glGetIntegerv(GL_VIEWPORT,viewport);
+    if (glGetError() != GL_NO_ERROR || width != framebuffer->getWidth() || height != framebuffer->getHeight()
+            || viewport[0] != 0 || viewport[1] != 0 || viewport[2] != width || viewport[3] != height) { return false; }
+    QImage pixels(width,height,QImage::Format_RGBA8888);
     if (pixels.isNull() || pixels.bytesPerLine() != pixels.width()*4) { return false; }
 
     GLint readFbo {0}, packBuffer {0}, alignment {0}, rowLength {0}, skipRows {0}, skipPixels {0};

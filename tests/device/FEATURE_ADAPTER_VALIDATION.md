@@ -4,6 +4,15 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The main-mono world-render source/chunk packet passes **443** common host cases,
+including **28** acquisition/storage reader and original-probe counterexamples,
+with zero failures/errors/skips or compiler attempts. The same three original
+native compiler cases remain excluded. GPU/backend/frame-hook C++ was reviewed
+as source only and remains uncompiled; no frame was rendered or device contacted.
+The new memory release inventory is narrower than complete artifact cleanup.
+Concrete platform receipt transport, persistent ownership and receipt cleanup
+remain prerequisites. No full-area capability is enabled by this validation.
+
 Version 4 Graphics validation: **388** common host cases pass with zero failures,
 errors, skips or compiler attempts; the same three native compiler cases remain
 excluded. Its journey group has **39** cases, and four additional Graphics

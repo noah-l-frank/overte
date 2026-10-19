@@ -103,6 +103,7 @@
     var nativeFeatureTimer = null;
     var lastRecordedPreviewRequest = "";
     var lastWorldRenderRequest = "";
+    var lastWorldRenderStorageCommand = "";
     var worldRenderTimer = null;
     function saveWorldRenderObservation(requestId, remaining) {
         if (requestId !== lastWorldRenderRequest) { return; }
@@ -1072,6 +1073,29 @@
         }
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.requestId))
+                && command.action === "feature-world-render-storage"
+                && /^(read|release|inspect)$/.test(String(command.operation))
+                && objectKeysMatch(command, command.operation === "read"
+                    ? ["schemaVersion", "commandId", "action", "requestId", "operation", "offset"]
+                    : ["schemaVersion", "commandId", "action", "requestId", "operation"])
+                && (command.operation !== "read" || (typeof command.offset === "number"
+                    && command.offset >= 0 && command.offset < 33554432 && Math.floor(command.offset) === command.offset))) {
+            if (command.commandId === lastWorldRenderStorageCommand) { return; }
+            lastWorldRenderStorageCommand = command.commandId;
+            if (command.operation === "release" && command.requestId === lastWorldRenderRequest) {
+                if (worldRenderTimer !== null) { Script.clearTimeout(worldRenderTimer); worldRenderTimer = null; }
+                lastWorldRenderRequest = "";
+            }
+            var stored = {};
+            try {
+                if (typeof Test.featureWorldRenderStorage === "function") { stored = Test.featureWorldRenderStorage(command); }
+            } catch (_worldStorageError) { /* Missing originals remain unavailable. */ }
+            Test.saveObject(stored, "world-render-storage-" + String(command.commandId).replace(/^ios-/, "") + ".json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "feature-world-render-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
             if (command.commandId !== lastWorldRenderRequest) {
@@ -1397,7 +1421,9 @@
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
-                || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui" || command.action === "feature-script-files" || command.action === "feature-world-render-observe")) {
+                || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui"
+                || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
+                || command.action === "feature-script-files")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse only the closed source-owned dispatch.
             applyClientCommand(command);

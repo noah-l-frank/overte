@@ -147,6 +147,7 @@ public:
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     bool featureReadFramebuffer(const FramebufferPointer& framebuffer, QImage& image) final override;
+    bool featureTextureExtent(const TexturePointer& texture, Vec2i& extent) final override;
 #endif
 
     // this is the maximum numeber of available input buffers

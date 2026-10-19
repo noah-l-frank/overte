@@ -137,4 +137,8 @@ bool Backend::featureReadFramebuffer(const FramebufferPointer&, QImage& image) {
     image = QImage();
     return false; // Includes Vulkan until an actual readback is implemented.
 }
+bool Backend::featureTextureExtent(const TexturePointer&, Vec2i& extent) {
+    extent = Vec2i(0);
+    return false;
+}
 #endif
