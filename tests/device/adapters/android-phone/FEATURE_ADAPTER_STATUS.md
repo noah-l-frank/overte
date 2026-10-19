@@ -14,7 +14,7 @@ Appium session guards. The actual loaded animation resource URL is distinct from
 its requested URL. Stale poses and candidate/process changes fail. These sources
 are not complete area adapters and advertise no `feature.*` capability. Native
 compilation and devices remain untested; focused Phone boundary tests now number
-**19**. See [the native source contract](../../native/README.md).
+**21**. See [the native source contract](../../native/README.md).
 
 The internal `_recorded_preview_evidence()` now acquires the normal memory
 preview's original pre-normalization capture and accepted sink-write PCM through
@@ -25,6 +25,13 @@ and independently checks Android file absence. This is an observation source,
 not a complete audio capability or acoustic proof. See
 [the preview source contract](../../native/RECORDED_PREVIEW_EVIDENCE.md).
 
+`_script_execution_observer()` joins actual native ScriptManager identities and
+resolved CommonJS completion/cache/error history to the same installed-candidate
+and PID/start/session guards. It never sends source names or code. The current
+shared feature contract is **version 2**, with a real client file-bundle picker
+flow; these history/URL foundations still do not implement that full area. See
+[the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
+
 New implementations in the existing candidate-bound Appium entrypoint:
 
 | Operations | Source implementation | Product/device evidence |
@@ -32,7 +39,7 @@ New implementations in the existing candidate-bound Appium entrypoint:
 | `scripts.manager.open/close`, `scripts.load-url`, `scripts.restart/stop` | Normal Tablet/From URL/row input; actual native URL identity; persistent cleanup intent | Host boundary tests only |
 | `create.reference.open/close`, `create.cube/update/undo/redo/delete/import` | Normal Create controls, original read-only observer, actual avatar entity IDs and cleanup | Host boundary tests only |
 | Existing `places.*`, `snapshot.*` | Existing Phone native navigation and original SNAP-file implementation retained | No new device qualification |
-| All `feature.<area>.act/observe/cleanup` | **Not implemented as complete v1 area adapters** | Never advertised; required capability gates remain red |
+| All `feature.<area>.act/observe/cleanup` | **Not implemented as complete version 2 area adapters** | Never advertised; required capability gates remain red |
 
 For a later Proxmox laboratory candidate only, opt in separately with
 `OVERTE_PHONE_NORMAL_SCRIPTS=1` and/or `OVERTE_PHONE_NORMAL_CREATE=1` in the

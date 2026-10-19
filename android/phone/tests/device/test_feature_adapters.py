@@ -21,6 +21,8 @@ from self_tests.test_native_feature_observation import Boundary as NativeFeature
 from adapters.native_feature_observation import NativeFeatureObservation
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
 from adapters.recorded_preview_evidence import RecordedPreviewEvidence
+from self_tests.test_native_script_observation import Boundary as ScriptBoundary
+from adapters.native_script_observation import loaded_relative_modules, running_owned_engine
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -229,17 +231,17 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual([], self.native.inputs)
         self.assertFalse(any(cap.startswith('feature.') for cap in self.adapter.advertised_capabilities(self.target)))
 
-    def preview_boundaries(self):
-        source = PreviewBoundary()
+    def preview_boundaries(self, source=None, filename='recorded-preview-observation.json'):
+        source = PreviewBoundary() if source is None else source
         def send(_client, _session, target, command, process):
             self.assertEqual(PACKAGE, target['appId'])
             self.assertEqual({'running': True, 'identity': '31:14'}, process)
             source.send(command)
         def read(_device, package, path, **kwargs):
             self.assertEqual(PACKAGE, package)
-            self.assertEqual('files/overte-e2e/recorded-preview-observation.json', path)
+            self.assertEqual('files/overte-e2e/' + filename, path)
             self.assertEqual({'attempts': 1}, kwargs)
-            return json.dumps(source.value)
+            return json.dumps(source.sample if hasattr(source, 'sample') else source.value)
         def binary(command, *, target, timeout):
             self.assertEqual('exec-out', command[0]); self.assertEqual(5, timeout)
             name = shlex.split(command[1])[-1]
@@ -281,6 +283,21 @@ class FeatureAdapterTests(unittest.TestCase):
         before = len(source.commands)
         with self.assertRaises(RuntimeError): reader.read(reader.sequence)
         self.assertEqual(before, len(source.commands))
+
+    def test_phone_script_execution_source_uses_bound_original_native_module_history(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        reader = self.adapter._script_execution_observer(SELECTOR)
+        value = reader.read(0)
+        self.assertEqual(source.sample, value)
+        self.assertEqual(['companion.js'], loaded_relative_modules(running_owned_engine(value, source.engine['url'])))
+        self.assertEqual([], self.native.inputs)
+
+    def test_phone_script_execution_source_rejects_replaced_installed_candidate(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        reader = self.adapter._script_execution_observer(SELECTOR)
+        self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): reader.read(0)
+        self.assertEqual([], source.commands)
 
     def test_native_feature_reader_rejects_process_change_and_does_not_replay_request(self):
         source = self.native_feature_boundaries()
