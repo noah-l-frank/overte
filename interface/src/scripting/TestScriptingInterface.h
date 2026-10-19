@@ -18,6 +18,8 @@
 #include <ScriptValue.h>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <memory>
+#include <QSet>
+#include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class ScriptFileUi; }
 #endif
 
@@ -149,7 +151,7 @@ public slots:
     */
     void saveObject(QVariant v, const QString& filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    // Read-only native sources. Requires both a dedicated test build and the
+    // Native E2E observations/fixture storage. Requires a dedicated build and
     // existing explicit --testScript/--testResultsLocation launch boundary.
     Q_INVOKABLE QVariantMap featureNativeObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);
@@ -222,6 +224,7 @@ private:
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     std::shared_ptr<overte::e2e::ScriptFileUi> _phoneScriptFileUi;
 #endif
+    QSet<QUuid> _featureScriptEffectIds;
     quint64 _featureScriptFilesSequence {0};
     QVariantMap _featureScriptFilesCommand, _featureScriptFilesResult;
 #endif

@@ -9,7 +9,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from adapters.native_script_observation import NativeScriptObservation, running_owned_engine, loaded_relative_modules
+from adapters.native_script_observation import NativeScriptObservation, running_owned_engine, loaded_relative_modules, measured_effect, effect_absent
 from adapters.normal_ui import NativeUIError
 from fixture.serve import FixtureState
 from self_tests.test_native_feature_observation import probe_source
@@ -40,7 +40,92 @@ class Boundary:
             31, monotonic=lambda: self.clock, sleep=self.sleep, **kwargs)
 
 
+RUN = 'e' * 32
+ENTITY = '11111111-1111-4111-8111-111111111111'
+
+
+def effect_source(value, *, ticks=2, edited=19000000):
+    value['source'].update(effectSourceVersion=1, effects=dict(complete=True, scanRadiusMeters=64,
+        scannedEntities=1, absentIds=[], entities=[dict(id=ENTITY, name='e2e-' + RUN + '-script',
+            type='Box', hostType='local', userData=json.dumps(dict(runId=RUN, ticks=ticks)),
+            lastEditedEpochUs=edited, color=[(ticks % 2) * 255, 128, 0])]))
+
+
 class NativeScriptObservationTests(unittest.TestCase):
+    def test_original_effect_has_native_uuid_edit_time_color_and_counter_separate_from_engine(self):
+        source = Boundary(); source.mutate = effect_source; reader = source.reader()
+        first = reader.read(0, require_effects=True)
+        actual = measured_effect(first, RUN)
+        self.assertEqual(ENTITY, actual['id']); self.assertEqual(2, actual['ticks'])
+        source.mutate = lambda value: effect_source(value, ticks=3, edited=19500000)
+        second = reader.read(first['sequence'], require_effects=True)
+        self.assertEqual(3, measured_effect(second, RUN)['ticks'])
+        self.assertEqual([255, 128, 0], measured_effect(second, RUN)['color'])
+        self.assertEqual(19000000, actual['lastEditedEpochUs'])
+        self.assertFalse(any('runId' in command or 'ticks' in command for command in source.commands))
+
+    def test_read_only_source_preserves_stalled_tick_instead_of_inventing_progress(self):
+        source = Boundary(); source.mutate = effect_source; reader = source.reader()
+        first = reader.read(0, require_effects=True); second = reader.read(first['sequence'])
+        self.assertGreater(second['sequence'], first['sequence'])
+        self.assertEqual(measured_effect(first, RUN), measured_effect(second, RUN))
+
+    def test_uninitialized_entity_data_is_explicitly_missing_not_a_measured_zero_or_success(self):
+        source = Boundary()
+        def mutate(value):
+            effect_source(value); value['source']['effects']['entities'][0]['userData'] = ''
+        source.mutate = mutate; actual = measured_effect(source.reader().read(0, require_effects=True), RUN)
+        self.assertIsNone(actual['ticks']); self.assertEqual(ENTITY, actual['id'])
+
+    def test_missing_extension_incomplete_duplicate_or_foreign_effect_source_cannot_qualify(self):
+        for fault in ('missing', 'incomplete', 'duplicate', 'foreign-data', 'color', 'host', 'uuid', 'future-edit', 'bool-counter'):
+            with self.subTest(fault=fault):
+                source = Boundary()
+                def mutate(value):
+                    if fault == 'missing': return
+                    effect_source(value); raw = value['source']['effects']; row = raw['entities'][0]
+                    if fault == 'incomplete': raw['complete'] = False
+                    elif fault == 'duplicate': raw['entities'] *= 2
+                    elif fault == 'foreign-data': row['userData'] = json.dumps(dict(runId='f' * 32, ticks=2))
+                    elif fault == 'color': row['color'] = [255, 128, 0]
+                    elif fault == 'host': row['hostType'] = 'domain'
+                    elif fault == 'uuid': row['id'] = 'foreign'
+                    elif fault == 'future-edit': row['lastEditedEpochUs'] = 21000000
+                    else: row['userData'] = json.dumps(dict(runId=RUN, ticks=True))
+                source.mutate = mutate
+                with self.assertRaises((NativeUIError, ValueError)):
+                    measured_effect(source.reader().read(0, require_effects=True), RUN)
+
+    def test_renamed_moved_or_unreported_entity_is_never_an_absence_or_cleanup_receipt(self):
+        for fault in ('rename', 'vanished', 'changed-at-old-cursor', 'time-regression', 'extension-dropped'):
+            with self.subTest(fault=fault):
+                source = Boundary(); source.mutate = effect_source; reader = source.reader()
+                first = reader.read(0, require_effects=True)
+                def mutate(value):
+                    if fault == 'extension-dropped': return
+                    effect_source(value); raw = value['source']['effects']; row = raw['entities'][0]
+                    if fault == 'rename': row.update(name='foreign-name', lastEditedEpochUs=19500000)
+                    elif fault == 'vanished': raw['entities'] = []
+                    elif fault == 'changed-at-old-cursor': row['color'] = [255, 128, 0]
+                    else: row['lastEditedEpochUs'] = 18000000
+                source.mutate = mutate
+                with self.assertRaises(NativeUIError): reader.read(first['sequence'])
+                self.assertEqual(first['sequence'], reader.sequence)
+
+    def test_native_tombstone_is_required_and_deleted_uuid_cannot_reappear_or_lose_history(self):
+        source = Boundary(); source.mutate = effect_source; reader = source.reader()
+        first = reader.read(0, require_effects=True)
+        def deleted(value):
+            effect_source(value); value['source']['effects'].update(entities=[], absentIds=[ENTITY])
+        source.mutate = deleted; gone = reader.read(first['sequence'])
+        self.assertTrue(effect_absent(gone, ENTITY)); self.assertIsNone(measured_effect(gone, RUN))
+        source.mutate = effect_source
+        with self.assertRaises(NativeUIError): reader.read(gone['sequence'])
+        def lost(value):
+            effect_source(value); value['source']['effects'].update(entities=[], absentIds=[])
+        source.mutate = lost
+        with self.assertRaises(NativeUIError): reader.read(gone['sequence'])
+
     def test_original_loaded_companion_keeps_native_engine_and_historical_load_time(self):
         source = Boundary(); reader = source.reader()
         first = reader.read(0); second = reader.read(first['sequence'])

@@ -36,7 +36,9 @@ No request ever loads the very code whose presence the test wants to establish.
 The envelope is exactly `schemaVersion`, `requestId`, `instance`, `sequence`,
 `requestedEpochMs`, `capturedEpochMs`, `processId`, `source`. `instance` is the
 native feature instance; `sequence` counts only source acquisitions. `source`
-is exactly `{complete:true,engines:[...]}`. Each engine is exactly
+supports the original narrow `{complete:true,engines:[...]}` source and its
+versioned effect extension described below. The current native producer emits
+the extension; full effect consumers require it explicitly. Each engine is exactly
 `{url,running,stopping,finished,required}` and `required` is exactly
 `{instance,sequence,modules}`. A manager with no actual require has sequence 0
 and an empty modules list. An event is timestamped only when that require
@@ -63,6 +65,52 @@ full owned URL; it never chooses by basename or arbitrarily picks a duplicate.
 `loaded_relative_modules()` derives aliases from actually loaded module URLs
 inside that engine's original root. Foreign same-basename modules, pending/failed
 loads and encoded parent traversal cannot become the expected companion.
+
+The native source now additionally samples actual application entities under
+`effectSourceVersion:1` and `effects`. These are independent
+`EntityScriptingInterface` reads, not values returned by the tested fixture
+engine. No run ID, entity name, expected tick or color is supplied to the getter.
+The initial 64-metre scan explicitly includes **local entities**; the ordinary
+`findEntities` default includes domain/avatar entities and would miss this local
+fixture. Only actual names matching `e2e-<32hex>-script` are initially tracked.
+Every observed UUID is then queried directly on subsequent requests, including
+outside that radius and after rename. Actual missing UUIDs produce persistent
+native tombstones. Movement or disappearance from the discovery scan cannot
+establish cleanup. No entity is created, edited, moved or deleted by the source.
+
+`effects` has exactly `complete`, `scanRadiusMeters:64`, `scannedEntities`,
+`entities` and `absentIds`. Every present entity has its original UUID `id`,
+`name`, `type`, `hostType`, raw `userData`, `lastEditedEpochUs` and native RGB
+`color` (three integers). Edit timestamps come from actual entity properties,
+never from the read's capture clock. Bounds are 4096 scanned local entities,
+32 present owned effects, 256 historically tracked UUIDs/tombstones, 256 name
+characters and 1024 user-data characters, within the same total packet budget.
+Native failures are unavailable observations, not empty successful lists.
+
+`read(...,require_effects=True)` rejects older producers before qualification.
+Once observed, the extension cannot disappear. The reader preserves previous
+raw rows, requires immutable identity, nonregressing actual edit times and
+unchanged contents at an unchanged edit timestamp. A previously observed UUID
+must remain present or have an explicit native tombstone; tombstones cannot
+vanish and deleted UUIDs cannot reappear. Renamed/retyped/rehosted owned effects
+fail instead of turning into empty public state.
+
+`measured_effect()` selects a unique actual local Box for the owned run, parses
+its real `userData` counter and verifies the actually read RGB parity. Missing
+initial user data returns an explicit missing counter, never a measured zero.
+A foreign run, duplicate effect, wrong host/color/type or malformed counter
+cannot establish execution. The reader intentionally preserves a stalled tick;
+it must not advance a counter because observations advance. The owning common
+journey must still require at least two actual counter advances and bind the
+entity to the verified staged source and current engine/loaded companion.
+`effect_absent()` requires the known UUID's explicit native tombstone; a name
+lookup returning no row is not a cleanup receipt.
+
+Nineteen shared host cases now pass, including six effect packets with stalled
+counters, uninitialized data, foreign effects, old edit times, unreported or
+renamed objects and missing/retired tombstones. They exercise real parser/history
+logic with simulated native entity boundaries. C++ remains uncompiled, and no
+actual client, entity mutation or device is qualified by those checks.
 
 There are no owned product resources to clean up for this read-only source.
 Runner teardown retains/removes only the current run's private diagnostic file.
