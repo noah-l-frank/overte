@@ -4,6 +4,16 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The normal-login control v1 source/recipe packet passes **572** guarded common
+host cases, zero failures/errors/skips/compiler attempts with the same three
+native exclusions. Eleven new recipe cases exercise actual synthetic widget
+state, ignored open/focus/cancel, pending close/reopen, missing/foreign/error
+sources, changed endpoint, durable-intent failure, uncertain delivery and bounded
+clocks. The first focused run exposed a floating-point wait overshoot; waits now
+sleep only within the remaining ten-second budget and all checks pass. This is
+test/input logic only. Native Qt login instrumentation remains uncompiled, only
+the Phone source profile is recognized and no full feature capability is enabled.
+
 The Authentication journey v6/account-provider v2 packet passes **561** guarded
 common host cases with zero failures/errors/skips/compiler attempts and the same
 three native exclusions. Its **48** journey cases reject invented network aborts,
