@@ -141,6 +141,16 @@ class IOSAdapter(AppiumAdapter):
         manager = self._scripts(selector)
         return TokenGraphicsUI(IOSGraphicsIO(manager.ui.io),intent)
 
+    def account_probe_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('account-probe-owner.json'))
+
+    def _account_probe(self, selector):
+        from adapters.native_account_probe import AccountProbeOwner
+        manager=self._scripts(selector);native=manager.ui.io.native
+        observer=FeatureObservation(native.client,native.session,native.target,native.observe_process)
+        owner=AccountProbeOwner(self.account_probe_store(selector),manager.binding,observer.guard,ios=True,component_only=True)
+        return observer.account_probe(owner)
+
     def world_render_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('world-render-owner.json'))
 
@@ -164,6 +174,10 @@ class IOSAdapter(AppiumAdapter):
         return TokenScriptFilePicker(manager.ui.io, directory)
 
     def cleanup(self, selector):
+        probe_error=False
+        try:
+            if self.account_probe_store(selector).read() is not None:self._account_probe(selector).release()
+        except Exception:probe_error=True
         store, script_error = self.script_store(selector), False
         try:
             owned = store.read()
@@ -178,7 +192,8 @@ class IOSAdapter(AppiumAdapter):
         # The canonical installed-code gate still rejects _scripts(). Always
         # reach original native/session teardown and retain unresolved sources.
         result = super().cleanup(selector)
-        need(not script_error and store.read() is None and self.script_files_store(selector).read() is None)
+        need(not script_error and not probe_error and store.read() is None
+             and self.script_files_store(selector).read() is None and self.account_probe_store(selector).read() is None)
         return result
 
     @staticmethod

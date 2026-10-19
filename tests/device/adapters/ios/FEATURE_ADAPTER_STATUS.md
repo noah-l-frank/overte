@@ -283,3 +283,14 @@ gate still refuses execution. The controlled HTTPS backend does not replace
 native trust/current-credential protected requests, ordinary login/cancel or
 independent UI/remote observations. No Authentication triple or device result
 is enabled, and native source remains uncompiled.
+
+The internal `_account_probe` component now uses the original HTTP/AFC channel
+and separately guarded process/session/fingerprint binding. One private native
+network intent persists before dispatch. Native reply/body/authority drain must
+be separately observed before owner deletion; adapter-wide cleanup reaches base
+teardown even on failure and retains unresolved ownership. Five new host cases
+pass; the Script/Audio/Graphics/world/probe component group has 37 passing cases.
+The canonical binding explicitly rejects the new factory and its five original
+binding checks still pass. Native HTTPS-origin provisioning, ordinary login/
+cancel/UI/restart and independent actor composition remain missing. Native code
+is uncompiled and no complete Authentication or device result is enabled.

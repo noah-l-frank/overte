@@ -34,6 +34,7 @@ from self_tests.test_native_script_files import Boundary as FilesBoundary
 from adapters.world_render_storage import receipt_file
 from self_tests.test_world_render_evidence import Boundary as WorldBoundary
 from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
+from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
 
 
 class Native:
@@ -222,6 +223,56 @@ class IOSNormalScriptsTests(unittest.TestCase):
             monotonic=lambda:native.clock,sleep=native.sleep))
         boundary.start();self.addCleanup(boundary.stop)
         return native,self.adapter._graphics_controls('test-only-selector',native.intent)
+
+    def account_probe(self):
+        source=AccountProbeBoundary();source.mutate=lambda value:value.update(processId=42)
+        original_post=self.native.post;original_execute=self.native.execute
+        def post(request,timeout):
+            value=json.loads(request.data)
+            if value['action']!='feature-account-probe':return original_post(request,timeout)
+            self.native.fixture.set_client_command(value);self.native.echo=json.dumps(value).encode()
+            owner=self.adapter.account_probe_store('test-only-selector').read()
+            self.assertEqual(value['requestId'],owner['probe']['commandId']);source.send(value)
+            return self.native
+        def execute(session,operation,values):
+            if operation=='mobile: pullFile' and values['remotePath']=='@org.example.client:documents/owned-results/feature-account-probe.json':
+                return base64.b64encode(source.read().encode()).decode()
+            return original_execute(session,operation,values)
+        for boundary in (patch.object(feature_observation,'post_request',side_effect=post),
+            patch.object(self.native,'execute',side_effect=execute),
+            patch.object(component,'FeatureObservation',partial(feature_observation.FeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._account_probe('test-only-selector')
+
+    def test_ios_protected_probe_component_uses_actual_afc_and_native_clock_with_private_owner(self):
+        source,probe=self.account_probe();value=probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
+        self.assertEqual(42,value['processId']);self.assertEqual(20000,value['capturedEpochMs'])
+        self.assertTrue(value['commandId'].startswith('ios-'))
+        probe.release();self.assertIsNone(self.adapter.account_probe_store('test-only-selector').read())
+        self.assertEqual([],self.native.qt.inputs)
+
+    def test_ios_protected_probe_component_undrained_reply_keeps_owner(self):
+        source,probe=self.account_probe();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET);source.pending=True
+        with self.assertRaises(RuntimeError):probe.release()
+        self.assertIsNotNone(self.adapter.account_probe_store('test-only-selector').read())
+        source.pending=False;probe.release();self.assertIsNone(self.adapter.account_probe_store('test-only-selector').read())
+
+    def test_ios_protected_probe_component_replaced_process_cannot_retire_original_owner(self):
+        source,probe=self.account_probe();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
+        self.native.pid=43;before=len(source.commands)
+        with self.assertRaises(RuntimeError):probe.release()
+        self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.adapter.account_probe_store('test-only-selector').read())
+
+    def test_ios_component_cleanup_drains_probe_before_original_app_teardown(self):
+        source,probe=self.account_probe();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
+        self.assertEqual({'cleaned':True},self.adapter.cleanup('test-only-selector'))
+        self.assertFalse(self.native.running);self.assertIsNone(self.adapter.account_probe_store('test-only-selector').read())
+
+    def test_ios_component_cleanup_runs_base_but_retains_an_undrained_probe(self):
+        source,probe=self.account_probe();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET);source.pending=True
+        with self.assertRaises(RuntimeError):self.adapter.cleanup('test-only-selector')
+        self.assertFalse(self.native.running);self.assertIsNotNone(self.adapter.account_probe_store('test-only-selector').read())
 
     def world_capture(self):
         source=WorldBoundary();source.mutate=lambda sample:sample.update(processId=42)

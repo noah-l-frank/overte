@@ -27,6 +27,8 @@ from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WOR
 from adapters.world_render_storage import NativeWorldRenderStorage, command as world_storage_command
 from adapters.world_render_receipts import NativeWorldReceiptCleanup, FILE as WORLD_RECEIPT_FILE, command as world_receipt_command
 from adapters.owned_world_render import OwnedWorldRenderCapture
+from adapters.native_account_probe import (NativeAccountProbe, OwnedAccountProbe, FILE as ACCOUNT_PROBE_FILE,
+    command as account_probe_command)
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -96,6 +98,7 @@ class FeatureObservation:
         if command.get("action") == "feature-script-files":
             script_files_command(command, ios=True)
             limit = 49152
+        elif command.get('action') == 'feature-account-probe':account_probe_command(command,ios=True)
         elif command.get('action') == 'feature-world-render-storage':world_storage_command(command,ios=True)
         elif command.get('action') == 'feature-world-render-receipt':world_receipt_command(command,ios=True)
         payload = json.dumps(command).encode()
@@ -163,6 +166,14 @@ class FeatureObservation:
             lambda: self.original(remote=remote, limit=65536),
             self.epoch_ms, self.guard, self.process['pid'], ios=True,
             monotonic=self.monotonic, sleep=self.sleep)
+
+    def account_probe(self,owner):
+        self.guard()
+        remote=self.remote.rsplit('/',1)[0]+'/'+ACCOUNT_PROBE_FILE
+        probe=NativeAccountProbe(self.send,lambda:self.original(remote=remote,limit=NATIVE_FEATURE_LIMIT),
+            self.epoch_ms,self.guard,self.process['pid'],intent=owner.intent,ios=True,
+            monotonic=self.monotonic,sleep=self.sleep)
+        return OwnedAccountProbe(probe,owner)
 
     def world_render_capture(self,owner):
         self.guard()
