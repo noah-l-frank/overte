@@ -27,6 +27,7 @@ from self_tests.test_native_script_observation import Boundary as ScriptBoundary
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 from self_tests.test_native_animation_history import history_source
 from adapters.native_animation_history import clip_run
+from self_tests.test_native_account_observation import account_source
 
 
 class Native:
@@ -81,6 +82,16 @@ class FeatureObservationTests(unittest.TestCase):
         boundary = patch.object(feature_observation, 'post_request', side_effect=self.native.post)
         boundary.start(); self.addCleanup(boundary.stop)
         self.observer = self.native.observer()
+
+    def test_ios_passive_account_source_keeps_native_clock_and_refuses_downgrade(self):
+        source=self.native_feature_boundaries();original=source.mutate
+        def observed(value):original(value);account_source(value)
+        source.mutate=observed;self.observer.epoch_ms=lambda:9000000
+        reader=self.observer.native_observer();first=reader.read(0,require_account=True)
+        self.assertEqual(10000,first['account']['observation']['capturedEpochMs'])
+        self.assertEqual(source.sample['account'],first['account'])
+        source.mutate=original
+        with self.assertRaises(NativeUIError):reader.read(first['sequence'])
 
     def test_ios_animation_history_preserves_native_times_and_refuses_an_older_producer(self):
         source=self.native_feature_boundaries();original=source.mutate

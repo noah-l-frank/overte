@@ -275,3 +275,11 @@ uncompiled. Full preference/page/restart ownership, original render acquisition,
 independent actor joins and physical qualification remain open. No complete
 Graphics capability is advertised; the installed-code association block remains.
 See [the shared input contract](../../native/NORMAL_GRAPHICS_CONTROLS.md).
+
+The passive account source v1 also uses the original HTTP/AFC component, with
+its native epoch retained across device/host clock skew. An older narrow source
+is rejected. This is an unbound source component; the canonical installed-code
+gate still refuses execution. The controlled HTTPS backend does not replace
+native trust/current-credential protected requests, ordinary login/cancel or
+independent UI/remote observations. No Authentication triple or device result
+is enabled, and native source remains uncompiled.
