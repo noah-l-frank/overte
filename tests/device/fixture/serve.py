@@ -483,6 +483,11 @@ class FixtureState:
             valid = (set(command) == {"schemaVersion", "commandId", "action"}
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None)
+        elif action == "feature-world-render-receipt":
+            sys.path.insert(0, str(ROOT.parent))
+            from adapters.world_render_receipts import command as world_receipt_command
+            world_receipt_command(command, ios=True)
+            valid = True
         elif action == "feature-world-render-storage":
             sys.path.insert(0, str(ROOT.parent))
             from adapters.world_render_storage import command as world_storage_command

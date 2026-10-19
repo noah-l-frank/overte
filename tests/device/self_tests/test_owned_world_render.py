@@ -42,7 +42,8 @@ class OwnedWorldRenderTests(unittest.TestCase):
         self.owner=WorldRenderOwner(self.store,BINDING,lambda:self.source.okay)
         self.adb=LocalAdb(self.path);self.receipts=AndroidWorldRenderReceipts(self.adb,'controlled-alias','org.overte.test',self.owner.guard)
         self.native.receipt_intent=self.owner.receipt_intent
-        self.capture=NativeWorldRenderCapture(lambda _:None,lambda:'',self.native,lambda:20000,self.owner.guard,31,intent=self.owner.intent)
+        self.capture=NativeWorldRenderCapture(lambda _:None,lambda:'',self.native,lambda:20000,self.owner.guard,31,
+            intent=self.owner.intent,monotonic=lambda:self.source.clock,sleep=self.source.sleep)
         self.owned=OwnedWorldRenderCapture(self.capture,self.native,self.owner,self.receipts)
         original=self.source.send
         def send(command):
@@ -101,3 +102,12 @@ class OwnedWorldRenderTests(unittest.TestCase):
         for name in ('../user.json','user.png','world-render-storage-user.json','files/overte-e2e/receipt.json'):
             with self.assertRaises(NativeUIError):self.receipts.remove(name)
         self.assertEqual([],self.adb.calls)
+
+    def test_cleanup_budget_includes_unlink_and_final_independent_existence_queries(self):
+        self.owned.timeout=1;original=self.receipts.absent
+        def delayed(name):
+            self.source.clock+=1.01
+            return original(name)
+        self.receipts.absent=delayed
+        with self.assertRaises(NativeUIError):self.owned.release()
+        self.assertIsNotNone(self.store.read())

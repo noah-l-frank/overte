@@ -10,6 +10,8 @@
 #include <QElapsedTimer>
 #include <QImage>
 #include <QJsonObject>
+#include <QJsonDocument>
+#include <QHash>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QRegularExpression>
@@ -69,7 +71,8 @@ public:
         const auto id = command.value("requestId").toString();
         const auto nonce = command.value("commandId").toString();
         const auto json = QJsonObject::fromVariantMap(command);
-        if (!enabled() || keys != wanted || !json.value("schemaVersion").isDouble()
+        if (!enabled() || keys != wanted || _receipts.size() >= 65536 || _receipts.contains(nonce)
+                || !json.value("schemaVersion").isDouble()
                 || json.value("schemaVersion").toDouble() != 1 || !valid(id) || !valid(nonce)
                 || command.value("action").toString() != "feature-world-render-storage"
                 || (_active != id && !_retired.contains(id) && action != "release")) { return {}; }
@@ -99,8 +102,19 @@ public:
             value.insert("offset",offset);
             value.insert("data",QString::fromLatin1(_png.mid(static_cast<int>(offset),65536).toBase64()));
         }
+        _receipts.insert(nonce,qMakePair(id,QCryptographicHash::hash(
+            QJsonDocument::fromVariant(value).toJson(),QCryptographicHash::Sha256).toHex()));
         return value;
     }
+
+    QByteArray receiptDigest(const QString& capture, const QString& nonce, bool requireRetired = true) {
+        QMutexLocker lock(&_mutex);
+        const auto found = _receipts.constFind(nonce);
+        if (found == _receipts.cend() || found.value().first != capture
+                || (requireRetired && !_retired.contains(capture))) { return {}; }
+        return found.value().second;
+    }
+    QString instance() const { return _instance; }
 
 private:
     static qint64 now() { return QDateTime::currentMSecsSinceEpoch(); }
@@ -171,6 +185,7 @@ private:
     quint64 _sequence {0}, _acquisitions {0}, _storageSequence {0};
     QVariantMap _result;
     QByteArray _png;
+    QHash<QString,QPair<QString,QByteArray>> _receipts; // Bounded original receipt identities/hashes, not PNG copies.
 };
 }
 #endif
