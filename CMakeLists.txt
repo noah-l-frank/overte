@@ -44,6 +44,10 @@ endif()
 
 
 project(overte)
+option(OVERTE_E2E_FEATURE_TESTS "Enable read-only feature observations in dedicated E2E builds" OFF)
+if(OVERTE_E2E_FEATURE_TESTS)
+    add_compile_definitions(OVERTE_E2E_FEATURE_TESTS)
+endif()
 option(OVERTE_E2E_VOICE_TESTS "Enable synthetic voice E2E hooks in dedicated test builds" OFF)
 if(OVERTE_E2E_VOICE_TESTS)
     add_compile_definitions(OVERTE_E2E_VOICE_TESTS)

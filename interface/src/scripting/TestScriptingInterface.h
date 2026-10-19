@@ -16,12 +16,15 @@
 #include <QtCore/QObject>
 #include <QtCore/QVariantMap>
 #include <ScriptValue.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+namespace overte::e2e { class FeatureLifecycle; }
+#endif
 
 class TestScriptingInterface : public QObject {
     Q_OBJECT
 
 public:
-    void setTestResultsLocation(const QString path) { _testResultsLocation = path; }
+    void setTestResultsLocation(const QString path);
     const QString& getTestResultsLocation() { return _testResultsLocation;  };
 
 public slots:
@@ -144,6 +147,11 @@ public slots:
     * @param {string} filename - Name of file to save to
     */
     void saveObject(QVariant v, const QString& filename);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Read-only native sources. Requires both a dedicated test build and the
+    // existing explicit --testScript/--testResultsLocation launch boundary.
+    Q_INVOKABLE QVariantMap featureNativeObservation(const QString& requestId);
+#endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     Q_INVOKABLE QVariantMap voiceTest(const QVariantMap& command);
     Q_INVOKABLE bool uiTest(const QVariantMap& command);
@@ -186,6 +194,11 @@ public slots:
 private:
     bool waitForCondition(qint64 maxWaitMs, std::function<bool()> condition);
     QString _testResultsLocation;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::FeatureLifecycle* _featureLifecycle {nullptr};
+    QString _featureObservationInstance;
+    quint64 _featureObservationSequence {0};
+#endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     QString _voiceCapturePath;
     quint64 _voiceCaptureGeneration { 0 };

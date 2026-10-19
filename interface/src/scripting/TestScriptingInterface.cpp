@@ -25,6 +25,19 @@
 #include "Application.h"
 #include "NetworkingConstants.h"
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../../tests/device/native/FeatureLifecycle.h"
+#include "avatar/AvatarManager.h"
+#include "RenderScriptingInterface.h"
+#include <AccountManager.h>
+#include <AudioClient.h>
+#include <avatars-renderer/SkeletonModel.h>
+#include <QCryptographicHash>
+#include <QDateTime>
+#include <QRegularExpression>
+#include <QUuid>
+#endif
+
 #if defined(OVERTE_E2E_VOICE_TESTS)
 #include <AudioClient.h>
 #include <QCryptographicHash>
@@ -52,6 +65,65 @@ TestScriptingInterface* TestScriptingInterface::getInstance() {
     static TestScriptingInterface sharedInstance;
     return &sharedInstance;
 }
+
+void TestScriptingInterface::setTestResultsLocation(const QString path) {
+    _testResultsLocation = path;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (!_featureLifecycle && !path.isEmpty() && QCoreApplication::arguments().contains("--testScript")
+            && QThread::currentThread() == qApp->thread()) {
+        _featureObservationInstance = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+        _featureLifecycle = new overte::e2e::FeatureLifecycle(this);
+        _featureLifecycle->start(path); // Failure leaves an unavailable observer.
+    }
+#endif
+}
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap TestScriptingInterface::featureNativeObservation(const QString& requestId) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this, [&] { result = featureNativeObservation(requestId); }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle
+            || !QCoreApplication::arguments().contains("--testScript")
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(requestId).hasMatch()) { return {}; }
+    const auto lifecycle = _featureLifecycle->snapshot();
+    if (lifecycle.isEmpty()) { return {}; }
+    const auto avatar = DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if (!avatar) { return {}; }
+    const auto model = avatar->getSkeletonModel();
+    const auto animation = model ? model->getRig().e2eAnimationObservation() : QVariantMap();
+    auto render = RenderScriptingInterface::getInstance();
+    QVariantMap graphics {{"requestedResolutionScale", render->getViewportResolutionScale()},
+        {"applicationResolutionScale", qApp->getRenderResolutionScale()},
+        {"shadowsSetting", render->getShadowsEnabled()}, {"mirrorsSetting", render->getMirrorsEnabled()},
+        {"hazeSetting", render->getHazeEnabled()}, {"localLightingSetting", render->getLocalLightingEnabled()},
+        {"proceduralMaterialsSetting", render->getProceduralMaterialsEnabled()},
+        {"deferredRenderingAvailable", render->isDeferredRenderingAvailable()}};
+    QVariantMap audioState;
+    const auto audio = DependencyManager::get<AudioClient>();
+    const auto readAudio = [&] { audioState = {{"recording", audio->getRecording()}, {"muted", audio->isMuted()}}; };
+    if (QThread::currentThread() == audio->thread()) { readAudio(); }
+    else { QMetaObject::invokeMethod(audio.data(), readAudio, Qt::BlockingQueuedConnection); }
+    QVariantMap accountState;
+    const auto account = DependencyManager::get<AccountManager>();
+    const auto readAccount = [&] {
+        // Private identity comparison is possible without exporting account
+        // names, access/refresh tokens, endpoint URLs or session identifiers.
+        const auto name = account->getAccountInfo().getUsername().toUtf8();
+        accountState = {{"loggedIn", account->isLoggedIn()},
+            {"principalSha256", QString::fromLatin1(QCryptographicHash::hash(name, QCryptographicHash::Sha256).toHex())}};
+    };
+    if (QThread::currentThread() == account->thread()) { readAccount(); }
+    else { QMetaObject::invokeMethod(account.data(), readAccount, Qt::BlockingQueuedConnection); }
+    return {{"schemaVersion", 1}, {"requestId", requestId}, {"instance", _featureObservationInstance},
+        {"sequence", static_cast<qulonglong>(++_featureObservationSequence)},
+        {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()},
+        {"processId", QCoreApplication::applicationPid()}, {"lifecycle", lifecycle.toVariantMap()},
+        {"animation", animation}, {"graphics", graphics}, {"audio", audioState}, {"account", accountState}};
+}
+#endif
 
 #if defined(OVERTE_E2E_VOICE_TESTS)
 bool TestScriptingInterface::uiTest(const QVariantMap& command) {

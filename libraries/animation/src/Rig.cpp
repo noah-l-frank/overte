@@ -39,6 +39,11 @@
 #include "AvatarConstants.h"
 #include "IKTarget.h"
 #include "PathUtils.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QDateTime>
+#include <QCoreApplication>
+#include <QVariantMap>
+#endif
 
 static int nextRigId = 1;
 static std::map<int, Rig*> rigRegistry;
@@ -1797,7 +1802,41 @@ void Rig::updateAnimations(float deltaTime, const glm::mat4& rootTransform, cons
 
         _externalPoseSet = _internalPoseSet;
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    static const bool testLaunch = QCoreApplication::arguments().contains("--testScript");
+    if (testLaunch) {
+        QVariantMap observed {{"rigId", _rigId}, {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()},
+            {"evaluationSequence", static_cast<qulonglong>(_evaluationCount)},
+            {"animationsEnabled", _enabledAnimations}, {"graphLoaded", static_cast<bool>(_animNode)},
+            {"overrideActive", _userAnimState.clipNodeEnum != UserAnimState::None}};
+        if (_animNode && _userAnimState.clipNodeEnum != UserAnimState::None) {
+            const auto name = _userAnimState.clipNodeEnum == UserAnimState::A ? "userAnimA" : "userAnimB";
+            const auto clip = std::dynamic_pointer_cast<AnimClip>(_animNode->findByName(name));
+            if (clip) { observed["clip"] = clip->e2eClipObservation(); }
+        }
+        // Native final joint samples, after the real animation/IK/flow pass.
+        // A changing request counter cannot stand in for actual pose movement.
+        QVariantList joints;
+        const auto count = std::min<size_t>(256, _internalPoseSet._relativePoses.size());
+        for (size_t index = 0; index < count; ++index) {
+            const auto& pose = _internalPoseSet._relativePoses[index];
+            const auto& q = pose.rot();
+            const auto& p = pose.trans();
+            joints.append(QVariant(QVariantList{q.x, q.y, q.z, q.w, p.x, p.y, p.z}));
+        }
+        observed["joints"] = joints;
+        QWriteLocker lock(&_e2eAnimationLock);
+        _e2eAnimationObservation = observed;
+    }
+#endif
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap Rig::e2eAnimationObservation() const {
+    QReadLocker lock(&_e2eAnimationLock);
+    return _e2eAnimationObservation;
+}
+#endif
 
 void Rig::updateFromEyeParameters(const EyeParameters& params) {
     updateEyeJoint(params.leftEyeJointIndex, params.modelTranslation, params.modelRotation, params.eyeLookAt, params.eyeSaccade);
