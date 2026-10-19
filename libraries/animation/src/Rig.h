@@ -22,6 +22,9 @@
 #include <JointData.h>
 #include <QReadWriteLock>
 #include <ScriptValue.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QVariantMap>
+#endif
 
 #include "AnimNode.h"
 #include "AnimNodeLoader.h"
@@ -207,6 +210,9 @@ public:
     void initAnimGraph(const QUrl& url);
 
     AnimNode::ConstPointer getAnimNode() const { return _animNode; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap e2eAnimationObservation() const;
+#endif
     AnimNode::ConstPointer findAnimNodeByName(const QString& name) const;
     AnimSkeleton::ConstPointer getAnimSkeleton() const { return _animSkeleton; }
     ScriptValue addAnimationStateHandler(const ScriptValue& handler, const ScriptValue& propertiesList);
@@ -489,6 +495,10 @@ protected:
     ControllerParameters _previousControllerParameters;
     Flow _internalFlow;
     Flow _networkFlow;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    mutable QReadWriteLock _e2eAnimationLock;
+    QVariantMap _e2eAnimationObservation;
+#endif
 };
 
 #endif /* defined(__hifi__Rig__) */

@@ -1,0 +1,168 @@
+"""Original native read-only feature sources, never desired state or a verdict.
+
+The owning platform supplies its existing bound private transport and clock.
+Native animation timestamps/evaluation cursors are retained independently of
+the request sampler. An absent hook or a cached pose cannot turn green here.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+import json
+import math
+import re
+import time
+import uuid
+
+from adapters.normal_ui import NativeUIError
+
+FILE = 'feature-native-observation.json'
+LIMIT = 262144
+
+
+def need(condition):
+    if not condition:
+        raise NativeUIError('Native feature observation is unavailable or invalid')
+
+
+def integer(value, minimum=0, maximum=2**53 - 1):
+    return type(value) is int and minimum <= value <= maximum
+
+
+def number(value, minimum=-1e9, maximum=1e9):
+    return type(value) in (int, float) and math.isfinite(value) and minimum <= value <= maximum
+
+
+def exact(value, fields):
+    need(type(value) is dict and set(value) == set(fields))
+
+
+def fresh(value, epoch):
+    need(integer(value, 1) and integer(epoch, 1) and -250 <= epoch - value <= 1500)
+
+
+def decode(raw):
+    need(type(raw) is str and len(raw.encode('utf-8')) <= LIMIT)
+    def pairs(items):
+        value = {}
+        for key, item in items:
+            need(key not in value)
+            value[key] = item
+        return value
+    return json.loads(raw, object_pairs_hook=pairs,
+        parse_constant=lambda _value: need(False))
+
+
+def validate(value, request, pid, epoch, *, require_animation=False):
+    exact(value, {'schemaVersion', 'requestId', 'instance', 'sequence', 'capturedEpochMs',
+                  'processId', 'lifecycle', 'animation', 'graphics', 'audio', 'account'})
+    need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1
+         and value['requestId'] == request and integer(pid, 1)
+         and integer(value['processId'], 1) and value['processId'] == pid
+         and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}', value['instance'])
+         and integer(value['sequence'], 1))
+    fresh(value['capturedEpochMs'], epoch)
+    exact(value['lifecycle'], {'backgrounds', 'activations', 'launches'})
+    need(all(integer(v, 0, 1000000) for v in value['lifecycle'].values())
+         and value['lifecycle']['launches'] >= 1)
+    exact(value['graphics'], {'requestedResolutionScale', 'applicationResolutionScale',
+        'shadowsSetting', 'mirrorsSetting', 'hazeSetting', 'localLightingSetting',
+        'proceduralMaterialsSetting', 'deferredRenderingAvailable'})
+    need(all(number(value['graphics'][key], 0.01, 8) for key in
+             ('requestedResolutionScale', 'applicationResolutionScale'))
+         and all(type(item) is bool for key, item in value['graphics'].items()
+                 if key not in {'requestedResolutionScale', 'applicationResolutionScale'}))
+    exact(value['audio'], {'recording', 'muted'})
+    need(all(type(item) is bool for item in value['audio'].values()))
+    exact(value['account'], {'loggedIn', 'principalSha256'})
+    need(type(value['account']['loggedIn']) is bool
+         and type(value['account']['principalSha256']) is str
+         and re.fullmatch('[0-9a-f]{64}', value['account']['principalSha256']))
+    animation = value['animation']
+    need(type(animation) is dict)
+    if animation:
+        fields = {'rigId', 'capturedEpochMs', 'evaluationSequence', 'animationsEnabled',
+                  'graphLoaded', 'overrideActive', 'joints'}
+        exact(animation, fields | ({'clip'} if 'clip' in animation else set()))
+        need(integer(animation['rigId']) and integer(animation['evaluationSequence'])
+             and integer(animation['capturedEpochMs'], 1)
+             and all(type(animation[key]) is bool for key in
+                     ('animationsEnabled', 'graphLoaded', 'overrideActive'))
+             and type(animation['joints']) is list and len(animation['joints']) <= 256)
+        need(all(type(joint) is list and len(joint) == 7 and all(number(v) for v in joint)
+                 for joint in animation['joints']))
+        need('clip' not in animation or animation['overrideActive'])
+        if 'clip' in animation:
+            clip = animation['clip']
+            exact(clip, {'url', 'requestedUrl', 'frame', 'firstFrame', 'lastFrame', 'framesPerSecond', 'loop',
+                         'loadedFrames', 'evaluatedEpochMs', 'evaluationSequence'})
+            need(all(type(clip[key]) is str and len(clip[key]) <= 4096
+                     and not any(ord(c) < 32 for c in clip[key]) for key in ('url', 'requestedUrl'))
+                 and all(number(clip[key]) for key in ('frame', 'firstFrame', 'lastFrame', 'framesPerSecond'))
+                 and type(clip['loop']) is bool and integer(clip['loadedFrames'], 0, 1000000)
+                 and integer(clip['evaluatedEpochMs']) and integer(clip['evaluationSequence']))
+        if require_animation:
+            fresh(animation['capturedEpochMs'], epoch)
+            need(animation['graphLoaded'] and animation['animationsEnabled']
+                 and animation['evaluationSequence'] > 0 and len(animation['joints']) > 0)
+            if animation['overrideActive']:
+                need('clip' in animation and animation['clip']['loadedFrames'] > 0
+                     and bool(animation['clip']['url'])
+                     and animation['clip']['evaluationSequence'] > 0)
+                fresh(animation['clip']['evaluatedEpochMs'], epoch)
+    else:
+        need(not require_animation)
+    return value
+
+
+class NativeFeatureObservation:
+    def __init__(self, send, read, clock_ms, guard, pid, *, ios=False,
+                 monotonic=time.monotonic, sleep=time.sleep):
+        need(all(callable(value) for value in (send, read, clock_ms, guard, monotonic, sleep))
+             and integer(pid, 1) and type(ios) is bool)
+        self.send, self.original, self.clock_ms, self.guard, self.pid = send, read, clock_ms, guard, pid
+        self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
+        self.instance, self.sequence, self.rig, self.rig_sequence = None, 0, None, 0
+        self.lifecycle = None
+
+    def read(self, after_sequence, *, require_animation=False):
+        try:
+            need(integer(after_sequence) and after_sequence >= self.sequence
+                 and type(require_animation) is bool and self.guard() is not False)
+            request = ('ios-' if self.ios else '') + uuid.uuid4().hex
+            self.send(dict(schemaVersion=1, commandId=request, action='feature-native-observe'))
+            started = previous = self.monotonic()
+            need(number(started, 0, 1e15))
+            for _attempt in range(51):
+                need(self.guard() is not False)
+                raw = self.original()
+                try:
+                    value = decode(raw) if raw else None
+                except json.JSONDecodeError:
+                    value = None  # Original Test.saveObject may still be writing.
+                epoch = self.clock_ms()
+                need(self.guard() is not False)
+                if type(value) is dict and value.get('requestId') == request:
+                    value = validate(value, request, self.pid, epoch, require_animation=require_animation)
+                    need(self.instance in (None, value['instance']) and value['sequence'] > after_sequence)
+                    if self.lifecycle is not None:
+                        need(all(value['lifecycle'][key] >= self.lifecycle[key] for key in self.lifecycle))
+                    animation = value['animation']
+                    if require_animation:
+                        # Do not accept a newly stamped request around an old
+                        # native pose, nor replace an existing rig silently.
+                        need(self.rig in (None, animation['rigId'])
+                             and animation['evaluationSequence'] > self.rig_sequence)
+                    need(self.guard() is not False)
+                    self.instance, self.sequence = value['instance'], value['sequence']
+                    self.lifecycle = value['lifecycle'].copy()
+                    if require_animation:
+                        self.rig, self.rig_sequence = animation['rigId'], animation['evaluationSequence']
+                    return value
+                current = self.monotonic()
+                need(number(current, 0, 1e15) and current >= previous)
+                previous = current
+                if current - started >= 5:
+                    break
+                self.sleep(0.1)
+        except Exception:
+            raise NativeUIError('Native feature observation failed') from None
+        raise NativeUIError('Native feature observation did not produce this request')

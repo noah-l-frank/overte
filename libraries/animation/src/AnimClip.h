@@ -14,6 +14,9 @@
 #include <string>
 #include "AnimationCache.h"
 #include "AnimNode.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QVariantMap>
+#endif
 
 // Playback a single animation timeline.
 // url determines the location of the fbx file to use within this clip.
@@ -53,6 +56,11 @@ public:
     void setMirrorFlag(bool mirrorFlag) { _mirrorFlag = mirrorFlag; }
 
     float getFrame() const { return _frame; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Read on the animation evaluation thread only. Rig publishes a locked
+    // copy after evaluation; adapters cannot write or select this observation.
+    QVariantMap e2eClipObservation() const;
+#endif
     void loadURL(const QString& url);
 
     AnimBlendType getBlendType() const { return _blendType; };
@@ -92,6 +100,11 @@ protected:
     QString _loopFlagVar;
     QString _mirrorFlagVar;
     QString _frameVar;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    qint64 _e2eEvaluatedEpochMs {0};
+    quint64 _e2eEvaluationSequence {0};
+    QString _e2eLoadedUrl;
+#endif
 
     // no copies
     AnimClip(const AnimClip&) = delete;
