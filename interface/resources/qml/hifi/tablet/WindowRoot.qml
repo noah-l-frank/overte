@@ -301,7 +301,7 @@ Windows.ScrollingWindow {
             // pass while rejecting an item replaced by a newer request.
             Qt.callLater(function() {
                 Qt.callLater(function() {
-                    if (loader.item !== loadedItem || !loadedItem) { return }
+                    if (!loader || loader.item !== loadedItem || !loadedItem) { return }
                     console.info("OVERTE_IOS_TABLET_QML stage=load-complete source=" + loadedSource +
                         " class=" + loadedItem + " size=" + loadedItem.width + "x" + loadedItem.height +
                         " visible=" + loadedItem.visible + " active_focus=" + loadedItem.activeFocus)
