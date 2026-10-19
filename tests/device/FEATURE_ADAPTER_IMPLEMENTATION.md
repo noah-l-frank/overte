@@ -194,3 +194,10 @@ recipe, with fourteen host counterexample cases. It observes actual above/below
 viewport directions and original Qt/native setting coherence. Internal Graphics transports are now connected on the three platform branches.
 Original render/pass evidence and full ownership remain open;
 no complete Graphics capability is advertised and native source is uncompiled.
+
+The [world-render acquisition packet](native/WORLD_RENDER_ACQUISITION.md) adds an
+E2E-only GL readback primitive plus strict original-image reader/probe contracts
+and seventeen host counterexample cases. The actual native pre-HUD frame hook,
+private owned image-file/release transport and platform factories remain missing.
+Vulkan/unknown backends return no image; no default buffer or UI composite may
+substitute. This partial source work does not complete any feature capability.
