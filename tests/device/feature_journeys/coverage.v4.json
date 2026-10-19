@@ -126,8 +126,8 @@
         "render-health"
       ],
       "commonModule": "feature-graphics",
-      "addedFlow": "Preset cancel, actual render scale/shadow graph, mirror, apply/restart durability and restore.",
-      "declaredCheckpoints": 11,
+      "addedFlow": "Immediate resolution/haze/mirror controls, close/background/restart durability, original measured preference restoration and actual render effects.",
+      "declaredCheckpoints": 15,
       "requiredEvidence": [
         "changed",
         "image"
@@ -269,5 +269,5 @@
       "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
     }
   ],
-  "contractVersion": 3
+  "contractVersion": 4
 }

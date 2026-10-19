@@ -1,6 +1,49 @@
-# Common feature journey migration: current version 3
+# Common feature journey migration: current version 4
 
-## Version 2 to 3: actual recorded preview
+## Version 3 to 4: immediate Graphics controls and measured originals
+
+Version 4 replaces the fictitious universal preset-preview/Apply/Cancel and
+shadows-on/resolution-1.0 assumptions with actual ordinary resolution, Haze and
+Mirrors controls. Phone accepts 0.5..0.7 in 0.05 increments; the common settings
+page accepts 0.1 increments. The shared inputs 0.5 and 0.6 work on both actual
+surfaces. This changes the viewport-resolution control, not Pico's separate
+restart-confirmed runtime-eye-resolution selector. No functional UI is added.
+
+Graphics `baseline` values in scenarios.py are type prototypes. Before any
+input the runner obtains a fresh original product state, pins its six declared
+`measuredBaselineFields`, then requires stable fresh matching product and
+independent actor observations. The dialog must initially be closed. Original
+values are runner-local evidence; they are never sent as expected state or
+input to adapters/actors. Unverified, moving or foreign-open baselines cannot
+admit an action or cleanup of unowned resources. The adapter independently
+persists its own original preferences and process binding before modifying them.
+
+Expected checkpoints retain original values until each setting is changed.
+Closing the page, background/resume and verified restart must retain immediately
+applied settings. Haze and Mirrors are toggled both ways, ensuring at least one
+real effect even if already enabled. `restore-original` accepts no values and
+must use the adapter's own measured originals. Final double cleanup must restore
+the runner's independently frozen originals, not a hard-coded default profile.
+
+`resolution` is the original requested viewport setting; `renderScale` is an
+independent actual completed frame's render-target/viewport ratio. `haze` and
+`mirror` are actual settings, while `hazePass`/`mirrorPass` require actual rendered
+pass evidence in the controlled visible subject. Native settings reads do not
+prove those fields. Original challenge-bearing world pixels additionally prove
+resolution and visible effect changes; no UI screenshot or painted marker can
+substitute. The [owned Graphics subject](GRAPHICS_SUBJECT.md) supplies versioned haze/reflector
+geometry and a current-ticket world marker. View/lighting must remain stable.
+Native render acquisition and the full fixture source/input/observer join remain
+prerequisites before platform activation.
+
+Only complete version 4 producers are accepted; prior versions 1/2/3 have no
+qualified producer and are rejected. Current inventory/matrix are
+`adapter-contract.v4.json`/`coverage.v4.json`, with observation schema 1 and
+resource/journal transport v1 unchanged. Native primitive contracts remain
+independently versioned. This correction grants no full-area capability and no
+device acceptance. Platform Emote semantic corrections remain open.
+
+## Historical version 2 to 3: actual recorded preview
 
 Version 3 replaces the draft manual Audio Save/Preview/Stop transaction with
 normal automatic three-second in-memory capture/play/drain/completion. It adds
@@ -20,8 +63,8 @@ Both carry the three-second `recorded-preview-v1` challenge from that Start,
 with actual native cycle/original event/byte provenance. Old source times must
 not be relabelled as new recordings. The old `voice-v1` fixture is unchanged.
 
-Current requests, observations, engine, registry, generated inventory and matrix
-use `contractVersion:3`; observation `schemaVersion` and the independent
+At the version 3 stage, requests, observations, engine, registry, generated inventory and matrix
+used `contractVersion:3`; observation `schemaVersion` and the independent
 `/feature-fixture/v1` resource/journal transport stay unchanged. No qualified
 version 1 or 2 complete platform producer existed. Prior requests/observations
 are rejected; current files are `adapter-contract.v3.json`, `coverage.v3.json`.
@@ -53,7 +96,7 @@ There were no qualified version 1 product producers on Phone, Pico or iOS.
 Version 1 host simulations are historical logic checks, not producers or
 accepted product evidence. No deployed producer/acceptance migration is needed;
 that registry read only 2 and rejected version 1; the current registry now
-reads only 3.
+reads only 4.
 The old inventory and implementation remain recoverable in Git history; the
 version 2 files remain available in Git history.
 
