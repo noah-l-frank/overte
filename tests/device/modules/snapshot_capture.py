@@ -24,7 +24,7 @@ def main():
     def read_artifact(relative):
         source = ARTIFACT_DIR / relative
         if (source.parent != ARTIFACT_DIR or source.is_symlink() or not source.is_file()
-                or not 0 < source.stat().st_size <= MAX_BYTES):
+                or not 0 <= source.stat().st_size <= MAX_BYTES):
             raise InfrastructureError('Original snapshot must be a bounded direct run artifact')
         with source.open('rb') as stream:
             return stream.read(MAX_BYTES + 1)
