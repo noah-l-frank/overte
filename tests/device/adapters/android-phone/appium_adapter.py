@@ -30,6 +30,8 @@ from create_observation import OPERATIONS as CREATE_OPERATIONS
 from overte_phone_create_ui import PhoneCreateUI
 from adapters.normal_create import NormalCreate
 from adapters.native_feature_observation import NativeFeatureObservation, FILE as NATIVE_FEATURE_FILE
+from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, AndroidPreviewFiles,
+    FILE as RECORDED_PREVIEW_FILE)
 
 
 class PhoneAppiumAdapter(AppiumAdapter):
@@ -154,6 +156,17 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
             lambda: binding.adb.epoch_milliseconds(device), guard,
             int(context['processIdentity'].split(':')[0]))
+
+    def _recorded_preview_evidence(self, selector):
+        native = self._native_feature_observer(selector)
+        target = self.target(selector)
+        device = target['capabilities']['appium:udid']
+        transport = PhoneAdapter(self.candidate).adb
+        return RecordedPreviewEvidence(native.send,
+            lambda: transport.read_debug_app_file(device, target['appId'],
+                'files/overte-e2e/' + RECORDED_PREVIEW_FILE, attempts=1),
+            AndroidPreviewFiles(transport, device, target['appId'], native.guard),
+            native.clock_ms, native.guard, native.pid)
 
     def normal_scripts(self, selector, operation, values):
         arguments = validate_operation_arguments(operation, values)

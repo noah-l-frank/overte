@@ -3,6 +3,7 @@
 from functools import partial
 import json
 import os
+import shlex
 from pathlib import Path
 import sys
 import unittest
@@ -18,6 +19,8 @@ from create_observation import PREFIX
 from create_journey import INITIAL, EDITED
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from adapters.native_feature_observation import NativeFeatureObservation
+from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
+from adapters.recorded_preview_evidence import RecordedPreviewEvidence
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -225,6 +228,59 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual('file:///actual/bundled/Sit2.fbx', value['animation']['clip']['url'])
         self.assertEqual([], self.native.inputs)
         self.assertFalse(any(cap.startswith('feature.') for cap in self.adapter.advertised_capabilities(self.target)))
+
+    def preview_boundaries(self):
+        source = PreviewBoundary()
+        def send(_client, _session, target, command, process):
+            self.assertEqual(PACKAGE, target['appId'])
+            self.assertEqual({'running': True, 'identity': '31:14'}, process)
+            source.send(command)
+        def read(_device, package, path, **kwargs):
+            self.assertEqual(PACKAGE, package)
+            self.assertEqual('files/overte-e2e/recorded-preview-observation.json', path)
+            self.assertEqual({'attempts': 1}, kwargs)
+            return json.dumps(source.value)
+        def binary(command, *, target, timeout):
+            self.assertEqual('exec-out', command[0]); self.assertEqual(5, timeout)
+            name = shlex.split(command[1])[-1]
+            raw = source.files.get(name)
+            return b'OVT_PREVIEW_MISSING_V1\n' if raw is None else b'OVT_PREVIEW_BYTES_V1\n' + raw + b'\nOVT_PREVIEW_BYTES_END_V1\n'
+        for boundary in (
+            patch.object(self.adapter, 'write_android_client_command', side_effect=send),
+            patch.object(self.fixture.adb, 'read_debug_app_file', side_effect=read, create=True),
+            patch.object(self.fixture.adb, 'execute_bytes', side_effect=binary, create=True),
+            patch.object(self.fixture.adb, 'epoch_milliseconds', return_value=20000, create=True),
+            patch.object(appium, 'RecordedPreviewEvidence', partial(RecordedPreviewEvidence,
+                monotonic=lambda: source.clock, sleep=source.sleep))):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source
+
+    def test_original_phone_preview_pcm_keeps_actual_candidate_and_process_binding(self):
+        source = self.preview_boundaries()
+        reader = self.adapter._recorded_preview_evidence(SELECTOR)
+        value, raw = reader.read(0, after_cycle=6)
+        self.assertEqual(source.value, value)
+        self.assertEqual(source.files['recorded-preview-input.pcm16le'], raw['input'])
+        reader.release(); reader.release()
+        self.assertEqual({}, source.files)
+        self.assertEqual([], self.native.inputs)
+
+    def test_phone_preview_candidate_loss_blocks_evidence_before_command(self):
+        source = self.preview_boundaries()
+        reader = self.adapter._recorded_preview_evidence(SELECTOR)
+        self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): reader.read(0)
+        self.assertEqual([], source.commands)
+
+    def test_phone_preview_ignored_cleanup_and_changed_process_cannot_pass(self):
+        source = self.preview_boundaries(); source.retain = True
+        reader = self.adapter._recorded_preview_evidence(SELECTOR)
+        reader.read(0)
+        with self.assertRaises(RuntimeError): reader.release()
+        self.native.identity = '99:foreign-process'
+        before = len(source.commands)
+        with self.assertRaises(RuntimeError): reader.read(reader.sequence)
+        self.assertEqual(before, len(source.commands))
 
     def test_native_feature_reader_rejects_process_change_and_does_not_replay_request(self):
         source = self.native_feature_boundaries()

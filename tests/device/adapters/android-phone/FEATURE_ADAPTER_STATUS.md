@@ -14,7 +14,16 @@ Appium session guards. The actual loaded animation resource URL is distinct from
 its requested URL. Stale poses and candidate/process changes fail. These sources
 are not complete area adapters and advertise no `feature.*` capability. Native
 compilation and devices remain untested; focused Phone boundary tests now number
-**16**. See [the native source contract](../../native/README.md).
+**19**. See [the native source contract](../../native/README.md).
+
+The internal `_recorded_preview_evidence()` now acquires the normal memory
+preview's original pre-normalization capture and accepted sink-write PCM through
+that same candidate/process guard. Binary run-as reads verify fixed private
+regular files and completion frames; hashes, native cycles/events and source
+times bind the separate bytes. Cleanup queries actual native file/memory state
+and independently checks Android file absence. This is an observation source,
+not a complete audio capability or acoustic proof. See
+[the preview source contract](../../native/RECORDED_PREVIEW_EVIDENCE.md).
 
 New implementations in the existing candidate-bound Appium entrypoint:
 
