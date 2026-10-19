@@ -258,6 +258,9 @@ if (APPLE)
         message(FATAL_ERROR "The iOS E2E test build requires a dedicated bundle identifier ending in .e2e")
       endif()
       target_compile_definitions(${TARGET_NAME} PRIVATE OVERTE_IOS_E2E_TEST_BUILD=1)
+      target_sources(${TARGET_NAME} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/../ios/ui/IOSNormalUiInput.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../ios/ui/IOSNormalUiInput.h")
     endif()
     set_target_properties(${TARGET_NAME} PROPERTIES
       MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/ios/resources/InterfaceInfo.plist.in"

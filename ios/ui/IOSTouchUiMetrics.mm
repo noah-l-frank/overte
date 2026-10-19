@@ -23,6 +23,14 @@
 #include <QSet>
 #include <QTimer>
 #include <QtQml>
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+#include "IOSNormalUiInput.h"
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QThread>
+#include <DependencyManager.h>
+#include <OffscreenUi.h>
+#endif
 
 #include <shared/IOSRuntimeLogging.h>
 #include <ui/TabletScriptingInterface.h>
@@ -77,6 +85,7 @@
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
 @interface OverteIOSE2EAccessibilityButton : UIButton
 @property(nonatomic, copy) BOOL (^activationHandler)(void);
+@property(nonatomic, copy) NSString* sourceControlToken;
 @end
 
 @implementation OverteIOSE2EAccessibilityButton
@@ -219,12 +228,13 @@ UIView* tabletAccessibilityOverlay(UIWindow* window) {
 }
 
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
-OverteIOSE2EAccessibilityButton* tabletE2EAccessibilityButton(UIWindow* window) {
+OverteIOSE2EAccessibilityButton* tabletE2EAccessibilityButton(UIWindow* window, NSString* sourceToken) {
     static __weak UIWindow* installedWindow = nil;
     static OverteIOSE2EAccessibilityButton* button = nil;
-    if (installedWindow != window || button == nil) {
+    if (installedWindow != window || button == nil || ![button.sourceControlToken isEqualToString:sourceToken]) {
         [button removeFromSuperview];
         button = [[OverteIOSE2EAccessibilityButton alloc] initWithFrame:CGRectZero];
+        button.sourceControlToken = sourceToken;
         [window addSubview:button];
         installedWindow = window;
     }
@@ -299,6 +309,79 @@ const QSet<QString>& tabletSemanticControlIds() {
         QStringLiteral("settings.vr-render-resolution"),
     };
     return ids;
+}
+
+overte::ios::NormalUiInput& normalUiInput() {
+    static overte::ios::NormalUiInput input;
+    return input;
+}
+
+QPointer<TabletProxy>& normalUiTablet() {
+    static QPointer<TabletProxy> tablet;
+    return tablet;
+}
+
+QJsonObject refreshNormalUiInput() {
+    auto& input = normalUiInput();
+    if (!NSThread.isMainThread || !qApp || QThread::currentThread() != qApp->thread()
+            || activeWindow() == nil) { return input.observe(nullptr, nullptr, false); }
+    auto ui = DependencyManager::isSet<OffscreenUi>() ? DependencyManager::get<OffscreenUi>() : nullptr;
+    auto tablet = normalUiTablet();
+    return input.observe(ui ? ui->getRootItem() : nullptr, tablet ? tablet->getIOSTabletRoot() : nullptr,
+                         tablet && tablet->property("tabletShown").toBool());
+}
+
+CGRect normalUiFrame(const QString& id, const QString& token, UIWindow* window, CGRect safeBounds) {
+    const auto native = window.bounds;
+    const auto frame = normalUiInput().projectedFrame(id, token,
+        QRectF(native.origin.x, native.origin.y, native.size.width, native.size.height),
+        QRectF(safeBounds.origin.x, safeBounds.origin.y, safeBounds.size.width, safeBounds.size.height));
+    return CGRectMake(frame.x(), frame.y(), frame.width(), frame.height());
+}
+
+void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSString*>* activeIdentifiers) {
+    const auto observed = refreshNormalUiInput();
+    if (!observed.value("ready").toBool()) { return; }
+    for (const auto& value : observed.value("controls").toArray()) {
+        const auto row = value.toObject();
+        const auto id = row.value("id").toString();
+        // Existing OverteTabletOpen owns this actual native control identity.
+        if (id == QStringLiteral("hud.tablet") || id == QStringLiteral("tablet.close")) { continue; }
+        const auto token = row.value("token").toString();
+        const CGRect frame = normalUiFrame(id, token, window, safeBounds);
+        if (CGRectIsEmpty(frame) || CGRectIsNull(frame)) { continue; }
+        NSString* identifier = [NSString stringWithFormat:@"OverteNavigation.%s", id.toUtf8().constData()];
+        NSString* sourceToken = [NSString stringWithUTF8String:token.toUtf8().constData()];
+        auto buttons = tabletE2EAccessibilityButtons(window);
+        OverteIOSE2EAccessibilityButton* previous = buttons[identifier];
+        if (previous != nil && ![previous.sourceControlToken isEqualToString:sourceToken]) {
+            // A replaced Qt control also retires its actual UIKit object.
+            // Cached XCTest element references must not adopt a new editor.
+            [previous removeFromSuperview];
+            [buttons removeObjectForKey:identifier];
+        }
+        OverteIOSE2EAccessibilityButton* control = tabletE2EAccessibilityButton(window, identifier);
+        control.sourceControlToken = sourceToken;
+        control.frame = frame;
+        control.accessibilityIdentifier = identifier;
+        static const QHash<QString, QString> labels {
+            { "hud.goto", "Go to destination" }, { "address.field", "Destination address" },
+            { "address.go", "Go" }, { "address.cancel", "Cancel" }, { "address.back", "Back" },
+            { "places.back", "Back" }, { "places.forward", "Forward" },
+            { "tablet.home", "Tablet home" }, { "tablet.places", "Places" },
+        };
+        const auto label = id.startsWith(QStringLiteral("tablet.page."))
+            ? QStringLiteral("Tablet page %1").arg(id.section('.', -1)) : labels.value(id);
+        control.accessibilityLabel = [NSString stringWithUTF8String:label.toUtf8().constData()];
+        control.accessibilityHint = nil;
+        control.hidden = NO;
+        control.enabled = row.value("enabled").toBool();
+        control.activationHandler = ^BOOL {
+            if (!refreshNormalUiInput().value("ready").toBool()) { return NO; }
+            return normalUiInput().press(id, token) ? YES : NO;
+        };
+        [activeIdentifiers addObject:identifier];
+    }
 }
 #endif
 
@@ -616,10 +699,32 @@ void updateIOSTabletAccessibilityControls(
     NSString* hint = nil;
     CGRect controlFrame = CGRectZero;
     BOOL (^activationHandler)(void) = nil;
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+    QString nativeTabletControlToken;
+    normalUiTablet() = tablet;
+    const auto normalObservation = refreshNormalUiInput();
+    bool normalModal { false };
+    for (const auto& value : normalObservation.value("controls").toArray()) {
+        normalModal = normalModal || value.toObject().value("id").toString() == QStringLiteral("address.field");
+    }
+#endif
     if (tabletShown) {
         identifier = @"OverteTabletClose";
         label = @"Close tablet";
         hint = @"Return to the world controls";
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+        for (const auto& value : normalObservation.value("controls").toArray()) {
+            const auto row = value.toObject();
+            if (row.value("id").toString() == QStringLiteral("tablet.close")) {
+                nativeTabletControlToken = row.value("token").toString();
+            }
+        }
+        controlFrame = normalUiFrame(QStringLiteral("tablet.close"), nativeTabletControlToken, window, safeBounds);
+        activationHandler = ^BOOL {
+            if (!refreshNormalUiInput().value("ready").toBool()) { return NO; }
+            return normalUiInput().press(QStringLiteral("tablet.close"), nativeTabletControlToken) ? YES : NO;
+        };
+#else
         // Project the actual shared QML Close control, including on pages that
         // have no E2E screen contract. The old bottom-center rectangle covered
         // Home and intercepted real touches in Personal Team/E2E builds.
@@ -639,10 +744,24 @@ void updateIOSTabletAccessibilityControls(
             }, Qt::QueuedConnection);
             return YES;
         };
+#endif
     } else {
         identifier = @"OverteTabletOpen";
         label = @"Open tablet";
         hint = @"Open the Overte tablet controls";
+#if defined(OVERTE_IOS_E2E_TEST_BUILD)
+        for (const auto& value : normalObservation.value("controls").toArray()) {
+            const auto row = value.toObject();
+            if (row.value("id").toString() == QStringLiteral("hud.tablet")) {
+                nativeTabletControlToken = row.value("token").toString();
+            }
+        }
+        controlFrame = normalUiFrame(QStringLiteral("hud.tablet"), nativeTabletControlToken, window, safeBounds);
+        activationHandler = ^BOOL {
+            if (!refreshNormalUiInput().value("ready").toBool()) { return NO; }
+            return normalUiInput().press(QStringLiteral("hud.tablet"), nativeTabletControlToken) ? YES : NO;
+        };
+#else
         controlFrame = CGRectMake(
             CGRectGetMinX(safeBounds) + 16.0,
             CGRectGetMinY(safeBounds) + 16.0, 128.0, 64.0);
@@ -659,6 +778,7 @@ void updateIOSTabletAccessibilityControls(
             }, Qt::QueuedConnection);
             return YES;
         };
+#endif
     }
 
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
@@ -667,14 +787,15 @@ void updateIOSTabletAccessibilityControls(
     // the production overlay passive, but give E2E builds one real invisible
     // native control whose hit target exactly matches the exposed identifier.
     overlay.accessibilityElements = @[];
-    OverteIOSE2EAccessibilityButton* button = tabletE2EAccessibilityButton(window);
+    NSString* nativeToken = [NSString stringWithUTF8String:nativeTabletControlToken.toUtf8().constData()];
+    OverteIOSE2EAccessibilityButton* button = tabletE2EAccessibilityButton(window, nativeToken);
     button.frame = controlFrame;
     button.accessibilityIdentifier = identifier;
     button.accessibilityLabel = label;
     button.accessibilityHint = hint;
     button.activationHandler = activationHandler;
     // A missing/hidden QML Close must never leave an invisible fallback button.
-    button.hidden = CGRectIsNull(controlFrame) || CGRectIsEmpty(controlFrame);
+    button.hidden = normalModal || CGRectIsNull(controlFrame) || CGRectIsEmpty(controlFrame);
     button.enabled = !button.hidden;
     if (!button.hidden) {
         UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, button);
@@ -693,7 +814,7 @@ void updateIOSTabletAccessibilityControls(
     const QString screenId = observedTabletScreen(loadedItem);
     NSMutableSet<NSString*>* activeIdentifiers = [NSMutableSet setWithObject:identifier];
 
-    if (tabletShown && loadedItem != nullptr && !screenId.isEmpty()) {
+    if (tabletShown && !normalModal && loadedItem != nullptr && !screenId.isEmpty()) {
         NSString* screenIdentifier = [NSString stringWithFormat:
             @"OverteTabletScreen.%s", screenId.toUtf8().constData()];
         OverteIOSE2EAccessibilityButton* screenMarker =
@@ -778,6 +899,7 @@ void updateIOSTabletAccessibilityControls(
             [activeIdentifiers addObject:controlIdentifier];
         }
     }
+    updateNormalUiButtons(window, safeBounds, activeIdentifiers);
     retainTabletE2EAccessibilityButtons(window, activeIdentifiers);
 #else
     OverteIOSAccessibilityElement* element = nil;
@@ -925,7 +1047,8 @@ QVariantMap observeIOSNativeAccessibility(QVariantMap* diagnostic) {
         // text, unrelated application views or inferred expected controls.
         if (![view isKindOfClass:OverteIOSE2EAccessibilityButton.class] ||
                 !view.isAccessibilityElement || identifier == nil ||
-                ![identifier hasPrefix:@"OverteTablet"] || identifier.length > 128) {
+                (![identifier hasPrefix:@"OverteTablet"] && ![identifier hasPrefix:@"OverteNavigation."])
+                || identifier.length > 128) {
             continue;
         }
         const CGRect rawFrame = [view convertRect:view.bounds toView:window];
@@ -956,5 +1079,15 @@ QVariantMap observeIOSNativeAccessibility(QVariantMap* diagnostic) {
         (*diagnostic)["controlsObserved"] = static_cast<int>(elements.size());
     }
     return result;
+}
+
+bool validateIOSNormalUiRequest(const QVariantMap& command) {
+    return overte::ios::NormalUiInput::validRequest(QJsonObject::fromVariantMap(command));
+}
+
+QVariantMap performIOSNormalUiRequest(const QVariantMap& command) {
+    if (!NSThread.isMainThread || !qApp || QThread::currentThread() != qApp->thread()) { return {}; }
+    refreshNormalUiInput();
+    return normalUiInput().request(QJsonObject::fromVariantMap(command)).toVariantMap();
 }
 #endif

@@ -155,6 +155,28 @@ QVariantMap TestScriptingInterface::iosNativeUiSnapshot() {
     return result;
 }
 
+bool TestScriptingInterface::iosNormalUiRequest(const QVariantMap& command) {
+    const QString directory = _testResultsLocation;
+    if (directory.isEmpty() || !QCoreApplication::arguments().contains("--testScript")
+            || !validateIOSNormalUiRequest(command)) { return false; }
+    const QPointer<TestScriptingInterface> owner(this);
+    return QMetaObject::invokeMethod(qApp, [owner, directory, command] {
+        if (!owner) { return; }
+        // Only the GUI owner may observe/edit the actual current field. Queuing
+        // acknowledges transport; this private receipt records actual delivery.
+        const auto result = performIOSNormalUiRequest(command);
+        if (result.isEmpty()) { return; }
+        QSaveFile output(QDir(directory).absoluteFilePath("ios-normal-ui-request-result.json"));
+        output.setDirectWriteFallback(false);
+        const auto bytes = QJsonDocument::fromVariant(result).toJson(QJsonDocument::Compact);
+        if (!output.open(QIODevice::WriteOnly)
+                || !output.setPermissions(QFile::ReadOwner | QFile::WriteOwner)
+                || output.write(bytes) != bytes.size() || !output.commit()) {
+            qCWarning(trace_test) << "iOS normal input receipt publication failed";
+        }
+    }, Qt::QueuedConnection);
+}
+
 bool TestScriptingInterface::iosTextTest(const QVariantMap& command) {
     const QString id = command.value("commandId").toString();
     const QString action = command.value("operation").toString();

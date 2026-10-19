@@ -84,13 +84,14 @@ def main() -> None:
     test_bridge = preprocess_native_bridge(native_bridge, True)
     for test_only_symbol in ('OverteIOSE2EAccessibilityButton',
                              'tabletE2EAccessibilityButton',
-                             'observeIOSNativeAccessibility'):
+                             'observeIOSNativeAccessibility',
+                             'normalUiInput', 'performIOSNormalUiRequest'):
         assert test_only_symbol not in production_bridge, test_only_symbol
         assert test_only_symbol in test_bridge, test_only_symbol
     test_interface = (ROOT / "interface/src/scripting/TestScriptingInterface.cpp").read_text()
     ordinary_interface = preprocess_native_bridge(test_interface, False, True)
     enabled_interface = preprocess_native_bridge(test_interface, True, True)
-    for symbol in ("iosNativeUiSnapshot", "iosTextTest", "iosRenderObservation", "iosEntityScriptConsentTest", "iosCrashTest"):
+    for symbol in ("iosNativeUiSnapshot", "iosNormalUiRequest", "iosTextTest", "iosRenderObservation", "iosEntityScriptConsentTest", "iosCrashTest"):
         assert "TestScriptingInterface::" + symbol not in ordinary_interface
         assert "TestScriptingInterface::" + symbol in enabled_interface
     assert 'OverteIOSAccessibilityElement' in production_bridge
@@ -100,8 +101,24 @@ def main() -> None:
     assert "overlay.accessibilityElements = @[];" in native_bridge
     assert "button.frame = controlFrame;" in native_bridge
     assert "button.activationHandler = activationHandler;" in native_bridge
-    assert "tabletCloseControl(tablet->getIOSTabletRoot())" in native_bridge
-    assert "button.hidden = CGRectIsNull(controlFrame) || CGRectIsEmpty(controlFrame);" in native_bridge
+    assert "tabletCloseControl(tablet->getIOSTabletRoot())" in production_bridge
+    assert "button.hidden = normalModal || CGRectIsNull(controlFrame) || CGRectIsEmpty(controlFrame);" in native_bridge
+    assert "tabletShown && !normalModal && loadedItem != nullptr" in native_bridge
+    for control in ('hud.tablet', 'tablet.close'):
+        assert f'normalUiInput().press(QStringLiteral("{control}"), nativeTabletControlToken)' in test_bridge
+    assert 'normalUiInput' not in production_bridge
+    assert 'guardedTablet->showAndroidTablet(width, height)' in production_bridge
+    assert 'OverteNavigation.%s' in test_bridge
+    assert 'sourceControlToken' in test_bridge
+    # The GUI core is compiled only in the explicit iOS E2E configuration.
+    assert 'ios/ui/IOSNormalUiInput.cpp' in interface_cmake
+    source = (ROOT / 'ios/ui/IOSNormalUiInput.cpp').read_text()
+    address = (ROOT / 'interface/resources/qml/+android_phoneInterface/AddressBarDialog.qml').read_text()
+    for control in ('PhoneAddressField', 'PhoneAddressGoButton', 'PhoneAddressCancelButton', 'PhoneAddressBackButton'):
+        assert control in address and control in source
+    assert 'text: "GO TO"' in action_bar
+    assert 'DialogsManager.showAddressBar()' in action_bar
+    assert 'normalModal' not in production_bridge
     assert "button.enabled = !button.hidden;" in native_bridge
     assert "OverteTabletScreen.%s" in native_bridge
     assert "OverteTabletReady.%s" in native_bridge
