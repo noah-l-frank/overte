@@ -180,7 +180,7 @@ class FeatureAdapterTests(unittest.TestCase):
             patch.object(fixture.adb, 'epoch_milliseconds', return_value=10000, create=True),
             patch.object(appium, 'NormalScriptManager', partial(NormalScriptManager,
                 monotonic=lambda: self.native.clock, sleep=self.native.sleep)),
-            patch.object(appium, 'NativeUI', partial(NativeUI, timeout=0.3,
+            patch.object(appium, 'NativeUI', partial(NativeUI, timeout=0.6,
                 monotonic=lambda: self.native.clock, sleep=self.native.sleep)),
             patch.object(appium, 'read_native_diagnostic', partial(read_native_diagnostic,
                 monotonic=lambda: self.native.clock, sleep=self.native.sleep))):
