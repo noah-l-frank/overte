@@ -24,6 +24,40 @@ RUNNER = Path(__file__).with_name("run-project-tests.py")
 
 
 class ProjectSuiteCliTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux child adoption contract")
+    def test_reaps_finished_adoptees_while_the_suite_is_still_running(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "check-orphan.py"
+            script.write_text(textwrap.dedent('''\
+                import os, pathlib, signal, subprocess, sys, time
+                parent = subprocess.Popen([sys.executable, '-c',
+                    "import os,time; pid=os.fork(); "
+                    "print(pid,flush=True) if pid else time.sleep(60)"],
+                    stdout=subprocess.PIPE, text=True)
+                orphan = int(parent.stdout.readline())
+                parent.wait(timeout=5)
+                os.kill(orphan, signal.SIGKILL)
+                deadline = time.monotonic() + 2
+                while pathlib.Path(f'/proc/{orphan}').exists() and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                assert not pathlib.Path(f'/proc/{orphan}').exists(), 'finished orphan was not reaped during the suite'
+                print('adopted child reaped before suite completion', flush=True)
+                '''), encoding="utf-8")
+            command = textwrap.dedent('''\
+                import importlib.util, pathlib, sys
+                spec = importlib.util.spec_from_file_location('runner', sys.argv[1])
+                runner = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = runner
+                spec.loader.exec_module(runner)
+                status, output, message = runner.run_command([sys.executable, sys.argv[2]], 10, [])
+                print(output, end='')
+                assert status == 0, (status, message)
+                ''')
+            result = subprocess.run([sys.executable, "-c", command, str(RUNNER), str(script)],
+                                    text=True, capture_output=True, timeout=20)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertIn("adopted child reaped before suite completion", result.stdout)
+
     def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run([sys.executable, str(RUNNER), *args], text=True,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -748,6 +782,8 @@ class DevicePythonFailureDiagnosticsTests(unittest.TestCase):
                 if not report.exists():
                     report.parent.mkdir(parents=True)
                     report.write_text(json.dumps(self.aggregate(names)))
+                    fresh = time.time_ns()
+                    os.utime(report, ns=(fresh, fresh))
                     return 1, "private traceback must stay out of final diagnostic", "exit code 1"
                 return 0, "later group output", ""
             args = SimpleNamespace(profile="full", self_test_jobs=2, timeout_seconds=900,
@@ -786,12 +822,16 @@ class DevicePythonFailureDiagnosticsTests(unittest.TestCase):
                 started = time.time_ns()
                 names = ["test_" + str(index) + "_" + "x" * 60 for index in range(8)]
                 report.write_text(json.dumps(self.aggregate(names)))
+                fresh = time.time_ns()
+                os.utime(report, ns=(fresh, fresh))
                 if case == "no-failed-modules":
                     value = self.aggregate(names)
                     value["failed_modules"] = 0
                     for row in value["modules"]:
                         row.update(result={"schema": 1, "successful": True}, exit_code=0, error="")
                     report.write_text(json.dumps(value))
+                    fresh = time.time_ns()
+                    os.utime(report, ns=(fresh, fresh))
                 elif case == "serial":
                     started = None
                 elif case == "missing":

@@ -147,6 +147,9 @@ def validate_periodic_jobs(workflow: str) -> list[str]:
 
 def workflow_event_matrix(workflow: str, event: str, run_regression: bool = True,
                           run_diagnostics: bool = False) -> set[str]:
+    # PR ownership moved to the independently required exact-candidate owner.
+    if event == "pull_request" and not re.search(r"(?m)^  pull_request:$", workflow):
+        return set()
     jobs = {"contracts"} if job_body(workflow, "contracts") is not None else set()
     if event != "schedule":
         jobs.update(job for job in ("fast", "coverage") if job_body(workflow, job) is not None)
