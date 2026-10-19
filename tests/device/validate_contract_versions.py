@@ -16,6 +16,7 @@ REQUIRED = {
     "feature-account-provider": 2,
     "native-animation-history": 1,
     "native-script-controls": 1,
+    "native-private-login-input": 1,
     "native-login-controls": 2,
     "native-audio-controls": 1,
     "native-graphics-controls": 1,

@@ -483,6 +483,12 @@ class FixtureState:
             valid = (set(command) == {"schemaVersion", "commandId", "action"}
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None)
+        elif action == "feature-private-login-input":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.private_login_input import command as private_input_command
+            try:private_input_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid private input metadata request") from None
+            valid=True
         elif action == "feature-account-origin":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_account_origin import command as account_origin_command

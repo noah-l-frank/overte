@@ -278,3 +278,11 @@ now supplies narrower Phone/generic-QML UI prerequisites: original error/pending
 facts and ordinary field/pointer/key input, with credential-context tokens and
 mandatory caller-owned intent. It is not a full Authentication producer. Concrete generic-surface transports, full durable ownership, logout/restart and independent witnesses
 still require concrete platform composition. Native source remains uncompiled.
+
+The [private login input lease v1](native/PRIVATE_LOGIN_INPUT.md) reserves an
+exclusive native original and retires its nonce, pathname and descriptor after
+actual private transfer/GUI delivery. Public commands/receipts and durable
+journals contain no credentials. Copied originals, false cleanup ACKs and missing
+source stay unavailable. It is a carrier prerequisite; concrete private iOS
+transport/callback integration and the full independent Authentication verdict
+remain separate. Native source is uncompiled and devices untested.
