@@ -107,6 +107,21 @@ public:
     // evidence and cannot authorize reuse of an old destination.
     virtual bool featureReadFramebuffer(const FramebufferPointer&, QImage&);
     virtual bool featureTextureExtent(const TexturePointer&, Vec2i&);
+    // Only actual backend lambda execution establishes this thread-local
+    // identity. Recording a batch or retaining a Context backend is insufficient.
+    static Backend* featureExecutingBackend() { return _featureExecutingBackend; }
+    class FeatureExecutionScope {
+    public:
+        explicit FeatureExecutionScope(Backend* backend) : _previous(_featureExecutingBackend) { _featureExecutingBackend = backend; }
+        ~FeatureExecutionScope() { _featureExecutingBackend = _previous; }
+        FeatureExecutionScope(const FeatureExecutionScope&) = delete;
+        FeatureExecutionScope& operator=(const FeatureExecutionScope&) = delete;
+    private:
+        Backend* _previous;
+    };
+private:
+    static thread_local Backend* _featureExecutingBackend;
+public:
 #endif
 
 
