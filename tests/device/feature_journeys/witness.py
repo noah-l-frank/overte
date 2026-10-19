@@ -6,6 +6,7 @@ runner or adapter. The runner can activate challenges and read its own run.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+import copy
 import json
 import secrets
 import threading
@@ -97,13 +98,13 @@ class Journal:
             combined = {**SCENARIOS[row['area']]['baseline'], **value['facts']}
             state(row['area'], combined, run)
             row['sequence'] += 1
-            row['entries'].append(dict(value, sequence=row['sequence'], receivedEpochMs=self.clock()))
+            row['entries'].append(dict(copy.deepcopy(value), sequence=row['sequence'], receivedEpochMs=self.clock()))
             row['entries'] = row['entries'][-512:]
 
     def active(self, run):
         with self.lock:
             row = self.runs[identifier(run)]
-            return dict(schemaVersion=1, runId=run, area=row['area'], ticket=row['ticket'], stimulus=row['stimulus'])
+            return dict(schemaVersion=1, runId=run, area=row['area'], ticket=row['ticket'], stimulus=copy.deepcopy(row['stimulus']))
 
     def has_ticket(self, run, ticket):
         with self.lock:
@@ -113,7 +114,7 @@ class Journal:
         with self.lock:
             row = self.runs[identifier(run)]
             return dict(schemaVersion=1, runId=run, area=row['area'], ticket=row['ticket'],
-                        sampleEpochMs=self.clock(), entries=list(row['entries']))
+                        sampleEpochMs=self.clock(), entries=copy.deepcopy(row['entries']))
 
     def close(self, run):
         with self.lock:

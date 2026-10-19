@@ -78,7 +78,11 @@ unique direct filenames under the private module artifact directory, at most
 creating a replacement from expected values. Bind the artifact to the actual
 sample's sequence and current ticket; its timestamp must be within 1.5 seconds
 of that sample. Readers reject symlinks, hardlinks, nonregular files, concurrent
-mutation and files larger than 32 MiB. Artifacts stay outside the source tree.
+mutation and files larger than 32 MiB. Artifacts stay outside the source tree. The private observation report retains
+the public run/ticket, host action barrier and original acquisition metadata
+alongside the independently decoded checksum/measurements so provenance can be
+reviewed after the run. Journal snapshots do not share mutable source/history
+objects.
 
 The runner-only JSON image policy is keyed by area. Include an empty object for
 areas with no image requirement; do not omit their area key. An area using image evidence

@@ -412,6 +412,21 @@ class FeatureJourneys(unittest.TestCase):
             os.link(root/'original',root/'hardlink')
             with self.assertRaises(ValueError): read_private_artifact(root,'original')
 
+    def test_observation_provenance_is_retained_and_journal_history_is_immutable(self):
+        boundary=Boundary('graphics'); boundary.execute()
+        report=boundary.reports[0]
+        self.assertEqual(RUN,report['runId'])
+        for sample in report['samples']:
+            self.assertGreaterEqual(sample['capturedEpochMs'],sample['actionBarrierEpochMs'])
+            for proof in sample['evidence']:
+                self.assertEqual(sample['ticket'],proof['acquisition']['ticket'])
+                self.assertEqual(sample['sequence'],proof['acquisition']['sequence'])
+        boundary=Boundary('chat');boundary.activate(TICKET);boundary.witness()
+        snapshot=boundary.journal.snapshot(RUN)
+        snapshot['entries'][0]['facts']['messages'].append('foreign text')
+        boundary.state['messages'].append(context(RUN)['unicode'])
+        self.assertEqual([],boundary.journal.snapshot(RUN)['entries'][0]['facts']['messages'])
+
     def test_fixture_journal_rejects_relabelled_replayed_and_late_actor_samples(self):
         boundary=Boundary('chat'); boundary.activate(TICKET); boundary.witness()
         row=boundary.journal.runs[RUN]['entries'][-1]

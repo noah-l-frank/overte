@@ -8,7 +8,7 @@ acceptance policy or physical evidence was changed.
 
 ## Results
 
-- 230 device-free Python self-tests passed, including 26 feature-journey tests,
+- 231 device-free Python self-tests passed, including 27 feature-journey tests,
   15 Create management tests and 16 Scripts management tests. Individual methods
   additionally exercise all fourteen areas and many fault-injection subcases.
 - The ordinary runner was tested with the deterministic virtual adapter: a

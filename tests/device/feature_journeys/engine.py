@@ -153,7 +153,7 @@ class Journey:
                 self.evidence_cache[key] = (observed, None)
             if cached_subject is not None:
                 subject = cached_subject
-            observations.append(dict(kind=requested, artifact=item['name'], observed=observed))
+            observations.append(dict(kind=requested, artifact=item['name'], acquisition=item.copy(), observed=observed))
         return observations, subject
 
     def wait(self, label, ticket, barrier, expected, kinds, *, duration=0.5):
@@ -183,7 +183,7 @@ class Journey:
                     details, subject = self.artifacts(value, ticket, kinds)
                 except (AssertionError, OSError, EOFError, SyntaxError) as error:
                     okay, last_problem = False, str(error)
-            self.samples.append(dict(phase=label, sequence=value['sequence'], capturedEpochMs=value['capturedEpochMs'],
+            self.samples.append(dict(phase=label, ticket=ticket, actionBarrierEpochMs=barrier, sequence=value['sequence'], capturedEpochMs=value['capturedEpochMs'],
                                      state=value['state'], resources=value['resources'], lifecycle=value['lifecycle'], witness=witness, evidence=details))
             if okay:
                 if progressing_script and initial_effects is None:
@@ -291,7 +291,7 @@ class Journey:
                     cleanup_okay = True
                 except BaseException as error:
                     cleanup_errors.append(error)
-            self.report(dict(schemaVersion=1, contractVersion=1, area=self.area,
+            self.report(dict(schemaVersion=1, contractVersion=1, area=self.area, runId=self.run,
                 phases=self.phases, samples=self.samples, cleanupEnabled=cleanup_enabled,
                 cleanupSucceeded=cleanup_okay, sequenceCompleted=primary is None and cleanup_okay,
                 testLogic='implemented', adapter='required-separately', deviceAcceptance=False))
