@@ -51,6 +51,9 @@
 #include "Vec3.h"
 #include "ScriptEngine.h"
 #include "EntityScriptConsent.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "RequiredModuleObservation.h"
+#endif
 
 static const QString NO_SCRIPT("");
 
@@ -1039,6 +1042,9 @@ public:
      * @return false The script is not running
      */
     bool isRunning() const { return _isRunning; } // used by ScriptWidget
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureRequiredModules() const { return _e2eRequiredModules.snapshot(); }
+#endif
 
     // this is used by code in ScriptEngines.cpp during the "reload all" operation
     /**
@@ -1671,6 +1677,9 @@ protected:
     void callWithEnvironment(const EntityItemID& entityID, const QUrl& sandboxURL, const ScriptValue& function, const ScriptValue& thisObject, const ScriptValueList& args, const std::shared_ptr<EntityScriptConsentRequest>& consent = {});
 
     const Context _context;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::RequiredModuleObservation _e2eRequiredModules;
+#endif
     Type _type;
     ScriptEnginePointer _engine;
     QString _scriptContents;

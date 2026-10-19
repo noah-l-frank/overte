@@ -78,6 +78,9 @@ public:
 
     QStringList getRunningScripts();
     ScriptManagerPointer getScriptEngine(const QUrl& scriptHash);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureScriptObservation();
+#endif
 
     ScriptsModel* scriptsModel() { return &_scriptsModel; };
     ScriptsModelFilter* scriptsModelFilter() { return &_scriptsModelFilter; };
