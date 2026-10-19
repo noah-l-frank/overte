@@ -12,6 +12,8 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QVariantMap>
+#include "GenericLoginControls.h"
+#include "PrivateAccountOrigin.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QQmlEngine>
 #include <QQmlProperty>
@@ -86,6 +88,8 @@ inline QString loginControlId(QQuickItem* item) {
         }
         return {};
     }
+    const auto generic=genericLoginControlId(item);
+    if (!generic.isEmpty()) { return generic; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     // Existing TabletHome login MouseArea; no instrumentation-only UI entry.
     const auto context = QQmlEngine::contextForObject(item);
@@ -111,30 +115,56 @@ inline QString phoneLoginError(QQuickItem* page) {
 
 inline void appendLoginControlObservation(QJsonObject& row, QQuickItem* item, const QString& id, const LoginUiContext& context) {
     if (!loginGuiItem(item)) { return; }
-    const auto page = phoneLoginPage(item);
-    bool inputReady = context.valid && item->isEnabled() && id != "login.page";
-    if (page) {
-        const bool domain = page->property("domainLogin").toBool();
-        const bool waiting = page->property("waiting").toBool();
-        const bool closing = page->property("closing").toBool();
-        inputReady = inputReady && !domain && !closing
-            && (id == "login.cancel" || !waiting && !context.pending && !context.tokenPresent);
-        if (id == "login.page") {
-            row["profile"] = "phone-login-v1";
-            row["domain"] = domain; row["waiting"] = waiting; row["closing"] = closing;
-            row["error"] = phoneLoginError(page);
-            row["accountInstance"] = context.instance;
-            row["credentialGeneration"] = static_cast<double>(context.generation);
-            row["endpointSha256"] = context.endpoint;
-            row["nativePending"] = context.pending; row["tokenPresent"] = context.tokenPresent;
+    const auto phone=phoneLoginPage(item);
+    const auto generic=genericLoginRoot(item);
+    bool inputReady=context.valid && item->isEnabled() && id!="login.page";
+    bool domain {false},waiting {false},closing {false};
+    QString stage,error,submission;
+    if (phone) {
+        domain=phone->property("domainLogin").toBool();waiting=phone->property("waiting").toBool();
+        closing=phone->property("closing").toBool();error=phoneLoginError(phone);
+        stage=waiting ? "pending" : "credentials";submission=context.endpoint;
+    } else if (generic) {
+        stage=genericLoginStage(generic);error=genericLoginError(generic);
+        const auto body=uniqueLoginItem(generic,{"linkAccountBody","loggingInBody"});
+        if (!body || body->property("isLoggingInToDomain").userType()!=QMetaType::Bool) {
+            row["inputReady"]=false;return; // Missing required metadata cannot become false facts.
         }
-    } else { inputReady = inputReady && id == "login.entry" && !context.tokenPresent; }
-    row["inputReady"] = inputReady;
+        domain=body->property("isLoggingInToDomain").toBool();waiting=stage=="pending";
+        // This source has no closing transaction: an actual alive/visible root
+        // is observed; destruction/hidden state removes the page. No timer/input
+        // ACK is substituted for its actual lifetime.
+        closing=!generic->isVisible();
+        const auto text=genericSubmissionText(generic);
+        submission=stage=="credentials" ? loginEndpointDigest(accountOriginText(text) ? text : QString()) : context.endpoint;
+        const bool same=accountOriginText(text) && (loginEndpointDigest(text)==context.endpoint
+            || loginEndpointDigest(text+'/')==context.endpoint);
+        if (id!="login.server" && id!="login.cancel" && !same) { inputReady=false; }
+    } else if (id!="login.entry") { inputReady=false; }
+    if (phone || generic) {
+        inputReady=inputReady && !domain && !closing && stage!="unavailable"
+            && (id=="login.cancel" || stage=="credentials" && !waiting && !context.pending && !context.tokenPresent);
+        if (id=="login.page") {
+            row["profile"]=phone ? "phone-login-v1" : "qml-login-v1";
+            row["stage"]=stage;row["submitEndpointSha256"]=submission;
+            row["domain"]=domain;row["waiting"]=waiting;row["closing"]=closing;row["error"]=error;
+            row["accountInstance"]=context.instance;
+            row["credentialGeneration"]=static_cast<double>(context.generation);
+            row["endpointSha256"]=context.endpoint;
+            row["nativePending"]=context.pending;row["tokenPresent"]=context.tokenPresent;
+        }
+    } else { inputReady=inputReady && !context.tokenPresent; }
+    row["inputReady"]=inputReady;
 }
 
 inline QString loginControlSource(QQuickItem* item, const QString& id, const LoginUiContext& context) {
     QJsonObject value;
     appendLoginControlObservation(value,item,id,context);
+    const auto page=phoneLoginPage(item) ? phoneLoginPage(item) : genericLoginRoot(item);
+    if (page) {
+        QJsonObject state;appendLoginControlObservation(state,page,"login.page",context);
+        value["page"]=state;
+    }
     value["accountInstance"]=context.instance;value["endpointSha256"]=context.endpoint;
     value["credentialGeneration"]=static_cast<double>(context.generation);
     value["nativePending"]=context.pending;value["tokenPresent"]=context.tokenPresent;
