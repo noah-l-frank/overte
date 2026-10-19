@@ -11,6 +11,7 @@ from pathlib import Path
 REQUIRED = {
     "native-feature-observation": 1,
     "native-script-controls": 1,
+    "native-script-observation": 1,
     "recorded-preview-signal": 1,
     "recorded-preview-evidence": 1,
     "feature-journey": 2, "acceptance-policy": 1, "adapter-manifest": 1, "artifact-manifest": 1,

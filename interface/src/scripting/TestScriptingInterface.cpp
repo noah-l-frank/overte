@@ -38,6 +38,7 @@
 #include <QRegularExpression>
 #include <QUuid>
 #include <QTimer>
+#include <ScriptEngines.h>
 #endif
 
 #if defined(OVERTE_E2E_VOICE_TESTS)
@@ -230,6 +231,26 @@ QVariantMap TestScriptingInterface::featureRecordedVoiceFiles(const QString& req
         {"sequence", static_cast<qulonglong>(++_featurePreviewSequence)}, {"requestedEpochMs", requested},
         {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"processId", QCoreApplication::applicationPid()},
         {"memoryEmpty", memoryEmpty}, {"files", files}};
+}
+
+QVariantMap TestScriptingInterface::featureScriptObservation(const QString& requestId) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this, [&] { result = featureScriptObservation(requestId); }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(requestId).hasMatch()) { return {}; }
+    const auto requested = QDateTime::currentMSecsSinceEpoch();
+    // Atomic manager membership plus locked source histories; never invoke or
+    // evaluate code on every script thread while the probe's thread is waiting.
+    const auto source = DependencyManager::get<ScriptEngines>()->featureScriptObservation();
+    if (source.isEmpty() || QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size() > 240000) { return {}; }
+    return {{"schemaVersion", 1}, {"requestId", requestId}, {"instance", _featureObservationInstance},
+        {"sequence", static_cast<qulonglong>(++_featureScriptSequence)}, {"requestedEpochMs", requested},
+        {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"processId", QCoreApplication::applicationPid()},
+        {"source", source}};
 }
 #endif
 
@@ -496,7 +517,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
-            || filename == "recorded-preview-observation.json") {
+            || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json") {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
         QSaveFile output(filepath);
         output.setDirectWriteFallback(false);
