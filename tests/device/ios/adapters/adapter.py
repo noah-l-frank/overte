@@ -141,6 +141,16 @@ class IOSAdapter(AppiumAdapter):
         manager = self._scripts(selector)
         return TokenGraphicsUI(IOSGraphicsIO(manager.ui.io),intent)
 
+    def chat_capture_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('chat-capture-owner.json'))
+
+    def _chat_capture(self,selector,run):
+        from adapters.native_chat_observation import ChatCaptureOwner
+        manager=self._scripts(selector);native=manager.ui.io.native
+        observer=FeatureObservation(native.client,native.session,native.target,native.observe_process)
+        owner=ChatCaptureOwner(self.chat_capture_store(selector),manager.binding,observer.guard,component_only=True)
+        return observer.chat_capture(owner,run)
+
     def account_origin_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('account-origin-owner.json'))
 
@@ -198,6 +208,11 @@ class IOSAdapter(AppiumAdapter):
         return TokenScriptFilePicker(manager.ui.io, directory)
 
     def cleanup(self, selector):
+        chat_error=False
+        try:
+            owned=self.chat_capture_store(selector).read()
+            if owned is not None:self._chat_capture(selector,owned['runId']).retire()
+        except Exception:chat_error=True
         private_error=False
         try:
             owned=self.private_login_input_store(selector).read()
@@ -225,7 +240,8 @@ class IOSAdapter(AppiumAdapter):
         # The canonical installed-code gate still rejects _scripts(). Always
         # reach original native/session teardown and retain unresolved sources.
         result = super().cleanup(selector)
-        need(not script_error and not private_error and not probe_error and not origin_error and store.read() is None
+        need(not chat_error and not script_error and not private_error and not probe_error and not origin_error and store.read() is None
+             and self.chat_capture_store(selector).read() is None
              and self.private_login_input_store(selector).read() is None
              and self.script_files_store(selector).read() is None and self.account_probe_store(selector).read() is None
              and self.account_origin_store(selector).read() is None)

@@ -34,6 +34,8 @@ from self_tests.test_native_script_files import Boundary as FilesBoundary
 from adapters.world_render_storage import receipt_file
 from self_tests.test_world_render_evidence import Boundary as WorldBoundary
 from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
+from self_tests.test_native_chat_observation import Boundary as ChatBoundary, RUN as CHAT_RUN, SELF as CHAT_SELF, PEER as CHAT_PEER
+from adapters.native_chat_observation import received_texts
 from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
 from self_tests.test_native_account_origin import Boundary as AccountOriginBoundary, ORIGIN as ACCOUNT_ORIGIN
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
@@ -283,6 +285,66 @@ class IOSNormalScriptsTests(unittest.TestCase):
         source,_native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);source.fault='keep-files'
         with self.assertRaises(RuntimeError):self.adapter.cleanup('test-only-selector')
         self.assertFalse(self.native.running);self.assertTrue(source.path.exists());self.assertIsNotNone(self.adapter.account_origin_store('test-only-selector').read())
+
+    def chat_capture(self):
+        source=ChatBoundary();source.store=self.adapter.chat_capture_store('test-only-selector')
+        source.mutate=lambda value:value.update(processId=42)
+        original_post=self.native.post;original_execute=self.native.execute
+        def post(request,timeout):
+            value=json.loads(request.data)
+            if value['action']!='feature-chat-observe':return original_post(request,timeout)
+            self.native.fixture.set_client_command(value);self.native.echo=json.dumps(value).encode();source.send(value)
+            return self.native
+        def execute(session,operation,values):
+            if operation=='mobile: pullFile' and values['remotePath']=='@org.example.client:documents/owned-results/feature-chat-observation.json':
+                return base64.b64encode(source.read().encode()).decode()
+            return original_execute(session,operation,values)
+        for boundary in (patch.object(feature_observation,'post_request',side_effect=post),
+            patch.object(self.native,'execute',side_effect=execute),
+            patch.object(component,'FeatureObservation',partial(feature_observation.FeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._chat_capture('test-only-selector',CHAT_RUN)
+
+    def test_ios_chat_factory_preserves_original_afc_reception_and_native_epoch(self):
+        source,capture=self.chat_capture();capture.observe();source.event();value=capture.observe()
+        self.assertEqual(42,value['processId']);self.assertEqual(20000,value['capturedEpochMs'])
+        self.assertEqual(1,len(received_texts(value,sender_sha256=CHAT_PEER,receiver_sha256=CHAT_SELF,channel='domain')))
+        self.assertTrue(value['commandId'].startswith('ios-'))
+        self.assertEqual('NATIVE_UI_COMPONENT_ONLY',self.adapter.chat_capture_store('test-only-selector').read()['binding']['scope'])
+        capture.retire();self.assertIsNone(self.adapter.chat_capture_store('test-only-selector').read());self.assertEqual([],self.native.qt.inputs)
+
+    def test_ios_chat_local_echo_and_foreign_source_never_become_remote_delivery(self):
+        source,capture=self.chat_capture();capture.observe();source.event(local=True);value=capture.observe()
+        self.assertEqual([],received_texts(value,sender_sha256=CHAT_PEER,receiver_sha256=CHAT_SELF,channel='domain'))
+        source.mutate=lambda value:value.update(processId=42,instance='f'*32)
+        with self.assertRaises(RuntimeError):self.adapter._chat_capture('test-only-selector',CHAT_RUN).retire()
+        self.assertIsNotNone(self.adapter.chat_capture_store('test-only-selector').read())
+        self.assertFalse(any(c['operation']=='retire' for c in source.commands))
+
+    def test_ios_chat_session_replacement_blocks_dispatch_and_keeps_intent(self):
+        source,capture=self.chat_capture();capture.observe();before=len(source.commands);self.native.deleted=True
+        with self.assertRaises((ValueError,RuntimeError)):capture.observe()
+        self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.adapter.chat_capture_store('test-only-selector').read())
+
+    def test_ios_chat_cleanup_retires_actual_cache_before_original_teardown(self):
+        source,capture=self.chat_capture();capture.observe();source.event()
+        self.adapter.cleanup('test-only-selector')
+        self.assertFalse(self.native.running);self.assertEqual(2,source.inspect_after_retire)
+        self.assertIsNone(self.adapter.chat_capture_store('test-only-selector').read())
+
+    def test_ios_chat_failed_cleanup_reaches_base_teardown_and_refuses_green(self):
+        source,capture=self.chat_capture();capture.observe();source.ignore_retire=True
+        with self.assertRaises(RuntimeError):self.adapter.cleanup('test-only-selector')
+        self.assertFalse(self.native.running);self.assertTrue(source.present)
+        self.assertIsNotNone(self.adapter.chat_capture_store('test-only-selector').read())
+
+    def test_ios_canonical_binding_explicitly_refuses_chat_factory_before_io(self):
+        from types import SimpleNamespace
+        from adapters.ios import binding
+        with patch.object(component.AppiumAdapter,'load_targets',return_value={}):
+            adapter=binding.create_adapter(SimpleNamespace(platform='ios',action='cleanup'),component.AppiumAdapter)
+        with self.assertRaisesRegex(ValueError,'OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE'):adapter._chat_capture('private-selector',CHAT_RUN)
 
     def account_probe(self):
         source=AccountProbeBoundary();source.mutate=lambda value:value.update(processId=42)

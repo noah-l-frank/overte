@@ -345,3 +345,26 @@ remain uncompiled/unqualified. See [the complete private boundary](../../ios/ada
 The completed guarded iOS selection passes **294** cases, with zero failures,
 errors, skips or compiler attempts. The same 20 compiler-dependent native cases
 remain explicitly excluded; no native source or physical behavior was qualified.
+
+## Native Chat reception component
+
+The internal `_chat_capture(selector,run)` now connects source v1 to the
+existing original HTTP/AFC native UI component session and private ownership.
+It pins the native birth/session digest, preserves original native epochs and
+separates actual network reception from local/self echoes. Cleanup drains its
+cache before private login/probe/origin/Script teardown, requires two actual
+empty inventory observations and retains failed intent while still reaching
+base teardown. The canonical candidate binding explicitly refuses this factory
+with OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE before I/O.
+
+Six new wrapper/binding cases and all **48** normal component cases pass on
+synthetic native boundaries. Original Python/fixture/AFC-command paths execute;
+actual C++/Qt/network reception and independently bound remote peer/UI/storage
+joins remain uncompiled/unqualified. No full Chat capability or physical result
+is enabled. Current common feature contract is v7. See
+[the source and exact ownership rules](../../native/CHAT_OBSERVATION.md).
+
+The completed guarded broad iOS selection passes **300** cases with zero
+failures/errors/skips/compiler attempts, retaining the same 20 explicit native
+exclusions. All **21** shared receive-source cases and all **5** native-binding
+entry checks also pass on this tree. Device qualification remains absent.

@@ -121,6 +121,9 @@ def create_adapter(args, base_class):
         def _world_render_capture(self, *args, **kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
+        def _chat_capture(self,*args,**kwargs):
+            raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
+
         def _private_login_input(self,*args,**kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
