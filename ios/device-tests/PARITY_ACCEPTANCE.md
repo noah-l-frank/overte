@@ -225,7 +225,14 @@ capture on an iOS GPU.
 
 The E2E-only `Test.iosSnapshotFilesRequest` implements the common closed
 `snapshot-files` read channel. It resolves the actual `SnapshotStorage` root,
-hashes original regular files and reads at most64KiB per response. A single
+hashes original regular files and reads at most4MiB per response. The native
+250ms command polling cadence and a25MiB host transfer regression constrain
+request volume; encoded receipts remain below the original WebDriver bound.
+Only original-file observations use a120-second outer operation deadline.
+Nonce-bound immutable file receipts allow15 seconds for byte transport; the
+focused UI observation freshness limit remains3 seconds. Final manifest and
+original-content checks still apply.
+A single
 background worker keeps file hashing off the GUI thread. Requests cannot choose
 a directory or trigger capture. Links, changed native revisions, oversized
 files and stale/foreign receipts fail. The host joins the final native manifest

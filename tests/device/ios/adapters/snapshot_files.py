@@ -19,8 +19,15 @@ import uuid
 
 from adapters.normal_ui import NativeUIError
 from ios.adapters.appium_adapter import AppiumAdapter, WebDriverRequestError
-from ios.adapters.normal_input import _fresh, _integer, _uuid
+from ios.adapters.normal_input import _integer, _uuid
 from snapshot_file_contract import CHUNK_BYTES, MAX_FILE_BYTES, MAX_FILES, read_request
+
+
+def _file_fresh(value, now_ms):
+    # Original bytes are immutable, nonce-bound and rehashed against a final
+    # manifest. Allow their bounded file transfer, without relaxing the3s
+    # focused UI/control observation policy used by normal_input.
+    return type(value) in (int, float) and math.isfinite(value) and -1000 <= now_ms - value <= 15000
 
 
 class SnapshotFiles:
@@ -91,11 +98,11 @@ class SnapshotFiles:
                     raise
                 encoded = None
             if encoded is not None:
-                if not isinstance(encoded, str) or len(encoded) > 196608:
+                if not isinstance(encoded, str) or len(encoded) > 3 * CHUNK_BYTES:
                     raise NativeUIError('Original iOS Snapshot receipt exceeds its transport bound')
                 try:
                     raw = base64.b64decode(encoded, validate=True)
-                    if len(raw) > 131072:
+                    if len(raw) > 2 * CHUNK_BYTES:
                         raise ValueError('receipt bound')
                     value = json.loads(raw)
                 except (ValueError, UnicodeError):
@@ -106,7 +113,7 @@ class SnapshotFiles:
                     if (set(value) != fields or type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
                             or value['operation'] != operation or value['prefix'] != prefix or value['ok'] is not True
                             or not _integer(value['processId'], 1) or value['processId'] != self.process['pid']
-                            or not _fresh(value['sampleEpochMs'], time.time() * 1000)):
+                            or not _file_fresh(value['sampleEpochMs'], time.time() * 1000)):
                         raise NativeUIError('Original iOS Snapshot read did not freshly succeed')
                     self._check()
                     return value['files' if operation == 'list' else 'file']

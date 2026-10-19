@@ -70,7 +70,7 @@ class SnapshotFiles(unittest.TestCase):
         return self.command('read', name=row['name'], revision=row['revision'], offset=0, **values)
 
     def test_original_multichunk_bytes_have_actual_os_metadata_hash_and_process(self):
-        content = bytes(range(256)) * 700
+        content = bytes(range(256)) * 20000
         (self.root / self.name).write_bytes(content)
         (self.root / 'unrelated-private-name.png').write_bytes(b'never exported')
         listed = self.command()

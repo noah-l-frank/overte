@@ -24,7 +24,7 @@
 namespace overte::ios {
 namespace {
 constexpr qint64 MAX_BYTES = 256LL * 1024 * 1024;
-constexpr qint64 CHUNK_BYTES = 64 * 1024;
+constexpr qint64 CHUNK_BYTES = 4 * 1024 * 1024;
 const QString PREFIX = QStringLiteral("parity-[0-9a-f]{16}-(still-png|still-jpg|animated|panorama|cubemap)");
 
 bool matches(const QString& pattern, const QJsonValue& value) {

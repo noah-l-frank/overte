@@ -6,9 +6,11 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -17,8 +19,8 @@ ROOT = DEVICE.parents[1]
 sys.path.insert(0, str(DEVICE))
 from adapters.normal_ui import NativeUIError
 from ios.adapters import snapshot_files
-from ios.adapters.appium_adapter import WebDriverRequestError
-from snapshot_file_contract import read_request
+from ios.adapters.appium_adapter import WebDriver, WebDriverRequestError
+from snapshot_file_contract import CHUNK_BYTES, read_request
 
 
 class FileBoundary:
@@ -66,7 +68,8 @@ class FileBoundary:
         self.reader.stdin.write(json.dumps(command) + '\n'); self.reader.stdin.flush()
         value = json.loads(self.reader.stdout.readline())
         if self.mutation == 'foreign-nonce': value['commandId'] = 'ios-' + 'f' * 32
-        elif self.mutation == 'stale': value['sampleEpochMs'] -= 10000
+        elif self.mutation == 'stale': value['sampleEpochMs'] -= 60000
+        elif self.mutation == 'slow-immutable-byte-transfer': value['sampleEpochMs'] -= 5000
         elif self.mutation == 'ack-only': value = {'performed': True, 'commandId': command['commandId']}
         elif self.mutation == 'foreign-process': value['processId'] += 1
         elif self.mutation == 'cross-process': self.pid += 1
@@ -99,7 +102,7 @@ class FileBoundary:
             raise WebDriverRequestError(500)
         if self.mutation == 'unknown-session': raise WebDriverRequestError(404)
         if self.mutation == 'malformed-receipt': return 'not base64'
-        if self.mutation == 'oversize-receipt': return 'a' * 196609
+        if self.mutation == 'oversize-receipt': return 'a' * (3 * CHUNK_BYTES + 1)
         return base64.b64encode(json.dumps(self.receipt).encode()).decode()
 
     def files(self):
@@ -138,6 +141,8 @@ class OriginalSnapshotFiles(unittest.TestCase):
 
     def test_actual_native_multichunk_originals_publish_private_immutable_content_addressed_artifacts(self):
         boundary = self.boundary()
+        boundary.content = bytes(range(256)) * 20000
+        (boundary.root / boundary.name).write_bytes(boundary.content)
         with patch.object(snapshot_files, 'urlopen', boundary.post):
             files = boundary.files()
             result = files.files(boundary.prefix)
@@ -237,6 +242,36 @@ class OriginalSnapshotFiles(unittest.TestCase):
             result = boundary.files().files(boundary.prefix)
         self.assertEqual(len(result['files']), 1)
         self.assertEqual((boundary.artifacts / result['files'][0]['artifact']).read_bytes(), b'')
+
+    def test_large_original_fits_the_actual_probe_polling_and_webdriver_response_budgets(self):
+        boundary = self.boundary()
+        boundary.content = bytes(range(256)) * (25 * 1024 * 4)
+        (boundary.root / boundary.name).write_bytes(boundary.content)
+        with patch.object(snapshot_files, 'urlopen', boundary.post):
+            result = boundary.files().files(boundary.prefix)
+        self.assertEqual((boundary.artifacts / result['files'][0]['artifact']).read_bytes(), boundary.content)
+        source = (DEVICE / 'probe/overte_e2e_probe.js').read_text()
+        interval = int(re.search(r'var sampleIntervalMs = ([0-9]+);', source)[1]) / 1000
+        # One sequential native request per actual probe poll. Small compressed
+        # fixture images conceal the old >100s minimum for25MiB. Reserve half
+        # the outer file deadline for actual byte transport/OS observations.
+        self.assertLess(len(boundary.requests) * interval, 60)
+        self.assertLess(3 * CHUNK_BYTES, WebDriver.MAX_RESPONSE_BYTES)
+        print(f'Original25MiB: {len(boundary.requests)} native requests; '
+              f'{len(boundary.requests) * interval:.2f}s minimum probe polling; '
+              'actual original bytes verified, no device timing claim.')
+
+    def test_immutable_byte_transfer_age_does_not_relax_focused_ui_freshness(self):
+        from ios.adapters.normal_input import _fresh
+        now = time.time() * 1000
+        self.assertFalse(_fresh(now - 5000, now))
+        self.assertTrue(snapshot_files._file_fresh(now - 5000, now))
+        for value in (now - 16000, now + 2000, True, None, float('nan'), float('inf')):
+            with self.subTest(value=value): self.assertFalse(snapshot_files._file_fresh(value, now))
+        boundary = self.boundary('slow-immutable-byte-transfer')
+        with patch.object(snapshot_files, 'urlopen', boundary.post):
+            result = boundary.files().files(boundary.prefix)
+        self.assertEqual((boundary.artifacts / result['files'][0]['artifact']).read_bytes(), boundary.content)
 
 
 if __name__ == '__main__':
