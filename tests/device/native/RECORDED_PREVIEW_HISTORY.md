@@ -41,7 +41,8 @@ history-capable source cannot silently become an older narrow source.
 
 `recorded_preview_history.py` checks typed complete native histories, contiguous
 actual event sequences, original times, legal phase transitions and monotonic
-byte counters. The first event is Capturing or an actual Start error. A terminal
+byte counters, including progress observed between timer events. A later
+terminal event cannot regress behind already observed live capture/playback. The first event is Capturing or an actual Start error. A terminal
 event ends that cycle. Completed means Capturing/Playing/Draining/Completed,
 equal whole three-second captured/played bytes and empty live product buffers.
 Active format and whole-frame counts must agree. A same-cycle read must preserve
@@ -60,7 +61,7 @@ still needs normal source-token UI inputs, original input PCM, independent
 acoustic evidence, permissions in the existing foundation, actor journal and
 verified cleanup/restart ownership.
 
-Ten device-free tests exercise actual parser/projection/history logic using
+Eleven device-free tests exercise actual parser/projection/history logic using
 explicit simulated native boundaries. They cover initial/capture/completion,
 missing instrumentation, changed historical events, dropped prefixes, incomplete
 history, phase/sequence gaps, retained buffers, changed formats, real new-cycle
