@@ -100,6 +100,7 @@ class ProjectSuiteCliTests(unittest.TestCase):
             "goto-dialog-script",
             "recorded-voice-native", "recorded-voice-qml", "snapshot-native", "snapshot-qml",
             "document-tree-native", "obj-material-native", "shared-script-behavior",
+            "native-owner-lifecycle",
         })
         self.assertEqual(set(native), set(quick) | {"native-ctest", "shared-script-behavior"})
         self.assertIn("fixture-platform", host)
