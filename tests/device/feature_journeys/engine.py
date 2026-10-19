@@ -249,7 +249,8 @@ class Journey:
                             self.continuity('after', verb)
                             expected = expand(step['state'], context(self.run))
                             if verb == 'cancel':
-                                expected.update(animation='idle', sit='none', override=False, poseProgress=0.0)
+                                expected.update(animation='idle', sit='none', override=False, poseProgress=0.0,
+                                                restoredBeforeNominalEnd={'oneOf':[False,True]})
                             observed = self.wait(f'{index + 1:02d}-{verb}-attempt-{attempt + 1}', ticket,
                                 barrier, expected, ['peer'] if verb == 'cancel' else step['evidence'])
                         variant = observed['state']['sit']

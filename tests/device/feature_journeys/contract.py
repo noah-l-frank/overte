@@ -1,4 +1,4 @@
-"""Strict v4 action/read boundary for feature additions to the existing harness."""
+"""Strict v5 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math

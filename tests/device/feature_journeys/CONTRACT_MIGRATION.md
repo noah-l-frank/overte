@@ -1,6 +1,54 @@
-# Common feature journey migration: current version 4
+# Common feature journey migration: current version 5
 
-## Version 3 to 4: immediate Graphics controls and measured originals
+## Version 4 to 5: ordinary Emote effects, completion and early restoration
+
+Ordinary Emote playback uses the actual native animation override too. Version 5
+requires override:true for ordinary plays/Sit and real loaded, advancing native
+pose/peer/image effects. A selected name or chooser highlight is insufficient.
+The chooser can be hidden on the reviewed Phone source or retained on the other
+reviewed sources. Its initial open and final close remain definite; play inputs
+must reopen the actual chooser through ordinary controls as needed, using the
+actual submitted startup-source profile. No visibility setter or script handler
+may stand in for that input.
+
+Each of the nine non-Sit clips now has a closed `wait-complete` action with empty
+inputs. This action sends no product input and invokes no animation restoration;
+observers wait for the existing source's own completion and an evaluated idle
+pose. Sit is different: the ordinary tablet source holds its final pose, while
+the Phone source uses a one-shot timer. Sit resets/variant discovery therefore
+allow either actual restoration timing and make no early-abort claim. The
+original undefined tablet Sit end-frame argument remains an unresolved source
+concern; no replacement frame count or functional fix is injected.
+
+The explicit replacement Waving clip must then be cancelled and independently
+show `restoredBeforeNominalEnd:true`. This new measured boolean is false without
+an owned prior run or with ordinary nominal completion. For the owned run, it
+requires the original override range/rate, matching original restore event and a
+later inactive evaluation, with restoreEpoch - overrideEpoch strictly below
+1000 * (lastFrame - firstFrame) / framesPerSecond - 250ms. Range/rate/times must
+come from actual native history; unknown, stale, dropped or invalid sources are
+unavailable, never a guessed false. A new ordinary play resets the owned-run
+association; cleanup clears that association only after real restoration.
+
+This flag describes timing, not a button/timer cause. The complete producer must
+also correlate original normal input, selected submitted-code profile, actual
+loaded clip, changed evaluated poses and fresh current image/peer effects. The
+independent observer must acquire/check its own original native timing facts in
+a serialized observation phase plus actual replicated pose effects. It must not
+copy adapter state or a requested result. An input ACK, native request count or
+late natural completion cannot satisfy the explicit abort. Native original
+clocks must remain distinct from iOS host epochs. The actual history helpers
+supply narrower prerequisites, not this complete coordinator.
+
+Current actions, observations, registry and generated files use contractVersion
+5. Only version 5 requests are accepted; versions 1..4 have no qualified complete
+producer and remain available in Git history. There is no silent translation of
+old ordinary override:false semantics. Current files are adapter-contract.v5.json
+and coverage.v5.json. Observation schema 1, resource/journal transport v1, source
+pins v1 and independently versioned native primitive contracts remain unchanged.
+No capability/device acceptance is granted by this correction.
+
+## Historical version 3 to 4: immediate Graphics controls and measured originals
 
 Version 4 replaces the fictitious universal preset-preview/Apply/Cancel and
 shadows-on/resolution-1.0 assumptions with actual ordinary resolution, Haze and
@@ -36,12 +84,12 @@ geometry and a current-ticket world marker. View/lighting must remain stable.
 Native render acquisition and the full fixture source/input/observer join remain
 prerequisites before platform activation.
 
-Only complete version 4 producers are accepted; prior versions 1/2/3 have no
+At that stage only complete version 4 producers were accepted; prior versions 1/2/3 had no
 qualified producer and are rejected. Current inventory/matrix are
 `adapter-contract.v4.json`/`coverage.v4.json`, with observation schema 1 and
 resource/journal transport v1 unchanged. Native primitive contracts remain
 independently versioned. This correction grants no full-area capability and no
-device acceptance. Platform Emote semantic corrections remain open.
+device acceptance. Platform Emote semantic corrections were still open at that stage.
 
 ## Historical version 2 to 3: actual recorded preview
 
