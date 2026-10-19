@@ -222,3 +222,10 @@ They establish test/adapter logic only. Native C++/Objective-C++ is uncompiled;
 actual UIKit/Qt delivery, Audio/acoustics and device cleanup remain unqualified.
 Full durable Audio ownership, acoustic actor, journal join and verified restart
 cleanup remain open. See [the shared Audio contract](../../native/NORMAL_AUDIO_CONTROLS.md).
+
+The existing HTTP/AFC Script component now preserves submitted code identity
+(version 1) as original source provenance. Its focused source group passes 23
+host cases, including unchanged submission time/hash and older-source rejection.
+Seven reviewed Emote source-profile checks and five canonical binding rejection
+cases pass. Source semantics do not establish installed-code association or
+Emote success. Native source remains uncompiled and all devices unqualified.
