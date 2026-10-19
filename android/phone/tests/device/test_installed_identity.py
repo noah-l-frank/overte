@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -20,6 +21,10 @@ spec.loader.exec_module(adapter)
 appium_spec = importlib.util.spec_from_file_location("phone_appium_identity", ENTRY.with_name("appium_adapter.py"))
 appium = importlib.util.module_from_spec(appium_spec)
 appium_spec.loader.exec_module(appium)
+snapshot_spec = importlib.util.spec_from_file_location('_overte_phone_snapshot_native_boundary',
+    Path(__file__).with_name('snapshot_native_boundary.py'))
+snapshot_boundary = importlib.util.module_from_spec(snapshot_spec)
+snapshot_spec.loader.exec_module(snapshot_boundary)
 from artifact_identity import INPUT_KEYS, normalized_inputs
 from execution_identity import ExecutionIdentity
 from adapter_client import load_command
@@ -473,6 +478,224 @@ class InstalledIdentityTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'bound application state'):
                 native.invoke('places.open', {})
         self.assertEqual([], native.inputs)
+
+    def test_snapshot_requires_candidate_physical_debug_opt_in_before_creating_sessions(self):
+        instance, target, native, _ = snapshot_boundary.attach(self, appium)
+        original = instance.candidate
+        for change in ('candidate', 'opt-in', 'physical', 'controlled'):
+            with self.subTest(change=change), contextlib.ExitStack() as stack:
+                if change == 'candidate': stack.enter_context(patch.object(instance, 'candidate', None))
+                if change == 'opt-in': stack.enter_context(patch.dict(os.environ, {'OVERTE_PHONE_NORMAL_SNAPSHOT': '0'}))
+                if change == 'physical': stack.enter_context(patch.dict(target, {'physical': False}))
+                if change == 'controlled': stack.enter_context(patch.dict(target, {'clientControl': {}}))
+                self.assertNotIn('snapshot.open', instance.advertised_capabilities(target))
+                create = stack.enter_context(patch.object(appium.AppiumAdapter, 'ensure_session'))
+                with self.assertRaises(ValueError): native.invoke('snapshot.open')
+                create.assert_not_called()
+        self.assertIs(instance.candidate, original)
+        self.assertEqual([], native.inputs)
+        self.assertEqual([], self.adb.events)
+
+    def test_snapshot_changed_installed_bytes_fail_before_session_and_input(self):
+        _instance, _target, native, _ = snapshot_boundary.attach(self, appium)
+        self.adb.digest = 'b' * 64
+        with patch.object(appium.AppiumAdapter, 'ensure_session') as create:
+            with self.assertRaises(ValueError): native.invoke('snapshot.open')
+            create.assert_not_called()
+        self.assertEqual([], native.inputs)
+
+    def test_snapshot_rechecks_actual_installed_bytes_after_native_input(self):
+        instance, _target, native, _ = snapshot_boundary.attach(self, appium)
+        call = native.call
+        def replace(method, path, body=None):
+            result = call(method, path, body)
+            if path.endswith('/click'): self.adb.digest = 'b' * 64
+            return result
+        native.call = replace
+        with self.assertRaisesRegex(ValueError, 'INSTALLED_BYTES_MISMATCH'):
+            native.invoke('snapshot.open')
+        self.assertIn('SNAP', native.inputs)
+        self.assertIsNotNone(instance.snapshot_store(snapshot_boundary.SELECTOR).read())
+
+    def test_snapshot_private_session_change_stops_before_input(self):
+        instance, _target, native, path = snapshot_boundary.attach(self, appium)
+        original = native.call
+        def replace(method, endpoint, body=None):
+            result = original(method, endpoint, body)
+            state = instance.read_session(snapshot_boundary.SELECTOR)
+            state['generation'] += 1
+            instance.save_session(snapshot_boundary.SELECTOR, state)
+            return result
+        native.call = replace
+        with self.assertRaisesRegex(RuntimeError, 'bound application state'):
+            native.invoke('snapshot.open')
+        self.assertEqual([], native.inputs)
+        self.assertTrue(path.exists())
+
+    def test_snapshot_process_replacement_after_lookup_prevents_input(self):
+        instance, _target, native, _ = snapshot_boundary.attach(self, appium)
+        def process(*_arguments):
+            return {'running': True, 'identity': 'other-process' if native.calls else native.process}
+        with patch.object(instance, 'process_state', side_effect=process):
+            with self.assertRaisesRegex(RuntimeError, 'bound application state'):
+                native.invoke('snapshot.open')
+        self.assertEqual([], native.inputs)
+
+    def test_snapshot_cannot_bind_an_unknown_process_start_or_pid(self):
+        _instance, _target, native, _ = snapshot_boundary.attach(self, appium)
+        for identity_value in ('31415:unknown', '0:123', '31415', '31415:'):
+            native.process = identity_value
+            with self.subTest(identity=identity_value), self.assertRaisesRegex(ValueError, 'START_TICKS_REQUIRED'):
+                native.invoke('snapshot.open')
+        self.assertEqual([], native.inputs)
+
+    def test_snapshot_partial_entry_cleanup_closes_only_its_owned_panel(self):
+        instance, _target, native, _ = snapshot_boundary.attach(self, appium, mutation='partial-entry-error')
+        with self.assertRaisesRegex(RuntimeError, 'transport failed'): native.invoke('snapshot.open')
+        self.assertEqual(native.screen, 'snapshot')
+        self.assertTrue(instance.snapshot_store(snapshot_boundary.SELECTOR).read()['snapshotOwned'])
+        self.assertEqual(native.invoke('snapshot.close'), {'performed': True})
+        self.assertIsNone(native.screen)
+        self.assertEqual((native.mode, native.format), ('animated', 'webp'))
+        self.assertIsNone(instance.snapshot_store(snapshot_boundary.SELECTOR).read())
+        self.assertEqual(1, native.releases)
+
+    def test_snapshot_preexisting_tablet_is_never_taken_over_or_closed(self):
+        instance, _target, native, _ = snapshot_boundary.attach(self, appium)
+        native.screen = 'settings'
+        with self.assertRaisesRegex(RuntimeError, 'pre-existing tablet'): native.invoke('snapshot.open')
+        native.invoke('snapshot.close')
+        self.assertEqual(native.screen, 'settings')
+        self.assertEqual([], native.inputs)
+        self.assertIsNone(instance.snapshot_store(snapshot_boundary.SELECTOR).read())
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX host fixture for actual Android private file scripts')
+    def test_snapshot_bound_capture_transports_original_bytes_and_restores_preferences(self):
+        instance, target, native, _ = snapshot_boundary.attach(self, appium)
+        self.assertTrue({'snapshot.open', 'snapshot.capture', 'snapshot.files', 'snapshot.close'}
+                        <= set(instance.advertised_capabilities(target)))
+        native.invoke('snapshot.open')
+        prefix = snapshot_boundary.PREFIX
+        self.assertEqual(native.invoke('snapshot.files', {'prefix': prefix}), {'files': []})
+        native.invoke('snapshot.capture', {'name': prefix, 'mode': 'still', 'format': 'png'})
+        observed = native.invoke('snapshot.files', {'prefix': prefix})['files']
+        self.assertEqual(1, len(observed))
+        self.assertEqual((native.artifacts / observed[0]['artifact']).read_bytes(), b'original synthetic file bytes')
+        self.assertFalse(native.screen)
+        self.assertNotIn('passed', observed[0])
+        native.invoke('snapshot.close')
+        self.assertEqual((native.mode, native.format), ('animated', 'webp'))
+        self.assertIsNone(native.screen)
+        self.assertIsNone(instance.snapshot_store(snapshot_boundary.SELECTOR).read())
+        self.assertEqual(1, native.captures)
+        self.assertGreater(sum(event[0] == 'sha256sum' for event in self.adb.events), 15)
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX host fixture for actual Android private file scripts')
+    def test_snapshot_cancel_uses_actual_owned_cancel_before_restoring_preferences(self):
+        instance, _target, native, _ = snapshot_boundary.attach(self, appium, mutation='capture-pending')
+        native.invoke('snapshot.open')
+        native.invoke('snapshot.files', {'prefix': snapshot_boundary.PREFIX})
+        native.invoke('snapshot.capture', {'name': snapshot_boundary.PREFIX, 'mode': 'still', 'format': 'png'})
+        self.assertTrue(native.capturing)
+        native.invoke('snapshot.close')
+        self.assertIn('snapshotCancelCapture', native.inputs)
+        self.assertFalse(native.capturing)
+        self.assertEqual((native.mode, native.format), ('animated', 'webp'))
+        self.assertIsNone(instance.snapshot_store(snapshot_boundary.SELECTOR).read())
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX host fixture for actual Android private file scripts')
+    def test_snapshot_prefix_must_be_empty_and_owned_before_any_capture(self):
+        instance, _target, native, _ = snapshot_boundary.attach(self, appium)
+        native.invoke('snapshot.open')
+        with self.assertRaisesRegex(RuntimeError, 'empty owned'):
+            native.invoke('snapshot.capture', {'name': snapshot_boundary.PREFIX, 'mode': 'still', 'format': 'png'})
+        prefix = snapshot_boundary.PREFIX
+        native.invoke('snapshot.files', {'prefix': prefix})
+        foreign = 'parity-abcdef0123456789-still-png'
+        with patch.object(appium.AndroidSnapshotFiles, 'files') as read:
+            with self.assertRaisesRegex(RuntimeError, 'another run'):
+                native.invoke('snapshot.files', {'prefix': foreign})
+            read.assert_not_called()
+        (native.files / (prefix + '-preexisting.png')).write_bytes(b'old')
+        with self.assertRaisesRegex(RuntimeError, 'no longer empty'):
+            native.invoke('snapshot.capture', {'name': prefix, 'mode': 'still', 'format': 'png'})
+        self.assertEqual(0, native.captures)
+        native.invoke('snapshot.close')
+
+    def test_snapshot_changed_ownership_context_and_nonprivate_state_reject(self):
+        instance, _target, native, _ = snapshot_boundary.attach(self, appium)
+        native.invoke('snapshot.open')
+        store = instance.snapshot_store(snapshot_boundary.SELECTOR)
+        owned = store.read(); owned['processIdentity'] = 'other-process'
+        store.write(owned)
+        native.inputs.clear()
+        with self.assertRaisesRegex(RuntimeError, 'different bound session'):
+            native.invoke('snapshot.open')
+        self.assertEqual([], native.inputs)
+        if os.name != 'nt':
+            store.path.chmod(0o644)
+            with self.assertRaisesRegex(RuntimeError, 'private file'): native.invoke('snapshot.open')
+            self.assertEqual([], native.inputs)
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX ownership aliases')
+    def test_snapshot_private_state_aliases_are_never_read_or_overwritten(self):
+        instance, _target, native, _ = snapshot_boundary.attach(self, appium)
+        native.invoke('snapshot.open')
+        store = instance.snapshot_store(snapshot_boundary.SELECTOR)
+        original = store.path.read_bytes()
+        foreign = self.root / 'foreign-state.json'
+        store.path.rename(foreign)
+        for alias in ('symlink', 'hardlink'):
+            if alias == 'symlink': store.path.symlink_to(foreign)
+            else: os.link(foreign, store.path)
+            with self.subTest(alias=alias), self.assertRaisesRegex(RuntimeError, 'private file'):
+                native.invoke('snapshot.open')
+            self.assertEqual(original, foreign.read_bytes())
+            store.path.unlink()
+
+    def test_snapshot_cleanup_confirms_stop_even_when_candidate_and_terminate_are_invalid(self):
+        instance, _target, native, path = snapshot_boundary.attach(self, appium)
+        native.invoke('snapshot.open')
+        self.args.artifact.write_bytes(b'invalidated candidate after local fixture input')
+        self.assertTrue(path.exists())
+        with snapshot_boundary.cleanup_boundary(self, native):
+            self.assertEqual(instance.cleanup(snapshot_boundary.SELECTOR), {'cleaned': True})
+        self.assertFalse(path.exists())
+        self.assertIsNone(instance.snapshot_store(snapshot_boundary.SELECTOR).read())
+        self.assertIn(('am', 'force-stop', snapshot_boundary.PACKAGE), self.adb.events)
+        self.assertEqual(4, self.adb.events.count(('pidof', '-s', snapshot_boundary.PACKAGE)))
+
+    def test_snapshot_cleanup_retains_retry_state_if_process_stop_is_not_confirmed(self):
+        instance, _target, native, path = snapshot_boundary.attach(self, appium)
+        native.invoke('snapshot.open')
+        before = instance.snapshot_store(snapshot_boundary.SELECTOR).read()
+        with snapshot_boundary.cleanup_boundary(self, native, stopped=False):
+            with self.assertRaisesRegex(RuntimeError, 'did not stop'):
+                instance.cleanup(snapshot_boundary.SELECTOR)
+        self.assertTrue(path.exists())
+        self.assertEqual(before, instance.snapshot_store(snapshot_boundary.SELECTOR).read())
+        self.assertFalse(any(method == 'DELETE' and endpoint == '/session/owned-session'
+                             for method, endpoint, _ in native.calls))
+
+    def test_snapshot_cleanup_preserves_both_states_on_session_delete_failure(self):
+        instance, _target, native, path = snapshot_boundary.attach(self, appium, mutation='session-delete-error')
+        native.invoke('snapshot.open')
+        before = instance.snapshot_store(snapshot_boundary.SELECTOR).read()
+        with snapshot_boundary.cleanup_boundary(self, native):
+            with self.assertRaisesRegex(RuntimeError, 'retry state was retained'):
+                instance.cleanup(snapshot_boundary.SELECTOR)
+        self.assertTrue(path.exists())
+        self.assertEqual(before, instance.snapshot_store(snapshot_boundary.SELECTOR).read())
+
+    def test_snapshot_cleanup_refuses_changed_target_before_any_os_action(self):
+        instance, target, native, path = snapshot_boundary.attach(self, appium)
+        native.invoke('snapshot.open')
+        self.adb.events.clear()
+        target['capabilities']['appium:udid'] = 'different-test-only-device'
+        with self.assertRaisesRegex(ValueError, 'CLEANUP_TARGET_CHANGED'):
+            instance.cleanup(snapshot_boundary.SELECTOR)
+        self.assertTrue(path.exists())
+        self.assertEqual([], self.adb.events)
 
 
 if __name__ == "__main__":

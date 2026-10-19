@@ -12,6 +12,7 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQmlProperty>
+#include <QQuickWindow>
 #include <QThread>
 #include <functional>
 
@@ -49,9 +50,12 @@ QJsonObject PhoneAccessibilityTree::snapshot(QQuickItem* root, const QSize& surf
         if (!item || depth > 128 || nodes.size() >= 1024 || !item->isVisible() || item->opacity() <= 0) { return; }
         const QRectF rect = item->mapRectToScene(QRectF(0, 0, item->width(), item->height()));
         const QRectF visibleRect = rect.intersected(clip);
-        auto accessible = QAccessible::queryAccessibleInterface(item);
         const auto context = QQmlEngine::contextForObject(item);
+        // Resolving the public attached property creates Qt5's accessibility
+        // attachment for newly materialized Controls delegates. Query their
+        // interface afterwards so their first actual frame includes them.
         const bool ignored = QQmlProperty(item, "Accessible.ignored", context).read().toBool();
+        auto accessible = QAccessible::queryAccessibleInterface(item);
         if (accessible && accessible->isValid() && accessible->role() != QAccessible::NoRole
                 && !ignored && !visibleRect.isEmpty()) {
             const int identifier = static_cast<int>(QAccessible::uniqueId(accessible));
@@ -87,6 +91,18 @@ QJsonObject PhoneAccessibilityTree::snapshot(QQuickItem* root, const QSize& surf
         for (auto child : item->childItems()) { visit(child, parent, childClip, depth + 1); }
     };
     visit(root, -1, viewport, 0);
+    // Controls 2 reparents real popup items into the owning window's overlay,
+    // beside the application root. They are rendered on this same Android
+    // surface but are not descendants of root. Admit only that Qt-owned layer
+    // for a complete window root, never arbitrary siblings or another window.
+    // QObject metadata keeps this independent of private Qt headers/ABI.
+    if (root->window() && root->parentItem() == root->window()->contentItem()) {
+        for (auto layer : root->window()->contentItem()->childItems()) {
+            if (layer != root && layer->inherits("QQuickOverlay")) {
+                visit(layer, -1, viewport, 0);
+            }
+        }
+    }
     return { {"schemaVersion", 1}, {"ready", true},
              {"sampleEpochMs", QDateTime::currentMSecsSinceEpoch()},
              {"surfaceWidth", surfaceSize.width()}, {"surfaceHeight", surfaceSize.height()},

@@ -12,6 +12,8 @@ DEPENDENCY_LIGHT_CHECKS = (
     "android/phone/tests/phone-apk-provenance-test.py",
 )
 PREPARED_HOST_CHECKS = (
+    "android/phone/tests/phone-snapshot-journey-test.py",
+    "android/phone/tests/phone-snapshot-ui-test.py",
     "android/phone/tests/test_phone_voice_signal.py",
     "tests/device/contracts/world-entry/test_phone_feet_alignment.py",
     "tests/device/contracts/world-entry/test_phone_pad_projection.py",
