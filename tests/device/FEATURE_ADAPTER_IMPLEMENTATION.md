@@ -92,11 +92,11 @@ untested**. Existing/new foundations are narrower implementation scopes.
 | Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled real account/protected endpoint, delayed-response release/revocation, actual principal/pending/error observations |
 | Avatar/people | Existing replication foundations retained | Existing replication foundations retained | Existing component peer/replication code retained | Actual avatar chooser/bookmark/scale/wearable readers, mutual contact consent peer and original visible avatar effects |
 | Create | **New** ordinary cube/edit/history/delete/JSON import + observer/source cleanup | **New** original avatar-owned native ID reader; VR input controls missing | **New** original avatar-owned native ID reader component; bound execution blocked | glTF/OBJ local picker + companions, voxel stroke/settled data, texture/render effect, original export bytes and real domain rez-denial actor |
-| Emotes | No complete animation reader | No complete animation reader | No complete animation reader | Actual active animation/Sit identity and advancing pose, override/cancel/resume plus independently replicated pose/image evidence; button text cannot substitute |
+| Emotes | New evaluated native Rig/clip/pose source | New evaluated native Rig/clip/pose source | New evaluated native source component | Ordinary platform Emote input/lifetime joins, actual Sit identities, cancellation/resume and independently replicated pose/image evidence; button text cannot substitute |
 | World web | Existing web-video foundations retained | Existing web-video foundations retained | Existing component web/video code retained | Real focused world-Web text/key route, actual page/bridge/origin/error state and independent message receipts/navigation/resume |
 | Tablet web | Existing Tablet/video foundations retained | Existing VR Tablet/video foundations retained | Existing native Tablet component retained | Real browser/inline-app focus, bridge-origin isolation, page/history/error readers and independent effects |
-| Graphics | Existing render-health foundation retained | Existing native renderer observer retained | Existing native renderer component retained | Ordinary preset/cancel/apply/mirror inputs and actual render-scale/shadow-pass/persistence readers; original current scene pixels under fullscreen panels |
-| Audio | Existing voice/permission foundations retained | Existing voice/permission/native capture foundations retained | Existing native audio/permission components retained | Original microphone recording file and preview-output PCM, native permission failure/cancel counters, mute/resume silence and real independent audio peer |
+| Graphics | Existing render-health foundation plus native settings reads | Existing native renderer observer plus settings reads | Existing native renderer/settings component | Correct platform settings flow (Phone has immediate settings, no preset modal), actual render-scale/pass/persistence readers and original current scene pixels |
+| Audio | New bound original memory-preview capture/sink PCM source | New bound original memory-preview capture/sink PCM source | New original memory-preview HTTP/AFC component | Normal automatic three-second Record-and-Play/cancel UI, permission/mute/resume joins, independent acoustic capture and real peer; native accepted-write bytes do not prove audible output |
 | Chat | Existing text-input foundation retained | Existing native text-input foundation retained | Existing native text-input component retained | Actual draft/history/filter/offline state, meaningful Back/focus ownership and real receiving/sending peer with exactly-once retry receipts |
 | Snapshots | Existing original normal SNAP capture/file contract retained | Existing original normal SNAP capture/file contract retained | Existing native SNAP component retained; bound execution blocked | Actual export/share permission path, original share/upload bytes/completion/cancel/failure receipts and controlled external sink; private capture-file presence alone is insufficient |
 | Scripts | **New** ordinary From URL/load/restart/stop and independent execution/silence checks | **New** original actual running-source reader; VR script/dialog controls missing | **New** original running-source reader component; bound execution blocked | Local file/folder picker with real companions, source-bound consent cancel/reject/accept and application-restart durability. Current From URL source entry loads directly without that consent path |
@@ -122,13 +122,14 @@ Common blockers affecting the full triples:
   these additional results.
 * Pico's E2E `PicoE2eNavigationUi::controlId/apply` and
   `PicoE2eTabletBridge::CONTROL_IDS` have closed native control sets for existing
-  navigation/SNAP/settings. Create/scripts/assets and their current row/dialog
-  tokens are missing. Its Android accessibility bridge's OffscreenUi root does
+  navigation/SNAP/settings and the new normal Script URL/row controls. Local
+  file-bundle pickers, Create/Assets and their current row/dialog tokens are
+  still missing. Its Android accessibility bridge's OffscreenUi root does
   not itself prove export of the real VR Tablet root. Phone input recipes cannot
   be substituted for that native VR route.
 * iOS's canonical installed-code association is explicitly unavailable. Its
-  native input component additionally exports only HUD/address/Places/SNAP
-  control tokens, not the additional complete feature inputs. The prerequisite
+  native component now also exports normal Script URL/row tokens alongside
+  HUD/address/Places/SNAP, but the full additional feature inputs are missing. The prerequisite
   cannot be replaced by an archive hash or self-reported native diagnostic.
 
 Resolving these needs additional reviewed native automation/observation seams
