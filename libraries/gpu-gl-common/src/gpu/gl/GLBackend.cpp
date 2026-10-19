@@ -694,6 +694,9 @@ void GLBackend::do_restoreContextStereo(const Batch& batch, size_t paramOffset) 
 
 void GLBackend::do_runLambda(const Batch& batch, size_t paramOffset) {
     std::function<void()> f = batch._lambdas.get(batch._params[paramOffset]._uint);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    Backend::FeatureExecutionScope observedExecution(this);
+#endif
     f();
 }
 
