@@ -1089,12 +1089,14 @@ class DependencyPolicyRoutingTests(unittest.TestCase):
         # whose parent-owned bootstrap does not enter the child comparison.
         variants=[snapshot]
         routing_paths=tuple(ios.ROUTING_DATA)
-        for stage in ((0,0),(1,0),(1,1)):
-            routing={path:ios.ROUTING_DATA[path][index]
-                for path,index in zip(routing_paths,stage)}
-            variants.append(ios.Snapshot(snapshot.revision,snapshot.tree,tuple(
-                ios.Entry(entry.path,entry.mode,entry.object_type,routing[entry.path])
-                if entry.path in routing else entry for entry in snapshot.entries)))
+        for stage_index,stage in enumerate(((0,0),(1,0),(1,1))):
+            routing={entry.path:entry for entry in snapshot.entries}
+            routing.update({path:ios.Entry(path,'100644','blob',ios.ROUTING_DATA[path][index])
+                for path,index in zip(routing_paths,stage)})
+            routed=ios.Snapshot(snapshot.revision,snapshot.tree,tuple(
+                sorted(routing.values(),key=lambda entry:entry.path)))
+            self.assertEqual(ios.routing_data_stage(routed),stage_index)
+            variants.append(routed)
         for variant in variants:
             with self.subTest(routing=ios.routing_data_stage(variant)):
                 before=ios.Snapshot(variant.revision,variant.tree,tuple(
