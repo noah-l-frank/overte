@@ -23,6 +23,9 @@
 #include "NLPacket.h"
 #include "Node.h"
 #include "ReceivedMessage.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../tests/device/native/ChatObservation.h"
+#endif
 
 /*@jsdoc
  * <p>The <code>Messages</code> API enables text and data to be sent between scripts over named "channels". A channel can have 
@@ -51,6 +54,10 @@ public:
     MessagesClient();
     
     void startThread();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Test-only metadata read/cache retirement; never sends a message.
+    QVariantMap featureChatObservation(const QVariantMap& command);
+#endif
 
     /*@jsdoc
      * Sends a text message on a channel.
@@ -204,6 +211,9 @@ private slots:
 
 protected:
     QSet<QString> _subscribedChannels;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::ChatObservation _featureChat;
+#endif
 };
 
 #endif

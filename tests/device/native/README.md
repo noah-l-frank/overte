@@ -124,3 +124,9 @@ All instrumented branches must be compiled and qualified later in the Proxmox
 laboratory. Current checks run Python and the actual JavaScript dispatch with
 explicit native boundaries. They do not compile C++, deliver Qt notifications,
 render a frame, record PCM or establish installed-code identity.
+
+The [native Chat reception source v1](CHAT_OBSERVATION.md) taps actual
+MessagesClient reception and local-only fallback in explicitly owned bounded
+run scopes. Original sender/order/time history is separate from send intent,
+rendered Chat rows and actual independently bound peer delivery. Its typed
+reader and durable cache retirement remain prerequisites, not a full Chat adapter.
