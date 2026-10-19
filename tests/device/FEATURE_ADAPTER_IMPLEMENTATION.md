@@ -5,7 +5,7 @@ implemented**: Phone has new ordinary Create/script foundation bindings; Pico
 has a candidate-bound original-observation backend; iOS has an original-read
 component behind its unchanged installed-code gate. **No complete new
 `feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
-All fourteen complete version 4 adapters remain missing, and all device qualification
+All fourteen complete version 5 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.
 
@@ -16,7 +16,7 @@ original evaluated animation/pose observations, with labelled native
 render/audio/account settings reads. Platform transports are being connected
 in Phone, Pico, iOS order. See [the native source contract](native/README.md).
 The initial source-only readers and full-area adapter status remain distinct;
-these new sources do not by themselves complete any version 4 triple.
+these new sources do not by themselves complete any version 5 triple.
 The [source compatibility audit](FEATURE_SOURCE_COMPATIBILITY.md) also records
 draft common workflow assumptions that must be corrected before area activation.
 
@@ -92,7 +92,7 @@ formats/times; it has separate internal normal Audio inputs on all three platfor
 
 ## Fourteen-area source audit
 
-All rows below mean: **test logic present; full version 4 adapter missing; devices
+All rows below mean: **test logic present; full version 5 adapter missing; devices
 untested**. Existing/new foundations are narrower implementation scopes.
 
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
@@ -101,10 +101,10 @@ untested**. Existing/new foundations are narrower implementation scopes.
 | Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled real account/protected endpoint, delayed-response release/revocation, actual principal/pending/error observations |
 | Avatar/people | Existing replication foundations retained | Existing replication foundations retained | Existing component peer/replication code retained | Actual avatar chooser/bookmark/scale/wearable readers, mutual contact consent peer and original visible avatar effects |
 | Create | **New** ordinary cube/edit/history/delete/JSON import + observer/source cleanup | **New** original avatar-owned native ID reader; VR input controls missing | **New** original avatar-owned native ID reader component; bound execution blocked | glTF/OBJ local picker + companions, voxel stroke/settled data, texture/render effect, original export bytes and real domain rez-denial actor |
-| Emotes | New evaluated native Rig/clip/pose source | New evaluated native Rig/clip/pose source | New evaluated native source component | Ordinary platform Emote input/lifetime joins, actual Sit identities, cancellation/resume and independently replicated pose/image evidence; button text cannot substitute |
+| Emotes | Evaluated Rig/clip/pose and immutable native call/frame history | Same candidate-bound history reader | Same original native history component; canonical binding blocked | Full source-profile/normal-input/history/peer/image coordinator, measured completion/early-restoration timing and actual Sit identities; the original tablet Sit end-frame concern remains unresolved |
 | World web | Existing web-video foundations retained | Existing web-video foundations retained | Existing component web/video code retained | Real focused world-Web text/key route, actual page/bridge/origin/error state and independent message receipts/navigation/resume |
 | Tablet web | Existing Tablet/video foundations retained | Existing VR Tablet/video foundations retained | Existing native Tablet component retained | Real browser/inline-app focus, bridge-origin isolation, page/history/error readers and independent effects |
-| Graphics | Existing render-health foundation plus native settings reads | Existing native renderer observer plus settings reads | Existing native renderer/settings component | Corrected immediate common settings flow with measured originals; ordinary platform input binding, actual render-scale/Haze/Mirror pass/persistence readers and original current scene pixels |
+| Graphics | Ordinary token-bound immediate controls plus original settings and internal owned mono-frame capture | Ordinary actual VR controls plus original settings; mono-only image source refuses Pico stereo | Ordinary native component controls/mono image transport; canonical binding blocked | Full preference/scene/camera/restart owner, actual Haze/Mirror pass observers and independent effects; stereo and unsupported backend sources remain unavailable |
 | Audio | New bound original memory-preview capture/sink PCM source | New bound original memory-preview capture/sink PCM source | New original memory-preview HTTP/AFC component | Normal Audio token/cycle inputs now connected internally on all three; full ownership, permission/mute/resume joins, independent acoustic capture and real peer; native accepted-write bytes do not prove audible output |
 | Chat | Existing text-input foundation retained | Existing native text-input foundation retained | Existing native text-input component retained | Actual draft/history/filter/offline state, meaningful Back/focus ownership and real receiving/sending peer with exactly-once retry receipts |
 | Snapshots | Existing original normal SNAP capture/file contract retained | Existing original normal SNAP capture/file contract retained | Existing native SNAP component retained; bound execution blocked | Actual export/share permission path, original share/upload bytes/completion/cancel/failure receipts and controlled external sink; private capture-file presence alone is insufficient |
@@ -118,14 +118,14 @@ Common blockers affecting the full triples:
   an account backend, domain administrator, external upload/share service or
   second Overte client. No such real measuring actor has been implemented by
   relabelling fixture simulation or by forwarding expectations to the adapter.
-* The version 4 `lifecycle` counters must come from actual native lifecycle events;
+* The version 5 `lifecycle` counters must come from actual native lifecycle events;
   request counts cannot fill them. The continuation's native packet implements
   that source, but the full-area observer/cleanup joins remain to be completed.
 * Fullscreen panels can occlude the current in-world challenge/feature subject.
   The native main-mono GL tone-map capture hook and original-memory/chunk reader
-  now exist as uncompiled E2E instrumentation. Concrete private platform
-  transport, receipt cleanup and persistent ownership coordination remain open,
-  so original world images are still unavailable through these feature bindings.
+  now exist as uncompiled E2E instrumentation. Private platform transport/ownership/receipt cleanup are connected as
+  internal components, but scene/view/pass and full feature coordinators remain
+  open; no qualified original world image exists for these feature suites.
   Stereo/Vulkan fail closed. Compositing a marker into a screenshot is forbidden.
 * Original recording/export/share/upload bytes and independent peer effects
   cannot be inferred from a UI ACK, a selected filename, a prior file or input
@@ -198,8 +198,11 @@ Original render/pass evidence and full ownership remain open;
 no complete Graphics capability is advertised and native source is uncompiled.
 
 The [world-render acquisition packet](native/WORLD_RENDER_ACQUISITION.md) adds an
-E2E-only GL readback primitive plus strict original-image reader/probe contracts
-and seventeen host counterexample cases. The actual native pre-HUD frame hook,
-private owned image-file/release transport and platform factories remain missing.
-Vulkan/unknown backends return no image; no default buffer or UI composite may
-substitute. This partial source work does not complete any feature capability.
+E2E-only GL readback plus actual pre-HUD main-mono callback, original chunk
+transport, persistent ownership and separate native/file cleanup. The private
+factories are connected in Phone, Pico and the unbound iOS component; 48 common
+reader/ownership cases cover failure boundaries. The executing backend and
+original GL creation context must match actual GPU objects. Native code remains
+uncompiled. Pico stereo and Vulkan/unknown backends provide no image; no default
+buffer, UI composite or guessed eye substitutes. Scene/camera/pass and complete
+feature coordinators remain missing. No full capability is activated.

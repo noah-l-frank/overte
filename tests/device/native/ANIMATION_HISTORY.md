@@ -1,8 +1,9 @@
 # Actual Rig call and evaluated-pose history, version 1
 
 This E2E-only, default-off source supplies original native facts needed for short
-Emotes. It does not fix the current draft's ordinary-override/chooser assumptions
-or the original tablet Sit end-frame concern, and enables no full area producer.
+Emotes. The version 5 common contract corrects ordinary-override/chooser
+assumptions; its complete input/history/peer/image coordinator and the original
+tablet Sit end-frame concern remain open. This enables no full area producer.
 Native C++ is uncompiled; host cases establish reader logic only.
 
 The actual `Rig::overrideAnimation` records an event after its ordinary state

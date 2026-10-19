@@ -23,7 +23,7 @@ WITNESS_KEYS = {
  'authentication': ['principal', 'pending', 'protectedAccess'],
  'avatar-people': ['avatar', 'scale', 'wearable', 'bookmarked', 'connection'],
  'create': ['objects', 'canRez', 'selection', 'textured', 'voxelValue'],
- 'emotes': ['animation', 'sit', 'override', 'poseProgress'],
+ 'emotes': ['animation', 'sit', 'override', 'poseProgress','restoredBeforeNominalEnd'],
  'world-web': ['text', 'page', 'bridgeMessages'],
  'tablet-web': ['text', 'page', 'bridgeMessages'],
  'graphics': ['resolution', 'renderScale', 'haze', 'hazePass', 'mirror', 'mirrorPass'],
