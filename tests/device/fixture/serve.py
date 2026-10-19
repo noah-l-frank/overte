@@ -410,11 +410,14 @@ class FixtureHandler(SimpleHTTPRequestHandler):
         except ValueError:
             self.send_error(400)
             return
-        if not 0 < length <= 4096:
+        maximum = 32768 if request_path == "/e2e-client-command.json" else 4096
+        if not 0 < length <= maximum:
             self.send_error(400)
             return
         try:
             command = json.loads(self.rfile.read(length))
+            if length > 4096 and (not isinstance(command, dict) or command.get("action") != "normal-ui-input"):
+                raise ValueError("client command exceeds its bounded transport")
             command = (self.server.fixture_state.set_command(command)
                        if request_path == "/sound-command.json"
                        else self.server.fixture_state.set_client_command(command))
@@ -484,6 +487,37 @@ class FixtureState:
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None
                      and command.get("operation") in {"focus", "snapshot", "dismiss"})
+        elif action == "normal-ui-input":
+            operation = command.get("operation")
+            expected = {"schemaVersion", "commandId", "action", "operation"}
+            if operation == "edit":
+                expected.add("input")
+            valid = (set(command) == expected and type(command["schemaVersion"]) is int
+                     and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None
+                     and isinstance(operation, str) and operation in {"observe", "edit"})
+            if valid and operation == "edit":
+                request = command["input"]
+                keys = {"schemaVersion", "commandId", "instance", "sequence", "observedElapsedMs", "fieldToken", "operation"}
+                input_operation = request.get("operation") if isinstance(request, dict) else None
+                if input_operation == "replace":
+                    keys.add("text")
+                uuid_pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                valid = (isinstance(request, dict) and set(request) == keys
+                         and type(request["schemaVersion"]) is int and request["schemaVersion"] == 1
+                         and isinstance(input_operation, str) and input_operation in {"replace", "submit"}
+                         and all(isinstance(request.get(key), str)
+                                 and re.fullmatch(uuid_pattern, request[key]) is not None
+                                 and request[key] != "00000000-0000-0000-0000-000000000000"
+                                 for key in ("commandId", "instance", "fieldToken"))
+                         and type(request.get("sequence")) is int and 1 <= request["sequence"] <= 2**53 - 1
+                         and type(request.get("observedElapsedMs")) is int and 0 <= request["observedElapsedMs"] <= 2**53 - 1)
+                if valid and input_operation == "replace":
+                    text = request["text"]
+                    try:
+                        valid = (isinstance(text, str) and len(text.encode("utf-16-le")) // 2 <= 4096
+                                 and all(ord(character) >= 32 and ord(character) != 127 for character in text))
+                    except UnicodeError:
+                        valid = False
         elif action == "entity-script-consent":
             source = urlsplit(command.get("source") if isinstance(command.get("source"), str) else "")
             valid = (set(command) == {"schemaVersion", "commandId", "action", "operation", "source"}

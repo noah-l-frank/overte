@@ -85,6 +85,8 @@ class NativePhone:
             name = self.by_reference[reference]
             if path.endswith('/displayed'): return self.visible(name)
             if path.endswith('/enabled'):
+                if name == 'goBack': return self.cursor > 0
+                if name == 'goForward': return self.cursor < len(self.history) - 1
                 return self.address_enabled if name == 'PhoneAddressField' else True
             if path.endswith('/clear'):
                 self.field = ''
@@ -172,6 +174,23 @@ class PhoneNavigationTests(unittest.TestCase):
         self.assertTrue(any(state.get('normalNavigation', {}).get('addressOwned') for state in native.saved))
         self.assertTrue(any(state.get('normalNavigation', {}).get('tabletOwned') for state in native.saved))
         self.assertFalse(any('/execute' in row[1] for row in native.calls))
+
+    def test_history_endpoints_allow_only_the_selected_enabled_direction(self):
+        native = NativePhone()
+        # The normal public profile accepts exactly its independently defined viewpoints.
+        from navigation_observation import viewpoint_urls
+        destination = viewpoint_urls(native.scene)['B']
+        native.invoke('places.goto', {'url': destination})
+        native.invoke('places.back', {})  # Forward was disabled at the end.
+        self.assertEqual(native.cursor, 0)
+        native.invoke('places.forward', {})  # Back was disabled at the start.
+        self.assertEqual(native.cursor, 1)
+        count = native.inputs.count('goForward')
+        with self.assertRaises(NativeUIError):
+            native.invoke('places.forward', {})
+        self.assertEqual(native.inputs.count('goForward'), count)
+        native.invoke('places.close', {})
+        self.assertNotIn('normalNavigation', native.state)
 
     def test_acknowledged_but_ignored_native_navigation_and_history_cannot_pass(self):
         for mutation in ('goto-ignored', 'back-ignored', 'forward-ignored'):
