@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 1
+VERSION = 2
 
 
 def scenario(title, baseline, rows):
@@ -179,18 +179,23 @@ SCENARIOS = {
     ('background-resume', {}, {}, ['image', 'peer']),
     ('close', {}, dict(open=False), []),
 ]),
-'scripts': scenario('File/folder execution, consent and application restart',
-    dict(running=[], consent=False, error='none', effects=0, open=False), [
+'scripts': scenario('File-bundle picker cancellation, execution and application restart',
+    dict(running=[], picker=False, error='none', effects=0, open=False, companions=[]), [
     ('open', {}, dict(open=True), []),
-    ('load-local', dict(resource='script.js'), dict(consent=True), ['peer']),
-    ('consent-cancel', {}, dict(consent=False), ['peer']),
-    ('load-local', dict(resource='script.js'), dict(consent=True), ['peer']),
-    ('consent-reject', {}, dict(consent=False), ['peer']),
-    ('load-folder', dict(resource='script-bundle'), dict(consent=True), ['peer']),
-    ('consent-accept', {}, dict(consent=False, running=['owned-script'], effects={'min': 2, 'max': 100000}), ['peer']),
+    ('picker-open', {}, dict(picker=True), []),
+    ('picker-cancel', {}, dict(picker=False), ['peer']),
+    ('picker-open', {}, dict(picker=True), []),
+    ('picker-accept', dict(resource='script.js'),
+        dict(picker=False, running=['owned-script'], effects={'min': 2, 'max': 100000}, companions=['companion.js']), ['peer']),
+    ('stop-owned', {}, dict(running=[], effects=0, companions=[]), ['peer']),
+    ('picker-open', {}, dict(picker=True), []),
+    ('picker-cancel', {}, dict(picker=False), ['peer']),
+    ('picker-open', {}, dict(picker=True), []),
+    ('picker-accept', dict(resource='script-bundle/main.js'),
+        dict(picker=False, running=['owned-script'], effects={'min': 2, 'max': 100000}, companions=['companion.js']), ['peer']),
     ('restart-app', {}, {}, ['peer']),
-    ('stop-owned', {}, dict(running=[], effects=0), ['peer']),
-    ('load-local', dict(resource='missing.js'), dict(error='not-found'), ['peer']),
+    ('stop-owned', {}, dict(running=[], effects=0, companions=[]), ['peer']),
+    ('load-url', dict(resource='missing.js'), dict(error='not-found'), ['peer']),
     ('close', {}, dict(open=False, error='none'), []),
 ]),
 'assets': scenario('Asset mappings, companion import, bake, permissions and deletion',

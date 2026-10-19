@@ -29,7 +29,7 @@ from feature_journeys.contract import arguments, result
 from feature_journeys.engine import Journey
 from feature_journeys.evidence import read_private_artifact
 from feature_journeys.fixtures import (challenge, companion, context, document, marker_bytes, wav_bytes)
-from feature_journeys.scenarios import SCENARIOS
+from feature_journeys.scenarios import SCENARIOS, VERSION
 from feature_journeys.server import make_server
 from feature_journeys.witness import Client, Journal, projection
 
@@ -196,12 +196,11 @@ class Boundary:
             if verb in {'open','close'}:
                 s['open'] = verb == 'open'
                 if verb == 'close': s['error'] = 'none'
-            elif verb in {'load-local','load-folder'}:
-                if data['resource'] == 'missing.js': s['error'] = 'not-found'
-                else: s['consent'] = True
-            elif verb in {'consent-cancel','consent-reject'}: s['consent'] = False
-            elif verb == 'consent-accept': s.update(consent=False, running=['owned-script'], effects=4)
-            elif verb == 'stop-owned': s.update(running=[], effects=0)
+            elif verb == 'picker-open': s['picker'] = True
+            elif verb == 'picker-cancel': s['picker'] = False
+            elif verb == 'picker-accept': s.update(picker=False, running=['owned-script'], effects=4, companions=['companion.js'])
+            elif verb == 'load-url' and data['resource'] == 'missing.js': s['error'] = 'not-found'
+            elif verb == 'stop-owned': s.update(running=[], effects=0, companions=[])
         elif a == 'assets':
             if verb in {'open','close'}:
                 s['open'] = verb == 'open'
@@ -268,7 +267,7 @@ class Boundary:
             # Deliberately forge only the product seam. The actor still sees the
             # unchanged real model; this must not satisfy the common journey.
             state.update(self.echo)
-        if self.fault == 'script-effects-stalled' and self.verb=='consent-accept' and not getattr(self,'early_script_read',False):
+        if self.fault == 'script-effects-stalled' and self.verb=='picker-accept' and not getattr(self,'early_script_read',False):
             state.update(running=[],effects=0)
             self.early_script_read=True
         if self.fault == 'nonfinite':
@@ -304,7 +303,7 @@ class Boundary:
                 if kind == 'image': artifacts[-1]['source'] = 'world-render-target'
             if self.fault == 'missing-evidence' or self.ignored:
                 artifacts = []
-        return dict(schemaVersion=1, contractVersion=1, runId='ff'*16 if self.fault == 'foreign-run' else RUN,
+        return dict(schemaVersion=1, contractVersion=VERSION, runId='ff'*16 if self.fault == 'foreign-run' else RUN,
             sequence=1 if self.fault == 'replayed-sample' else self.sequence,
             capturedEpochMs=self.epoch() - (2000 if self.fault == 'stale-sample' else 0),
             state=state, artifacts=artifacts, resources=self.resources.copy(), lifecycle=self.lifecycle.copy())
@@ -348,13 +347,38 @@ class FeatureJourneys(unittest.TestCase):
 
     def test_ignored_effectful_actions_fail_in_each_area(self):
         targets = dict(zip(SCENARIOS, ['bookmark-add','login-submit','avatar-url','import-local','play','focus-type',
-            'set-resolution','record-start','type','capture','consent-accept','upload','open-editor','focus-type']))
+            'set-resolution','record-start','type','capture','picker-accept','upload','open-editor','focus-type']))
         for area, target in targets.items():
             with self.subTest(area=area):
                 boundary = Boundary(area, 'input-ignored', target)
                 with self.assertRaises((AssertionError, ValueError)):
                     boundary.execute()
                 self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_script_picker_cancellation_and_real_companion_resolution_are_observed(self):
+        for fault in ('execution-on-cancel', 'missing-relative-companion'):
+            with self.subTest(fault=fault):
+                boundary = Boundary('scripts')
+                reduce = boundary.reduce
+                def faulty(verb, data):
+                    reduce(verb, data)
+                    if verb == 'picker-cancel' and fault == 'execution-on-cancel':
+                        boundary.state.update(running=['owned-script'], effects=4, companions=['companion.js'])
+                    elif verb == 'picker-accept' and fault == 'missing-relative-companion':
+                        boundary.state['companions'] = []
+                boundary.reduce = faulty
+                with self.assertRaises(AssertionError): boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_v2_script_contract_rejects_old_consent_flow_and_v1_observations(self):
+        request = dict(contractVersion=2, runId=RUN, ticket=TICKET,
+            fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/', verb='picker-open', inputs={})
+        self.assertEqual(request, arguments('feature.scripts.act', request))
+        for changed in ({'contractVersion':1}, {'verb':'consent-accept'}, {'verb':'load-folder', 'inputs':{'resource':'script-bundle'}}):
+            with self.assertRaises(ValueError): arguments('feature.scripts.act', request | changed)
+        boundary = Boundary('scripts'); sample = boundary.observe({'afterSequence':0})
+        sample['contractVersion'] = 1
+        with self.assertRaises(ValueError): result('feature.scripts.observe', sample)
 
     def test_stale_foreign_and_missing_original_evidence_cannot_pass(self):
         for fault in ('foreign-image','foreign-artifact','stale-artifact','missing-evidence','frozen-subject'):
@@ -393,11 +417,11 @@ class FeatureJourneys(unittest.TestCase):
                 Boundary('graphics', fault).execute()
 
     def test_action_contract_never_accepts_checkpoints_foreign_inputs_or_verdicts(self):
-        request=dict(contractVersion=1, runId=RUN, ticket=TICKET, fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/',
+        request=dict(contractVersion=VERSION, runId=RUN, ticket=TICKET, fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/',
                      verb='set-resolution',inputs={'value':0.5})
         op='feature.graphics.act'
         self.assertEqual(request,validate_operation_arguments(op,request))
-        for change in ({'expected':{'renderScale':0.5}},{'contractVersion':2},{'verb':'unknown'},
+        for change in ({'expected':{'renderScale':0.5}},{'contractVersion':1},{'verb':'unknown'},
                        {'inputs':{'value':False}},{'fixtureUrl':'file:///private/secret'}):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 validate_operation_arguments(op,{**request,**change})
@@ -524,7 +548,7 @@ class FeatureEvidenceCounterexamples(unittest.TestCase):
         for area,fault in (('assets','leaked-companions'),('scripts','script-effects-stalled')):
             with self.subTest(area=area),self.assertRaises(AssertionError) as error:
                 Boundary(area,fault).execute()
-            if area=='scripts': self.assertIn('07-consent-accept',str(error.exception))
+            if area=='scripts': self.assertIn('05-picker-accept',str(error.exception))
 
     def test_delayed_old_success_is_not_a_cancellation_result(self):
         boundary=Boundary('authentication')
@@ -584,9 +608,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v1.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v2.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v1.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v2.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():
