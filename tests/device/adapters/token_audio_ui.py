@@ -41,7 +41,8 @@ def validate_metadata(row):
     if identifier == 'audio.record':
         need(type(row['phase']) is str and (row['phase'] in PHASES or row['phase'] == '' and not row['inputReady'])
              and type(row['label']) is str and len(row['label']) <= 256 and all(ord(c) >= 32 for c in row['label']))
-        if row['inputReady']: need(row['nativeActive'] == row['uiActive'] and not row['requested'])
+        if row['inputReady']: need(row['nativeActive'] == row['uiActive'] and not row['requested']
+            and row['uiActive'] == (row['phase'] in {'capturing','playing','draining'}))
     if identifier == 'audio.live-echo' and row['inputReady']:
         need(not row['nativeActive'] and not row['uiActive'] and not row['requested'] and row['checked'] == row['nativeEcho'])
     if identifier == 'audio.mute' and row['inputReady']: need(row['checked'] == row['nativeMuted'])
@@ -94,6 +95,9 @@ class TokenAudioUI:
                 if row['id'] in ('audio.record','audio.live-echo'):
                     need(row['cycle'] == page['cycle'])
                 if row['id'] in ('audio.record','audio.live-echo','audio.mute') and row['inputReady']: need(matching)
+                if row['id'] == 'audio.mute': need(row['mode'] == page['mode'])
+                if row['id'].startswith('audio.mode.'):
+                    need(row['checked'] == (page['mode'] == int(row['id'] == 'audio.mode.vr')))
                 if row['id'].startswith('audio.mode.') and row['inputReady']:
                     need(row['nativeHmd'] == page['nativeHmd'] and (row['id'] == 'audio.mode.vr') == page['nativeHmd'])
         else: need(not any(row['id'] in {'audio.record','audio.live-echo','audio.mute'} for row in value['controls']))
@@ -103,6 +107,7 @@ class TokenAudioUI:
         start = self.now(); since = None
         for _attempt in range(101):
             value = self.capture(); current = self.now()
+            if current - start > 10: break
             if predicate(value):
                 since = current if since is None else since
                 if current - since >= stable: return value
