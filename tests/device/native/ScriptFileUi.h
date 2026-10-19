@@ -87,7 +87,8 @@ public:
         const auto current = observe(root, window);
         const auto request = command.value("commandId").toString();
         QJsonObject result{{"schemaVersion", 1}, {"commandId", request}, {"performed", false},
-            {"instance", _instance}, {"processId", static_cast<double>(QCoreApplication::applicationPid())}};
+            {"instance", _instance}, {"generation", _generation}, {"sequence", command.value("sequence")},
+            {"processId", static_cast<double>(QCoreApplication::applicationPid())}};
         const auto action = command.value("action").toString();
         QSet<QString> fields{"schemaVersion", "commandId", "instance", "generation", "sequence", "observedElapsedMs",
             "controlId", "controlToken", "action"};
