@@ -242,3 +242,9 @@ inputs, original protected-request proof, delayed delivery and separate handler/
 authority cleanup. It is a reusable backend prerequisite, not native login or a
 complete Authentication producer. Native trust/origin, current credential probe,
 ordinary controls and independent pending/error observations remain required.
+
+The [native account observation v1](native/ACCOUNT_OBSERVATION.md) supplies
+passive actual flags and immutable current reply/signal records through the
+existing sampler. Require it explicitly for account-dependent consumers. An HTTP
+receipt, cached token or login signal still cannot replace protected-access, UI
+and independent actor observations.

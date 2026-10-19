@@ -13,6 +13,11 @@ class RequestTicket {
 public:
     // Other AccountManager requests remain explicitly unscoped.
     bool scoped() const { return bool(_state); }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Read-only native diagnostic generation, never an authorization token.
+    quint64 featureGeneration() const { return _value >> 1; }
+    bool featureActive() const { return scoped() && (_value & 1) && matchesSnapshot(); }
+#endif
     // Correlate terminal cancellation after invalidation without treating an
     // old ticket as current or exposing an identifier to QML/logging.
     bool sameRequest(const RequestTicket& other) const {

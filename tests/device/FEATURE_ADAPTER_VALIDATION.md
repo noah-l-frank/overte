@@ -4,6 +4,14 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The passive native account observation v1 packet passes **513** common host
+cases, including **12** new account source/history counterexamples, zero failures,
+errors, skips or compiler attempts, with the same three native exclusions.
+The focused native feature/account/Script observation selection passes **58**
+cases. This removes the instrumentation's refresh-triggering isLoggedIn call and
+checks original typed histories and missing/foreign/stale effects. Native C++ is
+source-reviewed only, uncompiled; no protected request or device login is proven.
+
 The controlled account protocol v1 packet passes **501** common host cases,
 including **23** real loopback HTTPS/password/refresh/profile counterexamples,
 with zero failures/errors/skips or compiler attempts and the same three native

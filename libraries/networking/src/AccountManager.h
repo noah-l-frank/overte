@@ -16,6 +16,9 @@
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QtCore/QVariant>
+#endif
 #include <QtNetwork/QNetworkReply>
 #include <QUrlQuery>
 
@@ -100,6 +103,11 @@ public:
 
     void requestProfile();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // No hasValidAccessToken()/isLoggedIn(): those can initiate a refresh.
+    QVariantMap featureAccountObservation() const;
+#endif
+
     DataServerAccountInfo& getAccountInfo() { return _accountInfo; }
     void setAccountInfo(const DataServerAccountInfo& newAccountInfo);
 
@@ -181,6 +189,15 @@ private:
 
     void passSuccessToCallback(QNetworkReply* reply);
     void passErrorToCallback(QNetworkReply* reply);
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    void recordFeatureAccountEvent(const char* kind, const QNetworkReply* reply = nullptr);
+    QString _featureAccountInstance;
+    QVariantList _featureAccountEvents;
+    quint64 _featureAccountEventSequence {0};
+    qint64 _featureAccountEventEpochMs {0};
+    bool _featureAccountAvailable {true};
+#endif
 
     UserAgentGetter _userAgentGetter;
 
