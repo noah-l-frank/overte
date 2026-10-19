@@ -11,9 +11,11 @@ from unittest.mock import patch
 import test_installed_identity as identity
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / 'tests/device'))
-from adapters.normal_script_manager import NormalScriptManager
+from adapters.normal_script_manager import NormalScriptManager, read_native_diagnostic
 from adapters.normal_ui import NativeUI, W3C_ELEMENT
 from adapters.shared_appium.adapter import AppiumAdapter
+from create_observation import PREFIX
+from create_journey import INITIAL, EDITED
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -31,13 +33,23 @@ class Native:
         self.clock = 0.0
         self.identity = '31:14'
         self.ignore_stop = False
+        self.ignore_delete = False
         self.mutation = None
+        self.request = None
+        self.entities, self.fields = [], {}
+        self.selected = None
+        self.popup = None
+        self.by_reference = {}
 
     def visible(self, name):
         if name == 'tablet.open': return self.screen is None
         if name == 'nav.close': return self.screen is not None
         if name == 'nav.home': return self.screen not in (None, 'home')
         if name == 'app.scripts': return self.screen == 'home'
+        if name == 'CREATE': return self.screen == 'home'
+        if name == 'My avatar': return self.popup is not None
+        if name == 'Cube': return self.screen == 'create'
+        if name.startswith('NativeCreate'): return self.screen == 'create'
         if name in ('field', 'OK', 'Cancel'): return self.dialog
         if name == 'scriptFromUrl': return self.screen == 'scripts' and not self.dialog
         if name in ('scriptStop0', 'scriptRestart0'): return self.screen == 'scripts' and bool(self.rows)
@@ -52,7 +64,7 @@ class Native:
             content = node('android.widget.TextView', 'Script URL') + node('android.widget.TextView', 'Open and Run Script')
         else:
             content = ''.join(node(kind, label, PACKAGE + ':id/' + name if name else '')
-                for kind, label, name in (('android.widget.TextView', 'client.js', ''),
+                for kind, label, name in (('android.widget.TextView', self.rows[0]['url'].rsplit('/', 1)[1], ''),
                     ('android.widget.Button', 'Restart', 'scriptRestart0'),
                     ('android.widget.Button', 'Stop', 'scriptStop0'))) if self.rows else ''
         return '<hierarchy><node>' + content + '</node></hierarchy>'
@@ -61,20 +73,45 @@ class Native:
         if path.endswith('/source'): return self.source()
         if path.endswith('/elements'):
             name = 'field' if body['using'] == 'class name' else body['value'].removeprefix(PACKAGE + ':id/')
-            return [{W3C_ELEMENT: name}] if self.visible(name) else []
+            if not self.visible(name): return []
+            reference = 'reference' + str(len(self.by_reference))
+            self.by_reference[reference] = name
+            return [{W3C_ELEMENT: reference}]
         if '/element/' in path:
-            name = path.split('/element/', 1)[1].split('/')[0]
+            reference = path.split('/element/', 1)[1].split('/')[0]
+            name = self.by_reference[reference]
             if path.endswith('/displayed'): return self.visible(name)
             if path.endswith('/enabled'): return True
-            if path.endswith('/text'): return self.text
-            if path.endswith('/clear'): self.text = ''; return None
-            if path.endswith('/value'): self.text = body['text']; return None
+            if path.endswith('/attribute/className'): return 'android.widget.Button'
+            if path.endswith('/attribute/resourceId'): return '' if name == 'My avatar' else PACKAGE + ':id/' + name
+            if path.endswith('/attribute/package'): return PACKAGE
+            if path.endswith('/text'): return self.text if name == 'field' else self.fields.get(name, '')
+            if path.endswith('/clear'):
+                if name == 'field': self.text = ''
+                else: self.fields[name] = ''
+                return None
+            if path.endswith('/value'):
+                if name == 'field': self.text = body['text']
+                else: self.fields[name] = body['text']
+                return None
             if path.endswith('/click'):
                 self.inputs.append(name)
                 if name == 'tablet.open': self.screen = 'home'
                 elif name == 'nav.home': self.screen = 'home'
                 elif name == 'nav.close': self.screen = None
                 elif name == 'app.scripts': self.screen = 'scripts'
+                elif name == 'CREATE': self.screen = 'create'
+                elif name in ('NativeCreateHost', 'NativeCreateImportHost'): self.popup = name
+                elif name == 'My avatar': self.popup = None
+                elif name == 'NativeCreateNew_Shape':
+                    self.selected = dict(id='{11111111-1111-1111-1111-111111111111}', name='', type='Box')
+                    self.entities.append(self.selected)
+                elif name.startswith('NativeCreateEntity_'):
+                    identifier = name.removeprefix('NativeCreateEntity_')
+                    self.selected = next(row for row in self.entities if row['id'] == identifier)
+                elif name == 'NativeCreateApply':
+                    if 'NativeCreateName' in self.fields: self.selected['name'] = self.fields['NativeCreateName']
+                elif name == 'NativeCreateDelete' and not self.ignore_delete: self.entities.remove(self.selected)
                 elif name == 'scriptFromUrl': self.dialog = True
                 elif name == 'OK':
                     if not self.text.endswith('missing.js'): self.rows = [dict(url=self.text, path=self.text)]
@@ -86,12 +123,21 @@ class Native:
         if method == 'DELETE' and path.endswith('/actions'): return None
         raise AssertionError('Unexpected synthetic native endpoint')
 
-    def read(self, target, package, path):
+    def command(self, client, session, target, command, process):
+        assert command['action'] == 'normal-feature-observe'
+        assert set(command) == {'schemaVersion', 'commandId', 'action', 'includeAvatarEntities'}
+        assert process['identity'] == self.identity
+        self.request = command
+
+    def read(self, target, package, path, **kwargs):
         if path != 'files/overte-e2e/normal-feature-observation.json':
             raise AssertionError('Unexpected native file')
         self.sequence += 1
-        return json.dumps(dict(schemaVersion=1, instance='f' * 32, complete=True,
-            sampleSequence=self.sequence, sampleEpochMs=10000, scripts=self.rows))
+        value = dict(schemaVersion=1, requestId=self.request['commandId'], instance='f' * 32, complete=True,
+            sampleSequence=self.sequence, sampleEpochMs=10000, scripts=self.rows)
+        if self.request['includeAvatarEntities']:
+            value.update(entitiesComplete=True, avatarEntities=self.entities)
+        return json.dumps(value)
 
 
 class FeatureAdapterTests(unittest.TestCase):
@@ -108,7 +154,7 @@ class FeatureAdapterTests(unittest.TestCase):
         state = dict(sessionId='native-session', generation=1,
                      targetFingerprint=self.adapter.snapshot_fingerprint(self.target))
         for boundary in (
-            patch.dict(os.environ, {'OVERTE_PHONE_NORMAL_SCRIPTS': '1'}),
+            patch.dict(os.environ, {'OVERTE_PHONE_NORMAL_SCRIPTS': '1', 'OVERTE_PHONE_NORMAL_CREATE': '1'}),
             patch.object(self.adapter, 'controlled_android_client', return_value=True),
             patch.object(self.adapter, 'state_path', return_value=self.state_path),
             patch.object(AppiumAdapter, 'ensure_session', side_effect=lambda *_:
@@ -117,11 +163,14 @@ class FeatureAdapterTests(unittest.TestCase):
             patch.object(self.adapter, 'query_app_state', return_value=4),
             patch.object(self.adapter, 'process_state', side_effect=lambda *_:
                 {'running': True, 'identity': self.native.identity}),
+            patch.object(self.adapter, 'write_android_client_command', side_effect=self.native.command),
             patch.object(fixture.adb, 'read_debug_app_file', side_effect=self.native.read, create=True),
             patch.object(fixture.adb, 'epoch_milliseconds', return_value=10000, create=True),
             patch.object(appium, 'NormalScriptManager', partial(NormalScriptManager,
                 monotonic=lambda: self.native.clock, sleep=self.native.sleep)),
             patch.object(appium, 'NativeUI', partial(NativeUI, timeout=0.3,
+                monotonic=lambda: self.native.clock, sleep=self.native.sleep)),
+            patch.object(appium, 'read_native_diagnostic', partial(read_native_diagnostic,
                 monotonic=lambda: self.native.clock, sleep=self.native.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
 
@@ -185,6 +234,54 @@ class FeatureAdapterTests(unittest.TestCase):
             with self.assertRaises(ValueError): self.adapter.cleanup(SELECTOR)
         base.assert_called_once()
         self.assertTrue(self.adapter.script_store(SELECTOR).read()['loadAttempted'])
+
+    def test_bound_create_uses_actual_native_uuid_normal_fields_and_observer_cleanup(self):
+        url = 'http://fixture.test/create/' + 'a' * 32 + '/observer.js'
+        name = PREFIX + 'a' * 32 + '_cube'
+        self.invoke('create.reference.open', {'scriptUrl': url})
+        self.invoke('create.cube', {'name': name, 'properties': INITIAL})
+        self.assertEqual(name, self.native.entities[0]['name'])
+        self.invoke('create.update', {'name': name, 'properties': EDITED})
+        self.invoke('create.undo'); self.invoke('create.redo')
+        self.invoke('create.reference.close', {'scriptUrl': url})
+        self.assertEqual([], self.native.entities)
+        self.assertEqual([], self.native.rows)
+        self.assertIsNone(self.adapter.create_store(SELECTOR).read())
+        self.assertIsNone(self.adapter.create_script_store(SELECTOR).read())
+        self.assertIn('NativeCreateApply', self.native.inputs)
+        self.assertEqual('0.8', self.native.fields['NativeCreateField_dimensions_x'])
+
+    def test_create_cleanup_after_candidate_invalidation_is_not_reported_complete(self):
+        url = 'http://fixture.test/create/' + 'a' * 32 + '/observer.js'
+        self.invoke('create.reference.open', {'scriptUrl': url})
+        self.fixture.args.artifact.write_bytes(b'changed candidate')
+        with patch.object(AppiumAdapter, 'cleanup', return_value={'cleaned': True}) as base:
+            with self.assertRaises(ValueError): self.adapter.cleanup(SELECTOR)
+        base.assert_called_once()
+        self.assertIsNotNone(self.adapter.create_store(SELECTOR).read())
+
+    def test_foreign_native_script_label_cannot_authorize_restart(self):
+        self.load()
+        original = self.native.source
+        self.native.source = lambda: original().replace('client.js', 'foreign.js')
+        with self.assertRaises(RuntimeError): self.invoke('scripts.restart', {'url': SOURCE})
+        self.assertNotIn('scriptRestart0', self.native.inputs)
+
+    def test_ignored_delete_keeps_actual_entity_and_blocks_complete_cleanup(self):
+        url = 'http://fixture.test/create/' + 'a' * 32 + '/observer.js'
+        self.invoke('create.reference.open', {'scriptUrl': url})
+        self.invoke('create.cube', {'name': PREFIX + 'a' * 32 + '_cube', 'properties': INITIAL})
+        self.native.ignore_delete = True
+        with patch.object(AppiumAdapter, 'cleanup', return_value={'cleaned': True}):
+            with self.assertRaises(ValueError): self.adapter.cleanup(SELECTOR)
+        self.assertEqual(1, len(self.native.entities))
+        self.assertIsNotNone(self.adapter.create_store(SELECTOR).read())
+        self.assertNotIn('scriptStop0', self.native.inputs)
+
+    def test_flags_do_not_allow_an_unbound_or_uncontrolled_target(self):
+        self.adapter.candidate = None
+        with self.assertRaises(ValueError): self.adapter.advertised_capabilities(self.target)
+        self.assertEqual([], self.native.inputs)
 
 
 if __name__ == '__main__': unittest.main()
