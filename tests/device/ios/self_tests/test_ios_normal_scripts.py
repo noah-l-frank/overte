@@ -35,6 +35,9 @@ from adapters.world_render_storage import receipt_file
 from self_tests.test_world_render_evidence import Boundary as WorldBoundary
 from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
 from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
+from self_tests.test_native_account_origin import Boundary as AccountOriginBoundary, ORIGIN as ACCOUNT_ORIGIN
+from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
+from self_tests.test_native_account_observation import account_source
 
 
 class Native:
@@ -223,6 +226,63 @@ class IOSNormalScriptsTests(unittest.TestCase):
             monotonic=lambda:native.clock,sleep=native.sleep))
         boundary.start();self.addCleanup(boundary.stop)
         return native,self.adapter._graphics_controls('test-only-selector',native.intent)
+
+    def account_origin(self):
+        source=AccountOriginBoundary(self.path.parent/'native-origin-files');native=NativeFeatureBoundary()
+        source.mutate=lambda value:value.update(processId=42)
+        def feature(value):value.update(processId=42);account_source(value)
+        native.mutate=feature
+        original_post=self.native.post;original_execute=self.native.execute
+        def post(request,timeout):
+            value=json.loads(request.data)
+            if value['action']=='feature-native-observe':native.send(value)
+            elif value['action']=='feature-account-origin':
+                self.assertEqual(native.sample['instance'],value['instance'])
+                self.assertIsNotNone(self.adapter.account_origin_store('test-only-selector').read());source.send(value)
+            else:return original_post(request,timeout)
+            self.native.fixture.set_client_command(value);self.native.echo=json.dumps(value).encode();return self.native
+        def execute(session,operation,values):
+            if operation=='mobile: pullFile':
+                remote=values['remotePath'];prefix='@org.example.client:documents/owned-results/'
+                if remote==prefix+'feature-native-observation.json':return base64.b64encode(native.original().encode()).decode()
+                if remote==prefix+'feature-account-origin-result.json':return base64.b64encode(source.read().encode()).decode()
+            return original_execute(session,operation,values)
+        for boundary in (patch.object(feature_observation,'post_request',side_effect=post),
+            patch.object(self.native,'execute',side_effect=execute),
+            patch.object(component,'FeatureObservation',partial(feature_observation.FeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,native,self.adapter._account_origin('test-only-selector')
+
+    def test_ios_account_origin_component_uses_original_afc_files_and_actual_native_scope(self):
+        source,native,origin=self.account_origin();self.assertEqual(ACCOUNT_ORIGIN,origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN))
+        self.assertEqual(native.sample['instance'],self.adapter.account_origin_store('test-only-selector').read()['instance'])
+        origin.release();self.assertFalse(source.path.exists());self.assertIsNone(self.adapter.account_origin_store('test-only-selector').read())
+        self.assertEqual([],self.native.qt.inputs)
+
+    def test_ios_account_origin_component_ack_without_files_keeps_owner(self):
+        source,_native,origin=self.account_origin();source.fault='ack-only'
+        with self.assertRaises(RuntimeError):origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN)
+        self.assertIsNotNone(self.adapter.account_origin_store('test-only-selector').read());origin.release()
+        self.assertIsNone(self.adapter.account_origin_store('test-only-selector').read())
+
+    def test_ios_account_origin_component_foreign_native_context_cannot_adopt_owned_files(self):
+        source,native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);original=native.mutate
+        def foreign(value):original(value);value['instance']='f'*32
+        native.mutate=foreign;before=len(source.commands)
+        with self.assertRaises(RuntimeError):self.adapter._account_origin('test-only-selector').release()
+        self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.adapter.account_origin_store('test-only-selector').read())
+
+    def test_ios_account_origin_component_cleanup_retires_files_before_base_teardown(self):
+        source,_native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN)
+        self.assertEqual({'cleaned':True},self.adapter.cleanup('test-only-selector'))
+        self.assertFalse(self.native.running);self.assertFalse(source.path.exists())
+        self.assertIsNone(self.adapter.account_origin_store('test-only-selector').read())
+
+    def test_ios_account_origin_component_cleanup_keeps_files_when_independent_absence_fails(self):
+        source,_native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);source.fault='keep-files'
+        with self.assertRaises(RuntimeError):self.adapter.cleanup('test-only-selector')
+        self.assertFalse(self.native.running);self.assertTrue(source.path.exists());self.assertIsNotNone(self.adapter.account_origin_store('test-only-selector').read())
 
     def account_probe(self):
         source=AccountProbeBoundary();source.mutate=lambda value:value.update(processId=42)

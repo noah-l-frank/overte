@@ -72,6 +72,8 @@ class Binding(unittest.TestCase):
                 native._world_render_capture('test-only')
             with self.assertRaisesRegex(ValueError, 'OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE'):
                 native._account_probe('test-only')
+            with self.assertRaisesRegex(ValueError, 'OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE'):
+                native._account_origin('test-only')
             preflight.side_effect = ValueError("candidate changed")
             with self.assertRaises(ValueError):
                 native.describe("test-only")

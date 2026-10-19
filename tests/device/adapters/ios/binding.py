@@ -112,6 +112,9 @@ def create_adapter(args, base_class):
         def _graphics_controls(self, *args, **kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
+        def _account_origin(self, *args, **kwargs):
+            raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
+
         def _account_probe(self, *args, **kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 

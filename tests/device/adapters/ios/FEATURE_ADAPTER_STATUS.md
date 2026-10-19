@@ -294,3 +294,15 @@ The canonical binding explicitly rejects the new factory and its five original
 binding checks still pass. Native HTTPS-origin provisioning, ordinary login/
 cancel/UI/restart and independent actor composition remain missing. Native code
 is uncompiled and no complete Authentication or device result is enabled.
+
+The `_account_origin` component now uses an actual new native Test-instance
+acquisition and original HTTP/AFC file staging/readback/retirement, with its
+own process/session/fingerprint journal. Cleanup attempts probes then origin
+files before base teardown and retains unresolved originals. Five new wrapper
+cases pass; the focused component group now has 42 passing cases, and the
+broad guarded iOS selection passes 274 with no failures/errors/skips or compiler
+attempts and the same 20 native exclusions. Canonical installed-code rejection
+explicitly includes the origin factory (five existing checks pass). No product
+endpoint or TLS trust changes; normal login/cancel/UI/restart/actor composition
+and complete Authentication activation remain open. Native code is uncompiled
+and every device remains unqualified.

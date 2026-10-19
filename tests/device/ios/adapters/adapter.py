@@ -141,6 +141,14 @@ class IOSAdapter(AppiumAdapter):
         manager = self._scripts(selector)
         return TokenGraphicsUI(IOSGraphicsIO(manager.ui.io),intent)
 
+    def account_origin_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('account-origin-owner.json'))
+
+    def _account_origin(self, selector):
+        manager=self._scripts(selector);native=manager.ui.io.native
+        observer=FeatureObservation(native.client,native.session,native.target,native.observe_process)
+        return observer.account_origin(self.account_origin_store(selector),manager.binding)
+
     def account_probe_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('account-probe-owner.json'))
 
@@ -178,6 +186,10 @@ class IOSAdapter(AppiumAdapter):
         try:
             if self.account_probe_store(selector).read() is not None:self._account_probe(selector).release()
         except Exception:probe_error=True
+        origin_error=False
+        try:
+            if self.account_origin_store(selector).read() is not None:self._account_origin(selector).release()
+        except Exception:origin_error=True
         store, script_error = self.script_store(selector), False
         try:
             owned = store.read()
@@ -192,8 +204,9 @@ class IOSAdapter(AppiumAdapter):
         # The canonical installed-code gate still rejects _scripts(). Always
         # reach original native/session teardown and retain unresolved sources.
         result = super().cleanup(selector)
-        need(not script_error and not probe_error and store.read() is None
-             and self.script_files_store(selector).read() is None and self.account_probe_store(selector).read() is None)
+        need(not script_error and not probe_error and not origin_error and store.read() is None
+             and self.script_files_store(selector).read() is None and self.account_probe_store(selector).read() is None
+             and self.account_origin_store(selector).read() is None)
         return result
 
     @staticmethod
