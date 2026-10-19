@@ -1198,6 +1198,8 @@ class Adapter:
                     and run.get('display_title') == NONPRODUCER_RUN_NAME)
         ordinary = (scheduling_progress and recipe in _NATIVE_INTENT_RECIPES
                     and run.get('display_title') == ORDINARY_RUN_NAME)
+        completed_ordinary = ordinary and all(row.get('status') == 'completed'
+                                             for row in (listed, latest, run))
         matching = all(listed.get(key) == latest.get(key) == run.get(key) for key in fields)
         require(progress or ordinary or matching, 'scheduling native run observation changed')
         suite = self._object(f"check-suites/{positive(run.get('check_suite_id'))}")
@@ -1235,7 +1237,13 @@ class Adapter:
                     require(started <= observed_now, 'scheduling source starts in the future')
                     advanced |= started > now
                 advanced |= updated > now
-            if not matching:
+            # Completed list/latest and attempt responses can retain distinct
+            # updated_at values. Keep each actual timestamp and authenticate
+            # its chronology above; every other observed field remains exact.
+            completed_matching = completed_ordinary and all(
+                listed.get(key) == latest.get(key) == run.get(key)
+                for key in fields if key != 'updated_at')
+            if not matching and not completed_matching:
                 raise SchedulingPending('ordinary scheduling native inventory changed after its cutoff')
             if advanced:
                 raise SchedulingPending('ordinary scheduling source is in the future of its fixed cutoff')
@@ -1244,8 +1252,15 @@ class Adapter:
         else:
             require(run['status'] in P._PENDING, 'completed scheduling source has no native start')
         require(P._time(run.get('updated_at')) <= observed_now, 'scheduling update time is in the future')
-        return {'run': run, 'generation': generations[0], 'source': source, 'workflows': workflows,
-                'candidate': {'merge_sha': revision, 'merge_tree': tree, 'merge_parents': parents}}
+        value = {'run': run, 'generation': generations[0], 'source': source, 'workflows': workflows,
+                 'candidate': {'merge_sha': revision, 'merge_tree': tree, 'merge_parents': parents}}
+        if completed_ordinary:
+            # _scheduling_identity retains these same-endpoint observations at
+            # the closing admission, including the unmodified update times.
+            value['completed_observations'] = {
+                name: {key: observed.get(key) for key in fields}
+                for name, observed in (('listed', listed), ('latest', latest), ('attempt', run))}
+        return value
 
     def _native_metadata_intent(self, listed, binding, policy, *, now, integrated=False,
                                 observation_clock=None):
@@ -1479,7 +1494,7 @@ class Adapter:
                 'original workflow did not succeed')
         attempt = self._object(f"actions/runs/{run['id']}/attempts/1")
         fields = (*_SCHEDULING_RUN_FIELDS, 'repository', 'head_repository', 'pull_requests',
-                  'referenced_workflows', 'status', 'conclusion', 'run_started_at', 'updated_at')
+                  'referenced_workflows', 'status', 'conclusion', 'run_started_at')
         require(type(attempt.get('run_attempt')) is int and attempt['run_attempt'] == 1
             and all(attempt.get(key) == run.get(key) for key in fields),
             'original successful attempt changed')
@@ -1492,8 +1507,9 @@ class Adapter:
         require(len(matches) == 1, 'original canonical native aggregate unavailable or ambiguous')
         fact = self._job(matches[0], run, 15368, final_name=canonical)
         require(fact.status == 'completed' and fact.conclusion == 'success'
-            and P._time(run.get('run_started_at')) <= P._time(fact.started_at)
-            <= P._time(fact.completed_at) <= P._time(run.get('updated_at')) <= now,
+            and all(P._time(observed.get('run_started_at')) <= P._time(fact.started_at)
+                <= P._time(fact.completed_at) <= P._time(observed.get('updated_at')) <= now
+                for observed in (run, attempt)),
             'original canonical native aggregate did not succeed in its workflow')
         require(self.metadata_result_status(observed) == run
             and self._object(f"actions/runs/{run['id']}/attempts/1") == attempt

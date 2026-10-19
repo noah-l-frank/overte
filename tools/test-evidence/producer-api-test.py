@@ -941,10 +941,72 @@ class MetadataSchedulingTests(unittest.TestCase):
         self.assertFalse(value['qualification'])
         self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
 
+    def test_completed_ordinary_endpoint_update_times_remain_distinct_and_authenticated(self):
+        c = self.case
+        def independent_updates(endpoint, value):
+            if endpoint.endswith('/actions/runs/100/attempts/1'):
+                value['updated_at'] = '2026-10-15T10:04:31Z'
+            return value
+        c.api.mutate = independent_updates
+        for conclusion in ('success', 'failure', 'cancelled'):
+            c.runs[100].update(status='completed', conclusion=conclusion)
+            with self.subTest(conclusion=conclusion):
+                value = self.schedule()
+                self.assertEqual((value['original_status'], value['original_conclusion']),
+                                 ('completed', conclusion))
+                self.assertFalse(value['qualification'])
+        source = c.adapter._scheduling_source(c.runs[100], c.binding, self.policy,
+            now=NOW, scheduling_progress=True)
+        self.assertEqual(source['completed_observations']['listed']['updated_at'],
+                         '2026-10-15T10:04:30Z')
+        self.assertEqual(source['completed_observations']['latest']['updated_at'],
+                         '2026-10-15T10:04:30Z')
+        self.assertEqual(source['completed_observations']['attempt']['updated_at'],
+                         '2026-10-15T10:04:31Z')
+        self.assertEqual(source['run']['updated_at'], '2026-10-15T10:04:31Z')
+        self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
+
+    def test_completed_ordinary_each_endpoint_update_must_have_valid_time_order(self):
+        for endpoint_kind in ('listed', 'latest', 'attempt'):
+            for stamp in ('not-a-time', '2026-10-15T09:58:59Z', '2026-10-15T10:05:03Z'):
+                self.setUp(); c = self.case
+                def invalid_update(endpoint, value):
+                    if endpoint_kind == 'listed' and '/actions/workflows/99/runs?' in endpoint:
+                        next(row for row in value['workflow_runs'] if row['id'] == 100)['updated_at'] = stamp
+                    elif endpoint_kind == 'latest' and endpoint.endswith('/actions/runs/100'):
+                        value['updated_at'] = stamp
+                    elif endpoint_kind == 'attempt' and endpoint.endswith('/actions/runs/100/attempts/1'):
+                        value['updated_at'] = stamp
+                    return value
+                c.api.mutate = invalid_update
+                with self.subTest(endpoint=endpoint_kind, stamp=stamp), self.assertRaises(P.ProtocolError) as error:
+                    c.adapter.metadata_schedule(17, 101, self.policy, now=NOW,
+                        observation_clock=lambda:NOW + timedelta(seconds=2))
+                self.assertNotIsInstance(error.exception, A.SchedulingPending)
+
+    def test_completed_ordinary_each_endpoint_is_stable_between_scheduling_bookends(self):
+        for endpoint_kind in ('listed', 'latest', 'attempt'):
+            self.setUp(); c = self.case; inventories = [0]
+            def changed_endpoint(endpoint, value):
+                if '/actions/workflows/99/runs?' in endpoint:
+                    inventories[0] += 1
+                    if endpoint_kind == 'listed' and inventories[0] >= 2:
+                        next(row for row in value['workflow_runs'] if row['id'] == 100)['updated_at'] = '2026-10-15T10:04:31Z'
+                elif inventories[0] >= 2 and (
+                        endpoint_kind == 'latest' and endpoint.endswith('/actions/runs/100')
+                        or endpoint_kind == 'attempt' and endpoint.endswith('/actions/runs/100/attempts/1')):
+                    value['updated_at'] = '2026-10-15T10:04:31Z'
+                return value
+            c.api.mutate = changed_endpoint
+            with self.subTest(endpoint=endpoint_kind), self.assertRaisesRegex(A.ApiError, 'source changed'):
+                self.schedule()
+
     def test_scheduling_only_original_progress_waits_for_a_fresh_complete_admission(self):
         for bookend in ('initial', 'final'):
             for shape in ('update', 'state'):
                 self.setUp(); c = self.case; inventories = [0]
+                if shape == 'update':
+                    c.runs[100].update(status='in_progress', conclusion=None)
                 def progress(endpoint, value):
                     if '/actions/workflows/99/runs?' in endpoint:
                         inventories[0] += 1
@@ -1147,6 +1209,7 @@ class MetadataSchedulingTests(unittest.TestCase):
 
     def test_later_observation_does_not_normalize_original_producer_progress(self):
         self.setUp()
+        self.case.runs[100].update(status='in_progress', conclusion=None)
         with self.assertRaisesRegex(P.ProtocolError,'inventory changed'):
             self.progressing_schedule(identity=100)
 
@@ -1185,6 +1248,7 @@ class MetadataSchedulingTests(unittest.TestCase):
 
     def test_original_progress_is_not_normalized_by_current_metadata_projection(self):
         c = self.case
+        c.runs[100].update(status='in_progress', conclusion=None)
         def changed_original(endpoint, value):
             if endpoint.endswith('/actions/runs/100/attempts/1'):
                 value['updated_at'] = '2026-10-15T10:04:31Z'
@@ -1317,7 +1381,9 @@ class MetadataSchedulingTests(unittest.TestCase):
                     'labels':'/actions/workflows/99/runs?'}[shape]
                 if suffix in endpoint:
                     reads += 1
-                    threshold = 2 if shape != 'labels' else 1
+                    # The ordinary source is classified before its opening
+                    # admission. Change the attempt at its closing admission.
+                    threshold = 4 if shape == 'run' else 2 if shape != 'labels' else 1
                     if reads >= threshold:
                         if shape == 'job': value['jobs'][0]['steps'][0]['conclusion'] = 'failure'
                         elif shape == 'check': value['conclusion'] = 'failure'
@@ -1364,6 +1430,46 @@ class MetadataCanonicalResultTests(unittest.TestCase):
         before=len(self.case.api.calls)
         self.assertEqual(self.case.adapter.metadata_result_status(self.observed)['status'],'in_progress')
         self.assertEqual(self.case.api.calls[before:],[A.PREFIX+'/actions/runs/100'])
+
+    def test_completed_result_accepts_distinct_valid_endpoint_update_times_without_normalization(self):
+        c = self.case
+        def independent_updates(endpoint, value):
+            if endpoint.endswith('/actions/runs/100/attempts/1'):
+                value['updated_at'] = '2026-10-15T10:04:31Z'
+            return value
+        c.api.mutate = independent_updates
+        value = c.adapter.metadata_result_success(self.observed, now=NOW)
+        self.assertEqual(value, {'job_id':151, 'qualification':False})
+        self.assertEqual(c.runs[100]['updated_at'], '2026-10-15T10:04:30Z')
+        self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
+
+    def test_completed_result_validates_both_endpoint_updates_against_native_completion_and_now(self):
+        for endpoint_kind in ('latest', 'attempt'):
+            for stamp in ('not-a-time', '2026-10-15T09:58:59Z',
+                          '2026-10-15T10:03:59Z', '2026-10-15T10:05:01Z'):
+                self.setUp(); c = self.case
+                def invalid_update(endpoint, value):
+                    if endpoint.endswith('/actions/runs/100' + (
+                            '/attempts/1' if endpoint_kind == 'attempt' else '')):
+                        value['updated_at'] = stamp
+                    return value
+                c.api.mutate = invalid_update
+                with self.subTest(endpoint=endpoint_kind, stamp=stamp), self.assertRaises(ValueError):
+                    c.adapter.metadata_result_success(self.observed, now=NOW)
+
+    def test_completed_result_each_endpoint_raw_bookend_remains_exact(self):
+        for endpoint_kind in ('latest', 'attempt'):
+            self.setUp(); c = self.case; reads = [0]
+            def changed_endpoint(endpoint, value):
+                if endpoint.endswith('/actions/runs/100' + (
+                        '/attempts/1' if endpoint_kind == 'attempt' else '')):
+                    reads[0] += 1
+                    if reads[0] >= 2:
+                        value['updated_at'] = '2026-10-15T10:04:31Z'
+                return value
+            c.api.mutate = changed_endpoint
+            with self.subTest(endpoint=endpoint_kind), self.assertRaisesRegex(ValueError, 'changed before output'):
+                c.adapter.metadata_result_success(self.observed, now=NOW)
 
     def test_codeql_uses_its_own_exact_canonical_name_not_a_repository_job(self):
         c=self.case
