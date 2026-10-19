@@ -31,6 +31,7 @@ class NativeCreate(Boundary):
         self.ignored_create = self.ignored_delete = self.partial_create = False
         self.complete = True
         self.ignore_import = False
+        self.ignore_name = False
         self.selected = None
         self.originals = []
 
@@ -52,7 +53,9 @@ class NativeCreate(Boundary):
     def select_entity(self, identifier):
         self.selected = next(row for row in self.entities if row['id'] == identifier)
         self.calls.append('select-entity')
-    def name_entity(self, name): self.selected['name'] = name; self.calls.append('name-entity')
+    def name_entity(self, name):
+        if not self.ignore_name: self.selected['name'] = name
+        self.calls.append('name-entity')
     def edit_properties(self, values): self.calls.append('edit-properties')
     def delete_entity(self):
         self.calls.append('delete-entity')
@@ -162,6 +165,15 @@ class NormalCreateTests(unittest.TestCase):
         with self.assertRaises(NativeUIError): self.close()
         self.assertIsNotNone(self.store.read()['pendingImportBeforeIds'])
         self.assertNotIn('stop', self.native.calls)
+
+    def test_cleanup_deletes_owned_unnamed_effect_even_when_product_ignores_name_edit(self):
+        self.open(); self.native.ignore_name = True
+        with self.assertRaises(NativeUIError): self.cube()
+        self.assertEqual('', self.native.entities[0]['name'])
+        edits = self.native.calls.count('name-entity')
+        self.close()
+        self.assertEqual([], self.native.entities)
+        self.assertEqual(edits, self.native.calls.count('name-entity'))
 
 
 if __name__ == '__main__': unittest.main()

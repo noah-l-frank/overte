@@ -128,7 +128,7 @@ class NormalCreate:
         self.remember_owned_effect(rows)
         self.mark(pendingImportBeforeIds=None)
 
-    def recover_pending(self):
+    def recover_pending(self, *, delete=False):
         if self.state['pendingBeforeIds'] is None:
             return
         rows = self.sample()
@@ -152,9 +152,17 @@ class NormalCreate:
             # intent. Keep its ID while naming, including an uncertain response.
             need(added[0]['type'] in {'Shape', 'Box'})
             self.ui.select_entity(added[0]['id'])
-            self.ui.name_entity(self.state['pendingName'])
-            rows = self.wait(lambda current: self.resolve(current, self.state['pendingName']) is not None)
-            self.remember_owned_effect(rows)
+            if delete:
+                # Cleanup must not depend on the failed name/edit path being
+                # functional. This native ID was measured after our recorded
+                # Shape input and was absent from the saved pre-input scope.
+                identifier = added[0]['id']
+                self.ui.delete_entity()
+                self.wait(lambda current: not any(row['id'] == identifier for row in current))
+            else:
+                self.ui.name_entity(self.state['pendingName'])
+                rows = self.wait(lambda current: self.resolve(current, self.state['pendingName']) is not None)
+                self.remember_owned_effect(rows)
         self.mark(pendingBeforeIds=None, pendingName=None)
 
     def open(self, script_url):
@@ -173,7 +181,7 @@ class NormalCreate:
     def delete(self, names):
         self.owned_names(names)
         self.recover_import()
-        self.recover_pending()
+        self.recover_pending(delete=True)
         for name in names:
             rows = self.sample()
             row = self.resolve(rows, name)
