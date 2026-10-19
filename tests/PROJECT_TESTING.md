@@ -807,7 +807,13 @@ merge inventories must preserve the original reviewed application boundary.
 Installed-profile continuation admits only already independent CI or document
 changes. Separate own-host omission still requires the existing CI/npm subset,
 mode and required-package-owner proofs plus the complete installed profile;
-cache transitions and guide changes keep the own-host checks. Unknown bytes,
+cache transitions and guide changes keep the own-host checks. The installed PR
+profile also binds the complete reviewed host complement of retained source
+`f2c84088cc78e365837ee7e4ba0f7ce98b2f5329`, independently verified by its required
+iOS host owner. All three immutable inputs must match that same complement and
+the complete exact installed profile before an independent CI change can omit
+own-host execution. This separate certificate preserves the historical global
+and v3 boundaries; it supplies no build result or qualification. Unknown bytes,
 modes, neighboring inputs or changed application readers retain their gates.
 
 The protected selector also enrolls two exact routing-only workflow revisions.

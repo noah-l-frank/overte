@@ -71,6 +71,10 @@ VARIANTS = ["complete-reviewed-launcher", "Qt6Core/Gui/Qml/Concurrent/WebChannel
 # This proves only that the own host run is unaffected; it is not a passing
 # test receipt, shared-owner handoff or application-build selection authority.
 REVIEWED_CI_HOST_BOUNDARY = "90da341e226f56b8dfb8b925af7c0273ecc41772ca424e3426b04c80acdb9a7b"
+# Complete actual f2c8408 compiler-PR reader complement, independently executed
+# by the required iOS host owner. Only its exact installed five-file profile
+# may use this additional negative dependency certificate; it is no test/E.
+REVIEWED_COMPILER_PR_CI_HOST_BOUNDARY = "c5c7e6b868df7b10b4f5b713b7f7640600e1aa7b67760987a274c2b6961ac3a4"
 CI_HOST_INDEPENDENT_PATHS = frozenset({
     # Linux-only shared Device launcher; its required Device owner is unchanged.
     "tests/device/run_artifact_identity.py",
@@ -680,10 +684,15 @@ def _compiler_pr_ci_comparison(previous, current, head, *, policy_root=ROOT):
     snapshots = (previous, current, head)
     if updated is None or any(not _compiler_profile(snapshot, COMPILER_PR_DATA_UPDATED)
             or any(entries(snapshot).get(path) != identity for path, identity in updated.items())
-            or ci_host_boundary(_compiler_comparison(snapshot, inputs, guide=True)) != REVIEWED_CI_HOST_BOUNDARY
             for snapshot in snapshots):
         return None
+    boundaries = [ci_host_boundary(_compiler_comparison(snapshot, inputs, guide=True))
+                  for snapshot in snapshots]
+    if len(set(boundaries)) != 1 or boundaries[0] not in {
+            REVIEWED_CI_HOST_BOUNDARY, REVIEWED_COMPILER_PR_CI_HOST_BOUNDARY}:
+        return None
     return {"profile": digest(COMPILER_PR_DATA_UPDATED), "head": {"revision": head.revision, "tree": head.tree},
+            "reviewed_comparison_boundary": boundaries[0],
             "actual_boundaries": [ci_host_boundary(snapshot) for snapshot in snapshots]}
 
 
@@ -724,7 +733,8 @@ def ci_host_omission(previous, current, *, repository=None, package_owner=None, 
                           "actual_boundaries": [ci_host_boundary(snapshot) for snapshot in snapshots]}
     result = {"schema": 1, "reason": "reviewed-ci-only-host-inputs" if npm is None
               else "reviewed-ci-and-required-npm-host-inputs",
-            "boundary": REVIEWED_CI_HOST_BOUNDARY, "changedPaths": sorted(changed),
+            "boundary": comparison.get("reviewed_comparison_boundary", REVIEWED_CI_HOST_BOUNDARY)
+                if comparison is not None else REVIEWED_CI_HOST_BOUNDARY, "changedPaths": sorted(changed),
             "base": {"revision": previous.revision, "tree": previous.tree},
             "candidate": {"revision": current.revision, "tree": current.tree}}
     if npm is not None:
