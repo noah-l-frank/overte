@@ -48,7 +48,8 @@ class NativeBoundary:
         if method == 'POST' and path.endswith('/actions'):
             if not self.ignore_keys:
                 keys = body['actions'][0]['actions'][4:]
-                self.text = ''.join(value['value'] for value in keys if value['type'] == 'keyDown')
+                self.text = ''.join(value['value'] for value in keys
+                                    if value['type'] == 'keyDown' and value['value'] != '\ue003')
             return None
         if path.endswith('/clear'):
             self.text = ''
@@ -74,6 +75,8 @@ class NormalNativeUITests(unittest.TestCase):
         self.assertFalse(any(path.endswith(('/clear', '/value')) for _, path, _ in native.calls))
         self.assertEqual(1, sum(method == 'POST' and path.endswith('/actions') for method, path, _ in native.calls))
         self.assertTrue(any(method == 'DELETE' and path.endswith('/actions') for method, path, _ in native.calls))
+        native.ui.replace_ascii_keys(Locator('id', 'ActualField'), '')
+        self.assertEqual('', native.text)
 
     def test_ignored_or_uncertain_keyboard_input_never_becomes_success_or_replay(self):
         native = NativeBoundary()
