@@ -32,7 +32,7 @@ jobs:
       pull-requests: read
     uses: ./.github/workflows/pr-metadata-context.yml
     with:
-      nonproducer_intent: ${{ github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')) }}
+      nonproducer_intent: ${{ !(!(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))) }}
 
   select:
     needs: metadata-source

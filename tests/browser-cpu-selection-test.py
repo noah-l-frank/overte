@@ -586,11 +586,14 @@ class CanonicalTemplateTests(unittest.TestCase):
                 'npm-consumers-metadata-edits-v1': 'metadata-edits/repository-checks.yml',
                 'android-owned-npm5-sync-ci-v1': 'android-owned/repository-checks.yml',
                 'protected-producer-original-default-v1': None,
-                'protected-producer-original-default-boolean-v1': 'producers/repository-checks.yml',
+                'protected-producer-original-default-boolean-v1': None,
+                'protected-producer-original-default-required-context-v1': 'producers/repository-checks.yml',
             }
             self.assertIn(generation, callers)
             if generation=='protected-producer-original-default-v1':
                 self.assertEqual(BROWSER._blob(outer),'81bcf1933edc435826e2de411a777cccd4dec7c7')
+            elif generation=='protected-producer-original-default-boolean-v1':
+                self.assertEqual(BROWSER._blob(outer),'15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a')
             else:
                 self.assertEqual(outer, BROWSER.trusted_bytes(
                     'tools/repository-checks/workflows/' + callers[generation]))

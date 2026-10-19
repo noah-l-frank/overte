@@ -156,12 +156,13 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         previous = next(g for g in self.generations if g['name'] == 'android-owned-npm5-sync-ci-v1')
         prospective = next(g for g in self.generations if g['name'] == 'protected-shared-producer-v1')
         self.assertEqual(set(prospective['workflows']), set(PACKAGES.CONSUMER_WORKFLOW_PATHS))
-        self.assertEqual(len(self.generations), 25)
-        retained=[row for row in self.generations if row['name']!='protected-producer-original-default-boolean-v1']
+        self.assertEqual(len(self.generations[:25]), 25)
+        self.assertEqual(len(self.generations), 26)
+        retained=[row for row in self.generations[:25] if row['name']!='protected-producer-original-default-boolean-v1']
         self.assertEqual(len(retained), 24)
-        self.assertEqual(len([row for row in self.generations
+        self.assertEqual(len([row for row in self.generations[:25]
                               if row['name'] not in {'npm-consumers-sync-ci-budget-cleanup-v1', 'protected-producer-original-default-boolean-v1'}]), 23)
-        self.assertEqual(len([row for row in self.generations
+        self.assertEqual(len([row for row in self.generations[:25]
                               if row['name'] not in {'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1', 'protected-producer-original-default-boolean-v1'}]), 22)
         for path in prospective['workflows']:
             if path not in {'.github/workflows/repository-checks.yml', '.github/workflows/project-tests.yml'}:
@@ -252,11 +253,23 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         caller='.github/workflows/repository-checks.yml'
         self.assertEqual({path for path in old if old[path]!=new[path]},{caller})
         self.assertEqual(old[caller]['sha'],'81bcf1933edc435826e2de411a777cccd4dec7c7')
-        self.assertEqual(new[caller],blob((ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml').read_bytes()))
-        self.assertEqual(PACKAGES.validate_wiring(ROOT),'protected-producer-original-default-v1')
-        self.assertEqual(blob((ROOT/'.github/workflows/codeql.yml').read_bytes())['sha'],
-            'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1')
-        for name in ('protected-producer-original-default-v1','protected-producer-original-default-boolean-v1'):
+        self.assertEqual(new[caller],{'mode':'100644','type':'blob','sha':'15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'})
+        staged=rows['protected-producer-original-default-required-context-v1']
+        self.assertEqual(staged[caller],blob((ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml').read_bytes()))
+        installed=PACKAGES.validate_wiring(ROOT)
+        codeql_by_generation={
+            'protected-producer-original-default-v1':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1',
+            'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
+            'protected-producer-original-default-required-context-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
+        }
+        self.assertIn(installed,codeql_by_generation)
+        self.assertEqual(rows[installed][caller],blob((ROOT/caller).read_bytes()))
+        codeql=ROOT/'.github/workflows/codeql.yml'
+        self.assertFalse(codeql.is_symlink())
+        self.assertIn(codeql.stat().st_mode & 0o777,(0o444,0o644))
+        self.assertEqual(blob(codeql.read_bytes())['sha'],codeql_by_generation[installed])
+        for name in ('protected-producer-original-default-v1','protected-producer-original-default-boolean-v1',
+                     'protected-producer-original-default-required-context-v1'):
             self.assertEqual(PACKAGES.validate_tree_wiring(rows[name]),name)
             unknown=deepcopy(rows[name]);unknown[caller]['sha']='f'*40
             with self.subTest(name=name),self.assertRaises(ValueError):PACKAGES.validate_tree_wiring(unknown)

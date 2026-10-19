@@ -150,18 +150,18 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = 'd8acd0ca9f78558bee03e6a1b30c4a8bde1ea836d3e19deac26774a7e47fb661'
+REVIEWED_PROGRAMS = '914503644579ce62ab754297006635e2b822872a5977d0b5d9beabef444ef5a4'
 REVIEWED_CHILD_PROGRAMS = {
-    'apple-main': '5630fb70e0efa24292d2750bdae769708de03859fa752b2485c3064577e8e1af',
-    'apple-ios': '764c6f8d70ede6287b97882a0b34ce9caca92b482648dd72bb2790d4fd554e95',
-    'android-main': 'd9b60344732b70c6e229cb6c3f647d0d40b5809261818221c1712ecdf60e7bab',
-    'android-phone': '9fe6e3f2beb13bbdd3affb0fd08a5c15f43ad55fbc76ee3c8649babce382326d',
-    'android-vr': 'd9b60344732b70c6e229cb6c3f647d0d40b5809261818221c1712ecdf60e7bab',
-    'android-vr-pico': '22b45baceff505e6f9bc3a4f8770b4ed7cdea53bf2b1442f64e37402269dca90',
+    'apple-main': '443dc0e73b5c447a0d19279843624044956f195f709723e374bc1c40effe6b70',
+    'apple-ios': 'a81054738ea7ca026ed58fab975d1d269c0f3d9bfa8aca56701c5bab52d4cf5f',
+    'android-main': '70342854016ba2e44b9e4b9cd51277680844a1f279684b74b8df3ca581829eba',
+    'android-phone': '69ee93aa9382d8fc24e0c1e338f3731051d8d51b5e821d11c6bff92e80f7a34d',
+    'android-vr': '70342854016ba2e44b9e4b9cd51277680844a1f279684b74b8df3ca581829eba',
+    'android-vr-pico': '8e7e0a3f1c4d4c11d0a9cfb57e5de004f92e63f2b4235e924d1f49ddd318c543',
 }
 # Separate exact installed family; None admits nothing until genuine enrollment.
 REVIEWED_INSTALLED_PROGRAMS = {
-    'apple-ios': 'bcd263f283542d4e57f4cdb3289765019d749ee1bba5ea100e0d4d4e45cf7186',
+    'apple-ios': '363fb877fbcb27a07879c741b2a3415a3b933f8c97a91b4ad523597f0fb24b84',
 }
 REVIEWED_PREDECESSORS = {
     'main': '6c6064992d2e2e189e06af5957c147fd1ac0996b886b8d0b6f30dbf856ee9afe',
@@ -294,7 +294,72 @@ def ci_owned(path):
             or path.endswith('.md') or path.endswith('.mdx'))
 
 
-def _regular_ci_delta(tree, base_tree, paths, package_paths):
+def _android_handoff_scope(tree, base_tree, paths, trusted_tree, trusted_root, target):
+    """Route one complete protected Android handoff without excluding its readers.
+
+    The manifest and payload identities come from actual trusted HEAD, never
+    candidate policy. The ordinary program digest still binds all seven target
+    files, and the separate required Android owner remains responsible for them.
+    """
+    targets = {'android-main', 'android-phone', 'android-vr', 'android-vr-pico'}
+    if target not in targets or not all(isinstance(value, dict) for value in
+            (tree, base_tree, trusted_tree)) or not isinstance(paths, (tuple, list)):
+        return {}
+    try:
+        if len(paths) != len(set(paths)) or set(paths) != {
+                path for path in base_tree.keys() | tree.keys() if base_tree.get(path) != tree.get(path)}:
+            return {}
+        policy = package_policy()
+        if policy.validate_tree_wiring(tree) not in policy._PROTECTED_ROUTE_GENERATIONS:
+            return {}
+        profile = {'mode': '100644', 'type': 'blob', 'sha': inputs._AFFECTED_TARGET_PROFILES[target]}
+        if any(snapshot.get('tests/platform-profile.json') != profile for snapshot in (base_tree, tree)):
+            return {}
+        actual = inputs.full_tree(trusted_root, 'HEAD')
+        manifest = '.github/android-owner-transfer.json'
+        entry = actual.get(manifest, {})
+        if entry.get('mode') != '100644' or entry.get('type') != 'blob' \
+                or any(snapshot.get(manifest) != entry for snapshot in (trusted_tree, tree)):
+            return {}
+        size = subprocess.check_output(['git', '--no-replace-objects', 'cat-file', '-s', entry['sha']],
+                                       cwd=trusted_root, timeout=30)
+        if int(size) > 100_000:
+            return {}
+        raw = subprocess.check_output(['git', '--no-replace-objects', 'cat-file', 'blob', entry['sha']],
+                                      cwd=trusted_root, timeout=30)
+        document = json.loads(raw, object_pairs_hook=inputs._unique_object)
+        if set(document) != {'schema', 'repository', 'repository_id', 'legacy_workflows', 'source_contracts', 'profiles'} \
+                or type(document['schema']) is not int or document['schema'] != 1 \
+                or document['repository'] != 'noah-l-frank/overte' \
+                or type(document['repository_id']) is not int or document['repository_id'] != 1319052603 \
+                or set(document['profiles']) != targets \
+                or len(document['legacy_workflows']) != 2 or len(document['source_contracts']) != 5:
+            return {}
+        items = {**document['legacy_workflows'], **document['source_contracts']}
+        if len(items) != 7:
+            return {}
+        scope = {}
+        for path, item in items.items():
+            source = 'tools/repository-checks/workflows/android-owned/handoff/' + path
+            if set(item) != {'source', 'reviewed_blob', 'mode'} or item['source'] != source \
+                    or item['mode'] not in {'100644', '100755'}:
+                return {}
+            payload = actual.get(source, {})
+            if payload.get('mode') != '100644' or payload.get('type') != 'blob' \
+                    or any(snapshot.get(source) != payload for snapshot in (trusted_tree, tree)):
+                return {}
+            current = {**payload, 'mode': item['mode']}
+            previous = {'mode': item['mode'], 'type': 'blob', 'sha': item['reviewed_blob']}
+            inputs._validate_tree({path: previous})
+            if base_tree.get(path) not in (previous, current) or tree.get(path) != current:
+                return {}
+            scope[path] = item['mode']
+        return scope
+    except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError, AttributeError):
+        return {}
+
+
+def _regular_ci_delta(tree, base_tree, paths, package_paths, *, handoff_scope=None):
     """Distinguish reviewed CI executables from documentation-safe inputs.
 
     The ordinary package/router flag intentionally rejects every executable.
@@ -305,14 +370,15 @@ def _regular_ci_delta(tree, base_tree, paths, package_paths):
         return False
     changed = {path for path in base_tree.keys() | tree.keys()
                if base_tree.get(path) != tree.get(path)}
-    if changed != set(paths) or not changed & CI_EXECUTABLE_PATHS:
+    handoff_scope = handoff_scope or {}
+    if changed != set(paths) or not changed & (CI_EXECUTABLE_PATHS | handoff_scope.keys()):
         return False
-    if any(not (ci_owned(path) or path in package_paths) for path in changed):
+    if any(not (ci_owned(path) or path in package_paths or path in handoff_scope) for path in changed):
         return False
     for path in changed:
         old, new = base_tree.get(path), tree.get(path)
-        expected = '100755' if path in CI_EXECUTABLE_PATHS else '100644'
-        if path in CI_EXECUTABLE_PATHS and (old is None or new is None):
+        expected = handoff_scope.get(path, '100755' if path in CI_EXECUTABLE_PATHS else '100644')
+        if path in CI_EXECUTABLE_PATHS | handoff_scope.keys() and (old is None or new is None):
             return False
         for entry in (old, new):
             if entry is not None and (entry.get('mode') != expected or entry.get('type') != 'blob'):
@@ -326,6 +392,85 @@ def regular_ci_inventory(plan, base_tree, candidate_tree):
         return False
     return plan.get('regular') is True or _regular_ci_delta(
         candidate_tree, base_tree, plan.get('paths', ()), package_owned_paths(plan))
+
+
+def finite_ci_regularity(tree, base_tree, paths, trusted_tree, *, candidate_root=ROOT,
+                         trusted_root=ROOT, target=None, unknown=False):
+    """Recompute only the enrolled Android handoff or exact iOS cache transition.
+
+    This proves ordinary source modes, never execution or application PASS.
+    The global CI ownership and raw reader complements deliberately stay intact.
+    Callers without this complete trusted context retain their existing rules.
+    """
+    if unknown is not False or target not in {'apple-ios', 'android-main', 'android-phone',
+            'android-vr', 'android-vr-pico'} or not all(isinstance(value, dict)
+            for value in (tree, base_tree, trusted_tree)) or not isinstance(paths, (tuple, list)):
+        return False
+    try:
+        if not paths or len(paths) != len(set(paths)) or set(paths) != {
+                path for path in base_tree.keys() | tree.keys() if base_tree.get(path) != tree.get(path)}:
+            return False
+        if target == 'apple-ios' and set(paths) != set(inputs.INSTALLED_COMPILER_PROFILE):
+            return False
+        for snapshot in (base_tree, tree, trusted_tree):
+            inputs._validate_tree(snapshot)
+            if any(entry['mode'] not in {'100644', '100755'} or entry['type'] != 'blob'
+                   for entry in snapshot.values()):
+                return False
+        source, _ = execution.checkout_identity(trusted_root)
+        actual = inputs.full_tree(trusted_root, source)
+        if actual != trusted_tree or program_digest(actual, trusted_root) not in {
+                REVIEWED_PROGRAMS, REVIEWED_PREDECESSORS['main']}:
+            return False
+        policy = package_policy()
+        current_generation = policy.validate_tree_wiring(actual)
+        if current_generation not in policy._PROTECTED_ROUTE_GENERATIONS \
+                or policy.validate_tree_wiring(tree) != current_generation:
+            return False
+        before_generation = policy.validate_tree_wiring(base_tree)
+        if target != 'apple-ios':
+            scope = _android_handoff_scope(tree, base_tree, paths, actual, trusted_root, target)
+            return bool(scope) and _regular_ci_delta(tree, base_tree, paths, (), handoff_scope=scope) \
+                and program_digest(tree, candidate_root) == REVIEWED_CHILD_PROGRAMS.get(target)
+        profile = inputs.INSTALLED_COMPILER_PROFILE
+        if before_generation != current_generation or set(paths) != set(profile) \
+                or not inputs.installed_compiler_profile(tree, target=target) \
+                or any(base_tree.get(path, {}).get('mode') != entry['mode']
+                    or base_tree[path].get('type') != 'blob' for path, entry in profile.items()) \
+                or program_digest(base_tree, candidate_root) != REVIEWED_CHILD_PROGRAMS.get(target) \
+                or program_digest(tree, candidate_root) != REVIEWED_INSTALLED_PROGRAMS.get(target):
+            return False
+        # The independent iOS required owner must retain its protected decision
+        # rules. Its exact compiler_pr_data_selection still requires own-host
+        # execution while omitting application provisioning/build jobs.
+        authority = ('.github/ios-host-orchestration.json', 'tools/ios-build-qualification/host.py',
+            'tools/ios-build-qualification/inputs.py', 'tools/ios-build-qualification/check.py',
+            'tools/ios-build-qualification/host-workflow.yml', inputs.AFFECTED_POLICY,
+            '.github/test-suites.json')
+        if any(actual.get(path, {}).get('mode') != '100644' or actual[path].get('type') != 'blob'
+                or any(snapshot.get(path) != actual[path] for snapshot in (base_tree, tree))
+                for path in authority):
+            return False
+        owner = '.github/workflows/ios-build-qualification.yml'
+        if any(snapshot.get(owner) != actual['tools/ios-build-qualification/host-workflow.yml']
+               for snapshot in (base_tree, tree)):
+            return False
+        registry = inputs.load_registry(Path(trusted_root) / '.github/test-suites.json')
+        raw = inputs.load_dependencies(Path(trusted_root) / inputs.AFFECTED_POLICY, registry)
+        oid = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+        document = json.loads(raw, object_pairs_hook=inputs._unique_object)
+        if actual[inputs.AFFECTED_POLICY]['sha'] != oid or document['schema'] != 2:
+            return False
+        row = document['targets'][target]
+        independent = document['suites']['device-control-plane-full']['native_independent_paths']
+        return (all(snapshot.get('tests/platform-profile.json') == row['profile']
+                and inputs.affected_lookup_digest(snapshot) == row['lookup_digest']
+                for snapshot in (base_tree, tree))
+            and inputs.device_reader_digest(base_tree, independent) == row['reader_digest']
+            and inputs.device_reader_digest(tree, independent) == inputs.INSTALLED_COMPILER_READER)
+    except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError, AttributeError,
+            execution.ExecutionError):
+        return False
 
 
 def _protected_producer_transition(tree, paths, base_tree, trusted_tree, target):
@@ -447,9 +592,19 @@ def _select_legacy(tree, paths, regular, *, unknown=False, trusted_tree=None, ca
     reason = 'unowned-inputs'
     if not isinstance(package_paths, (tuple, list)) or any(path not in PACKAGE_LOCKS for path in package_paths):
         raise ValueError('host package ownership requires finite separately owned lock paths')
-    if unknown or not paths or (not regular and not _regular_ci_delta(tree, base_tree, paths, package_paths)):
+    if target == 'apple-ios' and not package_paths and finite_ci_regularity(
+            tree, base_tree, paths, trusted_tree, candidate_root=candidate_root,
+            trusted_root=trusted_root, target=target, unknown=unknown):
+        return {'suites': [name for name in names if registry['suites'][name]['layer'] == 'quick'
+                    and name not in PRODUCT_QUICK_SUITES],
+                'reason': 'reviewed-ci-only-inputs', 'full_host': False, 'include_platform': False}
+    handoff_scope = {} if unknown else _android_handoff_scope(
+        tree, base_tree, paths, trusted_tree, trusted_root, target)
+    if unknown or not paths or (not regular and not _regular_ci_delta(
+            tree, base_tree, paths, package_paths, handoff_scope=handoff_scope)):
         reason = 'unknown-or-nonregular-inventory'
-    elif not all(isinstance(path, str) and (ci_owned(path) or path in package_paths) for path in paths):
+    elif not all(isinstance(path, str) and (ci_owned(path) or path in package_paths or path in handoff_scope)
+                 for path in paths):
         reason = 'unowned-inputs'
     else:
         try:

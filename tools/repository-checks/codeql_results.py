@@ -579,6 +579,16 @@ class MetadataVerifier:
         # active caller is retained. Select that actual immutable pair without
         # relabelling an original analysis as the new caller.
         ordinary = lambda oid: {'mode':'100644','type':'blob','sha':oid}
+        if trusted_workflows.get(WORKFLOW) == ordinary(codeql._REQUIRED_CONTEXT_RESULTS_WORKFLOW):
+            variants = [ordinary(value) for value in (codeql._SCHEDULING_RESULTS_WORKFLOW,
+                codeql._BOOLEAN_RESULTS_WORKFLOW, codeql._REQUIRED_CONTEXT_RESULTS_WORKFLOW)]
+            base_caller, candidate_caller = base_tree.get(WORKFLOW), candidate_tree.get(WORKFLOW)
+            require(base_caller in variants and candidate_caller in variants
+                    and variants.index(base_caller) <= variants.index(candidate_caller),
+                    'required-context metadata caller is unknown or rolls back an installed successor')
+            workflows = {**trusted_workflows, WORKFLOW: candidate_caller}
+            policy = A.MetadataPolicy(policy.caller_workflow_id, WORKFLOW,
+                {'codeql-metadata-v1': workflows}, {'codeql-metadata-v1': sources})
         if trusted_workflows.get(WORKFLOW) == ordinary(codeql._BOOLEAN_RESULTS_WORKFLOW):
             require((base_tree.get(WORKFLOW), candidate_tree.get(WORKFLOW)) in (
                 (ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW), ordinary(codeql._SCHEDULING_RESULTS_WORKFLOW)),

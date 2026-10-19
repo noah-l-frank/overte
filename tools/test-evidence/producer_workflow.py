@@ -408,6 +408,16 @@ def _selection_profile(policy, registry, candidate_tree, base_tree, trusted_tree
                 for snapshot in (candidate_tree,base_tree)), 'CI37 command registry differs from original trusted policy')
             runtime_policy = ci_profile.load_policy(root)
             if runtime_policy.get('generation_kind') == ci_profile.SEVEN_CONTROLLER_KIND:
+                # Executable handoff leaves need their complete finite source
+                # proof again here; the selected JSON is never mode authority.
+                existing_regularity = getattr(policy, 'regular_ci_inventory', None)
+                if not regular and callable(existing_regularity):
+                    regular = existing_regularity({'unknown': False, 'regular': False, 'paths': paths},
+                        base_tree, candidate_tree)
+                finite_regularity = getattr(policy, 'finite_ci_regularity', None)
+                if not regular and callable(finite_regularity):
+                    regular = finite_regularity(candidate_tree, base_tree, paths, trusted_tree,
+                        candidate_root=root, trusted_root=root, target=target)
                 host.require(execution_schema(policy,candidate_tree,target) == 4,
                     'seven-target CI execution requires retained original default source')
                 legacy = policy._select_legacy(candidate_tree,paths,regular,base_tree=base_tree,
