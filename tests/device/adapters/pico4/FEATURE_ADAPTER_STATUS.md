@@ -11,10 +11,18 @@ and evaluated animation/pose observations plus labelled render/audio/account
 reads. `_native_feature_observer(target)` preserves the original candidate,
 installed-byte, foreground and OpenXR process guards around that separate
 read-only file. This source backend still advertises no `feature.*` triple.
-The existing registered observation group now runs **10** host boundary cases,
+The existing registered observation group now runs **13** host boundary cases,
 including changed candidates, foreign PIDs and unavailable native hooks.
 Native compilation and device behavior remain untested. See the
 [native observation contract](../../native/README.md).
+
+The internal `_recorded_preview_evidence()` joins original normal-preview
+capture/sink PCM to the same verified candidate and OpenXR process guards.
+Fixed private binary run-as reads, native cycle/event metadata, hashes and
+actual cleanup observations remain separate from any audio verdict. Original
+files surviving a release or candidate/process changes fail. There is no
+complete audio capability or acoustic qualification. See
+[the preview source contract](../../native/RECORDED_PREVIEW_EVIDENCE.md).
 
 The next packet now implements the five existing `scripts.*` foundation
 operations through the real VR Tablet/MENU > Edit > Running Scripts controls.

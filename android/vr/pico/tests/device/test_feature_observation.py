@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from functools import partial
 import json
+import shlex
 from pathlib import Path
 import sys
 import unittest
@@ -14,6 +15,7 @@ from adapters.normal_script_manager import read_native_diagnostic
 from adapters.pico4 import feature_observation
 from adapters.android.adapter import ANDROID_CONTROL_COMMAND
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
+from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
 
 
 class FeatureObservationTests(unittest.TestCase):
@@ -92,6 +94,62 @@ class FeatureObservationTests(unittest.TestCase):
         self.assertTrue(first['animation']['clip']['url'].endswith('/Sit2.fbx'))
         self.assertEqual([], self.native.inputs)
         self.assertFalse(any(value.startswith('feature.') for value in self.adapter.capabilities(self.native.target)))
+
+    def preview_boundaries(self):
+        source = PreviewBoundary()
+        def mutate(value):
+            value['processId'] = 123
+            offset = self.native.epoch_milliseconds(self.native.target) - 20000
+            value['requestedEpochMs'] += offset; value['capturedEpochMs'] += offset
+            if 'source' in value:
+                original = value['source']
+                for key in ('startedEpochMs', 'inputLastEpochMs', 'sinkLastEpochMs'): original[key] += offset
+                for event in original['events']: event['publishedEpochMs'] += offset
+        source.mutate = mutate
+        original_read = self.native.read_debug_app_file
+        def write(target, package, path, raw):
+            self.assertEqual(ANDROID_CONTROL_COMMAND, path)
+            self.assertEqual('org.overte.pico', package)
+            source.send(json.loads(raw))
+        def read(target, package, path, **kwargs):
+            if path == 'files/overte-e2e/recorded-preview-observation.json': return json.dumps(source.value)
+            return original_read(target, package, path, **kwargs)
+        def binary(command, *, target, timeout):
+            self.assertEqual('exec-out', command[0]); self.assertEqual(5, timeout)
+            raw = source.files.get(shlex.split(command[1])[-1])
+            return b'OVT_PREVIEW_MISSING_V1\n' if raw is None else b'OVT_PREVIEW_BYTES_V1\n' + raw + b'\nOVT_PREVIEW_BYTES_END_V1\n'
+        for boundary in (patch.object(self.native, 'write_debug_app_file', side_effect=write),
+                         patch.object(self.native, 'read_debug_app_file', side_effect=read),
+                         patch.object(self.native, 'execute_bytes', side_effect=binary, create=True)):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source
+
+    def test_original_pico_preview_pcm_uses_bound_native_transport_and_verifies_cleanup(self):
+        source = self.preview_boundaries()
+        reader = self.adapter._recorded_preview_evidence(self.native.target)
+        value, raw = reader.read(0, after_cycle=6)
+        self.assertEqual(source.value, value)
+        self.assertEqual(source.files['recorded-preview-sink.pcm16le'], raw['sink'])
+        reader.release(); reader.release()
+        self.assertEqual({}, source.files)
+        self.assertEqual([], self.native.inputs)
+
+    def test_pico_preview_candidate_change_blocks_request(self):
+        source = self.preview_boundaries()
+        reader = self.adapter._recorded_preview_evidence(self.native.target)
+        self.native.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): reader.read(0)
+        self.assertEqual([], source.commands)
+
+    def test_pico_preview_ignored_release_and_foreign_process_are_rejected(self):
+        source = self.preview_boundaries(); source.retain = True
+        reader = self.adapter._recorded_preview_evidence(self.native.target)
+        reader.read(0)
+        with self.assertRaises(RuntimeError): reader.release()
+        self.native.identity = '999:foreign'
+        before = len(source.commands)
+        with self.assertRaises(RuntimeError): reader.read(reader.sequence)
+        self.assertEqual(before, len(source.commands))
 
     def test_native_feature_candidate_change_after_original_read_is_rejected(self):
         source = self.native_feature_boundaries()
