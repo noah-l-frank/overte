@@ -20,6 +20,11 @@ from navigation_observation import OPERATIONS as NAVIGATION_OPERATIONS
 from adapters.android_snapshot_files import AndroidSnapshotFiles
 from overte_phone_snapshot import (PhoneSnapshot, PhoneSnapshotUI, PrivateSnapshotState,
                                    OPERATIONS as SNAPSHOT_OPERATIONS)
+from adapters.android_script_ui import AndroidScriptUI
+from adapters.normal_feature_state import PrivateFeatureState
+from adapters.normal_script_manager import (NormalScriptManager, read_native_diagnostic,
+                                            DIAGNOSTIC_FILE)
+from scripts_observation import OPERATIONS as SCRIPT_OPERATIONS
 
 
 class PhoneAppiumAdapter(AppiumAdapter):
@@ -98,7 +103,63 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 and target.get('appId') == 'io.github.noah_be.overte.phone'
                 and self.controlled_android_client(target)):
             values = sorted(set(values) | SNAPSHOT_OPERATIONS)
+        script_enabled = os.environ.get('OVERTE_PHONE_NORMAL_SCRIPTS', '0')
+        require(script_enabled in ('0', '1'), 'PHONE_NORMAL_SCRIPTS_CONFIGURATION_INVALID')
+        if script_enabled == '1':
+            require(getattr(self, 'candidate', None) is not None
+                    and target.get('appId') == 'io.github.noah_be.overte.phone'
+                    and self.controlled_android_client(target),
+                    'PHONE_NORMAL_SCRIPTS_REQUIRES_BOUND_DEBUG_TARGET')
+            values = sorted(set(values) | SCRIPT_OPERATIONS)
         return values
+
+    def script_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-session.json'))
+
+    def normal_scripts(self, selector, operation, values):
+        arguments = validate_operation_arguments(operation, values)
+        target = self.target(selector)
+        require(operation in self.advertised_capabilities(target), 'PHONE_NORMAL_SCRIPTS_NOT_ENABLED')
+        client, session, state = self.ensure_session(selector)
+        installed = self.installed_identity(selector)
+        process = self.process_state(selector, client, session, state, target)
+        require(process.get('running') is True and isinstance(process.get('identity'), str)
+                and re.fullmatch(r'[1-9][0-9]{0,9}:[0-9]{1,20}', process['identity']) is not None,
+                'PHONE_NORMAL_SCRIPTS_PID_AND_START_TICKS_REQUIRED')
+        fingerprint = self.snapshot_fingerprint(target)
+        require(state.get('targetFingerprint') == fingerprint, 'PHONE_NORMAL_SCRIPTS_SESSION_TARGET_CHANGED')
+
+        def check():
+            current = self.read_session(selector)
+            require(self.snapshot_fingerprint(self.target(selector)) == fingerprint
+                    and current is not None and current.get('sessionId') == session
+                    and current.get('generation') == state.get('generation')
+                    and current.get('targetFingerprint') == fingerprint
+                    and self.query_app_state(client, session, target) == 4
+                    and self.process_state(selector, client, session, state, target) == process,
+                    'PHONE_NORMAL_SCRIPTS_PROCESS_OR_SESSION_CHANGED')
+
+        check()
+        binding = PhoneAdapter(self.candidate)
+        device = target['capabilities']['appium:udid']
+        def observe(after):
+            return read_native_diagnostic(
+                lambda: binding.adb.read_debug_app_file(device, target['appId'],
+                                                        'files/overte-e2e/' + DIAGNOSTIC_FILE),
+                lambda: binding.adb.epoch_milliseconds(device), check, after)
+
+        context = {key: installed[key] for key in ('sourceRevision', 'artifactSha256')}
+        context.update(processIdentity=process['identity'], sessionId=session,
+                       generation=state['generation'], targetFingerprint=fingerprint)
+        flow = NormalScriptManager(AndroidScriptUI(NativeUI(client, session, check), target['appId']),
+                                   observe, self.script_store(selector), context)
+        # An enabled flag alone is insufficient: fail before UI input if the
+        # selected installed candidate lacks the real diagnostic producer.
+        flow.sample()
+        result = flow.invoke(operation, arguments)
+        check()
+        require(self.installed_identity(selector) == installed, 'PHONE_NORMAL_SCRIPTS_INSTALL_CHANGED')
+        return result
 
     def snapshot_store(self, selector):
         return PrivateSnapshotState(self.state_path(selector).with_name('phone-snapshot-session.json'))
@@ -144,6 +205,20 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        script_store = self.script_store(selector)
+        script_owned = script_store.read()
+        script_error = None
+        if script_owned is not None:
+            try:
+                # Preserve source intent if candidate/process ownership can no
+                # longer be established. Stopping the app is still attempted
+                # below, but does not prove removal from persisted script state.
+                if script_owned.get('loadAttempted'):
+                    self.normal_scripts(selector, 'scripts.manager.open', {})
+                    self.normal_scripts(selector, 'scripts.stop', {'url': script_owned['source']})
+                self.normal_scripts(selector, 'scripts.manager.close', {})
+            except Exception:
+                script_error = True
         store = self.snapshot_store(selector)
         owned = store.read()
         if owned is not None:
@@ -167,6 +242,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         if owned is not None:
             require(result == {'cleaned': True}, 'PHONE_NORMAL_SNAPSHOT_CLEANUP_INCOMPLETE')
             store.discard()
+        require(script_error is None and script_store.read() is None,
+                'PHONE_NORMAL_SCRIPTS_CLEANUP_INCOMPLETE')
         return result
 
     def normal_navigation(self, selector, operation, values):
@@ -209,6 +286,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
             return self.normal_navigation(selector, operation, values)
         if operation in SNAPSHOT_OPERATIONS:
             return self.normal_snapshot(selector, operation, values)
+        if operation in SCRIPT_OPERATIONS:
+            return self.normal_scripts(selector, operation, values)
         result = super().invoke(selector, operation, values)
         if self.candidate is not None and operation == "app.install":
             self.installed_identity(selector)
