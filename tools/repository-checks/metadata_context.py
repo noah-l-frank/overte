@@ -70,6 +70,27 @@ def scheduling_role(environment, *, result=False):
     return caller is not None and role == RESULT_ROLES[caller]
 
 
+def _same_scheduling_merge(get, original, live, base, head):
+    """Result/scheduling comparison only; never rewrite either native source."""
+    require(all(type(value) is str and _SHA.fullmatch(value) and value != '0' * 40
+                for value in (original, live, base, head)), 'scheduling merge identity unavailable')
+    if original == live:
+        return True  # The existing live source admission remains mandatory.
+    trees = []
+    for revision in (original, live):
+        value = get('git/commits/' + revision)
+        require(type(value) is dict and value.get('sha') == revision
+            and type(value.get('parents')) is list
+            and all(type(parent) is dict for parent in value['parents'])
+            and [parent.get('sha') for parent in value['parents']] == [base, head],
+            'scheduling regenerated merge ordered parents differ')
+        tree = value.get('tree', {}).get('sha')
+        require(type(tree) is str and _SHA.fullmatch(tree) and tree != '0' * 40,
+                'scheduling immutable merge tree unavailable')
+        trees.append(tree)
+    return trees[0] == trees[1]
+
+
 def event_only(event, event_name):
     """Closed inert PR events; the Android diagnostic label remains meaningful."""
     if event_name not in {'pull_request', 'pull_request_target'} or not isinstance(event, dict) \
@@ -222,7 +243,9 @@ def _protected_readers(event, environment, native_value, root):
     current_merge = api.get('commits/refs/pull/' + str(native_value['number']) + '/merge')
     resolved = source.resolve_pr_base(api, current_pr, current_merge, event_pr=event['pull_request'])
     target, effective_base = resolved['target'], resolved['base']
-    require(resolved['head'] == native_value['head'] and resolved['source'] == native_value['merge']
+    require(resolved['head'] == native_value['head']
+        and _same_scheduling_merge(api.get, native_value['merge'], resolved['source'],
+            effective_base, native_value['head'])
         and resolved['head_ref'] == event['pull_request']['head']['ref']
         and target == event['pull_request']['base']['ref'], 'scheduling native M/head/target differs')
     reference = api.get('git/ref/heads/main')
@@ -348,7 +371,9 @@ def schedule(event, environment, *, root=ROOT, adapter=None, clock=lambda: datet
     adapter = A.Adapter() if adapter is None else adapter
     binding, references = adapter.current(native_value['number'])
     require(binding['base_ref'] == event['pull_request']['base']['ref']
-        and all(binding[key + '_sha'] == native_value[key] for key in ('head', 'merge'))
+        and binding['head_sha'] == native_value['head']
+        and _same_scheduling_merge(adapter._object, native_value['merge'], binding['merge_sha'],
+            binding['base_sha'], binding['head_sha'])
         and references['default_ref'] == 'main', 'scheduling live native candidate differs')
     caller = next(path for path in CALLERS if environment['GITHUB_WORKFLOW_REF'] ==
         REPOSITORY + '/' + path + '@' + environment['GITHUB_REF'])
@@ -360,8 +385,9 @@ def schedule(event, environment, *, root=ROOT, adapter=None, clock=lambda: datet
         row['name'] == 'android-long-diagnostics' for row in labels)
     value = adapter.metadata_schedule(native_value['number'], native_value['run_id'], policy,
         diagnostics=diagnostics, now=clock())
-    require(value['binding'] == binding and value['references'] == references
-        and adapter.current(native_value['number']) == (binding, references)
+    require(A._scheduling_context_matches((binding, references), (value['binding'], value['references']))
+        and value['current_merge_sha'] == native_value['merge']
+        and A._scheduling_context_matches((binding, references), adapter.current(native_value['number']))
         and _source_policy(root, adapter, binding, references, native_value,
             _protected_readers(event, environment, native_value, root), caller=caller) == (policy, context)
         and native(event, environment, root=root) == native_value, 'scheduling source changed before output')
@@ -383,6 +409,8 @@ def result(event, environment, *, root=ROOT, adapter=None, clock=time.monotonic,
         value = native(event, environment, root=root)
         adapter = _protected_readers(event, environment, value, root)[0].Adapter()
     observed = schedule(event, environment, root=root, adapter=adapter)
+    # schedule() has authenticated and imported the protected reader closure.
+    import producer_api as A
     while True:
         state = adapter.metadata_result_status(observed)
         require(clock() - started <= wait_seconds, 'original result wait expired')
@@ -390,12 +418,16 @@ def result(event, environment, *, root=ROOT, adapter=None, clock=time.monotonic,
             require(state['conclusion'] == 'success', 'original workflow did not succeed')
             fresh = schedule(event, environment, root=root, adapter=adapter)
             require(all(fresh[key] == observed[key] for key in (
-                'binding', 'references', 'current_run_id', 'original_run_id', 'original_identity', 'diagnostics')),
+                'current_run_id', 'original_run_id', 'original_identity', 'diagnostics',
+                'current_merge_sha', 'original_merge_sha'))
+                and A._scheduling_context_matches((observed['binding'], observed['references']),
+                    (fresh['binding'], fresh['references'])),
                 'original result source changed while waiting')
             require(fresh['original_status'] == 'completed' and fresh['original_conclusion'] == 'success',
                     'original successful result changed')
             native_result = adapter.metadata_result_success(fresh)
-            require(adapter.current(fresh['binding']['pull_request']) == (fresh['binding'], fresh['references']),
+            require(A._scheduling_context_matches((fresh['binding'], fresh['references']),
+                    adapter.current(fresh['binding']['pull_request'])),
                     'metadata result candidate changed before output')
             require(clock() - started <= wait_seconds, 'original result admission exceeded its bound')
             return {**fresh, 'kind': 'native-metadata-original-result', 'qualification': False,

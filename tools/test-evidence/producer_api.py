@@ -181,6 +181,30 @@ def _scheduling_identity(source):
     return {**source, 'run': {key: source['run'].get(key) for key in _SCHEDULING_RUN_FIELDS}}
 
 
+def _scheduling_candidate_matches(candidate, binding):
+    """Compare authenticated immutable candidates only for result scheduling.
+
+    The caller has already authenticated the native reusable source and read
+    its immutable commit. This cannot authorize producer evidence or receipts.
+    """
+    sha(candidate.get('merge_sha')); sha(candidate.get('merge_tree'))
+    expected = [sha(binding.get('base_sha')), sha(binding.get('head_sha'))]
+    require(binding.get('merge_parents') == expected, 'scheduling live ordered candidate differs')
+    return candidate['merge_tree'] == sha(binding.get('merge_tree')) and candidate.get('merge_parents') == expected
+
+
+def _scheduling_context_matches(before, after):
+    """Only a regenerated temporary M may differ between result bookends."""
+    binding, references = before
+    fresh, refs = after
+    return (_scheduling_candidate_matches(fresh, binding)
+        and {k: v for k, v in binding.items() if k != 'merge_sha'} ==
+            {k: v for k, v in fresh.items() if k != 'merge_sha'}
+        and references.get('merge') == binding['merge_sha'] and refs.get('merge') == fresh['merge_sha']
+        and {k: v for k, v in references.items() if k != 'merge'} ==
+            {k: v for k, v in refs.items() if k != 'merge'})
+
+
 def _now():
     return datetime.now(timezone.utc)
 
@@ -1246,11 +1270,17 @@ class Adapter:
                 'scheduling current invocation is missing or ambiguous')
         observations, ordinary = {}, []
         current_row = next(row for row in listed if row['id'] == current_run_id)
-        current = self._scheduling_source(current_row, binding, policy, now=now)
+        # The current exact never-producer has its own running result job.
+        # GitHub's list/latest/attempt endpoints can report different progress
+        # timestamps while that job runs. Bind its immutable native intent,
+        # just as for other authenticated metadata invocations; no original
+        # execution status or canonical result is accepted by this projection.
+        current = self._scheduling_source(current_row, binding, policy, now=now,
+                                          allow_intent_progress=True)
         require((policy.caller_path, current['workflows'][policy.caller_path]['sha'],
                  current['workflows'][METADATA_WORKFLOW]['sha']) in _NATIVE_INTENT_RECIPES,
                 'scheduling current workflow has no exact never-producer recipe')
-        require(current['candidate']['merge_sha'] == binding['merge_sha']
+        require(_scheduling_candidate_matches(current['candidate'], binding)
             and current['run'].get('display_title') == NONPRODUCER_RUN_NAME
             and current['run']['status'] in P._PENDING and current['run'].get('conclusion') is None,
             'scheduling current invocation is not the active exact candidate')
@@ -1264,7 +1294,7 @@ class Adapter:
                 observations[identity] = ('metadata', marker)
                 continue
             source = self._scheduling_source(row, binding, policy, now=now)
-            if source['candidate']['merge_sha'] != binding['merge_sha']:
+            if not _scheduling_candidate_matches(source['candidate'], binding):
                 observations[identity] = ('other-source', source)
                 continue
             require(source['run'].get('display_title') == ORDINARY_RUN_NAME,
@@ -1308,7 +1338,7 @@ class Adapter:
         final_list = self._pages(endpoint, 'workflow_runs', search=True)
         require([{key: row.get(key) for key in _SCHEDULING_RUN_FIELDS} for row in final_list]
             == [{key: row.get(key) for key in _SCHEDULING_RUN_FIELDS} for row in listed]
-            and self.current(number) == (binding, references)
+            and _scheduling_context_matches((binding, references), self.current(number))
             and self._scheduling_diagnostics(number, policy) == diagnostics,
             'scheduling candidate, semantic labels or inventory changed')
         for row in final_list:
@@ -1317,7 +1347,8 @@ class Adapter:
                 require(self.metadata_observation(row, binding, policy, now=now) == source,
                         'scheduling nonproducer source changed')
             else:
-                fresh = self._scheduling_source(row, binding, policy, now=now)
+                fresh = self._scheduling_source(row, binding, policy, now=now,
+                    allow_intent_progress=kind == 'current')
                 require(_scheduling_identity(fresh) == _scheduling_identity(source),
                         'scheduling native source changed')
                 if kind == 'current':
@@ -1332,6 +1363,8 @@ class Adapter:
         return {'kind': 'native-nonproducer-scheduling', 'qualification': False,
                 'metadata_only': 'true', 'binding': binding, 'references': references,
                 'current_run_id': current_run_id, 'original_run_id': original['id'],
+                'current_merge_sha': current['candidate']['merge_sha'],
+                'original_merge_sha': originals[0]['candidate']['merge_sha'],
                 'original_status': original['status'], 'original_conclusion': original.get('conclusion'),
                 'diagnostics': diagnostics,
                 'original_identity': {key: original.get(key) for key in _SCHEDULING_RUN_FIELDS}}

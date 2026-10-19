@@ -1581,6 +1581,14 @@ class ProjectWorkflowContracts(unittest.TestCase):
 
     def test_security_deferral_keeps_every_other_security_check_selected(self):
         workflow = workflow_data((WORKFLOW_DIRECTORY / 'workflow-security.yml').read_text())
+        self.assertEqual(set(workflow_events((WORKFLOW_DIRECTORY / 'workflow-security.yml').read_text())),
+                         {'workflow_call'})
+        caller = workflow_data((WORKFLOW_DIRECTORY / 'repository-checks.yml').read_text())
+        self.assertEqual(caller['jobs']['workflow-security']['uses'],
+                         './.github/workflows/workflow-security.yml')
+        self.assertIn("needs.route.outputs.security == 'true'",
+                      caller['jobs']['workflow-security']['if'])
+        self.assertIn('workflow-security', caller['jobs']['repository-checks']['needs'])
         self.assertEqual(workflow_events((WORKFLOW_DIRECTORY / 'workflow-security.yml').read_text())['workflow_call'],
             {'inputs': {'defer_workflow_contracts': {'type': 'boolean', 'default': False,
                 'description': 'Exact caller verifies contracts after the shared owner; this input grants no test authority'}}})

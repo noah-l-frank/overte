@@ -822,6 +822,71 @@ class MetadataSchedulingTests(unittest.TestCase):
         c = self.case
         return c.adapter.metadata_schedule(17, 101, self.policy, diagnostics=diagnostics, now=NOW)
 
+    def alias_source(self, run_id, revision):
+        c = self.case
+        c.originals[revision] = (c.binding['merge_tree'], list(c.binding['merge_parents']))
+        for edge in c.runs[run_id]['referenced_workflows']:
+            edge['path'] = edge['path'].rsplit('@', 1)[0] + '@' + revision
+            edge['sha'] = revision
+
+    def test_regenerated_merges_preserve_actual_original_and_current_native_sources(self):
+        self.alias_source(100, 'a1' * 20)
+        self.alias_source(101, 'a2' * 20)
+        value = self.schedule()
+        self.assertEqual(value['original_run_id'], 100)
+        self.assertEqual(value['original_merge_sha'], 'a1' * 20)
+        self.assertEqual(value['current_merge_sha'], 'a2' * 20)
+        self.assertEqual(value['binding']['merge_sha'], self.case.binding['merge_sha'])
+        self.assertFalse(value['qualification'])
+
+    def test_equivalent_live_regeneration_at_scheduling_bookend_is_accepted(self):
+        c = self.case
+        reads = [0]
+        original = c.binding['merge_sha']
+        c.originals[original] = (c.binding['merge_tree'], list(c.binding['merge_parents']))
+        def regenerate(endpoint, value):
+            if endpoint.endswith('/pulls/17'):
+                reads[0] += 1
+                if reads[0] == 3:  # Labels, opening current(), closing current().
+                    c.binding['merge_sha'] = 'a3' * 20
+                    value['merge_commit_sha'] = c.binding['merge_sha']
+            return value
+        c.api.mutate = regenerate
+        value = self.schedule()
+        self.assertEqual(reads[0], 4)
+        self.assertEqual(value['original_merge_sha'], original)
+        self.assertEqual(value['current_merge_sha'], original)
+        self.assertFalse(value['qualification'])
+
+    def test_regenerated_current_merge_cannot_hide_changed_tree_or_ordered_parents(self):
+        for shape in ('tree', 'base', 'head', 'reversed', 'extra'):
+            self.setUp(); c = self.case
+            self.alias_source(101, 'a2' * 20)
+            tree, parents = c.originals['a2' * 20]
+            if shape == 'tree': tree = 'a3' * 20
+            elif shape == 'base':
+                parents[0] = 'a3' * 20
+                c.originals[parents[0]] = deepcopy(c.originals[c.binding['base_sha']])
+            elif shape == 'head': parents[1] = 'a3' * 20
+            elif shape == 'reversed': parents.reverse()
+            else: parents.append('a3' * 20)
+            c.originals['a2' * 20] = tree, parents
+            with self.subTest(shape=shape), self.assertRaises(P.ProtocolError):
+                self.schedule()
+
+    def test_original_from_other_base_or_tree_is_never_mirrored(self):
+        for shape in ('tree', 'base'):
+            self.setUp(); c = self.case
+            self.alias_source(100, 'a1' * 20)
+            tree, parents = c.originals['a1' * 20]
+            if shape == 'tree': tree = 'a3' * 20
+            else:
+                parents[0] = 'a3' * 20
+                c.originals[parents[0]] = deepcopy(c.originals[c.binding['base_sha']])
+            c.originals['a1' * 20] = tree, parents
+            with self.subTest(shape=shape), self.assertRaises(P.ProtocolError):
+                self.schedule()
+
     def test_all_seven_pending_failed_and_successful_sources_preserve_status_without_results(self):
         c = self.case
         for target in sorted(A.METADATA_TARGETS):
@@ -874,6 +939,54 @@ class MetadataSchedulingTests(unittest.TestCase):
         self.assertEqual(value['original_run_id'], 100)
         self.assertFalse(value['qualification'])
         self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
+
+    def test_current_native_metadata_accepts_independent_api_progress_timestamps_without_results(self):
+        c = self.case
+        # PR1419's CodeQL metadata list/latest and attempt endpoints differed
+        # by one second. Only the exact current never-producer can project
+        # progress; its original workflow/result remains independently bound.
+        def progressing_attempt(endpoint, value):
+            if endpoint.endswith('/actions/runs/101/attempts/1'):
+                value['updated_at'] = '2026-10-15T10:04:31Z'
+            return value
+        c.api.mutate = progressing_attempt
+        value = self.schedule()
+        self.assertEqual(value['original_run_id'], 100)
+        self.assertEqual((value['original_status'], value['original_conclusion']),
+                         (c.runs[100]['status'], c.runs[100]['conclusion']))
+        self.assertFalse(value['qualification'])
+        self.assertFalse(any(key in value for key in ('results', 'environment', 'receipt')))
+
+    def test_current_progress_cannot_change_native_identity_stop_or_gain_original_authority(self):
+        for field, bad in (('run_attempt', 2), ('head_sha', '9' * 40),
+                ('check_suite_id', 1102), ('display_title', A.ORDINARY_RUN_NAME),
+                ('updated_at', '2026-10-15T12:00:00Z')):
+            self.setUp(); c = self.case
+            def change(endpoint, value):
+                if endpoint.endswith('/actions/runs/101/attempts/1'):
+                    value[field] = bad
+                return value
+            c.api.mutate = change
+            with self.subTest(field=field), self.assertRaises(P.ProtocolError):
+                self.schedule()
+        self.setUp(); c = self.case
+        def stopped_attempt(endpoint, value):
+            if endpoint.endswith('/actions/runs/101/attempts/1'):
+                value.update(status='completed', conclusion='success')
+            return value
+        c.api.mutate = stopped_attempt
+        with self.assertRaises(P.ProtocolError):
+            self.schedule()
+
+    def test_original_progress_is_not_normalized_by_current_metadata_projection(self):
+        c = self.case
+        def changed_original(endpoint, value):
+            if endpoint.endswith('/actions/runs/100/attempts/1'):
+                value['updated_at'] = '2026-10-15T10:04:31Z'
+            return value
+        c.api.mutate = changed_original
+        with self.assertRaises(P.ProtocolError):
+            self.schedule()
 
     def test_newer_equal_or_changed_native_workflow_sequence_cannot_own_metadata(self):
         c = self.case
@@ -945,6 +1058,8 @@ class MetadataSchedulingTests(unittest.TestCase):
                 ('81bcf1933edc435826e2de411a777cccd4dec7c7','e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'),
             'protected-producer-original-default-boolean-v1':
                 ('15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a','3b7a88765b7181a1bc7dd6f48b9b459e590055d3'),
+            'protected-producer-original-default-required-context-v1':
+                ('22fe0d6d39d120f800099136d7d1ab5280d80b41','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
         }
         self.assertIn(installed,variants)
         caller=self.case.policy.caller_path
@@ -1020,6 +1135,20 @@ class MetadataCanonicalResultTests(unittest.TestCase):
             check_run_url=f'https://api.github.com/{A.PREFIX}/check-runs/151')
         c.jobs[100].append(job)
         self.observed=MetadataSchedulingTests.schedule(self)
+
+    def test_equivalent_merges_still_require_actual_original_workflow_and_job_success(self):
+        MetadataSchedulingTests.alias_source(self, 100, 'a1' * 20)
+        MetadataSchedulingTests.alias_source(self, 101, 'a2' * 20)
+        self.observed = MetadataSchedulingTests.schedule(self)
+        self.assertEqual(self.case.adapter.metadata_result_success(self.observed, now=NOW)['job_id'], 151)
+        for failed in ('workflow', 'canonical-job'):
+            c = self.case
+            if failed == 'workflow': c.runs[100]['conclusion'] = 'failure'
+            else: c.jobs[100][-1]['conclusion'] = 'failure'
+            with self.subTest(failed=failed), self.assertRaises(ValueError):
+                c.adapter.metadata_result_success(self.observed, now=NOW)
+            c.runs[100]['conclusion'] = 'success'
+            c.jobs[100][-1]['conclusion'] = 'success'
 
     def test_original_success_requires_the_actual_canonical_actions_job_and_empty_new_authority(self):
         value=self.case.adapter.metadata_result_success(self.observed,now=NOW)
@@ -3860,7 +3989,12 @@ class UnchangedParentTests(unittest.TestCase):
         generation = next(row for row in self.package.workflow_generations()
             if row['name'] == C.producer.PLATFORM_GENERATION)
         for name, entry in generation['workflows'].items():
-            body = subprocess.check_output(['git','cat-file','blob',entry['sha']],cwd=C.ROOT)
+            # Historical callers must survive a shallow active26 checkout.
+            relative = ('tools/repository-checks/workflows/producers/repository-checks.yml'
+                if name == '.github/workflows/repository-checks.yml' else name)
+            body = historical_metadata_workflow(relative, generation['name'], C.ROOT)
+            self.assertEqual(hashlib.sha1(b'blob ' + str(len(body)).encode() + b'\0' + body).hexdigest(),
+                             entry['sha'])
             path = self.candidate/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(body)
         (self.candidate/'native.cpp').write_text('unchanged product input\n')
         git('add','.'); git('commit','-qm','Protected before')
