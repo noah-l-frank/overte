@@ -208,6 +208,21 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual([item["mode"] for item in selected], ["120000", "160000"])
         self.assertEqual(selected[-1]["type"], "commit")
 
+    def test_warm_path_normalization_never_reuses_entry_validation_or_fingerprints(self):
+        path = "tests/feature/test.py"
+        original = self.fingerprint()
+        for field, value in (("mode", "040000"), ("type", "commit"), ("sha", "not-object")):
+            tree = deepcopy(self.tree)
+            tree[path][field] = value
+            with self.subTest(field=field), self.assertRaises(INPUTS.InputError):
+                self.fingerprint(tree=tree)
+        tree = deepcopy(self.tree)
+        tree[path] = entry("changed test bytes")
+        self.assertNotEqual(self.fingerprint(tree=tree), original)
+        for label in ("first context", "second context"):
+            with self.subTest(label=label), self.assertRaisesRegex(INPUTS.InputError, label):
+                INPUTS._path("tests/../outside", label)
+
 
 class RegistryTests(unittest.TestCase):
     def load(self, source):

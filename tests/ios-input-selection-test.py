@@ -28,6 +28,7 @@ REVIEWED_ANDROID_CI_PATHS = (
     "tools/repository-checks/workflows/android-owned/handoff/.github/workflows/android-tests.yml",
     "tools/repository-checks/workflows/android-owned/handoff/.github/workflows/android-vr-tests.yml",
     "tools/repository-checks/workflows/android-owned/handoff/android/common/tests/android-workflow-contract-test.py",
+    "tools/repository-checks/workflows/android-owned/handoff/android/common/tests/robolectric/build.gradle",
     "tools/repository-checks/workflows/android-owned/handoff/android/common/tests/ci/test_ci_contract.py",
     "tools/repository-checks/workflows/android-owned/handoff/android/common/tests/ci/validate_ci_contract.py",
     "tools/repository-checks/workflows/android-owned/project-tests.yml",

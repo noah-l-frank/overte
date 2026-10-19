@@ -55,7 +55,8 @@
       "android/common/tests/android-workflow-contract-test.py",
       "android/common/tests/ci/validate_ci_contract.py",
       "android/common/tests/ci/test_ci_contract.py",
-      "android/phone/tests/phone-release-metadata-test.py"
+      "android/phone/tests/phone-release-metadata-test.py",
+      "android/common/tests/robolectric/build.gradle"
     ],
     "android-phone": [
       "android/phone/tests/phone-voice-clock-fixture.cpp",
