@@ -4531,6 +4531,66 @@ class CurrentParentTransitionTests(unittest.TestCase):
         self.assertFalse(value['qualification']);self.assertIsNone(value['execution'])
         self.C.execution.execute.assert_not_called()
 
+    def partial_selection(self):
+        omitted={'producer-proof','python-test-runner','release-bundle','project-coverage','native-registration'}
+        names=[name for name in self.selected['suites'] if name not in omitted]
+        self.assertEqual(len(names),32)
+        return {'suites':names,'full_host':False,'include_platform':False,
+            'reason':'protected-ci-dependencies','affected':{
+                'dependency_schema':2,'target':'main','required':list(names)}}
+
+    def test_current_documentation_and_lock_partial_selection_declines_without_execution_or_pass(self):
+        self.selected=self.partial_selection()
+        # The existing current-main import boundary authenticates D itself;
+        # neither the old B lock nor the original runtime is adopted as D/E.
+        self.source.base=deepcopy(self.source.default)
+        self.source.base['.github/android-orchestration.json']=self.C.source_admission.ordinary('f'*40)
+        doc='docs/portal/testing/github-actions.md'
+        self.source.base[doc]=self.C.source_admission.ordinary('a'*40)
+        self.source.default[doc]=self.C.source_admission.ordinary('b'*40)
+        value=self.schedule()
+        self.assertEqual(value['selection'],self.selected)
+        self.assertEqual(value['current_imports']['authority'],'current-imports-only')
+        self.assertEqual(value['executed_suites'],[]);self.assertEqual(value['reused_suites'],[])
+        self.assertFalse(value['qualification'] or value['reusable']);self.assertIsNone(value['execution'])
+        self.environment['GITHUB_JOB']='qualify-parent';self.source.job['name']='Qualify exact parent'
+        needs={'route':{'result':'skipped','outputs':{}},'common-parent':{'result':'success'},
+            'platform-tests':{'result':'skipped','outputs':{}}}
+        with patch.object(self.C.producer,'ROOT',self.root):
+            self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_partial_optional_selection_rejects_foreign_scope_order_duplicates_and_product_names(self):
+        self.selected=self.partial_selection()
+        baseline=deepcopy(self.selected)
+        for change in ('reason','schema','schema-type','target','required','reverse','duplicate','unknown','product','empty'):
+            self.selected=deepcopy(baseline)
+            if change=='reason':self.selected['reason']='unreviewed-partial-inputs'
+            elif change=='schema':self.selected['affected']['dependency_schema']=1
+            elif change=='schema-type':self.selected['affected']['dependency_schema']='2'
+            elif change=='target':self.selected['affected']['target']='apple-main'
+            elif change=='required':self.selected['affected']['required'].pop()
+            else:
+                names=self.selected['suites']
+                if change=='reverse':names.reverse()
+                elif change=='duplicate':names.append(names[0])
+                elif change=='unknown':names.append('unknown-owner')
+                elif change=='product':names.append('device-control-plane-full')
+                else:names.clear()
+                self.selected['affected']['required']=list(names)
+            with self.subTest(change=change),self.assertRaises(ValueError):self.schedule()
+
+    def test_partial_optional_selection_still_requires_no_platform_additions_or_package_owner(self):
+        self.selected=self.partial_selection()
+        for key,value in (('full_host',True),('include_platform',True),
+                ('additional_suites',['new-command']),('platform_suites',['platform-command'])):
+            with self.subTest(key=key),patch.dict(self.selected,{key:value}),self.assertRaises(ValueError):
+                self.schedule()
+        with patch.object(self.package_wrapper,'select',return_value={
+                'host_mode':'full','tool_projects':[],'package_set':['browser']}),self.assertRaises(ValueError):
+            self.schedule()
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
     def test_full_extra_platform_package_unknown_and_stale_current_source_cannot_decline(self):
         for key,value in (('full_host',True),('include_platform',True),
                 ('suites',list(self.registry['suites'])),('additional_suites',['new-command'])):
