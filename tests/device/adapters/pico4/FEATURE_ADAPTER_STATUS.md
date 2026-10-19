@@ -1,5 +1,16 @@
 # Pico feature adapter implementation status
 
+`_world_render_capture()` now joins the original image-memory protocol and
+persisted acquisition/receipt owner to the existing candidate/OpenXR/Script
+component context. Closed Android run-as receipt cleanup verifies absence after
+fresh native buffer/callback inventory. Three host cases cover original bytes,
+cleanup, changed candidates and explicit stereo refusal. These are component
+transport checks: **version 1 supports mono only; an actual Pico stereo view is
+unavailable**. No eye image is guessed and no full `feature.*` capability is
+enabled. A reviewed stereo acquisition/eye contract and its image assertions
+are required before this source can qualify Pico rendering. Native code remains
+uncompiled; all devices are unqualified.
+
 Branch: `test/android-pico/shared-feature-adapters-20261019`.
 Product base: `c5bf8ac17b`, composed with Main's common tests/flows through local
 parent-to-child merges. No Phone branch was merged into Pico. No build,

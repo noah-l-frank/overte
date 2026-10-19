@@ -20,6 +20,10 @@ from adapters.pico4 import normal_scripts
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.android_world_render import AndroidWorldRenderReceipts
+from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
+from adapters.world_render_storage import NativeWorldRenderStorage
+from adapters.owned_world_render import WorldRenderOwner, OwnedWorldRenderCapture
 from scripts_observation import OPERATIONS as SCRIPT_OPERATIONS
 from adapters.pico4.snapshot import (PicoSnapshot, OPERATIONS as SNAPSHOT_OPERATIONS,
                                     configured_scene as configured_snapshot)
@@ -200,6 +204,27 @@ def create_adapter(args, base_class):
             from adapters.pico4.normal_graphics import PicoGraphicsIO
             manager = self._scripts(target)
             return TokenGraphicsUI(PicoGraphicsIO(manager.ui.io),intent)
+
+        def _world_render_store(self, target):
+            state, _ui = self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'world-render-owner-')))
+
+        @_private
+        def _world_render_capture(self, target):
+            # Version 1 refuses real stereo captures. Connecting transport must
+            # never substitute a desktop image or guess one eye for Pico.
+            manager = self._scripts(target)
+            native = self._native_feature_observer(target)
+            owner = WorldRenderOwner(self._world_render_store(target), manager.binding, native.guard)
+            receipts = AndroidWorldRenderReceipts(self.adb, target, 'org.overte.pico', native.guard)
+            options = dict(monotonic=native.monotonic, sleep=native.sleep)
+            storage = NativeWorldRenderStorage(native.send, receipts.read, native.clock_ms, native.guard,
+                native.pid, receipt_intent=owner.receipt_intent, **options)
+            capture = NativeWorldRenderCapture(native.send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + WORLD_RENDER_FILE, attempts=1),
+                storage, native.clock_ms, native.guard, native.pid, intent=owner.intent, **options)
+            return OwnedWorldRenderCapture(capture, storage, owner, receipts)
 
         def _audio_controls(self, target, intent):
             from adapters.token_audio_ui import TokenAudioUI
