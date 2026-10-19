@@ -4,6 +4,24 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The normal-login control v2/generic-target packet passes **577** guarded common
+host cases, zero failures/errors/skips/compiler attempts, with the same three
+native exclusions. Its **16** recipe cases additionally reject ignored generic
+server edits, foreign native/submission targets, legacy metadata, missing server
+sources and ignored normal navigation. Generic UI metadata comes from original
+QML component identities/labels/spinner/server fields; native code remains
+uncompiled and actual component discovery/input unexecuted. Concrete Pico/iOS
+transport integration and full Authentication composition remain open.
+
+Phone's subsequent normal-login input packet passes **76** focused wrapper/
+actual-JavaScript cases, **43** installed-identity cases and a **572** guarded
+shared selection. It requires its original native reader-version marker, avoids
+CommonJS credential caching, retires transient text references and replaces an
+uncertain secret command through the owned private channel without replay.
+Native command/parser/Qt source is uncompiled and every device is untested; a
+full run owner, logout/restart and independent native/backend witnesses remain
+mandatory. No complete feature capability is inferred.
+
 The normal-login control v1 source/recipe packet passes **572** guarded common
 host cases, zero failures/errors/skips/compiler attempts with the same three
 native exclusions. Eleven new recipe cases exercise actual synthetic widget
