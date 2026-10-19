@@ -33,6 +33,10 @@
 #include "../../../security/storage/ProtectedAccountStore.h"
 #include "RequestCancellation.h"
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+namespace overte::e2e { class AccountProbe; }
+#endif
+
 class JSONCallbackParameters {
 public:
     JSONCallbackParameters(QObject* callbackReceiver = nullptr,
@@ -106,6 +110,7 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     // No hasValidAccessToken()/isLoggedIn(): those can initiate a refresh.
     QVariantMap featureAccountObservation() const;
+    QVariantMap featureAccountProbe(const QVariantMap& command,const QString& ownedOrigin);
 #endif
 
     DataServerAccountInfo& getAccountInfo() { return _accountInfo; }
@@ -193,6 +198,7 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     void recordFeatureAccountEvent(const char* kind, const QNetworkReply* reply = nullptr);
     QString _featureAccountInstance;
+    overte::e2e::AccountProbe* _featureAccountProbe {nullptr};
     QVariantList _featureAccountEvents;
     quint64 _featureAccountEventSequence {0};
     qint64 _featureAccountEventEpochMs {0};

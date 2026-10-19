@@ -105,7 +105,7 @@ untested**. Existing/new foundations are narrower implementation scopes.
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
 | --- | --- | --- | --- | --- |
 | Worlds/navigation | Existing normal Go To/history retained | Existing real VR Go To/history retained | Existing native component navigation retained; bound execution blocked | Actual bookmark CRUD/persistence, directory/search/failure state and independent arrival/directory actor |
-| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled HTTPS account/profile fixture now exists; passive native pending/token/reply history now exists; trusted-origin/protected-probe, login inputs and independent actor joins remain missing |
+| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled HTTPS account/profile fixture now exists; passive native pending/token/reply history now exists; explicit-origin protected-probe source now exists; native origin provisioning, login inputs and independent actor joins remain missing |
 | Avatar/people | Existing replication foundations retained | Existing replication foundations retained | Existing component peer/replication code retained | Actual avatar chooser/bookmark/scale/wearable readers, mutual contact consent peer and original visible avatar effects |
 | Create | **New** ordinary cube/edit/history/delete/JSON import + observer/source cleanup | **New** original avatar-owned native ID reader; VR input controls missing | **New** original avatar-owned native ID reader component; bound execution blocked | glTF/OBJ local picker + companions, voxel stroke/settled data, texture/render effect, original export bytes and real domain rez-denial actor |
 | Emotes | Evaluated Rig/clip/pose and immutable native call/frame history | Same candidate-bound history reader | Same original native history component; canonical binding blocked | Full source-profile/normal-input/history/peer/image coordinator, measured completion/early-restoration timing and actual Sit identities; the original tablet Sit end-frame concern remains unresolved |
@@ -220,3 +220,10 @@ pending/context flags and bounded original current reply/signal history are now
 available to the existing internal reader with a mandatory source option.
 This does not establish remote protected access, native UI success or a full
 Authentication coordinator. Native source remains uncompiled.
+
+The [native protected-profile component](native/ACCOUNT_PROTECTED_PROBE.md) adds
+one actual current-credential HTTPS GET, source/context-fenced original response
+metadata and separate reply/body/authority cleanup. Private persisted intent and
+actual provider-proof/passive-account joins have strict host readers. This remains
+uncompiled source; native origin provisioning, normal login, complete actor
+composition and Authentication activation remain open.
