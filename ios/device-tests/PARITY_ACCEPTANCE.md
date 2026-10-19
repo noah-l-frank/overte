@@ -223,6 +223,17 @@ both Qt5 and Qt6, including a nested tablet, stale tokens and a foreign popup.
 They do not compile UIKit, establish installed-code identity, or execute a
 capture on an iOS GPU.
 
+The E2E-only `Test.iosSnapshotFilesRequest` implements the common closed
+`snapshot-files` read channel. It resolves the actual `SnapshotStorage` root,
+hashes original regular files and reads at most64KiB per response. A single
+background worker keeps file hashing off the GUI thread. Requests cannot choose
+a directory or trigger capture. Links, changed native revisions, oversized
+files and stale/foreign receipts fail. The host joins the final native manifest
+and independently hashed original bytes before publishing private artifacts.
+New E2E packages carry `OverteE2ESnapshotFilesVersion=1`; activation requires
+fresh authenticated installation inventory of that marker. This does not
+establish the still unavailable cryptographic installed-code association.
+
 Open normal SNAP and select `Still`, `Still + animated GIF`, `360° panorama` and
 `360° cubemap`. Use a known moving scene for GIF and known directional landmarks
 for 360 captures. Observe capture/processing/complete status and real previews.
