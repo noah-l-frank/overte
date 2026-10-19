@@ -387,11 +387,12 @@ class WorkflowCostTests(unittest.TestCase):
                         expression = re.sub(r'!(?!=)', ' not ', expression).replace('&&', ' and ').replace('||', ' or ')
                         self.assertIs(eval(expression, {'__builtins__': {}}, {}), expected)
             self.assertEqual(jobs['native']['needs'], 'route')
+            canonical = generation == 'protected-producer-original-default-required-context-v1'
             self.assertEqual(jobs['repository-checks']['if'],
                              "always() && (needs.route.result != 'success' || needs.route.outputs.metadata_only != 'true')"
-                             if metadata else 'always()')
+                             if metadata and not canonical else 'always()')
             if metadata:
-                self.assertEqual(jobs['repository-checks']['name'],
+                self.assertEqual(jobs['repository-checks']['name'], 'repository-checks' if canonical else
                     "${{ needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true' && "
                     "'repository-checks (metadata unchanged)' || 'repository-checks' }}")
             self.assertIn('native', jobs['repository-checks']['needs'])
