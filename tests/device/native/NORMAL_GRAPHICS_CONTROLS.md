@@ -3,7 +3,7 @@
 This internal input component implements no complete `feature.graphics.*`
 operation. It proves no rendered effect, framebuffer acquisition, pass execution,
 persistence, application restart or device acceptance. Native C++ remains
-uncompiled. Its eleven host boundary checks validate the ordinary-input recipe.
+uncompiled. Its thirteen host boundary checks validate the ordinary-input recipe.
 
 The read-only `NormalGraphicsControls.h` resolver recognizes the actual existing
 `settings.graphics` Flickable and original QQuickSwitch/QQuickSlider controls.
