@@ -188,7 +188,8 @@ def reviewed_package_generation():
     if name in ORIGINAL_DEFAULT_GENERATIONS:
         raw=CODEQL_WORKFLOW.read_bytes()
         expected={'protected-producer-original-default-v1':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1',
-            'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3'}[name]
+            'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
+            'protected-producer-original-default-required-context-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c'}[name]
         if (CODEQL_WORKFLOW.is_symlink() or CODEQL_WORKFLOW.stat().st_mode & 0o777 not in {0o444,0o644}
                 or hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()!=expected):
             raise AssertionError('deployed Repository and CodeQL must be the same exact old or Boolean variant')

@@ -94,7 +94,9 @@ class HostSelectionTests(unittest.TestCase):
         previous['.github/workflows/codeql.yml']={'mode':'100644','type':'blob',
             'sha':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'}
         candidate=copy_git_tree(previous)
-        for caller,template in templates.items():candidate[caller]=deepcopy(previous[template])
+        candidate.update(deepcopy(rows['protected-producer-original-default-boolean-v1']))
+        candidate['.github/workflows/codeql.yml']={'mode':'100644','type':'blob',
+            'sha':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3'}
         paths=sorted(templates)
         self.assertEqual(policy.validate_tree_wiring(previous),'protected-producer-original-default-v1')
         self.assertEqual(policy.validate_tree_wiring(candidate),'protected-producer-original-default-boolean-v1')

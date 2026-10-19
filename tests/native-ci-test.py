@@ -344,12 +344,14 @@ class WorkflowCostTests(unittest.TestCase):
             metadata = generation in ('npm-consumers-metadata-edits-v1', 'android-owned-npm5-sync-ci-v1',
                                       'protected-producer-metadata-ci-v1', 'protected-producer-seven-target-ci-v1',
                                       'protected-producer-original-default-v1',
-                                      'protected-producer-original-default-boolean-v1')
+                                      'protected-producer-original-default-boolean-v1',
+                                      'protected-producer-original-default-required-context-v1')
             condition = "needs.route.outputs.native != 'skip'"
             if metadata:
                 condition = "needs.route.outputs.metadata_only != 'true' && " + condition
             if generation in ('protected-producer-original-default-v1',
-                              'protected-producer-original-default-boolean-v1'):
+                              'protected-producer-original-default-boolean-v1',
+                                      'protected-producer-original-default-required-context-v1'):
                 intent = ("github.event_name == 'pull_request' && ((github.event.action == 'edited' && "
                           "!github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || "
                           "((github.event.action == 'labeled' || github.event.action == 'unlabeled') && "
@@ -357,7 +359,8 @@ class WorkflowCostTests(unittest.TestCase):
                 condition = "always() && !cancelled() && needs.route.result == 'success' && " + condition + ' && !(' + intent + ')'
             self.assertEqual(jobs['native']['if'], condition)
             if generation in ('protected-producer-original-default-v1',
-                              'protected-producer-original-default-boolean-v1'):
+                              'protected-producer-original-default-boolean-v1',
+                                      'protected-producer-original-default-required-context-v1'):
                 # Evaluate the actual, exactly bound native guard: skipped
                 # metadata ancestry must not suppress a selected ordinary job.
                 defaults = {'always()': True, 'cancelled()': False,
