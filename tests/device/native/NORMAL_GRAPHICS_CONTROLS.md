@@ -69,6 +69,10 @@ its renderScale/hazePass/mirrorPass or image fields. Actual completed frame/pass
 sources, controlled Graphics subject acquisition, actor/journal joins and full
 ownership cleanup remain separate mandatory requirements.
 
-At this packet the shared resolver/core/recipe is present but platform Graphics
-transports are not yet connected. No full feature capability is advertised; the
-canonical iOS installed-code gate continues to block private components.
+The shared resolver/core/recipe now has internal transports on the three
+platform branches: Phone private Qt/probe, Pico original VR surface, and the
+unbound iOS native component. Offscreen iOS rows expose frame:null and no UIKit
+proxy; ordinary slider/scroll edits retain original field tokens. Full render/
+actor/restart and preference ownership coordination remain open. No full feature
+capability is advertised; the canonical iOS installed-code gate still blocks
+private components.
