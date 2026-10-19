@@ -96,9 +96,9 @@ def filename(value):
 
 class NormalScriptManager:
     def __init__(self, ui, observe, store, binding, *, source_kind='scripts',
-                 monotonic=time.monotonic, sleep=time.sleep):
+                 monotonic=time.monotonic, sleep=time.sleep, component_only=False):
         self.ui, self.observe, self.store = ui, observe, store
-        self.binding = dict(context(binding))
+        self.binding = dict(context(binding, component_only=component_only))
         self.monotonic, self.sleep = monotonic, sleep
         need(source_kind in {'scripts', 'create-observer'})
         self.source_kind = source_kind
@@ -111,7 +111,7 @@ class NormalScriptManager:
              'managerOwned', 'dialogOwned', 'source', 'loadAttempted', 'observerInstance', 'afterSequence'}
              and type(value['schemaVersion']) is int and value['schemaVersion'] == 2
              and value['sourceKind'] == source_kind
-             and context(value['binding']) == self.binding
+             and context(value['binding'], component_only=component_only) == self.binding
              and all(type(value[key]) is bool for key in
                      ('tabletOwned', 'managerOwned', 'dialogOwned', 'loadAttempted'))
              and type(value['afterSequence']) is int and value['afterSequence'] >= 0

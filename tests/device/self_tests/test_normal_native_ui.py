@@ -25,6 +25,7 @@ class NativeBoundary:
         self.click_count = 0
         self.arrive_after = None
         self.ignore_keys = False
+        self.token = '11111111-1111-4111-8111-111111111111'
         self.ui = NativeUI(self, 'owned-session', self.check, timeout=0.3,
                            monotonic=lambda: self.clock, sleep=self.sleep)
 
@@ -45,6 +46,8 @@ class NativeBoundary:
             return self.enabled
         if path.endswith('/text'):
             return self.text
+        if path.endswith('/attribute/value'):
+            return self.token
         if method == 'POST' and path.endswith('/actions'):
             if not self.ignore_keys:
                 keys = body['actions'][0]['actions'][4:]
@@ -68,6 +71,27 @@ class NativeBoundary:
 
 
 class NormalNativeUITests(unittest.TestCase):
+    def test_native_token_check_and_click_use_the_same_actual_element_reference(self):
+        native = NativeBoundary()
+        native.ui.click_with_token(Locator('accessibility id', 'ActualScriptRow'), native.token)
+        self.assertEqual(1, native.click_count)
+        self.assertEqual(1, sum(path.endswith('/elements') for _, path, _ in native.calls))
+        self.assertEqual(['/session/owned-session/element/actual-node/attribute/value',
+                          '/session/owned-session/element/actual-node/click'],
+                         [path for _, path, _ in native.calls if path.endswith(('/attribute/value', '/click'))])
+
+    def test_replaced_native_token_or_uncertain_click_cannot_rebind_to_another_row(self):
+        native = NativeBoundary()
+        with self.assertRaises(NativeUIError):
+            native.ui.click_with_token(Locator('id', 'ScriptRow'), '22222222-2222-4222-8222-222222222222')
+        self.assertEqual(0, native.click_count)
+        self.assertEqual([], native.mutations)
+        native = NativeBoundary(); native.fail_path = '/click'
+        with self.assertRaises(NativeUIError):
+            native.ui.click_with_token(Locator('id', 'ScriptRow'), native.token)
+        self.assertEqual(1, len(native.mutations))
+        self.assertEqual(1, sum(path.endswith('/elements') for _, path, _ in native.calls))
+
     def test_owned_ascii_replacement_uses_actual_keyboard_events_and_releases_modifiers(self):
         native = NativeBoundary()
         native.ui.replace_ascii_keys(Locator('id', 'ActualField'), 'OVERTE_123.5')

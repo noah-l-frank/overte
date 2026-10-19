@@ -57,6 +57,48 @@ class Boundary:
 
 
 class NativeFeatureObservationTests(unittest.TestCase):
+    @staticmethod
+    def recorded(value):
+        value['audio']['recordedVoice'] = dict(active=True, capturedBytes=4000, playedBytes=0,
+            frameBytes=4, sampleRate=48000, channels=2, event=dict(schemaVersion=1, eventSequence=1,
+                publishedEpochMs=20000, phase='capturing', error='', capturedBytes=4000,
+                playedBytes=0, totalBytes=576000))
+
+    def test_real_recorded_voice_source_is_distinct_from_file_recording_and_retains_native_event_time(self):
+        boundary = Boundary(); boundary.mutate = self.recorded
+        value = boundary.reader().read(0, require_recorded_voice=True)
+        self.assertFalse(value['audio']['recording'])
+        self.assertTrue(value['audio']['recordedVoice']['active'])
+        self.assertEqual(4000, value['audio']['recordedVoice']['capturedBytes'])
+        self.assertEqual(20000, value['audio']['recordedVoice']['event']['publishedEpochMs'])
+        def completed(value):
+            self.recorded(value)
+            voice = value['audio']['recordedVoice']
+            voice.update(active=False, capturedBytes=0, playedBytes=0)
+            voice['event'].update(publishedEpochMs=10000, phase='completed', capturedBytes=576000, playedBytes=576000)
+        boundary.mutate = completed
+        actual = boundary.reader().read(0, require_recorded_voice=True)['audio']['recordedVoice']
+        self.assertEqual(10000, actual['event']['publishedEpochMs'])
+        self.assertEqual(0, actual['capturedBytes'])
+        self.assertEqual(576000, actual['event']['capturedBytes'])
+
+    def test_missing_stale_incomplete_or_regressing_recorded_voice_evidence_cannot_pass(self):
+        boundary = Boundary()
+        with self.assertRaises(NativeUIError): boundary.reader().read(0, require_recorded_voice=True)
+        for fault in ('old-active-event', 'counter', 'event-regressed', 'event-missing'):
+            with self.subTest(fault=fault):
+                boundary = Boundary(); boundary.mutate = self.recorded
+                reader = boundary.reader(); first = reader.read(0, require_recorded_voice=True)
+                def mutate(value):
+                    self.recorded(value)
+                    voice = value['audio']['recordedVoice']
+                    if fault == 'old-active-event': voice['event']['publishedEpochMs'] = 1
+                    elif fault == 'counter': voice['playedBytes'] = 9000
+                    elif fault == 'event-regressed': voice['event']['eventSequence'] = 0
+                    else: voice.update(active=False, event={})
+                boundary.mutate = mutate
+                with self.assertRaises(NativeUIError): reader.read(first['sequence'], require_recorded_voice=True)
+
     def test_original_actual_values_and_source_metadata_survive_without_expected_state_input(self):
         boundary = Boundary()
         reader = boundary.reader()
