@@ -324,6 +324,8 @@ class MetadataEditTests(unittest.TestCase):
                 " && 'sync-test-reuse (metadata unchanged)' || 'sync-test-reuse' }}")
             self.assertEqual(actual.pop('if'), 'always() && !(' + authenticated + ')')
             self.assertEqual(actual.pop('needs'), ['event-policy', 'metadata-owner'])
+            self.assertEqual(actual.pop('permissions'),
+                {'actions':'write','checks':'read','contents':'read','pull-requests':'read'})
             policy_failure, metadata_failure = actual['steps'][:2]
             self.assertEqual(policy_failure['run'], 'test "$EVENT_POLICY" = success')
             self.assertEqual(metadata_failure['if'], "needs.event-policy.outputs.metadata_only == 'true'")
@@ -344,7 +346,8 @@ class MetadataEditTests(unittest.TestCase):
             self.assertEqual(set(checkout['sparse-checkout'].splitlines()), {'tools/sync-test-reuse',
                 'tools/branch-policy', 'tools/repository-checks', 'tools/test-evidence', '.github/sync-test-reuse.json'})
             self.assertIn('gate.py classify-metadata', classifier['steps'][-1]['run'])
-            self.assertEqual(deployed['permissions']['checks'], 'read')
+            self.assertEqual(deployed['permissions'],
+                {'actions':'read','checks':'read','contents':'read','pull-requests':'read'})
         else:
             identity = hashlib.sha1(b'blob ' + str(len(active)).encode() + b'\0' + active).hexdigest()
             self.assertIn(identity, {'59a19621ac160fc5c48d5323e4e61490e83f708a',

@@ -15,7 +15,7 @@ on: # zizmor: ignore[dangerous-triggers] Default-branch data-only gate; candidat
   workflow_dispatch:
 
 permissions:
-  actions: write
+  actions: read
   checks: read
   contents: read
   pull-requests: read
@@ -84,6 +84,11 @@ jobs:
     if: always() && !(needs.event-policy.result == 'success' && needs.event-policy.outputs.metadata_only == 'true' && needs.metadata-owner.result == 'success' && needs.metadata-owner.outputs.metadata_authenticated == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    permissions:
+      actions: write
+      checks: read
+      contents: read
+      pull-requests: read
     steps:
       - name: Require a successful event policy
         env:

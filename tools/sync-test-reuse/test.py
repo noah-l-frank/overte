@@ -4249,6 +4249,15 @@ class RetainedSyncMetadataTests(unittest.TestCase):
 
     def test_workflow_skip_requires_authenticated_owner_and_isolates_original_concurrency(self):
         text=(gate.ROOT/'.github/workflows/sync-test-reuse.yml').read_text()
+        import yaml
+        workflow=yaml.safe_load(text)
+        self.assertEqual(workflow['permissions'],
+            {'actions':'read','checks':'read','contents':'read','pull-requests':'read'})
+        self.assertEqual(workflow['jobs']['sync-test-reuse']['permissions'],
+            {'actions':'write','checks':'read','contents':'read','pull-requests':'read'})
+        self.assertEqual(workflow['jobs']['event-policy']['permissions'], {'contents':'read'})
+        self.assertEqual(workflow['jobs']['metadata-owner']['permissions'],
+            {'actions':'read','checks':'read','contents':'read','pull-requests':'read'})
         self.assertIn("&& github.run_id || 'qualification'",text)
         self.assertIn("needs.metadata-owner.result == 'success' && needs.metadata-owner.outputs.metadata_authenticated == 'true'",text)
         self.assertIn("'sync-test-reuse (metadata unchanged)' || 'sync-test-reuse'",text)

@@ -723,7 +723,9 @@ class IsolatedConsumerTests(unittest.TestCase):
                     self.assertEqual(future['workflows'][path],{'mode':'100644','type':'blob',
                         'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()},path)
         gate = yaml.safe_load((VALIDATION.ROOT / '.github/workflows/sync-test-reuse.yml').read_text())
-        self.assertEqual(gate['permissions'], {'actions':'write','checks':'read','contents':'read','pull-requests':'read'})
+        self.assertEqual(gate['permissions'], {'actions':'read','checks':'read','contents':'read','pull-requests':'read'})
+        self.assertEqual(gate['jobs']['sync-test-reuse']['permissions'],
+            {'actions':'write','checks':'read','contents':'read','pull-requests':'read'})
         gate_steps = gate['jobs']['sync-test-reuse']['steps']
         trusted_checkouts = [step for step in gate_steps
             if step.get('name') == 'Check out trusted default-branch gate only'
