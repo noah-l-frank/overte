@@ -7,6 +7,9 @@ acceptance evidence was changed.
 
 Every row means **test logic exists · adapter missing · untested on devices**.
 These are implementation statuses, not complete product-feature acceptance.
+The later [local adapter packet audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
+records narrower foundation implementations and concrete native blockers; no
+complete new area triple has been enabled by that work.
 Existing adapters may cover portions of the reused foundations; none is claimed
 to implement the new complete area contract.
 

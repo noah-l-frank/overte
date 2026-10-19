@@ -5,6 +5,9 @@ contains no iOS, Phone or Pico product adapter implementation and no device
 results. The [machine inventory](feature_journeys/adapter-contract.v1.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
+The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
+tracks subsequent local platform packets and prerequisites. These do not change
+the complete v1 contract or grant device acceptance.
 
 ## Action and read boundary
 
