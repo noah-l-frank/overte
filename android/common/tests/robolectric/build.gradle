@@ -156,5 +156,10 @@ test {
     systemProperty 'java.io.tmpdir', testTempDir.get().asFile.absolutePath
     systemProperty 'org.conscrypt.native.workdir', conscryptWorkDir.get().asFile.absolutePath
     reports.junitXml.required = true
+    // The mandatory owner validates reports in its fresh per-execution directory.
+    def externalJUnitDirectory = providers.environmentVariable('OVERTE_ROBOLECTRIC_REPORT_DIR')
+    if (externalJUnitDirectory.present) {
+        reports.junitXml.outputLocation.set(file(externalJUnitDirectory.get()))
+    }
     reports.html.required = true
 }

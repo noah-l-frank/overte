@@ -23,6 +23,13 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def reviewed_routing_sources():
+    spec = importlib.util.spec_from_file_location("ios_routing_source_fixture", ROOT / "tests/ios-input-selection-test.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.reviewed_routing_sources()
+
+
 REVIEWED_ANDROID_CI_PATHS = (
     ".github/workflows/android-required.yml",
     ".github/android-owner-transfer.json",
@@ -1070,6 +1077,173 @@ class HostGenerationTests(unittest.TestCase):
         replacement.start()
         self.addCleanup(replacement.stop)
         return base, v3_changes, changes
+
+    def routing_compiler_fixture(self):
+        base,v3,updated=self.compiler_pr_input_fixture()
+        sources=reviewed_routing_sources()
+        base=self.commit(base,{path:bodies[0] for path,bodies in sources.items()})
+        inputs=self.host.selector(self.trusted)
+        before=inputs.read_snapshot(self.root,base)
+        leaf=self.trusted/"tools/ios-build-qualification/inputs.py"
+        leaf.write_text(leaf.read_text().replace(inputs.REVIEWED_BOUNDARY,inputs.review_boundary(self.root,base)["boundary"]))
+        replacement=patch.object(self.host,"REVIEWED_CI_HOST_BOUNDARY",self.host.ci_host_boundary(before))
+        replacement.start();self.addCleanup(replacement.stop)
+        return base,v3,updated,sources
+
+    def test_reviewed_routing_parent_child_and_mixed_cache_transitions_keep_one_own_host_no_app(self):
+        base,v3,updated,sources=self.routing_compiler_fixture()
+        topology,bootstrap=sources
+        for label,previous in (("original",base),("v3",self.commit(base,v3)),
+                ("protected-pr",self.commit(base,updated))):
+            event,source=self.candidate({topology:sources[topology][1]},base=previous)
+            output=self.route(event,source)
+            with self.subTest(profile=label,transition="topology"):
+                self.assertEqual((output["required"],output["host_required"]),("false","true"))
+                self.assertEqual(self.verify(output,event,source),output)
+            parent=self.commit(previous,{topology:sources[topology][1]})
+            event,source=self.candidate({bootstrap:sources[bootstrap][1]},base=parent)
+            output=self.route(event,source)
+            with self.subTest(profile=label,transition="bootstrap"):
+                self.assertEqual((output["required"],output["host_required"]),("false","true"))
+                self.assertEqual(self.verify(output,event,source),output)
+                needs=self.needs(output);needs["host"]["result"]="skipped"
+                with self.assertRaises(ValueError):self.verify(output,event,source,required=needs)
+        parent=self.commit(base,{topology:sources[topology][1]})
+        event,source=self.candidate({**updated,bootstrap:sources[bootstrap][1]},base=parent)
+        output=self.route(event,source)
+        self.assertEqual((output["required"],output["host_required"]),("false","true"))
+        self.assertEqual(self.verify(output,event,source),output)
+        # Once both exact data and cache profiles are installed, ordinary CI
+        # retains its existing independent host omission and actual identities.
+        installed=self.commit(parent,{**updated,bootstrap:sources[bootstrap][1]})
+        event,source=self.candidate({"tools/test-evidence/source-admission-test.py":"# Independent CI update\n"},base=installed)
+        output=self.route(event,source)
+        self.assertEqual((output["required"],output["host_required"]),("false","false"))
+        self.assertEqual(self.verify(output,event,source),output)
+        manual={"repository":{"full_name":CHECK.REPOSITORY,"id":CHECK.REPOSITORY_ID},"ref":"apple-ios"}
+        self.assertEqual((self.route(manual,source)["required"],self.route(manual,source)["host_required"]),("true","true"))
+
+    def test_reviewed_routing_keeps_unknown_rollback_mixed_core_and_native_readers_required(self):
+        base,_,updated,sources=self.routing_compiler_fixture();topology,bootstrap=sources
+        parent=self.commit(base,{topology:sources[topology][1]})
+        installed=self.commit(parent,{**updated,bootstrap:sources[bootstrap][1]})
+        for previous,changes in ((base,{bootstrap:sources[bootstrap][1]}),
+                (base,{**updated,topology:sources[topology][1],bootstrap:sources[bootstrap][1]}),
+                (installed,{bootstrap:sources[bootstrap][0]}),
+                (installed,{topology:"# Unknown routing data\n"}),
+                (installed,{bootstrap:("100755",sources[bootstrap][1])}),
+                (installed,{bootstrap:None}),
+                (parent,{**updated,bootstrap:sources[bootstrap][1],"CMakeLists.txt":"file(READ .github/workflows/ios-bootstrap.yml INPUT)\n"}),
+                (installed,{"ios/ci/new-native-reader.hpp":"# Unreviewed reader\n"})):
+            with self.subTest(previous=previous,paths=sorted(changes)):
+                event,source=self.candidate(changes,base=previous)
+                output=self.route(event,source)
+                self.assertEqual((output["required"],output["host_required"]),("true","true"))
+        event,source=self.candidate({".github/workflows/ios-qt-source.yml":"# Unknown core source\n"},base=installed)
+        with self.assertRaises(ValueError):self.route(event,source)
+
+    def installed_pr_host_complement_fixture(self):
+        base, v3, updated, sources = self.routing_compiler_fixture()
+        # A second complete, independently reviewed host reader complement;
+        # the historical global complement remains unchanged in this fixture.
+        base = self.commit(base, {"ios/tests/port-contract-test.py":
+            "# Complete separately reviewed installed compiler host reader.\n"})
+        inputs = self.host.selector(self.trusted)
+        boundary = inputs.review_boundary(self.root, base)["boundary"]
+        path = self.trusted / "tools/ios-build-qualification/inputs.py"
+        path.write_text(path.read_text().replace(inputs.REVIEWED_BOUNDARY, boundary))
+        certificate = self.host.ci_host_boundary(inputs.read_snapshot(self.root, base))
+        self.assertNotEqual(certificate, self.host.REVIEWED_CI_HOST_BOUNDARY)
+        replacement = patch.object(self.host, "REVIEWED_COMPILER_PR_CI_HOST_BOUNDARY", certificate, create=True)
+        replacement.start(); self.addCleanup(replacement.stop)
+        return base, v3, updated, sources, certificate
+
+    def test_additional_installed_pr_host_complement_omits_only_later_independent_ci(self):
+        base, _, updated, sources, certificate = self.installed_pr_host_complement_fixture()
+        topology, bootstrap = sources
+        for label, installed in (("original-routing", self.commit(base, updated)),
+                ("installed-routing", self.commit(base, {**updated,
+                    topology:sources[topology][1], bootstrap:sources[bootstrap][1]}))):
+            event, source = self.candidate({"tools/test-evidence/source-admission-test.py":
+                "# Later independently owned CI source.\n"}, base=installed)
+            inputs = self.host.selector(self.trusted)
+            snapshots = [inputs.read_snapshot(self.root, revision) for revision in
+                (installed, source, event["pull_request"]["head"]["sha"])]
+            actual = [self.host.entries(snapshot) for snapshot in snapshots]
+            with self.subTest(profile=label):
+                output = self.route(event, source)
+                self.assertEqual((output["required"], output["host_required"]), ("false", "false"))
+                self.assertEqual(self.verify(output, event, source), output)
+                proof = self.host.ci_host_omission(snapshots[0], snapshots[1], head=snapshots[2],
+                    repository=self.root, policy_root=self.trusted)
+                self.assertEqual(proof["boundary"], certificate)
+                self.assertEqual(proof["compiler_data_comparison"]["reviewed_comparison_boundary"], certificate)
+                self.assertEqual([self.host.entries(snapshot) for snapshot in snapshots], actual)
+
+    def test_additional_installed_pr_complement_keeps_cache_and_routing_install_host_mandatory(self):
+        base, _, updated, sources, _ = self.installed_pr_host_complement_fixture()
+        topology, bootstrap = sources
+        parent = self.commit(base, {topology:sources[topology][1]})
+        for previous, changes in ((base, updated), (base, {topology:sources[topology][1]}),
+                (parent, {**updated, bootstrap:sources[bootstrap][1]})):
+            event, source = self.candidate(changes, base=previous)
+            output = self.route(event, source)
+            with self.subTest(paths=sorted(changes)):
+                self.assertEqual((output["required"], output["host_required"]), ("false", "true"))
+                self.assertEqual(self.verify(output, event, source), output)
+                needs = self.needs(output); needs["host"]["result"] = "skipped"
+                with self.assertRaises(ValueError): self.verify(output, event, source, required=needs)
+
+    def test_additional_installed_pr_complement_rejects_profile_modes_reader_and_target_drift(self):
+        base, _, updated, sources, _ = self.installed_pr_host_complement_fixture()
+        topology, bootstrap = sources
+        installed = self.commit(base, {**updated, topology:sources[topology][1], bootstrap:sources[bootstrap][1]})
+        helper = "ios/ci/qt-checkpoint-artifact.py"
+        ci = "tools/test-evidence/source-admission-test.py"
+        for label, drift in (("cache-body", {helper:"# Unknown compiler helper.\n"}),
+                ("cache-missing", {helper:None}),
+                ("cache-mode", {helper:("100644", updated[helper][1])}),
+                ("host-reader", {"ios/tests/port-contract-test.py":"# Unreviewed host reader.\n"}),
+                ("native-reader", {"CMakeLists.txt":"# Changed native reader.\n"}),
+                ("neighbor", {"ios/ci/unknown-compiler-reader.py":"# Unknown host import.\n"})):
+            bad = self.commit(installed, drift)
+            event, source = self.candidate({ci:"# Independent CI.\n"}, base=bad)
+            with self.subTest(profile=label):
+                self.assertEqual(self.route(event, source)["host_required"], "true")
+        event, source = self.candidate({ci:("100755", "# Unreviewed executable CI.\n")}, base=installed)
+        self.assertEqual(self.route(event, source)["host_required"], "true")
+        event, source = self.candidate({ci:"# Independent CI.\n"}, base=installed)
+        wrong = copy.deepcopy(event); wrong["pull_request"]["base"]["ref"] = "apple-main"
+        with self.assertRaises(ValueError): self.route(wrong, source)
+        inputs = self.host.selector(self.trusted)
+        snapshots = [inputs.read_snapshot(self.root, revision) for revision in
+            (installed, source, event["pull_request"]["head"]["sha"])]
+        bad_head = self.commit(installed, {helper:"# Different head helper.\n"})
+        self.assertIsNone(self.host._compiler_pr_ci_comparison(*snapshots[:2],
+            inputs.read_snapshot(self.root, bad_head), policy_root=self.trusted))
+        # Both old and additional complements are approved, but a single
+        # observation cannot mix those different complete reader families.
+        reader = "ios/tests/port-contract-test.py"
+        old_body = self.git("cat-file", "blob", self.base + ":" + reader) + "\n"
+        old_installed = self.commit(installed, {reader:old_body})
+        old_snapshot = inputs.read_snapshot(self.root, old_installed)
+        self.assertEqual(self.host.ci_host_boundary(self.host._compiler_comparison(
+            old_snapshot, inputs, guide=True)), self.host.REVIEWED_CI_HOST_BOUNDARY)
+        self.assertIsNone(self.host._compiler_pr_ci_comparison(
+            old_snapshot, snapshots[1], snapshots[2], policy_root=self.trusted))
+
+    def test_additional_pr_certificate_does_not_widen_historical_or_v3_ci_complements(self):
+        self.assertEqual(self.host.REVIEWED_CI_HOST_BOUNDARY,
+            "90da341e226f56b8dfb8b925af7c0273ecc41772ca424e3426b04c80acdb9a7b")
+        self.assertEqual(self.host.REVIEWED_COMPILER_PR_CI_HOST_BOUNDARY,
+            "c5c7e6b868df7b10b4f5b713b7f7640600e1aa7b67760987a274c2b6961ac3a4")
+        base, v3, _, _, _ = self.installed_pr_host_complement_fixture()
+        for label, previous in (("uninstalled", base), ("v3", self.commit(base, v3))):
+            event, source = self.candidate({"tools/test-evidence/source-admission-test.py":
+                "# Independent CI in a different complete profile.\n"}, base=previous)
+            with self.subTest(profile=label):
+                self.assertEqual((self.route(event, source)["required"], self.route(event, source)["host_required"]),
+                    ("false", "true"))
 
     def test_protected_pr_registration_is_additive_exact_six_and_cannot_change_old_tuples(self):
         approved = self.host.generations()
