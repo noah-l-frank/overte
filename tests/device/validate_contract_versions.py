@@ -19,6 +19,7 @@ REQUIRED = {
     "native-script-controls": 1,
     "native-private-login-input": 2,
     "native-login-controls": 2,
+    "native-create-controls": 1,
     "native-audio-controls": 1,
     "native-graphics-controls": 1,
     "world-render-acquisition": 1,
