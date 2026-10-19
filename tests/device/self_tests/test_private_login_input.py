@@ -28,7 +28,7 @@ class Boundary:
     def __init__(self,root,store):
         self.root=root;self.store=store;self.clock=0.;self.sequence=0;self.instance='c'*32
         self.rows={};self.commands=[];self.value=None;self.fault='';self.alive=True
-        self.actual=None;self.deliveries=0;self.write_journal=None
+        self.actual=None;self.deliveries=0;self.write_journal=None;self.deferred=None;self.drains=0
     def guard(self):
         if not self.alive:raise NativeUIError('Synthetic process is unavailable')
     def sleep(self,value):self.clock+=value
@@ -37,6 +37,8 @@ class Boundary:
     def original(self,name):return (self.root/name).read_bytes()
     def write(self,name,raw):
         self.write_journal=deepcopy(self.store.read())
+        if self.fault in ('late-push','drain-error'):
+            self.deferred=(name,raw);raise NativeUIError('Synthetic transfer response was lost')
         if self.fault=='push-ack':return
         path=self.root/name
         if self.fault=='foreign-inode':path.unlink();path.write_bytes(raw);path.chmod(0o600)
@@ -44,6 +46,15 @@ class Boundary:
             with path.open('r+b') as output:output.seek(0);output.write(raw);output.truncate();output.flush();os.fsync(output.fileno())
         if self.fault=='process-loss':self.alive=False
         if self.fault=='late-write':self.clock+=16
+    def drain(self,name):
+        self.drains+=1
+        if self.fault=='drain-error':raise RuntimeError('Synthetic private transport remains unresolved')
+        if self.deferred is not None:
+            filename,raw=self.deferred;assert filename==name
+            path=self.root/name
+            with path.open('r+b') as output:output.seek(0);output.write(raw);output.truncate()
+            self.deferred=None
+        return self.original(name)
     def owned(self,path,row):
         if row is None or row.get('fd') is None or not path.exists():return False
         value=path.lstat();original=row['original']
@@ -89,7 +100,7 @@ class Boundary:
             attempted=row is not None and row['attempted'],filePresent=path.exists(),fileOwned=self.owned(path,row),pending=False,
             openFiles=int(row is not None and row.get('fd') is not None))
         if row is not None and 'inputStatus' in row:state['inputStatus']=deepcopy(row['inputStatus'])
-        self.value=dict(inputVersion=1,commandId=request['commandId'],operation=operation,runId=request['runId'],inputId=request['inputId'],
+        self.value=dict(inputVersion=2,commandId=request['commandId'],operation=operation,runId=request['runId'],inputId=request['inputId'],
             instance=self.instance,processId=self.pid,capturedEpochMs=20000+round(self.clock*1000),elapsedMs=round(self.clock*1000),
             sequence=self.sequence,available=available,source=state)
         if self.fault=='stale-sequence':self.value['sequence']=1
@@ -186,6 +197,21 @@ class PrivateLoginInputTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.owner.replace(INPUT)
         self.assertEqual(0,self.native.deliveries);self.assertIsNone(self.store.read())
 
+    def test_uncertain_transfer_is_drained_before_retirement_and_cannot_write_late_data(self):
+        self.native.fault='late-push'
+        with self.assertRaises(NativeUIError):self.owner.replace(INPUT)
+        self.assertEqual(1,self.native.drains);self.assertIsNone(self.native.deferred)
+        self.assertIsNone(self.store.read());self.assertEqual([],list(self.root.glob('feature-login-input-*')))
+        self.assertEqual(0,self.native.deliveries)
+
+    def test_missing_private_transport_drain_keeps_intent_until_real_fence_recovery(self):
+        self.native.fault='drain-error'
+        with self.assertRaises(NativeUIError):self.owner.replace(INPUT)
+        self.assertTrue(self.store.read()['transferPending']);self.assertIsNotNone(self.native.deferred)
+        self.assertFalse(any(r['operation']=='retire' for r in self.native.commands))
+        self.native.fault='';self.make().retire()
+        self.assertIsNone(self.store.read());self.assertIsNone(self.native.deferred)
+
     def test_stalled_clock_and_ignored_receipts_are_attempt_bounded(self):
         self.native.fault='foreign-nonce';self.owner.sleep=lambda _:None
         with self.assertRaises(NativeUIError):self.owner.replace(INPUT)
@@ -211,7 +237,7 @@ class PrivateLoginInputTests(unittest.TestCase):
         program=r'''const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
 const objectKeysMatch=(v,k)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(k.sort());
 let calls=[],files=[];
-const Test={iosPrivateLoginInput:r=>{calls.push({...r});return {commandId:r.commandId,inputVersion:1,available:true};},
+const Test={iosPrivateLoginInput:r=>{calls.push({...r});return {commandId:r.commandId,inputVersion:2,available:true};},
 saveObject:(v,name)=>files.push({v,name})};
 SOURCE
 const request={schemaVersion:1,commandId:"ios-"+"a".repeat(32),action:"feature-private-login-input",operation:"reserve",runId:"b".repeat(32),inputId:"c".repeat(32)};
