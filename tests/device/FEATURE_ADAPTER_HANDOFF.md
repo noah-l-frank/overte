@@ -1,32 +1,32 @@
-# Feature adapter handoff, contract v7
+# Feature adapter handoff, contract v8
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
-packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v7.json) and
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v8.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 tracks subsequent local platform packets and prerequisites. These do not change
-the complete v7 contract or grant device acceptance.
+the complete v8 contract or grant device acceptance.
 
 ## Action and read boundary
 
 For each closed area, advertise all three operations only after implementing
-and qualifying their complete v7 contract:
+and qualifying their complete v8 contract:
 
-- `feature.<area>.act` accepts exactly `{contractVersion: 7, runId, ticket,
+- `feature.<area>.act` accepts exactly `{contractVersion: 8, runId, ticket,
   fixtureUrl, verb, inputs}`. `runId` and `ticket` are fresh 32-character lowercase
   hexadecimal strings. `fixtureUrl` is a credential-free HTTP(S) URL whose exact
   path is `/feature-fixture/v1/runs/<runId>/`. `verb` and `inputs` must match the
   closed inventory, including expanded owned text. Return exactly
   `{"performed": true}` after delivering ordinary input, never a result verdict.
-- `feature.<area>.observe` accepts exactly `{contractVersion: 7, runId,
-  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 7,
+- `feature.<area>.observe` accepts exactly `{contractVersion: 8, runId,
+  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 8,
   runId, sequence, capturedEpochMs, state, artifacts, resources, lifecycle}`.
   `state` has every field declared for that area, measured from current product
   state. Unknown, inaccessible or unsupported observations are errors. Empty
   lists and default values cannot substitute for a failed read.
-- `feature.<area>.cleanup` accepts exactly `{contractVersion: 7, runId}` and
+- `feature.<area>.cleanup` accepts exactly `{contractVersion: 8, runId}` and
   returns exactly `{"performed": true}`. Restore only the captured owned test
   scope. The common test calls it twice and then independently observes the
   initial state, empty owned-resource inventory and three seconds of stable
@@ -129,17 +129,20 @@ real-path qualification; simulated PCM is test-logic evidence only.
 Files are independently decoded. SNAP capture/share retains the original PNG
 from the capture ticket, including its original rendered card; fresh screenshots
 use the current ticket. Share and upload also require actual receiver counters.
-Create exports are original `DataVersion: 3` documents with exactly one owned
+Create exports are original `DataVersion: 0` documents with exactly one owned
 Model entity, its exact owned name, model source, unit dimensions and texture
-assignment. IDs and unrelated serialization fields may differ; the material
-map's sole generated key may differ. Geometry and source values cannot be
-replaced. Resolve `model.gltf` to the pinned `gltf-bundle/main.gltf` URL under the
-import ticket and `model.obj` to `obj-bundle/main.obj`; transport the complete
-relative bundle. Apply the distinct generated `checker.png` from the texture
-input ticket. Ordinary import must use the owned name and unit dimensions via
-real property fields. If a platform's local importer exports a different source
+assignment. IDs and unrelated serialization fields may differ. The pinned glTF
+image URI produces the actual texture slot `checker.png`; a different key is
+rejected even if its value is the requested URL. Geometry and source values
+cannot be replaced. Ordinary NEW Model uses the explicit pinned
+`gltf-bundle/main.gltf` or `obj-bundle/main.obj` URL under its model-create ticket;
+transport the complete relative bundle. Apply the distinct generated `checker.png` from the texture
+input ticket. Ordinary creation/import must use the owned name and unit dimensions via
+real property fields. The separate local JSON picker uses the controlled
+`import_document` input, with explicit actual owned fixture origin and no future
+texture assignment; no public expected export resource is served. If a platform's local importer exports a different source
 representation, qualify a new explicit contract reader; never rewrite the
-original export to satisfy v7. Original source bytes of the selected Assets server mapping, read independently
+original export to satisfy v8. Original source bytes of the selected Assets server mapping, read independently
 of any baked/rendered derivative, must match the pinned original glTF bytes exactly and the independent server mapping must bind them to this run.
 
 ## Independent fixture observer
@@ -295,3 +298,8 @@ must acquire their own fresh original UI/storage/node/peer observations; neither
 may copy the other's normalized state or count outgoing native sends as peer
 delivery. The existing domain peer animation/heartbeat proves no Chat delivery.
 No complete Chat capability is enabled by host reducer/source-boundary checks.
+
+The [Create v8 source contract](feature_journeys/CREATE_SOURCE.md) distinguishes
+ordinary Model URL creation from local entity-JSON import, requires actual picker
+open/cancel/accept, independently observes UI/rez errors and retries after real
+permission recovery. Export references are assertions only, never product files.

@@ -22,7 +22,7 @@ WITNESS_KEYS = {
  'world-navigation': ['location', 'bookmark', 'bookmarkName', 'searchResults', 'error'],
  'authentication': ['principal', 'dialog', 'error', 'pending', 'protectedAccess', 'delayedGrantOutstanding'],
  'avatar-people': ['avatar', 'scale', 'wearable', 'bookmarked', 'connection'],
- 'create': ['objects', 'canRez', 'selection', 'textured', 'voxelValue'],
+ 'create': ['objects', 'editor', 'picker', 'error', 'canRez', 'selection', 'textured', 'voxelValue'],
  'emotes': ['animation', 'sit', 'override', 'poseProgress','restoredBeforeNominalEnd'],
  'world-web': ['text', 'page', 'bridgeMessages'],
  'tablet-web': ['text', 'page', 'bridgeMessages'],

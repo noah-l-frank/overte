@@ -24,8 +24,8 @@ The source of truth for actions and checkpoints is
 is in [`contract.py`](feature_journeys/contract.py), execution in
 [`engine.py`](feature_journeys/engine.py), and byte inspection in
 [`evidence.py`](feature_journeys/evidence.py). The checked
-[adapter inventory](feature_journeys/adapter-contract.v7.json) contains input
-vocabularies, observation field types and independent witness fields. Its v7
+[adapter inventory](feature_journeys/adapter-contract.v8.json) contains input
+vocabularies, observation field types and independent witness fields. Its v8
 contract is registered in `contract-versions.json`; breaking changes require a
 new version and explicit compatibility policy for still-supported producers.
 
@@ -68,7 +68,8 @@ boundary-model simulations are not adapter implementation or product evidence.
 
 [`fixtures.py`](feature_journeys/fixtures.py) generates fresh per-run text, image
 cards, Web pages, a distinct texture, a wearable, an executing script with a
-relative companion, PCM and an export reference. It reuses the hash-pinned
+relative companion, PCM, controlled entity-JSON picker input and a private
+export assertion reference. The reference is never served as a product export. It reuses the hash-pinned
 [glTF/OBJ companions](fixture/parity/companions/manifest.json). Additional avatar
 resources remain in their original repository locations and are hash-pinned by
 [`resource-pins.v1.json`](feature_journeys/resource-pins.v1.json); licenses and

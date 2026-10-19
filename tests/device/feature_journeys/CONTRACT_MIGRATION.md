@@ -1,4 +1,38 @@
-# Common feature journey migration: current version 7
+# Common feature journey migration: current version 8
+
+## Version 7 to 8: actual Create model/JSON paths and original export semantics
+
+NativeCreate's NEW Model control creates an entity from its ordinary resource
+URL; glTF/OBJ are not accepted as entity-JSON imports. The distinct Browse control
+opens Select .json to Import. v8 replaces import-local/import-cancel with explicit
+model-create on the pinned complete glTF/OBJ bundle URLs and actual JSON picker
+open/cancel/accept. The owned input JSON uses an explicit real fixture origin,
+version 3 and default model textures. It is distinct from the export assertion
+reference. The unused public export.json shortcut is removed.
+
+Twenty-one checkpoints replace fifteen. The picker must be independently seen
+open before cancellation/acceptance, cancel leaves no entities, and acceptance
+must produce the original imported selection/remote model. Domain rez denial is
+followed by an actual ordinary Cube create after permission restoration and
+owned deletion, proving recovery works. The independent Create projection now
+includes actual editor/picker/error state alongside entity/permission effects.
+No ACK or primary-only error echo proves those UI facts.
+
+Application::exportEntities creates a fresh EntityTree; Octree initializes its
+persistDataVersion to 0 and writes that value unchanged. The export contract
+therefore requires original DataVersion 0, distinct from controlled import data
+version 3. GLTFSerializer derives the pinned image's actual texture name from
+its URI filename, checker.png; the original texture map/export must use that
+slot. Arbitrary single-key aliases are no longer normalized to material. Both
+outer JSON and string-encoded texture maps reject duplicate/nonfinite values.
+Source/name/unit geometry, source ticket and separate replacement-texture ticket
+remain strict. Native exported bytes are never rewritten to fit the assertions.
+
+No qualified v7 full-area producer exists. Current v8 registry/generated files
+reject v7; other area semantics, observation schema 1 and independent native
+primitive versions stay unchanged. Full source/input/picker/peer/file-owner
+composition, native compilation and every device qualification remain open.
+See [the exact inputs and remaining native prerequisites](CREATE_SOURCE.md).
 
 ## Version 6 to 7: actual Chat channels, local fallback and explicit resend
 
@@ -118,9 +152,9 @@ clocks must remain distinct from iOS host epochs. The actual history helpers
 supply narrower prerequisites, not this complete coordinator.
 
 Current actions, observations, registry and generated files use contractVersion
-7. Only version 7 requests are accepted; versions 1..6 have no qualified complete
-producer and remain in Git history. Current files are adapter-contract.v7.json
-and coverage.v7.json. Observation schema 1, resource/journal transport v1 and
+8. Only version 8 requests are accepted; versions 1..7 have no qualified complete
+producer and remain in Git history. Current files are adapter-contract.v8.json
+and coverage.v8.json. Observation schema 1, resource/journal transport v1 and
 independently versioned native primitives remain unchanged. The account fixture
 is independently versioned 2; it does not relax native OAuth deadlines or TLS.
 
@@ -221,7 +255,7 @@ There were no qualified version 1 product producers on Phone, Pico or iOS.
 Version 1 host simulations are historical logic checks, not producers or
 accepted product evidence. No deployed producer/acceptance migration is needed;
 that registry read only 2 and rejected version 1; the current registry now
-reads only 7.
+reads only 8.
 The old inventory and implementation remain recoverable in Git history; the
 version 2 files remain available in Git history.
 
@@ -236,3 +270,8 @@ the existing `scripted-entity` foundation.
 Version 2 did not activate a platform adapter. Its remaining Audio assumptions
 were corrected in version 3 above. Graphics and platform Emotes still need
 source-compatible contracts and full input/observer joins.
+
+Restoring domain rez rights does not clear the existing native status label.
+Keep the observed permission error through the passive permission/selection
+refresh; only the subsequent real successful create response clears it. The
+common retry and independent UI facts now enforce that source behavior.

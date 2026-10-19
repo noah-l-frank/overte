@@ -4,6 +4,22 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The Create v8 correction passes **629** guarded common host cases, zero
+failures/errors/skips/compiler attempts with the same three native exclusions.
+A subsequent source review additionally keeps the existing permission error
+until the actual successful retry, instead of clearing it on domain permission
+restoration. The final **58** feature-journey cases pass, and the existing
+production Create bridge suite passes all **7** JavaScript cases through one
+registered host wrapper. No QML/C++ compiler or device is used.
+
+Create now observes a real JSON picker before cancellation/acceptance, creates
+glTF/OBJ via normal Model URLs, retries after actual rez recovery and rejects
+wrong original export DataVersion/texture slot, duplicate JSON and primary-only
+permission errors. Input JSON version 3 and native export-tree version 0 stay
+distinct. The unused public expected-export route is removed. Full native
+Create picker/storage/domain/peer/render/export composition remains missing.
+See [the exact source contract](feature_journeys/CREATE_SOURCE.md).
+
 The platform Chat source/factory follow-ups pass **81** Phone wrapper cases,
 **41** Pico normal component cases (135.668 seconds) and **300** guarded broad
 iOS cases with zero failures/errors/skips/compiler attempts and the same 20

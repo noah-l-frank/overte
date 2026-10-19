@@ -23,6 +23,9 @@ Version 6 corrects authentication cancellation semantics and adds actual delayed
 authority plus independent UI/error observations; this remains test logic only.
 Version 7 corrects Chat to actual channel selection, cancelled drafts, local fallback
 and separately observed remote delivery; it adds three-second no-replay windows.
+Version 8 corrects Create model creation versus JSON import, adds real picker
+observations/rez retry and requires actual export-tree DataVersion 0 plus the
+pinned `checker.png` texture slot.
 Existing adapters may cover portions of the reused foundations; none is claimed
 to implement the new complete area contract.
 
@@ -31,7 +34,7 @@ to implement the new complete area contract.
 | world-navigation | `domain-enter`, `domain-roundtrip`, `places-navigation`, `look`, `move`, `input-neutral`, `collision`, `jump`, `fly`, `scene-reload` | Bookmark CRUD and restart durability; directory/search, failed navigation, recovery. | changed, image, peer | Logic present; adapter missing; device untested |
 | authentication | No prior feature journey | Invalid login; close/reopen a pending view; real restart before valid old-grant release; successful login/restart and native logout; separate fixture revocation. | peer | Logic present; adapter missing; device untested |
 | avatar-people | `multi-user` | Avatar URL/bookmark, scale, wearable, invalid URL, mutual contact consent/cancel/reject/removal. | changed, image, peer | Logic present; adapter missing; device untested |
-| create | `create-management`, `entity-sync`, `world-interaction` | Model/texture/voxel import/edit, original export, cancellation and rez permission denial/recovery. | changed, file, image, peer | Logic present; adapter missing; device untested |
+| create | `create-management`, `entity-sync`, `world-interaction` | Model URL/texture/voxel creation/edit, real entity-JSON picker cancellation/import, exact-slot original export and rez denial/retry. | changed, file, image, peer | Logic present; adapter missing; device untested |
 | emotes | No prior feature journey | Ten actual native overrides, nine automatic completions, all observed Sit variants, chooser lifetime, early restoration and resume. | changed, image, peer | Logic present; adapter missing; device untested |
 | world-web | `world-web-video` | Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume. | changed, image, peer | Logic present; adapter missing; device untested |
 | graphics | `render-health` | Immediate resolution/Haze/Mirrors, actual completed-frame/pass effects, close/restart durability and measured original restoration. | changed, image | Logic present; adapter missing; device untested |
@@ -50,7 +53,7 @@ also requires changed feature-subject pixels; `audio`/`silence` inspect PCM;
 `file` inspects original bytes; `peer` reads the independent actor journal.
 Existing modules retain their additional image, PCM, process and file checks.
 
-The [machine matrix](feature_journeys/coverage.v7.json), [journey guide](FEATURE_JOURNEYS.md)
+The [machine matrix](feature_journeys/coverage.v8.json), [journey guide](FEATURE_JOURNEYS.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md) record the exact contracts.
 All rows currently depend on real product transports and independently measuring
 target observers. That dependency belongs to the later adapter implementation
