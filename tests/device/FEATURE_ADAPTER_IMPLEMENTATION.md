@@ -4,7 +4,7 @@ The fourteen-area **common test logic exists**. This adapter phase is **partiall
 implemented**: Phone has new ordinary Create/script foundation bindings; Pico
 has a candidate-bound original-observation backend; iOS has an original-read
 component behind its unchanged installed-code gate. **No complete new
-`feature.<area>.act/observe/cleanup` triple is advertised on any platform.**
+`feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
 All fourteen complete v1 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.

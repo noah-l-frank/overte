@@ -31,6 +31,10 @@ are ambiguous and retain unresolved intent. An ignored creation must time out;
 cleanup observes another three-second fresh window before retiring an absent
 creation. An uncertain creation is never replayed. Store actual observed IDs
 alongside owned names; a foreign replacement cannot inherit a historical name.
+Cleanup can delete the actual measured unnamed UUID directly; it must not
+require an ignored or broken Name edit to start functioning before removing
+that owned partial effect. Name/Color/Dimensions input uses ordinary W3C key
+events to deliver Qt `textEdited`, with native field readback and modifier release.
 
 Create uses NEW/My avatar/Cube/Shape, then ordinary Name, Color and Dimensions
 fields/Apply. LIST/Refresh and the actual UUID identify each selected entity.
