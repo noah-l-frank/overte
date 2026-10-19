@@ -5,6 +5,17 @@ Product base: `c5bf8ac17b`, composed with Main's common tests/flows through loca
 parent-to-child merges. No Phone branch was merged into Pico. No build,
 installation, real device access or protected integration was performed.
 
+Continuation: E2E-only native instrumentation is now explicitly authorized.
+The shared `OVERTE_E2E_FEATURE_TESTS` packet supplies original native lifecycle
+and evaluated animation/pose observations plus labelled render/audio/account
+reads. `_native_feature_observer(target)` preserves the original candidate,
+installed-byte, foreground and OpenXR process guards around that separate
+read-only file. This source backend still advertises no `feature.*` triple.
+The existing registered observation group now runs **10** host boundary cases,
+including changed candidates, foreign PIDs and unavailable native hooks.
+Native compilation and device behavior remain untested. See the
+[native observation contract](../../native/README.md).
+
 `feature_observation.py` implements the original-observation backend on the
 existing SH-009/installed-APK-bound Pico adapter. `_feature_observer(target)`
 requires the actual candidate's E2E layer, configured isolated OpenXR session,
@@ -44,8 +55,8 @@ Concrete input blocker in the current parity source:
 The next input packet needs a source-reviewed, test-only extension of that real
 VR automation boundary: ordinary pointer/key/IME actions, unique current object
 tokens, dialog/full-URL row observations, bounded scrolling, cancellation and
-process/bridge/generation ownership. Product/target-automation sources have not
-been changed under the current no-product-change constraint. This is a concrete
+process/bridge/generation ownership. The approved read-only native instrumentation
+does not yet add these input controls. This is a concrete
 missing native seam, not a simulated successful Pico adapter.
 
 The independent fixture actor and original render/audio/share/export evidence

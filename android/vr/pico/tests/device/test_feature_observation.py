@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[5] / 'tests/device'))
 from adapters.normal_script_manager import read_native_diagnostic
 from adapters.pico4 import feature_observation
 from adapters.android.adapter import ANDROID_CONTROL_COMMAND
+from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 
 
 class FeatureObservationTests(unittest.TestCase):
@@ -57,6 +58,61 @@ class FeatureObservationTests(unittest.TestCase):
             boundary.start(); self.addCleanup(boundary.stop)
         self.adapter = self.fixture.instance()
         self.observer = self.adapter._feature_observer(self.native.target)
+
+    def native_feature_boundaries(self):
+        source = NativeFeatureBoundary()
+        def mutate(value):
+            epoch = self.native.epoch_milliseconds(self.native.target)
+            value['capturedEpochMs'] = value['animation']['capturedEpochMs'] = epoch
+            value['animation']['clip']['evaluatedEpochMs'] = epoch
+        source.mutate = mutate
+        original_read = self.native.read_debug_app_file
+        def write(target, package, path, raw):
+            self.assertEqual(ANDROID_CONTROL_COMMAND, path)
+            self.assertEqual('org.overte.pico', package)
+            source.send(json.loads(raw))
+        def read(target, package, path, **kwargs):
+            if path == 'files/overte-e2e/feature-native-observation.json':
+                self.assertEqual('org.overte.pico', package)
+                self.assertEqual({'attempts': 1}, kwargs)
+                return source.original()
+            return original_read(target, package, path, **kwargs)
+        for boundary in (patch.object(self.native, 'write_debug_app_file', side_effect=write),
+                         patch.object(self.native, 'read_debug_app_file', side_effect=read)):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source
+
+    def test_native_feature_original_evaluated_clip_and_native_lifecycle_keep_candidate_binding(self):
+        source = self.native_feature_boundaries()
+        reader = self.adapter._native_feature_observer(self.native.target)
+        first = reader.read(0, require_animation=True)
+        self.assertEqual(source.sample, first)
+        self.assertEqual(123, first['processId'])
+        self.assertTrue(first['animation']['clip']['url'].endswith('/Sit2.fbx'))
+        self.assertEqual([], self.native.inputs)
+        self.assertFalse(any(value.startswith('feature.') for value in self.adapter.capabilities(self.native.target)))
+
+    def test_native_feature_candidate_change_after_original_read_is_rejected(self):
+        source = self.native_feature_boundaries()
+        reader = self.adapter._native_feature_observer(self.native.target)
+        original = source.mutate
+        def change(value):
+            original(value)
+            self.native.digest = 'f' * 64
+        source.mutate = change
+        with self.assertRaises(RuntimeError): reader.read(0)
+        self.assertEqual(1, len(source.commands))
+        self.assertEqual(0, reader.sequence)
+
+    def test_native_feature_rejects_foreign_pid_and_unavailable_native_hook(self):
+        for fault in ('pid', 'hook'):
+            with self.subTest(fault=fault):
+                source = self.native_feature_boundaries()
+                source.mutate = (lambda value: value.update(processId=999)) if fault == 'pid' else (
+                    lambda value: value.update(available=False))
+                reader = self.adapter._native_feature_observer(self.native.target)
+                with self.assertRaises(RuntimeError): reader.read(0)
+                self.assertEqual(0, reader.sequence)
 
     def test_actual_request_original_rows_and_advancing_source_metadata_are_preserved(self):
         first = self.observer.read(0)

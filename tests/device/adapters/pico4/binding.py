@@ -12,6 +12,7 @@ from adapters.pico4.navigation import NativeNavigationIO, PicoNavigation, config
 from navigation_observation import OPERATIONS as NAVIGATION_OPERATIONS
 from adapters.android_snapshot_files import AndroidSnapshotFiles
 from adapters.pico4.feature_observation import PicoFeatureObservation
+from adapters.native_feature_observation import NativeFeatureObservation, FILE as NATIVE_FEATURE_FILE
 from adapters.pico4.snapshot import (PicoSnapshot, OPERATIONS as SNAPSHOT_OPERATIONS,
                                     configured_scene as configured_snapshot)
 
@@ -190,6 +191,22 @@ def create_adapter(args, base_class):
                 {key: installed[key] for key in ('sourceRevision', 'artifactSha256')}
                 | {'processIdentity': identity}, native.guard, os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR', ''))
             return PicoSnapshot(ui, files, preference_path)
+
+        @_private
+        def _native_feature_observer(self, target):
+            original = self._feature_observer(target)
+            installed = self._installation(target)
+            def guard():
+                original.guard()
+                _need(self._installation(target) == installed)
+            def send(command):
+                guard()
+                self.write_control_command(target, original.identity, 'native feature sources', command)
+            return NativeFeatureObservation(send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
+                lambda: self.adb.epoch_milliseconds(target), guard,
+                int(original.identity.split(':')[0]))
 
         @_private
         def discover(self):
