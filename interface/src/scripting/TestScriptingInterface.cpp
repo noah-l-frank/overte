@@ -461,6 +461,33 @@ QVariantMap TestScriptingInterface::releaseFeatureRecordedVoiceEvidence(const QS
     _featurePreviewRequest.clear(); _featurePreviewObservation.clear(); ++_featurePreviewLease;
     return {{"schemaVersion", 1}, {"requestId", requestId}, {"released", memoryCleared && inputRemoved && sinkRemoved}};
 }
+
+QVariantMap TestScriptingInterface::featureRecordedVoiceFiles(const QString& requestId) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this, [&] { result = featureRecordedVoiceFiles(requestId); }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(requestId).hasMatch()
+            || !overte::e2e::previewDirectory(_testResultsLocation)) { return {}; }
+    const auto requested = QDateTime::currentMSecsSinceEpoch();
+    const auto audio = DependencyManager::get<AudioClient>();
+    bool memoryEmpty = false;
+    const auto read = [&] { memoryEmpty = audio->featureRecordedVoiceEvidence().isEmpty(); };
+    if (QThread::currentThread() == audio->thread()) { read(); }
+    else { QMetaObject::invokeMethod(audio.data(), read, Qt::BlockingQueuedConnection); }
+    QVariantList files;
+    for (const auto& name : {QStringLiteral("recorded-preview-input.pcm16le"), QStringLiteral("recorded-preview-sink.pcm16le")}) {
+        const QFileInfo info(QDir(_testResultsLocation).filePath(name));
+        files.append(QVariantMap{{"name", name}, {"exists", info.exists() || info.isSymLink()}});
+    }
+    return {{"schemaVersion", 1}, {"requestId", requestId}, {"instance", _featureObservationInstance},
+        {"sequence", static_cast<qulonglong>(++_featurePreviewSequence)}, {"requestedEpochMs", requested},
+        {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"processId", QCoreApplication::applicationPid()},
+        {"memoryEmpty", memoryEmpty}, {"files", files}};
+}
 #endif
 
 #if defined(OVERTE_E2E_VOICE_TESTS)

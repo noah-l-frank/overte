@@ -28,7 +28,7 @@ clears the previous one. Normal product buffer cleanup remains unchanged.
 
 ## Closed acquisition and cleanup commands
 
-Both commands have exactly `schemaVersion:1`, `commandId:<32hex>` (HTTP/AFC:
+All three commands have exactly `schemaVersion:1`, `commandId:<32hex>` (HTTP/AFC:
 `ios-<32hex>`) and `action`:
 
 * `feature-recorded-audio-observe`: calls only the native evidence getter. The
@@ -41,6 +41,15 @@ Both commands have exactly `schemaVersion:1`, `commandId:<32hex>` (HTTP/AFC:
   playback/buffers stopped, then release observation data. The release response
   is exactly `{schemaVersion:1,requestId,released:boolean}`. The host additionally
   checks actual file absence. Repeat release must succeed without new resources.
+* `feature-recorded-audio-files`: independently reads actual native filesystem
+  existence and observation-memory state. After release, the host always issues
+  this separate read with a fresh request ID. Its envelope has the same native
+  identity/sequence/request/capture/PID fields as acquisition, with `files` and
+  `memoryEmpty` replacing `source`. `files` contains the two fixed names in the
+  table below, each with a typed observed `exists` boolean. Either an existing
+  file (including a dangling symlink) or retained memory makes cleanup fail.
+  Android additionally verifies absence through run-as. iOS never interprets
+  an AFC/WebDriver 500 transport error as proof that a file is absent.
 
 No desired phase, expected audio, PCM samples, test verdict, path or filename
 is accepted. Missing hooks publish `available:false`, which is rejected.
