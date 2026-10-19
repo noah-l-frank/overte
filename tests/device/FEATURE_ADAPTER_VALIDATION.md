@@ -6,12 +6,13 @@ all physical qualification remain open. See
 
 Current continuation validation (all source only):
 
-* **351** common quick-selection Python/JavaScript cases pass, zero failures,
+* **361** common quick-selection Python/JavaScript cases pass, zero failures,
   errors or skips. Three original Voice compile cases are explicitly omitted;
   the compiler guard observed zero build attempts. This includes version 3 Audio phase/history/PCM counterexamples, corrected
   Script flow, normal file-picker recipe and private fixture-storage, alongside
   actual native effect/module/preview source checks. The shared journey group
-  passes **33** cases; the native Script source group passes **19** cases.
+  passes **33** cases; the native Script source group passes **19** cases, and
+  the atomic Audio history/projection group passes **10** cases.
 * Phone's focused real candidate wrapper group passes **36** cases. Pico's
   focused original-observation wrapper group passes **16** cases; its separate
   normal Script group passes **14** cases and the original binding/navigation

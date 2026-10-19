@@ -433,7 +433,11 @@ private:
     QElapsedTimer _recordedVoiceTestDrainElapsed;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap _e2eRecordedVoiceEvent;
-    quint64 _e2eRecordedVoiceSequence {0};
+    quint64 _e2eRecordedVoiceSequence {0}, _e2eRecordedVoiceCycle {0};
+    qint64 _e2eRecordedVoiceStarted {0};
+    int _e2eRecordedVoiceCaptureRate {0}, _e2eRecordedVoiceCaptureChannels {0};
+    bool _e2eRecordedVoiceHistoryComplete {true};
+    QVariantList _e2eRecordedVoiceHistory;
     overte::e2e::RecordedPreviewObservation _e2eRecordedPreview;
 #endif
     void finishRecordedVoiceTest(const QString& phase, const QString& error = QString());
