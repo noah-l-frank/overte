@@ -35,6 +35,10 @@ The fourteen-area [feature journeys](FEATURE_JOURNEYS.md) compose the existing
 modules with missing feature workflows. See the [coverage matrix](FEATURE_COVERAGE.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md): shared logic is implemented;
 new product adapter capabilities and physical-device qualification are pending.
+The optional [controlled HTTPS account provider](feature_journeys/ACCOUNT_PROVIDER.md)
+supplies real password/refresh grants and protected profile requests for owned
+test accounts. It is a backend fixture; native Authentication integration is
+still incomplete.
 
 - `smoke`: stable process launch and foreground state.
 - `asset-smoke`: one launch followed by controlled local texture delivery,

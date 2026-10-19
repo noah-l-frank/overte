@@ -6,6 +6,7 @@
     "artifact-manifest": {"current": 1, "reads": [1]},
     "capability-registry": {"current": 1, "reads": [1]},
     "feature-journey": {"current": 5, "reads": [5]},
+    "feature-account-provider": {"current": 1, "reads": [1]},
     "native-feature-observation": {"current": 1, "reads": [1]},
     "native-animation-history": {"current": 1, "reads": [1]},
     "native-script-code-identity": {"current": 1, "reads": [1]},

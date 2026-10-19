@@ -16,6 +16,9 @@ product workflow. No complete area adapter is advertised.
 The later [local adapter packet audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 records narrower foundation implementations and concrete native blockers; no
 complete new area triple has been enabled by that work.
+The [controlled HTTPS account backend](feature_journeys/ACCOUNT_PROVIDER.md) now
+supplies real owned grants/profile access and delayed-response/revocation controls;
+native Authentication observation/input and complete adapter composition remain open.
 Existing adapters may cover portions of the reused foundations; none is claimed
 to implement the new complete area contract.
 
