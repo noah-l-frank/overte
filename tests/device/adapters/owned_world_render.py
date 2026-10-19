@@ -4,6 +4,7 @@
 from copy import deepcopy
 import re
 from adapters.normal_feature_state import context,need
+from adapters.native_feature_observation import number
 from adapters.world_render_storage import command as storage_command,receipt_file
 
 
@@ -49,24 +50,33 @@ class WorldRenderOwner:
 
 
 class OwnedWorldRenderCapture:
-    def __init__(self,capture,storage,owner,receipts):
+    def __init__(self,capture,storage,owner,receipts,*,timeout=45):
         need(capture.files is storage and capture.intent==owner.intent and storage.receipt_intent==owner.receipt_intent
-             and all(callable(getattr(receipts,n,None)) for n in ('remove','absent')))
+             and all(callable(getattr(receipts,n,None)) for n in ('remove','absent')) and number(timeout,1,600))
         self.capture,self.storage,self.owner,self.receipts=capture,storage,owner,receipts
+        self.timeout=timeout
 
     def read(self,after_sequence):
         need(self.owner.store.read() is None)
         return self.capture.read(after_sequence)
 
     def release(self):
+        started=previous=self.capture.monotonic();need(number(started,0,1e15))
+        def budget():
+            nonlocal previous
+            now=self.capture.monotonic();need(number(now,0,1e15) and now>=previous and now-started<self.timeout)
+            previous=now
         value=self.owner.owned();request=value['capture']['commandId']
         sample=self.storage.release(request) # Retire late requests; independently observe drained buffers.
+        budget()
         value=self.owner.owned() # Includes the newly issued release/inspect receipt intents.
         for nonce in value['receipts']:
+            budget()
             need(self.owner.guard() is not False)
             name=receipt_file(nonce)
             self.receipts.remove(name) # An ACK cannot discard the ownership journal.
             need(self.owner.guard() is not False and self.receipts.absent(name) is True
                  and self.owner.guard() is not False)
+            budget()
         self.owner.store.discard(value)
         return sample # Memory absence only; original metadata is retained as run evidence.

@@ -160,6 +160,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderCapture(const QString& requestId);
     Q_INVOKABLE QVariantMap featureWorldRenderStorage(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureWorldRenderReceipt(const QVariantMap& command);
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     Q_INVOKABLE QVariantMap voiceTest(const QVariantMap& command);
@@ -220,6 +221,7 @@ private:
     quint64 _featureScriptSequence {0};
     QSet<QUuid> _featureScriptEffectIds;
     quint64 _featureScriptFilesSequence {0};
+    quint64 _featureWorldReceiptSequence {0};
     QVariantMap _featureScriptFilesCommand, _featureScriptFilesResult;
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)

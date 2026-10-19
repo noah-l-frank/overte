@@ -16,6 +16,7 @@ REQUIRED = {
     "world-render-acquisition": 1,
     "world-render-storage": 1,
     "world-render-ownership": 1,
+    "world-render-receipt-cleanup": 1,
     "graphics-subject": 1,
     "native-script-code-identity": 1,
     "emote-source-profile": 1,
