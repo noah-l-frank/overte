@@ -8,9 +8,13 @@ Version 4 Graphics validation: **388** common host cases pass with zero failures
 errors, skips or compiler attempts; the same three native compiler cases remain
 excluded. Its journey group has **39** cases, and four additional Graphics
 subject construction cases pass. No rendering or device acceptance is implied.
-The subsequent submitted-code packet has **25** focused Script source cases and
-**7** source-profile cases passing; broader follow-up receipts are recorded below
-when complete.
+The subsequent submitted-code packet passes **401** common host cases and
+**254** broad iOS component cases, zero failures/errors/skips or compiler
+attempts, with the same explicit native exclusions. Focused groups pass **45**
+Phone, **18** Pico and **23** iOS source cases, **25** common Script source
+cases and **7** source-profile cases on each source tree. Original canonical
+iOS binding rejection still passes five cases. These are source/control results
+only; native sources remain uncompiled and all devices unqualified.
 
 Earlier continuation validation before the version 4 Graphics correction (all source only):
 
