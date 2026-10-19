@@ -24,8 +24,8 @@ The source of truth for actions and checkpoints is
 is in [`contract.py`](feature_journeys/contract.py), execution in
 [`engine.py`](feature_journeys/engine.py), and byte inspection in
 [`evidence.py`](feature_journeys/evidence.py). The checked
-[adapter inventory](feature_journeys/adapter-contract.v3.json) contains input
-vocabularies, observation field types and independent witness fields. Its v3
+[adapter inventory](feature_journeys/adapter-contract.v4.json) contains input
+vocabularies, observation field types and independent witness fields. Its v4
 contract is registered in `contract-versions.json`; breaking changes require a
 new version and an explicit compatibility reader.
 
@@ -90,3 +90,8 @@ domain so peer replication and server permissions remain connected. Other
 extensions use the controlled serverless scene. They must run in an isolated test profile with the documented
 baseline; an unexpected account, object, mapping, setting or panel blocks work
 before ownership-dependent actions are enabled.
+
+Version 4 Graphics uses [measured original preferences](feature_journeys/CONTRACT_MIGRATION.md)
+and the versioned [Graphics subject](feature_journeys/GRAPHICS_SUBJECT.md). These
+are common test/fixture contracts; native rendering and full adapters remain
+unqualified and mandatory capability gates remain closed.

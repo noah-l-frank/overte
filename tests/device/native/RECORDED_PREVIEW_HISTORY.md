@@ -1,6 +1,6 @@
 # Atomic recorded-preview history, version 1
 
-This is a read-only native source extension for the shared version 3 Audio
+This is a read-only native source extension for the shared version 4 Audio
 workflow. It does not start/cancel a preview, supply samples, reset product
 status or claim audibility. It requires the default-off feature instrumentation
 and explicit test launch. Native C++ remains **uncompiled and device unqualified**.
@@ -50,7 +50,7 @@ the original event prefix and format/start; a new cycle must advance native
 cycle and global event sequence. Returned data cannot mutate the reader's copy.
 
 `measured_state(packet)` projects the validated actual native packet into the
-version 3 Audio fields, leaving real UI presence to the platform UI owner. File
+version 4 Audio fields, leaving real UI presence to the platform UI owner. File
 recording's separate `audio.recording` flag is never used as voice-preview proof.
 During capture/play, frames come from actual live counters; after termination,
 they come from the original terminal event while `bufferedFrames` remains the

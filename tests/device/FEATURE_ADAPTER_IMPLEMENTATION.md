@@ -5,7 +5,7 @@ implemented**: Phone has new ordinary Create/script foundation bindings; Pico
 has a candidate-bound original-observation backend; iOS has an original-read
 component behind its unchanged installed-code gate. **No complete new
 `feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
-All fourteen complete version 3 adapters remain missing, and all device qualification
+All fourteen complete version 4 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.
 
@@ -16,7 +16,7 @@ original evaluated animation/pose observations, with labelled native
 render/audio/account settings reads. Platform transports are being connected
 in Phone, Pico, iOS order. See [the native source contract](native/README.md).
 The initial source-only readers and full-area adapter status remain distinct;
-these new sources do not by themselves complete any version 3 triple.
+these new sources do not by themselves complete any version 4 triple.
 The [source compatibility audit](FEATURE_SOURCE_COMPATIBILITY.md) also records
 draft common workflow assumptions that must be corrected before area activation.
 
@@ -88,11 +88,11 @@ audio adapter or independent acoustic proof. The new
 [atomic Audio cycle/history source](native/RECORDED_PREVIEW_HISTORY.md) additionally
 joins original events and live buffer counters on the audio thread. Its typed
 read requirement refuses older narrow producers and preserves historical frame
-formats/times; it supplies no normal UI inputs or acoustic evidence.
+formats/times; it has separate internal normal Audio inputs on all three platform branches, but no complete ownership/acoustic evidence coordinator.
 
 ## Fourteen-area source audit
 
-All rows below mean: **test logic present; full version 3 adapter missing; devices
+All rows below mean: **test logic present; full version 4 adapter missing; devices
 untested**. Existing/new foundations are narrower implementation scopes.
 
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
@@ -104,8 +104,8 @@ untested**. Existing/new foundations are narrower implementation scopes.
 | Emotes | New evaluated native Rig/clip/pose source | New evaluated native Rig/clip/pose source | New evaluated native source component | Ordinary platform Emote input/lifetime joins, actual Sit identities, cancellation/resume and independently replicated pose/image evidence; button text cannot substitute |
 | World web | Existing web-video foundations retained | Existing web-video foundations retained | Existing component web/video code retained | Real focused world-Web text/key route, actual page/bridge/origin/error state and independent message receipts/navigation/resume |
 | Tablet web | Existing Tablet/video foundations retained | Existing VR Tablet/video foundations retained | Existing native Tablet component retained | Real browser/inline-app focus, bridge-origin isolation, page/history/error readers and independent effects |
-| Graphics | Existing render-health foundation plus native settings reads | Existing native renderer observer plus settings reads | Existing native renderer/settings component | Correct platform settings flow (Phone has immediate settings, no preset modal), actual render-scale/pass/persistence readers and original current scene pixels |
-| Audio | New bound original memory-preview capture/sink PCM source | New bound original memory-preview capture/sink PCM source | New original memory-preview HTTP/AFC component | Normal automatic three-second Record-and-Play/cancel UI, permission/mute/resume joins, independent acoustic capture and real peer; native accepted-write bytes do not prove audible output |
+| Graphics | Existing render-health foundation plus native settings reads | Existing native renderer observer plus settings reads | Existing native renderer/settings component | Corrected immediate common settings flow with measured originals; ordinary platform input binding, actual render-scale/Haze/Mirror pass/persistence readers and original current scene pixels |
+| Audio | New bound original memory-preview capture/sink PCM source | New bound original memory-preview capture/sink PCM source | New original memory-preview HTTP/AFC component | Normal Audio token/cycle inputs now connected internally on all three; full ownership, permission/mute/resume joins, independent acoustic capture and real peer; native accepted-write bytes do not prove audible output |
 | Chat | Existing text-input foundation retained | Existing native text-input foundation retained | Existing native text-input component retained | Actual draft/history/filter/offline state, meaningful Back/focus ownership and real receiving/sending peer with exactly-once retry receipts |
 | Snapshots | Existing original normal SNAP capture/file contract retained | Existing original normal SNAP capture/file contract retained | Existing native SNAP component retained; bound execution blocked | Actual export/share permission path, original share/upload bytes/completion/cancel/failure receipts and controlled external sink; private capture-file presence alone is insufficient |
 | Scripts | Ordinary From URL/row foundations; normal file-bundle picker; private staged originals and persisted file ownership | Same normal Script/VR file-bundle controls and staged-original ownership under candidate/OpenXR guards | Same native UIKit/Qt component and staged originals; bound execution blocked | Persist picker/engine ownership, join actual loaded companions and advancing entity effects to an independent observer, and implement verified restart ownership handoff. Script import itself has no consent modal; entity-script consent remains in its existing foundation |
@@ -118,7 +118,7 @@ Common blockers affecting the full triples:
   an account backend, domain administrator, external upload/share service or
   second Overte client. No such real measuring actor has been implemented by
   relabelling fixture simulation or by forwarding expectations to the adapter.
-* The version 3 `lifecycle` counters must come from actual native lifecycle events;
+* The version 4 `lifecycle` counters must come from actual native lifecycle events;
   request counts cannot fill them. The continuation's native packet implements
   that source, but the full-area observer/cleanup joins remain to be completed.
 * Fullscreen panels can occlude the current in-world challenge/feature subject.
@@ -179,6 +179,6 @@ still pending. Later hardware work must use the Proxmox Jenkins laboratory via
 the official CLI; no workstation device-lab fallback is authorized.
 
 The shared [normal Audio input component](native/NORMAL_AUDIO_CONTROLS.md) now
-has a token/cycle guarded ordinary-input recipe and fourteen independent host
+has a token/cycle guarded ordinary-input recipe and sixteen independent host
 counterexample cases. It is an internal prerequisite, not a full Audio adapter;
 native delivery and acoustic/cleanup coordination remain unqualified.
