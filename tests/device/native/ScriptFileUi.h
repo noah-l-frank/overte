@@ -116,23 +116,13 @@ public:
         } else if (id == QStringLiteral("script-file.folder")) {
             if (action == "replace" && command.value("text").isString()) {
                 const auto text = command.value("text").toString();
-                const auto match = QRegularExpression("\\A/(?:[^/\\x00-\\x1f]+/)*feature-script-[0-9a-f]{32}(?:/script-bundle)?\\z").match(text);
-                if (text.size() <= 4096 && match.hasMatch() && !text.split('/').contains("..") && !text.split('/').contains(".")) {
+                if (validScriptFolderPath(text)) {
                     delivered = overte::ui::replaceFocusedField(control.item, window, text);
                 }
             } else if (action == "submit") { delivered = overte::ui::submitFocusedField(control.item, window); }
         } else if (id == QStringLiteral("script-file.primary") && action == "select-index") {
             qint64 index {0};
-            if (integer(command.value("index"), index) && index < 32
-                    && index < control.item->property("count").toInt() && ownsFocus(control.item, window)) {
-                QPointer<QQuickItem> original = control.item;
-                QPointer<QQuickWindow> surface = window;
-                delivered = key(surface, Qt::Key_Home);
-                for (int step = 0; delivered && original && surface && step < index; ++step) {
-                    delivered = ownsFocus(original, surface) && key(surface, Qt::Key_Down);
-                }
-                delivered = delivered && original && surface && ownsFocus(original, surface) && key(surface, Qt::Key_Return);
-            }
+            if (integer(command.value("index"), index)) { delivered = selectFocusedPrimary(control.item, window, index); }
         }
         result["performed"] = delivered; // Input delivery only; read real state separately.
         return result;
@@ -152,6 +142,22 @@ public:
             if (parent->clip()) { rect = rect.intersected(parent->mapRectToScene(parent->clipRect())); }
         }
         return rect.contains(center) ? rect : QRectF();
+    }
+
+    static bool selectFocusedPrimary(QQuickItem* item, QQuickWindow* window, qint64 index) {
+        if (!item || !window || !qApp || QThread::currentThread() != qApp->thread()
+                || item->thread() != QThread::currentThread() || window->thread() != QThread::currentThread()
+                || !QCoreApplication::arguments().contains("--testScript")
+                || scriptFileControlId(item) != QStringLiteral("script-file.primary")
+                || visibleRect(item, window).isEmpty() || !item->isEnabled()
+                || index < 0 || index >= 32 || index >= item->property("count").toInt() || !ownsFocus(item, window)) { return false; }
+        QPointer<QQuickItem> original = item;
+        QPointer<QQuickWindow> surface = window;
+        bool delivered = key(surface, Qt::Key_Home);
+        for (int step = 0; delivered && original && surface && step < index; ++step) {
+            delivered = ownsFocus(original, surface) && key(surface, Qt::Key_Down);
+        }
+        return delivered && original && surface && ownsFocus(original, surface) && key(surface, Qt::Key_Return);
     }
 
 private:

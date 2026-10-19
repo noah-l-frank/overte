@@ -13,7 +13,7 @@ from adapters.normal_feature_state import need
 from adapters.normal_ui import NativeUIError
 
 FIXED = frozenset({'scripts.entry', 'scripts.menu', 'scripts.menu-edit', 'scripts.menu-running',
-    'scripts.from-url', 'scripts.list', 'scripts.url.field', 'scripts.url.submit', 'scripts.url.cancel'})
+    'scripts.from-url', 'scripts.from-file', 'scripts.list', 'scripts.url.field', 'scripts.url.submit', 'scripts.url.cancel'})
 
 
 def script_control(identifier):
