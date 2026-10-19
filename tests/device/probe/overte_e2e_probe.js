@@ -857,6 +857,21 @@
         if (command && command.schemaVersion === 1
                 && /^ios-[0-9a-f]{32}$/.test(command.commandId)
                 && command.commandId !== lastClientCommandId
+                && command.action === "snapshot-files"
+                && ((command.operation === "list"
+                    && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "operation", "prefix"]))
+                    || (command.operation === "read"
+                    && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "operation", "prefix", "name", "revision", "offset"])))
+                && typeof Test.iosSnapshotFilesRequest === "function"
+                && Test.iosSnapshotFilesRequest(command)) {
+            // Read-only native storage observation. The native producer owns
+            // all path, size and original-byte validation; never capture here.
+            lastClientCommandId = String(command.commandId);
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && /^ios-[0-9a-f]{32}$/.test(command.commandId)
+                && command.commandId !== lastClientCommandId
                 && command.action === "normal-ui-input"
                 && ((command.operation === "observe"
                     && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "operation"]))
