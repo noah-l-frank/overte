@@ -809,7 +809,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
-            || filename == "phone-script-file-ui.json" || filename == "phone-audio-ui.json" || filename == "phone-graphics-ui.json" || filename == "feature-script-files.json") {
+            || filename == "phone-script-file-ui.json" || filename == "phone-audio-ui.json" || filename == "phone-graphics-ui.json" || filename == "feature-script-files.json" || filename == "world-render-observation.json") {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
         QSaveFile output(filepath);
         output.setDirectWriteFallback(false);

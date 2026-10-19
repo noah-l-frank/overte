@@ -100,6 +100,14 @@ public:
      * @param destImage
      */
     virtual void downloadFramebuffer(const FramebufferPointer& srcFramebuffer, const Vec4i& region, QImage& destImage) = 0;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Dedicated original-pixel observation. The production screenshot API is
+    // unchanged. Backends without an implemented acquisition must fail closed.
+    // Caller must require true and a newly acquired image; false supplies no
+    // evidence and cannot authorize reuse of an old destination.
+    virtual bool featureReadFramebuffer(const FramebufferPointer&, QImage&);
+#endif
+
 
     /**
      * @brief Updates view correction matrix.

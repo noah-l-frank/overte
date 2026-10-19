@@ -10,6 +10,7 @@
     "native-script-code-identity": {"current": 1, "reads": [1]},
     "emote-source-profile": {"current": 1, "reads": [1]},
     "graphics-subject": {"current": 1, "reads": [1]},
+    "world-render-acquisition": {"current": 1, "reads": [1]},
     "native-graphics-controls": {"current": 1, "reads": [1]},
     "native-audio-controls": {"current": 1, "reads": [1]},
     "native-script-controls": {"current": 1, "reads": [1]},

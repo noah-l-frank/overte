@@ -10,6 +10,9 @@
 //  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 //
 #include "Backend.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QtGui/QImage>
+#endif
 
 using namespace gpu;
 
@@ -128,3 +131,10 @@ const Backend::TransformCamera& Backend::TransformCamera::recomputeDerived(const
 
     return *this;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+bool Backend::featureReadFramebuffer(const FramebufferPointer&, QImage& image) {
+    image = QImage();
+    return false; // Includes Vulkan until an actual readback is implemented.
+}
+#endif
