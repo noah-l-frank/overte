@@ -10,6 +10,7 @@ from pathlib import Path
 
 REQUIRED = {
     "native-feature-observation": 1,
+    "native-chat-observation": 1,
     "native-account-observation": 1,
     "native-account-probe": 1,
     "native-account-origin": 1,

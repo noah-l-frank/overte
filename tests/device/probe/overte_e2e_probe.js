@@ -98,6 +98,16 @@
     // Actual execution is still judged by the independent fixture journal.
     var normalFeatureInstance = String(Uuid.generate()).replace(/[{}-]/g, "").toLowerCase();
     var normalFeatureSequence = 0;
+    var lastChatObservationCommand="";
+    function validChatObservationCommand(command) {
+        return command && command.schemaVersion===1 && command.action==="feature-chat-observe"
+            && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+            && /^[0-9a-f]{32}$/.test(String(command.runId))
+            && /^(observe|inspect|retire)$/.test(String(command.operation))
+            && objectKeysMatch(command,["schemaVersion","commandId","action","operation","runId"]);
+    }
+
+
     var lastNormalFeatureRequest = "";
     var lastNativeFeatureRequest = "";
     var nativeFeatureTimer = null;
@@ -1167,6 +1177,21 @@
             }
             return;
         }
+        if (command && command.action==="feature-chat-observe" && validChatObservationCommand(command)) {
+            if (command.commandId!==lastChatObservationCommand) {
+                lastChatObservationCommand=String(command.commandId);
+                var chatSource={commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureChatObservation==="function") {
+                        var originalChat=Test.featureChatObservation(command);
+                        if (originalChat && originalChat.commandId===command.commandId) { chatSource=originalChat; }
+                    }
+                } catch (_chatObservationError) { /* No failed source is an empty received ledger. */ }
+                Test.saveObject(chatSource,"feature-chat-observation.json");
+            }
+            return;
+        }
+
         if (command && command.action === "feature-private-login-input" && validPrivateLoginInputCommand(command)) {
             if (command.commandId !== lastPrivateLoginInputCommand) {
                 lastPrivateLoginInputCommand=String(command.commandId);
@@ -1567,7 +1592,7 @@
 
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
-                || command.action === "feature-account-probe" || command.action === "feature-account-origin"
+                || command.action === "feature-chat-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "phone-login-ui"

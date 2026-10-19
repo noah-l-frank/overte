@@ -154,6 +154,7 @@ public slots:
     // Native E2E observations/fixture storage. Requires a dedicated build and
     // existing explicit --testScript/--testResultsLocation launch boundary.
     Q_INVOKABLE QVariantMap featureNativeObservation(const QString& requestId);
+    Q_INVOKABLE QVariantMap featureChatObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);

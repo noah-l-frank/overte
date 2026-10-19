@@ -4,6 +4,16 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The native Chat reception packet passes **621** guarded common cases (zero
+failures/errors/skips/compiler attempts, same three native exclusions). Its final
+focused group passes **21** cases, including one additional identity-admission
+case added after broad selection. Original Python/fixture/probe paths run; the
+MessagesClient C++ source is uncompiled. Private journals reject foreign native
+session digests and malformed binding types before cleanup. Local/self echoes,
+rewritten/dropped records, pending ownership, false cleanup ACKs and missing
+final inventory cannot establish a remote delivery or completed cleanup. This
+adds no full-area capability. See [the exact source](native/CHAT_OBSERVATION.md).
+
 The Chat v7 source-contract correction passes **601** guarded common host
 cases with zero failures/errors/skips/compiler attempts and the same three
 native exclusions. Its **51** journey cases add counterexamples for invented

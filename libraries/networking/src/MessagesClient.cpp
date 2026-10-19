@@ -26,12 +26,29 @@ MessagesClient::MessagesClient() {
     setCustomDeleter([](Dependency* dependency){
         static_cast<MessagesClient*>(dependency)->deleteLater();
     });
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (QCoreApplication::arguments().contains("--testScript")) {
+        connect(this, &MessagesClient::messageReceived, this,
+            [this](const QString& channel, const QString& message, const QUuid& sender, bool localOnly) {
+                _featureChat.received(channel, message, sender, localOnly);
+            }, Qt::DirectConnection);
+    }
+#endif
     auto nodeList = DependencyManager::get<NodeList>();
     auto& packetReceiver = nodeList->getPacketReceiver();
     packetReceiver.registerListener(PacketType::MessagesData,  
         PacketReceiver::makeSourcedListenerReference<MessagesClient>(this, &MessagesClient::handleMessagesPacket));
     connect(nodeList.data(), &LimitedNodeList::nodeActivated, this, &MessagesClient::handleNodeActivated);
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap MessagesClient::featureChatObservation(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) { return {}; }
+    const auto nodes = DependencyManager::get<NodeList>();
+    const auto mixer = nodes->soloNodeOfType(NodeType::MessagesMixer);
+    return _featureChat.request(command, nodes->getSessionUUID(), mixer ? mixer->getUUID() : QUuid());
+}
+#endif
 
 void MessagesClient::decodeMessagesPacket(QSharedPointer<ReceivedMessage> receivedMessage, QString& channel, 
                                                 bool& isText, QString& message, QByteArray& data, QUuid& senderID) {
