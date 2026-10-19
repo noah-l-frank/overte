@@ -177,3 +177,8 @@ Qualification of actual keyboard delivery,
 visible/scrollable controls, original pixels/PCM/files and product behavior is
 still pending. Later hardware work must use the Proxmox Jenkins laboratory via
 the official CLI; no workstation device-lab fallback is authorized.
+
+The shared [normal Audio input component](native/NORMAL_AUDIO_CONTROLS.md) now
+has a token/cycle guarded ordinary-input recipe and fourteen independent host
+counterexample cases. It is an internal prerequisite, not a full Audio adapter;
+native delivery and acoustic/cleanup coordination remain unqualified.

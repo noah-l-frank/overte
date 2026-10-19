@@ -7,6 +7,7 @@
     "capability-registry": {"current": 1, "reads": [1]},
     "feature-journey": {"current": 3, "reads": [3]},
     "native-feature-observation": {"current": 1, "reads": [1]},
+    "native-audio-controls": {"current": 1, "reads": [1]},
     "native-script-controls": {"current": 1, "reads": [1]},
     "native-script-file-controls": {"current": 1, "reads": [1]},
     "native-script-fixture-storage": {"current": 1, "reads": [1]},
