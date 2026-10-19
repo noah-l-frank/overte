@@ -127,7 +127,11 @@ owner retention, no-op/partial cleanup, clock/budget failures and the actual
 JavaScript dispatch/poll limits. The HTTPS provider suite additionally joins an
 original real server proof with an explicitly synthetic native boundary across
 different clocks. These checks do not run native code, send client traffic or
-prove product login. Native configuration provisioning, normal login/cancel,
-restart ownership, UI error/dialog measurements, independent actor composition
-and complete platform Authentication adapters remain open; capabilities stay
+prove product login. The private Phone/Pico factories and the unbound iOS component now connect this
+reader and persisted ownership to their existing transport/binding. Canonical
+iOS execution still refuses it. Adapter-wide cleanup attempts native drain before
+base teardown, retains unresolved ownership and fails instead of reporting green.
+Native configuration provisioning, normal login/cancel, restart ownership,
+UI error/dialog measurements, independent actor composition and complete platform
+Authentication adapters remain open; capabilities stay
 closed and all physical qualification remains absent.

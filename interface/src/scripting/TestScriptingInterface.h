@@ -20,7 +20,7 @@
 #include <memory>
 #include <QSet>
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class ScriptFileUi; class AudioUi; class GraphicsUi; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; }
 #endif
 
 class TestScriptingInterface : public QObject {
@@ -155,6 +155,7 @@ public slots:
     // existing explicit --testScript/--testResultsLocation launch boundary.
     Q_INVOKABLE QVariantMap featureNativeObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);
     Q_INVOKABLE QVariantMap releaseFeatureRecordedVoiceEvidence(const QString& requestId);
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
@@ -213,6 +214,7 @@ private:
     QString _testResultsLocation;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::FeatureLifecycle* _featureLifecycle {nullptr};
+    overte::e2e::AccountOriginLease* _featureAccountOriginLease {nullptr};
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
     QString _featurePendingRequest;

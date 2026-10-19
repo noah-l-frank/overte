@@ -227,3 +227,10 @@ metadata and separate reply/body/authority cleanup. Private persisted intent and
 actual provider-proof/passive-account joins have strict host readers. This remains
 uncompiled source; native origin provisioning, normal login, complete actor
 composition and Authentication activation remain open.
+
+The common [account-origin file lease](native/ACCOUNT_ORIGIN_OWNERSHIP.md) now
+adds exclusive native fixture configuration, original inode/write provenance and
+retirement before independently observed file cleanup. It can clean its own
+partial writes but refuses copied/modified originals. It does not set product
+endpoints or trust; platform factory/cleanup integration is still the next step.
+Native code remains uncompiled and no full Authentication triple is enabled.

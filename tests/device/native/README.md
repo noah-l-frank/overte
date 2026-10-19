@@ -6,6 +6,12 @@ These are read-only sources for the existing adapter architecture. They are
 an explicit `--testScript` / writable `--testResultsLocation` launch are needed.
 Nothing builds or installs a client when an adapter requests an observation.
 
+The [account-origin ownership source](ACCOUNT_ORIGIN_OWNERSHIP.md) now adds
+exclusive original file staging/readback, native inode/write-count ownership,
+retirement of undelivered stages and separate observed cleanup. It configures
+only the observer, never product endpoints or TLS trust. Source code is
+uncompiled and concrete platform factories are the next step.
+
 The [protected-account probe](ACCOUNT_PROTECTED_PROBE.md) now supplies a real
 current-credential HTTPS profile GET with explicit private origin binding,
 original response hashes and observed reply/body/authority cleanup. It is an
