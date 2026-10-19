@@ -27,7 +27,7 @@ complete audio capability or acoustic qualification. See
 `_script_execution_observer()` uses the same original private transport and
 candidate/OpenXR process binding for actual native engine identities and
 CommonJS completion/cache/error history. The current shared feature contract
-is **version 2**, correcting the Script file-bundle picker flow. Full file
+is **version 3**, correcting the Script file-bundle picker flow. Full file
 picker/effect/cleanup joins remain open; no area triple is advertised. See
 [the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
 
@@ -71,7 +71,7 @@ row delivery despite a successful ACK, primary readback and missing-marker/
 candidate failures. The existing **31** candidate/navigation/Snapshot boundary
 cases and **16** original-observation cases also pass after the extension.
 All are device-free; native C++ remains uncompiled and actual VR/keyboard
-delivery remains unqualified. A complete version 2 Script adapter still needs
+delivery remains unqualified. A complete version 3 Script adapter still needs
 persistent picker/engine cleanup intent, verified restart handoff and
 the advancing-effect/independent observer join. No new `feature.*` triple is
 advertised. See [the common picker contract](../../native/NORMAL_SCRIPT_FILES.md).
@@ -152,3 +152,12 @@ PYTHONDONTWRITEBYTECODE=1 python3 android/vr/pico/tests/device/test_native_execu
 
 These are host protocol/control-logic checks, not Pico product or physical
 acceptance. Future hardware qualification must use the Proxmox Jenkins lab.
+
+The current shared Audio contract is version 3 and follows the actual automatic
+memory capture/play/drain/completion cycle. It rejects invented manual Save or
+Preview controls and separately requires original recording/acoustic evidence.
+The existing preview sources are not full normal Audio input/cycle/acoustic
+bindings. Those and the verified restart/cleanup handoff remain open. The
+updated common suite passes 351 no-build cases; Pico's 16 observation wrapper
+cases also pass after the parent merge. Neither native compilation nor devices
+were qualified.
