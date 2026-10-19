@@ -229,3 +229,28 @@ host cases, including unchanged submission time/hash and older-source rejection.
 Seven reviewed Emote source-profile checks and five canonical binding rejection
 cases pass. Source semantics do not establish installed-code association or
 Emote success. Native source remains uncompiled and all devices unqualified.
+
+The internal `_graphics_controls(selector, intent)` now connects the shared
+immediate Graphics recipe through the existing explicit normal-Scripts native
+component profile. Original Render settings are supplied read-only by the actual
+private test-launch owner into the thin UI resolver. Native Switch/Slider tokens
+retain actual range/grid/readiness and above/below viewport direction. Offscreen
+rows have no clickable frame or UIKit proxy. The page, scrollbar and slider do
+not become covering proxy buttons. Ordinary toggle activation uses the same
+original UIKit element/token; slider/scroll use the existing closed native edit
+channel with original field token, next sequence and elapsed lease.
+
+Only a finite normal set-value or up/down scroll is admitted; actual Qt track/
+groove geometry and scene hit-test govern delivery. No QML handler, Render
+setter, preset transaction or fabricated frame is exposed. Native input intent
+is consumed before delivery. Existing process/session/fingerprint continuity
+and source/read timeout limits remain unchanged. Original setting readback is
+separate from actual rendered frame/pass/image evidence.
+
+The Script/Audio/Graphics component group passes 29 host cases (five new Graphics
+cases), and canonical binding rejection still passes five cases, including
+explicit refusal of `_graphics_controls`. Actual native C++/Objective-C++ remains
+uncompiled. Full preference/page/restart ownership, original render acquisition,
+independent actor joins and physical qualification remain open. No complete
+Graphics capability is advertised; the installed-code association block remains.
+See [the shared input contract](../../native/NORMAL_GRAPHICS_CONTROLS.md).

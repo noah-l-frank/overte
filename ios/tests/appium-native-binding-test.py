@@ -66,6 +66,8 @@ class Binding(unittest.TestCase):
                 native._script_files('test-only')
             with self.assertRaisesRegex(ValueError, 'OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE'):
                 native._audio_controls('test-only', lambda *_: None)
+            with self.assertRaisesRegex(ValueError, 'OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE'):
+                native._graphics_controls('test-only', lambda *_: None)
             preflight.side_effect = ValueError("candidate changed")
             with self.assertRaises(ValueError):
                 native.describe("test-only")

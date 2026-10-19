@@ -135,6 +135,12 @@ class IOSAdapter(AppiumAdapter):
         return OwnedScriptFiles(observer.script_fixture_files(), self.script_files_store(selector),
                                 manager.binding, component_only=True)
 
+    def _graphics_controls(self, selector, intent):
+        from adapters.token_graphics_ui import TokenGraphicsUI
+        from ios.adapters.normal_graphics import IOSGraphicsIO
+        manager = self._scripts(selector)
+        return TokenGraphicsUI(IOSGraphicsIO(manager.ui.io),intent)
+
     def _audio_controls(self, selector, intent):
         from adapters.token_audio_ui import TokenAudioUI
         from ios.adapters.normal_audio import IOSAudioIO

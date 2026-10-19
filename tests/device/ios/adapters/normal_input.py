@@ -1,8 +1,8 @@
-"""Source-owned native Qt field events, never installed-code or feature proof.
+"""Source-owned native Qt field/pointer events, never installed-code or feature proof.
 
 UIKit controls receive ordinary W3C clicks. Only replacing/submitting the already
-focused real Qt address or owned Snapshot name field uses this closed E2E
-transport. A process/nonce
+focused real Qt address/owned fields, and original Graphics slider or
+Audio/Graphics scrollbar pointer input, use this closed E2E transport. A process/nonce
 join is deliberately not a cryptographic association with installed code.
 """
 # Copyright 2026 Overte contributors.
@@ -19,6 +19,7 @@ from ios.adapters.feature_observation import post_request as urlopen
 from adapters.normal_ui import NativeUIError
 from ios.adapters.appium_adapter import AppiumAdapter
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
+from adapters.token_graphics_ui import graphics_control,metadata_fields as graphics_metadata_fields,validate_metadata as validate_graphics_metadata,on_grid
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
@@ -65,6 +66,10 @@ def observation(value, pid, now_ms=None):
         if type(value['audioControlsVersion']) is not int or value['audioControlsVersion'] != 1:
             raise NativeUIError('Native iOS Audio control version is invalid')
         fields.add('audioControlsVersion')
+    if type(value) is dict and 'graphicsControlsVersion' in value:
+        if type(value['graphicsControlsVersion']) is not int or value['graphicsControlsVersion']!=1:
+            raise NativeUIError('Native iOS Graphics control version is invalid')
+        fields.add('graphicsControlsVersion')
     if (not isinstance(value, dict) or set(value) != fields
             or type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
             or not _uuid(value['instance']) or value['frameSpace'] != 'qt-window-logical'
@@ -77,7 +82,12 @@ def observation(value, pid, now_ms=None):
     seen, tokens = set(), set()
     for control in value['controls']:
         fields = {'id', 'token', 'enabled', 'focused', 'frame'}
-        if type(control) is dict and audio_control(control.get('id')):
+        is_graphics=type(control) is dict and graphics_control(control.get('id')) and value.get('graphicsControlsVersion')==1
+        if type(control) is dict and type(control.get('id')) is str and control['id'].startswith('graphics.') and not is_graphics:
+            raise NativeUIError('Native iOS Graphics controls lack their source extension')
+        if is_graphics:
+            fields |= graphics_metadata_fields(control['id'])
+        elif type(control) is dict and audio_control(control.get('id')):
             if value.get('audioControlsVersion') != 1:
                 raise NativeUIError('Native iOS Audio controls lack their source extension')
             fields |= audio_metadata_fields(control['id'])
@@ -93,16 +103,21 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
         if control['id'] in SNAPSHOT_CHOICES and type(control['checked']) is not bool:
             raise NativeUIError('Native iOS Snapshot choice state is invalid')
-        if audio_control(control['id']): validate_audio_metadata(control)
+        if is_graphics:validate_graphics_metadata(control)
+        elif audio_control(control['id']): validate_audio_metadata(control)
         if script_control(control['id']): validate_metadata(control)
         if file_control(control['id']): validate_file_metadata(control)
         frame = control['frame']
+        offscreen=is_graphics and control['viewport'] in ('above','below')
+        if offscreen:
+            if frame is not None:raise NativeUIError('Offscreen Graphics control cannot expose a clickable frame')
+            seen.add(control['id']);tokens.add(control['token']);continue
         if (not isinstance(frame, dict) or set(frame) != {'x', 'y', 'width', 'height'}
                 or any(type(n) not in (int, float) or not math.isfinite(n) or not 0 <= n <= 10000
                        for n in frame.values()) or frame['width'] <= 0 or frame['height'] <= 0):
@@ -237,17 +252,30 @@ class NativeInput:
             command['index'] = index
         return self.deliver(command)
 
-    def scroll(self, direction, *, token):
-        if direction not in ('up','down') or not _uuid(token):
+    def scroll(self, direction, *, token, field='audio.scrollbar'):
+        if direction not in ('up','down') or not _uuid(token) or field not in ('audio.scrollbar','graphics.scrollbar'):
             raise NativeUIError('Native iOS scrollbar input is invalid')
-        observed=self.capture()
-        rows=[r for r in observed['controls'] if r['id']=='audio.scrollbar']
-        if (observed.get('audioControlsVersion') != 1 or len(rows) != 1 or not rows[0]['enabled']
-                or not rows[0]['inputReady'] or rows[0]['token'] != token):
+        observed=self.capture();rows=[r for r in observed['controls'] if r['id']==field]
+        version='graphicsControlsVersion' if field=='graphics.scrollbar' else 'audioControlsVersion'
+        if (observed.get(version)!=1 or len(rows)!=1 or not rows[0]['enabled'] or not rows[0]['inputReady']
+                or rows[0].get('viewport','visible')!='visible' or rows[0]['token']!=token):
             raise NativeUIError('Native iOS original scrollbar token is unavailable')
         command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=observed['instance'],
             sequence=observed['lastSequence']+1,observedElapsedMs=observed['elapsedMs'],
             fieldToken=token,operation='scroll',direction=direction)
+        return self.deliver(command)
+
+    def set_value(self,identifier,value,*,token):
+        if identifier!='graphics.resolution' or not _uuid(token):
+            raise NativeUIError('Native iOS original slider input is invalid')
+        observed=self.capture();rows=[r for r in observed['controls'] if r['id']==identifier]
+        if (observed.get('graphicsControlsVersion')!=1 or len(rows)!=1 or not rows[0]['enabled']
+                or not rows[0]['inputReady'] or rows[0]['viewport']!='visible' or rows[0]['token']!=token
+                or not on_grid(value,rows[0])):
+            raise NativeUIError('Native iOS original slider token or value is unavailable')
+        command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=observed['instance'],
+            sequence=observed['lastSequence']+1,observedElapsedMs=observed['elapsedMs'],
+            fieldToken=token,operation='set-value',value=value)
         return self.deliver(command)
 
     def deliver(self, command):

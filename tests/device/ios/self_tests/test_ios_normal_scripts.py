@@ -26,6 +26,8 @@ from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
 from adapters import token_script_file_ui as file_module
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
+from adapters.token_graphics_ui import TokenGraphicsUI
+from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
 from self_tests.test_token_audio_ui import AudioBoundary
 from self_tests.test_native_script_files import Boundary as FilesBoundary
@@ -43,6 +45,7 @@ class Native:
         self.retire_on_click = False
         self.file_source = None
         self.audio_ui = None
+        self.graphics_ui = None
         self.target = dict(platform='ios', physical=True, appId='org.example.client',
             serverUrl='http://controlled.invalid:49121', probe={'kind': 'ios-documents'},
             nativeUiObservation={'kind': 'uikit-documents', 'version': 1},
@@ -60,14 +63,15 @@ class Native:
             files = self.file_ui.capture()
             value['controls'] = files['controls'] if self.file_ui.opened else value['controls'] + files['controls']
         if self.audio_ui is not None: value['controls'] = self.audio_ui.capture()['controls']
+        if self.graphics_ui is not None:value['controls']=self.graphics_ui.capture()['controls']
         rows = []
         for item in value['controls']:
             row = dict(item)
-            row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL, row['id'] + row.get('sourceUrl', '') + str(row.get('currentIndex', '')) + (row['token'] if self.audio_ui else '')))
+            row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL, row['id'] + row.get('sourceUrl', '') + str(row.get('currentIndex', '')) + (row['token'] if self.audio_ui or self.graphics_ui else '')))
             if row['id'].startswith('script-file.') or row['id'] == 'scripts.from-file':
                 row['focused'] = self.file_focus == row['id']
             row.setdefault('focused',False)
-            row['frame'] = dict(x=10, y=20, width=200, height=48)
+            row['frame'] = None if self.graphics_ui is not None and row.get('viewport') in ('above','below') else dict(x=10, y=20, width=200, height=48)
             rows.append(row)
         return rows
 
@@ -76,6 +80,7 @@ class Native:
             sampleEpochMs=self.epoch(), elapsedMs=int(self.qt.clock * 1000), lastSequence=self.sequence,
             tabletShown=self.qt.opened, ready=True, controls=self.controls(), featureControlsVersion=self.version, fileControlsVersion=self.file_version)
         if self.audio_ui is not None: value['audioControlsVersion'] = self.audio_ui.capture()['audioControlsVersion']
+        if self.graphics_ui is not None:value['graphicsControlsVersion']=self.graphics_ui.capture()['graphicsControlsVersion']
         return value
 
     def post(self, request, timeout):
@@ -90,10 +95,14 @@ class Native:
                 self.sequence += 1
                 assert native['sequence'] == self.sequence and native['instance'] == self.instance
                 field = next(row for row in self.controls() if row['token'] == native['fieldToken'])
-                assert field['focused'] or native['operation'] == 'scroll'
-                if native['operation'] == 'scroll':
-                    original=next(r for r in self.audio_ui.capture()['controls'] if r['id']=='audio.scrollbar')
-                    self.audio_ui.scroll('audio.scrollbar',native['direction'],token=original['token'])
+                assert field['focused'] or native['operation'] in ('scroll','set-value')
+                if native['operation']=='set-value':
+                    original=next(r for r in self.graphics_ui.capture()['controls'] if r['id']==field['id'])
+                    self.graphics_ui.set_value(field['id'],native['value'],token=original['token'])
+                elif native['operation'] == 'scroll':
+                    owner=self.graphics_ui if field['id']=='graphics.scrollbar' else self.audio_ui
+                    original=next(r for r in owner.capture()['controls'] if r['id']==field['id'])
+                    owner.scroll(field['id'],native['direction'],token=original['token'])
                 elif field['id'] == 'scripts.url.field': self.qt.replace(field['id'], native['text'])
                 elif native['operation'] == 'replace': self.file_ui.replace(field['id'], native['text'])
                 elif native['operation'] == 'submit': self.file_ui.submit(field['id'])
@@ -134,6 +143,8 @@ class Native:
         if identifier == 'OverteTabletClose' and self.qt.opened and not self.qt.dialog and not (self.file_ui and self.file_ui.opened): return 'tablet.close', 'close-token'
         name = identifier.removeprefix('OverteNavigation.')
         rows = [row for row in self.controls() if row['id'] == name]
+        if self.graphics_ui is not None and (name in ('graphics.page','graphics.scrollbar','graphics.resolution')
+                or rows and rows[0].get('viewport')!='visible'):return None
         return (name, rows[0]['token']) if rows else None
 
     def call(self, method, path, body=None):
@@ -158,7 +169,10 @@ class Native:
         else:
             row = next(row for row in self.controls() if row['id'] == name)
             if row['token'] != token: raise RuntimeError('retired native source token')
-            if name.startswith('audio.') or name == 'settings.entry':
+            if name.startswith('graphics.') or name=='settings.entry' and self.graphics_ui is not None:
+                original=next(r for r in self.graphics_ui.capture()['controls'] if r['id']==name)
+                self.graphics_ui.activate(name,token=original['token'])
+            elif name.startswith('audio.') or name == 'settings.entry':
                 original=next(r for r in self.audio_ui.capture()['controls'] if r['id']==name)
                 self.audio_ui.activate(name,token=original['token'])
             elif name.startswith('script-file.') or name == 'scripts.from-file':
@@ -197,6 +211,61 @@ class IOSNormalScriptsTests(unittest.TestCase):
             patch.object(normal_scripts, 'TokenScriptUI', partial(TokenScriptUI,
                 monotonic=lambda: self.native.qt.clock, sleep=self.native.qt.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
+
+    def graphics_controls(self):
+        self.native.graphics_ui=GraphicsBoundary(generic=True);self.native.qt.opened=True
+        native=self.native.graphics_ui
+        boundary=patch('adapters.token_graphics_ui.TokenGraphicsUI',partial(TokenGraphicsUI,
+            monotonic=lambda:native.clock,sleep=native.sleep))
+        boundary.start();self.addCleanup(boundary.stop)
+        return native,self.adapter._graphics_controls('test-only-selector',native.intent)
+
+    def test_ios_graphics_actual_slider_scroll_and_uikit_toggles_restore_originals(self):
+        native,ui=self.graphics_controls();initial=native.resolution
+        ui.set_resolution(0.5);ui.set_resolution(0.8);ui.set_resolution(initial)
+        ui.toggle('graphics.haze',True);ui.toggle('graphics.mirrors',True)
+        ui.toggle('graphics.haze',False);ui.toggle('graphics.mirrors',False)
+        self.assertEqual(initial,native.resolution);self.assertFalse(native.haze);self.assertFalse(native.mirrors)
+        edits=[c['input'] for c in self.native.commands if c.get('operation')=='edit']
+        self.assertEqual(3,sum(c['operation']=='set-value' for c in edits))
+        self.assertIsNone(self.native.element('OverteNavigation.graphics.resolution'))
+        self.assertIsNone(self.native.element('OverteNavigation.graphics.page'))
+
+    def test_ios_graphics_ignored_slider_and_ui_only_readback_cannot_prove_effect(self):
+        native,ui=self.graphics_controls();native.fault='resolution'
+        with self.assertRaises(NativeUIError):ui.set_resolution(0.5)
+        self.assertEqual(0.6,native.resolution);native.fault='ui-only'
+        with self.assertRaises(NativeUIError):ui.set_resolution(0.5)
+        self.assertEqual(0.6,native.resolution);self.assertEqual(2,native.actions.count('resolution'))
+
+    def test_ios_graphics_retired_original_token_is_refused_before_native_slider_input(self):
+        native,ui=self.graphics_controls();row=ui.visible('graphics.resolution');native.resolution=0.7
+        before=len(self.native.commands);actions=list(native.actions)
+        with self.assertRaises(NativeUIError):ui.io.set_value('graphics.resolution',0.5,token=row['token'])
+        self.assertFalse(any(c.get('operation')=='edit' for c in self.native.commands[before:]))
+        self.assertEqual(actions,native.actions)
+
+    def test_ios_graphics_process_session_and_source_loss_prevent_new_input(self):
+        native,ui=self.graphics_controls();ui.capture();self.native.pid=99
+        with self.assertRaises(RuntimeError):ui.toggle('graphics.haze',True)
+        self.assertEqual([],native.actions);self.native.pid=42
+        native.transform=lambda value:dict(value,graphicsControlsVersion=2)
+        with self.assertRaises(RuntimeError):ui.set_resolution(0.5)
+        self.assertEqual([],native.actions)
+        native.transform=lambda value:value;self.state['generation']+=1
+        with self.assertRaises(RuntimeError):ui.set_resolution(0.5)
+        self.assertEqual([],native.actions)
+
+    def test_ios_graphics_offscreen_rows_are_read_only_and_cannot_forge_clickable_frames(self):
+        native,ui=self.graphics_controls();value=ui.capture()
+        row=next(r for r in value['controls'] if r['id']=='graphics.resolution')
+        self.assertEqual('below',row['viewport']);self.assertIsNone(row['frame'])
+        self.assertIsNone(self.native.element('OverteNavigation.graphics.mirrors'))
+        row['frame']=dict(x=10,y=20,width=200,height=48)
+        with self.assertRaises(NativeUIError):normal_input.observation(value,42,self.native.epoch())
+        row['frame']=None;row['viewport']='visible'
+        with self.assertRaises(NativeUIError):normal_input.observation(value,42,self.native.epoch())
+        self.assertEqual([],native.actions)
 
     def audio_controls(self):
         self.native.audio_ui=AudioBoundary();self.native.qt.opened=True

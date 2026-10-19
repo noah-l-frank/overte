@@ -61,6 +61,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
 #include "../../../tests/device/native/NormalAudioControls.h"
+#include "../../../tests/device/native/NormalGraphicsControls.h"
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
 #include "avatar/AvatarManager.h"
@@ -328,6 +329,14 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
 #if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
         const QPointer<TestScriptingInterface> owner(this);
+        setIOSGraphicsUiContextReader([owner] {
+            if (!owner || owner->_testResultsLocation.isEmpty() || !owner->_featureLifecycle
+                    || owner->_featureLifecycle->snapshot().isEmpty()
+                    || !QCoreApplication::arguments().contains("--testScript")) { return overte::e2e::GraphicsUiContext(); }
+            auto render = RenderScriptingInterface::getInstance();
+            return overte::e2e::GraphicsUiContext::fromNative(render->getViewportResolutionScale(),
+                render->getHazeEnabled(),render->getMirrorsEnabled());
+        });
         setIOSAudioUiContextReader([owner] {
             overte::e2e::AudioUiContext result;
             if (!owner || owner->_testResultsLocation.isEmpty() || !owner->_featureLifecycle
