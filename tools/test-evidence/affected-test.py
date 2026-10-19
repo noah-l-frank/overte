@@ -899,15 +899,16 @@ class ShippingPolicyTests(unittest.TestCase):
         self.assertTrue(set(inputs._AFFECTED_SUBJECTS).issubset(plan['omitted']))
         self.assertIn('documentation-contracts',plan['required'])
         self.assertEqual(plan['reasons']['documentation-contracts'],'unreviewed-import-or-missing-required-input')
+        self.assertIn('native-owner-lifecycle',plan['required'])
         # Apple retains two additional audio Python readers and a changed mute
         # caller. Their genuine import variant must keep this extra owner.
         if 'recorded-voice-qml' in plan['required']:
             self.assertEqual(plan['reasons']['recorded-voice-qml'],'unreviewed-import-or-missing-required-input')
-            self.assertEqual(len(plan['required']),33)
+            self.assertEqual(len(plan['required']),34)
         else:
             self.assertIn('recorded-voice-qml',plan['omitted'])
             self.assertEqual(plan['reasons']['recorded-voice-qml'],'unchanged-reviewed-dependencies')
-            self.assertEqual(len(plan['required']),32)
+            self.assertEqual(len(plan['required']),33)
         for name,subjects in inputs._AFFECTED_SUBJECTS.items():
             for subject in subjects:
                 for shape in ('changed','removed','historical','executable'):
