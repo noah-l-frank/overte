@@ -539,7 +539,7 @@ if(files[2].v.available!==false)throw Error("missing hook green");
         return source,self.adapter._graphics_controls(SELECTOR,source.ui.intent)
 
     def test_phone_graphics_normal_settings_scroll_and_nondefault_restore_use_original_readback(self):
-        source,ui=self.graphics_boundaries();initial=source.ui.resolution
+        source,ui=self.graphics_boundaries();source.ui.flick_duration=0.3;initial=source.ui.resolution
         ui.set_resolution(0.5);ui.set_resolution(0.6);ui.set_resolution(initial)
         ui.toggle('graphics.haze',True);ui.toggle('graphics.mirrors',True)
         ui.toggle('graphics.haze',False);ui.toggle('graphics.mirrors',False)
