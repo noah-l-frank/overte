@@ -409,6 +409,8 @@ def result(event, environment, *, root=ROOT, adapter=None, clock=time.monotonic,
         value = native(event, environment, root=root)
         adapter = _protected_readers(event, environment, value, root)[0].Adapter()
     observed = schedule(event, environment, root=root, adapter=adapter)
+    # schedule() has authenticated and imported the protected reader closure.
+    import producer_api as A
     while True:
         state = adapter.metadata_result_status(observed)
         require(clock() - started <= wait_seconds, 'original result wait expired')
@@ -416,12 +418,16 @@ def result(event, environment, *, root=ROOT, adapter=None, clock=time.monotonic,
             require(state['conclusion'] == 'success', 'original workflow did not succeed')
             fresh = schedule(event, environment, root=root, adapter=adapter)
             require(all(fresh[key] == observed[key] for key in (
-                'binding', 'references', 'current_run_id', 'original_run_id', 'original_identity', 'diagnostics')),
+                'current_run_id', 'original_run_id', 'original_identity', 'diagnostics',
+                'current_merge_sha', 'original_merge_sha'))
+                and A._scheduling_context_matches((observed['binding'], observed['references']),
+                    (fresh['binding'], fresh['references'])),
                 'original result source changed while waiting')
             require(fresh['original_status'] == 'completed' and fresh['original_conclusion'] == 'success',
                     'original successful result changed')
             native_result = adapter.metadata_result_success(fresh)
-            require(adapter.current(fresh['binding']['pull_request']) == (fresh['binding'], fresh['references']),
+            require(A._scheduling_context_matches((fresh['binding'], fresh['references']),
+                    adapter.current(fresh['binding']['pull_request'])),
                     'metadata result candidate changed before output')
             require(clock() - started <= wait_seconds, 'original result admission exceeded its bound')
             return {**fresh, 'kind': 'native-metadata-original-result', 'qualification': False,

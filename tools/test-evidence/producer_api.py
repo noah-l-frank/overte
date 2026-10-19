@@ -188,9 +188,9 @@ def _scheduling_candidate_matches(candidate, binding):
     its immutable commit. This cannot authorize producer evidence or receipts.
     """
     sha(candidate.get('merge_sha')); sha(candidate.get('merge_tree'))
-    expected = [sha(binding['base_sha']), sha(binding['head_sha'])]
-    require(binding['merge_parents'] == expected, 'scheduling live ordered candidate differs')
-    return candidate['merge_tree'] == binding['merge_tree'] and candidate.get('merge_parents') == expected
+    expected = [sha(binding.get('base_sha')), sha(binding.get('head_sha'))]
+    require(binding.get('merge_parents') == expected, 'scheduling live ordered candidate differs')
+    return candidate['merge_tree'] == sha(binding.get('merge_tree')) and candidate.get('merge_parents') == expected
 
 
 def _scheduling_context_matches(before, after):
@@ -200,7 +200,7 @@ def _scheduling_context_matches(before, after):
     return (_scheduling_candidate_matches(fresh, binding)
         and {k: v for k, v in binding.items() if k != 'merge_sha'} ==
             {k: v for k, v in fresh.items() if k != 'merge_sha'}
-        and references['merge'] == binding['merge_sha'] and refs['merge'] == fresh['merge_sha']
+        and references.get('merge') == binding['merge_sha'] and refs.get('merge') == fresh['merge_sha']
         and {k: v for k, v in references.items() if k != 'merge'} ==
             {k: v for k, v in refs.items() if k != 'merge'})
 

@@ -755,11 +755,20 @@ class RequiredContextGenerationTests(unittest.TestCase):
 class MetadataRequiredResultTests(unittest.TestCase):
     def setUp(self):
         self.marker = MetadataSchedulingBoundaryTests().marker()
+        search = list(sys.path)
+        sys.path.insert(0, str(ROOT / 'tools/test-evidence'))
+        try:
+            import producer_api
+        finally:
+            sys.path[:] = search
         self.ref = 'refs/pull/17/merge'
         self.environment = {'GITHUB_REF':self.ref,'GITHUB_JOB':'repository-checks',
             'GITHUB_WORKFLOW_REF':'noah-l-frank/overte/.github/workflows/repository-checks.yml@'+self.ref}
         self.observed = {'kind':'native-nonproducer-scheduling','metadata_only':'true','qualification':False,
-            'binding':{'merge_sha':'3'*40,'pull_request':17},'references':{'default':'1'*40},'current_run_id':101,
+            'binding':{'merge_sha':'3'*40,'pull_request':17,'base_sha':'b'*40,'head_sha':'c'*40,
+                'merge_tree':'d'*40,'merge_parents':['b'*40,'c'*40]},
+            'references':{'default':'1'*40,'merge':'3'*40},'current_run_id':101,
+            'current_merge_sha':'3'*40,'original_merge_sha':'3'*40,
             'original_run_id':100,'original_identity':{'id':100},
             'original_status':'completed','original_conclusion':'success','diagnostics':False}
         self.seconds = 0
@@ -801,6 +810,36 @@ class MetadataRequiredResultTests(unittest.TestCase):
                 self.run_result(adapter)
             adapter.metadata_result_success.assert_not_called()
 
+    def test_equivalent_live_merge_during_wait_and_final_output_preserves_native_identities(self):
+        from unittest.mock import Mock
+        adapter = Mock()
+        adapter.metadata_result_status.side_effect = [{'status':'in_progress','conclusion':None},
+            {'status':'completed','conclusion':'success'}]
+        adapter.metadata_result_success.return_value = {'job_id':151,'qualification':False}
+        fresh = deepcopy(self.observed)
+        fresh['binding']['merge_sha'] = fresh['references']['merge'] = '4'*40
+        closing = deepcopy(fresh)
+        closing['binding']['merge_sha'] = closing['references']['merge'] = '5'*40
+        adapter.current.return_value = closing['binding'], closing['references']
+        with patch.object(self.marker, 'schedule', side_effect=[self.observed, fresh]):
+            value = self.marker.result({}, self.environment, adapter=adapter,
+                clock=lambda:self.seconds, sleep=self.sleep, wait_seconds=60)
+        self.assertEqual(value['current_merge_sha'], '3'*40)
+        self.assertEqual(value['original_merge_sha'], '3'*40)
+        self.assertEqual(value['binding']['merge_sha'], '4'*40)
+        self.assertEqual(value['original_canonical_job_id'], 151)
+
+    def test_changed_candidate_during_wait_remains_rejected(self):
+        from unittest.mock import Mock
+        for field, replacement in (('base_sha','8'*40),('head_sha','8'*40),('merge_tree','8'*40),
+                                   ('merge_parents',['c'*40,'b'*40])):
+            adapter = Mock()
+            adapter.metadata_result_status.return_value = {'status':'completed','conclusion':'success'}
+            fresh = deepcopy(self.observed); fresh['binding'][field] = replacement
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.run_result(adapter, observations=[self.observed, fresh])
+            adapter.metadata_result_success.assert_not_called()
+
     def test_pending_expiry_and_unavailable_native_state_never_start_work(self):
         from unittest.mock import Mock
         adapter=Mock();adapter.metadata_result_status.return_value={'status':'queued','conclusion':None}
@@ -820,7 +859,7 @@ class MetadataRequiredResultTests(unittest.TestCase):
         for key,value in [('original_run_id',102),('binding',{'merge_sha':'4'*40}),
                           ('references',{'default':'5'*40}),('original_identity',{'id':102})]:
             changed={**self.observed,key:value}
-            with self.subTest(key=key),self.assertRaisesRegex(ValueError,'source changed'):
+            with self.subTest(key=key),self.assertRaises(ValueError):
                 self.run_result(adapter,observations=[self.observed,changed])
         adapter.metadata_result_success.assert_not_called()
 
