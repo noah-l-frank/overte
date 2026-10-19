@@ -11,6 +11,8 @@ The existing app-private client command channel accepts the read-only command
 `{schemaVersion:1, commandId:<32hex>, action:"normal-feature-observe",
 includeAvatarEntities:false}`. It samples once per new command ID into the
 separate private diagnostic, `normal-feature-observation.json`:
+Android's private channel uses 32-hex IDs; iOS's existing HTTP transport uses
+`ios-<32hex>` IDs. Both select the same read-only producer.
 
 ```json
 {"schemaVersion":1,"requestId":"<actual command ID>","instance":"<probe UUID without punctuation>",
