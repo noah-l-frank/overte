@@ -29,7 +29,7 @@ hardware playback claim is introduced. See
 The internal `_script_execution_observer()` now reads actual engine identities
 and CommonJS completion/cache/error history through original HTTP/AFC bytes.
 The canonical candidate binding explicitly rejects this method too. The
-current shared feature contract is **version 2**, with the actual Script
+current shared feature contract is **version 3**, with the actual Script
 file-bundle picker flow; no complete area adapter is claimed by these sources.
 See [the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
 
@@ -138,7 +138,7 @@ next packet needs source-reviewed ordinary Qt pointer/IME mappings and actual
 control tokens on those live roots, with stale context and cleanup handling.
 The new approved read-only instrumentation does not yet add these input controls.
 
-The larger fourteen-area version 2 contracts additionally need native lifecycle event
+The larger fourteen-area version 3 contracts additionally need native lifecycle event
 counters, complete product state readers, an independent real account/domain/
 peer actor and original render/PCM/recording/export/share/upload evidence.
 All fourteen remain **common test logic present; full adapter missing; devices
@@ -168,3 +168,12 @@ were cleaned by the original teardown. The corrected 215-case host-only
 selection excludes both native Snapshot classes and the acoustic compiler case;
 zero compiler attempts occurred. See `tests/device/FEATURE_ADAPTER_VALIDATION.md`
 for the retained initial mixed-run record and exact limits.
+
+The current common Audio contract is version 3: actual automatic memory
+capture/play/drain/completion, native phase/history/frame consistency, normal
+mute/cancel/background behavior and separate original input/acoustic evidence.
+OS permission recovery stays in its existing foundation. Normal Audio input,
+cycle projection, acoustic actor and verified restart/cleanup handoff remain
+open; the component preview source does not supply them. The common suite
+passes 351 no-build cases and the iOS observation group passes 21 cases after
+the parent merge. The canonical installed-code gate remains unchanged.
