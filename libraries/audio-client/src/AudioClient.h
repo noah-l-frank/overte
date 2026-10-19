@@ -19,6 +19,10 @@
 #include <QVariantMap>
 #endif
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QVariantMap>
+#endif
+
 #include <fstream>
 #include <memory>
 #include <vector>
