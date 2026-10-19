@@ -16,8 +16,10 @@ The native adapter must implement and explicitly advertise:
   restricted to the supplied run prefix. Copy their original bytes into bounded
   private run artifacts, preserving the original basename separately. Reuse
   content-addressed copies instead of accumulating repeated large transfers.
-  A missing directory is an infrastructure failure; an observed empty directory
-  returns an empty list. Never generate, re-encode or substitute an image.
+  A fresh native app may not have created `Snapshots` before its first capture;
+  that absence inside the verified ordinary app-data parent is an empty list.
+  Permission/transport failures, aliases or incomplete result frames are errors.
+  Never generate, re-encode or substitute an image.
 - `snapshot.close`: cancel any owned outstanding capture, close the owned SNAP
   surface through normal controls and restore the saved capture-format selection.
   Cleanup must work after partial entry or capture failures too.
@@ -45,3 +47,39 @@ continuity stay bound to the ordinary runner artifacts. Source, built-artifact
 and installed-code verification remain required. This journey does not qualify
 projection orientation, scene fidelity, cancellation/owner replacement, uploads
 or system save/share. Those still require their own normal-UI observations.
+
+## Local input and original-file components
+
+The actual review exposes stable `snapshotMode.option.<mode>` and
+`snapshotFormat.option.<format>` controls. Tests click the real Qt popup
+delegates rather than assigning their selection properties. User mode selection
+persists the existing GIF preference; initial settings do not echo a preference
+write. Each popup exposes its actual selected radio state, independent of the
+translated caption. Input waits for initial settings, supplied both after AppUi
+wires the native bridge and in response to the deferred ready request. A late
+initialization cannot overwrite a choice the user already made. Both Qt5 and
+Qt6 run the original review and selected export backend, including these pointer
+and initialization regressions.
+
+`adapters/android_snapshot_files.py` reads only the native private
+`files/Snapshots` directory through the original ADB transport. The owning
+Phone/Pico adapter must still supply its independently verified installed
+candidate/process context and restrict access to its current owned run prefix.
+File I/O alone does not advertise Snapshot actions or qualify a capture.
+
+The Android-side scripts reject aliases/hardlinks and bound file count and bytes.
+Explicit response framing is required because
+[ADB exec-out returns after copying its stream](https://android.googlesource.com/platform/packages/modules/adb/+/refs/tags/platform-tools-34.0.0/client/commandline.cpp),
+without returning the remote script's exit status. An empty success and a failed
+list therefore cannot be conflated. Binary framing, actual OS size/SHA256 and
+fresh continuity checks reject truncation, replacement and application changes.
+Still/GIF companions can arrive separately; an empty reservation may complete
+during the bounded read. Content-addressed private artifacts retain the exact
+observed bytes and never overwrite unrelated output. The independent image
+decoder remains responsible for every output assertion.
+
+Host file tests execute the actual scripts and original ADB transport against
+ordinary temporary files with only the SDK/device boundary replaced. They also
+model exec-out's success exit for failed remote scripts. Full native
+Phone/Pico/iOS operation dispatch, source-specific input bindings, installed
+iOS code association and device acceptance remain separate pending work.
