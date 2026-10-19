@@ -23,6 +23,7 @@ from self_tests.test_native_script_observation import Boundary as ScriptBoundary
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 from self_tests.test_native_animation_history import history_source
 from adapters.native_animation_history import clip_run
+from self_tests.test_native_account_observation import account_source
 
 
 class FeatureObservationTests(unittest.TestCase):
@@ -91,6 +92,17 @@ class FeatureObservationTests(unittest.TestCase):
                          patch.object(self.native, 'read_debug_app_file', side_effect=read)):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
+
+    def test_pico_passive_account_source_preserves_binding_and_refuses_downgrade(self):
+        source=self.native_feature_boundaries();original=source.mutate
+        def observed(value):original(value);account_source(value)
+        source.mutate=observed;reader=self.adapter._native_feature_observer(self.native.target)
+        first=reader.read(0,require_account=True)
+        self.assertEqual(source.sample['account'],first['account'])
+        self.assertFalse(first['account']['observation']['loginPending'])
+        source.mutate=original
+        with self.assertRaises(RuntimeError):reader.read(first['sequence'])
+        self.assertEqual([],self.native.inputs)
 
     def test_pico_animation_history_keeps_original_effects_and_refuses_source_downgrade(self):
         source=self.native_feature_boundaries();original=source.mutate

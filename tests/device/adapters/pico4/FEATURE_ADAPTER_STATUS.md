@@ -234,3 +234,10 @@ Graphics input, rendered frame/pass effects, preference/page/restart ownership
 and cleanup remain unqualified. The internal component requires the existing
 explicit normal-Scripts fixture profile; no full feature.graphics capability
 is advertised. See [the shared contract](../../native/NORMAL_GRAPHICS_CONTROLS.md).
+
+The shared passive account source v1 crosses the existing installed-candidate/
+PID/OpenXR-bound reader and rejects an older narrow producer. Its wrapper check
+delivers no login input. The controlled HTTPS backend is available, but native
+login/cancel, trusted-origin/current-credential protected probe and independent
+actor composition remain open. No Authentication feature triple is enabled;
+native source remains uncompiled and devices untested.
