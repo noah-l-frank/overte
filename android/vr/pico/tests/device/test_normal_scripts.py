@@ -154,7 +154,7 @@ class PicoNormalScriptsTests(unittest.TestCase):
         return native,factory(self.native.target,native.intent)
 
     def test_pico_graphics_actual_vr_track_inputs_toggle_and_restore_original_grid(self):
-        native,ui=self.audio_controls(graphics=True);original=native.resolution
+        native,ui=self.audio_controls(graphics=True);native.flick_duration=0.3;original=native.resolution
         ui.set_resolution(0.5);ui.set_resolution(0.6);ui.set_resolution(0.8);ui.set_resolution(original)
         ui.toggle('graphics.haze',True);ui.toggle('graphics.mirrors',True)
         ui.toggle('graphics.haze',False);ui.toggle('graphics.mirrors',False)
