@@ -819,7 +819,9 @@ events; the required iOS qualification owner still verifies its selected host
 contracts. Manual bootstrap requests and PRs to other bases keep their commands.
 
 Only the original, topology-installed and topology-plus-bootstrap states are
-accepted, in that order. Exact workflow blobs, ordinary modes and complete reader
+accepted, in that order. The Apple parent comparison separately binds its exact
+unchanged bootstrap revision and projects only topology; iOS never accepts that
+parent bootstrap as its own routing profile. Exact workflow blobs, ordinary modes and complete reader
 boundaries remain required. These comparisons can also accompany the reviewed
 five-file compiler-cache installation after the topology revision is present.
 Routing changes retain the required iOS host checks while omitting application

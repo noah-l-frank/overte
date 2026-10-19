@@ -421,13 +421,14 @@ def _ios_routing_views(tree, base_tree, trusted_tree, trusted_root, target):
                 return None
             snapshots.append(policy.Snapshot("", "", tuple(policy.Entry(
                 name, item["mode"], item["type"], item["sha"]) for name, item in sorted(value.items()))))
-        stages = [policy.routing_data_stage(snapshot) for snapshot in snapshots]
+        parent = target == "apple-main"
+        stages = [policy.routing_data_stage(snapshot, parent=parent) for snapshot in snapshots]
         if None in stages or stages == [0, 0] or target == "apple-main" and 2 in stages:
             return None
-        changed = policy.routing_data_changes(*snapshots)
+        changed = policy.routing_data_changes(*snapshots, parent=parent)
         if changed is None:
             return None
-        comparisons = [policy.routing_data_comparison(snapshot) for snapshot in snapshots]
+        comparisons = [policy.routing_data_comparison(snapshot, parent=parent) for snapshot in snapshots]
         return {"paths": changed, "base": {entry.path: {"mode": entry.mode,
                     "type": entry.object_type, "sha": entry.oid} for entry in comparisons[0].entries},
                 "candidate": {entry.path: {"mode": entry.mode, "type": entry.object_type,

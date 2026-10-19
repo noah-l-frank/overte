@@ -62,6 +62,16 @@ BOOTSTRAP_SOURCE = 'c%1DU{Z|_|@^}7<shd|!u4@|-AazP!DL4%;d=;DYdbymRygO^F>`IHIHKB$3
 TOPOLOGY_SOURCE = 'name: Apple path ownership\n\non:\n  pull_request:\n    branches:\n      - apple-ios\n\npermissions:\n  contents: read\n\njobs:\n  enforce-apple-path-ownership:\n    name: Enforce apple-main sync path\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0\n        with:\n          fetch-depth: 0\n          persist-credentials: false\n      - name: Fetch current Apple base\n        run: git fetch --no-tags origin apple-main:refs/remotes/origin/apple-main\n      - name: Load trusted parent checker\n        run: git show origin/apple-main:tests/apple-branch-topology-check.py > "$RUNNER_TEMP/apple-branch-topology-check.py"\n      - name: Validate ancestry and path ownership\n        env:\n          TARGET_BRANCH: ${{ github.base_ref }}\n        run: >-\n          python3 "$RUNNER_TEMP/apple-branch-topology-check.py"\n          --apple-main origin/apple-main\n          --head HEAD\n          --target "$TARGET_BRANCH"\n'
 
 
+PARENT_BOOTSTRAP_SOURCE = 'c%0o?>vt2m760zP;xeV!rf4Sb1Q&BQWW&PYk#rN-ZrL<Pqq*Y|nUNGpV=yHDdyh1>XZ#9*(rvqZ0ZaG&_}!~P&;onFk4_+#(i*F&YPF>3wE#XyeUaw!!+FAuqLyXuP?g624G?Q8Scazh1weo*l_TNOc)C14*LYc?u@!})Hfs>K4_?s=e94V9q5Wvv^+h<~HY?+3qTfVZ8ZtF692I$knicc{qrce$Stx2l|8wD*3%=@#$wKiQ^@{6)GA&JXg0@u8c*<Y$SW`W^CH1kE?~$!iJx_g##vV|EH<O=IJwW?*?^aZ0enG`5N|}^7n&>GP$t#&#6mMTFkS3D(_(%8eH%_^*s8h-?TA9U~M5B?VW@w_zB9E99R?FN(f4M=b(Jb1JWoh47o`+1Sl~e`gVvZp9DdK1%!!%cxpcrsbkq`Hx6MuN<&s-E&@n%$G;+e+(e9Cil_L!ACCHM3*PSv-=i#d1a{l9bnesn)9l6I@5P#4@7E`@Iy7c>;s^gts`S}i68E44<!M(%o`WvO~F(<bEZ=g&}eQm8S7>uV>63Who1f+#Hq8jb0J)g`uC?`7;YDJ_TG=_QxewQ|+4Jnc<n;ShyA7qmd=_o40Zpbhu#c@rrYrqiSgGo;BmlSRR8SfDX<fDfSk?$VN~CeGSjub?z&dJsm-dw)vqdcV~Ia5XT{)MDanBs8_C$))|Bj1`E9=`Don7LL?*drut02X3<oDqh-iMp=gE7dYyHOQ2U3&T9%~X;o=W*ko`SZUJP{SmK+EGCNM6E`=dd^q`DOVN0^H6|Qah8_Nrnr6mOyrFE8X`(tBKHLzOvA#so)y8u~Q7~?u7ps_M+OgizOGV4k=Vva?Y_J_@6lWlF_Hl=Jkrh9AKdmGyc-QC$*Ut{Zg>l?e9F@3leufv~UxErp8Yg2*E`1mn`+HmKh#sr1sG&em+X>PDJXYa8_MKuC9GIt^Op#dE71O-DF(wryMN^PdnQ4E`^etLF(di3J(bq|7|dHnqJ*_$Uzu5>ASaMhqRWg>wpO9p76R0*{R<nnSA1sBHBJO?rYLWCsa-$bJ;N)(9!HL{r$n`DS$*bGW_45R>e198do#8;dz2aCoUGRv}xB#OC+DtS(v;;OcbB;3$AN20hQLzf6Ch|e()4PHd#YJ+Pm99((PZZ0(RBFiKMcgI2e<>==ZC&&8-htW;;1n~HA&2zke`Yf1F_Rpn&mt2$|LHV>(SAa0>gV`K8<Q-dEib_>zGAGjTqRd@U)KK!6jG0|O-Z7SHYkuK2n_!1W4UOpoXuCuS#&eAPDipQ5aPMBj_uFzi``X<KvZrt}+t{;xT~H<s+1Od$)0=Dm$4y-mrD$135>z(p!P>F{NN~s*l2jvped?RS-lFE|2>#Awf({k9mcmu^qAXvw9+OQ5iDXu4AVlTVrcxJmJ<V%);`pExh7SZLHJw|czo5ncSgHhwE0B~A%5nYwh;cbs;T%;8;!-3zt_CotoAGGqIS5tC>Hn=kFvbyQS~NAo*RNMixXPr!`sQee+T!!0lPA-4-Z?yH;R)u*Y{M@mhp6eGwv;Em`kELfRed*y;!pNZ4$n`X?N<YJX5cp;DPin3Z<EnU+f{!K-yXg`J%7Fb>Tr?2S}Ypm3-L>7!E=tLU&Wyr*%aQrgWzs0KY%;^nP(H6o&6PThGHh(Q;|U>6S$&Db39?rQ)eb5JWbsop#>5t@(~1gC$R`>H1)p-nak=G3^XbrhnLX)XUFC9YSlu2HM9R-RXewd%*a?QB7@d)F)&fL{VmR<yonN;3!6fF%JpaSn`lFDcXBX0Cyw5n9=|zVm=rH*DOd*MIn`)A^Tj@BR9qo1@ITWGb0Vc4gwhj+(+q?O4p(YUI2{OSEN5npCU6Dpr$9K@JJW@75=pqeUI^S9l}p-$s+97))CdiYb%Un8$$h80Vvv+xAfejwlrsB6yvw$CcIfWz2JXZ=aT;&$VX~I6jqSDV%?-M>`!Lzv-Fuk2d9rikJgE$>!scHHwZ9ExXP!u<IOoZ1@4GJ+z2%Xe>14O7r94MNQdx?m2Yeu;Zg#sy_k45PQbI?j2fGWqDrFaRfZsL{)R_6(N5VpCCpq~qWo|ApqAX(6aD7c0DXm|+b#iZ&(5n@VGx5em_sL>wlB$QNy24LfeIG&ZjTAT66KXB>m&$2UI%K>BndIV+w8XCefnKKL4XjEOoc#FW-`X)NG4nbOs_&XWMKT45DY{Ty>}*Z+e-prrdB0}ioNBN2e%}SOlDjZ)rTMOtb|UnaUOqqGU+v!X-42f)wU2*oH$5+u)D|*ovYf|@7xSo5ojQbDO8$u}2Pv&4ib!dpKVb=vsm(gU5)=!%4W@z$p1M~P^daZQcAS)OkjuCe+<<mtOqvA8V_wj03Z}-OwveOfOm%eKSG)BGwbCVqoICrWU(>u>J6l2qeIK#V%`MZJVGi9l)pLs<Z3hLD2^WKYP}-F2&05G6g?<&aXe#$zFo{!ew&+bwHEEpS%=r{diYT~=hiaB_i_Df9$9%qVZ)B<h9Gn3+@O174y+Ax(g3SpZ2rdQ{*Qxs;d;^m&k=K4CS5~c>){8>M)$E>G8{0b_u4onfcx2IZy4^6tj|m^3u^pfLhFhLvCdShZz7L;gIusx{rX!c>6^$P~7pV-DtKZ<kSF$c1f3=8X&4-kYyb&Lns(yX7lmt^+=I%?i`#8tr83E1MyE!%K|L`ANx&Oy-q3;4U;A?D%y*cIMe2s5I_nqVuSDmh_kJqy=Sr~6^4iOC6&V<LEd4yQj=F{9g>Q~GU>Z1x!o4xKIew{S%5X&)H2C_Z)%oV+!0juL*S1h_Wf%O00raK3ozr&V057%7L?<wwkY`p&h`vYyG'
+
+
+def reviewed_parent_bootstrap():
+    raw = zlib.decompress(base64.b85decode(PARENT_BOOTSTRAP_SOURCE))
+    if hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest() != "ea772c34abdee24a42babd94529bf1e753020fb3":
+        raise AssertionError("reviewed parent bootstrap fixture changed")
+    return raw.decode()
+
+
 def reviewed_routing_sources():
     """Exact source data; no historical Git object or caller workflow needed."""
     bootstrap = zlib.decompress(base64.b85decode(BOOTSTRAP_SOURCE)).decode()
@@ -807,6 +817,27 @@ class RoutingDataInputTests(unittest.TestCase):
         self.write(topology,self.routing[topology][1]);parent=self.commit("Install reviewed topology")
         self.write(topology,self.routing[topology][0]);rollback=self.commit("Reject topology rollback")
         self.assertTrue(self.plan(rollback,parent)["requires_application_build"])
+
+    def test_parent_topology_comparison_retains_exact_parent_bootstrap_and_never_admits_it_on_ios(self):
+        topology,bootstrap=self.routing
+        self.write(bootstrap,reviewed_parent_bootstrap())
+        previous=self.commit("Seed actual parent-owned bootstrap source")
+        self.write(topology,self.routing[topology][1]);current=self.commit("Improve only parent topology data")
+        before,after=[INPUTS.read_snapshot(self.root,sha)for sha in(previous,current)]
+        self.assertEqual(INPUTS.routing_data_changes(before,after,parent=True),{topology})
+        raw=tuple(entry.identity()for entry in after.entries)
+        comparison=INPUTS.routing_data_comparison(after,parent=True)
+        entries={entry.path:entry for entry in comparison.entries}
+        self.assertEqual(entries[bootstrap].oid,"ea772c34abdee24a42babd94529bf1e753020fb3")
+        self.assertEqual(entries[topology].oid,INPUTS.ROUTING_DATA[topology][0])
+        self.assertEqual(tuple(entry.identity()for entry in after.entries),raw)
+        self.assertIsNone(INPUTS.routing_data_stage(after))
+        self.assertIsNone(INPUTS.routing_data_comparison(after))
+        self.assertTrue(self.plan(current,previous)["requires_application_build"])
+        for body,mode in (("# Unknown parent bootstrap\n",0o644),(reviewed_parent_bootstrap(),0o755)):
+            self.write(bootstrap,body);(self.root/bootstrap).chmod(mode)
+            bad=INPUTS.read_snapshot(self.root,self.commit("Reject different parent bootstrap source"))
+            self.assertIsNone(INPUTS.routing_data_comparison(bad,parent=True))
 
     def test_frozen_bootstrap_guards_preserve_every_manual_and_other_base_case(self):
         old,new=self.routing[".github/workflows/ios-bootstrap.yml"]

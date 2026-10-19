@@ -29,6 +29,13 @@ def reviewed_routing_sources():
     return module.reviewed_routing_sources()
 
 
+def reviewed_parent_bootstrap():
+    spec = importlib.util.spec_from_file_location("ios_parent_routing_source_fixture", ROOT / "tests/ios-input-selection-test.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.reviewed_parent_bootstrap()
+
+
 def historical_workflows():
     # Exact reviewed source20/21 bytes; independent of active22 and shallow Git.
     result = {}
@@ -1866,8 +1873,10 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
             mixed=copy_git_tree(new);mixed[topology]=ordinary(sources[topology][1]);mixed[bootstrap]=ordinary(sources[bootstrap][1])
             result=select(parent,mixed);self.assertEqual(len(result["suites"]),37);self.assertFalse(result["full_host"])
             # Parent topology belongs to apple-main, never an IOS-only bypass.
-            with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{"apple-main":HOST.program_digest(old,root)}):
-                result=select(old,parent,"apple-main");self.assertEqual(len(result["suites"]),37)
+            parent_base=copy_git_tree(old);parent_base[bootstrap]=ordinary(reviewed_parent_bootstrap())
+            parent_topology=copy_git_tree(parent_base);parent_topology[topology]=ordinary(sources[topology][1])
+            with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{"apple-main":HOST.program_digest(parent_base,root)}):
+                result=select(parent_base,parent_topology,"apple-main");self.assertEqual(len(result["suites"]),37)
                 self.assertFalse(result["full_host"]);self.assertFalse(result["include_platform"])
             self.assertNotEqual(HOST.program_digest(parent,root),HOST.program_digest(old,root))
 
@@ -1877,7 +1886,7 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         with self.transition_profiles(routing=True) as (root,old,new,registry):
             parent=copy_git_tree(old);parent[topology]=ordinary(sources[topology][1])
             child=copy_git_tree(parent);child[bootstrap]=ordinary(sources[bootstrap][1])
-            for label in ("bootstrap-first","unknown","missing","mode","rollback","reader","cache","target","mixed"):
+            for label in ("bootstrap-first","unknown","missing","mode","rollback","reader","cache","target","mixed","parent-bootstrap-on-ios"):
                 before,current=copy_git_tree(parent),copy_git_tree(child);target="apple-ios"
                 if label=="bootstrap-first":before=copy_git_tree(old)
                 elif label=="unknown":current[bootstrap]["sha"]="a"*40
@@ -1887,6 +1896,8 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
                 elif label=="reader":current["ios/new-native-reader.hpp"]={"mode":"100644","type":"blob","sha":"b"*40}
                 elif label=="cache":current["ios/ci/qt-checkpoint-artifact.py"]["sha"]="c"*40
                 elif label=="target":target="android-main"
+                elif label=="parent-bootstrap-on-ios":
+                    before[bootstrap]=ordinary(reviewed_parent_bootstrap());current[bootstrap]=ordinary(reviewed_parent_bootstrap())
                 else:current[topology]=ordinary(sources[topology][0])
                 paths=sorted(p for p in before.keys()|current.keys() if before.get(p)!=current.get(p))
                 with self.subTest(change=label):

@@ -45,6 +45,7 @@ ROUTING_DATA = {
         "e8df02954fc83cc1efefcf36adbaeb19fe21cdae", "787651befbf7a627633b80185d798d7567db2466"),
 }
 ROUTING_PROFILES = ((0, 0), (1, 0), (1, 1))
+PARENT_ROUTING_BOOTSTRAP = "ea772c34abdee24a42babd94529bf1e753020fb3"
 
 
 # Reviewed host control-plane files, not generic tests/** or tools/** patterns.
@@ -341,8 +342,20 @@ def read_snapshot(repository: Path | str, revision: str) -> Snapshot:
 
 
 
-def routing_data_stage(snapshot: Snapshot):
+def routing_data_stage(snapshot: Snapshot, *, parent=False):
+    if type(parent) is not bool:
+        return None
     observed = {entry.path: entry for entry in snapshot.entries}
+    if parent:
+        bootstrap = observed.get(".github/workflows/ios-bootstrap.yml")
+        if bootstrap is None or bootstrap.mode != "100644" or bootstrap.object_type != "blob" \
+                or bootstrap.oid != PARENT_ROUTING_BOOTSTRAP:
+            return None
+        topology = observed.get(".github/workflows/apple-branch-topology.yml")
+        if topology is not None and topology.mode == "100644" and topology.object_type == "blob":
+            identities = ROUTING_DATA[".github/workflows/apple-branch-topology.yml"]
+            return identities.index(topology.oid) if topology.oid in identities else None
+        return None
     for stage, variants in enumerate(ROUTING_PROFILES):
         if all(path in observed and observed[path].mode == "100644"
                and observed[path].object_type == "blob" and observed[path].oid == identities[variant]
@@ -351,9 +364,9 @@ def routing_data_stage(snapshot: Snapshot):
     return None
 
 
-def routing_data_changes(previous: Snapshot, current: Snapshot):
+def routing_data_changes(previous: Snapshot, current: Snapshot, *, parent=False):
     """Known forward parent-topology/child-bootstrap data or unchanged family."""
-    stages = routing_data_stage(previous), routing_data_stage(current)
+    stages = routing_data_stage(previous, parent=parent), routing_data_stage(current, parent=parent)
     # Protected callers can load separate instances of this trusted module.
     # Compare immutable values, never dynamic dataclass identities.
     before = {entry.path: entry.identity() for entry in previous.entries}
@@ -366,13 +379,14 @@ def routing_data_changes(previous: Snapshot, current: Snapshot):
     return changed
 
 
-def routing_data_comparison(snapshot: Snapshot):
+def routing_data_comparison(snapshot: Snapshot, *, parent=False):
     """Return explicitly synthetic comparison entries; retain raw snapshots."""
-    if routing_data_stage(snapshot) is None:
+    if routing_data_stage(snapshot, parent=parent) is None:
         return None
     return Snapshot(snapshot.revision, snapshot.tree, tuple(
         Entry(entry.path, entry.mode, entry.object_type, ROUTING_DATA[entry.path][0])
-        if entry.path in ROUTING_DATA else entry for entry in snapshot.entries))
+        if entry.path in ROUTING_DATA and (not parent or entry.path == ".github/workflows/apple-branch-topology.yml")
+        else entry for entry in snapshot.entries))
 
 
 def _kind(entry: Entry) -> str:
