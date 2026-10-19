@@ -4,6 +4,21 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The native protected-account probe v1 packet passes **532** common host cases,
+zero failures/errors/skips or compiler attempts, with the same native exclusions.
+Its **18** probe/ownership/actual-JavaScript cases cover ignored dispatch, stale/
+foreign source, real private intent retention, missing body/authority drain,
+provider mismatch, native/passive context joins and bounded clocks/polls. The
+account provider group now has **24** real HTTPS cases, including original
+server proof joined to an explicitly synthetic native boundary. A subsequent
+focused probe run also rejects SSL/network errors on a 401 response. Native
+C++/filesystem/HTTP callbacks remain uncompiled and unexecuted; origin provisioning,
+full Authentication composition and every device qualification remain open.
+
+Platform follow-ups for the preceding passive account packet pass **57** Phone,
+**20** Pico and **25** iOS source cases, plus the unchanged five canonical iOS
+binding rejection checks. Native trust or product login is not inferred.
+
 The passive native account observation v1 packet passes **513** common host
 cases, including **12** new account source/history counterexamples, zero failures,
 errors, skips or compiler attempts, with the same three native exclusions.
