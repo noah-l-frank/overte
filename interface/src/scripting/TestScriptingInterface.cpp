@@ -189,11 +189,8 @@ QVariantMap TestScriptingInterface::featureNativeObservation(const QString& requ
     QVariantMap accountState;
     const auto account = DependencyManager::get<AccountManager>();
     const auto readAccount = [&] {
-        // Private identity comparison is possible without exporting account
-        // names, access/refresh tokens, endpoint URLs or session identifiers.
-        const auto name = account->getAccountInfo().getUsername().toUtf8();
-        accountState = {{"loggedIn", account->isLoggedIn()},
-            {"principalSha256", QString::fromLatin1(QCryptographicHash::hash(name, QCryptographicHash::Sha256).toHex())}};
+        // Passive source: ordinary isLoggedIn() can refresh credentials.
+        accountState = account->featureAccountObservation();
     };
     if (QThread::currentThread() == account->thread()) { readAccount(); }
     else { QMetaObject::invokeMethod(account.data(), readAccount, Qt::BlockingQueuedConnection); }
