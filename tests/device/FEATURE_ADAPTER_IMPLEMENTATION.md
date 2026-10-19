@@ -105,7 +105,7 @@ untested**. Existing/new foundations are narrower implementation scopes.
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
 | --- | --- | --- | --- | --- |
 | Worlds/navigation | Existing normal Go To/history retained | Existing real VR Go To/history retained | Existing native component navigation retained; bound execution blocked | Actual bookmark CRUD/persistence, directory/search/failure state and independent arrival/directory actor |
-| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled HTTPS account/profile fixture now exists; passive native pending/token/reply history now exists; explicit-origin protected-probe source now exists; native origin provisioning, login inputs and independent actor joins remain missing |
+| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled HTTPS account/profile fixture now exists; passive native pending/token/reply history now exists; explicit-origin protected-probe and owned origin-file factories now exist; native trust/setup, login inputs and independent actor joins remain missing |
 | Avatar/people | Existing replication foundations retained | Existing replication foundations retained | Existing component peer/replication code retained | Actual avatar chooser/bookmark/scale/wearable readers, mutual contact consent peer and original visible avatar effects |
 | Create | **New** ordinary cube/edit/history/delete/JSON import + observer/source cleanup | **New** original avatar-owned native ID reader; VR input controls missing | **New** original avatar-owned native ID reader component; bound execution blocked | glTF/OBJ local picker + companions, voxel stroke/settled data, texture/render effect, original export bytes and real domain rez-denial actor |
 | Emotes | Evaluated Rig/clip/pose and immutable native call/frame history | Same candidate-bound history reader | Same original native history component; canonical binding blocked | Full source-profile/normal-input/history/peer/image coordinator, measured completion/early-restoration timing and actual Sit identities; the original tablet Sit end-frame concern remains unresolved |
@@ -234,3 +234,10 @@ retirement before independently observed file cleanup. It can clean its own
 partial writes but refuses copied/modified originals. It does not set product
 endpoints or trust; platform factory/cleanup integration is still the next step.
 Native code remains uncompiled and no full Authentication triple is enabled.
+
+The origin-file factories are now connected in Phone/Pico and the unbound iOS
+component, including actual Test-instance acquisition and their existing process/
+artifact/session guards. Adapter cleanup drains network probes then owned
+configuration before base teardown and preserves unresolved ownership. Native
+trust/ordinary endpoint setup, login/cancel/UI/error and verified restart/actor
+composition still gate Authentication activation; all native code is uncompiled.
