@@ -18,12 +18,12 @@ TestCase {
         return page;
     }
     function test_worldPointerControlsPreserveTheCurrentDocument() {
-        var page = world(), native = findChild(page, "FakeEmbeddedWebBackend");
+        var page = world(), backend = findChild(page, "FakeEmbeddedWebBackend");
         var up = findChild(page, "IOSWorldWebScrollUp");
         var down = findChild(page, "IOSWorldWebScrollDown");
         var open = findChild(page, "IOSWorldWebOpenBrowser");
         verify(up !== null && down !== null && open !== null);
-        compare(native.surface, "world-entity");
+        compare(backend.surface, "world-entity");
         compare(page.item.webViewCore.y, 96);
         compare(page.item.webViewCore.height, page.height - 96);
         for (var control of [up, down, open]) {
@@ -32,39 +32,39 @@ TestCase {
             verify(position.x >= 0 && position.x + control.width <= page.width);
             verify(position.y >= 0 && position.y + control.height <= page.height);
         }
-        var originalSource = native.url;
+        var originalSource = backend.url;
         mouseClick(down); mouseClick(up); mouseClick(open);
-        compare(native.scripts.length, 2);
-        verify(/^window\.scrollBy\(0,\d+\);$/.test(native.scripts[0]));
-        compare(native.scripts[1], native.scripts[0].replace("(0,", "(0,-"));
-        compare(native.operations.join(","), "open");
-        compare(native.url, originalSource);
-        console.warn("OVERTE_IOS_WORLD_SCROLL_SCRIPTS=" + JSON.stringify(native.scripts));
+        compare(backend.scripts.length, 2);
+        verify(/^window\.scrollBy\(0,\d+\);$/.test(backend.scripts[0]));
+        compare(backend.scripts[1], backend.scripts[0].replace("(0,", "(0,-"));
+        compare(backend.operations.join(","), "open");
+        compare(backend.url, originalSource);
+        console.warn("OVERTE_IOS_WORLD_SCROLL_SCRIPTS=" + JSON.stringify(backend.scripts));
         page.scriptUrl = "https://example.test/client.js";
-        compare(native.scriptUrl, page.scriptUrl);
+        compare(backend.scriptUrl, page.scriptUrl);
         page.fromScript({ originalBridge: true });
-        compare(native.events.length, 1);
-        verify(native.events[0].originalBridge);
+        compare(backend.events.length, 1);
+        verify(backend.events[0].originalBridge);
         // Failed texture capture keeps the existing native presentation usable.
-        native.error = "Capture unavailable";
+        backend.error = "Capture unavailable";
         verify(!down.enabled && !up.enabled && open.enabled);
         mouseClick(down); mouseClick(open);
-        compare(native.scripts.length, 2);
-        compare(native.operations.join(","), "open,open");
-        native.error = ""; native.loading = true;
+        compare(backend.scripts.length, 2);
+        compare(backend.operations.join(","), "open,open");
+        backend.error = ""; backend.loading = true;
         verify(!down.enabled && open.enabled);
-        native.loading = false;
+        backend.loading = false;
         page.item.interactive = false;
         verify(!down.enabled && !open.enabled);
-        var disabledOperations = native.operations.join(",");
+        var disabledOperations = backend.operations.join(",");
         mouseClick(down); mouseClick(open);
-        compare(native.scripts.length, 2);
-        compare(native.operations.join(","), disabledOperations);
+        compare(backend.scripts.length, 2);
+        compare(backend.operations.join(","), disabledOperations);
         page.item.interactive = true;
         page.item.scrollWorldPage(0);
         page.item.visible = false;
         page.item.scrollWorldPage(1);
-        compare(native.scripts.length, 2);
+        compare(backend.scripts.length, 2);
         page.item.visible = true;
         // A replacement source owns a new backend; old calls cannot target it.
         page.url = "https://example.test/replacement";
