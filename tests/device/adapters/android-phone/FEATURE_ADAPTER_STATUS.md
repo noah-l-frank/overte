@@ -163,3 +163,9 @@ wrapper case preserves terminal recording frames after empty live buffers and
 rejects source downgrade. All 37 wrapper cases pass. Native C++ is uncompiled;
 normal Audio UI inputs and independent acoustic/journal/restart joins remain
 required. See [the history contract](../../native/RECORDED_PREVIEW_HISTORY.md).
+
+The [normal Audio input component](NORMAL_AUDIO_PROTOCOL.md) now connects the
+shared token/cycle recipe to the original Phone Qt/probe channel. Seven added
+wrapper/probe cases bring the focused group to 44 passing cases. This remains
+an internal prerequisite: full-area Audio and acoustic/cleanup coordination are
+not advertised or qualified; native source is uncompiled.

@@ -347,10 +347,12 @@ QVariantMap TestScriptingInterface::featureScriptObservation(const QString& requ
         {"source", source}};
 }
 #if defined(ANDROID_APP_PHONE_INTERFACE)
-QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command) {
+QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command) { return phoneControlUi(command, false); }
+QVariantMap TestScriptingInterface::phoneAudioUi(const QVariantMap& command) { return phoneControlUi(command, true); }
+QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, bool audioSurface) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;
-        QMetaObject::invokeMethod(this, [&] { result = phoneScriptFileUi(command); }, Qt::BlockingQueuedConnection);
+        QMetaObject::invokeMethod(this, [&] { result = phoneControlUi(command, audioSurface); }, Qt::BlockingQueuedConnection);
         return result;
     }
     if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
@@ -358,7 +360,20 @@ QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command
     const auto ui = DependencyManager::get<OffscreenUi>();
     const auto root = ui->getRootItem();
     const auto window = ui->getWindow();
-    if (!_phoneScriptFileUi) { _phoneScriptFileUi = std::make_shared<overte::e2e::ScriptFileUi>(); }
+    overte::e2e::AudioUiContext audioContext;
+    if (audioSurface) {
+        if (!DependencyManager::isSet<AudioClient>()) { return {}; }
+        const auto audio = DependencyManager::get<AudioClient>();
+        QVariantMap voice; bool muted {false}, echo {false};
+        const auto read = [&] { voice = audio->featureRecordedVoiceObservation(); muted = audio->isMuted(); echo = audio->getLocalEcho(); };
+        if (QThread::currentThread() == audio->thread()) { read(); }
+        else if (!QMetaObject::invokeMethod(audio.data(), read, Qt::BlockingQueuedConnection)) { return {}; }
+        audioContext = overte::e2e::AudioUiContext::fromNative(voice, muted, echo, qApp->isHMDMode());
+        if (!audioContext.valid) { return {}; }
+        if (!_phoneAudioUi) { _phoneAudioUi = std::make_shared<overte::e2e::AudioUi>(); }
+    } else if (!_phoneScriptFileUi) { _phoneScriptFileUi = std::make_shared<overte::e2e::ScriptFileUi>(); }
+    auto controls = audioSurface ? static_cast<overte::e2e::NormalControlUi*>(_phoneAudioUi.get())
+        : static_cast<overte::e2e::NormalControlUi*>(_phoneScriptFileUi.get());
     const auto request = QJsonObject::fromVariantMap(command);
     const auto id = request.value("commandId").toString();
     if (request.value("schemaVersion") != QJsonValue(1)
@@ -367,7 +382,7 @@ QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command
     const auto keys = request.keys();
     if (action == "observe") {
         if (QSet<QString>(keys.begin(), keys.end()) != QSet<QString>{"schemaVersion", "commandId", "action"}) { return {}; }
-        auto observed = _phoneScriptFileUi->observe(root, window);
+        auto observed = controls->observe(root, window, audioContext);
         if (observed.isEmpty()) { return {}; }
         observed["commandId"] = id;
         observed["action"] = action;
@@ -375,14 +390,16 @@ QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command
     }
     // Events enter the actual rendered Qt window. No QML clicked/accepted
     // handler, file helper or script service is invoked as an input shortcut.
-    const auto click = [window](QQuickItem* item) {
+    const auto pointClick = [window, audioSurface](QQuickItem* item, const QPointF& position) {
         if (overte::e2e::ScriptFileUi::visibleRect(item, window).isEmpty()) { return false; }
         QPointer<QQuickItem> original = item;
         QPointer<QQuickWindow> surface = window;
-        const auto position = item->mapToScene(QPointF(item->width() / 2, item->height() / 2));
-        QMouseEvent move(QEvent::MouseMove, position, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
-        QCoreApplication::sendEvent(surface, &move);
-        if (!original || !surface) { return false; }
+        if (!overte::e2e::ScriptFileUi::visibleRect(item, window).contains(position)) { return false; }
+        if (!audioSurface) {
+            QMouseEvent move(QEvent::MouseMove, position, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(surface, &move);
+            if (!original || !surface) { return false; }
+        }
         QMouseEvent press(QEvent::MouseButtonPress, position, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
         const bool pressed = QCoreApplication::sendEvent(surface, &press);
         bool released {false};
@@ -392,7 +409,10 @@ QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command
         }
         return pressed && released && original && surface;
     };
-    auto result = _phoneScriptFileUi->apply(root, window, request, click);
+    const auto click = [pointClick](QQuickItem* item) {
+        return pointClick(item, item->mapToScene(QPointF(item->width()/2, item->height()/2)));
+    };
+    auto result = controls->apply(root, window, request, click, audioContext, pointClick);
     if (!result.isEmpty()) { result["action"] = action; }
     return result.toVariantMap();
 }
@@ -778,7 +798,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
-            || filename == "phone-script-file-ui.json" || filename == "feature-script-files.json") {
+            || filename == "phone-script-file-ui.json" || filename == "phone-audio-ui.json" || filename == "feature-script-files.json") {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
         QSaveFile output(filepath);
         output.setDirectWriteFallback(false);

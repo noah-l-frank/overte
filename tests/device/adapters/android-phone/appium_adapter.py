@@ -33,6 +33,8 @@ from adapters.native_feature_observation import NativeFeatureObservation, FILE a
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, AndroidPreviewFiles,
     FILE as RECORDED_PREVIEW_FILE)
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
+from adapters.token_audio_ui import TokenAudioUI
+from overte_phone_audio import PhoneAudioIO, FILE as AUDIO_UI_FILE
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from overte_phone_script_files import PhoneScriptFileIO, FILE as SCRIPT_FILE_UI_FILE
@@ -210,6 +212,19 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + SCRIPT_FILE_UI_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid)
         return TokenScriptFilePicker(io, directory)
+
+    def _audio_controls(self, selector, intent):
+        # Internal ordinary-input prerequisite. Caller must persist ownership;
+        # no full Audio capability is advertised by this component.
+        native = self._native_feature_observer(selector)
+        target = self.target(selector)
+        device = target['capabilities']['appium:udid']
+        transport = PhoneAdapter(self.candidate).adb
+        io = PhoneAudioIO(native.send,
+            lambda: transport.read_debug_app_file(device, target['appId'],
+                'files/overte-e2e/' + AUDIO_UI_FILE, attempts=1),
+            native.clock_ms, native.guard, native.pid)
+        return TokenAudioUI(io, intent)
 
     def normal_scripts(self, selector, operation, values):
         arguments = validate_operation_arguments(operation, values)

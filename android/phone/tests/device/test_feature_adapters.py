@@ -31,6 +31,8 @@ from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
 from self_tests.test_native_script_files import Boundary as ScriptFilesBoundary
 from script_file_native_boundary import FileNativeBoundary
+from audio_native_boundary import AudioNativeBoundary
+from adapters.token_audio_ui import TokenAudioUI
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -500,6 +502,93 @@ if(files[2].v.available!==false)throw Error("missing hook green");
 '''.replace('SOURCE', probe_source())
         completed = subprocess.run(['node', '-e', program], capture_output=True, text=True, timeout=5)
         self.assertEqual(0, completed.returncode, completed.stderr)
+
+    def audio_boundaries(self):
+        source = AudioNativeBoundary()
+        def send(client,session,target,command,process):
+            self.assertEqual({'running':True,'identity':'31:14'},process); source.send(command)
+        def read(_device,package,path,**kwargs):
+            self.assertEqual('files/overte-e2e/phone-audio-ui.json',path)
+            self.assertEqual({'attempts':1},kwargs); return json.dumps(source.value)
+        for boundary in (
+            patch.object(self.adapter,'write_android_client_command',side_effect=send),
+            patch.object(self.fixture.adb,'read_debug_app_file',side_effect=read,create=True),
+            patch.object(self.fixture.adb,'epoch_milliseconds',return_value=20000,create=True),
+            patch.object(appium,'PhoneAudioIO',partial(appium.PhoneAudioIO,
+                monotonic=lambda: source.ui.clock,sleep=source.ui.sleep)),
+            patch.object(appium,'TokenAudioUI',partial(TokenAudioUI,
+                monotonic=lambda: source.ui.clock,sleep=source.ui.sleep))):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source,self.adapter._audio_controls(SELECTOR,source.ui.intent)
+
+    def test_phone_audio_ordinary_scroll_start_cancel_and_toggles_use_original_readback(self):
+        source,ui = self.audio_boundaries(); ui.mute(True); ui.mute(False)
+        record = ui.start(); ui.cancel(record['cycle']); ui.echo(True); ui.echo(False)
+        self.assertEqual(1,source.ui.cycle); self.assertFalse(source.ui.active)
+        self.assertEqual(2,source.ui.actions.count('audio.record'))
+        self.assertEqual([],self.native.inputs)
+
+    def test_phone_audio_ignored_input_and_natural_completion_cannot_prove_effect(self):
+        source,ui = self.audio_boundaries(); source.ui.fault='record'
+        with self.assertRaises(RuntimeError): ui.start()
+        self.assertEqual(1,source.ui.actions.count('audio.record'))
+        source.ui.fault=''; ui.start(); source.ui.fault='natural-completion'
+        with self.assertRaises(RuntimeError): ui.cancel(1)
+        self.assertEqual('completed',source.ui.phase)
+
+    def test_phone_audio_candidate_change_refuses_before_any_native_request(self):
+        source,ui = self.audio_boundaries(); self.fixture.adb.digest='f'*64
+        with self.assertRaises(RuntimeError): ui.start()
+        self.assertEqual([],source.commands)
+
+    def test_phone_audio_cycle_change_before_native_delivery_refuses_old_start_token(self):
+        source,ui = self.audio_boundaries(); source.ui.position=0.6
+        source.before_input=lambda: setattr(source.ui,'cycle',source.ui.cycle+1)
+        with self.assertRaises(RuntimeError): ui.start()
+        self.assertEqual([],source.ui.actions); self.assertEqual(1,len(source.input_requests))
+
+    def test_phone_audio_missing_reply_after_delivery_never_replays_input(self):
+        source,ui = self.audio_boundaries(); source.ui.position=0.6
+        def mutate(value):
+            if value.get('action') != 'observe': value['commandId']='f'*32
+        source.mutate=mutate
+        with self.assertRaises(RuntimeError): ui.start()
+        self.assertEqual(1,len(source.input_requests)); self.assertTrue(source.ui.active)
+
+    def test_phone_audio_foreign_clock_process_generation_or_marker_prevents_input(self):
+        source,ui = self.audio_boundaries(); ui.capture()
+        for field,value in (('capturedEpochMs',1),('processId',99),('generation','f'*32),
+                            ('audioControlsVersion',2),('sourceSequence',0)):
+            with self.subTest(field=field):
+                source.mutate=lambda packet: packet.update({field:value})
+                with self.assertRaises(RuntimeError): ui.start()
+        self.assertEqual([],source.input_requests)
+
+    def test_actual_phone_probe_audio_is_closed_and_missing_hook_never_green(self):
+        program = r'''
+const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort());
+let calls=[],files=[];
+const Test={phoneAudioUi:r=>{calls.push(r);return {commandId:r.commandId,performed:true};},
+ saveObject:(v,name)=>files.push({v,name})};
+SOURCE
+function outer(request){return {schemaVersion:1,commandId:request.commandId,action:"phone-audio-ui",request};}
+const observe={schemaVersion:1,commandId:"a".repeat(32),action:"observe"};
+applyAndroidControlCommand(outer(observe));applyAndroidControlCommand(outer(observe));
+if(calls.length!==1||files[0].name!=="phone-audio-ui.json")throw Error("original dispatch");
+const input={schemaVersion:1,commandId:"b".repeat(32),action:"activate",instance:"c".repeat(32),generation:"d".repeat(32),
+ sequence:1,observedElapsedMs:0,controlId:"audio.record",controlToken:"e".repeat(32)};
+applyAndroidControlCommand(outer(input));
+for(const change of [{sequence:true},{expected:"capturing"},{controlId:"audio.page"},{action:"cancel-direct"}]){
+ applyClientCommand(outer({...input,...change,commandId:"f".repeat(32)}));}
+if(calls.length!==2)throw Error("untyped or extra input");
+applyAndroidControlCommand(outer({...input,commandId:"1".repeat(32),action:"scroll",controlId:"audio.scrollbar",direction:"down"}));
+if(calls.length!==3)throw Error("scroll missing");
+delete Test.phoneAudioUi;applyClientCommand(outer({...observe,commandId:"2".repeat(32)}));
+if(files[3].v.available!==false)throw Error("missing hook green");
+'''.replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
 
     def test_native_feature_reader_rejects_process_change_and_does_not_replay_request(self):
         source = self.native_feature_boundaries()

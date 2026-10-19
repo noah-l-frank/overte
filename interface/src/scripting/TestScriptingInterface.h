@@ -20,7 +20,7 @@
 #include <memory>
 #include <QSet>
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class ScriptFileUi; }
+namespace overte::e2e { class FeatureLifecycle; class ScriptFileUi; class AudioUi; }
 #endif
 
 class TestScriptingInterface : public QObject {
@@ -160,6 +160,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     Q_INVOKABLE QVariantMap phoneScriptFileUi(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneAudioUi(const QVariantMap& command);
 #endif
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
 #endif
@@ -222,7 +223,9 @@ private:
     quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
     quint64 _featureScriptSequence {0};
 #if defined(ANDROID_APP_PHONE_INTERFACE)
+    QVariantMap phoneControlUi(const QVariantMap& command, bool audioSurface);
     std::shared_ptr<overte::e2e::ScriptFileUi> _phoneScriptFileUi;
+    std::shared_ptr<overte::e2e::AudioUi> _phoneAudioUi;
 #endif
     QSet<QUuid> _featureScriptEffectIds;
     quint64 _featureScriptFilesSequence {0};

@@ -40,6 +40,8 @@ def validate(value, command, pid, epoch):
 
 
 class PhoneScriptFileIO:
+    wire_action = "phone-script-file-ui"
+    validate_capture = staticmethod(validate)
     def __init__(self, send, read, clock_ms, guard, pid, *, monotonic=time.monotonic, sleep=time.sleep):
         need(all(callable(value) for value in (send, read, clock_ms, guard, monotonic, sleep)) and integer(pid, 1))
         self.send, self.original, self.clock_ms, self.guard, self.pid = send, read, clock_ms, guard, pid
@@ -50,7 +52,7 @@ class PhoneScriptFileIO:
     def _exchange(self, request):
         started = previous = self.monotonic()
         need(number(started, 0, 1e15) and self.guard() is not False)
-        self.send(dict(schemaVersion=1, commandId=request['commandId'], action='phone-script-file-ui', request=request))
+        self.send(dict(schemaVersion=1, commandId=request['commandId'], action=self.wire_action, request=request))
         for attempt in range(51):
             need(self.guard() is not False)
             raw = self.original()
@@ -73,7 +75,7 @@ class PhoneScriptFileIO:
             need(integer(barrier, 1))
             request = dict(schemaVersion=1, commandId=uuid.uuid4().hex, action='observe')
             value = self._exchange(request)
-            validate(value, request['commandId'], self.pid, self.clock_ms())
+            self.validate_capture(value, request['commandId'], self.pid, self.clock_ms())
             need(value['capturedEpochMs'] >= barrier and value['sourceSequence'] > self.sequence
                  and value['elapsedMs'] >= self.elapsed and value['lastCommandSequence'] >= self.last_command
                  and self.instance in (None, value['instance']) and self.generation in (None, value['generation'])
@@ -102,16 +104,20 @@ class PhoneScriptFileIO:
                 observedElapsedMs=observed['elapsedMs'], controlId=identifier, controlToken=rows[0]['token'])
             if action == 'replace': request['text'] = text
             if action == 'select-index': request['index'] = index
-            value = self._exchange(request)
-            exact(value, {'schemaVersion', 'commandId', 'action', 'performed', 'instance', 'generation', 'sequence', 'processId'})
-            need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1 and value['performed'] is True
-                 and value['commandId'] == request['commandId'] and value['action'] == action
-                 and value['instance'] == observed['instance'] and value['generation'] == observed['generation']
-                 and integer(value['sequence'], 1) and value['sequence'] == request['sequence']
-                 and integer(value['processId'], 1) and value['processId'] == self.pid and self.guard() is not False)
-            self.last_command = request['sequence']
+            self.deliver(request, observed)
         except Exception:
             raise NativeUIError('Phone Script file input delivery failed') from None
+
+
+    def deliver(self, request, observed):
+        value = self._exchange(request)
+        exact(value, {'schemaVersion', 'commandId', 'action', 'performed', 'instance', 'generation', 'sequence', 'processId'})
+        need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1 and value['performed'] is True
+             and value['commandId'] == request['commandId'] and value['action'] == request['action']
+             and value['instance'] == observed['instance'] and value['generation'] == observed['generation']
+             and integer(value['sequence'], 1) and value['sequence'] == request['sequence']
+             and integer(value['processId'], 1) and value['processId'] == self.pid and self.guard() is not False)
+        self.last_command = request['sequence']
 
     def activate(self, identifier, *, source=None): self.input(identifier, 'activate', source=source)
     def replace(self, identifier, text): self.input(identifier, 'replace', text=text)
