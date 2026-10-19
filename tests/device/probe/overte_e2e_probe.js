@@ -94,6 +94,32 @@
     // the actual loaded address, rather than losing the reload confirmation.
     var lastSceneCommandId = reloadCommandIdFromAddress(location.href);
     var sampleSequence = 0;
+    // Private read-only diagnostic for normal Running Scripts row identity.
+    // Actual execution is still judged by the independent fixture journal.
+    var normalFeatureInstance = String(Uuid.generate()).replace(/[{}-]/g, "").toLowerCase();
+    function saveNormalFeatureObservation(now, sequence) {
+        var observation = {schemaVersion: 1, instance: normalFeatureInstance,
+            sampleSequence: sequence, sampleEpochMs: now, complete: false, scripts: []};
+        try {
+            var running = ScriptDiscoveryService.getRunning();
+            if (Array.isArray(running) && running.length <= 128) {
+                running.forEach(function (row) {
+                    if (typeof row.url !== "string" || typeof row.path !== "string"
+                            || !row.url.length || !row.path.length
+                            || row.url.length > 4096 || row.path.length > 4096) {
+                        throw new Error("invalid-native-script-row");
+                    }
+                    observation.scripts.push({url: row.url, path: row.path});
+                });
+                // Preserve the service's real order. The input adapter performs
+                // the same explicit sorting as TabletRunningScripts.qml.
+                observation.complete = true;
+            }
+        } catch (_normalFeatureError) {
+            observation.scripts = [];
+        }
+        Test.saveObject(observation, "normal-feature-observation.json");
+    }
     var phoneTouchHistory = [];
     var orientationHistory = [];
     var verticalObservationPrevious = null;
@@ -1516,6 +1542,7 @@
         Test.saveObject(primaryViewObservation(now, sampleSequence + 1), "ios-primary-observation.json");
         phase("avatarAndCamera");
         sampleSequence += 1;
+        saveNormalFeatureObservation(now, sampleSequence);
         if (androidControlAvailable) {
             // Separate private evidence keeps real native author identity out
             // of the portable, publishable snapshot. No client entity edit is

@@ -1,0 +1,88 @@
+"""Private, process-bound ownership for normal feature input adapters.
+
+This file records input/cleanup intent, never observed feature success.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import tempfile
+
+from adapters.normal_ui import NativeUIError
+
+CONTEXT = {'sourceRevision', 'artifactSha256', 'processIdentity', 'sessionId',
+           'generation', 'targetFingerprint'}
+
+
+def need(value):
+    if not value:
+        raise NativeUIError('Normal feature ownership or observation is invalid')
+
+
+def context(value):
+    need(type(value) is dict and set(value) == CONTEXT)
+    for key, pattern in (('sourceRevision', r'[0-9a-f]{40}'),
+                         ('artifactSha256', r'[0-9a-f]{64}'),
+                         ('targetFingerprint', r'[0-9a-f]{64}'),
+                         ('sessionId', r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}'),
+                         ('processIdentity', r'[!-~]{1,160}')):
+        need(type(value[key]) is str and re.fullmatch(pattern, value[key]) is not None)
+    need(type(value['generation']) is int and value['generation'] >= 0)
+    return value
+
+
+class PrivateFeatureState:
+    def __init__(self, path):
+        self.path = Path(path)
+
+    def _parent(self):
+        need(self.path.is_absolute() and self.path.parent.resolve(strict=True) == self.path.parent)
+        info = self.path.parent.lstat()
+        need(stat.S_ISDIR(info.st_mode) and (os.name == 'nt' or
+             info.st_uid == os.geteuid() and not info.st_mode & 0o077))
+
+    def read(self):
+        self._parent()
+        try:
+            descriptor = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            return None
+        except OSError:
+            raise NativeUIError('Normal feature ownership file is unavailable') from None
+        try:
+            with os.fdopen(descriptor, 'r', encoding='utf-8') as stream:
+                info = os.fstat(stream.fileno())
+                need(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_size <= 65536
+                     and (os.name == 'nt' or info.st_uid == os.geteuid()
+                          and stat.S_IMODE(info.st_mode) == 0o600))
+                def pairs(items):
+                    result = {}
+                    for key, value in items:
+                        need(key not in result)
+                        result[key] = value
+                    return result
+                value = json.loads(stream.read(65537), object_pairs_hook=pairs)
+                need(type(value) is dict)
+                return value
+        except (ValueError, UnicodeError, OSError):
+            raise NativeUIError('Normal feature ownership file is invalid') from None
+
+    def write(self, value, previous):
+        self._parent()
+        need(self.read() == previous)
+        raw = json.dumps(value, allow_nan=False, sort_keys=True, separators=(',', ':'))
+        need(len(raw.encode()) <= 65536)
+        descriptor, temporary = tempfile.mkstemp(dir=self.path.parent, prefix='feature-input.')
+        try:
+            with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
+                stream.write(raw + '\n'); stream.flush(); os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+
+    def discard(self, previous):
+        need(self.read() == previous)
+        self.path.unlink(missing_ok=True)
