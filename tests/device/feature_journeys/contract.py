@@ -1,13 +1,12 @@
-"""Strict v1 action/read boundary for feature additions to the existing harness."""
+"""Strict v2 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
 import re
 from urllib.parse import urlsplit
 from .fixtures import context
-from .scenarios import SCENARIOS, actions, expand
+from .scenarios import SCENARIOS, VERSION, actions, expand
 
-VERSION = 1
 HEX = re.compile(r'[0-9a-f]{32}')
 
 
@@ -118,7 +117,8 @@ def result(operation, value):
             raise ValueError('Feature input delivery was not confirmed')
         return value
     exact(value, {'schemaVersion', 'contractVersion', 'runId', 'sequence', 'capturedEpochMs', 'state', 'artifacts', 'resources', 'lifecycle'}, 'feature observation')
-    if any(type(value[k]) is not int or value[k] != 1 for k in ('schemaVersion', 'contractVersion')):
+    if (type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
+            or type(value['contractVersion']) is not int or value['contractVersion'] != VERSION):
         raise ValueError('Unsupported feature observation version')
     identifier(value['runId'])
     if type(value['sequence']) is not int or not 1 <= value['sequence'] <= 1_000_000_000:

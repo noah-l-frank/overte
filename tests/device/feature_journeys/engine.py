@@ -7,7 +7,7 @@ import secrets
 from . import evidence as bytes_evidence
 from .contract import arguments, exact, identifier, number, result, state as validate_state, typed_equal
 from .fixtures import context
-from .scenarios import SCENARIOS, expand
+from .scenarios import SCENARIOS, VERSION, expand
 from .witness import projection
 
 
@@ -54,7 +54,7 @@ class Journey:
 
     def call(self, kind, fields=None):
         operation = 'feature.' + self.area + '.' + kind
-        request = dict(contractVersion=1, runId=self.run, **(fields or {}))
+        request = dict(contractVersion=VERSION, runId=self.run, **(fields or {}))
         arguments(operation, request)
         return result(operation, self.invoke(operation, request))
 
@@ -291,7 +291,7 @@ class Journey:
                     cleanup_okay = True
                 except BaseException as error:
                     cleanup_errors.append(error)
-            self.report(dict(schemaVersion=1, contractVersion=1, area=self.area, runId=self.run,
+            self.report(dict(schemaVersion=1, contractVersion=VERSION, area=self.area, runId=self.run,
                 phases=self.phases, samples=self.samples, cleanupEnabled=cleanup_enabled,
                 cleanupSucceeded=cleanup_okay, sequenceCompleted=primary is None and cleanup_okay,
                 testLogic='implemented', adapter='required-separately', deviceAcceptance=False))

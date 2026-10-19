@@ -200,8 +200,8 @@
         "scripted-entity"
       ],
       "commonModule": "feature-scripts",
-      "addedFlow": "Local/folder companions, consent cancel/reject/accept, application restart, stop and 404.",
-      "declaredCheckpoints": 11,
+      "addedFlow": "Ordinary file-bundle picker cancellation/acceptance, actual companion execution, restart, stop and URL failure.",
+      "declaredCheckpoints": 14,
       "requiredEvidence": [
         "peer"
       ],
@@ -268,5 +268,6 @@
       "device": "untested",
       "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
     }
-  ]
+  ],
+  "contractVersion": 2
 }
