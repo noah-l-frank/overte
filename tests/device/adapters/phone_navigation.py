@@ -114,13 +114,14 @@ class PhoneNavigation:
             self.mark('tabletOwned', True)
             self.ui.click(self.tablet_entry)
         self.ui.wait_control(self.close_tablet)
-        if not (self.ui.available(self.back) and self.ui.available(self.forward)):
+        if not (self.ui.available(self.back, require_enabled=False)
+                and self.ui.available(self.forward, require_enabled=False)):
             if self.ui.available(self.home):
                 self.ui.click(self.home)
             self.ui.wait_control(self.places_entry)
             self.ui.click(self.places_entry)
-        self.ui.wait_control(self.back)
-        self.ui.wait_control(self.forward)
+        # A history endpoint disables its unavailable direction. The selected
+        # Back/Forward click below resolves one visible enabled control itself.
 
     def invoke(self, operation, arguments):
         if operation not in OPERATIONS:
