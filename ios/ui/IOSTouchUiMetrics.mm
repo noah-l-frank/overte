@@ -228,7 +228,9 @@ UIView* tabletAccessibilityOverlay(UIWindow* window) {
 }
 
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
-OverteIOSE2EAccessibilityButton* tabletE2EAccessibilityButton(UIWindow* window, NSString* sourceToken) {
+// The primary Open/Close control is owned by its Qt token. Keep it separate
+// from the semantic-identifier pool, whose entries retire at each refresh.
+OverteIOSE2EAccessibilityButton* tabletE2EPrimaryAccessibilityButton(UIWindow* window, NSString* sourceToken) {
     static __weak UIWindow* installedWindow = nil;
     static OverteIOSE2EAccessibilityButton* button = nil;
     if (installedWindow != window || button == nil || ![button.sourceControlToken isEqualToString:sourceToken]) {
@@ -800,7 +802,7 @@ void updateIOSTabletAccessibilityControls(
     // native control whose hit target exactly matches the exposed identifier.
     overlay.accessibilityElements = @[];
     NSString* nativeToken = [NSString stringWithUTF8String:nativeTabletControlToken.toUtf8().constData()];
-    OverteIOSE2EAccessibilityButton* button = tabletE2EAccessibilityButton(window, nativeToken);
+    OverteIOSE2EAccessibilityButton* button = tabletE2EPrimaryAccessibilityButton(window, nativeToken);
     button.frame = controlFrame;
     button.accessibilityIdentifier = identifier;
     button.accessibilityLabel = label;

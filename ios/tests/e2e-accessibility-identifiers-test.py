@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Static contract for the shared QML controls used by physical iOS E2E."""
+"""Host contracts for iOS control identity and native factory signatures.
+
+The signature check catches C++ redefinitions without pretending to compile
+UIKit implementations or execute a device journey.
+"""
 
 # Copyright 2026 Overte e.V.
 # SPDX-License-Identifier: Apache-2.0
@@ -25,6 +29,37 @@ def preprocess_native_bridge(source: str, test_build: bool, ios: bool = False) -
         command.append('-DQ_OS_IOS=1')
     return subprocess.run(command, input=source, capture_output=True,
                           text=True, check=True, timeout=10).stdout
+
+
+def compile_factory_signatures(source: str) -> tuple[subprocess.CompletedProcess, list[str]]:
+    # Preserve every actual definition's name and argument types. Replace only
+    # its UIKit body; the host compiler must still reject duplicate definitions.
+    pattern = re.compile(
+        r'^OverteIOSE2EAccessibilityButton\s*\*\s*(tabletE2E\w+)\s*\('
+        r'\s*UIWindow\s*\*\s*\w+\s*,\s*NSString\s*\*\s*\w+\s*\)\s*\{',
+        re.MULTILINE,
+    )
+    definitions = list(pattern.finditer(source))
+    code = 'struct UIWindow; struct NSString; struct OverteIOSE2EAccessibilityButton;\n'
+    code += '\n'.join(match[0][:-1] + '{ return nullptr; }' for match in definitions)
+    result = subprocess.run(['c++', '-std=c++17', '-fsyntax-only', '-x', 'c++', '-'],
+                            input=code, text=True, capture_output=True, timeout=10)
+    return result, [match[1] for match in definitions]
+
+
+def verify_native_factory_definitions(production: str, test_build: str) -> None:
+    shipping, shipping_names = compile_factory_signatures(production)
+    assert not shipping_names and shipping.returncode == 0, shipping.stderr
+    enabled, names = compile_factory_signatures(test_build)
+    assert len(names) >= 2, 'Keep both the primary control and pooled factory in the check'
+    assert enabled.returncode == 0, enabled.stderr
+    # A name collision must fail even though both factory signatures separately
+    # type-check. This restores the observed merge defect in the real headers.
+    assert names[0] != names[1]
+    collision = re.sub(r'\b' + re.escape(names[0]) + r'\b', names[1], test_build)
+    rejected, _ = compile_factory_signatures(collision)
+    assert rejected.returncode != 0 and 'redefinition' in rejected.stderr, rejected.stderr
+    print('PASS shipping/E2E factory signatures; restored native redefinition rejected')
 
 
 def main() -> None:
@@ -82,6 +117,7 @@ def main() -> None:
     assert "return NO;" in native_bridge
     production_bridge = preprocess_native_bridge(native_bridge, False)
     test_bridge = preprocess_native_bridge(native_bridge, True)
+    verify_native_factory_definitions(production_bridge, test_bridge)
     for test_only_symbol in ('OverteIOSE2EAccessibilityButton',
                              'tabletE2EAccessibilityButton',
                              'observeIOSNativeAccessibility',
