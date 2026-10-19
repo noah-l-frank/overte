@@ -102,6 +102,29 @@
     var lastNativeFeatureRequest = "";
     var nativeFeatureTimer = null;
     var lastRecordedPreviewRequest = "";
+    var lastWorldRenderRequest = "";
+    var worldRenderTimer = null;
+    function saveWorldRenderObservation(requestId, remaining) {
+        if (requestId !== lastWorldRenderRequest) { return; }
+        if (remaining === undefined) { remaining = 50; }
+        var value = {schemaVersion: 1, requestId: requestId, available: false};
+        try {
+            if (typeof Test.featureWorldRenderCapture === "function") {
+                var original = Test.featureWorldRenderCapture(requestId);
+                if (original && original.requestId === requestId && original.pending === true) {
+                    if (remaining > 0) {
+                        worldRenderTimer = Script.setTimeout(function () {
+                            if (requestId !== lastWorldRenderRequest) { return; }
+                            worldRenderTimer = null;
+                            saveWorldRenderObservation(requestId, remaining - 1);
+                        }, 50);
+                        return;
+                    }
+                } else if (original && original.requestId === requestId) { value = original; }
+            }
+        } catch (_worldRenderReadError) { /* Missing acquisition is never a frame. */ }
+        Test.saveObject(value, "world-render-observation.json");
+    }
     var lastScriptSourceRequest = "";
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
@@ -932,6 +955,17 @@
     function applyClientCommand(command) {
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+                && command.action === "feature-world-render-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId !== lastWorldRenderRequest) {
+                if (worldRenderTimer !== null) { Script.clearTimeout(worldRenderTimer); worldRenderTimer = null; }
+                lastWorldRenderRequest = String(command.commandId);
+                saveWorldRenderObservation(command.commandId);
+            }
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "feature-script-files"
                 && /^(stage|observe|release)$/.test(String(command.operation))
                 && /^[0-9a-f]{32}$/.test(String(command.runId))
@@ -1246,6 +1280,7 @@
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
+                || command.action === "feature-world-render-observe"
                 || command.action === "feature-script-files")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse only the closed read-only path.
@@ -1944,6 +1979,7 @@
 
     Script.update.connect(updateProbe);
     Script.scriptEnding.connect(function () {
+        if (worldRenderTimer !== null) { Script.clearTimeout(worldRenderTimer); worldRenderTimer = null; }
         lastNativeFeatureRequest = "";
         if (nativeFeatureTimer !== null) { Script.clearTimeout(nativeFeatureTimer); nativeFeatureTimer = null; }
         Script.update.disconnect(updateProbe);

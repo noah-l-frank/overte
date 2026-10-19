@@ -13,6 +13,10 @@
 #include "GLFramebuffer.h"
 
 #include <QtGui/QImage>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QtCore/QCoreApplication>
+#include <QtGui/QOpenGLContext>
+#endif
 
 using namespace gpu;
 using namespace gpu::gl;
@@ -199,3 +203,61 @@ void GLBackend::downloadFramebuffer(const FramebufferPointer& srcFramebuffer, co
 
     (void) CHECK_GL_ERROR();
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+bool GLBackend::featureReadFramebuffer(const FramebufferPointer& framebuffer, QImage& image) {
+    image = QImage();
+    if (!QCoreApplication::arguments().contains("--testScript") || !QOpenGLContext::currentContext()
+            || !framebuffer || framebuffer->getWidth() < 1 || framebuffer->getHeight() < 1
+            || framebuffer->getWidth() > 4096 || framebuffer->getHeight() > 4096
+            || static_cast<quint64>(framebuffer->getWidth())*framebuffer->getHeight() > 8388608ULL) { return false; }
+    // The original completed draw must already have created this exact GPU
+    // object. Do not synchronize/create a framebuffer or read the default UI
+    // target as a fallback. GPU backend family is fixed by Context::init.
+    const auto object = Backend::getGPUObject<GLFramebuffer>(*framebuffer);
+    if (!object || !object->_fbo || object->_colorBuffers.empty()) { return false; }
+    GLint drawFbo {0}, drawBuffer {0};
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&drawFbo);
+    glGetIntegerv(GL_DRAW_BUFFER0,&drawBuffer);
+    if (static_cast<GLuint>(drawFbo) != object->_fbo || drawBuffer != GL_COLOR_ATTACHMENT0) { return false; }
+    QImage pixels(framebuffer->getWidth(),framebuffer->getHeight(),QImage::Format_RGBA8888);
+    if (pixels.isNull() || pixels.bytesPerLine() != pixels.width()*4) { return false; }
+
+    GLint readFbo {0}, packBuffer {0}, alignment {0}, rowLength {0}, skipRows {0}, skipPixels {0};
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&readFbo);
+    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING,&packBuffer);
+    glGetIntegerv(GL_PACK_ALIGNMENT,&alignment);
+    glGetIntegerv(GL_PACK_ROW_LENGTH,&rowLength);
+    glGetIntegerv(GL_PACK_SKIP_ROWS,&skipRows);
+    glGetIntegerv(GL_PACK_SKIP_PIXELS,&skipPixels);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER,object->_fbo);
+    GLint sourceReadBuffer {0}; glGetIntegerv(GL_READ_BUFFER,&sourceReadBuffer);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
+    glPixelStorei(GL_PACK_ALIGNMENT,1);
+    glPixelStorei(GL_PACK_ROW_LENGTH,0);
+    glPixelStorei(GL_PACK_SKIP_ROWS,0);
+    glPixelStorei(GL_PACK_SKIP_PIXELS,0);
+    const bool complete = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    if (complete) {
+        // RGBA byte order is explicit on both desktop GL and GLES. This
+        // synchronous read completes earlier writes to the original target.
+        glReadPixels(0,0,pixels.width(),pixels.height(),GL_RGBA,GL_UNSIGNED_BYTE,pixels.bits());
+    }
+    // Restore source FBO's own read selection, previous read binding and all
+    // pack state, including a caller's PBO. Draw binding/cache is untouched.
+    glReadBuffer(static_cast<GLenum>(sourceReadBuffer));
+    glBindFramebuffer(GL_READ_FRAMEBUFFER,static_cast<GLuint>(readFbo));
+    glBindBuffer(GL_PIXEL_PACK_BUFFER,static_cast<GLuint>(packBuffer));
+    glPixelStorei(GL_PACK_ALIGNMENT,alignment);
+    glPixelStorei(GL_PACK_ROW_LENGTH,rowLength);
+    glPixelStorei(GL_PACK_SKIP_ROWS,skipRows);
+    glPixelStorei(GL_PACK_SKIP_PIXELS,skipPixels);
+    // An existing or acquisition/restoration GL error cannot yield evidence.
+    if (!complete || glGetError() != GL_NO_ERROR) { return false; }
+    auto upright = pixels.mirrored(false,true); // Lossless native coordinate origin conversion.
+    if (upright.isNull()) { return false; }
+    image = std::move(upright);
+    return true;
+}
+#endif
