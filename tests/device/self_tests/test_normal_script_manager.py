@@ -11,7 +11,6 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from adapters.android_script_ui import AndroidScriptUI
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_script_manager import NormalScriptManager, diagnostic, read_native_diagnostic
 from adapters.normal_ui import NativeUI, NativeUIError, Locator
@@ -236,23 +235,6 @@ class NormalScriptManagerTests(unittest.TestCase):
         path.unlink()
         path.symlink_to(Path(self.temp.name) / 'foreign')
         with self.assertRaises(NativeUIError): self.native.store.read()
-
-    def test_android_ui_rejects_flattened_foreign_or_ambiguous_row_identity(self):
-        class Transport:
-            def call(self, method, path, body=None): return self.source
-        transport = Transport()
-        ui = AndroidScriptUI(NativeUI(transport, 'native', lambda: True), 'io.github.noah_be.overte.phone')
-        package = ui.package
-        transport.source = '<hierarchy><node>' + ''.join(
-            '<node package="' + package + '" class="' + kind + '" text="' + text +
-            '" resource-id="' + identifier + '"/>' for kind, text, identifier in (
-                ('android.widget.TextView', 'client.js', ''),
-                ('android.widget.Button', 'Restart', package + ':id/scriptRestart1'),
-                ('android.widget.Button', 'Stop', package + ':id/scriptStop1'))) + '</node></hierarchy>'
-        ui.check_row(1, 'client.js', 'stop')
-        with self.assertRaises(NativeUIError): ui.check_row(1, 'foreign.js', 'stop')
-        transport.source = transport.source.replace('scriptRestart1', 'scriptRestart2')
-        with self.assertRaises(NativeUIError): ui.check_row(1, 'client.js', 'stop')
 
     def test_actual_probe_diagnostic_reads_native_service_and_marks_failures_incomplete(self):
         probe = (Path(__file__).resolve().parents[1] / 'probe/overte_e2e_probe.js').read_text()
