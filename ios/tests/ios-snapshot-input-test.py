@@ -62,9 +62,15 @@ Item { width:480; height:900
                 env=env, check=True, timeout=60)
             runner = env.get('OVERTE_HOST_TEST_NETWORK_RUNNER')
             isolation = [runner] if runner else ['unshare', '--user', '--map-root-user', '--net']
-            subprocess.run([*isolation, str(binary), str(stage)],
-                env=env | {'QT_QPA_PLATFORM': 'offscreen', 'QT_QUICK_BACKEND': 'software',
-                           'QT_FORCE_STDERR_LOGGING': '1'}, check=True, timeout=30)
+            # Keep headless Qt and the selected SDK after sudo resets the environment.
+            runtime = {name: env[name] for name in (
+                'LD_LIBRARY_PATH', 'QT_PLUGIN_PATH', 'QML2_IMPORT_PATH', 'QML_IMPORT_PATH')
+                if name in env}
+            runtime.update(QT_QPA_PLATFORM='offscreen', QT_QUICK_BACKEND='software',
+                QT_FORCE_STDERR_LOGGING='1')
+            subprocess.run([*isolation, 'env',
+                *[name + '=' + value for name, value in runtime.items()], str(binary), str(stage)],
+                env=env, check=True, timeout=30)
 
 
 if __name__ == '__main__':

@@ -40,9 +40,15 @@ class NormalInput(unittest.TestCase):
                 check=True, timeout=60, env=environment)
             runner = environment.get('OVERTE_HOST_TEST_NETWORK_RUNNER')
             isolation = [runner] if runner else ['unshare', '--user', '--map-root-user', '--net']
-            subprocess.run([*isolation, str(binary)],
-                check=True, timeout=30, env=environment | {'QT_QPA_PLATFORM': 'offscreen',
-                    'QT_QUICK_BACKEND': 'software', 'QT_FORCE_STDERR_LOGGING': '1'})
+            # The hosted launcher's sudo boundary resets its environment.
+            runtime = {name: environment[name] for name in (
+                'LD_LIBRARY_PATH', 'QT_PLUGIN_PATH', 'QML2_IMPORT_PATH', 'QML_IMPORT_PATH')
+                if name in environment}
+            runtime.update(QT_QPA_PLATFORM='offscreen', QT_QUICK_BACKEND='software',
+                QT_FORCE_STDERR_LOGGING='1')
+            subprocess.run([*isolation, 'env',
+                *[name + '=' + value for name, value in runtime.items()], str(binary)],
+                check=True, timeout=30, env=environment)
 
 
 if __name__ == '__main__':
