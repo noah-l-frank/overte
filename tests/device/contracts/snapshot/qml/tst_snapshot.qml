@@ -13,7 +13,12 @@ TestCase {
     Component { id: spyFactory; SignalSpy { signalName: "sendToScript" } }
     SignalSpy { id: outgoing; signalName: "sendToScript" }
     property var review: null
-    function init() { Snapshot.selectedFormat = "png"; review = createTemporaryObject(factory, this); verify(review); outgoing.target = review; wait(1); outgoing.clear() }
+    function init() {
+        Snapshot.selectedFormat = "png"
+        review = createTemporaryObject(factory, this); verify(review)
+        outgoing.target = review; wait(1); outgoing.clear()
+        review.fromScript({type: "snapshot", action: "captureSettings", setting: false})
+    }
     function cleanup() { if (review) { review.destroy(); review = null } }
     function test_four_real_capture_modes() {
         var mode = findChild(review, "snapshotMode")
@@ -68,6 +73,14 @@ TestCase {
             compare(outgoing.count, 1)
             compare(outgoing.signalArguments[0][0].action,
                 index === 1 ? "captureStillAndGif" : "captureStillOnly")
+            mouseClick(mode)
+            tryCompare(mode.popup, "visible", true)
+            for (var option = 0; option < modes.length; ++option) {
+                var row = visualItem(mode.popup.contentItem, "snapshotMode.option." + modes[option])
+                verify(row); compare(row.checked, option === index)
+            }
+            mouseClick(choice)
+            tryCompare(mode.popup, "visible", false)
             outgoing.clear()
             mouseClick(capture)
             compare(outgoing.signalArguments[0][0].mode, modes[index])
@@ -88,16 +101,43 @@ TestCase {
             tryCompare(format.popup, "visible", false)
             compare(format.currentText, value)
             compare(Snapshot.selectedFormat, value)
+            mouseClick(format)
+            tryCompare(format.popup, "visible", true)
+            compare(choice.checked, true)
+            mouseClick(choice)
+            tryCompare(format.popup, "visible", false)
         }
     }
     function test_initial_capture_settings_do_not_echo_a_user_preference_write() {
+        review.destroy()
+        review = createTemporaryObject(factory, this); outgoing.target = review
+        wait(1); outgoing.clear()
         compare(review.captureSettingsLoaded, false)
+        verify(!findChild(review, "snapshotMode").enabled)
+        verify(!findChild(review, "snapshotCapture").enabled)
         review.fromScript({type: "snapshot", action: "captureSettings", setting: true})
         compare(review.captureSettingsLoaded, true)
         compare(findChild(review, "snapshotMode").currentIndex, 1)
         compare(outgoing.count, 0)
         review.fromScript({type: "snapshot", action: "captureSettings", setting: false})
         compare(findChild(review, "snapshotMode").currentIndex, 0)
+        compare(outgoing.count, 0)
+    }
+    function test_delayed_initial_settings_cannot_overwrite_a_user_choice() {
+        var mode = findChild(review, "snapshotMode")
+        mouseClick(mode)
+        tryCompare(mode.popup, "visible", true)
+        var row = null
+        tryVerify(function() {
+            row = visualItem(mode.popup.contentItem, "snapshotMode.option.panorama")
+            return row !== null
+        })
+        mouseClick(row)
+        tryCompare(mode.popup, "visible", false)
+        compare(mode.currentIndex, 2)
+        outgoing.clear()
+        review.fromScript({type: "snapshot", action: "captureSettings", setting: true})
+        compare(mode.currentIndex, 2)
         compare(outgoing.count, 0)
     }
     function test_capture_error_and_cancel_controls() {

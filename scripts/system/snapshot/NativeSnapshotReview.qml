@@ -26,6 +26,7 @@ Rectangle {
     property bool keyboardRaised: false
     property bool punctuationMode: false
     property bool captureSettingsLoaded: false
+    property bool captureModeEdited: false
     property var keyboardItem: null
     onKeyboardRaisedChanged: {
         if (typeof KeyboardScriptingInterface !== "undefined" && KeyboardScriptingInterface.use3DKeyboard) {
@@ -131,7 +132,8 @@ Rectangle {
             statusError = true; statusText = message.error || qsTr("Snapshot operation failed.")
             uploadPath = ""
         } else if (message.action === "captureSettings") {
-            captureMode.currentIndex = message.setting ? 1 : 0
+            // A delayed or repeated initialization is not a new user choice.
+            if (!captureModeEdited) { captureMode.currentIndex = message.setting ? 1 : 0 }
             captureSettingsLoaded = true
         } else if (message.action === "setPrintButtonEnabled") {
             printEnabled = true; printProcessing = false
@@ -164,14 +166,17 @@ Rectangle {
                 id: captureMode
                 objectName: "snapshotMode"
                 Layout.fillWidth: true
+                enabled: root.captureSettingsLoaded && !root.capturing
                 model: [qsTr("Still"), qsTr("Still + animated GIF"), qsTr("360° panorama"), qsTr("360° cubemap")]
-                delegate: Controls.ItemDelegate {
+                delegate: Controls.RadioDelegate {
                     objectName: "snapshotMode.option." + ["still", "animated", "panorama", "cubemap"][index]
                     width: captureMode.width
                     text: modelData
+                    checked: captureMode.currentIndex === index
                     highlighted: captureMode.highlightedIndex === index
                 }
                 onActivated: function(index) {
+                    root.captureModeEdited = true
                     root.send(index === 1 ? "captureStillAndGif" : "captureStillOnly")
                 }
             }
@@ -180,10 +185,11 @@ Rectangle {
                 objectName: "snapshotFormat"
                 Layout.fillWidth: true
                 model: typeof Snapshot !== "undefined" ? Snapshot.getAvailableSnapshotFormats() : ["png"]
-                delegate: Controls.ItemDelegate {
+                delegate: Controls.RadioDelegate {
                     objectName: "snapshotFormat.option." + modelData
                     width: captureFormat.width
                     text: modelData
+                    checked: captureFormat.currentIndex === index
                     highlighted: captureFormat.highlightedIndex === index
                 }
                 Component.onCompleted: {
@@ -196,7 +202,7 @@ Rectangle {
                     objectName: "snapshotCapture"
                     Layout.minimumHeight: 44
                     text: qsTr("Take snapshot")
-                    enabled: !root.capturing && !platform.busy && !root.uploadPath
+                    enabled: root.captureSettingsLoaded && !root.capturing && !platform.busy && !root.uploadPath
                     onClicked: {
                         captureName.focus = false
                         root.send("takeSnapshot", { mode: ["still", "animated", "panorama", "cubemap"][captureMode.currentIndex], filename: captureName.text })
