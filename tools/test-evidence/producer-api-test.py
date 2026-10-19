@@ -3,6 +3,7 @@
 
 from copy import deepcopy
 from dataclasses import replace
+from datetime import timedelta
 import base64
 import hashlib
 import importlib.util
@@ -956,6 +957,83 @@ class MetadataSchedulingTests(unittest.TestCase):
                          (c.runs[100]['status'], c.runs[100]['conclusion']))
         self.assertFalse(value['qualification'])
         self.assertFalse(any(key in value for key in ('results', 'environment', 'receipt')))
+
+    def progressing_schedule(self, *, identity=101, bookend='initial', field='updated_at', future=False):
+        """Advance the observation clock inside a real fake-API native read."""
+        c = self.case
+        clock = [NOW]
+        reads = [0]
+        threshold = 1 if bookend == 'initial' else 2
+        if identity == 102:
+            c.runs[identity] = {**deepcopy(c.runs[101]), 'id':identity,
+                'run_number':identity, 'check_suite_id':identity+1000}
+            job = deepcopy(c.jobs[101][0])
+            job.update(id=160, run_id=identity,
+                check_run_url=f'https://api.github.com/{A.PREFIX}/check-runs/160')
+            c.jobs[identity] = [job]
+            c.artifacts[identity] = []
+            # metadata_observation reads the attempt before its independent
+            # source classification, once at each inventory bookend.
+            threshold = 1 if bookend == 'initial' else 3
+        def progress(endpoint, value):
+            if endpoint.endswith(f'/actions/runs/{identity}/attempts/1'):
+                reads[0] += 1
+                if reads[0] >= threshold:
+                    clock[0] = NOW + timedelta(seconds=2)
+                    stamp = NOW + timedelta(seconds=3 if future else 1)
+                    value[field] = stamp.isoformat().replace('+00:00', 'Z')
+            return value
+        c.api.mutate = progress
+        with patch.object(A, '_now', side_effect=lambda:clock[0]):
+            value = c.adapter.metadata_schedule(17, 101, self.policy)
+        self.assertGreaterEqual(reads[0], threshold)
+        return value
+
+    def test_current_update_during_native_reads_uses_each_bookend_observation_time(self):
+        for bookend in ('initial','final'):
+            self.setUp()
+            with self.subTest(bookend=bookend):
+                value = self.progressing_schedule(bookend=bookend)
+                self.assertEqual(value['original_run_id'],100)
+                self.assertEqual((value['original_status'],value['original_conclusion']),
+                    (self.case.runs[100]['status'],self.case.runs[100]['conclusion']))
+                self.assertFalse(value['qualification'])
+                self.assertFalse(any(key in value for key in ('results','receipt','environment')))
+
+    def test_other_exact_neverproducer_updates_use_fresh_observation_at_both_bookends(self):
+        for bookend in ('initial','final'):
+            self.setUp()
+            with self.subTest(bookend=bookend):
+                value = self.progressing_schedule(identity=102,bookend=bookend)
+                self.assertEqual(value['original_run_id'],100)
+                self.assertFalse(value['qualification'])
+                self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in self.case.api.calls))
+
+    def test_progress_timestamps_later_than_the_fresh_observation_remain_rejected(self):
+        for identity in (101,102):
+            for bookend in ('initial','final'):
+                for field in ('updated_at','run_started_at'):
+                    self.setUp()
+                    with self.subTest(identity=identity,bookend=bookend,field=field), \
+                            self.assertRaisesRegex(P.ProtocolError,'in the future'):
+                        self.progressing_schedule(identity=identity,bookend=bookend,field=field,future=True)
+
+    def test_later_observation_does_not_normalize_original_producer_progress(self):
+        self.setUp()
+        with self.assertRaisesRegex(P.ProtocolError,'inventory changed'):
+            self.progressing_schedule(identity=100)
+
+    def test_fresh_observation_clock_does_not_extend_original_producer_time_cutoff(self):
+        self.case.runs[100]['updated_at'] = (NOW+timedelta(seconds=1)).isoformat().replace('+00:00','Z')
+        with self.assertRaisesRegex(P.ProtocolError,'in the future'):
+            self.case.adapter.metadata_schedule(17,101,self.policy,now=NOW,
+                observation_clock=lambda:NOW+timedelta(seconds=2))
+
+    def test_observation_clock_must_be_utc_and_cannot_move_before_entry(self):
+        for observed in (NOW-timedelta(seconds=1),'not-a-UTC-time'):
+            with self.subTest(observed=observed),self.assertRaises(P.ProtocolError):
+                self.case.adapter.metadata_schedule(17,101,self.policy,now=NOW,
+                    observation_clock=lambda:observed)
 
     def test_current_progress_cannot_change_native_identity_stop_or_gain_original_authority(self):
         for field, bad in (('run_attempt', 2), ('head_sha', '9' * 40),
