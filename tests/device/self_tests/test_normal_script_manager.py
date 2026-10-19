@@ -75,6 +75,20 @@ class Boundary:
 
 
 class NormalScriptManagerTests(unittest.TestCase):
+    def test_explicit_ui_component_scope_never_invents_or_adopts_candidate_binding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            os.chmod(directory, 0o700)
+            native = Boundary(directory)
+            component = {key: value for key, value in BINDING.items()
+                         if key not in {'sourceRevision', 'artifactSha256'}}
+            component['scope'] = 'NATIVE_UI_COMPONENT_ONLY'
+            flow = NormalScriptManager(native, native.observe, native.store, component, component_only=True)
+            flow.sample()
+            self.assertEqual(component, native.store.read()['binding'])
+            for binding, flag in ((component, False), (BINDING, True), (BINDING, False)):
+                with self.subTest(flag=flag, binding=binding), self.assertRaises(NativeUIError):
+                    NormalScriptManager(native, native.observe, native.store, binding, component_only=flag)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         os.chmod(self.temp.name, 0o700)

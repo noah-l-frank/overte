@@ -15,6 +15,7 @@ from adapters.normal_ui import NativeUIError
 
 CONTEXT = {'sourceRevision', 'artifactSha256', 'processIdentity', 'sessionId',
            'generation', 'targetFingerprint'}
+COMPONENT_CONTEXT = {'scope', 'processIdentity', 'sessionId', 'generation', 'targetFingerprint'}
 
 
 def need(value):
@@ -22,13 +23,17 @@ def need(value):
         raise NativeUIError('Normal feature ownership or observation is invalid')
 
 
-def context(value):
-    need(type(value) is dict and set(value) == CONTEXT)
-    for key, pattern in (('sourceRevision', r'[0-9a-f]{40}'),
-                         ('artifactSha256', r'[0-9a-f]{64}'),
-                         ('targetFingerprint', r'[0-9a-f]{64}'),
+def context(value, *, component_only=False):
+    need(type(component_only) is bool and type(value) is dict
+         and set(value) == (COMPONENT_CONTEXT if component_only else CONTEXT))
+    if component_only:
+        need(value['scope'] == 'NATIVE_UI_COMPONENT_ONLY')
+    patterns = (('targetFingerprint', r'[0-9a-f]{64}'),
                          ('sessionId', r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}'),
-                         ('processIdentity', r'[!-~]{1,160}')):
+                         ('processIdentity', r'[!-~]{1,160}'))
+    if not component_only:
+        patterns += (('sourceRevision', r'[0-9a-f]{40}'), ('artifactSha256', r'[0-9a-f]{64}'))
+    for key, pattern in patterns:
         need(type(value[key]) is str and re.fullmatch(pattern, value[key]) is not None)
     need(type(value['generation']) is int and value['generation'] >= 0)
     return value
