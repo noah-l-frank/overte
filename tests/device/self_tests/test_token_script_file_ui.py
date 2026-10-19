@@ -12,6 +12,7 @@ from urllib.parse import unquote, urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from adapters.normal_ui import NativeUIError
 from adapters.token_script_file_ui import TokenScriptFilePicker
+from fixture.serve import FixtureState
 
 
 class NativeBoundary:
@@ -174,6 +175,17 @@ class ScriptFilePickerTests(unittest.TestCase):
         for directory in ('file:///unowned', self.root.as_uri() + '/%2e%2e', 'https://foreign/feature-script-' + 'a' * 32):
             with self.assertRaises(NativeUIError): TokenScriptFilePicker(native, directory)
         self.assertEqual([], native.actions)
+
+    def test_existing_ios_fixture_admits_only_typed_bounded_native_selector_input(self):
+        fixture = FixtureState()
+        request = dict(schemaVersion=1, commandId='11111111-1111-4111-8111-111111111111',
+            instance='22222222-2222-4222-8222-222222222222', sequence=1, observedElapsedMs=0,
+            fieldToken='33333333-3333-4333-8333-333333333333', operation='select-index', index=0)
+        outer = dict(schemaVersion=1, commandId='ios-' + 'a' * 32, action='normal-ui-input', operation='edit', input=request)
+        self.assertEqual(outer, fixture.set_client_command(outer))
+        for change in ({'index':True}, {'index':-1}, {'index':32}, {'text':'desired-main.js'}, {'expected':'main.js'}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                fixture.set_client_command(outer | {'input': request | change})
 
 
 if __name__ == '__main__': unittest.main()
