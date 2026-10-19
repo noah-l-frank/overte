@@ -5,9 +5,8 @@ from copy import deepcopy
 from pathlib import Path
 import sys
 
-sys.path.insert(0,str(Path(__file__).resolve().parents[4]/'tests/device/self_tests'))
-from test_normal_create_adapter import NativeCreate
-from test_token_create_ui import Controls
+from self_tests.test_normal_create_adapter import NativeCreate
+from self_tests.test_token_create_ui import Controls
 
 
 class CreateNativeBoundary:
