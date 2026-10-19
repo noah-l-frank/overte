@@ -24,7 +24,7 @@ from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundar
 from self_tests.test_recorded_preview_history import complete as completed_voice
 from adapters.recorded_preview_history import measured_state as measured_audio_state
 from adapters.recorded_preview_evidence import RecordedPreviewEvidence
-from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, RUN as EFFECT_RUN
+from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, code_source, RUN as EFFECT_RUN
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 from self_tests.test_native_feature_observation import probe_source
 from adapters.token_script_file_ui import TokenScriptFilePicker
@@ -357,6 +357,21 @@ class FeatureAdapterTests(unittest.TestCase):
         before = len(source.commands)
         with self.assertRaises(RuntimeError): reader.read(reader.sequence)
         self.assertEqual(before, len(source.commands))
+
+    def test_phone_submitted_code_uses_original_bound_source_and_refuses_older_producer(self):
+        source=self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        original=source.mutate
+        def identified(value):
+            if original: original(value)
+            code_source(value)
+        source.mutate=identified;reader=self.adapter._script_execution_observer(SELECTOR)
+        first=reader.read(0,require_code_identity=True)
+        code=first['source']['engines'][0]['code']
+        self.assertEqual(15000,code['submittedEpochMs']);self.assertTrue(code['submitted'])
+        second=reader.read(first['sequence'],require_code_identity=True)
+        self.assertEqual(code,second['source']['engines'][0]['code'])
+        source.mutate=original
+        with self.assertRaises(RuntimeError):reader.read(second['sequence'],require_code_identity=True)
 
     def test_phone_script_execution_source_uses_bound_original_native_module_history(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')

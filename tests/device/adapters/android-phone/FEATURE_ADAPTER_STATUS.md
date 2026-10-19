@@ -169,3 +169,11 @@ shared token/cycle recipe to the original Phone Qt/probe channel. Seven added
 wrapper/probe cases bring the focused group to 44 passing cases. This remains
 an internal prerequisite: full-area Audio and acoustic/cleanup coordination are
 not advertised or qualified; native source is uncompiled.
+
+The existing private Script source reader now also carries original submitted
+code identity (version 1). The new Phone wrapper case retains actual original
+submission time/hash across fresh acquisitions and rejects an older producer.
+The focused group has 45 passing cases; seven reviewed Emote source-profile
+checks also pass on this Phone source tree. This identifies runtime Script
+semantics only; full Emote input/pose/image/peer coordination is still missing.
+Native C++ remains uncompiled; no device acceptance is implied.
