@@ -43,6 +43,7 @@ from self_tests.test_owned_world_render import LocalAdb
 from self_tests.test_native_animation_history import history_source
 from adapters.native_animation_history import clip_run
 from self_tests.test_native_account_observation import account_source
+from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -370,6 +371,51 @@ class FeatureAdapterTests(unittest.TestCase):
                 monotonic=lambda: source.clock, sleep=source.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
+
+    def account_probe_boundaries(self):
+        source=self.preview_boundaries(AccountProbeBoundary(),'feature-account-probe.json')
+        source.mutate=lambda value:value.update(processId=31)
+        boundary=patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+            monotonic=lambda:source.clock,sleep=source.sleep))
+        boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._account_probe(SELECTOR)
+
+    def test_phone_protected_probe_uses_actual_bound_transport_and_private_intent_cleanup(self):
+        source,probe=self.account_probe_boundaries();original=source.send
+        def inspect_intent(command):
+            self.assertEqual(command['requestId'],self.adapter.account_probe_store(SELECTOR).read()['probe']['commandId'])
+            original(command)
+        source.send=inspect_intent
+        value=probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
+        self.assertEqual(401,value['source']['httpStatus']);self.assertEqual(31,value['processId'])
+        probe.release();self.assertIsNone(self.adapter.account_probe_store(SELECTOR).read())
+        self.assertEqual([],self.native.inputs)
+        self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_adapter_cleanup_drains_owned_probe_before_base_teardown(self):
+        source,probe=self.account_probe_boundaries();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            self.assertEqual({'cleaned':True},self.adapter.cleanup(SELECTOR));base.assert_called_once()
+        self.assertIsNone(self.adapter.account_probe_store(SELECTOR).read())
+
+    def test_phone_adapter_cleanup_runs_base_but_refuses_green_for_undrained_probe(self):
+        source,probe=self.account_probe_boundaries();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET);source.pending=True
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_ACCOUNT_PROBE_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertIsNotNone(self.adapter.account_probe_store(SELECTOR).read())
+
+    def test_phone_protected_probe_incomplete_drain_keeps_private_owner(self):
+        source,probe=self.account_probe_boundaries();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET);source.pending=True
+        with self.assertRaises(RuntimeError):probe.release()
+        self.assertIsNotNone(self.adapter.account_probe_store(SELECTOR).read())
+        source.pending=False;probe.release();self.assertIsNone(self.adapter.account_probe_store(SELECTOR).read())
+
+    def test_phone_protected_probe_replaced_candidate_cannot_clear_original_owner(self):
+        source,probe=self.account_probe_boundaries();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
+        self.fixture.adb.digest='f'*64;before=len(source.commands)
+        with self.assertRaises(ValueError):probe.release()
+        self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.adapter.account_probe_store(SELECTOR).read())
 
     def script_file_storage(self):
         source = self.preview_boundaries(ScriptFilesBoundary(self.fixture.root), 'feature-script-files.json')

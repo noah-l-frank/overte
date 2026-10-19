@@ -209,3 +209,15 @@ required source and performs no ordinary login input. The controlled HTTPS
 account backend also exists. Full login/cancel, current-credential protected
 probe and independent UI/remote joins remain missing; no Authentication feature
 triple is advertised and native code remains uncompiled.
+
+The internal `_account_probe` factory now connects the actual Phone private
+command/original-file transport, existing candidate/PID/session guards and a
+persisted network intent. Native release plus separate reply/body/authority
+absence must precede owner deletion. Five new host wrapper cases exercise the
+source transport, retained drain, replaced candidate and adapter-wide teardown.
+Cleanup attempts the owned probe first, still reaches base teardown on failure
+and refuses a green result while original ownership is unresolved. The focused
+Phone group now passes 62 cases. The private native
+HTTPS-origin provisioner, actual login/cancel/UI/error/restart and independent
+actor coordinator remain missing. No complete Authentication capability or
+physical qualification is enabled; native code remains uncompiled.
