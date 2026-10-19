@@ -3862,7 +3862,12 @@ class UnchangedParentTests(unittest.TestCase):
         generation = next(row for row in self.package.workflow_generations()
             if row['name'] == C.producer.PLATFORM_GENERATION)
         for name, entry in generation['workflows'].items():
-            body = subprocess.check_output(['git','cat-file','blob',entry['sha']],cwd=C.ROOT)
+            # Historical callers must survive a shallow active26 checkout.
+            relative = ('tools/repository-checks/workflows/producers/repository-checks.yml'
+                if name == '.github/workflows/repository-checks.yml' else name)
+            body = historical_metadata_workflow(relative, generation['name'], C.ROOT)
+            self.assertEqual(hashlib.sha1(b'blob ' + str(len(body)).encode() + b'\0' + body).hexdigest(),
+                             entry['sha'])
             path = self.candidate/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(body)
         (self.candidate/'native.cpp').write_text('unchanged product input\n')
         git('add','.'); git('commit','-qm','Protected before')
