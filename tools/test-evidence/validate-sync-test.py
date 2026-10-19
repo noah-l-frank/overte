@@ -724,7 +724,18 @@ class IsolatedConsumerTests(unittest.TestCase):
                         'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()},path)
         gate = yaml.safe_load((VALIDATION.ROOT / '.github/workflows/sync-test-reuse.yml').read_text())
         self.assertEqual(gate['permissions'], {'actions':'write','checks':'read','contents':'read','pull-requests':'read'})
-        trusted = gate['jobs']['sync-test-reuse']['steps'][0]
+        gate_steps = gate['jobs']['sync-test-reuse']['steps']
+        trusted_checkouts = [step for step in gate_steps
+            if step.get('name') == 'Check out trusted default-branch gate only'
+            and step.get('uses') == 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1']
+        self.assertEqual(len(trusted_checkouts), 1)
+        trusted = trusted_checkouts[0]
+        self.assertEqual(gate_steps[0], {'name': 'Require a successful event policy',
+            'env': {'EVENT_POLICY': '${{ needs.event-policy.result }}'},
+            'run': 'test "$EVENT_POLICY" = success'})
+        self.assertEqual(gate_steps[1], {'name': 'Reject unauthenticated text edits without dispatching a validator',
+            'if': "needs.event-policy.outputs.metadata_only == 'true'", 'run': 'exit 1'})
+        self.assertGreater(gate_steps.index(trusted), 1)
         self.assertEqual(trusted['with']['ref'], '${{ github.event.repository.default_branch }}')
         self.assertIs(trusted['with']['persist-credentials'], False)
         self.assertNotIn('secrets', gate['jobs']['sync-test-reuse'])
