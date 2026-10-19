@@ -79,6 +79,7 @@ class FeatureObservationTests(unittest.TestCase):
         def mutate(value):
             value['processId'] = 42
             value['capturedEpochMs'] = value['animation']['capturedEpochMs'] = 10000
+            value['requestedEpochMs'] = value['animationFence']['requestedEpochMs'] = 10000
             value['animation']['clip']['evaluatedEpochMs'] = 10000
         source.mutate = mutate
         def post(request, timeout):
@@ -110,6 +111,13 @@ class FeatureObservationTests(unittest.TestCase):
         self.assertEqual(10000, value['animation']['clip']['evaluatedEpochMs'])
         self.assertRegex(source.commands[0]['commandId'], '^ios-[0-9a-f]{32}$')
         self.assertEqual(1, len(self.native.reads))
+
+    def test_native_feature_original_fence_handles_device_host_clock_skew(self):
+        source = self.native_feature_boundaries()
+        self.observer.epoch_ms = lambda: 9000000
+        value = self.observer.native_observer().read(0, require_animation=True)
+        self.assertEqual(10000, value['requestedEpochMs'])
+        self.assertEqual(source.sample, value)
 
     def test_native_feature_process_change_cannot_consume_original_result(self):
         source = self.native_feature_boundaries()
