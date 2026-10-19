@@ -30,11 +30,14 @@ class Locator:
     value: str
 
     def __post_init__(self):
-        if (not isinstance(self.using, str) or self.using not in {'id', 'accessibility id'}
+        if (not isinstance(self.using, str) or self.using not in {'id', 'accessibility id', 'class name'}
                 or not isinstance(self.value, str)
                 or not 1 <= len(self.value) <= 256
                 or any(ord(char) < 32 or ord(char) == 127 for char in self.value)):
             raise NativeUIError('Normal native input requires a bounded ID locator')
+        if self.using == 'class name' and self.value not in {
+                'android.widget.EditText', 'XCUIElementTypeTextField'}:
+            raise NativeUIError('Normal native input class is not a reviewed text field')
 
 
 class NativeUI:
@@ -166,6 +169,15 @@ class NativeUI:
         self._check()
         self._request('POST', element + '/value', {'text': '\ue007', 'value': ['\ue007']})
         self._check()
+
+    def text(self, locator):
+        element = self._resolve(locator)
+        self._check()
+        value = self._request('GET', element + '/text')
+        self._check()
+        if type(value) is not str or len(value.encode('utf-8')) > 16384:
+            raise NativeUIError('Normal native text observation is malformed')
+        return value
 
     def release_actions(self):
         # Release only this owned W3C session's inputs, including when its
