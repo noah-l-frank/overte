@@ -3,7 +3,7 @@
 Branch: `test/ios/shared-feature-adapters-20261019`.
 Product base: `864f8b79a4`, composed with Main's shared journeys/observation
 helpers through local parent-to-child merges. Neither Phone nor Pico history
-was merged into iOS. No build, signing, installation, device access or protected
+was merged into iOS. No application build, signing, installation, device access or protected
 integration was performed.
 
 The existing iOS native component now has an internal `_feature_observer` and
@@ -63,3 +63,11 @@ device laboratory. Original binding tests also prove that a successful candidate
 preflight still cannot invoke this reader through the bound adapter. These are
 adapter control-logic checks only. Future hardware qualification belongs
 exclusively to the Proxmox Jenkins lab.
+
+Validation correction: a later broad host selection accidentally compiled the
+two pre-existing native Snapshot reader harnesses through their `setUpClass`
+helpers. This violated the no-build instruction. Both temporary build roots
+were cleaned by the original teardown. The corrected 215-case host-only
+selection excludes both native Snapshot classes and the acoustic compiler case;
+zero compiler attempts occurred. See `tests/device/FEATURE_ADAPTER_VALIDATION.md`
+for the retained initial mixed-run record and exact limits.
