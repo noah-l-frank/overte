@@ -12,6 +12,7 @@ import uuid
 
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
+from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
 
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 CONTROL_IDS = {'navigation.goto', 'navigation.address', 'navigation.back',
@@ -41,7 +42,7 @@ def identifier(value):
     return isinstance(value, str) and UUID.fullmatch(value) is not None
 
 
-def decode(raw, limit=24576):
+def decode(raw, limit=262144):
     need(isinstance(raw, str) and len(raw.encode('utf-8')) <= limit)
 
     def pairs(items):
@@ -61,6 +62,9 @@ def decode(raw, limit=24576):
 def validate_snapshot(value, process_id, epoch_ms):
     fields = {'schemaVersion', 'bridgeId', 'generation', 'processId', 'elapsedMs',
         'updatedEpochMs', 'lastCommandSequence', 'open', 'ready', 'controls'}
+    if type(value) is dict and 'featureControlsVersion' in value:
+        fields.add('featureControlsVersion')
+        need(type(value['featureControlsVersion']) is int and value['featureControlsVersion'] == 1)
     need(type(value) is dict and set(value) == fields
          and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and identifier(value['bridgeId']) and identifier(value['generation'])
@@ -70,20 +74,25 @@ def validate_snapshot(value, process_id, epoch_ms):
          and -500 <= epoch_ms - value['updatedEpochMs'] <= 5000
          and type(value['open']) is bool and type(value['ready']) is bool
          and (not value['ready'] or value['open'])
-         and type(value['controls']) is list and len(value['controls']) <= len(CONTROL_IDS))
+         and type(value['controls']) is list and len(value['controls']) <= 384)
     ids, tokens = set(), set()
     for control in value['controls']:
         need(type(control) is dict and isinstance(control.get('id'), str))
         fields = {'id', 'token', 'enabled', 'focused'}
+        if script_control(control['id']):
+            need(value.get('featureControlsVersion') == 1)
+            fields |= metadata_fields(control['id'])
         if control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
         need(set(control) == fields
-             and isinstance(control['id'], str) and control['id'] in CONTROL_IDS
+             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']))
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
         if control['id'] in SNAPSHOT_CHOICES:
             need(type(control['checked']) is bool)
+        if script_control(control['id']):
+            validate_metadata(control)
         ids.add(control['id']); tokens.add(control['token'])
     need(value['ready'] or not value['controls'])
     return value
@@ -186,13 +195,15 @@ class PicoNavigation:
                 return value
         return None
 
-    def input(self, control_id, action='activate', text=None):
+    def input(self, control_id, action='activate', text=None, *, source=None):
         # SDK/package verification can take longer than the native input's
         # freshness window. Bind bytes first, then capture the current UI.
         self.io.bind_input()
         snapshot = self.snapshot()
         control = self.control(snapshot, control_id)
         need(snapshot['ready'] and control is not None and snapshot['lastCommandSequence'] < MAX_INTEGER)
+        if source is not None:
+            need(control.get('sourceUrl') == source)
         command = {'schemaVersion': 1, 'commandId': str(uuid.uuid4()),
             'bridgeId': snapshot['bridgeId'], 'generation': snapshot['generation'],
             'sequence': snapshot['lastCommandSequence'] + 1,
@@ -203,6 +214,14 @@ class PicoNavigation:
                 need(text in self.urls)
             elif control_id == 'snapshot.name':
                 validate_operation_arguments('snapshot.files', {'prefix': text})
+            elif control_id == 'scripts.url.field':
+                from scripts_observation import script_url
+                from create_observation import owned_url
+                need(type(text) is str)
+                if '/script-management/' in text:
+                    script_url(text, missing=text.endswith('/missing.js'))
+                else:
+                    owned_url(text, {'observer.js'})
             else:
                 raise NavigationError()
             command['text'] = text

@@ -12,7 +12,7 @@
 
 namespace overte::pico::e2e {
 
-// Closed Go To and Snapshot input on the actual VR tablet scene graph. The
+// Closed Go To, Snapshot and opt-in Script input on the actual VR scene graph. The
 // caller supplies its live surface and ordinary pointer route. No navigation
 // service, QML handler, expected scene or acceptance verdict is available here.
 class NavigationUi {
@@ -26,6 +26,7 @@ private:
     struct Control {
         QPointer<QQuickItem> item;
         QString token;
+        QString source;
     };
     QPointer<QQuickItem> _root;
     QPointer<QQuickWindow> _window;

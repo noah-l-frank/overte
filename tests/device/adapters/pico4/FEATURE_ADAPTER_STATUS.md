@@ -16,6 +16,22 @@ including changed candidates, foreign PIDs and unavailable native hooks.
 Native compilation and device behavior remain untested. See the
 [native observation contract](../../native/README.md).
 
+The next packet now implements the five existing `scripts.*` foundation
+operations through the real VR Tablet/MENU > Edit > Running Scripts controls.
+It requires `OVERTE_PICO_NORMAL_SCRIPTS=1`, the original debug/OpenXR isolation
+and candidate checks, and a native `featureControlsVersion:1` before input.
+The E2E-only native resolver exports the real dialog/editor, row labels and
+full delegate source URLs; reused rows retire tokens when their source changes.
+Focused native Qt key/IME events replace the source field; ordinary VR pointer
+events activate controls. No script service mutation or QML-handler invocation
+performs these inputs. Cleanup attempts Stop and observed native absence before
+original process teardown; lost candidate/process or ignored Stop retains
+source intent and fails cleanup. A cleanup-only invocation revalidates the
+original candidate lazily for source input, while teardown still works if that
+verification fails. Six real-wrapper host counterexamples pass, registered as
+`normal-scripts` in the existing 42-group Pico suite. See
+[the native Script control contract](../../native/NORMAL_SCRIPTS.md).
+
 `feature_observation.py` implements the original-observation backend on the
 existing SH-009/installed-APK-bound Pico adapter. `_feature_observer(target)`
 requires the actual candidate's E2E layer, configured isolated OpenXR session,
@@ -38,17 +54,18 @@ It is not a complete area observer: the actual native script rows/entity IDs do
 not establish v1 animation, account, peer, lifecycle, image, PCM or file facts.
 Existing normal `places.*` and `snapshot.*` implementations remain intact.
 
-Concrete input blocker in the current parity source:
+Remaining input work after the normal Scripts packet:
 
 * `android/vr/pico/apps/picoInterface/e2e/PicoE2eNavigationUi.cpp::controlId`
-  exports only GOTO/history, Home/pagination and SNAP controls. Its `apply`
-  validates the same closed set and generation/control tokens.
+  exports GOTO/history, Home/pagination, SNAP and the new closed Script controls.
+  Create, asset and other complete area controls still need their own bindings.
+  Its `apply` validates current generation/control/source tokens.
 * `PicoE2eTabletBridge.cpp::CONTROL_IDS` separately exports only the existing
   settings controls. The shared native API does not admit Create, script rows,
   source dialogs, asset mappings or their completion/ownership tokens.
 * `PicoAccessibilityBridge.cpp` snapshots `OffscreenUi::getRootItem()` while
   the real VR controls are read from `TabletProxy::getTabletRoot()` by the E2E
-  navigation bridge. The Android accessibility provider's existence alone
+  navigation bridge. The new Script input uses that actual VR root. The Android accessibility provider's existence alone
   therefore does not establish export of those VR controls. Reusing Phone
   W3C IDs/coordinates would be an unsupported presentation substitution.
 

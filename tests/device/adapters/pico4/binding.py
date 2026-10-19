@@ -13,6 +13,9 @@ from navigation_observation import OPERATIONS as NAVIGATION_OPERATIONS
 from adapters.android_snapshot_files import AndroidSnapshotFiles
 from adapters.pico4.feature_observation import PicoFeatureObservation
 from adapters.native_feature_observation import NativeFeatureObservation, FILE as NATIVE_FEATURE_FILE
+from adapters.pico4 import normal_scripts
+from adapters.normal_feature_state import PrivateFeatureState
+from scripts_observation import OPERATIONS as SCRIPT_OPERATIONS
 from adapters.pico4.snapshot import (PicoSnapshot, OPERATIONS as SNAPSHOT_OPERATIONS,
                                     configured_scene as configured_snapshot)
 
@@ -71,6 +74,8 @@ def create_adapter(args, base_class):
     # Cleanup must still reach the original native cleanup if candidate files
     # disappeared or became invalid. It never emits an executionIdentity.
     cleanup_only = args.action == 'cleanup'
+    cleanup_candidate = False
+    frozen = candidate = None
     if not cleanup_only:
         frozen = _inputs(args)
         args.require_identity = True
@@ -82,11 +87,21 @@ def create_adapter(args, base_class):
     class PicoBoundAdapter(base_class):
         @_private
         def _candidate(self):
-            _need(not cleanup_only)
+            _need(not cleanup_only or cleanup_candidate)
             _need(_inputs(args) == frozen)
             current = verifier.verify_candidate(args)
             _need(current == candidate and _inputs(args) == frozen)
             return current
+
+        def _recover_cleanup_candidate(self):
+            nonlocal frozen, candidate, cleanup_candidate
+            _need(cleanup_only)
+            original = _inputs(args)
+            args.require_identity = True
+            verified = verifier.verify_candidate(args)
+            _need(_inputs(args) == original and verified['package'] == 'org.overte.pico'
+                  and verified['identity']['artifactSha256'] == original['apk'])
+            frozen, candidate, cleanup_candidate = original, verified, True
 
         @_private
         def _package_path(self, target):
@@ -132,14 +147,34 @@ def create_adapter(args, base_class):
             # One pinned candidate cannot establish a two-candidate upgrade.
             values = [value for value in super().capabilities(target) if value != 'app.upgrade']
             if configured_scene(os.environ) is not None:
-                _need(not cleanup_only and self.pico_configuration is not None
+                _need((not cleanup_only or cleanup_candidate) and self.pico_configuration is not None
                       and candidate['e2e_input_layer'] is True)
                 values.extend(NAVIGATION_OPERATIONS)
             if configured_snapshot(os.environ) is not None:
-                _need(not cleanup_only and self.pico_configuration is not None
+                _need((not cleanup_only or cleanup_candidate) and self.pico_configuration is not None
                       and candidate['e2e_input_layer'] is True)
                 values.extend(SNAPSHOT_OPERATIONS)
+            if normal_scripts.configuration(os.environ) is not None:
+                _need((not cleanup_only or cleanup_candidate) and self.pico_configuration is not None
+                      and candidate['e2e_input_layer'] is True)
+                values.extend(SCRIPT_OPERATIONS)
             return sorted(set(values))
+
+        def _script_paths(self, target):
+            _need(self.pico_configuration is not None)
+            key = hashlib.sha256(('org.overte.pico\0' + target).encode()).hexdigest()[:32]
+            directory = self.pico_configuration[1]
+            return directory / ('normal-script-state-' + key + '.json'), directory / ('normal-script-ui-' + key + '.json')
+
+        def _scripts(self, target):
+            scene = normal_scripts.configuration(os.environ)
+            _need(scene is not None and self.pico_configuration is not None
+                  and candidate['e2e_input_layer'] is True)
+            identity = self.require_controlled_debug_identity(target)
+            installed = self._installation(target)
+            state, ui = self._script_paths(target)
+            return normal_scripts.flow(self, target, scene, installed, identity, state, ui,
+                lambda operation: super(PicoBoundAdapter, self).invoke(target, operation, {}))
 
         def _navigation_path(self, target):
             _need(self.pico_configuration is not None)
@@ -169,7 +204,7 @@ def create_adapter(args, base_class):
             # Internal original-observation transport only. Complete feature
             # input, lifecycle/peer/artifact observers are not available yet,
             # so capabilities() deliberately advertises no feature.* triple.
-            _need(not cleanup_only and self.pico_configuration is not None
+            _need((not cleanup_only or cleanup_candidate) and self.pico_configuration is not None
                   and candidate['e2e_input_layer'] is True)
             self._installation(target)
             identity = self.require_controlled_debug_identity(target)
@@ -238,6 +273,8 @@ def create_adapter(args, base_class):
                     result = self._navigation(target).invoke(operation, values)
                 elif operation in SNAPSHOT_OPERATIONS:
                     result = self._snapshot(target).invoke(operation, values)
+                elif operation in SCRIPT_OPERATIONS:
+                    result = self._scripts(target).invoke(operation, values)
                 else:
                     result = super().invoke(target, operation, values)
             finally:
@@ -246,7 +283,25 @@ def create_adapter(args, base_class):
 
         @_private
         def cleanup(self, target):
-            # No receipt gate and no identity claim. Keep base teardown intact.
+            script_error = False
+            try:
+                if self.pico_configuration is not None:
+                    path, _ui = self._script_paths(target)
+                    owned = PrivateFeatureState(path).read()
+                    if owned is not None:
+                        # Candidate revalidation is needed only to deliver
+                        # normal source cleanup, never to reach base teardown.
+                        if cleanup_only:
+                            self._recover_cleanup_candidate()
+                        scripts = self._scripts(target)
+                        if owned['loadAttempted']:
+                            scripts.invoke('scripts.manager.open', {})
+                            scripts.invoke('scripts.stop', {'url': owned['source']})
+                        scripts.invoke('scripts.manager.close', {})
+            except Exception:
+                script_error = True
+            # Keep original teardown available after every source/candidate
+            # failure. A stopped app cannot retire unresolved saved scripts.
             result = super().cleanup(target)
             # The canonical teardown has now confirmed force-stop. Retire the
             # owned host intent even when a partial input invalidated receipts.
@@ -254,6 +309,11 @@ def create_adapter(args, base_class):
                 discard_stopped_state(self._navigation_path(target))
                 for path in self._snapshot_paths(target):
                     discard_stopped_state(path)
+                state, ui = self._script_paths(target)
+                discard_stopped_state(ui)
+                _need(not script_error and PrivateFeatureState(state).read() is None)
+            else:
+                _need(not script_error)
             return result
 
     return PicoBoundAdapter(args.kind)

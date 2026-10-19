@@ -109,11 +109,13 @@ void walkItems(QQuickItem* item, const std::function<void(QQuickItem*, int)>& vi
 
 bool writeJson(const QString& path, const QJsonObject& value) {
     QSaveFile output(path);
-    if (!output.open(QIODevice::WriteOnly)) {
+    output.setDirectWriteFallback(false);
+    if (!output.open(QIODevice::WriteOnly)
+            || !output.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner)) {
         return false;
     }
-    output.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
-    if (output.write(QJsonDocument(value).toJson(QJsonDocument::Compact)) < 0
+    const auto bytes = QJsonDocument(value).toJson(QJsonDocument::Compact);
+    if (output.write(bytes) != bytes.size()
             || output.write("\n") != 1) {
         output.cancelWriting();
         return false;

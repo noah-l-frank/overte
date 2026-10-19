@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <ui/NativeFieldInput.h>
+#include "../../../../../../tests/device/native/NormalScriptControls.h"
 
 namespace overte::pico::e2e {
 namespace {
@@ -47,6 +48,8 @@ bool enabled(QQuickItem* item) {
 }
 
 QString controlId(QQuickItem* item) {
+    const auto script = overte::e2e::scriptControlId(item);
+    if (!script.isEmpty()) { return script; }
     static const QHash<QString, QString> names {
         { "tabletAddressLine", "navigation.address" },
         { "tabletAddressBack", "navigation.back" },
@@ -127,7 +130,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             if (!id.isEmpty()) {
                 if (controls.contains(id)) { ambiguous = true; return; }
                 const auto previous = _controls.value(id);
-                controls.insert(id, { item, previous.item == item ? previous.token : token() });
+                const auto source = overte::e2e::scriptRowSource(item);
+                controls.insert(id, { item, previous.item == item && previous.source == source ? previous.token : token(), source });
             }
         }
         const auto children = item->childItems();
@@ -143,7 +147,12 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             }
         }
     }
-    if (ambiguous || !ready) { controls.clear(); ready = false; }
+    if (controls.contains(QStringLiteral("scripts.url.field"))) {
+        for (const auto& id : controls.keys()) {
+            if (!id.startsWith(QStringLiteral("scripts.url."))) { controls.remove(id); }
+        }
+    }
+    if (ambiguous || !ready || controls.size() > 384) { controls.clear(); ready = false; }
     _controls = controls;
     auto ids = controls.keys();
     std::sort(ids.begin(), ids.end());
@@ -155,14 +164,19 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         if (id.startsWith(QStringLiteral("snapshot.mode.")) || id.startsWith(QStringLiteral("snapshot.format."))) {
             row["checked"] = control.item->property("checked").toBool();
         }
+        overte::e2e::appendScriptControlObservation(row, control.item, id);
         observed.append(row);
     }
-    return { { "schemaVersion", 1 }, { "bridgeId", _bridgeId }, { "generation", _generation },
+    QJsonObject result { { "schemaVersion", 1 }, { "bridgeId", _bridgeId }, { "generation", _generation },
         { "processId", static_cast<double>(QCoreApplication::applicationPid()) },
         { "elapsedMs", static_cast<double>(_clock.elapsed()) },
         { "updatedEpochMs", static_cast<double>(QDateTime::currentMSecsSinceEpoch()) },
         { "lastCommandSequence", static_cast<double>(_lastCommandSequence) },
         { "open", open }, { "ready", ready }, { "controls", observed } };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    result["featureControlsVersion"] = 1;
+#endif
+    return result;
 }
 
 QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool open,
@@ -211,6 +225,10 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
         } else if (action == "submit") {
             delivered = overte::ui::submitFocusedField(control.item, window);
         }
+    } else if (controlId == QStringLiteral("scripts.url.field") && action == "replace"
+            && command.value("text").isString()
+            && overte::e2e::validScriptUrlText(command.value("text").toString())) {
+        delivered = overte::ui::replaceFocusedField(control.item, window, command.value("text").toString());
     } else if (controlId == QStringLiteral("snapshot.name") && action == "replace"
             && command.value("text").isString()) {
         const auto text = command.value("text").toString();
