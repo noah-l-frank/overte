@@ -101,6 +101,18 @@
     var lastNormalFeatureRequest = "";
     var lastNativeFeatureRequest = "";
     var nativeFeatureTimer = null;
+    var lastRecordedPreviewRequest = "";
+    function saveRecordedPreviewObservation(requestId, release) {
+        var value = {schemaVersion: 1, requestId: requestId, available: false};
+        try {
+            var hook = release ? Test.releaseFeatureRecordedVoiceEvidence : Test.featureRecordedVoiceEvidence;
+            if (typeof hook === "function") {
+                var native = hook.call(Test, requestId);
+                if (native && native.requestId === requestId) { value = native; }
+            }
+        } catch (_recordedPreviewReadError) { /* Missing source is never a feature result. */ }
+        Test.saveObject(value, "recorded-preview-observation.json");
+    }
     function saveNativeFeatureObservation(requestId, remaining) {
         if (requestId !== lastNativeFeatureRequest) { return; }
         if (remaining === undefined) { remaining = 50; }
@@ -906,6 +918,16 @@
 
     function applyClientCommand(command) {
         if (command && command.schemaVersion === 1
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+                && (command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release")
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId !== lastRecordedPreviewRequest) {
+                lastRecordedPreviewRequest = String(command.commandId);
+                saveRecordedPreviewObservation(command.commandId, command.action === "feature-recorded-audio-release");
+            }
+            return;
+        }
+        if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
                 && command.action === "feature-native-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
@@ -1175,7 +1197,8 @@
     }
 
     function applyAndroidControlCommand(command) {
-        if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe")) {
+        if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
+                || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse only the closed read-only path.
             applyClientCommand(command);
