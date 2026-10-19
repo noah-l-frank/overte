@@ -145,6 +145,10 @@ public:
                                      const Vec4i& region,
                                      QImage& destImage) final override;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    bool featureReadFramebuffer(const FramebufferPointer& framebuffer, QImage& image) final override;
+#endif
+
     // this is the maximum numeber of available input buffers
     size_t getNumInputBuffers() const { return _input._invalidBuffers.size(); }
 
