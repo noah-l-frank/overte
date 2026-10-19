@@ -30,6 +30,16 @@ history and Rig/graph replacement. These are reader/source-logic checks, not
 native compilation or an Emote product result. The common Emote source-semantics
 correction and its complete input/peer/image coordinator remain open.
 
+Common feature contract **version 5** now passes **478** host cases, including
+**43** Journey cases, zero failures/errors/skips or compiler attempts. The same
+three native exclusions remain. Four new Emote cases cover ordinary actual
+override flags, hidden/retained choosers, nine automatic completions, an ignored
+timer, delayed natural completion after ignored cancellation, forged primary
+timing versus the independent actor, and rejection of prior version 4 requests.
+The independently timed host model proves logic only. Native input/profile/
+history/image/peer composition, the original Sit concern and all device
+qualification remain open. No full area capability is enabled.
+
 Version 4 Graphics validation: **388** common host cases pass with zero failures,
 errors, skips or compiler attempts; the same three native compiler cases remain
 excluded. Its journey group has **39** cases, and four additional Graphics
