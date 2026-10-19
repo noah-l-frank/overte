@@ -17,6 +17,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QCryptographicHash>
 #include <QUuid>
+#include "FeatureAccountProbe.h"
 #endif
 
 #include <memory>
@@ -148,6 +149,18 @@ void AccountManager::recordFeatureAccountEvent(const char* kind, const QNetworkR
     _featureAccountEventEpochMs = now;
     _featureAccountEvents.append(event);
     if (_featureAccountEvents.size() > 64) { _featureAccountEvents.removeFirst(); }
+}
+
+QVariantMap AccountManager::featureAccountProbe(const QVariantMap& command,const QString& ownedOrigin) {
+    if (QThread::currentThread() != thread() || !_featureAccountAvailable) { return {}; }
+    if (!_featureAccountProbe) {
+        _featureAccountProbe=new overte::e2e::AccountProbe(this,_featureAccountInstance,[this] {
+            const auto& token=_accountInfo.getAccessToken();
+            return overte::e2e::AccountProbe::State{_authURL,_accountInfo.getUsername(),token.authorizationHeaderValue(),
+                !token.token.isEmpty(),_credentialContext.snapshot()};
+        });
+    }
+    return _featureAccountProbe->request(command,ownedOrigin);
 }
 
 QVariantMap AccountManager::featureAccountObservation() const {

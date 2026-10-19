@@ -6,6 +6,12 @@ These are read-only sources for the existing adapter architecture. They are
 an explicit `--testScript` / writable `--testResultsLocation` launch are needed.
 Nothing builds or installs a client when an adapter requests an observation.
 
+The [protected-account probe](ACCOUNT_PROTECTED_PROBE.md) now supplies a real
+current-credential HTTPS profile GET with explicit private origin binding,
+original response hashes and observed reply/body/authority cleanup. It is an
+uncompiled internal source, requiring native origin provisioning, ordinary login
+and independent actor composition before full area activation.
+
 The separate [Script execution observation](SCRIPT_EXECUTION_OBSERVATION.md)
 provides actual native manager identities and historical CommonJS completion/
 cache/error events. It supplies no code or desired module path to the client.

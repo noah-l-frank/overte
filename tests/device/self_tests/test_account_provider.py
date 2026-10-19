@@ -73,7 +73,9 @@ class AccountProviderTests(unittest.TestCase):
         request=Request(self.origin+path,data=raw,method=method,headers=metadata)
         try:response=self.opener.open(request,timeout=3)
         except HTTPError as error:response=error
-        with response:return response.code,json.loads(response.read(4097))
+        with response:
+            self.last_raw=response.read(4097)
+            return response.code,json.loads(self.last_raw)
 
     def grant(self,role='owned'):
         credentials=self.client.account_credentials(role)
@@ -96,6 +98,24 @@ class AccountProviderTests(unittest.TestCase):
         self.epoch+=1000
         self.assertEqual(proof,self.provider.proof(self.run,TICKET,nonce)) # No retiming on another read.
         self.assertEqual(0,self.server.internal_errors)
+
+    def test_original_https_profile_proof_joins_an_explicit_native_boundary_without_clock_equivalence(self):
+        # The HTTPS provider is real; native response transport is an explicit
+        # synthetic boundary here, not a native/client qualification result.
+        import hashlib
+        from adapters.native_account_probe import validate,protected_proof
+        _,token=self.grant();nonce,status,_=self.profile(token['access_token']);raw=self.last_raw
+        source=dict(httpStatus=status,networkError=0,parsed=True,principalSha256=hashlib.sha256(('e2e-'+self.run).encode()).hexdigest(),
+            responseSha256=hashlib.sha256(raw).hexdigest(),responseBytes=len(raw),tokenAttached=True,
+            credentialGeneration=2,endpointSha256=hashlib.sha256(self.origin.encode()).hexdigest(),sentEpochMs=9000000,completedEpochMs=9000001)
+        native=dict(probeVersion=1,commandId=nonce,requestId=nonce,runId=self.run,ticket=TICKET,operation='read',
+            instance='e'*32,sequence=1,processId=123,requestedEpochMs=9000000,capturedEpochMs=9000002,source=source)
+        request={key:native[key] for key in ('commandId','requestId','runId','ticket','operation')}
+        request.update(schemaVersion=1,action='feature-account-probe');validate(native,request,123,9000002)
+        proof=self.provider.proof(self.run,TICKET,nonce)
+        self.assertEqual(dict(principal='owned',protectedAccess=True),protected_proof(native,proof,
+            provider_instance=self.provider.instance,username='e2e-'+self.run))
+        self.assertNotEqual(native['capturedEpochMs'],proof['capturedEpochMs'])
 
     def test_bad_password_and_unknown_account_cannot_allocate_a_session(self):
         self.assertEqual(400,self.grant('invalid')[0])

@@ -121,7 +121,7 @@ malformed, unsupported and expected-result fields rejected before issuance.
 ## Device-free validation and remaining work
 
 The existing quick control-plane selection registers `test_account_provider.py`.
-Twenty-three cases exercise the real loopback HTTPS handler with actual
+Twenty-four cases exercise the real loopback HTTPS handler with actual
 password/Bearer/refresh requests, expiry, foreign scope, delayed delivery,
 authority/handler cleanup, false ACKs, nonce/history reuse, role separation,
 credential collisions, trust/hostname rejection and bounded slow-body clocks.
@@ -133,7 +133,9 @@ does not generate certificates at runtime. Missing host crypto tooling fails
 the required self-test rather than skipping it or installing anything.
 
 These checks prove provider/transport/test logic, not native client login. The
-native protected-profile probe, source-bound normal login controls, persistent
-ownership, independent pending/error join, actual trusted-device origin setup
-and full per-platform Authentication coordinators remain missing. Keep those
+[uncompiled protected-profile source](../native/ACCOUNT_PROTECTED_PROBE.md) and
+passive native pending/history source now exist. Source-bound normal login
+controls, native origin-file provisioning, independent UI/error/remote actor
+composition, restart ownership, actual trusted-device setup and full platform
+Authentication coordinators remain missing. Keep those
 capabilities closed and device qualification unperformed until separately met.
