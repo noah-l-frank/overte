@@ -32,6 +32,7 @@ from adapters.normal_create import NormalCreate
 from adapters.native_feature_observation import NativeFeatureObservation, FILE as NATIVE_FEATURE_FILE
 from adapters.native_account_probe import (NativeAccountProbe, AccountProbeOwner, OwnedAccountProbe,
     FILE as ACCOUNT_PROBE_FILE)
+from adapters.native_account_origin import NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, AndroidPreviewFiles,
     FILE as RECORDED_PREVIEW_FILE)
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
@@ -170,6 +171,20 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
             lambda: binding.adb.epoch_milliseconds(device), guard,
             int(context['processIdentity'].split(':')[0]))
+
+    def account_origin_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-account-origin-owner.json'))
+
+    def _account_origin(self, selector):
+        _ui,_observe,context,check,_installed=self.normal_feature_runtime(selector)
+        native=self._native_feature_observer(selector)
+        original=native.read(0,require_account=True) # Actual current native Test instance, not a caller's claimed context.
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        source=NativeAccountOrigin(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+ACCOUNT_ORIGIN_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,original['instance'],monotonic=native.monotonic,sleep=native.sleep)
+        check()
+        return OwnedAccountOrigin(source,self.account_origin_store(selector),context)
 
     def account_probe_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-account-probe-owner.json'))
@@ -417,6 +432,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 self._account_probe(selector).release()
         except Exception:
             probe_error=True # Base teardown must still run; keep unresolved native ownership.
+        origin_error=False
+        try:
+            if self.account_origin_store(selector).read() is not None:
+                self._account_origin(selector).release()
+        except Exception:
+            origin_error=True
         create_store = self.create_store(selector)
         create_owned = create_store.read()
         create_error = None
@@ -473,6 +494,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_NORMAL_CREATE_CLEANUP_INCOMPLETE')
         require(not probe_error and self.account_probe_store(selector).read() is None,
                 'PHONE_ACCOUNT_PROBE_CLEANUP_INCOMPLETE')
+        require(not origin_error and self.account_origin_store(selector).read() is None,
+                'PHONE_ACCOUNT_ORIGIN_CLEANUP_INCOMPLETE')
         return result
 
     def normal_navigation(self, selector, operation, values):

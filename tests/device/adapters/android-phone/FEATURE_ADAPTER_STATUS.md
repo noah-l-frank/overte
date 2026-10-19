@@ -221,3 +221,13 @@ Phone group now passes 62 cases. The private native
 HTTPS-origin provisioner, actual login/cancel/UI/error/restart and independent
 actor coordinator remain missing. No complete Authentication capability or
 physical qualification is enabled; native code remains uncompiled.
+
+The `_account_origin` factory now acquires the actual current native Test
+instance and connects exclusive fixture file staging/readback/retirement to
+the bound private transport. Its source/candidate/process/session journal is
+independent of the protected GET owner. Adapter-wide cleanup drains probes,
+then removes owned origin files before base teardown; unresolved files prevent
+a green cleanup. Five additional wrapper cases pass (67 focused Phone cases).
+This changes no product auth endpoint or TLS trust. Normal login/cancel/UI/error/
+restart and independent actor composition remain open, and no full Authentication
+capability or device result is enabled. Native source remains uncompiled.

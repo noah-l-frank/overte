@@ -44,6 +44,7 @@ from self_tests.test_native_animation_history import history_source
 from adapters.native_animation_history import clip_run
 from self_tests.test_native_account_observation import account_source
 from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
+from self_tests.test_native_account_origin import Boundary as AccountOriginBoundary, ORIGIN as ACCOUNT_ORIGIN
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -371,6 +372,65 @@ class FeatureAdapterTests(unittest.TestCase):
                 monotonic=lambda: source.clock, sleep=source.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
+
+    def account_origin_boundaries(self):
+        source=AccountOriginBoundary(self.fixture.root/'origin-native-files');native=NativeFeatureBoundary()
+        source.mutate=lambda value:value.update(processId=31)
+        def observed(value):value.update(processId=31);account_source(value)
+        native.mutate=observed
+        def send(_client,_session,target,value,process):
+            self.assertEqual(PACKAGE,target['appId']);self.assertEqual('31:14',process['identity'])
+            if value['action']=='feature-native-observe':native.send(value)
+            else:
+                self.assertEqual('feature-account-origin',value['action'])
+                self.assertEqual(native.sample['instance'],value['instance'])
+                self.assertIsNotNone(self.adapter.account_origin_store(SELECTOR).read());source.send(value)
+        def read(_device,package,path,**kwargs):
+            self.assertEqual(PACKAGE,package);self.assertEqual({'attempts':1},kwargs)
+            if path.endswith('/feature-native-observation.json'):return native.original()
+            self.assertEqual('files/overte-e2e/feature-account-origin-result.json',path);return source.read()
+        for boundary in (patch.object(self.adapter,'write_android_client_command',side_effect=send),
+            patch.object(self.fixture.adb,'read_debug_app_file',side_effect=read,create=True),
+            patch.object(self.fixture.adb,'epoch_milliseconds',return_value=20000,create=True),
+            patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,native,self.adapter._account_origin(SELECTOR)
+
+    def test_phone_account_origin_uses_actual_native_context_and_original_file_readback(self):
+        source,native,origin=self.account_origin_boundaries()
+        self.assertEqual(ACCOUNT_ORIGIN,origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN))
+        self.assertEqual(native.sample['instance'],self.adapter.account_origin_store(SELECTOR).read()['instance'])
+        self.assertTrue(source.path.exists());origin.release()
+        self.assertFalse(source.path.exists());self.assertFalse(source.manifest.exists())
+        self.assertIsNone(self.adapter.account_origin_store(SELECTOR).read());self.assertEqual([],self.native.inputs)
+
+    def test_phone_account_origin_ack_without_originals_keeps_private_owner(self):
+        source,_native,origin=self.account_origin_boundaries();source.fault='ack-only'
+        with self.assertRaises(RuntimeError):origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN)
+        self.assertIsNotNone(self.adapter.account_origin_store(SELECTOR).read())
+        origin.release();self.assertIsNone(self.adapter.account_origin_store(SELECTOR).read())
+
+    def test_phone_account_origin_different_native_instance_cannot_adopt_existing_scope(self):
+        source,native,origin=self.account_origin_boundaries();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN)
+        original=native.mutate
+        def changed(value):original(value);value['instance']='f'*32
+        native.mutate=changed;before=len(source.commands)
+        with self.assertRaises(RuntimeError):self.adapter._account_origin(SELECTOR).release()
+        self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.adapter.account_origin_store(SELECTOR).read())
+
+    def test_phone_adapter_cleanup_removes_owned_origin_before_base_teardown(self):
+        source,_native,origin=self.account_origin_boundaries();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN)
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            self.assertEqual({'cleaned':True},self.adapter.cleanup(SELECTOR));base.assert_called_once()
+        self.assertFalse(source.path.exists());self.assertIsNone(self.adapter.account_origin_store(SELECTOR).read())
+
+    def test_phone_adapter_cleanup_retains_origin_when_file_absence_was_not_observed(self):
+        source,_native,origin=self.account_origin_boundaries();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);source.fault='keep-files'
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_ACCOUNT_ORIGIN_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertTrue(source.path.exists());self.assertIsNotNone(self.adapter.account_origin_store(SELECTOR).read())
 
     def account_probe_boundaries(self):
         source=self.preview_boundaries(AccountProbeBoundary(),'feature-account-probe.json')
