@@ -235,3 +235,10 @@ configuration. Run the existing and new area suites with exact installed-code id
 `--require-complete`, and the normal privacy/acceptance pipeline. Register real
 physical evidence only after those steps. A successful simulation, native
 input acknowledgment or host-only check cannot promote a production cell.
+
+The optional [account provider v1](feature_journeys/ACCOUNT_PROVIDER.md) defines
+the existing fixture server's actual HTTPS OAuth/profile paths, private account
+inputs, original protected-request proof, delayed delivery and separate handler/
+authority cleanup. It is a reusable backend prerequisite, not native login or a
+complete Authentication producer. Native trust/origin, current credential probe,
+ordinary controls and independent pending/error observations remain required.
