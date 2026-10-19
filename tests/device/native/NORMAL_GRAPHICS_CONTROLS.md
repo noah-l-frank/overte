@@ -3,7 +3,7 @@
 This internal input component implements no complete `feature.graphics.*`
 operation. It proves no rendered effect, framebuffer acquisition, pass execution,
 persistence, application restart or device acceptance. Native C++ remains
-uncompiled. Its thirteen host boundary checks validate the ordinary-input recipe.
+uncompiled. Its fourteen host boundary checks validate the ordinary-input recipe.
 
 The read-only `NormalGraphicsControls.h` resolver recognizes the actual existing
 `settings.graphics` Flickable and original QQuickSwitch/QQuickSlider controls.
@@ -33,6 +33,9 @@ The closed metadata fields/types are defined by `token_graphics_ui`. Resolution
 rows have actual Qt value/range/step plus separate original nativeValue; toggle
 rows have actual checked/nativeChecked. Readiness requires a ready current page
 and coherent original Qt/native setting, including an attainable slider grid.
+Actual Flickable moving/dragging flags must both be available and false.
+After measured scroll progress the recipe waits for original page readiness
+before another scroll or control input; no uncertain input is replayed.
 Scrollbar position/size are original finite values. Source tokens retire on
 actual value/check/readiness/profile/viewport/scroll and slider geometry changes.
 
@@ -66,6 +69,10 @@ its renderScale/hazePass/mirrorPass or image fields. Actual completed frame/pass
 sources, controlled Graphics subject acquisition, actor/journal joins and full
 ownership cleanup remain separate mandatory requirements.
 
-At this packet the shared resolver/core/recipe is present but platform Graphics
-transports are not yet connected. No full feature capability is advertised; the
-canonical iOS installed-code gate continues to block private components.
+The shared resolver/core/recipe now has internal transports on the three
+platform branches: Phone private Qt/probe, Pico original VR surface, and the
+unbound iOS native component. Offscreen iOS rows expose frame:null and no UIKit
+proxy; ordinary slider/scroll edits retain original field tokens. Full render/
+actor/restart and preference ownership coordination remain open. No full feature
+capability is advertised; the canonical iOS installed-code gate still blocks
+private components.
