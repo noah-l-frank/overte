@@ -24,7 +24,7 @@ def read_native_diagnostic(read, clock_ms, guard, after_sequence, *,
     """Poll only original private native bytes; never relabel a cached sample."""
     need(type(after_sequence) is int and after_sequence >= 0)
     need(expected_request is None or type(expected_request) is str
-         and re.fullmatch('[0-9a-f]{32}', expected_request) is not None)
+         and re.fullmatch('(?:ios-)?[0-9a-f]{32}', expected_request) is not None)
     started = previous = monotonic()
     need(type(started) in (int, float) and math.isfinite(started))
     for _attempt in range(51):
@@ -78,7 +78,7 @@ def diagnostic(value, epoch_ms):
          and -250 <= epoch_ms - value['sampleEpochMs'] <= 1500
          and type(value['scripts']) is list and len(value['scripts']) <= 128)
     need('requestId' not in value or type(value['requestId']) is str
-         and re.fullmatch('[0-9a-f]{32}', value['requestId']) is not None)
+         and re.fullmatch('(?:ios-)?[0-9a-f]{32}', value['requestId']) is not None)
     urls = set()
     for row in value['scripts']:
         need(type(row) is dict and set(row) == {'url', 'path'}
