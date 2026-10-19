@@ -6,6 +6,7 @@
 // This helper never calls a file helper, sets a model/selection, loads a script
 // or emits the browser's selectedFile/selectedBundle signals.
 #include <QJsonObject>
+#include <QCoreApplication>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QQuickItem>
@@ -20,6 +21,7 @@
 namespace overte::e2e {
 inline QQuickItem* scriptFileBrowser(QQuickItem* item) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (!QCoreApplication::arguments().contains("--testScript")) { return nullptr; }
     for (auto parent = item; parent; parent = parent->parentItem()) {
         if (parent->objectName() == QStringLiteral("nativeFileBrowser")
                 && parent->property("caption").toString() == QStringLiteral("Open Script and Companion Files")
@@ -50,6 +52,7 @@ inline QUrl scriptFileRowUrl(QQuickItem* item) {
 
 inline QString scriptFileControlId(QQuickItem* item) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
     const auto name = item->objectName();
     if (name == QStringLiteral("scriptFromFile") && item->metaObject()->indexOfSignal("clicked()") >= 0) {
         return QStringLiteral("scripts.from-file");
@@ -71,6 +74,17 @@ inline QString scriptFileControlId(QQuickItem* item) {
     Q_UNUSED(item)
 #endif
     return {};
+}
+
+inline bool validScriptFolderPath(const QString& text) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    return text.size() <= 4096
+        && QRegularExpression("\\A/(?:[^/\\x00-\\x1f]+/)*feature-script-[0-9a-f]{32}(?:/script-bundle)?\\z").match(text).hasMatch()
+        && !text.split('/').contains("..") && !text.split('/').contains(".");
+#else
+    Q_UNUSED(text)
+    return false;
+#endif
 }
 
 inline QString scriptFileControlSource(QQuickItem* item) {
