@@ -854,6 +854,21 @@
             lastClientCommandId = String(command.commandId);
             return;
         }
+        if (command && command.schemaVersion === 1
+                && /^ios-[0-9a-f]{32}$/.test(command.commandId)
+                && command.commandId !== lastClientCommandId
+                && command.action === "normal-ui-input"
+                && ((command.operation === "observe"
+                    && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "operation"]))
+                    || (command.operation === "edit"
+                    && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "operation", "input"])))
+                && typeof Test.iosNormalUiRequest === "function"
+                && Test.iosNormalUiRequest(command)) {
+            // The native GUI owner validates the closed input schema and saves
+            // its actual result. Queuing is never a navigation/feature verdict.
+            lastClientCommandId = String(command.commandId);
+            return;
+        }
         if (command && command.schemaVersion === 1 && command.commandId
                 && command.commandId !== lastClientCommandId
                 && command.action === "native-ui-snapshot"
