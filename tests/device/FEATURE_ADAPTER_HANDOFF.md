@@ -248,3 +248,10 @@ passive actual flags and immutable current reply/signal records through the
 existing sampler. Require it explicitly for account-dependent consumers. An HTTP
 receipt, cached token or login signal still cannot replace protected-access, UI
 and independent actor observations.
+
+The [protected-account probe v1](native/ACCOUNT_PROTECTED_PROBE.md) defines
+closed read/release/inspect operations, original HTTPS response provenance,
+current credential/origin fences, native deadlines, persisted intent and actual
+reply/body/authority cleanup. Independent account/server joins exist as typed
+components. Native origin provisioning and full normal-input/UI/actor/restart
+composition remain required; no full area capability is enabled.

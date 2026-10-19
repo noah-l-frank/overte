@@ -101,6 +101,8 @@
     var lastNormalFeatureRequest = "";
     var lastNativeFeatureRequest = "";
     var nativeFeatureTimer = null;
+    var lastAccountProbeCommand = "";
+    var accountProbeTimer = null;
     var lastRecordedPreviewRequest = "";
     var lastWorldRenderRequest = "";
     var lastWorldRenderStorageCommand = "";
@@ -150,6 +152,37 @@
             }
         } catch (_recordedPreviewReadError) { /* Missing source is never a feature result. */ }
         Test.saveObject(value, "recorded-preview-observation.json");
+    }
+    function validAccountProbeCommand(command) {
+        return command && command.schemaVersion === 1 && command.action === "feature-account-probe"
+            && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+            && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.requestId))
+            && /^ios-/.test(command.commandId) === /^ios-/.test(command.requestId)
+            && /^[0-9a-f]{32}$/.test(String(command.runId)) && /^[0-9a-f]{32}$/.test(String(command.ticket))
+            && /^(read|release|inspect)$/.test(String(command.operation))
+            && (command.operation === "read" ? command.commandId === command.requestId : command.commandId !== command.requestId)
+            && objectKeysMatch(command,["schemaVersion","commandId","action","operation","requestId","runId","ticket"]);
+    }
+    function saveAccountProbe(command, remaining) {
+        if (command.commandId !== lastAccountProbeCommand) { return; }
+        if (remaining === undefined) { remaining = 50; }
+        var value = {schemaVersion:1,requestId:command.requestId,commandId:command.commandId,available:false};
+        try {
+            if (typeof Test.featureAccountProbe === "function") {
+                var original = Test.featureAccountProbe(command);
+                if (original && original.requestId === command.requestId && original.pending === true
+                        && command.operation === "read" && remaining > 0) {
+                    accountProbeTimer = Script.setTimeout(function () {
+                        if (command.commandId !== lastAccountProbeCommand) { return; }
+                        accountProbeTimer = null; saveAccountProbe(command,remaining-1);
+                    },50);
+                    return;
+                }
+                if (original && original.commandId === command.commandId && original.requestId === command.requestId
+                        && original.pending !== true && original.probeVersion === 1) { value = original; }
+            }
+        } catch (_accountProbeError) { /* A missing HTTP/native result cannot establish authority. */ }
+        Test.saveObject(value,"feature-account-probe.json");
     }
     function saveNativeFeatureObservation(requestId, remaining) {
         if (requestId !== lastNativeFeatureRequest) { return; }
@@ -955,6 +988,13 @@
     }
 
     function applyClientCommand(command) {
+        if (validAccountProbeCommand(command)) {
+            if (command.commandId !== lastAccountProbeCommand) {
+                if (accountProbeTimer !== null) { Script.clearTimeout(accountProbeTimer); accountProbeTimer = null; }
+                lastAccountProbeCommand = String(command.commandId); saveAccountProbe(command);
+            }
+            return;
+        }
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.requestId))
@@ -1319,6 +1359,7 @@
 
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
+                || command.action === "feature-account-probe"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-world-render-observe"
@@ -2022,6 +2063,8 @@
 
     Script.update.connect(updateProbe);
     Script.scriptEnding.connect(function () {
+        lastAccountProbeCommand = "";
+        if (accountProbeTimer !== null) { Script.clearTimeout(accountProbeTimer); accountProbeTimer = null; }
         if (worldRenderTimer !== null) { Script.clearTimeout(worldRenderTimer); worldRenderTimer = null; }
         lastNativeFeatureRequest = "";
         if (nativeFeatureTimer !== null) { Script.clearTimeout(nativeFeatureTimer); nativeFeatureTimer = null; }

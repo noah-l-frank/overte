@@ -64,6 +64,7 @@
 #include "../../../tests/device/native/NormalGraphicsControls.h"
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
+#include "../../../tests/device/native/PrivateAccountOrigin.h"
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
@@ -358,6 +359,25 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap TestScriptingInterface::featureAccountProbe(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&] { result=featureAccountProbe(command); },Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto operation=command.value("operation").toString();
+    const auto origin=operation=="read" ? overte::e2e::privateAccountOrigin(_testResultsLocation,command.value("runId").toString()) : QString();
+    if (operation=="read" && origin.isEmpty()) { return {}; }
+    const auto account=DependencyManager::get<AccountManager>();
+    QVariantMap result;
+    const auto read=[&] { result=account->featureAccountProbe(command,origin); };
+    if (QThread::currentThread()==account->thread()) { read(); }
+    else { QMetaObject::invokeMethod(account.data(),read,Qt::BlockingQueuedConnection); }
+    return result;
+}
+
 QVariantMap TestScriptingInterface::featureWorldRenderCapture(const QString& requestId) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;
