@@ -78,8 +78,11 @@ history and drains all owned actor work before journal removal. Keep unresolved
 intent if service recovery, UI close, original storage restoration or actual
 peer drain fails. Host source/reducer simulations prove only adapter/test logic.
 
-Full normal controls, independently read original UI/storage/native-node sources,
-real remote ledger, authenticated actor publication, service orchestration and
-whole-run cleanup are still required on all three adapters. The existing domain
+The [native reception/cache source v1](../native/CHAT_OBSERVATION.md) and its
+private factories now exist on all three source branches, with actual native
+mixer presence/session reads. Full normal controls, independently read original
+UI/storage and domain-node association, a separately bound actual remote peer
+ledger, authenticated actor publication, service orchestration and whole-run
+cleanup are still required on all three adapters. The existing domain
 peer's movement/heartbeat supplies none of those Chat delivery facts. Native
 instrumentation is uncompiled and all physical tests remain unperformed.
