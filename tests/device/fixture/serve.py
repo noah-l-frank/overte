@@ -563,7 +563,7 @@ class FixtureState:
                 uuid_pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
                 valid = (isinstance(request, dict) and set(request) == keys
                          and type(request["schemaVersion"]) is int and request["schemaVersion"] == 1
-                         and isinstance(input_operation, str) and input_operation in {"replace", "submit", "select-index", "scroll", "set-value"}
+                         and isinstance(input_operation, str) and input_operation in {"activate", "replace", "submit", "select-index", "scroll", "set-value"}
                          and all(isinstance(request.get(key), str)
                                  and re.fullmatch(uuid_pattern, request[key]) is not None
                                  and request[key] != "00000000-0000-0000-0000-000000000000"
