@@ -199,6 +199,9 @@ class NativeUI:
         for character in text:
             actions.extend(({'type': 'keyDown', 'value': character},
                             {'type': 'keyUp', 'value': character}))
+        if not text:
+            actions.extend(({'type': 'keyDown', 'value': '\ue003'},
+                            {'type': 'keyUp', 'value': '\ue003'}))
         try:
             self._check()
             self._request('POST', '/actions', {'actions': [
