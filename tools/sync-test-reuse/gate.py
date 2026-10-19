@@ -1801,7 +1801,7 @@ def _metadata_step(job, name):
 
 def _metadata_report(api, prefix, run, item, request, source, validator, registry, selected, tree, now,
                      *, normal_parent=None):
-    """Read genuine independently executed affected-CI data; grant no E/reuse."""
+    """Read exact independent or inherited-CI data; grant no E/reuse."""
     expected_owner = {'id': run['id'], 'repository_id': 1319052603, 'head_repository_id': 1319052603,
                       'head_branch': 'main', 'head_sha': source}
     if type(item.get('id')) is not int or item['id'] <= 0 or item.get('expired') is not False \
@@ -1838,12 +1838,21 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
                 raise GateError('metadata original unknown artifact member')
             else:
                 payload[entry.filename] = archive.read(entry)
-    if set(payload) != allowed:
+    if not {xml_path, report_path} <= set(payload):
         raise GateError('metadata original artifact incomplete')
     def decode(data):
         def bad(_): raise GateError('metadata original nonfinite JSON')
         return json.loads(data, object_pairs_hook=suite_inputs._unique_object, parse_constant=bad)
-    report, observed = decode(payload[report_path]), decode(payload[report_path + '.ci-execution.json'])
+    report = decode(payload[report_path])
+    inherited = report.get('mode') == 'native-exact-tree-parent'
+    if inherited and normal_parent is not None:
+        raise GateError('an inherited Sync report cannot become a recursive normal-parent proof')
+    expected_members = {xml_path, report_path} if inherited else allowed
+    if set(payload) != expected_members:
+        raise GateError('metadata original artifact form is incomplete or mixed')
+    observed = None if inherited else decode(payload[report_path + '.ci-execution.json'])
+    requested_mode = 'reuse' if inherited else 'fallback'
+    expected_mode = 'native-exact-tree-parent' if inherited else 'affected-ci'
     if normal_parent is not None:
         # Keep the original temporary M in its report. The current normal N is
         # a separate immutable commit with precisely the same tree and parents.
@@ -1867,34 +1876,71 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
             or (report['schema'], report['producer'], report['repository'], report['repository_id'], report['pull_request'],
             report['requested_mode'], report['mode'], report['conclusion']) != (
             1, 'overte-trusted-sync-validation-v1', request.repository, request.repository_id, request.number,
-            'fallback', 'affected-ci', 'success') or report['candidate'] != candidate \
-            or report['executed_suites'] != names or report['reused_suites'] != [] \
-            or report['parent_evidence'] is not None or report['execution'] != observed \
+            requested_mode, expected_mode, 'success') or report['candidate'] != candidate \
+            or report['execution'] != observed \
             or report['not_selected_suites'] != omitted or report.get('pending_platform_owners') \
             or report.get('external_package_set'):
         raise GateError('metadata original independently executed context/mode differs')
+    if inherited:
+        expected_fields = {'schema','producer','repository','repository_id','pull_request','candidate',
+            'requested_mode','mode','reused_suites','executed_suites','bounded_projects','execution',
+            'parent_evidence','conclusion','started_at','completed_at','reusable','qualification',
+            'ci_selection','not_selected_suites','receipt_digest'}
+        if set(report) != expected_fields or report.get('qualification') is not False or report.get('reusable') is not False \
+                or report['executed_suites'] != [] or report['reused_suites'] != names or report['bounded_projects'] != []:
+            raise GateError('metadata inherited report claims unknown or new execution authority')
+    elif report['executed_suites'] != names or report['reused_suites'] != [] or report['parent_evidence'] is not None:
+        raise GateError('metadata original independent execution coverage differs')
     if type(selection.get('schema')) is not int or selection['schema'] != 1 or selection.get('kind') != 'sync-ci-selection' \
             or type(selection.get('repository_id')) is not int or type(selection.get('pull_request')) is not int \
             or (selection['repository'], selection['repository_id'], selection['pull_request'], selection['base'],
             selection['head'], selection['candidate'], selection['tree'], selection['parent'], selection['target'],
             selection['profile'], selection['requested_mode']) != (
             request.repository, request.repository_id, request.number, request.base_sha, request.head_sha,
-            request.merge_sha, tree, request.parent_sha, request.base, request.profile, 'fallback') \
+            request.merge_sha, tree, request.parent_sha, request.base, request.profile, requested_mode) \
             or selection['lane'] != 'affected-ci' or selection['full_host'] is not False \
             or selection['reusable'] is not False or selection['suites'] != names \
             or selection['omitted_suites'] != omitted or selection['external_package_set'] != [] \
             or selection['registry'] != validator.execution.digest(registry) or selection['dependency_selection'] != selected:
         raise GateError('metadata original selected commands/source differ')
-    validator._verify_ci_execution(observed, selection, registry, (request.merge_sha, tree))
+    if inherited:
+        _metadata_inherited_parent(api, config=load_config(), request=request, source=source,
+            validator=validator, names=names, tree=tree, report=report, now=now)
+    else:
+        validator._verify_ci_execution(observed, selection, registry, (request.merge_sha, tree))
     xml_raw = payload[xml_path]
     if b'<!DOCTYPE' in xml_raw.upper() or b'<!ENTITY' in xml_raw.upper():
         raise GateError('metadata original XML entities forbidden')
     xml = ET.fromstring(xml_raw); cases = list(xml.iter('testcase'))
-    if [c.get('name') for c in cases] != names or int(xml.get('tests')) != len(names) \
+    junit_names = ['sync-differential'] if inherited else names
+    if [c.get('name') for c in cases] != junit_names or int(xml.get('tests')) != len(junit_names) \
             or any(int(xml.get(k, '0')) for k in ('failures', 'errors', 'skipped')) \
             or any(c.find(k) is not None for c in cases for k in ('failure', 'error', 'skipped')):
         raise GateError('metadata original ordered JUnit incomplete/failed/skipped')
     return report, observed
+
+
+def _metadata_inherited_parent(api, *, config, request, source, validator, names, tree, report, now):
+    """Reauthenticate the finite current VR parent proof, never a JSON claim."""
+    if (request.base,request.parent,request.profile) != ('android-vr','android-main','android-vr') \
+            or len(names) != 37 or len(set(names)) != 37:
+        raise GateError('metadata inherited report is outside the exact Android CI37 edge')
+    protected_tree = commit_tree(commit(api,request.repository,source))
+    proof = verify_exact_tree_parent_evidence(api,config,request,protected_source=source,
+        protected_tree=protected_tree,now=now)
+    if not isinstance(proof,NativeExactTreeParentEvidence) or proof.get('qualification') is not False \
+            or proof.get('reusable') is not False or proof.get('source') != source \
+            or proof.get('parent_branch') != request.parent or proof.get('parent_commit') != request.parent_sha \
+            or proof.get('parent_tree') != tree or proof.get('requested_suites') != names \
+            or proof.get('original_report',{}).get('mode') != 'affected-ci' \
+            or proof['original_report'].get('requested_mode') != 'fallback' \
+            or proof['original_report'].get('executed_suites') != names \
+            or proof['original_report'].get('reused_suites') != [] \
+            or parse_time(proof['expires_at'],'original inherited expiry') <= now \
+            or parse_time(proof['qualified_at'],'original inherited completion') > parse_time(report['started_at'],'inheriting report start') \
+            or validator._parent_provenance(proof,names,sys.modules[__name__]) != report['parent_evidence']:
+        raise GateError('metadata inherited parent execution/provenance is unavailable or changed')
+    return proof
 
 
 def _completed_sync_report(api, prefix, original, check, request, source,
@@ -1957,14 +2003,21 @@ def _completed_sync_report(api, prefix, original, check, request, source,
     finally:
         sys.path[:] = search
     report, observed = _metadata_report(api, prefix, run, item, request, source, validator, registry, selected, tree, now, normal_parent=normal_parent)
-    if not parse_time(executed['started_at'], 'execution start') <= parse_time(report['started_at'], 'report start') \
-            <= parse_time(observed['started_at'], 'observed start') <= parse_time(observed['completed_at'], 'observed completion') \
-            <= parse_time(report['completed_at'], 'report completion') \
-            < parse_time(executed['completed_at'], 'execution completion') + timedelta(seconds=1):
+    if observed is None:
+        chronology = (report['mode'] == 'native-exact-tree-parent'
+            and parse_time(executed['started_at'], 'execution start') <= parse_time(report['started_at'], 'report start')
+                <= parse_time(report['completed_at'], 'report completion')
+                < parse_time(executed['completed_at'], 'execution completion') + timedelta(seconds=1))
+    else:
+        chronology = (parse_time(executed['started_at'], 'execution start') <= parse_time(report['started_at'], 'report start')
+            <= parse_time(observed['started_at'], 'observed start') <= parse_time(observed['completed_at'], 'observed completion')
+            <= parse_time(report['completed_at'], 'report completion')
+            < parse_time(executed['completed_at'], 'execution completion') + timedelta(seconds=1))
+    if not chronology:
         raise GateError('metadata original report outside native execution')
     return {name: value for name, value in locals().items() if name in {
         'jobs', 'job', 'child', 'correlation', 'run', 'identity', 'validator_job',
-        'validator_check', 'artifacts', 'item', 'report', 'observed', 'selected'}}
+        'validator_check', 'artifacts', 'item', 'report', 'observed', 'selected', 'validator'}}
 
 
 def _metadata_pending_owner(api, prefix, original, attempt, request, source, event, current_id, tree):
@@ -2119,6 +2172,9 @@ def retain_metadata_owner(event, config, api, *, environment=None, now=None):
         raise GateError('metadata current native read-only role changed')
     _metadata_check(api, prefix, closing_current[0], closing_roles[0], request.head_sha)
     _dispatch_source(api, config, request.repository, source)
+    if proof['report']['mode'] == 'native-exact-tree-parent':
+        _metadata_inherited_parent(api, config=config, request=request, source=source,
+            validator=proof['validator'], names=proof['selected']['suites'], tree=tree, report=proof['report'], now=now)
     return {'metadata_authenticated': True, 'original_gate_run': original['id'], 'validation_run': child,
             'original_state': 'success', 'new_dispatches': 0, 'new_execution': False, 'qualification': False}
 

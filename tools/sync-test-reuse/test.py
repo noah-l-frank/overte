@@ -4462,5 +4462,115 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         self.f.original['status']='in_progress';self.f.original['conclusion']=None
         self.assertIsNone(self.verify())
 
+
+class RetainedInheritedSyncMetadataTests(unittest.TestCase):
+    """Native metadata envelope retains the distinct zero-command report."""
+    def setUp(self):
+        self.f=RetainedSyncMetadataTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
+        f=self.f;parent_report=deepcopy(f.report)
+        parent_report['completed_at']='2026-10-19T20:45:00Z'
+        f.request=replace(f.request,base='android-vr',head='reconcile/android-vr/retained',
+            parent='android-main',parent_sha='c'*40,profile='android-vr')
+        f.event['pull_request']['base']['ref']='android-vr'
+        f.event['pull_request']['head']['ref']=f.request.head
+        f.env.update(GITHUB_REF='refs/heads/android-vr',GITHUB_WORKFLOW_REF=REPOSITORY+'/.github/workflows/sync-test-reuse.yml@refs/heads/android-vr')
+        for run in (f.original,f.current):
+            run['head_branch']=f.request.head
+            f.docs[f.prefix+'/actions/runs/'+str(run['id'])+'/attempts/1']=deepcopy(run)
+        f.report['candidate'].update(base_branch='android-vr',head_branch=f.request.head,
+            parent_branch='android-main',parent_commit=f.request.parent_sha,profile='android-vr')
+        f.report.update(requested_mode='reuse',mode='native-exact-tree-parent',execution=None,
+            reused_suites=list(f.names),executed_suites=[],reusable=False,qualification=False)
+        f.selection.update(requested_mode='reuse',target='android-vr',parent=f.request.parent_sha,profile='android-vr')
+        self.proof=gate.NativeExactTreeParentEvidence({'kind':'original-sync-identical-android-tree-v1',
+            'qualification':False,'reusable':False,'source':PARENT,'parent_branch':'android-main',
+            'parent_commit':f.request.parent_sha,'parent_tree':TREE,'candidate_inputs':deepcopy(f.tree),
+            'requested_suites':list(f.names),'original_commit':'8'*40,
+            'qualified_at':'2026-10-19T20:45:00Z','expires_at':'2026-10-22T20:45:00Z',
+            'original_proof':{'parent_pr':600,'gate_run_id':90,'run_id':91,'attempt':1,
+                'artifact_id':92,'artifact_digest':'sha256:'+'1'*64,'receipt_digest':'sha256:'+'2'*64},
+            'original_report':parent_report})
+        f.docs[f.prefix+'/git/commits/'+PARENT]={'sha':PARENT,'tree':{'sha':TREE},'parents':[]}
+        search=list(sys.path)
+        try:
+            sys.path.insert(0,str(gate.ROOT/'tools/test-evidence'))
+            self.validator=gate.package_checks.load('retained_inherited_test_validator','tools/test-evidence/validate-sync.py')
+        finally:sys.path[:]=search
+        self.pack()
+
+    def pack(self, *, extra=None, mutate=None):
+        f=self.f
+        f.selection.pop('selection',None);f.selection['selection']=f.digest(f.selection)
+        f.report.update(ci_selection=f.selection,execution=None,
+            parent_evidence=self.validator._parent_provenance(self.proof,f.names,gate))
+        f.report.pop('receipt_digest',None);f.report['receipt_digest']=f.digest(f.report)
+        xml=b'<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase name="sync-differential"/></testsuite>'
+        payload={'build/test-results/sync-selected.xml':xml,
+            'build/test-results/sync-validation.json':gate.canonical_json(f.report)}
+        if extra:payload.update(extra)
+        if mutate:mutate(payload)
+        out=io.BytesIO()
+        with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED)as z:
+            for name,raw in payload.items():z.writestr(name,raw)
+        raw=out.getvalue();f.binary[f.prefix+'/actions/artifacts/401/zip']=raw
+        f.item.update(size_in_bytes=len(raw),digest='sha256:'+hashlib.sha256(raw).hexdigest())
+
+    def verify(self, *, evidence=None, side_effect=None):
+        value=self.proof if evidence is None else evidence
+        with mock.patch.object(gate,'verify_exact_tree_parent_evidence',
+                side_effect=side_effect or (lambda *a,**k:deepcopy(value)))as fresh:
+            result=self.f.verify()
+        return result,fresh
+
+    def test_two_member_inherited37_retains_original_without_new_work_or_environment(self):
+        try:result,fresh=self.verify()
+        except gate.GateError as error:self.fail('genuine inherited metadata owner was rejected: '+str(error))
+        self.assertIs(result['metadata_authenticated'],True)
+        self.assertIs(result['new_execution'],False);self.assertEqual(result['new_dispatches'],0)
+        self.assertIs(result['qualification'],False)
+        self.assertEqual(fresh.call_count,2)
+        for call in fresh.call_args_list:
+            self.assertEqual(call.kwargs['protected_source'],PARENT)
+            self.assertEqual(call.kwargs['protected_tree'],TREE)
+        self.assertIsNone(self.f.report['execution'])
+        self.assertEqual(self.f.report['executed_suites'],[])
+
+    def test_unavailable_expired_changed_or_recursive_parent_proof_cannot_retain(self):
+        for shape in ('unavailable','expired','provenance','recursive'):
+            changed=deepcopy(self.proof)
+            if shape=='expired':changed['expires_at']='2026-10-19T20:50:00Z'
+            elif shape=='provenance':changed['original_proof']['artifact_digest']='sha256:'+'0'*64
+            elif shape=='recursive':changed['original_report']['mode']='native-exact-tree-parent'
+            effect=(lambda *a,**k:None)if shape=='unavailable'else(lambda *a,**k:deepcopy(changed))
+            with self.subTest(shape=shape),self.assertRaises(gate.GateError):self.verify(side_effect=effect)
+
+    def test_unknown_mixed_report_sidecar_and_fabricated_JUnit_are_rejected(self):
+        for shape in ('sidecar','mode','qualification','executed','xml'):
+            report=deepcopy(self.f.report)
+            if shape=='sidecar':self.pack(extra={'build/test-results/sync-validation.json.ci-execution.json':b'{}'})
+            elif shape=='xml':self.pack(mutate=lambda p:p.__setitem__('build/test-results/sync-selected.xml',
+                b'<testsuite tests="37" failures="0"><testcase name="producer-proof"/></testsuite>'))
+            else:
+                if shape=='mode':self.f.report['mode']='unknown-inherited'
+                elif shape=='qualification':self.f.report['qualification']=True
+                else:self.f.report['executed_suites']=[self.f.names[0]]
+                self.pack()
+            with self.subTest(shape=shape),self.assertRaises(gate.GateError):self.verify()
+            self.f.report=report;self.pack()
+
+    def test_parent_proof_drift_at_final_metadata_bookend_blocks_without_dispatch(self):
+        changed=deepcopy(self.proof);changed['original_proof']['artifact_digest']='sha256:'+'0'*64
+        with self.assertRaises(gate.GateError):self.verify(side_effect=[self.proof,changed])
+
+    def test_normal_parent_reader_never_recurses_into_inherited_report(self):
+        f=self.f
+        class API:
+            def bytes(_,endpoint):return f.binary[endpoint]
+            def json(_,endpoint):raise AssertionError('inherited normal parent must reject before new proof lookup')
+        with mock.patch.object(gate,'verify_exact_tree_parent_evidence',side_effect=AssertionError('no recursive parent proof')), \
+                self.assertRaises(gate.GateError):
+            gate._metadata_report(API(),f.prefix,f.child,f.item,f.request,PARENT,self.validator,
+                f.registry,f.selected,TREE,f.now,normal_parent='a'*40)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
