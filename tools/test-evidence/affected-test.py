@@ -1085,18 +1085,32 @@ class DependencyPolicyRoutingTests(unittest.TestCase):
         self.assertEqual(set(added),paths)
         self.assertTrue(all(entry.mode==('100755' if entry.path==doctor else '100644')
             and entry.object_type=='blob' for entry in added.values()))
-        before=SimpleNamespace(entries=tuple(entry for entry in snapshot.entries if entry.path not in paths))
-        self.assertEqual(len(before.entries)+len(paths),len(snapshot.entries))
-        app=ios._boundary(before)
-        own_host=host.ci_host_boundary(before)
-        self.assertIsNotNone(app)
-        self.assertIsNotNone(own_host)
-        self.assertEqual(ios._boundary(snapshot),app)
-        self.assertEqual(host.ci_host_boundary(snapshot),own_host)
-        changed=SimpleNamespace(entries=tuple(ios.Entry(entry.path,entry.mode,entry.object_type,'f'*40)
-            if entry.path in paths else entry for entry in snapshot.entries))
-        self.assertEqual(ios._boundary(changed),app)
-        self.assertEqual(host.ci_host_boundary(changed),own_host)
+        # Exercise child routing families even when this test runs on main,
+        # whose parent-owned bootstrap does not enter the child comparison.
+        variants=[snapshot]
+        routing_paths=tuple(ios.ROUTING_DATA)
+        for stage in ((0,0),(1,0),(1,1)):
+            routing={path:ios.ROUTING_DATA[path][index]
+                for path,index in zip(routing_paths,stage)}
+            variants.append(ios.Snapshot(snapshot.revision,snapshot.tree,tuple(
+                ios.Entry(entry.path,entry.mode,entry.object_type,routing[entry.path])
+                if entry.path in routing else entry for entry in snapshot.entries)))
+        for variant in variants:
+            with self.subTest(routing=ios.routing_data_stage(variant)):
+                before=ios.Snapshot(variant.revision,variant.tree,tuple(
+                    entry for entry in variant.entries if entry.path not in paths))
+                self.assertEqual(len(before.entries)+len(paths),len(variant.entries))
+                app=ios._boundary(before)
+                own_host=host.ci_host_boundary(before)
+                self.assertIsNotNone(app)
+                self.assertIsNotNone(own_host)
+                self.assertEqual(ios._boundary(variant),app)
+                self.assertEqual(host.ci_host_boundary(variant),own_host)
+                changed=ios.Snapshot(variant.revision,variant.tree,tuple(
+                    ios.Entry(entry.path,entry.mode,entry.object_type,'f'*40)
+                    if entry.path in paths else entry for entry in variant.entries))
+                self.assertEqual(ios._boundary(changed),app)
+                self.assertEqual(host.ci_host_boundary(changed),own_host)
         # The historical anchor is independently reconstructed by the complete
         # immutable reader audit; a shallow candidate need not fetch its commit.
         self.assertEqual(ios.REVIEWED_REVISION,'2fc894a0605103843b36653f250f854714a963ee')
