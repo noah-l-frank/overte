@@ -104,6 +104,7 @@
     var lastRecordedPreviewRequest = "";
     var lastWorldRenderRequest = "";
     var lastWorldRenderStorageCommand = "";
+    var lastWorldRenderReceiptCommand = "";
     var worldRenderTimer = null;
     function saveWorldRenderObservation(requestId, remaining) {
         if (requestId !== lastWorldRenderRequest) { return; }
@@ -1074,6 +1075,22 @@
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.requestId))
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.receiptId))
+                && command.action === "feature-world-render-receipt"
+                && /^(remove|inspect)$/.test(String(command.operation))
+                && objectKeysMatch(command,["schemaVersion","commandId","action","requestId","receiptId","operation"])) {
+            if (command.commandId === lastWorldRenderReceiptCommand) { return; }
+            lastWorldRenderReceiptCommand = command.commandId;
+            var receipt = {};
+            try {
+                if (typeof Test.featureWorldRenderReceipt === "function") { receipt = Test.featureWorldRenderReceipt(command); }
+            } catch (_worldReceiptError) { /* No missing/foreign document proves absence. */ }
+            Test.saveObject(receipt,"world-render-receipt-result.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.requestId))
                 && command.action === "feature-world-render-storage"
                 && /^(read|release|inspect)$/.test(String(command.operation))
                 && objectKeysMatch(command, command.operation === "read"
@@ -1423,6 +1440,7 @@
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui"
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
+                || command.action === "feature-world-render-receipt"
                 || command.action === "feature-script-files")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse only the closed source-owned dispatch.

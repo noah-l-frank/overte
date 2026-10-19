@@ -13,6 +13,7 @@
     "world-render-acquisition": {"current": 1, "reads": [1]},
     "world-render-storage": {"current": 1, "reads": [1]},
     "world-render-ownership": {"current": 1, "reads": [1]},
+    "world-render-receipt-cleanup": {"current": 1, "reads": [1]},
     "native-graphics-controls": {"current": 1, "reads": [1]},
     "native-audio-controls": {"current": 1, "reads": [1]},
     "native-script-controls": {"current": 1, "reads": [1]},

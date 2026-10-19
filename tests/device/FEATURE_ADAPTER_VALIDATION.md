@@ -13,6 +13,15 @@ The new memory release inventory is narrower than complete artifact cleanup.
 Concrete platform receipt transport, persistent ownership and receipt cleanup
 remain prerequisites. No full-area capability is enabled by this validation.
 
+The subsequent durable ownership/native receipt-removal packet passes **463**
+common host cases, zero failures/errors/skips or compiler attempts, with the
+same three native exclusions. Its acquisition/storage/ownership/receipt group
+has **48** cases, including real local unlink/absence and timeout counterexamples.
+The ordinary platform factories are validated separately in their own branches.
+Native C++ remains uncompiled. Mono-only version 1 explicitly rejects stereo
+and unsupported backends; no Pico rendering or iOS installed-code qualification
+can be inferred from these host checks.
+
 Version 4 Graphics validation: **388** common host cases pass with zero failures,
 errors, skips or compiler attempts; the same three native compiler cases remain
 excluded. Its journey group has **39** cases, and four additional Graphics
