@@ -193,3 +193,11 @@ host/native fixtures, not a native client or OpenXR execution. Native C++ remain
 uncompiled. Full Audio acoustic, ownership/journal and verified restart cleanup
 coordination remain open; no `feature.audio.*` capability is advertised.
 See the shared [normal Audio contract](../../native/NORMAL_AUDIO_CONTROLS.md).
+
+The submitted-code source is now exercised through the original Pico candidate
+wrapper: 18 focused source cases pass, including immutable original code hashes/
+times and older-source rejection. Seven Emote source-profile cases pass locally.
+The host fixture now keeps historical native PCM/module event times fixed while
+request/acquisition clocks advance, matching the reader's original-event rules.
+These are source/control checks, not installed Emote or device qualification;
+native C++ remains uncompiled and full-area capabilities stay unadvertised.

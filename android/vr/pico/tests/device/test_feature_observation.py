@@ -19,7 +19,7 @@ from self_tests.test_native_feature_observation import Boundary as NativeFeature
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
 from self_tests.test_recorded_preview_history import complete as completed_voice
 from adapters.recorded_preview_history import measured_state as measured_audio_state
-from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, RUN as EFFECT_RUN
+from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, code_source, RUN as EFFECT_RUN
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 
 
@@ -122,17 +122,18 @@ class FeatureObservationTests(unittest.TestCase):
 
     def preview_boundaries(self, source=None, filename='recorded-preview-observation.json'):
         source = PreviewBoundary() if source is None else source
+        event_offset = self.native.epoch_milliseconds(self.native.target) - 20000
         def mutate(value):
             value['processId'] = 123
             offset = self.native.epoch_milliseconds(self.native.target) - 20000
             value['requestedEpochMs'] += offset; value['capturedEpochMs'] += offset
             if 'source' in value and 'cycle' in value['source']:
                 original = value['source']
-                for key in ('startedEpochMs', 'inputLastEpochMs', 'sinkLastEpochMs'): original[key] += offset
-                for event in original['events']: event['publishedEpochMs'] += offset
+                for key in ('startedEpochMs', 'inputLastEpochMs', 'sinkLastEpochMs'): original[key] += event_offset
+                for event in original['events']: event['publishedEpochMs'] += event_offset
             elif 'source' in value:
                 for engine in value['source']['engines']:
-                    for module in engine['required']['modules']: module['capturedEpochMs'] += offset
+                    for module in engine['required']['modules']: module['capturedEpochMs'] += event_offset
         source.mutate = mutate
         original_read = self.native.read_debug_app_file
         def write(target, package, path, raw):
@@ -200,6 +201,21 @@ class FeatureObservationTests(unittest.TestCase):
         self.native.digest = 'f' * 64; before = len(source.commands)
         with self.assertRaises(RuntimeError): reader.read(second['sequence'], require_effects=True)
         self.assertEqual(before, len(source.commands)); self.assertEqual([], self.native.inputs)
+
+    def test_pico_submitted_code_uses_original_bound_source_and_refuses_older_producer(self):
+        source=self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        original=source.mutate
+        def identified(value):
+            if original: original(value)
+            code_source(value)
+        source.mutate=identified;reader=self.adapter._script_execution_observer(self.native.target)
+        first=reader.read(0,require_code_identity=True)
+        code=first['source']['engines'][0]['code']
+        self.assertEqual(15000,code['submittedEpochMs']);self.assertTrue(code['submitted'])
+        second=reader.read(first['sequence'],require_code_identity=True)
+        self.assertEqual(code,second['source']['engines'][0]['code'])
+        source.mutate=original
+        with self.assertRaises(RuntimeError):reader.read(second['sequence'],require_code_identity=True)
 
     def test_pico_script_execution_source_retains_real_loaded_module_and_engine_identity(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
