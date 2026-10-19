@@ -11,7 +11,7 @@ and evaluated animation/pose observations plus labelled render/audio/account
 reads. `_native_feature_observer(target)` preserves the original candidate,
 installed-byte, foreground and OpenXR process guards around that separate
 read-only file. This source backend still advertises no `feature.*` triple.
-The existing registered observation group now runs **15** host boundary cases,
+The existing registered observation group now runs **16** host boundary cases,
 including changed candidates, foreign PIDs and unavailable native hooks.
 Native compilation and device behavior remain untested. See the
 [native observation contract](../../native/README.md).
@@ -30,6 +30,15 @@ CommonJS completion/cache/error history. The current shared feature contract
 is **version 2**, correcting the Script file-bundle picker flow. Full file
 picker/effect/cleanup joins remain open; no area triple is advertised. See
 [the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
+
+The actual Script source now also exports versioned local-entity effect rows
+and persistent native absence tombstones. `read(...,require_effects=True)`
+refuses older producers and preserves original entity UUIDs, edit times, raw
+counter data and RGB. A stalled counter remains stalled despite fresh captures;
+it cannot become synthetic progression. The new bound-wrapper case retains
+candidate/OpenXR guards and rejects candidate loss before a further request.
+All **16** observation cases pass. The native source remains uncompiled; the
+full independently journaled effect/picker/engine/restart coordinator is open.
 
 The next packet now implements the five existing `scripts.*` foundation
 operations through the real VR Tablet/MENU > Edit > Running Scripts controls.
@@ -60,7 +69,7 @@ Normal Script UI captures now recheck installed bytes before and after reads.
 The fourteen-case group includes actual native token/recipe transactions, ignored
 row delivery despite a successful ACK, primary readback and missing-marker/
 candidate failures. The existing **31** candidate/navigation/Snapshot boundary
-cases and **15** original-observation cases also pass after the extension.
+cases and **16** original-observation cases also pass after the extension.
 All are device-free; native C++ remains uncompiled and actual VR/keyboard
 delivery remains unqualified. A complete version 2 Script adapter still needs
 persistent picker/engine cleanup intent, verified restart handoff and

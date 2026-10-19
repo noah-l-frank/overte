@@ -16,8 +16,8 @@ from adapters.pico4 import feature_observation
 from adapters.android.adapter import ANDROID_CONTROL_COMMAND
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
-from self_tests.test_native_script_observation import Boundary as ScriptBoundary
-from adapters.native_script_observation import loaded_relative_modules, running_owned_engine
+from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, RUN as EFFECT_RUN
+from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 
 
 class FeatureObservationTests(unittest.TestCase):
@@ -156,6 +156,27 @@ class FeatureObservationTests(unittest.TestCase):
         before = len(source.commands)
         with self.assertRaises(RuntimeError): reader.read(reader.sequence)
         self.assertEqual(before, len(source.commands))
+
+    def test_pico_native_effect_extension_preserves_stalled_actual_counter_under_candidate_binding(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        original = source.mutate
+        event_epoch = self.native.epoch_milliseconds(self.native.target) - 3000
+        def effects(value):
+            original(value)
+            # The simulated native module/effect events are immutable even
+            # while the source acquisition clock advances between requests.
+            for engine in value['source']['engines']:
+                for module in engine['required']['modules']: module['capturedEpochMs'] = event_epoch
+            effect_source(value, edited=event_epoch * 1000)
+        source.mutate = effects
+        reader = self.adapter._script_execution_observer(self.native.target)
+        first = reader.read(0, require_effects=True)
+        self.assertEqual(2, measured_effect(first, EFFECT_RUN)['ticks'])
+        second = reader.read(first['sequence'], require_effects=True)
+        self.assertEqual(measured_effect(first, EFFECT_RUN), measured_effect(second, EFFECT_RUN))
+        self.native.digest = 'f' * 64; before = len(source.commands)
+        with self.assertRaises(RuntimeError): reader.read(second['sequence'], require_effects=True)
+        self.assertEqual(before, len(source.commands)); self.assertEqual([], self.native.inputs)
 
     def test_pico_script_execution_source_retains_real_loaded_module_and_engine_identity(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
