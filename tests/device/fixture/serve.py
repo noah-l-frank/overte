@@ -487,6 +487,11 @@ class FixtureState:
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None
                      and command.get("operation") in {"focus", "snapshot", "dismiss"})
+        elif action == "snapshot-files":
+            sys.path.insert(0, str(ROOT.parent))
+            from snapshot_file_contract import read_request
+            read_request(command)
+            valid = True
         elif action == "normal-ui-input":
             operation = command.get("operation")
             expected = {"schemaVersion", "commandId", "action", "operation"}

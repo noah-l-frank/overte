@@ -193,6 +193,60 @@ assert.equal(lastClientCommandId,edit.commandId);
 '''.replace('FUNCTION', self.source[start:end])
         subprocess.run(['node', '-e', harness], check=True, timeout=5)
 
+    def test_snapshot_original_file_channel_cannot_capture_supply_paths_or_claim_bytes(self):
+        listed = {"schemaVersion": 1, "commandId": "ios-" + "f" * 32,
+                  "action": "snapshot-files", "operation": "list",
+                  "prefix": "parity-0123456789abcdef-still-png"}
+        read = listed | {"operation": "read", "name": listed["prefix"] + "-snap_123_1.png",
+                         "revision": "a" * 64, "offset": 65536}
+        for command in (listed, read):
+            self.assertEqual(command, self.post_command(command))
+        for violation in ({"operation": "capture"}, {"schemaVersion": True}, {"commandId": "foreign"},
+                          {"prefix": "foreign"}, {"prefix": listed["prefix"] + "\n"},
+                          {"root": "/Documents"}, {"files": []}, {"capturePassed": True},
+                          {"name": "arbitrary.png"}, {"data": "aW5qZWN0ZWQ="}):
+            with self.subTest(violation=violation), self.assertRaises(HTTPError) as rejected:
+                self.post_command(listed | violation)
+            self.assertEqual(400, rejected.exception.code)
+            rejected.exception.close()
+        for violation in ({"name": "../other.png"}, {"name": read["name"] + "\n"},
+                          {"name": "parity-fedcba9876543210-still-png-snap_123_1.png"},
+                          {"offset": -1}, {"offset": True}, {"offset": 0.5}, {"offset": 268435457},
+                          {"revision": "a" * 63}, {"revision": "a" * 64 + "\n"}):
+            with self.subTest(violation=violation), self.assertRaises(HTTPError) as rejected:
+                self.post_command(read | violation)
+            self.assertEqual(400, rejected.exception.code)
+            rejected.exception.close()
+
+    def test_actual_probe_snapshot_transport_requires_native_producer_acceptance(self):
+        start = self.source.index("    function applyClientCommand(command) {")
+        end = self.source.index("    function pollClientCommand()", start)
+        harness = r'''
+const assert=require('assert');
+let lastClientCommandId='',lastTextCommandId='',calls=[],accepted=false;
+const applyVoice=()=>false;
+const objectKeysMatch=(v,k)=>Object.keys(v).sort().join('|')===k.sort().join('|');
+const Test={iosSnapshotFilesRequest:v=>{calls.push(v);return accepted;},
+ saveObject:()=>{throw new Error('only native original bytes may produce receipts');}};
+FUNCTION
+const list={schemaVersion:1,commandId:'ios-'+'a'.repeat(32),action:'snapshot-files',operation:'list',
+ prefix:'parity-0123456789abcdef-still-png'};
+applyClientCommand(list);assert.equal(calls.length,1);assert.equal(lastClientCommandId,'');
+accepted=true;applyClientCommand(list);assert.equal(calls.length,2);assert.equal(lastClientCommandId,list.commandId);
+applyClientCommand(list);assert.equal(calls.length,2);
+for(const invalid of [{...list,commandId:'foreign'}, {...list,schemaVersion:true},
+ {...list,commandId:'ios-'+'b'.repeat(32),operation:'capture'},
+ {...list,commandId:'ios-'+'b'.repeat(32),root:'/Documents'}]) {
+ applyClientCommand(invalid);assert.equal(calls.length,2);
+}
+const read={...list,commandId:'ios-'+'b'.repeat(32),operation:'read',name:list.prefix+'-snap_1_1.png',
+ revision:'a'.repeat(64),offset:0};
+applyClientCommand(read);assert.strictEqual(calls[2],read);assert.equal(lastClientCommandId,read.commandId);
+delete Test.iosSnapshotFilesRequest;
+applyClientCommand({...list,commandId:'ios-'+'c'.repeat(32)});assert.equal(lastClientCommandId,read.commandId);
+'''.replace('FUNCTION', self.source[start:end])
+        subprocess.run(['node', '-e', harness], check=True, timeout=5)
+
     def test_native_crash_command_cannot_choose_a_process_or_claim_a_result(self):
         command = {"schemaVersion": 1, "commandId": "ios-" + "d" * 32, "action": "native-crash"}
         self.assertEqual(self.post_command(command), command)

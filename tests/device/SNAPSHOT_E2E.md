@@ -3,7 +3,8 @@
 The `snapshot-output-parity` suite uses the existing controlled scene and normal
 SNAP app. It captures a PNG still, JPEG still, still plus GIF, 360 panorama and
 360 cubemap. It is implemented test logic; native adapters and physical-device
-acceptance remain separate work. No adapter advertises these new actions yet.
+acceptance remain separate work. Each platform enables these actions only
+through its explicitly configured owning input/file component.
 
 The native adapter must implement and explicitly advertise:
 
@@ -49,6 +50,18 @@ projection orientation, scene fidelity, cancellation/owner replacement, uploads
 or system save/share. Those still require their own normal-UI observations.
 
 ## Local input and original-file components
+
+The optional iOS native producer uses the closed `snapshot-files` command
+channel. `list` accepts only the owned capture prefix; `read` additionally
+accepts an original basename, its native metadata revision and an integer
+offset. Reads return at most64KiB. No command accepts a root, output bytes,
+capture instruction or success verdict. The native producer must resolve the
+actual application Snapshot storage, reject aliases and nonregular/hard-linked
+files, and bound its original file count and sizes. Native request receipts
+must retain the command nonce, actual process and freshness. The consumer must
+join the original content hash, all chunks and a fresh final manifest before
+publishing a private artifact. This shared channel alone implements neither
+the native producer nor an installed-code association.
 
 The actual review exposes stable `snapshotMode.option.<mode>` and
 `snapshotFormat.option.<format>` controls. Tests click the real Qt popup
