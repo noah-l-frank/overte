@@ -5,6 +5,19 @@ Product base: `718d069add` (Phone typed-config parity repair), composed with the
 Main common-journey branch through ordinary local parent-to-child merges.
 No protected integration, build, install or device execution was performed.
 
+The internal `_world_render_capture()` now connects the main-mono GL frame
+source to the candidate/PID-start/session-bound private Phone transport. It
+persists acquisition and every original chunk/receipt intent before dispatch,
+reads original RGBA PNG bytes with both native digests, then retires native
+requests, independently observes drained buffers, removes only journaled private
+receipts and separately verifies file absence before discarding ownership.
+Ignored deletion and process replacement retain ownership. Three new wrapper
+counterexamples exercise this factory; all **55** focused cases pass. No actual
+GPU readback, native compilation or device qualification occurred. The full
+feature coordinators, controlled scene/view and independent effects remain open;
+no `feature.*` triple is advertised. See
+[the acquisition contract](../../native/WORLD_RENDER_ACQUISITION.md).
+
 Continuation: the user explicitly authorized E2E-only instrumentation in native
 client sources. The opt-in `OVERTE_E2E_FEATURE_TESTS=ON` source packet now supplies
 actual lifecycle notifications, evaluated animation/pose metadata, and labelled

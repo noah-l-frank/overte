@@ -39,6 +39,10 @@ from adapters.token_audio_ui import TokenAudioUI
 from overte_phone_audio import PhoneAudioIO, FILE as AUDIO_UI_FILE
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
+from adapters.android_world_render import AndroidWorldRenderReceipts
+from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
+from adapters.world_render_storage import NativeWorldRenderStorage
+from adapters.owned_world_render import WorldRenderOwner, OwnedWorldRenderCapture
 from overte_phone_script_files import PhoneScriptFileIO, FILE as SCRIPT_FILE_UI_FILE
 
 
@@ -175,6 +179,28 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + RECORDED_PREVIEW_FILE, attempts=1),
             AndroidPreviewFiles(transport, device, target['appId'], native.guard),
             native.clock_ms, native.guard, native.pid)
+
+    def world_render_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-world-render-owner.json'))
+
+    def _world_render_capture(self, selector):
+        # Internal original-image prerequisite, not a full feature producer.
+        _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector)
+        native = self._native_feature_observer(selector)
+        target = self.target(selector)
+        device = target['capabilities']['appium:udid']
+        transport = PhoneAdapter(self.candidate).adb
+        receipts = AndroidWorldRenderReceipts(transport, device, target['appId'], native.guard)
+        owner = WorldRenderOwner(self.world_render_store(selector), context, native.guard)
+        options = dict(monotonic=native.monotonic, sleep=native.sleep)
+        storage = NativeWorldRenderStorage(native.send, receipts.read, native.clock_ms, native.guard,
+            native.pid, receipt_intent=owner.receipt_intent, **options)
+        capture = NativeWorldRenderCapture(native.send,
+            lambda: transport.read_debug_app_file(device, target['appId'],
+                'files/overte-e2e/' + WORLD_RENDER_FILE, attempts=1),
+            storage, native.clock_ms, native.guard, native.pid, intent=owner.intent, **options)
+        check()
+        return OwnedWorldRenderCapture(capture, storage, owner, receipts)
 
     def _script_execution_observer(self, selector):
         native = self._native_feature_observer(selector)

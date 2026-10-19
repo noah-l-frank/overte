@@ -35,6 +35,11 @@ from audio_native_boundary import AudioNativeBoundary, ControlNativeBoundary
 from adapters.token_graphics_ui import TokenGraphicsUI
 from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
+from adapters.android_world_render import AndroidWorldRenderReceipts
+from adapters.world_render_storage import receipt_file
+from self_tests.test_world_render_evidence import Boundary as WorldBoundary
+from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
+from self_tests.test_owned_world_render import LocalAdb
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -232,6 +237,61 @@ class FeatureAdapterTests(unittest.TestCase):
                 monotonic=lambda: source.clock, sleep=source.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
+
+    def world_render_boundaries(self):
+        source=WorldBoundary();storage=WorldStorageBoundary();storage.raw=source.raw
+        storage.mutate=lambda sample:sample.update(instance='a'*32)
+        root=self.fixture.root/'files/overte-e2e';root.mkdir(parents=True,mode=0o700)
+        local=LocalAdb(self.fixture.root)
+        local.read_debug_app_file=lambda _device,_package,path,**_options:(root/path.rsplit('/',1)[1]).read_text()
+        def send(_client,_session,target,command,process):
+            self.assertEqual(PACKAGE,target['appId']);self.assertEqual('31:14',process['identity'])
+            journal=self.adapter.world_render_store(SELECTOR).read()
+            self.assertEqual(command.get('requestId',command['commandId']),journal['capture']['commandId'])
+            if command['action']=='feature-world-render-observe':
+                source.intents.append(command);source.send(command)
+            else:
+                self.assertIn(command['commandId'],journal['receipts'])
+                storage.intents.append(command);storage.send(command)
+                name=receipt_file(command['commandId']);(root/name).write_text(storage.files[name])
+        def read(_device,package,path,**kwargs):
+            self.assertEqual(PACKAGE,package);self.assertEqual({'attempts':1},kwargs)
+            if path.endswith('/world-render-observation.json'):return source.original()
+            return (root/path.rsplit('/',1)[1]).read_text()
+        def receipt_io(adb,device,package,guard):
+            self.assertIs(self.fixture.adb,adb);self.assertEqual(PACKAGE,package)
+            return AndroidWorldRenderReceipts(local,device,'org.overte.test',guard)
+        for boundary in (
+            patch.object(self.adapter,'write_android_client_command',side_effect=send),
+            patch.object(self.fixture.adb,'read_debug_app_file',side_effect=read,create=True),
+            patch.object(self.fixture.adb,'epoch_milliseconds',return_value=20000,create=True),
+            patch.object(appium,'AndroidWorldRenderReceipts',side_effect=receipt_io),
+            patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,local,self.adapter._world_render_capture(SELECTOR)
+
+    def test_phone_world_original_pixels_and_separate_memory_file_cleanup_use_bound_factory(self):
+        source,local,capture=self.world_render_boundaries()
+        value,raw=capture.read(0);self.assertEqual(source.raw,raw)
+        self.assertIsNotNone(self.adapter.world_render_store(SELECTOR).read())
+        capture.release();self.assertIsNone(self.adapter.world_render_store(SELECTOR).read())
+        self.assertEqual([],list((local.path/'files/overte-e2e').iterdir()))
+        self.assertEqual([],self.native.inputs)
+        self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_world_ignored_cleanup_retains_original_owner_for_recovery(self):
+        source,local,capture=self.world_render_boundaries();capture.read(0);local.ignore_remove=True
+        with self.assertRaises(RuntimeError):capture.release()
+        self.assertIsNotNone(self.adapter.world_render_store(SELECTOR).read())
+        local.ignore_remove=False;capture.release()
+        self.assertIsNone(self.adapter.world_render_store(SELECTOR).read())
+
+    def test_phone_world_replaced_candidate_process_cannot_acquire_or_clean_original_owner(self):
+        source,local,capture=self.world_render_boundaries();capture.read(0)
+        self.native.identity='32:foreign-start';before=len(source.commands)
+        with self.assertRaisesRegex(ValueError,'PHONE_NORMAL_SCRIPTS_PROCESS_OR_SESSION_CHANGED'):capture.release()
+        self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.adapter.world_render_store(SELECTOR).read())
 
     def test_phone_atomic_audio_history_keeps_native_terminal_frames_and_refuses_source_downgrade(self):
         source = self.native_feature_boundaries(); original = source.mutate
