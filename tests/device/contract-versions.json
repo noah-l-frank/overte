@@ -8,6 +8,7 @@
     "feature-journey": {"current": 2, "reads": [2]},
     "native-feature-observation": {"current": 1, "reads": [1]},
     "native-script-controls": {"current": 1, "reads": [1]},
+    "native-script-file-controls": {"current": 1, "reads": [1]},
     "native-script-observation": {"current": 1, "reads": [1]},
     "recorded-preview-signal": {"current": 1, "reads": [1]},
     "recorded-preview-evidence": {"current": 1, "reads": [1]},
