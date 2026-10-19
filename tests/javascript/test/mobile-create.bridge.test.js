@@ -171,3 +171,19 @@ test("native creation and property schemas preserve immutable identity and bound
     assert.equal(properties(JSON.parse('{"__proto__":{"polluted":true}}'), false), null);
     assert.equal(properties({ dimensions: { x: 0, y: 1, z: 1 } }, false), null);
 });
+
+// Passive permission/selection refresh is not a successful creation response.
+test("native rez recovery preserves the old error until an actual create retry", () => {
+    const { state, send, status } = start();
+    state.domain = false;
+    send("create", { properties: { type: "Shape" }, host: "domain" });
+    assert.equal(state.created.length, 0);
+    assert.equal(status().error, true);
+    state.domain = true;
+    send("refresh");
+    assert.equal(state.created.length, 0);
+    assert.equal(status().error, true);
+    send("create", { properties: { type: "Shape" }, host: "domain" });
+    assert.equal(state.created.length, 1);
+    assert.equal(status().error, false);
+});

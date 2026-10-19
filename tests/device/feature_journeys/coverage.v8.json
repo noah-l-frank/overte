@@ -73,8 +73,8 @@
         "world-interaction"
       ],
       "commonModule": "feature-create",
-      "addedFlow": "Model/texture/voxel import/edit, original export, cancellation and rez permission denial/recovery.",
-      "declaredCheckpoints": 15,
+      "addedFlow": "Ordinary glTF/OBJ Model URL creation; real entity-JSON picker cancel/accept; exact-slot texture/export, voxel and actual rez-denial/retry.",
+      "declaredCheckpoints": 21,
       "requiredEvidence": [
         "changed",
         "file",
@@ -269,5 +269,5 @@
       "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
     }
   ],
-  "contractVersion": 7
+  "contractVersion": 8
 }

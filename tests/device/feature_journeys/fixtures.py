@@ -48,9 +48,23 @@ def marker_bytes(run, ticket):
 def document(run, fixture_url=None, model_ticket=None, texture_ticket=None):
     fixture_url = fixture_url or f'http://controlled.test/feature-fixture/v1/runs/{run}/'
     base = fixture_url + 'tickets/' + (model_ticket or '02' * 16) + '/'
-    return dict(DataVersion=3, Entities=[dict(name=context(run)['name'] + '-model',
+    return dict(DataVersion=0, Entities=[dict(name=context(run)['name'] + '-model',
         type='Model', dimensions=dict(x=1.0, y=1.0, z=1.0),
-        modelURL=base + 'gltf-bundle/main.gltf', textures={'material': fixture_url + 'tickets/' + (texture_ticket or model_ticket or '02' * 16) + '/checker.png'})])
+        modelURL=base + 'gltf-bundle/main.gltf', textures={'checker.png': fixture_url + 'tickets/' + (texture_ticket or model_ticket or '02' * 16) + '/checker.png'})])
+
+
+def import_document(run,ticket,fixture_url):
+    # Controlled INPUT for the ordinary JSON picker. This is never an export
+    # observation. An explicit actual owned origin prevents placeholder URLs
+    # from entering a product import or copied future texture expectations.
+    from .contract import arguments
+    from .scenarios import VERSION
+    arguments('feature.create.act',dict(contractVersion=VERSION,runId=run,ticket=ticket,
+        fixtureUrl=fixture_url,verb='import-picker-open',inputs={'resource':'entity-import.json'}))
+    value=document(run,fixture_url,model_ticket=ticket)
+    del value['Entities'][0]['textures']
+    value['DataVersion']=3 # Controlled entity-JSON INPUT, distinct from the native export-tree version.
+    return value
 
 
 def payload(resource, run, ticket):
@@ -79,8 +93,6 @@ def payload(resource, run, ticket):
         return 'audio/wav', wav_bytes(run, ticket)
     if resource == 'preview-challenge.v1.wav':
         return 'audio/wav', wav_bytes(run, ticket, profile='recorded-preview-v1')
-    if resource == 'export.json':
-        return 'application/json', json.dumps(document(run), sort_keys=True).encode()
     if resource == 'graphics-marker.v1.html':
         current='/feature-fixture/v1/runs/'+run+'/current'
         body=('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'

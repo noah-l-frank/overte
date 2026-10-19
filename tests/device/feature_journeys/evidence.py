@@ -3,10 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
 import io
-import json
 from pathlib import Path
 import tempfile
-from .contract import exact
+from .contract import exact,json_document
 from .fixtures import challenge, document
 
 MAX_BYTES = 32 * 1024 * 1024
@@ -97,13 +96,14 @@ def file_observation(content, area, run, ticket, policy, fixture_url=None, model
         return dict(decoded=decoded, image=observed)
     if area == 'create':
         try:
-            parsed = json.loads(content)
+            parsed = json_document(content)
         except (ValueError, UnicodeError) as error:
             raise AssertionError('Original export is not a complete JSON document') from error
-        if (type(parsed) is not dict or type(parsed.get('DataVersion')) is not int or parsed.get('DataVersion') != 3
+        if (type(parsed) is not dict or type(parsed.get('DataVersion')) is not int or parsed.get('DataVersion') != 0
                 or type(parsed.get('Entities')) is not list or len(parsed['Entities']) != 1):
             raise AssertionError('Original export must contain exactly the owned model')
         entity = parsed['Entities'][0]
+        if type(entity) is not dict:raise AssertionError('Original export entity is not an object')
         from .contract import typed_equal
         expected = document(run, fixture_url, model_ticket, texture_ticket)['Entities'][0]
         for field, wanted in expected.items():
@@ -111,14 +111,11 @@ def file_observation(content, area, run, ticket, policy, fixture_url=None, model
                 observed = entity.get(field)
                 if type(observed) is str:
                     try:
-                        observed = json.loads(observed)
+                        observed = json_document(observed)
                     except ValueError as error:
                         raise AssertionError('Original texture assignment is malformed') from error
             else:
                 observed = entity.get(field)
-            if field == 'textures':
-                if type(observed) is dict and len(observed) == 1:
-                    observed = {'material': next(iter(observed.values()))}
             if field == 'dimensions' and type(observed) is dict and set(observed) == {'x', 'y', 'z'}:
                 valid = all(type(observed[k]) in (float, int) and abs(observed[k] - wanted[k]) < 0.0001 for k in wanted)
             else:
