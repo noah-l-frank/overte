@@ -5,6 +5,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QJsonArray>
+#include <QRegularExpression>
 #include <QSet>
 #include <QThread>
 #include <QUuid>
@@ -51,18 +52,34 @@ QString controlId(QQuickItem* item) {
         { "tabletAddressBack", "navigation.back" },
         { "tabletAddressForward", "navigation.forward" },
         { "nav.home", "tablet.home" },
+        { "snapshotName", "snapshot.name" },
+        { "snapshotMode", "snapshot.mode" },
+        { "snapshotFormat", "snapshot.format" },
+        { "snapshotCapture", "snapshot.capture" },
+        { "snapshotCancelCapture", "snapshot.cancel" },
     };
     const auto name = item->objectName();
     if (names.contains(name)) { return names.value(name); }
+    for (const auto& mode : {"still", "animated", "panorama", "cubemap"}) {
+        if (name == QStringLiteral("snapshotMode.option.") + mode) {
+            return QStringLiteral("snapshot.mode.") + mode;
+        }
+    }
+    for (const auto& format : {"png", "jpg", "webp"}) {
+        if (name == QStringLiteral("snapshotFormat.option.") + format) {
+            return QStringLiteral("snapshot.format.") + format;
+        }
+    }
     for (int page = 1; page <= 32; ++page) {
         if (name == QStringLiteral("tabletPage.%1").arg(page)) {
             return QStringLiteral("tablet.page.%1").arg(page);
         }
     }
     // Match the actual TabletButton, never its child caption Text item.
-    if (item->metaObject()->indexOfSignal("clicked()") >= 0
-            && item->property("text").toString() == QStringLiteral("GOTO")) {
-        return QStringLiteral("navigation.goto");
+    if (item->metaObject()->indexOfSignal("clicked()") >= 0) {
+        const auto caption = item->property("text").toString();
+        if (caption == QStringLiteral("GOTO")) { return QStringLiteral("navigation.goto"); }
+        if (caption == QStringLiteral("SNAP")) { return QStringLiteral("snapshot.entry"); }
     }
     return {};
 }
@@ -116,7 +133,16 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         const auto children = item->childItems();
         for (auto child : children) { walk(child, depth + 1); }
     };
-    if (ready) { walk(root, 0); }
+    if (ready) {
+        walk(root, 0);
+        // Controls popups are rendered in this window's Qt overlay beside the
+        // complete tablet root. Never discover arbitrary or foreign siblings.
+        if (root->parentItem() == window->contentItem()) {
+            for (auto layer : window->contentItem()->childItems()) {
+                if (layer != root && layer->inherits("QQuickOverlay")) { walk(layer, 0); }
+            }
+        }
+    }
     if (ambiguous || !ready) { controls.clear(); ready = false; }
     _controls = controls;
     auto ids = controls.keys();
@@ -124,8 +150,12 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     QJsonArray observed;
     for (const auto& id : ids) {
         const auto control = controls.value(id);
-        observed.append(QJsonObject { { "id", id }, { "token", control.token },
-            { "enabled", enabled(control.item) }, { "focused", control.item->hasActiveFocus() } });
+        QJsonObject row { { "id", id }, { "token", control.token },
+            { "enabled", enabled(control.item) }, { "focused", control.item->hasActiveFocus() } };
+        if (id.startsWith(QStringLiteral("snapshot.mode.")) || id.startsWith(QStringLiteral("snapshot.format."))) {
+            row["checked"] = control.item->property("checked").toBool();
+        }
+        observed.append(row);
     }
     return { { "schemaVersion", 1 }, { "bridgeId", _bridgeId }, { "generation", _generation },
         { "processId", static_cast<double>(QCoreApplication::applicationPid()) },
@@ -180,6 +210,14 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
             delivered = overte::ui::replaceFocusedField(control.item, window, command.value("text").toString());
         } else if (action == "submit") {
             delivered = overte::ui::submitFocusedField(control.item, window);
+        }
+    } else if (controlId == QStringLiteral("snapshot.name") && action == "replace"
+            && command.value("text").isString()) {
+        const auto text = command.value("text").toString();
+        static const QRegularExpression ownedName {
+            QStringLiteral("\\Aparity-[0-9a-f]{16}-(still-png|still-jpg|animated|panorama|cubemap)\\z") };
+        if (text.size() <= 48 && ownedName.match(text).hasMatch()) {
+            delivered = overte::ui::replaceFocusedField(control.item, window, text);
         }
     }
     result["performed"] = delivered;

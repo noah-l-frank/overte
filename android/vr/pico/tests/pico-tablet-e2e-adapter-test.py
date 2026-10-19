@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,12 @@ class PicoTabletE2EAdapterTest(unittest.TestCase):
                        check=True, timeout=90)
 
     def test_actual_navigation_resolver_and_native_qt_input(self):
+        self.run_native_ui('navigation')
+
+    def test_actual_snapshot_review_and_native_qt_input(self):
+        self.run_native_ui('snapshot')
+
+    def run_native_ui(self, fixture):
         major = os.environ.get("OVERTE_NATIVE_QT_MAJOR", "6")
         if major not in {"5", "6"}:
             raise ValueError("OVERTE_NATIVE_QT_MAJOR must be 5 or 6")
@@ -76,6 +83,22 @@ Item {
  signal clicked()
  ORIGINAL_HANDLERS
 }'''.replace("ORIGINAL_HANDLERS", handlers))
+            if fixture == 'snapshot':
+                stage = Path(directory)
+                production = stage / 'production'
+                shutil.copytree(ROOT / 'scripts/system/snapshot', production)
+                page = production / 'NativeSnapshotReview.qml'
+                page.chmod(0o644)
+                page.write_text('import TestSnapshot 1.0\n' + page.read_text())
+                shutil.copytree(ROOT / 'interface/resources/qml/controls', stage / 'controls')
+                boundary = stage / 'TestSnapshot'; boundary.mkdir()
+                (boundary / 'qmldir').write_text('module TestSnapshot\nsingleton Snapshot 1.0 Snapshot.qml\n')
+                (boundary / 'Snapshot.qml').write_text('pragma Singleton\nimport QtQuick 2.7\nQtObject {'
+                    ' property string format: "png"; function getAvailableSnapshotFormats(){return ["png","jpg","webp"]}'
+                    ' function getSnapshotFormat(){return format} function setSnapshotFormat(value){format=value}'
+                    ' function snapshotFileUrl(path){return ""} }\n')
+                (stage / 'ReviewHost.qml').write_text('import QtQuick 2.7\nimport "production"\n'
+                    'Item {width:480; height:706; NativeSnapshotReview {anchors.fill:parent} }\n')
             pointer_flags = ["-I" + directory]
             if major == "5":
                 surface = (ROOT / "libraries/ui/src/ui/OffscreenQmlSurface.cpp").read_text()
@@ -120,7 +143,7 @@ public:
                 "-I" + str(ROOT / "libraries/ui/src"), "-I" + str(APP / "e2e"),
                 str(APP / "e2e/PicoE2eNavigationUi.cpp"),
                 str(ROOT / "libraries/ui/src/ui/NativeFieldInput.cpp"),
-                str(Path(__file__).parent / "device/native/navigation-ui-test.cpp"),
+                str(Path(__file__).parent / f"device/native/{fixture}-ui-test.cpp"),
                 "-o", str(binary), *library_paths, *flags], check=True, timeout=60, env=environment)
             subprocess.run(["unshare", "--user", "--map-root-user", "--net", str(binary), directory],
                 check=True, timeout=30, env={**environment, "QT_QPA_PLATFORM": "offscreen",

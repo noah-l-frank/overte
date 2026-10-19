@@ -348,3 +348,37 @@ background/resume separately from ordinary window-focus changes. Existing
 physical-key editing and unrelated active surfaces must continue working.
 The software inline video path and noncooperative WebAudio qualification remain
 separate open requirements; this editor change does not qualify either.
+
+## Normal Snapshot input component
+
+The closed native UI producer additionally observes the real SNAP entry, name,
+mode/format popups, capture and cancel controls. Popup radio choices expose only
+their actual boolean checked state. Their IDs are fixed by the in-tree review;
+unknown IDs, duplicate tokens, extra verdicts and nonboolean selected state are
+rejected by the host reader. Snapshot text replacement requires a focused real
+field and the bounded owned parity prefix. It cannot call a capture service or
+submit the field as a feature operation.
+
+`pico-tablet-e2e-adapter-test.py` now registers a real Snapshot UI test beside the
+existing navigation test. The fixture loads the complete production review,
+substituting only Snapshot service/render boundaries. Qt5 executes the actual
+in-tree OffscreenQmlSurface and VR pointer bodies; Qt6 tests the distinct native
+Qt mouse primitive. Both use a hidden render-control window and actual layout
+polish. Checks cover original pointer/IME editing, source radio state, popup
+lifetime, stale commands, foreign siblings/windows and the original QML capture
+request. No renderer, application package or device capture is qualified.
+
+Focused prepared-host checks, without a device:
+
+```sh
+OVERTE_NATIVE_QT_MAJOR=6 python3 -B android/vr/pico/tests/pico-tablet-e2e-adapter-test.py
+OVERTE_NATIVE_QT_MAJOR=5 python3 -B android/vr/pico/tests/pico-tablet-e2e-adapter-test.py \
+  PicoTabletE2EAdapterTest.test_actual_navigation_resolver_and_native_qt_input \
+  PicoTabletE2EAdapterTest.test_actual_snapshot_review_and_native_qt_input
+```
+
+The existing `OVERTE_QT5_HOST_ROOT` and `OVERTE_TEST_GLM_INCLUDE` overrides may
+select legitimate matching SDK headers. Application APIs and pointer bodies
+always come from the composed source tree. The normal Pico Snapshot host flow,
+original-file dispatch and explicit capability opt-in remain a subsequent owning
+component; these native primitives alone do not advertise `snapshot.*` actions.

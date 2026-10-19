@@ -12,7 +12,7 @@
 
 namespace overte::pico::e2e {
 
-// Closed normal-navigation input on the actual VR tablet scene graph. The
+// Closed Go To and Snapshot input on the actual VR tablet scene graph. The
 // caller supplies its live surface and ordinary pointer route. No navigation
 // service, QML handler, expected scene or acceptance verdict is available here.
 class NavigationUi {

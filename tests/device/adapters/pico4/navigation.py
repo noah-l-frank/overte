@@ -15,7 +15,11 @@ from navigation_observation import OPERATIONS, viewpoint_urls
 
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 CONTROL_IDS = {'navigation.goto', 'navigation.address', 'navigation.back',
-    'navigation.forward', 'tablet.home'} | {'tablet.page.' + str(n) for n in range(1, 33)}
+    'navigation.forward', 'tablet.home', 'snapshot.entry', 'snapshot.name', 'snapshot.mode',
+    'snapshot.format', 'snapshot.capture', 'snapshot.cancel'} | {'tablet.page.' + str(n) for n in range(1, 33)}
+SNAPSHOT_CHOICES = {'snapshot.mode.' + mode for mode in ('still', 'animated', 'panorama', 'cubemap')} | {
+    'snapshot.format.' + value for value in ('png', 'jpg', 'webp')}
+CONTROL_IDS |= SNAPSHOT_CHOICES
 MAX_INTEGER = 9007199254740991
 
 
@@ -69,11 +73,17 @@ def validate_snapshot(value, process_id, epoch_ms):
          and type(value['controls']) is list and len(value['controls']) <= len(CONTROL_IDS))
     ids, tokens = set(), set()
     for control in value['controls']:
-        need(type(control) is dict and set(control) == {'id', 'token', 'enabled', 'focused'}
+        need(type(control) is dict and isinstance(control.get('id'), str))
+        fields = {'id', 'token', 'enabled', 'focused'}
+        if control['id'] in SNAPSHOT_CHOICES:
+            fields.add('checked')
+        need(set(control) == fields
              and isinstance(control['id'], str) and control['id'] in CONTROL_IDS
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
+        if control['id'] in SNAPSHOT_CHOICES:
+            need(type(control['checked']) is bool)
         ids.add(control['id']); tokens.add(control['token'])
     need(value['ready'] or not value['controls'])
     return value

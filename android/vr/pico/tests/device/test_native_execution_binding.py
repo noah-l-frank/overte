@@ -529,5 +529,49 @@ class NativeExecutionBindingTest(unittest.TestCase):
             self.assertFalse((args.output_dir / 'result-identity.json').exists())
 
 
+class SnapshotInputObservationTests(unittest.TestCase):
+    """Closed read schema, not a fabricated capture or installed-code verdict."""
+    def snapshot(self):
+        return dict(schemaVersion=1, bridgeId='11111111-1111-4111-8111-111111111111',
+            generation='22222222-2222-4222-8222-222222222222', processId=42,
+            elapsedMs=12, updatedEpochMs=1000, lastCommandSequence=0, open=True, ready=True,
+            controls=[dict(id='snapshot.mode.still', token='33333333-3333-4333-8333-333333333333',
+                           enabled=True, focused=False, checked=True)])
+
+    def validate(self, value):
+        from adapters.pico4.navigation import validate_snapshot
+        return validate_snapshot(value, 42, 1000)
+
+    def test_actual_snapshot_choice_shape_is_readable_without_a_success_claim(self):
+        value = self.validate(self.snapshot())
+        self.assertTrue(value['controls'][0]['checked'])
+        self.assertNotIn('performed', value)
+        self.assertNotIn('snapshotPassed', value)
+
+    def test_snapshot_selected_state_requires_an_actual_boolean(self):
+        for invalid in ('true', 1, None):
+            value = self.snapshot(); value['controls'][0]['checked'] = invalid
+            with self.subTest(checked=invalid), self.assertRaises(RuntimeError): self.validate(value)
+        value = self.snapshot(); del value['controls'][0]['checked']
+        with self.assertRaises(RuntimeError): self.validate(value)
+
+    def test_existing_navigation_controls_do_not_admit_extra_selected_state(self):
+        value = self.snapshot(); value['controls'][0]['id'] = 'navigation.address'
+        with self.assertRaises(RuntimeError): self.validate(value)
+        del value['controls'][0]['checked']
+        self.assertEqual(self.validate(value), value)
+
+    def test_unknown_choices_and_feature_verdicts_are_rejected(self):
+        value = self.snapshot(); value['controls'][0]['id'] = 'snapshot.mode.unreviewed'
+        with self.assertRaises(RuntimeError): self.validate(value)
+        value = self.snapshot(); value['snapshotPassed'] = True
+        with self.assertRaises(RuntimeError): self.validate(value)
+
+    def test_distinct_choices_cannot_reuse_one_native_control_token(self):
+        value = self.snapshot()
+        value['controls'].append(dict(value['controls'][0], id='snapshot.mode.animated', checked=False))
+        with self.assertRaises(RuntimeError): self.validate(value)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
