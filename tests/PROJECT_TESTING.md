@@ -580,12 +580,21 @@ Subsequent CI-only changes retain the existing 37-suite selection.
 New isolated publication requires execution schema 3 and an independently
 reconstructed source context: the original commit, its ordered immediate
 parents, their tree identities and the actual shallow boundary. Legacy schema
-1/2 validation remains available to its existing callers. The current 60 suites
+1/2 validation remains available to its existing callers. The current 61 suites
 read checkout content or self-created Git fixtures, rather than asserting
 ambient history; their content fingerprints remain reusable across an unchanged
 input closure. A future suite that consumes ambient commit/history semantics
 must use the existing `candidate` scope. Source provenance is still checked for
 every original receipt.
+
+The separate `native-owner-lifecycle` host suite checks the complete native
+capture, authority selection and current-owner handoff with independent API
+endpoint observations. It preserves the original 60 commands and the CI37
+roster. Its first installation uses the existing monotonic fallback: all trusted
+commands and the new command must pass, standalone documentation and workflow
+contracts remain required, and no reusable receipt is claimed. Later ordinary
+producer runs authenticate their full source, jobs and artifacts independently
+of metadata-only classification.
 
 Runtime admission precedes candidate execution. Unavailable admission can leave
 the existing mandatory nonreusable path selected; a started suite failure,

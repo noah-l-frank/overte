@@ -1525,6 +1525,13 @@ class Adapter:
     def _metadata_observation(self, listed, policy, binding, now, *, integrated=False):
         if policy.metadata_generations is None:
             return None
+        if listed.get('display_title') == ORDINARY_RUN_NAME and any(
+                (policy.caller_path, row[policy.caller_path]['sha'], row[METADATA_WORKFLOW]['sha'])
+                in _NATIVE_INTENT_RECIPES for row in policy.metadata_generations.values()):
+            # None opts INTO the full strict _observation producer path. An
+            # ordinary intent never excludes a run or grants metadata/result
+            # authority, and its timestamps need no metadata classification.
+            return None
         value = self.metadata_observation(listed, binding, MetadataPolicy(policy.caller_workflow_id,
             policy.caller_path, policy.metadata_generations, policy.metadata_sources), integrated=integrated, now=now)
         if value is not None:

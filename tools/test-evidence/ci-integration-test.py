@@ -358,7 +358,8 @@ class AffectedProtectedAdmissionTests(unittest.TestCase):
         with patch.object(C,'validate_selection',side_effect=AssertionError('no CI37 identity')):
             prepared=self.profile()
         selected=prepared['selection'];names=prepared['suites']
-        self.assertEqual(len(self.registry['suites']),60)
+        self.assertEqual(len(self.registry['suites']),61)
+        self.assertIn('native-owner-lifecycle',self.registry['suites'])
         self.assertEqual(selected['reason'],'protected-affected-dependencies')
         self.assertEqual(names,selected['affected']['required'])
         self.assertTrue(set(names)<set(self.registry['suites']))
@@ -1303,7 +1304,8 @@ class CleanupDataGitRouteTests(unittest.TestCase):
         self.assertEqual(result['suites'],list(C.SUITES))
         self.assertEqual(reads,[self.base_tree[C.DATA_PATH]['sha'],self.tree[C.DATA_PATH]['sha']])
         self.assertEqual(result['binding']['generation_digest'],self.policy['generation_digest'])
-        self.assertEqual(len(self.registry['suites']),60)
+        self.assertEqual(len(self.registry['suites']),61)
+        self.assertIn('native-owner-lifecycle',self.registry['suites'])
 
     def test_malformed_or_rebound_cleanup_blobs_never_receive_the_ci37_profile(self):
         for content in (b'{"holds":{}}',json.dumps({**self.updated,'artifact_retention_days':31}).encode(),
@@ -1416,6 +1418,35 @@ class AndroidPlatformPartitionTests(unittest.TestCase):
                 self.assertEqual(self.profile,original)
                 P.protocol.validate_plan({'owners':{'shared-host':value['common_owner']}})
         self.assertIn(P.PLATFORM_GENERATION,{row['name'] for row in self.package.workflow_generations()})
+
+    def test_retained_complete_legacy60_still_has_its_independent_platform_owner(self):
+        self.registry = deepcopy(self.registry)
+        del self.registry['suites']['native-owner-lifecycle']
+        self.names = list(self.registry['suites'])
+        self.assertEqual(len(self.names), 60)
+        raw = (json.dumps(self.registry, indent=2)+'\n').encode()
+        entry = P.source_admission.ordinary(P.source_admission.blob_id(raw))
+        for tree in (self.trusted, self.base, self.tree):
+            tree['.github/test-suites.json'] = deepcopy(entry)
+        self.profile['suites'] = self.names
+        self.profile['selection']['suites'] = self.names
+        original = P.sandbox._source
+        with patch.object(P.sandbox, '_source', side_effect=lambda root, path:
+                          raw if path == '.github/test-suites.json' else original(root, path)):
+            value = self.partition()
+        self.assertEqual(value['common_owner']['suites'], self.names)
+        self.assertEqual(len(value['commands']), 13)
+
+    def test_lifecycle_host_owner_cannot_replace_one_of_the_original60(self):
+        self.registry = deepcopy(self.registry)
+        del self.registry['suites']['safe-landing-lifecycle']
+        self.names = list(self.registry['suites'])
+        self.assertEqual(len(self.names), 60)
+        self.assertIn('native-owner-lifecycle', self.names)
+        self.profile['suites'] = self.names
+        self.profile['selection']['suites'] = self.names
+        with self.assertRaises(P.PreExecutionUnavailable):
+            self.partition()
 
     def test_boolean_complete_generation_records_its_actual_name_in_platform_partition(self):
         self.package_boundary.validate_tree_wiring.return_value='protected-producer-original-default-boolean-v1'

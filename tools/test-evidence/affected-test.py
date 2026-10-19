@@ -471,7 +471,8 @@ class ShippingPolicyTests(unittest.TestCase):
         registry=inputs.load_registry(root/'.github/test-suites.json')
         raw=inputs.load_dependencies(root/inputs.AFFECTED_POLICY,registry)
         manifest=json.loads(raw)
-        self.assertEqual(len(manifest['suites']),60)
+        self.assertEqual(len(manifest['suites']),61)
+        self.assertIn('native-owner-lifecycle',manifest['suites'])
         finite=[n for n,r in manifest['suites'].items() if r['kind']=='reviewed-patterns']
         self.assertEqual(finite,['documentation-contracts','release-bundle','embedded-web-qml',
             'places-native-qml','recorded-voice-qml','snapshot-qml'])

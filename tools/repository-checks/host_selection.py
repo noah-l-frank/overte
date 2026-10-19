@@ -121,6 +121,10 @@ PROGRAM_INPUTS = (
     'tools/test-evidence/attested.py', 'tools/test-evidence/execution.py',
     'tools/test-evidence/inputs.py', 'tools/test-evidence/producer.py',
     'tools/test-evidence/producer_api.py', 'tools/test-evidence/run.py',
+    # The lifecycle owner imports these fixture builders. Their bytes are real
+    # reader inputs even though the fixture file also has a CI unit-test owner.
+    'tests/native-owner-lifecycle-test.py', 'tools/test-evidence/ci-integration-test.py',
+    'tools/test-evidence/producer-api-test.py', 'tools/test-evidence/producer-test.py',
     'tools/test-evidence/runtime.py', 'tools/test-evidence/validate-sync.py',
     '.github/shared-sandbox.json', 'tools/test-evidence/sandbox.py',
     'tools/test-evidence/sandbox_host.py', 'tools/test-evidence/sandbox_host_fixture.py',

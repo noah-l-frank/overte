@@ -3901,7 +3901,8 @@ class AffectedPostmergeConsumerTests(unittest.TestCase):
         with patch.object(C.execution,'validate_receipt',wraps=C.execution.validate_receipt) as validate:
             result=self.lookup()
         self.assertTrue(result['reused'],result)
-        self.assertEqual(len(self.fixture.registry['suites']),60)
+        self.assertEqual(len(self.fixture.registry['suites']),61)
+        self.assertIn('native-owner-lifecycle',self.fixture.registry['suites'])
         self.assertEqual(self.profile['selection']['reason'],'protected-affected-dependencies')
         self.assertNotIn('device-control-plane-full',self.profile['suites'])
         self.assertTrue(set(self.profile['suites'])<set(self.fixture.registry['suites']))
