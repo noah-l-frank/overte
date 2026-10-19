@@ -57,6 +57,8 @@ bool enabled(QQuickItem* item) {
 
 QString controlId(QQuickItem* item) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto create=overte::e2e::createControlId(item);
+    if (!create.isEmpty()) { return create; }
     const auto graphics = overte::e2e::graphicsControlId(item);
     if (!graphics.isEmpty()) { return graphics; }
     const auto audio = overte::e2e::audioControlId(item);
@@ -184,7 +186,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 const auto fileSource = overte::e2e::scriptFileControlSource(item);
                 auto source = fileSource.isEmpty() ? overte::e2e::scriptRowSource(item) : fileSource;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                if (id.startsWith("login.")) {
+                if (id.startsWith("create.")) {
+                    source=overte::e2e::createControlSource(item,id);
+                } else if (id.startsWith("login.")) {
                     if (!loginContext.valid) { return; }
                     source=overte::e2e::loginControlSource(item,id,loginContext);
                 } else if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
@@ -238,7 +242,9 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        if (id.startsWith("login.")) {
+        if (id.startsWith("create.")) {
+            overte::e2e::appendCreateControlObservation(row,control.item,id);
+        } else if (id.startsWith("login.")) {
             overte::e2e::appendLoginControlObservation(row,control.item,id,loginContext);
         } else if (id.startsWith("graphics.") || (id == "settings.entry" && graphicsContext.valid)) {
             overte::e2e::appendGraphicsControlObservation(row,control.item,id,graphicsContext);
@@ -256,6 +262,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         { "open", open }, { "ready", ready }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
+    result["createControlsVersion"] = 1;
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
     if (graphicsContext.valid) { result["graphicsControlsVersion"] = 1; }
@@ -313,7 +320,26 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
     }
     bool delivered { false };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (controlId.startsWith("login.")) {
+    if (controlId.startsWith("create.")) {
+        QJsonObject row;overte::e2e::appendCreateControlObservation(row,control.item,controlId);
+        if (current.value("createControlsVersion")!=QJsonValue(1) || !row.value("inputReady").toBool()) { return result; }
+        const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+        if (action=="activate" && controlId!="create.page" && controlId!="create.scrollbar" && pointerClick
+                && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) { delivered=pointerClick(control.item); }
+        else if (action=="replace" && overte::e2e::createField(controlId) && command.value("text").isString()
+                && overte::e2e::createText(command.value("text").toString())
+                && overte::e2e::NormalControlUi::ownsPoint(control.item,window,point)) {
+            delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+        } else if (action=="select-index" && overte::e2e::createChoice(controlId)) {
+            qint64 index{0};if (integer(command.value("index"),index)) {
+                delivered=overte::e2e::NormalControlUi::selectCreateChoice(control.item,window,index);
+            }
+        } else if (action=="scroll" && controlId=="create.scrollbar") {
+            QPointF scrollPoint;
+            if (overte::e2e::createScrollPoint(control.item,command.value("direction").toString(),scrollPoint)
+                    && overte::e2e::NormalControlUi::ownsPoint(control.item,window,scrollPoint) && pointerAt) { delivered=pointerAt(control.item,scrollPoint); }
+        }
+    } else if (controlId.startsWith("login.")) {
         QJsonObject row;
         for (const auto& value:current.value("controls").toArray()) {
             const auto candidate=value.toObject();if (candidate.value("id").toString()==controlId) { row=candidate; }

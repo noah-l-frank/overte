@@ -303,3 +303,24 @@ actual freshness checks are unchanged. The completed full normal component
 group passes **41** cases in 135.668 seconds; all **21** shared receive-source
 cases also pass. Native C++/Qt/network/peer behavior remains uncompiled/unqualified;
 common feature contract is now v7. See [the exact source](../../native/CHAT_OBSERVATION.md).
+
+### Original Create controls v1
+
+The existing Qt navigation bridge now discovers the shared original
+`NativeCreate.qml` controls, exposes typed actual values and invalidates tokens
+with page/selection/value/geometry changes. `_create_controls(target, intent)`
+composes `TokenCreateUI` through `PicoCreateIO` and the existing candidate/PID/
+OpenXR-bound `PicoNavigation` transport. Every Create input requires the complete
+captured reference; a fresh admission read cannot silently retarget the original
+selection or extend its five-second lease. Pointer, field IME/key, combo key and
+scrollbar-trough input remain ordinary input. Native source is uncompiled.
+
+Six new synthetic-boundary cases pass, and the complete normal Script/Login/
+Create host group passes **56** cases in 174.461 seconds without devices/builds.
+`normal-create` is registered in the existing local Pico suite. These checks
+prove Python protocol/recipe behavior only. The caller must persist ownership
+before each input and independently measure actual entities/history/resources.
+No full Create capability is advertised: durable full-run composition, model/
+texture inputs, JSON file picker/export, PolyVox, permission actors and actual
+file/image/peer joins are still open. Physical Pico input/layout remains
+unqualified. Common feature contract is v8; native Create controls are v1.

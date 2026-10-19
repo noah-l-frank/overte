@@ -230,6 +230,12 @@ def create_adapter(args, base_class):
                 storage, native.clock_ms, native.guard, native.pid, intent=owner.intent, **options)
             return OwnedWorldRenderCapture(capture, storage, owner, receipts)
 
+        def _create_controls(self, target, intent):
+            from adapters.token_create_ui import TokenCreateUI
+            from adapters.pico4.normal_create import PicoCreateIO
+            manager=self._scripts(target)
+            return TokenCreateUI(PicoCreateIO(manager.ui.io),intent)
+
         def _login_controls(self, target, intent, run, origin):
             from adapters.token_login_ui import TokenLoginUI
             from adapters.pico4.normal_login import PicoLoginIO

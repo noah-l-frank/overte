@@ -12,6 +12,7 @@ import uuid
 
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
+from adapters.token_create_ui import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,ascii_text,same_reference
 from adapters.token_login_ui import IDS as LOGIN_IDS,VERSION as LOGIN_VERSION,metadata_fields as login_metadata_fields,validate_metadata as validate_login_metadata
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
 from adapters.token_graphics_ui import graphics_control,metadata_fields as graphics_metadata_fields,validate_metadata as validate_graphics_metadata,on_grid
@@ -79,6 +80,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'graphicsControlsVersion' in value:
         fields.add('graphicsControlsVersion')
         need(type(value['graphicsControlsVersion']) is int and value['graphicsControlsVersion']==1)
+    if type(value) is dict and 'createControlsVersion' in value:
+        fields.add('createControlsVersion')
+        need(type(value['createControlsVersion']) is int and value['createControlsVersion']==1)
     if type(value) is dict and 'loginControlsVersion' in value:
         fields.add('loginControlsVersion')
         need(type(value['loginControlsVersion']) is int and value['loginControlsVersion']==LOGIN_VERSION)
@@ -98,7 +102,10 @@ def validate_snapshot(value, process_id, epoch_ms):
         fields = {'id', 'token', 'enabled', 'focused'}
         if control['id'].startswith('graphics.'):need(value.get('graphicsControlsVersion')==1)
         is_graphics=graphics_control(control['id']) and value.get('graphicsControlsVersion')==1
-        if control['id'] in LOGIN_IDS:
+        is_create=control['id'].startswith('create.')
+        if is_create:
+            need(value.get('createControlsVersion')==1);create_metadata(control);fields=set(control)
+        elif control['id'] in LOGIN_IDS:
             need(value.get('loginControlsVersion')==LOGIN_VERSION);fields |= login_metadata_fields(control['id'])
         elif is_graphics:
             fields |= graphics_metadata_fields(control['id'])
@@ -114,13 +121,14 @@ def validate_snapshot(value, process_id, epoch_ms):
         if control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
         need(set(control) == fields
-             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS)
+             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or is_create and create_control(control['id']))
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
         if control['id'] in SNAPSHOT_CHOICES:
             need(type(control['checked']) is bool)
-        if control['id'] in LOGIN_IDS:validate_login_metadata(control)
+        if is_create:create_metadata(control)
+        elif control['id'] in LOGIN_IDS:validate_login_metadata(control)
         elif is_graphics:validate_graphics_metadata(control)
         elif audio_control(control['id']): validate_audio_metadata(control)
         elif file_control(control['id']): validate_file_metadata(control)
@@ -228,7 +236,7 @@ class PicoNavigation:
                 return value
         return None
 
-    def input(self, control_id, action='activate', text=None, *, source=None, index=None, token=None, direction=None, value=None):
+    def input(self, control_id, action='activate', text=None, *, source=None, index=None, token=None, direction=None, value=None, reference=None):
         # SDK/package verification can take longer than the native input's
         # freshness window. Bind bytes first, then capture the current UI.
         self.io.bind_input()
@@ -236,7 +244,19 @@ class PicoNavigation:
         control = self.control(snapshot, control_id)
         need(snapshot['ready'] and control is not None and snapshot['lastCommandSequence'] < MAX_INTEGER)
         if token is not None: need(control['token'] == token)
-        if control_id in LOGIN_IDS:
+        is_create=control_id.startswith('create.')
+        if reference is not None:
+            from adapters.pico4.normal_create import project
+            original=same_reference(reference,project(snapshot),control_id)
+            need(original['token']==control['token'])
+        if is_create:
+            need(reference is not None and snapshot.get('createControlsVersion')==1 and control['inputReady']
+                 and control_id!='create.page' and value is None and action in ('activate','replace','select-index','scroll'))
+            if action=='replace':need(create_field(control_id) and control['focused']);ascii_text(text)
+            elif action=='select-index':need(create_choice(control_id) and type(index) is int and 0<=index<control['count'])
+            elif action=='scroll':need(control_id=='create.scrollbar' and direction in ('up','down'))
+            else:need(control_id!='create.scrollbar' and direction is None)
+        elif control_id in LOGIN_IDS:
             need(snapshot.get('loginControlsVersion')==LOGIN_VERSION and token is not None
                  and control_id!='login.page' and control['inputReady'] and direction is None and value is None
                  and action in ('activate','replace','submit'))
@@ -267,6 +287,8 @@ class PicoNavigation:
             'sequence': snapshot['lastCommandSequence'] + 1,
             'observedElapsedMs': snapshot['elapsedMs'], 'controlId': control_id,
             'controlToken': control['token'], 'action': action}
+        if reference is not None:
+            command.update(observedElapsedMs=reference['scope']['elapsedMs'],sequence=reference['scope']['sequence']+1,controlToken=original['token'])
         if action == 'replace':
             if control_id == 'navigation.address':
                 need(text in self.urls)
@@ -280,6 +302,8 @@ class PicoNavigation:
                     script_url(text, missing=text.endswith('/missing.js'))
                 else:
                     owned_url(text, {'observer.js'})
+            elif is_create:
+                need(create_field(control_id));ascii_text(text)
             elif control_id in ('login.username','login.password','login.server'):
                 need(type(text) is str and re.fullmatch('[\x20-\x7e]{1,4096}',text))
             elif control_id == 'script-file.folder':
@@ -288,7 +312,7 @@ class PicoNavigation:
                 raise NavigationError()
             command['text'] = text
         if action == 'select-index':
-            need(control_id == 'script-file.primary' and type(index) is int and 0 <= index < 32)
+            need((control_id == 'script-file.primary' or is_create and create_choice(control_id)) and type(index) is int and 0 <= index < 32)
             command['index'] = index
         if action == 'scroll': command['direction'] = direction
         if action == 'set-value':command['value']=value
