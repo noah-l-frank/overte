@@ -6,6 +6,10 @@ These are read-only sources for the existing adapter architecture. They are
 an explicit `--testScript` / writable `--testResultsLocation` launch are needed.
 Nothing builds or installs a client when an adapter requests an observation.
 
+The separate [Script execution observation](SCRIPT_EXECUTION_OBSERVATION.md)
+provides actual native manager identities and historical CommonJS completion/
+cache/error events. It supplies no code or desired module path to the client.
+
 The closed `feature-native-observe` command has exactly `schemaVersion:1`,
 `commandId:<32hex>` (`ios-<32hex>` on HTTP/AFC) and `action`. It accepts no
 expected state, field selection, filename, script, renderer setting or result.

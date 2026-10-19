@@ -1740,6 +1740,9 @@ ScriptValue ScriptManager::require(const QString& moduleId) {
     auto parent = currentModule();
 
     auto throwModuleError = [&](const QString& modulePath, const ScriptValue& error) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _e2eRequiredModules.record(modulePath, false, false);
+#endif
         cache.setProperty(modulePath, _engine->nullValue());
         if (!error.isNull()) {
 #ifdef DEBUG_JS_MODULES
@@ -1775,6 +1778,9 @@ ScriptValue ScriptManager::require(const QString& moduleId) {
 
     auto exports = module.property("exports");
     if (!invalidateCache && exports.isObject()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _e2eRequiredModules.record(modulePath, module.property("loaded").toBool(), true);
+#endif
         // we have found a cached module -- just need to possibly register it with current parent
         qCDebug(scriptengine_module) << QString("require - using cached module for '%1' (loaded: %2)")
             .arg(moduleId).arg(module.property("loaded").toString());
@@ -1820,6 +1826,9 @@ ScriptValue ScriptManager::require(const QString& moduleId) {
 
     // mark as fully-loaded
     module.setProperty("loaded", true, READONLY_PROP_FLAGS);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eRequiredModules.record(modulePath, true, false);
+#endif
 
     // set up a new reference point for detecting cache key deletion
     cacheMeta.setProperty(modulePath, module);
