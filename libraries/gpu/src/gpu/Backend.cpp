@@ -133,6 +133,7 @@ const Backend::TransformCamera& Backend::TransformCamera::recomputeDerived(const
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+thread_local Backend* Backend::_featureExecutingBackend {nullptr};
 bool Backend::featureReadFramebuffer(const FramebufferPointer&, QImage& image) {
     image = QImage();
     return false; // Includes Vulkan until an actual readback is implemented.

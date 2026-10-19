@@ -903,6 +903,9 @@ void VKBackend::do_restoreContextStereo(const Batch& batch, size_t paramOffset) 
 }
 
 void VKBackend::do_runLambda(const Batch& batch, size_t paramOffset) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    Backend::FeatureExecutionScope observedExecution(this);
+#endif
     std::function<void()> f = batch._lambdas.get(batch._params[paramOffset]._uint);
     f();
 }

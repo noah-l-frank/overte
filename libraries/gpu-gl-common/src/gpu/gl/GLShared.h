@@ -14,6 +14,10 @@
 #include <gpu/Format.h>
 #include <gpu/Context.h>
 #include <QLoggingCategory>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QPointer>
+#include <QOpenGLContext>
+#endif
 
 Q_DECLARE_LOGGING_CATEGORY(gpugllogging)
 Q_DECLARE_LOGGING_CATEGORY(trace_render_gpu_gl)
@@ -130,6 +134,14 @@ public:
 
     const GPUType& _gpuObject;
     const GLuint _id;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    bool featureOwnedInCurrentContext(const GLBackend* backend) const {
+        return _backend.lock().get() == backend && _featureCreationContext
+            && _featureCreationContext.data() == QOpenGLContext::currentContext();
+    }
+private:
+    const QPointer<QOpenGLContext> _featureCreationContext {QOpenGLContext::currentContext()};
+#endif
 protected:
     const std::weak_ptr<GLBackend> _backend;
 };

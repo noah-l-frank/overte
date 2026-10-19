@@ -210,10 +210,11 @@ void GLBackend::downloadFramebuffer(const FramebufferPointer& srcFramebuffer, co
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 bool GLBackend::featureTextureExtent(const TexturePointer& texture, Vec2i& extent) {
     extent = Vec2i(0);
-    if (!QCoreApplication::arguments().contains("--testScript") || !QOpenGLContext::currentContext()
+    if (Backend::featureExecutingBackend() != this || !QCoreApplication::arguments().contains("--testScript") || !QOpenGLContext::currentContext()
             || !texture || texture->getType() != Texture::TEX_2D || texture->getNumSamples() > 1) { return false; }
     const auto object = Backend::getGPUObject<GLTexture>(*texture);
-    if (!object || object->_target != GL_TEXTURE_2D || !object->_texture || !glIsTexture(object->_texture)) { return false; }
+    if (!object || !object->featureOwnedInCurrentContext(this) || object->_target != GL_TEXTURE_2D
+            || !object->_texture || !glIsTexture(object->_texture)) { return false; }
     GLint bound {0}, width {0}, height {0};
     glGetIntegerv(GL_TEXTURE_BINDING_2D,&bound);
     glBindTexture(GL_TEXTURE_2D,object->_texture);
@@ -229,7 +230,7 @@ bool GLBackend::featureTextureExtent(const TexturePointer& texture, Vec2i& exten
 
 bool GLBackend::featureReadFramebuffer(const FramebufferPointer& framebuffer, QImage& image) {
     image = QImage();
-    if (!QCoreApplication::arguments().contains("--testScript") || !QOpenGLContext::currentContext()
+    if (Backend::featureExecutingBackend() != this || !QCoreApplication::arguments().contains("--testScript") || !QOpenGLContext::currentContext()
             || !framebuffer || framebuffer->getWidth() < 1 || framebuffer->getHeight() < 1
             || framebuffer->getWidth() > 4096 || framebuffer->getHeight() > 4096
             || static_cast<quint64>(framebuffer->getWidth())*framebuffer->getHeight() > 8388608ULL) { return false; }
@@ -237,7 +238,7 @@ bool GLBackend::featureReadFramebuffer(const FramebufferPointer& framebuffer, QI
     // object. Do not synchronize/create a framebuffer or read the default UI
     // target as a fallback. GPU backend family is fixed by Context::init.
     const auto object = Backend::getGPUObject<GLFramebuffer>(*framebuffer);
-    if (!object || !object->_fbo || object->_colorBuffers.empty()) { return false; }
+    if (!object || !object->featureOwnedInCurrentContext(this) || !object->_fbo || object->_colorBuffers.empty()) { return false; }
     GLint drawFbo {0}, drawBuffer {0};
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&drawFbo);
     glGetIntegerv(GL_DRAW_BUFFER0,&drawBuffer);
@@ -247,6 +248,8 @@ bool GLBackend::featureReadFramebuffer(const FramebufferPointer& framebuffer, QI
     // reading beyond its actual extent can otherwise leave undefined bytes.
     const auto& texture = framebuffer->getRenderBuffer(0);
     if (!texture || texture->getType() != Texture::TEX_2D || texture->getNumSamples() > 1) { return false; }
+    const auto textureObject = Backend::getGPUObject<GLTexture>(*texture);
+    if (!textureObject || !textureObject->featureOwnedInCurrentContext(this) || textureObject->_target != GL_TEXTURE_2D) { return false; }
     GLint attachmentType {0}, attachmentName {0}, attachmentLevel {0}, boundTexture {0};
     glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,
         GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE,&attachmentType);
@@ -254,7 +257,7 @@ bool GLBackend::featureReadFramebuffer(const FramebufferPointer& framebuffer, QI
         GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME,&attachmentName);
     glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,
         GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL,&attachmentLevel);
-    if (attachmentType != GL_TEXTURE || attachmentName <= 0 || attachmentLevel < 0
+    if (attachmentType != GL_TEXTURE || static_cast<GLuint>(attachmentName) != textureObject->_texture || attachmentLevel < 0
             || !glIsTexture(static_cast<GLuint>(attachmentName))) { return false; }
     glGetIntegerv(GL_TEXTURE_BINDING_2D,&boundTexture);
     glBindTexture(GL_TEXTURE_2D,static_cast<GLuint>(attachmentName));
