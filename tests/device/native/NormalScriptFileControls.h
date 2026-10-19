@@ -52,7 +52,7 @@ inline QUrl scriptFileRowUrl(QQuickItem* item) {
 
 inline QString scriptFileControlId(QQuickItem* item) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    if (!item || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
     const auto name = item->objectName();
     if (name == QStringLiteral("scriptFromFile") && item->metaObject()->indexOfSignal("clicked()") >= 0) {
         return QStringLiteral("scripts.from-file");

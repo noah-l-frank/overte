@@ -145,7 +145,8 @@ public:
     }
 
     static bool selectFocusedPrimary(QQuickItem* item, QQuickWindow* window, qint64 index) {
-        if (!qApp || QThread::currentThread() != qApp->thread()
+        if (!item || !window || !qApp || QThread::currentThread() != qApp->thread()
+                || item->thread() != QThread::currentThread() || window->thread() != QThread::currentThread()
                 || !QCoreApplication::arguments().contains("--testScript")
                 || scriptFileControlId(item) != QStringLiteral("script-file.primary")
                 || visibleRect(item, window).isEmpty() || !item->isEnabled()
