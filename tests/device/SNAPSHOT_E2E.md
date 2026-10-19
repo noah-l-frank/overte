@@ -36,6 +36,11 @@ basename must carry the requested name and a capture ticket. The still and GIF
 must carry the same ticket. A stale file, missing GIF or acknowledged tap without
 files cannot satisfy the journey.
 
+An empty native reservation remains visible to the pre-capture freshness check.
+After capture, its empty original bytes reach the decoder and remain pending
+within the bounded poll. They must not become a transport infrastructure failure
+or a completed image. Unsafe paths, aliases and oversized artifacts still fail.
+
 The independent decoder checks actual PNG/JPEG/GIF encoding, complete frames,
 checksums/end markers, frame timing and nonuniform output from the controlled
 scene. Panorama must be 8192x4096; cubemap must be the actual 8192x6144 cross
