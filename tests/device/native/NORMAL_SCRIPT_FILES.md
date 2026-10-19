@@ -2,9 +2,9 @@
 
 This packet adds a common UI recipe and a source-only E2E resolver for the
 **existing** `NativeFileBrowser.qml` Script bundle workflow. It adds no runner,
-test-only picker, file helper invocation or client feature. It is **not yet
-connected to platform producers/transports**, advertises no capability, and the
-new C++ header is uncompiled. All hardware qualification is outstanding.
+test-only picker, file helper invocation or client feature. The three isolated platform branches now connect their normal native
+producers/transports to this recipe. It advertises no capability, and the new
+C++ sources remain uncompiled. All hardware qualification is outstanding.
 
 `ScriptFileUi.h` is the E2E-only native source/input core for the first Phone
 binding. It observes the actual platform-supplied Qt root/window and current
@@ -18,8 +18,9 @@ route. Folder replacement/Return use `NativeFieldInput`; main selection uses
 ordinary Home/Down/Return events only while the actual selector owns focus and
 the index fits its real model. No handler invocation or model assignment is
 used. The core requires the default-off feature flag and explicit test launch.
-It has **no platform wrapper or wire transport yet**. This source review and
-the recipe's Python checks do not compile or qualify that core.
+Phone wraps this core through its closed private probe transport; Pico/iOS use
+their existing normal token/input owners with this shared resolver. This source
+review and the Python checks do not compile or qualify those sources.
 
 `NormalScriptFileControls.h` identifies only the real **From File** control and
 the actual `nativeFileBrowser` with caption **Open Script and Companion Files**,
@@ -82,11 +83,12 @@ instance, unavailable native marker, ignored field/row/select/confirm action,
 missing companion, extra review file, foreign reused row or ignored primary
 choice fails without replaying input. Another dialog cannot be adopted.
 
-Eight device-free tests execute this actual common recipe with a native UI
+Nine device-free tests execute this actual common recipe with a native UI
 boundary reading real temporary fixture files. They confirm test/control logic,
 not Qt accessibility, keyboard delivery, native picker behavior or script
-execution. Next required work: platform token/metadata publication, ordinary
-folder/selector input bindings, owned file staging and persistent cleanup,
-then the complete version 2 Script state/effect/journal join. System folder
+execution. The separate [fixture storage source](SCRIPT_FIXTURE_STORAGE.md) now defines
+exclusive staging, original readback and persistent file cleanup intent. The
+full owner still needs dialog/engine cleanup, verified restart handoff and the
+complete version 2 Script state/effect/journal join. System folder
 picker and OS permission paths need their own concrete normal UI bindings;
 this packet does not pretend to implement those paths.

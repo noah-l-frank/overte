@@ -483,6 +483,14 @@ class FixtureState:
             valid = (set(command) == {"schemaVersion", "commandId", "action"}
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None)
+        elif action == "feature-script-files":
+            sys.path.insert(0, str(ROOT.parent))
+            from adapters.native_script_files import command as script_files_command
+            try:
+                script_files_command(command, ios=True)
+            except (ValueError, RuntimeError):
+                raise ValueError("invalid native Script file request") from None
+            valid = True
         elif action == "normal-feature-observe":
             valid = (set(command) == {"schemaVersion", "commandId", "action", "includeAvatarEntities"}
                      and type(command["schemaVersion"]) is int
