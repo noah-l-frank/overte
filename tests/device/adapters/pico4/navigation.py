@@ -13,6 +13,7 @@ import uuid
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
+from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, metadata_fields as file_metadata_fields,
     validate_metadata as validate_file_metadata, folder_text)
 
@@ -70,6 +71,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'fileControlsVersion' in value:
         fields.add('fileControlsVersion')
         need(type(value['fileControlsVersion']) is int and value['fileControlsVersion'] == 1)
+    if type(value) is dict and 'audioControlsVersion' in value:
+        fields.add('audioControlsVersion')
+        need(type(value['audioControlsVersion']) is int and value['audioControlsVersion'] == 1)
     need(type(value) is dict and set(value) == fields
          and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and identifier(value['bridgeId']) and identifier(value['generation'])
@@ -84,7 +88,10 @@ def validate_snapshot(value, process_id, epoch_ms):
     for control in value['controls']:
         need(type(control) is dict and isinstance(control.get('id'), str))
         fields = {'id', 'token', 'enabled', 'focused'}
-        if file_control(control['id']):
+        if audio_control(control['id']):
+            need(value.get('audioControlsVersion') == 1)
+            fields |= audio_metadata_fields(control['id'])
+        elif file_control(control['id']):
             need(value.get('fileControlsVersion') == 1)
             fields |= file_metadata_fields(control['id'])
         elif script_control(control['id']):
@@ -93,13 +100,14 @@ def validate_snapshot(value, process_id, epoch_ms):
         if control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
         need(set(control) == fields
-             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']))
+             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']))
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
         if control['id'] in SNAPSHOT_CHOICES:
             need(type(control['checked']) is bool)
-        if file_control(control['id']): validate_file_metadata(control)
+        if audio_control(control['id']): validate_audio_metadata(control)
+        elif file_control(control['id']): validate_file_metadata(control)
         elif script_control(control['id']):
             validate_metadata(control)
         ids.add(control['id']); tokens.add(control['token'])
@@ -204,13 +212,20 @@ class PicoNavigation:
                 return value
         return None
 
-    def input(self, control_id, action='activate', text=None, *, source=None, index=None):
+    def input(self, control_id, action='activate', text=None, *, source=None, index=None, token=None, direction=None):
         # SDK/package verification can take longer than the native input's
         # freshness window. Bind bytes first, then capture the current UI.
         self.io.bind_input()
         snapshot = self.snapshot()
         control = self.control(snapshot, control_id)
         need(snapshot['ready'] and control is not None and snapshot['lastCommandSequence'] < MAX_INTEGER)
+        if token is not None: need(control['token'] == token)
+        if audio_control(control_id):
+            need(snapshot.get('audioControlsVersion') == 1 and control['inputReady']
+                 and token is not None and control_id != 'audio.page' and action in ('activate','scroll'))
+            if action == 'activate': need(control_id != 'audio.scrollbar' and direction is None)
+            else: need(control_id == 'audio.scrollbar' and direction in ('up','down'))
+        else: need(direction is None and action in ('activate','replace','submit','select-index'))
         if source is not None:
             need(control.get('sourceUrl') == source)
         if file_control(control_id):
@@ -243,6 +258,7 @@ class PicoNavigation:
         if action == 'select-index':
             need(control_id == 'script-file.primary' and type(index) is int and 0 <= index < 32)
             command['index'] = index
+        if action == 'scroll': command['direction'] = direction
         self.io.guard()
         # The owning transport writes exactly once, then only polls status.
         try:

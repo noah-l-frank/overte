@@ -245,14 +245,13 @@ QTouchDevice& bridgeTouchDevice() {
     return device;
 }
 
-bool sendPointerClick(QQuickItem* item, OffscreenQmlSurface* surface) {
+bool sendPointerAt(QQuickItem* item, OffscreenQmlSurface* surface, const QPointF& position) {
     auto window = surface ? surface->getWindow() : nullptr;
     if (!effectiveVisible(item) || !item->isEnabled() || !surface || !window
             || item->window() != window) {
         return false;
     }
-    const QPointF local(item->width() / 2.0, item->height() / 2.0);
-    const QPointF position = item->mapToScene(local);
+    if (!item->contains(item->mapFromScene(position))) { return false; }
     if (!std::isfinite(position.x()) || !std::isfinite(position.y())
             || position.x() < 0.0 || position.y() < 0.0
             || position.x() >= window->width() || position.y() >= window->height()) {
@@ -284,6 +283,10 @@ bool sendPointerClick(QQuickItem* item, OffscreenQmlSurface* surface) {
     const bool releaseAccepted = surface->handlePointerEvent(release, touchDevice);
     surface->hoverEndEvent(move, touchDevice);
     return pressAccepted && releaseAccepted;
+}
+
+bool sendPointerClick(QQuickItem* item, OffscreenQmlSurface* surface) {
+    return item && sendPointerAt(item, surface, item->mapToScene(QPointF(item->width()/2, item->height()/2)));
 }
 
 class TabletBridge : public QObject {
@@ -330,7 +333,8 @@ private:
         // The pointer callback is the existing native VR surface route. The
         // navigation resolver itself cannot call AddressManager or QML slots.
         const auto status = _navigation.apply(root, window, open, command,
-            [surface](QQuickItem* item) { return sendPointerClick(item, surface); });
+            [surface](QQuickItem* item) { return sendPointerClick(item, surface); },
+            [surface](QQuickItem* item, const QPointF& point) { return sendPointerAt(item, surface, point); });
         writeJson(BRIDGE_DIRECTORY + "/navigation-ui-status.json", status);
     }
 

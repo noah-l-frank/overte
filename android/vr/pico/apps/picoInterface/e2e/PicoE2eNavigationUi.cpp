@@ -16,6 +16,8 @@
 #include "../../../../../../tests/device/native/NormalScriptFileControls.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
+#include <AudioClient.h>
+#include <Application.h>
 #endif
 
 namespace overte::pico::e2e {
@@ -52,6 +54,10 @@ bool enabled(QQuickItem* item) {
 }
 
 QString controlId(QQuickItem* item) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto audio = overte::e2e::audioControlId(item);
+    if (!audio.isEmpty()) { return audio; }
+#endif
     const auto file = overte::e2e::scriptFileControlId(item);
     if (!file.isEmpty()) { return file; }
     const auto script = overte::e2e::scriptControlId(item);
@@ -125,6 +131,18 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     }
     bool ready = open && root && window && root->thread() == qApp->thread()
         && window->thread() == qApp->thread() && root->window() == window;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::AudioUiContext audioContext;
+    if (DependencyManager::isSet<AudioClient>() && QCoreApplication::arguments().contains("--testScript")) {
+        const auto audio = DependencyManager::get<AudioClient>();
+        QVariantMap voice; bool muted {false}, echo {false};
+        const auto read = [&] { voice = audio->featureRecordedVoiceObservation(); muted = audio->isMuted(); echo = audio->getLocalEcho(); };
+        bool readOkay {true};
+        if (QThread::currentThread() == audio->thread()) { read(); }
+        else { readOkay = QMetaObject::invokeMethod(audio.data(), read, Qt::BlockingQueuedConnection); }
+        if (readOkay) { audioContext = overte::e2e::AudioUiContext::fromNative(voice, muted, echo, qApp->isHMDMode()); }
+    }
+#endif
     QHash<QString, Control> controls;
     bool ambiguous { false };
     int count { 0 };
@@ -137,7 +155,13 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 if (controls.contains(id)) { ambiguous = true; return; }
                 const auto previous = _controls.value(id);
                 const auto fileSource = overte::e2e::scriptFileControlSource(item);
-                const auto source = fileSource.isEmpty() ? overte::e2e::scriptRowSource(item) : fileSource;
+                auto source = fileSource.isEmpty() ? overte::e2e::scriptRowSource(item) : fileSource;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                if (id.startsWith("audio.") || id == "settings.entry") {
+                    if (!audioContext.valid) { return; }
+                    source = overte::e2e::audioControlSource(item, id, audioContext);
+                }
+#endif
                 controls.insert(id, { item, previous.item == item && previous.source == source ? previous.token : token(), source });
             }
         }
@@ -180,6 +204,11 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         }
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (id.startsWith("audio.") || id == "settings.entry") {
+            overte::e2e::appendAudioControlObservation(row, control.item, id, audioContext);
+        }
+#endif
         observed.append(row);
     }
     QJsonObject result { { "schemaVersion", 1 }, { "bridgeId", _bridgeId }, { "generation", _generation },
@@ -191,13 +220,15 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
     result["fileControlsVersion"] = 1;
+    if (audioContext.valid) { result["audioControlsVersion"] = 1; }
 #endif
     return result;
 }
 
 QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool open,
                                const QJsonObject& command,
-                               const std::function<bool(QQuickItem*)>& pointerClick) {
+                               const std::function<bool(QQuickItem*)>& pointerClick,
+                               const std::function<bool(QQuickItem*, const QPointF&)>& pointerAt) {
     if (!qApp || QThread::currentThread() != qApp->thread()) { return {}; }
     const auto current = observe(root, window, open);
     const auto id = command.value("commandId").toString();
@@ -211,6 +242,9 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
         "sequence", "observedElapsedMs", "controlId", "controlToken", "action" };
     if (action == "replace") { expected.insert("text"); }
     if (action == "select-index") { expected.insert("index"); }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (action == "scroll") { expected.insert("direction"); }
+#endif
     qint64 sequence { 0 }, observedAt { 0 };
     const auto uuid = QUuid(id);
     if (!exactKeys(command, expected) || command.value("schemaVersion") != QJsonValue(1)
@@ -221,7 +255,11 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
             || command.value("generation") != QJsonValue(_generation)
             || !integer(command.value("observedElapsedMs"), observedAt)
             || observedAt > _clock.elapsed() || _clock.elapsed() - observedAt > 5000
-            || (action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
+            || (action != "activate" && action != "replace" && action != "submit" && action != "select-index"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                && action != "scroll"
+#endif
+                )) { return result; }
     // Consume an admitted sequence before any input. An uncertain result may
     // be read again but can never replay a pointer/key/IME mutation.
     _lastCommandSequence = sequence;
@@ -234,6 +272,25 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
         return result;
     }
     bool delivered { false };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (controlId.startsWith("audio.") || controlId == "settings.entry") {
+        QJsonObject row;
+        for (const auto& value : current.value("controls").toArray()) {
+            const auto candidate = value.toObject(); if (candidate.value("id").toString() == controlId) { row = candidate; }
+        }
+        if (!row.value("inputReady").toBool()) { return result; }
+        if (action == "scroll" && controlId == "audio.scrollbar") {
+            QPointF point;
+            if (overte::e2e::audioScrollPoint(control.item, command.value("direction").toString(), point)
+                    && overte::e2e::NormalControlUi::ownsPoint(control.item, window, point) && pointerAt) {
+                delivered = pointerAt(control.item, point);
+            }
+        } else if (action == "activate" && controlId != "audio.page" && controlId != "audio.scrollbar") {
+            const auto point = control.item->mapToScene(QPointF(control.item->width()/2, control.item->height()/2));
+            if (overte::e2e::NormalControlUi::ownsPoint(control.item, window, point) && pointerClick) { delivered = pointerClick(control.item); }
+        }
+    } else
+#endif
     if (action == "activate") {
         delivered = pointerClick && pointerClick(control.item);
 #if defined(OVERTE_E2E_FEATURE_TESTS)

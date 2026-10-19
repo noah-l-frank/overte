@@ -21,7 +21,8 @@ public:
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, bool open);
     QJsonObject apply(QQuickItem* root, QQuickWindow* window, bool open,
                       const QJsonObject& command,
-                      const std::function<bool(QQuickItem*)>& pointerClick);
+                      const std::function<bool(QQuickItem*)>& pointerClick,
+                      const std::function<bool(QQuickItem*, const QPointF&)>& pointerAt = {});
 private:
     struct Control {
         QPointer<QQuickItem> item;

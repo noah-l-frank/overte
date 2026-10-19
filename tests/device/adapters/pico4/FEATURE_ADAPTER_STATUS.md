@@ -169,3 +169,27 @@ buffers. The added wrapper case rejects an older source and never advances
 terminal event metadata on reads. All 17 observation cases pass. C++ remains
 uncompiled; Audio UI, independent acoustic/journal and verified restart/cleanup
 joins remain open. See [the history source](../../native/RECORDED_PREVIEW_HISTORY.md).
+
+The internal `_audio_controls(target, intent)` component reuses the candidate/
+OpenXR/session guards and original navigation token transport established by
+`_scripts`. It therefore currently requires that explicit normal-Scripts fixture
+configuration, not an independent full-area Audio capability. The caller owns
+page/cycle intent and cleanup. `PicoAudioIO` requires `audioControlsVersion:1`
+and preserves the recipe's supplied token through the final native input.
+
+The original `NavigationUi` now reads actual AudioClient-thread history/cycle,
+mute/echo and actual GUI HMD context. It retires changed source tokens and
+reports original Qt/native readiness separately from widget enabled state.
+A closed `scroll` command adds only direction up/down. Actual VR surface pointer
+input targets real scrollbar groove geometry and verifies the actual scene hit;
+no QML handler, gain slider, field setter or AudioClient Start/Cancel is called
+as a shortcut. A page marker and scrollbar are never activated as buttons.
+
+Five new actual-wrapper boundary cases pass for Audio start/cancel, mute/echo,
+scroll, ignored input, retired tokens, installed-candidate change and missing
+producer version. The previous fourteen normal Script/file/storage cases and
+31 original binding/navigation/Snapshot cases also pass. These are explicit
+host/native fixtures, not a native client or OpenXR execution. Native C++ remains
+uncompiled. Full Audio acoustic, ownership/journal and verified restart cleanup
+coordination remain open; no `feature.audio.*` capability is advertised.
+See the shared [normal Audio contract](../../native/NORMAL_AUDIO_CONTROLS.md).

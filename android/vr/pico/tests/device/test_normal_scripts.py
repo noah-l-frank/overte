@@ -21,6 +21,8 @@ from self_tests.test_token_script_ui import NativeBoundary, SOURCE
 from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
+from adapters.token_audio_ui import TokenAudioUI
+from self_tests.test_token_audio_ui import AudioBoundary
 from self_tests.test_native_script_files import Boundary as FilesBoundary
 
 
@@ -111,6 +113,70 @@ class PicoNormalScriptsTests(unittest.TestCase):
                 monotonic=lambda: self.qt.clock, sleep=self.qt.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
         self.instance = self.fixture.instance()
+
+    def audio_controls(self):
+        native = AudioBoundary()
+        self.native.opened = True  # This fixture begins on an already visible Audio page.
+        snapshot_original = self.native.snapshot
+        write_original = self.native.write_debug_app_file
+        def snapshot():
+            value = snapshot_original(); measured = native.capture()
+            value['audioControlsVersion'] = measured['audioControlsVersion']
+            value['controls'] = measured['controls']
+            for row in value['controls']:
+                row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL,row['token']))
+                row['focused'] = False
+            return value
+        def write(target,package,path,raw):
+            command=json.loads(raw)
+            if path != 'files/overte-e2e/navigation-ui-command.json': return write_original(target,package,path,raw)
+            current=snapshot(); row=next(r for r in current['controls'] if r['id']==command['controlId'])
+            self.assertEqual(row['token'],command['controlToken'])
+            original=next(r for r in native.capture()['controls'] if r['id']==command['controlId'])
+            self.assertEqual(self.native.sequence+1,command['sequence']); self.native.sequence+=1
+            self.native.inputs.append(command)
+            if command['action']=='scroll': native.scroll(command['controlId'],command['direction'],token=original['token'])
+            else: native.activate(command['controlId'],token=original['token'])
+            self.native.status=dict(schemaVersion=1,bridgeId=current['bridgeId'],commandId=command['commandId'],
+                sequence=command['sequence'],performed=True,error='',processId=123,
+                updatedEpochMs=self.native.epoch_milliseconds(target))
+        for boundary in (patch.object(self.native,'snapshot',side_effect=snapshot),
+                         patch.object(self.native,'write_debug_app_file',side_effect=write),
+                         patch('adapters.token_audio_ui.TokenAudioUI',partial(TokenAudioUI,
+                             monotonic=lambda: native.clock,sleep=native.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return native,self.instance._audio_controls(self.native.target,native.intent)
+
+    def test_pico_audio_actual_token_route_start_cancel_scroll_and_mute(self):
+        native,ui=self.audio_controls(); ui.mute(True); ui.mute(False)
+        row=ui.start();ui.cancel(row['cycle']);ui.echo(True);ui.echo(False)
+        self.assertEqual('cancelled',native.phase);self.assertFalse(native.active)
+        self.assertEqual(2,native.actions.count('audio.record'))
+
+    def test_pico_audio_ignored_start_and_cancel_are_not_replayed(self):
+        native,ui=self.audio_controls();native.fault='record'
+        with self.assertRaises(RuntimeError):ui.start()
+        self.assertEqual(1,native.actions.count('audio.record'))
+        native.fault='';ui.start();native.fault='record'
+        with self.assertRaises(RuntimeError):ui.cancel(1)
+        self.assertTrue(native.active);self.assertEqual(3,native.actions.count('audio.record'))
+
+    def test_pico_audio_retired_original_token_cannot_adopt_a_new_cycle(self):
+        native,ui=self.audio_controls();native.position=0.6
+        row=ui.visible('audio.record');native.cycle+=1
+        with self.assertRaises(RuntimeError):ui.io.activate('audio.record',token=row['token'])
+        self.assertEqual([],native.actions);self.assertEqual([],self.native.inputs)
+
+    def test_pico_audio_candidate_change_is_refused_before_original_input(self):
+        native,ui=self.audio_controls();self.native.digest='f'*64
+        with self.assertRaises((RuntimeError,ValueError)):ui.start()
+        self.assertEqual([],native.actions);self.assertEqual([],self.native.inputs)
+
+    def test_pico_audio_missing_native_marker_cannot_authorize_input(self):
+        native,ui=self.audio_controls()
+        native.transform=lambda value: dict(value,audioControlsVersion=2)
+        with self.assertRaises(RuntimeError):ui.start()
+        self.assertEqual([],native.actions)
 
     def invoke(self, operation, arguments=None):
         return self.instance.invoke(self.native.target, operation, arguments or {})
