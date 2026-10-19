@@ -213,15 +213,27 @@ class Boundary:
         elif a == 'chat':
             if verb in {'open','close'}:
                 s['open'] = verb == 'open'
-                if verb == 'close': s.update(focused=False, keyboard=False)
+                if verb == 'close': s.update(draft='',channel='local',focused=False,keyboard=False)
             elif verb == 'type': s.update(draft=data['text'], focused=True, keyboard=True)
-            elif verb == 'back': s.update(focused=False, keyboard=False)
-            elif verb == 'send' and s['error'] == 'none':
-                s['messages'].append(s['draft']); s['draft'] = ''
-            elif verb == 'peer-send' and not s['filtered']: s['messages'].append(data['text'])
-            elif verb == 'filter-peer': s['filtered'] = data['enabled']
-            elif verb == 'network-disconnect': s['error'] = 'offline'
-            elif verb == 'network-reconnect': s['error'] = 'none'
+            elif verb == 'select-channel': s.update(channel=data['channel'],focused=False,keyboard=False)
+            elif verb == 'send':
+                text=s['draft']
+                if text:
+                    s[s['channel']+'Messages'].append(text)
+                    if s['mixerConnected']:s['peerMessages'].append(text)
+                    elif self.fault=='offline-delivery':s['peerMessages'].append(text)
+                    if self.fault!='offline-draft-retained' or s['mixerConnected']:s['draft']=''
+                    if self.fault=='duplicate-peer-delivery' and s['mixerConnected']:s['peerMessages'].append(text)
+            elif verb == 'peer-send':
+                if self.fault!='fake-peer-filter' or data['text']!=self.ctx['hidden']:
+                    s[data['channel']+'Messages'].append(data['text'])
+            elif verb == 'peer-send-distant':
+                if self.fault=='distant-peer-accepted':s['localMessages'].append(data['text'])
+            elif verb == 'network-remove-mixer': s['mixerConnected']=False
+            elif verb == 'network-restore-mixer':
+                s['mixerConnected']=True;self.chat_reconnect_at=self.clock
+                if self.fault=='queued-replay':s['peerMessages'].append(self.ctx['retry'])
+            s['messages']=list(s[s['channel']+'Messages']) if s['open'] else []
         elif a == 'snapshots':
             if verb in {'open','close'}: s['open'] = verb == 'open'
             elif verb == 'set-storage-permission': s.update(permission=data['state'], error='none')
@@ -303,6 +315,9 @@ class Boundary:
     def observe(self, fields):
         self.sequence += 1
         if self.area=='authentication':self.state['delayedGrantOutstanding']=self.auth_delayed_valid
+        if (self.area=='chat' and self.fault=='late-queued-replay' and hasattr(self,'chat_reconnect_at')
+                and self.clock-self.chat_reconnect_at>=1 and not getattr(self,'chat_late_replayed',False)):
+            self.state['peerMessages'].append(self.ctx['retry']);self.chat_late_replayed=True
         if self.area=='emotes':
             if self.emote_due is not None and self.clock>=self.emote_due and self.fault!='emote-timer-ignored':
                 self.state.update(animation='idle',sit='none',override=False,poseProgress=0.)
@@ -406,6 +421,39 @@ class FeatureJourneys(unittest.TestCase):
                 with self.assertRaises((AssertionError, ValueError)):
                     boundary.execute()
                 self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_chat_retyped_resend_distinguishes_local_echo_from_actual_peer_delivery(self):
+        boundary=Boundary('chat');boundary.execute()
+        samples=boundary.reports[0]['samples']
+        offline=[row['state'] for row in samples if not row['state']['mixerConnected'] and row['state']['draft']=='']
+        self.assertTrue(any(row['domainMessages'].count(context(RUN)['retry'])==1 and row['peerMessages']==[context(RUN)['unicode']] for row in offline))
+        final=next(row['state'] for row in reversed(samples) if row['phase'].startswith('23-send'))
+        self.assertEqual(2,final['domainMessages'].count(context(RUN)['retry']))
+        self.assertEqual(1,final['peerMessages'].count(context(RUN)['retry']))
+        quiet=[phase for phase in boundary.reports[0]['phases'] if phase['phase'].endswith('await-no-replay')]
+        self.assertEqual(1,len(quiet));self.assertGreaterEqual(quiet[0]['stableSeconds'],3)
+
+    def test_chat_false_filter_distant_input_queued_replay_and_duplicate_delivery_fail(self):
+        for fault in ('fake-peer-filter','distant-peer-accepted','offline-delivery','offline-draft-retained',
+                      'queued-replay','late-queued-replay','duplicate-peer-delivery'):
+            with self.subTest(fault=fault):
+                boundary=Boundary('chat',fault)
+                with self.assertRaises((AssertionError,ValueError)):boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+                self.assertTrue(boundary.reports[0]['cleanupSucceeded'])
+
+    def test_chat_rejects_invented_filter_error_contract_and_prior_version(self):
+        request=dict(contractVersion=VERSION,runId=RUN,ticket=TICKET,
+            fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/',verb='select-channel',inputs={'channel':'domain'})
+        self.assertEqual(request,arguments('feature.chat.act',request))
+        for change in ({'contractVersion':6},{'verb':'filter-peer','inputs':{'enabled':True}},
+                       {'verb':'network-disconnect','inputs':{}},{'verb':'back','inputs':{}},
+                       {'inputs':{'channel':'peer'}}):
+            with self.assertRaises(ValueError):arguments('feature.chat.act',request|change)
+        boundary=Boundary('chat');value=boundary.observe({})
+        for edit in ({'channel':'peer'},{'messages':['not rendered']},{'keyboard':True}, {'filtered':False}):
+            changed=copy.deepcopy(value);changed['state'].update(edit)
+            with self.assertRaises(ValueError):result('feature.chat.observe',changed)
 
     def test_audio_contract_rejects_invented_save_preview_commands_and_old_version(self):
         request = dict(contractVersion=VERSION, runId=RUN, ticket=TICKET,
@@ -838,9 +886,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v6.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v7.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v6.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v7.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():

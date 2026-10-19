@@ -5,7 +5,7 @@ implemented**: Phone has new ordinary Create/script foundation bindings; Pico
 has a candidate-bound original-observation backend; iOS has an original-read
 component behind its unchanged installed-code gate. **No complete new
 `feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
-All fourteen complete version 6 adapters remain missing, and all device qualification
+All fourteen complete version 7 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.
 
@@ -16,7 +16,7 @@ original evaluated animation/pose observations, with labelled native
 render/audio/account settings reads. Platform transports are being connected
 in Phone, Pico, iOS order. See [the native source contract](native/README.md).
 The initial source-only readers and full-area adapter status remain distinct;
-these new sources do not by themselves complete any version 6 triple.
+these new sources do not by themselves complete any version 7 triple.
 The [source compatibility audit](FEATURE_SOURCE_COMPATIBILITY.md) also records
 draft common workflow assumptions that must be corrected before area activation.
 
@@ -99,7 +99,7 @@ trust/origin setup or a complete actor/coordinator; no capability is enabled.
 
 ## Fourteen-area source audit
 
-All rows below mean: **test logic present; full version 6 adapter missing; devices
+All rows below mean: **test logic present; full version 7 adapter missing; devices
 untested**. Existing/new foundations are narrower implementation scopes.
 
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
@@ -125,7 +125,7 @@ Common blockers affecting the full triples:
   an account backend, domain administrator, external upload/share service or
   second Overte client. No such real measuring actor has been implemented by
   relabelling fixture simulation or by forwarding expectations to the adapter.
-* The version 6 `lifecycle` counters must come from actual native lifecycle events;
+* The version 7 `lifecycle` counters must come from actual native lifecycle events;
   request counts cannot fill them. The continuation's native packet implements
   that source, but the full-area observer/cleanup joins remain to be completed.
 * Fullscreen panels can occlude the current in-world challenge/feature subject.

@@ -4,6 +4,25 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The Chat v7 source-contract correction passes **601** guarded common host
+cases with zero failures/errors/skips/compiler attempts and the same three
+native exclusions. Its **51** journey cases add counterexamples for invented
+filtering, accepted distant Local traffic, offline delivery/draft retention,
+immediate and delayed replay, and duplicate remote delivery. Three new tests
+execute original Chat JS with explicit native/message seams; no C++/QML or
+actual network transport is executed by those tests. An initial independent
+projection omitted actual page openness and failed visibility validation; the
+witness now independently measures open, and the complete selection passes.
+No full Chat capability, source compilation or device acceptance is enabled.
+See [the source-specific boundary](feature_journeys/CHAT_SOURCE.md).
+
+iOS's later private credential packet is stored separately as eb68124397 on
+its platform branch. **294** guarded iOS cases pass with zero errors/failures/
+skips/compiler attempts and the same 20 native exclusions. This supersedes the
+earlier transport-integration prerequisite below only for that component;
+installed-code association, whole Authentication coordination, actual AFC/GUI
+qualification and all device acceptance remain open.
+
 The private login-input lease v2 packet passes **595** guarded common host
 cases, zero failures/errors/skips/compiler attempts, with the same three native
 exclusions. Its **18** focused cases additionally model an upload whose response
