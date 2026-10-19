@@ -250,3 +250,10 @@ replacement and unresolved cleanup. The full local no-build common selection
 passes 645 host cases (three native compiler checks explicitly excluded).
 Native Qt source remains uncompiled; platform adoption and the complete v8
 model/file/export/PolyVox/permission actor composition remain pending.
+
+The separate platform branches now connect the shared Create input recipe:
+Phone `e88825d4d0` / `46ae6d6461`, Pico `cc6ea0224e` / `b70f01e528`, iOS
+`83e7756b2c`. The [handoff](FEATURE_ADAPTER_HANDOFF.md#original-create-input-components-v1)
+records exact routes, host checks and remaining obligations. This closes a
+normal-input prerequisite on all three branches, not a complete feature area.
+All fourteen complete area triples still require adapters and physical checks.
