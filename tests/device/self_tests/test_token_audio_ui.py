@@ -197,6 +197,18 @@ class AudioUiTests(unittest.TestCase):
         with self.assertRaises(NativeUIError): ui.start()
         self.assertEqual(1,native.actions.count('audio.record')); self.assertTrue(native.active)
 
+    def test_existing_ios_fixture_accepts_only_closed_token_scroll_input(self):
+        from fixture.serve import FixtureState
+        fixture=FixtureState()
+        request=dict(schemaVersion=1,commandId='11111111-1111-4111-8111-111111111111',
+            instance='22222222-2222-4222-8222-222222222222',sequence=1,observedElapsedMs=0,
+            fieldToken='33333333-3333-4333-8333-333333333333',operation='scroll',direction='down')
+        outer=dict(schemaVersion=1,commandId='ios-'+'a'*32,action='normal-ui-input',operation='edit',input=request)
+        self.assertEqual(outer,fixture.set_client_command(outer))
+        for change in ({'direction':'absolute'},{'direction':True},{'position':0.6},{'expected':'record'}, {'sequence':True}):
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                fixture.set_client_command(outer | {'input':request | change})
+
     def test_backward_clock_and_invented_verbs_fail(self):
         native, ui = self.ui(); ui.now(); native.clock=-1
         with self.assertRaises(NativeUIError): ui.wait(lambda value: False)
