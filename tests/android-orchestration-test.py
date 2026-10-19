@@ -1440,6 +1440,10 @@ assert Path(sys.modules['producer_workflow'].__file__).resolve()==root/'tools/te
         with tempfile.TemporaryDirectory(prefix='android-current-dispatch-') as directory:
             root=Path(directory)
             gate._bootstrap_git(root,'init','--quiet')
+            # A fixture commit must not leave Git's detached automatic
+            # maintenance writing into .git during TemporaryDirectory cleanup.
+            gate._bootstrap_git(root,'config','gc.auto','0')
+            gate._bootstrap_git(root,'config','maintenance.auto','false')
             names=('project-tests','parent-qualification','sync-validation','repository-checks','browser-client','pr-metadata-context')
             paths=['.github/workflows/'+name+'.yml' for name in names]
             old={path:gate._blob(('old '+path+'\n').encode()) for path in paths[:5]}
