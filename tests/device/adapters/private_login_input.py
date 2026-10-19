@@ -14,7 +14,7 @@ from adapters.native_feature_observation import decode,exact,integer,need,number
 from adapters.normal_feature_state import context as validate_context
 from adapters.normal_ui import NativeUIError
 
-VERSION=1
+VERSION=2
 FILE='feature-private-login-input.json'
 HEX='[0-9a-f]{32}'
 UUID='[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}'
@@ -43,7 +43,7 @@ def input_command(value):
 
 def filename(input_id):
     need(type(input_id) is str and re.fullmatch(HEX,input_id))
-    return 'feature-login-input-'+input_id+'.v1.json'
+    return 'feature-login-input-'+input_id+'.v2.json'
 
 
 def validate(value,request,pid):
@@ -70,16 +70,16 @@ class PrivateLoginInput:
     def __init__(self,transport,store,binding,run,*,component_only=True,monotonic=time.monotonic,sleep=time.sleep):
         validate_context(binding,component_only=component_only)
         need(type(run) is str and re.fullmatch(HEX,run) and all(callable(v) for v in (monotonic,sleep))
-             and all(callable(getattr(transport,k,None)) for k in ('guard','send','read','write','original'))
+             and all(callable(getattr(transport,k,None)) for k in ('guard','send','read','write','original','drain'))
              and integer(getattr(transport,'pid',None),1))
         self.transport,self.store,self.binding,self.run=transport,store,deepcopy(binding),run
         self.monotonic,self.sleep=monotonic,sleep;self.last_clock=None
         self.instance=None;self.sequence=self.elapsed=self.captured=0;self.status=None
         self.previous=store.read()
         if self.previous is not None:
-            exact(self.previous,{'inputVersion','binding','runId','inputId','sourceInstance'})
+            exact(self.previous,{'inputVersion','binding','runId','inputId','sourceInstance','transferPending'})
             need(type(self.previous['inputVersion']) is int and self.previous['inputVersion']==VERSION
-                 and self.previous['binding']==binding and self.previous['runId']==run
+                 and self.previous['binding']==binding and self.previous['runId']==run and type(self.previous['transferPending']) is bool
                  and type(self.previous['inputId']) is str and re.fullmatch(HEX,self.previous['inputId'])
                  and (self.previous['sourceInstance'] is None or type(self.previous['sourceInstance']) is str
                       and re.fullmatch(HEX,self.previous['sourceInstance'])))
@@ -119,6 +119,11 @@ class PrivateLoginInput:
     def _retire(self):
         if self.previous is None:return
         deadline=self.now()+5
+        if self.previous['transferPending']:
+            self.transport.guard()
+            self.transport.drain(filename(self.previous['inputId'])) # Actual serialized private RPC completion fence.
+            self.transport.guard();need(self.now()<deadline)
+            updated=dict(self.previous,transferPending=False);self.store.write(updated,self.previous);self.previous=updated
         self._request('retire',deadline) # ACK alone is insufficient.
         first=self._request('inspect',deadline)
         need(first['retired'] and not first['filePresent'] and not first['pending'] and first['openFiles']==0)
@@ -131,7 +136,7 @@ class PrivateLoginInput:
         created=False
         try:
             input_command(value);need(self.previous is None);self.transport.guard()
-            owned=dict(inputVersion=VERSION,binding=self.binding,runId=self.run,inputId=uuid.uuid4().hex,sourceInstance=None)
+            owned=dict(inputVersion=VERSION,binding=self.binding,runId=self.run,inputId=uuid.uuid4().hex,sourceInstance=None,transferPending=False)
             self.store.write(owned,None);self.previous=owned;created=True # Before reserve/AFC mutation; contains no text or secret digest.
             self.instance=None;self.sequence=self.elapsed=self.captured=0;self.status=None
             deadline=self.now()+15
@@ -143,9 +148,13 @@ class PrivateLoginInput:
             body=(json.dumps(dict(schemaVersion=1,runId=self.run,inputId=owned['inputId'],input=value),
                 sort_keys=True,separators=(',',':'),allow_nan=False)+'\n').encode()
             need(len(body)<=16384);self.transport.guard()
+            updated=dict(self.previous,transferPending=True);self.store.write(updated,self.previous);self.previous=updated
             self.transport.write(filename(owned['inputId']),body)
             self.transport.guard();need(self.now()<deadline)
-            need(self.transport.original(filename(owned['inputId']))==body) # Actual app-private bytes, not a push ACK.
+            original=self.transport.original(filename(owned['inputId'])) # Actual serialized readback, never a push ACK.
+            self.transport.guard();need(self.now()<deadline)
+            updated=dict(self.previous,transferPending=False);self.store.write(updated,self.previous);self.previous=updated
+            need(original==body)
             self._request('deliver',deadline)
             observed=self._request('inspect',deadline)
             need(observed['reserved'] and observed['attempted'] and not observed['retired'] and not observed['filePresent'])

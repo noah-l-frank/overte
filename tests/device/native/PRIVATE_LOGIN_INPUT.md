@@ -1,4 +1,4 @@
-# Private login input lease, version 1
+# Private login input lease, version 2
 
 This is a private credential carrier and cleanup prerequisite, not an
 Authentication result or complete feature adapter. Common journey v6, control
@@ -14,7 +14,7 @@ route rejects text, input bodies, expectations and all other fields. Neither
 public command, status nor ownership journal contains credentials, lengths or
 secret digests. A missing native hook yields unavailable, never success.
 
-The only data carrier is feature-login-input-<inputId>.v1.json in the explicitly
+The only data carrier is feature-login-input-<inputId>.v2.json in the explicitly
 owned native private test root. It has exactly schemaVersion:1, runId, inputId
 and input. Input is exactly schemaVersion:1, commandId/instance/fieldToken (original
 non-null native UI UUIDs), sequence, observedElapsedMs, operation:"replace" and
@@ -41,7 +41,7 @@ refuses delivery. Unknown files cannot be adopted from their valid-looking bytes
 
 ## Native observations and input
 
-Receipts have exactly inputVersion:1, commandId, operation, runId, inputId,
+Receipts have exactly inputVersion:2, commandId, operation, runId, inputId,
 instance (actual private source birth nonce), processId, capturedEpochMs,
 elapsedMs, sequence, available:true and source. A source contains reserved,
 retired, attempted, filePresent, fileOwned, pending (actual booleans) and openFiles
@@ -85,12 +85,20 @@ unresolved. Fresh inspection reads actual filesystem and descriptor inventory.
 An empty path with an open original descriptor is not complete cleanup.
 
 The host records binding/run/input nonce intent in the existing 0600 private
-state mechanism **before** reserve/upload. It pins original native source
+state mechanism **before** reserve/upload. The required transferPending boolean
+is persisted before any private upload and cleared only after an actual
+serialized readback RPC has completed, even when the bytes differ from input.
+An uncertain transfer must first drain through the same bound private driver's
+serialized completion fence before native retirement/unlink/FD close. Without
+that fence a late upload could recreate data after cleanup. A failed fence keeps
+the journal and original lease intact; timer/absence guesses are insufficient.
+The concrete driver must guarantee awaited writes and serialized read completion;
+unsupported/unknown driver semantics remain unqualified. No transfer is retried. It pins original native source
 identity, advancing sequence and nonregressing original clocks. No text or
 secret hash is written to that journal. Input is bounded by a total 15-second
 budget; receipt polling has at most 51 reads per request. Retirement has one
-five-second total budget including mutation and two independent fresh inventory
-reads. Stalled/reversed clocks, lost nonce, missing native result and late
+five-second total budget including any required private transfer drain,
+mutation and two independent fresh inventory reads. Stalled/reversed clocks, lost nonce, missing native result and late
 transport cannot pass. Only retired:true, filePresent:false, pending:false and
 openFiles:0 permit journal removal. A retire ACK alone is insufficient.
 
@@ -104,10 +112,18 @@ authority and verify overall cleanup. Retiring this file does not undo product
 input or prove native logout. Metadata transport receipts are not product file
 artifacts; their owning fixture/session teardown remains a separate obligation.
 
-Sixteen device-free cases use real local private files/descriptors with an
+Eighteen device-free cases use real local private files/descriptors with an
 explicitly synthetic native seam. They exercise ignored upload/input, original
 readback, copied foreign inode, lost process, stale/foreign/pending receipts,
 missing native results, false cleanup ACK, retained FD, durable-context recovery,
-invalid public/private payloads and actual JavaScript dispatch. They prove carrier/
+invalid public/private payloads, actual JavaScript dispatch and delayed transfer/
+failed completion-fence recovery. They prove carrier/
 ownership logic only. No native Qt/UI/AFC behavior, installed client or device is
 qualified. Platform private transfer/callback/cleanup integration is still required.
+
+Version 1 had no persisted transfer-pending/fence obligation. No producer was
+qualified. Version 2 requires it, uses the v2 private filename and rejects v1
+receipts/journals. Wire schemaVersion and private body schemaVersion remain 1.
+Native descriptor inventory now queries the actual original descriptor with
+fstat; close never acts on a number already reused for another original. These
+native changes remain source reviewed only, uncompiled and unexecuted.

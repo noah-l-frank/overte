@@ -4,6 +4,16 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The private login-input lease v2 packet passes **595** guarded common host
+cases, zero failures/errors/skips/compiler attempts, with the same three native
+exclusions. Its **18** focused cases additionally model an upload whose response
+is lost while the private transfer is still pending, and failed completion-fence
+recovery. The journal records transferPending before upload; retirement cannot
+unlink/close the original until actual serialized private RPC completion is
+observed. Native descriptor inventory now uses fstat against the actual original.
+The v2 file namespace/receipt/journal rejects v1. Native C++ and driver/AFC
+serialization remain uncompiled/unqualified on devices.
+
 The private login-input lease v1 packet passes **593** guarded common host
 cases, zero failures/errors/skips/compiler attempts, with the same three native
 exclusions. Its **16** new cases use actual private temporary originals/open
