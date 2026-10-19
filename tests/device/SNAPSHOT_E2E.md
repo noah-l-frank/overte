@@ -54,9 +54,12 @@ The actual review exposes stable `snapshotMode.option.<mode>` and
 `snapshotFormat.option.<format>` controls. Tests click the real Qt popup
 delegates rather than assigning their selection properties. User mode selection
 persists the existing GIF preference; initial settings do not echo a preference
-write. The ready signal is deferred so a native loader can connect after root
-construction. Both Qt5 and Qt6 run the original review and selected export
-backend, including these pointer and initialization regressions.
+write. Each popup exposes its actual selected radio state, independent of the
+translated caption. Input waits for initial settings, supplied both after AppUi
+wires the native bridge and in response to the deferred ready request. A late
+initialization cannot overwrite a choice the user already made. Both Qt5 and
+Qt6 run the original review and selected export backend, including these pointer
+and initialization regressions.
 
 `adapters/android_snapshot_files.py` reads only the native private
 `files/Snapshots` directory through the original ADB transport. The owning

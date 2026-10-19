@@ -26,7 +26,8 @@ function start(native=true) {
         Tablet:{getTablet:()=>({fromQml:new FakeSignal(),returnToPreviousApp(){}})},
         SoundCache:{getSound:()=>({})},Audio:{playSound(){}},MyAvatar:{position:{x:1,y:2,z:3}},Rates:{render:60},
         location:{href:"hifi://place/path",domainID:"{domain}"},UserActivityLogger:{logAction(){}},Desktop:{show(){}},DialogsManager:{}});
-    ui.options.onOpened();
+    // AppUi invokes that.onOpened() after wiring the actual QML bridge.
+    ui.options.onOpened.call(ui);
     function message(action,extra={}) { ui.options.onMessage({type:"snapshot",action,...extra}); }
     function delayedCapture() { for(const delay of [350,500]){const entry=[...Script.timers].find(([,timer])=>timer.delay===delay);assert.ok(entry);Script.runTimer(entry[0]);} }
     return{Script,Snapshot,Window,Account,GlobalServices,Reticle,Menu,HMD,ui,settings,calls,messages,requests,cancelled,message,delayedCapture};
@@ -56,6 +57,14 @@ test("ordinary GIF selection persists before capture and is restored through rea
         const observed=h.messages.filter(row=>row.action==="captureSettings").at(-1);
         assert.equal(observed.setting,expected);
     }
+});
+test("native open initializes preferences after bridge wiring without a ready request",()=>{
+    const h=start();
+    assert.equal(h.messages.filter(row=>row.action==="captureSettings").at(-1)?.setting,true);
+    h.settings.set("alsoTakeAnimatedSnapshot",false);
+    h.ui.options.onOpened.call(h.ui);
+    assert.equal(h.messages.filter(row=>row.action==="captureSettings").at(-1)?.setting,false);
+    assert.equal(start(false).messages.filter(row=>row.action==="captureSettings").length,0);
 });
 test("cancel before renderer submission clears delays and restores overlays",()=>{
     const h=start();h.message("takeSnapshot",{mode:"still"});assert.equal(h.Reticle.visible,false);assert.equal(h.Menu.overlays,false);
