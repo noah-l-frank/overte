@@ -10,9 +10,8 @@ import unittest
 from unittest.mock import patch
 import uuid
 import test_normal_scripts as sources
-sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device/self_tests'))
-from test_normal_create_adapter import NativeCreate
-from test_token_create_ui import Controls
+from self_tests.test_normal_create_adapter import NativeCreate
+from self_tests.test_token_create_ui import Controls
 from adapters.token_create_ui import TokenCreateUI
 from adapters.pico4.navigation import validate_snapshot
 
