@@ -84,7 +84,11 @@ open. See [file controls](native/NORMAL_SCRIPT_FILES.md) and
 [fixture storage](native/SCRIPT_FIXTURE_STORAGE.md). The [original memory-preview PCM source](native/RECORDED_PREVIEW_EVIDENCE.md)
 now has internal transports on all three platform branches. It retains actual
 capture/sink bytes, native cycles/events and observed cleanup; it is not a full
-audio adapter or independent acoustic proof.
+audio adapter or independent acoustic proof. The new
+[atomic Audio cycle/history source](native/RECORDED_PREVIEW_HISTORY.md) additionally
+joins original events and live buffer counters on the audio thread. Its typed
+read requirement refuses older narrow producers and preserves historical frame
+formats/times; it supplies no normal UI inputs or acoustic evidence.
 
 ## Fourteen-area source audit
 

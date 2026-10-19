@@ -1758,6 +1758,8 @@ void AudioClient::publishRecordedVoiceTestStatus(const QString& phase, const QSt
         _e2eRecordedVoiceEvent["schemaVersion"] = 1;
         _e2eRecordedVoiceEvent["eventSequence"] = static_cast<qulonglong>(++_e2eRecordedVoiceSequence);
         _e2eRecordedVoiceEvent["publishedEpochMs"] = QDateTime::currentMSecsSinceEpoch();
+        if (_e2eRecordedVoiceHistory.size() < 64) { _e2eRecordedVoiceHistory.append(_e2eRecordedVoiceEvent); }
+        else { _e2eRecordedVoiceHistoryComplete = false; }
         _e2eRecordedPreview.event(_e2eRecordedVoiceEvent);
     }
 #endif
@@ -1771,7 +1773,11 @@ QVariantMap AudioClient::featureRecordedVoiceObservation() const {
         {"capturedBytes", static_cast<qint64>(_recordedVoiceTest.capturedBytes())},
         {"playedBytes", static_cast<qint64>(_recordedVoiceTest.playedBytes())},
         {"frameBytes", _outputFormat.bytesPerFrame()}, {"sampleRate", _outputFormat.sampleRate()},
-        {"channels", _outputFormat.channelCount()}, {"event", _e2eRecordedVoiceEvent}};
+        {"channels", _outputFormat.channelCount()}, {"event", _e2eRecordedVoiceEvent},
+        {"historyVersion", 1}, {"cycle", static_cast<qulonglong>(_e2eRecordedVoiceCycle)},
+        {"startedEpochMs", _e2eRecordedVoiceStarted}, {"captureSampleRate", _e2eRecordedVoiceCaptureRate},
+        {"captureChannels", _e2eRecordedVoiceCaptureChannels}, {"historyComplete", _e2eRecordedVoiceHistoryComplete},
+        {"events", _e2eRecordedVoiceHistory}};
 }
 
 QVariantMap AudioClient::featureRecordedVoiceEvidence() const {
@@ -1829,6 +1835,15 @@ void AudioClient::startRecordedVoiceTest() {
     QString error;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (QCoreApplication::arguments().contains("--testScript")) {
+        // Metadata begins only on a real normal Start attempt, never on a
+        // read/release request. Keep it after releasing private PCM so that a
+        // terminal product status cannot be mistaken for a fresh idle state.
+        ++_e2eRecordedVoiceCycle;
+        _e2eRecordedVoiceStarted = QDateTime::currentMSecsSinceEpoch();
+        _e2eRecordedVoiceCaptureRate = _outputFormat.sampleRate();
+        _e2eRecordedVoiceCaptureChannels = _outputFormat.channelCount();
+        _e2eRecordedVoiceHistory.clear();
+        _e2eRecordedVoiceHistoryComplete = true;
         const auto cycle = _e2eRecordedPreview.begin(_outputFormat);
         QTimer::singleShot(30000, this, [this, cycle] {
             if (_e2eRecordedPreview.cycle() == cycle) { _e2eRecordedPreview.clear(); }
