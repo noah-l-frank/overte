@@ -4452,8 +4452,12 @@ class CurrentParentTransitionTests(unittest.TestCase):
         self.root=s.root
         # Copy the actual reviewed finite source graph as data. No historical
         # or fixture checkout repository module is ever imported/executed.
+        # This fixture models current main even when its source checkout is a
+        # permanent platform branch, so both snapshots retain main's profile.
+        shared_profile=(json.dumps({'schema':1,'platform':'shared','suites':[]},indent=2)+'\n').encode()
+        self.assertEqual(C.source_admission.blob_id(shared_profile),C.source_admission.SHARED_PROFILE)
         for name in list(s.bodies):
-            raw=(C.ROOT/name).read_bytes()
+            raw=shared_profile if name==C.source_admission.PROFILE else (C.ROOT/name).read_bytes()
             s.bodies[name]=raw;s.default[name]=C.source_admission.ordinary(C.source_admission.blob_id(raw),
                 '100755' if name=='tests/run-project-tests.py' else '100644')
             path=s.root/name;path.write_bytes(raw)
@@ -4495,6 +4499,15 @@ class CurrentParentTransitionTests(unittest.TestCase):
 
     def schedule(self):
         return self.C.current_parent_schedule(self.event,self.environment,self.adapter,root=self.root,clock=lambda:NOW)
+
+    def test_current_main_fixture_has_shared_profile_independent_of_source_checkout(self):
+        profile=self.C.source_admission.PROFILE
+        expected=self.C.source_admission.ordinary(self.C.source_admission.SHARED_PROFILE)
+        self.assertEqual(self.source.base[profile],expected)
+        self.assertEqual(self.source.default[profile],expected)
+        raw=(self.root/profile).read_bytes()
+        self.assertEqual(self.C.source_admission.blob_id(raw),expected['sha'])
+        self.assertEqual(json.loads(raw),{'schema':1,'platform':'shared','suites':[]})
 
     def test_current_main_transition_has_no_original_reuse_and_final_independently_rederives_partial_state(self):
         value=self.schedule()
