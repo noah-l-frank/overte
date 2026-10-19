@@ -168,7 +168,7 @@ class AudioUiTests(unittest.TestCase):
                 self.assertEqual([],native.actions)
 
     def test_missing_results_markers_page_duplicates_and_incoherent_metadata_fail(self):
-        for fault in ('result','marker','page','duplicate','active','mode','muted','number','boolean'):
+        for fault in ('result','marker','page','duplicate','active','mode','muted','number','boolean','phase','checked'):
             with self.subTest(fault=fault):
                 native, ui = self.ui(); native.position=0.6
                 def corrupt(value):
@@ -183,6 +183,8 @@ class AudioUiTests(unittest.TestCase):
                             checked=True,nativeMuted=False,mode=0))
                     elif fault == 'number': next(r for r in value['controls'] if r['id']=='audio.scrollbar')['position']=float('nan')
                     elif fault == 'boolean': value['audioControlsVersion']=True
+                    elif fault == 'phase': next(r for r in value['controls'] if r['id']=='audio.record')['phase']='capturing'
+                    elif fault == 'checked': next(r for r in value['controls'] if r['id']=='audio.mode.vr')['checked']=True
                     return value
                 native.transform=corrupt
                 with self.assertRaises(NativeUIError): ui.start()
@@ -196,6 +198,26 @@ class AudioUiTests(unittest.TestCase):
         native.activate=activate
         with self.assertRaises(NativeUIError): ui.start()
         self.assertEqual(1,native.actions.count('audio.record')); self.assertTrue(native.active)
+
+    def test_existing_ios_fixture_accepts_only_closed_token_scroll_input(self):
+        from fixture.serve import FixtureState
+        fixture=FixtureState()
+        request=dict(schemaVersion=1,commandId='11111111-1111-4111-8111-111111111111',
+            instance='22222222-2222-4222-8222-222222222222',sequence=1,observedElapsedMs=0,
+            fieldToken='33333333-3333-4333-8333-333333333333',operation='scroll',direction='down')
+        outer=dict(schemaVersion=1,commandId='ios-'+'a'*32,action='normal-ui-input',operation='edit',input=request)
+        self.assertEqual(outer,fixture.set_client_command(outer))
+        for change in ({'direction':'absolute'},{'direction':True},{'position':0.6},{'expected':'record'}, {'sequence':True}):
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                fixture.set_client_command(outer | {'input':request | change})
+
+    def test_late_successful_read_cannot_bypass_the_action_deadline(self):
+        native,ui=self.ui();original=native.capture
+        def capture():
+            native.clock+=11;return original()
+        native.capture=capture
+        with self.assertRaises(NativeUIError):ui.wait(lambda value:True)
+        self.assertEqual([],native.actions)
 
     def test_backward_clock_and_invented_verbs_fail(self):
         native, ui = self.ui(); ui.now(); native.clock=-1
