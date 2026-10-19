@@ -41,6 +41,7 @@ class Native:
         self.popup = None
         self.by_reference = {}
         self.focused_field = None
+        self.ignore_name_apply = False
 
     def visible(self, name):
         if name == 'tablet.open': return self.screen is None
@@ -120,7 +121,8 @@ class Native:
                     identifier = name.removeprefix('NativeCreateEntity_')
                     self.selected = next(row for row in self.entities if row['id'] == identifier)
                 elif name == 'NativeCreateApply':
-                    if 'NativeCreateName' in self.fields: self.selected['name'] = self.fields['NativeCreateName']
+                    if 'NativeCreateName' in self.fields and not self.ignore_name_apply:
+                        self.selected['name'] = self.fields['NativeCreateName']
                 elif name == 'NativeCreateDelete' and not self.ignore_delete: self.entities.remove(self.selected)
                 elif name == 'scriptFromUrl': self.dialog = True
                 elif name == 'OK':
@@ -292,6 +294,18 @@ class FeatureAdapterTests(unittest.TestCase):
         self.adapter.candidate = None
         with self.assertRaises(ValueError): self.adapter.advertised_capabilities(self.target)
         self.assertEqual([], self.native.inputs)
+
+    def test_ignored_product_name_edit_is_detected_and_unnamed_native_effect_is_cleaned(self):
+        url = 'http://fixture.test/create/' + 'a' * 32 + '/observer.js'
+        self.invoke('create.reference.open', {'scriptUrl': url})
+        self.native.ignore_name_apply = True
+        with self.assertRaises(RuntimeError):
+            self.invoke('create.cube', {'name': PREFIX + 'a' * 32 + '_cube', 'properties': INITIAL})
+        self.assertEqual('', self.native.entities[0]['name'])
+        keys_before = self.native.inputs.count('normal-keyboard')
+        self.invoke('create.reference.close', {'scriptUrl': url})
+        self.assertEqual([], self.native.entities)
+        self.assertEqual(keys_before, self.native.inputs.count('normal-keyboard'))
 
 
 if __name__ == '__main__': unittest.main()
