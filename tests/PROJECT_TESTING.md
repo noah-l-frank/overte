@@ -1325,6 +1325,16 @@ the inner and outer final checks; uploaded receipts are diagnostic records,
 not authenticated reusable artifact authority. An empty union performs no Android
 tool setup and accepts no fabricated successful execution receipt.
 
+For the selected `android-vr-pico` native PR base or push/manual branch, the
+trusted helper also supplies Qt 5 development tools and WebChannel headers plus
+Qt 6 development tools and the QtQml, Models, WorkerScript and QtQuick modules.
+It checks the actual pkg-config modules, `moc`/`rcc`, WebChannel header and QML
+plugins first, avoiding another package installation when they are available.
+Other Android targets keep their existing setup. Missing prerequisites after
+installation fail setup; all selected real Qt/JVM contracts remain mandatory.
+These are host test prerequisites, not an Overte application build or reusable
+qualification.
+
 Only verified empty tree deltas or changes within the exact reviewed independent
 Browser and repository administration roots can omit Android executions. Both
 complete trees must match the branch's reviewed reader-complement anchor. Unknown,
