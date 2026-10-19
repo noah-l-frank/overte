@@ -4,7 +4,7 @@
     {
       "id": "phone-one-shot-hide-v1",
       "sourcePath": "scripts/system/+android_phoneInterface/phoneEmote.js",
-      "sourceBase": "718d069add",
+      "sourceBase": "718d069add184b6f6ad5b112cba1b7aa91ff5af2",
       "encoding": "utf-16le-code-units",
       "codeUnits": 4827,
       "sha256": "a989b25a06ff2e880974ccdd44c86ebbd9c71e40d93f585464f7c06ff2898362",
@@ -14,7 +14,7 @@
     {
       "id": "touch-one-shot-chooser-v1",
       "sourcePath": "scripts/system/+android_phoneInterface/phoneEmote.js",
-      "sourceBase": "7636452f21",
+      "sourceBase": "7636452f2124029798948aafae70ecff5c5fa7d0",
       "encoding": "utf-16le-code-units",
       "codeUnits": 4596,
       "sha256": "07ca1f79a727f8f69287937227070a3e1860b3f1485854421aa2f611df9f18ec",
@@ -24,7 +24,7 @@
     {
       "id": "tablet-one-shot-sit-hold-v1",
       "sourcePath": "scripts/system/emote.js",
-      "sourceBase": "c5bf8ac17b",
+      "sourceBase": "c5bf8ac17bf9a4f601f1b769bca357dcc0aac859",
       "encoding": "utf-16le-code-units",
       "codeUnits": 6892,
       "sha256": "f8c5ecc89cccd9b9c564be41578befd24bd4aaf105beb83fb715c24a2c57826e",
