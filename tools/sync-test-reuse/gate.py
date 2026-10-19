@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fnmatch import fnmatch
 from pathlib import Path
 from urllib.parse import quote
@@ -15,10 +15,12 @@ import io
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import time
 import zipfile
+import xml.etree.ElementTree as ET
 
 # Native source admission includes every import lookup member. Do not create
 # bytecode in that protected lookup before it is independently authenticated.
@@ -1678,6 +1680,421 @@ def write_outputs(path: Path | None, values: dict[str, object]) -> None:
         print(line)
 
 
+def pure_metadata_event(event, event_name):
+    """Only complete same-fork title/body edits; base or unknown edits stay work."""
+    if event_name != 'pull_request_target' or type(event) is not dict or event.get('action') != 'edited':
+        return False
+    changes, pr, repository = event.get('changes'), event.get('pull_request'), event.get('repository')
+    if type(changes) is not dict or not changes or not set(changes) <= {'title', 'body'} \
+            or type(pr) is not dict or type(repository) is not dict \
+            or (repository.get('full_name'), repository.get('id')) != ('noah-l-frank/overte', 1319052603) \
+            or type(event.get('number')) is not int or event['number'] <= 0 \
+            or type(pr.get('number')) is not int or pr['number'] != event['number'] or pr.get('state') != 'open':
+        return False
+    for side in ('base', 'head'):
+        row = pr.get(side)
+        if type(row) is not dict or type(row.get('ref')) is not str or not row['ref'] \
+                or type(row.get('sha')) is not str or not SHA_RE.fullmatch(row['sha']) \
+                or row['sha'] == '0' * 40 or type(row.get('repo')) is not dict \
+                or (row['repo'].get('full_name'), row['repo'].get('id')) != ('noah-l-frank/overte', 1319052603):
+            return False
+    for name, change in changes.items():
+        allowed = (str, type(None)) if name == 'body' else (str,)
+        if type(change) is not dict or set(change) != {'from'} \
+                or not isinstance(change['from'], allowed) or name not in pr or not isinstance(pr[name], allowed):
+            return False
+    return True
+
+
+def classify_metadata(args):
+    event = json.loads(args.event.read_bytes(), object_pairs_hook=suite_inputs._unique_object)
+    metadata = pure_metadata_event(event, os.environ.get('GITHUB_EVENT_NAME'))
+    edge = load_config(args.config)['edges'].get(event.get('pull_request', {}).get('base', {}).get('ref')) if metadata else None
+    head = event['pull_request']['head']['ref'] if metadata else ''
+    relevant = bool(edge and (head == edge['parent'] or
+        head.startswith('reconcile/' + edge['scope'] + '/') and head.count('/') == 2))
+    write_outputs(args.output, {'metadata_only': metadata and relevant})
+    return 0
+
+
+def _metadata_list(api, endpoint, key):
+    value = api.json(endpoint)
+    if type(value) is not dict or type(value.get('total_count')) is not int \
+            or type(value.get(key)) is not list or not 0 <= value['total_count'] <= 100 \
+            or len(value[key]) != value['total_count'] \
+            or any(type(row) is not dict or type(row.get('id')) is not int or row['id'] <= 0 for row in value[key]) \
+            or len({row['id'] for row in value[key]}) != len(value[key]):
+        raise GateError('metadata original native inventory is truncated/malformed: ' + key)
+    return value[key]
+
+
+def _metadata_check(api, prefix, run, job, source):
+    url = job.get('check_run_url', '')
+    start = 'https://api.github.com/' + prefix + '/check-runs/'
+    if not url.startswith(start) or not re.fullmatch('[1-9][0-9]*', url[len(start):]):
+        raise GateError('metadata original native job check is unavailable')
+    check = api.json(prefix + '/check-runs/' + url[len(start):])
+    expected = {'id': int(url[len(start):]), 'head_sha': source, 'name': job['name'],
+                'status': job['status'], 'conclusion': job['conclusion']}
+    if not isinstance(check, dict) or any(type(check.get(k)) is not type(v) or check[k] != v for k, v in expected.items()) \
+            or type(check.get('app', {}).get('id')) is not int or check['app']['id'] != 15368 \
+            or type(check.get('check_suite', {}).get('id')) is not int or check['check_suite']['id'] != run['check_suite_id'] \
+            or type(job.get('run_id')) is not int or job['run_id'] != run['id'] \
+            or type(job.get('run_attempt')) is not int or job['run_attempt'] != 1 or job.get('head_sha') != source:
+        raise GateError('metadata original native job/App/source differs')
+    return check
+
+
+def _metadata_gate_run(api, prefix, identifier, request):
+    run = api.json(prefix + '/actions/runs/' + str(identifier))
+    attempt = api.json(prefix + '/actions/runs/' + str(identifier) + '/attempts/1')
+    fields = {'id': identifier, 'workflow_id': 350930894, 'run_attempt': 1,
+        'path': '.github/workflows/sync-test-reuse.yml', 'event': 'pull_request_target',
+        'head_sha': request.head_sha, 'head_branch': request.head}
+    for value in (run, attempt):
+        if type(value) is not dict or any(type(value.get(k)) is not type(v) or value[k] != v for k, v in fields.items()) \
+                or type(value.get('check_suite_id')) is not int or value['check_suite_id'] <= 0 \
+                or any(type(value.get(k)) is not dict or type(value[k].get('id')) is not int or (value[k].get('id'), value[k].get('full_name')) !=
+                       (1319052603, 'noah-l-frank/overte') for k in ('repository', 'head_repository')) \
+                or type(value.get('pull_requests')) is not list \
+                or not all(type(p) is dict for p in value['pull_requests']) \
+                or not any(type(p.get('number')) is int and p['number'] == request.number
+                    and p.get('base', {}).get('sha') == request.base_sha
+                    and p.get('head', {}).get('sha') == request.head_sha for p in value.get('pull_requests', [])):
+            raise GateError('metadata original gate source/attempt/PR association differs')
+    pending = {'queued', 'in_progress', 'waiting', 'pending', 'requested'}
+    if any(run.get(k) != attempt.get(k) for k in (*fields, 'check_suite_id')) or (
+            (run.get('status'), run.get('conclusion')) != (attempt.get('status'), attempt.get('conclusion'))
+            and not all(v.get('status') in pending and v.get('conclusion') is None for v in (run, attempt))):
+        raise GateError('metadata original gate native attempt changed')
+    return run, attempt
+
+
+def _metadata_step(job, name):
+    steps = [s for s in job.get('steps', []) if s.get('name') == name]
+    if len(steps) != 1 or steps[0].get('status') != 'completed' or steps[0].get('conclusion') != 'success':
+        raise GateError('metadata original successful step unavailable: ' + name)
+    value = steps[0]
+    if not parse_time(job['started_at'], 'job start') <= parse_time(value['started_at'], 'step start') \
+            <= parse_time(value['completed_at'], 'step completion') <= parse_time(job['completed_at'], 'job completion'):
+        raise GateError('metadata original step chronology differs')
+    return value
+
+
+def _metadata_report(api, prefix, run, item, request, source, validator, registry, selected, tree, now):
+    """Read genuine independently executed affected-CI data; grant no E/reuse."""
+    expected_owner = {'id': run['id'], 'repository_id': 1319052603, 'head_repository_id': 1319052603,
+                      'head_branch': 'main', 'head_sha': source}
+    if type(item.get('id')) is not int or item['id'] <= 0 or item.get('expired') is not False \
+            or type(item.get('size_in_bytes')) is not int or not 0 < item['size_in_bytes'] < 5_000_000 \
+            or item.get('workflow_run') != expected_owner \
+            or not re.fullmatch('sha256:[0-9a-f]{64}', item.get('digest', '')):
+        raise GateError('metadata original validation artifact ownership/expiry/digest differs')
+    if not parse_time(item['created_at'], 'artifact creation') < parse_time(item['expires_at'], 'artifact expiry') \
+            or parse_time(item['expires_at'], 'artifact expiry') <= now:
+        raise GateError('metadata original validation artifact has expired')
+    raw = api.bytes(prefix + '/actions/artifacts/' + str(item['id']) + '/zip')
+    if len(raw) != item['size_in_bytes'] or 'sha256:' + hashlib.sha256(raw).hexdigest() != item['digest']:
+        raise GateError('metadata original artifact byte digest differs')
+    xml_path = 'build/test-results/sync-selected.xml'
+    report_path = 'build/test-results/sync-validation.json'
+    allowed = {xml_path, report_path, report_path + '.ci-execution.json'}
+    payload = {}
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        entries = archive.infolist()
+        if len(entries) > 12 or sum(i.file_size for i in entries) > 10_000_000:
+            raise GateError('metadata original archive exceeds bound')
+        seen = set()
+        for entry in entries:
+            path = Path(entry.filename)
+            if entry.filename in seen or path.is_absolute() or '..' in path.parts or '\\' in entry.filename \
+                    or path.as_posix() != entry.filename.rstrip('/') or entry.flag_bits & 1 \
+                    or stat.S_IFMT(entry.external_attr >> 16) not in (0, stat.S_IFREG, stat.S_IFDIR):
+                raise GateError('metadata original artifact member is unsafe')
+            seen.add(entry.filename)
+            if entry.is_dir():
+                if not any(name.startswith(entry.filename) for name in allowed):
+                    raise GateError('metadata original unrelated archive directory')
+            elif entry.filename not in allowed:
+                raise GateError('metadata original unknown artifact member')
+            else:
+                payload[entry.filename] = archive.read(entry)
+    if set(payload) != allowed:
+        raise GateError('metadata original artifact incomplete')
+    def decode(data):
+        def bad(_): raise GateError('metadata original nonfinite JSON')
+        return json.loads(data, object_pairs_hook=suite_inputs._unique_object, parse_constant=bad)
+    report, observed = decode(payload[report_path]), decode(payload[report_path + '.ci-execution.json'])
+    selection = report['ci_selection']
+    for value, field in ((report, 'receipt_digest'), (selection, 'selection')):
+        unsigned = dict(value); claimed = unsigned.pop(field)
+        if claimed != 'sha256:' + hashlib.sha256(canonical_json(unsigned)).hexdigest():
+            raise GateError('metadata original whole report/selection digest differs')
+    candidate = dict(base_branch=request.base, base_commit=request.base_sha, head_branch=request.head,
+        head_commit=request.head_sha, merge_commit=request.merge_sha, merge_tree=tree,
+        parent_branch=request.parent, parent_commit=request.parent_sha, profile=request.profile,
+        classification=request.classification)
+    names = selected['suites']; omitted = [n for n in registry['suites'] if n not in names]
+    if type(report.get('schema')) is not int or type(report.get('repository_id')) is not int or type(report.get('pull_request')) is not int \
+            or (report['schema'], report['producer'], report['repository'], report['repository_id'], report['pull_request'],
+            report['requested_mode'], report['mode'], report['conclusion']) != (
+            1, 'overte-trusted-sync-validation-v1', request.repository, request.repository_id, request.number,
+            'fallback', 'affected-ci', 'success') or report['candidate'] != candidate \
+            or report['executed_suites'] != names or report['reused_suites'] != [] \
+            or report['parent_evidence'] is not None or report['execution'] != observed \
+            or report['not_selected_suites'] != omitted or report.get('pending_platform_owners') \
+            or report.get('external_package_set'):
+        raise GateError('metadata original independently executed context/mode differs')
+    if type(selection.get('schema')) is not int or selection['schema'] != 1 or selection.get('kind') != 'sync-ci-selection' \
+            or type(selection.get('repository_id')) is not int or type(selection.get('pull_request')) is not int \
+            or (selection['repository'], selection['repository_id'], selection['pull_request'], selection['base'],
+            selection['head'], selection['candidate'], selection['tree'], selection['parent'], selection['target'],
+            selection['profile'], selection['requested_mode']) != (
+            request.repository, request.repository_id, request.number, request.base_sha, request.head_sha,
+            request.merge_sha, tree, request.parent_sha, request.base, request.profile, 'fallback') \
+            or selection['lane'] != 'affected-ci' or selection['full_host'] is not False \
+            or selection['reusable'] is not False or selection['suites'] != names \
+            or selection['omitted_suites'] != omitted or selection['external_package_set'] != [] \
+            or selection['registry'] != validator.execution.digest(registry) or selection['dependency_selection'] != selected:
+        raise GateError('metadata original selected commands/source differ')
+    validator._verify_ci_execution(observed, selection, registry, (request.merge_sha, tree))
+    xml_raw = payload[xml_path]
+    if b'<!DOCTYPE' in xml_raw.upper() or b'<!ENTITY' in xml_raw.upper():
+        raise GateError('metadata original XML entities forbidden')
+    xml = ET.fromstring(xml_raw); cases = list(xml.iter('testcase'))
+    if [c.get('name') for c in cases] != names or int(xml.get('tests')) != len(names) \
+            or any(int(xml.get(k, '0')) for k in ('failures', 'errors', 'skipped')) \
+            or any(c.find(k) is not None for c in cases for k in ('failure', 'error', 'skipped')):
+        raise GateError('metadata original ordered JUnit incomplete/failed/skipped')
+    return report, observed
+
+
+def _metadata_pending_owner(api, prefix, original, attempt, request, source, event, current_id, tree):
+    """Keep pending scheduling pending; no original M/result is invented."""
+    suite = api.json(prefix + '/check-suites/' + str(original['check_suite_id']))
+    if type(suite) is not dict or suite.get('id') != original['check_suite_id'] \
+            or suite.get('head_sha') != request.head_sha or suite.get('app', {}).get('id') != 15368 \
+            or (suite.get('repository', {}).get('id'), suite.get('repository', {}).get('full_name')) != (
+                request.repository_id, request.repository):
+        raise GateError('pending metadata original native suite/App differs')
+    created = original.get('created_at')
+    parse_time(created, 'pending original creation')
+    endpoint = prefix + '/actions/workflows/350930895/runs?event=workflow_dispatch&created=' + quote('>=' + created, safe='') + '&per_page=100'
+    rows = _metadata_list(api, endpoint, 'workflow_runs')
+    correlation = 'gate-' + str(original['id']) + '-attempt-1'
+    children = [r for r in rows if r.get('display_title') == 'Sync validation ' + correlation]
+    if len(children) > 1:
+        raise GateError('pending metadata original validator correlation is ambiguous')
+    child = None
+    if children:
+        child = children[0]['id']; run = api.json(prefix + '/actions/runs/' + str(child))
+        identity = _dispatch_run(run, child, source, correlation, allow_pending=True)
+        if run.get('status') == 'completed' and run.get('conclusion') != 'success':
+            raise GateError('pending metadata original validator failed/cancelled')
+        _dispatch_native(api, prefix, run, source, correlation, identity, allow_pending=True)
+    closing, closing_attempt = _metadata_gate_run(api, prefix, original['id'], request)
+    fields = ('id', 'workflow_id', 'run_attempt', 'path', 'event', 'head_sha', 'head_branch',
+              'check_suite_id', 'repository', 'head_repository', 'pull_requests', 'created_at')
+    if any(a.get(k) != b.get(k) for a, b in zip((original, attempt), (closing, closing_attempt)) for k in fields):
+        raise GateError('pending metadata original immutable source changed')
+    if closing.get('status') not in {'queued', 'in_progress', 'waiting', 'pending', 'requested'} or closing.get('conclusion') is not None:
+        raise _DispatchRegistrationPending('original Sync completed during metadata scheduling admission')
+    closing_suite = api.json(prefix + '/check-suites/' + str(original['check_suite_id']))
+    if any(closing_suite.get(k) != suite.get(k) for k in ('id', 'head_sha', 'app', 'repository')) \
+            or classify_event(event, load_config(), api) != request or _dispatch_checkout_source() != source:
+        raise GateError('pending metadata original topology/source/App changed')
+    _dispatch_source(api, load_config(), request.repository, source)
+    return {'metadata_authenticated': True, 'original_gate_run': original['id'], 'validation_run': child,
+            'original_state': 'pending', 'original_status': closing['status'], 'original_tested_merge': None,
+            'current_candidate': request.merge_sha, 'current_tree': tree, 'new_dispatches': 0,
+            'new_execution': False, 'qualification': False}
+
+
+def retain_metadata_owner(event, config, api, *, environment=None, now=None):
+    """Retain one actual original owner; never dispatch, normalize or mint E."""
+    env = os.environ if environment is None else environment
+    now = datetime.now(timezone.utc) if now is None else now
+    if not pure_metadata_event(event, env.get('GITHUB_EVENT_NAME')) or any(env.get(k) != v for k, v in {
+            'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'noah-l-frank/overte',
+            'GITHUB_REPOSITORY_ID': '1319052603', 'GITHUB_JOB': 'metadata-owner', 'GITHUB_RUN_ATTEMPT': '1'}.items()):
+        raise GateError('metadata retention requires its exact native read-only role')
+    if not re.fullmatch('[1-9][0-9]*', env.get('GITHUB_RUN_ID', '')):
+        raise GateError('metadata current native run unavailable')
+    request = classify_event(event, config, api)
+    if request is None or request.repair_paths or request.profile in {'documentation', 'tool-dependencies'}:
+        raise GateError('metadata retention requires the exact independently selected Sync context')
+    if any(env.get(k) != v for k, v in {'GITHUB_REF': 'refs/heads/' + request.base,
+            'GITHUB_SHA': request.base_sha, 'GITHUB_WORKFLOW_SHA': request.base_sha,
+            'GITHUB_WORKFLOW_REF': request.repository + '/.github/workflows/sync-test-reuse.yml@refs/heads/' + request.base}.items()):
+        raise GateError('metadata current native caller recipe/base differs')
+    prefix = 'repos/' + request.repository
+    source = _dispatch_checkout_source()
+    _dispatch_source(api, config, request.repository, source)
+    registration = api.json(prefix + '/actions/workflows/350930894')
+    if (registration.get('id'), registration.get('path'), registration.get('state')) != (
+            350930894, '.github/workflows/sync-test-reuse.yml', 'active'):
+        raise GateError('metadata original gate registration differs')
+    current_id = int(env['GITHUB_RUN_ID'])
+    current, current_attempt = _metadata_gate_run(api, prefix, current_id, request)
+    if current['status'] not in {'queued', 'in_progress', 'waiting', 'pending', 'requested'} or current.get('conclusion') is not None:
+        raise GateError('metadata current run is not an active never-dispatch role')
+    current_jobs = _metadata_list(api, prefix + '/actions/runs/' + str(current_id) + '/attempts/1/jobs?per_page=100', 'jobs')
+    current_roles = [j for j in current_jobs if j.get('name') == 'Retain original Sync owner']
+    if len(current_roles) != 1 or current_roles[0].get('status') != 'in_progress' or current_roles[0].get('conclusion') is not None:
+        raise GateError('metadata current read-only native role unavailable')
+    current_job = current_roles[0]
+    _metadata_check(api, prefix, current, current_job, request.head_sha)
+    tree, candidate = recursive_tree(api, request.repository, request.merge_sha)
+    _, before = recursive_tree(api, request.repository, request.base_sha)
+    _, trusted = recursive_tree(api, request.repository, source)
+    workflow_path = '.github/workflows/sync-test-reuse.yml'
+    for relative in ('tools/sync-test-reuse/gate.py', workflow_path):
+        raw_source = (ROOT / relative).read_bytes()
+        expected = {'mode': '100644', 'type': 'blob',
+                    'sha': hashlib.sha1(b'blob ' + str(len(raw_source)).encode() + b'\0' + raw_source).hexdigest()}
+        if trusted.get(relative) != expected:
+            raise GateError('metadata actual protected gate/recipe differs from immutable default')
+    if before.get(workflow_path) != trusted[workflow_path]:
+        raise GateError('metadata original gate recipe differs from protected default')
+    if candidate.get('.github/test-suites.json') != trusted.get('.github/test-suites.json'):
+        raise GateError('metadata original candidate registry differs from protected validator')
+    checks = _metadata_list(api, prefix + '/commits/' + request.head_sha + '/check-runs?filter=all&per_page=100', 'check_runs')
+    canonical = [c for c in checks if c.get('name') == 'sync-test-reuse' and c.get('app', {}).get('id') == 15368]
+    if len(canonical) > 1 or any(c.get('head_sha') != request.head_sha for c in canonical):
+        raise GateError('metadata original canonical Sync owner missing/ambiguous')
+    runs = _metadata_list(api, prefix + '/actions/workflows/350930894/runs?head_sha=' + request.head_sha + '&per_page=100', 'workflow_runs')
+    check = canonical[0] if canonical else None
+    owners = ([r for r in runs if r.get('check_suite_id') == check.get('check_suite', {}).get('id')] if check else
+        [r for r in runs if type(r.get('id')) is int and r['id'] < current_id and r.get('event') == 'pull_request_target'
+         and r.get('head_sha') == request.head_sha and r.get('head_branch') == request.head
+         and r.get('display_title') == 'Sync test reuse for PR ' + str(request.number)])
+    if len(owners) != 1 or type(owners[0].get('id')) is not int or not 0 < owners[0]['id'] < current_id:
+        raise GateError('metadata original native owner is not unique/earlier')
+    original, attempt = _metadata_gate_run(api, prefix, owners[0]['id'], request)
+    if original['status'] in {'queued', 'in_progress', 'waiting', 'pending', 'requested'} and original['conclusion'] is None:
+        if check is not None and (check.get('status') not in {'queued', 'in_progress', 'waiting', 'pending', 'requested'}
+                                  or check.get('conclusion') is not None):
+            raise GateError('metadata original pending canonical state differs')
+        result = _metadata_pending_owner(api, prefix, original, attempt, request, source, event, current_id, tree)
+        closing_current = _metadata_gate_run(api, prefix, current_id, request)
+        if any(a.get(k) != b.get(k) for a, b in zip((current, current_attempt), closing_current)
+                for k in ('id', 'workflow_id', 'run_attempt', 'path', 'event', 'head_sha', 'head_branch',
+                          'check_suite_id', 'repository', 'head_repository', 'pull_requests')):
+            raise GateError('pending metadata current native invocation changed')
+        _metadata_check(api, prefix, closing_current[0], current_job, request.head_sha)
+        closing_checks = _metadata_list(api, prefix + '/commits/' + request.head_sha + '/check-runs?filter=all&per_page=100', 'check_runs')
+        closing_canonical = [c for c in closing_checks if c.get('name') == 'sync-test-reuse' and c.get('app', {}).get('id') == 15368]
+        if len(closing_canonical) > 1 or any(c.get('head_sha') != request.head_sha
+                or c.get('check_suite', {}).get('id') != original['check_suite_id'] for c in closing_canonical):
+            raise GateError('pending metadata canonical owner identity changed')
+        if any(c.get('status') not in {'queued', 'in_progress', 'waiting', 'pending', 'requested'}
+               or c.get('conclusion') is not None for c in closing_canonical):
+            raise _DispatchRegistrationPending('original Sync canonical result advanced during scheduling admission')
+        return result
+    if check is None:
+        raise GateError('completed metadata original canonical check unavailable')
+    if (original['status'], original['conclusion'], check.get('status'), check.get('conclusion')) != (
+            'completed', 'success', 'completed', 'success'):
+        # No waiting runner, fallback, status conversion or new canonical PASS.
+        raise GateError('metadata original Sync owner remains pending/failed/cancelled')
+    jobs = _metadata_list(api, prefix + '/actions/runs/' + str(original['id']) + '/attempts/1/jobs?per_page=100', 'jobs')
+    rows = [j for j in jobs if j.get('name') == 'sync-test-reuse']
+    if len(rows) != 1 or rows[0].get('conclusion') != 'success':
+        raise GateError('metadata original canonical native job unavailable')
+    job = rows[0]
+    if _metadata_check(api, prefix, original, job, request.head_sha) != check:
+        raise GateError('metadata original canonical native check differs')
+    for name in ('Inspect topology and exact parent evidence', 'Dispatch isolated read-only validation', 'Publish decision'):
+        _metadata_step(job, name)
+    log = api.bytes(prefix + '/actions/jobs/' + str(job['id']) + '/logs')
+    if len(log) > 8_000_000:
+        raise GateError('metadata original gate log exceeds bound')
+    child_ids = set(re.findall(rb'\bvalidation_run_id=([1-9][0-9]*)\b', log))
+    if len(child_ids) != 1:
+        raise GateError('metadata original lacks one authenticated validator ID')
+    child = int(child_ids.pop()); correlation = 'gate-' + str(original['id']) + '-attempt-1'
+    if ('validation_url=https://github.com/' + request.repository + '/actions/runs/' + str(child)).encode() not in log:
+        raise GateError('metadata original validator URL differs')
+    run = api.json(prefix + '/actions/runs/' + str(child))
+    identity = _dispatch_run(run, child, source, correlation)
+    if (run['status'], run['conclusion']) != ('completed', 'success'):
+        raise GateError('metadata original validator did not succeed')
+    _dispatch_native(api, prefix, run, source, correlation, identity)
+    child_jobs = _metadata_list(api, prefix + '/actions/runs/' + str(child) + '/attempts/1/jobs?per_page=100', 'jobs')
+    validators = [j for j in child_jobs if j.get('name') == 'Validate exact synchronization']
+    if len(validators) != 1:
+        raise GateError('metadata original validator native role missing')
+    validator_job = validators[0]; validator_check = _metadata_check(api, prefix, run, validator_job, source)
+    executed = _metadata_step(validator_job, 'Verify exact candidate suites and complete runtime identity')
+    upload = _metadata_step(validator_job, 'Upload validation test reports')
+    artifacts = _metadata_list(api, prefix + '/actions/runs/' + str(child) + '/artifacts?per_page=100', 'artifacts')
+    if len(artifacts) != 1 or artifacts[0].get('name') != 'sync-validation-reports-' + str(child) + '-1':
+        raise GateError('metadata original sole validation artifact unavailable')
+    item = artifacts[0]
+    if not parse_time(upload['started_at'], 'upload start') <= parse_time(item['created_at'], 'artifact creation') \
+            <= parse_time(upload['completed_at'], 'upload completion'):
+        raise GateError('metadata original artifact outside native upload')
+    host = package_checks.load('sync_metadata_host', 'tools/repository-checks/host_selection.py')
+    registry = suite_inputs.load_registry(ROOT / '.github/test-suites.json')
+    regular = all(entry is None or entry['type'] == 'blob' and entry['mode'] in {'100644', '100755'}
+        for name in request.changed_paths for entry in (before.get(name), candidate.get(name)))
+    selected = host.select(candidate, list(request.changed_paths), regular, base_tree=before, trusted_tree=trusted,
+                           candidate_root=ROOT, trusted_root=ROOT, target=request.base)
+    if selected.get('full_host') is not False or selected.get('include_platform') is not False \
+            or not selected.get('suites') or len(selected['suites']) != len(set(selected['suites'])) \
+            or any(name not in registry['suites'] for name in selected['suites']):
+        raise GateError('metadata original selection is not independently bounded CI')
+    directory = str(ROOT / 'tools/test-evidence'); search = list(sys.path)
+    try:
+        sys.path.insert(0, directory)
+        validator = package_checks.load('sync_metadata_validator', 'tools/test-evidence/validate-sync.py')
+    finally:
+        sys.path[:] = search
+    report, observed = _metadata_report(api, prefix, run, item, request, source, validator, registry, selected, tree, now)
+    if not parse_time(executed['started_at'], 'execution start') <= parse_time(report['started_at'], 'report start') \
+            <= parse_time(observed['started_at'], 'observed start') <= parse_time(observed['completed_at'], 'observed completion') \
+            <= parse_time(report['completed_at'], 'report completion') \
+            < parse_time(executed['completed_at'], 'execution completion') + timedelta(seconds=1):
+        raise GateError('metadata original report outside native execution')
+    _dispatch_native(api, prefix, run, source, correlation, identity)
+    immutable = ('id', 'workflow_id', 'run_attempt', 'path', 'event', 'head_sha', 'head_branch',
+                 'check_suite_id', 'repository', 'head_repository', 'pull_requests')
+    closing_current = _metadata_gate_run(api, prefix, current_id, request)
+    if any(a.get(k) != b.get(k) for a, b in zip((current, current_attempt), closing_current) for k in immutable) \
+            or _metadata_gate_run(api, prefix, original['id'], request) != (original, attempt) \
+            or _metadata_list(api, prefix + '/actions/runs/' + str(original['id']) + '/attempts/1/jobs?per_page=100', 'jobs') != jobs \
+            or api.json(prefix + '/check-runs/' + str(check['id'])) != check \
+            or api.json(prefix + '/check-runs/' + str(validator_check['id'])) != validator_check \
+            or api.json(prefix + '/actions/runs/' + str(child)) != run \
+            or _metadata_list(api, prefix + '/actions/runs/' + str(child) + '/artifacts?per_page=100', 'artifacts') != artifacts \
+            or classify_event(event, config, api) != request or _dispatch_checkout_source() != source:
+        raise GateError('metadata original native/source/report bookend changed')
+    closing_jobs = _metadata_list(api, prefix + '/actions/runs/' + str(current_id) + '/attempts/1/jobs?per_page=100', 'jobs')
+    closing_roles = [j for j in closing_jobs if j.get('name') == 'Retain original Sync owner']
+    if len(closing_roles) != 1 or any(closing_roles[0].get(k) != current_job.get(k)
+            for k in ('id', 'run_id', 'run_attempt', 'head_sha', 'name', 'status', 'conclusion', 'check_run_url')):
+        raise GateError('metadata current native read-only role changed')
+    _metadata_check(api, prefix, closing_current[0], closing_roles[0], request.head_sha)
+    _dispatch_source(api, config, request.repository, source)
+    return {'metadata_authenticated': True, 'original_gate_run': original['id'], 'validation_run': child,
+            'original_state': 'success', 'new_dispatches': 0, 'new_execution': False, 'qualification': False}
+
+
+def metadata_owner(args):
+    event = json.loads(args.event.read_bytes(), object_pairs_hook=suite_inputs._unique_object)
+    deadline = time.monotonic() + 60
+    while True:
+        try:
+            value = retain_metadata_owner(event, load_config(args.config), GitHubApi())
+            break
+        except _DispatchRegistrationPending:
+            if time.monotonic() >= deadline:
+                raise GateError('metadata original registration did not stabilize; no dispatch') from None
+            time.sleep(min(2, max(0, deadline - time.monotonic())))
+    write_outputs(args.output, value)
+    return 0
+
+
 def inspect(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     event = json.loads(args.event.read_text(encoding="utf-8"))
@@ -1693,6 +2110,8 @@ def inspect(args: argparse.Namespace) -> int:
     if request is None:
         write_outputs(args.output, {"classification": "ordinary", "mode": "ordinary"})
         return 0
+    if pure_metadata_event(event, os.environ.get('GITHUB_EVENT_NAME')):
+        raise GateError('pure synchronization metadata edit requires the authenticated noncanonical retention role; no dispatch')
     mode, reason, evidence_run = "reuse", "exact qualification accepted", ""
     if request.repair_paths:
         mode, reason = "fallback", "attested product repair requires complete fallback"
@@ -2117,6 +2536,11 @@ def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     sub = result.add_subparsers(dest="command", required=True)
+    for command, handler in (('classify-metadata', classify_metadata), ('retain-metadata-owner', metadata_owner)):
+        metadata = sub.add_parser(command)
+        metadata.add_argument('--event', type=Path, required=True)
+        metadata.add_argument('--output', type=Path)
+        metadata.set_defaults(handler=handler)
     inspect_parser = sub.add_parser("inspect")
     inspect_parser.add_argument("--event", type=Path, required=True)
     inspect_parser.add_argument("--output", type=Path)

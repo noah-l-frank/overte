@@ -3950,5 +3950,313 @@ class NativeCurrentPrEvidenceTests(unittest.TestCase):
             output.assert_not_called()
 
 
+class RetainedSyncMetadataTests(unittest.TestCase):
+    """Real native-envelope/report seams, fake GETs only; no owner is rerun."""
+
+    def setUp(self):
+        self.prefix = 'repos/' + REPOSITORY
+        self.request = replace(request(), base='apple-main', head='reconcile/apple/example',
+            head_sha=HEAD, classification='reconciliation', profile='apple-family',
+            changed_paths=('.github/android-orchestration.json',))
+        self.event = {'action':'edited', 'number':610,
+            'repository':{'id':REPOSITORY_ID,'full_name':REPOSITORY}, 'changes':{'body':{'from':'old'}},
+            'pull_request':{'number':610,'state':'open','title':'Meaningful source delivery','body':'Updated source delivery',
+                'base':{'ref':'apple-main','sha':BASE,'repo':{'id':REPOSITORY_ID,'full_name':REPOSITORY}},
+                'head':{'ref':self.request.head,'sha':HEAD,'repo':{'id':REPOSITORY_ID,'full_name':REPOSITORY}}}}
+        self.env = {'GITHUB_ACTIONS':'true','GITHUB_REPOSITORY':REPOSITORY,'GITHUB_REPOSITORY_ID':str(REPOSITORY_ID),
+            'GITHUB_EVENT_NAME':'pull_request_target','GITHUB_JOB':'metadata-owner','GITHUB_RUN_ATTEMPT':'1',
+            'GITHUB_RUN_ID':'200','GITHUB_REF':'refs/heads/apple-main','GITHUB_SHA':BASE,'GITHUB_WORKFLOW_SHA':BASE,
+            'GITHUB_WORKFLOW_REF':REPOSITORY+'/.github/workflows/sync-test-reuse.yml@refs/heads/apple-main'}
+        self.now = datetime(2026,10,20,tzinfo=timezone.utc)
+        self.registry = gate.suite_inputs.load_registry(gate.ROOT/'.github/test-suites.json')
+        self.names = json.loads((gate.ROOT/'.github/ci37-runtime.json').read_text())['suites']
+        self.selected = {'full_host':False,'include_platform':False,'suites':self.names,'reason':'reviewed-ci-only-inputs'}
+        self.tree = {'.github/test-suites.json':{'mode':'100644','type':'blob','sha':'a'*40}}
+        for relative in ('tools/sync-test-reuse/gate.py','.github/workflows/sync-test-reuse.yml'):
+            raw=(gate.ROOT/relative).read_bytes()
+            self.tree[relative]={'mode':'100644','type':'blob','sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+        self.docs={};self.binary={};self.calls=[]
+        association=[{'number':610,'base':{'sha':BASE},'head':{'sha':HEAD}}]
+        repo={'id':REPOSITORY_ID,'full_name':REPOSITORY}
+        def run(identifier,suite,status='completed',conclusion='success'):
+            return {'id':identifier,'workflow_id':350930894,'run_attempt':1,'check_suite_id':suite,
+                'display_title':('Sync metadata' if identifier==200 else 'Sync test reuse')+' for PR 610',
+                'path':'.github/workflows/sync-test-reuse.yml','event':'pull_request_target','head_sha':HEAD,
+                'head_branch':self.request.head,'status':status,'conclusion':conclusion,'repository':repo,
+                'head_repository':repo,'pull_requests':association,'created_at':'2026-10-19T21:32:43Z'}
+        self.original=run(100,500);self.current=run(200,600,'in_progress',None)
+        for row in (self.original,self.current):
+            self.docs[self.prefix+'/actions/runs/'+str(row['id'])]=row
+            self.docs[self.prefix+'/actions/runs/'+str(row['id'])+'/attempts/1']=deepcopy(row)
+        self.docs[self.prefix+'/actions/workflows/350930894']={'id':350930894,'path':'.github/workflows/sync-test-reuse.yml','state':'active'}
+        self.docs[self.prefix+'/actions/workflows/350930894/runs?head_sha='+HEAD+'&per_page=100']={'total_count':2,'workflow_runs':[self.original,self.current]}
+        self.docs[self.prefix+'/check-suites/500']={'id':500,'head_sha':HEAD,'app':{'id':15368},'repository':repo}
+        def job(identifier,run_id,suite,name,source=HEAD,status='completed',conclusion='success'):
+            value={'id':identifier,'run_id':run_id,'run_attempt':1,'head_sha':source,'name':name,'status':status,
+                'conclusion':conclusion,'url':'https://api.github.com/'+self.prefix+'/actions/jobs/'+str(identifier),
+                'html_url':'https://github.com/'+REPOSITORY+'/actions/runs/'+str(run_id)+'/job/'+str(identifier),
+                'check_run_url':'https://api.github.com/'+self.prefix+'/check-runs/'+str(identifier),
+                'started_at':'2026-10-19T21:33:00Z','completed_at':'2026-10-19T21:46:00Z','steps':[]}
+            check={'id':identifier,'head_sha':source,'name':name,'status':status,'conclusion':conclusion,
+                'app':{'id':15368},'check_suite':{'id':suite},'details_url':value['html_url'],
+                'started_at':value['started_at'],'completed_at':value['completed_at']}
+            self.docs[self.prefix+'/check-runs/'+str(identifier)]=check
+            return value
+        self.original_job=job(101,100,500,'sync-test-reuse')
+        for name in ('Inspect topology and exact parent evidence','Dispatch isolated read-only validation','Publish decision'):
+            self.original_job['steps'].append({'name':name,'status':'completed','conclusion':'success',
+                'started_at':'2026-10-19T21:33:00Z','completed_at':'2026-10-19T21:46:00Z'})
+        self.current_job=job(201,200,600,'Retain original Sync owner',status='in_progress',conclusion=None)
+        self.docs[self.prefix+'/actions/runs/100/attempts/1/jobs?per_page=100']={'total_count':1,'jobs':[self.original_job]}
+        self.docs[self.prefix+'/actions/runs/200/attempts/1/jobs?per_page=100']={'total_count':1,'jobs':[self.current_job]}
+        self.canonical=self.docs[self.prefix+'/check-runs/101']
+        self.docs[self.prefix+'/commits/'+HEAD+'/check-runs?filter=all&per_page=100']={'total_count':1,'check_runs':[self.canonical]}
+        self.binary[self.prefix+'/actions/jobs/101/logs']=b'validation_run_id=300\nvalidation_url=https://github.com/noah-l-frank/overte/actions/runs/300\n'
+        self.child=DispatchContracts().run_document('gate-100-attempt-1',run_id=300)
+        self.child['check_suite_id']=400
+        self.docs[self.prefix+'/actions/runs/300']=self.child
+        self.docs[self.prefix+'/actions/runs/300/attempts/1']=deepcopy(self.child)
+        self.docs[self.prefix+'/check-suites/400']={'id':400,'head_sha':PARENT,'app':{'id':15368},'repository':repo}
+        self.validator_job=job(301,300,400,'Validate exact synchronization',source=PARENT)
+        self.validator_job['steps']=[{'name':'Verify exact candidate suites and complete runtime identity',
+            'status':'completed','conclusion':'success','started_at':'2026-10-19T21:35:28Z','completed_at':'2026-10-19T21:45:15Z'},
+            {'name':'Upload validation test reports','status':'completed','conclusion':'success',
+             'started_at':'2026-10-19T21:45:15Z','completed_at':'2026-10-19T21:45:17Z'}]
+        notifier=job(302,300,400,'Notify completed synchronization cleanup',source=PARENT)
+        notifier['steps']=[{'name':'Dispatch exact synchronization completion','status':'completed','conclusion':'success'}]
+        self.docs[self.prefix+'/actions/runs/300/attempts/1/jobs?per_page=100']={'total_count':2,'jobs':[self.validator_job,notifier]}
+        self.selection={'schema':1,'kind':'sync-ci-selection','repository':REPOSITORY,'repository_id':REPOSITORY_ID,
+            'pull_request':610,'base':BASE,'head':HEAD,'candidate':MERGE,'tree':TREE,'parent':PARENT,'target':'apple-main',
+            'profile':'apple-family','requested_mode':'fallback','lane':'affected-ci','full_host':False,'reusable':False,
+            'suites':self.names,'omitted_suites':[n for n in self.registry['suites']if n not in self.names],
+            'external_package_set':[],'registry':self.digest(self.registry),'dependency_selection':self.selected,
+            'policy':'fixture protected policy','package_plan':None,'package_policy':'fixture protected package policy'}
+        self.observed={'schema':1,'producer':'overte-trusted-sync-ci-execution-v1','reusable':False,
+            'candidate_commit':MERGE,'candidate_tree':TREE,'registry':self.digest(self.registry),'include_platform':False,
+            'requested_suites':self.names,'results':[{'name':n,'status':'passed','command':self.registry['suites'][n]['command']}for n in self.names],
+            'conclusion':'success','started_at':'2026-10-19T21:35:39.947172Z','completed_at':'2026-10-19T21:45:11.599020Z'}
+        self.report={'schema':1,'producer':'overte-trusted-sync-validation-v1','repository':REPOSITORY,
+            'repository_id':REPOSITORY_ID,'pull_request':610,'candidate':dict(base_branch='apple-main',base_commit=BASE,
+                head_branch=self.request.head,head_commit=HEAD,merge_commit=MERGE,merge_tree=TREE,parent_branch='main',
+                parent_commit=PARENT,profile='apple-family',classification='reconciliation'),
+            'requested_mode':'fallback','mode':'affected-ci','conclusion':'success','executed_suites':self.names,
+            'reused_suites':[],'parent_evidence':None,'not_selected_suites':self.selection['omitted_suites'],
+            'bounded_projects':[],'started_at':'2026-10-19T21:35:34.585285Z','completed_at':'2026-10-19T21:45:15.669186Z'}
+        self.item={'id':401,'name':'sync-validation-reports-300-1','expired':False,'expires_at':'2026-10-26T21:45:15Z',
+            'created_at':'2026-10-19T21:45:17Z','workflow_run':{'id':300,'repository_id':REPOSITORY_ID,
+                'head_repository_id':REPOSITORY_ID,'head_branch':'main','head_sha':PARENT}}
+        self.docs[self.prefix+'/actions/runs/300/artifacts?per_page=100']={'total_count':1,'artifacts':[self.item]}
+        self.pack()
+        created=gate.quote('>='+self.original['created_at'],safe='')
+        self.pending_endpoint=self.prefix+'/actions/workflows/350930895/runs?event=workflow_dispatch&created='+created+'&per_page=100'
+        self.docs[self.pending_endpoint]={'total_count':0,'workflow_runs':[]}
+
+    @staticmethod
+    def digest(value):
+        return 'sha256:'+hashlib.sha256(gate.canonical_json(value)).hexdigest()
+
+    def pack(self, *, mutate=None, extra=None):
+        for value,key in ((self.selection,'selection'),):
+            value.pop(key,None);value[key]=self.digest(value)
+        self.observed['selection']=self.selection['selection'];self.observed.pop('receipt_digest',None)
+        self.observed['receipt_digest']=self.digest(self.observed)
+        self.report.update(ci_selection=self.selection,execution=self.observed)
+        self.report.pop('receipt_digest',None);self.report['receipt_digest']=self.digest(self.report)
+        xml='<testsuite tests="'+str(len(self.names))+'" failures="0" errors="0" skipped="0">'+''.join('<testcase name="'+n+'"/>'for n in self.names)+'</testsuite>'
+        payload={'build/test-results/sync-selected.xml':xml.encode(),
+            'build/test-results/sync-validation.json':gate.canonical_json(self.report),
+            'build/test-results/sync-validation.json.ci-execution.json':gate.canonical_json(self.observed)}
+        if mutate:mutate(payload)
+        if extra:payload.update(extra)
+        out=io.BytesIO()
+        with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED)as z:
+            for name,raw in payload.items():z.writestr(name,raw)
+        raw=out.getvalue();self.binary[self.prefix+'/actions/artifacts/401/zip']=raw
+        self.item.update(size_in_bytes=len(raw),digest='sha256:'+hashlib.sha256(raw).hexdigest())
+
+    def verify(self, *, mutate=None, classification=None, source=PARENT):
+        owner=self
+        class API:
+            def json(self,endpoint,**kwargs):
+                owner.calls.append(('GET',endpoint))
+                if kwargs.get('method','GET')!='GET':raise AssertionError('metadata attempted a mutation')
+                value=deepcopy(owner.docs[endpoint]);return mutate(endpoint,value)if mutate else value
+            def bytes(self,endpoint):
+                owner.calls.append(('BYTES',endpoint));return owner.binary[endpoint]
+        real_load=gate.package_checks.load
+        host=SimpleNamespace(select=mock.Mock(return_value=deepcopy(self.selected)))
+        def load(name,path):
+            return host if path=='tools/repository-checks/host_selection.py'else real_load(name,path)
+        def tree(api,repo,revision):return (TREE,deepcopy(self.tree))
+        with mock.patch.object(gate,'classify_event',side_effect=classification or [self.request,self.request]), \
+                mock.patch.object(gate,'_dispatch_checkout_source',return_value=source), \
+                mock.patch.object(gate,'_dispatch_source',return_value=self.prefix), \
+                mock.patch.object(gate,'recursive_tree',side_effect=tree), \
+                mock.patch.object(gate.package_checks,'load',side_effect=load), \
+                mock.patch('sys.stdout',new_callable=io.StringIO):
+            return gate.retain_metadata_owner(self.event,config(),API(),environment=self.env,now=self.now)
+
+    def test_complete_original_37_actual_1445_header_precision_preserves_owner_without_work(self):
+        self.assertEqual(len(self.names),37)
+        result=self.verify()
+        self.assertEqual(result['original_gate_run'],100);self.assertEqual(result['validation_run'],300)
+        self.assertIs(result['metadata_authenticated'],True);self.assertIs(result['new_execution'],False)
+        self.assertIs(result['qualification'],False);self.assertEqual(result['new_dispatches'],0)
+        self.assertEqual(len([c for c in self.calls if c[0]=='BYTES'and'/artifacts/'in c[1]]),1)
+
+    def test_selected_36_is_derived_instead_of_hardcoded_37(self):
+        self.names=self.names[:-1];self.selected['suites']=self.names;self.selection['suites']=self.names
+        self.selection['omitted_suites']=[n for n in self.registry['suites']if n not in self.names]
+        self.observed['requested_suites']=self.names;self.observed['results']=self.observed['results'][:-1]
+        self.report['executed_suites']=self.names;self.report['not_selected_suites']=self.selection['omitted_suites'];self.pack()
+        self.assertIs(self.verify()['metadata_authenticated'],True)
+
+    def test_pending_original_is_preserved_without_claiming_original_merge_or_execution(self):
+        self.original.update(status='in_progress',conclusion=None)
+        self.docs[self.prefix+'/actions/runs/100/attempts/1'].update(status='queued',conclusion=None)
+        self.canonical.update(status='in_progress',conclusion=None)
+        before=deepcopy(self.docs);result=self.verify()
+        self.assertEqual(result['original_state'],'pending');self.assertIsNone(result['original_tested_merge'])
+        self.assertIsNone(result['validation_run']);self.assertIs(result['qualification'],False)
+        self.assertFalse(any(c[0]=='BYTES'for c in self.calls));self.assertEqual(self.docs,before)
+
+    def test_pending_native_child_if_registered_must_correlate_current_protected_source(self):
+        self.original.update(status='in_progress',conclusion=None)
+        self.docs[self.prefix+'/actions/runs/100/attempts/1'].update(status='in_progress',conclusion=None)
+        self.canonical.update(status='in_progress',conclusion=None)
+        self.docs[self.pending_endpoint]={'total_count':1,'workflow_runs':[self.child]}
+        self.assertEqual(self.verify()['validation_run'],300)
+        self.child['head_sha']='9'*40
+        with self.assertRaises(gate.GateError):self.verify()
+
+    def test_pending_registration_remains_unique_across_other_metadata_runs_and_completion_reauthenticates(self):
+        self.original.update(status='in_progress',conclusion=None)
+        self.docs[self.prefix+'/actions/runs/100/attempts/1'].update(status='in_progress',conclusion=None)
+        self.docs[self.prefix+'/commits/'+HEAD+'/check-runs?filter=all&per_page=100'].update(total_count=0,check_runs=[])
+        prior_metadata=deepcopy(self.current);prior_metadata.update(id=150,display_title='Sync metadata for PR 610')
+        rows=self.docs[self.prefix+'/actions/workflows/350930894/runs?head_sha='+HEAD+'&per_page=100']
+        rows['workflow_runs'].append(prior_metadata);rows['total_count']=3
+        self.assertEqual(self.verify()['original_gate_run'],100)
+        counts={}
+        def completed(endpoint,value):
+            counts[endpoint]=counts.get(endpoint,0)+1
+            if endpoint in (self.prefix+'/actions/runs/100',self.prefix+'/actions/runs/100/attempts/1')and counts[endpoint]>1:
+                value.update(status='completed',conclusion='success')
+            return value
+        with self.assertRaises(gate._DispatchRegistrationPending):self.verify(mutate=completed)
+        self.assertFalse(any(c[0]=='BYTES'for c in self.calls))
+
+    def test_failed_cancelled_or_rerun_original_never_falls_back(self):
+        for conclusion in ('failure','cancelled'):
+            with self.subTest(conclusion=conclusion):
+                self.setUp();self.original['conclusion']=conclusion
+                self.docs[self.prefix+'/actions/runs/100/attempts/1']['conclusion']=conclusion
+                self.canonical['conclusion']=conclusion
+                with self.assertRaises(gate.GateError):self.verify()
+                self.assertFalse(any(c[0]=='BYTES'for c in self.calls))
+        self.setUp();self.original['run_attempt']=2
+        with self.assertRaises(gate.GateError):self.verify()
+
+    def test_actual_context_source_app_recipe_artifact_negatives(self):
+        mutations=[('foreign repository',lambda s:s.original['repository'].update(id=42)),
+            ('wrong B',lambda s:s.original['pull_requests'][0]['base'].update(sha='9'*40)),
+            ('wrong H',lambda s:s.original.update(head_sha='9'*40)),
+            ('wrong D',lambda s:s.child.update(head_sha='9'*40)),
+            ('wrong child attempt',lambda s:s.child.update(run_attempt=2)),
+            ('wrong App',lambda s:s.canonical['app'].update(id=42)),
+            ('wrong current App',lambda s:s.docs[s.prefix+'/check-runs/201']['app'].update(id=42)),
+            ('unknown original recipe',lambda s:s.original.update(path='.github/workflows/unknown.yml')),
+            ('missing original',lambda s:s.docs[s.prefix+'/commits/'+HEAD+'/check-runs?filter=all&per_page=100'].update(total_count=0,check_runs=[])),
+            ('expired',lambda s:s.item.update(expires_at='2026-10-19T00:00:00Z')),
+            ('API expired',lambda s:s.item.update(expired=True)),
+            ('bad artifact digest',lambda s:s.item.update(digest='sha256:'+'0'*64)),
+            ('truncated listing',lambda s:s.docs[s.prefix+'/actions/runs/300/artifacts?per_page=100'].update(total_count=2))]
+        for label,change in mutations:
+            with self.subTest(label=label):
+                self.setUp();change(self)
+                with self.assertRaises((gate.GateError,gate.EvidenceError)):self.verify()
+
+    def test_resigned_report_context_commands_and_unknown_members_still_fail(self):
+        for field in ('base_commit','head_commit','merge_commit','merge_tree','parent_commit','profile'):
+            with self.subTest(field=field):
+                self.setUp();self.report['candidate'][field]='9'*40;self.pack()
+                with self.assertRaises(gate.GateError):self.verify()
+        for label,change in (
+                ('wrong mode',lambda s:s.report.update(requested_mode='reuse')),
+                ('unknown selection schema',lambda s:s.selection.update(schema=2)),
+                ('unknown selection kind',lambda s:s.selection.update(kind='unknown')),
+                ('Boolean report schema',lambda s:s.report.update(schema=True)),
+                ('unknown command',lambda s:s.observed['results'][0].update(command=['python','unknown.py'])),
+                ('missing case',lambda s:s.observed['results'].pop()),
+                ('reused claims',lambda s:s.report.update(reused_suites=[s.names[0]])),
+                ('pending owner',lambda s:s.report.update(pending_platform_owners={'android':'pending'}))):
+            with self.subTest(label=label):
+                self.setUp();change(self);self.pack()
+                with self.assertRaises(ValueError):self.verify()
+        for extra in ({'../outside':b'bad'},{'unknown.txt':b'bad'}):
+            self.setUp();self.pack(extra=extra)
+            with self.assertRaises(gate.GateError):self.verify()
+        self.setUp();self.pack(mutate=lambda p:p.__setitem__('build/test-results/sync-validation.json',b'{"schema":1,"schema":1}'))
+        with self.assertRaises(ValueError):self.verify()
+
+    def test_current_context_and_original_bookends_cannot_move(self):
+        counts={}
+        def move(endpoint,value):
+            counts[endpoint]=counts.get(endpoint,0)+1
+            if endpoint==self.prefix+'/actions/runs/100'and counts[endpoint]>1:value['head_sha']='9'*40
+            return value
+        with self.assertRaises(gate.GateError):self.verify(mutate=move)
+        self.setUp()
+        with self.assertRaises(gate.GateError):self.verify(classification=[self.request,replace(self.request,parent_sha='9'*40)])
+
+    def test_pure_text_and_retarget_mixed_unknown_classification(self):
+        self.assertTrue(gate.pure_metadata_event(self.event,'pull_request_target'))
+        for changes in ({'base':{'from':{'ref':'old'}}},{'body':{'from':'old'},'base':{'from':{}}},
+                        {'unknown':{'from':'old'}},{'body':{'from':'old'},'unknown':{'from':'old'}}):
+            event=deepcopy(self.event);event['changes']=changes
+            self.assertFalse(gate.pure_metadata_event(event,'pull_request_target'))
+        for action in ('synchronize','opened','labeled'):
+            event=deepcopy(self.event);event['action']=action
+            self.assertFalse(gate.pure_metadata_event(event,'pull_request_target'))
+        self.assertFalse(gate.pure_metadata_event(self.event,'workflow_dispatch'))
+
+    def test_ordinary_body_edit_keeps_existing_cheap_normal_route(self):
+        event=deepcopy(self.event);event['pull_request']['head']['ref']='fix/apple/history-adoption'
+        with tempfile.TemporaryDirectory()as folder:
+            path=Path(folder)/'event.json';path.write_text(json.dumps(event));args=SimpleNamespace(config=gate.DEFAULT_CONFIG,event=path,output=None)
+            with mock.patch.dict(gate.os.environ,{'GITHUB_EVENT_NAME':'pull_request_target'}), \
+                    mock.patch.object(gate,'validate_required_codeql_workflow')as codeql, \
+                    mock.patch.object(gate,'classify_event',return_value=None), \
+                    mock.patch.object(gate,'native_pr_evidence',side_effect=AssertionError('ordinary consulted test owner')), \
+                    mock.patch.object(gate,'write_outputs')as output:
+                self.assertEqual(gate.inspect(args),0);codeql.assert_called_once()
+                output.assert_called_once_with(None,{'classification':'ordinary','mode':'ordinary'})
+            with mock.patch.dict(gate.os.environ,{'GITHUB_EVENT_NAME':'pull_request_target'}),mock.patch.object(gate,'write_outputs')as output:
+                self.assertEqual(gate.classify_metadata(args),0)
+                output.assert_called_once_with(None,{'metadata_only':False})
+
+    def test_legacy_inspect_pure_sync_edit_never_reenters_fallback(self):
+        with tempfile.TemporaryDirectory()as folder:
+            path=Path(folder)/'event.json';path.write_text(json.dumps(self.event));args=SimpleNamespace(config=gate.DEFAULT_CONFIG,event=path,output=None)
+            with mock.patch.dict(gate.os.environ,{'GITHUB_EVENT_NAME':'pull_request_target'},clear=True), \
+                    mock.patch.object(gate,'validate_required_codeql_workflow'), \
+                    mock.patch.object(gate,'classify_event',return_value=self.request), \
+                    mock.patch.object(gate,'native_pr_evidence',return_value=None), \
+                    mock.patch.object(gate,'verify_evidence',side_effect=gate.EvidenceError('no parent receipt')), \
+                    mock.patch.object(gate,'write_outputs')as output:
+                with self.assertRaises(gate.GateError):gate.inspect(args)
+                output.assert_not_called()
+
+    def test_workflow_skip_requires_authenticated_owner_and_isolates_original_concurrency(self):
+        text=(gate.ROOT/'.github/workflows/sync-test-reuse.yml').read_text()
+        self.assertIn("&& github.run_id || 'qualification'",text)
+        self.assertIn("needs.metadata-owner.result == 'success' && needs.metadata-owner.outputs.metadata_authenticated == 'true'",text)
+        self.assertIn("'sync-test-reuse (metadata unchanged)' || 'sync-test-reuse'",text)
+        self.assertIn('Reject unauthenticated text edits without dispatching a validator',text)
+        self.assertIn('actions: read\n      checks: read',text)
+        self.assertIn('sparse-checkout-cone-mode: false\n          sparse-checkout:',text)
+        for root in ('tools/sync-test-reuse','tools/branch-policy','tools/repository-checks','tools/test-evidence'):
+            self.assertIn('            '+root,text)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
