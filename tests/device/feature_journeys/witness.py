@@ -128,14 +128,15 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 class Client:
-    def __init__(self, url, reader_token):
+    def __init__(self, url, reader_token,*,monotonic=time.monotonic,sleep=time.sleep):
         from urllib.parse import urlsplit
         parsed = urlsplit(url)
         if (parsed.scheme not in {'http', 'https'} or not parsed.hostname or parsed.path != '/feature-fixture/v1'
                 or parsed.username or parsed.password or parsed.query or parsed.fragment
-                or type(reader_token) is not str or len(reader_token) < 32):
+                or type(reader_token) is not str or len(reader_token) < 32 or not callable(monotonic) or not callable(sleep)):
             raise ValueError('Private feature fixture configuration is incomplete')
         self.url, self.token = url, reader_token
+        self.monotonic,self.sleep=monotonic,sleep
 
     def request(self, path, value=None, method=None):
         raw = None if value is None else json.dumps(value).encode()
@@ -154,9 +155,22 @@ class Client:
             raise ValueError('Owned feature fixture transport failed') from error
 
     def register(self, area):
+        if getattr(self,'run',None) is not None and not getattr(self,'closed',False):
+            raise ValueError('An existing owned fixture run must close first')
+        if area=='authentication':
+            from urllib.parse import urlsplit
+            if urlsplit(self.url).scheme!='https':raise ValueError('Authentication requires the trusted HTTPS account fixture')
+            provider=self.request('/account-provider')
+            exact(provider,{'providerVersion','instance','transport','tlsVersion','internalErrors'},'account provider readiness')
+            if (type(provider['providerVersion']) is not int or provider['providerVersion']!=1 or provider['transport']!='https'
+                    or provider['tlsVersion'] not in ('TLSv1.2','TLSv1.3') or type(provider['internalErrors']) is not int
+                    or provider['internalErrors']!=0):raise ValueError('Required account provider is unavailable')
+            self.account_instance=identifier(provider['instance'])
+            self.account_sequence=self.account_epoch=0
         result = self.request('/runs', {'area': area})
         exact(result, {'runId'}, 'feature fixture registration')
         self.run = identifier(result['runId'])
+        self.area,self.closed=area,False
         return self.run, self.url + '/runs/' + self.run + '/'
 
     def activate(self, ticket, verb='baseline', inputs=None):
@@ -166,4 +180,50 @@ class Client:
         return self.request('/runs/' + self.run)
 
     def close(self):
+        if getattr(self,'closed',False):return
+        if self.area=='authentication':
+            started=previous=number(self.monotonic())
+            self.account_control('cleanup') # Exactly once; an uncertain mutation is never replayed here.
+            for attempt in range(51):
+                status=self.account_status()
+                now=number(self.monotonic())
+                if now<previous or now-started>=5:raise ValueError('Account fixture cleanup exceeded its bound')
+                previous=now
+                if (not status['accountExists'] and not status['armedHold'] and status['heldRequests']==0 and status['inflightRequests']==0
+                        and status['accessTokens']==0 and status['refreshTokens']==0):break
+                if attempt==50:raise ValueError('Account fixture cleanup is incomplete')
+                self.sleep(.05)
         self.request('/runs/' + self.run, method='DELETE')
+        if self.area=='authentication':
+            now=number(self.monotonic())
+            if now<previous or now-started>=5:raise ValueError('Account fixture cleanup exceeded its bound')
+        self.closed=True
+
+    def account_status(self):
+        from .contract import number
+        value=self.request('/runs/'+self.run+'/account/status')
+        exact(value,{'providerVersion','instance','runId','capturedEpochMs','eventSequence','accountExists',
+            'heldRequests','armedHold','inflightRequests','accessTokens','refreshTokens'},'account provider status')
+        if (type(value['providerVersion']) is not int or value['providerVersion']!=1 or value['instance']!=self.account_instance
+                or value['runId']!=self.run or any(type(value[k]) is not bool for k in ('accountExists','armedHold'))
+                or any(type(value[k]) is not int or value[k]<0 for k in ('eventSequence','heldRequests','inflightRequests','accessTokens','refreshTokens'))
+                or type(value['capturedEpochMs']) is not int or value['capturedEpochMs']<self.account_epoch
+                or value['eventSequence']<self.account_sequence
+                or value['heldRequests']>1 or value['inflightRequests']>16 or value['accessTokens']>64 or value['refreshTokens']>64):
+            raise ValueError('Account fixture status is invalid')
+        number(value['capturedEpochMs'],1)
+        self.account_epoch,self.account_sequence=value['capturedEpochMs'],value['eventSequence']
+        return value
+
+    def account_control(self,operation):
+        if self.area!='authentication' or self.closed or operation not in ('hold-next','release-delayed','cleanup'):
+            raise ValueError('Unknown or retired account control')
+        self.request('/runs/'+self.run+'/account/control',{'operation':operation})
+
+    def account_credentials(self,role):
+        if self.area!='authentication' or role not in ('owned','invalid','delayed'):raise ValueError('Unknown owned account role')
+        value=self.request('/runs/'+self.run+'/account/credentials/'+role)
+        exact(value,{'username','password'},'private fixture credentials')
+        if any(type(v) is not str or not 0<len(v)<=512 or any(ord(c)<32 for c in v) for v in value.values()):
+            raise ValueError('Private fixture credentials are invalid')
+        return value # Caller must keep these out of public adapter requests, logs and reports.
