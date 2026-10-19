@@ -4383,6 +4383,16 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         self.assertEqual(proof['original_commit'],MERGE)
         self.assertEqual(proof['parent_commit'],self.normal)
 
+    def test_closed_parent_nonempty_associations_must_be_only_the_exact_original_PR(self):
+        exact={'number':610,'base':{'sha':BASE},'head':{'sha':HEAD}}
+        for rows,accepted in (([exact],True),([exact,{'number':999}],False),
+                ([dict(exact,base={'sha':'0'*40})],False),([dict(exact,number=999)],False)):
+            self.f.original['pull_requests']=deepcopy(rows)
+            self.docs[self.f.prefix+'/actions/runs/100/attempts/1']['pull_requests']=deepcopy(rows)
+            with self.subTest(rows=rows):
+                proof=self.verify(pure=True)
+                self.assertEqual(isinstance(proof,gate.NativeExactTreeParentEvidence),accepted)
+
     def test_source_and_current_PR_closing_bookends_reject_real_native_drift(self):
         for shape in ('source','current'):
             reads=0

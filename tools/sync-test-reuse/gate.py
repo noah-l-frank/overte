@@ -1773,6 +1773,13 @@ def _metadata_gate_run(api, prefix, identifier, request, *, normal_parent=None):
                     and p.get('head', {}).get('sha') == request.head_sha for p in value.get('pull_requests', []))
                     or integrated and value['pull_requests'] == []):
             raise GateError('metadata original gate source/attempt/PR association differs')
+        if integrated and value['pull_requests']:
+            association = value['pull_requests'][0]
+            if len(value['pull_requests']) != 1 or type(association.get('number')) is not int \
+                    or association['number'] != request.number \
+                    or association.get('base', {}).get('sha') != request.base_sha \
+                    or association.get('head', {}).get('sha') != request.head_sha:
+                raise GateError('exact normal parent has mixed or mismatched original PR associations')
     pending = {'queued', 'in_progress', 'waiting', 'pending', 'requested'}
     if any(run.get(k) != attempt.get(k) for k in (*fields, 'check_suite_id')) or (
             (run.get('status'), run.get('conclusion')) != (attempt.get('status'), attempt.get('conclusion'))
