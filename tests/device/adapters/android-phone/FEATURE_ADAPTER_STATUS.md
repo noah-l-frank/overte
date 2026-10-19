@@ -14,7 +14,7 @@ Appium session guards. The actual loaded animation resource URL is distinct from
 its requested URL. Stale poses and candidate/process changes fail. These sources
 are not complete area adapters and advertise no `feature.*` capability. Native
 compilation and devices remain untested; focused Phone boundary tests now number
-**21**. See [the native source contract](../../native/README.md).
+**31**. See [the native source contract](../../native/README.md).
 
 The internal `_recorded_preview_evidence()` now acquires the normal memory
 preview's original pre-normalization capture and accepted sink-write PCM through
@@ -31,6 +31,34 @@ and PID/start/session guards. It never sends source names or code. The current
 shared feature contract is **version 2**, with a real client file-bundle picker
 flow; these history/URL foundations still do not implement that full area. See
 [the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
+
+The internal `_script_file_picker(selector,directory)` now binds the shared
+ordinary file-bundle recipe to a dedicated E2E-only Qt source/input core on
+Phone. `Test.phoneScriptFileUi` exists only in feature-enabled Phone builds and
+requires the explicit test launch/results boundary. It observes the actual
+OffscreenUi root/window and real existing picker controls. Normal Qt mouse,
+focused key/IME and ComboBox keyboard events deliver input; no file helper,
+QML handler, Script service or selection setter substitutes for user input.
+The existing private Android command/probe channel carries the closed
+`phone-script-file-ui` action. Native core, probe and Python IO each validate
+their boundary. Current installed APK/PID/start/session guards remain in force.
+
+The native source pins actual root/window generation and source-sensitive
+control tokens. Its input cursor is consumed before dispatch. The host checks
+fresh original native rows and then verifies actual folder, chosen URLs, review,
+primary and disappearance through the common recipe. A successful delivery
+acknowledgement alone cannot prove selection or execution. Retired generation,
+foreign acknowledgements, ignored row/primary selection, partial files,
+missing native marker and candidate changes have host counterexamples.
+
+This **does not complete** version 2 Scripts: the owning wrapper still needs
+private original-byte staging, persistent file/picker/engine cleanup intent and
+the actual advancing-effect/independent observer join. A failed input may leave
+the real dialog open; the future owner must retain intent and cancel it through
+the normal picker path, or fail cleanup. The component neither invents an app
+sandbox path nor treats accepted files as executed scripts. Native C++/Qt event
+delivery remains uncompiled/unqualified. Pico/iOS picker wiring is separate.
+See [the common file protocol](../../native/NORMAL_SCRIPT_FILES.md).
 
 New implementations in the existing candidate-bound Appium entrypoint:
 

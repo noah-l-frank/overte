@@ -33,6 +33,8 @@ from adapters.native_feature_observation import NativeFeatureObservation, FILE a
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, AndroidPreviewFiles,
     FILE as RECORDED_PREVIEW_FILE)
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
+from adapters.token_script_file_ui import TokenScriptFilePicker
+from overte_phone_script_files import PhoneScriptFileIO, FILE as SCRIPT_FILE_UI_FILE
 
 
 class PhoneAppiumAdapter(AppiumAdapter):
@@ -178,6 +180,19 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda: transport.read_debug_app_file(device, target['appId'],
                 'files/overte-e2e/' + SCRIPT_EXECUTION_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid)
+
+    def _script_file_picker(self, selector, directory):
+        # Internal primitive only. The full area still needs staged-byte
+        # ownership, persistent dialog/source cleanup and execution/effect joins.
+        native = self._native_feature_observer(selector)
+        target = self.target(selector)
+        device = target['capabilities']['appium:udid']
+        transport = PhoneAdapter(self.candidate).adb
+        io = PhoneScriptFileIO(native.send,
+            lambda: transport.read_debug_app_file(device, target['appId'],
+                'files/overte-e2e/' + SCRIPT_FILE_UI_FILE, attempts=1),
+            native.clock_ms, native.guard, native.pid)
+        return TokenScriptFilePicker(io, directory)
 
     def normal_scripts(self, selector, operation, values):
         arguments = validate_operation_arguments(operation, values)

@@ -4,6 +4,7 @@ from functools import partial
 import json
 import os
 import shlex
+import subprocess
 from pathlib import Path
 import sys
 import unittest
@@ -23,6 +24,9 @@ from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundar
 from adapters.recorded_preview_evidence import RecordedPreviewEvidence
 from self_tests.test_native_script_observation import Boundary as ScriptBoundary
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine
+from self_tests.test_native_feature_observation import probe_source
+from adapters.token_script_file_ui import TokenScriptFilePicker
+from script_file_native_boundary import FileNativeBoundary
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -298,6 +302,136 @@ class FeatureAdapterTests(unittest.TestCase):
         self.fixture.adb.digest = 'f' * 64
         with self.assertRaises(RuntimeError): reader.read(0)
         self.assertEqual([], source.commands)
+
+    def file_picker_boundaries(self):
+        root = self.fixture.root / ('feature-script-' + 'a' * 32)
+        root.mkdir()
+        (root / 'script.js').write_text("var companion = Script.require('./companion.js');")
+        (root / 'companion.js').write_text('module.exports = {delta: 1};')
+        source = FileNativeBoundary(root)
+        def send(_client, _session, target, command, process):
+            self.assertEqual(PACKAGE, target['appId'])
+            self.assertEqual({'running': True, 'identity': '31:14'}, process)
+            source.send(command)
+        def read(_device, package, path, **kwargs):
+            self.assertEqual(PACKAGE, package)
+            self.assertEqual('files/overte-e2e/phone-script-file-ui.json', path)
+            self.assertEqual({'attempts': 1}, kwargs)
+            return json.dumps(source.value)
+        for boundary in (
+            patch.object(self.adapter, 'write_android_client_command', side_effect=send),
+            patch.object(self.fixture.adb, 'read_debug_app_file', side_effect=read, create=True),
+            patch.object(self.fixture.adb, 'epoch_milliseconds', return_value=20000, create=True),
+            patch.object(appium, 'PhoneScriptFileIO', partial(appium.PhoneScriptFileIO,
+                monotonic=lambda: source.ui.clock, sleep=source.ui.sleep)),
+            patch.object(appium, 'TokenScriptFilePicker', partial(TokenScriptFilePicker,
+                monotonic=lambda: source.ui.clock, sleep=source.ui.sleep))):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source, self.adapter._script_file_picker(SELECTOR, root.as_uri())
+
+    def test_phone_file_picker_uses_actual_native_review_and_one_normal_confirmation(self):
+        source, picker = self.file_picker_boundaries()
+        picker.open(); picker.choose('script.js')
+        self.assertEqual([(source.ui.root / 'script.js').as_uri()], source.ui.accepted)
+        self.assertEqual(1, sum(row['controlId'] == 'script-file.confirm' for row in source.input_requests))
+        self.assertTrue(all(set(command) == {'schemaVersion', 'commandId', 'action', 'request'} for command in source.commands))
+        self.assertEqual([], self.native.inputs)
+
+    def test_phone_file_input_ack_cannot_hide_ignored_native_selection(self):
+        source, picker = self.file_picker_boundaries(); source.ui.fault = 'row'
+        picker.open()
+        with self.assertRaises(RuntimeError): picker.choose('script.js')
+        self.assertEqual([], source.ui.accepted)
+        self.assertEqual(1, sum(row['controlId'].startswith('script-file.row.') for row in source.input_requests))
+        picker.cancel()
+        self.assertFalse(source.ui.opened)
+
+    def test_phone_file_main_selector_uses_normal_input_and_real_readback(self):
+        source, picker = self.file_picker_boundaries(); source.ui.fault = 'wrong-primary'
+        picker.open(); picker.choose('script.js')
+        self.assertEqual([(source.ui.root / 'script.js').as_uri()], source.ui.accepted)
+        selections = [request for request in source.input_requests if request['action'] == 'select-index']
+        self.assertEqual(1, len(selections)); self.assertEqual(0, selections[0]['index'])
+
+    def test_phone_file_ignored_main_selector_cannot_confirm_the_companion_as_main(self):
+        source, picker = self.file_picker_boundaries(); source.ui.fault = 'primary'
+        picker.open()
+        with self.assertRaises(RuntimeError): picker.choose('script.js')
+        self.assertEqual([], source.ui.accepted)
+        self.assertEqual(1, sum(request['action'] == 'select-index' for request in source.input_requests))
+        self.assertFalse(any(request['controlId'] == 'script-file.confirm' for request in source.input_requests))
+        picker.cancel()
+
+    def test_phone_file_picker_changed_candidate_blocks_before_any_ui_request(self):
+        source, picker = self.file_picker_boundaries()
+        self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): picker.open()
+        self.assertEqual([], source.commands)
+
+    def test_phone_file_generation_change_cannot_adopt_the_old_dialog_context(self):
+        source, picker = self.file_picker_boundaries(); picker.open()
+        before = len(source.input_requests); source.generation = 'c' * 32
+        with self.assertRaises(RuntimeError): picker.choose('script.js')
+        self.assertEqual(before, len(source.input_requests))
+        self.assertTrue(source.ui.opened)
+
+    def test_phone_file_foreign_ack_fails_without_replay_and_actual_dialog_can_be_cancelled(self):
+        source, picker = self.file_picker_boundaries()
+        source.mutate = lambda value: value.update(processId=999) if value['action'] == 'activate' else None
+        with self.assertRaises(RuntimeError): picker.open()
+        self.assertTrue(source.ui.opened)
+        self.assertEqual(1, len(source.input_requests))
+        source.mutate = None; picker.cancel()
+        self.assertFalse(source.ui.opened)
+
+    def test_phone_file_partial_result_retries_reads_without_repeating_a_request(self):
+        source, picker = self.file_picker_boundaries(); original = picker.io.original; reads = []
+        def partial_read():
+            reads.append(1)
+            return '{"schemaVersion":' if len(reads) == 1 else original()
+        picker.io.original = partial_read
+        self.assertTrue(picker.io.capture()['ready'])
+        self.assertEqual(1, len(source.commands)); self.assertEqual(2, len(reads))
+        self.assertEqual([], source.input_requests)
+
+    def test_phone_file_result_with_wrong_types_or_missing_marker_never_authorizes_input(self):
+        source, picker = self.file_picker_boundaries()
+        for fault in ('version', 'cursor', 'marker'):
+            with self.subTest(fault=fault):
+                def mutate(value):
+                    if fault == 'version': value['schemaVersion'] = True
+                    elif fault == 'cursor': value['sourceSequence'] = 0
+                    else: value.pop('fileControlsVersion')
+                source.mutate = mutate
+                with self.assertRaises(RuntimeError): picker.open()
+        self.assertEqual([], source.input_requests)
+
+    def test_actual_phone_probe_rejects_extra_or_untyped_file_inputs_before_native_dispatch(self):
+        program = '''
+const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort());
+let calls=[],files=[];
+const Test={phoneScriptFileUi:request=>{calls.push(request);return {schemaVersion:1,commandId:request.commandId,performed:true};},
+ saveObject:(v,name)=>files.push({v,name})};
+SOURCE
+function outer(request){return {schemaVersion:1,commandId:request.commandId,action:"phone-script-file-ui",request};}
+const observe={schemaVersion:1,commandId:"a".repeat(32),action:"observe"};
+applyAndroidControlCommand(outer(observe));applyAndroidControlCommand(outer(observe));
+if(calls.length!==1||files[0].name!=="phone-script-file-ui.json")throw Error("original dispatch");
+applyClientCommand(outer({...observe,commandId:"b".repeat(32),expected:{files:["script.js"]}}));
+const input={schemaVersion:1,commandId:"c".repeat(32),action:"activate",instance:"d".repeat(32),generation:"e".repeat(32),
+ sequence:1,observedElapsedMs:0,controlId:"scripts.from-file",controlToken:"f".repeat(32)};
+applyAndroidControlCommand(outer(input));
+if(calls.length!==2)throw Error("normal input");
+applyClientCommand(outer({...input,commandId:"1".repeat(32),sequence:true}));
+applyClientCommand(outer({...input,commandId:"2".repeat(32),text:"unowned"}));
+if(calls.length!==2)throw Error("untyped or extra input");
+delete Test.phoneScriptFileUi;
+applyClientCommand(outer({...observe,commandId:"3".repeat(32)}));
+if(files[2].v.available!==false)throw Error("missing hook green");
+'''.replace('SOURCE', probe_source())
+        completed = subprocess.run(['node', '-e', program], capture_output=True, text=True, timeout=5)
+        self.assertEqual(0, completed.returncode, completed.stderr)
 
     def test_native_feature_reader_rejects_process_change_and_does_not_replay_request(self):
         source = self.native_feature_boundaries()

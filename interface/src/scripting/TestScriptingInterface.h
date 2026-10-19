@@ -17,7 +17,8 @@
 #include <QtCore/QVariantMap>
 #include <ScriptValue.h>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-namespace overte::e2e { class FeatureLifecycle; }
+#include <memory>
+namespace overte::e2e { class FeatureLifecycle; class ScriptFileUi; }
 #endif
 
 class TestScriptingInterface : public QObject {
@@ -155,6 +156,9 @@ public slots:
     Q_INVOKABLE QVariantMap releaseFeatureRecordedVoiceEvidence(const QString& requestId);
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    Q_INVOKABLE QVariantMap phoneScriptFileUi(const QVariantMap& command);
+#endif
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     Q_INVOKABLE QVariantMap voiceTest(const QVariantMap& command);
@@ -214,6 +218,9 @@ private:
     QByteArray _featurePreviewInputDigest, _featurePreviewSinkDigest;
     quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
     quint64 _featureScriptSequence {0};
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    std::shared_ptr<overte::e2e::ScriptFileUi> _phoneScriptFileUi;
+#endif
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     QString _voiceCapturePath;

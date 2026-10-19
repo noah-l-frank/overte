@@ -103,6 +103,34 @@
     var nativeFeatureTimer = null;
     var lastRecordedPreviewRequest = "";
     var lastScriptSourceRequest = "";
+    var lastPhoneScriptFileRequest = "";
+    function phoneFileInteger(value, minimum, maximum) {
+        return typeof value === "number" && isFinite(value) && Math.floor(value) === value
+            && value >= minimum && value <= maximum;
+    }
+    function validPhoneScriptFileRequest(request) {
+        if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
+        if (request.action === "observe") { return objectKeysMatch(request, ["schemaVersion", "commandId", "action"]); }
+        var keys = ["schemaVersion", "commandId", "action", "instance", "generation", "sequence", "observedElapsedMs", "controlId", "controlToken"];
+        if (request.action === "replace") { keys.push("text"); }
+        if (request.action === "select-index") { keys.push("index"); }
+        if (["activate", "replace", "submit", "select-index"].indexOf(request.action) === -1
+                || !objectKeysMatch(request, keys) || !/^[0-9a-f]{32}$/.test(String(request.instance))
+                || !/^[0-9a-f]{32}$/.test(String(request.generation)) || !/^[0-9a-f]{32}$/.test(String(request.controlToken))
+                || !phoneFileInteger(request.sequence, 1, 9007199254740991)
+                || !phoneFileInteger(request.observedElapsedMs, 0, 9007199254740991)
+                || !/^(?:scripts\.from-file|script-file\.(?:folder|primary|select|cancel|change-selection|confirm|review-cancel|row\.(?:0|[1-9][0-9]{0,3})))$/.test(String(request.controlId))) { return false; }
+        if (request.action === "replace") {
+            return request.controlId === "script-file.folder" && typeof request.text === "string" && request.text.length <= 4096
+                && /^\/(?:[^/\x00-\x1f]+\/)*feature-script-[0-9a-f]{32}(?:\/script-bundle)?$/.test(request.text)
+                && request.text.split("/").indexOf("..") === -1 && request.text.split("/").indexOf(".") === -1;
+        }
+        if (request.action === "submit") { return request.controlId === "script-file.folder"; }
+        if (request.action === "select-index") {
+            return request.controlId === "script-file.primary" && phoneFileInteger(request.index, 0, 31);
+        }
+        return true;
+    }
     function saveScriptSourceObservation(requestId) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
         try {
@@ -929,6 +957,24 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                && command.action === "phone-script-file-ui"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "request"])
+                && validPhoneScriptFileRequest(command.request)
+                && command.request.commandId === command.commandId) {
+            if (command.commandId !== lastPhoneScriptFileRequest) {
+                lastPhoneScriptFileRequest = String(command.commandId);
+                var fileUi = {schemaVersion: 1, commandId: command.commandId, available: false};
+                try {
+                    if (typeof Test.phoneScriptFileUi === "function") {
+                        var original = Test.phoneScriptFileUi(command.request);
+                        if (original && original.commandId === command.commandId) { fileUi = original; }
+                    }
+                } catch (_phoneScriptFileError) { /* Missing native input is never successful delivery. */ }
+                Test.saveObject(fileUi, "phone-script-file-ui.json");
+            }
+            return;
+        }
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "feature-script-observe"
@@ -1222,7 +1268,8 @@
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
-                || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe")) {
+                || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
+                || command.action === "phone-script-file-ui")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse only the closed read-only path.
             applyClientCommand(command);
