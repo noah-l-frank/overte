@@ -1,7 +1,7 @@
 # Normal Create adapter packet
 
 `normal_create.py` implements the existing eight `create.*` foundation operations.
-`android_create_ui.py` binds the Phone's normal `NativeCreate.qml` controls.
+the Phone-owned `android-phone/overte_phone_create_ui.py` binds the Phone's normal `NativeCreate.qml` controls.
 The existing independent `create_journey.py`/fixture observer judges actual
 entity properties, avatar hosting/ownership, parent-child imports and history.
 This packet does not advertise the larger `feature.create.*` v1 contract.

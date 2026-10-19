@@ -2,7 +2,7 @@
 
 `normal_script_manager.py` drives the existing five `scripts.*` operations. It
 does not implement or advertise the larger `feature.scripts.*` v1 contract.
-`android_script_ui.py` binds ordinary Phone screen-space Tablet input. No direct
+the Phone-owned `android-phone/overte_phone_script_ui.py` binds ordinary Phone screen-space Tablet input. No direct
 `ScriptDiscoveryService.loadOneScript`/`stopScript`, probe mutation or arbitrary
 UI recipe is used for actions. The independent existing `scripts_journey.py`
 still decides actual execution, companion loading, new instances and silence.
