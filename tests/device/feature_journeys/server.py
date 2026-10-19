@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 
 if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from feature_journeys.contract import exact, identifier
+from feature_journeys.contract import exact, identifier, json_document
 from feature_journeys.fixtures import check, companion, payload
 from feature_journeys.witness import Journal
 from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PROFILE_PATH,REQUEST_HEADER,RUN_HEADER,TICKET_HEADER
@@ -131,18 +131,24 @@ class Handler(BaseHTTPRequestHandler):
                 if data is None:
                     return self.send(404, {'error': 'not-found'})
                 return self.send(200, data[1], data[0])
+            if self.command=='GET' and len(parts)==4 and parts[0]=='runs' and parts[2:]==['account','delayed']:
+                run=identifier(parts[1])
+                if (self.server.account_provider is None or run not in self.server.journal.runs
+                        or self.server.journal.runs[run]['area']!='authentication'):
+                    return self.send(404,{'error':'not-found'})
+                return self.send(200,self.server.account_provider.delayed_status(run))
             if not reader and not actor:
                 return self.send(403, {'error': 'forbidden'})
             if self.command=='GET' and parts==['account-provider']:
                 if self.server.account_provider is None:return self.send(503,{'error':'account-provider-unavailable'})
-                return self.send(200,dict(providerVersion=1,instance=self.server.account_provider.instance,
+                return self.send(200,dict(providerVersion=2,instance=self.server.account_provider.instance,
                     transport='https',tlsVersion=self.connection.version(),internalErrors=self.server.internal_errors))
             body = None
             if self.command == 'POST':
                 size = int(self.headers.get('Content-Length', '0'))
                 if not 0 < size <= 16384:
                     raise ValueError('Invalid bounded body')
-                body = json.loads(self.rfile.read(size))
+                body = json_document(self.rfile.read(size))
             if self.command == 'POST' and parts == ['runs'] and reader:
                 exact(body, {'area'}, 'fixture registration')
                 if body['area']=='authentication' and self.server.account_provider is None:
@@ -176,6 +182,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
                 if self.server.account_provider is not None and run in self.server.account_provider.runs:
                     self.server.account_provider.activate(run,body['ticket'])
+                    stimulus=self.server.journal.active(run)['stimulus']
+                    if stimulus['verb']=='login-submit' and stimulus['inputs'].get('account')=='delayed':
+                        self.server.account_provider.control(run,'hold-next')
+                    elif stimulus['verb']=='release-stale-response':
+                        self.server.account_provider.control(run,'release-delayed')
+                    elif stimulus['verb']=='cleanup':
+                        self.server.account_provider.control(run,'revoke-issued')
                 return self.send(200, {})
             if self.command == 'GET' and parts[2:] == ['active']:
                 return self.send(200, self.server.journal.active(run))

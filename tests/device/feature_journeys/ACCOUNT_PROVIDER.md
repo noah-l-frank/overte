@@ -1,4 +1,4 @@
-# Controlled HTTPS account protocol, version 1
+# Controlled HTTPS account protocol, version 2
 
 The existing feature fixture server now optionally supplies the actual native
 password/refresh OAuth and protected profile protocol. This replaces no product
@@ -48,7 +48,7 @@ collisions fail without overwriting an existing token/run. One provider has only
 one server owner; closed/retired contexts cannot be reattached or reprovisioned.
 
 `GET /feature-fixture/v1/account-provider` requires a private role and returns
-providerVersion 1, actual instance, transport https, actual negotiated tlsVersion
+providerVersion 2, actual instance, transport https, actual negotiated tlsVersion
 and internalErrors. Authentication registration fails before creating a run if
 this mandatory service is unavailable; other feature fixture routes retain their
 existing behavior. `Client.register('authentication')` requires HTTPS/readiness
@@ -65,14 +65,36 @@ public operation arguments, logs, reports, artifacts or commits.
 ## Delayed responses, original proof and cleanup
 
 Reader POST `/runs/<run>/account/control` has exactly {operation}, with operation
-hold-next, release-delayed or cleanup. Hold-next must be separately observed
-armed before ordinary native login input. It holds the next **real matching**
-grant request, not a simulated acknowledgement; no token is issued while held.
-Release requires an actually waiting grant. Its maximum hold is 12 seconds,
-below the native manager's unchanged 15-second reply deadline; release early
-enough for the actual network budget. Expiry returns 503, never a valid token or
-a successful stale-response case. Cleanup deactivates authority, clears retained
-credentials/tokens and wakes pending handlers without late valid issuance.
+hold-next, release-delayed, revoke-issued or cleanup. The existing closed action
+activation arms hold-next for delayed login, releases for release-stale-response
+and revokes for cleanup. These are reader-owned backend stimuli, never client
+state setters. Hold-next must be freshly observed armed before ordinary native
+login input. It holds the next **real matching** grant, not an acknowledgement;
+no token is issued while held. Release requires an actually waiting grant.
+
+The maximum server hold is 90 seconds. Retire the original native consumer by
+an actual verified app restart before release. The living native manager keeps
+its unchanged 15-second reply deadline; preserve a genuinely pending request
+before restart. Server hold expiry returns 503, never a valid stale success.
+Revoke-issued disables new grants for the entire run, cancels held handlers and
+clears actual access/refresh authority while retaining the active anonymous
+profile scope for native cleanup evidence. Ordinary native logout is **not** a
+remote revocation operation. Final cleanup separately deactivates the account,
+wipes credentials and wakes pending handlers without late valid issuance.
+
+Public read-only GET `/runs/<run>/account/delayed` returns providerVersion 2,
+instance, runId, capturedEpochMs, eventSequence, grantsEnabled, requests and
+measured delayedGrantOutstanding. Every request retains its original requestId,
+requestTicket, startedEpochMs, releasedEpochMs, issuedEpochMs, HTTP status and
+state (held, issued, expired, cancelled or rejected). Its accessValid and
+refreshValid are fresh lookups of actual retained original-request authority.
+The top-level boolean is their actual union, not a desired login result. The
+route never exports credentials, response bodies or usernames. Reading it does
+not retime historical events. Issuance proves server authority, not delivery or
+native adoption. The typed reader pins provider/run and rejects lost, foreign,
+rewritten or regressing original history and authority that reappears after
+expiry/revocation. A missing record or expired held request cannot pass the
+version 6 stale-response checkpoint.
 
 The independent proof is **not** a token/grant receipt. A fresh native protected
 profile probe must use the actual current AccountManager credentials and add
@@ -101,7 +123,7 @@ contract; no platform advertises its three full feature operations.
 
 GET `/runs/<run>/account/status` separately reads providerVersion, instance,
 runId, original capturedEpochMs, eventSequence, accountExists, heldRequests,
-armedHold, inflightRequests, accessTokens and refreshTokens. Counts include all
+armedHold, inflightRequests, grantsEnabled, accessTokens and refreshTokens. Counts include all
 retained owned tokens, including expired entries. Actual grant/profile handlers
 remain counted through their response write. A cleanup ACK or empty token map
 cannot hide an undrained handler. `Client.close` sends cleanup once, then requires
@@ -112,7 +134,8 @@ scopes permit recovery after a lost final proof; unknown/foreign scopes cannot
 be treated as empty. Fixture cleanup proves no native logout or app-file cleanup.
 
 Limits are 32 live account rows, 256 retained retired run IDs, 64 token pairs per
-run, 4096 used profile nonces and 1024 original sanitized events per run, plus 16
+run, 4096 used profile nonces, 4096 used grant request IDs, 64 original delayed
+records and 1024 original sanitized events per run, plus 16
 inflight requests per run. No passwords, tokens, bodies or personal data appear
 in proof/status/journal/log output. TLS handshake/IO is bounded; form bodies have
 one absolute two-second monotonic deadline and a 4096-byte limit, with duplicate,
@@ -121,10 +144,12 @@ malformed, unsupported and expected-result fields rejected before issuance.
 ## Device-free validation and remaining work
 
 The existing quick control-plane selection registers `test_account_provider.py`.
-Twenty-four cases exercise the real loopback HTTPS handler with actual
+Thirty cases exercise the real loopback HTTPS handler with actual
 password/Bearer/refresh requests, expiry, foreign scope, delayed delivery,
 authority/handler cleanup, false ACKs, nonce/history reuse, role separation,
-credential collisions, trust/hostname rejection and bounded slow-body clocks.
+credential collisions, trust/hostname rejection, bounded slow-body clocks, original
+delayed authority, actual revocation/cancellation, closed-action stimuli and
+duplicate/non-finite JSON rejection.
 OpenSSL CLI (`openssl`, with -addext support) generates temporary certificate/key
 files in a private temporary directory. Only the Python test client explicitly
 trusts that certificate; no native client or system trust store is changed.
@@ -135,7 +160,7 @@ the required self-test rather than skipping it or installing anything.
 These checks prove provider/transport/test logic, not native client login. The
 [uncompiled protected-profile source](../native/ACCOUNT_PROTECTED_PROBE.md) and
 passive native pending/history source now exist. Source-bound normal login
-controls, native origin-file provisioning, independent UI/error/remote actor
+controls, independently verified private origin/trust setup, UI/error/remote actor
 composition, restart ownership, actual trusted-device setup and full platform
 Authentication coordinators remain missing. Keep those
 capabilities closed and device qualification unperformed until separately met.

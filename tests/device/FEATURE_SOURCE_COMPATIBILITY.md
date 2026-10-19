@@ -6,13 +6,16 @@ has now exposed assumptions in several draft workflows that do not describe the
 actual product UI. Host-model success does not resolve those mismatches. No
 complete area capability may be advertised as implemented on that basis.
 
-The current contract is version 5. Version 2 corrected Scripts to the ordinary
+The current contract is version 6. Version 2 corrected Scripts to the ordinary
 file-bundle picker and actual relative companion execution, with negative
 cases for execution after cancellation, missing companions and frozen ticks.
 Version 3 corrected Audio to its automatic memory-preview cycle.
 Version 4 corrects Graphics to immediate actual controls and measured originals.
 Version 5 corrects ordinary Emote override/chooser semantics, adds nine natural
 completion checks and separately requires restoration before nominal clip end.
+Version 6 corrects authentication view dismissal versus native request lifetime,
+uses a real process restart to retire a delayed response consumer, and requires
+actual delayed authority plus independent UI/error facts.
 See [the explicit migration](feature_journeys/CONTRACT_MIGRATION.md).
 
 These are test-contract corrections, not permission to add functional
@@ -23,6 +26,7 @@ versioned before any complete area producer is enabled.
 
 | Area | Actual reviewed source behavior | Draft v1 assumption requiring correction |
 | --- | --- | --- |
+| Authentication | `PhoneLoginState.h` explicitly keeps the account request alive when its view closes. `LoginDialog` destruction/dismissal and the generic overlay/tablet `tryDestroy` paths remove the view, without cancelling AccountManager. That manager owns its native reply independently. | **Corrected in version 6.** Close/reopen the still-pending request through normal controls, close again, then actually restart before releasing the old valid grant. Require fresh anonymous state in the new process and real delayed issued authority. Independent observations also include actual dialog/error state. Native logout clears local authority; backend fixture cleanup separately revokes retained tokens. Do not inject a functional network-cancel implementation to satisfy the draft. |
 | Audio | `interface/resources/qml/hifi/audio/LoopbackAudio.qml` exposes one Record-and-Play button, automatic three-second in-memory capture/playback and cancellation. `AudioClient::startRecordedVoiceTest`, `finishRecordedVoiceTest` and its native timer own those real phases. | **Common flow corrected in version 3.** It checks automatic capture/play/drain/completion, native phase/history/frame relations, muted rejection and mute/background/cancel behavior, original input PCM and independent acoustic output. OS permission denial/recovery remains in the composed foundation. File recording is a different API; no Save/Preview/Discard control is invented. |
 | Graphics on Phone | `scripts/system/+android_phoneInterface/phoneGraphics.js` restores a safe 0.65 default and accepts resolution 0.5..0.7. Its native settings switches/slider apply and persist immediately. | **Common flow corrected in version 4.** Freeze actual original preferences through independent agreeing observations, use common supported 0.5/0.6 viewport scales and real Haze/Mirrors controls, retain changes across close/restart and restore measured originals. Render-target/pass sources and actual visible controlled fixture joins are still missing; native settings alone cannot satisfy them. |
 | Scripts | `Application::loadScriptURLDialog()` loads the submitted URL directly. `Application::loadDialog()` opens **Open Script and Companion Files** and loads the selected local source. `TabletRunningScripts.qml` provides the normal From URL/File controls. Entity-script consent is separate. | **Common flow corrected in version 2.** Native actual engine/require histories now exist on all three source branches. All three branches now have normal source-bound file-bundle controls and private original-byte staging/cleanup intent. Picker/engine ownership, restart handoff and the full companion/effect observer joins remain missing; URL foundations do not establish them. |
@@ -31,14 +35,14 @@ versioned before any complete area producer is enabled.
 Additional source checks remain open, particularly the local JSON import versus
 model creation/picker paths in NativeCreate, and the platform-specific private
 Snapshot capture versus user export/share permission paths. Absence is not
-inferred from a single source search. The other ten area drafts still require
+inferred from a single source search. The other nine area drafts still require
 their own final source/input/observer joins and independent actor evidence.
 
 Implemented source packets remain useful and independently reviewable:
 Phone's ordinary Create/Scripts foundations; Pico's ordinary native Script
 foundation; iOS's explicitly unbound native Script component; and the shared
 native lifecycle, evaluated animation/pose and memory-preview status sources.
-They do not complete the fourteen version 5 triples. Required capability gates stay
+They do not complete the fourteen version 6 triples. Required capability gates stay
 closed, original compiler-dependent tests remain excluded from no-build runs,
 and all physical qualification remains unperformed.
 

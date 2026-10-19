@@ -1,13 +1,25 @@
-"""Strict v5 action/read boundary for feature additions to the existing harness."""
+"""Strict v6 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
+import json
 import re
 from urllib.parse import urlsplit
 from .fixtures import context
 from .scenarios import SCENARIOS, VERSION, actions, expand
 
 HEX = re.compile(r'[0-9a-f]{32}')
+
+
+def json_document(raw):
+    def pairs(items):
+        value={}
+        for key,item in items:
+            if key in value:raise ValueError('Duplicate feature JSON field')
+            value[key]=item
+        return value
+    def nonfinite(_value):raise ValueError('Nonfinite feature JSON number')
+    return json.loads(raw,object_pairs_hook=pairs,parse_constant=nonfinite)
 
 
 def exact(value, fields, label):

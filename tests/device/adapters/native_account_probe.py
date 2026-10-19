@@ -82,7 +82,7 @@ def protected_proof(native,proof,*,provider_instance,username):
     exact(proof,{'providerVersion','instance','eventSequence','capturedEpochMs','kind','runId','ticket',
                  'requestId','status','principal','protectedAccess'})
     need(type(provider_instance) is str and re.fullmatch(HEX,provider_instance)
-         and type(proof['providerVersion']) is int and proof['providerVersion']==1
+         and type(proof['providerVersion']) is int and proof['providerVersion']==2
          and proof['instance']==provider_instance and integer(proof['eventSequence'],1)
          and integer(proof['capturedEpochMs'],1) and proof['kind']=='profile-request'
          and all(proof[key]==native[key] for key in ('runId','ticket','requestId'))
