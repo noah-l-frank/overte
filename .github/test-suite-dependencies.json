@@ -869,13 +869,13 @@
     },
     "native-owner-lifecycle": {
       "kind": "repository",
-      "definition_digest": "sha256:984bd85defc1f053cfff457df6fd5da953ccd8898301d8492ed4ef3386fd318b",
+      "definition_digest": "sha256:4b55b294089c6f6a594c2f168458aa71ef61a1a69a7d2109edd1788644552e53",
       "setup": [
         "host-full"
       ]
     }
   },
-  "registry_digest": "sha256:6399c532abec23dd07c5e817e823d216bc0ae96b07b9d5a61b3869338f57a244",
+  "registry_digest": "sha256:4829debb9b0b18f8306e4a54998b7ae414587e8d30b6d9be21fed9f69958e7d0",
   "lookup_digest": "sha256:03ae433044c9e3f28611f14c5ad3f87f8f368a77ca45316134be7ef0186a0557",
   "targets": {
     "main": {

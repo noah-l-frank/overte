@@ -45,6 +45,7 @@ CI_TESTS = frozenset({
     'tests/ios-input-selection-test.py', 'tests/codeql-selection-test.py',
     'tests/browser-cpu-selection-test.py', 'tests/host-selection-test.py', 'tests/android-owner-transfer-test.py',
     'tests/unittest-runner-test.py',
+    'tests/producer-owner-lifecycle-test.py',
 })
 CI_POLICY = frozenset({
     '.github/test-suite-dependencies.json',
@@ -123,7 +124,7 @@ PROGRAM_INPUTS = (
     'tools/test-evidence/producer_api.py', 'tools/test-evidence/run.py',
     # The lifecycle owner imports these fixture builders. Their bytes are real
     # reader inputs even though the fixture file also has a CI unit-test owner.
-    'tests/native-owner-lifecycle-test.py', 'tools/test-evidence/ci-integration-test.py',
+    'tests/producer-owner-lifecycle-test.py', 'tools/test-evidence/ci-integration-test.py',
     'tools/test-evidence/producer-api-test.py', 'tools/test-evidence/producer-test.py',
     'tools/test-evidence/runtime.py', 'tools/test-evidence/validate-sync.py',
     '.github/shared-sandbox.json', 'tools/test-evidence/sandbox.py',

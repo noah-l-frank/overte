@@ -1493,7 +1493,7 @@
     "native-owner-lifecycle": {
       "command": [
         "python",
-        "tests/native-owner-lifecycle-test.py"
+        "tests/producer-owner-lifecycle-test.py"
       ],
       "layer": "host",
       "scope": "content",
@@ -1502,7 +1502,7 @@
         "kind": "repository",
         "inputs": [],
         "required": [
-          "tests/native-owner-lifecycle-test.py",
+          "tests/producer-owner-lifecycle-test.py",
           "tools/test-evidence/ci-integration-test.py",
           "tools/test-evidence/producer_api.py",
           "tools/test-evidence/producer-api-test.py",
