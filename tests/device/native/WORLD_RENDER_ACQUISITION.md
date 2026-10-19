@@ -18,6 +18,17 @@ be interpreted as a successful image acquisition.
 The GL override additionally requires explicit --testScript and a current GL
 context. It reads only an already created, nondefault original GPU framebuffer
 that is the actual current draw target with color attachment 0 selected.
+The observer now resolves the backend from a scoped thread-local identity set
+by actual GL/Vulkan `do_runLambda` execution, rather than retaining the batch
+recording context's backend. That scope restores its predecessor on return.
+An observer outside actual backend execution cannot read pixels. The GL source
+texture, destination texture and framebuffer must belong to that exact backend
+and retain the actual original Qt GL creation-context identity. Destroyed,
+foreign or merely shared contexts are rejected in version 1. The current
+attachment's real texture name must also match the original destination GPU
+texture. Coincident numeric GL object IDs in another context cannot authorize
+an image. This conservative ownership path still requires native compilation
+and device qualification; the host reader cases cannot establish GL behavior.
 It never synchronizes/creates a missing framebuffer or falls back to the UI/default
 target. Extents are 1..4096 on each axis and at most 8,388,608 pixels. It acquires
 only a single-sample 2D color texture. Its actual attachment object, mip level,

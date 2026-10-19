@@ -29,7 +29,7 @@ public:
         QString id;
         qint64 recorded {0};
         ~Ticket() { if (auto state = owner.lock()) { state->drained(id); } }
-        void execute(const BackendPointer& backend, const TexturePointer& source,
+        void execute(Backend* backend, const TexturePointer& source,
                 const FramebufferPointer& destination, const Vec4i& viewport) {
             if (auto state = owner.lock()) { state->acquire(id,recorded,backend,source,destination,viewport); }
         }
@@ -128,7 +128,7 @@ private:
         QMutexLocker lock(&_mutex);
         if (_callback == id) { _callback.clear(); }
     }
-    void acquire(const QString& id, qint64 recorded, const BackendPointer& backend,
+    void acquire(const QString& id, qint64 recorded, Backend* backend,
             const TexturePointer& source, const FramebufferPointer& destination, const Vec4i& viewport) {
         qint64 requested {0};
         {
@@ -139,7 +139,8 @@ private:
         }
         const auto started = now();
         Vec2i actualExtent(0); QImage pixels;
-        const bool read = backend && backend->featureTextureExtent(source,actualExtent)
+        const bool read = backend && backend == Backend::featureExecutingBackend()
+            && backend->featureTextureExtent(source,actualExtent)
             && viewport.x >= 0 && viewport.y >= 0 && viewport.z > 0 && viewport.w > 0
             && viewport.x <= actualExtent.x-viewport.z && viewport.y <= actualExtent.y-viewport.w
             && backend->featureReadFramebuffer(destination,pixels);
