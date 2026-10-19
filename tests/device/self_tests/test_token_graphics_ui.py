@@ -42,7 +42,7 @@ class GraphicsBoundary:
         if self.fault=='ui-only':
             current=next(r for r in controls if r['id']=='graphics.resolution')
             current['value']=getattr(self,'ui_resolution',self.resolution)
-            current['inputReady']=current['viewport']=='visible' and current['value']==self.resolution
+            current['inputReady']=current['viewport']=='visible' and self.clock>=self.moving_until and current['value']==self.resolution
         return self.transform(dict(graphicsControlsVersion=1,ready=True,instance=self.instance,
                                    generation=self.generation,controls=controls))
 

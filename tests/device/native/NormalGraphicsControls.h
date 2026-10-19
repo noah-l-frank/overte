@@ -166,6 +166,8 @@ inline QString graphicsControlSource(QQuickItem* item, const QString& id, const 
     appendGraphicsControlObservation(value,item,id,context);
     if (value.isEmpty()) { return {}; }
     value["profile"] = graphicsProfile(item);
+    const auto center = item->mapToScene(QPointF(item->width()/2,item->height()/2));
+    value["sceneCenterX"] = center.x(); value["sceneCenterY"] = center.y();
     if (id == "graphics.resolution" || id == "graphics.scrollbar") {
         value["width"] = item->width(); value["height"] = item->height();
         if (id == "graphics.resolution") {
