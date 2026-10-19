@@ -51,7 +51,72 @@ def effect_source(value, *, ticks=2, edited=19000000):
             lastEditedEpochUs=edited, color=[(ticks % 2) * 255, 128, 0])]))
 
 
+def code_source(value, source="var actual = 'ä Ω 東京';", submitted=15000):
+    import hashlib
+    encoded=source.encode('utf-16-le',errors='surrogatepass')
+    value['source']['sourceIdentityVersion']=1
+    for engine in value['source']['engines']:
+        engine['code']=dict(submitted=True,encoding='utf-16le-code-units',codeUnits=len(encoded)//2,
+            sha256=hashlib.sha256(encoded).hexdigest(),submittedEpochMs=submitted)
+
+
 class NativeScriptObservationTests(unittest.TestCase):
+    def test_actual_submitted_code_identity_preserves_original_time_and_does_not_prove_initialization(self):
+        from adapters.native_script_observation import submitted_source
+        source=Boundary();source.mutate=code_source;reader=source.reader()
+        first=reader.read(0,require_code_identity=True)
+        code=submitted_source(first,source.engine['url'])
+        second=reader.read(first['sequence'],require_code_identity=True)
+        self.assertEqual(code,submitted_source(second,source.engine['url']))
+        self.assertEqual(15000,code['submittedEpochMs'])
+        self.assertGreater(second['capturedEpochMs'],code['submittedEpochMs'])
+        self.assertTrue(all(set(c)=={'schemaVersion','commandId','action'} for c in source.commands))
+
+    def test_code_requirement_rejects_legacy_and_source_downgrade(self):
+        source=Boundary();reader=source.reader()
+        with self.assertRaises(NativeUIError):reader.read(0,require_code_identity=True)
+        source.mutate=code_source;first=reader.read(0,require_code_identity=True)
+        source.mutate=None
+        with self.assertRaises(NativeUIError):reader.read(first['sequence'])
+
+    def test_code_hash_units_epoch_and_submitted_state_are_immutable_per_actual_engine(self):
+        for field,value in (('sha256','f'*64),('codeUnits',42),('submittedEpochMs',16000),('submitted',False)):
+            with self.subTest(field=field):
+                source=Boundary();source.mutate=code_source;reader=source.reader();first=reader.read(0)
+                def mutate(packet):
+                    code_source(packet);packet['source']['engines'][0]['code'][field]=value
+                source.mutate=mutate
+                with self.assertRaises(NativeUIError):reader.read(first['sequence'])
+
+    def test_unsubmitted_code_is_missing_and_may_only_advance_to_one_actual_submission(self):
+        from adapters.native_script_observation import submitted_source
+        source=Boundary()
+        def pending(value):
+            code_source(value);value['source']['engines'][0]['code'].update(
+                submitted=False,codeUnits=0,sha256='',submittedEpochMs=0)
+        source.mutate=pending;reader=source.reader();first=reader.read(0,require_code_identity=True)
+        with self.assertRaises(NativeUIError):submitted_source(first,source.engine['url'])
+        source.mutate=code_source;second=reader.read(first['sequence'])
+        self.assertTrue(submitted_source(second,source.engine['url'])['submitted'])
+
+    def test_malformed_code_identity_and_future_submission_cannot_authorize_source_use(self):
+        for change in ({'encoding':'utf-8'},{'codeUnits':True},{'codeUnits':4194305},
+                       {'sha256':'not-a-digest'},{'submittedEpochMs':20001},{'expected':'known-script'}):
+            with self.subTest(change=change):
+                source=Boundary()
+                def mutate(value):
+                    code_source(value);value['source']['engines'][0]['code'].update(change)
+                source.mutate=mutate
+                with self.assertRaises(NativeUIError):source.reader().read(0,require_code_identity=True)
+
+    def test_code_identity_composes_with_actual_module_and_effect_sources(self):
+        source=Boundary()
+        def mutate(value):code_source(value);effect_source(value)
+        source.mutate=mutate
+        value=source.reader().read(0,require_code_identity=True,require_effects=True)
+        self.assertEqual(['companion.js'],loaded_relative_modules(running_owned_engine(value,source.engine['url'])))
+        self.assertEqual(2,measured_effect(value,RUN)['ticks'])
+
     def test_original_effect_has_native_uuid_edit_time_color_and_counter_separate_from_engine(self):
         source = Boundary(); source.mutate = effect_source; reader = source.reader()
         first = reader.read(0, require_effects=True)

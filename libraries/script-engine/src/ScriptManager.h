@@ -1044,6 +1044,7 @@ public:
     bool isRunning() const { return _isRunning; } // used by ScriptWidget
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureRequiredModules() const { return _e2eRequiredModules.snapshot(); }
+    QVariantMap featureSourceIdentity() const { return _e2eRequiredModules.sourceIdentity(); }
 #endif
 
     // this is used by code in ScriptEngines.cpp during the "reload all" operation

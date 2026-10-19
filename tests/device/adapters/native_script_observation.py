@@ -35,11 +35,18 @@ def validate(value, request, pid, epoch):
     fresh(value['capturedEpochMs'], epoch)
     source = value['source']
     extended = type(source) is dict and 'effectSourceVersion' in source
-    exact(source, {'complete', 'engines', 'effectSourceVersion', 'effects'} if extended else {'complete', 'engines'})
+    identified = type(source) is dict and 'sourceIdentityVersion' in source
+    fields = {'complete','engines'}
+    if extended: fields |= {'effectSourceVersion','effects'}
+    if identified:
+        fields.add('sourceIdentityVersion')
+        need(type(source['sourceIdentityVersion']) is int and source['sourceIdentityVersion'] == 1)
+    exact(source, fields)
     need(source['complete'] is True and type(source['engines']) is list and len(source['engines']) <= 128)
     identities = set()
     for engine in source['engines']:
-        exact(engine, {'url', 'running', 'stopping', 'finished', 'required'})
+        exact(engine, {'url', 'running', 'stopping', 'finished', 'required'} | ({'code'} if identified else set()))
+        if identified: validate_code(engine['code'],value['capturedEpochMs'])
         need(text(engine['url'])
              and all(type(engine[key]) is bool for key in ('running', 'stopping', 'finished')))
         required = engine['required']
@@ -81,6 +88,25 @@ def validate(value, request, pid, epoch):
             need(entity_id(identifier) and identifier not in seen); seen.add(identifier)
         need(len(seen) <= 256)
     return value
+
+
+def validate_code(value, captured):
+    exact(value, {'submitted','encoding','codeUnits','sha256','submittedEpochMs'})
+    need(type(value['submitted']) is bool and value['encoding']=='utf-16le-code-units'
+         and integer(value['codeUnits'],0,4194304) and type(value['sha256']) is str
+         and integer(value['submittedEpochMs']))
+    if value['submitted']:
+        need(re.fullmatch('[0-9a-f]{64}',value['sha256']) is not None
+             and 0 < value['submittedEpochMs'] <= captured)
+    else: need(value['codeUnits']==0 and value['sha256']=='' and value['submittedEpochMs']==0)
+
+
+def submitted_source(value, source_url):
+    """Actual unique live source identity, not proof its initialization succeeded."""
+    need(type(value['source'].get('sourceIdentityVersion')) is int and value['source']['sourceIdentityVersion']==1)
+    engine=running_owned_engine(value,source_url)
+    need(engine['code']['submitted'])
+    return deepcopy(engine['code'])
 
 
 def entity_id(value):
@@ -154,10 +180,11 @@ class NativeScriptObservation:
         self.active, self.retired = set(), set()
         self.effect_rows, self.absent_effects = {}, set()
         self.effects_required = False
+        self.code_required = False
 
-    def read(self, after_sequence, *, require_effects=False):
+    def read(self, after_sequence, *, require_effects=False, require_code_identity=False):
         try:
-            need(type(require_effects) is bool)
+            need(type(require_effects) is bool and type(require_code_identity) is bool)
             need(integer(after_sequence) and after_sequence >= self.sequence and self.guard() is not False)
             started = previous = self.monotonic()
             need(number(started, 0, 1e15))
@@ -183,6 +210,8 @@ class NativeScriptObservation:
                          and (self.ios or value['requestedEpochMs'] >= requested))
                     source = value['source']
                     need(not (require_effects or self.effects_required) or source.get('effectSourceVersion') == 1)
+                    identified = source.get('sourceIdentityVersion') == 1
+                    need(not (require_code_identity or self.code_required) or identified)
                     next_effects, absent = None, None
                     if source.get('effectSourceVersion') == 1:
                         next_effects = {row['id']: row for row in source['effects']['entities']}
@@ -205,6 +234,8 @@ class NativeScriptObservation:
                         old = self.engines.get(instance)
                         if old is not None:
                             need(old['url'] == engine['url'] and source['sequence'] >= old['sequence'])
+                            if old.get('code',{}).get('submitted'):
+                                need(identified and engine['code']==old['code'])
                             modules = {m['url']: m for m in source['modules']}
                             for module in old['modules']:
                                 need(module['url'] in modules and modules[module['url']]['sequence'] >= module['sequence']
@@ -217,6 +248,7 @@ class NativeScriptObservation:
                                 else:
                                     need(module['sequence'] > old['sequence'])
                         engines[instance] = dict(url=engine['url'], sequence=source['sequence'], modules=deepcopy(source['modules']))
+                        if identified: engines[instance]['code']=deepcopy(engine['code'])
                     need(self.guard() is not False)
                     need(len(set(self.engines) | set(engines)) <= 4096)
                     self.retired |= self.active - set(engines)
@@ -225,6 +257,7 @@ class NativeScriptObservation:
                     if next_effects is not None:
                         self.effect_rows, self.absent_effects = deepcopy(next_effects), absent
                         self.effects_required = True
+                    self.code_required = self.code_required or identified
                     self.instance, self.sequence = value['instance'], value['sequence']
                     return value
                 if attempt < 50: self.sleep(0.1)

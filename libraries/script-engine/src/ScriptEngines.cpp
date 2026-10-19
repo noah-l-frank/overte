@@ -487,11 +487,12 @@ QVariantMap ScriptEngines::featureScriptObservation() {
         const auto manager = it.value();
         if (!manager) { return {}; }
         const auto required = manager->featureRequiredModules();
-        if (required.isEmpty()) { return {}; }
+        const auto code = manager->featureSourceIdentity();
+        if (required.isEmpty() || code.isEmpty()) { return {}; }
         rows.append(QVariantMap{{"url", it.key().toString()}, {"running", manager->isRunning()},
-            {"stopping", manager->isStopping()}, {"finished", manager->isFinished()}, {"required", required}});
+            {"stopping", manager->isStopping()}, {"finished", manager->isFinished()}, {"required", required}, {"code", code}});
     }
-    return {{"complete", true}, {"engines", rows}};
+    return {{"complete", true}, {"engines", rows}, {"sourceIdentityVersion", 1}};
 }
 #endif
 

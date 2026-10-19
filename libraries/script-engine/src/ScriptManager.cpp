@@ -1077,6 +1077,9 @@ void ScriptManager::run() {
 
     {
         PROFILE_RANGE(script, _fileNameString);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _e2eRequiredModules.submitted(_scriptContents);
+#endif
         _returnValue = _engine->evaluate(_scriptContents, _fileNameString);
 
         if (_engine->hasUncaughtException() && _abortOnUncaughtException) {

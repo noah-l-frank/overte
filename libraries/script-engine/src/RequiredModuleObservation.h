@@ -5,6 +5,7 @@
 // Read-only E2E history at actual CommonJS require completion/cache reuse.
 // A foreign observer never touches a ScriptEngine heap or waits on its thread.
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QMap>
 #include <QUuid>
@@ -19,6 +20,26 @@ public:
         if (QCoreApplication::arguments().contains("--testScript")) {
             _instance = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
         }
+    }
+    // Capture exactly the UTF-16 code units passed to the real top-level
+    // engine evaluation. No disk reread or requested URL stands in for code.
+    void submitted(const QString& code) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_instance.isEmpty() || !_valid) { return; }
+        if (_submitted || code.size() > 4194304) { _valid = false; return; }
+        QByteArray bytes; bytes.reserve(code.size()*2);
+        for (auto character : code) {
+            const auto unit = character.unicode();
+            bytes.append(static_cast<char>(unit & 0xff)); bytes.append(static_cast<char>((unit >> 8) & 0xff));
+        }
+        _submitted = true; _codeUnits = code.size(); _submittedEpochMs = QDateTime::currentMSecsSinceEpoch();
+        _codeDigest = QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex());
+    }
+    QVariantMap sourceIdentity() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_instance.isEmpty() || !_valid) { return {}; }
+        return {{"submitted", _submitted}, {"encoding", "utf-16le-code-units"},
+            {"codeUnits", _codeUnits}, {"sha256", _codeDigest}, {"submittedEpochMs", _submittedEpochMs}};
     }
     void record(const QString& url, bool loaded, bool cached) {
         std::lock_guard<std::mutex> lock(_mutex);
@@ -45,5 +66,9 @@ private:
     QMap<QString, QVariantMap> _modules;
     quint64 _sequence {0};
     bool _valid {true};
+    bool _submitted {false};
+    int _codeUnits {0};
+    qint64 _submittedEpochMs {0};
+    QString _codeDigest;
 };
 } // namespace overte::e2e
