@@ -807,8 +807,34 @@ merge inventories must preserve the original reviewed application boundary.
 Installed-profile continuation admits only already independent CI or document
 changes. Separate own-host omission still requires the existing CI/npm subset,
 mode and required-package-owner proofs plus the complete installed profile;
-cache transitions and guide changes keep the own-host checks. Unknown bytes,
+cache transitions and guide changes keep the own-host checks. The installed PR
+profile also binds the complete reviewed host complement of retained source
+`f2c84088cc78e365837ee7e4ba0f7ce98b2f5329`, independently verified by its required
+iOS host owner. All three immutable inputs must match that same complement and
+the complete exact installed profile before an independent CI change can omit
+own-host execution. This separate certificate preserves the historical global
+and v3 boundaries; it supplies no build result or qualification. Unknown bytes,
 modes, neighboring inputs or changed application readers retain their gates.
+
+The protected selector also enrolls two exact routing-only workflow revisions.
+The parent-owned Apple topology revision keeps complete commit history and every
+topology assertion while fetching blobs only for its trusted checker and ownership
+map. After that parent revision is installed, the iOS bootstrap revision skips its
+legacy host launcher and prerequisite setup on protected `apple-ios` PR and push
+events; the required iOS qualification owner still verifies its selected host
+contracts. Manual bootstrap requests and PRs to other bases keep their commands.
+
+Only the original, topology-installed and topology-plus-bootstrap states are
+accepted, in that order. The Apple parent comparison separately binds its exact
+unchanged bootstrap revision and projects only topology; iOS never accepts that
+parent bootstrap as its own routing profile. Exact workflow blobs, ordinary modes and complete reader
+boundaries remain required. These comparisons can also accompany the reviewed
+five-file compiler-cache installation after the topology revision is present.
+Routing changes retain the required iOS host checks while omitting application
+compilation. Installed routing data may accompany later independently selected CI
+changes; reversed, partial, unknown or mixed application changes retain the
+ordinary gates. Comparison entries never replace actual Git identities or create
+passing results.
 
 A relevant feature or fix PR can read compiler DATA through the protected base's
 isolated parser, accepting only a matching protected `apple-ios` native producer
@@ -1836,7 +1862,13 @@ runs no tests, builds or CodeQL analyses and creates no receipt or execution
 qualification. Its successful context mirrors original truth, not new evidence.
 The marker CLI separately allows at most 180 seconds for original tiny-source
 registration, without changing the pure scheduling contract or accepting an
-unknown source. No rule/context bypass, new dispatch or rerun is involved.
+unknown source. Within that same bound, only the scheduling reader may retry
+valid progress from an authenticated modern ordinary invocation. A new attempt
+repeats complete source admission with a fresh cutoff; it does not normalize the
+original run or accept a successful result. Immutable source, App, attempt and
+chronology drift, and timestamps beyond the fresh trusted observation, remain
+errors. General observations and original result/evidence readers stay strict.
+No rule/context bypass, new dispatch or rerun is involved.
 
 The shared producer revalidates executable CI handoffs before CI37 admission.
 Only the complete reviewed seven-file Android owner handoff, or the exact
