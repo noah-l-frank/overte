@@ -20,6 +20,8 @@ from adapters.token_script_ui import TokenScriptUI
 from self_tests.test_token_script_ui import NativeBoundary, SOURCE
 from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
 from adapters.token_script_file_ui import TokenScriptFilePicker
+from adapters.native_script_files import NativeScriptFiles
+from self_tests.test_native_script_files import Boundary as FilesBoundary
 
 
 class PicoNormalScriptsTests(unittest.TestCase):
@@ -132,6 +134,56 @@ class PicoNormalScriptsTests(unittest.TestCase):
             monotonic=lambda: self.file_ui.clock, sleep=self.file_ui.sleep))
         boundary.start(); self.addCleanup(boundary.stop)
         return self.instance._script_file_picker(self.native.target, root.as_uri())
+
+    def file_storage(self):
+        source = FilesBoundary(self.fixture.fixture.root)
+        def mutate(value):
+            value.update(processId=123, requestedEpochMs=self.native.epoch_milliseconds(self.native.target),
+                         capturedEpochMs=self.native.epoch_milliseconds(self.native.target))
+        source.mutate = mutate
+        original_write, original_read = self.native.write_debug_app_file, self.native.read_debug_app_file
+        def write(target, package, path, raw):
+            value = json.loads(raw)
+            if value['action'] == 'feature-script-files':
+                self.assertEqual(adapter.ANDROID_CONTROL_COMMAND, path)
+                self.assertEqual('org.overte.pico', package)
+                return source.send(value)
+            return original_write(target, package, path, raw)
+        def read(target, package, path, **kwargs):
+            if path == 'files/overte-e2e/feature-script-files.json': return source.read()
+            return original_read(target, package, path, **kwargs)
+        for boundary in (patch.object(self.native, 'write_debug_app_file', side_effect=write),
+            patch.object(self.native, 'read_debug_app_file', side_effect=read),
+            patch.object(pico_binding, 'NativeScriptFiles', partial(NativeScriptFiles,
+                monotonic=lambda: source.clock, sleep=source.sleep))):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source, self.instance._script_files(self.native.target)
+
+    def test_pico_staged_original_bytes_use_bound_transport_and_separate_release_absence(self):
+        source, files = self.file_storage()
+        self.assertEqual(source.root.as_uri(), files.stage('a' * 32)); files.release()
+        self.assertFalse(source.root.exists()); self.assertIsNone(self.instance._script_files_store(self.native.target).read())
+        self.assertEqual([], self.native.inputs)
+
+    def test_pico_staged_file_acknowledgment_without_originals_keeps_cleanup_intent(self):
+        source, files = self.file_storage(); source.fault = 'ack-only'
+        with self.assertRaises(RuntimeError): files.stage('a' * 32)
+        self.assertIsNotNone(self.instance._script_files_store(self.native.target).read())
+        self.assertEqual(1, sum(c['operation'] == 'stage' for c in source.commands))
+
+    def test_pico_staged_file_candidate_loss_blocks_release_without_discarding_intent(self):
+        source, files = self.file_storage(); files.stage('a' * 32)
+        before = len(source.commands); self.native.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): files.release()
+        self.assertEqual(before, len(source.commands)); self.assertTrue(source.root.exists())
+        self.assertIsNotNone(self.instance._script_files_store(self.native.target).read())
+
+    def test_pico_general_cleanup_cannot_retire_persistent_files_when_only_app_teardown_succeeded(self):
+        source, files = self.file_storage(); files.stage('a' * 32)
+        with self.assertRaises(ValueError): self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running)
+        self.assertIsNotNone(self.instance._script_files_store(self.native.target).read())
+        self.assertTrue(source.root.exists())
 
     def test_pico_file_picker_uses_real_native_row_tokens_and_review_without_executing_via_api(self):
         picker = self.file_picker(); picker.open(); picker.choose('script.js')

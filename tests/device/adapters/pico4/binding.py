@@ -18,6 +18,7 @@ from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, Android
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from adapters.pico4 import normal_scripts
 from adapters.token_script_file_ui import TokenScriptFilePicker
+from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from adapters.normal_feature_state import PrivateFeatureState
 from scripts_observation import OPERATIONS as SCRIPT_OPERATIONS
 from adapters.pico4.snapshot import (PicoSnapshot, OPERATIONS as SNAPSHOT_OPERATIONS,
@@ -180,6 +181,20 @@ def create_adapter(args, base_class):
             return normal_scripts.flow(self, target, scene, installed, identity, state, ui,
                 lambda operation: super(PicoBoundAdapter, self).invoke(target, operation, {}))
 
+        def _script_files_store(self, target):
+            state, _ui = self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'normal-script-files-')))
+
+        @_private
+        def _script_files(self, target):
+            manager = self._scripts(target)
+            native = self._native_feature_observer(target)
+            files = NativeScriptFiles(native.send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + SCRIPT_FIXTURE_FILE, attempts=1),
+                native.clock_ms, native.guard, native.pid)
+            return OwnedScriptFiles(files, self._script_files_store(target), manager.binding)
+
         def _script_file_picker(self, target, directory):
             # Reuse the original candidate/OpenXR/normal Script UI context.
             # Persistent file ownership and the full v2 effect join come later.
@@ -338,7 +353,8 @@ def create_adapter(args, base_class):
                     discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not script_error and PrivateFeatureState(state).read() is None)
+                _need(not script_error and PrivateFeatureState(state).read() is None
+                      and self._script_files_store(target).read() is None)
             else:
                 _need(not script_error)
             return result

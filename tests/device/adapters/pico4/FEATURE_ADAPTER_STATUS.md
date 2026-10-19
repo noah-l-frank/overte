@@ -43,7 +43,7 @@ performs these inputs. Cleanup attempts Stop and observed native absence before
 original process teardown; lost candidate/process or ignored Stop retains
 source intent and fails cleanup. A cleanup-only invocation revalidates the
 original candidate lazily for source input, while teardown still works if that
-verification fails. Ten real-wrapper host counterexamples pass, registered as
+verification fails. Fourteen real-wrapper host counterexamples pass, registered as
 `normal-scripts` in the existing 42-group Pico suite. See
 [the native Script control contract](../../native/NORMAL_SCRIPTS.md).
 
@@ -57,15 +57,28 @@ and guarded primary-selector Home/Down/Return events perform edits. No source
 load, file helper, QML handler or selection setter is an input shortcut.
 Normal Script UI captures now recheck installed bytes before and after reads.
 
-The ten-case group includes actual native token/recipe transactions, ignored
+The fourteen-case group includes actual native token/recipe transactions, ignored
 row delivery despite a successful ACK, primary readback and missing-marker/
 candidate failures. The existing **31** candidate/navigation/Snapshot boundary
 cases and **15** original-observation cases also pass after the extension.
 All are device-free; native C++ remains uncompiled and actual VR/keyboard
 delivery remains unqualified. A complete version 2 Script adapter still needs
-owned original-byte staging, persistent picker/file/engine cleanup intent and
+persistent picker/engine cleanup intent, verified restart handoff and
 the advancing-effect/independent observer join. No new `feature.*` triple is
 advertised. See [the common picker contract](../../native/NORMAL_SCRIPT_FILES.md).
+
+The internal `_script_files(target)` now stages the four exact shared fixtures
+through the existing candidate/OpenXR-bound private command channel and reads
+their original bytes separately. Its private compare-written file intent binds
+the same actual source/artifact/process/session context as normal Scripts.
+Release requires a fresh native absence query before retiring ownership. General
+cleanup still reaches original process teardown and then fails if any fixture
+file intent remains. Four added real-wrapper counterexamples cover original
+roundtrip, ACK-only Stage, changed installed candidate and persistent files after
+teardown. The registered group passes **14** cases in **58.779 seconds**, within
+its existing timeout. Native filesystem C++ remains uncompiled and unqualified;
+simulated protocol boundaries are not product evidence. See
+[the private storage contract](../../native/SCRIPT_FIXTURE_STORAGE.md).
 
 `feature_observation.py` implements the original-observation backend on the
 existing SH-009/installed-APK-bound Pico adapter. `_feature_observer(target)`
