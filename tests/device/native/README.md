@@ -45,6 +45,11 @@ be polled; a matching invalid complete observation fails.
   Animation consumers require fresh advancing Rig evaluations, a loaded graph
   and, for overrides, a loaded actually evaluated clip. Native joint/image/peer
   evidence must still establish the visible feature effect.
+  The Rig sample must also postdate the native clock barrier taken before the
+  read request: being merely less than 1500 ms old is insufficient after an
+  input. The reader may request a new **read-only** native sample while awaiting
+  a later evaluation, within the same five-second/51-attempt bound. Click/key/
+  script inputs are never replayed, and old poses are never retimed.
 * `graphics` explicitly distinguishes requested resolution and the native
   Application resolution read. Shadows/mirrors/haze/local-light/material flags
   are **settings**, not evidence that a render pass ran or pixels changed.

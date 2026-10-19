@@ -158,10 +158,14 @@ class NativeFeatureObservation:
             need(integer(after_sequence) and after_sequence >= self.sequence
                  and type(require_animation) is bool and type(require_recorded_voice) is bool
                  and self.guard() is not False)
+            requested_at = self.clock_ms()
+            need(integer(requested_at, 1))
             request = ('ios-' if self.ios else '') + uuid.uuid4().hex
             self.send(dict(schemaVersion=1, commandId=request, action='feature-native-observe'))
             started = previous = self.monotonic()
             need(number(started, 0, 1e15))
+            source_floor, pinned_instance, pinned_rig = after_sequence, self.instance, self.rig
+            seen_lifecycle, voice_floor = self.lifecycle, self.voice_event_sequence
             for _attempt in range(51):
                 need(self.guard() is not False)
                 raw = self.original()
@@ -171,34 +175,54 @@ class NativeFeatureObservation:
                     value = None  # Original Test.saveObject may still be writing.
                 epoch = self.clock_ms()
                 need(self.guard() is not False)
+                resample_animation = False
                 if type(value) is dict and value.get('requestId') == request:
-                    value = validate(value, request, self.pid, epoch, require_animation=require_animation,
+                    value = validate(value, request, self.pid, epoch, require_animation=False,
                                      require_recorded_voice=require_recorded_voice)
-                    need(self.instance in (None, value['instance']) and value['sequence'] > after_sequence)
-                    if self.lifecycle is not None:
-                        need(all(value['lifecycle'][key] >= self.lifecycle[key] for key in self.lifecycle))
+                    need(pinned_instance in (None, value['instance']) and value['sequence'] > source_floor
+                         and value['capturedEpochMs'] >= requested_at)
+                    pinned_instance, source_floor = value['instance'], value['sequence']
+                    if seen_lifecycle is not None:
+                        need(all(value['lifecycle'][key] >= seen_lifecycle[key] for key in seen_lifecycle))
+                    seen_lifecycle = value['lifecycle'].copy()
                     animation = value['animation']
                     voice_event = value['audio'].get('recordedVoice', {}).get('event', {})
                     voice_sequence = voice_event.get('eventSequence', 0)
-                    need(voice_sequence >= self.voice_event_sequence)
+                    need(voice_sequence >= voice_floor)
+                    voice_floor = voice_sequence
                     if require_animation:
-                        # Do not accept a newly stamped request around an old
-                        # native pose, nor replace an existing rig silently.
-                        need(self.rig in (None, animation['rigId'])
-                             and animation['evaluationSequence'] > self.rig_sequence)
-                    need(self.guard() is not False)
-                    self.instance, self.sequence = value['instance'], value['sequence']
-                    self.lifecycle = value['lifecycle'].copy()
-                    self.voice_event_sequence = voice_sequence
-                    if require_animation:
-                        self.rig, self.rig_sequence = animation['rigId'], animation['evaluationSequence']
-                    return value
+                        # A current request around a 100 ms old pose may still
+                        # predate the action. Await an actual later evaluation,
+                        # not just a source timestamp inside the age allowance.
+                        if animation:
+                            need(pinned_rig in (None, animation['rigId']))
+                            pinned_rig = animation['rigId']
+                        try:
+                            validate(value, request, self.pid, epoch, require_animation=True,
+                                     require_recorded_voice=require_recorded_voice)
+                            need(animation['capturedEpochMs'] >= requested_at
+                                 and animation['evaluationSequence'] > self.rig_sequence)
+                        except NativeUIError:
+                            resample_animation = True
+                    if not resample_animation:
+                        need(self.guard() is not False)
+                        self.instance, self.sequence = value['instance'], value['sequence']
+                        self.lifecycle = value['lifecycle'].copy()
+                        self.voice_event_sequence = voice_sequence
+                        if require_animation:
+                            self.rig, self.rig_sequence = animation['rigId'], animation['evaluationSequence']
+                        return value
                 current = self.monotonic()
                 need(number(current, 0, 1e15) and current >= previous)
                 previous = current
-                if current - started >= 5:
+                if current - started >= 5 or _attempt == 50:
                     break
                 self.sleep(0.1)
+                if resample_animation:
+                    # Only this closed read-only sampler may be requested
+                    # again. Never replay a field/click/script input here.
+                    request = ('ios-' if self.ios else '') + uuid.uuid4().hex
+                    self.send(dict(schemaVersion=1, commandId=request, action='feature-native-observe'))
         except Exception:
             raise NativeUIError('Native feature observation failed') from None
         raise NativeUIError('Native feature observation did not produce this request')

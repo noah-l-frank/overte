@@ -187,6 +187,43 @@ class NativeFeatureObservationTests(unittest.TestCase):
         self.assertTrue(actual['url'].endswith('/Sit2.fbx'))
         self.assertTrue(actual['requestedUrl'].endswith('/Waving.fbx'))
 
+    def test_recent_pose_before_request_waits_for_a_real_later_native_evaluation(self):
+        boundary = Boundary()
+        def native(value):
+            if len(boundary.commands) == 1:
+                # Within the age limit but BEFORE this input/read barrier.
+                value['animation']['capturedEpochMs'] = 19900
+        boundary.mutate = native
+        value = boundary.reader().read(0, require_animation=True)
+        self.assertEqual(20000, value['animation']['capturedEpochMs'])
+        self.assertEqual(2, len(boundary.commands))
+        self.assertNotEqual(boundary.commands[0]['commandId'], boundary.commands[1]['commandId'])
+        self.assertTrue(all(command['action'] == 'feature-native-observe' for command in boundary.commands))
+
+    def test_permanently_recent_but_preinput_pose_never_becomes_current(self):
+        boundary = Boundary()
+        boundary.mutate = lambda value: value['animation'].update(capturedEpochMs=19900)
+        reader = boundary.reader()
+        with self.assertRaises(NativeUIError): reader.read(0, require_animation=True)
+        self.assertEqual(0, reader.sequence)
+        self.assertLessEqual(len(boundary.commands), 51)
+
+    def test_resampling_cannot_adopt_another_native_instance_or_regressed_source_cursor(self):
+        for fault in ('instance', 'rig', 'sequence', 'lifecycle'):
+            with self.subTest(fault=fault):
+                boundary = Boundary()
+                def pending(value):
+                    if len(boundary.commands) == 1:
+                        value['animation']['capturedEpochMs'] = 19900
+                        if fault == 'lifecycle': value['lifecycle']['backgrounds'] = 1
+                    elif fault == 'instance': value['instance'] = 'b' * 32
+                    elif fault == 'rig': value['animation']['rigId'] = 999
+                    elif fault == 'sequence': value['sequence'] = 1
+                boundary.mutate = pending
+                reader = boundary.reader()
+                with self.assertRaises(NativeUIError): reader.read(0, require_animation=True)
+                self.assertEqual(0, reader.sequence)
+
     def test_process_loss_and_invalid_cursor_stop_before_observation_request(self):
         for after in (-1, True, '0'):
             boundary = Boundary()
