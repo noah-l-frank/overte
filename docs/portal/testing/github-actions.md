@@ -48,6 +48,10 @@ create no reusable execution evidence. A pending original is awaited; a failed,
 missing or different original cannot become a passing result. A changed base or
 head still requires selection and verification for the new candidate.
 
+Native workflow status can advance while the verifier reads GitHub. The active
+metadata invocation is checked against the time of its fresh observation; the
+original test result keeps its independently verified execution identity.
+
 Synchronization has the same distinction between input selection and successful
 execution. The required synchronization check owns the selected shared CI
 contracts; independent Android and iOS owners remain mandatory when selected.
