@@ -20,7 +20,7 @@
     "world-render-ownership": {"current": 1, "reads": [1]},
     "world-render-receipt-cleanup": {"current": 1, "reads": [1]},
     "native-graphics-controls": {"current": 1, "reads": [1]},
-    "native-login-controls": {"current": 1, "reads": [1]},
+    "native-login-controls": {"current": 2, "reads": [2]},
     "native-audio-controls": {"current": 1, "reads": [1]},
     "native-script-controls": {"current": 1, "reads": [1]},
     "native-script-file-controls": {"current": 1, "reads": [1]},

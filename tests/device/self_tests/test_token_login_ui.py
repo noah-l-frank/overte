@@ -16,7 +16,8 @@ CREDS={'username':'e2e-'+RUN,'password':'private-synthetic-input'}
 
 
 class Boundary:
-    def __init__(self):
+    def __init__(self,generic=False):
+        self.generic=generic;self.server=ORIGIN
         self.clock=0.;self.instance='b'*32;self.generation='c'*32;self.account='d'*32
         self.endpoint=hashlib.sha256(ORIGIN.encode()).hexdigest();self.account_generation=1
         self.dialog=False;self.waiting=False;self.pending=False;self.token=False;self.domain=False;self.closing=False
@@ -32,18 +33,22 @@ class Boundary:
     def capture(self):
         def row(identifier,ready=True,**extra):
             # Actual independent boundary state determines token and metadata.
-            source=repr((identifier,self.dialog,self.waiting,self.pending,self.token,self.domain,self.closing,self.endpoint,self.account_generation))
+            source=repr((identifier,self.dialog,self.waiting,self.pending,self.token,self.domain,self.closing,self.endpoint,self.account_generation,self.server))
             return dict(id=identifier,token=hashlib.sha256(source.encode()).hexdigest()[:32],enabled=True,
                 focused=self.focused==identifier,inputReady=ready,**extra)
         if self.dialog:
-            rows=[row('login.page',False,profile='phone-login-v1',domain=self.domain,waiting=self.waiting,closing=self.closing,
+            rows=[row('login.page',False,profile='qml-login-v1' if self.generic else 'phone-login-v1',
+                stage='pending' if self.waiting else 'credentials',
+                submitEndpointSha256=hashlib.sha256(self.server.encode()).hexdigest() if self.generic else self.endpoint,domain=self.domain,waiting=self.waiting,closing=self.closing,
                 error=self.error,accountInstance=self.account,credentialGeneration=self.account_generation,
                 endpointSha256=self.endpoint,nativePending=self.pending,tokenPresent=self.token)]
             ready=not any((self.waiting,self.pending,self.token,self.domain,self.closing))
+            if self.generic:rows.append(row('login.server',ready))
+            ready=ready and (not self.generic or self.server==ORIGIN)
             rows += [row('login.'+v,ready) for v in ('username','password','submit')]
-            rows += [row('login.cancel',not self.domain and not self.closing)]
+            if not self.generic:rows += [row('login.cancel',not self.domain and not self.closing)]
         else:rows=[row('login.entry',not self.token)]
-        return self.transform(dict(loginControlsVersion=1,ready=True,instance=self.instance,generation=self.generation,controls=rows))
+        return self.transform(dict(loginControlsVersion=2,ready=True,instance=self.instance,generation=self.generation,controls=rows))
 
     def input(self,identifier,action,*,token,text=None):
         if self.fault=='late-endpoint':self.endpoint='f'*64
@@ -55,11 +60,19 @@ class Boundary:
         if action=='activate':
             if identifier=='login.entry':self.dialog=True
             elif identifier=='login.cancel':self.dialog=False;self.error='none';self.fields={};self.focused=None
-            elif identifier in ('login.username','login.password'):self.focused=identifier
-        elif action=='replace':self.fields[identifier]=text
+            elif identifier in ('login.username','login.password','login.server'):self.focused=identifier
+        elif action=='replace':
+            if identifier=='login.server':
+                if self.fault!='ignore-server':self.server=text
+            else:self.fields[identifier]=text
         elif action=='submit':
             self.waiting=True;self.pending=True
         if self.fault=='uncertain':raise NativeUIError('Delivery response lost')
+
+    def close_view(self):
+        assert self.generic and self.intents[-1][0]=='login-close'
+        self.inputs.append(('tablet.home','activate'))
+        if self.fault!='ignored':self.dialog=False;self.error='none';self.focused=None;self.fields={}
 
 
 class LoginUITests(unittest.TestCase):
@@ -143,6 +156,46 @@ class LoginUITests(unittest.TestCase):
         b=Boundary();b.ui.open();b.error='invalid-credentials'
         self.assertEqual('invalid-credentials',b.ui.capture()['controls'][0]['error'])
         self.assertEqual(1,len(b.inputs))
+
+    def test_generic_server_field_is_observed_and_changed_by_normal_input_before_credentials(self):
+        b=Boundary(generic=True);b.server='https://foreign.invalid';b.ui.open();b.ui.fill(CREDS)
+        self.assertEqual(ORIGIN,b.server);self.assertEqual(CREDS['password'],b.fields['login.password'])
+        server=next(i for i,v in enumerate(b.inputs) if v==('login.server','replace'))
+        secret=next(i for i,v in enumerate(b.inputs) if v==('login.password','replace'))
+        self.assertLess(server,secret);self.assertNotIn(CREDS['password'],repr(b.intents))
+
+    def test_ignored_generic_server_input_and_forged_target_readiness_cannot_release_credentials(self):
+        b=Boundary(generic=True);b.server='https://foreign.invalid';b.fault='ignore-server';b.ui.open()
+        with self.assertRaises(NativeUIError):b.ui.fill(CREDS)
+        self.assertEqual({},b.fields)
+        b=Boundary(generic=True);b.ui.open()
+        def forged(v):v['controls'][0]['submitEndpointSha256']='f'*64;return v
+        b.transform=forged
+        with self.assertRaises(NativeUIError):b.ui.capture()
+
+    def test_generic_pending_view_closes_through_real_navigation_and_ignored_navigation_is_detected(self):
+        b=Boundary(generic=True);b.ui.open();b.ui.fill(CREDS);b.ui.submit();b.ui.cancel()
+        self.assertFalse(b.dialog);self.assertTrue(b.pending);self.assertIn(('tablet.home','activate'),b.inputs)
+        b.ui.open();self.assertTrue(b.pending);b.fault='ignored'
+        with self.assertRaises(NativeUIError):b.ui.cancel()
+        self.assertTrue(b.dialog)
+
+    def test_generic_profile_missing_server_source_or_legacy_version_fails_before_credentials(self):
+        for fault in ('missing-server','legacy','foreign-stage'):
+            b=Boundary(generic=True);b.ui.open()
+            def change(v):
+                if fault=='missing-server':v['controls']=[r for r in v['controls'] if r['id']!='login.server'];v['controls'][0]['submitEndpointSha256']='f'*64
+                elif fault=='legacy':v['loginControlsVersion']=1
+                else:v['controls'][0]['stage']='requested-success'
+                return v
+            b.transform=change
+            with self.assertRaises(NativeUIError):b.ui.fill(CREDS)
+            self.assertEqual({},b.fields)
+
+    def test_native_account_and_server_targets_are_separate_required_measurements(self):
+        b=Boundary(generic=True);b.ui.open();b.endpoint='f'*64
+        with self.assertRaises(NativeUIError):b.ui.fill(CREDS)
+        self.assertEqual({},b.fields)
 
     def test_reversed_or_stalled_clock_is_bounded(self):
         b=Boundary();b.ui.now();b.clock=-1

@@ -273,9 +273,8 @@ actual dialog and error too. Native logout does not imply remote revocation;
 reader-side cleanup separately blocks grants, cancels held handlers and revokes
 issued fixture authority. See the current migration for complete obligations.
 
-The [normal login control v1 source and recipe](native/NORMAL_LOGIN_CONTROLS.md)
-now supplies a narrower Phone UI prerequisite: original error/pending/domain
+The [normal login control v2 source and recipe](native/NORMAL_LOGIN_CONTROLS.md)
+now supplies narrower Phone/generic-QML UI prerequisites: original error/pending/domain
 facts and ordinary field/pointer/key input, with credential-context tokens and
-mandatory caller-owned intent. It is not a full Authentication producer. Generic
-login surfaces, full durable ownership, logout/restart and independent witnesses
+mandatory caller-owned intent. It is not a full Authentication producer. Concrete generic-surface transports, full durable ownership, logout/restart and independent witnesses
 still require concrete platform composition. Native source remains uncompiled.
