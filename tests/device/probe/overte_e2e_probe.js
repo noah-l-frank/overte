@@ -131,6 +131,7 @@
         }
         return true;
     }
+    var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
         try {
@@ -977,6 +978,28 @@
         }
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+                && command.action === "feature-script-files"
+                && /^(stage|observe|release)$/.test(String(command.operation))
+                && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && /^[0-9a-f]{64}$/.test(String(command.ownerToken))
+                && objectKeysMatch(command, command.operation === "stage"
+                    ? ["schemaVersion", "commandId", "action", "operation", "runId", "ownerToken", "files"]
+                    : ["schemaVersion", "commandId", "action", "operation", "runId", "ownerToken"])) {
+            if (command.commandId !== lastScriptFilesRequest) {
+                lastScriptFilesRequest = String(command.commandId);
+                var fileResult = {schemaVersion: 1, requestId: command.commandId, available: false};
+                try {
+                    if (typeof Test.featureScriptFiles === "function") {
+                        var fileNative = Test.featureScriptFiles(command);
+                        if (fileNative && fileNative.requestId === command.commandId) { fileResult = fileNative; }
+                    }
+                } catch (_scriptFileError) { /* Failed staging/cleanup cannot be acknowledged. */ }
+                Test.saveObject(fileResult, "feature-script-files.json");
+            }
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "feature-script-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
             if (command.commandId !== lastScriptSourceRequest) {
@@ -1269,7 +1292,7 @@
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
-                || command.action === "phone-script-file-ui")) {
+                || command.action === "phone-script-file-ui" || command.action === "feature-script-files")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse only the closed read-only path.
             applyClientCommand(command);

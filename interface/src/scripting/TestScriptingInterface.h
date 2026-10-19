@@ -159,6 +159,7 @@ public slots:
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     Q_INVOKABLE QVariantMap phoneScriptFileUi(const QVariantMap& command);
 #endif
+    Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     Q_INVOKABLE QVariantMap voiceTest(const QVariantMap& command);
@@ -221,6 +222,8 @@ private:
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     std::shared_ptr<overte::e2e::ScriptFileUi> _phoneScriptFileUi;
 #endif
+    quint64 _featureScriptFilesSequence {0};
+    QVariantMap _featureScriptFilesCommand, _featureScriptFilesResult;
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     QString _voiceCapturePath;
