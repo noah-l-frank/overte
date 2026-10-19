@@ -28,7 +28,7 @@ not a complete audio capability or acoustic proof. See
 `_script_execution_observer()` joins actual native ScriptManager identities and
 resolved CommonJS completion/cache/error history to the same installed-candidate
 and PID/start/session guards. It never sends source names or code. The current
-shared feature contract is **version 2**, with a real client file-bundle picker
+shared feature contract is **version 3**, with a real client file-bundle picker
 flow; these history/URL foundations still do not implement that full area. See
 [the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
 
@@ -60,7 +60,7 @@ acknowledgement alone cannot prove selection or execution. Retired generation,
 foreign acknowledgements, ignored row/primary selection, partial files,
 missing native marker and candidate changes have host counterexamples.
 
-This **does not complete** version 2 Scripts: the owning wrapper still needs
+This **does not complete** version 3 Scripts: the owning wrapper still needs
 persistent picker/engine cleanup intent, verified restart handoff and
 the actual advancing-effect/independent observer join. A failed input may leave
 the real dialog open; the future owner must retain intent and cancel it through
@@ -146,3 +146,12 @@ mandatory `COMMON_HOST_CHECKS`; no new CI workflow was introduced. These tests
 substitute only native W3C/ADB/time boundaries and synthetic candidate bytes.
 They prove control logic and failure handling, never Overte feature success or
 Phone acceptance. All physical qualification remains pending on Proxmox.
+
+The current common contract is version 3. Its Audio workflow now follows normal
+automatic memory capture/play/drain/completion, with real mute/cancel/background
+states and independent original input/acoustic bytes. The old manual Save or
+Preview commands are rejected. Phone's internal preview sources remain narrower;
+normal Audio controls, native cycle/frame projection, acoustic actor and verified
+restart/cleanup handoff are not yet a full area adapter. The updated shared
+suite has 351 no-build cases; the Phone wrapper still passes 36 cases after the
+parent merge. No device qualification is inferred.
