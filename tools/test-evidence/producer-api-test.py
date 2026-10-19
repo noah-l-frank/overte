@@ -941,6 +941,133 @@ class MetadataSchedulingTests(unittest.TestCase):
         self.assertFalse(value['qualification'])
         self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
 
+    def test_scheduling_only_original_progress_waits_for_a_fresh_complete_admission(self):
+        for bookend in ('initial', 'final'):
+            for shape in ('update', 'state'):
+                self.setUp(); c = self.case; inventories = [0]
+                def progress(endpoint, value):
+                    if '/actions/workflows/99/runs?' in endpoint:
+                        inventories[0] += 1
+                    if endpoint.endswith('/actions/runs/100/attempts/1') and inventories[0] >= (
+                            1 if bookend == 'initial' else 2):
+                        if shape == 'update': value['updated_at'] = '2026-10-15T10:04:31Z'
+                        else: value.update(status='in_progress', conclusion=None)
+                    return value
+                c.api.mutate = progress
+                with self.subTest(bookend=bookend, shape=shape), self.assertRaises(A.SchedulingPending):
+                    c.adapter.metadata_schedule(17, 101, self.policy, now=NOW,
+                        observation_clock=lambda:NOW + timedelta(seconds=2))
+                # A typed wait is not an observation or a substitute result.
+                # The next attempt independently repeats the complete native admission.
+                c.api.mutate = lambda endpoint, value:value
+                before = len(c.api.calls)
+                value = c.adapter.metadata_schedule(17, 101, self.policy, now=NOW + timedelta(seconds=2),
+                    observation_clock=lambda:NOW + timedelta(seconds=2))
+                self.assertGreater(len(c.api.calls), before)
+                self.assertEqual(value['original_run_id'], 100)
+                self.assertEqual((value['original_status'], value['original_conclusion']),
+                    (c.runs[100]['status'], c.runs[100]['conclusion']))
+                self.assertFalse(value['qualification'])
+                self.assertFalse(any(key in value for key in ('results', 'receipt', 'environment')))
+                self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
+
+    def test_scheduling_only_new_original_times_and_source_completion_require_a_fresh_cutoff(self):
+        for shape in ('updated_at', 'run_started_at', 'source_completion'):
+            self.setUp(); c = self.case
+            stamp = (NOW + timedelta(seconds=1)).isoformat().replace('+00:00', 'Z')
+            if shape == 'source_completion':
+                c.jobs[100][0]['completed_at'] = stamp
+                c.jobs[100][0]['steps'][0]['completed_at'] = stamp
+            else:
+                c.runs[100][shape] = stamp
+                if shape == 'run_started_at':
+                    c.runs[100]['updated_at'] = stamp
+                    c.jobs[100][0].update(started_at=stamp, completed_at=stamp)
+                    c.jobs[100][0]['steps'][0].update(started_at=stamp, completed_at=stamp)
+            with self.subTest(shape=shape), self.assertRaises(A.SchedulingPending):
+                c.adapter.metadata_schedule(17, 101, self.policy, now=NOW,
+                    observation_clock=lambda:NOW + timedelta(seconds=2))
+            value = c.adapter.metadata_schedule(17, 101, self.policy, now=NOW + timedelta(seconds=2),
+                observation_clock=lambda:NOW + timedelta(seconds=2))
+            self.assertEqual(value['original_run_id'], 100)
+            self.assertFalse(value['qualification'])
+
+    def test_scheduling_retry_leaves_default_original_observations_and_historical_recipes_strict(self):
+        c = self.case
+        def progress(endpoint, value):
+            if endpoint.endswith('/actions/runs/100/attempts/1'):
+                value['updated_at'] = '2026-10-15T10:04:31Z'
+            return value
+        c.api.mutate = progress
+        for read in (
+                lambda:c.adapter.metadata_observation(c.runs[100], c.binding, self.policy, now=NOW),
+                lambda:c.adapter._scheduling_source(c.runs[100], c.binding, self.policy, now=NOW,
+                    observation_clock=lambda:NOW + timedelta(seconds=2))):
+            with self.assertRaises(A.ApiError) as error: read()
+            self.assertNotIsInstance(error.exception, A.SchedulingPending)
+        # A registered historical source remains strict even when the caller
+        # explicitly asks for scheduling-only retry behavior.
+        caller = c.policy.caller_path
+        c.generation[caller]['sha'] = 'f' * 40
+        self.policy.generations['metadata-v2'][caller]['sha'] = 'f' * 40
+        with self.assertRaises(A.ApiError) as error:
+            c.adapter._scheduling_source(c.runs[100], c.binding, self.policy, now=NOW,
+                observation_clock=lambda:NOW + timedelta(seconds=2), scheduling_progress=True)
+        self.assertNotIsInstance(error.exception, A.SchedulingPending)
+
+    def test_scheduling_progress_cannot_retry_immutable_source_app_state_or_future_drift(self):
+        for shape in ('attempt', 'head', 'ordinal', 'repository', 'generation', 'helper', 'parents',
+                      'app', 'invalid-state', 'pending-conclusion', 'missing-start',
+                      'time-order', 'future-update', 'future-start'):
+            self.setUp(); c = self.case
+            def corrupt(endpoint, value):
+                if endpoint.endswith('/actions/runs/100/attempts/1'):
+                    value['updated_at'] = '2026-10-15T10:04:31Z'
+                    if shape == 'attempt': value['run_attempt'] = 2
+                    elif shape == 'head': value['head_sha'] = '9' * 40
+                    elif shape == 'ordinal': value['run_number'] = 99
+                    elif shape == 'repository': value['repository']['id'] = 42
+                    elif shape == 'invalid-state': value['status'] = 'unknown'
+                    elif shape == 'pending-conclusion': value.update(status='in_progress', conclusion='success')
+                    elif shape == 'missing-start': value['run_started_at'] = None
+                    elif shape == 'time-order': value['run_started_at'] = '2026-10-15T10:04:32Z'
+                    elif shape == 'future-update': value['updated_at'] = '2026-10-15T10:05:03Z'
+                    elif shape == 'future-start':
+                        value.update(run_started_at='2026-10-15T10:05:03Z', updated_at='2026-10-15T10:05:03Z')
+                if shape == 'app' and endpoint.endswith('/check-suites/1100'): value['app']['id'] = 42
+                if shape == 'helper' and endpoint.endswith('/git/trees/' + '5' * 40):
+                    value['tree'][0]['sha'] = '9' * 40
+                if shape == 'parents' and endpoint.endswith('/git/commits/' + c.binding['merge_sha']):
+                    value['parents'].reverse()
+                return value
+            if shape == 'generation': c.generation[c.policy.caller_path]['sha'] = 'f' * 40
+            c.api.mutate = corrupt
+            with self.subTest(shape=shape), self.assertRaises(P.ProtocolError) as error:
+                c.adapter.metadata_schedule(17, 101, self.policy, now=NOW,
+                    observation_clock=lambda:NOW + timedelta(seconds=2))
+            self.assertNotIsInstance(error.exception, A.SchedulingPending)
+
+    def test_late_ordinary_source_job_must_still_be_exact_successful_native_and_not_future(self):
+        for shape in ('failed-step', 'wrong-step', 'duplicate', 'chronology', 'app', 'check', 'future'):
+            self.setUp(); c = self.case
+            job = c.jobs[100][0]
+            job['completed_at'] = job['steps'][0]['completed_at'] = '2026-10-15T10:05:01Z'
+            if shape == 'failed-step': job['steps'][0]['conclusion'] = 'failure'
+            elif shape == 'wrong-step': job['steps'][0]['name'] = A.METADATA_STEP
+            elif shape == 'duplicate': job['steps'].append(deepcopy(job['steps'][0]))
+            elif shape == 'chronology': job['steps'][0]['started_at'] = '2026-10-15T10:05:02Z'
+            elif shape == 'future': job['completed_at'] = job['steps'][0]['completed_at'] = '2026-10-15T10:05:03Z'
+            def corrupt(endpoint, value):
+                if endpoint.endswith('/check-runs/150'):
+                    if shape == 'app': value['app']['id'] = 42
+                    elif shape == 'check': value['conclusion'] = 'failure'
+                return value
+            c.api.mutate = corrupt
+            with self.subTest(shape=shape), self.assertRaises(P.ProtocolError) as error:
+                c.adapter.metadata_schedule(17, 101, self.policy, now=NOW,
+                    observation_clock=lambda:NOW + timedelta(seconds=2))
+            self.assertNotIsInstance(error.exception, A.SchedulingPending)
+
     def test_current_native_metadata_accepts_independent_api_progress_timestamps_without_results(self):
         c = self.case
         # PR1419's CodeQL metadata list/latest and attempt endpoints differed
