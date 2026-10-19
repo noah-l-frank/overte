@@ -12,6 +12,7 @@ def inventory():
         qualification='Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.',
         areas={area:dict(inputVerbs=actions(area),
                         observationFields={key:type(value).__name__ for key,value in scenario['baseline'].items()},
+                        measuredBaselineFields=scenario.get('measuredBaselineFields', []),
                         independentFields=WITNESS_KEYS[area], existingModules=FOUNDATIONS[area])
                for area,scenario in sorted(SCENARIOS.items())})
 

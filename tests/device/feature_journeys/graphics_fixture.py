@@ -1,0 +1,46 @@
+"""Owned serverless Graphics subjects; geometry is stimulus, never evidence."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+import uuid
+from urllib.parse import urlsplit
+
+VIEW = dict(position=dict(x=0.0,y=1.6,z=0.0),rotation=dict(x=0.0,y=0.0,z=0.0,w=1.0))
+VERSION = 1
+
+
+def scene(run, ticket, fixture_url):
+    from .contract import identifier
+    identifier(run); identifier(ticket)
+    if type(fixture_url) is not str or len(fixture_url)>512:
+        raise ValueError('Graphics fixture requires its actual owned resource root')
+    parsed=urlsplit(fixture_url)
+    if (parsed.scheme not in ('http','https') or not parsed.hostname or parsed.username is not None
+            or parsed.password is not None or parsed.query or parsed.fragment
+            or parsed.path!='/feature-fixture/v1/runs/'+run+'/'):
+        raise ValueError('Graphics fixture resource root belongs to another run')
+    parsed.port
+    namespace=uuid.UUID(hex=run)
+    def entity(name,kind,position,dimensions,**properties):
+        return dict(id='{'+str(uuid.uuid5(namespace,'graphics-subject-v1/'+name))+'}',
+            name='e2e-'+run+'-graphics-'+name,type=kind,position=dict(zip(('x','y','z'),position)),
+            dimensions=dict(zip(('x','y','z'),dimensions)),rotation=dict(VIEW['rotation']),
+            collisionless=True,locked=False,**properties)
+    entities=[
+        entity('zone','Zone',(0,1.6,-10),(120,120,120),hazeMode='enabled',
+            haze=dict(hazeRange=18,hazeColor=dict(red=25,green=90,blue=210),
+                hazeEnableGlare=False,hazeAltitudeEffect=False,hazeBackgroundBlend=0.0),
+            keyLightMode='enabled',keyLight=dict(color=dict(red=255,green=255,blue=255),
+                intensity=1.0,direction=dict(x=-0.5,y=-1.0,z=-0.5)),
+            ambientLightMode='enabled',ambientLight=dict(ambientIntensity=0.8)),
+        entity('floor','Box',(0,-0.05,-15),(30,0.1,60),color=dict(red=95,green=95,blue=95)),
+        entity('fog-board','Box',(-3,2,-28),(7,4,0.1),color=dict(red=240,green=240,blue=240)),
+        entity('resolution-bars','Box',(-2,1.6,-5),(0.05,2.5,0.1),color=dict(red=250,green=250,blue=250)),
+        entity('reflector','Box',(2,1.7,-4),(2,3,0.01),mirrorMode='mirror',
+            canCastShadow=False,isVisibleInSecondaryCamera=False),
+        entity('reflected-color','Box',(0,1.6,2),(1,1,1),color=dict(red=255,green=90,blue=0)),
+        entity('marker','Web',(-0.5,2.7,-2),(1.6,0.4,0.01),dpi=100,
+            sourceUrl=fixture_url+'tickets/'+ticket+'/graphics-marker.v1.html'),
+    ]
+    # A marker page is loaded through one registered ticket. It independently
+    # polls /current for later marker bytes; no desired graphics state is sent.
+    return dict(DataVersion=3,Entities=entities)

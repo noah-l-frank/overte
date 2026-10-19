@@ -152,14 +152,13 @@ class Boundary:
             elif verb == 'reload': s['error'] = 'none'
             elif verb == 'open-inline-app': s['page'] = 'inline'
         elif a == 'graphics':
-            if verb == 'open': s['dialog'] = True
-            elif verb == 'preview-preset': s.update(preset='low', shadows=False, shadowPass=False)
-            elif verb == 'cancel': s.update(dialog=False, preset='original', shadows=True, shadowPass=True)
+            if not hasattr(self,'graphics_original'): self.graphics_original = copy.deepcopy(s)
+            if verb in ('open','close'): s['dialog'] = verb == 'open'
             elif verb == 'set-resolution': s.update(resolution=data['value'], renderScale=data['value'])
-            elif verb == 'set-shadows': s.update(shadows=data['enabled'], shadowPass=data['enabled'])
-            elif verb == 'apply': s['dialog'] = False
-            elif verb == 'mirror-enable': s['mirror'] = True
-            elif verb == 'restore': s.update(resolution=1.0, renderScale=1.0, shadows=True, shadowPass=True, mirror=False)
+            elif verb == 'set-haze': s.update(haze=data['enabled'],hazePass=data['enabled'])
+            elif verb == 'set-mirrors': s.update(mirror=data['enabled'],mirrorPass=data['enabled'])
+            elif verb == 'restore-original':
+                s.update({k:v for k,v in self.graphics_original.items() if k!='dialog'})
         elif a == 'audio':
             if verb in ('open', 'close'): s['open'] = verb == 'open'
             elif verb == 'record-start':
@@ -246,7 +245,8 @@ class Boundary:
         if kind == 'cleanup':
             self.verb = 'cleanup'
             if self.fault != 'cleanup-ignored':
-                self.state = copy.deepcopy(SCENARIOS[self.area]['baseline'])
+                self.state = copy.deepcopy(self.graphics_original if self.area=='graphics' and hasattr(self,'graphics_original')
+                                           else SCENARIOS[self.area]['baseline'])
             self.resources = ['entity:leaked'] if self.fault == 'cleanup-resource-leak' else []
         else:
             self.verb, self.inputs = fields['verb'], fields['inputs']
@@ -437,6 +437,78 @@ class FeatureJourneys(unittest.TestCase):
         boundary = Boundary('scripts'); sample = boundary.observe({'afterSequence':0})
         sample['contractVersion'] = 1
         with self.assertRaises(ValueError): result('feature.scripts.observe', sample)
+
+    def test_graphics_measures_nondefault_original_state_and_restores_it_without_sending_it(self):
+        boundary=Boundary('graphics')
+        boundary.state.update(resolution=0.65,renderScale=0.65,haze=True,hazePass=True,mirror=True,mirrorPass=True)
+        original=copy.deepcopy(boundary.state);boundary.execute()
+        self.assertEqual(original,boundary.state)
+        self.assertEqual(original,next(s['state'] for s in boundary.reports[0]['samples']
+                                     if s['phase']=='original-baseline-candidate'))
+        for operation,request in boundary.actions:
+            if operation.endswith('.act'):
+                self.assertNotIn('initial',request);self.assertNotIn('expected',request)
+                if request['verb']=='restore-original':self.assertEqual({},request['inputs'])
+
+    def test_graphics_ignored_settings_and_native_settings_without_render_effects_fail(self):
+        for verb in ('set-resolution','set-haze','set-mirrors'):
+            with self.subTest(verb=verb):
+                boundary=Boundary('graphics','input-ignored',verb)
+                with self.assertRaises((AssertionError,ValueError)):boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+        for verb,field in (('set-resolution','renderScale'),('set-haze','hazePass'),('set-mirrors','mirrorPass')):
+            with self.subTest(render=field):
+                boundary=Boundary('graphics');original=boundary.reduce
+                def settings_only(action,data):
+                    measured=boundary.state[field];original(action,data)
+                    if action==verb:boundary.state[field]=measured
+                boundary.reduce=settings_only
+                with self.assertRaises(AssertionError):boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_graphics_close_and_restart_must_retain_immediately_changed_preferences(self):
+        for action in ('close','restart-app'):
+            with self.subTest(action=action):
+                boundary=Boundary('graphics');original=boundary.reduce
+                def lose_preferences(verb,data):
+                    original(verb,data)
+                    if verb==action:boundary.state.update(resolution=0.7,renderScale=0.7,haze=False,hazePass=False)
+                boundary.reduce=lose_preferences
+                with self.assertRaises(AssertionError):boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_graphics_cleanup_cannot_substitute_default_preferences_for_actual_originals(self):
+        boundary=Boundary('graphics');boundary.state.update(resolution=0.65,renderScale=0.65)
+        original=boundary.invoke
+        def wrong_restore(operation,request):
+            value=original(operation,request)
+            if operation.endswith('.cleanup'):boundary.state.update(resolution=0.6,renderScale=0.6)
+            return value
+        boundary.invoke=wrong_restore
+        with self.assertRaises(AssertionError):boundary.execute()
+        self.assertFalse(boundary.reports[0]['cleanupSucceeded'])
+
+    def test_graphics_unverified_or_foreign_open_baseline_cannot_enable_inputs(self):
+        for fault in ('witness-disagreement','already-open'):
+            with self.subTest(fault=fault):
+                boundary=Boundary('graphics')
+                if fault=='already-open':boundary.state['dialog']=True
+                else:
+                    original=boundary.observe
+                    def forged(request):
+                        value=original(request);value['state']['resolution']=0.7;return value
+                    boundary.observe=forged
+                with self.assertRaises(AssertionError):boundary.execute()
+                self.assertFalse(any(op.endswith('.act') for op,_ in boundary.actions))
+                self.assertFalse(boundary.reports[0]['cleanupEnabled'])
+
+    def test_graphics_v4_rejects_fictitious_transactions_and_prior_semantics(self):
+        from feature_journeys.scenarios import actions
+        self.assertTrue({'preview-preset','apply','cancel','set-shadows'}.isdisjoint(actions('graphics')))
+        request=dict(contractVersion=VERSION,runId=RUN,ticket=TICKET,
+            fixtureUrl='http://controlled.test/feature-fixture/v1/runs/'+RUN+'/',verb='set-resolution',inputs={'value':0.5})
+        for version in (1,2,3):
+            with self.assertRaises(ValueError):arguments('feature.graphics.act',request | {'contractVersion':version})
 
     def test_stale_foreign_and_missing_original_evidence_cannot_pass(self):
         for fault in ('foreign-image','foreign-artifact','stale-artifact','missing-evidence','frozen-subject'):
@@ -666,9 +738,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v3.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v4.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v3.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v4.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():

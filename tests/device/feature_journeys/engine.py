@@ -210,6 +210,11 @@ class Journey:
     def execute(self):
         scenario = SCENARIOS[self.area]
         expected_baseline = expand(scenario['baseline'], context(self.run))
+        measured = scenario.get('measuredBaselineFields', [])
+        def expected_step(step):
+            expected = expand(step['state'], context(self.run))
+            expected.update({key: expected_baseline[key] for key in step.get('originalFields', [])})
+            return expected
         primary = None
         cleanup_okay = False
         cleanup_enabled = False
@@ -217,6 +222,16 @@ class Journey:
             initial = secrets.token_hex(16)
             self.activate(initial)
             barrier = number(self.epoch_ms(), 1)
+            if measured:
+                candidate = self.observe(initial, barrier)
+                if not matches({key: candidate['state'][key] for key in expected_baseline if key not in measured},
+                               {key: value for key,value in expected_baseline.items() if key not in measured}):
+                    raise AssertionError('Original baseline contains a foreign open UI or unowned state')
+                expected_baseline.update({key: candidate['state'][key] for key in measured})
+                self.samples.append(dict(phase='original-baseline-candidate',ticket=initial,
+                    actionBarrierEpochMs=barrier,sequence=candidate['sequence'],capturedEpochMs=candidate['capturedEpochMs'],
+                    state=candidate['state'],resources=candidate['resources'],lifecycle=candidate['lifecycle'],
+                    witness=None,evidence=[]))
             self.wait('owned-clean-baseline', initial, barrier, expected_baseline, ['peer'])
             cleanup_enabled = True
             for index, step in enumerate(scenario['steps']):
@@ -272,7 +287,7 @@ class Journey:
                 # full observation window; an early empty sample is insufficient.
                 negative = any(word in step['verb'] for word in ('cancel', 'denied', 'reject', 'stale', 'foreign', 'stop', 'delete', 'discard'))
                 self.wait(f'{index + 1:02d}-{step["verb"]}', ticket, barrier,
-                    expand(step['state'], context(self.run)), step['evidence'], duration=3.0 if negative else 0.5)
+                    expected_step(step), step['evidence'], duration=3.0 if negative else 0.5)
         except BaseException as error:
             primary = error
             raise

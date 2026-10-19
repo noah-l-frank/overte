@@ -1,4 +1,4 @@
-"""Strict v3 action/read boundary for feature additions to the existing harness."""
+"""Strict v4 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
@@ -106,6 +106,8 @@ def state(area, value, run=None):
                 allowed = {item for row in checkpoints for item in row[key]}
                 if any(item not in allowed for item in value[key]):
                     raise ValueError('Product list contains private or unowned values')
+    if area == 'graphics':
+        number(value['resolution'],0.1,2.0); number(value['renderScale'],0.1,2.0)
     if area == 'audio':
         phase, history = value['phase'], value['history']
         if (any(value[key] < 0 for key in ('recordedFrames', 'playedFrames', 'bufferedFrames'))

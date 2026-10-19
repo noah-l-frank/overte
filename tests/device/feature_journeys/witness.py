@@ -26,7 +26,7 @@ WITNESS_KEYS = {
  'emotes': ['animation', 'sit', 'override', 'poseProgress'],
  'world-web': ['text', 'page', 'bridgeMessages'],
  'tablet-web': ['text', 'page', 'bridgeMessages'],
- 'graphics': ['renderScale', 'shadowPass', 'mirror'],
+ 'graphics': ['resolution', 'renderScale', 'haze', 'hazePass', 'mirror', 'mirrorPass'],
  'audio': ['recording', 'preview', 'muted', 'recordedFrames', 'playedFrames',
            'bufferedFrames', 'phase', 'history', 'error'],
  'chat': ['messages', 'filtered', 'error'],

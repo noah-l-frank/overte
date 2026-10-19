@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": 3,
+  "contractVersion": 4,
   "operationPattern": "feature.<area>.act|observe|cleanup",
   "qualification": "Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.",
   "areas": {
@@ -74,6 +74,7 @@
         "sceneModel": "bool",
         "companions": "list"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "mappings",
         "selected",
@@ -137,6 +138,7 @@
         "error": "str",
         "open": "bool"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "recording",
         "preview",
@@ -195,6 +197,7 @@
         "pending": "bool",
         "protectedAccess": "bool"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "principal",
         "pending",
@@ -278,6 +281,7 @@
         "dialog": "bool",
         "error": "str"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "avatar",
         "scale",
@@ -347,6 +351,7 @@
         "open": "bool",
         "error": "str"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "messages",
         "filtered",
@@ -420,6 +425,7 @@
         "textured": "bool",
         "voxelValue": "int"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "objects",
         "canRez",
@@ -497,6 +503,7 @@
         "poseProgress": "float",
         "panel": "bool"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "animation",
         "sit",
@@ -509,31 +516,37 @@
       "inputVerbs": {
         "open": [
           {},
-          {}
-        ],
-        "preview-preset": [
-          {
-            "preset": "low"
-          }
-        ],
-        "cancel": [
+          {},
           {}
         ],
         "set-resolution": [
           {
             "value": 0.5
+          },
+          {
+            "value": 0.6
           }
         ],
-        "set-shadows": [
+        "close": [
+          {},
+          {},
+          {}
+        ],
+        "set-haze": [
           {
             "enabled": false
+          },
+          {
+            "enabled": true
           }
         ],
-        "apply": [
-          {}
-        ],
-        "mirror-enable": [
-          {}
+        "set-mirrors": [
+          {
+            "enabled": false
+          },
+          {
+            "enabled": true
+          }
         ],
         "background-resume": [
           {}
@@ -541,23 +554,34 @@
         "restart-app": [
           {}
         ],
-        "restore": [
+        "restore-original": [
           {}
         ]
       },
       "observationFields": {
-        "preset": "str",
-        "shadows": "bool",
         "resolution": "float",
         "renderScale": "float",
-        "shadowPass": "bool",
-        "dialog": "bool",
-        "mirror": "bool"
+        "haze": "bool",
+        "hazePass": "bool",
+        "mirror": "bool",
+        "mirrorPass": "bool",
+        "dialog": "bool"
       },
-      "independentFields": [
+      "measuredBaselineFields": [
+        "resolution",
         "renderScale",
-        "shadowPass",
-        "mirror"
+        "haze",
+        "hazePass",
+        "mirror",
+        "mirrorPass"
+      ],
+      "independentFields": [
+        "resolution",
+        "renderScale",
+        "haze",
+        "hazePass",
+        "mirror",
+        "mirrorPass"
       ],
       "existingModules": [
         "render-health"
@@ -620,6 +644,7 @@
         "worldDisplacement": "float",
         "generation": "int"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "heldInputs",
         "worldDisplacement",
@@ -678,6 +703,7 @@
         "open": "bool",
         "companions": "list"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "running",
         "effects",
@@ -736,6 +762,7 @@
         "permission": "str",
         "error": "str"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "files",
         "uploads",
@@ -796,6 +823,7 @@
         "focused": "bool",
         "open": "bool"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "text",
         "page",
@@ -862,6 +890,7 @@
         "error": "str",
         "panel": "bool"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "location",
         "bookmark",
@@ -928,6 +957,7 @@
         "focused": "bool",
         "open": "bool"
       },
+      "measuredBaselineFields": [],
       "independentFields": [
         "text",
         "page",
