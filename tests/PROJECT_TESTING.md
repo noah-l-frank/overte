@@ -1856,7 +1856,13 @@ runs no tests, builds or CodeQL analyses and creates no receipt or execution
 qualification. Its successful context mirrors original truth, not new evidence.
 The marker CLI separately allows at most 180 seconds for original tiny-source
 registration, without changing the pure scheduling contract or accepting an
-unknown source. No rule/context bypass, new dispatch or rerun is involved.
+unknown source. Within that same bound, only the scheduling reader may retry
+valid progress from an authenticated modern ordinary invocation. A new attempt
+repeats complete source admission with a fresh cutoff; it does not normalize the
+original run or accept a successful result. Immutable source, App, attempt and
+chronology drift, and timestamps beyond the fresh trusted observation, remain
+errors. General observations and original result/evidence readers stay strict.
+No rule/context bypass, new dispatch or rerun is involved.
 
 The shared producer revalidates executable CI handoffs before CI37 admission.
 Only the complete reviewed seven-file Android owner handoff, or the exact
