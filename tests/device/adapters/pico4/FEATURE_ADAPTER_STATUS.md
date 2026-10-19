@@ -1,5 +1,11 @@
 # Pico feature adapter implementation status
 
+One new candidate-bound source case verifies original Rig call/pose history,
+unchanged historical times across acquisitions and rejection of producer
+downgrade. The focused observation group now passes **19** host cases. This
+history is separate from current pixels/peer effects and enables no full Emote
+capability. The original tablet Sit argument concern remains unresolved.
+
 `_world_render_capture()` now joins the original image-memory protocol and
 persisted acquisition/receipt owner to the existing candidate/OpenXR/Script
 component context. Closed Android run-as receipt cleanup verifies absence after

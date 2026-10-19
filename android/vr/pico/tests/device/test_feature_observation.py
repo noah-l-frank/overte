@@ -21,6 +21,8 @@ from self_tests.test_recorded_preview_history import complete as completed_voice
 from adapters.recorded_preview_history import measured_state as measured_audio_state
 from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, code_source, RUN as EFFECT_RUN
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
+from self_tests.test_native_animation_history import history_source
+from adapters.native_animation_history import clip_run
 
 
 class FeatureObservationTests(unittest.TestCase):
@@ -89,6 +91,20 @@ class FeatureObservationTests(unittest.TestCase):
                          patch.object(self.native, 'read_debug_app_file', side_effect=read)):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
+
+    def test_pico_animation_history_keeps_original_effects_and_refuses_source_downgrade(self):
+        source=self.native_feature_boundaries();original=source.mutate
+        event_epoch=self.native.epoch_milliseconds(self.native.target)-1000
+        def observed(value):original(value);history_source(value,event_epoch=event_epoch)
+        source.mutate=observed;reader=self.adapter._native_feature_observer(self.native.target)
+        first=reader.read(0,require_animation_history=True)
+        event,frames=clip_run(first,'file:///actual/bundled/Sit2.fbx',after_event=0,after_epoch=event_epoch)
+        self.assertEqual(event_epoch,event['capturedEpochMs']);self.assertEqual(2,len(frames))
+        second=reader.read(first['sequence'],require_animation_history=True)
+        self.assertEqual(first['animation']['history'],second['animation']['history'])
+        source.mutate=original
+        with self.assertRaises(RuntimeError):reader.read(second['sequence'])
+        self.assertEqual([],self.native.inputs)
 
     def test_pico_atomic_audio_history_keeps_terminal_events_and_refuses_an_older_source(self):
         source = self.native_feature_boundaries(); original = source.mutate
