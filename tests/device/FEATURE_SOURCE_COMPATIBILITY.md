@@ -39,3 +39,10 @@ native lifecycle, evaluated animation/pose and memory-preview status sources.
 They do not complete the fourteen version 4 triples. Required capability gates stay
 closed, original compiler-dependent tests remain excluded from no-build runs,
 and all physical qualification remains unperformed.
+
+The [actual submitted Script-code identity](native/SCRIPT_CODE_IDENTITY.md) now
+provides a source-bound prerequisite for choosing Emote input semantics. Seven
+host profile checks include an execution of original tablet emote.js: its Sit
+branch supplies an undefined endFrame, while non-Sit supplies a number. Native
+conversion/pose behavior remains unqualified. This is a concrete source concern
+to resolve before full Emote acceptance, not a functional change in this phase.

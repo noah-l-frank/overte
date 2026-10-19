@@ -4,7 +4,15 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
-Continuation validation before the version 4 Graphics correction (all source only):
+Version 4 Graphics validation: **388** common host cases pass with zero failures,
+errors, skips or compiler attempts; the same three native compiler cases remain
+excluded. Its journey group has **39** cases, and four additional Graphics
+subject construction cases pass. No rendering or device acceptance is implied.
+The subsequent submitted-code packet has **25** focused Script source cases and
+**7** source-profile cases passing; broader follow-up receipts are recorded below
+when complete.
+
+Earlier continuation validation before the version 4 Graphics correction (all source only):
 
 * **378** common quick-selection Python/JavaScript cases pass, zero failures,
   errors or skips. Three original Voice compile cases are explicitly omitted;
