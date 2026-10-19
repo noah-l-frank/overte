@@ -45,6 +45,7 @@
 #include <EntityItemProperties.h>
 #include <EntityTypes.h>
 #include <PickFilter.h>
+#include <gpu/Context.h>
 #endif
 
 #if defined(OVERTE_E2E_VOICE_TESTS)
@@ -74,6 +75,30 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap TestScriptingInterface::featureWorldRenderCapture(const QString& requestId) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&] { result = featureWorldRenderCapture(requestId); },Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto context = qApp->getGPUContext();
+    return context ? context->featureWorldRender()->request(requestId) : QVariantMap();
+}
+
+QVariantMap TestScriptingInterface::featureWorldRenderStorage(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&] { result = featureWorldRenderStorage(command); },Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto context = qApp->getGPUContext();
+    return context ? context->featureWorldRender()->storage(command) : QVariantMap();
+}
+
 QVariantMap TestScriptingInterface::featureNativeObservation(const QString& requestId) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;
@@ -598,7 +623,8 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
-            || filename == "feature-script-files.json" || filename == "world-render-observation.json") {
+            || filename == "feature-script-files.json" || filename == "world-render-observation.json"
+            || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
         QSaveFile output(filepath);
         output.setDirectWriteFallback(false);

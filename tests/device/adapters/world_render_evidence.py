@@ -116,6 +116,7 @@ class NativeWorldRenderCapture:
                     need(self.instance in (None,value['instance']) and value['sequence']>after_sequence
                          and source['acquisitionSequence']>self.acquisition and source['capturedEpochMs']>=self.captured
                          and (self.ios or value['requestedEpochMs']>=requested))
+                    if callable(getattr(self.files,'bind',None)): self.files.bind(value)
                     png=self.files.read(source['image']['name'])
                     need(self.guard() is not False)
                     now=self.monotonic();need(number(now,0,1e15) and now>=previous and now-started<timeout)

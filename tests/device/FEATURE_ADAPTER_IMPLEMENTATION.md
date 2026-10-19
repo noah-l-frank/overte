@@ -122,9 +122,11 @@ Common blockers affecting the full triples:
   request counts cannot fill them. The continuation's native packet implements
   that source, but the full-area observer/cleanup joins remain to be completed.
 * Fullscreen panels can occlude the current in-world challenge/feature subject.
-  The required original world-render-target capture with actual acquisition
-  provenance is not available through these feature bindings. Compositing or
-  painting a marker into a screenshot is forbidden.
+  The native main-mono GL tone-map capture hook and original-memory/chunk reader
+  now exist as uncompiled E2E instrumentation. Concrete private platform
+  transport, receipt cleanup and persistent ownership coordination remain open,
+  so original world images are still unavailable through these feature bindings.
+  Stereo/Vulkan fail closed. Compositing a marker into a screenshot is forbidden.
 * Original recording/export/share/upload bytes and independent peer effects
   cannot be inferred from a UI ACK, a selected filename, a prior file or input
   state. Existing narrow capture/file/voice contracts do not establish all of
