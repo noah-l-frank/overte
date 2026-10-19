@@ -384,7 +384,7 @@ def schedule(event, environment, *, root=ROOT, adapter=None, clock=lambda: datet
     diagnostics = caller.endswith('/repository-checks.yml') and any(
         row['name'] == 'android-long-diagnostics' for row in labels)
     value = adapter.metadata_schedule(native_value['number'], native_value['run_id'], policy,
-        diagnostics=diagnostics, now=clock())
+        diagnostics=diagnostics, now=clock(), observation_clock=clock)
     require(A._scheduling_context_matches((binding, references), (value['binding'], value['references']))
         and value['current_merge_sha'] == native_value['merge']
         and A._scheduling_context_matches((binding, references), adapter.current(native_value['number']))

@@ -516,6 +516,34 @@ class MetadataSchedulingBoundaryTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
         return module
 
+    def test_scheduling_passes_its_live_clock_beyond_the_initial_timestamp(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        marker = self.marker()
+        native = {'number':17,'run_id':101,'head':'c'*40,'merge':'3'*40}
+        binding = {'base_ref':'main','base_sha':'b'*40,'head_sha':'c'*40,'merge_sha':'3'*40}
+        references = {'default_ref':'main'}
+        adapter = Mock()
+        adapter.current.return_value = binding,references
+        adapter.metadata_schedule.return_value = {'binding':binding,'references':references,
+            'current_merge_sha':'3'*40,'qualification':False}
+        reader = SimpleNamespace(_scheduling_context_matches=lambda before,after:before==after)
+        protected = (reader,)
+        policy = object()
+        clock = Mock(return_value='initial-clock-observation')
+        environment = {'GITHUB_REF':'refs/pull/17/merge','GITHUB_JOB':'recognize',
+            'GITHUB_EVENT_NAME':'pull_request','GITHUB_WORKFLOW_REF':
+                marker.REPOSITORY+'/.github/workflows/repository-checks.yml@refs/pull/17/merge'}
+        value = MetadataEditTests().edited({'title':{'from':'Old'}})
+        value['pull_request']['labels'] = []
+        with patch.object(marker,'native',return_value=native), \
+                patch.object(marker,'_protected_readers',return_value=protected), \
+                patch.object(marker,'_source_policy',return_value=(policy,{})):
+            result = marker.schedule(value,environment,adapter=adapter,clock=clock)
+        adapter.metadata_schedule.assert_called_once_with(17,101,policy,
+            diagnostics=False,now='initial-clock-observation',observation_clock=clock)
+        self.assertFalse(result['qualification'])
+
     def test_tiny_ordinary_edge_and_nonrequired_scheduling_guards_preserve_gates(self):
         import yaml
         marker = self.marker()
