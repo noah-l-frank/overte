@@ -89,8 +89,9 @@ from contracts import load_tablet_product_policy
 policy = load_tablet_product_policy(Path(sys.argv[1]))
 assert policy["profileId"] == "android-phone.flat-touch"
 home = policy["expectations"]["settings.home"]
-assert {"settings.general", "settings.audio", "settings.security"} <= set(home["requiredControlIds"])
-assert {"settings.controllers", "settings.graphics", "settings.vr-render-resolution"} <= set(home["forbiddenControlIds"])
+assert {"settings.general", "settings.audio", "settings.graphics", "settings.security"} <= set(home["requiredControlIds"])
+assert "settings.graphics" not in home["forbiddenControlIds"]
+assert {"settings.controllers", "settings.vr-render-resolution"} <= set(home["forbiddenControlIds"])
 assert "settings.hmd-preferences" in policy["expectations"]["settings.general"]["forbiddenControlIds"]
 PY
 printf 'PASS: Android Phone policy is valid and fail-closed for unavailable VR features\n'

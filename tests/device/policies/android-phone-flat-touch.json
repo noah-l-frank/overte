@@ -15,8 +15,8 @@
     },
     "settings.home": {
       "entryControlId": "app.settings",
-      "requiredControlIds": ["nav.home", "settings.audio", "settings.general", "settings.security"],
-      "forbiddenControlIds": ["settings.controllers", "settings.graphics", "settings.hmd-preferences", "settings.vr-render-resolution"]
+      "requiredControlIds": ["nav.home", "settings.audio", "settings.general", "settings.graphics", "settings.security"],
+      "forbiddenControlIds": ["settings.controllers", "settings.hmd-preferences", "settings.vr-render-resolution"]
     },
     "settings.security": {
       "entryControlId": "settings.security",

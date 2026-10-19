@@ -104,8 +104,22 @@ screenChanged.emit("Home", "");
 fromQml.emit({ type: "switchApp", appUrl: "hifi/audio/Audio.qml" });
 assert.strictEqual(loadedSources.length, afterSemanticBack);
 
+assert.deepStrictEqual(buttons.map((button) => button.properties.text),
+    ["AUDIO", "SETTINGS", "MENU", "SCRIPTS", "ASSETS"]);
+for (const [name, semanticId, target] of [
+    ["SCRIPTS", "app.scripts", "hifi/dialogs/TabletRunningScripts.qml"],
+    ["ASSETS", "app.assets", "hifi/dialogs/TabletAssetServer.qml"]
+]) {
+    const button = buttons.find((candidate) => candidate.properties.text === name);
+    assert.strictEqual(button.properties.semanticId, semanticId);
+    button.clicked.emit();
+    assert.strictEqual(loadedSources.at(-1), target);
+    screenChanged.emit("Home", "");
+}
+
 scriptEnding.emit();
-assert.strictEqual(removedButtons.length, 3);
+assert.deepStrictEqual(removedButtons, buttons,
+    "every registered first-party app must be removed during Phone shutdown");
 assert(!fromQml.connected());
 assert(!screenChanged.connected());
 buttons.forEach((button) => assert(!button.clicked.connected()));

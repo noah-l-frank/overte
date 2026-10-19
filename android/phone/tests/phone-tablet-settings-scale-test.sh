@@ -33,8 +33,8 @@ require "$base_profile" 'picoResolutionSettingsAvailable:[[:space:]]*true' \
     'the default profile preserves existing render-scale settings'
 require "$phone_profile" 'controllerSettingsAvailable:[[:space:]]*false' \
     'phone Settings hide the unavailable desktop and VR controller page'
-require "$phone_profile" 'graphicsSettingsAvailable:[[:space:]]*false' \
-    'phone Settings hide the unbounded desktop graphics page'
+require "$phone_profile" 'graphicsSettingsAvailable:[[:space:]]*true' \
+    'phone Settings expose their implemented bounded graphics page'
 require "$phone_profile" 'picoResolutionSettingsAvailable:[[:space:]]*false' \
     'phone Settings hide the Pico-only render scale restart control'
 require "$shared_config" 'showGraphicsSettings:[[:space:]]*profile[.]graphicsSettingsAvailable' \
@@ -62,11 +62,11 @@ require "$settings" 'requiresControllerSettings:[[:space:]]*true' \
 require "$settings" 'touchConfiguration[.]showControllerSettings' \
     'Settings filter controller-dependent navigation through the selector'
 require "$settings" 'requiresGraphicsSettings:[[:space:]]*true' \
-    'Settings mark the unbounded graphics page explicitly'
+    'Settings mark graphics capability-dependent navigation explicitly'
 require "$settings" 'touchConfiguration[.]showGraphicsSettings' \
     'Settings filter graphics navigation through the selector'
 require "$settings" 'active:[[:space:]]*touchConfiguration[.]showGraphicsSettings' \
-    'Phone does not construct hidden desktop graphics controls'
+    'Settings construct graphics controls only when the selected profile supports them'
 require "$settings" 'requiresPicoInteractionSettings:[[:space:]]*true' \
     'Settings mark Pico-only navigation with an explicit capability'
 require "$settings" 'touchConfiguration[.]showPicoInteractionSettings' \
@@ -80,7 +80,14 @@ fi
 printf 'PASS: Settings do not infer product identity from persisted state\n'
 
 readonly graphics_entry="$repo_root/scripts/system/settings/qml/pages/GraphicsSettings.qml"
+readonly phone_graphics_entry="$repo_root/scripts/system/settings/qml/pages/+android_phoneInterface/GraphicsSettings.qml"
 readonly graphics="$repo_root/scripts/system/settings/qml/pages/GraphicsSettingsBase.qml"
+require "$phone_graphics_entry" 'objectName:[[:space:]]*"settings[.]graphics"' \
+    'the immutable Phone selector provides its own graphics page'
+require "$phone_graphics_entry" 'from:[[:space:]]*0[.]5' \
+    'Phone graphics retain the lower resolution bound'
+require "$phone_graphics_entry" 'to:[[:space:]]*0[.]7' \
+    'Phone graphics retain the upper resolution bound'
 require "$graphics_entry" 'GraphicsSettingsBase[[:space:]]*\{' \
     'generic Graphics Settings delegates to the shared capability-gated body'
 require "$graphics" 'SettingsTouchConfiguration[[:space:]]*\{' \

@@ -50,7 +50,9 @@ SharedControls.TouchUiProfileBase {
     externalAvatarCatalogAvailable: false
     scriptingPluginsAvailable: false
 
-    graphicsSettingsAvailable: false
+    // QFileSelector supplies the bounded Phone page, not the desktop editor.
+    // Keep its normal Settings entry available alongside its shipped controller.
+    graphicsSettingsAvailable: true
     controllerSettingsAvailable: false
     picoResolutionSettingsAvailable: false
 

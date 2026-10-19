@@ -15,6 +15,32 @@ TestCase {
     property var page
     function toScript(message) { packets.push(message) }
 
+    function test_normalPhoneProfileAdmitsItsBoundedGraphicsPage() {
+        // The original test forced a directly constructed page visible. That
+        // could pass while the normal Settings capability gate hid its entry.
+        var profileComponent = Qt.createComponent(phoneProfileSource)
+        compare(profileComponent.status, Component.Ready, profileComponent.errorString())
+        var profile = profileComponent.createObject(test)
+        verify(profile !== null)
+        var configuration = null
+        try {
+            var configurationComponent = Qt.createComponent(settingsConfigurationSource)
+            compare(configurationComponent.status, Component.Ready, configurationComponent.errorString())
+            configuration = configurationComponent.createObject(test, {profile: profile})
+            verify(configuration !== null)
+            verify(configuration.showGraphicsSettings, "Normal Phone Settings must expose its implemented graphics page")
+            verify(configuration.admitsSemanticControl("settings.graphics"))
+            verify(!configuration.showControllerSettings)
+            verify(!configuration.showPicoResolutionSettings)
+            verify(!configuration.admitsSemanticControl("settings.controllers"))
+        } finally {
+            // Retire the consumer before its actual profile, including when a
+            // failing assertion aborts this method.
+            if (configuration) configuration.destroy()
+            profile.destroy()
+        }
+    }
+
     function initTestCase() {
         var component = Qt.createComponent(pageSource)
         compare(component.status, Component.Ready, component.errorString())
