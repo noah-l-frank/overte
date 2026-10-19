@@ -161,6 +161,8 @@ public slots:
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureWorldRenderCapture(const QString& requestId);
+    Q_INVOKABLE QVariantMap featureWorldRenderStorage(const QVariantMap& command);
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     Q_INVOKABLE QVariantMap voiceTest(const QVariantMap& command);

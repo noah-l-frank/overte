@@ -21,6 +21,9 @@
 #include "Frame.h"
 #include "PointerStorage.h"
 #include "Backend.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "FeatureWorldRender.h"
+#endif
 
 namespace gpu {
 /**
@@ -153,6 +156,9 @@ public:
      * @return Pointer to the Backend object of type specific to currently used graphics API.
      */
     const BackendPointer& getBackend() const { return _backend; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const std::shared_ptr<FeatureWorldRender>& featureWorldRender() const { return _featureWorldRender; }
+#endif
 
     /**
      * @brief Enables stereo for the context.
@@ -392,6 +398,9 @@ protected:
      * Instance of Backend class specific to currently selected graphics APT, for example Vulkan or OpenGL.
      */
     std::shared_ptr<Backend> _backend;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    std::shared_ptr<FeatureWorldRender> _featureWorldRender {std::make_shared<FeatureWorldRender>()};
+#endif
 
     /**
      *
