@@ -26,6 +26,8 @@ and separately observed remote delivery; it adds three-second no-replay windows.
 Version 8 corrects Create model creation versus JSON import, adds real picker
 observations/rez retry and requires actual export-tree DataVersion 0 plus the
 pinned `checker.png` texture slot.
+The shared original-token Create input recipe now has Phone/Pico/iOS component
+transports on their separate local branches; see the [current handoff](FEATURE_ADAPTER_HANDOFF.md#original-create-input-components-v1). Full-area statuses below remain unchanged.
 Existing adapters may cover portions of the reused foundations; none is claimed
 to implement the new complete area contract.
 

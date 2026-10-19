@@ -303,3 +303,35 @@ The [Create v8 source contract](feature_journeys/CREATE_SOURCE.md) distinguishes
 ordinary Model URL creation from local entity-JSON import, requires actual picker
 open/cancel/accept, independently observes UI/rez errors and retries after real
 permission recovery. Export references are assertions only, never product files.
+
+## Original Create input components v1
+
+The [native Create control contract](native/NORMAL_CREATE_CONTROLS.md) and
+`TokenCreateUI` now implement shared ordinary field/choice/tab/entity selection
+and scrollbar recipes for the existing Create foundation. The corresponding
+local branch packets add Phone private probe/Qt input, Pico's bound VR-tablet
+normal input, and iOS's explicitly unbound native UI component. Each requires
+caller-owned persisted intent and retains the captured reference through fresh
+backend admission. Consumed input counters and widget readback still require
+independent actual entity/history/resource observations for a feature verdict.
+
+| Local adapter packet | Input component | Remaining complete-area status |
+| --- | --- | --- |
+| Android Phone `e88825d4d0` (fixture namespace fix `46ae6d6461`) | `PhoneCreateIO`, private `phone-create-ui`, `Test.phoneCreateUi` | Full adapter missing; devices untested |
+| Pico `cc6ea0224e` (fixture namespace fix `b70f01e528`) | `PicoCreateIO`, existing candidate/PID/OpenXR-bound `PicoNavigation` | Full adapter missing; devices untested |
+| iOS `83e7756b2c` | `create_controls.IOSCreateIO`, sequenced native normal pointer/field input | Full adapter missing; installed-code binding unavailable; devices untested |
+
+These local commits live on their separate platform branches and must later be
+integrated with the matching product parity source. Native C++/ObjC++ remains
+uncompiled. Fifteen initial shared recipe cases were included in the passing
+645-case no-build common selection; a sixteenth closed iOS fixture-activation
+case and the final namespace correction passed focused checks afterwards.
+Phone's full component group passes 86 host cases; Pico Script/Login/Create
+passes 56; iOS's permitted host selection passes 306 plus five canonical entry
+checks. These are test-logic checks, never product or physical acceptance.
+
+No complete `feature.create.act|observe|cleanup` triple has been enabled. Model/
+texture, JSON picker/export, PolyVox, permission actors, durable full-run ownership
+and original file/image/peer joins remain required. The existing Phone
+`create.*` registration continues to use its earlier accessibility foundation;
+these new original-token helpers do not silently replace that registration.
