@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": 1,
+  "contractVersion": 2,
   "operationPattern": "feature.<area>.act|observe|cleanup",
   "qualification": "Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.",
   "areas": {
@@ -629,36 +629,35 @@
         "open": [
           {}
         ],
-        "load-local": [
+        "picker-open": [
+          {},
+          {},
+          {},
+          {}
+        ],
+        "picker-cancel": [
+          {},
+          {}
+        ],
+        "picker-accept": [
           {
             "resource": "script.js"
           },
           {
-            "resource": "script.js"
-          },
-          {
-            "resource": "missing.js"
+            "resource": "script-bundle/main.js"
           }
         ],
-        "consent-cancel": [
-          {}
-        ],
-        "consent-reject": [
-          {}
-        ],
-        "load-folder": [
-          {
-            "resource": "script-bundle"
-          }
-        ],
-        "consent-accept": [
+        "stop-owned": [
+          {},
           {}
         ],
         "restart-app": [
           {}
         ],
-        "stop-owned": [
-          {}
+        "load-url": [
+          {
+            "resource": "missing.js"
+          }
         ],
         "close": [
           {}
@@ -666,14 +665,16 @@
       },
       "observationFields": {
         "running": "list",
-        "consent": "bool",
+        "picker": "bool",
         "error": "str",
         "effects": "int",
-        "open": "bool"
+        "open": "bool",
+        "companions": "list"
       },
       "independentFields": [
         "running",
-        "effects"
+        "effects",
+        "companions"
       ],
       "existingModules": [
         "scripts-management",
