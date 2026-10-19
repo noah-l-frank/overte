@@ -172,6 +172,18 @@ class GraphicsUiTests(unittest.TestCase):
                 with self.assertRaises(NativeUIError):ui.toggle('graphics.haze',True)
                 self.assertEqual([],native.actions)
 
+    def test_existing_ios_fixture_admits_only_closed_finite_slider_input(self):
+        from fixture.serve import FixtureState
+        fixture=FixtureState()
+        request=dict(schemaVersion=1,commandId='11111111-1111-4111-8111-111111111111',
+            instance='22222222-2222-4222-8222-222222222222',sequence=1,observedElapsedMs=0,
+            fieldToken='33333333-3333-4333-8333-333333333333',operation='set-value',value=0.5)
+        outer=dict(schemaVersion=1,commandId='ios-'+'a'*32,action='normal-ui-input',operation='edit',input=request)
+        self.assertEqual(outer,fixture.set_client_command(outer))
+        for change in ({'value':True},{'value':float('nan')},{'value':3},{'expected':0.5},{'position':0.5}):
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                fixture.set_client_command(outer|{'input':request|change})
+
     def test_late_success_and_backward_clock_are_refused(self):
         native,ui=self.ui();original=native.capture
         def late():native.clock+=11;return original()
