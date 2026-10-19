@@ -875,6 +875,54 @@ class MetadataSchedulingTests(unittest.TestCase):
         self.assertFalse(value['qualification'])
         self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
 
+    def test_current_native_metadata_accepts_independent_api_progress_timestamps_without_results(self):
+        c = self.case
+        # PR1419's CodeQL metadata list/latest and attempt endpoints differed
+        # by one second. Only the exact current never-producer can project
+        # progress; its original workflow/result remains independently bound.
+        def progressing_attempt(endpoint, value):
+            if endpoint.endswith('/actions/runs/101/attempts/1'):
+                value['updated_at'] = '2026-10-15T10:04:31Z'
+            return value
+        c.api.mutate = progressing_attempt
+        value = self.schedule()
+        self.assertEqual(value['original_run_id'], 100)
+        self.assertEqual((value['original_status'], value['original_conclusion']),
+                         (c.runs[100]['status'], c.runs[100]['conclusion']))
+        self.assertFalse(value['qualification'])
+        self.assertFalse(any(key in value for key in ('results', 'environment', 'receipt')))
+
+    def test_current_progress_cannot_change_native_identity_stop_or_gain_original_authority(self):
+        for field, bad in (('run_attempt', 2), ('head_sha', '9' * 40),
+                ('check_suite_id', 1102), ('display_title', A.ORDINARY_RUN_NAME),
+                ('updated_at', '2026-10-15T12:00:00Z')):
+            self.setUp(); c = self.case
+            def change(endpoint, value):
+                if endpoint.endswith('/actions/runs/101/attempts/1'):
+                    value[field] = bad
+                return value
+            c.api.mutate = change
+            with self.subTest(field=field), self.assertRaises(P.ProtocolError):
+                self.schedule()
+        self.setUp(); c = self.case
+        def stopped_attempt(endpoint, value):
+            if endpoint.endswith('/actions/runs/101/attempts/1'):
+                value.update(status='completed', conclusion='success')
+            return value
+        c.api.mutate = stopped_attempt
+        with self.assertRaises(P.ProtocolError):
+            self.schedule()
+
+    def test_original_progress_is_not_normalized_by_current_metadata_projection(self):
+        c = self.case
+        def changed_original(endpoint, value):
+            if endpoint.endswith('/actions/runs/100/attempts/1'):
+                value['updated_at'] = '2026-10-15T10:04:31Z'
+            return value
+        c.api.mutate = changed_original
+        with self.assertRaises(P.ProtocolError):
+            self.schedule()
+
     def test_newer_equal_or_changed_native_workflow_sequence_cannot_own_metadata(self):
         c = self.case
         c.runs[100]['run_number'] = 671

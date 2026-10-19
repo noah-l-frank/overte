@@ -1246,7 +1246,13 @@ class Adapter:
                 'scheduling current invocation is missing or ambiguous')
         observations, ordinary = {}, []
         current_row = next(row for row in listed if row['id'] == current_run_id)
-        current = self._scheduling_source(current_row, binding, policy, now=now)
+        # The current exact never-producer has its own running result job.
+        # GitHub's list/latest/attempt endpoints can report different progress
+        # timestamps while that job runs. Bind its immutable native intent,
+        # just as for other authenticated metadata invocations; no original
+        # execution status or canonical result is accepted by this projection.
+        current = self._scheduling_source(current_row, binding, policy, now=now,
+                                          allow_intent_progress=True)
         require((policy.caller_path, current['workflows'][policy.caller_path]['sha'],
                  current['workflows'][METADATA_WORKFLOW]['sha']) in _NATIVE_INTENT_RECIPES,
                 'scheduling current workflow has no exact never-producer recipe')
@@ -1317,7 +1323,8 @@ class Adapter:
                 require(self.metadata_observation(row, binding, policy, now=now) == source,
                         'scheduling nonproducer source changed')
             else:
-                fresh = self._scheduling_source(row, binding, policy, now=now)
+                fresh = self._scheduling_source(row, binding, policy, now=now,
+                    allow_intent_progress=kind == 'current')
                 require(_scheduling_identity(fresh) == _scheduling_identity(source),
                         'scheduling native source changed')
                 if kind == 'current':
