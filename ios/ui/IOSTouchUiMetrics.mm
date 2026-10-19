@@ -348,7 +348,8 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         const auto row = value.toObject();
         const auto id = row.value("id").toString();
         // Existing OverteTabletOpen owns this actual native control identity.
-        if (id == QStringLiteral("hud.tablet") || id == QStringLiteral("tablet.close")) { continue; }
+        if (id == QStringLiteral("hud.tablet") || id == QStringLiteral("tablet.close")
+                || id == "audio.page" || id == "audio.scrollbar") { continue; }
         const auto token = row.value("token").toString();
         const CGRect frame = normalUiFrame(id, token, window, safeBounds);
         if (CGRectIsEmpty(frame) || CGRectIsNull(frame)) { continue; }
@@ -364,7 +365,8 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         }
         OverteIOSE2EAccessibilityButton* control = tabletE2EAccessibilityButton(window, identifier);
         control.sourceControlToken = sourceToken;
-        if (id.startsWith(QStringLiteral("scripts.")) || id.startsWith(QStringLiteral("script-file."))) {
+        if (id.startsWith(QStringLiteral("scripts.")) || id.startsWith(QStringLiteral("script-file."))
+                || id.startsWith("audio.") || id == "settings.entry") {
             // The adapter checks this original token on the resolved UIKit
             // object. Replacing a row also retires that UIKit object above.
             control.accessibilityValue = sourceToken;
@@ -396,7 +398,9 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
             ? QStringLiteral("Tablet page %1").arg(id.section('.', -1))
             : id.startsWith(QStringLiteral("scripts.restart.")) ? QStringLiteral("Restart ") + row.value("rowLabel").toString()
             : id.startsWith(QStringLiteral("scripts.stop.")) ? QStringLiteral("Stop ") + row.value("rowLabel").toString() : id.startsWith(QStringLiteral("script-file.row.")) ? row.value("rowLabel").toString() : labels.value(id);
-        control.accessibilityLabel = [NSString stringWithUTF8String:label.toUtf8().constData()];
+        const auto actualLabel = id.startsWith("audio.") || id == "settings.entry"
+            ? (row.value("label").toString().isEmpty() ? id : row.value("label").toString()) : label;
+        control.accessibilityLabel = [NSString stringWithUTF8String:actualLabel.toUtf8().constData()];
         control.accessibilityHint = nil;
         control.hidden = NO;
         control.enabled = row.value("enabled").toBool();
@@ -1120,5 +1124,14 @@ QVariantMap performIOSNormalUiRequest(const QVariantMap& command) {
     if (!NSThread.isMainThread || !qApp || QThread::currentThread() != qApp->thread()) { return {}; }
     refreshNormalUiInput();
     return normalUiInput().request(QJsonObject::fromVariantMap(command)).toVariantMap();
+}
+#endif
+
+#if defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_FEATURE_TESTS)
+void setIOSAudioUiContextReader(std::function<overte::e2e::AudioUiContext()> reader) {
+    if (qApp && NSThread.isMainThread && QThread::currentThread() == qApp->thread()
+            && QCoreApplication::arguments().contains("--testScript")) {
+        normalUiInput().setAudioReader(std::move(reader));
+    }
 }
 #endif

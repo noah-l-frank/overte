@@ -26,6 +26,8 @@ from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
 from adapters import token_script_file_ui as file_module
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
+from adapters.token_audio_ui import TokenAudioUI
+from self_tests.test_token_audio_ui import AudioBoundary
 from self_tests.test_native_script_files import Boundary as FilesBoundary
 
 
@@ -40,6 +42,7 @@ class Native:
         self.fixture = FixtureState()
         self.retire_on_click = False
         self.file_source = None
+        self.audio_ui = None
         self.target = dict(platform='ios', physical=True, appId='org.example.client',
             serverUrl='http://controlled.invalid:49121', probe={'kind': 'ios-documents'},
             nativeUiObservation={'kind': 'uikit-documents', 'version': 1},
@@ -56,20 +59,24 @@ class Native:
         if self.file_ui is not None and self.qt.page == 'scripts':
             files = self.file_ui.capture()
             value['controls'] = files['controls'] if self.file_ui.opened else value['controls'] + files['controls']
+        if self.audio_ui is not None: value['controls'] = self.audio_ui.capture()['controls']
         rows = []
         for item in value['controls']:
             row = dict(item)
-            row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL, row['id'] + row.get('sourceUrl', '') + str(row.get('currentIndex', ''))))
+            row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL, row['id'] + row.get('sourceUrl', '') + str(row.get('currentIndex', '')) + (row['token'] if self.audio_ui else '')))
             if row['id'].startswith('script-file.') or row['id'] == 'scripts.from-file':
                 row['focused'] = self.file_focus == row['id']
+            row.setdefault('focused',False)
             row['frame'] = dict(x=10, y=20, width=200, height=48)
             rows.append(row)
         return rows
 
     def observed(self):
-        return dict(schemaVersion=1, instance=self.instance, frameSpace='qt-window-logical', processId=42,
+        value = dict(schemaVersion=1, instance=self.instance, frameSpace='qt-window-logical', processId=42,
             sampleEpochMs=self.epoch(), elapsedMs=int(self.qt.clock * 1000), lastSequence=self.sequence,
             tabletShown=self.qt.opened, ready=True, controls=self.controls(), featureControlsVersion=self.version, fileControlsVersion=self.file_version)
+        if self.audio_ui is not None: value['audioControlsVersion'] = self.audio_ui.capture()['audioControlsVersion']
+        return value
 
     def post(self, request, timeout):
         command = self.fixture.set_client_command(json.loads(request.data))
@@ -83,8 +90,11 @@ class Native:
                 self.sequence += 1
                 assert native['sequence'] == self.sequence and native['instance'] == self.instance
                 field = next(row for row in self.controls() if row['token'] == native['fieldToken'])
-                assert field['focused']
-                if field['id'] == 'scripts.url.field': self.qt.replace(field['id'], native['text'])
+                assert field['focused'] or native['operation'] == 'scroll'
+                if native['operation'] == 'scroll':
+                    original=next(r for r in self.audio_ui.capture()['controls'] if r['id']=='audio.scrollbar')
+                    self.audio_ui.scroll('audio.scrollbar',native['direction'],token=original['token'])
+                elif field['id'] == 'scripts.url.field': self.qt.replace(field['id'], native['text'])
                 elif native['operation'] == 'replace': self.file_ui.replace(field['id'], native['text'])
                 elif native['operation'] == 'submit': self.file_ui.submit(field['id'])
                 else:
@@ -148,7 +158,10 @@ class Native:
         else:
             row = next(row for row in self.controls() if row['id'] == name)
             if row['token'] != token: raise RuntimeError('retired native source token')
-            if name.startswith('script-file.') or name == 'scripts.from-file':
+            if name.startswith('audio.') or name == 'settings.entry':
+                original=next(r for r in self.audio_ui.capture()['controls'] if r['id']==name)
+                self.audio_ui.activate(name,token=original['token'])
+            elif name.startswith('script-file.') or name == 'scripts.from-file':
                 self.file_focus = name
                 if name == 'script-file.primary': self.file_ui.actions.append(name)
                 else: self.file_ui.activate(name, source=row.get('sourceUrl'))
@@ -184,6 +197,54 @@ class IOSNormalScriptsTests(unittest.TestCase):
             patch.object(normal_scripts, 'TokenScriptUI', partial(TokenScriptUI,
                 monotonic=lambda: self.native.qt.clock, sleep=self.native.qt.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
+
+    def audio_controls(self):
+        self.native.audio_ui=AudioBoundary();self.native.qt.opened=True
+        native=self.native.audio_ui
+        boundary=patch('adapters.token_audio_ui.TokenAudioUI',partial(TokenAudioUI,
+            monotonic=lambda: native.clock,sleep=native.sleep))
+        boundary.start();self.addCleanup(boundary.stop)
+        return native,self.adapter._audio_controls('test-only-selector',native.intent)
+
+    def test_ios_audio_original_uikit_token_start_cancel_scroll_and_toggles(self):
+        native,ui=self.audio_controls();ui.mute(True);ui.mute(False)
+        record=ui.start();ui.cancel(record['cycle']);ui.echo(True);ui.echo(False)
+        self.assertEqual('cancelled',native.phase);self.assertFalse(native.active)
+        self.assertEqual(2,native.actions.count('audio.record'))
+        edits=[c['input'] for c in self.native.commands if c.get('operation')=='edit']
+        self.assertEqual(['scroll'],[c['operation'] for c in edits])
+
+    def test_ios_audio_ignored_start_cancel_scroll_and_echo_do_not_prove_effect(self):
+        native,ui=self.audio_controls();native.fault='scroll'
+        with self.assertRaises(NativeUIError):ui.start()
+        native.fault='record';native.position=0.6
+        with self.assertRaises(NativeUIError):ui.start()
+        native.fault='';ui.start();native.fault='natural-completion'
+        with self.assertRaises(NativeUIError):ui.cancel(1)
+        native.fault='echo'
+        with self.assertRaises(NativeUIError):ui.echo(True)
+        self.assertEqual(3,native.actions.count('audio.record'));self.assertFalse(native.echo)
+
+    def test_ios_audio_original_token_cannot_be_replaced_by_new_cycle(self):
+        native,ui=self.audio_controls();native.position=0.6
+        row=ui.visible('audio.record');native.cycle+=1
+        with self.assertRaises(RuntimeError):ui.io.activate('audio.record',token=row['token'])
+        self.assertEqual([],native.actions)
+
+    def test_ios_audio_process_and_session_changes_refuse_before_input(self):
+        native,ui=self.audio_controls();ui.capture();self.native.pid=99
+        with self.assertRaises(RuntimeError):ui.start()
+        self.assertEqual([],native.actions)
+        self.native.pid=42;self.state['generation']+=1
+        with self.assertRaises(RuntimeError):ui.start()
+        self.assertEqual([],native.actions)
+
+    def test_ios_audio_missing_version_and_blocked_intent_prevent_input(self):
+        native,ui=self.audio_controls();native.transform=lambda v:dict(v,audioControlsVersion=2)
+        with self.assertRaises(RuntimeError):ui.start()
+        native.transform=lambda v:v;native.fault='intent';native.position=0.6
+        with self.assertRaises(NativeUIError):ui.start()
+        self.assertEqual([],native.actions)
 
     def invoke(self, operation, arguments=None):
         return self.adapter.invoke('test-only-selector', operation, arguments or {})

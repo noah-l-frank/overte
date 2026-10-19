@@ -69,3 +69,10 @@ QVariantMap observeIOSNativeAccessibility(QVariantMap* diagnostic = nullptr);
 bool validateIOSNormalUiRequest(const QVariantMap& command);
 QVariantMap performIOSNormalUiRequest(const QVariantMap& command);
 #endif
+
+#if defined(OVERTE_IOS_E2E_TEST_BUILD) && defined(OVERTE_E2E_FEATURE_TESTS)
+#include <functional>
+namespace overte::e2e { struct AudioUiContext; }
+// Source supplier is installed only by the explicit private E2E launch owner.
+void setIOSAudioUiContextReader(std::function<overte::e2e::AudioUiContext()> reader);
+#endif

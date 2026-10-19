@@ -187,3 +187,38 @@ cases; the broad guarded no-build selection passes 248 with the same explicit
 and canonical installed-code binding continues to block the enclosing reader.
 Normal Audio UI/acoustic/journal/restart joins remain required. See
 [the history source](../../native/RECORDED_PREVIEW_HISTORY.md).
+
+The internal `_audio_controls(selector, intent)` component now reuses the
+explicit normal-Scripts native UI component profile, its session/fingerprint/
+foreground continuity closure, original UIKit source tokens and HTTP/AFC input
+channel. It advertises no full Audio capability. The canonical candidate-bound
+iOS adapter explicitly rejects this helper, as it rejects all other helpers,
+with `OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE`.
+
+Only the private feature-enabled test launch installs an Audio source supplier
+from TestScriptingInterface into the thin native UI owner. That supplier reads
+actual AudioClient-thread voice history/cycle, mute and local echo plus GUI HMD
+context, and becomes unavailable when the original launch owner/lifecycle ends.
+Every native observe/re-resolve obtains original current state. Tokens retire
+on actual cycle/active/mode/check changes. UIKit activation retains the same
+original Qt source token and native object; original source readiness and scene
+hit-test are rechecked before ordinary pointer events. The Audio page marker
+and scrollbar never become full-size UIKit proxy buttons covering other UI.
+
+Scrolling extends the original closed `normal-ui-input` edit channel with only
+`operation:"scroll"`, original scrollbar `fieldToken`, direction up/down and
+existing instance/next-sequence/elapsed lease. Actual Qt scrollbar groove input
+uses actual thumb geometry. It never assigns scroll offsets, checks, mode or
+recording state. The recipe persists/validates intent through its required owner
+callback and judges actual cycle/state changes separately from delivery ACKs.
+No direct AudioClient Start/Cancel or QML handler invocation is exposed.
+
+The normal Script component group now passes 24 host cases (19 prior plus five
+Audio cases). The canonical binding group passes five cases, including refusal
+of the new helper. Explicit W3C/HTTP/AFC/native/process fixtures exercise ignored
+scroll/start/cancel/echo, natural completion versus cancellation, stale tokens,
+source-version loss, blocked ownership intent and process/session replacement.
+They establish test/adapter logic only. Native C++/Objective-C++ is uncompiled;
+actual UIKit/Qt delivery, Audio/acoustics and device cleanup remain unqualified.
+Full durable Audio ownership, acoustic actor, journal join and verified restart
+cleanup remain open. See [the shared Audio contract](../../native/NORMAL_AUDIO_CONTROLS.md).

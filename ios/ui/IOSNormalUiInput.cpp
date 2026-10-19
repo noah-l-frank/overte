@@ -52,6 +52,12 @@ QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
         const auto file = overte::e2e::scriptFileControlId(item);
         if (!file.isEmpty() && (!hud || file != QStringLiteral("scripts.from-file"))) { return file; }
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (fileAllowed) {
+        const auto audio = overte::e2e::audioControlId(item);
+        if (!audio.isEmpty()) { return audio; }
+    }
+#endif
     const auto name = item->objectName();
     if (hud) {
         static const QHash<QString, QString> fields {
@@ -124,6 +130,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     if (!guiThread()) { return {}; }
     if (_hud != hud || _tablet != tablet || _tabletShown != tabletShown) { _controls.clear(); }
     _hud = hud; _tablet = tablet; _tabletShown = tabletShown;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto audioContext = _audioReader ? _audioReader() : overte::e2e::AudioUiContext();
+#endif
     QHash<QString, Control> controls;
     int visited { 0 };
     bool ambiguous { false };
@@ -144,6 +153,12 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 const auto old = _controls.value(id);
                 auto source = overte::e2e::scriptFileControlSource(node);
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                if (id.startsWith("audio.") || id == "settings.entry") {
+                    if (!audioContext.valid) { return; }
+                    source = overte::e2e::audioControlSource(node, id, audioContext);
+                }
+#endif
                 const auto token = old.item == node && old.window == node->window() && old.source == source ? old.token : nonce();
                 controls.insert(id, { node, node->window(), token, source });
             }
@@ -176,7 +191,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         for (const auto& id : controls.keys()) {
             if (id.startsWith(QStringLiteral("tablet.")) || id.startsWith(QStringLiteral("places."))
                     || id.startsWith(QStringLiteral("snapshot.")) || id.startsWith(QStringLiteral("scripts."))
-                    || id.startsWith(QStringLiteral("script-file."))) {
+                    || id.startsWith(QStringLiteral("script-file.")) || id.startsWith("audio.") || id == "settings.entry") {
                 controls.remove(id);
             }
         }
@@ -212,6 +227,11 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         }
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (id.startsWith("audio.") || id == "settings.entry") {
+            overte::e2e::appendAudioControlObservation(row, control.item, id, audioContext);
+        }
+#endif
         observed.append(row);
     }
     QJsonObject result { { "schemaVersion", 1 }, { "instance", _instance },
@@ -223,6 +243,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
     result["fileControlsVersion"] = 1;
+    if (audioContext.valid) { result["audioControlsVersion"] = 1; }
 #endif
     return result;
 }
@@ -256,6 +277,17 @@ QRectF NormalUiInput::projectedFrame(const QString& controlId, const QString& to
 bool NormalUiInput::press(const QString& controlId, const QString& token) {
     auto control = item(controlId, token);
     if (!control || !enabled(control)) { return false; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (controlId.startsWith("audio.") || controlId == "settings.entry") {
+        QJsonObject row;
+        const auto context = _audioReader ? _audioReader() : overte::e2e::AudioUiContext();
+        if (controlId == "audio.page" || controlId == "audio.scrollbar" || !context.valid
+                || overte::e2e::audioControlSource(control, controlId, context) != _controls.value(controlId).source) { return false; }
+        overte::e2e::appendAudioControlObservation(row, control, controlId, context);
+        const auto point = control->mapToScene(QPointF(control->width()/2, control->height()/2));
+        if (!row.value("inputReady").toBool() || !overte::e2e::NormalControlUi::ownsPoint(control, control->window(), point)) { return false; }
+    }
+#endif
     QPointer<QQuickWindow> window(control->window());
     const auto position = control->mapToScene(QPointF(control->width() / 2, control->height() / 2));
     QMouseEvent down(QEvent::MouseButtonPress, position, position, position,
@@ -275,6 +307,9 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     QSet<QString> expected { "schemaVersion", "commandId", "instance", "sequence", "observedElapsedMs", "fieldToken", "operation" };
     if (action == QStringLiteral("replace")) { expected.insert(QStringLiteral("text")); }
     if (action == QStringLiteral("select-index")) { expected.insert(QStringLiteral("index")); }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (action == "scroll") { expected.insert("direction"); }
+#endif
     const auto keys = command.keys();
     qint64 sequence { 0 }, observed { 0 };
     const auto id = command.value("commandId").toString();
@@ -287,9 +322,31 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
             || command.value("instance") != QJsonValue(_instance)
             || !integer(command.value("sequence"), sequence) || sequence != _sequence + 1
             || !integer(command.value("observedElapsedMs"), observed) || observed > _clock.elapsed()
-            || _clock.elapsed() - observed > 5000 || (action != "replace" && action != "submit" && action != "select-index")) { return result; }
+            || _clock.elapsed() - observed > 5000 || (action != "replace" && action != "submit" && action != "select-index"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                && action != "scroll"
+#endif
+                )) { return result; }
     _sequence = sequence;
     const auto fieldToken = command.value("fieldToken").toString();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (action == "scroll") {
+        auto bar = item(QStringLiteral("audio.scrollbar"), fieldToken);
+        QPointF point;
+        if (!bar || !enabled(bar) || !overte::e2e::audioScrollPoint(bar, command.value("direction").toString(), point)
+                || !overte::e2e::NormalControlUi::ownsPoint(bar, bar->window(), point)) { return result; }
+        QPointer<QQuickWindow> window(bar->window());
+        QMouseEvent down(QEvent::MouseButtonPress, point, point, point, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        const bool delivered = QCoreApplication::sendEvent(window, &down);
+        bool released {false};
+        if (window) {
+            QMouseEvent up(QEvent::MouseButtonRelease, point, point, point, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+            released = QCoreApplication::sendEvent(window, &up);
+        }
+        result["performed"] = delivered && released;
+        return result;
+    }
+#endif
     auto field = item(QStringLiteral("address.field"), fieldToken);
     bool snapshotName { false };
     bool scriptUrl { false }, scriptFolder { false }, scriptPrimary { false };
@@ -355,6 +412,9 @@ bool NormalUiInput::validRequest(const QJsonObject& command) {
         "observedElapsedMs", "fieldToken", "operation" };
     if (action == QStringLiteral("replace")) { inputKeys.insert(QStringLiteral("text")); }
     if (action == QStringLiteral("select-index")) { inputKeys.insert(QStringLiteral("index")); }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (action == "scroll") { inputKeys.insert("direction"); }
+#endif
     const auto actual = input.keys();
     qint64 sequence { 0 }, observed { 0 };
     const auto uuid = [](const QJsonValue& value) {
@@ -371,6 +431,9 @@ bool NormalUiInput::validRequest(const QJsonObject& command) {
         qint64 index { 0 };
         return integer(input.value("index"), index) && index < 32;
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (action == "scroll") { return input.value("direction") == QJsonValue("up") || input.value("direction") == QJsonValue("down"); }
+#endif
     if (action == QStringLiteral("submit")) { return true; }
     if (action != QStringLiteral("replace") || !input.value("text").isString()) { return false; }
     const auto text = input.value("text").toString();

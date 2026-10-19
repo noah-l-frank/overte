@@ -60,6 +60,7 @@
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
+#include "../../../tests/device/native/NormalAudioControls.h"
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
 #include "avatar/AvatarManager.h"
@@ -325,6 +326,23 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
         _featureObservationInstance = QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
         _featureLifecycle = new overte::e2e::FeatureLifecycle(this);
         _featureLifecycle->start(path); // Failure leaves an unavailable observer.
+#if defined(Q_OS_IOS) && defined(OVERTE_IOS_E2E_TEST_BUILD)
+        const QPointer<TestScriptingInterface> owner(this);
+        setIOSAudioUiContextReader([owner] {
+            overte::e2e::AudioUiContext result;
+            if (!owner || owner->_testResultsLocation.isEmpty() || !owner->_featureLifecycle
+                    || owner->_featureLifecycle->snapshot().isEmpty()
+                    || !QCoreApplication::arguments().contains("--testScript")
+                    || !DependencyManager::isSet<AudioClient>()) { return result; }
+            const auto audio = DependencyManager::get<AudioClient>();
+            QVariantMap voice; bool muted {false}, echo {false};
+            const auto read = [&] { voice = audio->featureRecordedVoiceObservation(); muted = audio->isMuted(); echo = audio->getLocalEcho(); };
+            bool okay {true};
+            if (QThread::currentThread() == audio->thread()) { read(); }
+            else { okay = QMetaObject::invokeMethod(audio.data(), read, Qt::BlockingQueuedConnection); }
+            return okay ? overte::e2e::AudioUiContext::fromNative(voice, muted, echo, qApp->isHMDMode()) : result;
+        });
+#endif
     }
 #endif
 }

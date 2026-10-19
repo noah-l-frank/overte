@@ -8,6 +8,10 @@
 #include <QPointer>
 #include <QQuickItem>
 #include <QQuickWindow>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <functional>
+#include "../../tests/device/native/NormalAudioControls.h"
+#endif
 
 namespace overte::ios {
 
@@ -16,6 +20,9 @@ namespace overte::ios {
 class NormalUiInput {
 public:
     NormalUiInput();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    void setAudioReader(std::function<overte::e2e::AudioUiContext()> reader) { _audioReader = std::move(reader); }
+#endif
     QJsonObject observe(QQuickItem* hud, QQuickItem* tablet, bool tabletShown);
     QQuickItem* item(const QString& controlId, const QString& token);
     QRectF projectedFrame(const QString& controlId, const QString& token,
@@ -32,6 +39,9 @@ private:
         QString source;
     };
     bool guiThread() const;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    std::function<overte::e2e::AudioUiContext()> _audioReader;
+#endif
     QPointer<QQuickItem> _hud;
     QPointer<QQuickItem> _tablet;
     bool _tabletShown { false };

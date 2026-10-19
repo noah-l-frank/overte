@@ -19,6 +19,7 @@ from ios.adapters.feature_observation import post_request as urlopen
 from adapters.normal_ui import NativeUIError
 from ios.adapters.appium_adapter import AppiumAdapter
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
+from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
 
@@ -60,6 +61,10 @@ def observation(value, pid, now_ms=None):
         if type(value['fileControlsVersion']) is not int or value['fileControlsVersion'] != 1:
             raise NativeUIError('Native iOS file control version is invalid')
         fields.add('fileControlsVersion')
+    if type(value) is dict and 'audioControlsVersion' in value:
+        if type(value['audioControlsVersion']) is not int or value['audioControlsVersion'] != 1:
+            raise NativeUIError('Native iOS Audio control version is invalid')
+        fields.add('audioControlsVersion')
     if (not isinstance(value, dict) or set(value) != fields
             or type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
             or not _uuid(value['instance']) or value['frameSpace'] != 'qt-window-logical'
@@ -72,6 +77,10 @@ def observation(value, pid, now_ms=None):
     seen, tokens = set(), set()
     for control in value['controls']:
         fields = {'id', 'token', 'enabled', 'focused', 'frame'}
+        if type(control) is dict and audio_control(control.get('id')):
+            if value.get('audioControlsVersion') != 1:
+                raise NativeUIError('Native iOS Audio controls lack their source extension')
+            fields |= audio_metadata_fields(control['id'])
         if type(control) is dict and file_control(control.get('id')):
             if value.get('fileControlsVersion') != 1:
                 raise NativeUIError('Native iOS file controls lack their source extension')
@@ -84,12 +93,13 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
         if control['id'] in SNAPSHOT_CHOICES and type(control['checked']) is not bool:
             raise NativeUIError('Native iOS Snapshot choice state is invalid')
+        if audio_control(control['id']): validate_audio_metadata(control)
         if script_control(control['id']): validate_metadata(control)
         if file_control(control['id']): validate_file_metadata(control)
         frame = control['frame']
@@ -225,6 +235,22 @@ class NativeInput:
             command['text'] = text
         if operation == 'select-index':
             command['index'] = index
+        return self.deliver(command)
+
+    def scroll(self, direction, *, token):
+        if direction not in ('up','down') or not _uuid(token):
+            raise NativeUIError('Native iOS scrollbar input is invalid')
+        observed=self.capture()
+        rows=[r for r in observed['controls'] if r['id']=='audio.scrollbar']
+        if (observed.get('audioControlsVersion') != 1 or len(rows) != 1 or not rows[0]['enabled']
+                or not rows[0]['inputReady'] or rows[0]['token'] != token):
+            raise NativeUIError('Native iOS original scrollbar token is unavailable')
+        command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=observed['instance'],
+            sequence=observed['lastSequence']+1,observedElapsedMs=observed['elapsedMs'],
+            fieldToken=token,operation='scroll',direction=direction)
+        return self.deliver(command)
+
+    def deliver(self, command):
         value = self._request('edit', command)
         if (not isinstance(value, dict) or set(value) != {'schemaVersion', 'commandId', 'instance', 'sequence',
                 'performed', 'processId', 'sampleEpochMs'}
