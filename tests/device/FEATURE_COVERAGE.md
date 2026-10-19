@@ -62,6 +62,12 @@ target observers. That dependency belongs to the later adapter implementation
 phase; absent capabilities, missing observations and missing prerequisites fail
 closed. The source-contract corrections above are open implementation work too.
 
+The [Snapshot source audit](feature_journeys/SNAPSHOT_SOURCE.md) identifies a
+remaining v8 draft mismatch: private capture and platform Save authorization
+are separate. Its idle cancellation/permission flow must be corrected before
+Snapshot adapter activation. This area has test code, but its corrected common
+source contract is still pending.
+
 The aggregate `feature-journeys` suite includes the union of the existing modules
 above, one mandatory capability gate per area, and all fourteen extensions.
 Individual `feature-<area>` suites include only their own foundation and extension.
