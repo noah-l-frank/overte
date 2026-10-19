@@ -1,5 +1,7 @@
 name: Workflow security
 
+# Protected main accepts only checked, strict normal PR merges. The mandatory
+# Repository caller owns these file-based scans before integration.
 on:
   workflow_call:
     inputs:
@@ -7,18 +9,6 @@ on:
         type: boolean
         default: false
         description: Exact caller verifies contracts after the shared owner; this input grants no test authority
-  push:
-    branches: [main]
-    paths:
-      - ".github/actions/**"
-      - ".github/workflows/**"
-      - ".github/actionlint.yaml"
-      - ".github/branch-cleanup.json"
-      - "tools/branch-cleanup/**"
-      - "tests/branch-cleanup-test.py"
-      - "tools/workflow-security/**"
-      - "tests/workflow-action-pin-test.py"
-      - "tests/workflow-contract-test.py"
 
 permissions:
   contents: read

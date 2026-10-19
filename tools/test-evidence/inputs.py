@@ -9,6 +9,7 @@ the inputs used to authorize reuse.
 from __future__ import annotations
 
 from fnmatch import fnmatchcase
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 import hashlib
 import json
@@ -46,11 +47,23 @@ def _canonical(value: object) -> bytes:
         raise InputError("input identity must contain canonical JSON values") from error
 
 
+@lru_cache(maxsize=32768)
+def _normalized_relative_path(value: str) -> bool:
+    # Only lexical normalization is memoized. Entry modes, types, object IDs,
+    # membership and source provenance are still validated on every call.
+    relative = PurePosixPath(value)
+    return not (relative.is_absolute() or ".." in relative.parts
+                or str(relative) != value or value == ".")
+
+
 def _path(value: object, label: str) -> str:
     if not isinstance(value, str) or not value or "\0" in value:
         raise InputError(f"{label} must be a nonempty relative path")
-    relative = PurePosixPath(value)
-    if relative.is_absolute() or ".." in relative.parts or str(relative) != value or value == ".":
+    # Preserve the original behavior for custom str subclasses too, including
+    # unhashable subclasses; native JSON paths use ordinary immutable strings.
+    normalized = (_normalized_relative_path(value) if type(value) is str
+                  else _normalized_relative_path.__wrapped__(value))
+    if not normalized:
         raise InputError(f"{label} must be a normalized relative path")
     return value
 
@@ -441,7 +454,7 @@ _AFFECTED_TARGET_PROFILES = {
 
 # Additional installed apple-ios data family only. The complete raw reader
 # digest still binds every neighboring input; these entries never normalize it.
-INSTALLED_COMPILER_READER = 'sha256:d57dea0d6e1db2ccf001d910d6f171f08827e5fef16f91dfcd9153b74198aeb8'
+INSTALLED_COMPILER_READER = 'sha256:d277ac07e249ac9fefd564d02fbbb53365abd57d1139cd8dbca634ece52e0d7f'
 INSTALLED_COMPILER_PROFILE = {
     '.github/workflows/ios-integrated.yml': {'mode': '100644', 'type': 'blob',
         'sha': '9367feef078a9311919ad920bf15b0d61800cf94'},
