@@ -202,3 +202,10 @@ the shared original-widget recipe to the existing Phone native/private channel.
 The focused group passes 52 host cases. Native Render settings are readback only;
 actual frame/pass evidence and full preference/page/restart ownership remain
 open. No complete Graphics capability or physical qualification is claimed.
+
+The shared passive account source v1 now crosses the existing candidate/PID/
+session-bound native reader. Its new wrapper counterexample rejects a missing
+required source and performs no ordinary login input. The controlled HTTPS
+account backend also exists. Full login/cancel, current-credential protected
+probe and independent UI/remote joins remain missing; no Authentication feature
+triple is advertised and native code remains uncompiled.

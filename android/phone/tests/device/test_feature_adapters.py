@@ -42,6 +42,7 @@ from self_tests.test_world_render_storage import Boundary as WorldStorageBoundar
 from self_tests.test_owned_world_render import LocalAdb
 from self_tests.test_native_animation_history import history_source
 from adapters.native_animation_history import clip_run
+from self_tests.test_native_account_observation import account_source
 
 appium = identity.appium
 PACKAGE = 'io.github.noah_be.overte.phone'
@@ -309,6 +310,17 @@ class FeatureAdapterTests(unittest.TestCase):
         source.mutate = original
         with self.assertRaises(RuntimeError): reader.read(second['sequence'], require_recorded_history=True)
         self.assertEqual([], self.native.inputs)
+
+    def test_phone_passive_account_source_is_bound_and_refuses_a_narrow_producer(self):
+        source=self.native_feature_boundaries();original=source.mutate
+        def observed(value):original(value);account_source(value)
+        source.mutate=observed;reader=self.adapter._native_feature_observer(SELECTOR)
+        first=reader.read(0,require_account=True)
+        self.assertEqual(source.sample['account'],first['account'])
+        self.assertFalse(first['account']['observation']['loginPending'])
+        source.mutate=original
+        with self.assertRaises(RuntimeError):reader.read(first['sequence'])
+        self.assertEqual([],self.native.inputs)
 
     def test_phone_animation_history_preserves_original_effect_frames_and_refuses_downgrade(self):
         source=self.native_feature_boundaries();original=source.mutate
