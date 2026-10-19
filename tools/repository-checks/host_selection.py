@@ -150,18 +150,18 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = 'cf48bb0fc93185b0d0b98b08cdb8945d077801920b472f6ab9ba02c04759d068'
+REVIEWED_PROGRAMS = '3d6e74107e6200a8639581cac501d136a492aa2c8854f8b2e3677f2df4214a6c'
 REVIEWED_CHILD_PROGRAMS = {
-    'apple-main': 'c82d979e2d91c5f25591c5269b0c5aab61c0d28717df12b1b0e95662a7e01eda',
-    'apple-ios': 'be23abcb9481b115885e82eea0f9e39bf2bbd0b3dc804ae4e34e5c9b5b6a0fee',
-    'android-main': 'e04ae1c0dffca372e2f76f730906ffde2b2b8dd0eb82b393664d067d93047c58',
-    'android-phone': '38b27af04fdf1b27458a0c618b161abbec6e17b9f2a246920b4cdd2b9672aedf',
-    'android-vr': 'e04ae1c0dffca372e2f76f730906ffde2b2b8dd0eb82b393664d067d93047c58',
-    'android-vr-pico': '7a09d12aacd99d950805160a82e4632e8254d74c7b6775d73a71b23132fc515d',
+    'apple-main': '23b514aeea8076335d15ee52f4b91a7a9e5662012f7422ec8c8301a26b29a186',
+    'apple-ios': '38ef4f1d148c44b1d4b8eb4c64badf7c7bf557735f628ba7610d40b5b0dc2871',
+    'android-main': '2ab8d23633971c3eab6cf0707488e1f447020a4443e3a10bbe06458b746e26fb',
+    'android-phone': '699b89ed586a7302f4c4ee90275b5c1c3aeef20a40c3da9eca332fa32c8783c8',
+    'android-vr': '2ab8d23633971c3eab6cf0707488e1f447020a4443e3a10bbe06458b746e26fb',
+    'android-vr-pico': '53e4b2aa18fa4c9dcb183fedd1008528b71897914a96e9fe44d81931eed76fa6',
 }
 # Separate exact installed family; None admits nothing until genuine enrollment.
 REVIEWED_INSTALLED_PROGRAMS = {
-    'apple-ios': '6d6f90fec714ba251919bd586ab42f60bc3051855b79a8a8bcf70b25736dd0c6',
+    'apple-ios': '2feba6e79bbf3704466b2d39a8738f592dee20b39b639152cdc61b8a9b54d1a5',
 }
 REVIEWED_PREDECESSORS = {
     'main': '6c6064992d2e2e189e06af5957c147fd1ac0996b886b8d0b6f30dbf856ee9afe',
