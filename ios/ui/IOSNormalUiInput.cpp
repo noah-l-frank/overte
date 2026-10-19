@@ -57,8 +57,23 @@ QString identify(QQuickItem* item, bool hud) {
         static const QHash<QString, QString> controls {
             { "nav.home", "tablet.home" }, { "goBack", "places.back" }, { "goForward", "places.forward" },
             { "nav.close", "tablet.close" }, { "OverteTabletClose", "tablet.close" },
+            { "snapshotName", "snapshot.name" }, { "snapshotMode", "snapshot.mode" },
+            { "snapshotFormat", "snapshot.format" }, { "snapshotCapture", "snapshot.capture" },
+            { "snapshotCancelCapture", "snapshot.cancel" },
         };
         if (controls.contains(name)) { return controls.value(name); }
+        for (const auto& mode : {"still", "animated", "panorama", "cubemap"}) {
+            if (name == QStringLiteral("snapshotMode.option.") + mode) {
+                return QStringLiteral("snapshot.mode.") + mode;
+            }
+        }
+        for (const auto& format : {"png", "jpg", "webp"}) {
+            if (name == QStringLiteral("snapshotFormat.option.") + format) {
+                return QStringLiteral("snapshot.format.") + format;
+            }
+        }
+        if (item->property("text").toString() == QStringLiteral("SNAP")
+                && item->metaObject()->indexOfSignal("clicked()") >= 0) { return QStringLiteral("snapshot.entry"); }
         if (item->property("text").toString() == QStringLiteral("PLACES")
                 && item->metaObject()->indexOfSignal("clicked()") >= 0) { return QStringLiteral("tablet.places"); }
         for (int page = 1; page <= 32; ++page) {
@@ -71,6 +86,13 @@ QString identify(QQuickItem* item, bool hud) {
 bool enabled(QQuickItem* item) {
     const auto button = item->property("buttonEnabled");
     return item->isEnabled() && (!button.isValid() || button.toBool());
+}
+
+bool ownedObject(QObject* object, const QObject* owner) {
+    for (int depth = 0; object && depth < 128; ++depth, object = object->parent()) {
+        if (object == owner) { return true; }
+    }
+    return false;
 }
 
 bool integer(const QJsonValue& value, qint64& result) {
@@ -110,7 +132,21 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         for (auto child : children) { walk(child, depth + 1, hudTree); }
     };
     if (hud) { walk(hud, 0, true); }
-    if (tabletShown && tablet && tablet != hud) { walk(tablet, 0, false); }
+    if (tabletShown && tablet && tablet != hud) {
+        walk(tablet, 0, false);
+        // The screen-space tablet is nested inside the HUD's window. Qt
+        // reparents popup visuals beside the complete HUD root. Their QObject
+        // ownership still identifies the actual originating tablet control.
+        if (auto window = tablet->window()) {
+            for (auto layer : window->contentItem()->childItems()) {
+                if (layer->inherits("QQuickOverlay")) {
+                    for (auto popup : layer->childItems()) {
+                        if (ownedObject(popup, tablet)) { walk(popup, 0, false); }
+                    }
+                }
+            }
+        }
+    }
     // A modal editor and the tablet cover the underlying world toolbar.
     if (tabletShown || controls.contains(QStringLiteral("address.field"))) {
         controls.remove(QStringLiteral("hud.goto"));
@@ -118,7 +154,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     }
     if (controls.contains(QStringLiteral("address.field"))) {
         for (const auto& id : controls.keys()) {
-            if (id.startsWith(QStringLiteral("tablet.")) || id.startsWith(QStringLiteral("places."))) {
+            if (id.startsWith(QStringLiteral("tablet.")) || id.startsWith(QStringLiteral("places."))
+                    || id.startsWith(QStringLiteral("snapshot."))) {
                 controls.remove(id);
             }
         }
@@ -130,10 +167,14 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     for (const auto& id : ids) {
         const auto control = controls.value(id);
         const auto bounds = visibleBounds(control.item);
-        observed.append(QJsonObject { { "id", id }, { "token", control.token },
+        QJsonObject row { { "id", id }, { "token", control.token },
             { "enabled", enabled(control.item) }, { "focused", control.item->hasActiveFocus() },
             { "frame", QJsonObject { { "x", bounds.x() }, { "y", bounds.y() },
-                { "width", bounds.width() }, { "height", bounds.height() } } } });
+                { "width", bounds.width() }, { "height", bounds.height() } } } };
+        if (id.startsWith(QStringLiteral("snapshot.mode.")) || id.startsWith(QStringLiteral("snapshot.format."))) {
+            row["checked"] = control.item->property("checked").toBool();
+        }
+        observed.append(row);
     }
     return { { "schemaVersion", 1 }, { "instance", _instance },
         { "frameSpace", QStringLiteral("qt-window-logical") },
@@ -204,11 +245,23 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
             || !integer(command.value("observedElapsedMs"), observed) || observed > _clock.elapsed()
             || _clock.elapsed() - observed > 5000 || (action != "replace" && action != "submit")) { return result; }
     _sequence = sequence;
-    auto field = item(QStringLiteral("address.field"), command.value("fieldToken").toString());
+    const auto fieldToken = command.value("fieldToken").toString();
+    auto field = item(QStringLiteral("address.field"), fieldToken);
+    bool snapshotName { false };
+    if (!field) {
+        field = item(QStringLiteral("snapshot.name"), fieldToken);
+        snapshotName = field != nullptr;
+    }
     if (!field || !enabled(field)) { return result; }
     if (action == QStringLiteral("replace") && command.value("text").isString()) {
+        if (snapshotName) {
+            static const QRegularExpression ownedName {
+                QStringLiteral("\\Aparity-[0-9a-f]{16}-(still-png|still-jpg|animated|panorama|cubemap)\\z") };
+            const auto text = command.value("text").toString();
+            if (text.size() > 48 || !ownedName.match(text).hasMatch()) { return result; }
+        }
         result["performed"] = overte::ui::replaceFocusedField(field, field->window(), command.value("text").toString());
-    } else if (action == QStringLiteral("submit")) {
+    } else if (action == QStringLiteral("submit") && !snapshotName) {
         result["performed"] = overte::ui::submitFocusedField(field, field->window());
     }
     return result;

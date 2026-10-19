@@ -212,6 +212,17 @@ evidence. A portable real bundle/server scenario still needs owning Main input.
 
 ## Snapshot native export and original bytes (#1174/#1177)
 
+The normal input component exposes only actual visible Snapshot controls from
+the current screen-space tablet. Qt popup visuals must retain QObject ownership
+under that tablet; unrelated HUD/window popups are not adopted. Radio choices
+carry their observed checked state. A focused Snapshot name accepts only the
+bounded owned journey prefix through the existing native field transport;
+submit cannot capture. Mode, format and capture still use ordinary UIKit taps.
+The host native input checks compile the actual QML and field/pointer code on
+both Qt5 and Qt6, including a nested tablet, stale tokens and a foreign popup.
+They do not compile UIKit, establish installed-code identity, or execute a
+capture on an iOS GPU.
+
 Open normal SNAP and select `Still`, `Still + animated GIF`, `360° panorama` and
 `360° cubemap`. Use a known moving scene for GIF and known directional landmarks
 for 360 captures. Observe capture/processing/complete status and real previews.

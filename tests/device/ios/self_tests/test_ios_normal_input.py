@@ -16,8 +16,9 @@ from ios.adapters import normal_input
 
 
 class Boundary:
-    def __init__(self, mutation=None):
+    def __init__(self, mutation=None, *, field='address.field'):
         self.mutation, self.requests = mutation, []
+        self.field = field
         self.pid, self.sequence, self.clock = 42, 0, 0.0
         self.instance = '11111111-2222-3333-4444-555555555555'
         self.token = '11111111-2222-3333-4444-666666666666'
@@ -35,7 +36,7 @@ class Boundary:
         return {'schemaVersion': 1, 'instance': self.instance, 'frameSpace': 'qt-window-logical',
             'processId': 42, 'sampleEpochMs': time.time() * 1000, 'elapsedMs': 100,
             'lastSequence': self.sequence, 'tabletShown': False, 'ready': True,
-            'controls': [{'id': 'address.field', 'token': self.token, 'enabled': True, 'focused': True,
+            'controls': [{'id': self.field, 'token': self.token, 'enabled': True, 'focused': True,
                 'frame': {'x': 10, 'y': 20, 'width': 430, 'height': 60}}]}
 
     def post(self, request, timeout):
@@ -119,6 +120,54 @@ class NativeInputTransport(unittest.TestCase):
                 with self.assertRaises(NativeUIError):
                     boundary.input().edit('replace', text)
             self.assertEqual(boundary.requests, [])
+
+    def test_snapshot_name_uses_its_actual_focused_token_without_capture_or_submit(self):
+        boundary = Boundary(field='snapshot.name')
+        name = 'parity-0123456789abcdef-still-png'
+        with patch.object(normal_input, 'urlopen', boundary.post):
+            self.assertEqual(boundary.input().edit('replace', name, field='snapshot.name'), {'performed': True})
+        self.assertEqual([v['operation'] for v in boundary.requests], ['observe', 'edit'])
+        self.assertEqual(boundary.requests[1]['input']['fieldToken'], boundary.token)
+        self.assertEqual(boundary.requests[1]['input']['text'], name)
+        self.assertNotIn('capture', json.dumps(boundary.requests))
+
+    def test_snapshot_cannot_edit_address_or_accept_unowned_text_or_submit(self):
+        for text in ('foreign', 'parity-' + 'a' * 16 + '-still-png/other', 'parity-' + 'A' * 16 + '-still-png'):
+            boundary = Boundary(field='snapshot.name')
+            with self.subTest(text=text), patch.object(normal_input, 'urlopen', boundary.post):
+                with self.assertRaises((ValueError, NativeUIError)):
+                    boundary.input().edit('replace', text, field='snapshot.name')
+            self.assertEqual(boundary.requests, [])
+        for field, operation in (('snapshot.name', 'submit'), ('snapshot.capture', 'replace')):
+            boundary = Boundary(field=field)
+            with self.subTest(field=field), patch.object(normal_input, 'urlopen', boundary.post):
+                with self.assertRaises(NativeUIError):
+                    boundary.input().edit(operation, field=field)
+            self.assertEqual(boundary.requests, [])
+        for mutation in (None, 'unfocused'):
+            boundary = Boundary(mutation, field='address.field' if mutation is None else 'snapshot.name')
+            with self.subTest(mutation=mutation), patch.object(normal_input, 'urlopen', boundary.post):
+                with self.assertRaisesRegex(NativeUIError, 'focused requested field'):
+                    boundary.input().edit('replace', 'parity-0123456789abcdef-still-png', field='snapshot.name')
+            self.assertEqual(len(boundary.requests), 1)
+
+    def test_only_snapshot_choice_rows_have_a_strict_boolean_checked_state(self):
+        for control_id in sorted(normal_input.SNAPSHOT_CHOICES):
+            value = Boundary(field=control_id).observed()
+            value['controls'][0]['checked'] = False
+            self.assertEqual(normal_input.observation(value, 42), value)
+            for invalid in ('missing', 0, None, 'true'):
+                changed = copy.deepcopy(value)
+                if invalid == 'missing':
+                    del changed['controls'][0]['checked']
+                else:
+                    changed['controls'][0]['checked'] = invalid
+                with self.subTest(control=control_id, invalid=invalid), self.assertRaises(NativeUIError):
+                    normal_input.observation(changed, 42)
+        value = Boundary().observed()
+        value['controls'][0]['checked'] = True
+        with self.assertRaises(NativeUIError):
+            normal_input.observation(value, 42)
 
     def test_observer_rejects_unknown_duplicate_unfocused_schema_and_geometry_facts(self):
         baseline = Boundary().observed()

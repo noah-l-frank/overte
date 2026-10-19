@@ -369,6 +369,12 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
             { "address.go", "Go" }, { "address.cancel", "Cancel" }, { "address.back", "Back" },
             { "places.back", "Back" }, { "places.forward", "Forward" },
             { "tablet.home", "Tablet home" }, { "tablet.places", "Places" },
+            { "snapshot.entry", "Snapshots" }, { "snapshot.name", "Snapshot name" },
+            { "snapshot.mode", "Snapshot capture mode" }, { "snapshot.format", "Snapshot file format" },
+            { "snapshot.capture", "Take snapshot" }, { "snapshot.cancel", "Cancel capture" },
+            { "snapshot.mode.still", "Still" }, { "snapshot.mode.animated", "Still and animated GIF" },
+            { "snapshot.mode.panorama", "360 panorama" }, { "snapshot.mode.cubemap", "360 cubemap" },
+            { "snapshot.format.png", "PNG" }, { "snapshot.format.jpg", "JPEG" }, { "snapshot.format.webp", "WEBP" },
         };
         const auto label = id.startsWith(QStringLiteral("tablet.page."))
             ? QStringLiteral("Tablet page %1").arg(id.section('.', -1)) : labels.value(id);
@@ -376,6 +382,9 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         control.accessibilityHint = nil;
         control.hidden = NO;
         control.enabled = row.value("enabled").toBool();
+        control.selected = row.value("checked").toBool();
+        control.accessibilityTraits = UIAccessibilityTraitButton
+            | (control.selected ? UIAccessibilityTraitSelected : UIAccessibilityTraits(0));
         control.activationHandler = ^BOOL {
             if (!refreshNormalUiInput().value("ready").toBool()) { return NO; }
             return normalUiInput().press(id, token) ? YES : NO;

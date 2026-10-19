@@ -1,7 +1,8 @@
 """Source-owned native Qt field events, never installed-code or feature proof.
 
 UIKit controls receive ordinary W3C clicks. Only replacing/submitting the already
-focused real Qt address field uses this closed E2E transport. A process/nonce
+focused real Qt address or owned Snapshot name field uses this closed E2E
+transport. A process/nonce
 join is deliberately not a cryptographic association with installed code.
 """
 # Copyright 2026 Overte contributors.
@@ -19,7 +20,12 @@ from ios.adapters.appium_adapter import AppiumAdapter
 
 CONTROLS = frozenset({'hud.goto', 'hud.tablet', 'address.field', 'address.go',
     'address.cancel', 'address.back', 'tablet.home', 'tablet.close', 'tablet.places',
-    'places.back', 'places.forward'} | {'tablet.page.' + str(page) for page in range(1, 33)})
+    'places.back', 'places.forward', 'snapshot.entry', 'snapshot.name', 'snapshot.mode',
+    'snapshot.format', 'snapshot.capture', 'snapshot.cancel'} | {'tablet.page.' + str(page) for page in range(1, 33)}
+    | {'snapshot.mode.' + value for value in ('still', 'animated', 'panorama', 'cubemap')}
+    | {'snapshot.format.' + value for value in ('png', 'jpg', 'webp')})
+SNAPSHOT_CHOICES = frozenset(value for value in CONTROLS
+                           if value.startswith(('snapshot.mode.', 'snapshot.format.')))
 
 
 def _uuid(value):
@@ -52,11 +58,16 @@ def observation(value, pid, now_ms=None):
         raise NativeUIError('Native iOS input observation is invalid')
     seen, tokens = set(), set()
     for control in value['controls']:
-        if (not isinstance(control, dict) or set(control) != {'id', 'token', 'enabled', 'focused', 'frame'}
+        fields = {'id', 'token', 'enabled', 'focused', 'frame'}
+        if isinstance(control, dict) and isinstance(control.get('id'), str) and control['id'] in SNAPSHOT_CHOICES:
+            fields.add('checked')
+        if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str) or control['id'] not in CONTROLS or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
+        if control['id'] in SNAPSHOT_CHOICES and type(control['checked']) is not bool:
+            raise NativeUIError('Native iOS Snapshot choice state is invalid')
         frame = control['frame']
         if (not isinstance(frame, dict) or set(frame) != {'x', 'y', 'width', 'height'}
                 or any(type(n) not in (int, float) or not math.isfinite(n) or not 0 <= n <= 10000
@@ -147,8 +158,9 @@ class NativeInput:
         self.instance = value['instance']
         return value
 
-    def edit(self, operation, text=None):
-        if operation not in {'replace', 'submit'} or operation == 'submit' and text is not None:
+    def edit(self, operation, text=None, *, field='address.field'):
+        if (field not in {'address.field', 'snapshot.name'} or operation not in {'replace', 'submit'}
+                or operation == 'submit' and (text is not None or field != 'address.field')):
             raise NativeUIError('Native iOS input operation is invalid')
         if operation == 'replace':
             try:
@@ -158,10 +170,13 @@ class NativeInput:
                 valid = False
             if not valid:
                 raise NativeUIError('Native iOS field text is invalid')
+            if field == 'snapshot.name':
+                from contracts import validate_operation_arguments
+                validate_operation_arguments('snapshot.files', {'prefix': text})
         observed = self.capture()
-        fields = [c for c in observed['controls'] if c['id'] == 'address.field' and c['focused'] and c['enabled']]
+        fields = [c for c in observed['controls'] if c['id'] == field and c['focused'] and c['enabled']]
         if len(fields) != 1:
-            raise NativeUIError('Native iOS input requires the actual focused address field')
+            raise NativeUIError('Native iOS input requires the actual focused requested field')
         command = {'schemaVersion': 1, 'commandId': str(uuid.uuid4()), 'instance': observed['instance'],
             'sequence': observed['lastSequence'] + 1, 'observedElapsedMs': observed['elapsedMs'],
             'fieldToken': fields[0]['token'], 'operation': operation}
