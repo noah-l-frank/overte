@@ -14,7 +14,7 @@ the original bounded HTTP/AFC transport and native foreground PID. The
 canonical binding explicitly rejects this new method too; it cannot bypass
 installed-code verification. The existing `--e2e-test-build` selector enables
 the new source option, while normal builds pass it as OFF. No build was run.
-The focused observation group now has **18** passing host cases. See the
+The focused observation group now has **20** passing host cases. See the
 [native observation contract](../../native/README.md).
 
 The component `_recorded_preview_evidence()` now uses the same original HTTP/AFC
@@ -25,6 +25,13 @@ of actual file/memory state. Candidate-bound access explicitly remains blocked
 with `OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE`; no full audio capability or
 hardware playback claim is introduced. See
 [the preview source contract](../../native/RECORDED_PREVIEW_EVIDENCE.md).
+
+The internal `_script_execution_observer()` now reads actual engine identities
+and CommonJS completion/cache/error history through original HTTP/AFC bytes.
+The canonical candidate binding explicitly rejects this method too. The
+current shared feature contract is **version 2**, with the actual Script
+file-bundle picker flow; no complete area adapter is claimed by these sources.
+See [the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
 
 The normal Script component now implements the existing five `scripts.*`
 foundation operations through native SCRIPTS/From URL/row controls. Opt in with

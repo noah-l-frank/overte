@@ -58,6 +58,8 @@ class Binding(unittest.TestCase):
                 native._native_feature_observer('test-only', object(), 'session', {}, {})
             with self.assertRaisesRegex(ValueError, "INSTALLED_CODE_BINDING_UNAVAILABLE"):
                 native._recorded_preview_evidence('test-only', object(), 'session', {}, {})
+            with self.assertRaisesRegex(ValueError, "INSTALLED_CODE_BINDING_UNAVAILABLE"):
+                native._script_execution_observer('test-only', object(), 'session', {}, {})
             preflight.side_effect = ValueError("candidate changed")
             with self.assertRaises(ValueError):
                 native.describe("test-only")

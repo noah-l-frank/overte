@@ -20,6 +20,7 @@ from adapters.native_feature_observation import (NativeFeatureObservation,
     FILE as NATIVE_FEATURE_FILE, LIMIT as NATIVE_FEATURE_LIMIT)
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, FILE as RECORDED_PREVIEW_FILE,
     INPUT as PREVIEW_INPUT, SINK as PREVIEW_SINK, MAX_BYTES as PREVIEW_LIMIT)
+from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from ios.adapters.appium_adapter import AppiumAdapter, WebDriverRequestError
 
 
@@ -132,6 +133,14 @@ class FeatureObservation:
         return RecordedPreviewEvidence(self.send,
             lambda: self.original(remote=root + RECORDED_PREVIEW_FILE, limit=NATIVE_FEATURE_LIMIT),
             original_bytes, self.epoch_ms, self.guard, self.process['pid'], ios=True,
+            monotonic=self.monotonic, sleep=self.sleep)
+
+    def script_execution_observer(self):
+        self.guard()
+        remote = self.remote.rsplit('/', 1)[0] + '/' + SCRIPT_EXECUTION_FILE
+        return NativeScriptObservation(self.send,
+            lambda: self.original(remote=remote, limit=NATIVE_FEATURE_LIMIT),
+            self.epoch_ms, self.guard, self.process['pid'], ios=True,
             monotonic=self.monotonic, sleep=self.sleep)
 
     def read(self, after_sequence, *, include_avatar_entities=False):

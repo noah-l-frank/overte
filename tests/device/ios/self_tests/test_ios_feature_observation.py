@@ -20,6 +20,8 @@ from ios.adapters.adapter import IOSAdapter
 from ios.adapters.appium_adapter import WebDriverRequestError
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
+from self_tests.test_native_script_observation import Boundary as ScriptBoundary
+from adapters.native_script_observation import loaded_relative_modules, running_owned_engine
 
 
 class Native:
@@ -113,8 +115,8 @@ class FeatureObservationTests(unittest.TestCase):
         self.assertRegex(source.commands[0]['commandId'], '^ios-[0-9a-f]{32}$')
         self.assertEqual(1, len(self.native.reads))
 
-    def preview_boundaries(self):
-        source = PreviewBoundary()
+    def preview_boundaries(self, source=None, filename='recorded-preview-observation.json'):
+        source = PreviewBoundary() if source is None else source
         source.mutate = lambda value: value.update(processId=42)
         def post(request, timeout):
             command = self.native.fixture.set_client_command(json.loads(request.data))
@@ -129,7 +131,8 @@ class FeatureObservationTests(unittest.TestCase):
             self.assertTrue(remote.startswith('@org.example.client:documents/owned-results/'))
             self.native.reads.append(values)
             name = remote.rsplit('/', 1)[-1]
-            if name == 'recorded-preview-observation.json': raw = json.dumps(source.value).encode()
+            if name == filename:
+                raw = json.dumps(source.sample if hasattr(source, 'sample') else source.value).encode()
             elif self.native.missing: raise WebDriverRequestError(500)
             else: raw = source.files[name]
             return base64.b64encode(raw).decode()
@@ -167,6 +170,23 @@ class FeatureObservationTests(unittest.TestCase):
             self.native.pid = 43
         source.mutate = change
         reader = self.observer.recorded_preview_observer()
+        with self.assertRaises(NativeUIError): reader.read(0)
+        self.assertEqual([], self.native.reads)
+
+    def test_ios_script_execution_component_keeps_original_afc_module_history(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        value = self.observer.script_execution_observer().read(0)
+        self.assertEqual(source.sample, value)
+        self.assertEqual(['companion.js'], loaded_relative_modules(running_owned_engine(value, source.engine['url'])))
+        self.assertEqual(17000, value['source']['engines'][0]['required']['modules'][0]['capturedEpochMs'])
+
+    def test_ios_script_execution_process_loss_cannot_consume_native_afc_result(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        reader = self.observer.script_execution_observer()
+        def change(value):
+            value['processId'] = 42
+            self.native.pid = 43
+        source.mutate = change
         with self.assertRaises(NativeUIError): reader.read(0)
         self.assertEqual([], self.native.reads)
 

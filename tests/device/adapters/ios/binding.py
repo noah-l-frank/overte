@@ -103,6 +103,9 @@ def create_adapter(args, base_class):
         def _recorded_preview_evidence(self, *args, **kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
+        def _script_execution_observer(self, *args, **kwargs):
+            raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
+
         def invoke(self, selector, operation, values):
             # Includes operations that bypass ensure_session in the base class.
             # The v003 bound runner normally rejects missing identity earlier.
