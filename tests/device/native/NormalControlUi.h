@@ -5,6 +5,7 @@
 #include "NormalScriptFileControls.h"
 #include "NormalAudioControls.h"
 #include "NormalGraphicsControls.h"
+#include "NormalLoginControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -25,10 +26,10 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
-    QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}) {
+    QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
         if (!qApp || QThread::currentThread() != qApp->thread()
                 || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
         if (_root != root || _window != window) {
@@ -36,7 +37,8 @@ public:
         }
         bool ready = root && window && root->window() == window
             && root->thread() == qApp->thread() && window->thread() == qApp->thread()
-            && (_surface != Surface::Audio || audio.valid) && (_surface != Surface::Graphics || graphics.valid);
+            && (_surface != Surface::Audio || audio.valid) && (_surface != Surface::Graphics || graphics.valid)
+            && (_surface != Surface::Login || login.valid);
         QHash<QString, Control> controls;
         int visited {0};
         bool ambiguous {false};
@@ -45,12 +47,14 @@ public:
             if (++visited > 4096 || depth > 128 || item->thread() != qApp->thread()) { ambiguous = true; return; }
             if (_surface == Surface::Graphics ? graphicsObservable(item) : !visibleRect(item, window).isEmpty()) {
                 const auto id = _surface == Surface::Audio ? audioControlId(item)
-                    : _surface == Surface::Graphics ? graphicsControlId(item) : scriptFileControlId(item);
+                    : _surface == Surface::Graphics ? graphicsControlId(item)
+                    : _surface == Surface::Login ? loginControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
                     const auto previous = _controls.value(id);
                     const auto source = _surface == Surface::Audio ? audioControlSource(item, id, audio)
-                        : _surface == Surface::Graphics ? graphicsControlSource(item, id, graphics) : scriptFileControlSource(item);
+                        : _surface == Surface::Graphics ? graphicsControlSource(item, id, graphics)
+                        : _surface == Surface::Login ? loginControlSource(item, id, login) : scriptFileControlSource(item);
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
             }
@@ -77,6 +81,7 @@ public:
                 {"focused", control.item->hasActiveFocus()}};
             if (_surface == Surface::Audio) { appendAudioControlObservation(row, control.item, id, audio); }
             else if (_surface == Surface::Graphics) { appendGraphicsControlObservation(row, control.item, id, graphics); }
+            else if (_surface == Surface::Login) { appendLoginControlObservation(row, control.item, id, login); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
         }
@@ -87,17 +92,18 @@ public:
             {"processId", static_cast<double>(QCoreApplication::applicationPid())},
             {"ready", ready}, {"controls", rows}};
         result[_surface == Surface::Audio ? "audioControlsVersion"
-            : _surface == Surface::Graphics ? "graphicsControlsVersion" : "fileControlsVersion"] = 1;
+            : _surface == Surface::Graphics ? "graphicsControlsVersion"
+            : _surface == Surface::Login ? "loginControlsVersion" : "fileControlsVersion"] = 1;
         return result;
     }
 
     QJsonObject apply(QQuickItem* root, QQuickWindow* window, const QJsonObject& command,
                       const std::function<bool(QQuickItem*)>& pointerClick, const AudioUiContext& audio = {},
                       const std::function<bool(QQuickItem*, const QPointF&)>& pointerAt = {},
-                      const GraphicsUiContext& graphics = {}) {
+                      const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
         if (!qApp || QThread::currentThread() != qApp->thread()
                 || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
-        const auto current = observe(root, window, audio, graphics);
+        const auto current = observe(root, window, audio, graphics, login);
         const auto request = command.value("commandId").toString();
         QJsonObject result{{"schemaVersion", 1}, {"commandId", request}, {"performed", false},
             {"instance", _instance}, {"generation", _generation}, {"sequence", command.value("sequence")},
@@ -120,6 +126,7 @@ public:
                 || _clock.elapsed() - observed > 5000
                 || (_surface == Surface::Audio ? action != "activate" && action != "scroll"
                     : _surface == Surface::Graphics ? action != "activate" && action != "scroll" && action != "set-value"
+                    : _surface == Surface::Login ? action != "activate" && action != "replace" && action != "submit"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
         _lastCommandSequence = sequence;
@@ -128,7 +135,20 @@ public:
         if (!control.item || !control.item->isEnabled() || command.value("controlToken") != QJsonValue(control.token)
                 || visibleRect(control.item, window).isEmpty()) { return result; }
         bool delivered {false};
-        if (_surface == Surface::Graphics) {
+        if (_surface == Surface::Login) {
+            QJsonObject row;
+            appendLoginControlObservation(row,control.item,id,login);
+            if (!row.value("inputReady").toBool()) { return result; }
+            if (action == "activate" && id != "login.page") {
+                const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+                if (ownsPoint(control.item,window,point) && pointerClick) { delivered=pointerClick(control.item); }
+            } else if ((id=="login.username" || id=="login.password") && action=="replace"
+                    && command.value("text").isString() && validLoginText(command.value("text").toString())) {
+                delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+            } else if (id=="login.password" && action=="submit") {
+                delivered=overte::ui::submitFocusedField(control.item,window);
+            }
+        } else if (_surface == Surface::Graphics) {
             QJsonObject row;
             appendGraphicsControlObservation(row, control.item, id, graphics);
             if (!row.value("inputReady").toBool()) { return result; }
@@ -257,6 +277,10 @@ class ScriptFileUi : public NormalControlUi {};
 class GraphicsUi : public NormalControlUi {
 public:
     GraphicsUi() : NormalControlUi(Surface::Graphics) {}
+};
+class LoginUi : public NormalControlUi {
+public:
+    LoginUi() : NormalControlUi(Surface::Login) {}
 };
 class AudioUi : public NormalControlUi {
 public:
