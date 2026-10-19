@@ -6,14 +6,15 @@ has now exposed assumptions in several draft workflows that do not describe the
 actual product UI. Host-model success does not resolve those mismatches. No
 complete area capability may be advertised as implemented on that basis.
 
-The current contract is version 6. Version 2 corrected Scripts to the ordinary
+The current contract is version 7. Version 2 corrected Scripts to the ordinary
 file-bundle picker and actual relative companion execution, with negative
 cases for execution after cancellation, missing companions and frozen ticks.
 Version 3 corrected Audio to its automatic memory-preview cycle.
 Version 4 corrects Graphics to immediate actual controls and measured originals.
 Version 5 corrects ordinary Emote override/chooser semantics, adds nine natural
 completion checks and separately requires restoration before nominal clip end.
-Version 6 corrects authentication view dismissal versus native request lifetime,
+Version 7 corrects Chat channel/draft/transport semantics and separates local
+echo from actual peer delivery. Version 6 corrects authentication view dismissal versus native request lifetime,
 uses a real process restart to retire a delayed response consumer, and requires
 actual delayed authority plus independent UI/error facts.
 See [the explicit migration](feature_journeys/CONTRACT_MIGRATION.md).
@@ -31,18 +32,19 @@ versioned before any complete area producer is enabled.
 | Graphics on Phone | `scripts/system/+android_phoneInterface/phoneGraphics.js` restores a safe 0.65 default and accepts resolution 0.5..0.7. Its native settings switches/slider apply and persist immediately. | **Common flow corrected in version 4.** Freeze actual original preferences through independent agreeing observations, use common supported 0.5/0.6 viewport scales and real Haze/Mirrors controls, retain changes across close/restart and restore measured originals. Render-target/pass sources and actual visible controlled fixture joins are still missing; native settings alone cannot satisfy them. |
 | Scripts | `Application::loadScriptURLDialog()` loads the submitted URL directly. `Application::loadDialog()` opens **Open Script and Companion Files** and loads the selected local source. `TabletRunningScripts.qml` provides the normal From URL/File controls. Entity-script consent is separate. | **Common flow corrected in version 2.** Native actual engine/require histories now exist on all three source branches. All three branches now have normal source-bound file-bundle controls and private original-byte staging/cleanup intent. Picker/engine ownership, restart handoff and the full companion/effect observer joins remain missing; URL foundations do not establish them. |
 | Emotes | On the Phone adapter product base, `scripts/system/+android_phoneInterface/phoneEmote.js` selects a real bundled clip, calls the one-shot override, hides the tablet, and restores the rig on its timer. The common-base PhoneEmote copy does not hide the tablet; the desktop/Pico `emote.js` surface has different Sit/cancel behavior. Choosing the actually running startup script must precede binding an input recipe. | **Common flow corrected in version 5.** Ordinary plays require a native override; chooser lifetime permits the reviewed hidden/retained variants. Nine non-Sit clips must complete without cancellation. The explicit Waving abort requires native restoration before nominal end, with independent timing/peer facts. Sit reset does not claim that early-abort condition. Reopen the actual chooser as required and judge loaded/evaluated native clips, original poses/images and real peer effects. No product change is authorized to make a draft test pass. |
+| Chat | All three reviewed product bases use the same ArmoredChat JS/QML and MessagesClient source. There are Local/Domain tabs, separate histories and a 20-metre Local admission bound. Sending clears the editor immediately; native absence of a MessagesMixer emits local-only echo. No offline UI, retry queue or peer filter exists. | **Corrected in version 7.** Exercise actual channels, cancelled draft, distant Local rejection, stored history, original no-mixer local echo and explicit retyped resend. Observe remote delivery independently and allow two real local history rows after resend. Do not add product filtering/error/retry behavior to satisfy the draft. |
 
 Additional source checks remain open, particularly the local JSON import versus
 model creation/picker paths in NativeCreate, and the platform-specific private
 Snapshot capture versus user export/share permission paths. Absence is not
-inferred from a single source search. The other nine area drafts still require
+inferred from a single source search. The other eight area drafts still require
 their own final source/input/observer joins and independent actor evidence.
 
 Implemented source packets remain useful and independently reviewable:
 Phone's ordinary Create/Scripts foundations; Pico's ordinary native Script
 foundation; iOS's explicitly unbound native Script component; and the shared
 native lifecycle, evaluated animation/pose and memory-preview status sources.
-They do not complete the fourteen version 6 triples. Required capability gates stay
+They do not complete the fourteen version 7 triples. Required capability gates stay
 closed, original compiler-dependent tests remain excluded from no-build runs,
 and all physical qualification remains unperformed.
 

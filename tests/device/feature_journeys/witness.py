@@ -29,7 +29,7 @@ WITNESS_KEYS = {
  'graphics': ['resolution', 'renderScale', 'haze', 'hazePass', 'mirror', 'mirrorPass'],
  'audio': ['recording', 'preview', 'muted', 'recordedFrames', 'playedFrames',
            'bufferedFrames', 'phase', 'history', 'error'],
- 'chat': ['messages', 'filtered', 'error'],
+ 'chat': ['messages', 'localMessages', 'domainMessages', 'peerMessages', 'channel', 'mixerConnected', 'open'],
  'snapshots': ['files', 'uploads', 'shares'],
  'scripts': ['running', 'effects', 'companions'],
  'assets': ['mappings', 'selected', 'bakeState', 'canWrite', 'sceneModel', 'companions'],
