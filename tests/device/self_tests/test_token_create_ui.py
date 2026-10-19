@@ -243,6 +243,18 @@ class TokenCreateTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.close()
         self.assertIsNotNone(self.store.read()['pendingImportBeforeIds']);self.assertNotIn('stop',self.native.calls)
 
+    def test_ios_fixture_admits_only_closed_original_token_activation(self):
+        from fixture.serve import FixtureState
+        fixture=FixtureState()
+        request=dict(schemaVersion=1,commandId='11111111-1111-4111-8111-111111111111',
+            instance='22222222-2222-4222-8222-222222222222',sequence=1,observedElapsedMs=0,
+            fieldToken='33333333-3333-4333-8333-333333333333',operation='activate')
+        outer=dict(schemaVersion=1,commandId='ios-'+'a'*32,action='normal-ui-input',operation='edit',input=request)
+        self.assertEqual(outer,fixture.set_client_command(outer))
+        for changes in ({'sequence':True},{'operation':'create-direct'},{'text':'unexpected'},
+                        {'expected':{}},{'fieldToken':'00000000-0000-0000-0000-000000000000'}):
+            with self.subTest(changes=changes),self.assertRaises(ValueError):fixture.set_client_command(outer|{'input':request|changes})
+
     def test_owned_json_import_is_measured_and_removed_by_existing_owner(self):
         self.open();self.flow.invoke('create.import',{'url':URL.replace('observer.js','entities.json')})
         self.assertEqual(2,len(self.native.entities));self.close();self.assertEqual([],self.native.entities)
