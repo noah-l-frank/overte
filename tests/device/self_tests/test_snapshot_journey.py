@@ -5,8 +5,11 @@ from io import BytesIO
 import ast
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 
@@ -178,6 +181,30 @@ class SnapshotJourneyTests(unittest.TestCase):
             (directory / 'alias.png').symlink_to(directory / 'original.png')
             for name in ('../outside.png', 'alias.png', 'missing.png'):
                 with self.subTest(name=name), self.assertRaises(RuntimeError): read(name)
+
+    def test_original_file_transfer_has_its_own_bounded_deadline_without_extending_inputs(self):
+        import adapter_client
+        duration = [90]  # The original Android file read may already take90s.
+        deadlines = []
+        def native_process(command, **options):
+            deadlines.append(options['timeout'])
+            if duration[0] > options['timeout']:
+                raise subprocess.TimeoutExpired(command, options['timeout'])
+            return SimpleNamespace(returncode=0, stdout='{"files":[]}', stderr='')
+        transport = SimpleNamespace(run=native_process, PIPE=subprocess.PIPE, TimeoutExpired=subprocess.TimeoutExpired)
+        with tempfile.TemporaryDirectory(prefix='snapshot-transfer-deadline-') as temporary:
+            manifest = Path(temporary) / 'adapter.json'
+            import json
+            manifest.write_text(json.dumps({'schemaVersion': 1, 'command': [sys.executable, 'synthetic-adapter']}))
+            with patch.object(adapter_client, 'subprocess', transport):
+                self.assertEqual(adapter_client.invoke(manifest, 'synthetic', 'snapshot.files', {}), {'files': []})
+                duration[0] = 121
+                with self.assertRaisesRegex(RuntimeError, 'timed out'):
+                    adapter_client.invoke(manifest, 'synthetic', 'snapshot.files', {})
+                duration[0] = 90
+                with self.assertRaisesRegex(RuntimeError, 'timed out'):
+                    adapter_client.invoke(manifest, 'synthetic', 'snapshot.capture', {})
+        self.assertEqual(deadlines, [120, 120, 60])
 
     def test_restart_and_clock_failures_keep_cleanup(self):
         for mutation, expected in (('restart', AssertionError), ('clock-backwards', ValueError)):
