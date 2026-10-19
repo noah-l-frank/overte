@@ -47,7 +47,7 @@ not a complete audio capability or acoustic proof. See
 `_script_execution_observer()` joins actual native ScriptManager identities and
 resolved CommonJS completion/cache/error history to the same installed-candidate
 and PID/start/session guards. It never sends source names or code. The current
-shared feature contract is **version 3**, with a real client file-bundle picker
+shared feature contract is **version 6**, with a real client file-bundle picker
 flow; these history/URL foundations still do not implement that full area. See
 [the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
 
@@ -166,7 +166,7 @@ substitute only native W3C/ADB/time boundaries and synthetic candidate bytes.
 They prove control logic and failure handling, never Overte feature success or
 Phone acceptance. All physical qualification remains pending on Proxmox.
 
-The current common contract is version 3. Its Audio workflow now follows normal
+The current common contract is version 6. Its Audio workflow now follows normal
 automatic memory capture/play/drain/completion, with real mute/cancel/background
 states and independent original input/acoustic bytes. The old manual Save or
 Preview commands are rejected. Phone's internal preview sources remain narrower;
@@ -231,3 +231,30 @@ a green cleanup. Five additional wrapper cases pass (67 focused Phone cases).
 This changes no product auth endpoint or TLS trust. Normal login/cancel/UI/error/
 restart and independent actor composition remain open, and no full Authentication
 capability or device result is enabled. Native source remains uncompiled.
+
+## Normal account input continuation
+
+`_login_controls(selector,intent,run,origin)` binds normal Qt login view/error
+observations and pointer/IME/Return input to the actual installed APK, PID/start,
+foreground and session. The reader pins original UI/native account identity and
+controlled origin before private credential entry. Native pending view close/
+reopen does not abort or replay the account request. An input ACK proves no
+login, authority or persistence result. The complete v6 Authentication run owner,
+ordinary logout/restart and independent actor composition remain unavailable.
+
+The private native command reader bypasses CommonJS caching in feature-enabled
+Phone sources. The probe retires secret input references even on failure; after
+each uncertain or confirmed replacement the host overwrites the owned private
+command with a fresh read-only request, with actual writer readback. Lost binding
+retains caller-owned intent rather than claiming cleanup. Native source remains
+uncompiled; original UI/IME, private filesystem and device behavior are untested.
+See [the wire/privacy contract](LOGIN_INPUT_PROTOCOL.md).
+
+The complete focused Phone boundary selection now passes **76** cases, including
+nine new login transport/dispatch/counterexample cases; **43** installed-identity
+cases and **572** guarded shared host cases also pass. These check synthetic
+widgets, actual JavaScript dispatch and source binding/cleanup logic only. The
+native command parser and Qt source remain uncompiled. One JavaScript negative
+test initially reused the now-scrubbed request template; constructing a fresh
+invalid template fixes the test and all 76 cases pass. No device/login success or
+complete Authentication capability is inferred.

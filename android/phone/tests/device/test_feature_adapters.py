@@ -32,6 +32,9 @@ from adapters.native_script_files import NativeScriptFiles
 from self_tests.test_native_script_files import Boundary as ScriptFilesBoundary
 from script_file_native_boundary import FileNativeBoundary
 from audio_native_boundary import AudioNativeBoundary, ControlNativeBoundary
+from login_native_boundary import LoginNativeBoundary
+from adapters.token_login_ui import TokenLoginUI
+from self_tests.test_token_login_ui import RUN as LOGIN_RUN, ORIGIN as LOGIN_ORIGIN, CREDS as LOGIN_CREDS
 from adapters.token_graphics_ui import TokenGraphicsUI
 from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
@@ -800,6 +803,132 @@ applyAndroidControlCommand(outer(scroll));if(calls.length!==3)throw Error("scrol
 delete Test.phoneGraphicsUi;applyClientCommand(outer({...observe,commandId:"2".repeat(32)}));
 if(files[3].v.available!==false)throw Error("missing hook green");
 '''.replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
+
+    def login_boundaries(self):
+        source=LoginNativeBoundary()
+        def send(client,session,target,command,process):
+            self.assertEqual({'running':True,'identity':'31:14'},process);source.send(command)
+        def read(_device,package,path,**kwargs):
+            self.assertEqual('files/overte-e2e/phone-login-ui.json',path)
+            self.assertEqual({'attempts':1},kwargs);return json.dumps(source.value)
+        for boundary in (
+            patch.object(self.adapter,'write_android_client_command',side_effect=send),
+            patch.object(self.fixture.adb,'read_debug_app_file',side_effect=read,create=True),
+            patch.object(self.fixture.adb,'epoch_milliseconds',return_value=20000,create=True),
+            patch.object(appium,'PhoneLoginIO',partial(appium.PhoneLoginIO,
+                monotonic=lambda:source.ui.clock,sleep=source.ui.sleep)),
+            patch.object(appium,'TokenLoginUI',partial(TokenLoginUI,
+                monotonic=lambda:source.ui.clock,sleep=source.ui.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._login_controls(SELECTOR,source.ui.intent,LOGIN_RUN,LOGIN_ORIGIN)
+
+    def test_phone_login_uses_original_private_fields_and_normal_submit_without_a_success_verdict(self):
+        source,ui=self.login_boundaries();ui.open();ui.fill(LOGIN_CREDS);ui.submit()
+        self.assertTrue(source.ui.pending);self.assertFalse(source.ui.token)
+        self.assertEqual(LOGIN_CREDS['password'],source.ui.fields['login.password'])
+        self.assertNotIn(LOGIN_CREDS['password'],repr(source.commands)+repr(source.ui.intents)+repr(source.value))
+        ui.cancel();ui.open();self.assertTrue(ui.capture()['controls'][0]['nativePending'])
+        self.assertEqual(1,sum(action=='submit' for _,action in source.inputs))
+
+    def test_phone_login_stale_foreign_missing_and_retimed_sources_refuse_input(self):
+        for kind in ('version','reader','nonce','process','timestamp','context','error'):
+            with self.subTest(kind=kind):
+                source,ui=self.login_boundaries()
+                def mutate(value):
+                    if kind=='version':value['loginControlsVersion']=True
+                    elif kind=='reader':value.pop('privateCommandReaderVersion')
+                    elif kind=='nonce':value['commandId']='f'*32
+                    elif kind=='process':value['processId']=999
+                    elif kind=='timestamp':value['capturedEpochMs']=19999
+                    elif kind=='context':value['instance']='foreign'
+                    else:value['error']='copied expectation'
+                source.mutate=mutate
+                with self.assertRaises(RuntimeError):ui.open()
+                self.assertEqual([],source.inputs)
+
+    def test_phone_login_candidate_or_native_endpoint_change_blocks_credential_delivery(self):
+        source,ui=self.login_boundaries();ui.open();count=len(source.inputs)
+        self.fixture.adb.digest='f'*64
+        with self.assertRaises(RuntimeError):ui.fill(LOGIN_CREDS)
+        self.assertEqual(count,len(source.inputs))
+
+    def test_phone_login_changed_native_context_between_read_and_input_refuses_old_token(self):
+        source,ui=self.login_boundaries();ui.open()
+        source.before_input=lambda:setattr(source.ui,'endpoint','f'*64)
+        with self.assertRaises(RuntimeError):ui.fill(LOGIN_CREDS)
+        self.assertEqual({},source.ui.fields)
+
+    def test_phone_login_lost_input_receipt_never_replays_or_claims_completion(self):
+        source,ui=self.login_boundaries()
+        source.mutate=lambda v:v.update(commandId='e'*32) if v.get('action')=='activate' else None
+        with self.assertRaises(RuntimeError):ui.open()
+        self.assertTrue(source.ui.dialog);self.assertEqual(1,len(source.inputs));self.assertFalse(source.ui.token)
+
+    def test_phone_login_uncertain_secret_input_is_replaced_by_readonly_command_without_replay(self):
+        source,ui=self.login_boundaries();ui.open()
+        source.mutate=lambda v:v.update(commandId='e'*32) if v.get('action')=='replace' else None
+        with self.assertRaises(RuntimeError):ui.fill(LOGIN_CREDS)
+        self.assertEqual(1,sum(action=='replace' for _,action in source.inputs))
+        self.assertEqual('observe',source.commands[-1]['request']['action'])
+        self.assertEqual({'schemaVersion','commandId','action'},set(source.commands[-1]['request']))
+        self.assertEqual(3,len(source.ui.intents)) # Entry, focus and one uncertain replacement.
+
+    def test_phone_login_source_epoch_cannot_regress_with_the_device_clock(self):
+        source,ui=self.login_boundaries();ui.open()
+        source.mutate=lambda v:v.update(capturedEpochMs=19900) if v.get('action')=='observe' else None
+        with patch.object(self.fixture.adb,'epoch_milliseconds',return_value=19900,create=True):
+            with self.assertRaises(RuntimeError):ui.capture()
+
+    def test_original_phone_login_dispatch_rejects_extra_fields_secret_echo_and_missing_native_hook(self):
+        program=r'''const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,k)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(k.sort());
+let calls=[],files=[];
+const Test={phoneLoginUi:r=>{calls.push(r);return {schemaVersion:1,commandId:r.commandId,performed:true};},
+saveObject:(v,name)=>files.push({v,name})};
+SOURCE
+const outer=r=>({schemaVersion:1,commandId:r.commandId,action:"phone-login-ui",request:r});
+const observe={schemaVersion:1,commandId:"a".repeat(32),action:"observe"};
+applyAndroidControlCommand(outer(observe));applyAndroidControlCommand(outer(observe));
+if(calls.length!==1 || files[0].name!=="phone-login-ui.json")throw Error("original dispatch or duplicate");
+const replace={schemaVersion:1,commandId:"b".repeat(32),action:"replace",instance:"c".repeat(32),generation:"d".repeat(32),
+sequence:1,observedElapsedMs:0,controlId:"login.password",controlToken:"e".repeat(32),text:"private-test-only"};
+applyAndroidControlCommand(outer(replace));
+if(calls.length!==2 || JSON.stringify(files).includes("private-test-only") || "text" in replace)throw Error("delivery or secret retention");
+const invalidBase={...replace,text:"private-test-only"};
+for(const bad of [{...invalidBase,commandId:"1".repeat(32),expected:"owned"},
+ {...invalidBase,commandId:"2".repeat(32),text:"bad\ninput"}, {...invalidBase,commandId:"3".repeat(32),sequence:true},
+ {...invalidBase,commandId:"4".repeat(32),controlId:"loginXpassword"},
+ {...invalidBase,commandId:"5".repeat(32),action:"activate"}, {...invalidBase,commandId:"6".repeat(32),text:""}]){
+ applyClientCommand(outer(bad));
+}
+if(calls.length!==2)throw Error("unreviewed input dispatched");
+delete Test.phoneLoginUi;applyClientCommand(outer({...observe,commandId:"7".repeat(32)}));
+if(files[2].v.available!==false)throw Error("missing native hook counted as delivery");
+'''.replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
+
+    def test_original_phone_poll_bypasses_module_cache_and_retires_secret_even_when_native_input_throws(self):
+        probe=(Path(__file__).resolve().parents[4]/'tests/device/probe/overte_e2e_probe.js').read_text()
+        start=probe.index('    function pollAndroidControlCommand()')
+        end=probe.index('    function pollAndroidControlMarker()',start)
+        program=r'''const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,k)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(k.sort());
+let reads=0,writes=[];
+const Script={require:()=>{throw Error("CommonJS credential caching is forbidden");}};
+const command={schemaVersion:1,commandId:"a".repeat(32),action:"phone-login-ui",request:{schemaVersion:1,commandId:"a".repeat(32),
+action:"replace",instance:"b".repeat(32),generation:"c".repeat(32),sequence:1,observedElapsedMs:0,
+controlId:"login.password",controlToken:"d".repeat(32),text:"private-uncached-test"}};
+const Test={phoneReadFeatureCommand:()=>{reads++;return command;},phoneLoginUi:()=>{throw Error("unavailable native input");},
+saveObject:(v,name)=>writes.push({v,name})};
+SOURCE
+var androidControlAvailable=true;
+POLL
+pollAndroidControlCommand();
+if(reads!==1||writes.length!==1||writes[0].v.available!==false||"text" in command.request)throw Error("cache/secret retention or green unavailable");
+'''.replace('SOURCE',probe_source()).replace('POLL',probe[start:end])
         result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr)
 

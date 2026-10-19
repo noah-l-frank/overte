@@ -159,6 +159,24 @@
         }
         return true;
     }
+    var lastPhoneLoginRequest = "";
+    function validPhoneLoginRequest(request) {
+        if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
+        if (request.action === "observe") { return objectKeysMatch(request, ["schemaVersion", "commandId", "action"]); }
+        var keys = ["schemaVersion", "commandId", "action", "instance", "generation", "sequence", "observedElapsedMs", "controlId", "controlToken"];
+        if (request.action === "replace") { keys.push("text"); }
+        if (["activate", "replace", "submit"].indexOf(request.action) === -1 || !objectKeysMatch(request, keys)
+                || !/^[0-9a-f]{32}$/.test(String(request.instance)) || !/^[0-9a-f]{32}$/.test(String(request.generation))
+                || !/^[0-9a-f]{32}$/.test(String(request.controlToken))
+                || !phoneFileInteger(request.sequence, 1, 9007199254740991)
+                || !phoneFileInteger(request.observedElapsedMs, 0, 9007199254740991)) { return false; }
+        if (request.action === "replace") {
+            return /^(?:login\.username|login\.password)$/.test(String(request.controlId))
+                && typeof request.text === "string" && /^[\x20-\x7e]{1,4096}$/.test(request.text);
+        }
+        if (request.action === "submit") { return request.controlId === "login.password"; }
+        return /^(?:login\.(?:entry|username|password|submit|cancel))$/.test(String(request.controlId));
+    }
     var lastPhoneAudioRequest = "";
     function validPhoneAudioRequest(request) {
         if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
@@ -1064,6 +1082,30 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "phone-login-ui") {
+            try {
+                if (command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
+                        && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "request"])
+                        && validPhoneLoginRequest(command.request) && command.request.commandId === command.commandId
+                        && command.commandId !== lastPhoneLoginRequest) {
+                    lastPhoneLoginRequest = String(command.commandId);
+                    var loginUi = {schemaVersion:1,commandId:command.commandId,available:false};
+                    try {
+                        if (typeof Test.phoneLoginUi === "function") {
+                            var loginOriginal=Test.phoneLoginUi(command.request);
+                            if (loginOriginal && loginOriginal.commandId===command.commandId) { loginUi=loginOriginal; }
+                        }
+                    } catch (_phoneLoginError) { /* No raw credential/exception export. */ }
+                    Test.saveObject(loginUi,"phone-login-ui.json");
+                }
+            } finally {
+                // Retire credential references even for malformed/failed input.
+                if (command.request && Object.prototype.hasOwnProperty.call(command.request,"text")) {
+                    delete command.request.text;
+                }
+            }
+            return;
+        }
         if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "phone-graphics-ui"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "request"])
@@ -1504,6 +1546,7 @@
                 || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
+                || command.action === "phone-login-ui"
                 || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui"
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
@@ -1604,8 +1647,14 @@
             return;
         }
         try {
-            var command = Script.require(androidControlCommandUrl + "?sample="
-                + sampleSequence);
+            // Feature-enabled Phone input bypasses the CommonJS JSON/code
+            // cache. Credentials are never loaded through Script.require.
+            var command;
+            if (typeof Test.phoneReadFeatureCommand === "function") {
+                command = Test.phoneReadFeatureCommand();
+            } else {
+                command = Script.require(androidControlCommandUrl + "?sample=" + sampleSequence);
+            }
             applyAndroidControlCommand(command);
         } catch (error) {
             // The launcher starts without a command and creates it on demand.

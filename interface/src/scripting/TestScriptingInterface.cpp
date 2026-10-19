@@ -44,6 +44,7 @@
 #include <ScriptEngines.h>
 #if defined(ANDROID_APP_PHONE_INTERFACE)
 #include "../../../tests/device/native/ScriptFileUi.h"
+#include "../../../tests/device/native/PrivateFeatureCommand.h"
 #include <QMouseEvent>
 #endif
 #include <EntityScriptingInterface.h>
@@ -439,9 +440,20 @@ QVariantMap TestScriptingInterface::featureScriptObservation(const QString& requ
         {"source", source}};
 }
 #if defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap TestScriptingInterface::phoneReadFeatureCommand() {
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&] { result=phoneReadFeatureCommand(); },Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    return overte::e2e::privateAndroidFeatureCommand(_testResultsLocation).toVariantMap();
+}
 QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command) { return phoneControlUi(command, 0); }
 QVariantMap TestScriptingInterface::phoneAudioUi(const QVariantMap& command) { return phoneControlUi(command, 1); }
 QVariantMap TestScriptingInterface::phoneGraphicsUi(const QVariantMap& command) { return phoneControlUi(command, 2); }
+QVariantMap TestScriptingInterface::phoneLoginUi(const QVariantMap& command) { return phoneControlUi(command, 3); }
 QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, int surfaceKind) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;
@@ -454,9 +466,10 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
     const auto root = ui->getRootItem();
     const auto window = ui->getWindow();
     const bool audioSurface = surfaceKind == 1;
-    if (surfaceKind < 0 || surfaceKind > 2) { return {}; }
+    if (surfaceKind < 0 || surfaceKind > 3) { return {}; }
     overte::e2e::GraphicsUiContext graphicsContext;
     overte::e2e::AudioUiContext audioContext;
+    overte::e2e::LoginUiContext loginContext;
     if (audioSurface) {
         if (!DependencyManager::isSet<AudioClient>()) { return {}; }
         const auto audio = DependencyManager::get<AudioClient>();
@@ -473,9 +486,20 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
             render->getHazeEnabled(), render->getMirrorsEnabled());
         if (!graphicsContext.valid) { return {}; }
         if (!_phoneGraphicsUi) { _phoneGraphicsUi = std::make_shared<overte::e2e::GraphicsUi>(); }
+    } else if (surfaceKind == 3) {
+        if (!DependencyManager::isSet<AccountManager>()) { return {}; }
+        const auto account=DependencyManager::get<AccountManager>();
+        QVariantMap original;
+        const auto read=[&] { original=account->featureAccountObservation(); };
+        if (QThread::currentThread()==account->thread()) { read(); }
+        else if (!QMetaObject::invokeMethod(account.data(),read,Qt::BlockingQueuedConnection)) { return {}; }
+        loginContext=overte::e2e::LoginUiContext::fromNative(original);
+        if (!loginContext.valid) { return {}; }
+        if (!_phoneLoginUi) { _phoneLoginUi=std::make_shared<overte::e2e::LoginUi>(); }
     } else if (!_phoneScriptFileUi) { _phoneScriptFileUi = std::make_shared<overte::e2e::ScriptFileUi>(); }
     auto controls = audioSurface ? static_cast<overte::e2e::NormalControlUi*>(_phoneAudioUi.get())
         : surfaceKind == 2 ? static_cast<overte::e2e::NormalControlUi*>(_phoneGraphicsUi.get())
+        : surfaceKind == 3 ? static_cast<overte::e2e::NormalControlUi*>(_phoneLoginUi.get())
         : static_cast<overte::e2e::NormalControlUi*>(_phoneScriptFileUi.get());
     const auto request = QJsonObject::fromVariantMap(command);
     const auto id = request.value("commandId").toString();
@@ -485,8 +509,9 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
     const auto keys = request.keys();
     if (action == "observe") {
         if (QSet<QString>(keys.begin(), keys.end()) != QSet<QString>{"schemaVersion", "commandId", "action"}) { return {}; }
-        auto observed = controls->observe(root, window, audioContext, graphicsContext);
+        auto observed = controls->observe(root, window, audioContext, graphicsContext, loginContext);
         if (observed.isEmpty()) { return {}; }
+        if (surfaceKind==3) { observed["privateCommandReaderVersion"]=1; }
         observed["commandId"] = id;
         observed["action"] = action;
         return observed.toVariantMap();
@@ -515,7 +540,7 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
     const auto click = [pointClick](QQuickItem* item) {
         return pointClick(item, item->mapToScene(QPointF(item->width()/2, item->height()/2)));
     };
-    auto result = controls->apply(root, window, request, click, audioContext, pointClick, graphicsContext);
+    auto result = controls->apply(root, window, request, click, audioContext, pointClick, graphicsContext, loginContext);
     if (!result.isEmpty()) { result["action"] = action; }
     return result.toVariantMap();
 }
