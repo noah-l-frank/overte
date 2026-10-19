@@ -14,9 +14,12 @@ import test_native_execution_binding as existing
 sys.path.insert(0, str(Path(__file__).resolve().parents[5] / 'tests/device'))
 from adapters.android import adapter
 from adapters.pico4 import normal_scripts
+from adapters.pico4 import binding as pico_binding
 from adapters.normal_script_manager import NormalScriptManager
 from adapters.token_script_ui import TokenScriptUI
 from self_tests.test_token_script_ui import NativeBoundary, SOURCE
+from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
+from adapters.token_script_file_ui import TokenScriptFilePicker
 
 
 class PicoNormalScriptsTests(unittest.TestCase):
@@ -27,6 +30,7 @@ class PicoNormalScriptsTests(unittest.TestCase):
         self.native = self.fixture.fake
         self.qt = NativeBoundary(menu=True)
         self.native_version = 1
+        self.file_ui, self.file_focus, self.file_version = None, None, 1
         self.last_read_request = None
         original_read = self.native.read_debug_app_file
         self.original_snapshot = self.native.snapshot
@@ -35,11 +39,17 @@ class PicoNormalScriptsTests(unittest.TestCase):
             self.qt.opened = self.native.opened
             value = self.original_snapshot()
             actual = self.qt.capture()
+            if self.file_ui is not None and self.qt.page == 'scripts':
+                files = self.file_ui.capture()
+                actual['controls'] = files['controls'] if self.file_ui.opened else actual['controls'] + files['controls']
+                value['fileControlsVersion'] = self.file_version
             value.update(open=actual['open'], ready=actual['ready'], featureControlsVersion=self.native_version)
             value['controls'] = []
             for item in actual['controls']:
                 row = dict(item)
-                row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL, row['id'] + row.get('sourceUrl', '')))
+                row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL, row['id'] + row.get('sourceUrl', '') + str(row.get('currentIndex', ''))))
+                if row['id'] == 'scripts.from-file' or row['id'].startswith('script-file.'):
+                    row['focused'] = self.file_focus == row['id']
                 value['controls'].append(row)
             return value
 
@@ -63,7 +73,16 @@ class PicoNormalScriptsTests(unittest.TestCase):
             self.assertEqual(current['generation'], command['generation'])
             self.assertEqual(self.native.sequence + 1, command['sequence'])
             self.native.sequence += 1; self.native.inputs.append(command)
-            if command['action'] == 'replace': self.qt.replace(command['controlId'], command['text'])
+            file = self.file_ui is not None and (command['controlId'] == 'scripts.from-file' or command['controlId'].startswith('script-file.'))
+            if file:
+                identifier = command['controlId']
+                if command['action'] == 'replace': self.file_ui.replace(identifier, command['text'])
+                elif command['action'] == 'submit': self.file_ui.submit(identifier)
+                elif command['action'] == 'select-index': self.file_ui.select_index(identifier, command['index'])
+                elif identifier == 'script-file.primary': self.file_ui.actions.append(identifier)
+                else: self.file_ui.activate(identifier, source=row.get('sourceUrl'))
+                if command['action'] == 'activate': self.file_focus = identifier
+            elif command['action'] == 'replace': self.qt.replace(command['controlId'], command['text'])
             else: self.qt.activate(command['controlId'], source=row.get('sourceUrl'))
             self.native.status = dict(schemaVersion=1, bridgeId=self.native.bridge_id,
                 commandId=command['commandId'], sequence=command['sequence'], performed=True, error='',
@@ -101,6 +120,45 @@ class PicoNormalScriptsTests(unittest.TestCase):
     def cleanup_instance(self):
         args, binding = adapter.cli([*self.fixture.prefix, 'cleanup', '--target', self.native.target])
         return binding.create_adapter(args, adapter.AndroidAdapter)
+
+    def file_picker(self, fault=''):
+        self.invoke('scripts.manager.open')
+        root = self.fixture.fixture.root / ('feature-script-' + 'a' * 32)
+        root.mkdir()
+        (root / 'script.js').write_text("var companion = Script.require('./companion.js');")
+        (root / 'companion.js').write_text('module.exports = {delta: 1};')
+        self.file_ui = FileBoundary(root); self.file_ui.fault = fault
+        boundary = patch.object(pico_binding, 'TokenScriptFilePicker', partial(TokenScriptFilePicker,
+            monotonic=lambda: self.file_ui.clock, sleep=self.file_ui.sleep))
+        boundary.start(); self.addCleanup(boundary.stop)
+        return self.instance._script_file_picker(self.native.target, root.as_uri())
+
+    def test_pico_file_picker_uses_real_native_row_tokens_and_review_without_executing_via_api(self):
+        picker = self.file_picker(); picker.open(); picker.choose('script.js')
+        self.assertEqual([(self.file_ui.root / 'script.js').as_uri()], self.file_ui.accepted)
+        self.assertEqual(1, sum(item['controlId'] == 'script-file.confirm' for item in self.native.inputs))
+
+    def test_pico_file_ignored_row_acknowledgment_cannot_confirm_the_bundle(self):
+        picker = self.file_picker('row'); picker.open()
+        with self.assertRaises(RuntimeError): picker.choose('script.js')
+        self.assertEqual([], self.file_ui.accepted)
+        self.assertEqual(1, sum(item['controlId'].startswith('script-file.row.') for item in self.native.inputs))
+        picker.cancel()
+        self.assertFalse(self.file_ui.opened)
+
+    def test_pico_file_main_selector_is_actual_normal_input_with_observed_readback(self):
+        picker = self.file_picker('wrong-primary'); picker.open(); picker.choose('script.js')
+        self.assertEqual([(self.file_ui.root / 'script.js').as_uri()], self.file_ui.accepted)
+        self.assertEqual(1, sum(item['action'] == 'select-index' for item in self.native.inputs))
+
+    def test_pico_file_candidate_change_and_missing_native_marker_stop_before_file_input(self):
+        picker = self.file_picker(); self.file_version = None
+        before = len(self.native.inputs)
+        with self.assertRaises(RuntimeError): picker.open()
+        self.assertEqual(before, len(self.native.inputs))
+        self.file_version = 1; self.native.digest = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'OVT_PICO_BINDING_REJECTED'): picker.open()
+        self.assertEqual(before, len(self.native.inputs))
 
     def test_existing_native_candidate_wrapper_executes_normal_vr_menu_load_restart_stop_and_close(self):
         self.load()

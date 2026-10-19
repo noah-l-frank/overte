@@ -25,13 +25,17 @@ def configuration(environment):
 class PicoScriptIO:
     def __init__(self, navigation):
         self.navigation = navigation
+        navigation.io.bind_input()
         value = navigation.snapshot()
         need(type(value.get('featureControlsVersion')) is int and value['featureControlsVersion'] == 1)
         self.bridge = value['bridgeId']
+        navigation.io.bind_input()
 
     def capture(self):
+        self.navigation.io.bind_input()
         value = self.navigation.snapshot()
         need(value['bridgeId'] == self.bridge)
+        self.navigation.io.bind_input()
         return value
 
     def activate(self, identifier, *, source=None):
@@ -43,6 +47,15 @@ class PicoScriptIO:
 
     def replace(self, identifier, text):
         self.navigation.input(identifier, 'replace', text)
+
+    def submit(self, identifier):
+        need(identifier == 'script-file.folder')
+        self.navigation.input(identifier, 'submit')
+
+    def select_index(self, identifier, index):
+        need(identifier == 'script-file.primary')
+        self.activate(identifier)
+        self.navigation.input(identifier, 'select-index', index=index)
 
     def tablet(self, opened):
         need(type(opened) is bool)

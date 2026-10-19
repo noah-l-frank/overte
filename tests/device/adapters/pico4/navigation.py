@@ -13,6 +13,8 @@ import uuid
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
+from adapters.token_script_file_ui import (file_control, metadata_fields as file_metadata_fields,
+    validate_metadata as validate_file_metadata, folder_text)
 
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 CONTROL_IDS = {'navigation.goto', 'navigation.address', 'navigation.back',
@@ -65,6 +67,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'featureControlsVersion' in value:
         fields.add('featureControlsVersion')
         need(type(value['featureControlsVersion']) is int and value['featureControlsVersion'] == 1)
+    if type(value) is dict and 'fileControlsVersion' in value:
+        fields.add('fileControlsVersion')
+        need(type(value['fileControlsVersion']) is int and value['fileControlsVersion'] == 1)
     need(type(value) is dict and set(value) == fields
          and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and identifier(value['bridgeId']) and identifier(value['generation'])
@@ -79,19 +84,23 @@ def validate_snapshot(value, process_id, epoch_ms):
     for control in value['controls']:
         need(type(control) is dict and isinstance(control.get('id'), str))
         fields = {'id', 'token', 'enabled', 'focused'}
-        if script_control(control['id']):
+        if file_control(control['id']):
+            need(value.get('fileControlsVersion') == 1)
+            fields |= file_metadata_fields(control['id'])
+        elif script_control(control['id']):
             need(value.get('featureControlsVersion') == 1)
             fields |= metadata_fields(control['id'])
         if control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
         need(set(control) == fields
-             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']))
+             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']))
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
         if control['id'] in SNAPSHOT_CHOICES:
             need(type(control['checked']) is bool)
-        if script_control(control['id']):
+        if file_control(control['id']): validate_file_metadata(control)
+        elif script_control(control['id']):
             validate_metadata(control)
         ids.add(control['id']); tokens.add(control['token'])
     need(value['ready'] or not value['controls'])
@@ -195,7 +204,7 @@ class PicoNavigation:
                 return value
         return None
 
-    def input(self, control_id, action='activate', text=None, *, source=None):
+    def input(self, control_id, action='activate', text=None, *, source=None, index=None):
         # SDK/package verification can take longer than the native input's
         # freshness window. Bind bytes first, then capture the current UI.
         self.io.bind_input()
@@ -204,6 +213,10 @@ class PicoNavigation:
         need(snapshot['ready'] and control is not None and snapshot['lastCommandSequence'] < MAX_INTEGER)
         if source is not None:
             need(control.get('sourceUrl') == source)
+        if file_control(control_id):
+            need(snapshot.get('fileControlsVersion') == 1)
+        if action in ('replace', 'submit', 'select-index') and control_id.startswith('script-file.'):
+            need(control['focused'])
         command = {'schemaVersion': 1, 'commandId': str(uuid.uuid4()),
             'bridgeId': snapshot['bridgeId'], 'generation': snapshot['generation'],
             'sequence': snapshot['lastCommandSequence'] + 1,
@@ -222,9 +235,14 @@ class PicoNavigation:
                     script_url(text, missing=text.endswith('/missing.js'))
                 else:
                     owned_url(text, {'observer.js'})
+            elif control_id == 'script-file.folder':
+                folder_text(text)
             else:
                 raise NavigationError()
             command['text'] = text
+        if action == 'select-index':
+            need(control_id == 'script-file.primary' and type(index) is int and 0 <= index < 32)
+            command['index'] = index
         self.io.guard()
         # The owning transport writes exactly once, then only polls status.
         try:

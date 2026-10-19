@@ -13,6 +13,10 @@
 #include <cmath>
 #include <ui/NativeFieldInput.h>
 #include "../../../../../../tests/device/native/NormalScriptControls.h"
+#include "../../../../../../tests/device/native/NormalScriptFileControls.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../../../../tests/device/native/ScriptFileUi.h"
+#endif
 
 namespace overte::pico::e2e {
 namespace {
@@ -48,6 +52,8 @@ bool enabled(QQuickItem* item) {
 }
 
 QString controlId(QQuickItem* item) {
+    const auto file = overte::e2e::scriptFileControlId(item);
+    if (!file.isEmpty()) { return file; }
     const auto script = overte::e2e::scriptControlId(item);
     if (!script.isEmpty()) { return script; }
     static const QHash<QString, QString> names {
@@ -130,7 +136,8 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             if (!id.isEmpty()) {
                 if (controls.contains(id)) { ambiguous = true; return; }
                 const auto previous = _controls.value(id);
-                const auto source = overte::e2e::scriptRowSource(item);
+                const auto fileSource = overte::e2e::scriptFileControlSource(item);
+                const auto source = fileSource.isEmpty() ? overte::e2e::scriptRowSource(item) : fileSource;
                 controls.insert(id, { item, previous.item == item && previous.source == source ? previous.token : token(), source });
             }
         }
@@ -152,6 +159,13 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             if (!id.startsWith(QStringLiteral("scripts.url."))) { controls.remove(id); }
         }
     }
+    bool filePicker {false};
+    for (const auto& id : controls.keys()) { filePicker = filePicker || id.startsWith(QStringLiteral("script-file.")); }
+    if (filePicker) {
+        for (const auto& id : controls.keys()) {
+            if (!id.startsWith(QStringLiteral("script-file."))) { controls.remove(id); }
+        }
+    }
     if (ambiguous || !ready || controls.size() > 384) { controls.clear(); ready = false; }
     _controls = controls;
     auto ids = controls.keys();
@@ -165,6 +179,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
             row["checked"] = control.item->property("checked").toBool();
         }
         overte::e2e::appendScriptControlObservation(row, control.item, id);
+        overte::e2e::appendScriptFileObservation(row, control.item, id);
         observed.append(row);
     }
     QJsonObject result { { "schemaVersion", 1 }, { "bridgeId", _bridgeId }, { "generation", _generation },
@@ -175,6 +190,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         { "open", open }, { "ready", ready }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
+    result["fileControlsVersion"] = 1;
 #endif
     return result;
 }
@@ -194,6 +210,7 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
     QSet<QString> expected { "schemaVersion", "commandId", "bridgeId", "generation",
         "sequence", "observedElapsedMs", "controlId", "controlToken", "action" };
     if (action == "replace") { expected.insert("text"); }
+    if (action == "select-index") { expected.insert("index"); }
     qint64 sequence { 0 }, observedAt { 0 };
     const auto uuid = QUuid(id);
     if (!exactKeys(command, expected) || command.value("schemaVersion") != QJsonValue(1)
@@ -204,7 +221,7 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
             || command.value("generation") != QJsonValue(_generation)
             || !integer(command.value("observedElapsedMs"), observedAt)
             || observedAt > _clock.elapsed() || _clock.elapsed() - observedAt > 5000
-            || (action != "activate" && action != "replace" && action != "submit")) { return result; }
+            || (action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
     // Consume an admitted sequence before any input. An uncertain result may
     // be read again but can never replay a pointer/key/IME mutation.
     _lastCommandSequence = sequence;
@@ -219,6 +236,20 @@ QJsonObject NavigationUi::apply(QQuickItem* root, QQuickWindow* window, bool ope
     bool delivered { false };
     if (action == "activate") {
         delivered = pointerClick && pointerClick(control.item);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    } else if (controlId == QStringLiteral("script-file.folder")) {
+        if (action == "replace" && command.value("text").isString()
+                && overte::e2e::validScriptFolderPath(command.value("text").toString())) {
+            delivered = overte::ui::replaceFocusedField(control.item, window, command.value("text").toString());
+        } else if (action == "submit") {
+            delivered = overte::ui::submitFocusedField(control.item, window);
+        }
+    } else if (controlId == QStringLiteral("script-file.primary") && action == "select-index") {
+        qint64 index {0};
+        if (integer(command.value("index"), index)) {
+            delivered = overte::e2e::ScriptFileUi::selectFocusedPrimary(control.item, window, index);
+        }
+#endif
     } else if (controlId == QStringLiteral("navigation.address")) {
         if (action == "replace" && command.value("text").isString()) {
             delivered = overte::ui::replaceFocusedField(control.item, window, command.value("text").toString());

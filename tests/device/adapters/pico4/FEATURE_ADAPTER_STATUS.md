@@ -43,9 +43,29 @@ performs these inputs. Cleanup attempts Stop and observed native absence before
 original process teardown; lost candidate/process or ignored Stop retains
 source intent and fails cleanup. A cleanup-only invocation revalidates the
 original candidate lazily for source input, while teardown still works if that
-verification fails. Six real-wrapper host counterexamples pass, registered as
+verification fails. Ten real-wrapper host counterexamples pass, registered as
 `normal-scripts` in the existing 42-group Pico suite. See
 [the native Script control contract](../../native/NORMAL_SCRIPTS.md).
+
+The internal `_script_file_picker(target,directory)` now reuses that same
+candidate/OpenXR/normal Script UI context for the common Script bundle recipe.
+The actual VR Tablet observer exports the real From File/picker delegates,
+source URLs, selected flags, reviewed manifest and primary selection under
+`fileControlsVersion:1`. A source/model change retires its token. The existing
+VR surface pointer route activates controls; focused native key/IME/Return
+and guarded primary-selector Home/Down/Return events perform edits. No source
+load, file helper, QML handler or selection setter is an input shortcut.
+Normal Script UI captures now recheck installed bytes before and after reads.
+
+The ten-case group includes actual native token/recipe transactions, ignored
+row delivery despite a successful ACK, primary readback and missing-marker/
+candidate failures. The existing **31** candidate/navigation/Snapshot boundary
+cases and **15** original-observation cases also pass after the extension.
+All are device-free; native C++ remains uncompiled and actual VR/keyboard
+delivery remains unqualified. A complete version 2 Script adapter still needs
+owned original-byte staging, persistent picker/file/engine cleanup intent and
+the advancing-effect/independent observer join. No new `feature.*` triple is
+advertised. See [the common picker contract](../../native/NORMAL_SCRIPT_FILES.md).
 
 `feature_observation.py` implements the original-observation backend on the
 existing SH-009/installed-APK-bound Pico adapter. `_feature_observer(target)`

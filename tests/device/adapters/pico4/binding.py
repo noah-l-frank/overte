@@ -17,6 +17,7 @@ from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, Android
     FILE as RECORDED_PREVIEW_FILE)
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from adapters.pico4 import normal_scripts
+from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.normal_feature_state import PrivateFeatureState
 from scripts_observation import OPERATIONS as SCRIPT_OPERATIONS
 from adapters.pico4.snapshot import (PicoSnapshot, OPERATIONS as SNAPSHOT_OPERATIONS,
@@ -178,6 +179,12 @@ def create_adapter(args, base_class):
             state, ui = self._script_paths(target)
             return normal_scripts.flow(self, target, scene, installed, identity, state, ui,
                 lambda operation: super(PicoBoundAdapter, self).invoke(target, operation, {}))
+
+        def _script_file_picker(self, target, directory):
+            # Reuse the original candidate/OpenXR/normal Script UI context.
+            # Persistent file ownership and the full v2 effect join come later.
+            manager = self._scripts(target)
+            return TokenScriptFilePicker(manager.ui.io, directory)
 
         def _navigation_path(self, target):
             _need(self.pico_configuration is not None)
