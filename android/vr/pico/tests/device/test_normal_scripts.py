@@ -33,6 +33,9 @@ from self_tests.test_world_render_evidence import Boundary as WorldBoundary
 from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
 from self_tests.test_owned_world_render import LocalAdb
 from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
+from self_tests.test_native_account_origin import Boundary as AccountOriginBoundary, ORIGIN as ACCOUNT_ORIGIN
+from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
+from self_tests.test_native_account_observation import account_source
 
 
 class PicoNormalScriptsTests(unittest.TestCase):
@@ -159,6 +162,67 @@ class PicoNormalScriptsTests(unittest.TestCase):
             boundary.start();self.addCleanup(boundary.stop)
         factory=self.instance._graphics_controls if graphics else self.instance._audio_controls
         return native,factory(self.native.target,native.intent)
+
+    def account_origin(self):
+        source=AccountOriginBoundary(self.fixture.state_root/'native-origin-files');native=NativeFeatureBoundary()
+        def captured(value):
+            epoch=self.native.epoch_milliseconds(self.native.target)
+            value.update(processId=123,requestedEpochMs=epoch,capturedEpochMs=epoch)
+        source.mutate=captured
+        def feature(value):
+            captured(value);epoch=value['capturedEpochMs'];value['animation']['capturedEpochMs']=epoch
+            value['animationFence']['requestedEpochMs']=epoch;value['animation']['clip']['evaluatedEpochMs']=epoch;account_source(value)
+        native.mutate=feature
+        original_write=self.native.write_debug_app_file;original_read=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            value=json.loads(raw)
+            if value['action']=='feature-native-observe':native.send(value)
+            elif value['action']=='feature-account-origin':
+                self.assertEqual('org.overte.pico',package);self.assertEqual(adapter.ANDROID_CONTROL_COMMAND,path)
+                self.assertEqual(native.sample['instance'],value['instance'])
+                self.assertIsNotNone(self.instance._account_origin_store(target).read());source.send(value)
+            else:return original_write(target,package,path,raw)
+        def read(target,package,path,**kwargs):
+            if path.endswith('/feature-native-observation.json'):return native.original()
+            if path.endswith('/feature-account-origin-result.json'):
+                self.assertEqual({'attempts':1},kwargs);return source.read()
+            return original_read(target,package,path,**kwargs)
+        active=type(self.instance)._account_origin.__wrapped__.__globals__
+        for boundary in (patch.object(self.native,'write_debug_app_file',side_effect=write),
+                         patch.object(self.native,'read_debug_app_file',side_effect=read),
+                         patch.dict(active,NativeFeatureObservation=partial(NativeFeatureObservation,
+                             monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,native,self.instance._account_origin(self.native.target)
+
+    def test_pico_account_origin_uses_actual_native_instance_and_original_file_readback(self):
+        source,native,origin=self.account_origin();self.assertEqual(ACCOUNT_ORIGIN,origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN))
+        self.assertEqual(native.sample['instance'],self.instance._account_origin_store(self.native.target).read()['instance'])
+        origin.release();self.assertFalse(source.path.exists());self.assertIsNone(self.instance._account_origin_store(self.native.target).read())
+        self.assertEqual([],self.native.inputs)
+
+    def test_pico_account_origin_ack_without_actual_files_retains_owner(self):
+        source,_native,origin=self.account_origin();source.fault='ack-only'
+        with self.assertRaises(RuntimeError):origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN)
+        self.assertIsNotNone(self.instance._account_origin_store(self.native.target).read());origin.release()
+        self.assertIsNone(self.instance._account_origin_store(self.native.target).read())
+
+    def test_pico_account_origin_foreign_native_scope_cannot_adopt_or_delete_existing_files(self):
+        source,native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);original=native.mutate
+        def foreign(value):original(value);value['instance']='f'*32
+        native.mutate=foreign;before=len(source.commands)
+        with self.assertRaises((ValueError,RuntimeError)):self.instance._account_origin(self.native.target).release()
+        self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.instance._account_origin_store(self.native.target).read())
+
+    def test_pico_account_origin_cleanup_releases_files_before_original_process_teardown(self):
+        source,_native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN)
+        self.assertEqual({'cleaned':True},self.cleanup_instance().cleanup(self.native.target))
+        self.assertFalse(self.native.running);self.assertFalse(source.path.exists());self.assertIsNone(self.instance._account_origin_store(self.native.target).read())
+
+    def test_pico_account_origin_cleanup_keeps_unresolved_files_after_base_teardown(self):
+        source,_native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);source.fault='keep-files'
+        with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running);self.assertTrue(source.path.exists());self.assertIsNotNone(self.instance._account_origin_store(self.native.target).read())
 
     def account_probe(self):
         source=AccountProbeBoundary()

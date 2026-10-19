@@ -252,3 +252,13 @@ world/probe group has 31 passing host cases. The native HTTPS-origin provisioner
 normal login/cancel/UI/restart and independent actor coordinator remain missing.
 No complete Authentication triple or device acceptance is enabled; native code
 is uncompiled.
+
+The `_account_origin` factory now reads the actual native Test instance and
+connects exclusive fixture files/readback/retirement to the candidate/PID/OpenXR
+transport, with independent durable ownership. Adapter cleanup drains probes
+then origin files before base teardown, preserving unresolved ownership and
+failing cleanup when original absence is not measured. Five new wrapper cases
+pass; the focused normal Script/Audio/Graphics/world/account group now has 36
+passing host cases. Native source remains uncompiled. This sets no product
+endpoint/trust, and complete normal login/UI/restart/actor composition and all
+Authentication device qualification remain open.
