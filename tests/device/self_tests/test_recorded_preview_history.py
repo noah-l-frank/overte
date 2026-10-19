@@ -107,6 +107,19 @@ class PreviewHistoryTests(unittest.TestCase):
                 else: self.recorded = voice(); self.recorded['sampleRate'] = 16000
                 with self.assertRaises(NativeUIError): self.read()
 
+    def test_live_and_terminal_bytes_cannot_regress_behind_a_freshly_observed_capture(self):
+        for terminal in (False, True):
+            with self.subTest(terminal=terminal):
+                self.reader = self.boundary.reader(); self.recorded = voice()
+                self.recorded['capturedBytes'] = 192000
+                first = self.read()
+                if terminal:
+                    self.recorded = voice([event(1, 'capturing', 96000),
+                        event(2, 'cancelled', 96000, epoch=19100)])
+                else: self.recorded['capturedBytes'] = 96000
+                with self.assertRaises(NativeUIError): self.read()
+                self.assertEqual(first['sequence'], self.reader.sequence)
+
     def test_terminal_history_uses_original_format_after_the_current_output_device_changes(self):
         self.recorded = complete(); self.recorded.update(sampleRate=16000, channels=1, frameBytes=2)
         actual = measured_state(self.read()); self.assertEqual(144000, actual['recordedFrames'])

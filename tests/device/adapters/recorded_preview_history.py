@@ -83,6 +83,12 @@ def accept_history(previous, current):
             need(all(current[key] == previous[key] for key in
                      ('startedEpochMs', 'captureSampleRate', 'captureChannels'))
                  and current['events'][:len(previous['events'])] == previous['events'])
+            # Live counters can advance between timer publications. A later
+            # live or terminal sample may not regress behind those real bytes.
+            for key in ('capturedBytes', 'playedBytes'):
+                before = previous[key] if previous['active'] else previous['event'].get(key, 0)
+                after = current[key] if current['active'] else current['event'].get(key, 0)
+                need(after >= before)
         else:
             need(current['startedEpochMs'] >= previous['startedEpochMs'])
             if previous['events']:
