@@ -22,6 +22,9 @@ from fixture.serve import FixtureState
 from ios.adapters.adapter import IOSAdapter
 from ios.adapters import adapter as component, appium_adapter, normal_input, normal_scripts, feature_observation
 from self_tests.test_token_script_ui import NativeBoundary, SOURCE
+from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
+from adapters import token_script_file_ui as file_module
+from adapters.token_script_file_ui import TokenScriptFilePicker
 
 
 class Native:
@@ -29,6 +32,7 @@ class Native:
         self.qt = NativeBoundary()
         self.pid, self.running, self.deleted, self.sequence = 42, True, False, 0
         self.version = 1
+        self.file_ui, self.file_focus, self.file_version = None, None, 1
         self.instance = '11111111-1111-4111-8111-111111111111'
         self.elements, self.commands = {}, []
         self.fixture = FixtureState()
@@ -46,10 +50,15 @@ class Native:
 
     def controls(self):
         value = self.qt.capture()
+        if self.file_ui is not None and self.qt.page == 'scripts':
+            files = self.file_ui.capture()
+            value['controls'] = files['controls'] if self.file_ui.opened else value['controls'] + files['controls']
         rows = []
         for item in value['controls']:
             row = dict(item)
-            row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL, row['id'] + row.get('sourceUrl', '')))
+            row['token'] = str(uuid.uuid5(uuid.NAMESPACE_URL, row['id'] + row.get('sourceUrl', '') + str(row.get('currentIndex', ''))))
+            if row['id'].startswith('script-file.') or row['id'] == 'scripts.from-file':
+                row['focused'] = self.file_focus == row['id']
             row['frame'] = dict(x=10, y=20, width=200, height=48)
             rows.append(row)
         return rows
@@ -57,7 +66,7 @@ class Native:
     def observed(self):
         return dict(schemaVersion=1, instance=self.instance, frameSpace='qt-window-logical', processId=42,
             sampleEpochMs=self.epoch(), elapsedMs=int(self.qt.clock * 1000), lastSequence=self.sequence,
-            tabletShown=self.qt.opened, ready=True, controls=self.controls(), featureControlsVersion=self.version)
+            tabletShown=self.qt.opened, ready=True, controls=self.controls(), featureControlsVersion=self.version, fileControlsVersion=self.file_version)
 
     def post(self, request, timeout):
         command = self.fixture.set_client_command(json.loads(request.data))
@@ -71,8 +80,13 @@ class Native:
                 self.sequence += 1
                 assert native['sequence'] == self.sequence and native['instance'] == self.instance
                 field = next(row for row in self.controls() if row['token'] == native['fieldToken'])
-                assert field['id'] == 'scripts.url.field' and field['focused']
-                self.qt.replace(field['id'], native['text'])
+                assert field['focused']
+                if field['id'] == 'scripts.url.field': self.qt.replace(field['id'], native['text'])
+                elif native['operation'] == 'replace': self.file_ui.replace(field['id'], native['text'])
+                elif native['operation'] == 'submit': self.file_ui.submit(field['id'])
+                else:
+                    assert native['operation'] == 'select-index'
+                    self.file_ui.select_index(field['id'], native['index'])
                 self.receipt = dict(schemaVersion=1, commandId=command['commandId'], status=dict(
                     schemaVersion=1, commandId=native['commandId'], instance=self.instance, sequence=self.sequence,
                     performed=True, processId=42, sampleEpochMs=self.epoch()))
@@ -100,7 +114,7 @@ class Native:
 
     def element(self, identifier):
         if identifier == 'OverteTabletOpen' and not self.qt.opened: return 'tablet.open', 'open-token'
-        if identifier == 'OverteTabletClose' and self.qt.opened and not self.qt.dialog: return 'tablet.close', 'close-token'
+        if identifier == 'OverteTabletClose' and self.qt.opened and not self.qt.dialog and not (self.file_ui and self.file_ui.opened): return 'tablet.close', 'close-token'
         name = identifier.removeprefix('OverteNavigation.')
         rows = [row for row in self.controls() if row['id'] == name]
         return (name, rows[0]['token']) if rows else None
@@ -127,7 +141,11 @@ class Native:
         else:
             row = next(row for row in self.controls() if row['id'] == name)
             if row['token'] != token: raise RuntimeError('retired native source token')
-            self.qt.activate(name, source=row.get('sourceUrl'))
+            if name.startswith('script-file.') or name == 'scripts.from-file':
+                self.file_focus = name
+                if name == 'script-file.primary': self.file_ui.actions.append(name)
+                else: self.file_ui.activate(name, source=row.get('sourceUrl'))
+            else: self.qt.activate(name, source=row.get('sourceUrl'))
         return None
 
 
@@ -166,6 +184,68 @@ class IOSNormalScriptsTests(unittest.TestCase):
     def load(self):
         self.invoke('scripts.manager.open')
         self.invoke('scripts.load-url', {'url': SOURCE})
+
+    def file_picker(self, fault=''):
+        self.invoke('scripts.manager.open')
+        root = self.path.parent / ('feature-script-' + 'a' * 32)
+        root.mkdir(); (root / 'script-bundle').mkdir()
+        for folder, main in ((root, 'script.js'), (root / 'script-bundle', 'main.js')):
+            (folder / main).write_text("var companion = Script.require('./companion.js');")
+            (folder / 'companion.js').write_text('module.exports = {delta: 1};')
+        self.native.file_ui = FileBoundary(root); self.native.file_ui.fault = fault
+        boundary = patch.object(file_module, 'TokenScriptFilePicker', partial(TokenScriptFilePicker,
+            monotonic=lambda: self.native.file_ui.clock, sleep=self.native.file_ui.sleep))
+        boundary.start(); self.addCleanup(boundary.stop)
+        return self.adapter._script_file_picker('test-only-selector', root.as_uri())
+
+    def test_ios_file_bundle_and_relative_companion_use_original_native_controls_and_review(self):
+        picker = self.file_picker(); picker.open(); picker.choose('script-bundle/main.js')
+        self.assertEqual([(self.native.file_ui.root / 'script-bundle/main.js').as_uri()], self.native.file_ui.accepted)
+        self.assertEqual(1, self.native.file_ui.actions.count('script-file.confirm'))
+        edits = [c['input'] for c in self.native.commands if c.get('operation') == 'edit']
+        self.assertEqual(['replace', 'submit'], [c['operation'] for c in edits])
+        self.assertFalse(self.native.file_ui.opened)
+
+    def test_ios_file_ignored_row_acknowledgment_requires_explicit_observed_cancel(self):
+        picker = self.file_picker('row'); picker.open()
+        with self.assertRaises(NativeUIError): picker.choose('script.js')
+        self.assertEqual([], self.native.file_ui.accepted)
+        self.assertEqual(1, sum(a.startswith('script-file.row.') for a in self.native.file_ui.actions))
+        picker.cancel(); self.assertFalse(self.native.file_ui.opened)
+
+    def test_ios_file_primary_selector_uses_one_normal_key_input_and_actual_readback(self):
+        picker = self.file_picker('wrong-primary'); picker.open(); picker.choose('script.js')
+        self.assertEqual([(self.native.file_ui.root / 'script.js').as_uri()], self.native.file_ui.accepted)
+        edits = [c['input'] for c in self.native.commands if c.get('operation') == 'edit']
+        self.assertEqual(1, sum(c['operation'] == 'select-index' for c in edits))
+
+    def test_ios_file_ignored_selector_cannot_confirm_and_cancel_observes_disappearance(self):
+        picker = self.file_picker('primary'); picker.open()
+        with self.assertRaises(NativeUIError): picker.choose('script.js')
+        self.assertEqual([], self.native.file_ui.accepted)
+        self.assertNotIn('script-file.confirm', self.native.file_ui.actions)
+        picker.cancel(); self.assertFalse(self.native.file_ui.opened)
+
+    def test_ios_file_missing_marker_or_changed_process_cannot_deliver_input(self):
+        picker = self.file_picker(); before = list(self.native.file_ui.actions)
+        self.native.file_version = None
+        with self.assertRaises(NativeUIError): picker.open()
+        self.assertEqual(before, self.native.file_ui.actions)
+        self.native.file_version = 1; self.native.pid = 43
+        with self.assertRaises(RuntimeError): picker.open()
+        self.assertEqual(before, self.native.file_ui.actions)
+
+    def test_ios_file_foreign_live_uikit_source_token_cannot_adopt_an_existing_row(self):
+        picker = self.file_picker(); picker.open()
+        original = self.native.call
+        def call(method, path, body=None):
+            if path.endswith('/attribute/value'):
+                return '22222222-2222-4222-8222-222222222222'
+            return original(method, path, body)
+        self.native.call = call
+        with self.assertRaises(NativeUIError): picker.choose('script.js')
+        self.assertEqual([], self.native.file_ui.accepted)
+        self.assertEqual(['scripts.from-file'], self.native.file_ui.actions)
 
     def test_original_normal_ui_component_load_restart_stop_and_owned_cleanup(self):
         self.load()

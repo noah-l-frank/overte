@@ -6,6 +6,7 @@ import time
 import xml.etree.ElementTree as ET
 from contracts import load_tablet_ui_contract
 from adapters.token_script_ui import FIXED as SCRIPT_CONTROLS
+from adapters.token_script_file_ui import file_control
 
 
 def validate(document, process_id, now_ms=None):
@@ -41,7 +42,8 @@ def validate(document, process_id, now_ms=None):
                 or type(element["visible"]) is not bool or type(element["enabled"]) is not bool):
             raise ValueError("native UIKit widget has invalid fields")
         identifier = element["identifier"]
-        if (not isinstance(identifier, str) or identifier not in allowed
+        if (not isinstance(identifier, str) or not (identifier in allowed or identifier.startswith('OverteNavigation.')
+                    and file_control(identifier.removeprefix('OverteNavigation.')))
                 or len(identifier) > 128 or identifier in identifiers
                 or any(c.isspace() or ord(c) < 32 for c in identifier)):
             raise ValueError("native UIKit widget identifier is invalid or duplicated")

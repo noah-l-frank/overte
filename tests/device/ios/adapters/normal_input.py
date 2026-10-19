@@ -19,6 +19,8 @@ from ios.adapters.feature_observation import post_request as urlopen
 from adapters.normal_ui import NativeUIError
 from ios.adapters.appium_adapter import AppiumAdapter
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
+from adapters.token_script_file_ui import (file_control, folder_text,
+    metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
 
 CONTROLS = frozenset({'hud.goto', 'hud.tablet', 'address.field', 'address.go',
     'address.cancel', 'address.back', 'tablet.home', 'tablet.close', 'tablet.places',
@@ -54,6 +56,10 @@ def observation(value, pid, now_ms=None):
         if type(value['featureControlsVersion']) is not int or value['featureControlsVersion'] != 1:
             raise NativeUIError('Native iOS feature control version is invalid')
         fields.add('featureControlsVersion')
+    if type(value) is dict and 'fileControlsVersion' in value:
+        if type(value['fileControlsVersion']) is not int or value['fileControlsVersion'] != 1:
+            raise NativeUIError('Native iOS file control version is invalid')
+        fields.add('fileControlsVersion')
     if (not isinstance(value, dict) or set(value) != fields
             or type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
             or not _uuid(value['instance']) or value['frameSpace'] != 'qt-window-logical'
@@ -66,6 +72,10 @@ def observation(value, pid, now_ms=None):
     seen, tokens = set(), set()
     for control in value['controls']:
         fields = {'id', 'token', 'enabled', 'focused', 'frame'}
+        if type(control) is dict and file_control(control.get('id')):
+            if value.get('fileControlsVersion') != 1:
+                raise NativeUIError('Native iOS file controls lack their source extension')
+            fields |= file_metadata_fields(control['id'])
         if type(control) is dict and script_control(control.get('id')):
             if value.get('featureControlsVersion') != 1:
                 raise NativeUIError('Native iOS Script controls lack their source extension')
@@ -74,13 +84,14 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
         if control['id'] in SNAPSHOT_CHOICES and type(control['checked']) is not bool:
             raise NativeUIError('Native iOS Snapshot choice state is invalid')
         if script_control(control['id']): validate_metadata(control)
+        if file_control(control['id']): validate_file_metadata(control)
         frame = control['frame']
         if (not isinstance(frame, dict) or set(frame) != {'x', 'y', 'width', 'height'}
                 or any(type(n) not in (int, float) or not math.isfinite(n) or not 0 <= n <= 10000
@@ -171,9 +182,13 @@ class NativeInput:
         self.instance = value['instance']
         return value
 
-    def edit(self, operation, text=None, *, field='address.field'):
-        if (field not in {'address.field', 'snapshot.name', 'scripts.url.field'} or operation not in {'replace', 'submit'}
-                or operation == 'submit' and (text is not None or field != 'address.field')):
+    def edit(self, operation, text=None, *, field='address.field', index=None):
+        if (field not in {'address.field', 'snapshot.name', 'scripts.url.field', 'script-file.folder', 'script-file.primary'}
+                or operation not in {'replace', 'submit', 'select-index'}
+                or operation == 'submit' and (text is not None or field not in {'address.field', 'script-file.folder'})
+                or operation == 'select-index' and (text is not None or field != 'script-file.primary'
+                    or type(index) is not int or not 0 <= index < 32)
+                or operation != 'select-index' and (index is not None or field == 'script-file.primary')):
             raise NativeUIError('Native iOS input operation is invalid')
         if operation == 'replace':
             try:
@@ -186,6 +201,8 @@ class NativeInput:
             if field == 'snapshot.name':
                 from contracts import validate_operation_arguments
                 validate_operation_arguments('snapshot.files', {'prefix': text})
+            elif field == 'script-file.folder':
+                folder_text(text)
             elif field == 'scripts.url.field':
                 from scripts_observation import script_url
                 from create_observation import owned_url
@@ -196,6 +213,8 @@ class NativeInput:
         observed = self.capture()
         if field == 'scripts.url.field' and observed.get('featureControlsVersion') != 1:
             raise NativeUIError('Native iOS Script field lacks its source extension')
+        if file_control(field) and observed.get('fileControlsVersion') != 1:
+            raise NativeUIError('Native iOS file field lacks its source extension')
         fields = [c for c in observed['controls'] if c['id'] == field and c['focused'] and c['enabled']]
         if len(fields) != 1:
             raise NativeUIError('Native iOS input requires the actual focused requested field')
@@ -204,6 +223,8 @@ class NativeInput:
             'fieldToken': fields[0]['token'], 'operation': operation}
         if operation == 'replace':
             command['text'] = text
+        if operation == 'select-index':
+            command['index'] = index
         value = self._request('edit', command)
         if (not isinstance(value, dict) or set(value) != {'schemaVersion', 'commandId', 'instance', 'sequence',
                 'performed', 'processId', 'sampleEpochMs'}

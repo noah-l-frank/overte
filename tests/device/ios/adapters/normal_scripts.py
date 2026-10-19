@@ -39,14 +39,23 @@ class IOSScriptIO:
         rows = [row for row in current['controls'] if row['id'] == identifier and row['enabled']]
         need(len(rows) == 1 and (source is None or rows[0].get('sourceUrl') == source))
         locator = Locator('accessibility id', 'OverteNavigation.' + identifier)
-        if identifier.startswith('scripts.'):
+        if identifier.startswith(('scripts.', 'script-file.')):
             self.ui.click_with_token(locator, rows[0]['token'])
         else:
             self.ui.click(locator)
 
     def replace(self, identifier, text):
-        need(identifier == 'scripts.url.field')
+        need(identifier in {'scripts.url.field', 'script-file.folder'})
         self.native.edit('replace', text, field=identifier)
+
+    def submit(self, identifier):
+        need(identifier == 'script-file.folder')
+        self.native.edit('submit', field=identifier)
+
+    def select_index(self, identifier, index):
+        need(identifier == 'script-file.primary' and type(index) is int and 0 <= index < 32)
+        self.activate(identifier)
+        self.native.edit('select-index', field=identifier, index=index)
 
     def tablet(self, opened):
         need(type(opened) is bool)

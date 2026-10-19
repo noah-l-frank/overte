@@ -122,6 +122,11 @@ class IOSAdapter(AppiumAdapter):
         return normal_scripts.flow(NativeUI(client, session, continuity), native, observer,
                                    self.script_store(selector), session, state)
 
+    def _script_file_picker(self, selector, directory):
+        from adapters.token_script_file_ui import TokenScriptFilePicker
+        manager = self._scripts(selector)
+        return TokenScriptFilePicker(manager.ui.io, directory)
+
     def cleanup(self, selector):
         store, script_error = self.script_store(selector), False
         try:

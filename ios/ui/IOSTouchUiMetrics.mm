@@ -364,7 +364,7 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         }
         OverteIOSE2EAccessibilityButton* control = tabletE2EAccessibilityButton(window, identifier);
         control.sourceControlToken = sourceToken;
-        if (id.startsWith(QStringLiteral("scripts."))) {
+        if (id.startsWith(QStringLiteral("scripts.")) || id.startsWith(QStringLiteral("script-file."))) {
             // The adapter checks this original token on the resolved UIKit
             // object. Replacing a row also retires that UIKit object above.
             control.accessibilityValue = sourceToken;
@@ -378,6 +378,10 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
             { "tablet.home", "Tablet home" }, { "tablet.places", "Places" },
             { "scripts.entry", "Running Scripts" }, { "scripts.menu", "Menu" },
             { "scripts.menu-edit", "Edit" }, { "scripts.menu-running", "Running Scripts" },
+            { "scripts.from-file", "From File" }, { "script-file.folder", "Folder path" },
+            { "script-file.primary", "Primary script" }, { "script-file.select", "Select" },
+            { "script-file.cancel", "Cancel" }, { "script-file.change-selection", "Change selection" },
+            { "script-file.confirm", "Use Files" }, { "script-file.review-cancel", "Cancel" },
             { "scripts.from-url", "From URL" }, { "scripts.list", "Running scripts list" },
             { "scripts.url.field", "Script URL" }, { "scripts.url.submit", "OK" },
             { "scripts.url.cancel", "Cancel" },
@@ -391,7 +395,7 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         const auto label = id.startsWith(QStringLiteral("tablet.page."))
             ? QStringLiteral("Tablet page %1").arg(id.section('.', -1))
             : id.startsWith(QStringLiteral("scripts.restart.")) ? QStringLiteral("Restart ") + row.value("rowLabel").toString()
-            : id.startsWith(QStringLiteral("scripts.stop.")) ? QStringLiteral("Stop ") + row.value("rowLabel").toString() : labels.value(id);
+            : id.startsWith(QStringLiteral("scripts.stop.")) ? QStringLiteral("Stop ") + row.value("rowLabel").toString() : id.startsWith(QStringLiteral("script-file.row.")) ? row.value("rowLabel").toString() : labels.value(id);
         control.accessibilityLabel = [NSString stringWithUTF8String:label.toUtf8().constData()];
         control.accessibilityHint = nil;
         control.hidden = NO;
@@ -729,7 +733,8 @@ void updateIOSTabletAccessibilityControls(
     const auto normalObservation = refreshNormalUiInput();
     bool normalModal { false };
     for (const auto& value : normalObservation.value("controls").toArray()) {
-        normalModal = normalModal || value.toObject().value("id").toString() == QStringLiteral("address.field");
+        const auto id = value.toObject().value("id").toString();
+        normalModal = normalModal || id == QStringLiteral("address.field") || id.startsWith(QStringLiteral("script-file."));
     }
 #endif
     if (tabletShown) {
