@@ -134,6 +134,23 @@ class NativeScriptObservationTests(unittest.TestCase):
         source.engine['required']['modules'][0]['capturedEpochMs'] = 16000
         with self.assertRaises(NativeUIError): reader.read(reader.sequence)
 
+    def test_loaded_flag_or_timestamp_cannot_change_without_a_real_new_native_module_event(self):
+        for fault in ('loaded', 'cached', 'retimed', 'insert-old-event'):
+            with self.subTest(fault=fault):
+                source = Boundary(); reader = source.reader(); reader.read(0)
+                def mutate(value):
+                    required = value['source']['engines'][0]['required']; module = required['modules'][0]
+                    if fault == 'loaded': module['loaded'] = False
+                    elif fault == 'cached': module['cached'] = True
+                    elif fault == 'retimed': module['capturedEpochMs'] = 19000
+                    else:
+                        required['sequence'] = 2
+                        module['sequence'] = 2
+                        required['modules'].append(dict(url='file:///actual/private/owned/older.js',
+                            loaded=True, cached=False, sequence=1, capturedEpochMs=17000))
+                source.mutate = mutate
+                with self.assertRaises(NativeUIError): reader.read(reader.sequence)
+
     def test_ignored_request_and_slow_transfer_are_bounded_and_never_repeat_product_inputs(self):
         source = Boundary(); source.ignore = True
         with self.assertRaises(NativeUIError): source.reader().read(0)

@@ -138,6 +138,13 @@ class NativeScriptObservation:
                             for module in old['modules']:
                                 need(module['url'] in modules and modules[module['url']]['sequence'] >= module['sequence']
                                      and modules[module['url']]['capturedEpochMs'] >= module['capturedEpochMs'])
+                            previous_modules = {m['url']: m for m in old['modules']}
+                            for module in source['modules']:
+                                previous_module = previous_modules.get(module['url'])
+                                if previous_module is not None and module['sequence'] == previous_module['sequence']:
+                                    need(module == previous_module)
+                                else:
+                                    need(module['sequence'] > old['sequence'])
                         engines[instance] = dict(url=engine['url'], sequence=source['sequence'], modules=deepcopy(source['modules']))
                     need(self.guard() is not False)
                     need(len(set(self.engines) | set(engines)) <= 4096)
