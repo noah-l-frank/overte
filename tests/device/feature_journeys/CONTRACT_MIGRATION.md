@@ -1,4 +1,37 @@
-# Common feature journey migration: current version 6
+# Common feature journey migration: current version 7
+
+## Version 6 to 7: actual Chat channels, local fallback and explicit resend
+
+ArmoredChat provides Local/Domain tabs and bounded separate channel histories,
+not a peer filter. Its QML clears the draft when sending and destroys an unsent
+draft when closing the owned page. MessagesClient without an active MessagesMixer
+emits local-only echo; the unchanged Chat script stores that echo. No offline
+error banner, retained draft, automatic queued retry or remote ACK exists.
+
+Version 7 adds localMessages/domainMessages/peerMessages, actual channel and
+mixerConnected. messages is the current original visible channel model when
+open and empty when closed. Stored histories remain measured when closed, using
+the original persisted history, not a recreated expected list. peerMessages is
+read from actual owned remote peer reception; local echo/native sends cannot
+populate it. Both primary and independent observers acquire original sources
+separately. The independent projection also includes open so row visibility is
+validated against the observed page, not the closed baseline prototype.
+
+Twenty-four checkpoints replace the previous sixteen. A cancelled draft creates
+no peer delivery. A Domain arrival while Local is selected stays in Domain
+history; a distant Local sender is rejected without adding a row. Offline Send
+requires actual disappearance of the owned MessagesMixer before input; it clears
+the draft and adds one local Domain row but zero remote rows. A three-second
+restored-mixer/no-replay window precedes explicit retyping and resend. Afterward
+the actual local history contains two retry copies, the independent remote
+ledger exactly one. Close/distant/removal/restoration/no-replay observations use
+three-second negative windows, never a single early empty snapshot.
+
+There were no qualified complete v6 producers. v7 rejects old inputs and removes
+filter-peer/network-disconnect/back from Chat's closed vocabulary. No product
+change, capability promotion, build or physical qualification is implied. Other
+area semantics and independently versioned native/fixture transports remain
+unchanged. See [the exact source and adapter prerequisites](CHAT_SOURCE.md).
 
 ## Version 5 to 6: view dismissal, retired responses and actual delayed authority
 
@@ -85,9 +118,9 @@ clocks must remain distinct from iOS host epochs. The actual history helpers
 supply narrower prerequisites, not this complete coordinator.
 
 Current actions, observations, registry and generated files use contractVersion
-6. Only version 6 requests are accepted; versions 1..5 have no qualified complete
-producer and remain in Git history. Current files are adapter-contract.v6.json
-and coverage.v6.json. Observation schema 1, resource/journal transport v1 and
+7. Only version 7 requests are accepted; versions 1..6 have no qualified complete
+producer and remain in Git history. Current files are adapter-contract.v7.json
+and coverage.v7.json. Observation schema 1, resource/journal transport v1 and
 independently versioned native primitives remain unchanged. The account fixture
 is independently versioned 2; it does not relax native OAuth deadlines or TLS.
 
@@ -188,7 +221,7 @@ There were no qualified version 1 product producers on Phone, Pico or iOS.
 Version 1 host simulations are historical logic checks, not producers or
 accepted product evidence. No deployed producer/acceptance migration is needed;
 that registry read only 2 and rejected version 1; the current registry now
-reads only 6.
+reads only 7.
 The old inventory and implementation remain recoverable in Git history; the
 version 2 files remain available in Git history.
 
