@@ -82,7 +82,7 @@ class PhoneCreateUI(PhoneScriptUI):
         self.native.wait_control(self.resource('NativeCreateName'))
 
     def name_entity(self, name):
-        self.native.replace_text(self.resource('NativeCreateName'), name)
+        self.native.replace_ascii_keys(self.resource('NativeCreateName'), name)
         self.native.click(self.resource('NativeCreateApply'))
 
     def edit_properties(self, properties):
@@ -90,7 +90,7 @@ class PhoneCreateUI(PhoneScriptUI):
         validate(properties)
         for group, values in properties.items():
             for component, value in values.items():
-                self.native.replace_text(self.resource('NativeCreateField_' + group + '_' + component), str(value))
+                self.native.replace_ascii_keys(self.resource('NativeCreateField_' + group + '_' + component), str(value))
         self.native.click(self.resource('NativeCreateApply'))
 
     def delete_entity(self):

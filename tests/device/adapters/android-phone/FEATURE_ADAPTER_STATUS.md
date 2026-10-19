@@ -35,6 +35,11 @@ Phone-owned UI bindings are `overte_phone_script_ui.py` and
 `overte_phone_create_ui.py`; Main owns only the reusable flow/observation code.
 No primary action uses a direct entity/script service mutation. UI ACKs remain
 input receipts; the existing shared journeys independently inspect real effects.
+Create Name/Color/Dimensions edits use actual W3C keyboard actions (Select All,
+ordinary ASCII keys, modifier release and native field readback), because
+`NativeCreate.qml` accumulates changes on Qt `textEdited`. Accessibility set-value
+alone would not establish those edit events. Actual UiAutomator2/Qt key delivery
+and off-screen field reachability still require later physical qualification.
 
 Cleanup first tries normal owned entity/source cleanup, then the original
 adapter-wide app/session teardown. If candidate/process continuity is lost, an

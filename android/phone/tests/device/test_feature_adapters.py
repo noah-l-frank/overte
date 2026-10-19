@@ -40,6 +40,7 @@ class Native:
         self.selected = None
         self.popup = None
         self.by_reference = {}
+        self.focused_field = None
 
     def visible(self, name):
         if name == 'tablet.open': return self.screen is None
@@ -71,6 +72,13 @@ class Native:
 
     def call(self, method, path, body=None):
         if path.endswith('/source'): return self.source()
+        if method == 'POST' and path.endswith('/actions'):
+            assert self.focused_field is not None
+            assert body['actions'][0]['type'] == 'key'
+            keys = body['actions'][0]['actions'][4:]
+            self.fields[self.focused_field] = ''.join(value['value'] for value in keys if value['type'] == 'keyDown')
+            self.inputs.append('normal-keyboard')
+            return None
         if path.endswith('/elements'):
             name = 'field' if body['using'] == 'class name' else body['value'].removeprefix(PACKAGE + ':id/')
             if not self.visible(name): return []
@@ -96,6 +104,8 @@ class Native:
                 return None
             if path.endswith('/click'):
                 self.inputs.append(name)
+                if name == 'NativeCreateName' or name.startswith('NativeCreateField_'):
+                    self.focused_field = name
                 if name == 'tablet.open': self.screen = 'home'
                 elif name == 'nav.home': self.screen = 'home'
                 elif name == 'nav.close': self.screen = None
