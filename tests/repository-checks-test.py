@@ -25,6 +25,9 @@ _HISTORICAL_WORKFLOW_BYTES = (('d9fefd275d9e3c6977cf9350a1945a6bbe5051b4', 'c-q}
 # Deployed25 remains immutable test data when canonical26 is staged.
 _HISTORICAL_WORKFLOW_BYTES += (('15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a', 'c-rk6Yi}Dj^1FWpohxb!ILfgTUvoO-a84}5?n4f2IftSs1ZtO(7_Z1J$(5~Z`rmK(+J|=ah+`W;Abrx3GedITGvwdUsgP5`HPSLun#L$4(G3|>G^U(NqM6|TLL|~`X8$8e|Hzo63jWL(y#)kK<d|xdiiAb;_6{dg+Ci5z6^dyg=O~)c=tk|xjAJ+V-JgG={V~&%Y}lqV%JsmEqt~y|UYaGzz$`(P-b3GikM=8oZL<;BgaM^7gY8<N-3m-JA$&|#dq@<uBpPQm(+NeNKA~n@5zkvKGrfER2^rGF>|l{d2`1wKs%5rP0kbo0d-PoZB|Mgb#W)dsjAKT|Tqw;VwbyD{+`Wq#m6{?Ba+pyxrJBS<6T}5irHHeLN;EsNyIBAgGG?5BB>u=q!bU7|k~F}7{k0=_X9uA&<IOihdY)3{{$eCj(1zH5NLu++a~@5k;Ou|Yk2ulz56=Mql`{msZ-u-WCE|7vGnEn@P26gXr<wLEBLr##`x=ABDdx87elb;%WT`m`Xj{gSo=_BtX_`<tc?`-KQ9P2Aq5>OfMrBUH9I%6iLL`*%65SEW65TQOK=V<r^>GJ{NTTRYO68PUns%d+;2K1#Isi!G9r%ngDJhTUW_Bz^mYS(x64;ppHil49iLw;hJev+driFG%Is$=NtgTt>waTbQOIU1mzoO(;!$CfTM>N5VV=xt~4PL$<#n1{cSQAzvlM!`l=DgKO2AajSAxP2tOQh+Ywi@n~b<{x{xH1d7pfu*Upg3;OF{(P|G^R3S7QlXi@=T_{Zc+Q7?e=vL%uF4m66XiCE8pq%e41FSTL2EbD!G&avm10ydv||#>$gA0Z?}y40aL*N=%7@T#vq;rh0Aq`B)4R)_U)?s7Ph?r3T{AwgR<LHSrmaX+oP-pzF}!<PV|(@=xpc;SQ+Wui<Vqr$PT=#SJ=4oY?yJK;iH%B=Pz9>Vp9q%#8bwBkwE|04#QA6RD`n+1W)EpV<DqSm6w}`ZdbsZf3Vmhre&lwA-uqW$pTbSaPLgdmx2d?0>y>mGJ+dfvVw-FGyog?2y9bJm#IJ%$UcJ`fY*x|oOJoIYLImz27WER8LXpDzz_y2*;<3F6WNRtjnH*sit4o_0H#3n#yu$F{}Sv)z&eTb(x^e!iL8`H8K{oRxUm8-xwZH?WFTT;Ln`Pj`mHfrV}N<xV0;|oV_ygO#a%4&KIFjKI)MG>Mf@Uqc|?y1iH?Wl)$`+5N5?Vw;U6y#pGSwU4v&6#F(m(dK0NeP%CX7hVk38iidQaNO53M!gQ0}5KPfn2^Z*Ej9T%fiDyB4!KyD_|LxvafyZ{3EsZ<n)19Z@*d<r2SXiFnT4b?#{;j2M_FVh%ORaiEnwOQvOumP&0GNJG=V@ZrF2~R~xmoyS%lb0jw>hkQ^#ZV!U370mPL6(VO6$W~42mCkXvx5Ea&IbL9pSrz@479kRyv*s|N&oyqckoNMe{y=#KN+0&`rTgN;WS68ntOJc$10*%Z_m1?*FT^4-hCEf1=5JK#3*Y{9AZxg{TmlLG1n8pUm$#r@D;*ug3=r;5v|khb~-O2dzphE6ZegtefRFXe|G(5(ER`m8N5H~pFIncwmx2j=$-u1H4yF?#q7m(|NV9U*@D1H><XdWg=kX(83Qu5O79>rSu15>XC~=bA0<tqV-n`QN3?5aocYf4@ezg65XUq%(??%qwPj1i)!f915sjpnS`N}XI2{NRdK<Mp-H&I+s*JxaYg|yXjkU}A_BFax2*1uujMan`h*xJPo9dS5lkX`!4ZGZ8>ls$|lwZs%$D^EM8}bTfjM!x05VoQ9qp~j9XMd%PxNujtHfT)hp#&&{G_&n>V4Lj`dFkxu-Jy)T(kO1Z&X5Dx3yyEoD!?a4mCW81GIno`<;$+Cx}k`2-w$%!-STmpz&!_ceZk}E%x%^BIaTYLE<)MZ8rug&%D+NDRsnsc-udE+bXob?P^&(w{rLl}FhCEHTi{n<M*B_h_0r6&G6FuAx(%D47!PftH{~YFWmK)jHx-!K;BUV>J>Ht{Lz=Hwz!mnJ3v0emcsB`cNySa?QW&7MvUio-8|vPiOuZekic(PldqzD$==CeDFntg4HJN@Bc&(LDIp@|GAJP~DYT$LFJvKL?HWJ;sF4QU_8?~WU5!k2?wTi$(BPteAHiZG(=y(E)uB^Aht}Aeh*8Q7Z@9!bi`MuH5H`u%n(w@xfOMoVz(EPu*lL$luLgmy0xNwFZ6lmP;)>%B3v#4;~cLuz}2tYW$ns|KksI9reL~5{Kdl1aev<-fbrq4B{Sdxv7;2JuAD`HAQNo-2$UufiHim7kX0dJz9&91u6ysf`}F#Z1QTkF-gX?ZWTNWVh&zSQY{!s|8DFD~7|+^-uS4*J2U-5l1K62{FvL{LqXt7f^|`~KJd*+uX4qSycL<$1sR=GT7r?Zs*L^<mKmwk_Y93$WEK^nlIVi^XR8x6^H^9c@JfuEFLJc*(Pq%1(D1-P}eFtW|Qx;Q?VD>~V0*{;QJW__11;SRAja4ldss;81ovn5kY;+u+MMnGpuQBB{T~^iQkMkdB1(S0zBabQ`kuvYUI^vOl1Aa8-S{?jeFxSs&r#H}n$WYYZ2Uers#Yn__pT@MVuOY^Z>yga)&mnwOv>me6oTSGI85JOQ7Wz)P>h_8-H2rxwV%!CYpQrxEZR;q6a@%kI_n&;2W>8Cv{!b<uM!wN+MtO`cKQ?}~WlV(glWPrD;*4i6BOjo;&1bm#v}IRwc'),)
 
+# Frozen Boolean25 CodeQL predecessor; canonical26 activation must not replace this fixture.
+_HISTORICAL_WORKFLOW_BYTES += (('3b7a88765b7181a1bc7dd6f48b9b459e590055d3', 'c%1E7>vP(=693L$v7wzBa$=KblhTtjhbBy$dvi!mA)VXXlVOCt2DL_VC7Fai{`WhQY-59I)5qj~X}$!c)oORO``ZT(;FOCgVG5?GNI(<;nfN|R$;DHM1xge%1iU4_f|xRf0T4!_`3Dq0SOAhI!bc#%luAiC^J<Jtu?;6Yz`xIHB4Mswc=+)nG{#g-l97iqWNN6_;rJMwIEkX6!1oDC<-nsy&?pgl#8;FvLy7@a7#O0B5{*A0Y>d(y5s8LH<*uSCLiqFvs?YLZ-fZga^#Vj>gprnDnMr{rVHs6Zi&7#pJDyQ};}{&m0>NqEMx2e^fRZueQc+(z&89i)T+C1?1V$8{;o^}PXR+Wx;-i4su90Sml#75eBIfWuArTF!PmFw;`19vljk9(QAWq~&{|6We!u$!!HoTb<%C>;SafEL1Gv#s%GJ(^L^jkdP3>RN#qWIa3sn4&?Eiq9O>C!Rd0`0v3F4Q+STbtfAs2hnEzF;ZTJT_wS7#RjzATawR=ggl7&gci+0_z#q_oj^WCm1AAs)h@`;H(YxokQ4zP1uC}daV|tNW(&EGM_VrOvyF~Btfm_bLJ;PAoJ&X`vG)7;jJ>Nz%-Ex7|u|DPneGpSX#C8pj?2!I3hj*RT2csBvM`tU@UkNx54KDzK>iTeyJngaPcmT_zisiTwJ#PS+u{$lIaLV!PNzZ*{NSK>NJZ-MZ$(OFo9TlAQNtozM)H*8w)-bC}kUzNU&CW%SXmLve<Slq*}kS*x5<c1ewwt5iVaYyu{GZunl(rRvUn2kJNulUTGJtrOIpm1pRmAC4GULUQpagqz*o><ypB}najymEZkgCbMvk8=F`ZWx}j>4NmT&2AvFTp6tdCS_?1PzC5to-+yh9A&`%+iAqKL&>~Xm>k?4lZWy4(CFtpwhsb^uv$eGp)MwhP>zoT)iRk}}a)XMvbpla?K^A-1Ofc1@WfP^9X3WKzIfrzkiLdGZ!sYsY~HOMEUgsH^c-S@WlZHl5(<cV^plqE`g{()KMiHZ}ItCpE%$XPVE-YgZyGJVsO+AEP+@X&v`EX9*?L|A?>r&t`4K4EL=^=3wDwig*Wt>LtZwH6wwq{>P^NhQQQqW(Ok&*D9Orj~gco~S?ff<1qK7Y_*W4@Tr@``~EzARvd2_jk7aoui%I!@UuCvOU^?2QWMIw!NL4VG#<9?J=}^l)^w@%q3M^%)J0Zl0<4~Q~$yOS=G_bbSSQ)kW?zy7Z_-GC6R1HNFs>^A{i4Q(am&f!>7U~fZ{xot%V?#P*%_=l*+{!4UqX*TQc=a^!Zp9GGJca=hHYsg<zqE3(%-y3j^!I`2{p++ogO3*{o=~=P!nXi+^`}CHpD<4q4esz0Tn5Rd@JTchEWQ3_8QJ-k{qX*i+SUz2dPJsK3m%fAXSxdUbx*d;U$V({hWlagn`9SR4Lui*Gtt6VCR)Jp;E7?z8OKTWcQ5I;$7Y7id_vCV*>Kp#Jdr+2F<1vtjpDw>KDGb_Or%*`{f7mMMCjzq*>jDzn(VxEfqu4eF~tKmt&ctlRPl3uvG-K4tm}E*9~oQTprHp;LpdF`WC0QyXfz=!KmSl|OL<j5WdT4@Y5ISuEQy1@b(8azxL-F@-RcKWs}Kcp6XF#oe<`zdP)|=v3fVsmRu~h9@Uvr4|@r$VIWv&_t!!I_dOI&rUmo)q7S*7aqAPkFBAW!>WjL5*4_ZaENJ)A)!%4#C<i;Oe3Nr?Vl1lx~|~7=<cqoP2y@5>JKw3>Nv_t(!G-U^%b^R)E0yBkE|auneeUTtO`5e_urk%*G^%JPGc?<=mT58i|`%_J~eJ1(NRWrNz|msHzEv<&0#O%B#;eF&~TPTahjg4ONP2AZZw+(4vW-&Y`DE~@)hU0Ku4rRp;8hJnN#9i>%wct3~Q*QOe)=pH1hLX5K*a`t4s=a9>bd%i4ug63$ULkgNE~#%!u>_jg@P<bo0^K0>@g?X#x!w^f|+##2P?AH}nlIJ!CT~ID6xifYQ0%0*5$FATlkf+NGDy3N7zOP=$?!X^tKE&00N3rm<Y;+=So2`G+~pFY?j#kzpZ~XpA_I3JjWF#BWeEsyM}hGSw*DtDj>FBo}J<4(IZCAQCJ+@8xTaW9eM2*!V3Hq%Geo>+VO7$~4sgcANp287rj)ZX+KkCCv6OLDLlSp`Hq=Mo#x}`*YLTf+<mg-sY8NGXssZp|Ao}_7NMl0gf=R-+z);8%3=u=}nbeQvO#1`ArSvxAs1J+uzjNt+Zw)`qHLE5QXD;c3vkQHzZP(>jUeQ3rxto(}s`6=YRDtdW}l&C_uv9I-zvltzk=lEfg*HSY)lQn3m)|V^nYJz9JpSXFPQELK#&{Qm6BpG&5NpTAJ=pKM41aj>3Z{2f@*H@EErbaeFV=e|)$f;wU&Eqy2-BJlQ+a;_rKVhu)L5@|y~w4HKne*>1H`$MpHMRe8O@2#G}53iu7v`7_%eB`k>0o$Y$Nhu-eeYD8Ib`*`0|M0g*hs!FETL6$JBTsDmo8U^l@2iVplsbWd$a~9IE8`21iqb@5&CX6LA6RwqN|9wIQg1{NYo5jolZ<Qdv(ur0-GhbU@o?M)E|2`kS>b~rsUG$1wzJ9OV!&5<0X5U@q>F!mRT%}9va17S?%i48pF1w3&rD^YHI+&i5j=7k(q29{Tp!%&%7nVJi9Vy*M{!MSp!O!xQ>l5<26HfM`YX)~^xi>23b$83K&0?m1W6x}5Ma%W~O~`&^0Qf!AzDjV<B2oX=GEZxm!mMju{Pnx%-IKxaWw(EIK3MN6B{=Dybb1w}RTDY;*Xec6U;npTaZ76Wifg_nu1m`3uui?C6jV}AIE)Gp%W~C$7W*hLzihNq7N1OJYNwOmCOmywBHe5P`V$ULKQnv^g!!y7paC$htVp`%`Qy><Q@~rQV5iItCGnS$XmyC0y>J>rzh;^FtNpB5=9)Q{?j9)%Fh-_jOn<9P-=mo6?)?c?#wGvnIaY>A*>AqN&*rHs1G&_SYhmiH<KHy1cmH$QJsEUQhv%K%^Q+GDZvP8-Rq>0%mu9ken-C3Cg}iuP;88IpvV&J$e^riVYySf-DC@K'),)
+
 def historical_workflow_bytes():
     result = {}
     for oid, encoded in _HISTORICAL_WORKFLOW_BYTES:
@@ -536,8 +539,9 @@ class MetadataSchedulingBoundaryTests(unittest.TestCase):
             self.assertEqual(classify['env']['NATIVE_METADATA_SCHEDULING'],
                 '${{ needs.metadata-source.outputs.metadata_scheduling }}')
             # Retain every assertion about the deployed Boolean predecessor.
-            active = 'repository-checks.yml' if selector == 'route' else 'codeql.yml'
-            previous = yaml.safe_load((ROOT/'.github/workflows'/active).read_text())['jobs'][gate]
+            previous_sha = ('15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a' if selector == 'route'
+                else '3b7a88765b7181a1bc7dd6f48b9b459e590055d3')
+            previous = yaml.safe_load(historical_workflow_bytes()[previous_sha])['jobs'][gate]
             self.assertIn('metadata unchanged',previous['name'])
             self.assertIn("needs."+selector+".result == 'success'",previous['name'])
             self.assertIn("needs."+selector+".result != 'success'",previous['if'])
@@ -1169,7 +1173,8 @@ class AggregateTests(unittest.TestCase):
             self.assertEqual(source, expected)
         protected = generation in ('protected-producer-metadata-ci-v1', 'protected-producer-seven-target-ci-v1',
                                    'protected-producer-original-default-v1',
-                                   'protected-producer-original-default-boolean-v1')
+                                   'protected-producer-original-default-boolean-v1',
+                                   'protected-producer-original-default-required-context-v1')
         if generation == 'android-owned-npm5-sync-ci-v1' or protected:
             spec = importlib.util.spec_from_file_location('aggregate_android_generation',
                 ROOT / 'tools/repository-checks/android_gate.py')
@@ -1182,7 +1187,8 @@ class AggregateTests(unittest.TestCase):
                 tree[relative] = android._blob(path.read_bytes())
             self.assertEqual(android.validate_tree_wiring(tree), generation)
             if generation in ('protected-producer-original-default-v1',
-                              'protected-producer-original-default-boolean-v1'):
+                              'protected-producer-original-default-boolean-v1',
+                              'protected-producer-original-default-required-context-v1'):
                 self.assertEqual(dependencies, required_jobs | {'native', 'android', 'workflow-contracts'})
             else:
                 self.assertEqual(dependencies, required_jobs | {'native', 'android'})
@@ -1195,9 +1201,14 @@ class AggregateTests(unittest.TestCase):
         if 'main' in CONFIG.get('browser_client_required_branches', []):
             self.assertIn('browser-client', dependencies)
         if metadata:
-            self.assertEqual(jobs['repository-checks']['if'],
+            canonical = generation == 'protected-producer-original-default-required-context-v1'
+            self.assertEqual(jobs['repository-checks']['if'], 'always()' if canonical else
                 "always() && (needs.route.result != 'success' || needs.route.outputs.metadata_only != 'true')")
-            renamed = dependencies - {'route', 'workflow-contracts'} | {'repository-checks'}
+            self.assertEqual(jobs['repository-checks']['name'], 'repository-checks' if canonical else
+                "${{ needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true' && 'repository-checks (metadata unchanged)' || 'repository-checks' }}")
+            renamed = dependencies - {'route', 'workflow-contracts'}
+            if not canonical:
+                renamed |= {'repository-checks'}
             for name in renamed:
                 self.assertEqual(jobs[name]['name'],
                     "${{ needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true' && '" + name +
