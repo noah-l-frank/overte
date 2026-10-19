@@ -258,3 +258,8 @@ native command parser and Qt source remain uncompiled. One JavaScript negative
 test initially reused the now-scrubbed request template; constructing a fresh
 invalid template fixes the test and all 76 cases pass. No device/login success or
 complete Authentication capability is inferred.
+
+The shared login-control metadata migration to v2 is integrated and the **76**
+focused Phone cases pass again. Phone retains its actual native endpoint as the
+submission target; the generic server-field recipe is not a Phone input. The
+private-command reader remains version 1 and all full-area gates remain closed.

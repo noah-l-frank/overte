@@ -1,4 +1,4 @@
-# Phone normal account input, version 1
+# Phone normal account input: wire v1, controls v2
 
 This internal source-bound input component does not advertise the three full
 feature.authentication operations. Common journey contract v6 and account
@@ -9,7 +9,7 @@ The native source is uncompiled and no app/device has executed it.
 The existing private channel carries exactly schemaVersion:1, commandId (fresh
 32-hex), action:"phone-login-ui" and request. Request is the closed observe or
 normal-input object in the shared contract. Actual Test.phoneLoginUi returns
-original NormalControlUi metadata with loginControlsVersion:1 and
+original NormalControlUi metadata with loginControlsVersion:2 and
 privateCommandReaderVersion:1. The latter is mandatory: a narrower legacy reader
 that can cache credential JSON is not admitted, even if it exports login controls.
 The host pins processId to the independently verified actual PID/start context,
