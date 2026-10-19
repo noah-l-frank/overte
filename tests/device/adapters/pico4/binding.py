@@ -15,6 +15,7 @@ from adapters.pico4.feature_observation import PicoFeatureObservation
 from adapters.native_feature_observation import NativeFeatureObservation, FILE as NATIVE_FEATURE_FILE
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, AndroidPreviewFiles,
     FILE as RECORDED_PREVIEW_FILE)
+from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from adapters.pico4 import normal_scripts
 from adapters.normal_feature_state import PrivateFeatureState
 from scripts_observation import OPERATIONS as SCRIPT_OPERATIONS
@@ -252,6 +253,14 @@ def create_adapter(args, base_class):
                 lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
                     'files/overte-e2e/' + RECORDED_PREVIEW_FILE, attempts=1),
                 AndroidPreviewFiles(self.adb, target, 'org.overte.pico', native.guard),
+                native.clock_ms, native.guard, native.pid)
+
+        @_private
+        def _script_execution_observer(self, target):
+            native = self._native_feature_observer(target)
+            return NativeScriptObservation(native.send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + SCRIPT_EXECUTION_FILE, attempts=1),
                 native.clock_ms, native.guard, native.pid)
 
         @_private

@@ -16,6 +16,8 @@ from adapters.pico4 import feature_observation
 from adapters.android.adapter import ANDROID_CONTROL_COMMAND
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
+from self_tests.test_native_script_observation import Boundary as ScriptBoundary
+from adapters.native_script_observation import loaded_relative_modules, running_owned_engine
 
 
 class FeatureObservationTests(unittest.TestCase):
@@ -95,16 +97,19 @@ class FeatureObservationTests(unittest.TestCase):
         self.assertEqual([], self.native.inputs)
         self.assertFalse(any(value.startswith('feature.') for value in self.adapter.capabilities(self.native.target)))
 
-    def preview_boundaries(self):
-        source = PreviewBoundary()
+    def preview_boundaries(self, source=None, filename='recorded-preview-observation.json'):
+        source = PreviewBoundary() if source is None else source
         def mutate(value):
             value['processId'] = 123
             offset = self.native.epoch_milliseconds(self.native.target) - 20000
             value['requestedEpochMs'] += offset; value['capturedEpochMs'] += offset
-            if 'source' in value:
+            if 'source' in value and 'cycle' in value['source']:
                 original = value['source']
                 for key in ('startedEpochMs', 'inputLastEpochMs', 'sinkLastEpochMs'): original[key] += offset
                 for event in original['events']: event['publishedEpochMs'] += offset
+            elif 'source' in value:
+                for engine in value['source']['engines']:
+                    for module in engine['required']['modules']: module['capturedEpochMs'] += offset
         source.mutate = mutate
         original_read = self.native.read_debug_app_file
         def write(target, package, path, raw):
@@ -112,7 +117,8 @@ class FeatureObservationTests(unittest.TestCase):
             self.assertEqual('org.overte.pico', package)
             source.send(json.loads(raw))
         def read(target, package, path, **kwargs):
-            if path == 'files/overte-e2e/recorded-preview-observation.json': return json.dumps(source.value)
+            if path == 'files/overte-e2e/' + filename:
+                return json.dumps(source.sample if hasattr(source, 'sample') else source.value)
             return original_read(target, package, path, **kwargs)
         def binary(command, *, target, timeout):
             self.assertEqual('exec-out', command[0]); self.assertEqual(5, timeout)
@@ -150,6 +156,20 @@ class FeatureObservationTests(unittest.TestCase):
         before = len(source.commands)
         with self.assertRaises(RuntimeError): reader.read(reader.sequence)
         self.assertEqual(before, len(source.commands))
+
+    def test_pico_script_execution_source_retains_real_loaded_module_and_engine_identity(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        value = self.adapter._script_execution_observer(self.native.target).read(0)
+        self.assertEqual(source.sample, value)
+        self.assertEqual(['companion.js'], loaded_relative_modules(running_owned_engine(value, source.engine['url'])))
+        self.assertEqual([], self.native.inputs)
+
+    def test_pico_script_execution_source_rejects_candidate_change_before_request(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        reader = self.adapter._script_execution_observer(self.native.target)
+        self.native.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): reader.read(0)
+        self.assertEqual([], source.commands)
 
     def test_native_feature_candidate_change_after_original_read_is_rejected(self):
         source = self.native_feature_boundaries()

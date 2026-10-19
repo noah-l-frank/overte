@@ -11,7 +11,7 @@ and evaluated animation/pose observations plus labelled render/audio/account
 reads. `_native_feature_observer(target)` preserves the original candidate,
 installed-byte, foreground and OpenXR process guards around that separate
 read-only file. This source backend still advertises no `feature.*` triple.
-The existing registered observation group now runs **13** host boundary cases,
+The existing registered observation group now runs **15** host boundary cases,
 including changed candidates, foreign PIDs and unavailable native hooks.
 Native compilation and device behavior remain untested. See the
 [native observation contract](../../native/README.md).
@@ -23,6 +23,13 @@ actual cleanup observations remain separate from any audio verdict. Original
 files surviving a release or candidate/process changes fail. There is no
 complete audio capability or acoustic qualification. See
 [the preview source contract](../../native/RECORDED_PREVIEW_EVIDENCE.md).
+
+`_script_execution_observer()` uses the same original private transport and
+candidate/OpenXR process binding for actual native engine identities and
+CommonJS completion/cache/error history. The current shared feature contract
+is **version 2**, correcting the Script file-bundle picker flow. Full file
+picker/effect/cleanup joins remain open; no area triple is advertised. See
+[the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
 
 The next packet now implements the five existing `scripts.*` foundation
 operations through the real VR Tablet/MENU > Edit > Running Scripts controls.
