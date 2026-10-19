@@ -7,6 +7,16 @@ and baking controls remain available. Asset write permission restricts mutations
 it does not hide readable browsing or entity import. Entity import still requires
 rez permission and delegates to the existing native entity creation path.
 
+The shared screen-space startup router provides ordinary `SCRIPTS` and `ASSETS`
+buttons. Its filtered mobile menu intentionally excludes desktop Edit actions;
+testing these pages by directly constructing them misses their reachability.
+The router selects only the fixed first-party page URLs, toggles back to Home,
+retains immutable button properties and removes both handlers/buttons at teardown.
+Opening Assets does not grant write or rez permission. The native fixture runs
+the original router in a real QJSEngine with the Script/tablet boundary replaced,
+then loads the actual page chosen by its normal button signal. It verifies the
+read-only Assets state and performs no device action or installed-code claim.
+
 ## Host verification
 
 ```sh
