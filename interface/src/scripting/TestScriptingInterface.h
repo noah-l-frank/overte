@@ -17,6 +17,8 @@
 #include <QtCore/QVariantMap>
 #include <ScriptValue.h>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QSet>
+#include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; }
 #endif
 
@@ -148,7 +150,7 @@ public slots:
     */
     void saveObject(QVariant v, const QString& filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    // Read-only native sources. Requires both a dedicated test build and the
+    // Native E2E observations/fixture storage. Requires a dedicated build and
     // existing explicit --testScript/--testResultsLocation launch boundary.
     Q_INVOKABLE QVariantMap featureNativeObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);
@@ -214,6 +216,7 @@ private:
     QByteArray _featurePreviewInputDigest, _featurePreviewSinkDigest;
     quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
     quint64 _featureScriptSequence {0};
+    QSet<QUuid> _featureScriptEffectIds;
     quint64 _featureScriptFilesSequence {0};
     QVariantMap _featureScriptFilesCommand, _featureScriptFilesResult;
 #endif

@@ -34,7 +34,8 @@ def validate(value, request, pid, epoch):
          and 0 <= value['capturedEpochMs'] - value['requestedEpochMs'] < 5000)
     fresh(value['capturedEpochMs'], epoch)
     source = value['source']
-    exact(source, {'complete', 'engines'})
+    extended = type(source) is dict and 'effectSourceVersion' in source
+    exact(source, {'complete', 'engines', 'effectSourceVersion', 'effects'} if extended else {'complete', 'engines'})
     need(source['complete'] is True and type(source['engines']) is list and len(source['engines']) <= 128)
     identities = set()
     for engine in source['engines']:
@@ -58,7 +59,58 @@ def validate(value, request, pid, epoch):
         need((required['sequence'] == 0) == (not required['modules']))
         if required['modules']:
             need(max(cursors) == required['sequence'])
+    if extended:
+        need(type(source['effectSourceVersion']) is int and source['effectSourceVersion'] == 1)
+        effects = source['effects']
+        exact(effects, {'complete', 'scanRadiusMeters', 'scannedEntities', 'entities', 'absentIds'})
+        need(effects['complete'] is True and type(effects['scanRadiusMeters']) is int and effects['scanRadiusMeters'] == 64
+             and integer(effects['scannedEntities'], 0, 4096)
+             and type(effects['entities']) is list and len(effects['entities']) <= 32
+             and type(effects['absentIds']) is list and len(effects['absentIds']) <= 256)
+        seen = set()
+        for row in effects['entities']:
+            exact(row, {'id', 'name', 'type', 'hostType', 'userData', 'lastEditedEpochUs', 'color'})
+            need(entity_id(row['id']) and row['id'] not in seen and text(row['name']) and len(row['name']) <= 256
+                 and text(row['type']) and row['hostType'] in ('local', 'avatar', 'domain')
+                 and type(row['userData']) is str and len(row['userData']) <= 1024
+                 and integer(row['lastEditedEpochUs'], 1) and row['lastEditedEpochUs'] <= value['capturedEpochMs'] * 1000 + 999
+                 and type(row['color']) is list and len(row['color']) == 3
+                 and all(integer(channel, 0, 255) for channel in row['color']))
+            seen.add(row['id'])
+        for identifier in effects['absentIds']:
+            need(entity_id(identifier) and identifier not in seen); seen.add(identifier)
+        need(len(seen) <= 256)
     return value
+
+
+def entity_id(value):
+    try:
+        return type(value) is str and str(uuid.UUID(value)) == value and uuid.UUID(value).int != 0
+    except ValueError: return False
+
+
+def measured_effect(value, run):
+    """Actual unique local Box and native color/data; empty data is not a tick."""
+    need(type(run) is str and re.fullmatch('[0-9a-f]{32}', run))
+    source = value['source']
+    need(type(source.get('effectSourceVersion')) is int and source['effectSourceVersion'] == 1)
+    rows = [row for row in source['effects']['entities'] if row['name'] == 'e2e-' + run + '-script']
+    need(len(rows) <= 1)
+    if not rows: return None
+    row = rows[0]
+    need(row['type'] == 'Box' and row['hostType'] == 'local')
+    if row['userData'] == '': return dict(row, ticks=None)
+    data = decode(row['userData'])
+    exact(data, {'runId', 'ticks'})
+    need(data['runId'] == run and integer(data['ticks'], 0, 1000000000)
+         and row['color'] == [(data['ticks'] % 2) * 255, 128, 0])
+    return dict(row, ticks=data['ticks'])
+
+
+def effect_absent(value, identifier):
+    need(entity_id(identifier) and type(value['source'].get('effectSourceVersion')) is int
+         and value['source']['effectSourceVersion'] == 1)
+    return identifier in value['source']['effects']['absentIds']
 
 
 def running_owned_engine(value, source_url):
@@ -100,9 +152,12 @@ class NativeScriptObservation:
         self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
         self.instance, self.sequence, self.engines = None, 0, {}
         self.active, self.retired = set(), set()
+        self.effect_rows, self.absent_effects = {}, set()
+        self.effects_required = False
 
-    def read(self, after_sequence):
+    def read(self, after_sequence, *, require_effects=False):
         try:
+            need(type(require_effects) is bool)
             need(integer(after_sequence) and after_sequence >= self.sequence and self.guard() is not False)
             started = previous = self.monotonic()
             need(number(started, 0, 1e15))
@@ -126,6 +181,22 @@ class NativeScriptObservation:
                     validate(value, request, self.pid, epoch)
                     need(self.instance in (None, value['instance']) and value['sequence'] > after_sequence
                          and (self.ios or value['requestedEpochMs'] >= requested))
+                    source = value['source']
+                    need(not (require_effects or self.effects_required) or source.get('effectSourceVersion') == 1)
+                    next_effects, absent = None, None
+                    if source.get('effectSourceVersion') == 1:
+                        next_effects = {row['id']: row for row in source['effects']['entities']}
+                        absent = set(source['effects']['absentIds'])
+                        need(self.absent_effects <= absent and not self.absent_effects & set(next_effects)
+                             and set(self.effect_rows) <= set(next_effects) | absent)
+                        for identifier, row in next_effects.items():
+                            old = self.effect_rows.get(identifier)
+                            if old is not None:
+                                need(row['name'] == old['name'] and row['type'] == old['type']
+                                     and row['hostType'] == old['hostType']
+                                     and row['lastEditedEpochUs'] >= old['lastEditedEpochUs'])
+                                if row['lastEditedEpochUs'] == old['lastEditedEpochUs']: need(row == old)
+                        need(len(set(next_effects) | absent) <= 256)
                     engines = {}
                     for engine in value['source']['engines']:
                         source = engine['required']
@@ -151,6 +222,9 @@ class NativeScriptObservation:
                     self.retired |= self.active - set(engines)
                     self.active = set(engines)
                     self.engines.update(engines)
+                    if next_effects is not None:
+                        self.effect_rows, self.absent_effects = deepcopy(next_effects), absent
+                        self.effects_required = True
                     self.instance, self.sequence = value['instance'], value['sequence']
                     return value
                 if attempt < 50: self.sleep(0.1)
