@@ -228,7 +228,7 @@ void recursivelyUpdateLightingModel(const QString& parentTaskName, std::function
     auto renderConfig = qApp->getRenderEngine()->getConfiguration();
     if (!renderConfig) { return; }
     const auto updateView = [renderConfig, &updateLambda] (const QString& view) {
-        auto config = renderConfig->getConfig<MakeLightingModel>(view + ".LightingModel");
+        auto config = renderConfig->getConfig<MakeLightingModel>((view + ".LightingModel").toStdString());
         if (config) { updateLambda(config); }
     };
     if (depth == -1) {
@@ -430,8 +430,8 @@ void recursivelyUpdateAntialiasingMode(const QString& parentTaskName, Antialiasi
         // AA belongs to the deferred task, not to the enclosing RenderViewTask.
         // Direct Android forward views intentionally have no such jobs.
         const auto deferred = view + ".DeferredForwardSwitch.RenderShadowsAndDeferredTask.RenderDeferredTask";
-        auto setup = renderConfig->getConfig<AntialiasingSetup>(deferred + ".AntialiasingSetup");
-        auto antialiasing = renderConfig->getConfig<Antialiasing>(deferred + ".Antialiasing");
+        auto setup = renderConfig->getConfig<AntialiasingSetup>((deferred + ".AntialiasingSetup").toStdString());
+        auto antialiasing = renderConfig->getConfig<Antialiasing>((deferred + ".Antialiasing").toStdString());
         if (setup && antialiasing) {
             setAntialiasingModeForView(mode, setup, antialiasing);
         }

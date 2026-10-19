@@ -17,12 +17,11 @@ struct AntialiasingConfig:Base { double blend=1.0; bool fxaa=false; void setDebu
 struct AntialiasingSetup { using Config=AntialiasingSetupConfig; }; struct Antialiasing { using Config=AntialiasingConfig; };
 struct RenderMirrorTask { static constexpr size_t MAX_MIRROR_DEPTH=@DEPTH@, MAX_MIRRORS_PER_LEVEL=@COUNT@; };
 struct Config {
- QHash<QString,Base*> jobs; std::vector<std::unique_ptr<Base>> owned; QStringList misses;
+ QHash<QString,Base*> jobs; std::vector<std::unique_ptr<Base>> owned; mutable QStringList misses;
  template<class T> T* add(const QString& path){auto p=std::make_unique<T>();auto* raw=p.get();jobs.insert(path,raw);owned.push_back(std::move(p));return raw;}
- Base* getConfig(const QString& path){auto* p=jobs.value(path);if(!p)misses.push_back(path);return p;}
- template<class T> typename T::Config* getConfig(const QString& path){return dynamic_cast<typename T::Config*>(getConfig(path));}
- template<class T> typename T::Config* getConfig(const std::string& path){return getConfig<T>(QString::fromStdString(path));}
- template<class T> typename T::Config* getConfig(const char* path){return getConfig<T>(QString::fromUtf8(path));}
+ Base* getJobConfig(const std::string& path) const {const auto name=QString::fromStdString(path);auto* p=jobs.value(name);if(!p)misses.push_back(name);return p;}
+ Base* getConfig(const QString& path){return getJobConfig(path.toStdString());}
+ @TYPED_CONFIG_GETTER@
 };
 struct Engine { Config* config=nullptr; Config* getConfiguration(){return config;} };
 struct App { Engine engine; Engine* getRenderEngine(){return &engine;} } app;
