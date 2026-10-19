@@ -44,7 +44,7 @@ complete audio capability or acoustic qualification. See
 `_script_execution_observer()` uses the same original private transport and
 candidate/OpenXR process binding for actual native engine identities and
 CommonJS completion/cache/error history. The current shared feature contract
-is **version 3**, correcting the Script file-bundle picker flow. Full file
+is **version 6**, correcting the Script file-bundle picker flow. Full file
 picker/effect/cleanup joins remain open; no area triple is advertised. See
 [the execution source](../../native/SCRIPT_EXECUTION_OBSERVATION.md).
 
@@ -170,7 +170,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 android/vr/pico/tests/device/test_native_execu
 These are host protocol/control-logic checks, not Pico product or physical
 acceptance. Future hardware qualification must use the Proxmox Jenkins lab.
 
-The current shared Audio contract is version 3 and follows the actual automatic
+The current shared Audio contract is version 6 and follows the actual automatic
 memory capture/play/drain/completion cycle. It rejects invented manual Save or
 Preview controls and separately requires original recording/acoustic evidence.
 The existing preview sources are not full normal Audio input/cycle/acoustic
@@ -262,3 +262,24 @@ pass; the focused normal Script/Audio/Graphics/world/account group now has 36
 passing host cases. Native source remains uncompiled. This sets no product
 endpoint/trust, and complete normal login/UI/restart/actor composition and all
 Authentication device qualification remain open.
+
+## Normal Authentication input continuation
+
+The internal `_login_controls` factory now joins common control metadata v2 to
+the existing installed-candidate/PID/OpenXR/normal-Scripts route. Actual generic
+QML error/stage/server fields and passive native authority context gate ordinary
+VR pointer/IME/Return input. Pending view close uses normal Home and proves no
+network abort. Secret commands are independently observed replaced even after
+uncertain delivery; false cleanup ACKs retain intent and fail. Nine new host
+wrapper cases pass in both discovery and the directly registered script entry.
+See [the exact source/input/cleanup boundary](NORMAL_LOGIN.md). Native source
+is uncompiled, startup WebEntity binding/full owner/logout/restart/independent
+actor composition remains open, and every device is untested. No full
+Authentication feature operations are advertised.
+
+Post-change verification passes all **36** existing normal Script/Audio/Graphics/
+world/account cases and **20** bound native-source cases; the Pico suite runner's
+**12** self-tests pass with the new explicit normal-login registration. The nine
+login cases additionally pass when invoked directly, so the registered entry
+executes tests rather than exiting without discovery. Native source remains
+uncompiled and no device was accessed.

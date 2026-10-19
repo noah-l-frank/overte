@@ -229,6 +229,12 @@ def create_adapter(args, base_class):
                 storage, native.clock_ms, native.guard, native.pid, intent=owner.intent, **options)
             return OwnedWorldRenderCapture(capture, storage, owner, receipts)
 
+        def _login_controls(self, target, intent, run, origin):
+            from adapters.token_login_ui import TokenLoginUI
+            from adapters.pico4.normal_login import PicoLoginIO
+            manager=self._scripts(target)
+            return TokenLoginUI(PicoLoginIO(manager.ui.io),intent,run,origin)
+
         def _audio_controls(self, target, intent):
             from adapters.token_audio_ui import TokenAudioUI
             from adapters.pico4.normal_audio import PicoAudioIO

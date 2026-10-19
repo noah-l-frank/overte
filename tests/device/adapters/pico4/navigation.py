@@ -12,6 +12,7 @@ import uuid
 
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
+from adapters.token_login_ui import IDS as LOGIN_IDS,VERSION as LOGIN_VERSION,metadata_fields as login_metadata_fields,validate_metadata as validate_login_metadata
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
 from adapters.token_graphics_ui import graphics_control,metadata_fields as graphics_metadata_fields,validate_metadata as validate_graphics_metadata,on_grid
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
@@ -78,6 +79,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'graphicsControlsVersion' in value:
         fields.add('graphicsControlsVersion')
         need(type(value['graphicsControlsVersion']) is int and value['graphicsControlsVersion']==1)
+    if type(value) is dict and 'loginControlsVersion' in value:
+        fields.add('loginControlsVersion')
+        need(type(value['loginControlsVersion']) is int and value['loginControlsVersion']==LOGIN_VERSION)
     need(type(value) is dict and set(value) == fields
          and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and identifier(value['bridgeId']) and identifier(value['generation'])
@@ -94,7 +98,9 @@ def validate_snapshot(value, process_id, epoch_ms):
         fields = {'id', 'token', 'enabled', 'focused'}
         if control['id'].startswith('graphics.'):need(value.get('graphicsControlsVersion')==1)
         is_graphics=graphics_control(control['id']) and value.get('graphicsControlsVersion')==1
-        if is_graphics:
+        if control['id'] in LOGIN_IDS:
+            need(value.get('loginControlsVersion')==LOGIN_VERSION);fields |= login_metadata_fields(control['id'])
+        elif is_graphics:
             fields |= graphics_metadata_fields(control['id'])
         elif audio_control(control['id']):
             need(value.get('audioControlsVersion') == 1)
@@ -108,13 +114,14 @@ def validate_snapshot(value, process_id, epoch_ms):
         if control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
         need(set(control) == fields
-             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']))
+             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS)
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
         if control['id'] in SNAPSHOT_CHOICES:
             need(type(control['checked']) is bool)
-        if is_graphics:validate_graphics_metadata(control)
+        if control['id'] in LOGIN_IDS:validate_login_metadata(control)
+        elif is_graphics:validate_graphics_metadata(control)
         elif audio_control(control['id']): validate_audio_metadata(control)
         elif file_control(control['id']): validate_file_metadata(control)
         elif script_control(control['id']):
@@ -229,7 +236,14 @@ class PicoNavigation:
         control = self.control(snapshot, control_id)
         need(snapshot['ready'] and control is not None and snapshot['lastCommandSequence'] < MAX_INTEGER)
         if token is not None: need(control['token'] == token)
-        if graphics_control(control_id) and snapshot.get('graphicsControlsVersion')==1:
+        if control_id in LOGIN_IDS:
+            need(snapshot.get('loginControlsVersion')==LOGIN_VERSION and token is not None
+                 and control_id!='login.page' and control['inputReady'] and direction is None and value is None
+                 and action in ('activate','replace','submit'))
+            if action in ('replace','submit'):need(control['focused'])
+            if action=='replace':need(control_id in ('login.username','login.password','login.server'))
+            if action=='submit':need(control_id=='login.password')
+        elif graphics_control(control_id) and snapshot.get('graphicsControlsVersion')==1:
             need(token is not None and control['inputReady'] and control['viewport']=='visible'
                  and control_id!='graphics.page' and action in ('activate','scroll','set-value'))
             if action=='set-value':need(control_id=='graphics.resolution' and direction is None and on_grid(value,control))
@@ -266,6 +280,8 @@ class PicoNavigation:
                     script_url(text, missing=text.endswith('/missing.js'))
                 else:
                     owned_url(text, {'observer.js'})
+            elif control_id in ('login.username','login.password','login.server'):
+                need(type(text) is str and re.fullmatch('[\x20-\x7e]{1,4096}',text))
             elif control_id == 'script-file.folder':
                 folder_text(text)
             else:
@@ -424,6 +440,15 @@ class NativeNavigationIO:
             if attempt + 1 < attempts:
                 time.sleep(interval)
         raise NavigationError()
+
+    def clear_private_input(self):
+        # Same bound process and fixed owned input channel; never a new device.
+        # The existing atomic writer independently reads back the exact empty
+        # command. Native ignores its absent identity and cannot replay input.
+        self.bind_input()
+        self.adapter.adb.write_debug_app_file(self.target,'org.overte.pico',self.DIRECTORY+'command.json','{}\n')
+        need(self.adapter.adb.read_debug_app_file(self.target,'org.overte.pico',self.DIRECTORY+'command.json',attempts=1)=='{}\n')
+        self.guard()
 
     def controller(self, operation):
         need(operation in {'tablet.open', 'tablet.close'})
