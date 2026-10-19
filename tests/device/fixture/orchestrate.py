@@ -136,7 +136,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if args.check:
-        for script in (ROOT / "serve.py", ROOT / "domain.py"):
+        for script in (ROOT / "serve.py", ROOT / "domain.py",DEVICE_ROOT / "feature_journeys/server.py"):
             result = subprocess.run([sys.executable, str(script), "--check"],
                                     text=True, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, check=False)

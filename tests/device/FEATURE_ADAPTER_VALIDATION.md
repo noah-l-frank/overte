@@ -4,6 +4,16 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The controlled account protocol v1 packet passes **501** common host cases,
+including **23** real loopback HTTPS/password/refresh/profile counterexamples,
+with zero failures/errors/skips or compiler attempts and the same three native
+exclusions. Temporary TLS certificate/key creation uses the existing OpenSSL
+CLI only; no app/native build, system trust installation or device execution
+occurs. Malformed/trickled input, foreign/reused proof, credential collisions,
+real delayed handlers, no-op cleanup and final-deletion deadline recovery are
+covered. This validates the backend/test logic only. Native Authentication
+inputs/probe/trust/observer joins and complete adapters remain missing.
+
 The main-mono world-render source/chunk packet passes **443** common host cases,
 including **28** acquisition/storage reader and original-probe counterexamples,
 with zero failures/errors/skips or compiler attempts. The same three original

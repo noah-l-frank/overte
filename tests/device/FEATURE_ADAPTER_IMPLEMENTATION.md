@@ -90,6 +90,13 @@ joins original events and live buffer counters on the audio thread. Its typed
 read requirement refuses older narrow producers and preserves historical frame
 formats/times; it has separate internal normal Audio inputs on all three platform branches, but no complete ownership/acoustic evidence coordinator.
 
+The [controlled account protocol](feature_journeys/ACCOUNT_PROVIDER.md) now
+implements actual HTTPS password/refresh grants, owned Bearer profile access,
+delayed responses and authority/handler cleanup in the existing fixture server.
+Authentication registration refuses missing/plaintext providers. It does not
+implement native login controls, client pending/error measurements, native
+trust/origin setup or a complete actor/coordinator; no capability is enabled.
+
 ## Fourteen-area source audit
 
 All rows below mean: **test logic present; full version 5 adapter missing; devices
@@ -98,7 +105,7 @@ untested**. Existing/new foundations are narrower implementation scopes.
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
 | --- | --- | --- | --- | --- |
 | Worlds/navigation | Existing normal Go To/history retained | Existing real VR Go To/history retained | Existing native component navigation retained; bound execution blocked | Actual bookmark CRUD/persistence, directory/search/failure state and independent arrival/directory actor |
-| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled real account/protected endpoint, delayed-response release/revocation, actual principal/pending/error observations |
+| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled HTTPS account/profile fixture now exists; native trusted-origin/protected-probe, login inputs, principal/pending/error and independent actor joins remain missing |
 | Avatar/people | Existing replication foundations retained | Existing replication foundations retained | Existing component peer/replication code retained | Actual avatar chooser/bookmark/scale/wearable readers, mutual contact consent peer and original visible avatar effects |
 | Create | **New** ordinary cube/edit/history/delete/JSON import + observer/source cleanup | **New** original avatar-owned native ID reader; VR input controls missing | **New** original avatar-owned native ID reader component; bound execution blocked | glTF/OBJ local picker + companions, voxel stroke/settled data, texture/render effect, original export bytes and real domain rez-denial actor |
 | Emotes | Evaluated Rig/clip/pose and immutable native call/frame history | Same candidate-bound history reader | Same original native history component; canonical binding blocked | Full source-profile/normal-input/history/peer/image coordinator, measured completion/early-restoration timing and actual Sit identities; the original tablet Sit end-frame concern remains unresolved |
