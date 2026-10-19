@@ -68,3 +68,13 @@ refused. The original common journey additionally requires advancing empty
 entity frames. Host counterexamples cover ignored input, anonymous partial
 creation, duplicate effects, failed queries, foreign IDs and unresolved imports.
 These checks prove adapter control logic only; no device acceptance is claimed.
+
+## Shared original-control recipe
+
+[`TokenCreateUI`](token_create_ui.py) now supplies the same UI interface on
+original native control tokens. Its [v1 native contract](../native/NORMAL_CREATE_CONTROLS.md)
+includes observed focus, field text, host/shape index, page/UUID selection and
+normal scrollbar input. Platform adoption must preserve a captured reference
+through dispatch and persist intent first; the earlier Phone accessibility
+binding above remains the currently registered foundation until separately
+replaced and checked. Neither path proves full feature-journey readiness.

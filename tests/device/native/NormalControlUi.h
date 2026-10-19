@@ -6,6 +6,7 @@
 #include "NormalAudioControls.h"
 #include "NormalGraphicsControls.h"
 #include "NormalLoginControls.h"
+#include "NormalCreateControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -26,7 +27,7 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio, Graphics, Login };
+    enum class Surface { ScriptFiles, Audio, Graphics, Login, Create };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
     QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}, const LoginUiContext& login = {}) {
@@ -48,13 +49,15 @@ public:
             if (_surface == Surface::Graphics ? graphicsObservable(item) : !visibleRect(item, window).isEmpty()) {
                 const auto id = _surface == Surface::Audio ? audioControlId(item)
                     : _surface == Surface::Graphics ? graphicsControlId(item)
-                    : _surface == Surface::Login ? loginControlId(item) : scriptFileControlId(item);
+                    : _surface == Surface::Login ? loginControlId(item)
+                    : _surface == Surface::Create ? createControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
                     const auto previous = _controls.value(id);
                     const auto source = _surface == Surface::Audio ? audioControlSource(item, id, audio)
                         : _surface == Surface::Graphics ? graphicsControlSource(item, id, graphics)
-                        : _surface == Surface::Login ? loginControlSource(item, id, login) : scriptFileControlSource(item);
+                        : _surface == Surface::Login ? loginControlSource(item, id, login)
+                        : _surface == Surface::Create ? createControlSource(item,id) : scriptFileControlSource(item);
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
             }
@@ -82,6 +85,7 @@ public:
             if (_surface == Surface::Audio) { appendAudioControlObservation(row, control.item, id, audio); }
             else if (_surface == Surface::Graphics) { appendGraphicsControlObservation(row, control.item, id, graphics); }
             else if (_surface == Surface::Login) { appendLoginControlObservation(row, control.item, id, login); }
+            else if (_surface == Surface::Create) { appendCreateControlObservation(row,control.item,id); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
         }
@@ -93,7 +97,8 @@ public:
             {"ready", ready}, {"controls", rows}};
         result[_surface == Surface::Audio ? "audioControlsVersion"
             : _surface == Surface::Graphics ? "graphicsControlsVersion"
-            : _surface == Surface::Login ? "loginControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
+            : _surface == Surface::Login ? "loginControlsVersion"
+            : _surface == Surface::Create ? "createControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
         return result;
     }
 
@@ -127,6 +132,7 @@ public:
                 || (_surface == Surface::Audio ? action != "activate" && action != "scroll"
                     : _surface == Surface::Graphics ? action != "activate" && action != "scroll" && action != "set-value"
                     : _surface == Surface::Login ? action != "activate" && action != "replace" && action != "submit"
+                    : _surface == Surface::Create ? action != "activate" && action != "replace" && action != "select-index" && action != "scroll"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
         _lastCommandSequence = sequence;
@@ -135,7 +141,24 @@ public:
         if (!control.item || !control.item->isEnabled() || command.value("controlToken") != QJsonValue(control.token)
                 || visibleRect(control.item, window).isEmpty()) { return result; }
         bool delivered {false};
-        if (_surface == Surface::Login) {
+        if (_surface == Surface::Create) {
+            QJsonObject row;appendCreateControlObservation(row,control.item,id);
+            const auto point=control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+            if (!row.value("inputReady").toBool()) { return result; }
+            if (action=="scroll" && id=="create.scrollbar") {
+                QPointF scrollPoint;
+                if (createScrollPoint(control.item,command.value("direction").toString(),scrollPoint)
+                        && ownsPoint(control.item,window,scrollPoint) && pointerAt) { delivered=pointerAt(control.item,scrollPoint); }
+            } else if (action=="activate" && id!="create.page" && id!="create.scrollbar" && pointerClick
+                    && ownsPoint(control.item,window,point)) { delivered=pointerClick(control.item); }
+            else if (action=="replace" && createField(id) && command.value("text").isString()
+                    && createText(command.value("text").toString()) && ownsPoint(control.item,window,point)) {
+                delivered=overte::ui::replaceFocusedField(control.item,window,command.value("text").toString());
+            } else if (action=="select-index" && createChoice(id)) {
+                qint64 index {0};
+                if (integer(command.value("index"),index)) { delivered=selectCreateChoice(control.item,window,index); }
+            }
+        } else if (_surface == Surface::Login) {
             QJsonObject row;
             appendLoginControlObservation(row,control.item,id,login);
             if (!row.value("inputReady").toBool()) { return result; }
@@ -224,6 +247,27 @@ public:
         return delivered && original && surface && ownsFocus(original, surface) && key(surface, Qt::Key_Return);
     }
 
+    static bool selectCreateChoice(QQuickItem* item,QQuickWindow* window,qint64 index) {
+        if (!item || !window || visibleRect(item,window).isEmpty() || !item->isEnabled()
+                || !createChoice(createControlId(item)) || !item->inherits("QQuickComboBox")
+                || index<0 || index>=32 || index>=item->property("count").toInt()) { return false; }
+        const auto focused=[&] {
+            if (ownsFocus(item,window)) { return true; }
+            auto popup=item->property("popup").value<QObject*>();
+            auto content=popup ? qobject_cast<QQuickItem*>(popup->property("contentItem").value<QObject*>()) : nullptr;
+            if (!popup || !popup->property("visible").toBool() || !content || content->window()!=window) { return false; }
+            for (auto focus=window->activeFocusItem();focus;focus=focus->parentItem()) { if (focus==content) { return true; } }
+            return false;
+        };
+        if (!focused()) { return false; }
+        QPointer<QQuickItem> original=item;QPointer<QQuickWindow> surface=window;
+        bool delivered=key(window,Qt::Key_Home);
+        for (int step=0;delivered && original && surface && step<index;++step) {
+            delivered=focused() && key(surface,Qt::Key_Down);
+        }
+        return delivered && original && surface && focused() && key(surface,Qt::Key_Return);
+    }
+
     // Conservative actual scene hit-test: an overlay/modal outside the
     // resolved item blocks input. Never replace the point by guessed coordinates.
     static bool ownsPoint(QQuickItem* item, QQuickWindow* window, const QPointF& point) {
@@ -277,6 +321,10 @@ class ScriptFileUi : public NormalControlUi {};
 class GraphicsUi : public NormalControlUi {
 public:
     GraphicsUi() : NormalControlUi(Surface::Graphics) {}
+};
+class CreateUi : public NormalControlUi {
+public:
+    CreateUi() : NormalControlUi(Surface::Create) {}
 };
 class LoginUi : public NormalControlUi {
 public:

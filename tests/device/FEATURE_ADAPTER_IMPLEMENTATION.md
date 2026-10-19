@@ -241,3 +241,12 @@ artifact/session guards. Adapter cleanup drains network probes then owned
 configuration before base teardown and preserves unresolved ownership. Native
 trust/ordinary endpoint setup, login/cancel/UI/error and verified restart/actor
 composition still gate Authentication activation; all native code is uncompiled.
+
+The [native Create control contract v1](native/NORMAL_CREATE_CONTROLS.md) and
+`TokenCreateUI` now provide original-reference-bound normal field, ComboBox,
+tab/entity selection and scrollbar input. Fifteen synthetic-boundary cases
+compose the existing Create owner/observer and reject ignored effects, context
+replacement and unresolved cleanup. The full local no-build common selection
+passes 645 host cases (three native compiler checks explicitly excluded).
+Native Qt source remains uncompiled; platform adoption and the complete v8
+model/file/export/PolyVox/permission actor composition remain pending.
