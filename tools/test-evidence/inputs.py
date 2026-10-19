@@ -47,7 +47,7 @@ def _canonical(value: object) -> bytes:
         raise InputError("input identity must contain canonical JSON values") from error
 
 
-@lru_cache(maxsize=8192)
+@lru_cache(maxsize=32768)
 def _normalized_relative_path(value: str) -> bool:
     # Only lexical normalization is memoized. Entry modes, types, object IDs,
     # membership and source provenance are still validated on every call.
