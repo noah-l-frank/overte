@@ -6,6 +6,21 @@ test-only picker, file helper invocation or client feature. It is **not yet
 connected to platform producers/transports**, advertises no capability, and the
 new C++ header is uncompiled. All hardware qualification is outstanding.
 
+`ScriptFileUi.h` is the E2E-only native source/input core for the first Phone
+binding. It observes the actual platform-supplied Qt root/window and current
+clipped controls, with fresh source counters, an original native instance,
+window/root generation, monotonic times, PID and source-sensitive control tokens.
+Duplicate/oversized/unready trees fail. An actual file picker masks the normal
+From File entry. Its admitted input cursor is consumed before a single input;
+old instance/generation/token/cursor or more than five-second-old observation
+cannot authorize events. The owning platform supplies the normal pointer-click
+route. Folder replacement/Return use `NativeFieldInput`; main selection uses
+ordinary Home/Down/Return events only while the actual selector owns focus and
+the index fits its real model. No handler invocation or model assignment is
+used. The core requires the default-off feature flag and explicit test launch.
+It has **no platform wrapper or wire transport yet**. This source review and
+the recipe's Python checks do not compile or qualify that core.
+
 `NormalScriptFileControls.h` identifies only the real **From File** control and
 the actual `nativeFileBrowser` with caption **Open Script and Companion Files**,
 bundle mode, JS primary filter and no save/directory-selection mode. It reads
