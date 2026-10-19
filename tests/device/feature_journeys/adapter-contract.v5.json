@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": 4,
+  "contractVersion": 5,
   "operationPattern": "feature.<area>.act|observe|cleanup",
   "qualification": "Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.",
   "areas": {
@@ -476,6 +476,21 @@
             "name": "Love"
           }
         ],
+        "wait-complete": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {}
+        ],
+        "cancel": [
+          {},
+          {}
+        ],
         "sit": [
           {},
           {},
@@ -485,9 +500,6 @@
           {
             "name": "Waving"
           }
-        ],
-        "cancel": [
-          {}
         ],
         "background-resume": [
           {}
@@ -501,14 +513,16 @@
         "sit": "str",
         "override": "bool",
         "poseProgress": "float",
-        "panel": "bool"
+        "panel": "bool",
+        "restoredBeforeNominalEnd": "bool"
       },
       "measuredBaselineFields": [],
       "independentFields": [
         "animation",
         "sit",
         "override",
-        "poseProgress"
+        "poseProgress",
+        "restoredBeforeNominalEnd"
       ],
       "existingModules": []
     },

@@ -7,7 +7,18 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 4
+VERSION = 5
+
+
+def emote_rows():
+    for index,name in enumerate(('Crying','Surprised','Dancing','Cheering','Waving','Fall','Pointing','Clapping','Sit','Love')):
+        yield ('play',dict(name=name),dict(animation=name,override=True,
+            sit={'oneOf':['Sit1','Sit2','Sit3']} if name=='Sit' else 'none',poseProgress={'min':.15,'max':1.},
+            restoredBeforeNominalEnd=False,panel={'oneOf':[False,True]}),['image' if index==0 else 'changed','peer'])
+        # Ordinary non-Sit clips restore on their own timer. Tablet Sit holds
+        # its final pose; cancel is only a reset here, not the timed abort proof.
+        yield ('cancel' if name=='Sit' else 'wait-complete',{},dict(animation='idle',sit='none',override=False,poseProgress=0.,
+            restoredBeforeNominalEnd={'oneOf':[False,True]} if name=='Sit' else False),['changed','peer'])
 
 
 def scenario(title, baseline, rows):
@@ -90,15 +101,14 @@ SCENARIOS = {
     ('close', {}, dict(editor=False), []),
 ]),
 'emotes': scenario('Ten emotes, three Sit modes, override and cancellation',
-    dict(animation='idle', sit='none', override=False, poseProgress=0.0, panel=False), [
+    dict(animation='idle', sit='none', override=False, poseProgress=0.0, panel=False,restoredBeforeNominalEnd=False), [
     ('open', {}, dict(panel=True), []),
-    *[( 'play', dict(name=name), dict(animation=name, sit={'oneOf': ['Sit1', 'Sit2', 'Sit3']} if name == 'Sit' else 'none', poseProgress={'min': 0.15, 'max': 1.0}),
-        ['image' if i == 0 else 'changed', 'peer'])
-      for i, name in enumerate(('Crying', 'Surprised', 'Dancing', 'Cheering', 'Waving', 'Fall', 'Pointing', 'Clapping', 'Sit', 'Love'))],
-    *[( 'sit', {}, dict(animation='Sit', sit={'oneOf': ['Sit1', 'Sit2', 'Sit3']}), ['image', 'peer'])
+    *emote_rows(),
+    *[( 'sit', {}, dict(animation='Sit',override=True,restoredBeforeNominalEnd=False,
+                       poseProgress={'min':.15,'max':1.},sit={'oneOf': ['Sit1', 'Sit2', 'Sit3']}), ['image', 'peer'])
       for _ in range(3)],
-    ('override', dict(name='Waving'), dict(animation='Waving', override=True, sit='none'), ['changed', 'peer']),
-    ('cancel', {}, dict(animation='idle', override=False, poseProgress=0.0), ['changed', 'peer']),
+    ('override', dict(name='Waving'), dict(animation='Waving', override=True, sit='none',restoredBeforeNominalEnd=False), ['changed', 'peer']),
+    ('cancel', {}, dict(animation='idle', sit='none',override=False, poseProgress=0.0,restoredBeforeNominalEnd=True), ['changed', 'peer']),
     ('background-resume', {}, {}, ['peer']),
     ('close', {}, dict(panel=False), []),
 ]),

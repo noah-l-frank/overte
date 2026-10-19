@@ -90,8 +90,8 @@
       "area": "emotes",
       "existingModules": [],
       "commonModule": "feature-emotes",
-      "addedFlow": "Ten real Emote choices, all three actually observed Sit variants, override/cancel and resume.",
-      "declaredCheckpoints": 18,
+      "addedFlow": "Ordinary native overrides for ten clips, nine automatic completions, all Sit variants, source-specific chooser lifetime and restoration before nominal completion.",
+      "declaredCheckpoints": 28,
       "requiredEvidence": [
         "changed",
         "image",
@@ -269,5 +269,5 @@
       "executionDependency": "Qualified product adapter and independently measuring fixture observer required; no production backend or peer is simulated as acceptance."
     }
   ],
-  "contractVersion": 4
+  "contractVersion": 5
 }

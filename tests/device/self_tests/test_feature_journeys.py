@@ -63,6 +63,8 @@ class Boundary:
         self.last_image = None
         self.recorded_ticket = self.capture_ticket = self.model_ticket = self.texture_ticket = None
         self.ignored = False
+        self.emote_started=self.emote_restored=self.emote_due=None
+        self.emote_final=False
 
     def epoch(self):
         return 2_000_000 + getattr(self, 'clock', 0) * 1000
@@ -133,12 +135,24 @@ class Boundary:
             elif verb == 'create-denied': s['error'] = 'permission-denied'
         elif a == 'emotes':
             if verb in {'open','close'}: s['panel'] = verb == 'open'
-            elif verb == 'play': s.update(animation=data['name'], sit='Sit1' if data['name']=='Sit' else 'none', poseProgress=0.5)
+            elif verb == 'play':
+                s.update(animation=data['name'],sit='Sit1' if data['name']=='Sit' else 'none',poseProgress=.5,
+                    override=self.fault!='ordinary-no-override')
+                if self.fault=='chooser-hidden':s['panel']=False
+                self.emote_started=self.clock;self.emote_restored=None;self.emote_final=False
+                self.emote_due=self.clock+2 if data['name']!='Sit' else None
             elif verb == 'sit':
                 self.sit_count += 1
-                s.update(animation='Sit', sit='Sit1' if self.fault=='sit-variant-stuck' else 'Sit'+str((self.sit_count-1)%3+1), poseProgress=0.5)
-            elif verb == 'override': s.update(animation=data['name'], override=True, sit='none')
-            elif verb == 'cancel': s.update(animation='idle', sit='none', override=False, poseProgress=0.0)
+                s.update(animation='Sit',override=True,sit='Sit1' if self.fault=='sit-variant-stuck' else 'Sit'+str((self.sit_count-1)%3+1),poseProgress=.5)
+                self.emote_started=self.clock;self.emote_restored=self.emote_due=None;self.emote_final=False
+            elif verb == 'override':
+                s.update(animation=data['name'],override=True,sit='none')
+                self.emote_started=self.clock;self.emote_restored=None;self.emote_due=self.clock+2;self.emote_final=True
+            elif verb == 'cancel' and not (self.fault=='late-natural-cancel' and self.emote_final):
+                if s['override']:self.emote_restored=self.clock
+                s.update(animation='idle',sit='none',override=False,poseProgress=0.)
+                self.emote_due=None
+            # wait-complete delivers no input and changes no source state.
         elif a in {'world-web','tablet-web'}:
             if verb in {'open','close'}:
                 s['open'] = verb == 'open'
@@ -247,6 +261,7 @@ class Boundary:
             if self.fault != 'cleanup-ignored':
                 self.state = copy.deepcopy(self.graphics_original if self.area=='graphics' and hasattr(self,'graphics_original')
                                            else SCENARIOS[self.area]['baseline'])
+                if self.area=='emotes':self.emote_started=self.emote_restored=self.emote_due=None
             self.resources = ['entity:leaked'] if self.fault == 'cleanup-resource-leak' else []
         else:
             self.verb, self.inputs = fields['verb'], fields['inputs']
@@ -271,9 +286,18 @@ class Boundary:
 
     def observe(self, fields):
         self.sequence += 1
+        if self.area=='emotes':
+            if self.emote_due is not None and self.clock>=self.emote_due and self.fault!='emote-timer-ignored':
+                self.state.update(animation='idle',sit='none',override=False,poseProgress=0.)
+                self.emote_restored=self.clock;self.emote_due=None
+            # Independently timed model source, never copied from a checkpoint.
+            self.state['restoredBeforeNominalEnd']=(self.emote_started is not None and self.emote_restored is not None
+                and 0<=(self.emote_restored-self.emote_started)*1000<1750)
         if self.area=='scripts' and self.state['running'] and self.fault!='script-effects-stalled':
             self.state['effects'] += 1
         state = copy.deepcopy(self.state)
+        if self.area=='emotes' and getattr(self,'forge_restore_timing',False) and self.emote_final and self.verb=='cancel':
+            state['restoredBeforeNominalEnd']=True # Only the adapter seam lies; the independent actor must disagree.
         if self.fault == 'product-echo-without-peer' and self.verb == self.target:
             # Deliberately forge only the product seam. The actor still sees the
             # unchanged real model; this must not satisfy the common journey.
@@ -412,6 +436,36 @@ class FeatureJourneys(unittest.TestCase):
                 boundary.observe = observe
                 with self.assertRaises(AssertionError): boundary.execute()
                 self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_emote_native_override_automatic_completion_and_early_restore_are_required(self):
+        for fault in ('ordinary-no-override','emote-timer-ignored','late-natural-cancel'):
+            with self.subTest(fault=fault):
+                boundary=Boundary('emotes',fault)
+                with self.assertRaises(AssertionError):boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_emote_hidden_chooser_and_retained_chooser_share_effect_checks(self):
+        for fault in ('','chooser-hidden'):
+            boundary=Boundary('emotes',fault);boundary.execute()
+            completions=[request for operation,request in boundary.actions if operation.endswith('.act') and request['verb']=='wait-complete']
+            self.assertEqual(9,len(completions));self.assertTrue(all(r['inputs']=={} for r in completions))
+            samples=boundary.reports[0]['samples']
+            active=[s for s in samples if s['state']['override']]
+            self.assertTrue(active)
+            if fault:self.assertTrue(any(s['state']['panel'] is False for s in active))
+            self.assertTrue(any(s['state']['restoredBeforeNominalEnd'] for s in samples))
+
+    def test_emote_forged_early_restore_disagrees_with_independent_actual_timing(self):
+        boundary=Boundary('emotes','late-natural-cancel');boundary.forge_restore_timing=True
+        with self.assertRaises(AssertionError):boundary.execute()
+        self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_emote_v5_rejects_prior_contract_and_accepts_only_closed_no_input_completion(self):
+        request=dict(contractVersion=VERSION,runId=RUN,ticket=TICKET,
+            fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/',verb='wait-complete',inputs={})
+        self.assertEqual(request,arguments('feature.emotes.act',request))
+        for edit in ({'contractVersion':4},{'inputs':{'expected':'idle'}},{'inputs':{'restore':True}}):
+            with self.assertRaises(ValueError):arguments('feature.emotes.act',request|edit)
 
     def test_script_picker_cancellation_and_real_companion_resolution_are_observed(self):
         for fault in ('execution-on-cancel', 'missing-relative-companion'):
@@ -738,9 +792,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v4.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v5.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v4.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v5.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():

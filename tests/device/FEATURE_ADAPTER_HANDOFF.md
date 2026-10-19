@@ -1,32 +1,32 @@
-# Feature adapter handoff, contract v4
+# Feature adapter handoff, contract v5
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
-packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v4.json) and
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v5.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 tracks subsequent local platform packets and prerequisites. These do not change
-the complete v4 contract or grant device acceptance.
+the complete v5 contract or grant device acceptance.
 
 ## Action and read boundary
 
 For each closed area, advertise all three operations only after implementing
-and qualifying their complete v4 contract:
+and qualifying their complete v5 contract:
 
-- `feature.<area>.act` accepts exactly `{contractVersion: 4, runId, ticket,
+- `feature.<area>.act` accepts exactly `{contractVersion: 5, runId, ticket,
   fixtureUrl, verb, inputs}`. `runId` and `ticket` are fresh 32-character lowercase
   hexadecimal strings. `fixtureUrl` is a credential-free HTTP(S) URL whose exact
   path is `/feature-fixture/v1/runs/<runId>/`. `verb` and `inputs` must match the
   closed inventory, including expanded owned text. Return exactly
   `{"performed": true}` after delivering ordinary input, never a result verdict.
-- `feature.<area>.observe` accepts exactly `{contractVersion: 4, runId,
-  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 4,
+- `feature.<area>.observe` accepts exactly `{contractVersion: 5, runId,
+  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 5,
   runId, sequence, capturedEpochMs, state, artifacts, resources, lifecycle}`.
   `state` has every field declared for that area, measured from current product
   state. Unknown, inaccessible or unsupported observations are errors. Empty
   lists and default values cannot substitute for a failed read.
-- `feature.<area>.cleanup` accepts exactly `{contractVersion: 4, runId}` and
+- `feature.<area>.cleanup` accepts exactly `{contractVersion: 5, runId}` and
   returns exactly `{"performed": true}`. Restore only the captured owned test
   scope. The common test calls it twice and then independently observes the
   initial state, empty owned-resource inventory and three seconds of stable
@@ -139,7 +139,7 @@ relative bundle. Apply the distinct generated `checker.png` from the texture
 input ticket. Ordinary import must use the owned name and unit dimensions via
 real property fields. If a platform's local importer exports a different source
 representation, qualify a new explicit contract reader; never rewrite the
-original export to satisfy v4. Original source bytes of the selected Assets server mapping, read independently
+original export to satisfy v5. Original source bytes of the selected Assets server mapping, read independently
 of any baked/rendered derivative, must match the pinned original glTF bytes exactly and the independent server mapping must bind them to this run.
 
 ## Independent fixture observer
@@ -198,9 +198,9 @@ receipt, requested value or UI text alone cannot substitute for an effect.
 | authentication | Provider session/profile and protected-resource access identify `anonymous` or `owned`. Invalid credentials create no session. Hold the delayed response until after cancel; release it and observe continued anonymous access. Restart retains valid login; logout revokes access and survives restart. |
 | avatar-people | Independent peer observes actual model source, replicated scale, attached owned wearable and connection consent. Bookmark storage is independently enumerated. `original` refers to the captured initial avatar; A refers to the pinned avatar fixture. Scale/attachments must visibly change. Consent cancellation/rejection must leave no connection; acceptance is mutual. |
 | create | Real entity/server query identifies exact owned objects, selection, texture source, voxel value and effective rez permission. Cancel imports create nothing. Use the owned domain host. Create PolyVox with an 8×8×8 volume and the normal central-cube initial shape; use ordinary properties to place a unit-size volume two metres in front of the controlled avatar. `voxel-edit` selects cube/remove, a 0.5 m brush and one click at the visible front-face centre. `voxelValue` is 0 for unchanged saved voxel data and 1 only after the actual saved bytes differ from the creation baseline with native `isVoxelDataReady` true; it is never the requested brush setting. Model/texture/voxel changes require real geometry pixels; denied rez leaves zero objects and explicit permission feedback. |
-| emotes | Independent peer samples replicated skeleton joint poses and active animation resource. `poseProgress` is the fraction of a nonempty joint set which changed across native animation frames, not UI progress. The normal ten names match the real Emote sources. Stop precedes each ordinary Sit press; the common sampler collects Sit1/2/3 from real observations with at most 24 attempts per new variant. The adapter receives no requested variant. Override/cancel must release the actual animation. |
+| emotes | Ordinary plays/Sit must have a real native override, loaded selected resource and changed evaluated joints. `poseProgress` is the fraction of a nonempty original joint set that changed, never chooser progress. The nine non-Sit `wait-complete` actions send no product input or restoration call; actual automatic restoration and later evaluated idle pose must be observed. Choosers may hide/retain according to the selected submitted-source profile; reopen through ordinary input when necessary. Sit variant discovery resets through normal controls, gathers all actual Sit1/2/3 with at most 24 attempts per new variant and accepts either actual reset timing; no requested variant is sent. The final Waving cancellation additionally requires independently measured `restoredBeforeNominalEnd:true`, using the original native range/rate, restore event and later inactive evaluation with the 250ms margin in the version 5 migration. Delayed natural completion is false. Native timing does not identify button/timer cause: correlate original input/source and independent current peer/image effects. Unknown history is unavailable, never a guessed flag. Cleanup restores actual state and clears only the owned run association, not native history. |
 | world-web/tablet-web | Read the actual document URL/DOM field, focus ownership and receiver-side origin-bound bridge delivery count. Submit delivers exactly one Unicode payload. Foreign-origin traffic is actually attempted by the controlled secondary origin and delivers zero additional messages. Back restores the prior text; missing page feedback and resume must be observed. Inline app stays on the normal tablet. |
-| graphics | Freeze actual original resolution/haze/mirror preferences and completed-frame/pass state through fresh agreeing baseline observations before any input. Change the ordinary immediate viewport-resolution control (0.5/0.6), Haze and Mirrors both ways; close/background/restart must retain changes. `renderScale` measures the actual completed render target; `hazePass`/`mirrorPass` require actual pass execution and original changed world pixels, independently of settings. `restore-original` and double cleanup restore the independently measured original state; no expected values are sent to adapters. See the version 4 migration for native fixture/persistence obligations. |
+| graphics | Freeze actual original resolution/haze/mirror preferences and completed-frame/pass state through fresh agreeing baseline observations before any input. Change the ordinary immediate viewport-resolution control (0.5/0.6), Haze and Mirrors both ways; close/background/restart must retain changes. `renderScale` measures the actual completed render target; `hazePass`/`mirrorPass` require actual pass execution and original changed world pixels, independently of settings. `restore-original` and double cleanup restore the independently measured original state; no expected values are sent to adapters. See the version 5 migration for native fixture/persistence obligations. |
 | audio | Actual automatic three-second preview cycle: original native phase/history and capture/played/live-buffer frames, original pre-normalization input PCM plus independent acoustic PCM with the recorded-preview-v1 challenge. Completion requires capture/play/drain/completed history, equal captured/played frames and empty product buffers. The normal Record button cancels only an observed active cycle. Muted Start and mute/background cancellation are measured from real events/bytes. There are no Save/Preview Start/Stop/Discard controls. OS denial/recovery remains in the composed permission foundation. Cleanup releases E2E evidence separately and requires a verified restart to restore initial native idle history. |
 | chat | Independent peer's delivered message ledger and product's rendered history must match exact run-scoped Unicode payloads and order. Back dismisses keyboard without sending. Filtering suppresses the hidden payload. Offline send creates no duplicate; reconnect plus explicit retry delivers exactly once. Persist history through close/reopen. |
 | snapshots | Independently enumerate original app files, share-sink files and authenticated upload-sink deliveries. Cancel/denial/share-cancel produce zero side effects. Upload failure produces zero server deliveries; retry produces exactly one. Inspect original capture/share bytes and retain capture provenance across resume. |
