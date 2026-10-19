@@ -26,6 +26,8 @@ from self_tests.test_native_script_observation import Boundary as ScriptBoundary
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine
 from self_tests.test_native_feature_observation import probe_source
 from adapters.token_script_file_ui import TokenScriptFilePicker
+from adapters.native_script_files import NativeScriptFiles
+from self_tests.test_native_script_files import Boundary as ScriptFilesBoundary
 from script_file_native_boundary import FileNativeBoundary
 
 appium = identity.appium
@@ -260,6 +262,43 @@ class FeatureAdapterTests(unittest.TestCase):
                 monotonic=lambda: source.clock, sleep=source.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
+
+    def script_file_storage(self):
+        source = self.preview_boundaries(ScriptFilesBoundary(self.fixture.root), 'feature-script-files.json')
+        boundary = patch.object(appium, 'NativeScriptFiles', partial(NativeScriptFiles,
+            monotonic=lambda: source.clock, sleep=source.sleep))
+        boundary.start(); self.addCleanup(boundary.stop)
+        return source, self.adapter._script_files(SELECTOR)
+
+    def test_phone_fixture_originals_stage_readback_and_release_through_actual_bound_factory(self):
+        source, files = self.script_file_storage()
+        self.assertEqual(source.root.as_uri(), files.stage('a' * 32))
+        files.release()
+        self.assertFalse(source.root.exists())
+        self.assertIsNone(self.adapter.script_files_store(SELECTOR).read())
+        self.assertEqual([], self.native.inputs)
+
+    def test_phone_fixture_acknowledged_missing_content_retains_intent(self):
+        source, files = self.script_file_storage(); source.fault = 'ack-only'
+        with self.assertRaises(RuntimeError): files.stage('a' * 32)
+        self.assertIsNotNone(self.adapter.script_files_store(SELECTOR).read())
+        self.assertEqual(1, sum(c['operation'] == 'stage' for c in source.commands))
+
+    def test_phone_fixture_candidate_loss_blocks_release_and_keeps_persistent_files(self):
+        source, files = self.script_file_storage(); files.stage('a' * 32)
+        before = len(source.commands); self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): files.release()
+        self.assertEqual(before, len(source.commands)); self.assertTrue(source.root.exists())
+        self.assertIsNotNone(self.adapter.script_files_store(SELECTOR).read())
+
+    def test_phone_unresolved_fixture_files_prevent_green_general_cleanup_after_teardown(self):
+        source, files = self.script_file_storage(); files.stage('a' * 32)
+        with patch.object(AppiumAdapter, 'cleanup', return_value={'cleaned':True}) as teardown:
+            with self.assertRaisesRegex(ValueError, 'PHONE_SCRIPT_FILES_CLEANUP_INCOMPLETE'):
+                self.adapter.cleanup(SELECTOR)
+            teardown.assert_called_once()
+        self.assertIsNotNone(self.adapter.script_files_store(SELECTOR).read())
+        self.assertTrue(source.root.exists())
 
     def test_original_phone_preview_pcm_keeps_actual_candidate_and_process_binding(self):
         source = self.preview_boundaries()

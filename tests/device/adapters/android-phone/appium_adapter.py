@@ -34,6 +34,7 @@ from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, Android
     FILE as RECORDED_PREVIEW_FILE)
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from adapters.token_script_file_ui import TokenScriptFilePicker
+from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from overte_phone_script_files import PhoneScriptFileIO, FILE as SCRIPT_FILE_UI_FILE
 
 
@@ -180,6 +181,22 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda: transport.read_debug_app_file(device, target['appId'],
                 'files/overte-e2e/' + SCRIPT_EXECUTION_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid)
+
+    def script_files_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-files.json'))
+
+    def _script_files(self, selector):
+        _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector)
+        native = self._native_feature_observer(selector)
+        target = self.target(selector)
+        device = target['capabilities']['appium:udid']
+        transport = PhoneAdapter(self.candidate).adb
+        files = NativeScriptFiles(native.send,
+            lambda: transport.read_debug_app_file(device, target['appId'],
+                'files/overte-e2e/' + SCRIPT_FIXTURE_FILE, attempts=1),
+            native.clock_ms, native.guard, native.pid)
+        check()
+        return OwnedScriptFiles(files, self.script_files_store(selector), context)
 
     def _script_file_picker(self, selector, directory):
         # Internal primitive only. The full area still needs staged-byte
@@ -367,6 +384,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         if owned is not None:
             require(result == {'cleaned': True}, 'PHONE_NORMAL_SNAPSHOT_CLEANUP_INCOMPLETE')
             store.discard()
+        # A stopped process is not proof that persistent fixture files are gone.
+        require(self.script_files_store(selector).read() is None, 'PHONE_SCRIPT_FILES_CLEANUP_INCOMPLETE')
         require(script_error is None and script_store.read() is None,
                 'PHONE_NORMAL_SCRIPTS_CLEANUP_INCOMPLETE')
         require(create_error is None and create_store.read() is None

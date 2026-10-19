@@ -14,7 +14,7 @@ Appium session guards. The actual loaded animation resource URL is distinct from
 its requested URL. Stale poses and candidate/process changes fail. These sources
 are not complete area adapters and advertise no `feature.*` capability. Native
 compilation and devices remain untested; focused Phone boundary tests now number
-**31**. See [the native source contract](../../native/README.md).
+**35**. See [the native source contract](../../native/README.md).
 
 The internal `_recorded_preview_evidence()` now acquires the normal memory
 preview's original pre-normalization capture and accepted sink-write PCM through
@@ -52,13 +52,27 @@ foreign acknowledgements, ignored row/primary selection, partial files,
 missing native marker and candidate changes have host counterexamples.
 
 This **does not complete** version 2 Scripts: the owning wrapper still needs
-private original-byte staging, persistent file/picker/engine cleanup intent and
+persistent picker/engine cleanup intent, verified restart handoff and
 the actual advancing-effect/independent observer join. A failed input may leave
 the real dialog open; the future owner must retain intent and cancel it through
 the normal picker path, or fail cleanup. The component neither invents an app
 sandbox path nor treats accepted files as executed scripts. Native C++/Qt event
 delivery remains uncompiled/unqualified. Pico/iOS picker wiring is separate.
 See [the common file protocol](../../native/NORMAL_SCRIPT_FILES.md).
+
+`_script_files(selector)` now stages the four exact shared fixture resources
+through the same original candidate/PID/start/session-bound private channel.
+The E2E-only native source reserves an exclusive private directory, persists its
+opaque file owner, and provides a separate original-byte read. The host persists
+intent before Stage, verifies every returned original and only retires it after
+Release plus a separate fresh absence query. It obtains the actual native file
+URI rather than guessing the application sandbox. General cleanup still reaches
+process/session teardown, then rejects unresolved file intent. It never deletes
+files instead of stopping an active script. Four added wrapper counterexamples
+cover original roundtrip, ACK-only Stage, lost installed candidate and unresolved
+files after teardown; all **35** focused cases pass. Native filesystem C++ is
+uncompiled; these are transport/control simulations only. See
+[the storage contract](../../native/SCRIPT_FIXTURE_STORAGE.md).
 
 New implementations in the existing candidate-bound Appium entrypoint:
 
