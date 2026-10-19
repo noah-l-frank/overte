@@ -205,7 +205,11 @@ class NormalScriptManager:
         need(self.state['loadAttempted'])
         # Observe the actual visible row label, then recheck the independently
         # read service order immediately before one normal native click.
-        self.ui.check_row(*row, action)
+        check_source = getattr(self.ui, 'check_source_row', None)
+        if callable(check_source):
+            check_source(*row, action, url)
+        else:
+            self.ui.check_row(*row, action)
         need(self.sample() == rows)
         self.ui.row_action(*row, action)
         if action == 'stop':
