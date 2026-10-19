@@ -4,6 +4,24 @@ The implementation is partial; the complete fourteen-area native adapters and
 all physical qualification remain open. See
 [the matrix and native prerequisites](FEATURE_ADAPTER_IMPLEMENTATION.md).
 
+The private login-input lease v1 packet passes **593** guarded common host
+cases, zero failures/errors/skips/compiler attempts, with the same three native
+exclusions. Its **16** new cases use actual private temporary originals/open
+file descriptors at an explicitly synthetic native seam. They detect copied
+foreign inodes, ignored transfer/input, missing or old/foreign native receipts,
+false cleanup ACK, retained descriptors, changed binding/process, late/stalled
+clocks and public secret/expected-result fields. Actual JavaScript dispatch and
+the existing fixture's closed metadata validation execute. C++ file/GUI code is
+uncompiled; concrete private iOS transport/callback integration is still required.
+
+The subsequent platform UI packets pass **76** Phone wrapper cases after control
+v2 migration, **9** new Pico login cases plus **36** existing normal cases,
+**20** Pico source cases and **12** Pico suite-runner cases. iOS readonly/control
+privacy admission adds **8** cases and passes **282** guarded broad cases, **42**
+normal component cases and **5** unchanged canonical-binding checks. Private iOS
+credential input remains refused until its dedicated transport is wired. No
+full-area or device result is inferred from any of these host checks.
+
 The normal-login control v2/generic-target packet passes **577** guarded common
 host cases, zero failures/errors/skips/compiler attempts, with the same three
 native exclusions. Its **16** recipe cases additionally reject ignored generic
