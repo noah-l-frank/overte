@@ -64,6 +64,7 @@ class FeatureObservationTests(unittest.TestCase):
         def mutate(value):
             epoch = self.native.epoch_milliseconds(self.native.target)
             value['capturedEpochMs'] = value['animation']['capturedEpochMs'] = epoch
+            value['requestedEpochMs'] = value['animationFence']['requestedEpochMs'] = epoch
             value['animation']['clip']['evaluatedEpochMs'] = epoch
         source.mutate = mutate
         original_read = self.native.read_debug_app_file
