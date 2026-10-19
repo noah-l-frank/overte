@@ -40,7 +40,7 @@ class BoundPhoneSnapshotJourney(unittest.TestCase):
     def native(self, mutation=''):
         instance, target, native, path = identity.snapshot_boundary.attach(
             self.owner, identity.appium, mutation=mutation, fixtures=self.fixtures)
-        native.clock_scale = 20  # Bounded decoder polls use a synthetic clock.
+        native.clock_scale = 1 if mutation == 'delayed-popup' else 20
         def run():
             return snapshot_journey('0123456789abcdef', invoke=native.invoke,
                 read_artifact=lambda name: (native.artifacts / name).read_bytes(),
@@ -75,6 +75,20 @@ class BoundPhoneSnapshotJourney(unittest.TestCase):
         self.assertEqual(5, len(native.run()))
         self.assertEqual(5, native.captures)
         self.assertEqual((native.mode, native.format), ('animated', 'webp'))
+        self.assertTrue(native.reports[0]['normalCloseSucceeded'])
+
+    def test_current_phone_tablet_reopens_home_and_reenters_snap_normally(self):
+        _instance, native = self.native('reopen-home')
+        self.assertEqual(5, len(native.run()))
+        self.assertEqual(5, native.captures)
+        self.assertEqual((native.mode, native.format), ('animated', 'webp'))
+        self.assertIsNone(native.screen)
+
+    def test_late_native_popup_frame_retries_reads_without_replaying_input(self):
+        _instance, native = self.native('delayed-popup')
+        self.assertEqual(5, len(native.run()))
+        self.assertEqual(5, native.captures)
+        self.assertTrue(native.reports[0]['outputSequenceCompleted'])
         self.assertTrue(native.reports[0]['normalCloseSucceeded'])
 
     def test_acknowledged_but_ignored_capture_never_satisfies_the_output_oracle(self):

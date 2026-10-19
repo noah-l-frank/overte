@@ -154,6 +154,9 @@ class PhoneSnapshot:
 
     def selected(self, control, options):
         self.ui.click(resource(control))
+        # Native click delivery precedes the next Qt/Android accessibility
+        # frame. Wait only for the popup read; never replay its opening click.
+        self.ui.wait_control(resource(control + '.option.' + options[0]))
         selected = []
         for option in options:
             locator = resource(control + '.option.' + option)

@@ -46,8 +46,6 @@ tests in both dependency-light and prepared-host modes. Candidate-free or
 unconfigured navigation, changed installed bytes before/after input and changed
 processes reject; original cleanup and identity cases remain enforced.
 
-Focused synthetic tests (no device):
-
 ### Normal Snapshot extension
 
 The Phone-owned Appium adapter advertises `snapshot.open`, `snapshot.capture`,

@@ -42,6 +42,7 @@ class NativeSnapshotPhone:
         self.page = 1
         self.mode, self.format, self.field = 'animated', 'webp', ''
         self.popup, self.capturing = None, False
+        self.popup_reads_pending = 0
         self.calls, self.inputs, self.reports = [], [], []
         self.releases, self.captures = 0, 0
         self.app = self.root / 'synthetic app root'
@@ -72,6 +73,9 @@ class NativeSnapshotPhone:
         self.calls.append((method, path, copy.deepcopy(body)))
         if path.endswith('/elements'):
             name = body['value'].removeprefix(PACKAGE + ':id/')
+            if self.popup and name.startswith(self.popup + '.option.') and self.popup_reads_pending:
+                self.popup_reads_pending -= 1
+                return []
             return [{W3C_ELEMENT: self.references[name]}] if self.visible(name) else []
         if '/element/' in path:
             reference = path.split('/element/', 1)[1].split('/')[0]
@@ -91,7 +95,7 @@ class NativeSnapshotPhone:
                 return None
             if path.endswith('/click'):
                 self.inputs.append(name)
-                if name == 'tablet.open': self.screen = self.last_screen
+                if name == 'tablet.open': self.screen = 'home' if self.mutation == 'reopen-home' else self.last_screen
                 elif name == 'nav.home': self.screen = 'home'
                 elif name == 'nav.close': self.last_screen, self.screen = self.screen, None
                 elif name.startswith('tabletPage.'): self.page = int(name.rsplit('.', 1)[1])
@@ -99,7 +103,9 @@ class NativeSnapshotPhone:
                     if self.mutation != 'entry-ignored': self.screen = 'snapshot'
                     if self.mutation == 'partial-entry-error':
                         raise RuntimeError('synthetic delivery failed after opening review')
-                elif name in ('snapshotMode', 'snapshotFormat'): self.popup = name
+                elif name in ('snapshotMode', 'snapshotFormat'):
+                    self.popup = name
+                    self.popup_reads_pending = 3 if self.mutation == 'delayed-popup' else 0
                 elif '.option.' in name:
                     value = name.rsplit('.', 1)[1]
                     if name.startswith('snapshotMode') and self.mutation != 'mode-ignored': self.mode = value
