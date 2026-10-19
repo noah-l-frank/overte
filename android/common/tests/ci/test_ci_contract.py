@@ -126,7 +126,7 @@ class CiContractTest(unittest.TestCase):
                     ".github/workflows/android-tests.yml").read_text(encoding="utf-8")
         required = {"fast", "contracts", "coverage"}
         periodic = {"mutation-extended", "stability", "endurance"}
-        self.assertEqual(required, contract.workflow_event_matrix(workflow, "pull_request"))
+        self.assertEqual(set(), contract.workflow_event_matrix(workflow, "pull_request"))
         self.assertEqual(required, contract.workflow_event_matrix(workflow, "push"))
         self.assertEqual({"contracts"},
                          contract.workflow_event_matrix(workflow, "schedule"))
@@ -134,9 +134,11 @@ class CiContractTest(unittest.TestCase):
                          contract.workflow_event_matrix(workflow, "workflow_dispatch", True))
         self.assertEqual(required | periodic,
                          contract.workflow_event_matrix(workflow, "workflow_dispatch", False))
-        self.assertEqual(required | periodic,
-                         contract.workflow_event_matrix(
-                             workflow, "pull_request", run_diagnostics=True))
+        self.assertEqual(set(), contract.workflow_event_matrix(workflow, "pull_request", run_diagnostics=True))
+        outer = (Path(__file__).resolve().parents[4] / ".github/workflows/repository-checks.yml").read_text(encoding="utf-8")
+        self.assertIn("- labeled", outer)
+        self.assertIn("- unlabeled", outer)
+        self.assertIn("./.github/workflows/android-required.yml", outer)
         self.assertTrue(contract.quick_mutation_runs("pull_request"))
         self.assertTrue(contract.quick_mutation_runs("push"))
         self.assertFalse(contract.quick_mutation_runs("workflow_dispatch"))

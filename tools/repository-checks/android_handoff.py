@@ -34,7 +34,7 @@ def policy(policy_root=ROOT):
             or set(value["legacy_workflows"]) != {".github/workflows/android-tests.yml", ".github/workflows/android-vr-tests.yml"} \
             or set(value["source_contracts"]) != {"android/common/tests/android-workflow-contract-test.py",
                 "android/common/tests/ci/validate_ci_contract.py", "android/common/tests/ci/test_ci_contract.py",
-                "android/phone/tests/phone-release-metadata-test.py"} \
+                "android/phone/tests/phone-release-metadata-test.py", "android/common/tests/robolectric/build.gradle"} \
             or set(value["profiles"]) != {"android-main", "android-phone", "android-vr", "android-vr-pico"}:
         raise ValueError("invalid trusted Android ownership-transfer policy")
     for group in ("legacy_workflows", "source_contracts"):

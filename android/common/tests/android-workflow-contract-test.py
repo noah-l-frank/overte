@@ -21,7 +21,11 @@ class AndroidTestWorkflowContracts(unittest.TestCase):
         cls.source = WORKFLOW.read_text(encoding="utf-8")
 
     def test_pull_requests_are_untrusted_and_read_only(self):
-        self.assertRegex(self.source, r"(?m)^  pull_request:$")
+        self.assertNotRegex(self.source, r"(?m)^  pull_request:$")
+        outer = (ROOT / ".github/workflows/repository-checks.yml").read_text(encoding="utf-8")
+        self.assertIn("./.github/workflows/android-required.yml", outer)
+        for event in ("- labeled", "- unlabeled"):
+            self.assertIn(event, outer)
         self.assertNotIn("pull_request_target:", self.source)
         self.assertRegex(self.source, r"(?m)^permissions:\n  contents: read$")
         self.assertNotRegex(self.source, r"(?m)^\s+(?:contents|id-token|packages|actions): write$")
@@ -40,7 +44,9 @@ class AndroidTestWorkflowContracts(unittest.TestCase):
         self.assertNotRegex(contracts.group(1), r"(?m)^    if:")
 
     def test_long_diagnostics_are_manual_or_label_gated(self):
-        self.assertIn("types: [opened, synchronize, reopened, labeled, unlabeled]", self.source)
+        outer = (ROOT / ".github/workflows/repository-checks.yml").read_text(encoding="utf-8")
+        self.assertIn("- labeled", outer)
+        self.assertIn("- unlabeled", outer)
         diagnostic_condition = (
             "github.event_name == 'workflow_dispatch' ||\n"
             "      (github.event_name == 'pull_request' &&\n"
@@ -108,15 +114,31 @@ class AndroidTestWorkflowContracts(unittest.TestCase):
         )
 
     def test_phone_branch_and_ci_work_are_checked(self):
-        self.assertIn(
-            "branches: [main, android-main, android-phone, android-vr, android-vr-pico]",
-            self.source,
-        )
+        import json
+        policy = json.loads((ROOT / ".github/android-checks.json").read_text(encoding="utf-8"))
+        self.assertEqual(set(policy["branches"]),
+                         {"android-main", "android-phone", "android-vr", "android-vr-pico"})
         for pattern in (
             '"ci/android/**"', '"test/android/**"',
             '"test/android-phone/**"', '"test/android-pico/**"',
         ):
             self.assertIn(pattern, self.source)
+
+
+    def test_required_pr_handoff_preserves_profiles_sources_and_complete_tiers(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("android_handoff_contract", ROOT / "tools/repository-checks/android_handoff.py")
+        handoff = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(handoff)
+        controller = handoff.gate()
+        sources = controller._sources(ROOT)
+        profile = sources.json("tests/platform-profile.json")
+        branch = "android-phone" if any(item["name"] == "phone-e2e-runtime-regressions" for item in profile["suites"]) else "android-main"
+        handoff.validate_sources(sources, branch)
+        for view in controller.android().DIAGNOSTIC_VIEWS:
+            self.assertEqual(controller.android().load_policy()["prerequisites"][view],
+                             ["fast", "contracts", "coverage"])
+        self.assertIn("mutation", controller.event_views({"pull_request": {}}, "pull_request", True))
 
 
 class AndroidPhoneBuildWorkflowContracts(unittest.TestCase):

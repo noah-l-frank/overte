@@ -33,7 +33,7 @@ jobs:
       pull-requests: read
     uses: ./.github/workflows/pr-metadata-context.yml
     with:
-      nonproducer_intent: ${{ github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')) }}
+      nonproducer_intent: ${{ !(!(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))) }}
 
   route:
     needs: metadata-source
@@ -167,8 +167,8 @@ jobs:
       actions: read
       pull-requests: read
       checks: read
-    name: ${{ needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true' && 'repository-checks (metadata unchanged)' || 'repository-checks' }}
-    if: always() && (needs.route.result != 'success' || needs.route.outputs.metadata_only != 'true')
+    name: repository-checks
+    if: always()
     needs:
     - route
     - project
@@ -178,10 +178,10 @@ jobs:
     - native
     - android
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: ${{ needs.route.outputs.metadata_only == 'true' && 100 || 5 }}
     steps:
     - name: Reject unavailable native metadata context before checkout
-      if: github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics'))
+      if: github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')) && (needs.route.result != 'success' || needs.route.outputs.metadata_only != 'true')
       run: exit 1
     - name: Check out trusted result verifier
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -189,7 +189,15 @@ jobs:
         ref: ${{ github.event.repository.default_branch }}
         path: trusted
         persist-credentials: false
+    - name: Mirror the freshly authenticated original mandatory result
+      if: needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: >-
+        python3 -I -S -B trusted/tools/repository-checks/metadata_context.py --result
+        --event "$GITHUB_EVENT_PATH" --event-name "$GITHUB_EVENT_NAME" --output "$GITHUB_OUTPUT"
     - name: Check out the exact candidate without credentials
+      if: needs.route.outputs.metadata_only != 'true'
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         path: candidate
@@ -200,6 +208,7 @@ jobs:
           .github
           tests/platform-profile.json
     - name: Require all selected checks to succeed
+      if: needs.route.outputs.metadata_only != 'true'
       env:
         CHECK_RESULTS: ${{ toJSON(needs) }}
         GH_TOKEN: ${{ github.token }}
