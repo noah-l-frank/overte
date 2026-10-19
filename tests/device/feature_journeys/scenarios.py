@@ -1,0 +1,284 @@
+"""Closed ordinary-user actions and independently asserted product checkpoints.
+
+Inputs never include assertions. Values prefixed with $ are expanded from the
+owned fixture context. Each checkpoint is a complete state, not an adapter verdict.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
+
+VERSION = 1
+
+
+def scenario(title, baseline, rows):
+    state = deepcopy(baseline)
+    steps = []
+    for verb, inputs, changes, evidence in rows:
+        state.update(changes)
+        steps.append(dict(verb=verb, inputs=inputs, state=deepcopy(state), evidence=evidence))
+    return dict(title=title, baseline=baseline, steps=steps)
+
+
+# Evidence: image = current challenge in original screenshot; changed = same plus
+# changed subject pixels. peer = independently journaled fixture-actor receipt;
+# file = original exported bytes; audio/silence = actual bounded PCM capture.
+SCENARIOS = {
+'world-navigation': scenario('Bookmarks, directory, failed arrival and recovery',
+    dict(location='A', bookmark=False, bookmarkName='', searchResults=[], error='none', panel=False), [
+    ('open', {}, dict(panel=True), []),
+    ('bookmark-add', dict(name='$name'), dict(bookmark=True, bookmarkName='$name'), ['peer']),
+    ('bookmark-rename', dict(name='$renamed'), dict(bookmarkName='$renamed'), ['peer']),
+    ('directory-search', dict(query='$name'), dict(searchResults=['$destination']), ['peer']),
+    ('directory-select', dict(destination='$destination'), dict(location='B'), ['image', 'peer']),
+    ('navigate-missing', {}, dict(error='not-found', location='B'), ['peer']),
+    ('dismiss-error', {}, dict(error='none'), []),
+    ('bookmark-visit', dict(name='$renamed'), dict(location='A'), ['changed', 'peer']),
+    ('restart-app', {}, {}, ['peer']),
+    ('bookmark-delete', dict(name='$renamed'), dict(bookmark=False, bookmarkName=''), ['peer']),
+    ('close', {}, dict(panel=False), []),
+]),
+'authentication': scenario('Owned login, cancellation, stale response and persistence',
+    dict(principal='anonymous', dialog=False, error='none', pending=False, protectedAccess=False), [
+    ('login-open', {}, dict(dialog=True), []),
+    ('login-submit', dict(account='invalid'), dict(error='invalid-credentials'), ['peer']),
+    ('login-cancel', {}, dict(dialog=False, error='none'), ['peer']),
+    ('login-open', {}, dict(dialog=True), []),
+    ('login-submit', dict(account='delayed'), dict(pending=True), ['peer']),
+    ('login-cancel', {}, dict(pending=False, dialog=False), ['peer']),
+    ('release-stale-response', {}, {}, ['peer']),
+    ('login-open', {}, dict(dialog=True), []),
+    ('login-submit', dict(account='owned'), dict(principal='owned', dialog=False, protectedAccess=True), ['peer']),
+    ('restart-app', {}, {}, ['peer']),
+    ('logout', {}, dict(principal='anonymous', protectedAccess=False), ['peer']),
+    ('restart-app', {}, {}, ['peer']),
+]),
+'avatar-people': scenario('Avatar chooser and mutual connection consent',
+    dict(avatar='original', scale=1.0, wearable=False, bookmarked=False, connection='none', dialog=False, error='none'), [
+    ('avatar-url', dict(resource='avatar-a.fst'), dict(avatar='A'), ['image', 'peer']),
+    ('avatar-bookmark-save', dict(name='$name'), dict(bookmarked=True), ['peer']),
+    ('avatar-scale', dict(value=1.5), dict(scale=1.5), ['changed', 'peer']),
+    ('wearable-add', dict(resource='wearable.json'), dict(wearable=True), ['changed', 'peer']),
+    ('avatar-url', dict(resource='missing.fst'), dict(error='not-found'), ['peer']),
+    ('dismiss-error', {}, dict(error='none'), []),
+    ('avatar-bookmark-choose', dict(name='$name'), dict(scale=1.0, wearable=False), ['changed', 'peer']),
+    ('connection-request', dict(peer='owned-peer'), dict(connection='pending', dialog=True), ['peer']),
+    ('connection-cancel', {}, dict(connection='none', dialog=False), ['peer']),
+    ('connection-request', dict(peer='owned-peer'), dict(connection='pending', dialog=True), ['peer']),
+    ('peer-reject', {}, dict(connection='none', dialog=False), ['peer']),
+    ('connection-request', dict(peer='owned-peer'), dict(connection='pending', dialog=True), ['peer']),
+    ('peer-accept', {}, dict(connection='connected', dialog=False), ['peer']),
+    ('connection-remove', dict(peer='owned-peer'), dict(connection='none'), ['peer']),
+    ('avatar-restore', {}, dict(avatar='original'), ['image', 'peer']),
+    ('avatar-bookmark-delete', dict(name='$name'), dict(bookmarked=False), ['peer']),
+]),
+'create': scenario('Create imports, export and permission denial',
+    dict(objects=[], editor=False, error='none', canRez=True, selection=[], textured=False, voxelValue=0), [
+    ('open', {}, dict(editor=True), []),
+    ('import-cancel', dict(resource='model.gltf'), {}, ['peer']),
+    ('import-local', dict(resource='model.gltf'), dict(objects=['model'], selection=['model']), ['image', 'peer']),
+    ('apply-texture', dict(resource='checker.png'), dict(textured=True), ['changed', 'peer']),
+    ('export-selection', {}, {}, ['file', 'peer']),
+    ('delete-owned', {}, dict(objects=[], selection=[], textured=False, voxelValue=0), ['changed', 'peer']),
+    ('import-local', dict(resource='model.obj'), dict(objects=['model'], selection=['model']), ['changed', 'peer']),
+    ('delete-owned', {}, dict(objects=[], selection=[], textured=False, voxelValue=0), ['changed', 'peer']),
+    ('voxel-create', {}, dict(objects=['voxel'], selection=['voxel']), ['changed', 'peer']),
+    ('voxel-edit', dict(mode='remove', brushMeters=0.5), dict(voxelValue=1), ['changed', 'peer']),
+    ('delete-owned', {}, dict(objects=[], selection=[], textured=False, voxelValue=0), ['changed', 'peer']),
+    ('set-rez-permission', dict(allowed=False), dict(canRez=False), ['peer']),
+    ('create-denied', {}, dict(error='permission-denied'), ['peer']),
+    ('set-rez-permission', dict(allowed=True), dict(canRez=True, error='none'), ['peer']),
+    ('close', {}, dict(editor=False), []),
+]),
+'emotes': scenario('Ten emotes, three Sit modes, override and cancellation',
+    dict(animation='idle', sit='none', override=False, poseProgress=0.0, panel=False), [
+    ('open', {}, dict(panel=True), []),
+    *[( 'play', dict(name=name), dict(animation=name, sit={'oneOf': ['Sit1', 'Sit2', 'Sit3']} if name == 'Sit' else 'none', poseProgress={'min': 0.15, 'max': 1.0}),
+        ['image' if i == 0 else 'changed', 'peer'])
+      for i, name in enumerate(('Crying', 'Surprised', 'Dancing', 'Cheering', 'Waving', 'Fall', 'Pointing', 'Clapping', 'Sit', 'Love'))],
+    *[( 'sit', {}, dict(animation='Sit', sit={'oneOf': ['Sit1', 'Sit2', 'Sit3']}), ['image', 'peer'])
+      for _ in range(3)],
+    ('override', dict(name='Waving'), dict(animation='Waving', override=True, sit='none'), ['changed', 'peer']),
+    ('cancel', {}, dict(animation='idle', override=False, poseProgress=0.0), ['changed', 'peer']),
+    ('background-resume', {}, {}, ['peer']),
+    ('close', {}, dict(panel=False), []),
+]),
+'world-web': scenario('World browser text, bridge origin, navigation and resume',
+    dict(surface='world', text='', page='reference', bridgeMessages=0, error='none', focused=False, open=False), [
+    ('open', {}, dict(open=True), ['image']),
+    ('focus-type', dict(text='$unicode'), dict(text='$unicode', focused=True), ['peer']),
+    ('submit', {}, dict(bridgeMessages=1), ['peer']),
+    ('foreign-origin-message', {}, {}, ['peer']),
+    ('navigate', dict(resource='page-b.html'), dict(page='B', focused=False), ['changed', 'peer']),
+    ('back', {}, dict(page='reference', text='$unicode'), ['changed', 'peer']),
+    ('navigate', dict(resource='missing.html'), dict(error='not-found'), ['peer']),
+    ('reload', {}, dict(error='none'), ['image', 'peer']),
+    ('background-resume', {}, {}, ['image', 'peer']),
+    ('close', {}, dict(open=False, focused=False), ['peer']),
+]),
+'graphics': scenario('Normal graphics effects, cancellation and restart durability',
+    dict(preset='original', shadows=True, resolution=1.0, renderScale=1.0, shadowPass=True, dialog=False, mirror=False), [
+    ('open', {}, dict(dialog=True), []),
+    ('preview-preset', dict(preset='low'), dict(preset='low', shadows=False, shadowPass=False), ['image']),
+    ('cancel', {}, dict(dialog=False, preset='original', shadows=True, shadowPass=True), ['image']),
+    ('open', {}, dict(dialog=True), []),
+    ('set-resolution', dict(value=0.5), dict(resolution=0.5, renderScale=0.5), ['image']),
+    ('set-shadows', dict(enabled=False), dict(shadows=False, shadowPass=False), ['image']),
+    ('apply', {}, dict(dialog=False), []),
+    ('mirror-enable', {}, dict(mirror=True), ['changed']),
+    ('background-resume', {}, {}, ['image']),
+    ('restart-app', {}, {}, ['image']),
+    ('restore', {}, dict(resolution=1.0, renderScale=1.0, shadows=True, shadowPass=True, mirror=False), ['changed']),
+]),
+'audio': scenario('Recording permission, cancel, preview, mute and lifecycle',
+    dict(permission='granted', recording=False, preview=False, muted=False, recordedFrames=0, error='none'), [
+    ('set-microphone-permission', dict(state='denied'), dict(permission='denied'), []),
+    ('record-start', {}, dict(error='permission-denied'), ['silence', 'peer']),
+    ('set-microphone-permission', dict(state='granted'), dict(permission='granted', error='none'), []),
+    ('record-start', {}, dict(recording=True, recordedFrames={'min': 8000, 'max': 480000}), ['peer']),
+    ('record-cancel', {}, dict(recording=False, recordedFrames=0), ['silence', 'peer']),
+    ('record-start', {}, dict(recording=True, recordedFrames={'min': 8000, 'max': 480000}), ['peer']),
+    ('record-stop', {}, dict(recording=False), ['file', 'peer']),
+    ('preview-start', {}, dict(preview=True), ['audio']),
+    ('preview-stop', {}, dict(preview=False), ['silence']),
+    ('mute', dict(enabled=True), dict(muted=True), ['silence', 'peer']),
+    ('background-resume', {}, {}, ['silence', 'peer']),
+    ('mute', dict(enabled=False), dict(muted=False), ['audio', 'peer']),
+    ('discard', {}, dict(recordedFrames=0), ['peer']),
+]),
+'chat': scenario('Owned peer send, receive, filter, history and input cancellation',
+    dict(draft='', messages=[], filtered=False, focused=False, keyboard=False, open=False, error='none'), [
+    ('open', {}, dict(open=True), []),
+    ('type', dict(text='$unicode'), dict(draft='$unicode', focused=True, keyboard=True), []),
+    ('back', {}, dict(focused=False, keyboard=False), ['peer']),
+    ('send', {}, dict(draft='', messages=['$unicode']), ['peer']),
+    ('peer-send', dict(text='$reply'), dict(messages=['$unicode', '$reply']), ['peer']),
+    ('filter-peer', dict(enabled=True), dict(filtered=True), ['peer']),
+    ('peer-send', dict(text='$hidden'), {}, ['peer']),
+    ('filter-peer', dict(enabled=False), dict(filtered=False), ['peer']),
+    ('close', {}, dict(open=False), []),
+    ('open', {}, dict(open=True), []),
+    ('network-disconnect', {}, dict(error='offline'), ['peer']),
+    ('type', dict(text='$retry'), dict(draft='$retry', focused=True, keyboard=True), []),
+    ('send', {}, {}, ['peer']),
+    ('network-reconnect', {}, dict(error='none'), ['peer']),
+    ('send', {}, dict(draft='', messages=['$unicode', '$reply', '$retry']), ['peer']),
+    ('close', {}, dict(open=False, focused=False, keyboard=False), []),
+]),
+'snapshots': scenario('Capture cancellation, permission, share/upload and resume',
+    dict(open=False, pending=False, files=0, uploads=0, shares=0, permission='granted', error='none'), [
+    ('open', {}, dict(open=True), []),
+    ('capture-cancel', {}, {}, ['peer']),
+    ('set-storage-permission', dict(state='denied'), dict(permission='denied'), []),
+    ('capture', {}, dict(error='permission-denied'), ['peer']),
+    ('set-storage-permission', dict(state='granted'), dict(permission='granted', error='none'), []),
+    ('capture', {}, dict(files=1), ['image', 'file', 'peer']),
+    ('share-cancel', {}, {}, ['peer']),
+    ('share', {}, dict(shares=1), ['file', 'peer']),
+    ('upload-fail', {}, dict(error='offline'), ['peer']),
+    ('upload', {}, dict(uploads=1, error='none'), ['peer']),
+    ('background-resume', {}, {}, ['image', 'peer']),
+    ('close', {}, dict(open=False), []),
+]),
+'scripts': scenario('File/folder execution, consent and application restart',
+    dict(running=[], consent=False, error='none', effects=0, open=False), [
+    ('open', {}, dict(open=True), []),
+    ('load-local', dict(resource='script.js'), dict(consent=True), ['peer']),
+    ('consent-cancel', {}, dict(consent=False), ['peer']),
+    ('load-local', dict(resource='script.js'), dict(consent=True), ['peer']),
+    ('consent-reject', {}, dict(consent=False), ['peer']),
+    ('load-folder', dict(resource='script-bundle'), dict(consent=True), ['peer']),
+    ('consent-accept', {}, dict(consent=False, running=['owned-script'], effects={'min': 2, 'max': 100000}), ['peer']),
+    ('restart-app', {}, {}, ['peer']),
+    ('stop-owned', {}, dict(running=[], effects=0), ['peer']),
+    ('load-local', dict(resource='missing.js'), dict(error='not-found'), ['peer']),
+    ('close', {}, dict(open=False, error='none'), []),
+]),
+'assets': scenario('Asset mappings, companion import, bake, permissions and deletion',
+    dict(mappings=[], selected='', baking=False, bakeState='none', canWrite=True, error='none', open=False, sceneModel=False, companions=[]), [
+    ('open', {}, dict(open=True), []),
+    ('upload-cancel', dict(resource='model.gltf'), {}, ['peer']),
+    ('upload', dict(resource='model.gltf'), dict(mappings=['$name'], selected='$name', companions=['mesh/triangle.bin', 'textures/checker.png']), ['peer']),
+    ('browse', dict(name='$name'), {}, ['image', 'peer']),
+    ('rename', dict(name='$renamed'), dict(mappings=['$renamed'], selected='$renamed'), ['peer']),
+    ('bake', {}, dict(bakeState='ready'), ['image', 'peer']),
+    ('import-selected', {}, dict(sceneModel=True), ['changed', 'file', 'peer']),
+    ('remove-owned-model', {}, dict(sceneModel=False), ['changed', 'peer']),
+    ('set-write-permission', dict(allowed=False), dict(canWrite=False), ['peer']),
+    ('delete-denied', {}, dict(error='permission-denied'), ['peer']),
+    ('set-write-permission', dict(allowed=True), dict(canWrite=True, error='none'), ['peer']),
+    ('delete-owned', {}, dict(mappings=[], selected='', bakeState='none', companions=[]), ['peer']),
+    ('upload', dict(resource='model.obj'), dict(mappings=['$name'], selected='$name', companions=['materials/palette.mtl', 'textures/checker.png']), ['peer']),
+    ('delete-owned', {}, dict(mappings=[], selected='', companions=[]), ['peer']),
+    ('upload', dict(resource='missing.gltf'), dict(error='not-found'), ['peer']),
+    ('close', {}, dict(open=False, error='none'), []),
+]),
+'lifecycle-input': scenario('Feature editor focus, Back and background ownership',
+    dict(editor='none', text='', keyboard=False, focused=False, heldInputs=[], worldDisplacement=0.0, generation=1), [
+    ('open-editor', dict(editor='create'), dict(editor='create', focused=True, keyboard=True), []),
+    ('type', dict(text='$unicode'), dict(text='$unicode'), []),
+    ('world-input', dict(direction='forward'), {}, ['image']),
+    ('back', {}, dict(keyboard=False, focused=False), []),
+    ('back', {}, dict(editor='none'), []),
+    ('open-editor', dict(editor='chat'), dict(editor='chat', focused=True, keyboard=True), []),
+    ('background-resume', {}, dict(keyboard=False, focused=False), ['image', 'peer']),
+    ('open-editor', dict(editor='scripts'), dict(editor='scripts', keyboard=True, focused=True), []),
+    ('replace-context', {}, dict(generation=2, text='', editor='none', focused=False, keyboard=False), ['peer']),
+    ('deliver-stale-input', dict(text='$unicode'), {}, ['peer']),
+    ('world-input', dict(direction='forward'), dict(worldDisplacement={'min': 0.3, 'max': 3.0}), ['changed']),
+    ('release-input', {}, {}, ['peer']),
+    ('restore', {}, dict(worldDisplacement=0.0), ['image']),
+]),
+}
+# Same ordinary browser contract on the normal tablet plus inline app routing.
+SCENARIOS['tablet-web'] = deepcopy(SCENARIOS['world-web'])
+SCENARIOS['tablet-web']['title'] = 'Tablet browser and inline app isolation'
+SCENARIOS['tablet-web']['baseline']['surface'] = 'tablet'
+for step in SCENARIOS['tablet-web']['steps']:
+    step['state']['surface'] = 'tablet'
+inline = dict(verb='open-inline-app', inputs=dict(resource='inline.html'),
+              state={**SCENARIOS['tablet-web']['steps'][-2]['state'], 'page': 'inline'}, evidence=['changed', 'peer'])
+SCENARIOS['tablet-web']['steps'].insert(-1, inline)
+# The close checkpoint must retain the last actual page.
+SCENARIOS['tablet-web']['steps'][-1]['state']['page'] = 'inline'
+
+
+def expand(value, context):
+    if isinstance(value, str) and value.startswith('$'):
+        return context[value[1:]]
+    if isinstance(value, list):
+        return [expand(item, context) for item in value]
+    if isinstance(value, dict):
+        return {key: expand(item, context) for key, item in value.items()}
+    return value
+
+
+def actions(area):
+    """Return only the closed input inventory, never checkpoints or evidence."""
+    inventory = {}
+    for step in SCENARIOS[area]['steps']:
+        inventory.setdefault(step['verb'], []).append(step['inputs'])
+    return inventory
+
+# Existing modules remain the owner of these workflows. The new suites compose
+# them instead of duplicating their input, image/video or probe implementations.
+FOUNDATIONS = {
+    'world-navigation': ['domain-enter', 'domain-roundtrip', 'places-navigation',
+                         'look', 'move', 'input-neutral', 'collision', 'jump', 'fly', 'scene-reload'],
+    'authentication': [],
+    'avatar-people': ['multi-user'],
+    'create': ['create-management', 'entity-sync', 'world-interaction'],
+    'emotes': [],
+    'world-web': ['world-web-video'],
+    'tablet-web': ['tablet-web-video', 'tablet'],
+    'graphics': ['render-health'],
+    'audio': ['audio-controls', 'permission-recovery', 'sound-playback', 'voice-roundtrip'],
+    'chat': ['text-input'],
+    'snapshots': ['snapshot-output-parity'],
+    'scripts': ['scripts-management', 'scripted-entity'],
+    'assets': ['asset-load'],
+    'lifecycle-input': ['lifecycle-under-load', 'tablet-input-isolation', 'text-input'],
+}
+
+# Real peer replication, domain permissions and asset mappings require a domain.
+# Loading the serverless scene here would disconnect precisely those features.
+DOMAIN_AREAS = frozenset({'avatar-people', 'create', 'emotes', 'audio', 'chat', 'assets'})

@@ -221,6 +221,9 @@ def contains_private_identity(value: object, identities: set[str]) -> bool:
 def validate_operation_arguments(operation: str, value: object) -> dict:
     if not isinstance(value, dict):
         raise ValueError("operation arguments must be an object")
+    if operation.startswith("feature."):
+        from feature_journeys.contract import arguments
+        return arguments(operation, value)
     if operation == "voice.exchange":
         from voice_contract import command
         return command(value)
@@ -457,6 +460,9 @@ def validate_performed_result(operation: str, value: object) -> dict:
 
 def validate_operation_result(operation: str, value: object) -> dict:
     """Validate portable evidence returned by an adapter operation."""
+    if operation.startswith("feature."):
+        from feature_journeys.contract import result as feature_result
+        return feature_result(operation, value)
     if operation == "voice.exchange":
         from voice_contract import result
         return result(value)

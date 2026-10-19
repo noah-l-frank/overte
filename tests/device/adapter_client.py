@@ -44,6 +44,7 @@ def invoke(manifest: Path, target: str, operation: str,
     # Product expectations belong exclusively to the shared assertion module.
     # An adapter must report observed UI and must never receive the policy path.
     for name in ('OVERTE_E2E_TABLET_POLICY', 'OVERTE_E2E_WEB_VIDEO_ROIS',
+                 'OVERTE_E2E_FEATURE_READER_TOKEN', 'OVERTE_E2E_FEATURE_IMAGE_POLICY',
                  'OVERTE_E2E_SCRIPTS_CONTROL_TOKEN', 'OVERTE_E2E_CREATE_CONTROL_TOKEN'):
         adapter_environment.pop(name, None)
     try:

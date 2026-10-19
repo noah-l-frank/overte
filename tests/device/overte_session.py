@@ -123,6 +123,13 @@ class OverteSession:
         except ValueError as error:
             raise InfrastructureError(str(error)) from error
 
+    def feature_operation(self, area: str, kind: str, fields: dict) -> dict:
+        """Use the versioned normal-feature seam without platform knowledge."""
+        from feature_journeys.contract import operation_parts
+        operation_name = f"feature.{area}.{kind}"
+        operation_parts(operation_name)
+        return self._invoke(operation_name, fields)
+
     def snapshot(self, artifact: str | None = None) -> dict:
         arguments = ({} if self._last_sample_sequence is None else
                      {"afterSampleSequence": self._last_sample_sequence})

@@ -1,0 +1,933 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": 1,
+  "operationPattern": "feature.<area>.act|observe|cleanup",
+  "qualification": "Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.",
+  "areas": {
+    "assets": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "upload-cancel": [
+          {
+            "resource": "model.gltf"
+          }
+        ],
+        "upload": [
+          {
+            "resource": "model.gltf"
+          },
+          {
+            "resource": "model.obj"
+          },
+          {
+            "resource": "missing.gltf"
+          }
+        ],
+        "browse": [
+          {
+            "name": "$name"
+          }
+        ],
+        "rename": [
+          {
+            "name": "$renamed"
+          }
+        ],
+        "bake": [
+          {}
+        ],
+        "import-selected": [
+          {}
+        ],
+        "remove-owned-model": [
+          {}
+        ],
+        "set-write-permission": [
+          {
+            "allowed": false
+          },
+          {
+            "allowed": true
+          }
+        ],
+        "delete-denied": [
+          {}
+        ],
+        "delete-owned": [
+          {},
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "mappings": "list",
+        "selected": "str",
+        "baking": "bool",
+        "bakeState": "str",
+        "canWrite": "bool",
+        "error": "str",
+        "open": "bool",
+        "sceneModel": "bool",
+        "companions": "list"
+      },
+      "independentFields": [
+        "mappings",
+        "selected",
+        "bakeState",
+        "canWrite",
+        "sceneModel",
+        "companions"
+      ],
+      "existingModules": [
+        "asset-load"
+      ]
+    },
+    "audio": {
+      "inputVerbs": {
+        "set-microphone-permission": [
+          {
+            "state": "denied"
+          },
+          {
+            "state": "granted"
+          }
+        ],
+        "record-start": [
+          {},
+          {},
+          {}
+        ],
+        "record-cancel": [
+          {}
+        ],
+        "record-stop": [
+          {}
+        ],
+        "preview-start": [
+          {}
+        ],
+        "preview-stop": [
+          {}
+        ],
+        "mute": [
+          {
+            "enabled": true
+          },
+          {
+            "enabled": false
+          }
+        ],
+        "background-resume": [
+          {}
+        ],
+        "discard": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "permission": "str",
+        "recording": "bool",
+        "preview": "bool",
+        "muted": "bool",
+        "recordedFrames": "int",
+        "error": "str"
+      },
+      "independentFields": [
+        "recording",
+        "recordedFrames",
+        "muted"
+      ],
+      "existingModules": [
+        "audio-controls",
+        "permission-recovery",
+        "sound-playback",
+        "voice-roundtrip"
+      ]
+    },
+    "authentication": {
+      "inputVerbs": {
+        "login-open": [
+          {},
+          {},
+          {}
+        ],
+        "login-submit": [
+          {
+            "account": "invalid"
+          },
+          {
+            "account": "delayed"
+          },
+          {
+            "account": "owned"
+          }
+        ],
+        "login-cancel": [
+          {},
+          {}
+        ],
+        "release-stale-response": [
+          {}
+        ],
+        "restart-app": [
+          {},
+          {}
+        ],
+        "logout": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "principal": "str",
+        "dialog": "bool",
+        "error": "str",
+        "pending": "bool",
+        "protectedAccess": "bool"
+      },
+      "independentFields": [
+        "principal",
+        "pending",
+        "protectedAccess"
+      ],
+      "existingModules": []
+    },
+    "avatar-people": {
+      "inputVerbs": {
+        "avatar-url": [
+          {
+            "resource": "avatar-a.fst"
+          },
+          {
+            "resource": "missing.fst"
+          }
+        ],
+        "avatar-bookmark-save": [
+          {
+            "name": "$name"
+          }
+        ],
+        "avatar-scale": [
+          {
+            "value": 1.5
+          }
+        ],
+        "wearable-add": [
+          {
+            "resource": "wearable.json"
+          }
+        ],
+        "dismiss-error": [
+          {}
+        ],
+        "avatar-bookmark-choose": [
+          {
+            "name": "$name"
+          }
+        ],
+        "connection-request": [
+          {
+            "peer": "owned-peer"
+          },
+          {
+            "peer": "owned-peer"
+          },
+          {
+            "peer": "owned-peer"
+          }
+        ],
+        "connection-cancel": [
+          {}
+        ],
+        "peer-reject": [
+          {}
+        ],
+        "peer-accept": [
+          {}
+        ],
+        "connection-remove": [
+          {
+            "peer": "owned-peer"
+          }
+        ],
+        "avatar-restore": [
+          {}
+        ],
+        "avatar-bookmark-delete": [
+          {
+            "name": "$name"
+          }
+        ]
+      },
+      "observationFields": {
+        "avatar": "str",
+        "scale": "float",
+        "wearable": "bool",
+        "bookmarked": "bool",
+        "connection": "str",
+        "dialog": "bool",
+        "error": "str"
+      },
+      "independentFields": [
+        "avatar",
+        "scale",
+        "wearable",
+        "bookmarked",
+        "connection"
+      ],
+      "existingModules": [
+        "multi-user"
+      ]
+    },
+    "chat": {
+      "inputVerbs": {
+        "open": [
+          {},
+          {}
+        ],
+        "type": [
+          {
+            "text": "$unicode"
+          },
+          {
+            "text": "$retry"
+          }
+        ],
+        "back": [
+          {}
+        ],
+        "send": [
+          {},
+          {},
+          {}
+        ],
+        "peer-send": [
+          {
+            "text": "$reply"
+          },
+          {
+            "text": "$hidden"
+          }
+        ],
+        "filter-peer": [
+          {
+            "enabled": true
+          },
+          {
+            "enabled": false
+          }
+        ],
+        "close": [
+          {},
+          {}
+        ],
+        "network-disconnect": [
+          {}
+        ],
+        "network-reconnect": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "draft": "str",
+        "messages": "list",
+        "filtered": "bool",
+        "focused": "bool",
+        "keyboard": "bool",
+        "open": "bool",
+        "error": "str"
+      },
+      "independentFields": [
+        "messages",
+        "filtered",
+        "error"
+      ],
+      "existingModules": [
+        "text-input"
+      ]
+    },
+    "create": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "import-cancel": [
+          {
+            "resource": "model.gltf"
+          }
+        ],
+        "import-local": [
+          {
+            "resource": "model.gltf"
+          },
+          {
+            "resource": "model.obj"
+          }
+        ],
+        "apply-texture": [
+          {
+            "resource": "checker.png"
+          }
+        ],
+        "export-selection": [
+          {}
+        ],
+        "delete-owned": [
+          {},
+          {},
+          {}
+        ],
+        "voxel-create": [
+          {}
+        ],
+        "voxel-edit": [
+          {
+            "mode": "remove",
+            "brushMeters": 0.5
+          }
+        ],
+        "set-rez-permission": [
+          {
+            "allowed": false
+          },
+          {
+            "allowed": true
+          }
+        ],
+        "create-denied": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "objects": "list",
+        "editor": "bool",
+        "error": "str",
+        "canRez": "bool",
+        "selection": "list",
+        "textured": "bool",
+        "voxelValue": "int"
+      },
+      "independentFields": [
+        "objects",
+        "canRez",
+        "selection",
+        "textured",
+        "voxelValue"
+      ],
+      "existingModules": [
+        "create-management",
+        "entity-sync",
+        "world-interaction"
+      ]
+    },
+    "emotes": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "play": [
+          {
+            "name": "Crying"
+          },
+          {
+            "name": "Surprised"
+          },
+          {
+            "name": "Dancing"
+          },
+          {
+            "name": "Cheering"
+          },
+          {
+            "name": "Waving"
+          },
+          {
+            "name": "Fall"
+          },
+          {
+            "name": "Pointing"
+          },
+          {
+            "name": "Clapping"
+          },
+          {
+            "name": "Sit"
+          },
+          {
+            "name": "Love"
+          }
+        ],
+        "sit": [
+          {},
+          {},
+          {}
+        ],
+        "override": [
+          {
+            "name": "Waving"
+          }
+        ],
+        "cancel": [
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "animation": "str",
+        "sit": "str",
+        "override": "bool",
+        "poseProgress": "float",
+        "panel": "bool"
+      },
+      "independentFields": [
+        "animation",
+        "sit",
+        "override",
+        "poseProgress"
+      ],
+      "existingModules": []
+    },
+    "graphics": {
+      "inputVerbs": {
+        "open": [
+          {},
+          {}
+        ],
+        "preview-preset": [
+          {
+            "preset": "low"
+          }
+        ],
+        "cancel": [
+          {}
+        ],
+        "set-resolution": [
+          {
+            "value": 0.5
+          }
+        ],
+        "set-shadows": [
+          {
+            "enabled": false
+          }
+        ],
+        "apply": [
+          {}
+        ],
+        "mirror-enable": [
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "restart-app": [
+          {}
+        ],
+        "restore": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "preset": "str",
+        "shadows": "bool",
+        "resolution": "float",
+        "renderScale": "float",
+        "shadowPass": "bool",
+        "dialog": "bool",
+        "mirror": "bool"
+      },
+      "independentFields": [
+        "renderScale",
+        "shadowPass",
+        "mirror"
+      ],
+      "existingModules": [
+        "render-health"
+      ]
+    },
+    "lifecycle-input": {
+      "inputVerbs": {
+        "open-editor": [
+          {
+            "editor": "create"
+          },
+          {
+            "editor": "chat"
+          },
+          {
+            "editor": "scripts"
+          }
+        ],
+        "type": [
+          {
+            "text": "$unicode"
+          }
+        ],
+        "world-input": [
+          {
+            "direction": "forward"
+          },
+          {
+            "direction": "forward"
+          }
+        ],
+        "back": [
+          {},
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "replace-context": [
+          {}
+        ],
+        "deliver-stale-input": [
+          {
+            "text": "$unicode"
+          }
+        ],
+        "release-input": [
+          {}
+        ],
+        "restore": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "editor": "str",
+        "text": "str",
+        "keyboard": "bool",
+        "focused": "bool",
+        "heldInputs": "list",
+        "worldDisplacement": "float",
+        "generation": "int"
+      },
+      "independentFields": [
+        "heldInputs",
+        "worldDisplacement",
+        "generation"
+      ],
+      "existingModules": [
+        "lifecycle-under-load",
+        "tablet-input-isolation",
+        "text-input"
+      ]
+    },
+    "scripts": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "load-local": [
+          {
+            "resource": "script.js"
+          },
+          {
+            "resource": "script.js"
+          },
+          {
+            "resource": "missing.js"
+          }
+        ],
+        "consent-cancel": [
+          {}
+        ],
+        "consent-reject": [
+          {}
+        ],
+        "load-folder": [
+          {
+            "resource": "script-bundle"
+          }
+        ],
+        "consent-accept": [
+          {}
+        ],
+        "restart-app": [
+          {}
+        ],
+        "stop-owned": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "running": "list",
+        "consent": "bool",
+        "error": "str",
+        "effects": "int",
+        "open": "bool"
+      },
+      "independentFields": [
+        "running",
+        "effects"
+      ],
+      "existingModules": [
+        "scripts-management",
+        "scripted-entity"
+      ]
+    },
+    "snapshots": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "capture-cancel": [
+          {}
+        ],
+        "set-storage-permission": [
+          {
+            "state": "denied"
+          },
+          {
+            "state": "granted"
+          }
+        ],
+        "capture": [
+          {},
+          {}
+        ],
+        "share-cancel": [
+          {}
+        ],
+        "share": [
+          {}
+        ],
+        "upload-fail": [
+          {}
+        ],
+        "upload": [
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "open": "bool",
+        "pending": "bool",
+        "files": "int",
+        "uploads": "int",
+        "shares": "int",
+        "permission": "str",
+        "error": "str"
+      },
+      "independentFields": [
+        "files",
+        "uploads",
+        "shares"
+      ],
+      "existingModules": [
+        "snapshot-output-parity"
+      ]
+    },
+    "tablet-web": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "focus-type": [
+          {
+            "text": "$unicode"
+          }
+        ],
+        "submit": [
+          {}
+        ],
+        "foreign-origin-message": [
+          {}
+        ],
+        "navigate": [
+          {
+            "resource": "page-b.html"
+          },
+          {
+            "resource": "missing.html"
+          }
+        ],
+        "back": [
+          {}
+        ],
+        "reload": [
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "open-inline-app": [
+          {
+            "resource": "inline.html"
+          }
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "surface": "str",
+        "text": "str",
+        "page": "str",
+        "bridgeMessages": "int",
+        "error": "str",
+        "focused": "bool",
+        "open": "bool"
+      },
+      "independentFields": [
+        "text",
+        "page",
+        "bridgeMessages"
+      ],
+      "existingModules": [
+        "tablet-web-video",
+        "tablet"
+      ]
+    },
+    "world-navigation": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "bookmark-add": [
+          {
+            "name": "$name"
+          }
+        ],
+        "bookmark-rename": [
+          {
+            "name": "$renamed"
+          }
+        ],
+        "directory-search": [
+          {
+            "query": "$name"
+          }
+        ],
+        "directory-select": [
+          {
+            "destination": "$destination"
+          }
+        ],
+        "navigate-missing": [
+          {}
+        ],
+        "dismiss-error": [
+          {}
+        ],
+        "bookmark-visit": [
+          {
+            "name": "$renamed"
+          }
+        ],
+        "restart-app": [
+          {}
+        ],
+        "bookmark-delete": [
+          {
+            "name": "$renamed"
+          }
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "location": "str",
+        "bookmark": "bool",
+        "bookmarkName": "str",
+        "searchResults": "list",
+        "error": "str",
+        "panel": "bool"
+      },
+      "independentFields": [
+        "location",
+        "bookmark",
+        "bookmarkName",
+        "searchResults",
+        "error"
+      ],
+      "existingModules": [
+        "domain-enter",
+        "domain-roundtrip",
+        "places-navigation",
+        "look",
+        "move",
+        "input-neutral",
+        "collision",
+        "jump",
+        "fly",
+        "scene-reload"
+      ]
+    },
+    "world-web": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "focus-type": [
+          {
+            "text": "$unicode"
+          }
+        ],
+        "submit": [
+          {}
+        ],
+        "foreign-origin-message": [
+          {}
+        ],
+        "navigate": [
+          {
+            "resource": "page-b.html"
+          },
+          {
+            "resource": "missing.html"
+          }
+        ],
+        "back": [
+          {}
+        ],
+        "reload": [
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "surface": "str",
+        "text": "str",
+        "page": "str",
+        "bridgeMessages": "int",
+        "error": "str",
+        "focused": "bool",
+        "open": "bool"
+      },
+      "independentFields": [
+        "text",
+        "page",
+        "bridgeMessages"
+      ],
+      "existingModules": [
+        "world-web-video"
+      ]
+    }
+  }
+}
