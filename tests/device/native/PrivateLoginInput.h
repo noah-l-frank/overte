@@ -39,7 +39,7 @@ public:
                 || (operation!="inspect" && operation!="reserve" && operation!="deliver" && operation!="retire")) { return {}; }
         const auto now=QDateTime::currentMSecsSinceEpoch();
         if (now<=0 || now<_epoch) { return {}; } _epoch=now;
-        QJsonObject result{{"inputVersion",1},{"commandId",nonce},{"operation",operation},{"runId",run},{"inputId",id},
+        QJsonObject result{{"inputVersion",2},{"commandId",nonce},{"operation",operation},{"runId",run},{"inputId",id},
             {"instance",_instance},{"processId",static_cast<double>(QCoreApplication::applicationPid())},
             {"capturedEpochMs",static_cast<double>(now)},{"elapsedMs",static_cast<double>(_clock.elapsed())},
             {"sequence",static_cast<double>(++_sequence)},{"available",false}};
@@ -119,11 +119,13 @@ public:
         struct stat current;const bool present=!::fstatat(root.fd,rawName.constData(),&current,AT_SYMLINK_NOFOLLOW);
         if (!present && errno!=ENOENT) { return result; }
         const bool known=iterator!=_leases.end();
-        const bool owned=present && known && iterator->reserved && valid(current)
+        const int openFiles=known ? originalOpenFiles(iterator.value()) : 0;
+        if (openFiles<0) { return result; }
+        const bool owned=present && known && openFiles==1 && iterator->reserved && valid(current)
             && same(current,iterator->original);
         QJsonObject state{{"reserved",known && iterator->reserved},{"retired",known && iterator->retired},
             {"attempted",known && iterator->attempted},{"filePresent",present},{"fileOwned",owned},{"pending",_busy},
-            {"openFiles",known && iterator->originalFd && iterator->originalFd->fd>=0 ? 1 : 0}};
+            {"openFiles",openFiles}};
         // This is original native GUI delivery metadata only, not an auth result.
         if (known && !iterator->status.isEmpty()) { state["inputStatus"]=iterator->status; }
         result["available"]=true;result["source"]=state;
@@ -136,7 +138,7 @@ public:
         result["elapsedMs"]=static_cast<double>(_clock.elapsed());return result;
     }
 
-    static QString filename(const QString& id) { return "feature-login-input-"+id+".v1.json"; }
+    static QString filename(const QString& id) { return "feature-login-input-"+id+".v2.json"; }
 
 private:
 #if defined(Q_OS_UNIX)
@@ -188,8 +190,16 @@ private:
         }
         return ::fstatat(root,name.constData(),&current,AT_SYMLINK_NOFOLLOW)<0 && errno==ENOENT;
     }
+    static int originalOpenFiles(const Lease& lease) {
+        if (!lease.originalFd || lease.originalFd->fd<0) { return 0; }
+        struct stat current;
+        if (::fstat(lease.originalFd->fd,&current)) { return errno==EBADF ? 0 : -1; }
+        return same(current,lease.original) ? 1 : 0;
+    }
     static bool closeOriginal(Lease& lease) {
-        if (!lease.originalFd || lease.originalFd->fd<0) { return true; }
+        const int count=originalOpenFiles(lease);
+        if (count<0) { return false; }
+        if (!count) { if (lease.originalFd) { lease.originalFd->fd=-1; }return true; }
         const int fd=lease.originalFd->fd;
         if (!::close(fd)) { lease.originalFd->fd=-1;return true; }
         struct stat current;
