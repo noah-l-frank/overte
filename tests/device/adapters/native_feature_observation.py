@@ -52,14 +52,26 @@ def decode(raw):
 
 
 def validate(value, request, pid, epoch, *, require_animation=False, require_recorded_voice=False):
+    need(type(value) is dict)
+    optional = {'requestedEpochMs', 'animationFence'} & set(value)
     exact(value, {'schemaVersion', 'requestId', 'instance', 'sequence', 'capturedEpochMs',
-                  'processId', 'lifecycle', 'animation', 'graphics', 'audio', 'account'})
+                  'processId', 'lifecycle', 'animation', 'graphics', 'audio', 'account'} | optional)
     need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and value['requestId'] == request and integer(pid, 1)
          and integer(value['processId'], 1) and value['processId'] == pid
          and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}', value['instance'])
          and integer(value['sequence'], 1))
     fresh(value['capturedEpochMs'], epoch)
+    if 'requestedEpochMs' in value:
+        need(integer(value['requestedEpochMs'], 1)
+             and 0 <= value['capturedEpochMs'] - value['requestedEpochMs'] <= 5000)
+    fence = value.get('animationFence', {})
+    need(type(fence) is dict)
+    if fence:
+        exact(fence, {'rigId', 'sequence', 'requestedEpochMs'})
+        need(integer(fence['rigId']) and integer(fence['sequence'])
+             and integer(fence['requestedEpochMs'], 1)
+             and fence['requestedEpochMs'] == value.get('requestedEpochMs'))
     exact(value['lifecycle'], {'backgrounds', 'activations', 'launches'})
     need(all(integer(v, 0, 1000000) for v in value['lifecycle'].values())
          and value['lifecycle']['launches'] >= 1)
@@ -130,6 +142,10 @@ def validate(value, request, pid, epoch, *, require_animation=False, require_rec
                  and integer(clip['evaluatedEpochMs']) and integer(clip['evaluationSequence']))
         if require_animation:
             fresh(animation['capturedEpochMs'], epoch)
+            if fence:
+                need(animation['rigId'] == fence['rigId']
+                     and animation['evaluationSequence'] > fence['sequence']
+                     and animation['capturedEpochMs'] >= fence['requestedEpochMs'])
             need(animation['graphLoaded'] and animation['animationsEnabled']
                  and animation['evaluationSequence'] > 0 and len(animation['joints']) > 0)
             if animation['overrideActive']:
@@ -160,10 +176,10 @@ class NativeFeatureObservation:
                  and self.guard() is not False)
             requested_at = self.clock_ms()
             need(integer(requested_at, 1))
-            request = ('ios-' if self.ios else '') + uuid.uuid4().hex
-            self.send(dict(schemaVersion=1, commandId=request, action='feature-native-observe'))
             started = previous = self.monotonic()
             need(number(started, 0, 1e15))
+            request = ('ios-' if self.ios else '') + uuid.uuid4().hex
+            self.send(dict(schemaVersion=1, commandId=request, action='feature-native-observe'))
             source_floor, pinned_instance, pinned_rig = after_sequence, self.instance, self.rig
             seen_lifecycle, voice_floor = self.lifecycle, self.voice_event_sequence
             for _attempt in range(51):
@@ -177,10 +193,17 @@ class NativeFeatureObservation:
                 need(self.guard() is not False)
                 resample_animation = False
                 if type(value) is dict and value.get('requestId') == request:
+                    # HTTP/AFC provides no independent device wall clock. A
+                    # unique native request fence and bounded local transport
+                    # time establish this acquisition; all source ages use the
+                    # original native envelope clock, never a retimed pose.
+                    if self.ios:
+                        need(integer(value.get('requestedEpochMs'), 1))
+                        epoch = value.get('capturedEpochMs')
                     value = validate(value, request, self.pid, epoch, require_animation=False,
                                      require_recorded_voice=require_recorded_voice)
                     need(pinned_instance in (None, value['instance']) and value['sequence'] > source_floor
-                         and value['capturedEpochMs'] >= requested_at)
+                         and (self.ios or value['capturedEpochMs'] >= requested_at))
                     pinned_instance, source_floor = value['instance'], value['sequence']
                     if seen_lifecycle is not None:
                         need(all(value['lifecycle'][key] >= seen_lifecycle[key] for key in seen_lifecycle))
@@ -200,12 +223,16 @@ class NativeFeatureObservation:
                         try:
                             validate(value, request, self.pid, epoch, require_animation=True,
                                      require_recorded_voice=require_recorded_voice)
-                            need(animation['capturedEpochMs'] >= requested_at
+                            need((bool(value.get('animationFence')) if self.ios else
+                                  bool(value.get('animationFence')) or animation['capturedEpochMs'] >= requested_at)
                                  and animation['evaluationSequence'] > self.rig_sequence)
                         except NativeUIError:
                             resample_animation = True
                     if not resample_animation:
                         need(self.guard() is not False)
+                        completed_at = self.monotonic()
+                        need(number(completed_at, 0, 1e15) and previous <= completed_at
+                             and completed_at - started < 5)
                         self.instance, self.sequence = value['instance'], value['sequence']
                         self.lifecycle = value['lifecycle'].copy()
                         self.voice_event_sequence = voice_sequence

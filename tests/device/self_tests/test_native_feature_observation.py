@@ -13,6 +13,18 @@ from adapters.native_feature_observation import NativeFeatureObservation, valida
 from adapters.normal_ui import NativeUIError
 
 
+def probe_source():
+    probe = (Path(__file__).resolve().parents[1] / 'probe/overte_e2e_probe.js').read_text()
+    start = probe.index('    var normalFeatureInstance =')
+    end = probe.index('    var phoneTouchHistory', start)
+    branch = probe.index('    function applyClientCommand(command)')
+    branch_end = probe.index('        if (command && command.schemaVersion === 1\n                && /^ios-', branch)
+    source = probe[start:end] + probe[branch:branch_end] + '\n return false; }'
+    android = probe.index('    function applyAndroidControlCommand(command)')
+    android_end = probe.index('        if (applyVoice(command))', android)
+    return source + probe[android:android_end] + '\n return false; }'
+
+
 class Boundary:
     def __init__(self):
         self.clock, self.sequence = 0.0, 0
@@ -25,7 +37,8 @@ class Boundary:
             return
         self.sequence += 1
         self.sample = dict(schemaVersion=1, requestId=command['commandId'], instance='a' * 32,
-            sequence=self.sequence, capturedEpochMs=20000, processId=123,
+            sequence=self.sequence, capturedEpochMs=20000, requestedEpochMs=20000, processId=123,
+            animationFence=dict(rigId=2, sequence=self.sequence + 9, requestedEpochMs=20000),
             lifecycle=dict(backgrounds=0, activations=1, launches=1),
             animation=dict(rigId=2, capturedEpochMs=20000, evaluationSequence=self.sequence + 10,
                 animationsEnabled=True, graphLoaded=True, overrideActive=True,
@@ -257,15 +270,6 @@ class NativeFeatureObservationTests(unittest.TestCase):
         self.assertEqual(1, len(boundary.commands))
 
     def test_actual_probe_dispatches_closed_native_read_and_android_private_channel(self):
-        probe = (Path(__file__).resolve().parents[1] / 'probe/overte_e2e_probe.js').read_text()
-        start = probe.index('    var normalFeatureInstance =')
-        end = probe.index('    var phoneTouchHistory', start)
-        branch = probe.index('    function applyClientCommand(command)')
-        branch_end = probe.index('        if (command && command.schemaVersion === 1\n                && /^ios-', branch)
-        source = probe[start:end] + probe[branch:branch_end] + '\n return false; }'
-        android = probe.index('    function applyAndroidControlCommand(command)')
-        android_end = probe.index('        if (applyVoice(command))', android)
-        source += probe[android:android_end] + '\n return false; }'
         program = '''
 let calls=0,files=[];
 const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
@@ -281,13 +285,72 @@ if(calls!==1)throw Error("expectation accepted");
 delete Test.featureNativeObservation;
 applyClientCommand({...good,commandId:"ios-"+"c".repeat(32)});
 if(files[1].v.available!==false||files[1].v.requestId!=="ios-"+"c".repeat(32))throw Error("missing hook");
-'''.replace('SOURCE', source)
+'''.replace('SOURCE', probe_source())
+        completed = subprocess.run(['node', '-e', program], capture_output=True, text=True, timeout=5)
+        self.assertEqual(0, completed.returncode, completed.stderr)
+
+    def test_actual_probe_waits_without_publishing_pending_and_retires_superseded_native_reads(self):
+        program = '''
+let calls=[],files=[],timers=new Map(),next=0,pending=true;
+const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort());
+const Script={setTimeout:(fn,ms)=>{if(ms!==50)throw Error("interval");timers.set(++next,fn);return next;},
+ clearTimeout:id=>timers.delete(id)};
+const Test={featureNativeObservation:requestId=>{calls.push(requestId);return pending?
+ {schemaVersion:1,requestId,pending:true}:{schemaVersion:1,requestId,sequence:77,capturedEpochMs:12345};},
+ saveObject:(v,name)=>files.push({v,name})};
+SOURCE
+const command=id=>({schemaVersion:1,commandId:id.repeat(32),action:"feature-native-observe"});
+applyClientCommand(command("a"));
+if(files.length!==0||timers.size!==1)throw Error("pending published");
+let stale=timers.values().next().value;
+applyClientCommand(command("b"));
+stale(); // Even an already dispatched retired callback must not reset the fence.
+if(calls.length!==2||timers.size!==1||files.length!==0)throw Error("retired callback");
+pending=false;
+let callback=timers.values().next().value;timers.clear();callback();
+if(calls.length!==3||calls[2]!==command("b").commandId||files.length!==1||
+ files[0].v.capturedEpochMs!==12345||timers.size!==0)throw Error("original completion");
+pending=true;applyClientCommand(command("c"));
+let count=0;
+while(timers.size){let callback=timers.values().next().value;timers.clear();callback();if(++count>50)throw Error("unbounded");}
+if(count!==50||files.length!==2||files[1].v.available!==false)throw Error("missing evaluation green");
+'''.replace('SOURCE', probe_source())
         completed = subprocess.run(['node', '-e', program], capture_output=True, text=True, timeout=5)
         self.assertEqual(0, completed.returncode, completed.stderr)
 
     def test_ios_request_uses_its_original_closed_command_prefix(self):
         boundary = Boundary(); boundary.reader(ios=True).read(0)
         self.assertRegex(boundary.commands[0]['commandId'], '^ios-[0-9a-f]{32}$')
+
+    def test_ios_clock_skew_preserves_original_native_time_and_requires_native_request_fence(self):
+        boundary = Boundary(); reader = boundary.reader(ios=True)
+        reader.clock_ms = lambda: 9000000
+        value = reader.read(0, require_animation=True)
+        self.assertEqual(20000, value['animation']['capturedEpochMs'])
+        self.assertEqual(20000, value['requestedEpochMs'])
+        for fault in ('no-request', 'no-animation-fence', 'fence-counter', 'fence-rig', 'fence-epoch', 'old-packet'):
+            with self.subTest(fault=fault):
+                boundary = Boundary(); reader = boundary.reader(ios=True)
+                def mutate(value):
+                    if fault == 'no-request': value.pop('requestedEpochMs')
+                    elif fault == 'no-animation-fence': value.pop('animationFence')
+                    elif fault == 'fence-counter': value['animationFence']['sequence'] = value['animation']['evaluationSequence']
+                    elif fault == 'fence-rig': value['animationFence']['rigId'] += 1
+                    elif fault == 'fence-epoch': value['animationFence']['requestedEpochMs'] -= 1
+                    else: value['capturedEpochMs'] += 5001
+                boundary.mutate = mutate
+                with self.assertRaises(NativeUIError): reader.read(0, require_animation=True)
+                self.assertEqual(0, reader.sequence)
+
+    def test_transport_cannot_overrun_five_seconds_then_accept_even_with_matching_native_metadata(self):
+        boundary = Boundary(); reader = boundary.reader(ios=True)
+        def original():
+            boundary.clock += 5
+            return boundary.original()
+        reader.original = original
+        with self.assertRaises(NativeUIError): reader.read(0)
+        self.assertEqual(0, reader.sequence)
 
 
 if __name__ == '__main__': unittest.main()
