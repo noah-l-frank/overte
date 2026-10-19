@@ -121,6 +121,7 @@ def commands(profile: str, self_test_jobs: int | None = None) -> list[tuple[str,
             "test_native_feature_observation.py",
             "test_token_script_ui.py",
             "test_recorded_preview_signal.py",
+            "test_recorded_preview_evidence.py",
             "test_phone_navigation.py",
         ]
         stability = ROOT / "self_tests/test_stability_campaign.py"

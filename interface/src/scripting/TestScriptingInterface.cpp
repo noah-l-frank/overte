@@ -27,6 +27,7 @@
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
+#include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
@@ -36,6 +37,7 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QUuid>
+#include <QTimer>
 #endif
 
 #if defined(OVERTE_E2E_VOICE_TESTS)
@@ -135,6 +137,72 @@ QVariantMap TestScriptingInterface::featureNativeObservation(const QString& requ
     _featureCompletedRequest = requestId;
     _featureCompletedObservation = result;
     return result;
+}
+
+QVariantMap TestScriptingInterface::featureRecordedVoiceEvidence(const QString& requestId) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this, [&] { result = featureRecordedVoiceEvidence(requestId); }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(requestId).hasMatch()
+            || !overte::e2e::previewDirectory(_testResultsLocation)) { return {}; }
+    if (_featurePreviewRequest == requestId) { return _featurePreviewObservation; }
+    const auto requested = QDateTime::currentMSecsSinceEpoch();
+    QVariantMap source;
+    const auto audio = DependencyManager::get<AudioClient>();
+    const auto read = [&] { source = audio->featureRecordedVoiceEvidence(); };
+    if (QThread::currentThread() == audio->thread()) { read(); }
+    else { QMetaObject::invokeMethod(audio.data(), read, Qt::BlockingQueuedConnection); }
+    if (source.isEmpty()) { return {}; }
+    const auto input = source.take("inputPcm").toByteArray();
+    const auto sink = source.take("sinkPcm").toByteArray();
+    QDir directory(_testResultsLocation);
+    if (!overte::e2e::writePreviewFile(directory.filePath("recorded-preview-input.pcm16le"), input, _featurePreviewInputDigest)
+            || !overte::e2e::writePreviewFile(directory.filePath("recorded-preview-sink.pcm16le"), sink, _featurePreviewSinkDigest)) { return {}; }
+    const auto artifact = [&](const char* name, const char* tap, const QByteArray& bytes, const QByteArray& digest) {
+        return QVariantMap{{"name", QString::fromLatin1(name)}, {"tap", QString::fromLatin1(tap)},
+            {"bytes", bytes.size()}, {"sha256", QString::fromLatin1(digest)}};
+    };
+    source["input"] = artifact("recorded-preview-input.pcm16le", "capture-before-normalization", input, _featurePreviewInputDigest);
+    source["sink"] = artifact("recorded-preview-sink.pcm16le", "loopback-device-accepted-write", sink, _featurePreviewSinkDigest);
+    QVariantMap result{{"schemaVersion", 1}, {"requestId", requestId}, {"instance", _featureObservationInstance},
+        {"sequence", static_cast<qulonglong>(++_featurePreviewSequence)}, {"requestedEpochMs", requested},
+        {"capturedEpochMs", QDateTime::currentMSecsSinceEpoch()}, {"processId", QCoreApplication::applicationPid()},
+        {"source", source}};
+    _featurePreviewRequest = requestId;
+    _featurePreviewObservation = result;
+    const auto lease = ++_featurePreviewLease;
+    QTimer::singleShot(30000, this, [this, lease, requestId] {
+        if (_featurePreviewLease == lease) { releaseFeatureRecordedVoiceEvidence(requestId); }
+    });
+    return result;
+}
+
+QVariantMap TestScriptingInterface::releaseFeatureRecordedVoiceEvidence(const QString& requestId) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this, [&] { result = releaseFeatureRecordedVoiceEvidence(requestId); }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !QCoreApplication::arguments().contains("--testScript")
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(requestId).hasMatch()
+            || !overte::e2e::previewDirectory(_testResultsLocation)) { return {}; }
+    const auto audio = DependencyManager::get<AudioClient>();
+    bool memoryCleared = false;
+    const auto clear = [&] {
+        audio->releaseFeatureRecordedVoiceEvidence();
+        memoryCleared = audio->featureRecordedVoiceEvidence().isEmpty();
+    };
+    if (QThread::currentThread() == audio->thread()) { clear(); }
+    else { QMetaObject::invokeMethod(audio.data(), clear, Qt::BlockingQueuedConnection); }
+    const QDir directory(_testResultsLocation);
+    const bool inputRemoved = overte::e2e::removePreviewFile(directory.filePath("recorded-preview-input.pcm16le"), _featurePreviewInputDigest);
+    const bool sinkRemoved = overte::e2e::removePreviewFile(directory.filePath("recorded-preview-sink.pcm16le"), _featurePreviewSinkDigest);
+    _featurePreviewRequest.clear(); _featurePreviewObservation.clear(); ++_featurePreviewLease;
+    return {{"schemaVersion", 1}, {"requestId", requestId}, {"released", memoryCleared && inputRemoved && sinkRemoved}};
 }
 #endif
 
@@ -399,6 +467,17 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     }
 
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
+            || filename == "recorded-preview-observation.json") {
+        if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
+        QSaveFile output(filepath);
+        output.setDirectWriteFallback(false);
+        if (output.open(QIODevice::WriteOnly) && output.setPermissions(QFile::ReadOwner | QFile::WriteOwner)
+                && output.write(jsonData) == jsonData.size()) { output.commit(); }
+        return;
+    }
+#endif
     QFile file(filepath);
 
     file.open(QFile::WriteOnly);
