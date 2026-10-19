@@ -650,6 +650,19 @@ class ShippingPolicyTests(unittest.TestCase):
             candidate['tools/test-evidence/'+name]=blob(('changed '+name).encode())
         target,trusted=self.target_context(root,raw,base)
         native=json.loads(raw)['suites']['device-control-plane-full']
+        spec=importlib.util.spec_from_file_location('affected_host_policy',root/'tools/repository-checks/host_selection.py')
+        host=importlib.util.module_from_spec(spec);spec.loader.exec_module(host)
+        actual_base,actual_candidate=base,candidate
+        original_base,original_candidate=deepcopy(base),deepcopy(candidate)
+        raw_readers=[inputs.device_reader_digest(tree,native['native_independent_paths'])
+                     for tree in (base,candidate)]
+        raw_programs=[host.program_digest(tree,root) for tree in (base,candidate)]
+        routing=host._ios_routing_views(candidate,base,trusted,root,target)
+        # This historical full-subset fixture uses the original reader family,
+        # just like the protected finite routing comparison. Actual raw maps
+        # and reader identities remain independently preserved below.
+        if routing is not None:
+            base,candidate=routing['base'],routing['candidate']
         # The installed compiler-data family has a separate complete raw
         # reader certificate; retain the original target certificate as well.
         reader=inputs.device_reader_digest(base,native['native_independent_paths'])
@@ -664,14 +677,19 @@ class ShippingPolicyTests(unittest.TestCase):
         self.assertIn('attested-runtime',plan['required'])
         self.assertIn('test-evidence',plan['required'])
         self.assertEqual(plan['required_setup'],['host-full'])
-        spec=importlib.util.spec_from_file_location('affected_host_policy',root/'tools/repository-checks/host_selection.py')
-        host=importlib.util.module_from_spec(spec);spec.loader.exec_module(host)
         selected=host.select(candidate,plan['paths'],True,trusted_tree=trusted,base_tree=base,target=target)
         self.assertEqual(selected['reason'],'protected-affected-dependencies')
         self.assertEqual(selected['suites'],plan['required'])
         self.assertTrue(selected['full_host'])
         self.assertEqual(selected['include_platform'],base['tests/platform-profile.json']!=inputs._AFFECTED_SHARED_PROFILE)
         self.assertFalse(selected['affected']['reusable'])
+        self.assertEqual((actual_base,actual_candidate),(original_base,original_candidate))
+        self.assertEqual([inputs.device_reader_digest(tree,native['native_independent_paths'])
+                          for tree in (actual_base,actual_candidate)],raw_readers)
+        self.assertEqual([host.program_digest(tree,root) for tree in (actual_base,actual_candidate)],raw_programs)
+        if routing is not None:
+            self.assertNotEqual(original_base,base)
+            self.assertNotEqual(original_candidate,candidate)
 
     def test_preinstallation_source_cannot_inherit_the_prospective_native_omissions(self):
         root,registry,raw,base=self.source_context()

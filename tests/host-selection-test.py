@@ -77,6 +77,22 @@ class HostSelectionTests(unittest.TestCase):
                            unknown=unknown, trusted_tree=self.tree if trusted_tree is None else trusted_tree,
                            target=target, base_tree=base_tree, package_paths=package_paths)
 
+    def reviewed_fixture_tree(self, tree, target):
+        # Positive synthetic target fixtures compare the same finite routing
+        # family as the protected selector. Keep actual Utop/Uboot maps and raw
+        # program identities intact; this is not a new reviewed source hash.
+        original=copy_git_tree(tree)
+        raw=HOST.program_digest(tree)
+        native=json.loads((ROOT/HOST.inputs.AFFECTED_POLICY).read_bytes())['suites'][
+            'device-control-plane-full']['native_independent_paths']
+        reader=HOST.inputs.device_reader_digest(tree,native)
+        routing=HOST._ios_routing_views(tree,tree,self.tree,ROOT,target)
+        comparison=tree if routing is None else routing['candidate']
+        self.assertEqual(tree,original)
+        self.assertEqual(HOST.program_digest(tree),raw)
+        self.assertEqual(HOST.inputs.device_reader_digest(tree,native),reader)
+        return copy_git_tree(comparison)
+
     def producer_transition(self):
         policy = HOST.package_policy()
         generations = {generation['name']: generation['workflows'] for generation in policy.workflow_generations()}
@@ -1075,7 +1091,9 @@ class HostSelectionTests(unittest.TestCase):
                     self.tree, [path], self.tree, target='apple-ios'))
 
     def test_ios_fixture_fallback_does_not_broaden_workflow_or_proved_targets(self):
-        reviewed = {target: HOST.program_digest(self.tree) for target in HOST.REVIEWED_CHILD_PROGRAMS}
+        fixtures={target:self.reviewed_fixture_tree(self.tree,target)
+                  for target in HOST.REVIEWED_CHILD_PROGRAMS}
+        reviewed={target:HOST.program_digest(tree) for target,tree in fixtures.items()}
         with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS, reviewed):
             path = '.github/workflows/issue-intake.yml'
             previous = copy_git_tree(self.tree);previous[path]['sha'] = 'b' * 40
@@ -1085,9 +1103,10 @@ class HostSelectionTests(unittest.TestCase):
             self.assertNotIn('device-control-plane-full', selected['suites'])
             for target in ('main', 'apple-main', 'android-main', 'android-phone', 'android-vr', 'android-vr-pico'):
                 for path, owners in HOST.REQUIRED_INPUT_OWNERS.items():
-                    previous = copy_git_tree(self.tree);previous[path]['sha'] = 'c' * 40
+                    current=fixtures.get(target,self.tree)
+                    previous = copy_git_tree(current);previous[path]['sha'] = 'c' * 40
                     with self.subTest(target=target, path=path):
-                        selected = self.selected([path], base_tree=previous, target=target)
+                        selected = self.selected([path], tree=current,base_tree=previous, target=target)
                         self.assertEqual(set(selected['suites']), self.ci_quick | set(owners))
                         self.assertNotIn('device-control-plane-full', selected['suites'])
                         self.assertFalse(selected['include_platform'])
@@ -1227,6 +1246,7 @@ class HostSelectionTests(unittest.TestCase):
             with self.subTest(target=target):
                 child=copy_git_tree(self.tree)
                 child['tests/platform-profile.json']['sha']=str(index+1)*40
+                child=self.reviewed_fixture_tree(child,target)
                 digest=HOST.program_digest(child)
                 previous=copy_git_tree(child);previous[HOST.CONTROL_PLANE]['sha']='a'*40
                 with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{target:digest}):
@@ -1696,6 +1716,45 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         'ios/tests/ios-full-client-sccache-contract-test.py': '100644',
         'ios/tests/qt-checkpoint-artifact-test.py': '100755',
     }
+
+
+    def test_routing_data_comparison_is_sparse_safe_source_bound_and_import_free(self):
+        topology='.github/workflows/apple-branch-topology.yml'
+        bootstrap='.github/workflows/ios-bootstrap.yml'
+        ordinary=lambda sha:{'mode':'100644','type':'blob','sha':sha}
+        data={topology:('9a8aa6f7a9fc28924b5212c9be703c213f3dd694','455fdd13c7580f474e291f67595c4d97a0891f04'),
+              bootstrap:('e8df02954fc83cc1efefcf36adbaeb19fe21cdae','787651befbf7a627633b80185d798d7567db2466')}
+        helper='tools/ios-build-qualification/inputs.py'
+        trusted={helper:ordinary('275e58dce4e1f89a3de94b1e87f1a8f159ea56fe')}
+        def stage(value,parent=False):
+            return {topology:ordinary(data[topology][value>0]),bootstrap:ordinary(
+                'ea772c34abdee24a42babd94529bf1e753020fb3' if parent else data[bootstrap][value==2])}
+        with tempfile.TemporaryDirectory(prefix='host-routing-without-ios-policy-') as folder,patch.dict(sys.modules):
+            sparse=Path(folder);self.assertFalse((sparse/helper).exists())
+            sys.modules.pop('host_protected_ios_routing',None)
+            for parent,pairs in ((True,((0,1),(1,1))),(False,((0,1),(1,1),(1,2),(2,2)))):
+                for before_stage,after_stage in pairs:
+                    before,current=stage(before_stage,parent),stage(after_stage,parent)
+                    raw=deepcopy((before,current,trusted));target='apple-main' if parent else 'apple-ios'
+                    with self.subTest(parent=parent,before=before_stage,after=after_stage):
+                        full=HOST._ios_routing_views(current,before,trusted,ROOT,target)
+                        self.assertIsNotNone(full)
+                        self.assertEqual(HOST._ios_routing_views(current,before,trusted,sparse,target),full)
+                        self.assertEqual((before,current,trusted),raw)
+            self.assertNotIn('host_protected_ios_routing',sys.modules)
+            for change in ('policy','policy-mode','reverse','skip-stage','unknown','mode','alias','parent','target'):
+                before,current,authority=stage(1),stage(2),deepcopy(trusted);target='apple-ios'
+                if change=='policy':authority[helper]['sha']='a'*40
+                elif change=='policy-mode':authority[helper]['mode']='100755'
+                elif change=='reverse':before,current=current,before
+                elif change=='skip-stage':before=stage(0)
+                elif change=='unknown':current[bootstrap]['sha']='b'*40
+                elif change=='mode':current[bootstrap]['mode']='100755'
+                elif change=='alias':current[bootstrap]['mode']='120000'
+                elif change=='parent':target='apple-main'
+                else:target='android-vr-pico'
+                with self.subTest(change=change):
+                    self.assertIsNone(HOST._ios_routing_views(current,before,authority,sparse,target))
 
     @contextlib.contextmanager
     def private_git_profiles(self):

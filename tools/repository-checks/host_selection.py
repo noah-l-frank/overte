@@ -396,44 +396,53 @@ def regular_ci_inventory(plan, base_tree, candidate_tree):
 
 
 def _ios_routing_views(tree, base_tree, trusted_tree, trusted_root, target):
-    """Exact protected routing-data comparisons, never candidate code or E."""
+    """Finite source-bound routing data; no physical or candidate policy import."""
     if target not in {"apple-main", "apple-ios"} or not all(type(value) is dict
             for value in (tree, base_tree, trusted_tree)):
         return None
-    try:
-        path = Path(trusted_root) / "tools/ios-build-qualification/inputs.py"
-        if any(part.is_symlink() for part in (path, *path.parents)):
-            return None
-        raw = path.read_bytes()
-        entry = {"mode": "100644", "type": "blob", "sha": hashlib.sha1(
-            b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()}
-        if trusted_tree.get("tools/ios-build-qualification/inputs.py") != entry:
-            return None
-        spec = importlib.util.spec_from_file_location("host_protected_ios_routing", path)
-        policy = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = policy
-        spec.loader.exec_module(policy)
-        snapshots = []
-        for value in (base_tree, tree):
-            inputs._validate_tree(value)
-            if any(item["mode"] not in {"100644", "100755"} or item["type"] != "blob"
-                   for item in value.values()):
+    # This exact reviewed independent iOS policy defines the same two data
+    # stages. Its immutable identity is a family prerequisite, never executable
+    # input. Sparse trusted checkouts and protected projections need no new file.
+    policy = {"mode": "100644", "type": "blob", "sha": "275e58dce4e1f89a3de94b1e87f1a8f159ea56fe"}
+    if trusted_tree.get("tools/ios-build-qualification/inputs.py") != policy:
+        return None
+    data = {
+        ".github/workflows/apple-branch-topology.yml": (
+            "9a8aa6f7a9fc28924b5212c9be703c213f3dd694", "455fdd13c7580f474e291f67595c4d97a0891f04"),
+        ".github/workflows/ios-bootstrap.yml": (
+            "e8df02954fc83cc1efefcf36adbaeb19fe21cdae", "787651befbf7a627633b80185d798d7567db2466"),
+    }
+    parent = target == "apple-main"
+    def stage(snapshot):
+        if parent:
+            bootstrap = snapshot.get(".github/workflows/ios-bootstrap.yml")
+            if bootstrap != {"mode": "100644", "type": "blob", "sha": "ea772c34abdee24a42babd94529bf1e753020fb3"}:
                 return None
-            snapshots.append(policy.Snapshot("", "", tuple(policy.Entry(
-                name, item["mode"], item["type"], item["sha"]) for name, item in sorted(value.items()))))
-        parent = target == "apple-main"
-        stages = [policy.routing_data_stage(snapshot, parent=parent) for snapshot in snapshots]
-        if None in stages or stages == [0, 0] or target == "apple-main" and 2 in stages:
+            variants = ((0,), (1,))
+        else:
+            variants = ((0, 0), (1, 0), (1, 1))
+        for index, values in enumerate(variants):
+            if all(snapshot.get(path) == {"mode": "100644", "type": "blob", "sha": identities[variant]}
+                   for (path, identities), variant in zip(data.items(), values)):
+                return index
+        return None
+    try:
+        for snapshot in (base_tree, tree):
+            inputs._validate_tree(snapshot)
+            if any(item["mode"] not in {"100644", "100755"} or item["type"] != "blob"
+                   for item in snapshot.values()):
+                return None
+        stages = [stage(snapshot) for snapshot in (base_tree, tree)]
+        if None in stages or stages == [0, 0] or parent and 2 in stages:
             return None
-        changed = policy.routing_data_changes(*snapshots, parent=parent)
-        if changed is None:
+        changed = {path for path in data if base_tree.get(path) != tree.get(path)}
+        if changed and not 0 <= stages[1] - stages[0] <= 1:
             return None
-        comparisons = [policy.routing_data_comparison(snapshot, parent=parent) for snapshot in snapshots]
-        return {"paths": changed, "base": {entry.path: {"mode": entry.mode,
-                    "type": entry.object_type, "sha": entry.oid} for entry in comparisons[0].entries},
-                "candidate": {entry.path: {"mode": entry.mode, "type": entry.object_type,
-                    "sha": entry.oid} for entry in comparisons[1].entries}}
-    except (ValueError, OSError, KeyError, TypeError, AttributeError, ImportError):
+        comparisons = [{path: {**item, "sha": data[path][0]}
+                        if path in data and (not parent or path == ".github/workflows/apple-branch-topology.yml")
+                        else dict(item) for path, item in snapshot.items()} for snapshot in (base_tree, tree)]
+        return {"paths": changed, "base": comparisons[0], "candidate": comparisons[1]}
+    except (ValueError, OSError, KeyError, TypeError, AttributeError):
         return None
 
 
