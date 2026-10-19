@@ -977,6 +977,7 @@ entries out of this shared table allows it to propagate unchanged to children.
 | `server-console-behavior` | `quick` | `python3 tests/run-project-tests.py --suite server-console-behavior` |
 | `source-layout` | `quick` | `python3 tests/run-project-tests.py --suite source-layout` |
 | `shared-script-behavior` | `host` | `python3 tests/run-project-tests.py --suite shared-script-behavior` |
+| `native-owner-lifecycle` | `host` | `python3 tests/run-project-tests.py --suite native-owner-lifecycle` |
 | `native-ctest` | `native` | `python3 tests/run-project-tests.py --suite native-ctest` |
 <!-- generated:test-suites:end -->
 
