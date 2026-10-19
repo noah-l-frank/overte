@@ -24,7 +24,7 @@ def pins(path=PINS):
         exact(row,{'id','sourcePath','sourceBase','encoding','codeUnits','sha256','ui','chooserAfterPlay'})
         need(type(row['id']) is str and row['id'] in PROFILES and row['id'] not in seen
              and type(row['sourcePath']) is str and row['sourcePath'] in PATHS and type(row['sourceBase']) is str
-             and re.fullmatch('[0-9a-f]{10,40}',row['sourceBase']) is not None
+             and re.fullmatch('[0-9a-f]{40}',row['sourceBase']) is not None
              and row['encoding']=='utf-16le-code-units' and integer(row['codeUnits'],1,4194304)
              and type(row['sha256']) is str and re.fullmatch('[0-9a-f]{64}',row['sha256']) is not None
              and row['ui'] in ('native-qml','tablet-web') and row['chooserAfterPlay'] in ('hidden','retained'))
