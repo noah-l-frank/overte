@@ -4,6 +4,7 @@
 
 #include "NormalScriptFileControls.h"
 #include "NormalAudioControls.h"
+#include "NormalGraphicsControls.h"
 #include <ui/NativeFieldInput.h>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -24,10 +25,10 @@ namespace overte::e2e {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 class NormalControlUi {
 public:
-    enum class Surface { ScriptFiles, Audio };
+    enum class Surface { ScriptFiles, Audio, Graphics };
     explicit NormalControlUi(Surface surface = Surface::ScriptFiles) : _surface(surface), _instance(nonce()), _generation(nonce()) { _clock.start(); }
 
-    QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}) {
+    QJsonObject observe(QQuickItem* root, QQuickWindow* window, const AudioUiContext& audio = {}, const GraphicsUiContext& graphics = {}) {
         if (!qApp || QThread::currentThread() != qApp->thread()
                 || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
         if (_root != root || _window != window) {
@@ -35,19 +36,21 @@ public:
         }
         bool ready = root && window && root->window() == window
             && root->thread() == qApp->thread() && window->thread() == qApp->thread()
-            && (_surface != Surface::Audio || audio.valid);
+            && (_surface != Surface::Audio || audio.valid) && (_surface != Surface::Graphics || graphics.valid);
         QHash<QString, Control> controls;
         int visited {0};
         bool ambiguous {false};
         std::function<void(QQuickItem*, int)> walk = [&](QQuickItem* item, int depth) {
             if (!item || ambiguous) { return; }
             if (++visited > 4096 || depth > 128 || item->thread() != qApp->thread()) { ambiguous = true; return; }
-            if (!visibleRect(item, window).isEmpty()) {
-                const auto id = _surface == Surface::Audio ? audioControlId(item) : scriptFileControlId(item);
+            if (_surface == Surface::Graphics ? graphicsObservable(item) : !visibleRect(item, window).isEmpty()) {
+                const auto id = _surface == Surface::Audio ? audioControlId(item)
+                    : _surface == Surface::Graphics ? graphicsControlId(item) : scriptFileControlId(item);
                 if (!id.isEmpty()) {
                     if (controls.contains(id)) { ambiguous = true; return; }
                     const auto previous = _controls.value(id);
-                    const auto source = _surface == Surface::Audio ? audioControlSource(item, id, audio) : scriptFileControlSource(item);
+                    const auto source = _surface == Surface::Audio ? audioControlSource(item, id, audio)
+                        : _surface == Surface::Graphics ? graphicsControlSource(item, id, graphics) : scriptFileControlSource(item);
                     controls.insert(id, {item, previous.item == item && previous.source == source ? previous.token : nonce(), source});
                 }
             }
@@ -73,6 +76,7 @@ public:
             QJsonObject row{{"id", id}, {"token", control.token}, {"enabled", control.item->isEnabled()},
                 {"focused", control.item->hasActiveFocus()}};
             if (_surface == Surface::Audio) { appendAudioControlObservation(row, control.item, id, audio); }
+            else if (_surface == Surface::Graphics) { appendGraphicsControlObservation(row, control.item, id, graphics); }
             else { appendScriptFileObservation(row, control.item, id); }
             rows.append(row);
         }
@@ -82,16 +86,18 @@ public:
             {"capturedEpochMs", static_cast<double>(QDateTime::currentMSecsSinceEpoch())},
             {"processId", static_cast<double>(QCoreApplication::applicationPid())},
             {"ready", ready}, {"controls", rows}};
-        result[_surface == Surface::Audio ? "audioControlsVersion" : "fileControlsVersion"] = 1;
+        result[_surface == Surface::Audio ? "audioControlsVersion"
+            : _surface == Surface::Graphics ? "graphicsControlsVersion" : "fileControlsVersion"] = 1;
         return result;
     }
 
     QJsonObject apply(QQuickItem* root, QQuickWindow* window, const QJsonObject& command,
                       const std::function<bool(QQuickItem*)>& pointerClick, const AudioUiContext& audio = {},
-                      const std::function<bool(QQuickItem*, const QPointF&)>& pointerAt = {}) {
+                      const std::function<bool(QQuickItem*, const QPointF&)>& pointerAt = {},
+                      const GraphicsUiContext& graphics = {}) {
         if (!qApp || QThread::currentThread() != qApp->thread()
                 || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
-        const auto current = observe(root, window, audio);
+        const auto current = observe(root, window, audio, graphics);
         const auto request = command.value("commandId").toString();
         QJsonObject result{{"schemaVersion", 1}, {"commandId", request}, {"performed", false},
             {"instance", _instance}, {"generation", _generation}, {"sequence", command.value("sequence")},
@@ -102,6 +108,7 @@ public:
         if (action == "replace") { fields.insert("text"); }
         if (action == "select-index") { fields.insert("index"); }
         if (action == "scroll") { fields.insert("direction"); }
+        if (action == "set-value") { fields.insert("value"); }
         const auto keys = command.keys();
         qint64 sequence {0}, observed {0};
         if (!current.value("ready").toBool() || QSet<QString>(keys.begin(), keys.end()) != fields
@@ -112,6 +119,7 @@ public:
                 || !integer(command.value("observedElapsedMs"), observed) || observed > _clock.elapsed()
                 || _clock.elapsed() - observed > 5000
                 || (_surface == Surface::Audio ? action != "activate" && action != "scroll"
+                    : _surface == Surface::Graphics ? action != "activate" && action != "scroll" && action != "set-value"
                     : action != "activate" && action != "replace" && action != "submit" && action != "select-index")) { return result; }
         // Consume intent before dispatch; never replay uncertain native input.
         _lastCommandSequence = sequence;
@@ -120,7 +128,22 @@ public:
         if (!control.item || !control.item->isEnabled() || command.value("controlToken") != QJsonValue(control.token)
                 || visibleRect(control.item, window).isEmpty()) { return result; }
         bool delivered {false};
-        if (_surface == Surface::Audio) {
+        if (_surface == Surface::Graphics) {
+            QJsonObject row;
+            appendGraphicsControlObservation(row, control.item, id, graphics);
+            if (!row.value("inputReady").toBool()) { return result; }
+            QPointF point;
+            if (action == "set-value" && id == "graphics.resolution" && command.value("value").isDouble()) {
+                if (graphicsSliderPoint(control.item,command.value("value").toDouble(),point)
+                        && ownsPoint(control.item,window,point) && pointerAt) { delivered = pointerAt(control.item,point); }
+            } else if (action == "scroll" && id == "graphics.scrollbar") {
+                if (graphicsScrollPoint(control.item,command.value("direction").toString(),point)
+                        && ownsPoint(control.item,window,point) && pointerAt) { delivered = pointerAt(control.item,point); }
+            } else if (action == "activate" && id != "graphics.page" && id != "graphics.scrollbar" && id != "graphics.resolution") {
+                point = control.item->mapToScene(QPointF(control.item->width()/2,control.item->height()/2));
+                if (ownsPoint(control.item,window,point) && pointerClick) { delivered = pointerClick(control.item); }
+            }
+        } else if (_surface == Surface::Audio) {
             QJsonObject row;
             appendAudioControlObservation(row, control.item, id, audio);
             if (!row.value("inputReady").toBool()) { return result; }
@@ -231,6 +254,10 @@ private:
     qint64 _lastCommandSequence {0};
 };
 class ScriptFileUi : public NormalControlUi {};
+class GraphicsUi : public NormalControlUi {
+public:
+    GraphicsUi() : NormalControlUi(Surface::Graphics) {}
+};
 class AudioUi : public NormalControlUi {
 public:
     AudioUi() : NormalControlUi(Surface::Audio) {}
