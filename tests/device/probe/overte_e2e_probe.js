@@ -1105,7 +1105,7 @@
             }
             return;
         }
-        if (validAccountProbeCommand(command)) {
+        if (command && command.action === "feature-account-probe" && validAccountProbeCommand(command)) {
             if (command.commandId !== lastAccountProbeCommand) {
                 if (accountProbeTimer !== null) { Script.clearTimeout(accountProbeTimer); accountProbeTimer = null; }
                 lastAccountProbeCommand = String(command.commandId); saveAccountProbe(command);
