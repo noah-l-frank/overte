@@ -883,7 +883,7 @@
 
     function applyClientCommand(command) {
         if (command && command.schemaVersion === 1
-                && /^[0-9a-f]{32}$/.test(command.commandId)
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
                 && command.action === "normal-feature-observe"
                 && typeof command.includeAvatarEntities === "boolean"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "includeAvatarEntities"])) {

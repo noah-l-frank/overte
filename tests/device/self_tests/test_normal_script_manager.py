@@ -210,6 +210,19 @@ class NormalScriptManagerTests(unittest.TestCase):
         self.assertEqual(request, result['requestId'])
         self.assertGreaterEqual(clock[0], 0.2)
 
+    def test_existing_http_fixture_accepts_only_the_closed_ios_observation_request(self):
+        from fixture.serve import FixtureState
+        fixture = FixtureState()
+        value = dict(schemaVersion=1, commandId='ios-' + 'a' * 32,
+                     action='normal-feature-observe', includeAvatarEntities=True)
+        self.assertEqual(value, fixture.set_client_command(value))
+        for changes in ({'includeAvatarEntities': 1}, {'schemaVersion': True},
+                        {'commandId': 'a' * 32}, {'state': {}}, {'expected': []}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                fixture.set_client_command(value | changes)
+        document, epoch = self.native.observe(0)
+        diagnostic(document | {'requestId': value['commandId']}, epoch)
+
     def test_nonnative_input_locator_classes_and_unmeasured_text_are_rejected(self):
         for kind in ('android.widget.Button', 'arbitrary.selector', '*'):
             with self.assertRaises(NativeUIError): Locator('class name', kind)

@@ -482,6 +482,11 @@ class FixtureState:
             valid = (set(command) == {"schemaVersion", "commandId", "action"}
                      and type(command["schemaVersion"]) is int
                      and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None)
+        elif action == "normal-feature-observe":
+            valid = (set(command) == {"schemaVersion", "commandId", "action", "includeAvatarEntities"}
+                     and type(command["schemaVersion"]) is int
+                     and re.fullmatch(r"ios-[0-9a-f]{32}", command["commandId"]) is not None
+                     and type(command["includeAvatarEntities"]) is bool)
         elif action == "text-fixture":
             valid = (set(command) == {"schemaVersion", "commandId", "action", "operation"}
                      and type(command["schemaVersion"]) is int

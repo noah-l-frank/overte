@@ -179,6 +179,38 @@ class NativeUI:
             raise NativeUIError('Normal native text observation is malformed')
         return value
 
+    def replace_ascii_keys(self, locator, text):
+        """Edit a real field through ordinary keyboard events (Qt textEdited).
+
+        Accessibility set-value may update text without an actual edit signal.
+        Owned Create names/numbers are bounded ASCII and need native key input.
+        The selected driver's real W3C keyboard support remains a device check.
+        """
+        if (type(text) is not str or len(text) > 256
+                or any(not 32 <= ord(character) <= 126 for character in text)):
+            raise NativeUIError('Normal keyboard replacement requires bounded ASCII text')
+        element = self._resolve(locator)
+        self._check()
+        self._request('POST', element + '/click', {})
+        self._check()
+        actions = [{'type': 'keyDown', 'value': '\ue009'},
+                   {'type': 'keyDown', 'value': 'a'}, {'type': 'keyUp', 'value': 'a'},
+                   {'type': 'keyUp', 'value': '\ue009'}]
+        for character in text:
+            actions.extend(({'type': 'keyDown', 'value': character},
+                            {'type': 'keyUp', 'value': character}))
+        try:
+            self._check()
+            self._request('POST', '/actions', {'actions': [
+                {'type': 'key', 'id': 'overte-owned-feature-keyboard', 'actions': actions}]})
+            self._check()
+        finally:
+            # Release owned modifiers even if the input response/process was
+            # lost. Never replay an uncertain replacement action sequence.
+            self.release_actions()
+        if self.text(locator) != text:
+            raise NativeUIError('Normal keyboard replacement was not observed in its field')
+
     def release_actions(self):
         # Release only this owned W3C session's inputs, including when its
         # process/foreground guard has failed. Never retry uncertain input.
