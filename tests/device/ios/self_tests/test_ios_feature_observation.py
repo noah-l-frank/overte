@@ -20,8 +20,8 @@ from ios.adapters.adapter import IOSAdapter
 from ios.adapters.appium_adapter import WebDriverRequestError
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
-from self_tests.test_native_script_observation import Boundary as ScriptBoundary
-from adapters.native_script_observation import loaded_relative_modules, running_owned_engine
+from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, RUN as EFFECT_RUN
+from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 
 
 class Native:
@@ -172,6 +172,21 @@ class FeatureObservationTests(unittest.TestCase):
         reader = self.observer.recorded_preview_observer()
         with self.assertRaises(NativeUIError): reader.read(0)
         self.assertEqual([], self.native.reads)
+
+    def test_ios_original_native_effect_extension_keeps_edit_time_and_stalled_counter(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        original = source.mutate
+        def effects(value):
+            original(value); effect_source(value)
+        source.mutate = effects
+        reader = self.observer.script_execution_observer()
+        first = reader.read(0, require_effects=True)
+        self.assertEqual(2, measured_effect(first, EFFECT_RUN)['ticks'])
+        second = reader.read(first['sequence'], require_effects=True)
+        self.assertEqual(measured_effect(first, EFFECT_RUN), measured_effect(second, EFFECT_RUN))
+        self.native.pid = 43; before = len(source.commands)
+        with self.assertRaises(NativeUIError): reader.read(second['sequence'], require_effects=True)
+        self.assertEqual(before, len(source.commands))
 
     def test_ios_script_execution_component_keeps_original_afc_module_history(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
