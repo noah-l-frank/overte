@@ -2,8 +2,8 @@
 
 This source packet supplies E2E-only GL readback, a main-mono frame hook,
 original-memory/chunk readers and the closed existing probe/fixture dispatch.
-**Concrete platform transport/receipt cleanup and persistent ownership
-coordination are not connected yet.** No world image can be obtained through a
+Persistent acquisition/receipt ownership and closed Android receipt IO now
+exist; **concrete platform factories are not connected yet**. No world image can be obtained through a
 complete feature adapter at this stage. Full capabilities remain unadvertised.
 Native C++ is uncompiled and all devices unqualified.
 
@@ -113,10 +113,21 @@ is zero. A release ACK alone cannot establish absence. Each storage command's
 original receipt is `world-render-storage-<normalized command nonce>.json` in
 the existing private results channel. Platform IO must remove these owned
 receipt artifacts and independently verify absence, including partial/timeout
-receipts; **that receipt cleanup and the persistent acquisition owner journal
-are still missing**. Memory absence does not prove file-artifact cleanup. Full
-area activation must remain closed until both are implemented. The PNG itself
-never needs a writable filesystem fallback.
+receipts. `WorldRenderOwner` persists version-1 context-bound acquisition and
+each unique receipt intent before dispatch, using the existing private atomic
+store. At most 1024 receipt IDs fit within its 64KiB bound. Recovery cannot
+adopt a different process/session/candidate or replace an unfinished capture.
+`OwnedWorldRenderCapture` first requires fresh native memory absence, then
+removes only journaled receipt files and separately queries each absence, before
+discarding the journal. Failure preserves ownership for later recovery. The
+Android IO performs closed, nonrecursive run-as removal without following
+receipt/parent symlinks, under before/after binding guards. The latest storage
+command is deduplicated by the single-in-flight probe channel; release cancels
+the owned capture timer before cleanup, so periodic polling cannot recreate a
+deleted receipt. Deliberate original acquisition metadata remains private run
+evidence; all chunk copies and release/inspect transport receipts are removed.
+The PNG itself never needs a writable filesystem fallback. Concrete platform
+factories and an iOS equivalent receipt-removal route remain to be connected.
 
 `NativeWorldRenderCapture` requires a durable owner intent callback before the
 request because observation can create private native artifacts. A failed intent
@@ -130,9 +141,11 @@ unpredictable nonce causality bounds image age without assuming equal native and
 host clocks. Full-area clock/lifecycle joins remain required. No read is replayed
 as a mutation. Failed ownership/release must keep a run red.
 
-Twenty-eight device-free cases cover ignored GPU versus fresh control cursor,
+Thirty-seven device-free cases cover ignored GPU versus fresh control cursor,
 missing/stale/foreign originals, RGBA/PNG checksum/shape errors, timing/context
 changes, unsupported Vulkan/stereo/post-UI sources, original probe dispatch,
 finite retries, transfer/decode budgets, original chunk offsets/digests, ignored
-release, undrained callbacks, separate fresh inventories and durable intent failure. These prove
+release, undrained callbacks, separate fresh inventories, durable intent failure,
+real local journal/receipt cleanup, ignored unlink, symlink/foreign-context
+rejection and recovery with ownership retained. These prove
 test/reader logic only, not GL correctness, product rendering or device acceptance.

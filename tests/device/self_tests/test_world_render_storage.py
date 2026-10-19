@@ -24,8 +24,9 @@ class Boundary:
         self.raw=bytes(range(256))*520;self.clock=0.;self.sequence=0
         self.commands=[];self.files={};self.present=True;self.callbacks=0
         self.okay=True;self.ignore_release=False;self.partial=0;self.delay=0.;self.mutate=None
+        self.intents=[]
     def send(self,value):
-        command(value);self.commands.append(deepcopy(value));self.sequence+=1
+        command(value);assert self.intents[-1]==value;self.commands.append(deepcopy(value));self.sequence+=1
         if value['operation']=='release' and not self.ignore_release:self.present=False
         sample=dict(storageVersion=1,commandId=value['commandId'],requestId=value['requestId'],instance='b'*32,
             sequence=self.sequence,processId=31,capturedEpochMs=20000,present=self.present,
@@ -41,6 +42,7 @@ class Boundary:
     def sleep(self,value):self.clock+=value
     def storage(self,**kwargs):
         result=NativeWorldRenderStorage(self.send,self.read,lambda:20000,lambda:self.okay,31,
+            receipt_intent=lambda c:self.intents.append(deepcopy(c)),
             monotonic=lambda:self.clock,sleep=self.sleep,**kwargs)
         capture=('ios-' if kwargs.get('ios') else '')+CAPTURE
         result.bind(dict(processId=31,instance='b'*32,requestId=capture,source=dict(image=dict(name=image_name(capture),
@@ -137,6 +139,7 @@ const calls=[],files=[];
 const original={storageVersion:1,commandId:"b".repeat(32),requestId:"a".repeat(32),data:"original"};
 const Test={featureWorldRenderStorage:c=>{calls.push(c);return original;},saveObject:(v,n)=>files.push({v,n})};
 applyClientCommand({schemaVersion:1,commandId:"b".repeat(32),requestId:"a".repeat(32),action:"feature-world-render-storage",operation:"read",offset:0});
+applyClientCommand(calls[0]);
 if(calls.length!==1||files[0].v!==original||files[0].n!=="world-render-storage-"+"b".repeat(32)+".json")throw Error("original transport changed");
 for(const edit of [{offset:true},{offset:0.5},{expected:1},{path:"/user.png"}])applyClientCommand(Object.assign({},calls[0],edit));
 if(calls.length!==1)throw Error("open command");

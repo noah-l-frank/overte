@@ -103,6 +103,7 @@
     var nativeFeatureTimer = null;
     var lastRecordedPreviewRequest = "";
     var lastWorldRenderRequest = "";
+    var lastWorldRenderStorageCommand = "";
     var worldRenderTimer = null;
     function saveWorldRenderObservation(requestId, remaining) {
         if (requestId !== lastWorldRenderRequest) { return; }
@@ -963,6 +964,12 @@
                     : ["schemaVersion", "commandId", "action", "requestId", "operation"])
                 && (command.operation !== "read" || (typeof command.offset === "number"
                     && command.offset >= 0 && command.offset < 33554432 && Math.floor(command.offset) === command.offset))) {
+            if (command.commandId === lastWorldRenderStorageCommand) { return; }
+            lastWorldRenderStorageCommand = command.commandId;
+            if (command.operation === "release" && command.requestId === lastWorldRenderRequest) {
+                if (worldRenderTimer !== null) { Script.clearTimeout(worldRenderTimer); worldRenderTimer = null; }
+                lastWorldRenderRequest = "";
+            }
             var stored = {};
             try {
                 if (typeof Test.featureWorldRenderStorage === "function") { stored = Test.featureWorldRenderStorage(command); }

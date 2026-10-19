@@ -36,10 +36,11 @@ def receipt_file(nonce):
 
 
 class NativeWorldRenderStorage:
-    def __init__(self,send,read_file,clock_ms,guard,pid,*,ios=False,monotonic=time.monotonic,sleep=time.sleep):
-        need(all(callable(v) for v in (send,read_file,clock_ms,guard,monotonic,sleep)) and integer(pid,1) and type(ios) is bool)
+    def __init__(self,send,read_file,clock_ms,guard,pid,*,receipt_intent,ios=False,monotonic=time.monotonic,sleep=time.sleep):
+        need(all(callable(v) for v in (send,read_file,clock_ms,guard,receipt_intent,monotonic,sleep)) and integer(pid,1) and type(ios) is bool)
         self.send,self.original,self.clock_ms,self.guard,self.pid=send,read_file,clock_ms,guard,pid
         self.ios,self.monotonic,self.sleep=ios,monotonic,sleep
+        self.receipt_intent=receipt_intent
         self.instance,self.sequence,self.capture=None,0,None
 
     def bind(self,value):
@@ -56,6 +57,9 @@ class NativeWorldRenderStorage:
             command(value,ios=self.ios)
             started=previous=self.monotonic();need(number(started,0,1e15))
             requested=self.clock_ms();need(integer(requested,1) and self.guard() is not False)
+            self.receipt_intent(deepcopy(value)) # This command creates a private original receipt file.
+            now=self.monotonic();need(number(now,0,1e15) and now>=previous and now-started<(1.5 if self.ios else 5))
+            previous=now;need(self.guard() is not False)
             self.send(value) # A release is sent once; uncertain mutations never replay.
             for attempt in range(51):
                 need(self.guard() is not False)
