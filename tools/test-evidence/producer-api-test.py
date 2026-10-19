@@ -945,6 +945,8 @@ class MetadataSchedulingTests(unittest.TestCase):
                 ('81bcf1933edc435826e2de411a777cccd4dec7c7','e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'),
             'protected-producer-original-default-boolean-v1':
                 ('15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a','3b7a88765b7181a1bc7dd6f48b9b459e590055d3'),
+            'protected-producer-original-default-required-context-v1':
+                ('22fe0d6d39d120f800099136d7d1ab5280d80b41','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
         }
         self.assertIn(installed,variants)
         caller=self.case.policy.caller_path
