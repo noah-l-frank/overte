@@ -31,6 +31,9 @@ from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
 from self_tests.test_token_audio_ui import AudioBoundary
 from self_tests.test_native_script_files import Boundary as FilesBoundary
+from adapters.world_render_storage import receipt_file
+from self_tests.test_world_render_evidence import Boundary as WorldBoundary
+from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
 
 
 class Native:
@@ -219,6 +222,68 @@ class IOSNormalScriptsTests(unittest.TestCase):
             monotonic=lambda:native.clock,sleep=native.sleep))
         boundary.start();self.addCleanup(boundary.stop)
         return native,self.adapter._graphics_controls('test-only-selector',native.intent)
+
+    def world_capture(self):
+        source=WorldBoundary();source.mutate=lambda sample:sample.update(processId=42)
+        storage=WorldStorageBoundary();storage.raw=source.raw
+        storage.mutate=lambda sample:sample.update(instance='a'*32,processId=42)
+        root=self.path.parent/'remote-results';root.mkdir(mode=0o700)
+        state=dict(sequence=0,receipt=None,ignore_remove=False)
+        original_post=self.native.post;original_execute=self.native.execute
+        def post(request,timeout):
+            value=json.loads(request.data)
+            if not value['action'].startswith('feature-world-render-'):return original_post(request,timeout)
+            self.native.fixture.set_client_command(value);self.native.echo=json.dumps(value).encode()
+            owner=self.adapter.world_render_store('test-only-selector').read()
+            self.assertEqual(value.get('requestId',value['commandId']),owner['capture']['commandId'])
+            if value['action']=='feature-world-render-observe':source.intents.append(value);source.send(value)
+            elif value['action']=='feature-world-render-storage':
+                self.assertIn(value['commandId'],owner['receipts']);storage.intents.append(value);storage.send(value)
+                name=receipt_file(value['commandId']);(root/name).write_text(storage.files[name])
+            else:
+                self.assertIn(value['receiptId'],[c['commandId'] for c in storage.commands])
+                file=root/receipt_file(value['receiptId']);state['sequence']+=1
+                if value['operation']=='remove':
+                    if not state['ignore_remove']:file.unlink(missing_ok=True)
+                    measured=dict(performed=True)
+                else:measured=dict(exists=file.exists())
+                state['receipt']=dict(receiptVersion=1,commandId=value['commandId'],requestId=value['requestId'],
+                    receiptId=value['receiptId'],operation=value['operation'],instance='a'*32,sequence=state['sequence'],
+                    processId=42,capturedEpochMs=20000,source=measured)
+            return self.native
+        def execute(session,operation,values):
+            remote=values.get('remotePath','')
+            prefix='@org.example.client:documents/owned-results/world-render-'
+            if operation!='mobile: pullFile' or not remote.startswith(prefix):return original_execute(session,operation,values)
+            name=remote.rsplit('/',1)[1]
+            if name=='world-render-observation.json':raw=source.original()
+            elif name=='world-render-receipt-result.json':raw=json.dumps(state['receipt'])
+            else:raw=(root/name).read_text()
+            return base64.b64encode(raw.encode()).decode()
+        for boundary in (patch.object(feature_observation,'post_request',side_effect=post),
+            patch.object(self.native,'execute',side_effect=execute),
+            patch.object(component,'FeatureObservation',partial(feature_observation.FeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,state,root,self.adapter._world_render_capture('test-only-selector')
+
+    def test_ios_world_component_original_bytes_and_independent_native_receipt_cleanup(self):
+        source,state,root,capture=self.world_capture();value,raw=capture.read(0)
+        self.assertEqual(source.raw,raw);self.assertEqual(42,value['processId'])
+        self.assertEqual('NATIVE_UI_COMPONENT_ONLY',capture.owner.binding['scope'])
+        capture.release();self.assertEqual([],list(root.iterdir()))
+        self.assertIsNone(self.adapter.world_render_store('test-only-selector').read())
+
+    def test_ios_world_ignored_native_unlink_keeps_original_receipts_and_owner_for_recovery(self):
+        source,state,root,capture=self.world_capture();capture.read(0);state['ignore_remove']=True
+        with self.assertRaises(NativeUIError):capture.release()
+        self.assertTrue(list(root.iterdir()));self.assertIsNotNone(self.adapter.world_render_store('test-only-selector').read())
+        state['ignore_remove']=False;capture.release();self.assertIsNone(self.adapter.world_render_store('test-only-selector').read())
+
+    def test_ios_world_session_or_process_replacement_cannot_adopt_original_acquisition(self):
+        source,state,root,capture=self.world_capture();capture.read(0);self.state['generation']+=1
+        with self.assertRaises(RuntimeError):capture.release()
+        self.assertIsNotNone(self.adapter.world_render_store('test-only-selector').read());self.assertTrue(list(root.iterdir()))
 
     def test_ios_graphics_actual_slider_scroll_and_uikit_toggles_restore_originals(self):
         native,ui=self.graphics_controls();native.flick_duration=0.3;initial=native.resolution

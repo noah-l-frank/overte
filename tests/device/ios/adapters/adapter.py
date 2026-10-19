@@ -141,6 +141,17 @@ class IOSAdapter(AppiumAdapter):
         manager = self._scripts(selector)
         return TokenGraphicsUI(IOSGraphicsIO(manager.ui.io),intent)
 
+    def world_render_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('world-render-owner.json'))
+
+    def _world_render_capture(self, selector):
+        from adapters.owned_world_render import WorldRenderOwner
+        manager=self._scripts(selector)
+        native=manager.ui.io.native
+        observer=FeatureObservation(native.client,native.session,native.target,native.observe_process)
+        owner=WorldRenderOwner(self.world_render_store(selector),manager.binding,observer.guard,component_only=True)
+        return observer.world_render_capture(owner)
+
     def _audio_controls(self, selector, intent):
         from adapters.token_audio_ui import TokenAudioUI
         from ios.adapters.normal_audio import IOSAudioIO

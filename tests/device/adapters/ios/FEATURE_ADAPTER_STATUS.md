@@ -1,5 +1,19 @@
 # iOS feature adapter implementation status
 
+The explicit native component's `_world_render_capture()` now connects the
+main-mono source to original HTTP/AFC bytes and durable component-only ownership.
+It verifies original encoded/RGBA digests, native PID/context/nonces, and the
+whole 1.5-second acquisition budget. Cleanup retires native work, independently
+observes drained buffers, removes only native-issued/journaled chunk receipts
+through the dedicated E2E hook and separately observes each file's absence.
+Ignored deletion and session replacement retain ownership. Three new component
+cases pass; the full Script/Audio/Graphics/image component group has **32** host
+cases. All five canonical-binding checks pass, including explicit rejection of
+this new private factory with `OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE`.
+No native code was compiled and no device rendered an image. Unsupported
+Vulkan/stereo sources fail closed. This is not an installed-IPA association,
+complete area adapter or device acceptance.
+
 Branch: `test/ios/shared-feature-adapters-20261019`.
 Product base: `864f8b79a4`, composed with Main's shared journeys/observation
 helpers through local parent-to-child merges. Neither Phone nor Pico history

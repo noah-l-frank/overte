@@ -23,6 +23,10 @@ from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, FILE as
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from ios.adapters.appium_adapter import AppiumAdapter, WebDriverRequestError
 from adapters.native_script_files import NativeScriptFiles, FILE as SCRIPT_FIXTURE_FILE, command as script_files_command
+from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
+from adapters.world_render_storage import NativeWorldRenderStorage, command as world_storage_command
+from adapters.world_render_receipts import NativeWorldReceiptCleanup, FILE as WORLD_RECEIPT_FILE, command as world_receipt_command
+from adapters.owned_world_render import OwnedWorldRenderCapture
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -92,6 +96,8 @@ class FeatureObservation:
         if command.get("action") == "feature-script-files":
             script_files_command(command, ios=True)
             limit = 49152
+        elif command.get('action') == 'feature-world-render-storage':world_storage_command(command,ios=True)
+        elif command.get('action') == 'feature-world-render-receipt':world_receipt_command(command,ios=True)
         payload = json.dumps(command).encode()
         if len(payload) > limit:
             raise NativeUIError("Native iOS feature command exceeds its transport bound")
@@ -157,6 +163,24 @@ class FeatureObservation:
             lambda: self.original(remote=remote, limit=65536),
             self.epoch_ms, self.guard, self.process['pid'], ios=True,
             monotonic=self.monotonic, sleep=self.sleep)
+
+    def world_render_capture(self,owner):
+        self.guard()
+        root=self.remote.rsplit('/',1)[0]+'/'
+        def storage_file(name):
+            if type(name) is not str or not re.fullmatch(r'world-render-storage-[0-9a-f]{32}\.json',name):
+                raise NativeUIError('Original iOS world receipt is outside its closed inventory')
+            return self.original(remote=root+name,limit=100000)
+        options=dict(ios=True,monotonic=self.monotonic,sleep=self.sleep)
+        storage=NativeWorldRenderStorage(self.send,storage_file,self.epoch_ms,self.guard,self.process['pid'],
+            receipt_intent=owner.receipt_intent,**options)
+        capture=NativeWorldRenderCapture(self.send,
+            lambda:self.original(remote=root+WORLD_RENDER_FILE,limit=NATIVE_FEATURE_LIMIT),
+            storage,self.epoch_ms,self.guard,self.process['pid'],intent=owner.intent,**options)
+        receipts=NativeWorldReceiptCleanup(self.send,
+            lambda:self.original(remote=root+WORLD_RECEIPT_FILE,limit=4096),
+            self.epoch_ms,self.guard,self.process['pid'],owner.owned,lambda:storage.instance,**options)
+        return OwnedWorldRenderCapture(capture,storage,owner,receipts)
 
     def read(self, after_sequence, *, include_avatar_entities=False):
         try:
