@@ -185,7 +185,11 @@ void AssignmentClientMonitor::spawnChildClient() {
     // unparse the parts of the command-line that the child cares about
     QStringList _childArguments;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (QCoreApplication::arguments().contains("--testScript")) { _childArguments.append("--testScript"); }
+    if (QCoreApplication::arguments().contains("--testScript")) {
+        _childArguments.append("--testScript");
+        const auto arguments=QCoreApplication::arguments();const auto actor=arguments.indexOf("--e2eChatActorDir");
+        if (actor>=0 && actor+1<arguments.size()) { _childArguments.append("--e2eChatActorDir");_childArguments.append(arguments.at(actor+1)); }
+    }
 #endif
     if (_assignmentPool != "") {
         _childArguments.append("--" + ASSIGNMENT_POOL_OPTION);

@@ -371,6 +371,23 @@ Nine new host counterexamples pass; the complete permitted no-build common
 selection passes 663 cases without skips/failures/errors/compiler attempts.
 The existing read-only MessagesClient source can be invoked from an explicitly
 opted-in E2E Assignment Client script on its real owner thread. Default domain
-peer motion/heartbeat still does not produce Chat receipts. Private actor
-transport, peer stimulus/mixer ownership, normal primary UI/storage joins and
-complete adapter activation remain missing. Native source is uncompiled.
+peer motion/heartbeat still does not produce Chat receipts. The private actor
+transport was subsequently implemented below; peer stimulus/mixer ownership,
+normal primary UI/storage joins and complete adapter activation remain missing.
+Native source is uncompiled.
+
+## Native Chat actor file transport v1
+
+[CHAT_ACTOR_FILES.md](native/CHAT_ACTOR_FILES.md) specifies the new default-off
+Assignment Client native IPC source, original-file envelopes, actual process/
+executable/start/environment qualification and actual kernel FD retention/release.
+The existing domain fixture opt-in stages it only for its dedicated peer, with
+private expected-source configuration and a fresh root on whole-stack restart.
+
+Fifteen private-file and seven Linux kernel/synthetic-worker cases pass, including
+copied output with rewritten inode claims, unheld source metadata, ignored
+queries, foreign/stale sources, uncertain writes and incomplete FD cleanup. The
+existing four domain-controller cases pass. The preceding common regression
+selection passed 683 checks; the final two FD-provenance counterexamples and the
+55-case focused Chat selection passed afterwards. No build/compiler/device
+execution occurred. Full Chat composition/capabilities remain missing.

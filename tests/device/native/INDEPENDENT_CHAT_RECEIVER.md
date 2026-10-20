@@ -2,7 +2,9 @@
 
 `independent_chat_receiver.IndependentChatReceiver` is a read/ownership component
 for the separate witness process. It does not implement a full Chat actor or
-feature adapter. Actual process/code-bound actor transport, normal primary UI/
+feature adapter. The private file transport and Linux process guard are now implemented in
+[CHAT_ACTOR_FILES.md](CHAT_ACTOR_FILES.md); their native producer remains
+uncompiled and real acquisition is untested. Normal primary UI/
 storage reads, peer send/distance, controlled MessagesMixer lifecycle and the
 private publisher remain required. The existing `domain_peer_agent.js` is still
 only avatar motion/heartbeat and cannot stand in for this receive ledger.
@@ -26,7 +28,8 @@ assignment. Default builds do not accept the option or expose the method. No
 Assignment Client, domain stack, build or device was started here; native code
 is source-reviewed only and remains uncompiled.
 
-The native bridge permits a future authenticated/private owned Agent transport
+The native bridge permits the private owned Agent transport described in
+[CHAT_ACTOR_FILES.md](CHAT_ACTOR_FILES.md)
 to acquire its own real reception cache. It is **not** permission to trust an
 unauthenticated HTTP heartbeat or a submitted JSON object as an Agent result.
 Bind actual actor executable bytes/source/PID/start identity, actual assigned

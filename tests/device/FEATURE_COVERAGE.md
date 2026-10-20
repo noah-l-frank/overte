@@ -58,9 +58,11 @@ Existing modules retain their additional image, PCM, process and file checks.
 The [machine matrix](feature_journeys/coverage.v9.json), [journey guide](FEATURE_JOURNEYS.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md) record the exact contracts.
 All rows currently depend on real product transports and independently measuring
-target observers. That dependency belongs to the later adapter implementation
-phase; absent capabilities, missing observations and missing prerequisites fail
+target observers. Adapter implementation is now in progress on the separate local platform
+branches; absent capabilities, missing observations and missing prerequisites fail
 closed. The source-contract corrections above are open implementation work too.
+The private [Chat actor transport](native/CHAT_ACTOR_FILES.md) is implemented
+with host-only checks, but does not complete its area adapter.
 
 Version 9 [corrects Snapshot source semantics](feature_journeys/SNAPSHOT_SOURCE.md):
 real pending-cancel history, private capture despite denied Photos Save,

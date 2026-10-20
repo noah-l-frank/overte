@@ -115,6 +115,7 @@ AssignmentClientApp::AssignmentClientApp(int argc, char* argv[]) :
     // Explicit opt-in for native read-only fixture sources, not a script path
     // or a replacement assignment. Normal assignment behavior is unchanged.
     parser.addOption(QCommandLineOption("testScript","Enable E2E-only native observation sources for an owned fixture actor."));
+    parser.addOption(QCommandLineOption("e2eChatActorDir","Private native Chat fixture IPC directory.","directory"));
 #endif
 
     if (!parser.parse(QCoreApplication::arguments())) {
