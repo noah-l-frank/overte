@@ -37,6 +37,7 @@ from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
 from adapters.native_script_files import originals
 from adapters.script_restart_handoff import ScriptRestartHandoff
+from adapters.restart_inputs import RestartInputs
 from self_tests.test_native_script_files import Boundary as ScriptFilesBoundary
 from script_file_native_boundary import FileNativeBoundary
 from audio_native_boundary import AudioNativeBoundary, ControlNativeBoundary
@@ -78,6 +79,11 @@ class Native:
         self.instance = 'f' * 32
         self.clock = 0.0
         self.identity = '31:14'
+        self.running = True
+        self.lifecycle = dict(backgrounds=0, activations=1, launches=1)
+        self.lifecycle_inputs = []
+        self.on_launch = None
+        self.ignore_app_stop = self.ignore_app_launch = self.lose_stop_ack = self.lose_launch_ack = False
         self.epoch_ms = 10000
         self.ignore_stop = False
         self.ignore_delete = False
@@ -188,6 +194,25 @@ class Native:
         assert process['identity'] == self.identity
         self.request = command
 
+    def execute(self, session, operation, values):
+        assert session == 'native-session'
+        if operation == 'mobile: startActivity':
+            assert values == {'intent': PACKAGE + '/org.overte.phone.E2eLauncherActivity', 'stop': True, 'wait': False}
+        else: assert values == {'appId': PACKAGE}
+        if operation == 'mobile: terminateApp':
+            self.lifecycle_inputs.append('stop')
+            if not self.ignore_app_stop and self.running:
+                self.running = False; self.lifecycle['backgrounds'] += 1
+            if self.lose_stop_ack: raise RuntimeError('synthetic lost stop SDK receipt')
+        elif operation in ('mobile: activateApp', 'mobile: startActivity'):
+            self.lifecycle_inputs.append('launch')
+            if not self.ignore_app_launch and not self.running:
+                assert self.on_launch is not None
+                self.on_launch(); self.running = True
+                self.lifecycle['activations'] += 1; self.lifecycle['launches'] += 1
+            if self.lose_launch_ack: raise RuntimeError('synthetic lost launch SDK receipt')
+        else: raise AssertionError('Unexpected synthetic native lifecycle operation')
+
     def read(self, target, package, path, **kwargs):
         if path != 'files/overte-e2e/normal-feature-observation.json':
             raise AssertionError('Unexpected native file')
@@ -219,9 +244,9 @@ class FeatureAdapterTests(unittest.TestCase):
             patch.object(AppiumAdapter, 'ensure_session', side_effect=lambda *_:
                 (self.native, 'native-session', state)),
             patch.object(self.adapter, 'read_session', side_effect=lambda *_: state),
-            patch.object(self.adapter, 'query_app_state', return_value=4),
+            patch.object(self.adapter, 'query_app_state', side_effect=lambda *_: 4 if self.native.running else 1),
             patch.object(self.adapter, 'process_state', side_effect=lambda *_:
-                {'running': True, 'identity': self.native.identity}),
+                {'running': self.native.running, 'identity': self.native.identity if self.native.running else None}),
             patch.object(self.adapter, 'write_android_client_command', side_effect=self.native.command),
             patch.object(fixture.adb, 'read_debug_app_file', side_effect=self.native.read, create=True),
             patch.object(fixture.adb, 'epoch_milliseconds', return_value=10000, create=True),
@@ -782,12 +807,20 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertTrue(self.adapter.script_store(SELECTOR).read()['pickerOwned'])
         self.assertIsNotNone(files.store.read())
 
-    def restart_boundaries(self):
+    def restart_boundaries(self, *, staged_restart=True):
+        if not staged_restart:
+            # Exercise the actual shared Appium capability/startActivity path,
+            # with its exact controlled-target declaration rather than a flag.
+            self.target.update(scene={'kind': 'android-debug-e2e'}, clientControl={
+                'kind': 'android-run-as-command', 'relativePath': self.adapter.ANDROID_CLIENT_COMMAND})
+            self.target['capabilities']['appium:autoLaunch'] = False
+            self.adapter.read_session(SELECTOR)['targetFingerprint'] = self.adapter.snapshot_fingerprint(self.target)
         storage, file_ui, files, manager = self.file_manager_boundaries()
         manager.open(); manager.file_picker_open(); manager.file_picker_choose('script-bundle/main.js')
         source = ScriptBoundary(); source.engine['url'] = storage.root.as_uri() + '/script-bundle/main.js'
         source.engine['required']['modules'][0]['url'] = storage.root.as_uri() + '/script-bundle/companion.js'
         presence = PresenceBoundary(pid=32, epoch_ms=lambda: self.native.epoch_ms); presence.presence = 'absent'
+        lifecycle = NativeFeatureBoundary()
         state = {'restarted': False, 'replay': False}
         def mutate(packet):
             packet.update(processId=int(self.native.identity.split(':')[0]),
@@ -803,6 +836,13 @@ class FeatureAdapterTests(unittest.TestCase):
                 packet['source']['engines'] = []
                 packet['source']['effects'].update(scannedEntities=0, entities=[], absentIds=[])
         source.mutate = mutate
+        def native_lifecycle(packet):
+            packet.update(processId=int(self.native.identity.split(':')[0]),
+                instance=('a' if state['restarted'] else 'd') * 32,
+                requestedEpochMs=self.native.epoch_ms, capturedEpochMs=self.native.epoch_ms,
+                lifecycle=dict(self.native.lifecycle))
+            packet['animationFence']['requestedEpochMs'] = packet['requestedEpochMs']
+        lifecycle.mutate = native_lifecycle
         def storage_mutate(packet):
             packet.update(processId=int(self.native.identity.split(':')[0]),
                 instance=('a' if state['restarted'] else 'd') * 32,
@@ -817,10 +857,12 @@ class FeatureAdapterTests(unittest.TestCase):
         def send(client, session, target, command, process):
             if command['action'] == 'feature-script-observe': source.send(command)
             elif command['action'] == 'feature-process-presence': presence.send(command)
+            elif command['action'] == 'feature-native-observe': lifecycle.send(command)
             else: return original_send(client, session, target, command, process)
         def read(device, package, path, **options):
             if path.endswith('/feature-script-observation.json'): return source.original()
             if path.endswith('/feature-process-presence.json'): return presence.original()
+            if path.endswith('/feature-native-observation.json'): return lifecycle.original()
             return original_read(device, package, path, **options)
         def sleep(seconds):
             self.native.sleep(seconds); self.native.epoch_ms += round(seconds * 1000)
@@ -828,14 +870,19 @@ class FeatureAdapterTests(unittest.TestCase):
             patch.object(self.fixture.adb, 'read_debug_app_file', side_effect=read),
             patch.object(self.fixture.adb, 'epoch_milliseconds', side_effect=lambda *_: self.native.epoch_ms),
             patch.object(appium, 'ScriptRestartHandoff', partial(ScriptRestartHandoff,
-                monotonic=lambda: self.native.clock, sleep=sleep))):
+                monotonic=lambda: self.native.clock, sleep=sleep)),
+            patch.object(appium, 'RestartInputs', partial(RestartInputs, monotonic=lambda: self.native.clock))):
             boundary.start(); self.addCleanup(boundary.stop)
-        self.adapter._script_restart_prepare(SELECTOR)
-        # Only the explicit synthetic OS boundary is changed, never the real
-        # adapter's native source/ownership/result logic.
-        state['restarted'] = True; self.native.identity = '32:15'
-        self.native.screen = None; self.native.rows = []; self.native.instance = '9' * 32
-        file_ui.ui.opened = False
+        def transition():
+            state['restarted'] = True; self.native.identity = '32:15'
+            self.native.screen = None; self.native.rows = []; self.native.instance = '9' * 32
+            file_ui.ui.opened = False
+        self.native.on_launch = transition
+        if staged_restart:
+            self.adapter._script_restart_prepare(SELECTOR)
+            # Only the synthetic OS boundary changes; use the actual adapter
+            # source/ownership/result logic on both sides.
+            transition()
         return storage, file_ui, source, presence, state
 
     def test_phone_restart_handoff_uses_new_original_process_and_preserved_file_bytes_without_product_input(self):
@@ -877,6 +924,52 @@ class FeatureAdapterTests(unittest.TestCase):
                 self.adapter.cleanup(SELECTOR)
             teardown.assert_called_once()
         self.assertIsNotNone(self.adapter.script_restart_store(SELECTOR).read())
+
+    def test_phone_normal_restart_composes_sdk_inputs_original_lifecycle_and_file_handoff_once(self):
+        storage, _file_ui, _source, _presence, _state = self.restart_boundaries(staged_restart=False)
+        result = self.adapter._script_restart(SELECTOR)
+        self.assertEqual(['stop', 'launch'], self.native.lifecycle_inputs)
+        self.assertEqual(self.native.lifecycle, result['native']['lifecycle'])
+        self.assertEqual(2, result['native']['lifecycle']['launches'])
+        self.assertIsNone(self.adapter.script_restart_store(SELECTOR).read())
+        self.assertEqual('observed', self.adapter.script_restart_inputs_store(SELECTOR).read()['phase'])
+        # Retrying a lost operation response reobserves the transferred owner;
+        # neither lifecycle input nor original fixture staging is repeated.
+        self.adapter._script_restart(SELECTOR)
+        self.assertEqual(['stop', 'launch'], self.native.lifecycle_inputs)
+        self.assertEqual(1, sum(command['operation'] == 'stage' for command in storage.commands))
+
+    def test_phone_restart_ignored_stop_prevents_launch_and_never_replays_stop(self):
+        self.restart_boundaries(staged_restart=False); self.native.ignore_app_stop = True
+        for _ in range(2):
+            with self.assertRaises(RuntimeError): self.adapter._script_restart(SELECTOR)
+        self.assertEqual(['stop'], self.native.lifecycle_inputs)
+        self.assertEqual('stop-issued', self.adapter.script_restart_inputs_store(SELECTOR).read()['phase'])
+
+    def test_phone_restart_lost_sdk_acks_require_original_new_process_and_native_counters(self):
+        self.restart_boundaries(staged_restart=False); self.native.lose_stop_ack = self.native.lose_launch_ack = True
+        with self.assertRaises(RuntimeError): self.adapter._script_restart(SELECTOR)
+        self.assertEqual(['stop'], self.native.lifecycle_inputs)
+        with self.assertRaises(RuntimeError): self.adapter._script_restart(SELECTOR)
+        self.assertEqual(['stop', 'launch'], self.native.lifecycle_inputs)
+        result = self.adapter._script_restart(SELECTOR)
+        self.assertEqual('ESRCH', result['handoff']['exit']['errorSymbol'])
+        self.assertEqual(['stop', 'launch'], self.native.lifecycle_inputs)
+
+    def test_phone_restart_ignored_launch_is_not_retried_and_retains_original_file_and_input_ownership(self):
+        self.restart_boundaries(staged_restart=False); self.native.ignore_app_launch = True
+        for _ in range(2):
+            with self.assertRaises(ValueError): self.adapter._script_restart(SELECTOR)
+        self.assertEqual(['stop', 'launch'], self.native.lifecycle_inputs)
+        self.assertEqual('launch-issued', self.adapter.script_restart_inputs_store(SELECTOR).read()['phase'])
+        self.assertEqual('31:14', self.adapter.script_files_store(SELECTOR).read()['binding']['processIdentity'])
+
+    def test_phone_restart_input_intent_blocks_cleanup_when_other_owners_are_absent(self):
+        self.adapter.script_restart_inputs_store(SELECTOR).write({'unresolved': True}, None)
+        with patch.object(AppiumAdapter, 'cleanup', return_value={'cleaned': True}):
+            with self.assertRaisesRegex(ValueError, 'PHONE_SCRIPT_RESTART_INPUTS_CLEANUP_INCOMPLETE'):
+                self.adapter.cleanup(SELECTOR)
+        self.assertIsNotNone(self.adapter.script_restart_inputs_store(SELECTOR).read())
 
     def test_phone_native_effect_counters_are_actual_rows_and_process_loss_blocks_new_reads(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')

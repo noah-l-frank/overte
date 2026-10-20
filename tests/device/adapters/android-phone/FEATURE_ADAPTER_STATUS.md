@@ -1,5 +1,18 @@
 # Phone adapter implementation, local source only
 
+Internal `_script_restart(selector)` now composes ordinary shared Appium
+`app.stop` and controlled `app.launch`/startActivity input with
+[one-send input intent and original persisted lifecycle](../../native/RESTART_INPUTS.md),
+then the existing full ownership handoff. All **119** feature-adapter host cases
+pass. New joined cases exercise the actual controlled-target declaration and
+SDK route, original native launch/activation counters, ignored inputs, lost
+SDK returns, retry without input/restaging replay and unresolved-input cleanup.
+Uncertain delivery ends the current call with an error; subsequent reconstruction
+can resume only through current OS/native proof. Input intent stays owned until
+separate full Script/effect/file cleanup. This completes the internal restart
+seam, not the nineteen-step Scripts feature coordinator or any full feature
+capability. Native source remains uncompiled and devices untested.
+
 The current common journey contract is **v16**. The internal
 `_script_restart_prepare/adopt` methods now connect the
 [durable restart handoff v1](../../native/SCRIPT_RESTART_HANDOFF.md) to original

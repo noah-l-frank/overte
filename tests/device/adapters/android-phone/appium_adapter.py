@@ -55,6 +55,7 @@ from overte_phone_audio import PhoneAudioIO, FILE as AUDIO_UI_FILE
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from adapters.script_restart_handoff import ScriptRestartHandoff
+from adapters.restart_inputs import RestartInputs, run_script_restart
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
 from adapters.world_render_storage import NativeWorldRenderStorage
@@ -378,6 +379,41 @@ class PhoneAppiumAdapter(AppiumAdapter):
             self._script_execution_observer(selector), files.native, ui, observe,
             self._script_file_picker(selector, handoff.directory()))
 
+    def script_restart_inputs_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-restart-inputs.json'))
+
+    def _script_restart_inputs(self, selector):
+        return RestartInputs(self.script_restart_inputs_store(selector),
+            [self.script_restart_store(selector), self.script_files_store(selector), self.script_store(selector)])
+
+    def _script_restart_source(self, selector):
+        _ui, _observe, binding = self._script_file_runtime(selector)
+        return binding, self._native_feature_observer(selector)
+
+    def _script_restart_stopped(self, selector):
+        # An independent current OS query is a pre-launch condition. The
+        # handoff still needs original new-process kernel ESRCH afterwards.
+        origin = self._script_restart_inputs(selector).read()['oldBinding']
+        target = self.target(selector)
+        require(self.snapshot_fingerprint(target) == origin['targetFingerprint'],
+                'PHONE_SCRIPT_RESTART_TARGET_CHANGED')
+        installed = self.installed_identity(selector)
+        require(all(installed[key] == origin[key] for key in ('sourceRevision', 'artifactSha256')),
+                'PHONE_SCRIPT_RESTART_INSTALL_CHANGED')
+        client, session, state = self.ensure_session(selector)
+        status = self.query_app_state(client, session, target)
+        require(status in (1, 2, 3, 4), 'PHONE_SCRIPT_RESTART_OS_STATE_UNAVAILABLE')
+        process = self.process_state(selector, client, session, state, target)
+        running = status >= 2 or process.get('running') is True
+        return {'running': running, 'identity': process.get('identity') if running else None}
+
+    def _script_restart(self, selector):
+        # Internal complete restart seam, not a full feature.scripts producer.
+        return run_script_restart(self._script_restart_inputs(selector), self._script_restart_handoff(selector),
+            lambda: self._script_restart_source(selector), lambda: self._script_restart_prepare(selector),
+            lambda: self.invoke(selector, 'app.stop', {}), lambda: self._script_restart_stopped(selector),
+            lambda: self.invoke(selector, 'app.launch', {}), lambda: self._script_restart_adopt(selector))
+
     def _script_file_picker(self, selector, directory):
         # Internal primitive only. The full area still needs staged-byte
         # ownership, persistent dialog/source cleanup and execution/effect joins.
@@ -642,6 +678,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
             binding.adb.shell(device, 'am', 'force-stop', target['appId'])
             binding.wait_for_process_stopped(device)
         result = super().cleanup(selector)
+        require(self.script_restart_inputs_store(selector).read() is None, 'PHONE_SCRIPT_RESTART_INPUTS_CLEANUP_INCOMPLETE')
         require(self.script_restart_store(selector).read() is None, 'PHONE_SCRIPT_RESTART_CLEANUP_INCOMPLETE')
         if owned is not None:
             require(result == {'cleaned': True}, 'PHONE_NORMAL_SNAPSHOT_CLEANUP_INCOMPLETE')
