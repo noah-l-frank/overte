@@ -68,6 +68,7 @@ class Boundary:
         self.emote_started=self.emote_restored=self.emote_due=None
         self.emote_final=False
         self.auth_process=1;self.auth_delayed_process=None;self.auth_delayed_held=False;self.auth_delayed_valid=False
+        self.web_ready=False;self.web_history=[];self.web_late_at=None
 
     def epoch(self):
         return 2_000_000 + getattr(self, 'clock', 0) * 1000
@@ -75,6 +76,8 @@ class Boundary:
     def activate(self, ticket, verb='baseline', inputs=None):
         self.ticket = ticket
         self.journal.activate(RUN, ticket, verb, inputs)
+        if self.area in {'world-web','tablet-web'} and verb=='restore-resource':
+            self.web_ready=self.fault!='web-restore-ignored'
         if self.area=='authentication':
             if verb=='release-stale-response':
                 if not self.auth_delayed_held:raise AssertionError('No actual model delayed request')
@@ -107,6 +110,9 @@ class Boundary:
             if a=='chat' and self.fault=='chat-resume-loses-history':s.update(domainMessages=[],messages=[])
             if a=='chat' and self.fault=='chat-resume-default-channel':s.update(channel='local',messages=list(s['localMessages']))
             if a=='chat' and self.fault=='chat-resume-ghost-keyboard':s.update(focused=True,keyboard=True)
+            if a in {'world-web','tablet-web'}:
+                s.update(text='',focused=False)
+                if self.fault!='web-resume-old-document':s['documentLoads']+=1
             return
         if a == 'world-navigation':
             if verb in {'open', 'close'}: s['panel'] = verb == 'open'
@@ -185,17 +191,40 @@ class Boundary:
                 self.emote_due=None
             # wait-complete delivers no input and changes no source state.
         elif a in {'world-web','tablet-web'}:
-            if verb in {'open','close'}:
-                s['open'] = verb == 'open'
-                if verb == 'close': s['focused'] = False
+            def load(page,origin='primary',kind='http',status=200):
+                s.update(page=page,origin=origin,documentKind=kind,httpStatus=status,text='',focused=False,
+                    inlineLeases=1 if kind=='inline' else 0)
+                if self.fault!='web-frozen-document':s['documentLoads']+=1
+            if verb=='open':s['open']=True;load('reference')
+            elif verb=='close':s.update(open=False,page='none',origin='none',documentKind='none',httpStatus=0,inlineLeases=0,focused=False,text='')
             elif verb == 'focus-type': s.update(text=data['text'], focused=True)
-            elif verb == 'submit': s['bridgeMessages'] += 1
-            elif verb == 'navigate':
-                if data['resource'] == 'missing.html': s['error'] = 'not-found'
-                else: s.update(page='B', focused=False)
-            elif verb == 'back': s['page'] = 'reference'
-            elif verb == 'reload': s['error'] = 'none'
-            elif verb == 'open-inline-app': s['page'] = 'inline'
+            elif verb=='clear-text':s.update(text='',focused=True)
+            elif verb=='submit':
+                s.update(bridgeMessages=s['bridgeMessages']+1,attemptedMessages=s['attemptedMessages']+1,focused=False)
+                if self.fault!='web-echo-missing':s['bridgeEchoes']+=1
+            elif verb in ('navigate','navigate-foreign'):
+                self.web_history.append(s['page'])
+                if verb=='navigate-foreign':load('foreign','foreign')
+                elif data['resource']=='recovery.html':load('recovery',status=200 if self.web_ready else 404)
+                else:load('B' if data['resource']=='page-b.html' else 'reference')
+            elif verb=='back':load(self.web_history.pop())
+            elif verb=='foreign-origin-message':
+                if self.fault!='web-foreign-attempt-ignored':s['attemptedMessages']+=1
+                if self.fault=='web-foreign-accepted':s['bridgeMessages']+=1
+            elif verb=='restore-resource':
+                if self.fault=='web-restore-forges-navigation':load('recovery')
+            elif verb=='reload':load(s['page'],status=200 if s['page']!='recovery' or self.web_ready else 404)
+            elif verb=='background-resume':load('reference')
+            elif verb=='open-inline-app':
+                load('inline','inline','inline',0)
+                if self.fault=='web-http-inline':s.update(origin='primary',documentKind='http',httpStatus=200,inlineLeases=0)
+            elif verb=='hold-inline-message':s.update(deferredMessages=1,attemptedMessages=s['attemptedMessages']+1,focused=False)
+            elif verb=='return-from-inline':
+                load('reference')
+                if self.fault=='web-inline-lease-leak':s['inlineLeases']=1
+            elif verb=='deliver-retired-inline-message':
+                if self.fault!='web-deferred-leak':s['deferredMessages']=0
+                if self.fault=='web-stale-delivery':self.web_late_at=self.clock+1
         elif a == 'graphics':
             if not hasattr(self,'graphics_original'): self.graphics_original = copy.deepcopy(s)
             if verb in ('open','close'): s['dialog'] = verb == 'open'
@@ -354,6 +383,8 @@ class Boundary:
 
     def observe(self, fields):
         self.sequence += 1
+        if self.web_late_at is not None and self.clock>=self.web_late_at:
+            self.state['bridgeMessages']+=1;self.web_late_at=None
         if self.area=='authentication':self.state['delayedGrantOutstanding']=self.auth_delayed_valid
         if (self.area=='chat' and self.fault=='late-queued-replay' and hasattr(self,'chat_reconnect_at')
                 and self.clock-self.chat_reconnect_at>=1 and not getattr(self,'chat_late_replayed',False)):
@@ -471,6 +502,67 @@ class FeatureJourneys(unittest.TestCase):
                 with self.assertRaises((AssertionError, ValueError)):
                     boundary.execute()
                 self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_browser_actual_404_stays_loaded_until_normal_reload_after_server_restore(self):
+        boundary=Boundary('world-web');boundary.execute();samples=boundary.reports[0]['samples']
+        def last(verb):return next(s for s in reversed(samples) if s['phase'].endswith('-'+verb))
+        restored=last('restore-resource')['state']
+        self.assertEqual(404,restored['httpStatus']);self.assertEqual('none',restored['error'])
+        self.assertEqual(200,last('reload')['state']['httpStatus'])
+        self.assertGreater(last('reload')['state']['documentLoads'],restored['documentLoads'])
+        self.assertEqual(19,len(SCENARIOS['world-web']['steps']))
+
+    def test_browser_ignored_foreign_send_reload_restore_and_resume_cannot_pass(self):
+        for area in ('world-web','tablet-web'):
+            for fault in ('web-foreign-attempt-ignored','web-foreign-accepted','web-restore-ignored',
+                          'web-restore-forges-navigation','web-resume-old-document'):
+                with self.subTest(area=area,fault=fault),self.assertRaises((AssertionError,ValueError)):
+                    Boundary(area,fault).execute()
+            with self.assertRaises(AssertionError):Boundary(area,'input-ignored','reload').execute()
+
+    def test_browser_forged_primary_document_load_cannot_use_an_old_independent_counter(self):
+        boundary=Boundary('world-web','product-echo-without-peer',target='reload')
+        original=boundary.reduce
+        def ignored(verb,data):
+            if verb!='reload':original(verb,data)
+            else:boundary.echo={'documentLoads':boundary.state['documentLoads']+1}
+        boundary.reduce=ignored
+        with self.assertRaises(AssertionError):boundary.execute()
+
+    def test_browser_forged_primary_foreign_attempt_is_not_an_independent_attempt(self):
+        boundary=Boundary('world-web','product-echo-without-peer',target='foreign-origin-message')
+        boundary.echo={'attemptedMessages':2};original=boundary.reduce
+        def ignored(verb,data):
+            if verb!='foreign-origin-message':original(verb,data)
+        boundary.reduce=ignored
+        with self.assertRaises(AssertionError):boundary.execute()
+
+    def test_browser_native_request_acceptance_without_actual_page_echo_is_incomplete(self):
+        for area in ('world-web','tablet-web'):
+            with self.subTest(area=area),self.assertRaises(AssertionError):Boundary(area,'web-echo-missing').execute()
+        boundary=Boundary('world-web','product-echo-without-peer',target='submit');boundary.echo={'bridgeEchoes':1}
+        original=boundary.reduce
+        def request_only(verb,data):
+            original(verb,data)
+            if verb=='submit':boundary.state['bridgeEchoes']=0
+        boundary.reduce=request_only
+        with self.assertRaises(AssertionError):boundary.execute()
+
+    def test_tablet_inline_requires_actual_carrier_and_rejects_retired_or_leaked_callbacks(self):
+        for fault in ('web-http-inline','web-inline-lease-leak','web-deferred-leak','web-stale-delivery'):
+            with self.subTest(fault=fault),self.assertRaises((AssertionError,ValueError)):
+                Boundary('tablet-web',fault).execute()
+        boundary=Boundary('tablet-web');boundary.execute()
+        self.assertEqual(26,len(SCENARIOS['tablet-web']['steps']))
+        held=[s['state'] for s in boundary.reports[0]['samples'] if s['phase'].endswith('-hold-inline-message')]
+        self.assertTrue(held);self.assertTrue(all(s['deferredMessages']==1 and s['inlineLeases']==1 for s in held))
+
+    def test_browser_old_draft_version_and_http_inline_inputs_are_rejected(self):
+        from feature_journeys.contract import arguments
+        base=dict(contractVersion=VERSION,runId=RUN,ticket=TICKET,fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/')
+        for fields in (dict(base,contractVersion=10,verb='open',inputs={}),
+                       dict(base,verb='open-inline-app',inputs={'resource':'inline.html'})):
+            with self.assertRaises(ValueError):arguments('feature.tablet-web.act',fields)
 
     def test_create_picker_is_observed_before_cancel_and_accept_and_rez_retry_is_real(self):
         boundary=Boundary('create');boundary.execute()
@@ -1109,9 +1201,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v10.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v11.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v10.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v11.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():

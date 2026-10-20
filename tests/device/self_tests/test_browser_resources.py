@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
+import base64
 import json
 from pathlib import Path
 import secrets
@@ -12,7 +13,8 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from feature_journeys.browser_fixture import BrowserResources,ROOT
+from feature_journeys.browser_fixture import BrowserResources,ROOT,inline_source,inline_data_url
+from feature_journeys.fixtures import marker_bytes
 from feature_journeys.fixtures import payload
 from feature_journeys.server import make_server
 from feature_journeys.witness import Client
@@ -86,6 +88,12 @@ class BrowserResourcesTests(unittest.TestCase):
         status,_,_=self.fetch('/runs/'+self.run+'/browser/control',token=self.reader,value={'operation':'restore-resource'})
         self.assertEqual(400,status) # An uncertain control input is not replayable.
 
+    def test_registered_restore_stimulus_uses_reader_owned_server_control_without_navigation(self):
+        self.fetch(self.path+'recovery.html');before=self.snapshot()['sequence']
+        self.client.activate('b'*32,'restore-resource',{})
+        self.assertTrue(self.snapshot()['ready']);self.assertEqual(before,self.snapshot()['sequence'])
+        self.assertEqual(200,self.fetch(self.path+'recovery.html')[0])
+
     def test_actual_second_origin_serves_same_original_protocol_without_cooperative_filter(self):
         self.assertNotEqual(self.primary.server_port,self.peer.server_port)
         status,_,body=self.fetch(self.path+'reference.html',foreign=True)
@@ -127,6 +135,19 @@ class BrowserResourcesTests(unittest.TestCase):
         status,headers,body=self.fetch(self.path+'reference.mp4',headers={'Range':'bytes=17-33'})
         self.assertEqual(206,status);self.assertEqual((ROOT/'reference.mp4').read_bytes()[17:34],body)
         self.assertTrue(headers['Content-Range'].startswith('bytes 17-33/'))
+
+    def test_inline_input_uses_actual_data_bytes_original_echo_and_its_own_challenge(self):
+        url=self.base+'/runs/'+self.run+'/'
+        raw=inline_source(self.run,TICKET,url)
+        encoded=inline_data_url(self.run,TICKET,url)
+        self.assertTrue(encoded.startswith('data:text/html;charset=utf-8;base64,'))
+        self.assertEqual(raw,base64.b64decode(encoded.split(',',1)[1],validate=True))
+        self.assertIn((ROOT/'reference.js').read_bytes(),raw)
+        self.assertIn(base64.b64encode(marker_bytes(self.run,TICKET)),raw)
+        self.assertNotIn(base64.b64encode(marker_bytes(self.run,'b'*32)),raw)
+        self.assertNotIn(b'<script src="reference.js">',raw)
+        self.assertEqual(0,self.snapshot()['sequence']) # Producing input creates no product/document receipt.
+        with self.assertRaises(ValueError):inline_source(self.run,TICKET,'http://private:secret@host/inline.html')
 
     def test_source_copy_clock_regression_and_inventory_limit_are_fail_closed(self):
         clock=[20000];source=BrowserResources(clock_ms=lambda:clock[0]);source.open(self.run)

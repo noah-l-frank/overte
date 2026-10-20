@@ -1,3 +1,11 @@
+# Historical browser source audit
+
+The defects below describe historical v9/v10 drafts. Shared v11 now corrects
+those semantics; [the exact current contract](WEB_SOURCE.md) is normative.
+Native source/input/publisher/full adapter work and device qualification remain
+open. The following audit is retained as source rationale, not a current claim
+that the corrected shared flows still use the old HTTP/inline assumptions.
+
 # Browser source audit and unresolved v9 assumptions
 
 This audit is a prerequisite for complete world/tablet browser adapters. The

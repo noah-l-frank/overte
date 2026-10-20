@@ -6,6 +6,7 @@ whether native bridge authority was enforced. Product sources remain mandatory.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import base64
 import hashlib
 from pathlib import Path
 import secrets
@@ -17,6 +18,34 @@ from .fixtures import pinned_resource
 ROOT = Path(__file__).resolve().parents[1] / 'fixture/parity'
 ASSETS = {'reference.js', 'client.js', 'injected.js', 'feature-marker.js'}
 PAGES = {'index.html', 'reference.html', 'page-b.html', 'recovery.html'}
+
+
+def inline_source(run,ticket,fixture_url):
+    """Controlled ordinary app INPUT bytes, never an HTTP inline-page result.
+
+    A later platform recipe must use a normal owned fixture-app button calling
+    gotoWebScreen(data:...). This does not call any product API or issue a grant.
+    """
+    from .contract import arguments
+    from .scenarios import VERSION
+    from .fixtures import marker_bytes
+    arguments('feature.tablet-web.act',dict(contractVersion=VERSION,runId=run,ticket=ticket,
+        fixtureUrl=fixture_url,verb='open-inline-app',inputs={'resource':'parity-inline-v1'}))
+    page=pinned_resource('web-source/index.html').decode('utf-8')
+    script=pinned_resource('web-source/reference.js').decode('utf-8')
+    if '</script' in script.lower():raise ValueError('Original inline script needs a reviewed HTML encoding')
+    page=page.replace('Overte web parity reference','Overte owned inline parity')
+    page=page.replace('<script src="reference.js"></script>','<script>'+script+'</script>')
+    page=page.replace('preload="metadata"','preload="none"')
+    # The only inline image checkpoint is initial open. Later text/bridge/retire
+    # checkpoints use independent sources, not a stale image challenge relabel.
+    marker=base64.b64encode(marker_bytes(run,ticket)).decode('ascii')
+    page=page.replace('<body>','<body><img id="feature-marker" alt="Owned challenge" src="data:image/png;base64,'+marker+'">')
+    return page.encode('utf-8')
+
+
+def inline_data_url(run,ticket,fixture_url):
+    return 'data:text/html;charset=utf-8;base64,'+base64.b64encode(inline_source(run,ticket,fixture_url)).decode('ascii')
 
 
 class BrowserResources:

@@ -6,7 +6,7 @@ has now exposed assumptions in several draft workflows that do not describe the
 actual product UI. Host-model success does not resolve those mismatches. No
 complete area capability may be advertised as implemented on that basis.
 
-The current contract is version 9. Version 2 corrected Scripts to the ordinary
+The current contract is version 11. Version 2 corrected Scripts to the ordinary
 file-bundle picker and actual relative companion execution, with negative
 cases for execution after cancellation, missing companions and frozen ticks.
 Version 3 corrected Audio to its automatic memory-preview cycle.
@@ -53,7 +53,7 @@ foundation; iOS's explicitly unbound native Script component; and the shared
 native lifecycle, evaluated animation/pose and memory-preview status sources.
 Snapshot v9 now records supported original Save backends, cancellation history,
 system sheets and original external files; see [its source contract](feature_journeys/SNAPSHOT_SOURCE.md).
-They do not complete the fourteen version 9 triples. Required capability gates stay
+They do not complete the fourteen version 11 triples. Required capability gates stay
 closed, original compiler-dependent tests remain excluded from no-build runs,
 and all physical qualification remains unperformed.
 
@@ -71,3 +71,5 @@ timestamps and requires a later inactive evaluation after restore. It labels no
 timer/button cause. Version 5 corrects the ordinary override and chooser
 assumptions; full profile/input/history/image/peer joins are still missing. The
 original Sit concern remains unresolved.
+
+Version 10 corrects absent Chat channel and adds actual independent UI/resume fields. Version 11 corrects browser HTTP/foreign attempt/document lifetime and actual inline carrier semantics; [its source handoff](feature_journeys/WEB_SOURCE.md) separates those contracts from still-missing native sources/adapters.
