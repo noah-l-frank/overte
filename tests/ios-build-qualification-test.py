@@ -2246,6 +2246,308 @@ class HostGenerationTests(unittest.TestCase):
                 self.host.preflight(self.root, runner=lambda *a, **k: (_ for _ in ()).throw(subprocess.CalledProcessError(1, "pkg-config")))
 
 
+class TextEditRetentionTests(unittest.TestCase):
+    """Actual Git candidate geometry plus fake immutable native/API evidence."""
+    def setUp(self):
+        self.fixture = HostGenerationTests()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        f = self.fixture
+        self.module = load("text-edits")
+        self.addCleanup(patch.stopall)
+        patch.object(self.module, "HOST", f.host).start()
+        patch.object(self.module, "trusted_source", return_value="d" * 40).start()
+        patch.object(self.module, "utcnow", return_value=f.host.stamp("2026-10-20T11:00:00Z")).start()
+        event, self.source = f.candidate({"docs/body-fixture.md":"Unchanged native source.\n"})
+        event, self.facts = f.live_facts(event, self.source)
+        event.update(action="edited", changes={"body":{"from":"Previous body"}})
+        event["pull_request"].update(state="open", title="Unchanged title", body="Reviewed body")
+        self.event = event
+        self.prefix = "repos/" + CHECK.REPOSITORY + "/"
+        self.facts[self.prefix+"pulls/42"].update(event["pull_request"])
+        self.facts["repos/"+CHECK.REPOSITORY] = event["repository"]
+        self.facts[self.prefix+"git/ref/heads/main"] = {"object":{"sha":"d"*40}}
+        self.facts[self.prefix+"actions/workflows/ios-build-qualification.yml"] = {
+            "id":700, "path":f.host.WORKFLOW, "name":"iOS device build qualification", "state":"active"}
+        self.env = {"GITHUB_ACTIONS":"true", "GITHUB_REPOSITORY":CHECK.REPOSITORY,
+            "GITHUB_REPOSITORY_ID":str(CHECK.REPOSITORY_ID), "GITHUB_EVENT_NAME":"pull_request",
+            "GITHUB_REF":"refs/pull/42/merge", "GITHUB_BASE_REF":"apple-ios", "GITHUB_HEAD_REF":"fix/ios/offline",
+            "GITHUB_RUN_ATTEMPT":"1", "GITHUB_RUN_ID":"124", "GITHUB_JOB":"ios-device-build",
+            "RUNNER_ENVIRONMENT":"github-hosted", "ImageOS":"ubuntu24", "GITHUB_SHA":self.source,
+            "GITHUB_WORKFLOW_SHA":self.source,
+            "GITHUB_WORKFLOW_REF":CHECK.REPOSITORY+"/"+f.host.WORKFLOW+"@refs/pull/42/merge"}
+        head = event["pull_request"]["head"]["sha"]
+        association = {"number":42, **{side:{"ref":event["pull_request"][side]["ref"],
+            "sha":event["pull_request"][side]["sha"], "repo":{"id":CHECK.REPOSITORY_ID,
+            "url":"https://api.github.com/repos/"+CHECK.REPOSITORY}} for side in ("base","head")}}
+        def run(identifier, status, minute):
+            return {"id":identifier, "workflow_id":700, "path":f.host.WORKFLOW, "event":"pull_request",
+                "head_sha":head, "head_branch":"fix/ios/offline", "run_attempt":1,
+                "repository":event["repository"], "head_repository":event["repository"],
+                "check_suite_id":identifier+1000, "pull_requests":[association],
+                "html_url":f"https://github.com/{CHECK.REPOSITORY}/actions/runs/{identifier}",
+                "created_at":f"2026-10-20T10:{minute}:00Z", "run_started_at":f"2026-10-20T10:{minute}:00Z",
+                "status":status, "conclusion":"success" if status=="completed" else None}
+        self.old, self.consumer = run(123,"completed","00"), run(124,"in_progress","10")
+        self.inventory = self.prefix+f"actions/workflows/700/runs?event=pull_request&head_sha={head}&per_page=100"
+        self.facts[self.inventory] = {"total_count":2,"workflow_runs":[self.consumer,self.old]}
+        for run in (self.old,self.consumer):
+            for suffix in ("","/attempts/1"):
+                self.facts[self.prefix+"actions/runs/"+str(run["id"])+suffix] = run
+        jobs, _ = f.execution(head)
+        canonical = {"id":457, "run_id":123, "run_attempt":1, "head_sha":head,
+            "name":"ios-device-build", "status":"completed", "conclusion":"success",
+            "started_at":"2026-10-20T10:03:00Z", "completed_at":"2026-10-20T10:05:00Z",
+            "check_run_url":"https://api.github.com/repos/"+CHECK.REPOSITORY+"/check-runs/457",
+            "html_url":"https://github.com/"+CHECK.REPOSITORY+"/actions/runs/123/job/457",
+            "steps":[{"name":"Require selected jobs and verify exact IPA provenance", "status":"completed",
+                "conclusion":"success", "started_at":"2026-10-20T10:03:10Z", "completed_at":"2026-10-20T10:04:00Z"},
+                {"name":"Upload qualified build evidence", "status":"completed", "conclusion":"success"}]}
+        # The genuine host fixture has an earlier valid execution window.
+        for key in ("started_at","completed_at"):
+            jobs[0][key] = jobs[0][key].replace("2026-10-15", "2026-10-20")
+        for step in jobs[0]["steps"]:
+            for key in ("started_at","completed_at"):
+                step[key] = step[key].replace("2026-10-15", "2026-10-20")
+        self.jobs = jobs + [canonical]
+        self.facts[self.prefix+"actions/runs/123/attempts/1/jobs?per_page=100"] = {"total_count":2,"jobs":self.jobs}
+        self.facts[self.prefix+"check-runs/457"] = {"id":457,"name":"ios-device-build","head_sha":head,
+            "app":{"id":15368}, "check_suite":{"id":1123}, "details_url":canonical["html_url"],
+            **{k:canonical[k] for k in ("status","conclusion","started_at","completed_at")}}
+        self.plan = f.route(event,self.source)
+        with patch.object(CHECK,"host_handoff",return_value=f.host):
+            self.report = CHECK.report(f.needs(self.plan),self.source,688,123,1,f.root,jobs,
+                event=event,candidate=f.root,policy_root=f.trusted,run_metadata=self.old)
+        self.archive()
+        patch.object(f.host,"_api_get",side_effect=self.get).start()
+
+    def get(self,key):
+        return copy.deepcopy(self.facts[key])
+
+    def archive(self):
+        output = io.BytesIO()
+        with zipfile.ZipFile(output,"w") as archive:
+            archive.writestr("ios-build-evidence.json",json.dumps(self.report))
+        self.raw = output.getvalue()
+        artifact = {"id":800,"name":"ios-build-evidence-123-1","expired":False,"size_in_bytes":len(self.raw),
+            "created_at":"2026-10-20T10:04:30Z", "expires_at":"2026-10-21T10:04:30Z",
+            "workflow_run":{"id":123,"head_sha":self.old["head_sha"]},
+            "digest":"sha256:"+hashlib.sha256(self.raw).hexdigest()}
+        self.facts[self.prefix+"actions/runs/123/artifacts?per_page=100"] = {"total_count":1,"artifacts":[artifact]}
+
+    def metadata_needs(self):
+        return {"route":{"result":"success","outputs":{**self.plan,"required":"false","host_required":"false",
+            "reason":"retained-original-ios-result"}},**{name:{"result":"skipped"} for name in ("host","qt","client")}}
+
+    def result(self,**kwargs):
+        return self.module.result(self.event,self.env,self.fixture.root,self.metadata_needs(),get=self.get,
+            read=lambda key:self.raw,policy_root=self.fixture.trusted,wait_seconds=0,clock=lambda:0,**kwargs)
+
+    def test_same_current_candidate_retains_actual_host_without_executing_or_minting_evidence(self):
+        with patch.object(self.fixture.host,"execute",side_effect=AssertionError("must not execute")):
+            value = self.result()
+        self.assertEqual((value["original_run_id"],value["tests_executed"],value["application_builds_executed"]),(123,0,0))
+        self.assertIs(value["qualification"],False)
+        self.assertIs(value["new_E"],False)
+        self.assertEqual(value["candidate"],self.source)
+
+    def test_pending_original_never_reports_pass_then_genuine_completion_is_required(self):
+        self.old.update(status="in_progress",conclusion=None)
+        with self.assertRaisesRegex(ValueError,"wait expired"): self.result()
+        def finish(_): self.old.update(status="completed",conclusion="success")
+        value = self.module.result(self.event,self.env,self.fixture.root,self.metadata_needs(),get=self.get,read=lambda key:self.raw,
+            policy_root=self.fixture.trusted,clock=lambda:0,sleep=finish,wait_seconds=10)
+        self.assertEqual(value["original_run_id"],123)
+
+    def test_failed_cancelled_skipped_or_rerun_original_never_becomes_pass(self):
+        for conclusion in ("failure","cancelled","skipped","timed_out",None):
+            with self.subTest(conclusion=conclusion):
+                self.old.update(status="completed",conclusion=conclusion)
+                with self.assertRaises(ValueError):self.result()
+        self.old.update(status="completed",conclusion="success",run_attempt=2)
+        with self.assertRaises(ValueError):self.result()
+
+    def test_changed_base_head_merge_source_and_foreign_current_context_reject(self):
+        pull=self.prefix+"pulls/42"
+        changes=((pull,lambda v:v["base"].update(sha="a"*40)),
+            (pull,lambda v:v["head"].update(sha="b"*40)),
+            (pull,lambda v:v.update(state="closed")),
+            (self.prefix+"commits/refs/pull/42/merge",lambda v:v.update(sha="c"*40)),
+            (self.prefix+"git/ref/heads/main",lambda v:v["object"].update(sha="e"*40)),
+            (self.prefix+"actions/runs/123",lambda v:v["repository"].update(id=1)))
+        for key,change in changes:
+            before=copy.deepcopy(self.facts)
+            change(self.facts[key])
+            with self.subTest(key=key),self.assertRaises(ValueError):self.result()
+            self.facts=before
+
+    def test_native_attempt_foreign_role_and_missing_original_inventory_reject(self):
+        for key,value in (("GITHUB_RUN_ATTEMPT","2"),("GITHUB_JOB","host"),("GITHUB_WORKFLOW_SHA","a"*40),
+                          ("GITHUB_REPOSITORY_ID","1"),("GITHUB_ACTIONS","false")):
+            with patch.dict(self.env,{key:value}),self.subTest(key=key),self.assertRaises(ValueError):self.result()
+        self.facts[self.inventory]["total_count"]+=1
+        with self.assertRaises(ValueError):self.result()
+
+    def test_original_artifact_native_app_provenance_and_existing_result_are_mandatory(self):
+        mutations=(lambda:self.report.update(sourceRevision="a"*40),lambda:self.report.update(sourceTree="b"*40),
+            lambda:self.report.update(runAttempt=2),lambda:self.report["hostSelection"].update(producer=None))
+        for mutate in mutations:
+            before=copy.deepcopy(self.report);mutate();self.archive()
+            with self.assertRaises(ValueError):self.result()
+            self.report=before;self.archive()
+        self.facts[self.prefix+"check-runs/457"]["app"]["id"]=1
+        with self.assertRaises(ValueError):self.result()
+        self.facts[self.prefix+"check-runs/457"]["app"]["id"]=15368
+        self.raw+=b"unexpected"
+        with self.assertRaisesRegex(ValueError,"digest"):self.result()
+
+    def test_base_retarget_mixed_edits_labels_and_nontext_events_keep_real_qualification(self):
+        for action,changes in (("edited",{"base":{"from":"apple-main"}}),
+            ("edited",{"body":{"from":"old"},"base":{"from":"apple-main"}}),
+            ("synchronize",None),("labeled",None),("ready_for_review",None)):
+            event={**self.event,"action":action,"changes":changes}
+            with self.subTest(action=action,changes=changes):
+                self.assertFalse(self.module.text_edit(event,"pull_request"))
+        event=copy.deepcopy(self.event);event["changes"]={"title":{"from":"Old title"}}
+        self.assertTrue(self.module.text_edit(event,"pull_request"))
+
+    def test_genuine_ready_notification_retains_same_original_but_draft_or_changes_do_not(self):
+        event=copy.deepcopy(self.event)
+        event.update(action="ready_for_review",changes=None)
+        event["pull_request"]["draft"]=False
+        self.facts[self.prefix+"pulls/42"]["draft"]=False
+        self.assertTrue(self.module.text_edit(event,"pull_request"))
+        value=self.module.result(event,self.env,self.fixture.root,self.metadata_needs(),get=self.get,read=lambda key:self.raw,
+            policy_root=self.fixture.trusted,wait_seconds=0,clock=lambda:0)
+        self.assertEqual((value["original_run_id"],value["tests_executed"]),(123,0))
+        for changes in ({"base":{"from":"apple-main"}}, {"body":{"from":"old"}}):
+            self.assertFalse(self.module.text_edit({**event,"changes":changes},"pull_request"))
+        event["pull_request"]["draft"]=True
+        self.assertFalse(self.module.text_edit(event,"pull_request"))
+
+    def test_source_drift_at_final_bookend_cannot_become_pass(self):
+        def read(_):
+            self.facts[self.prefix+"git/ref/heads/main"]["object"]["sha"]="e"*40
+            return self.raw
+        with self.assertRaisesRegex(ValueError,"protected source moved"):
+            self.module.result(self.event,self.env,self.fixture.root,self.metadata_needs(),get=self.get,read=read,
+                policy_root=self.fixture.trusted,wait_seconds=0,clock=lambda:0)
+
+    def test_expired_evidence_and_wrong_or_skipped_native_provenance_cannot_pass(self):
+        artifact=self.facts[self.prefix+"actions/runs/123/artifacts?per_page=100"]["artifacts"][0]
+        artifact["expires_at"]="2026-10-20T10:59:59Z"
+        with self.assertRaisesRegex(ValueError,"stale"):self.result()
+        artifact["expires_at"]="2026-10-21T10:04:30Z"
+        for step in self.jobs[-1]["steps"][:2]:
+            step["conclusion"]="skipped"
+            with self.assertRaises(ValueError):self.result()
+            step["conclusion"]="success"
+
+    def test_only_reviewed_installed_recipe_and_actual_ordered_tree_support_text_retention(self):
+        f=self.fixture
+        with patch.object(f.host,"resolve",return_value=("legacy",None)),self.assertRaisesRegex(ValueError,"reviewed owner"):
+            self.result()
+        before=self.facts[self.prefix+"commits/refs/pull/42/merge"]["parents"]
+        self.facts[self.prefix+"commits/refs/pull/42/merge"]["parents"]=list(reversed(before))
+        with self.assertRaises(ValueError):self.result()
+
+    def test_existing_workflow_and_native_generation_policy_are_unchanged(self):
+        for path in ("tools/ios-build-qualification/host-workflow.yml", ".github/ios-host-orchestration.json",
+                     "tools/ios-build-qualification/host.py"):
+            self.assertEqual((ROOT/path).read_bytes(),self.fixture.host.git(ROOT,"show","HEAD:"+path))
+
+    def test_full_application_variant_keeps_actual_build_and_ipa_provenance(self):
+        observed=self.module.snapshot(self.event,self.env,self.fixture.root,get=self.get,policy_root=self.fixture.trusted)
+        observed["plan"]["required"]="true"
+        self.report["hostSelection"]["applicationBuildRequired"]=True
+        self.report["ipa"]="verified"
+        self.report["artifact"]={"sha256":"f"*64}
+        build=[{**job,"head_sha":self.old["head_sha"]} for job in records()[1:]]
+        self.jobs[1:1]=build
+        self.facts[self.prefix+"actions/runs/123/attempts/1/jobs?per_page=100"]["total_count"]=len(self.jobs)
+        self.report["producer"]=CHECK.verify_build_execution(self.jobs,123,1,self.old["head_sha"])
+        self.archive()
+        value=self.module.original_success(observed,get=self.get,read=lambda key:self.raw)
+        self.assertEqual(value["original_run_id"],123)
+        self.jobs[-2]["steps"][0]["conclusion"]="skipped"
+        with self.assertRaises(ValueError):self.module.original_success(observed,get=self.get,read=lambda key:self.raw)
+
+    def test_new_owner_leaves_are_exact_application_nonreaders_with_no_sibling_or_mode_exemption(self):
+        inputs=CHECK.input_selector()
+        for path in ("tools/ios-build-qualification/text-edits.py",):
+            self.assertEqual(inputs._kind(inputs.Entry(path,"100644","blob","a"*40)),"independent-host")
+            self.assertEqual(inputs._kind(inputs.Entry(path,"100755","blob","a"*40)),"application-input")
+            self.assertEqual(inputs._kind(inputs.Entry(path,"120000","blob","a"*40)),"application-input")
+            self.assertEqual(inputs._kind(inputs.Entry(path+".unknown","100644","blob","a"*40)),"application-input")
+
+    def test_no_new_work_receipt_can_be_used_as_original_host_or_application_proof(self):
+        value=self.result()
+        self.assertNotIn("checks",value)
+        self.assertNotIn("ipa",value)
+        self.assertNotIn("artifact",value)
+        self.assertNotIn("hostSelection",value)
+        self.report=value;self.archive()
+        with self.assertRaisesRegex(ValueError,"exact B/H/M/tree"):self.result()
+        with self.assertRaises(ValueError):
+            self.fixture.host.verify_execution([],self.consumer,124,1,self.old["head_sha"])
+        with self.assertRaises(ValueError):CHECK.verify_build_execution([],124,1,self.old["head_sha"])
+        with patch.object(CHECK,"host_handoff",return_value=self.fixture.host),self.assertRaises(ValueError):
+            CHECK.verify_jobs(self.metadata_needs(),self.source,event=self.event,candidate=self.fixture.root,
+                              policy_root=self.fixture.trusted)
+
+    def test_metadata_callbacks_reject_any_executed_or_failed_selected_job(self):
+        for name in ("host","qt","client"):
+            for state in ("success","failure","cancelled"):
+                needs=self.metadata_needs();needs[name]["result"]=state
+                with self.subTest(name=name,state=state),self.assertRaises(ValueError):
+                    self.module.result(self.event,self.env,self.fixture.root,needs,get=self.get,
+                        read=lambda key:self.raw,policy_root=self.fixture.trusted,wait_seconds=0,clock=lambda:0)
+
+    def test_existing_cli_routes_and_verifies_the_inert_event_without_original_test_execution(self):
+        directory=self.fixture.trusted
+        event=directory/"event.json";event.write_text(json.dumps(self.event))
+        output=directory/"outputs.txt"
+        proxy=SimpleNamespace(
+            snapshot=lambda *args:self.module.snapshot(*args,get=self.get,policy_root=self.fixture.trusted),
+            route_fields=self.module.route_fields,
+            result=lambda *args:self.module.result(*args,get=self.get,read=lambda key:self.raw,
+                policy_root=self.fixture.trusted,clock=lambda:0,wait_seconds=0))
+        with patch.object(CHECK,"metadata_handoff",return_value=proxy), \
+             patch.object(CHECK,"route",side_effect=AssertionError("metadata must not select new work")), \
+             patch.object(CHECK,"report",side_effect=AssertionError("metadata must not mint a new receipt")), \
+             patch.dict(CHECK.os.environ,{**self.env,"GITHUB_JOB":"route"},clear=True), \
+             patch.object(sys,"stdout",io.StringIO()):
+            with patch.object(sys,"argv",["check.py","route","--event",str(event),"--candidate",str(self.fixture.root),
+                    "--sha",self.source,"--output",str(output)]):
+                self.assertEqual(CHECK.main(),0)
+            fields=dict(line.split("=",1) for line in output.read_text().splitlines())
+            self.assertEqual(fields,self.metadata_needs()["route"]["outputs"])
+            required=directory/"needs.json";required.write_text(json.dumps(self.metadata_needs()))
+            diagnostic=directory/"diagnostic.json"
+            CHECK.os.environ["GITHUB_JOB"]="ios-device-build"
+            with patch.object(sys,"argv",["check.py","verify","--event",str(event),"--candidate",str(self.fixture.root),
+                    "--needs",str(required),"--jobs",str(directory/"not-read-jobs.json"),"--source",self.source,
+                    "--build-number","7","--run-id","124","--attempt","1","--artifacts",str(directory),
+                    "--output",str(diagnostic)]):
+                self.assertEqual(CHECK.main(),0)
+            actual=json.loads(diagnostic.read_text())
+            self.assertEqual(actual["kind"],"ios-text-edit-original-result")
+            self.assertNotIn("checks",actual)
+            self.assertNotIn("ipa",actual)
+
+    def test_base_edited_cli_uses_existing_fresh_path_and_pure_report_stays_unchanged(self):
+        event=copy.deepcopy(self.event);event["changes"]={"base":{"from":"apple-main"}}
+        self.assertIsNone(CHECK.metadata_handoff(event,self.env))
+        for name in ("route","verify_jobs","verify_build_execution","report","fresh_host_candidate"):
+            import ast
+            before=ast.parse(self.fixture.host.git(ROOT,"show","HEAD:tools/ios-build-qualification/check.py").decode())
+            after=ast.parse((ROOT/"tools/ios-build-qualification/check.py").read_text())
+            get=lambda module:next(n for n in module.body if isinstance(n,ast.FunctionDef) and n.name==name)
+            self.assertEqual(ast.dump(get(before),include_attributes=False),ast.dump(get(after),include_attributes=False))
+
+
+
+
 class HistoryTests(unittest.TestCase):
     def test_history_covers_qualification_failures_and_workflow_identity(self):
         repo = {"full_name": HISTORY.REPOSITORY, "id": HISTORY.REPOSITORY_ID}
