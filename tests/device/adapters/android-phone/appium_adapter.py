@@ -54,6 +54,7 @@ from adapters.token_audio_ui import TokenAudioUI
 from overte_phone_audio import PhoneAudioIO, FILE as AUDIO_UI_FILE
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
+from adapters.script_restart_handoff import ScriptRestartHandoff
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
 from adapters.world_render_storage import NativeWorldRenderStorage
@@ -335,6 +336,16 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return OwnedScriptFiles(files, self.script_files_store(selector), context)
 
     def _script_file_manager(self, selector):
+        ui, observe, context = self._script_file_runtime(selector)
+        files = self._script_files(selector)
+        directory = files.verify()
+        picker = self._script_file_picker(selector, directory)
+        result = NormalScriptManager(ui, observe, self.script_store(selector), context,
+            source_kind='script-file-bundle', file_owner=files, file_picker=picker)
+        result.sample()
+        return result  # Input/cleanup ownership only; no full Scripts capability.
+
+    def _script_file_runtime(self, selector):
         native_ui, observe, context, check, installed = self.normal_feature_runtime(selector)
         target = self.target(selector)
         def guard():
@@ -344,14 +355,28 @@ class PhoneAppiumAdapter(AppiumAdapter):
         def original(after):
             guard(); value = observe(after); guard(); return value
         guard()
+        return PhoneScriptUI(native_ui, target['appId']), original, context
+
+    def script_restart_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-restart.json'))
+
+    def _script_restart_handoff(self, selector):
+        return ScriptRestartHandoff(self.script_restart_store(selector),
+            self.script_files_store(selector), self.script_store(selector))
+
+    def _script_restart_prepare(self, selector):
+        return self._script_restart_handoff(selector).prepare(
+            self._script_file_manager(selector), self._script_execution_observer(selector))
+
+    def _script_restart_adopt(self, selector):
+        # Read original current sources without constructing/adopting a manager
+        # from the old process record. No lifecycle/UI/script input is issued.
+        ui, observe, binding = self._script_file_runtime(selector)
+        handoff = self._script_restart_handoff(selector)
         files = self._script_files(selector)
-        directory = files.verify()
-        picker = self._script_file_picker(selector, directory)
-        result = NormalScriptManager(PhoneScriptUI(native_ui, target['appId']), original,
-            self.script_store(selector), context, source_kind='script-file-bundle',
-            file_owner=files, file_picker=picker)
-        result.sample(); guard()
-        return result  # Input/cleanup ownership only; no full Scripts capability.
+        return handoff.adopt(binding, self._process_presence(selector),
+            self._script_execution_observer(selector), files.native, ui, observe,
+            self._script_file_picker(selector, handoff.directory()))
 
     def _script_file_picker(self, selector, directory):
         # Internal primitive only. The full area still needs staged-byte
@@ -617,6 +642,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
             binding.adb.shell(device, 'am', 'force-stop', target['appId'])
             binding.wait_for_process_stopped(device)
         result = super().cleanup(selector)
+        require(self.script_restart_store(selector).read() is None, 'PHONE_SCRIPT_RESTART_CLEANUP_INCOMPLETE')
         if owned is not None:
             require(result == {'cleaned': True}, 'PHONE_NORMAL_SNAPSHOT_CLEANUP_INCOMPLETE')
             store.discard()

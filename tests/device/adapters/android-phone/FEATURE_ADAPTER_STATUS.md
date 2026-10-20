@@ -1,5 +1,17 @@
 # Phone adapter implementation, local source only
 
+The current common journey contract is **v16**. The internal
+`_script_restart_prepare/adopt` methods now connect the
+[durable restart handoff v1](../../native/SCRIPT_RESTART_HANDOFF.md) to original
+APK/PID-start/session-bound storage, process exit, execution, service and UI
+sources. They issue no lifecycle/Script/UI input and preserve original staged
+files. Host cases cover a new empty process, retained execution, unknown kernel
+exit, changed installed bytes and unresolved-journal cleanup. The common
+transaction additionally covers partial writes and repeated original proof on
+recovery. Full one-send lifecycle orchestration, independent actor evidence,
+missing-URL/error and complete cleanup joins remain missing; no full feature
+capability is enabled. Native source is uncompiled and devices untested.
+
 Current restart-source packet: `_process_presence(selector)` now transports the
 [original kernel presence source](../../native/PROCESS_PRESENCE.md) through the
 existing APK/PID-start/session/foreground guards and one-attempt private reads.

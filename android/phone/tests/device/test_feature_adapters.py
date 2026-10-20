@@ -35,6 +35,8 @@ from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_feature_observation import probe_source
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
+from adapters.native_script_files import originals
+from adapters.script_restart_handoff import ScriptRestartHandoff
 from self_tests.test_native_script_files import Boundary as ScriptFilesBoundary
 from script_file_native_boundary import FileNativeBoundary
 from audio_native_boundary import AudioNativeBoundary, ControlNativeBoundary
@@ -73,6 +75,7 @@ class Native:
         self.text = ''
         self.rows, self.inputs = [], []
         self.sequence = 0
+        self.instance = 'f' * 32
         self.clock = 0.0
         self.identity = '31:14'
         self.epoch_ms = 10000
@@ -189,7 +192,7 @@ class Native:
         if path != 'files/overte-e2e/normal-feature-observation.json':
             raise AssertionError('Unexpected native file')
         self.sequence += 1
-        value = dict(schemaVersion=1, requestId=self.request['commandId'], instance='f' * 32, complete=True,
+        value = dict(schemaVersion=1, requestId=self.request['commandId'], instance=self.instance, complete=True,
             sampleSequence=self.sequence, sampleEpochMs=self.epoch_ms, scripts=self.rows)
         if self.request['includeAvatarEntities']:
             value.update(entitiesComplete=True, avatarEntities=self.entities)
@@ -724,7 +727,7 @@ class FeatureAdapterTests(unittest.TestCase):
         file_ui = FileNativeBoundary(storage.root)
         self.native.epoch_ms = 20000
         def send(client, session, target, command, process):
-            self.assertEqual(PACKAGE, target['appId']); self.assertEqual('31:14', process['identity'])
+            self.assertEqual(PACKAGE, target['appId']); self.assertEqual(self.native.identity, process['identity'])
             if command['action'] == 'feature-script-files': storage.send(command)
             elif command['action'] == 'phone-script-file-ui': file_ui.send(command)
             else: self.native.command(client, session, target, command, process)
@@ -778,6 +781,102 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual(before, len(file_ui.commands))
         self.assertTrue(self.adapter.script_store(SELECTOR).read()['pickerOwned'])
         self.assertIsNotNone(files.store.read())
+
+    def restart_boundaries(self):
+        storage, file_ui, files, manager = self.file_manager_boundaries()
+        manager.open(); manager.file_picker_open(); manager.file_picker_choose('script-bundle/main.js')
+        source = ScriptBoundary(); source.engine['url'] = storage.root.as_uri() + '/script-bundle/main.js'
+        source.engine['required']['modules'][0]['url'] = storage.root.as_uri() + '/script-bundle/companion.js'
+        presence = PresenceBoundary(pid=32, epoch_ms=lambda: self.native.epoch_ms); presence.presence = 'absent'
+        state = {'restarted': False, 'replay': False}
+        def mutate(packet):
+            packet.update(processId=int(self.native.identity.split(':')[0]),
+                instance=('a' if state['restarted'] else 'd') * 32,
+                requestedEpochMs=self.native.epoch_ms, capturedEpochMs=self.native.epoch_ms)
+            code_source(packet, originals('a' * 32)['script-bundle/main.js'].decode())
+            effect_source(packet)
+            row = packet['source']['effects']['entities'][0]
+            row['name'] = 'e2e-' + 'a' * 32 + '-script'; row['userData'] = json.dumps(dict(runId='a' * 32, ticks=2))
+            packet['source'].update(loadSourceVersion=1,
+                loads=dict(complete=True, instance='7' * 32, sequence=0, events=[]))
+            if state['restarted'] and not state['replay']:
+                packet['source']['engines'] = []
+                packet['source']['effects'].update(scannedEntities=0, entities=[], absentIds=[])
+        source.mutate = mutate
+        def storage_mutate(packet):
+            packet.update(processId=int(self.native.identity.split(':')[0]),
+                instance=('a' if state['restarted'] else 'd') * 32,
+                requestedEpochMs=self.native.epoch_ms, capturedEpochMs=self.native.epoch_ms)
+        storage.mutate = storage_mutate
+        def file_mutate(packet):
+            packet['processId'] = int(self.native.identity.split(':')[0])
+            if packet['action'] == 'observe': packet['capturedEpochMs'] = self.native.epoch_ms
+        file_ui.mutate = file_mutate
+        original_send = self.adapter.write_android_client_command.side_effect
+        original_read = self.fixture.adb.read_debug_app_file.side_effect
+        def send(client, session, target, command, process):
+            if command['action'] == 'feature-script-observe': source.send(command)
+            elif command['action'] == 'feature-process-presence': presence.send(command)
+            else: return original_send(client, session, target, command, process)
+        def read(device, package, path, **options):
+            if path.endswith('/feature-script-observation.json'): return source.original()
+            if path.endswith('/feature-process-presence.json'): return presence.original()
+            return original_read(device, package, path, **options)
+        def sleep(seconds):
+            self.native.sleep(seconds); self.native.epoch_ms += round(seconds * 1000)
+        for boundary in (patch.object(self.adapter, 'write_android_client_command', side_effect=send),
+            patch.object(self.fixture.adb, 'read_debug_app_file', side_effect=read),
+            patch.object(self.fixture.adb, 'epoch_milliseconds', side_effect=lambda *_: self.native.epoch_ms),
+            patch.object(appium, 'ScriptRestartHandoff', partial(ScriptRestartHandoff,
+                monotonic=lambda: self.native.clock, sleep=sleep))):
+            boundary.start(); self.addCleanup(boundary.stop)
+        self.adapter._script_restart_prepare(SELECTOR)
+        # Only the explicit synthetic OS boundary is changed, never the real
+        # adapter's native source/ownership/result logic.
+        state['restarted'] = True; self.native.identity = '32:15'
+        self.native.screen = None; self.native.rows = []; self.native.instance = '9' * 32
+        file_ui.ui.opened = False
+        return storage, file_ui, source, presence, state
+
+    def test_phone_restart_handoff_uses_new_original_process_and_preserved_file_bytes_without_product_input(self):
+        storage, file_ui, source, presence, _state = self.restart_boundaries()
+        before = (list(self.native.inputs), list(file_ui.input_requests))
+        result = self.adapter._script_restart_adopt(SELECTOR)
+        self.assertEqual('ESRCH', result['exit']['errorSymbol'])
+        self.assertEqual([], result['execution']['source']['engines'])
+        self.assertEqual(before, (self.native.inputs, file_ui.input_requests))
+        self.assertEqual('32:15', self.adapter.script_files_store(SELECTOR).read()['binding']['processIdentity'])
+        self.assertFalse(self.adapter.script_store(SELECTOR).read()['loadAttempted'])
+        self.assertIsNone(self.adapter.script_restart_store(SELECTOR).read())
+        self.assertEqual(1, sum(row['operation'] == 'stage' for row in storage.commands))
+        self.assertGreaterEqual(len(source.commands), 3); self.assertTrue(presence.commands)
+
+    def test_phone_restart_handoff_retained_execution_or_unavailable_exit_retains_both_owners(self):
+        _storage, _file_ui, source, presence, state = self.restart_boundaries()
+        presence.presence = 'unknown'
+        with self.assertRaises(RuntimeError): self.adapter._script_restart_adopt(SELECTOR)
+        before = len(source.commands); presence.presence = 'absent'; state['replay'] = True
+        with self.assertRaises(RuntimeError): self.adapter._script_restart_adopt(SELECTOR)
+        self.assertGreater(len(source.commands), before)
+        self.assertEqual('31:14', self.adapter.script_files_store(SELECTOR).read()['binding']['processIdentity'])
+        self.assertTrue(self.adapter.script_store(SELECTOR).read()['loadAttempted'])
+        self.assertIsNotNone(self.adapter.script_restart_store(SELECTOR).read())
+
+    def test_phone_restart_handoff_candidate_replacement_blocks_adoption_before_native_query(self):
+        _storage, _file_ui, source, presence, _state = self.restart_boundaries()
+        before = len(source.commands); self.fixture.adb.digest = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'PHONE_INSTALLED_BYTES_MISMATCH'):
+            self.adapter._script_restart_adopt(SELECTOR)
+        self.assertEqual(before, len(source.commands)); self.assertEqual([], presence.commands)
+        self.assertIsNotNone(self.adapter.script_restart_store(SELECTOR).read())
+
+    def test_phone_unresolved_restart_journal_blocks_green_cleanup_even_without_other_host_intents(self):
+        self.adapter.script_restart_store(SELECTOR).write({'unresolved': True}, None)
+        with patch.object(AppiumAdapter, 'cleanup', return_value={'cleaned': True}) as teardown:
+            with self.assertRaisesRegex(ValueError, 'PHONE_SCRIPT_RESTART_CLEANUP_INCOMPLETE'):
+                self.adapter.cleanup(SELECTOR)
+            teardown.assert_called_once()
+        self.assertIsNotNone(self.adapter.script_restart_store(SELECTOR).read())
 
     def test_phone_native_effect_counters_are_actual_rows_and_process_loss_blocks_new_reads(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
