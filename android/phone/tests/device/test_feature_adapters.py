@@ -1276,25 +1276,33 @@ class FeatureAdapterTests(unittest.TestCase):
         with self.assertRaises(RuntimeError): reader.read(0)
         self.assertEqual([], source.commands)
 
-    def script_measurement_boundaries(self):
+    def script_measurement_boundaries(self, *, stopped=False, pending=False,file_birth=None):
         from self_tests.test_script_ui_inventory import inventory
         from self_tests.test_script_manager_status import observed
         from adapters.token_script_file_ui import file_url
         storage, file_ui, files, manager = self.file_manager_boundaries()
         manager.open(); manager.file_picker_open(); manager.file_picker_choose('script.js')
+        if stopped:manager.stop_source(storage.root.as_uri()+'/script.js')
         for row in self.native.rows: row['path'] = file_url(row['url'])
+        if file_birth is not None:storage.mutate=lambda packet:packet.update(instance=file_birth)
         source, lifecycle = ScriptBoundary(), NativeFeatureBoundary()
         source.engine['url'] = storage.root.as_uri() + '/script.js'
         source.engine['required']['modules'][0]['url'] = storage.root.as_uri() + '/companion.js'
         def measured(packet):
             code_source(packet, originals('a' * 32)['script.js'].decode())
+            packet['instance']='d'*32
             effect_source(packet); history = packet['source']
-            membership_source(packet)
             history.update(loadSourceVersion=1, loads=dict(complete=True, instance='c' * 32, sequence=0, events=[]))
             row = history['effects']['entities'][0]
             row.update(name='e2e-' + 'a' * 32 + '-script', userData=json.dumps(dict(runId='a' * 32, ticks=2)))
+            if stopped:
+                history['engines']=[];history['effects'].update(entities=[],scannedEntities=0)
+            membership_source(packet)
+            if pending:
+                from self_tests.test_native_script_membership import manager as known_manager
+                membership_source(packet,[known_manager('5'*32,storage.root.as_uri()+'/script.js')],1)
         source.mutate = measured
-        lifecycle.mutate = lambda packet: packet.update(processId=31)
+        lifecycle.mutate = lambda packet: packet.update(processId=31,instance='d'*32)
         file_ui.mutate = lambda packet: packet.update(scriptInventory=inventory([observed(statusText='', labelText='', labelVisible=False)]))
         commands = []
         def send(client, session, target, command, process):
@@ -1351,6 +1359,35 @@ class FeatureAdapterTests(unittest.TestCase):
         before = len(commands)
         with self.assertRaises((ValueError, RuntimeError)): self.adapter._script_measurements(SELECTOR, 'e' * 32, fixture)
         self.assertEqual(before, len(commands)); self.assertEqual('a' * 32, files.owned()['runId'])
+
+    def test_phone_script_measurements_foreign_file_source_birth_cannot_borrow_other_fresh_sources(self):
+        _commands,fixture,files=self.script_measurement_boundaries(file_birth='f'*32)
+        reader=self.adapter._script_measurements(SELECTOR,'a'*32,fixture)
+        with self.assertRaises(RuntimeError):reader.read('b'*32,19000)
+        self.assertIsNotNone(files.store.read())
+
+    def test_phone_file_to_missing_scope_preserves_open_ui_original_files_without_session_repair_or_input(self):
+        commands,_fixture,files=self.script_measurement_boundaries(stopped=True)
+        self.read_only_boundaries();before=list(self.native.inputs);owner=deepcopy(files.store.read())
+        missing=self.adapter._script_missing_from_files(SELECTOR,'a'*32)
+        self.assertEqual('feature-script-missing',missing.source_kind)
+        self.assertEqual(before,self.native.inputs);self.assertEqual('scripts',self.native.screen)
+        self.assertEqual(owner,files.store.read())
+        self.assertTrue(missing.state['tabletOwned'] and missing.state['managerOwned'])
+        self.assertFalse(any(command['action']=='phone-script-file-ui' and command['request']['action']!='observe' for command in commands))
+
+    def test_phone_file_to_missing_scope_pending_manager_preserves_old_mode_and_ownership(self):
+        _commands,_fixture,files=self.script_measurement_boundaries(stopped=True,pending=True)
+        self.read_only_boundaries();before=list(self.native.inputs)
+        with self.assertRaises(RuntimeError):self.adapter._script_missing_from_files(SELECTOR,'a'*32)
+        self.assertEqual('script-file-bundle',self.adapter.script_store(SELECTOR).read()['sourceKind'])
+        self.assertEqual(before,self.native.inputs);self.assertIsNotNone(files.store.read())
+
+    def test_phone_file_to_missing_scope_changed_candidate_is_rejected_before_original_source_query(self):
+        commands,_fixture,files=self.script_measurement_boundaries(stopped=True)
+        self.read_only_boundaries();before=len(commands);self.fixture.adb.digest='f'*64
+        with self.assertRaises((ValueError,RuntimeError)):self.adapter._script_missing_from_files(SELECTOR,'a'*32)
+        self.assertEqual(before,len(commands));self.assertIsNotNone(files.store.read())
 
     def file_picker_boundaries(self):
         root = self.fixture.root / ('feature-script-' + 'a' * 32)

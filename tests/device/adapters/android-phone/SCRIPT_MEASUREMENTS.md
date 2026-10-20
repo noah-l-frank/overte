@@ -19,6 +19,9 @@ instance and advancing service cursor. Whole acquisition is limited to 20
 seconds; existing individual getter and enclosing runner bounds also apply.
 Unavailable, ignored, incomplete or inconsistent sources fail with a fixed
 private-safe error, preserving file/input ownership.
+Original file, execution and lifecycle native instances must additionally agree;
+a matching PID/current nonce cannot mix native births. The UI has its separate
+original UI-instance identity and is pinned independently.
 
 Version 2 additionally requires the [original all-known manager source](../../native/SCRIPT_MEMBERSHIP.md).
 Pending owned managers cannot hide behind an empty public running hash. Every
@@ -68,10 +71,10 @@ adopt a requested restart. Pure joins alone do not prove callback cause, actual
 HTTP delivery, process death or fixture removal. No capability is promoted here.
 
 The existing mandatory Phone runtime owner registers the device-free
-`test_script_measurements.py` group in both modes. All **30** cases pass,
+`test_script_measurements.py` group in both modes. All **32** cases pass,
 including actual-service format, wrong code, missing results, foreign companions,
 orphan effects, stale/foreign errors, broken Label binding, original clocks,
 source replacement, ignored acquisition, owner loss and deadline enforcement.
 Four additional factory cases use the actual bound wrapper and original
-file/readers; all **145** Phone feature-adapter host cases pass. SDK/ADB/native
+file/readers; all **149** Phone feature-adapter host cases pass. SDK/ADB/native
 boundaries remain synthetic. C++ is uncompiled; no device acceptance is claimed.

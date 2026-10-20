@@ -12,9 +12,11 @@ The native E2E input allowlist adds only this missing-resource path; the public
 
 The scope uses the existing manager journal at schema 4 with
 `missingLoadVersion:1` and `missingLoad:null|object`. Existing schema 2 URL/create
-and schema 3 file ownership are not migrated or implicitly adopted. A composed
-feature adapter must first independently retire its stopped file manager and
-close its owned UI before opening this scope on that same manager store. The
+and schema 3 file ownership are not migrated or implicitly adopted. Phone now
+provides an [explicit observed host-only scope transfer](../adapters/android-phone/SCRIPT_SCOPE_TRANSFER.md)
+from a proved stopped file scope, preserving the actual open page. It does not
+close/reopen UI to change host schema. Other narrow factories must still
+independently retire an existing scope before constructing another. The
 separate staged-file owner remains intact until independently verified release.
 Never run both manager scopes concurrently or hide an unresolved predecessor.
 

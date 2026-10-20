@@ -51,6 +51,7 @@ def compose(run, ticket, directory, fixture_url, pid, execution, ui, service, li
     validate_ui(ui, ui.get('commandId'), pid, epoch)
     diagnostic(service, epoch)
     validate_lifecycle(lifecycle, lifecycle.get('requestId'), pid, epoch)
+    need(execution['instance']==lifecycle['instance'])
     clocks = [execution['capturedEpochMs'], ui['capturedEpochMs'], service['sampleEpochMs'], lifecycle['capturedEpochMs']]
     need(integer(after_epoch, 1) and min(clocks) >= after_epoch and max(clocks) - min(clocks) <= 1500)
     fresh(min(clocks), epoch)
@@ -124,15 +125,16 @@ class PhoneScriptMeasurements:
     CLI observation producer. Reconstruction must not reset a full run's history.
     """
     def __init__(self, run, directory, fixture_url, execution, ui, service, lifecycle,
-                 verify_directory, guard, *, monotonic=time.monotonic):
+                 verify_directory, guard, *, file_instance, monotonic=time.monotonic):
         need(isinstance(execution, NativeScriptObservation) and isinstance(ui, PhoneScriptFileIO)
              and isinstance(lifecycle, NativeFeatureObservation)
              and execution.pid == ui.pid == lifecycle.pid
-             and all(callable(value) for value in (service, verify_directory, guard, monotonic)))
+             and all(callable(value) for value in (service, verify_directory, guard, file_instance, monotonic)))
         identifier(run); file_url(directory)
         self.run, self.directory, self.fixture_url = run, directory, fixture_url
         self.execution, self.ui, self.service, self.lifecycle = execution, ui, service, lifecycle
         self.verify_directory, self.guard, self.monotonic = verify_directory, guard, monotonic
+        self.file_instance=file_instance
         self.service_instance, self.service_sequence = None, 0
 
     def read(self, ticket, after_epoch):
@@ -146,6 +148,8 @@ class PhoneScriptMeasurements:
                 previous = now
             check()
             need(self.verify_directory() == self.directory); check()
+            file_birth=self.file_instance()
+            need(type(file_birth) is str and re.fullmatch('[0-9a-f]{32}',file_birth) is not None)
             execution = self.execution.read(self.execution.sequence,
                 require_effects=True, require_code_identity=True, require_load_history=True, require_membership=True)
             check(); ui = self.ui.capture(); check()
@@ -157,6 +161,7 @@ class PhoneScriptMeasurements:
             epoch = self.lifecycle.clock_ms(); check()
             result = compose(self.run, ticket, self.directory, self.fixture_url, self.execution.pid,
                              execution, ui, service, lifecycle, epoch, after_epoch)
+            need(file_birth==execution['instance']==lifecycle['instance'] and self.file_instance()==file_birth)
             check()
             return result
         except Exception:

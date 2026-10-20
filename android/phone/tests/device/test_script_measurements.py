@@ -45,6 +45,7 @@ class ScriptMeasurementTests(unittest.TestCase):
         source.mutate = measured
         self.execution_source, self.execution_reader = source, source.reader()
         self.execution = self.execution_reader.read(0, require_effects=True, require_code_identity=True, require_load_history=True)
+        self.file_birth=self.execution['instance']
         file_ui = FileNativeBoundary(self.root)
         file_ui.mutate = lambda packet: packet.update(scriptInventory=inventory([observed(statusText='', labelText='', labelVisible=False)]))
         self.ui_source = file_ui
@@ -53,7 +54,7 @@ class ScriptMeasurementTests(unittest.TestCase):
         self.ui = self.ui_reader.capture()
         self.service = dict(schemaVersion=1, instance='f' * 32, sampleSequence=1, sampleEpochMs=20000,
                             complete=True, scripts=[dict(url=source.engine['url'], path=file_url(source.engine['url']))])
-        lifecycle = Lifecycle(); lifecycle.mutate = lambda packet: packet.update(processId=31)
+        lifecycle = Lifecycle(); lifecycle.mutate = lambda packet: packet.update(processId=31,instance=self.execution['instance'])
         self.lifecycle_source = lifecycle
         self.lifecycle_reader = NativeFeatureObservation(lifecycle.send, lifecycle.original, lambda: 20000,
             lifecycle.guard, 31, monotonic=lambda: lifecycle.clock, sleep=lifecycle.sleep)
@@ -77,7 +78,8 @@ class ScriptMeasurementTests(unittest.TestCase):
             return deepcopy(self.service), 20000
         values = dict(run=RUN, directory=self.directory, fixture_url=FIXTURE, execution=self.execution_reader,
             ui=self.ui_reader, service=service, lifecycle=self.lifecycle_reader,
-            verify_directory=lambda: self.directory, guard=lambda: self.okay, monotonic=lambda: self.clock) | changes
+            verify_directory=lambda: self.directory, guard=lambda: self.okay,
+            file_instance=lambda:self.file_birth,monotonic=lambda: self.clock) | changes
         return PhoneScriptMeasurements(**values)
 
     def test_live_reader_reacquires_all_original_sources_and_preserves_original_lifecycle(self):
@@ -106,6 +108,11 @@ class ScriptMeasurementTests(unittest.TestCase):
             reader = self.reader(guard=lambda: guard, verify_directory=lambda: directory)
             with self.subTest(guard=guard, directory=directory), self.assertRaises(NativeUIError): reader.read(TICKET, 19000)
             self.assertEqual(before, len(self.execution_source.commands))
+
+    def test_live_reader_foreign_or_missing_actual_file_source_birth_cannot_mix_with_execution(self):
+        for instance in ('f'*32,None):
+            reader=self.reader(file_instance=lambda:instance)
+            with self.subTest(instance=instance),self.assertRaises(NativeUIError):reader.read(TICKET,19000)
 
     def test_live_reader_whole_acquisition_deadline_includes_original_fixture_check(self):
         def late():
@@ -147,6 +154,10 @@ class ScriptMeasurementTests(unittest.TestCase):
     def test_oldest_original_capture_is_preserved_without_retiming(self):
         self.ui['capturedEpochMs'] = 19980
         self.assertEqual(19980, self.measured()['capturedEpochMs'])
+
+    def test_same_pid_with_a_different_native_lifecycle_birth_cannot_mix_sources(self):
+        self.lifecycle['instance']='f'*32
+        with self.assertRaises(NativeUIError):self.measured()
 
     def test_original_android_service_path_has_no_file_scheme(self):
         self.assertTrue(self.service['scripts'][0]['path'].startswith('/'))

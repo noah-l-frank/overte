@@ -80,6 +80,34 @@ class ScriptFileManagerTests(unittest.TestCase):
         self.assertEqual(1, self.picker_io.actions.count('scripts.from-file'))
         self.assertGreaterEqual(self.picker_io.clock, 0.3)
 
+    def test_owned_feature_panel_open_is_not_replayed_after_ignored_delivery(self):
+        def ignored():self.native.calls.append('open-manager')
+        self.native.open_manager=ignored
+        for _ in range(2):
+            with self.assertRaises(NativeUIError):self.flow().open()
+        self.assertEqual(1,self.native.calls.count('open-manager'))
+        self.assertTrue(self.native.store.read()['managerOwned'])
+
+    def test_owned_feature_panel_lost_ack_can_resume_only_by_reading_actual_open_ui(self):
+        original=self.native.open_manager
+        def lost():original();raise NativeUIError('synthetic lost open acknowledgment')
+        self.native.open_manager=lost
+        with self.assertRaises(NativeUIError):self.flow().open()
+        self.flow().open()
+        self.assertEqual(1,self.native.calls.count('open-manager'));self.assertTrue(self.native.manager)
+
+    def test_closed_object_can_repeat_cleanup_but_cannot_reacquire_an_absent_lease(self):
+        flow=self.flow();flow.open();flow.close();before=list(self.native.calls)
+        flow.close()
+        with self.assertRaises(NativeUIError):flow.open()
+        self.assertEqual(before,self.native.calls);self.assertIsNone(self.native.store.read())
+
+    def test_retired_object_cannot_close_a_new_scope_after_its_original_journal_was_removed(self):
+        old=self.flow();old.open();old.close()
+        current=self.flow();current.open();before=list(self.native.calls)
+        with self.assertRaises(NativeUIError):old.close()
+        self.assertEqual(before,self.native.calls);self.assertTrue(self.native.manager)
+
     def test_uncertain_or_ignored_selection_is_never_replayed_and_retains_load_intent(self):
         for fault in ('row', 'confirm'):
             with self.subTest(fault=fault):

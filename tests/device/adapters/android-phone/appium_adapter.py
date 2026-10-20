@@ -63,6 +63,7 @@ from adapters.world_render_storage import NativeWorldRenderStorage
 from adapters.owned_world_render import WorldRenderOwner, OwnedWorldRenderCapture
 from overte_phone_script_files import PhoneScriptFileIO, FILE as SCRIPT_FILE_UI_FILE
 from overte_phone_script_measurements import PhoneScriptMeasurements
+from overte_phone_script_scope import transfer_file_scope
 
 
 class PhoneAppiumAdapter(AppiumAdapter):
@@ -359,11 +360,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
         directory = files.verify()
         execution = NativeScriptObservation(native.send, original(SCRIPT_EXECUTION_FILE), native.clock_ms, guard, native.pid)
         ui = PhoneScriptFileIO(native.send, original(SCRIPT_FILE_UI_FILE), native.clock_ms, guard, native.pid)
-        return PhoneScriptMeasurements(run, directory, fixture_url, execution, ui, observe, native, files.verify, guard)
+        return PhoneScriptMeasurements(run, directory, fixture_url, execution, ui, observe, native, files.verify, guard,
+                                       file_instance=lambda:files.native.instance)
 
-    def _script_files(self, selector):
-        _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector)
-        native = self._native_feature_observer(selector)
+    def _script_files(self, selector, *, read_only=False):
+        _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector,read_only=read_only)
+        native = self._native_feature_observer(selector,read_only=read_only)
         target = self.target(selector)
         device = target['capabilities']['appium:udid']
         transport = PhoneAdapter(self.candidate).adb
@@ -374,25 +376,31 @@ class PhoneAppiumAdapter(AppiumAdapter):
         check()
         return OwnedScriptFiles(files, self.script_files_store(selector), context)
 
-    def _script_file_manager(self, selector):
-        ui, observe, context = self._script_file_runtime(selector)
-        files = self._script_files(selector)
+    def _script_file_manager(self, selector, *, read_only=False, run=None):
+        ui, observe, context = self._script_file_runtime(selector,read_only=read_only)
+        files = self._script_files(selector,read_only=read_only)
+        if run is not None:require(files.owned()['runId']==run,'PHONE_SCRIPT_SCOPE_OWNED_RUN_REQUIRED')
         directory = files.verify()
-        picker = self._script_file_picker(selector, directory)
+        picker = self._script_file_picker(selector, directory,read_only=read_only)
         result = NormalScriptManager(ui, observe, self.script_store(selector), context,
             source_kind='script-file-bundle', file_owner=files, file_picker=picker)
         result.sample()
         return result  # Input/cleanup ownership only; no full Scripts capability.
 
-    def _script_missing_manager(self, selector):
-        ui, observe, binding = self._script_file_runtime(selector)
+    def _script_missing_manager(self, selector, *, read_only=False):
+        ui, observe, binding = self._script_file_runtime(selector,read_only=read_only)
         result = NormalScriptManager(ui, observe, self.script_store(selector), binding,
             source_kind='feature-script-missing')
         result.sample()
         return result
 
-    def _script_file_runtime(self, selector):
-        native_ui, observe, context, check, installed = self.normal_feature_runtime(selector)
+    def _script_missing_from_files(self, selector, run):
+        transfer_file_scope(run,self._script_file_manager(selector,read_only=True,run=run),self._script_execution_observer(selector,read_only=True),
+                            self._script_file_io(selector,read_only=True))
+        return self._script_missing_manager(selector,read_only=True)
+
+    def _script_file_runtime(self, selector, *, read_only=False):
+        native_ui, observe, context, check, installed = self.normal_feature_runtime(selector,read_only=read_only)
         target = self.target(selector)
         def guard():
             check()
@@ -459,10 +467,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda: self.invoke(selector, 'app.stop', {}), lambda: self._script_restart_stopped(selector),
             lambda: self.invoke(selector, 'app.launch', {}), lambda: self._script_restart_adopt(selector))
 
-    def _script_file_picker(self, selector, directory):
+    def _script_file_picker(self, selector, directory, *, read_only=False):
         # Internal primitive only. The full area still needs staged-byte
         # ownership, persistent dialog/source cleanup and execution/effect joins.
-        return TokenScriptFilePicker(self._script_file_io(selector), directory)
+        return TokenScriptFilePicker(self._script_file_io(selector,read_only=read_only), directory)
 
     def _script_manager_status(self, selector):
         from adapters.script_manager_status import manager_status

@@ -3,6 +3,15 @@
 Active implementation scope is **Android Phone only** until all fourteen areas
 are complete. Pico and iOS work is paused and preserved on their own branches.
 
+[Explicit host-only scope transfer](SCRIPT_SCOPE_TRANSFER.md) now preserves the
+open Script UI between stopped file input and the missing URL. It uses only
+existing-session observations and CAS; stale objects cannot send input after
+transfer and feature panel opens are not replayed after uncertain delivery.
+All **149** Phone adapter, **32** measurement and **12** scope cases pass.
+Original file/execution/lifecycle native births must agree. The full coordinator,
+cross-invocation history, independent publisher and complete cleanup remain open;
+no full feature capability or device result is promoted.
+
 [Original pending-manager membership](../../native/SCRIPT_MEMBERSHIP.md) now
 prevents empty running rows from claiming completed cancellation, Stop or restart
 adoption. Phone measurements and the required restart handoff are v2; the frozen
