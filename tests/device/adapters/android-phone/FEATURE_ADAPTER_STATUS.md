@@ -1,5 +1,13 @@
 # Phone adapter implementation, local source only
 
+Current Scripts packet: the existing candidate/APK/PID-start-bound execution
+factory transports [original load history v1](../../native/SCRIPT_LOAD_HISTORY.md)
+without changing the command schema or original callback epochs. A new wrapper
+counterexample preserves real failure status and rejects producer downgrade.
+All **105** feature-adapter host checks pass. Common journey contract is **v15**;
+no complete feature triple is registered. Native code remains uncompiled and
+devices untested.
+
 Latest continuation: `_chat_view(selector)` binds the new passive original QML
 and live settings source v1 to the existing installed APK/PID-start/session
 guards. It reads only the fixed original private result file, preserving visible
