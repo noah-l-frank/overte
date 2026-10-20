@@ -156,27 +156,27 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = 'e429530b8fb342f011996c0a10658cbae724e3ac7ae165a96610fe930872ae98'
+REVIEWED_PROGRAMS = '95579d975750f9bd16fc7a600ae7f6c2a2af8b936b0920c2e630776f7b469487'
 REVIEWED_CHILD_PROGRAMS = {
-    'apple-main': '3a937d6eb03703cf88142cb9f24da4a286ecf6eab528a2423911cbb86cd25a2a',
-    'apple-ios': '2cdc6d8c982f1c9d0078034cfe236efb3bd1eb7d1e7176681228bc6a9dd4d2a8',
-    'android-main': '352019ed283562c528c950a54b4b8dfe2f10a05fb3fe2ae0c606046366872337',
-    'android-phone': '94e41e91d68743f92ea64168e68b18e5b114c6f63ec82677db2eb6025fb93d3e',
-    'android-vr': '352019ed283562c528c950a54b4b8dfe2f10a05fb3fe2ae0c606046366872337',
-    'android-vr-pico': '41146410f3f527ae78a88ad8b0de447d387da71142fbf96ae70e620ab1d34751',
+    'apple-main': '903303097cab083459ba0820f855c0ab02a8bc4d02e77fdc1d3af95d86638b3d',
+    'apple-ios': '902175dbdf0dd0a3f6b6498e46a97344f838e41aaadcf1e635650a0b6c027cca',
+    'android-main': '86b24858d40e45ca74b4b9ebae9a73fe3dc1854e926d8996a0b16862e1826d61',
+    'android-phone': '03005d811a54048bdc327d4ac15aa8f6be74a1b52d90d4edf23e8d348981126b',
+    'android-vr': '86b24858d40e45ca74b4b9ebae9a73fe3dc1854e926d8996a0b16862e1826d61',
+    'android-vr-pico': '95eaaf59a202d8d09b7a8c67a48e4ce4ca07d55d0a1c2b3fbce92b0531c8cabe',
 }
 # Separate exact installed family; None admits nothing until genuine enrollment.
 REVIEWED_INSTALLED_PROGRAMS = {
-    'apple-ios': '2cdc6d8c982f1c9d0078034cfe236efb3bd1eb7d1e7176681228bc6a9dd4d2a8',
+    'apple-ios': '902175dbdf0dd0a3f6b6498e46a97344f838e41aaadcf1e635650a0b6c027cca',
 }
 REVIEWED_PREDECESSORS = {
+    'main': '8d6190816bd03602e5547adab08fd8434a3d150d087acc0da98b7cec4fd165d0',
+    'apple-main': '4b5ba4774eb7fd60c324111934f7a5c009c359872b971419e0627f0aa61e5aa4',
+    'apple-ios': '8f6e2c431b583220f5fb52a361048470588075136a042993aade08b01589a841',
     'android-main': '5922f787a6506c4516f6ee36b4310ef59c5ed81abe64e021f9860f3abe2da33d',
     'android-phone': '917996fd83789b524655804b70aeb363b33d5d280c47110a14a91dd8c1c351b6',
     'android-vr': '5922f787a6506c4516f6ee36b4310ef59c5ed81abe64e021f9860f3abe2da33d',
     'android-vr-pico': 'e0f53763c000539d722f7e84ed275d8eb38f69b3799527308403e2ef39f1b19d',
-    'apple-ios': '8f6e2c431b583220f5fb52a361048470588075136a042993aade08b01589a841',
-    'apple-main': '4b5ba4774eb7fd60c324111934f7a5c009c359872b971419e0627f0aa61e5aa4',
-    'main': '8d6190816bd03602e5547adab08fd8434a3d150d087acc0da98b7cec4fd165d0',
 }
 CONTROL_PLANE = 'tests/device/run_control_plane_tests.py'
 # These inputs are read by the full Device suite. They are CI-owned for

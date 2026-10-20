@@ -70,28 +70,28 @@
   "handoff_manifest": ".github/android-owner-transfer.json",
   "reviewed_lock_sources": {
     "android-main": {
-      "commit": "0b1bf4190b36ab8432a0104ed6828f88aa6f80d2",
-      "tree": "5fe4784ef9166ef82f6df9c02ff0d62650f26b22",
-      "readers": "sha256:0bde43d27b55a9425dc9444d6c0324cde7c88d878ce27017b313d37d9e5a12e5",
-      "entries": 11745
+      "commit": "ed1cd99d77fda132863045972b946cc7aa0fefc7",
+      "tree": "fb0c5363453554c38625f16fd134e7f639e9408c",
+      "readers": "sha256:9c067610d023d91791f784e105b3b31cf3d90be8679b045e405381f4ea53251e",
+      "entries": 11746
     },
     "android-phone": {
-      "commit": "8064773d4c6195dad395daa611c7576d9da0126f",
-      "tree": "8a3edba677fbd4d2143a10111c65380394af864c",
-      "readers": "sha256:e238619255e94f8510f55488b6c03d540863bc0601c5de9b0897996c76376ec2",
-      "entries": 12005
+      "commit": "dd42ac7f5c149cce19e54b783e01c7ea99af7302",
+      "tree": "e131778f26470fcec88f4fcfd409e484b37902aa",
+      "readers": "sha256:cad0cdb1def57f7a1eb9e2f58354cc0691554598f6ba971ba46feb6db09e6904",
+      "entries": 12006
     },
     "android-vr": {
-      "commit": "f89eb2d72d778eda94bc86a6748a449bb24a495b",
-      "tree": "5fe4784ef9166ef82f6df9c02ff0d62650f26b22",
-      "readers": "sha256:0bde43d27b55a9425dc9444d6c0324cde7c88d878ce27017b313d37d9e5a12e5",
-      "entries": 11745
+      "commit": "eb2b640006aca4e1922b2db50cf5130b36b7adc9",
+      "tree": "fb0c5363453554c38625f16fd134e7f639e9408c",
+      "readers": "sha256:9c067610d023d91791f784e105b3b31cf3d90be8679b045e405381f4ea53251e",
+      "entries": 11746
     },
     "android-vr-pico": {
-      "commit": "ba27afdb72e00f94d980b8c6ddcb7b75403cdf79",
-      "tree": "be4a83088fc8e486dc1e84df9654cd203fe8c84b",
-      "readers": "sha256:955096683701988d91f67c6388a1e737a7dec962a5ebc112cd0ddb55d9c54f61",
-      "entries": 11918
+      "commit": "0d091de6123ba8670730a3cb52cefbcbd9791524",
+      "tree": "0dcd6079635ceb67c1234cd57a763d19b6eb98af",
+      "readers": "sha256:ff80a333377437b0be0f57b54e4812fcc6414a8efb000cf50870e7c4d8e276df",
+      "entries": 11919
     }
   }
 }
