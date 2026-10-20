@@ -49,6 +49,7 @@ REQUIRED = {
     "phone-graphics-effects": 1,
     "phone-graphics-surface": 1,
     "phone-graphics-scene": 1,
+    "phone-graphics-preferences": 1,
     "native-script-code-identity": 1,
     "native-script-load-history": 1,
     "native-process-presence": 1,

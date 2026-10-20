@@ -6,6 +6,7 @@ feature operation or substitute setup evidence for a fresh Graphics sample.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from functools import wraps
 import time
 from urllib.parse import urlsplit,urlunsplit,unquote
 
@@ -23,6 +24,18 @@ from overte_phone_script_history import pack,unpack,same
 from overte_phone_script_lock import PhoneScriptSourceLock
 
 VERSION=1
+
+
+def operation(method):
+    """A deadline belongs to the current call, never a later owner's input."""
+    @wraps(method)
+    def invoke(self,*args,**kwargs):
+        outer=self.started is None
+        if outer:self.started=self.monotonic()
+        try:return method(self,*args,**kwargs)
+        finally:
+            if outer:self.started=None
+    return invoke
 
 
 def rotation_equal(a,b,tolerance=.001):return near(a,b,tolerance) or near(a,[-v for v in b],tolerance)
@@ -202,8 +215,9 @@ class PhoneGraphicsScene:
             return packet,loads
         raise NativeUIError('Owned Phone Graphics scene did not reach its original readiness or restoration')
 
+    @operation
     def prepare(self):
-        self.started=self.monotonic();self.bound();need(self.state['phase'] in ('reserved','preparing','active'))
+        self.bound();need(self.state['phase'] in ('reserved','preparing','active'))
         if self.state['original'] is None:
             first=self.read_subject();loads=self.read_loads();eligible(first);committed(loads,first['source']['sceneUrl'])
             surface=self.surface()
@@ -234,8 +248,9 @@ class PhoneGraphicsScene:
         self.state.update(phase='active',proof=None);self.save();self.bound()
         return deepcopy(dict(subject=packet,loads=loads,provider=status))
 
+    @operation
     def restore(self):
-        self.started=self.monotonic();self.bound()
+        self.bound()
         if self.state['original'] is None:
             need(not self.state['actions'] and not any(self.state['leases'].values()))
             self.state.update(phase='restored',proof=None);self.save();return None
@@ -262,6 +277,7 @@ class PhoneGraphicsScene:
         self.state['actions'][index]['phase']='observed';self.state.update(phase='restored',proof=dict(subject=packet,loads=loads));self.save();self.bound()
         return deepcopy(self.state['proof'])
 
+    @operation
     def retire(self):
         self.bound();need(self.state['phase']=='restored' and not any(self.state['leases'].values()))
         self.restore()

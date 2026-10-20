@@ -922,6 +922,14 @@ class FeatureAdapterTests(unittest.TestCase):
         with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}):self.adapter.cleanup(SELECTOR)
         self.assertIsNone(self.adapter.account_probe_store(SELECTOR,role='actor').read())
 
+    def test_general_cleanup_cannot_forget_unrestored_graphics_preferences(self):
+        store=self.adapter.graphics_preferences_store(SELECTOR);store.write({'unresolved':True},None)
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_GRAPHICS_PREFERENCES_CLEANUP_INCOMPLETE'):
+                self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_general_cleanup_cannot_forget_owned_graphics_scene_or_unrestored_view(self):
         store=self.adapter.graphics_scene_store(SELECTOR);store.write({'unresolved':True},None)
         with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:

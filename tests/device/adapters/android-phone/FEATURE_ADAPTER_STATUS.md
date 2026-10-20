@@ -109,6 +109,14 @@ ignored/lost input, foreign changes, retained entities and retirement. Explicit
 restart transfer, full settings ownership and the complete independent Graphics
 coordinator remain pending; no full capability is enabled.
 
+The [durable normal Graphics preference owner](GRAPHICS_PREFERENCES.md) now
+freezes actual original settings and composes open/close/resolution/Haze/Mirrors/
+restoration with per-substep one-send intent. Eighteen host cases reject ignored
+native changes, unrelated mutations and lost/partial cleanup. General cleanup
+refuses remaining preference ownership. Background/restart ownership and the
+complete independent Graphics coordinator remain pending; no full capability
+is enabled.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary
