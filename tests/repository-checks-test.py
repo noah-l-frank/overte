@@ -314,6 +314,40 @@ class MetadataEditTests(unittest.TestCase):
             self.assertEqual(yaml.safe_load(active)['jobs']['sync-test-reuse']['name'],
                 "${{ needs.classify.result == 'success' && needs.classify.outputs.metadata_only == 'true' && "
                 "'sync-test-reuse (metadata unchanged)' || 'sync-test-reuse' }}")
+        elif 'metadata-owner' in yaml.safe_load(active)['jobs']:
+            deployed = yaml.safe_load(active)
+            self.assertEqual(set(deployed['jobs']), {'event-policy', 'metadata-owner', 'sync-test-reuse'})
+            authenticated = "needs.event-policy.result == 'success' && needs.event-policy.outputs.metadata_only == 'true' && " \
+                "needs.metadata-owner.result == 'success' && needs.metadata-owner.outputs.metadata_authenticated == 'true'"
+            actual = deepcopy(deployed['jobs']['sync-test-reuse'])
+            self.assertEqual(actual.pop('name'), "${{ " + authenticated +
+                " && 'sync-test-reuse (metadata unchanged)' || 'sync-test-reuse' }}")
+            self.assertEqual(actual.pop('if'), 'always() && !(' + authenticated + ')')
+            self.assertEqual(actual.pop('needs'), ['event-policy', 'metadata-owner'])
+            self.assertEqual(actual.pop('permissions'),
+                {'actions':'write','checks':'read','contents':'read','pull-requests':'read'})
+            policy_failure, metadata_failure = actual['steps'][:2]
+            self.assertEqual(policy_failure['run'], 'test "$EVENT_POLICY" = success')
+            self.assertEqual(metadata_failure['if'], "needs.event-policy.outputs.metadata_only == 'true'")
+            self.assertEqual(metadata_failure['run'], 'exit 1')
+            actual['steps'] = actual['steps'][2:]
+            # Preserve every existing 622949 ordinary step, including -B and
+            # exact dispatch ownership; no body edit may bypass failed admission.
+            normalized = (json.dumps(actual, sort_keys=True, separators=(',', ':')) + '\n').encode()
+            self.assertEqual(hashlib.sha256(normalized).hexdigest(),
+                             '34289c4aa6a03bacf17899c5e7e8c3140d883bfcc84745edab544d690bcd9ece')
+            owner = deployed['jobs']['metadata-owner']
+            self.assertEqual(owner['permissions'], {'actions':'read','checks':'read','contents':'read','pull-requests':'read'})
+            self.assertEqual(len(owner['steps']), 2)
+            self.assertIn('gate.py retain-metadata-owner', owner['steps'][-1]['run'])
+            classifier = deployed['jobs']['event-policy']
+            checkout = classifier['steps'][0]['with']
+            self.assertIs(checkout['sparse-checkout-cone-mode'], False)
+            self.assertEqual(set(checkout['sparse-checkout'].splitlines()), {'tools/sync-test-reuse',
+                'tools/branch-policy', 'tools/repository-checks', 'tools/test-evidence', '.github/sync-test-reuse.json'})
+            self.assertIn('gate.py classify-metadata', classifier['steps'][-1]['run'])
+            self.assertEqual(deployed['permissions'],
+                {'actions':'read','checks':'read','contents':'read','pull-requests':'read'})
         else:
             identity = hashlib.sha1(b'blob ' + str(len(active)).encode() + b'\0' + active).hexdigest()
             self.assertIn(identity, {'59a19621ac160fc5c48d5323e4e61490e83f708a',
