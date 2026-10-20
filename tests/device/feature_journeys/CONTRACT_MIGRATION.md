@@ -1,6 +1,29 @@
+# Version 13: actual Asset bundle paths, FBX baking and picker failure
+
+Current producers/readers use v13 exclusively; the v12 JSON files remain
+historical. No qualified complete v12 producer exists. Assets now has 29
+checkpoints and fourteen independently observed fields. glTF/OBJ uploads retain
+all three original primary/companion paths; normal rename changes the owned root
+folder while preserving extensions and relative references. Unbakeable glTF has
+a disabled baking control. The separate pinned self-contained original FBX
+exercises normal Use baked version disable/enable and actual backend completion,
+not a successful UI request. Add to World is checked for all three model formats.
+
+Without write permission the normal Delete button is disabled. Clicking its
+actual location must leave mappings unchanged and produce no invented error.
+The failure case stages/selects a real readable primary, retires only that owned
+staged file and then confirms normally: the picker remains open with its actual
+file-unavailable error and no upload. Cancel releases the picker/staging owner.
+It is not a host-download 404 reported as product behavior. See
+[the exact source/fixture/cleanup handoff](ASSETS_SOURCE.md).
+
+Other scenario/native primitive versions retain their semantics. Navigation and
+Lifecycle/input source corrections remain explicitly flagged. No new full-area
+adapter is enabled, and devices/native compilation remain unperformed.
+
 # Version 12: actual avatar geometry, Model wearable and bookmark recovery
 
-Current producers/readers use v12 exclusively. The v11 JSON inventory/matrix
+At this historical revision, producers/readers used v12 exclusively. The v11 JSON inventory/matrix
 remain historical; no qualified complete v11 area producer exists. Avatar now
 has fifteen checkpoints. Add Wearable uses the pinned glTF Model URL and the
 actual runtime Hips joint index. The unused legacy wearable entity-JSON resource
