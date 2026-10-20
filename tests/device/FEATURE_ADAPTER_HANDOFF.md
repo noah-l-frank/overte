@@ -49,8 +49,9 @@ coordination is still incomplete.
 The [owned missing Script load scope](native/SCRIPT_MISSING_LOAD.md) adds a
 closed normal From URL input with durable one-send ownership and original
 callback/history/service-row checks. It preserves actual terminal status and
-refuses stale, foreign or rewritten evidence. Visible UI errors, independent
-actor and full cleanup joins remain separate required work.
+refuses stale, foreign or rewritten evidence. The [passive actual manager display source](native/SCRIPT_MANAGER_STATUS.md)
+now reads root status and the separately bound visible Label. The full
+error/actor/cleanup coordinator and platform source qualification remain open.
 
 The [passive native process-presence source](native/PROCESS_PRESENCE.md) provides
 an original kernel result for a previously observed PID. Permission/unknown
