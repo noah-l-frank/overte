@@ -1,5 +1,13 @@
 # iOS feature adapter implementation status
 
+Current Script load packet: the existing HTTP/AFC execution factory preserves
+[original load history v1](../../native/SCRIPT_LOAD_HISTORY.md), with separate
+native-clock acquisitions. A new transport counterexample retains actual
+failure status/time and rejects source downgrade. The no-build iOS selection
+passes **392** cases with zero failures/errors/skips/compiler attempts. Full
+feature triples remain missing, native code is uncompiled, the physical source
+plugin is uninstalled/inactive and devices remain untested.
+
 Current Script freshness packet: [original native clock joins](../../ios/SCRIPT_FRESHNESS.md)
 brackets file and execution receipts with independent native-clock acquisitions.
 The no-build iOS selection passes **391** cases with zero failures, errors,
