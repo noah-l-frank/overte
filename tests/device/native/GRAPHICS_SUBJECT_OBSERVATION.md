@@ -1,4 +1,4 @@
-# Original Graphics subject observations, version 1
+# Original Graphics subject observations, version 2
 
 This is a passive E2E source prerequisite. It does not load a scene, set a camera,
 change entities/preferences, classify pixels or activate a full feature capability.
@@ -17,13 +17,32 @@ atomic private writer. Missing hooks/results remain explicitly unavailable.
 
 The original envelope has `schemaVersion:1`, `requestId`, `runId`, native Test
 `instance`, advancing source `sequence`, actual `processId`, original
-`requestedEpochMs/capturedEpochMs` and `source`. Source has `subjectVersion:1`,
+`requestedEpochMs/capturedEpochMs` and `source`. Source has `subjectVersion:2`,
 actual AddressManager `sceneUrl`, actual Camera frustum `view`, `entities`,
-`absentIds` and `scan`. View includes native world `position:[x,y,z]`,
+`absentIds`, `scan` and original `avatarPose`. View includes native world `position:[x,y,z]`,
 `rotation:[x,y,z,w]`, actual camera mode string, `fieldOfViewDegrees`, `aspectRatio`
 and `perspective:boolean`. This is the current native camera, not a declaration
 that a particular queued GPU image used that pose. Full coordination must hold
 and independently verify the scene/view around original image acquisition.
+
+Version 2 adds exactly `avatarPose:{feetPosition:[x,y,z],orientation:[x,y,z,w],
+modelScale:number}` from the actual local avatar's `getWorldFeetPosition`,
+`getWorldOrientation` and `getModelScale`. Coordinates are finite world meters,
+orientation is a measured unit quaternion and scale is finite/positive. These
+are separate original getters, never the camera position, default eye height,
+desired location or a reconstructed expected pose. `Application_Setup.cpp`
+binds normal AddressManager viewpoint coordinates to `getWorldFeetPosition`;
+normal Graphics scene/view restoration must therefore use actual feet position,
+not infer it from the eye. This hook performs no teleport, camera or scale input.
+
+The reader accepts explicit legacy version 1 and current version 2, with closed
+version-specific fields. `read(run,require_avatar=True)` rejects v1/missing pose
+without fallback, and validates the strict boolean requirement before dispatch.
+A native context cannot switch its subject version after the first accepted
+sample. The ordinary scene owner must require version 2 before changing state;
+legacy image-only components may still read v1. Missing avatar/native source
+returns unavailable, without fabricated default pose. Measurement joins also
+require actual v2 feet/orientation/scale to stay steady around GPU capture.
 
 Native code derives exactly seven UUIDv5 selectors from the original run bytes,
 using the same namespace and `graphics-subject-v1/<name>` names as the controlled
@@ -65,12 +84,13 @@ persist each role's original source cursors and historical context before return
 a feature result; rebuilding a reader is not permission to reset provenance.
 Original metadata is private evidence, not an owned live entity or image buffer.
 
-Twenty synthetic reader/probe cases cover direct observed properties, explicit
+Twenty-five synthetic reader/probe cases cover direct observed properties, explicit
 absence, moved/renamed/hidden UUIDs, incomplete/conflicting inventories, foreign
 objects, malformed camera/entity/haze fields, restricted scan scope, stale or
 replaced originals, ignored delivery, bounded read retries/decode and final
 freshness/guard budgets. Native clock regressions are rejected separately from
-permitted timestamp skew. Three Phone factory checks cover original transport,
+permitted timestamp skew. Version 2 adds required-pose/legacy refusal, strict
+pose schema/finite types and source-version continuity. Four Phone factory checks cover original transport,
 changed candidate/process refusal and closed independent read admission. These
 verify test logic only; they do not qualify native behavior, scene loading or
 rendering on a device.

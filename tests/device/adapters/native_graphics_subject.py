@@ -11,7 +11,7 @@ from adapters.native_feature_observation import decode,exact,fresh,integer,need,
 from adapters.normal_ui import NativeUIError
 from feature_journeys.graphics_fixture import subject_ids
 
-VERSION=1
+VERSION=2
 FILE='feature-graphics-subject.json'
 LIMIT=262144
 
@@ -41,7 +41,8 @@ def entity_id(value):
     return type(value) is str and re.fullmatch('[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is not None
 
 
-def validate(value,request,pid,epoch):
+def validate(value,request,pid,epoch,*,require_avatar=False):
+    need(type(require_avatar) is bool)
     command(request,ios=request['commandId'].startswith('ios-'))
     exact(value,{'schemaVersion','requestId','runId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','source'})
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['requestId']==request['commandId']
@@ -50,10 +51,16 @@ def validate(value,request,pid,epoch):
          and integer(value['requestedEpochMs'],1) and integer(value['capturedEpochMs'],1)
          and 0<=value['capturedEpochMs']-value['requestedEpochMs']<1500)
     fresh(value['capturedEpochMs'],epoch)
-    source=value['source'];exact(source,{'subjectVersion','sceneUrl','view','entities','absentIds','scan'})
-    need(type(source['subjectVersion']) is int and source['subjectVersion']==VERSION and text(source['sceneUrl'],2048)
+    source=value['source'];need(type(source) is dict and type(source.get('subjectVersion')) is int
+        and source['subjectVersion'] in (1,2) and (not require_avatar or source['subjectVersion']==2))
+    exact(source,{'subjectVersion','sceneUrl','view','entities','absentIds','scan'}|({'avatarPose'} if source['subjectVersion']==2 else set()))
+    need(text(source['sceneUrl'],2048)
          and type(source['entities']) is list and len(source['entities'])<=7 and type(source['absentIds']) is list
          and len(source['absentIds'])<=7)
+    if source['subjectVersion']==2:
+        pose=source['avatarPose'];exact(pose,{'feetPosition','orientation','modelScale'})
+        vector(pose['feetPosition'],3,-1000000,1000000);rotation(pose['orientation'])
+        need(number(pose['modelScale'],.0001,1000))
     view=source['view'];exact(view,{'position','rotation','mode','fieldOfViewDegrees','aspectRatio','perspective'})
     vector(view['position'],3,-1000000,1000000);rotation(view['rotation'])
     need(text(view['mode'],64) and number(view['fieldOfViewDegrees'],1,179) and number(view['aspectRatio'],.1,10)
@@ -98,8 +105,9 @@ class NativeGraphicsSubject:
         self.ios,self.monotonic,self.sleep=ios,monotonic,sleep
         self.last=None
 
-    def read(self,run):
+    def read(self,run,*,require_avatar=False):
         try:
+            need(type(require_avatar) is bool)
             request=command(dict(schemaVersion=1,commandId=('ios-' if self.ios else '')+uuid.uuid4().hex,
                 action='feature-graphics-subject-observe',runId=run),ios=self.ios)
             need(self.guard() is not False)
@@ -117,11 +125,12 @@ class NativeGraphicsSubject:
                 if type(value) is dict and value.get('requestId')==request['commandId']:
                     epoch=value.get('capturedEpochMs') if self.ios else self.clock_ms()
                     need(integer(epoch,1) and (self.ios or epoch>=requested))
-                    validate(value,request,self.pid,epoch)
+                    validate(value,request,self.pid,epoch,require_avatar=require_avatar)
                     need(self.ios or value['requestedEpochMs']>=requested)
                     if self.last is not None:
                         need(value['instance']==self.last['instance'] and value['sequence']>self.last['sequence']
-                             and value['capturedEpochMs']>=self.last['capturedEpochMs'])
+                             and value['capturedEpochMs']>=self.last['capturedEpochMs']
+                             and value['source']['subjectVersion']==self.last['source']['subjectVersion'])
                     need(self.guard() is not False)
                     if not self.ios:
                         current=self.clock_ms();need(integer(current,1) and current>=epoch)

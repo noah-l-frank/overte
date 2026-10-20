@@ -15,7 +15,7 @@ from feature_journeys.contract import identifier
 from feature_journeys.graphics_fixture import subject_ids
 from feature_journeys.graphics_resources import validate_status
 from overte_phone_graphics_images import record as image_record
-from overte_phone_graphics_measurements import compose
+from overte_phone_graphics_measurements import compose,steady_subject
 from overte_phone_graphics_samples import retirement
 from overte_phone_script_history import same
 
@@ -109,6 +109,7 @@ def compare(run,feature,fixture_url,binding,role,before,raw_before,after,raw_aft
          and all(fields_before[key]==fields_after[key] for key in fields_before if key!=changed)
          and before['nativeAfter']['lifecycle']==after['nativeBefore']['lifecycle'])
     subjects_before,subjects_after=before['subjectAfter']['source'],after['subjectBefore']['source']
+    steady_subject(before['subjectAfter'],after['subjectBefore'])
     need(all(same(subjects_before[key],subjects_after[key]) for key in ('sceneUrl','entities','absentIds','scan')))
     wanted=subject_ids(run);rows={row['id']:row for row in subjects_after['entities']}
     target=rows[wanted['fog-board' if feature=='haze' else 'reflector']]

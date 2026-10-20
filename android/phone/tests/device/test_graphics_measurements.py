@@ -232,6 +232,19 @@ class GraphicsMeasurementsTests(unittest.TestCase):
             packet['source']['scan'].update(scannedEntities=8,unowned=[dict(id='11111111-1111-4111-8111-111111111111',sha256='f'*64)])
         with self.assertRaises(NativeUIError):source.measure()
 
+    def test_v2_avatar_pose_must_remain_steady_during_original_frame_capture(self):
+        for fault in ('none','position','orientation','scale'):
+            source=Sources()
+            for packet in (source.subject_before,source.subject_after):
+                packet['source'].update(subjectVersion=2,avatarPose=dict(feetPosition=[0,-.2,0],orientation=[0,0,0,1],modelScale=1.25))
+            pose=source.subject_after['source']['avatarPose']
+            if fault=='position':pose['feetPosition'][0]=.01
+            elif fault=='orientation':pose['orientation']=[0,1,0,0]
+            elif fault=='scale':pose['modelScale']=1.5
+            if fault=='none':self.assertEqual(.65,source.measure()['state']['resolution'])
+            else:
+                with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.measure()
+
     def test_closed_ui_is_observed_from_original_page_and_tablet_sources(self):
         source=Sources();source.ui['controls']=[];source.tablet['scriptInventory']['tabletShown']=False
         value=source.measure();self.assertFalse(value['state']['dialog']);self.assertEqual([],value['resources'])

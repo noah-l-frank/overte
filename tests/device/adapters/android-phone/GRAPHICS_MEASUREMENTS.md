@@ -72,7 +72,7 @@ complete native/host cleanup are still required before advertising a full triple
 No scene fixture or temporary image lease may be silently excluded from its
 owning cleanup ledger merely because this pure function returns a panel list.
 
-Twenty-one Phone host cases use explicitly synthetic original getter/socket/pixel
+Twenty-two Phone host cases use explicitly synthetic original getter/socket/pixel
 boundaries. Fixed synthetic pixels do not depend on requested feature flags.
 Counterexamples cover settings without executed passes, passes despite false
 settings, legacy/missing traces, validly hashed wrong markers, blank/UI images,

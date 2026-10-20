@@ -677,6 +677,8 @@ QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVar
     const auto requested = QDateTime::currentMSecsSinceEpoch();
     const auto entities = DependencyManager::get<EntityScriptingInterface>();
     if (!entities || !entities->getEntityTree()) { return {}; }
+    const auto avatar = DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if (!avatar) { return {}; }
     auto vec = [](const glm::vec3& value) { return QVariantList{value.x,value.y,value.z}; };
     auto quat = [](const glm::quat& value) { return QVariantList{value.x,value.y,value.z,value.w}; };
     auto color = [](const glm::u8vec3& value) { return QVariantList{int(value.x),int(value.y),int(value.z)}; };
@@ -729,7 +731,9 @@ QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVar
     ViewFrustum frustum; camera.loadViewFrustum(frustum);
     const auto address = DependencyManager::get<AddressManager>()->currentAddress().toString(QUrl::FullyEncoded);
     if (address.size() > 2048) { return {}; }
-    QVariantMap source {{"subjectVersion",1},{"sceneUrl",address},
+    QVariantMap source {{"subjectVersion",2},{"sceneUrl",address},
+        {"avatarPose",QVariantMap{{"feetPosition",vec(avatar->getWorldFeetPosition())},
+            {"orientation",quat(avatar->getWorldOrientation())},{"modelScale",avatar->getModelScale()}}},
         {"view",QVariantMap{{"position",vec(frustum.getPosition())},{"rotation",quat(frustum.getOrientation())},
             {"mode",camera.getModeString()},{"fieldOfViewDegrees",frustum.getFieldOfView()},
             {"aspectRatio",frustum.getAspectRatio()},{"perspective",frustum.isPerspective()}}},

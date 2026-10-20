@@ -53,6 +53,52 @@ class Boundary:
 
 
 class GraphicsSubjectTests(unittest.TestCase):
+    @staticmethod
+    def avatar_source(source):
+        source.source.update(subjectVersion=2,avatarPose=dict(feetPosition=[0,-.2,0],orientation=[0,0,0,1],modelScale=1.25))
+
+    def test_v2_preserves_original_feet_orientation_and_scale_without_substituting_camera_values(self):
+        source=Boundary();self.avatar_source(source);value=source.reader().read(RUN,require_avatar=True)
+        self.assertEqual(source.source['avatarPose'],value['source']['avatarPose'])
+        self.assertNotEqual(value['source']['view']['position'],value['source']['avatarPose']['feetPosition'])
+        self.assertEqual(1.25,value['source']['avatarPose']['modelScale'])
+        self.assertNotIn('avatarPose',source.commands[0]);self.assertNotIn('expected',json.dumps(source.commands))
+
+    def test_required_avatar_pose_cannot_fall_back_to_legacy_subject_v1(self):
+        source=Boundary();reader=source.reader()
+        with self.assertRaises(NativeUIError):reader.read(RUN,require_avatar=True)
+        self.assertIsNone(reader.last);self.assertEqual(1,len(source.commands))
+        self.assertEqual(1,source.reader().read(RUN)['source']['subjectVersion'])
+
+    def test_v2_pose_is_closed_complete_finite_and_not_coercible(self):
+        for fault in ('missing','extra','position','rotation','scale-zero','scale-bool','scale-nan','version-bool'):
+            source=Boundary();self.avatar_source(source);pose=source.source['avatarPose']
+            if fault=='missing':pose.pop('feetPosition')
+            elif fault=='extra':pose['desiredCamera']=[0,1.6,0]
+            elif fault=='position':pose['feetPosition']=[0,float('inf'),0]
+            elif fault=='rotation':pose['orientation']=[0,0,0,0]
+            elif fault=='scale-zero':pose['modelScale']=0
+            elif fault=='scale-bool':pose['modelScale']=True
+            elif fault=='scale-nan':pose['modelScale']=float('nan')
+            else:source.source['subjectVersion']=True
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.reader().read(RUN,require_avatar=True)
+
+    def test_subject_version_cannot_switch_inside_the_same_native_source_history(self):
+        for first in (1,2):
+            source=Boundary()
+            if first==2:self.avatar_source(source)
+            reader=source.reader();reader.read(RUN)
+            if first==1:self.avatar_source(source)
+            else:source.source['subjectVersion']=1;source.source.pop('avatarPose')
+            with self.subTest(first=first),self.assertRaises(NativeUIError):reader.read(RUN)
+            self.assertEqual(first,reader.last['source']['subjectVersion'])
+
+    def test_required_pose_flag_is_strict_and_invalid_flags_do_not_dispatch(self):
+        source=Boundary()
+        for value in (1,None,'true'):
+            with self.subTest(value=value),self.assertRaises(NativeUIError):source.reader().read(RUN,require_avatar=value)
+        self.assertEqual([],source.commands)
+
     def test_original_camera_and_entity_fields_remain_independent_from_any_requested_value(self):
         source=Boundary();source.add();value=source.reader().read(RUN)
         self.assertEqual(source.sample,value);self.assertEqual(6,len(value['source']['absentIds']))
@@ -154,8 +200,8 @@ class GraphicsSubjectTests(unittest.TestCase):
     def test_process_guard_loss_and_validation_delay_are_inside_total_budget(self):
         for fault in ('guard','budget','freshness'):
             source=Boundary();reader=source.reader();actual=validate
-            def delayed(*args):
-                value=actual(*args)
+            def delayed(*args,**kwargs):
+                value=actual(*args,**kwargs)
                 if fault=='guard':source.okay=False
                 elif fault=='budget':source.clock+=6
                 else:source.epoch+=2000
@@ -189,7 +235,7 @@ class GraphicsSubjectTests(unittest.TestCase):
 const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
 const objectKeysMatch=(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort());
 let files=[],calls=[];
-const original={schemaVersion:1,requestId:"a".repeat(32),capturedEpochMs:17000,source:{entities:[],absentIds:[]}};
+const original={schemaVersion:1,requestId:"a".repeat(32),capturedEpochMs:17000,source:{subjectVersion:2,entities:[],absentIds:[],avatarPose:{feetPosition:[0,-0.2,0],orientation:[0,0,0,1],modelScale:1.25}}};
 const Test={featureGraphicsSubjectObservation:c=>{calls.push(c);return original;},saveObject:(v,name)=>files.push({v,name})};
 SOURCE
 const request={schemaVersion:1,commandId:"a".repeat(32),action:"feature-graphics-subject-observe",runId:"b".repeat(32)};

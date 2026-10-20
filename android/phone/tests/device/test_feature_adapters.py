@@ -1038,6 +1038,15 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual([],self.native.inputs)
         self.assertFalse(any(c.startswith('feature.graphics.') for c in self.adapter.advertised_capabilities(self.target)))
 
+    def test_phone_graphics_subject_factory_preserves_required_original_avatar_pose_v2(self):
+        source,reader=self.graphics_subject_boundaries()
+        source.source.update(subjectVersion=2,avatarPose=dict(feetPosition=[0,-.2,0],orientation=[0,0,0,1],modelScale=1.25))
+        value=reader.read(GRAPHICS_RUN,require_avatar=True)
+        self.assertEqual(source.sample,value);self.assertEqual([0,-.2,0],value['source']['avatarPose']['feetPosition'])
+        self.assertNotEqual(value['source']['avatarPose']['feetPosition'],value['source']['view']['position'])
+        self.assertEqual([],self.native.inputs)
+        self.assertFalse(any(c.startswith('feature.graphics.') for c in self.adapter.advertised_capabilities(self.target)))
+
     def test_phone_graphics_subject_factory_blocks_changed_candidate_or_process_before_dispatch(self):
         source,reader=self.graphics_subject_boundaries();reader.read(GRAPHICS_RUN);before=len(source.commands)
         original=self.fixture.adb.digest;self.fixture.adb.digest='f'*64

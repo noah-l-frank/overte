@@ -35,9 +35,16 @@ internal Phone factory and separate read-only admission are connected. Full
 scene/view ownership, restoration, image effects and Graphics coordination remain
 pending; native instrumentation remains uncompiled.
 
+Subject version 2 additionally observes actual avatar feet/orientation/model
+scale. Ordinary AddressManager viewpoint coordinates use feet, so the future
+scene/view owner can require these originals without assuming a camera height.
+Legacy v1 remains readable only where that pose is not required. Five shared,
+one Phone factory and one measurement case cover v2; no normal scene input or
+complete Graphics capability is enabled by this passive source.
+
 The [original Graphics measurement join](GRAPHICS_MEASUREMENTS.md) now combines
 native settings, direct UUID/camera observations, original Graphics/Tablet UI,
-same-view render trace and original challenge pixels. Twenty-one host cases
+same-view render trace and original challenge pixels. Twenty-two host cases
 keep preferences separate from executed batches and reject inconsistent, stale
 or foreign originals. It is a pure join, without full transport/fixture/input/
 restart/publisher/cleanup ownership or complete feature-specific pixel verdicts.
