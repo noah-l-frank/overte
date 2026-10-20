@@ -32,7 +32,9 @@ The owning native UI bridge must select exactly one current original control,
 bind its actual source/token and installed process before calling the helper.
 It must hold at most one prepared object per owned workflow, persist intent
 before capture/dispatch, and retain original event identity through failures.
-No UI bridge/command route for this primitive is implemented by this packet.
+The later [native owner and private command route](PENDING_COMMIT_OWNER.md)
+retains the real object and independently walks the actual current field.
+Platform registration remains a separate guarded step.
 Do not call this factory from an unbound locator or re-create a missing event
 from Python text. Native source path alone does not attest installed code.
 
@@ -91,7 +93,8 @@ text/keyboard state, `deferredInputs`, attempt count or whole feature verdict.
 
 ## Remaining native/adapter join
 
-Add source-bound Phone, Pico and iOS native UI owner/nonce routes using their
+Register the [native owner/nonce route](PENDING_COMMIT_OWNER.md) in Phone, Pico
+and iOS using their
 existing guarded normal UI component. Native pointer selection of current field
 must remain inside the original UI walk; expose no arbitrary object paths or
 expected outcomes. The native controller must retain only one actual prepared

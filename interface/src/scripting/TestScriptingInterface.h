@@ -168,6 +168,7 @@ public slots:
 #endif
 
     Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featurePendingCommitOwner(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);

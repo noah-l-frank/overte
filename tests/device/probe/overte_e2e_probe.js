@@ -1036,6 +1036,39 @@
             }
             return;
         }
+        if (command && command.action === "feature-pending-commit-owner") {
+            var pendingOwnerFields = ["schemaVersion","commandId","action","operation","runId","eventId"];
+            var pendingOwnerInput = /^(focus|type|hold|attempt)$/.test(String(command.operation));
+            if (command.operation !== "observe") { pendingOwnerFields = pendingOwnerFields.concat(["ownerInstance","intentSequence"]); }
+            if (pendingOwnerInput) { pendingOwnerFields = pendingOwnerFields.concat(["fieldToken","observationSequence"]); }
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && typeof command.eventId === "string" && (command.eventId === "" || /^[0-9a-f]{32}$/.test(command.eventId) && command.eventId.length === 32)
+                    && /^(observe|focus|type|hold|attempt|release)$/.test(String(command.operation))
+                    && ((command.operation === "attempt" || command.operation === "release") ? command.eventId.length === 32
+                        : command.operation === "observe" || command.eventId === "")
+                    && (command.operation === "observe" || typeof command.ownerInstance === "string" && command.ownerInstance.length === 32
+                        && /^[0-9a-f]{32}$/.test(command.ownerInstance) && typeof command.intentSequence === "number"
+                        && isFinite(command.intentSequence) && Math.floor(command.intentSequence) === command.intentSequence
+                        && command.intentSequence >= 1 && command.intentSequence <= 1000000000)
+                    && (!pendingOwnerInput || typeof command.fieldToken === "string" && command.fieldToken.length === 32
+                        && /^[0-9a-f]{32}$/.test(command.fieldToken) && typeof command.observationSequence === "number"
+                        && isFinite(command.observationSequence) && Math.floor(command.observationSequence) === command.observationSequence
+                        && command.observationSequence >= 1 && command.observationSequence <= 1000000000)
+                    && objectKeysMatch(command,pendingOwnerFields)) {
+                var pendingOwner = {pendingCommitOwnerVersion:1,commandId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featurePendingCommitOwner === "function") {
+                        var originalPendingOwner = Test.featurePendingCommitOwner(command);
+                        if (originalPendingOwner && originalPendingOwner.commandId === command.commandId) { pendingOwner = originalPendingOwner; }
+                    }
+                } catch (_pendingOwnerError) { /* A missing actual owner is never a successful empty inventory. */ }
+                Test.saveObject(pendingOwner,"feature-pending-commit-owner.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-web-dom-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -1489,6 +1522,7 @@
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
+                || command.action === "feature-pending-commit-owner"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-world-render-observe"
@@ -1496,7 +1530,7 @@
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-script-files")) {
             // Android's existing private channel is separate from the HTTP
-            // fixture command endpoint. Reuse only the closed read-only path.
+            // fixture command endpoint. Reuse the closed native feature path.
             applyClientCommand(command);
             return;
         }
