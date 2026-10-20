@@ -1016,6 +1016,79 @@ class SevenTargetProfileTests(unittest.TestCase):
                 self.assertEqual(self.admit(target,base=base,candidate=candidate,selection=selected),self.admit(target))
                 self.assertNotIn('device-control-plane-full',selected['suites'])
 
+    def sparse_route(self):
+        self.f.git('sparse-checkout','init','--cone')
+        self.f.git('sparse-checkout','set','.github','tools/repository-checks','tools/test-evidence',
+            'tools/native-tests','tools/ios-build-qualification')
+        self.assertFalse((self.root/'tests/platform-profile.json').exists())
+        self.assertEqual(self.f.git('ls-files','-v','--','tests/platform-profile.json'),
+            b'S tests/platform-profile.json\n')
+
+    def test_scheduling_full_and_real_sparse_source_choose_identical_ci_subset(self):
+        base,candidate,selected=self.subset('apple-ios')
+        options={'root':self.root,'target':'apple-ios','base_tree':base,'read_blob':self.blobs.__getitem__}
+        select=getattr(C,'scheduling_selection',C.validate_selection)
+        full=select(selected,candidate,self.trusted,self.registry,**options)
+        self.sparse_route()
+        try:sparse=select(selected,candidate,self.trusted,self.registry,**options)
+        except (OSError,ValueError) as error:
+            self.fail(f'immutable scheduling differs solely because of the real route sparse checkout: {error}')
+        self.assertEqual(sparse,full)
+        self.assertEqual(sparse['suites'],list(C.SUITES))
+        # Scheduling never replaces the real producer's materialized capture.
+        with self.assertRaises((OSError,ValueError)):
+            C.validate_selection(selected,candidate,self.trusted,self.registry,**options)
+
+    def test_scheduling_sparse_source_rejects_alias_changed_and_deleted_materialized_inputs(self):
+        self.sparse_route()
+        leaf=self.root/'tests/platform-profile.json';leaf.parent.mkdir(parents=True,exist_ok=True)
+        leaf.symlink_to(self.root/C.POLICY)
+        with self.assertRaisesRegex(ValueError,'alias'):C.scheduling_controller_source(self.root)
+        leaf.unlink();leaf.write_bytes(b'changed materialized profile\n')
+        with self.assertRaisesRegex(ValueError,'bytes differ'):C.scheduling_controller_source(self.root)
+        leaf.unlink()
+        self.f.git('update-index','--no-skip-worktree','tests/platform-profile.json')
+        with self.assertRaisesRegex(ValueError,'missing outside sparse'):C.scheduling_controller_source(self.root)
+
+    def test_scheduling_sparse_omissions_use_the_existing_bounded_source_reader(self):
+        self.sparse_route()
+        original=C._controller_git;read=[]
+        def git(root,*arguments):
+            self.assertNotEqual(arguments[:2],('cat-file','blob'),'omitted partial-clone blobs use the trusted reader')
+            return original(root,*arguments)
+        def source(name):
+            read.append(name)
+            expected=self.trusted[name]
+            return self.blobs[expected['sha']],expected
+        with patch.object(C,'_controller_git',side_effect=git):
+            manifest,files=C.scheduling_controller_source(self.root,read_source=source)
+        self.assertEqual(manifest['entries'],self.trusted)
+        self.assertEqual(set(files),set(C.controller_paths()))
+        self.assertIn('tests/platform-profile.json',read)
+        self.assertTrue(all(not (self.root/name).exists() for name in read))
+        with self.assertRaisesRegex(ValueError,'bytes differ'):
+            C.scheduling_controller_source(self.root,read_source=lambda name:(b'changed',self.trusted[name]))
+
+    def test_scheduling_keeps_exact_import_lookup_mode_source_and_subset_guards(self):
+        base,candidate,selected=self.subset('apple-ios')
+        options={'root':self.root,'target':'apple-ios','base_tree':base,'read_blob':self.blobs.__getitem__}
+        self.sparse_route()
+        extra=self.root/'tools/test-evidence/unknown-source.py';extra.write_text('unreviewed = True\n')
+        with self.assertRaisesRegex(ValueError,'import lookup'):C.scheduling_selection(selected,candidate,self.trusted,self.registry,**options)
+        extra.unlink()
+        for change in ('target','profile','base','policy','registry','selection','supplied-manifest'):
+            before=deepcopy(base);current=deepcopy(candidate);plan=deepcopy(selected);kw={**options,'base_tree':before}
+            trusted=deepcopy(self.trusted);registry=deepcopy(self.registry)
+            if change=='target':kw['target']='unknown'
+            elif change=='profile':current[self.S.PROFILE]=self.S.ordinary('f'*40)
+            elif change=='base':before[C.PINNED_SOURCE]=self.S.ordinary('f'*40)
+            elif change=='policy':trusted[C.POLICY]=self.S.ordinary('f'*40)
+            elif change=='registry':registry['suites']['producer-api']['command'].append('--changed')
+            elif change=='selection':plan['suites'].append('native-owner-lifecycle')
+            else:kw['controller_manifest']=self.manifest
+            with self.subTest(change=change),self.assertRaises((ValueError,OSError)):
+                C.scheduling_selection(plan,current,trusted,registry,**kw)
+
     def test_wrong_profile_unknown_target_nonordinary_and_historical_source_refuse(self):
         for target in self.S.TARGET_PROFILES:
             for side in ('base','candidate'):
