@@ -409,7 +409,7 @@ def _ios_routing_views(tree, base_tree, trusted_tree, trusted_root, target):
     # This exact reviewed independent iOS policy defines the same two data
     # stages. Its immutable identity is a family prerequisite, never executable
     # input. Sparse trusted checkouts and protected projections need no new file.
-    policy = {"mode": "100644", "type": "blob", "sha": "40b4ea9ab66570e63b8ff0f7d37e8da5262b8aba"}
+    policy = {"mode": "100644", "type": "blob", "sha": "202ace3bff61515723686f8523ff3734f3750745"}
     if trusted_tree.get("tools/ios-build-qualification/inputs.py") != policy:
         return None
     data = {
