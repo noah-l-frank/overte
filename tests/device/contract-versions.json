@@ -36,6 +36,7 @@
     "normal-script-file-ownership": {"current": 1, "reads": [1]},
     "script-restart-handoff": {"current": 1, "reads": [1]},
     "normal-restart-inputs": {"current": 1, "reads": [1]},
+    "android-process-query": {"current": 1, "reads": [1]},
     "emote-source-profile": {"current": 1, "reads": [1]},
     "graphics-subject": {"current": 1, "reads": [1]},
     "world-render-acquisition": {"current": 1, "reads": [1]},
