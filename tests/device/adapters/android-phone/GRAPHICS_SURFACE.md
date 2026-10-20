@@ -80,5 +80,6 @@ SDK, Qt and native boundaries. They cover all ordinary paths, pagination,
 independent camera readback, ignored text/Go/mode/settings, lost Go response,
 foreign/replacement pages, invalid URL, ownership/clock/guard failures and the
 actual bound factory with no SDK repair. They establish input logic only.
-Normal scene ownership/restoration, complete action/restart ownership and the
-independent Graphics coordinator remain to be composed.
+[Normal scene ownership/restoration](GRAPHICS_SCENE.md) is now composed separately.
+Complete settings/action/restart ownership and the independent Graphics
+coordinator remain to be composed.

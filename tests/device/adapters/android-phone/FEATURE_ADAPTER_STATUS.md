@@ -101,6 +101,14 @@ three Phone wrapper cases cover pending/old/foreign/incomplete evidence. Native
 instrumentation remains uncompiled. Complete scene/action/restart ownership and
 the full Graphics coordinator remain pending.
 
+The [owned ordinary Graphics scene](GRAPHICS_SCENE.md) now freezes actual
+original scene/feet/view, enters the controlled scene, aligns from measured
+camera-to-feet offset and independently proves original restoration plus native
+load drainage. Fourteen scene cases and a general-cleanup counterexample cover
+ignored/lost input, foreign changes, retained entities and retirement. Explicit
+restart transfer, full settings ownership and the complete independent Graphics
+coordinator remain pending; no full capability is enabled.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

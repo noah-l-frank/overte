@@ -26,7 +26,7 @@ def near(actual,wanted,tolerance=1e-4):
     return type(actual) is type(wanted) and actual==wanted
 
 
-def aligned_subject(packet,run,scene_ticket,fixture_url):
+def aligned_entities(packet,run,scene_ticket,fixture_url):
     """Readiness checks compare stimulus with originals; return no feature facts."""
     source=packet['source'];expected=scene(run,scene_ticket,fixture_url)
     need(not source['absentIds'] and len(source['entities'])==7 and not source['scan']['unowned'])
@@ -50,7 +50,9 @@ def aligned_subject(packet,run,scene_ticket,fixture_url):
                  and row['haze']['color']==[haze['hazeColor'][axis] for axis in ('red','green','blue')]
                  and row['haze']['glare']==haze['hazeEnableGlare'] and row['haze']['altitudeEffect']==haze['hazeAltitudeEffect']
                  and near(row['haze']['backgroundBlend'],haze['hazeBackgroundBlend']))
-    view=source['view'];need(view['perspective'] and view['mode'] in ('first person','first person look at')
+def aligned_subject(packet,run,scene_ticket,fixture_url):
+    aligned_entities(packet,run,scene_ticket,fixture_url)
+    view=packet['source']['view'];need(view['perspective'] and view['mode'] in ('first person','first person look at')
         and near(view['position'],[VIEW['position'][a] for a in 'xyz'],.01))
     # Quaternions q/-q represent the same measured view. Do not rewrite either.
     rotation=[VIEW['rotation'][a] for a in 'xyzw']
