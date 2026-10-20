@@ -7,7 +7,7 @@ import secrets
 from . import evidence as bytes_evidence
 from .contract import arguments, exact, identifier, number, result, state as validate_state, typed_equal
 from .fixtures import context
-from .scenarios import SCENARIOS, VERSION, expand
+from .scenarios import SCENARIOS, VERSION, expand, snapshot_profile
 from .witness import projection
 
 
@@ -44,6 +44,8 @@ class Journey:
         self.lifecycle = None
         self.required_lifecycle = None
         self.sit_variants = set()
+        self.source_profile=None;self.not_applicable=[];self.system_ui=False
+        self.snapshot_file_source=None;self.snapshot_digest=None
 
     def now(self):
         value = number(self.monotonic())
@@ -134,6 +136,14 @@ class Journey:
             if type(content) is not bytes or not 0 < len(content) <= bytes_evidence.MAX_BYTES:
                 raise ValueError('Invalid bounded original artifact bytes')
             digest = hashlib.sha256(content).hexdigest()
+            if self.area=='snapshots' and kind=='file':
+                if item['source']!=self.snapshot_file_source:
+                    raise AssertionError('Snapshot output was acquired from a different original sink')
+                if self.snapshot_file_source=='snapshot-private-original':
+                    if self.snapshot_digest not in (None,digest):raise AssertionError('Original private capture bytes changed')
+                    self.snapshot_digest=digest
+                elif self.snapshot_digest is None or digest!=self.snapshot_digest:
+                    raise AssertionError('Snapshot destination bytes differ from the original capture')
             source_ticket = (self.recorded_ticket if self.area == 'audio' and (kind == 'file' or value['state']['phase'] == 'completed' and requested == 'audio')
                              else self.capture_ticket if self.area == 'snapshots' and kind == 'file' else ticket)
             key = (requested, digest, source_ticket, self.model_ticket)
@@ -163,6 +173,7 @@ class Journey:
         stable_count = 0
         last_problem = 'required product state was not observed'
         initial_effects = None
+        actual_lifecycle=None
         for _attempt in range(81):
             value = self.observe(ticket, barrier)
             current = self.now()
@@ -173,7 +184,18 @@ class Journey:
             if label in {'owned-clean-baseline', 'cleanup-restored-baseline'}:
                 okay = okay and value['resources'] == []
             if self.required_lifecycle is not None:
-                okay = okay and value['lifecycle'] == self.required_lifecycle
+                if self.system_ui:
+                    # System UI may deactivate/background and restore the app.
+                    # Accept only original monotonic counters, unchanged launches
+                    # and a settled final native sample window. PID continuity
+                    # remains enforced around every input by the existing owner.
+                    prior=actual_lifecycle or self.required_lifecycle
+                    if value['lifecycle']['launches']!=prior['launches'] or any(value['lifecycle'][k]<prior[k] for k in ('backgrounds','activations')):
+                        raise AssertionError('Owned system UI lost native lifecycle continuity')
+                    if actual_lifecycle is not None and value['lifecycle']!=actual_lifecycle:
+                        stable_since=None;stable_count=0
+                    actual_lifecycle=value['lifecycle'].copy()
+                else:okay=okay and value['lifecycle']==self.required_lifecycle
             witness = None
             if 'peer' in kinds:
                 peer_okay, witness = self.observed_witness(ticket, barrier, projection(self.area, expected))
@@ -232,9 +254,15 @@ class Journey:
                     actionBarrierEpochMs=barrier,sequence=candidate['sequence'],capturedEpochMs=candidate['capturedEpochMs'],
                     state=candidate['state'],resources=candidate['resources'],lifecycle=candidate['lifecycle'],
                     witness=None,evidence=[]))
+            if self.area=='snapshots':self.source_profile=snapshot_profile(expected_baseline)
             self.wait('owned-clean-baseline', initial, barrier, expected_baseline, ['peer'])
             cleanup_enabled = True
             for index, step in enumerate(scenario['steps']):
+                if 'backends' in step and self.source_profile not in step['backends']:
+                    self.not_applicable.append(dict(index=index+1,verb=step['verb'],sourceProfile=self.source_profile))
+                    continue
+                self.system_ui=step.get('systemUi',False)
+
                 if self.area == 'emotes' and step['verb'] == 'sit':
                     # The shipped UI randomizes Sit1/2/3. Request only ordinary
                     # Stop and Sit inputs; collect actual variants here, never
@@ -282,8 +310,10 @@ class Journey:
                     self.texture_ticket = ticket
                 if self.area == 'audio' and step['verb'] == 'record-start' and step['state']['recording']:
                     self.recorded_ticket = ticket
-                if self.area == 'snapshots' and step['verb'] == 'capture' and step['state']['files'] == 1:
-                    self.capture_ticket = ticket
+                if self.area=='snapshots':
+                    if step['verb']=='capture' and step['state']['files']==1:self.capture_ticket=ticket
+                    self.snapshot_file_source={'capture':'snapshot-private-original','save':'snapshot-saved-original',
+                        'share-select-owned':'snapshot-receiver-original','upload':'snapshot-upload-original'}.get(step['verb'])
                 # Negative/cancellation/quiet assertions must remain true for a
                 # full observation window; an early empty sample is insufficient.
                 negative = (any(word in step['verb'] for word in ('cancel', 'denied', 'reject', 'stale', 'foreign', 'stop', 'delete', 'discard'))
@@ -300,7 +330,7 @@ class Journey:
                     ticket = secrets.token_hex(16)
                     self.activate(ticket, 'cleanup', {})
                     barrier = number(self.epoch_ms(), 1)
-                    self.required_lifecycle = None
+                    self.required_lifecycle = None;self.system_ui=False
                     self.call('cleanup')
                     # Idempotence must be real. Two acknowledgments alone cannot
                     # establish removal or restoration of the initial state.
@@ -312,7 +342,8 @@ class Journey:
             self.report(dict(schemaVersion=1, contractVersion=VERSION, area=self.area, runId=self.run,
                 phases=self.phases, samples=self.samples, cleanupEnabled=cleanup_enabled,
                 cleanupSucceeded=cleanup_okay, sequenceCompleted=primary is None and cleanup_okay,
-                testLogic='implemented', adapter='required-separately', deviceAcceptance=False))
+                testLogic='implemented', adapter='required-separately', deviceAcceptance=False,
+                sourceProfile=self.source_profile,notApplicableSteps=self.not_applicable))
             if primary is None and cleanup_errors:
                 raise cleanup_errors[0]
         return self.phases

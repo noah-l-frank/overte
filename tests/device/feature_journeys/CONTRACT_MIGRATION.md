@@ -1,4 +1,36 @@
-# Common feature journey migration: current version 8
+# Common feature journey migration: current version 9
+
+## Version 9: actual Snapshot capture, Save backends and external originals
+
+Private capture does not need Photos authorization, and Android Save does not
+need runtime storage permission. Replace `set-storage-permission`, the vacuous
+idle cancel and one-step share with the closed v9 inventory. Observe a real
+pending-to-cancelled source history after a fast normal capture/cancel recipe;
+retain no original output after its negative window. Independently read the
+actual Photos/MediaStore/document-picker backend and owned authorization before
+choosing applicable rows (15/12/15 checkpoints). Unknown backends or wrong initial
+authorization fail before input, never skip a missing adapter capability.
+
+New state fields include `captureHistory`, `saved`, `saveBackend`,
+`savePermission`, `saveSheet`, `shareSheet`; all Snapshot state fields now belong
+to the independent witness. Normal successful Save is mandatory. Denied Photos
+Save must retain the original private PNG and recover after actual OS permission
+input. Document-picker cancel must close a witnessed chooser without saving.
+Share selection/completion alone cannot increase the independently measured
+receiver count. Save/share/upload file artifacts require original sink provenance
+and byte equality with the captured original, whose challenge ticket stays pinned.
+
+Declared Snapshot system-UI rows use actual monotonic native lifecycle counters,
+unchanged launch/PID identity and a settled final observation window; OS sheets
+can cause real activation/background notifications. All other lifecycle checks
+stay exact. The runner records the actual source profile and non-applicable
+source rows separately; it does not report them as executed checkpoints.
+
+No qualified v8 complete-area producer exists. Registry/inventory/coverage now
+use v9 exclusively; the v8 JSON files remain historical references. Normal input
+component versions (including native Create controls v1) are unchanged. Native
+adapters/actors and device acceptance remain incomplete.
+
 
 ## Version 7 to 8: actual Create model/JSON paths and original export semantics
 
@@ -28,7 +60,7 @@ outer JSON and string-encoded texture maps reject duplicate/nonfinite values.
 Source/name/unit geometry, source ticket and separate replacement-texture ticket
 remain strict. Native exported bytes are never rewritten to fit the assertions.
 
-No qualified v7 full-area producer exists. Current v8 registry/generated files
+No qualified v7 full-area producer exists. At the v8 migration, registry/generated files
 reject v7; other area semantics, observation schema 1 and independent native
 primitive versions stay unchanged. Full source/input/picker/peer/file-owner
 composition, native compilation and every device qualification remain open.
@@ -152,9 +184,9 @@ clocks must remain distinct from iOS host epochs. The actual history helpers
 supply narrower prerequisites, not this complete coordinator.
 
 Current actions, observations, registry and generated files use contractVersion
-8. Only version 8 requests are accepted; versions 1..7 have no qualified complete
-producer and remain in Git history. Current files are adapter-contract.v8.json
-and coverage.v8.json. Observation schema 1, resource/journal transport v1 and
+9. Only version 9 requests are accepted; versions 1..8 have no qualified complete
+producer and remain in Git history. Current files are adapter-contract.v9.json
+and coverage.v9.json. Observation schema 1, resource/journal transport v1 and
 independently versioned native primitives remain unchanged. The account fixture
 is independently versioned 2; it does not relax native OAuth deadlines or TLS.
 

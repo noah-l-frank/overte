@@ -107,3 +107,19 @@ test("desktop still capture and shutdown keep original signal route",()=>{
     const h=start(false);h.message("takeSnapshot");h.delayedCapture();assert.equal(h.calls.find(row=>row[0]==="still").length,4);
     assert.equal(h.Window.processingGifStarted.listenerCount,1);h.Script.end();assert.equal(h.Window.snapshotShared.listenerCount,0);
 });
+
+test("idle Cancel cannot fabricate an actual pending-capture cancellation proof",()=>{
+    const h=start();
+    h.message("cancelSnapshotCapture");
+    assert.equal(h.cancelled.length,0);
+    assert.equal(h.messages.filter(row=>row.action==="captureStatus"&&row.phase==="cancelled").length,0);
+    h.message("takeSnapshot",{mode:"animated"});
+    assert.equal(h.messages.filter(row=>row.action==="clearPreviousImages").length,1);
+    assert.equal(h.calls.filter(row=>row[0]==="still"||row[0]==="360").length,0);
+    h.message("cancelSnapshotCapture");
+    assert.equal(h.cancelled.length,1);assert.match(h.cancelled[0][1],/^snap_/);
+    assert.equal(h.messages.at(-1).phase,"cancelled");assert.equal(h.Script.timers.size,0);
+    h.message("cancelSnapshotCapture");
+    assert.equal(h.cancelled.length,1);
+    assert.equal(h.messages.filter(row=>row.action==="captureStatus"&&row.phase==="cancelled").length,1);
+});

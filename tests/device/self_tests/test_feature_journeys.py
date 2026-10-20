@@ -41,11 +41,13 @@ POLICY = {'screen': SCREEN_POLICY, 'file': SCREEN_POLICY}
 
 
 class Boundary:
-    def __init__(self, area, fault='', target=None):
+    def __init__(self, area, fault='', target=None, *, snapshot_backend='photos-add-only'):
         self.area, self.fault, self.target = area, fault, target
         self.run = RUN
         self.ctx = context(RUN)
         self.state = copy.deepcopy(SCENARIOS[area]['baseline'])
+        if area=='snapshots':self.state.update(saveBackend=snapshot_backend,savePermission='granted' if snapshot_backend=='photos-add-only' else 'not-required')
+        self.snapshot_original_state=copy.deepcopy(self.state);self.snapshot_original=None
         self.journal = Journal(self.epoch)
         # The real coordinator generates the run; tests need a deterministic one.
         self.journal.runs[RUN] = dict(area=area, ticket=None, entries=[], sequence=0, activeEpochMs=self.epoch(), stimulus=None, tickets=set())
@@ -245,15 +247,39 @@ class Boundary:
                 if self.fault=='queued-replay':s['peerMessages'].append(self.ctx['retry'])
             s['messages']=list(s[s['channel']+'Messages']) if s['open'] else []
         elif a == 'snapshots':
-            if verb in {'open','close'}: s['open'] = verb == 'open'
-            elif verb == 'set-storage-permission': s.update(permission=data['state'], error='none')
-            elif verb == 'capture':
-                if s['permission'] == 'denied': s['error'] = 'permission-denied'
+            if verb in {'open','close'}:s['open']=verb=='open'
+            elif verb=='capture-cancel':
+                s['pending']=True;s['captureHistory'].append('pending')
+                if self.fault!='snapshot-cancel-ignored':
+                    s['pending']=False;s['captureHistory'].append('cancelled')
+                if self.fault=='snapshot-idle-cancel-proof':s['captureHistory']=['cancelled']
+                if self.fault=='snapshot-cancel-creates-file':s['files']=1
+            elif verb=='set-save-permission':
+                if self.fault!='snapshot-permission-ignored':s['savePermission']=data['state']
+                if self.fault=='snapshot-permission-clears-error':s['error']='none'
+            elif verb=='capture':
+                if self.fault=='snapshot-capture-needs-photos' and s['savePermission']=='denied':s['error']='permission-denied'
                 else:
-                    s['files'] += 1; self.capture_ticket = self.ticket
-            elif verb == 'share': s['shares'] += 1
-            elif verb == 'upload-fail': s['error'] = 'offline'
-            elif verb == 'upload': s.update(uploads=1, error='none')
+                    s['files']=1;s['captureHistory']+=['pending','complete'];self.capture_ticket=self.ticket;self.snapshot_original=self.image(self.ticket)
+            elif verb=='save-denied':
+                if self.fault=='snapshot-denied-save-commits':s['saved']=1
+                else:s['error']='permission-denied'
+            elif verb=='save-picker-open':s.update(saveSheet=True,error='none')
+            elif verb=='save-picker-cancel':
+                s['saveSheet']=False
+                if self.fault=='snapshot-picker-cancel-saves':s['saved']=1
+            elif verb=='save':
+                s.update(saveSheet=False,error='none')
+                if self.fault!='snapshot-save-ack-only':s['saved']=1
+            elif verb=='share-open':s['shareSheet']=True
+            elif verb=='share-cancel':
+                s['shareSheet']=False
+                if self.fault=='snapshot-share-cancel-delivers':s['shares']=1
+            elif verb=='share-select-owned':
+                s['shareSheet']=False
+                if self.fault!='snapshot-share-handoff-only':s['shares']=1
+            elif verb=='upload-fail':s['error']='offline'
+            elif verb=='upload':s.update(uploads=1,error='none')
         elif a == 'scripts':
             if verb in {'open','close'}:
                 s['open'] = verb == 'open'
@@ -298,7 +324,7 @@ class Boundary:
             self.verb = 'cleanup'
             if self.fault != 'cleanup-ignored':
                 self.state = copy.deepcopy(self.graphics_original if self.area=='graphics' and hasattr(self,'graphics_original')
-                                           else SCENARIOS[self.area]['baseline'])
+                                           else self.snapshot_original_state if self.area=='snapshots' else SCENARIOS[self.area]['baseline'])
                 if self.area=='emotes':self.emote_started=self.emote_restored=self.emote_due=None
             self.resources = ['entity:leaked'] if self.fault == 'cleanup-resource-leak' else []
         else:
@@ -368,7 +394,9 @@ class Boundary:
                 if not audible:
                     audio = audio[:44] + bytes(len(audio) - 44)
                 values.update(audio=audio, file=wav_bytes(RUN, self.recorded_ticket or self.ticket, profile='recorded-preview-v1'))
-            elif self.area == 'snapshots': values['file'] = self.image(self.capture_ticket or self.ticket)
+            elif self.area=='snapshots':
+                values['file']=self.snapshot_original if self.snapshot_original is not None else self.image(self.capture_ticket or self.ticket)
+                if self.fault=='snapshot-destination-changed' and self.verb in {'save','share-select-owned','upload'}:values['file']=self.image(self.capture_ticket)
             elif self.area == 'create': values['file'] = json.dumps(document(RUN, model_ticket=self.model_ticket, texture_ticket=self.texture_ticket)).encode()
             elif self.area == 'assets': values['file'] = companion('gltf-bundle/main.gltf')
             for kind, content in values.items():
@@ -378,6 +406,10 @@ class Boundary:
                     ticket=TICKET if self.fault == 'foreign-artifact' else self.ticket,
                     capturedEpochMs=self.epoch() - (2000 if self.fault == 'stale-artifact' else 0)))
                 if kind == 'image': artifacts[-1]['source'] = 'world-render-target'
+                if self.area=='snapshots' and kind=='file':
+                    artifacts[-1]['source']={'capture':'snapshot-private-original','save':'snapshot-saved-original',
+                        'share-select-owned':'snapshot-receiver-original','upload':'snapshot-upload-original'}.get(self.verb,'snapshot-private-original')
+                    if self.fault=='snapshot-wrong-file-source' and self.verb!='capture':artifacts[-1]['source']='snapshot-private-original'
             if self.fault == 'missing-evidence' or self.ignored:
                 artifacts = []
         return dict(schemaVersion=1, contractVersion=VERSION, runId='ff'*16 if self.fault == 'foreign-run' else RUN,
@@ -416,7 +448,7 @@ class FeatureJourneys(unittest.TestCase):
             with self.subTest(area=area):
                 boundary = Boundary(area)
                 phases = boundary.execute()
-                self.assertGreaterEqual(len(phases), len(SCENARIOS[area]['steps']) + 2)
+                self.assertGreaterEqual(len(phases), len([s for s in SCENARIOS[area]['steps'] if 'backends' not in s or 'photos-add-only' in s['backends']]) + 2)
                 self.assertTrue(boundary.reports[0]['sequenceCompleted'])
                 self.assertTrue(boundary.reports[0]['cleanupSucceeded'])
                 self.assertFalse(boundary.reports[0]['deviceAcceptance'])
@@ -443,6 +475,93 @@ class FeatureJourneys(unittest.TestCase):
         for verb in ('import-picker-open','import-picker-cancel','import-picker-accept','create-retry'):
             failed=Boundary('create','input-ignored',verb)
             with self.assertRaises((ValueError,AssertionError)):failed.execute()
+
+    def test_snapshot_v9_executes_all_three_measured_save_profiles_without_fake_storage_permission(self):
+        for backend,count in [('photos-add-only',15),('media-store',12),('document-picker',15)]:
+            boundary=Boundary('snapshots',snapshot_backend=backend)
+            with self.subTest(backend=backend):
+                phases=boundary.execute();report=boundary.reports[-1]
+                self.assertEqual(count+2,len(phases));self.assertEqual(backend,report['sourceProfile'])
+                self.assertTrue(report['sequenceCompleted']);self.assertTrue(report['cleanupSucceeded'])
+                verbs=[v['verb'] for operation,v in boundary.actions if operation.endswith('.act')]
+                self.assertNotIn('set-storage-permission',verbs);self.assertNotIn('capture-start',verbs)
+                self.assertEqual(backend=='photos-add-only','save-denied' in verbs)
+                self.assertEqual(backend=='document-picker','save-picker-cancel' in verbs)
+                self.assertIn('share-open',verbs);self.assertIn('share-select-owned',verbs)
+                self.assertEqual(18-count,len(report['notApplicableSteps']))
+
+    def test_snapshot_original_pending_cancellation_and_real_save_share_receipts_are_mandatory(self):
+        for fault in ('snapshot-cancel-ignored','snapshot-cancel-creates-file','snapshot-idle-cancel-proof',
+                      'snapshot-permission-ignored','snapshot-permission-clears-error','snapshot-capture-needs-photos',
+                      'snapshot-denied-save-commits','snapshot-save-ack-only','snapshot-share-cancel-delivers',
+                      'snapshot-share-handoff-only','snapshot-wrong-file-source','snapshot-destination-changed'):
+            boundary=Boundary('snapshots',fault)
+            with self.subTest(fault=fault),self.assertRaises((ValueError,AssertionError)):boundary.execute()
+            self.assertFalse(boundary.reports[-1]['sequenceCompleted'])
+            self.assertTrue(boundary.reports[-1]['cleanupSucceeded'])
+        boundary=Boundary('snapshots','snapshot-picker-cancel-saves',snapshot_backend='document-picker')
+        with self.assertRaises((ValueError,AssertionError)):boundary.execute()
+        self.assertFalse(boundary.reports[-1]['sequenceCompleted'])
+
+    def test_snapshot_missing_effects_or_system_sheets_cannot_pass_on_acknowledgments(self):
+        for verb in ('capture-cancel','capture','save','share-open','share-select-owned'):
+            boundary=Boundary('snapshots','input-ignored',verb)
+            with self.subTest(verb=verb),self.assertRaises((ValueError,AssertionError)):boundary.execute()
+            self.assertFalse(boundary.reports[-1]['sequenceCompleted'])
+
+    def test_snapshot_unknown_backend_or_unowned_initial_authorization_refuses_before_input(self):
+        for backend,permission in [('unsupported','not-required'),('photos-add-only','denied'),('media-store','granted')]:
+            boundary=Boundary('snapshots',snapshot_backend=backend);boundary.state['savePermission']=permission
+            with self.subTest(backend=backend),self.assertRaises((ValueError,AssertionError)):boundary.execute()
+            self.assertFalse(any(op.endswith('.act') for op,_ in boundary.actions))
+            self.assertFalse(boundary.reports[-1]['cleanupEnabled'])
+
+    def test_snapshot_system_ui_uses_real_monotonic_settled_counters_without_restarts(self):
+        boundary=Boundary('snapshots');original=boundary.reduce
+        system={'set-save-permission','save-denied','save','share-open','share-cancel','share-select-owned'}
+        def reduce(verb,data):
+            original(verb,data)
+            if verb in system:
+                boundary.lifecycle['backgrounds']+=1;boundary.lifecycle['activations']+=1
+        boundary.reduce=reduce;boundary.execute()
+        self.assertGreater(boundary.lifecycle['backgrounds'],2)
+        self.assertTrue(boundary.reports[-1]['sequenceCompleted'])
+        for fault in ('regression','restart'):
+            boundary=Boundary('snapshots');original=boundary.reduce
+            def reduce(verb,data):
+                original(verb,data)
+                if verb=='set-save-permission':boundary.lifecycle['backgrounds']+=1;boundary.lifecycle['activations']+=1
+                if verb=='share-open':
+                    if fault=='regression':boundary.lifecycle['backgrounds']=0
+                    else:boundary.lifecycle['launches']+=1
+            boundary.reduce=reduce
+            with self.subTest(fault=fault),self.assertRaises((ValueError,AssertionError)):boundary.execute()
+            self.assertFalse(boundary.reports[-1]['sequenceCompleted'])
+
+    def test_snapshot_backend_is_pinned_and_cleanup_cannot_leak_os_outputs(self):
+        boundary=Boundary('snapshots');original=boundary.reduce
+        def reduce(verb,data):
+            original(verb,data)
+            if verb=='share-open':boundary.state.update(saveBackend='media-store',savePermission='not-required')
+        boundary.reduce=reduce
+        with self.assertRaises((ValueError,AssertionError)):boundary.execute()
+        self.assertFalse(boundary.reports[-1]['sequenceCompleted'])
+        boundary=Boundary('snapshots');original=boundary.invoke
+        def invoke(operation,values):
+            result=original(operation,values)
+            if operation.endswith('.cleanup'):boundary.state.update(files=1,saved=1)
+            return result
+        boundary.invoke=invoke
+        with self.assertRaises((ValueError,AssertionError)):boundary.execute()
+        self.assertFalse(boundary.reports[-1]['cleanupSucceeded'])
+
+    def test_snapshot_v9_rejects_old_capture_permission_inputs_and_private_sink_substitution(self):
+        request=dict(contractVersion=VERSION,runId=RUN,ticket=TICKET,
+            fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/',verb='capture',inputs={'mode':'still','format':'png'})
+        self.assertEqual(request,arguments('feature.snapshots.act',request))
+        for edit in ({'contractVersion':8},{'verb':'set-storage-permission','inputs':{'state':'denied'}},
+                     {'verb':'capture-cancel','inputs':{}},{'verb':'share','inputs':{}}):
+            with self.assertRaises(ValueError):arguments('feature.snapshots.act',request|edit)
 
     def test_create_cancel_side_effect_and_picker_ack_without_entities_fail(self):
         for fault in ('create-on-cancel','picker-ack-only'):
@@ -959,9 +1078,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v8.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v9.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v8.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v9.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():

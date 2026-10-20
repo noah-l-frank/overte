@@ -30,7 +30,7 @@ WITNESS_KEYS = {
  'audio': ['recording', 'preview', 'muted', 'recordedFrames', 'playedFrames',
            'bufferedFrames', 'phase', 'history', 'error'],
  'chat': ['messages', 'localMessages', 'domainMessages', 'peerMessages', 'channel', 'mixerConnected', 'open'],
- 'snapshots': ['files', 'uploads', 'shares'],
+ 'snapshots': ['open','pending','captureHistory','files','saved','uploads','shares','saveBackend','savePermission','saveSheet','shareSheet','error'],
  'scripts': ['running', 'effects', 'companions'],
  'assets': ['mappings', 'selected', 'bakeState', 'canWrite', 'sceneModel', 'companions'],
  'lifecycle-input': ['heldInputs', 'worldDisplacement', 'generation'],

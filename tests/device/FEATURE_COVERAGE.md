@@ -42,7 +42,7 @@ to implement the new complete area contract.
 | graphics | `render-health` | Immediate resolution/Haze/Mirrors, actual completed-frame/pass effects, close/restart durability and measured original restoration. | changed, image | Logic present; adapter missing; device untested |
 | audio | `audio-controls`, `permission-recovery`, `sound-playback`, `voice-roundtrip` | Automatic memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation; OS permissions remain in the composed foundation. | audio, file, peer, silence | Logic present; adapter missing; device untested |
 | chat | `text-input` | Unicode send/receive, cancelled draft, actual Local/Domain histories, distant Local rejection, history reopen, no-mixer local echo and explicit retyped resend. | peer | Logic present; adapter missing; device untested |
-| snapshots | `snapshot-output-parity` | Cancel/permission denial, original capture/share bytes, share cancel, upload failure/retry and resume. | file, image, peer | Logic present; adapter missing; device untested |
+| snapshots | `snapshot-output-parity` | Actual pending-cancel history; Photos Save denial with successful private capture; measured Save backend, original Save/share/upload bytes, system-sheet cancellation and resume. | file, image, peer | Logic present; adapter missing; device untested |
 | scripts | `scripts-management`, `scripted-entity` | File-bundle picker cancel/accept, actual relative companion execution, application restart, stop and URL failure; separate existing entity-script consent. | peer | Logic present; adapter missing; device untested |
 | assets | `asset-load` | Upload cancel, browse, companion mappings, rename, bake, Add to World and original resolved bytes, permission denial, delete and 404. | changed, file, image, peer | Logic present; adapter missing; device untested |
 | lifecycle-input | `lifecycle-under-load`, `tablet-input-isolation`, `text-input` | Create/Chat/Scripts editor focus, Back, world-input isolation, resume, context replacement and stale input. | changed, image, peer | Logic present; adapter missing; device untested |
@@ -55,18 +55,20 @@ also requires changed feature-subject pixels; `audio`/`silence` inspect PCM;
 `file` inspects original bytes; `peer` reads the independent actor journal.
 Existing modules retain their additional image, PCM, process and file checks.
 
-The [machine matrix](feature_journeys/coverage.v8.json), [journey guide](FEATURE_JOURNEYS.md)
+The [machine matrix](feature_journeys/coverage.v9.json), [journey guide](FEATURE_JOURNEYS.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md) record the exact contracts.
 All rows currently depend on real product transports and independently measuring
 target observers. That dependency belongs to the later adapter implementation
 phase; absent capabilities, missing observations and missing prerequisites fail
 closed. The source-contract corrections above are open implementation work too.
 
-The [Snapshot source audit](feature_journeys/SNAPSHOT_SOURCE.md) identifies a
-remaining v8 draft mismatch: private capture and platform Save authorization
-are separate. Its idle cancellation/permission flow must be corrected before
-Snapshot adapter activation. This area has test code, but its corrected common
-source contract is still pending.
+Version 9 [corrects Snapshot source semantics](feature_journeys/SNAPSHOT_SOURCE.md):
+real pending-cancel history, private capture despite denied Photos Save,
+source-bound Photos/MediaStore/document-picker Save, observed share sheets,
+original destination/receiver/upload bytes and exact cleanup. The three measured
+Save profiles have 15/12/15 applicable checkpoints from an 18-row closed inventory.
+No profile may omit common capture/Save/share/upload/resume/cleanup or pass an
+unsupported backend. These remain host-tested logic; full adapters are missing.
 
 The aggregate `feature-journeys` suite includes the union of the existing modules
 above, one mandatory capability gate per area, and all fourteen extensions.

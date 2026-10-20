@@ -13,6 +13,9 @@ def inventory():
         areas={area:dict(inputVerbs=actions(area),
                         observationFields={key:type(value).__name__ for key,value in scenario['baseline'].items()},
                         measuredBaselineFields=scenario.get('measuredBaselineFields', []),
+                        sourceProfiles=['photos-add-only','media-store','document-picker'] if area=='snapshots' else [],
+                        systemUiVerbs=sorted({step['verb'] for step in scenario['steps'] if step.get('systemUi')}),
+                        conditionalSteps=[dict(index=n+1,verb=step['verb'],backends=step['backends']) for n,step in enumerate(scenario['steps']) if 'backends' in step],
                         independentFields=WITNESS_KEYS[area], existingModules=FOUNDATIONS[area])
                for area,scenario in sorted(SCENARIOS.items())})
 
