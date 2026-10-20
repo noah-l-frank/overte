@@ -17,6 +17,7 @@ jobs:
       pull-requests: read
       checks: read
     outputs:
+      source_admitted: ${{ steps.protected-source.outputs.admitted }}
       parent_candidate: ${{ steps.plan.outputs.parent_candidate }}
       parent_plan: ${{ steps.plan.outputs.parent_plan }}
       platform_required: ${{ steps.plan.outputs.platform_required }}
@@ -40,13 +41,6 @@ jobs:
           tests/platform-profile.json
           tests/requirements-host.txt
           tests/requirements-repository.txt
-    - name: Check out the exact parent commit
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      with:
-        ref: ${{ github.sha }}
-        path: candidate
-        fetch-depth: 2
-        persist-credentials: false
     - name: Authenticate the protected base commitment before repository imports
       id: protected-source
       env:
@@ -118,10 +112,20 @@ jobs:
         print('Protected source commitment '+('admitted.' if admitted else 'unavailable; existing execution remains required.'))
         SOURCE_GUARD
     - name: Require current parent route source admission
+      if: steps.protected-source.outputs.admitted == 'true'
       env:
         ADMITTED: ${{ steps.protected-source.outputs.admitted }}
       run: test "$ADMITTED" = true
+    - name: Check out the exact parent commit
+      if: steps.protected-source.outputs.admitted == 'true'
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        ref: ${{ github.sha }}
+        path: candidate
+        fetch-depth: 2
+        persist-credentials: false
     - name: Independently derive current parent owners
+      if: steps.protected-source.outputs.admitted == 'true'
       id: plan
       env:
         GH_TOKEN: ${{ github.token }}
@@ -129,12 +133,14 @@ jobs:
         trusted/tools/test-evidence trusted/tools/test-evidence/producer_workflow.py parent-route --candidate "$GITHUB_WORKSPACE/candidate"
   common-parent:
     needs: route
-    if: always() && !cancelled() && (needs.route.result == 'success' || (needs.route.result == 'skipped' && contains(fromJSON('["main","apple-main"]'), github.ref_name)))
+    if: always() && !cancelled() && ((needs.route.result == 'success' && needs.route.outputs.source_admitted == 'true') || (needs.route.result == 'skipped' && contains(fromJSON('["main","apple-main"]'), github.ref_name)))
     name: Common parent tests
     runs-on: ubuntu-24.04
     env:
       OVERTE_QML_TEST_RUNNER: /usr/lib/qt6/bin/qmltestrunner
     timeout-minutes: 30
+    outputs:
+      source_admitted: ${{ steps.protected-source.outputs.admitted }}
     steps:
     - name: Check out trusted shared execution policy
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -226,6 +232,7 @@ jobs:
         print('Protected source commitment '+('admitted.' if admitted else 'unavailable; existing execution remains required.'))
         SOURCE_GUARD
     - name: Look up original protected PR proof before candidate setup
+      if: steps.protected-source.outputs.admitted == 'true'
       id: reuse
       env:
         GH_TOKEN: ${{ github.token }}
@@ -236,6 +243,7 @@ jobs:
           printf '%s\n' 'shared_reused=false' 'package_work=true' 'no_execution=false' >> "$GITHUB_OUTPUT"
         fi
     - name: Require an explicit reuse or actual-execution route
+      if: steps.protected-source.outputs.admitted == 'true'
       env:
         SHARED_REUSED: ${{ steps.reuse.outputs.shared_reused }}
         PACKAGE_WORK: ${{ steps.reuse.outputs.package_work }}
@@ -246,6 +254,7 @@ jobs:
           *) printf '%s\n' 'Missing or inconsistent original-proof route' >&2; exit 1 ;;
         esac
     - name: Check out the exact parent commit
+      if: steps.protected-source.outputs.admitted == 'true'
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         ref: ${{ github.sha }}
@@ -257,26 +266,26 @@ jobs:
       env:
         PARENT_BRANCH: ${{ github.ref_name }}
       run: git fetch --no-tags origin "+refs/heads/$PARENT_BRANCH:refs/remotes/origin/$PARENT_BRANCH"
-      if: steps.reuse.outputs.shared_reused != 'true' || steps.reuse.outputs.package_work == 'true'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.shared_reused != 'true' || steps.reuse.outputs.package_work == 'true')
     - name: Independently select host and package checks
       id: route
       run: python3 trusted/tools/repository-checks/package_checks.py plan --candidate candidate --event "$GITHUB_EVENT_PATH"
         --sha "$GITHUB_SHA" --output "$GITHUB_OUTPUT"
-      if: steps.reuse.outputs.shared_reused != 'true' || steps.reuse.outputs.package_work == 'true'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.shared_reused != 'true' || steps.reuse.outputs.package_work == 'true')
     - name: Require unchanged scheduling to match actual inputs
-      if: steps.reuse.outputs.no_execution == 'true'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.no_execution == 'true')
       env:
         ACTUAL_MODE: ${{ steps.route.outputs.package_host_mode }}
       run: test "$ACTUAL_MODE" = unchanged
     - name: Independently verify unchanged parent inputs
-      if: steps.route.outputs.package_host_mode == 'unchanged'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.route.outputs.package_host_mode == 'unchanged')
       env:
         GH_TOKEN: ${{ github.token }}
       run: /usr/bin/python3 -I -S -B -c 'import runpy,sys;sys.path.insert(0,sys.argv.pop(1));runpy.run_path(sys.argv.pop(1),run_name="__main__")'
         trusted/tools/test-evidence trusted/tools/test-evidence/postmerge.py --verify-empty --candidate candidate
         --report build/parent-qualification/no-execution.json
     - name: Set up Python
-      if: steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full')
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full'))
       uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
       with:
         python-version: '3.12'
@@ -284,15 +293,15 @@ jobs:
       uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
       with:
         node-version: '22'
-      if: (steps.reuse.outputs.shared_reused != 'true' || steps.reuse.outputs.package_work == 'true') && steps.route.outputs.package_host_mode != 'unchanged'
+      if: steps.protected-source.outputs.admitted == 'true' && ((steps.reuse.outputs.shared_reused != 'true' || steps.reuse.outputs.package_work == 'true') && steps.route.outputs.package_host_mode != 'unchanged')
     - name: Set up Java
-      if: steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full')
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full'))
       uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
       with:
         distribution: temurin
         java-version: '17'
     - name: Verify runner prerequisites
-      if: steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full')
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full'))
       run: |
         set -euo pipefail
         command -v bash
@@ -304,14 +313,14 @@ jobs:
         java -version
     - name: Independently select affected parent host contracts
       id: host
-      if: steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full')
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full'))
       env:
         EXPECTED_PLAN: ${{ steps.route.outputs.package_plan }}
       run: python3 trusted/tools/repository-checks/host_selection.py --candidate candidate --event "$GITHUB_EVENT_PATH"
         --sha "$GITHUB_SHA" --expected-plan "$EXPECTED_PLAN" --select-only --output "$GITHUB_OUTPUT" --selection-report
         build/parent-qualification/host-selection.json
     - name: Require a complete host execution route
-      if: steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full')
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full'))
       env:
         FULL_HOST: ${{ steps.host.outputs.full_host }}
         COMPLETE_RECEIPT: ${{ steps.host.outputs.complete_receipt }}
@@ -321,7 +330,7 @@ jobs:
           *) printf '%s\n' 'Missing or inconsistent parent host selection' >&2; exit 1 ;;
         esac
     - name: Install QML and portable C++ contract prerequisites
-      if: steps.reuse.outputs.shared_reused != 'true' && (steps.host.outputs.full_host == 'true')
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.host.outputs.full_host == 'true'))
       run: |
         set -euo pipefail
         sudo apt-get -o Acquire::Retries=4 update
@@ -336,7 +345,7 @@ jobs:
           qml6-module-qt-labs-settings qml6-module-qtquick-dialogs qml6-module-qttest
         pkg-config --print-errors --exists Qt5Quick Qt5WebChannel Qt5Network Qt6Quick Qt6WebChannel Qt6Network
     - name: Install selected artifact namespace utility
-      if: steps.host.outputs.requires_artifact_namespace == 'true'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.host.outputs.requires_artifact_namespace == 'true')
       env:
         FULL_HOST: ${{ steps.host.outputs.full_host }}
       run: |
@@ -349,7 +358,7 @@ jobs:
         fi
         test -x /usr/bin/bwrap
     - name: Prepare isolated host evidence validators
-      if: steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full')
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full'))
       run: |
         # Ubuntu 24.04 restricts user namespaces through AppArmor. Permit
         # offline test sandboxes only on this disposable GitHub-hosted VM.
@@ -360,23 +369,21 @@ jobs:
         python3 -m venv build/host-tests-env
         build/host-tests-env/bin/python -m pip install --disable-pip-version-check -r trusted/tests/requirements-host.txt
     - name: Execute common parent suites without claiming platform evidence
-      if: steps.reuse.outputs.shared_reused != 'true' && needs.route.outputs.platform_required == 'true'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.reuse.outputs.shared_reused != 'true' && needs.route.outputs.platform_required == 'true')
       env:
         GH_TOKEN: ${{ github.token }}
       run: build/host-tests-env/bin/python -I -B -c 'import runpy,sys;sys.path.insert(0,sys.argv.pop(1));runpy.run_path(sys.argv.pop(1),run_name="__main__")'
         trusted/tools/test-evidence trusted/tools/test-evidence/producer_workflow.py fallback-common --candidate
         "$GITHUB_WORKSPACE/candidate"
     - name: Run complete host qualification
-      if: needs.route.outputs.platform_required != 'true' && (steps.reuse.outputs.shared_reused != 'true' &&
-        (steps.host.outputs.complete_receipt == 'true'))
+      if: steps.protected-source.outputs.admitted == 'true' && (needs.route.outputs.platform_required != 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.host.outputs.complete_receipt == 'true')))
       env:
         GH_TOKEN: ''
         GITHUB_TOKEN: ''
       run: build/host-tests-env/bin/python trusted/tools/test-evidence/run.py --candidate candidate --include-platform
         --timeout 240 --host-timeout 900 --junit build/test-results/parent-project-tests.xml --receipt build/parent-qualification/execution.json
     - name: Run independently selected parent host contracts
-      if: needs.route.outputs.platform_required != 'true' && (steps.reuse.outputs.shared_reused != 'true' &&
-        (steps.route.outputs.package_host_mode == 'full' && steps.host.outputs.complete_receipt == 'false'))
+      if: steps.protected-source.outputs.admitted == 'true' && (needs.route.outputs.platform_required != 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.route.outputs.package_host_mode == 'full' && steps.host.outputs.complete_receipt == 'false')))
       env:
         GH_TOKEN: ''
         GITHUB_TOKEN: ''
@@ -385,8 +392,7 @@ jobs:
         --event "$GITHUB_EVENT_PATH" --sha "$GITHUB_SHA" --expected-plan "$EXPECTED_PLAN" --junit build/test-results/parent-project-tests.xml
         --selection-report build/parent-qualification/host-selection.json
     - name: Create content-addressed qualification evidence
-      if: needs.route.outputs.platform_required != 'true' && (steps.reuse.outputs.shared_reused != 'true' &&
-        (steps.host.outputs.complete_receipt == 'true'))
+      if: steps.protected-source.outputs.admitted == 'true' && (needs.route.outputs.platform_required != 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.host.outputs.complete_receipt == 'true')))
       env:
         PARENT_BRANCH: ${{ github.ref_name }}
         PARENT_COMMIT: ${{ github.sha }}
@@ -399,8 +405,7 @@ jobs:
         "$REPOSITORY_ID" --parent-branch "$PARENT_BRANCH" --commit "$PARENT_COMMIT" --run-id "$RUN_ID" --run-attempt
         "$RUN_ATTEMPT" --output build/parent-qualification/qualification.json
     - name: Upload immutable qualification evidence
-      if: needs.route.outputs.platform_required != 'true' && (steps.reuse.outputs.shared_reused != 'true' &&
-        (steps.host.outputs.complete_receipt == 'true'))
+      if: steps.protected-source.outputs.admitted == 'true' && (needs.route.outputs.platform_required != 'true' && (steps.reuse.outputs.shared_reused != 'true' && (steps.host.outputs.complete_receipt == 'true')))
       uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
       with:
         name: parent-qualification-${{ github.sha }}
@@ -408,7 +413,7 @@ jobs:
         if-no-files-found: error
         retention-days: 4
     - name: Upload qualification test reports
-      if: always()
+      if: steps.protected-source.outputs.admitted == 'true' && (always())
       uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
       with:
         name: parent-qualification-reports-${{ github.sha }}-${{ github.run_attempt }}
@@ -423,7 +428,7 @@ jobs:
         if-no-files-found: warn
         retention-days: 7
     - name: Check only affected tool dependencies and behavior
-      if: steps.route.outputs.package_host_mode == 'tool-dependencies'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.route.outputs.package_host_mode == 'tool-dependencies')
       env:
         EXPECTED_CANDIDATE: ${{ steps.route.outputs.package_candidate }}
         EXPECTED_PLAN: ${{ steps.route.outputs.package_plan }}
@@ -431,8 +436,7 @@ jobs:
         --sha "$GITHUB_SHA" --output "$GITHUB_OUTPUT" --expected-candidate "$EXPECTED_CANDIDATE" --expected-plan
         "$EXPECTED_PLAN" --lane tool-dependencies
     - name: Check independently selected S3 package dependencies and behavior
-      if: (steps.reuse.outputs.shared_reused != 'true' || steps.reuse.outputs.package_work == 'true') && steps.route.outputs.package_set
-        != '[]'
+      if: steps.protected-source.outputs.admitted == 'true' && ((steps.reuse.outputs.shared_reused != 'true' || steps.reuse.outputs.package_work == 'true') && steps.route.outputs.package_set != '[]')
       env:
         EXPECTED_CANDIDATE: ${{ steps.route.outputs.package_candidate }}
         EXPECTED_PLAN: ${{ steps.route.outputs.package_plan }}
@@ -447,7 +451,7 @@ jobs:
   platform-tests:
     needs: route
     name: Android platform tests
-    if: needs.route.result == 'success' && needs.route.outputs.platform_required == 'true'
+    if: needs.route.result == 'success' && needs.route.outputs.source_admitted == 'true' && needs.route.outputs.platform_required == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -458,6 +462,7 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     outputs:
+      source_admitted: ${{ steps.protected-source.outputs.admitted }}
       verified: ${{ steps.execute.outputs.platform_verified || 'false' }}
       partition: ${{ steps.execute.outputs.platform_plan || '' }}
       required: ${{ steps.plan.outputs.platform_required }}
@@ -467,12 +472,6 @@ jobs:
       with:
         ref: ${{ github.event.repository.default_branch }}
         path: trusted
-        persist-credentials: false
-    - name: Check out exact platform candidate without credentials
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      with:
-        path: candidate
-        fetch-depth: 2
         persist-credentials: false
     - name: Authenticate the protected base commitment before repository imports
       id: protected-source
@@ -545,10 +544,19 @@ jobs:
         print('Protected source commitment '+('admitted.' if admitted else 'unavailable; existing execution remains required.'))
         SOURCE_GUARD
     - name: Require unchanged platform source admission
+      if: steps.protected-source.outputs.admitted == 'true'
       env:
         ADMITTED: ${{ steps.protected-source.outputs.admitted }}
       run: test "$ADMITTED" = true
+    - name: Check out exact platform candidate without credentials
+      if: steps.protected-source.outputs.admitted == 'true'
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        path: candidate
+        fetch-depth: 2
+        persist-credentials: false
     - name: Independently derive the complete current platform inventory
+      if: steps.protected-source.outputs.admitted == 'true'
       id: plan
       env:
         GH_TOKEN: ${{ github.token }}
@@ -558,18 +566,18 @@ jobs:
       uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
       with:
         python-version: '3.12'
-      if: steps.plan.outputs.platform_required == 'true'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.plan.outputs.platform_required == 'true')
     - name: Set up platform Node
       uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
       with:
         node-version: '22'
-      if: steps.plan.outputs.platform_required == 'true'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.plan.outputs.platform_required == 'true')
     - name: Set up platform Java
       uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
       with:
         distribution: temurin
         java-version: '17'
-      if: steps.plan.outputs.platform_required == 'true'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.plan.outputs.platform_required == 'true')
     - name: Prepare fixed platform host prerequisites
       run: |-
         set -euo pipefail
@@ -589,16 +597,16 @@ jobs:
         "$RUNNER_TEMP/android-platform-venv/bin/python" -m pip install --disable-pip-version-check -r trusted/tests/requirements-host.txt
         printf '%s\n' "$toolkit" >> "$GITHUB_PATH"
         # No APK/SDK installation or application/device build. Phone NDK absence fails the controller.
-      if: steps.plan.outputs.platform_required == 'true'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.plan.outputs.platform_required == 'true')
     - name: Execute and verify the complete Android platform inventory
       id: execute
       env:
         GH_TOKEN: ${{ github.token }}
       run: '"$RUNNER_TEMP/android-platform-venv/bin/python" -I -B -c ''import runpy,sys;sys.path.insert(0,sys.argv.pop(1));runpy.run_path(sys.argv.pop(1),run_name="__main__")''
         trusted/tools/test-evidence trusted/tools/test-evidence/producer_workflow.py platform --candidate "$GITHUB_WORKSPACE/candidate"'
-      if: steps.plan.outputs.platform_required == 'true'
+      if: steps.protected-source.outputs.admitted == 'true' && (steps.plan.outputs.platform_required == 'true')
     - name: Upload platform diagnostics only
-      if: always()
+      if: steps.protected-source.outputs.admitted == 'true' && (always())
       uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
       with:
         name: android-platform-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
@@ -620,6 +628,9 @@ jobs:
       pull-requests: read
       checks: read
     steps:
+    - name: Reject cancelled parent qualification
+      if: cancelled()
+      run: exit 1
     - name: Check out trusted shared execution policy
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
@@ -639,13 +650,6 @@ jobs:
           tests/platform-profile.json
           tests/requirements-host.txt
           tests/requirements-repository.txt
-    - name: Check out the exact parent commit
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      with:
-        ref: ${{ github.sha }}
-        path: candidate
-        fetch-depth: 0
-        persist-credentials: false
     - name: Authenticate the protected base commitment before repository imports
       id: protected-source
       env:
@@ -717,15 +721,73 @@ jobs:
         print('Protected source commitment '+('admitted.' if admitted else 'unavailable; existing execution remains required.'))
         SOURCE_GUARD
     - name: Require protected parent aggregate source admission
+      id: admission
+      if: always() && !cancelled()
       env:
         ADMITTED: ${{ steps.protected-source.outputs.admitted }}
-      run: test "$ADMITTED" = true
+        CHECK_RESULTS: ${{ toJSON(needs) }}
+        CANCELLED: ${{ job.status == 'cancelled' }}
+      run: |
+        /usr/bin/python3 -I -S -B - <<'OPTIONAL_PARENT'
+        # Scheduling only: no repository imports, execution or qualification.
+        import json, os
+
+        def need(value):
+            if not value: raise ValueError('optional parent owner or source result is invalid')
+        def unique(pairs):
+            value={}
+            for key,item in pairs:
+                need(key not in value);value[key]=item
+            return value
+        admitted=os.environ['ADMITTED']
+        need(admitted in {'true','false'} and os.environ['CANCELLED']=='false')
+        needs=json.loads(os.environ['CHECK_RESULTS'],object_pairs_hook=unique,
+            parse_constant=lambda _: need(False))
+        need(type(needs) is dict and set(needs)=={'route','common-parent','platform-tests'})
+        admissions={'qualify-parent':admitted}
+        for name,job in needs.items():
+            need(type(job) is dict and job.get('result') in {'success','skipped'}
+                and type(job.get('outputs')) is dict)
+            value=job['outputs'].get('source_admitted','')
+            if job['result']=='success':
+                need(type(value) is str and value in {'true','false'})
+                admissions[name]=value
+            else:
+                need(value=='')
+        available=all(value=='true' for value in admissions.values())
+        with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+            output.write('available='+str(available).lower()+'\n')
+            if available:
+                # Remove only this workflow's admission transport fields;
+                # the unchanged verifier reauthenticates every owner field.
+                owners={name:{**job,'outputs':{key:value for key,value in job['outputs'].items()
+                    if key!='source_admitted'}} for name,job in needs.items()}
+                output.write('owner_results='+json.dumps(owners,separators=(',',':'))+'\n')
+        if not available:
+            print(json.dumps({'schema':1,'kind':'optional-parent-source-unavailable-v1',
+                'scope':'qualify-parent-decision','reason':'protected-parent-source-unavailable',
+                'qualification':False,'reusable':False,'new_E':False,'execution':None,
+                'executed_suites':[],'reused_suites':[],'source_admissions':admissions,
+                'upstream_results':{name:job['result'] for name,job in needs.items()}},sort_keys=True))
+        OPTIONAL_PARENT
+    - name: Check out the exact parent commit
+      if: steps.admission.outputs.available == 'true'
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        ref: ${{ github.sha }}
+        path: candidate
+        fetch-depth: 0
+        persist-credentials: false
     - name: Require both actual parent owners
+      if: steps.admission.outputs.available == 'true'
       env:
         GH_TOKEN: ${{ github.token }}
-        CHECK_RESULTS: ${{ toJSON(needs) }}
+        CHECK_RESULTS: ${{ steps.admission.outputs.owner_results }}
       run: /usr/bin/python3 -I -S -B -c 'import runpy,sys;sys.path.insert(0,sys.argv.pop(1));runpy.run_path(sys.argv.pop(1),run_name="__main__")'
         trusted/tools/test-evidence trusted/tools/test-evidence/producer_workflow.py parent-verify --candidate "$GITHUB_WORKSPACE/candidate"
+    - name: Reject late cancellation of parent qualification
+      if: cancelled()
+      run: exit 1
 'on':
   push:
     branches:
