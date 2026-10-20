@@ -1727,7 +1727,7 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         data={topology:('9a8aa6f7a9fc28924b5212c9be703c213f3dd694','455fdd13c7580f474e291f67595c4d97a0891f04'),
               bootstrap:('e8df02954fc83cc1efefcf36adbaeb19fe21cdae','787651befbf7a627633b80185d798d7567db2466')}
         helper='tools/ios-build-qualification/inputs.py'
-        trusted={helper:ordinary('202ace3bff61515723686f8523ff3734f3750745')}
+        trusted={helper:ordinary('5a25de7985760e8b56c2d94bb869e909404cf06a')}
         def stage(value,parent=False):
             return {topology:ordinary(data[topology][value>0]),bootstrap:ordinary(
                 'ea772c34abdee24a42babd94529bf1e753020fb3' if parent else data[bootstrap][value==2])}
