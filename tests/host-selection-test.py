@@ -1730,7 +1730,7 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         data={topology:('9a8aa6f7a9fc28924b5212c9be703c213f3dd694','455fdd13c7580f474e291f67595c4d97a0891f04'),
               bootstrap:('e8df02954fc83cc1efefcf36adbaeb19fe21cdae','787651befbf7a627633b80185d798d7567db2466')}
         helper='tools/ios-build-qualification/inputs.py'
-        trusted={helper:ordinary('5023a064f19232da2934362ac9f3278f7935cfd5')}
+        trusted={helper:ordinary('40b4ea9ab66570e63b8ff0f7d37e8da5262b8aba')}
         def stage(value,parent=False):
             return {topology:ordinary(data[topology][value>0]),bootstrap:ordinary(
                 'ea772c34abdee24a42babd94529bf1e753020fb3' if parent else data[bootstrap][value==2])}
@@ -1857,7 +1857,7 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         self.assertEqual(HOST.inputs.INSTALLED_COMPILER_PROFILE,
             {path:{'mode':mode,'type':'blob','sha':sha} for path,(mode,sha) in expected.items()})
         self.assertEqual(HOST.inputs.INSTALLED_COMPILER_READER,
-            'sha256:6dff2d9d9ea405fe3a1921e4000ee191d99657c4ebcd871f665ed69e7d4748a2')
+            'sha256:19a737af0ac45317ca56947ef26dee6f8594da8d05c1f86992657a75b74b700b')
         for path in expected:
             self.assertNotIn(path,HOST.DEVICE_CONTROL_INPUTS)
         self.assertIn('ios',HOST.inputs._DEVICE_INPUTS)

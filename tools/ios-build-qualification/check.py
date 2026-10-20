@@ -395,6 +395,21 @@ def report(needs, source, build_number, run_id, attempt, directory, jobs, *, eve
     return result
 
 
+def metadata_handoff(event, environment):
+    """Only the native CLI owns inert event scheduling; pure route/report stay exact."""
+    if not isinstance(event, dict) or event.get("action") not in {"edited", "ready_for_review"} \
+            or event.get("pull_request", {}).get("base", {}).get("ref") != "apple-ios":
+        return None
+    path = ROOT / "tools/ios-build-qualification/text-edits.py"
+    require(path.is_file() and not any(p.is_symlink() for p in (path, *path.parents) if p.is_relative_to(ROOT)),
+            "trusted iOS metadata reader unavailable")
+    spec = importlib.util.spec_from_file_location("trusted_ios_text_retention", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module if module.text_edit(event, environment.get("GITHUB_EVENT_NAME")) else None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -419,30 +434,50 @@ def main():
     try:
         if args.command == "route":
             event = json.loads(args.event.read_text())
-            with fresh_host_candidate(event, args.candidate, args.sha):
-                result = route(event, args.candidate, args.sha)
-                validate_wiring(args.candidate, event)
+            metadata = metadata_handoff(event, os.environ)
+            if metadata is not None:
+                require(args.sha == os.environ.get("GITHUB_SHA"), "iOS metadata CLI source differs from native source")
+                observed = metadata.snapshot(event, os.environ, args.candidate)
+                result = metadata.route_fields(observed)
+            else:
+                with fresh_host_candidate(event, args.candidate, args.sha):
+                    result = route(event, args.candidate, args.sha)
+                    validate_wiring(args.candidate, event)
             with args.output.open("a") as handle:
                 handle.write("".join(f"{key}={value}\n" for key, value in result.items()))
         else:
             needs = json.loads(args.needs.read_text())
-            with verification_candidate(needs, args.source,
-                    event=json.loads(args.event.read_text()) if args.event is not None else None,
-                    candidate=args.candidate) as (event, candidate):
-                with fresh_host_candidate(event, candidate, args.source):
-                    result = report(needs, args.source, args.build_number, args.run_id, args.attempt,
-                                    args.artifacts, json.loads(args.jobs.read_text()),
-                                    event=event, candidate=candidate,
-                                    run_metadata=json.loads(args.run_metadata.read_text()) if args.run_metadata else None)
+            event = json.loads(args.event.read_text()) if args.event is not None else None
+            metadata = metadata_handoff(event, os.environ)
+            if metadata is not None:
+                require(args.candidate is not None, "iOS metadata candidate metadata is required")
+                require(args.source == os.environ.get("GITHUB_SHA")
+                        and str(args.run_id) == os.environ.get("GITHUB_RUN_ID")
+                        and str(args.attempt) == os.environ.get("GITHUB_RUN_ATTEMPT"),
+                        "iOS metadata qualifier differs from its native run/source/attempt")
+                result = metadata.result(event, os.environ, args.candidate, needs)
+            else:
+                with verification_candidate(needs, args.source, event=event,
+                        candidate=args.candidate) as (event, candidate):
+                    with fresh_host_candidate(event, candidate, args.source):
+                        result = report(needs, args.source, args.build_number, args.run_id, args.attempt,
+                                        args.artifacts, json.loads(args.jobs.read_text()),
+                                        event=event, candidate=candidate,
+                                        run_metadata=json.loads(args.run_metadata.read_text()) if args.run_metadata else None)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(json.dumps(result, indent=2) + "\n")
             if os.environ.get("GITHUB_STEP_SUMMARY"):
                 with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
-                    summary.write(f"## iOS qualification\n\nSource: `{result['sourceRevision']}`\n\n"
-                                  f"Checks: **{result['checks']}**; IPA: **{result['ipa']}**; "
-                                  "installation: **not performed**; device acceptance: **not performed**.\n")
-                    if result["artifact"]:
-                        summary.write(f"\nIPA SHA-256: `{result['artifact']['sha256']}`\n")
+                    if result.get("kind") == "ios-text-edit-original-result":
+                        summary.write("## Retained original iOS result\n\nOriginal run: `"
+                                      + str(result["original_run_id"]) + "`. No new tests, application build, "
+                                      "IPA or qualification receipt was produced.\n")
+                    else:
+                        summary.write(f"## iOS qualification\n\nSource: `{result['sourceRevision']}`\n\n"
+                                      f"Checks: **{result['checks']}**; IPA: **{result['ipa']}**; "
+                                      "installation: **not performed**; device acceptance: **not performed**.\n")
+                        if result["artifact"]:
+                            summary.write(f"\nIPA SHA-256: `{result['artifact']['sha256']}`\n")
         print(json.dumps(result, sort_keys=True))
         return 0
     except (KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError,
