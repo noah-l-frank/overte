@@ -3,8 +3,9 @@
 This is E2E-only instrumentation and an actor-host transport, not a complete Chat
 adapter. The native source is uncompiled and real peer reception is untested.
 The host checks below validate transport, ownership and rejection logic only.
-The primary normal Chat input/UI/storage adapter, peer stimuli/distance, owned
-MessagesMixer outage/recovery and the private witness publisher remain required.
+The primary normal Chat input/UI/storage adapter, peer stimuli/distance, the remaining native-node/service
+composition (the [process actuator](MESSAGES_MIXER_CONTROL.md) now exists) and the
+private witness publisher remain required.
 No `feature.chat.*` capability is promoted by this component.
 
 ## Activation and provenance
