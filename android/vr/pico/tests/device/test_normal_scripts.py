@@ -21,6 +21,10 @@ from self_tests.test_token_script_ui import NativeBoundary, SOURCE
 from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
+from adapters.native_script_files import originals
+from adapters.script_restart_handoff import ScriptRestartHandoff
+from self_tests.test_native_script_observation import Boundary as ScriptBoundary, code_source, effect_source
+from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.token_graphics_ui import TokenGraphicsUI
 from self_tests.test_token_graphics_ui import GraphicsBoundary
@@ -63,6 +67,7 @@ class PicoNormalScriptsTests(unittest.TestCase):
             self.qt.opened = self.native.opened
             value = self.original_snapshot()
             actual = self.qt.capture()
+            if self.file_ui is not None: value['fileControlsVersion'] = self.file_version
             if self.file_ui is not None and self.qt.page == 'scripts':
                 files = self.file_ui.capture()
                 actual['controls'] = files['controls'] if self.file_ui.opened else actual['controls'] + files['controls']
@@ -726,6 +731,95 @@ class PicoNormalScriptsTests(unittest.TestCase):
         self.assertEqual(before, (len(self.native.inputs), len(source.commands)))
         path, _ui = self.instance._script_paths(self.native.target)
         self.assertTrue(PrivateFeatureState(path).read()['pickerOwned']); self.assertIsNotNone(files.store.read())
+
+    def restart_sources(self):
+        storage, files, manager = self.file_manager()
+        manager.open(); manager.file_picker_open(); manager.file_picker_choose('script-bundle/main.js')
+        source = ScriptBoundary(); source.engine['url'] = storage.root.as_uri() + '/script-bundle/main.js'
+        source.engine['required']['modules'][0]['url'] = storage.root.as_uri() + '/script-bundle/companion.js'
+        epoch = [self.native.epoch_milliseconds(self.native.target)]
+        state = {'restarted': False, 'replay': False}
+        presence = PresenceBoundary(pid=124, epoch_ms=lambda: epoch[0]); presence.presence = 'absent'
+        def enrich(packet):
+            packet.update(processId=int(self.native.identity.split(':')[0]),
+                instance=('a' if state['restarted'] else 'd') * 32,
+                requestedEpochMs=epoch[0], capturedEpochMs=epoch[0])
+            code_source(packet, originals('a' * 32)['script-bundle/main.js'].decode())
+            effect_source(packet)
+            row = packet['source']['effects']['entities'][0]
+            row['name'] = 'e2e-' + 'a' * 32 + '-script'; row['userData'] = json.dumps(dict(runId='a' * 32, ticks=2))
+            packet['source'].update(loadSourceVersion=1,
+                loads=dict(complete=True, instance='7' * 32, sequence=0, events=[]))
+            if state['restarted'] and not state['replay']:
+                packet['source']['engines'] = []; packet['source']['effects'].update(scannedEntities=0, entities=[])
+        source.mutate = enrich
+        storage.mutate = lambda packet: packet.update(processId=int(self.native.identity.split(':')[0]),
+            instance=('a' if state['restarted'] else 'd') * 32, requestedEpochMs=epoch[0], capturedEpochMs=epoch[0])
+        original_write, original_read = self.native.write_debug_app_file.side_effect, self.native.read_debug_app_file.side_effect
+        def write(target, package, path, raw):
+            command = json.loads(raw)
+            if command['action'] == 'feature-script-observe': return source.send(command)
+            if command['action'] == 'feature-process-presence': return presence.send(command)
+            return original_write(target, package, path, raw)
+        def read(target, package, path, **kwargs):
+            if path == adapter.ANDROID_CONTROL_MARKER:
+                return json.dumps(adapter.ANDROID_CONTROL_CONTRACT | {'processId': int(self.native.identity.split(':')[0])})
+            if path.endswith('/feature-script-observation.json'): return source.original()
+            if path.endswith('/feature-process-presence.json'): return presence.original()
+            return original_read(target, package, path, **kwargs)
+        original_observe = self.qt.observe
+        def observe(after):
+            value, sample = original_observe(after)
+            if state['restarted']: value['instance'] = '9' * 32
+            return value, sample
+        def sleep(seconds): self.qt.sleep(seconds); epoch[0] += round(seconds * 1000)
+        active = type(self.instance)._script_restart_prepare.__wrapped__.__globals__
+        for boundary in (patch.object(self.native, 'write_debug_app_file', side_effect=write),
+            patch.object(self.native, 'read_debug_app_file', side_effect=read),
+            patch.object(self.native, 'epoch_milliseconds', side_effect=lambda *_: epoch[0]),
+            patch.object(self.native, 'require_process_identity', side_effect=lambda identity: self.assertEqual(self.native.identity, identity)),
+            patch.object(self.qt, 'observe', side_effect=observe),
+            patch.dict(active, ScriptRestartHandoff=partial(ScriptRestartHandoff, monotonic=lambda: self.qt.clock, sleep=sleep))):
+            boundary.start(); self.addCleanup(boundary.stop)
+        self.native.snapshot_mutation = lambda packet: packet.update(processId=int(self.native.identity.split(':')[0]))
+        self.instance._script_restart_prepare(self.native.target)
+        state['restarted'] = True; self.native.identity = '124:new-start'; self.native.bridge_id = str(uuid.uuid4())
+        self.native.opened = False; self.qt.opened = False; self.qt.page = 'home'; self.qt.rows = []
+        self.file_ui.opened = False
+        return storage, source, presence, state
+
+    def test_pico_restart_handoff_observes_closed_unready_tablet_and_original_new_process_without_input(self):
+        storage, source, presence, _state = self.restart_sources()
+        before = (list(self.native.inputs), list(self.native.controllers))
+        actual = self.instance._script_restart_adopt(self.native.target)
+        self.assertEqual('ESRCH', actual['exit']['errorSymbol']); self.assertEqual([], actual['execution']['source']['engines'])
+        self.assertEqual(before, (self.native.inputs, self.native.controllers))
+        self.assertEqual('124:new-start', self.instance._script_files_store(self.native.target).read()['binding']['processIdentity'])
+        self.assertIsNone(self.instance._script_restart_store(self.native.target).read())
+        self.assertEqual(1, sum(command['operation'] == 'stage' for command in storage.commands))
+        self.assertTrue(presence.commands); self.assertGreater(len(source.commands), 2)
+
+    def test_pico_restart_handoff_unknown_exit_or_retained_execution_preserves_original_owners(self):
+        _storage, _source, presence, state = self.restart_sources()
+        presence.presence = 'unknown'
+        with self.assertRaises(ValueError): self.instance._script_restart_adopt(self.native.target)
+        presence.presence = 'absent'; state['replay'] = True
+        with self.assertRaises(ValueError): self.instance._script_restart_adopt(self.native.target)
+        self.assertEqual('123:synthetic-start', self.instance._script_files_store(self.native.target).read()['binding']['processIdentity'])
+        self.assertIsNotNone(self.instance._script_restart_store(self.native.target).read())
+
+    def test_pico_restart_handoff_candidate_replacement_blocks_new_source_before_query(self):
+        _storage, source, presence, _state = self.restart_sources()
+        before = len(source.commands); self.native.digest = 'f' * 64
+        with self.assertRaises(ValueError): self.instance._script_restart_adopt(self.native.target)
+        self.assertEqual(before, len(source.commands)); self.assertEqual([], presence.commands)
+        self.assertIsNotNone(self.instance._script_restart_store(self.native.target).read())
+
+    def test_pico_unresolved_restart_blocks_cleanup_even_after_all_other_host_owners_are_absent(self):
+        self.instance._script_restart_store(self.native.target).write({'unresolved': True}, None)
+        with self.assertRaises(ValueError): self.cleanup_instance().cleanup(self.native.target)
+        self.assertFalse(self.native.running)
+        self.assertIsNotNone(self.instance._script_restart_store(self.native.target).read())
 
     def test_pico_staged_original_bytes_use_bound_transport_and_separate_release_absence(self):
         source, files = self.file_storage()

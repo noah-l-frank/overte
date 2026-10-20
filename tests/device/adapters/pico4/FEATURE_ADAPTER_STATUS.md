@@ -1,5 +1,16 @@
 # Pico feature adapter implementation status
 
+Common journey contract is **v16**. Internal `_script_restart_prepare/adopt`
+connect the [durable handoff v1](../../native/SCRIPT_RESTART_HANDOFF.md) to
+original candidate/OpenXR/PID-start/foreground-bound execution, file storage,
+kernel exit and actual VR tablet/service sources. All **59** normal-Scripts
+host cases pass. New cases cover preserved originals/new empty process,
+closed unready tablet, unknown exit, retained execution, candidate replacement
+and unresolved-journal cleanup. No lifecycle/Script/UI input or restaging is
+issued by the handoff. Full one-send native lifecycle orchestration, independent
+actor/error/cleanup joins and complete feature adapters remain missing.
+Native source is uncompiled and devices remain untested.
+
 Current restart-source packet: `_process_presence(target)` binds the
 [original kernel presence source](../../native/PROCESS_PRESENCE.md) to the
 existing candidate/OpenXR/PID-start/foreground private reader. All **24**

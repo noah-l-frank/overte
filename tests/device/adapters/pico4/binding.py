@@ -28,6 +28,7 @@ from adapters.native_script_observation import NativeScriptObservation, FILE as 
 from adapters.pico4 import normal_scripts
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
+from adapters.script_restart_handoff import ScriptRestartHandoff
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
@@ -223,6 +224,29 @@ def create_adapter(args, base_class):
             picker = TokenScriptFilePicker(ui.io, directory)
             state, _ui = self._script_paths(target)
             return normal_scripts.manager(ui, observe, binding, state, file_owner=files, file_picker=picker)
+
+        def _script_restart_store(self, target):
+            state, _ui = self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'normal-script-restart-')))
+
+        def _script_restart_handoff(self, target):
+            state, _ui = self._script_paths(target)
+            return ScriptRestartHandoff(self._script_restart_store(target),
+                self._script_files_store(target), PrivateFeatureState(state))
+
+        @_private
+        def _script_restart_prepare(self, target):
+            return self._script_restart_handoff(target).prepare(
+                self._script_file_manager(target), self._script_execution_observer(target))
+
+        @_private
+        def _script_restart_adopt(self, target):
+            ui, observe, binding = self._script_runtime(target)
+            handoff = self._script_restart_handoff(target)
+            files = self._bound_script_files(target, binding)
+            return handoff.adopt(binding, self._process_presence(target),
+                self._script_execution_observer(target), files.native, ui, observe,
+                TokenScriptFilePicker(ui.io, handoff.directory()))
 
         def _graphics_controls(self, target, intent):
             from adapters.token_graphics_ui import TokenGraphicsUI
@@ -533,6 +557,7 @@ def create_adapter(args, base_class):
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
                 _need(not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
+                      and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
                       and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None)
             else:
