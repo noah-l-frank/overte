@@ -3,6 +3,16 @@
 Active implementation scope is **Android Phone only** until all fourteen areas
 are complete. Pico and iOS work is paused and preserved on their own branches.
 
+[Durable original Script history](SCRIPT_HISTORY.md) now restores actual source
+prefixes and retired identities across CLI invocations. Primary/actor histories
+are separate; both reacquire originals without session repair. A persisted
+interrupted acquisition cannot reset into success, and general cleanup refuses
+to forget either transcript. All 153 Phone adapter, 34 history/lock and 65
+focused native-Script cases pass; 1,013 common no-build cases also pass.
+Initial baseline, explicit restart-history handoff,
+full nineteen-step coordinator, independent publisher/serialization and verified
+complete cleanup remain open. No full capability or physical result is promoted.
+
 [Explicit host-only scope transfer](SCRIPT_SCOPE_TRANSFER.md) now preserves the
 open Script UI between stopped file input and the missing URL. It uses only
 existing-session observations and CAS; stale objects cannot send input after

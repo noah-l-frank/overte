@@ -136,8 +136,10 @@ class PhoneScriptMeasurements:
         self.verify_directory, self.guard, self.monotonic = verify_directory, guard, monotonic
         self.file_instance=file_instance
         self.service_instance, self.service_sequence = None, 0
+        self.last_sources = None
 
     def read(self, ticket, after_epoch):
+        self.last_sources = None
         try:
             started = previous = self.monotonic(); need(number(started, 0, 1e15))
             def check():
@@ -163,6 +165,7 @@ class PhoneScriptMeasurements:
                              execution, ui, service, lifecycle, epoch, after_epoch)
             need(file_birth==execution['instance']==lifecycle['instance'] and self.file_instance()==file_birth)
             check()
+            self.last_sources = deepcopy(dict(epochMs=epoch,execution=execution,ui=ui,service=service,lifecycle=lifecycle))
             return result
         except Exception:
             raise NativeUIError('Phone Script measurement sources are unavailable or inconsistent') from None

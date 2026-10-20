@@ -44,6 +44,8 @@ REQUIRED = {
     "native-script-manager-status": 1,
     "phone-script-ui-inventory": 1,
     "phone-script-measurements": 2,
+    "phone-script-source-lock": 1,
+    "phone-script-history": 1,
     "phone-script-scope-transfer": 1,
     "native-script-membership": 1,
     "normal-script-missing-load": 1,

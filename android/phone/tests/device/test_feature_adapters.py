@@ -1325,6 +1325,50 @@ class FeatureAdapterTests(unittest.TestCase):
         fixture = 'http://fixture.test/feature-fixture/v1/runs/' + 'a' * 32 + '/'
         return commands, fixture, files
 
+    def test_phone_durable_script_factory_restores_original_cursors_without_input_or_session_repair(self):
+        commands,fixture,_files=self.script_measurement_boundaries()
+        self.read_only_boundaries();before=list(self.native.inputs)
+        first=self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary')
+        actual=first.read('b'*32,19000)
+        second=self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary')
+        self.assertEqual(first.reader.execution.sequence,second.reader.execution.sequence)
+        self.assertEqual(actual,second.read('b'*32,19000))
+        self.assertEqual(before,self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+        self.assertTrue(all(value['operation']=='observe' for value in commands if value['action']=='feature-script-files'))
+        self.assertEqual(4,self.adapter.script_history_store(SELECTOR,'primary').read()['revision'])
+
+    def test_phone_durable_script_actor_uses_its_own_history_and_original_source_nonces(self):
+        _commands,fixture,_files=self.script_measurement_boundaries()
+        self.read_only_boundaries()
+        primary=self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary')
+        primary.read('b'*32,19000)
+        saved=self.adapter.script_history_store(SELECTOR,'primary').read()
+        actor=self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='actor')
+        self.assertEqual(2,actor.read('b'*32,19000)['state']['effects'])
+        self.assertEqual(saved,self.adapter.script_history_store(SELECTOR,'primary').read())
+        self.assertEqual('actor',self.adapter.script_history_store(SELECTOR,'actor').read()['role'])
+        self.assertEqual([],self.native.lifecycle_inputs)
+
+    def test_phone_durable_script_pending_journal_cannot_reset_after_reconstruction(self):
+        _commands,fixture,_files=self.script_measurement_boundaries()
+        self.read_only_boundaries()
+        reader=self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary')
+        reader.read('b'*32,19000)
+        store=self.adapter.script_history_store(SELECTOR,'primary');original=store.read()
+        pending=deepcopy(original);pending.update(phase='reading',revision=3);store.write(pending,original)
+        with self.assertRaises(RuntimeError):self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary')
+        self.assertEqual(pending,store.read())
+
+    def test_phone_cleanup_reaches_base_but_cannot_forget_an_original_script_history(self):
+        _commands,fixture,_files=self.script_measurement_boundaries()
+        self.read_only_boundaries()
+        self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary').read('b'*32,19000)
+        saved=self.adapter.script_history_store(SELECTOR,'primary').read()
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex((ValueError,RuntimeError),'PHONE_SCRIPT_HISTORY_CLEANUP_INCOMPLETE'):
+                self.adapter.cleanup(SELECTOR)
+        base.assert_called_once();self.assertEqual(saved,self.adapter.script_history_store(SELECTOR,'primary').read())
+
     def test_phone_script_measurements_factory_joins_real_readers_original_bytes_and_all_six_fields(self):
         commands, fixture, files = self.script_measurement_boundaries()
         before = list(self.native.inputs)

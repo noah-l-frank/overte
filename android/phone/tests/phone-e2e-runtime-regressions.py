@@ -27,6 +27,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_feature_adapters.py",
     "android/phone/tests/device/test_script_measurements.py",
     "android/phone/tests/device/test_script_scope.py",
+    "android/phone/tests/device/test_script_history.py",
 )
 CHECKS = DEPENDENCY_LIGHT_CHECKS + PREPARED_HOST_CHECKS + COMMON_HOST_CHECKS
 parser = argparse.ArgumentParser()

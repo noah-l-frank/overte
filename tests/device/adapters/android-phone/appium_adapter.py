@@ -64,6 +64,8 @@ from adapters.owned_world_render import WorldRenderOwner, OwnedWorldRenderCaptur
 from overte_phone_script_files import PhoneScriptFileIO, FILE as SCRIPT_FILE_UI_FILE
 from overte_phone_script_measurements import PhoneScriptMeasurements
 from overte_phone_script_scope import transfer_file_scope
+from overte_phone_script_history import PhoneScriptHistory, PhoneDurableScriptMeasurements
+from overte_phone_script_lock import PhoneScriptSourceLock
 
 
 class PhoneAppiumAdapter(AppiumAdapter):
@@ -362,6 +364,24 @@ class PhoneAppiumAdapter(AppiumAdapter):
         ui = PhoneScriptFileIO(native.send, original(SCRIPT_FILE_UI_FILE), native.clock_ms, guard, native.pid)
         return PhoneScriptMeasurements(run, directory, fixture_url, execution, ui, observe, native, files.verify, guard,
                                        file_instance=lambda:files.native.instance)
+
+    def script_history_store(self, selector, role):
+        require(role in ('primary','actor'),'PHONE_SCRIPT_HISTORY_ROLE_REQUIRED')
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-'+role+'-history.json'))
+
+    def _script_durable_measurements(self, selector, run, fixture_url, *, role):
+        # Both roles acquire originals through existing-session/read-only
+        # admission. Private histories and source requests are role-separated.
+        require(role in ('primary','actor'),'PHONE_SCRIPT_HISTORY_ROLE_REQUIRED')
+        source_lock=PhoneScriptSourceLock(self.state_path(selector).with_name('phone-script-sources.lock'))
+        with source_lock.held():
+            reader=self._script_measurements(selector,run,fixture_url,read_only=True)
+            _ui,_observe,binding,check,_installed=self.normal_feature_runtime(selector,read_only=True)
+            check();reader.guard()
+            store=self.script_history_store(selector,role)
+            history=PhoneScriptHistory(store,binding,run,role,reader.directory,fixture_url)
+            check();reader.guard()
+            return PhoneDurableScriptMeasurements(reader,history,source_lock=source_lock)
 
     def _script_files(self, selector, *, read_only=False):
         _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector,read_only=read_only)
@@ -767,6 +787,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         result = super().cleanup(selector)
         require(self.script_restart_inputs_store(selector).read() is None, 'PHONE_SCRIPT_RESTART_INPUTS_CLEANUP_INCOMPLETE')
         require(self.script_restart_store(selector).read() is None, 'PHONE_SCRIPT_RESTART_CLEANUP_INCOMPLETE')
+        require(all(self.script_history_store(selector,role).read() is None for role in ('primary','actor')),
+                'PHONE_SCRIPT_HISTORY_CLEANUP_INCOMPLETE')
         if owned is not None:
             require(result == {'cleaned': True}, 'PHONE_NORMAL_SNAPSHOT_CLEANUP_INCOMPLETE')
             store.discard()

@@ -32,6 +32,8 @@
     "native-script-manager-status": {"current": 1, "reads": [1]},
     "phone-script-ui-inventory": {"current": 1, "reads": [1]},
     "phone-script-measurements": {"current": 2, "reads": [2]},
+    "phone-script-source-lock": {"current": 1, "reads": [1]},
+    "phone-script-history": {"current": 1, "reads": [1]},
     "phone-script-scope-transfer": {"current": 1, "reads": [1]},
     "native-script-membership": {"current": 1, "reads": [1]},
     "normal-script-missing-load": {"current": 1, "reads": [1]},

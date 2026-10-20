@@ -62,12 +62,12 @@ copy prevents callers from altering the original history/lifecycle.
 
 This is a live internal reader for **existing staged fixtures**, not a complete
 feature producer. Before advertising `feature.scripts.*`, the coordinator must
-add initial baseline without staged resources, durable per-run/cross-invocation
-history, separately frozen load barriers, one-send normal action ownership,
+add initial baseline without staged resources, explicit restart handoff for the [durable original-source transcript](SCRIPT_HISTORY.md),
+separately frozen load barriers, one-send normal action ownership,
 verified restart transition, joining [actual fixture HTTP failure receipts](../../feature_journeys/SCRIPT_HTTP_SOURCE.md), an independent
 publisher with separate acquisition and serialization, and complete idempotent
-engine/effect/UI/file cleanup. A reader reconstruction must not reset history or
-adopt a requested restart. Pure joins alone do not prove callback cause, actual
+engine/effect/UI/file cleanup. The live component alone is ephemeral; use the durable wrapper across CLI calls.
+Neither reader may adopt a requested restart. Pure joins alone do not prove callback cause, actual
 HTTP delivery, process death or fixture removal. No capability is promoted here.
 
 The existing mandatory Phone runtime owner registers the device-free
