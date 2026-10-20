@@ -1,6 +1,34 @@
+# Version 14: actual editor contexts, pending stale input and held-world release
+
+Current producers/readers use v14 exclusively; v13 JSON inventory/matrix remain
+historical. No qualified complete v13 producer exists. Lifecycle/input now has
+sixteen checkpoints and eleven independently observed fields. Every actual owned
+Create/Chat/Scripts page starts with its own empty field, receives its own
+ordinary text and has a generation tied to the original actual page identity.
+Back closes the bound Create page rather than prescribing a keyboard-only
+first Back. Chat's own typed draft remains through background while focus and
+the actual keyboard are released. No old Create text is copied into later apps.
+
+The Scripts phase retains exactly one actual pending original commit before
+replacing the page. The original stale callback must really attempt dispatch
+once and be rejected; merely doing nothing or discarding a synthetic command
+cannot pass. Original `worldAttempts` and `staleAttempts` distinguish actual
+input/rejection from an ignored stimulus. World movement requires a live held
+forward input, followed by effective release and three seconds of stationary
+position within 0.025 m. Closed context generation is zero; retired pages cannot
+be retagged current. Cleanup restores state and releases pending input while
+preserving the last actual immutable attempt counters instead of resetting them.
+
+See [the exact source/input/evidence contract](LIFECYCLE_INPUT_SOURCE.md).
+Pico's actual normal Create Back/VR keyboard route remains unestablished;
+missing native input capture/context/keyboard/independent evidence keeps that
+complete adapter unavailable. Navigation source correction remains flagged.
+Other scenario/native primitive semantics are unchanged; no native compilation
+or physical qualification has occurred.
+
 # Version 13: actual Asset bundle paths, FBX baking and picker failure
 
-Current producers/readers use v13 exclusively; the v12 JSON files remain
+At this historical revision, producers/readers used v13 exclusively; the v12 JSON files remain
 historical. No qualified complete v12 producer exists. Assets now has 29
 checkpoints and fourteen independently observed fields. glTF/OBJ uploads retain
 all three original primary/companion paths; normal rename changes the owned root
