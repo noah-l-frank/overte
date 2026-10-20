@@ -52,6 +52,9 @@ The producer's `finally` path retires only its correlated native measurement,
 using original memory/callback absence, complete native-issued receipt removal
 and a separately issued complete filesystem absence query. Original memory,
 both file results and exact role-bound ownership are retained in the sample.
+A complete original retirement proof is durable before world-owner journal
+discard; actual journal absence is checked separately. Lost or ignored discard
+responses cannot lose the proof or turn remaining ownership green.
 A release/remove ACK alone cannot complete it. All measurement ownership must
 be gone before a ready sample can be returned. Changed birth/owner, outstanding
 callbacks, ignored removal, incomplete rows or leftover files retain a red attempt.
@@ -101,13 +104,13 @@ records; stopping the app cannot make unresolved source ownership green.
 
 ## Host verification
 
-Twenty-seven source cases, including loops over every source cursor and native/UI
+Twenty-nine source cases, including loops over every source cursor and native/UI
 birth, use real private host journals/PNG/receipt files with explicit synthetic
 native and fixture boundaries. They cover original joins, factory recreation,
 GPU-frame reuse, foreign/old pixels, lost dispatch and file-intent responses,
 ignored native/file cleanup, pre-existing foreign ownership, wrong binding/
 scope/policy, historical archives, unchanged/foreign/moving phases, original
 changed-ticket recovery, unissued planned-file absence, partial images, durable
-lost-confirmation recovery, v1 refusal and bounded failure. A Phone wrapper case checks
+lost-confirmation recovery, lost/ignored owner discard, v1 refusal and bounded failure. A Phone wrapper case checks
 general cleanup across both roles and both process stages. These tests qualify
 test logic only; they are not native compilation or physical acceptance.

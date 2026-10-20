@@ -67,7 +67,7 @@ The complete feature owner still needs to compose this original file evidence.
 The [durable Graphics source producer](GRAPHICS_SAMPLES.md) now retains each
 role/process source history, requires a new recorded-view GPU frame and original
 owned PNG, and verifies native memory plus complete receipt retirement before
-returning measured facts. Twenty-seven focused source cases and the whole-cleanup
+returning measured facts. Twenty-nine focused source cases and the whole-cleanup
 wrapper cover interruptions, provenance rollback and lost/ignored responses.
 Version 2 adds original changed-ticket retirement without input replay or cached
 publication; partial/unknown artifacts stay red. Ordinary scene/settings/restart ownership, specific

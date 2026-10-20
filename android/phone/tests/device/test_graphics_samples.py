@@ -437,3 +437,25 @@ class GraphicsSamplesTests(unittest.TestCase):
         value['graphicsSamplesVersion']=1;store.write(value,store.read());before=len(self.boundary.calls)
         with self.boundary.lock.held(),self.assertRaises(NativeUIError):self.boundary.factory()
         self.assertEqual(value,store.read());self.assertEqual(before,len(self.boundary.calls))
+
+    def test_lost_world_owner_discard_return_retains_complete_original_proof_before_recovery(self):
+        with self.boundary.lock.held():
+            samples=self.boundary.factory();original=PrivateFeatureState.discard
+            def lost(store,value):
+                original(store,value)
+                if store.path==self.root/'world-primary.json':raise NativeUIError('Synthetic lost owner discard return')
+            with patch.object(PrivateFeatureState,'discard',lost),self.assertRaises(NativeUIError):samples.read(TICKET,20000)
+            state=unpack(self.state()['payload'])[0]
+            self.assertEqual('reading',state['phase']);self.assertIsNotNone(state['pending']['retirement'])
+            self.assertFalse((self.root/'world-primary.json').exists());self.boundary.change_phase()
+            item=samples.retire_changed_ticket();self.assertEqual(state['pending']['retirement'],item['measurement'])
+            self.assertEqual(1,self.boundary.counters['capture'])
+
+    def test_ignored_world_owner_discard_ack_cannot_complete_a_sample_or_forget_proof(self):
+        with self.boundary.lock.held():
+            samples=self.boundary.factory()
+            with patch.object(PrivateFeatureState,'discard',return_value=True),self.assertRaises(NativeUIError):samples.read(TICKET,20000)
+            self.assertTrue((self.root/'world-primary.json').exists())
+            self.assertIsNotNone(unpack(self.state()['payload'])[0]['pending']['retirement'])
+            self.boundary.change_phase();samples.retire_changed_ticket()
+            self.assertFalse((self.root/'world-primary.json').exists())

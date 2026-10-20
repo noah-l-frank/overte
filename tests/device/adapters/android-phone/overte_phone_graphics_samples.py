@@ -266,8 +266,9 @@ class PhoneGraphicsSamples:
         owned.receipts.retire();bound()
         proof=dict(memory=memory,files=deepcopy(owned.receipts.proof),owner=owner)
         retirement(proof,owner,pid,self.state['binding'],self.role)
-        need(owned.owner.owned()==owner);owned.owner.store.discard(owner)
         self.state['pending']['retirement']=deepcopy(proof);self.save();bound()
+        need(owned.owner.owned()==owner);owned.owner.store.discard(owner)
+        need(owned.owner.store.read() is None);bound()
         return proof
 
     def _track_storage(self,owned,bound):
