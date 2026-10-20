@@ -50,6 +50,7 @@ REQUIRED = {
     "phone-authentication-samples": 2,
     "phone-authentication-causality": 1,
     "phone-authentication-actions": 1,
+    "phone-authentication-fixture-reader": 1,
     "phone-script-source-lock": 1,
     "phone-script-actions": 1,
     "phone-script-causality": 1,

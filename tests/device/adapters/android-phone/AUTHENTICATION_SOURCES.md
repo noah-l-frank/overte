@@ -79,6 +79,18 @@ The last successful original frame remains an archive; it is never returned as
 a new read. Up to 32 interrupted-ticket retirements are retained without history
 truncation. Version 1 journals are rejected without migration or rewriting.
 
+`AuthenticationFixtureReader` in `overte_phone_authentication_feature.py` attaches
+each credentialed role to the existing run without registration, activation,
+credential retrieval or control mutation. It requires the original HTTPS
+provider v2 instance/TLS/error receipt, preserves actual provider clock and event
+floors, and reads the closed active stimulus plus a fresh original journal read
+barrier. Journal facts never supply measured product fields. An active/journal
+ticket race is a pending phase, not a new label for old observations. Actual
+retirement requires a current original absent account and zero held/inflight/
+issued authority before querying a removed active route. Eleven host cases
+cover these reads and reject silent repairs of changed Client scope/history.
+This is still a source prerequisite, not the complete feature coordinator.
+
 The read-only command pipe admits exact native getters, protected measurement
 read/release/inspect, origin observe and Login UI observe. It rejects origin
 stage/release, UI input and all desired/credential/URL fields. Measurement-origin
