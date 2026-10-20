@@ -11,7 +11,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
-from adapters.restart_inputs import RestartInputs, RestartDeliveryUncertain
+from adapters.restart_inputs import RestartInputs, RestartDeliveryUncertain, validate_native_restart
 from self_tests.test_native_feature_observation import Boundary
 
 OLD = dict(sourceRevision='a' * 40, artifactSha256='b' * 64, targetFingerprint='c' * 64,
@@ -46,6 +46,22 @@ class RestartInputTests(unittest.TestCase):
         self.assertEqual(self.after.sample, raw)
         self.assertEqual(dict(backgrounds=0, activations=2, launches=2), self.store.read()['newNative']['lifecycle'])
         self.flow().retire(NEW, self.new_source); self.assertIsNone(self.store.read())
+
+    def test_before_binding_native_comparison_is_read_only_and_refuses_old_birth_pid_or_counts(self):
+        def measured(reader):
+            value = reader.read(0)
+            return dict(pid=value['processId'], instance=value['instance'], lifecycle=deepcopy(value['lifecycle']))
+        old, new = measured(self.old_source), measured(self.new_source)
+        original = deepcopy((old, new))
+        self.assertIsNone(validate_native_restart(old, new))
+        for change in (dict(pid=old['pid']), dict(instance=old['instance']),
+                       dict(lifecycle=new['lifecycle'] | {'launches': old['lifecycle']['launches']}),
+                       dict(lifecycle=new['lifecycle'] | {'launches': new['lifecycle']['launches'] + 1}),
+                       dict(lifecycle=new['lifecycle'] | {'activations': old['lifecycle']['activations']}),
+                       dict(lifecycle=new['lifecycle'] | {'backgrounds': -1}), dict(pid=True)):
+            with self.subTest(change=change), self.assertRaises(NativeUIError): validate_native_restart(old, new | change)
+        self.assertEqual(original, (old, new)); self.assertEqual([], self.calls)
+        self.assertIsNone(self.store.read())
 
     def test_uncertain_stop_and_launch_receipts_are_never_replayed_and_actual_state_can_resume(self):
         self.flow().capture(OLD, self.old_source)
