@@ -1018,6 +1018,26 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "feature-web-dom-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && (command.surface === "world" || command.surface === "tablet")
+                    && typeof command.fixtureUrl === "string" && command.fixtureUrl.length <= 512
+                    && new RegExp("^https?://[^/?#@\\s]+/feature-fixture/v1/runs/"+command.runId+"/$").test(command.fixtureUrl)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId","surface","fixtureUrl"])) {
+                var webDOM={webNativeVersion:1,commandId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureWebDOMObservation === "function") {
+                        var originalWebDOM=Test.featureWebDOMObservation(command);
+                        if (originalWebDOM && originalWebDOM.commandId === command.commandId) { webDOM=originalWebDOM; }
+                    }
+                } catch (_) {}
+                Test.saveObject(webDOM,"feature-web-dom-observation.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-chat-view-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -1450,7 +1470,7 @@
 
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
-                || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
+                || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-world-render-observe"
