@@ -32,6 +32,7 @@ from self_tests.test_native_script_observation import Boundary as ScriptBoundary
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 from adapters.native_script_loads import result as load_result
 from self_tests.test_native_script_loads import history as load_history, URL as LOAD_URL, event as load_event
+from self_tests.test_native_script_membership import membership_source
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_feature_observation import probe_source
 from adapters.token_script_file_ui import TokenScriptFilePicker
@@ -836,6 +837,7 @@ class FeatureAdapterTests(unittest.TestCase):
             if state['restarted'] and not state['replay']:
                 packet['source']['engines'] = []
                 packet['source']['effects'].update(scannedEntities=0, entities=[], absentIds=[])
+            membership_source(packet)
         source.mutate = mutate
         def native_lifecycle(packet):
             packet.update(processId=int(self.native.identity.split(':')[0]),
@@ -909,6 +911,36 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual('31:14', self.adapter.script_files_store(SELECTOR).read()['binding']['processIdentity'])
         self.assertTrue(self.adapter.script_store(SELECTOR).read()['loadAttempted'])
         self.assertIsNotNone(self.adapter.script_restart_store(SELECTOR).read())
+
+    def test_phone_restart_requires_v2_pending_membership_even_with_no_current_engine_or_service_row(self):
+        _storage,_file_ui,source,_presence,_state=self.restart_boundaries()
+        from self_tests.test_native_script_membership import manager as known_manager
+        original=source.mutate
+        def pending(packet):
+            original(packet)
+            membership_source(packet,[known_manager('5'*32,_storage.root.as_uri()+'/script-bundle/main.js')],1)
+        source.mutate=pending
+        self.assertIs(True,self.adapter.script_restart_store(SELECTOR).read()['membershipRequired'])
+        with self.assertRaises(RuntimeError):self.adapter._script_restart_adopt(SELECTOR)
+        self.assertEqual('31:14',self.adapter.script_files_store(SELECTOR).read()['binding']['processIdentity'])
+        self.assertIsNotNone(self.adapter.script_restart_store(SELECTOR).read())
+
+    def test_phone_restart_missing_membership_source_cannot_be_replaced_with_an_empty_default(self):
+        _storage,_file_ui,source,_presence,_state=self.restart_boundaries()
+        original=source.mutate
+        def missing(packet):
+            original(packet);packet['source'].pop('membershipSourceVersion');packet['source'].pop('membership')
+        source.mutate=missing
+        with self.assertRaises(RuntimeError):self.adapter._script_restart_adopt(SELECTOR)
+        self.assertEqual('31:14',self.adapter.script_files_store(SELECTOR).read()['binding']['processIdentity'])
+
+    def test_phone_restart_factory_rejects_old_journal_without_rewriting_or_querying_process(self):
+        _storage,_file_ui,_source,presence,_state=self.restart_boundaries()
+        store=self.adapter.script_restart_store(SELECTOR);current=store.read()
+        legacy=deepcopy(current);legacy['handoffVersion']=1;legacy.pop('membershipRequired')
+        store.write(legacy,current)
+        with self.assertRaises(RuntimeError):self.adapter._script_restart_adopt(SELECTOR)
+        self.assertEqual(legacy,store.read());self.assertEqual([],presence.commands)
 
     def test_phone_restart_handoff_candidate_replacement_blocks_adoption_before_native_query(self):
         _storage, _file_ui, source, presence, _state = self.restart_boundaries()
@@ -1257,6 +1289,7 @@ class FeatureAdapterTests(unittest.TestCase):
         def measured(packet):
             code_source(packet, originals('a' * 32)['script.js'].decode())
             effect_source(packet); history = packet['source']
+            membership_source(packet)
             history.update(loadSourceVersion=1, loads=dict(complete=True, instance='c' * 32, sequence=0, events=[]))
             row = history['effects']['entities'][0]
             row.update(name='e2e-' + 'a' * 32 + '-script', userData=json.dumps(dict(runId='a' * 32, ticks=2)))

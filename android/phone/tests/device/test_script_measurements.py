@@ -20,6 +20,7 @@ from adapters.token_script_file_ui import file_url
 from adapters.normal_ui import NativeUIError
 from self_tests.test_native_script_observation import Boundary as Execution, code_source, effect_source, RUN
 from self_tests.test_native_script_loads import history, event
+from self_tests.test_native_script_membership import membership_source, manager
 from self_tests.test_native_feature_observation import Boundary as Lifecycle
 from self_tests.test_script_ui_inventory import inventory, picker
 from self_tests.test_script_manager_status import observed
@@ -40,6 +41,7 @@ class ScriptMeasurementTests(unittest.TestCase):
         source.engine['required']['modules'][0]['url'] = self.directory + '/companion.js'
         def measured(packet):
             code_source(packet, originals(RUN)['script.js'].decode()); effect_source(packet); history(packet, [])
+            membership_source(packet)
         source.mutate = measured
         self.execution_source, self.execution_reader = source, source.reader()
         self.execution = self.execution_reader.read(0, require_effects=True, require_code_identity=True, require_load_history=True)
@@ -67,6 +69,7 @@ class ScriptMeasurementTests(unittest.TestCase):
     def empty(self):
         self.execution['source']['engines'] = []; self.execution['source']['effects']['entities'] = []
         self.service['scripts'] = []
+        membership_source(self.execution,[],2)
 
     def reader(self, **changes):
         def service(after):
@@ -221,6 +224,19 @@ class ScriptMeasurementTests(unittest.TestCase):
         self.execution['source']['engines'] = []; self.service['scripts'] = []
         with self.assertRaises(NativeUIError): self.measured()
 
+    def test_pending_known_manager_cannot_be_mistaken_for_clean_cancelled_or_stopped_execution(self):
+        self.empty()
+        membership_source(self.execution,[manager(url=self.directory+'/script.js')],3)
+        with self.assertRaises(NativeUIError):self.measured()
+
+    def test_running_engine_requires_original_matching_assigned_manager_identity_and_url(self):
+        original=deepcopy(self.execution)
+        for rows in ([],[manager('b'*32,self.directory+'/script.js')],
+                     [manager(url='',generation=0,epoch=0)],
+                     [manager(url=self.directory+'/script-bundle/main.js')]):
+            self.execution=deepcopy(original);membership_source(self.execution,rows,3)
+            with self.subTest(rows=rows),self.assertRaises(NativeUIError):self.measured()
+
     def test_actual_not_found_requires_current_original_callback_and_independent_visible_label(self):
         self.failure()
         self.assertEqual('not-found', self.measured()['state']['error'])
@@ -259,7 +275,8 @@ class ScriptMeasurementTests(unittest.TestCase):
 
     def test_missing_mandatory_extensions_are_not_green_empty_defaults(self):
         original = deepcopy(self.execution)
-        for version, data in (('sourceIdentityVersion', 'code'), ('effectSourceVersion', 'effects'), ('loadSourceVersion', 'loads')):
+        for version, data in (('sourceIdentityVersion', 'code'), ('effectSourceVersion', 'effects'), ('loadSourceVersion', 'loads'),
+                              ('membershipSourceVersion','membership')):
             self.execution = deepcopy(original); del self.execution['source'][version]
             if data == 'code':
                 for engine in self.execution['source']['engines']: del engine[data]

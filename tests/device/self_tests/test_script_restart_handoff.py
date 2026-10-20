@@ -20,6 +20,7 @@ from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_script_observation import Boundary as EngineBoundary, code_source, effect_source
 from self_tests import test_normal_script_file_manager as file_tests
 from self_tests.test_native_script_files import RUN
+from self_tests.test_native_script_membership import membership_source, manager as known_manager
 
 BINDING = file_tests.BINDING
 NEW = BINDING | dict(processIdentity='32:new-start', sessionId='new-session', generation=2)
@@ -42,9 +43,9 @@ class RestartHandoffTests(unittest.TestCase):
         self.engine.mutate = self.enrich_old
         self.old_execution = self.execution(self.engine, 31)
 
-    def handoff(self):
+    def handoff(self,**options):
         return ScriptRestartHandoff(self.store, self.files.store, self.native.store,
-            monotonic=lambda: self.clock, sleep=self.sleep)
+            monotonic=lambda: self.clock, sleep=self.sleep,**options)
 
     def sleep(self, seconds): self.clock += seconds
 
@@ -59,6 +60,7 @@ class RestartHandoffTests(unittest.TestCase):
         row = packet['source']['effects']['entities'][0]
         row['name'] = 'e2e-' + RUN + '-script'; row['userData'] = json.dumps(dict(runId=RUN, ticks=2))
         packet['source'].update(loadSourceVersion=1, loads=dict(complete=True, instance='7' * 32, sequence=0, events=[]))
+        membership_source(packet)
 
     def prepared(self):
         flow = self.opened(); flow.file_picker_choose('script-bundle/main.js')
@@ -81,6 +83,7 @@ class RestartHandoffTests(unittest.TestCase):
                 effects=dict(complete=True, scanRadiusMeters=64, scannedEntities=0, entities=[], absentIds=[]),
                 loadSourceVersion=1, loads=dict(complete=True, instance='8' * 32, sequence=0, events=[]))
             if self.edit: self.edit(packet)
+            if 'membershipSourceVersion' not in packet['source']:membership_source(packet)
         self.edit = None; self.new_engine.mutate = enrich
         self.new_execution = self.execution(self.new_engine, 32)
         self.presence = PresenceBoundary(pid=32, epoch_ms=self.epoch); self.presence.presence = 'absent'
@@ -117,6 +120,68 @@ class RestartHandoffTests(unittest.TestCase):
         # Ordinary equality remains strict; the old flow cannot use the new files.
         with self.assertRaises(NativeUIError): self.files.owned()
         for name, raw in originals(RUN).items(): self.assertEqual(raw, (self.storage.root / name).read_bytes())
+
+    def strict_prepared(self):
+        self.transfer=self.handoff(require_membership=True)
+        return self.prepared()
+
+    def test_v2_freezes_required_membership_and_transfers_only_a_truly_empty_current_process(self):
+        self.strict_prepared();frozen=deepcopy(self.store.read())
+        self.assertEqual(2,frozen['handoffVersion']);self.assertIs(True,frozen['membershipRequired'])
+        self.new_process();self.adopt() # Default constructor still enforces the frozen requirement.
+        self.assertEqual(NEW,self.files.store.read()['binding']);self.assertIsNone(self.store.read())
+        self.assertTrue(self.storage.root.exists())
+
+    def test_v2_pending_owned_manager_without_any_running_row_blocks_adoption_and_keeps_old_owners(self):
+        self.strict_prepared();self.new_process()
+        self.edit=lambda packet:membership_source(packet,[known_manager('5'*32,self.directory+'/script-bundle/main.js')],1)
+        with self.assertRaises(NativeUIError):self.adopt()
+        self.assertIsNone(self.store.read()['next']);self.assertEqual(BINDING,self.files.store.read()['binding'])
+
+    def test_v2_absent_membership_extension_cannot_be_reconstructed_as_empty(self):
+        self.strict_prepared();self.new_process()
+        def legacy(packet):
+            membership_source(packet)
+            packet['source'].pop('membershipSourceVersion');packet['source'].pop('membership')
+            packet['source']['membershipSourceVersion']=1;packet['source']['membership']={'complete':False}
+        self.edit=legacy
+        with self.assertRaises(NativeUIError):self.adopt()
+        self.assertIsNotNone(self.store.read());self.assertEqual(BINDING,self.files.store.read()['binding'])
+
+    def test_v2_delayed_pending_load_is_caught_inside_three_second_quiet_window(self):
+        self.strict_prepared();self.new_process()
+        def delayed(packet):
+            rows=[known_manager('5'*32,self.directory+'/script.js',epoch=self.epoch())] if self.clock>=1 else []
+            membership_source(packet,rows,1 if rows else 0)
+        self.edit=delayed
+        with self.assertRaises(NativeUIError):self.adopt()
+        self.assertGreaterEqual(self.clock,1);self.assertLess(self.clock,3)
+        self.assertIsNone(self.store.read()['next'])
+
+    def test_v2_preparation_refuses_missing_membership_before_writing_restart_intent(self):
+        flow=self.opened();flow.file_picker_choose('script-bundle/main.js')
+        original=self.engine.mutate
+        def missing(packet):
+            original(packet);packet['source'].pop('membershipSourceVersion');packet['source'].pop('membership')
+        self.engine.mutate=missing
+        with self.assertRaises(NativeUIError):self.handoff(require_membership=True).prepare(flow,self.old_execution)
+        self.assertIsNone(self.store.read());self.assertIsNotNone(self.native.store.read());self.assertIsNotNone(self.files.store.read())
+
+    def test_strict_factory_refuses_old_v1_journal_instead_of_upgrading_its_proof(self):
+        self.prepared();self.new_process();frozen=deepcopy(self.store.read())
+        with self.assertRaises(NativeUIError):
+            self.handoff(require_membership=True).adopt(NEW,self.presence_reader,self.new_execution,self.new_files,
+                self.native,self.native.observe,self.new_picker)
+        self.assertEqual(frozen,self.store.read());self.assertEqual([],self.presence.commands)
+        self.assertEqual([],self.new_engine.commands)
+
+    def test_v2_policy_cannot_be_downgraded_to_false_missing_or_numeric_true(self):
+        self.strict_prepared();frozen=self.store.read()
+        for fault in ('false','numeric','missing'):
+            value=deepcopy(frozen)
+            if fault=='missing':value.pop('membershipRequired')
+            else:value['membershipRequired']=False if fault=='false' else 1
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):self.handoff().validate_snapshot(value)
 
     def test_old_process_present_or_unknown_never_authorizes_binding_change(self):
         self.prepared(); self.new_process()

@@ -408,7 +408,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def _script_restart_handoff(self, selector):
         return ScriptRestartHandoff(self.script_restart_store(selector),
-            self.script_files_store(selector), self.script_store(selector))
+            self.script_files_store(selector), self.script_store(selector),require_membership=True)
 
     def _script_restart_prepare(self, selector):
         return self._script_restart_handoff(selector).prepare(

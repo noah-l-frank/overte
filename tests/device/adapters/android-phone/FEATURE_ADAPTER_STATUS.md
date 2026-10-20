@@ -3,6 +3,15 @@
 Active implementation scope is **Android Phone only** until all fourteen areas
 are complete. Pico and iOS work is paused and preserved on their own branches.
 
+[Original pending-manager membership](../../native/SCRIPT_MEMBERSHIP.md) now
+prevents empty running rows from claiming completed cancellation, Stop or restart
+adoption. Phone measurements and the required restart handoff are v2; the frozen
+handoff requirement cannot be downgraded or manufactured from a v1 journal.
+All **145** Phone adapter, **30** measurement and **28** handoff host cases pass.
+Native instrumentation is uncompiled; full nineteen-step coordination, durable
+cross-invocation source history, independent publisher and complete cleanup are
+still open. No full feature capability or device result is promoted.
+
 The existing shared fixture now provides [original missing-Script HTTP
 receipts](../../feature_journeys/SCRIPT_HTTP_SOURCE.md), including actual
 serialized status, accepted body bytes/digest, request origin/transport, nonce

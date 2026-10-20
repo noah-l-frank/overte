@@ -1045,6 +1045,7 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureRequiredModules() const { return _e2eRequiredModules.snapshot(); }
     QVariantMap featureSourceIdentity() const { return _e2eRequiredModules.sourceIdentity(); }
+    QVariantMap featureLoadMembership() const { return _e2eRequiredModules.loadMembership(); }
     static QVariantMap featureLoadHistory();
 #endif
 

@@ -16,6 +16,7 @@ from urllib.parse import unquote, urlsplit
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
 from adapters.native_script_loads import validate as validate_loads
+from adapters.native_script_membership import validate as validate_membership, accept as accept_membership
 
 FILE = 'feature-script-observation.json'
 LIMIT = 262144
@@ -38,6 +39,7 @@ def validate(value, request, pid, epoch):
     extended = type(source) is dict and 'effectSourceVersion' in source
     identified = type(source) is dict and 'sourceIdentityVersion' in source
     loads = type(source) is dict and 'loadSourceVersion' in source
+    membership = type(source) is dict and 'membershipSourceVersion' in source
     fields = {'complete','engines'}
     if extended: fields |= {'effectSourceVersion','effects'}
     if identified:
@@ -47,6 +49,10 @@ def validate(value, request, pid, epoch):
         fields |= {'loadSourceVersion', 'loads'}
         need(type(source['loadSourceVersion']) is int and source['loadSourceVersion'] == 1)
         validate_loads(source['loads'], value['capturedEpochMs'])
+    if membership:
+        fields |= {'membershipSourceVersion','membership'}
+        need(type(source['membershipSourceVersion']) is int and source['membershipSourceVersion']==1)
+        validate_membership(source['membership'],value['capturedEpochMs'])
     exact(source, fields)
     need(source['complete'] is True and type(source['engines']) is list and len(source['engines']) <= 128)
     identities = set()
@@ -72,6 +78,8 @@ def validate(value, request, pid, epoch):
         need((required['sequence'] == 0) == (not required['modules']))
         if required['modules']:
             need(max(cursors) == required['sequence'])
+    if membership and source['membership']['complete']:
+        need(identities<={row['instance'] for row in source['membership']['managers']})
     if extended:
         need(type(source['effectSourceVersion']) is int and source['effectSourceVersion'] == 1)
         effects = source['effects']
@@ -188,10 +196,12 @@ class NativeScriptObservation:
         self.effects_required = False
         self.code_required = False
         self.loads = None
+        self.membership, self.retired_managers = None, set()
+        self.captured_epoch = 0
 
-    def read(self, after_sequence, *, require_effects=False, require_code_identity=False, require_load_history=False):
+    def read(self, after_sequence, *, require_effects=False, require_code_identity=False, require_load_history=False, require_membership=False):
         try:
-            need(all(type(flag) is bool for flag in (require_effects, require_code_identity, require_load_history)))
+            need(all(type(flag) is bool for flag in (require_effects, require_code_identity, require_load_history, require_membership)))
             need(integer(after_sequence) and after_sequence >= self.sequence and self.guard() is not False)
             started = previous = self.monotonic()
             need(number(started, 0, 1e15))
@@ -219,8 +229,15 @@ class NativeScriptObservation:
                     need(integer(epoch, 1) and epoch >= requested)
                     validate(value, request, self.pid, epoch)
                     need(self.instance in (None, value['instance']) and value['sequence'] > after_sequence
-                         and value['requestedEpochMs'] >= requested)
+                         and value['requestedEpochMs'] >= requested and value['capturedEpochMs']>=self.captured_epoch)
                     source = value['source']
+                    member = source.get('membership') if source.get('membershipSourceVersion')==1 else None
+                    complete_member = member is not None and member['complete']
+                    need(not (require_membership or self.membership is not None) or complete_member)
+                    next_membership, retired_managers = self.membership, self.retired_managers
+                    if complete_member:
+                        next_membership, retired_managers = accept_membership(
+                            self.membership,member,self.retired_managers,value['capturedEpochMs'])
                     loaded = source.get('loadSourceVersion') == 1
                     need(not (require_load_history or self.loads is not None) or loaded)
                     next_loads = source['loads'] if loaded else None
@@ -280,7 +297,9 @@ class NativeScriptObservation:
                         self.effects_required = True
                     self.code_required = self.code_required or identified
                     if next_loads is not None: self.loads = deepcopy(next_loads)
+                    self.membership,self.retired_managers=next_membership,retired_managers
                     self.instance, self.sequence = value['instance'], value['sequence']
+                    self.captured_epoch=value['capturedEpochMs']
                     return value
                 if attempt < 50: self.sleep(0.1)
         except Exception:

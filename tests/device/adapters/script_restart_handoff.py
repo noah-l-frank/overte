@@ -23,7 +23,7 @@ from adapters.normal_feature_state import PrivateFeatureState, context, need
 from adapters.normal_script_manager import NormalScriptManager, diagnostic
 from adapters.token_script_file_ui import TokenScriptFilePicker, file_url
 
-VERSION = 1
+VERSION = 2
 
 
 def _same(left, right):
@@ -61,13 +61,14 @@ def _under(url, directory):
 
 
 class ScriptRestartHandoff:
-    def __init__(self, store, files_store, manager_store, *, component_only=False,
+    def __init__(self, store, files_store, manager_store, *, component_only=False, require_membership=False,
                  monotonic=time.monotonic, sleep=time.sleep):
         need(all(isinstance(value, PrivateFeatureState) for value in (store, files_store, manager_store))
              and len({value.path for value in (store, files_store, manager_store)}) == 3
-             and type(component_only) is bool and callable(monotonic) and callable(sleep))
+             and type(component_only) is bool and type(require_membership) is bool and callable(monotonic) and callable(sleep))
         self.store, self.files_store, self.manager_store = store, files_store, manager_store
         self.component_only, self.monotonic, self.sleep = component_only, monotonic, sleep
+        self.require_membership=require_membership
 
     def _read(self):
         return self.validate_snapshot(self.store.read())
@@ -77,9 +78,12 @@ class ScriptRestartHandoff:
 
     def validate_snapshot(self, value):
         """Validate an original private transaction without adopting live state."""
-        need(type(value) is dict and set(value) == {'handoffVersion', 'componentOnly', 'oldFiles',
-             'oldManager', 'oldNative', 'next'} and type(value['handoffVersion']) is int
-             and value['handoffVersion'] == VERSION and type(value['componentOnly']) is bool
+        need(type(value) is dict and type(value.get('handoffVersion')) is int and value['handoffVersion'] in (1,VERSION))
+        required=value['handoffVersion']==VERSION
+        need(set(value) == {'handoffVersion', 'componentOnly', 'oldFiles', 'oldManager', 'oldNative', 'next'}
+             | ({'membershipRequired'} if required else set())
+             and (not required or value['membershipRequired'] is True)
+             and (not self.require_membership or required) and type(value['componentOnly']) is bool
              and value['componentOnly'] == self.component_only)
         directory = _records(value['oldFiles'], value['oldManager'], component_only=self.component_only)
         manager = value['oldManager']
@@ -150,7 +154,7 @@ class ScriptRestartHandoff:
         directory = manager.file_owner.verify()
         manager.sample_full()  # Preserve the last actual service cursor before shutdown.
         current = execution.read(execution.sequence, require_effects=True,
-            require_code_identity=True, require_load_history=True)
+            require_code_identity=True, require_load_history=True,require_membership=self.require_membership)
         source = manager.state['source']
         need(source == directory + '/script-bundle/main.js' and manager.state['loadAttempted']
              and not manager.state['pickerOwned'] and manager.state['managerOwned']
@@ -163,10 +167,14 @@ class ScriptRestartHandoff:
              and loaded_relative_modules(engine) == ['companion.js'])
         effect = measured_effect(current, manager.file_owner.owned()['runId'])
         need(effect is not None and integer(effect['ticks'], 1))
-        value = dict(handoffVersion=VERSION, componentOnly=self.component_only,
+        if self.require_membership:
+            owned=[row for row in current['source']['membership']['managers'] if row['assigned'] and _under(row['url'],directory)]
+            need(len(owned)==1 and owned[0]['instance']==engine['required']['instance'] and owned[0]['url']==source)
+        value = dict(handoffVersion=VERSION if self.require_membership else 1, componentOnly=self.component_only,
             oldFiles=manager.file_owner.owned(), oldManager=deepcopy(manager.state),
             oldNative=dict(pid=current['processId'], instance=current['instance'],
                 engineInstance=engine['required']['instance'], effectId=effect['id']), next=None)
+        if self.require_membership:value['membershipRequired']=True
         need(_same(self.files_store.read(), value['oldFiles']) and _same(self.manager_store.read(), value['oldManager']))
         self.store.write(value, None)
         self._read()
@@ -203,7 +211,8 @@ class ScriptRestartHandoff:
             previous = now
             exit_source = presence.require_absent(value['oldNative']['pid'])
             current = execution.read(execution.sequence, require_effects=True,
-                require_code_identity=True, require_load_history=True)
+                require_code_identity=True, require_load_history=True,
+                require_membership=self.require_membership or value.get('membershipRequired',False))
             need(current['instance'] == exit_source['instance'] and current['instance'] != value['oldNative']['instance'])
             if value['next'] is not None: need(current['instance'] == value['next']['nativeInstance'])
             need(old_files.verify() == directory and files.instance == current['instance'])
@@ -214,6 +223,10 @@ class ScriptRestartHandoff:
                 or any(_under(module['url'], directory) for module in engine['required']['modules'])
                 for engine in current['source']['engines']))
             need(not any(_under(event['url'], directory) for event in current['source']['loads']['events']))
+            if self.require_membership or value.get('membershipRequired',False):
+                need(not any(row['instance']==value['oldNative']['engineInstance']
+                     or row['assigned'] and _under(row['url'],directory)
+                     for row in current['source']['membership']['managers']))
             need(measured_effect(current, value['oldFiles']['runId']) is None
                  and not any(row['id'] == value['oldNative']['effectId'] for row in current['source']['effects']['entities']))
             service, epoch = observe(service_sequence); diagnostic(service, epoch)

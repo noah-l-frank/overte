@@ -1,4 +1,4 @@
-# Joined Phone Script measurements, version 1
+# Joined Phone Script measurements, version 2
 
 `_script_measurements(selector, run, fixture_url, read_only=False)` connects the
 existing original APK/PID-start/session-bound sources to `PhoneScriptMeasurements`.
@@ -19,6 +19,13 @@ instance and advancing service cursor. Whole acquisition is limited to 20
 seconds; existing individual getter and enclosing runner bounds also apply.
 Unavailable, ignored, incomplete or inconsistent sources fail with a fixed
 private-safe error, preserving file/input ownership.
+
+Version 2 additionally requires the [original all-known manager source](../../native/SCRIPT_MEMBERSHIP.md).
+Pending owned managers cannot hide behind an empty public running hash. Every
+eligible engine must have its actual matching assigned manager identity/URL;
+an additional pending owned manager blocks a clean observation. Version 1 had
+one internal live factory, no persisted result format and no full/device-qualified
+producer. That factory now emits/requires v2; no v1 full producer is retained.
 
 `compose` is a pure join of those original packets, not a source or input ACK.
 It repeats schema, actual PID, native lifecycle and freshness checks. Every
@@ -44,7 +51,7 @@ converts an encoded, queried or wrong source URL into an eligible main. Foreign
 engines may not borrow modules from the owned tree. Unknown actual observations
 are not redacted into expected public aliases.
 
-The private result contains exactly `measurementVersion:1`, `state`,
+The private result contains exactly `measurementVersion:2`, `state`,
 `capturedEpochMs`, `lifecycle`, `engineInstance`, `effect`. Only measured `state`
 is eligible for later actor facts, after that actor acquires its own sources.
 Native engine/effect metadata and all raw paths/data stay private. Returning a
@@ -61,10 +68,10 @@ adopt a requested restart. Pure joins alone do not prove callback cause, actual
 HTTP delivery, process death or fixture removal. No capability is promoted here.
 
 The existing mandatory Phone runtime owner registers the device-free
-`test_script_measurements.py` group in both modes. All **28** cases pass,
+`test_script_measurements.py` group in both modes. All **30** cases pass,
 including actual-service format, wrong code, missing results, foreign companions,
 orphan effects, stale/foreign errors, broken Label binding, original clocks,
 source replacement, ignored acquisition, owner loss and deadline enforcement.
 Four additional factory cases use the actual bound wrapper and original
-file/readers; all **142** Phone feature-adapter host cases pass. SDK/ADB/native
+file/readers; all **145** Phone feature-adapter host cases pass. SDK/ADB/native
 boundaries remain synthetic. C++ is uncompiled; no device acceptance is claimed.

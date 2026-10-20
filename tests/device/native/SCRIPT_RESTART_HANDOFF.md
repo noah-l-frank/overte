@@ -1,4 +1,16 @@
-# Mobile Script restart ownership handoff, version 1
+# Mobile Script restart ownership handoff, versions 1 and 2
+
+## Current Phone promotion: version 2
+
+Phone now requires [original all-known manager membership](SCRIPT_MEMBERSHIP.md)
+and writes v2 with durable `membershipRequired:true`. Preparation requires one
+actual matching owned manager; adoption requires current pending-manager absence
+throughout the existing quiet window. Readers retain v1 for explicitly narrow
+components; even a narrow constructor must preserve a frozen v2 requirement.
+Strict Phone admission never upgrades a v1 record into missing original proof.
+The earlier v1 source description below remains the narrower compatibility scope.
+
+## Version 1 compatibility description
 
 `adapters/script_restart_handoff.py` transfers the existing staged-file and
 normal file-manager intents after a separately performed normal app restart.

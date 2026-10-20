@@ -18,7 +18,7 @@ from adapters.token_script_file_ui import file_url
 from feature_journeys.contract import identifier, state as validate_state
 from overte_phone_script_files import PhoneScriptFileIO, validate as validate_ui
 
-VERSION = 1
+VERSION = 2
 
 
 def owned_tree(url, directory):
@@ -56,7 +56,8 @@ def compose(run, ticket, directory, fixture_url, pid, execution, ui, service, li
     fresh(min(clocks), epoch)
     source = execution['source']
     need(source.get('effectSourceVersion') == 1 and source.get('sourceIdentityVersion') == 1
-         and source.get('loadSourceVersion') == 1)
+         and source.get('loadSourceVersion') == 1 and source.get('membershipSourceVersion') == 1
+         and source['membership']['complete'] is True)
     visual = ui_state(ui)
     need(not visual['systemPending'])  # This recipe never requests a system picker.
     engines = [row for row in source['engines'] if owned_tree(row['url'], directory)]
@@ -65,6 +66,10 @@ def compose(run, ticket, directory, fixture_url, pid, execution, ui, service, li
     need(len(engines) <= 1 and len(rows) <= 1
          and all(row['url'] in allowed and row['path'] == file_url(row['url']) for row in rows))
     need({row['url'] for row in rows} == {row['url'] for row in engines})
+    owned_managers=[row for row in source['membership']['managers'] if row['assigned'] and owned_tree(row['url'],directory)]
+    need(len(owned_managers)==len(engines)
+         and {(row['instance'],row['url']) for row in owned_managers}
+             == {(row['required']['instance'],row['url']) for row in engines})
     for engine in source['engines']:
         if engine in engines: continue
         need(not any(owned_tree(module['url'], directory) for module in engine['required']['modules']))
@@ -142,7 +147,7 @@ class PhoneScriptMeasurements:
             check()
             need(self.verify_directory() == self.directory); check()
             execution = self.execution.read(self.execution.sequence,
-                require_effects=True, require_code_identity=True, require_load_history=True)
+                require_effects=True, require_code_identity=True, require_load_history=True, require_membership=True)
             check(); ui = self.ui.capture(); check()
             service, service_epoch = self.service(self.service_sequence)
             diagnostic(service, service_epoch)
