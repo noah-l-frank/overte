@@ -982,7 +982,8 @@ def current_parent_schedule(event, environment, adapter, *, root=ROOT, candidate
         and names==[name for name in quick if name in names]
         and selected.get('reason')=='protected-ci-dependencies' and type(affected) is dict
         and type(affected.get('dependency_schema')) is int and affected['dependency_schema']==2
-        and affected.get('target')=='main' and affected.get('required')==names)
+        and affected.get('target')=='main' and type(affected.get('required')) is list
+        and names==[name for name in ci_profile.SUITES if name in affected['required']])
     A.require((names == quick or partial) and bool(quick) and set(quick) < set(registry['suites'])
         and selected['full_host'] is False and selected['include_platform'] is False
         and not selected.get('additional_suites') and not selected.get('platform_suites'),
