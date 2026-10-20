@@ -410,3 +410,13 @@ skips, failures, errors or compiler attempts (three explicitly excluded native
 build checks). This selection includes both new Chat actor transport/FD checks
 and all owned mixer/controller cases. It proves test logic only; native code
 is still uncompiled and all physical client runs remain unperformed.
+
+## Browser source audit prerequisite
+
+The current v9 browser draft has unresolved source mismatches: HTTP404 is not a
+native load error, reloading a permanently missing resource cannot recover it,
+the generated stub has no real script echo, foreign-origin negatives lack a
+proven attempt, and HTTP inline.html is not the actual native data-HTML route.
+See [WEB_SOURCE_AUDIT.md](feature_journeys/WEB_SOURCE_AUDIT.md) for confirmed source
+paths and the concrete correction/instrumentation packet. Browser capabilities
+remain unavailable; do not implement desired-state receipts around this draft.
