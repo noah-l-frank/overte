@@ -621,11 +621,24 @@ class IOSNormalScriptsTests(unittest.TestCase):
 
     def file_storage(self):
         source = FilesBoundary(self.path.parent); self.native.file_source = source
-        source.mutate = lambda value: value.update(processId=42, requestedEpochMs=self.native.epoch(),
-                                                  capturedEpochMs=self.native.epoch())
-        boundary = patch.object(feature_observation, 'NativeScriptFiles', partial(NativeScriptFiles,
-            monotonic=lambda: source.clock, sleep=source.sleep))
-        boundary.start(); self.addCleanup(boundary.stop)
+        source.mutate = lambda value: value.update(processId=42)
+        clock = NativeFeatureBoundary(); clock.mutate = lambda value: value.update(processId=42)
+        original_post, original_execute = self.native.post, self.native.execute
+        def post(request, timeout):
+            command = json.loads(request.data)
+            if command['action'] != 'feature-native-observe': return original_post(request, timeout)
+            clock.send(command); self.native.fixture.set_client_command(command)
+            self.native.echo = json.dumps(command).encode(); return self.native
+        def execute(session, operation, values):
+            if operation == 'mobile: pullFile' and values == {
+                    'remotePath': '@org.example.client:documents/owned-results/feature-native-observation.json'}:
+                return base64.b64encode(clock.original().encode()).decode()
+            return original_execute(session, operation, values)
+        for boundary in (patch.object(feature_observation, 'post_request', side_effect=post),
+                patch.object(self.native, 'execute', side_effect=execute),
+                patch.object(component, 'FeatureObservation', partial(feature_observation.FeatureObservation,
+                    monotonic=lambda: source.clock, sleep=source.sleep))):
+            boundary.start(); self.addCleanup(boundary.stop)
         return source, self.adapter._script_files('test-only-selector')
 
     def test_ios_staged_originals_use_actual_http_afc_and_separate_native_absence(self):

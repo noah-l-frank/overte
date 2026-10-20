@@ -1,5 +1,14 @@
 # iOS feature adapter implementation status
 
+Current Script freshness packet: [original native clock joins](../../ios/SCRIPT_FRESHNESS.md)
+brackets file and execution receipts with independent native-clock acquisitions.
+The no-build iOS selection passes **391** cases with zero failures, errors,
+skips or compiler attempts. Stale/pre-command receipts, unavailable or foreign
+clock sources, regressing/late clocks and process loss fail without committing
+history. Host-clock skew does not retime original module/code/effect events.
+Full feature triples remain missing; native source is uncompiled and devices
+are untested.
+
 Current Web source packet: [WK/DOM component](../../ios/WEB_DOM_OBSERVATION.md)
 wires the shared passive source to actual WK navigation/nonce/response facts and
 private HTTP/AFC reads followed by a separate native-clock acquisition. The

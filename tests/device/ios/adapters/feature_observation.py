@@ -172,17 +172,19 @@ class FeatureObservation:
     def script_execution_observer(self):
         self.guard()
         remote = self.remote.rsplit('/', 1)[0] + '/' + SCRIPT_EXECUTION_FILE
+        def clock(): return self.native_observer().read(0)['capturedEpochMs']
         return NativeScriptObservation(self.send,
             lambda: self.original(remote=remote, limit=NATIVE_FEATURE_LIMIT),
-            self.epoch_ms, self.guard, self.process['pid'], ios=True,
+            clock, self.guard, self.process['pid'], ios=True,
             monotonic=self.monotonic, sleep=self.sleep)
 
     def script_fixture_files(self):
         self.guard()
         remote = self.remote.rsplit('/', 1)[0] + '/' + SCRIPT_FIXTURE_FILE
+        def clock(): return self.native_observer().read(0)['capturedEpochMs']
         return NativeScriptFiles(self.send,
             lambda: self.original(remote=remote, limit=65536),
-            self.epoch_ms, self.guard, self.process['pid'], ios=True,
+            clock, self.guard, self.process['pid'], ios=True,
             monotonic=self.monotonic, sleep=self.sleep)
 
     def installed_bundle(self):

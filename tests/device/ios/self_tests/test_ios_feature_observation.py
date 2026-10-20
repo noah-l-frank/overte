@@ -146,11 +146,17 @@ class FeatureObservationTests(unittest.TestCase):
     def preview_boundaries(self, source=None, filename='recorded-preview-observation.json'):
         source = PreviewBoundary() if source is None else source
         source.mutate = lambda value: value.update(processId=42)
+        native_clock = NativeFeatureBoundary() if isinstance(source, ScriptBoundary) else None
+        if native_clock is not None:
+            native_clock.mutate = lambda value: value.update(processId=42)
         def post(request, timeout):
             command = self.native.fixture.set_client_command(json.loads(request.data))
             self.native.commands.append(command)
             self.native.echo = json.dumps(command).encode()
-            source.send(command)
+            if command['action'] == 'feature-native-observe' and native_clock is not None:
+                native_clock.send(command)
+            else:
+                source.send(command)
             return self.native
         def execute(session, operation, values):
             if operation == 'mobile: overteProcessInfo': return self.native.process()
@@ -159,7 +165,9 @@ class FeatureObservationTests(unittest.TestCase):
             self.assertTrue(remote.startswith('@org.example.client:documents/owned-results/'))
             self.native.reads.append(values)
             name = remote.rsplit('/', 1)[-1]
-            if name == filename:
+            if name == 'feature-native-observation.json' and native_clock is not None:
+                raw = native_clock.original().encode()
+            elif name == filename:
                 raw = json.dumps(source.sample if hasattr(source, 'sample') else source.value).encode()
             elif self.native.missing: raise WebDriverRequestError(500)
             else: raw = source.files[name]
@@ -233,6 +241,7 @@ class FeatureObservationTests(unittest.TestCase):
 
     def test_ios_script_execution_component_keeps_original_afc_module_history(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        self.observer.epoch_ms = lambda: 9000000
         value = self.observer.script_execution_observer().read(0)
         self.assertEqual(source.sample, value)
         self.assertEqual(['companion.js'], loaded_relative_modules(running_owned_engine(value, source.engine['url'])))
@@ -246,7 +255,8 @@ class FeatureObservationTests(unittest.TestCase):
             self.native.pid = 43
         source.mutate = change
         with self.assertRaises(NativeUIError): reader.read(0)
-        self.assertEqual([], self.native.reads)
+        self.assertEqual([{'remotePath': '@org.example.client:documents/owned-results/feature-native-observation.json'}],
+                         self.native.reads)
 
     def test_ios_atomic_audio_history_preserves_native_events_and_does_not_downgrade_source(self):
         source = self.native_feature_boundaries(); original = source.mutate
