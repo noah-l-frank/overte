@@ -1,5 +1,17 @@
 # iOS feature adapter implementation status
 
+Common journey contract is **v16**. The internal `_script_restart` now joins
+[one-send restart intent](../../native/RESTART_INPUTS.md), ordinary SDK stop/launch,
+independent current OS absence, original native lifecycle counters and the
+existing Script handoff. No input is repeated after an uncertain receipt.
+Reconstruction may finish stop retirement only after fresh OS/source proof;
+an uncertain physical launch before installed-code binding remains unqualified.
+All **412** permitted no-build iOS host cases pass, with zero failures, errors,
+skips or compiler attempts; ten additional binding checks pass. These are
+synthetic boundary checks of adapter logic. The complete 19-step Scripts
+coordinator, independent actor/error witnesses and final resource cleanup are
+still missing. No complete feature triple is registered.
+
 Common journey contract is **v16**. Internal `_script_restart_prepare/adopt`
 connect the [durable handoff v1](../../native/SCRIPT_RESTART_HANDOFF.md) to
 original HTTP/AFC execution/storage/process-presence and UIKit/Qt observations.
@@ -7,8 +19,8 @@ No lifecycle/Script/UI input or restaging occurs. The explicit native component
 scope remains unchanged; physical entrypoints check the selected candidate
 before session/owner I/O and legacy unbound factories refuse before I/O.
 Host cases cover preserved originals/new empty process, unknown exit, retained
-execution, changed target, unresolved cleanup and changed candidate. Full native
-lifecycle orchestration, independent actor/error/cleanup joins and complete
+execution, changed target, unresolved cleanup and changed candidate. Full feature
+coordination, independent actor/error/cleanup joins and complete
 feature adapters remain missing. Native source is uncompiled, the physical
 source plugin is uninstalled/inactive and devices remain untested.
 

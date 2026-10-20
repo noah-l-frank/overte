@@ -102,6 +102,31 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             self._candidate_guard()
             return super()._script_restart_adopt(*args, **kwargs)
 
+        def _script_restart_inputs(self, *args, **kwargs):
+            self._candidate_guard()
+            return super()._script_restart_inputs(*args, **kwargs)
+
+        def _script_restart_source(self, *args, **kwargs):
+            self._candidate_guard()
+            return super()._script_restart_source(*args, **kwargs)
+
+        def _script_restart(self, *args, **kwargs):
+            self._candidate_guard()
+            return super()._script_restart(*args, **kwargs)
+
+        def _script_restart_stopped(self, selector):
+            self._candidate_guard()
+            client, state, target = self._script_restart_session(selector)
+            gate = self._binding(selector, client, state['sessionId'], state, target)
+            record = gate.record()
+            if record is not None and record['phase'] == 'retiring':
+                # Recover host retirement after a lost terminateApp receipt;
+                # never deliver terminateApp again or bypass original source.
+                gate.finish_retirement()
+            gate.retired_absence()
+            self.reset_launch_state(selector, state)
+            return {'running': False, 'identity': None}
+
         def _private_login_input(self, *args, **kwargs):
             self._candidate_guard()
             return super()._private_login_input(*args, **kwargs)

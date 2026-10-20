@@ -21,6 +21,7 @@ from adapters.ios import binding
 from ios.adapters.installed_adapter import ArtifactLease
 from ios.adapters.installed_code import SDK
 from ios.adapters.adapter import IOSNativeMixin
+from ios.adapters import appium_adapter as ios_backend
 from ios.self_tests.test_ios_bundle_observation import Boundary
 from self_tests.test_native_feature_observation import Boundary as ClockBoundary
 from fixture.serve import FixtureState
@@ -145,11 +146,48 @@ class InstalledAdapterTests(unittest.TestCase):
 
     def test_restart_factories_preserve_candidate_gate_before_any_session_or_private_owner_io(self):
         self.artifact.write_bytes(b'changed original artifact boundary')
-        for method in ('_script_restart_prepare', '_script_restart_adopt', '_script_restart_handoff'):
+        for method in ('_script_restart_prepare', '_script_restart_adopt', '_script_restart_handoff',
+                       '_script_restart_inputs', '_script_restart_source', '_script_restart', '_script_restart_stopped'):
             with self.subTest(method=method), self.assertRaises(ValueError):
                 getattr(self.adapter, method)('test-only')
         self.assertEqual(0, self.sessions); self.assertEqual([], self.commands)
         self.assertFalse((self.root / 'normal-script-restart.json').exists())
+
+    def restart_input_origin(self):
+        self.target['serverUrl'] = 'http://controlled.invalid:4723'
+        self.adapter._state['targetFingerprint'] = self.adapter.fingerprint()
+        self.adapter.describe('test-only')
+        origin = dict(scope='NATIVE_UI_COMPONENT_ONLY', processIdentity='42', sessionId='component-scope',
+            generation=self.adapter._state['generation'], targetFingerprint=self.adapter.fingerprint())
+        native = self.adapter._native_source_scope('test-only').native_observer()
+        self.adapter._script_restart_inputs('test-only').capture(origin, native)
+
+    def test_restart_stopped_query_requires_original_retired_source_and_never_creates_or_launches_a_session(self):
+        self.restart_input_origin(); self.adapter.invoke('test-only', 'app.stop', {})
+        before = self.sessions; launches = self.launches
+        with patch.object(ios_backend, 'WebDriver', return_value=self.adapter.client):
+            self.assertEqual({'running': False, 'identity': None}, self.adapter._script_restart_stopped('test-only'))
+            for changed in ({'available': False}, {'cleanupPending': True}, {'instance': 'e' * 32}):
+                original = deepcopy(self.source); self.source.update(changed)
+                with self.subTest(changed=changed), self.assertRaises((ValueError, RuntimeError)):
+                    self.adapter._script_restart_stopped('test-only')
+                self.source = original
+        self.assertEqual(before, self.sessions); self.assertEqual(launches, self.launches)
+        self.assertEqual('retired', self.adapter._binding_store('test-only').read()['phase'])
+
+    def test_restart_stopped_query_can_finish_uncertain_retirement_only_after_current_source_proves_absence(self):
+        self.restart_input_origin(); self.ignored_stop = True
+        with self.assertRaises(RuntimeError): self.adapter.invoke('test-only', 'app.stop', {})
+        self.assertEqual('retiring', self.adapter._binding_store('test-only').read()['phase'])
+        stops = sum(operation == 'mobile: terminateApp' for operation, _values in self.commands)
+        with patch.object(ios_backend, 'WebDriver', return_value=self.adapter.client):
+            with self.assertRaises(ValueError): self.adapter._script_restart_stopped('test-only')
+            self.assertEqual('retiring', self.adapter._binding_store('test-only').read()['phase'])
+            self.process = None  # Original synthetic OS observation finally changes.
+            self.assertEqual({'running': False, 'identity': None}, self.adapter._script_restart_stopped('test-only'))
+        self.assertEqual('retired', self.adapter._binding_store('test-only').read()['phase'])
+        self.assertEqual(stops, sum(operation == 'mobile: terminateApp' for operation, _values in self.commands))
+        self.assertEqual(1, self.launches)
 
     def test_full_candidate_recheck_after_original_operation_blocks_changed_evidence(self):
         self.adapter.describe('test-only')

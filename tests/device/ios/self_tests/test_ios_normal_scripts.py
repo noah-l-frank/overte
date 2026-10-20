@@ -52,6 +52,9 @@ class Native:
         self.qt = NativeBoundary()
         self.pid, self.running, self.deleted, self.sequence = 42, True, False, 0
         self.version = 1
+        self.lifecycle = dict(backgrounds=0, activations=1, launches=1)
+        self.lifecycle_inputs = []; self.on_launch = None; self.first_probe = None
+        self.ignore_app_stop = self.ignore_app_launch = self.lose_stop_ack = self.lose_launch_ack = False
         self.file_ui, self.file_focus, self.file_version = None, None, 1
         self.instance = '11111111-1111-4111-8111-111111111111'
         self.elements, self.commands = {}, []
@@ -131,6 +134,7 @@ class Native:
         elif command['action'] == 'normal-feature-observe':
             self.diagnostic, _ = self.qt.observe(0)
             self.diagnostic.update(requestId=command['commandId'], sampleEpochMs=self.epoch())
+        elif command['action'] == 'idle': pass
         else:
             raise AssertionError('Unexpected synthetic native request')
         return self
@@ -142,10 +146,34 @@ class Native:
 
     def execute(self, session, operation, values):
         if operation == 'mobile: overteProcessInfo': return self.process()
-        if operation == 'mobile: terminateApp': self.running = False; return None
+        if operation == 'mobile: queryAppState': return 4 if self.running else 1
+        if operation == 'mobile: terminateApp':
+            assert values == {'bundleId': self.target['appId']}
+            self.lifecycle_inputs.append('stop')
+            if not self.ignore_app_stop and self.running:
+                self.running = False; self.lifecycle['backgrounds'] += 1
+            if self.lose_stop_ack: raise RuntimeError('synthetic lost stop SDK receipt')
+            return None
+        if operation == 'mobile: launchApp':
+            contract = self.target['testBuild']; origin = contract['fixtureOrigin']
+            assert values == {'bundleId': self.target['appId'], 'arguments': [
+                '--url', origin + contract['scenePath'], '--testScript', origin + component.AppiumAdapter.IOS_PROBE_SCRIPT_PATH,
+                '--testResultsLocation', contract['resultsDirectory']], 'environment': {}}
+            self.lifecycle_inputs.append('launch')
+            if not self.ignore_app_launch and not self.running:
+                assert self.on_launch is not None
+                self.on_launch(); self.running = True
+                self.lifecycle['activations'] += 1; self.lifecycle['launches'] += 1
+                from ios.self_tests.test_appium_adapter import snapshot
+                self.first_probe = snapshot(sampled=self.epoch())
+            if self.lose_launch_ack: raise RuntimeError('synthetic lost launch SDK receipt')
+            return None
         assert operation == 'mobile: pullFile'
         root = '@org.example.client:documents/owned-results/'
         name = values['remotePath'].removeprefix(root)
+        if name == 'overte-probe.json':
+            assert self.first_probe is not None
+            return base64.b64encode(json.dumps(self.first_probe).encode()).decode()
         assert name in {'ios-normal-ui-request-result.json', 'normal-feature-observation.json', 'feature-script-files.json'}
         if name == 'feature-script-files.json':
             return base64.b64encode(self.file_source.read().encode()).decode()
@@ -690,11 +718,18 @@ class IOSNormalScriptsTests(unittest.TestCase):
         for method, arguments in (('_script_runtime', ('private-selector',)),
                 ('_script_file_manager', ('private-selector',)), ('_bound_script_files', ('private-selector', None, None)),
                 ('_script_restart_prepare', ('private-selector',)), ('_script_restart_adopt', ('private-selector',)),
-                ('_script_restart_handoff', ('private-selector',))):
+                ('_script_restart_handoff', ('private-selector',)), ('_script_restart', ('private-selector',)),
+                ('_script_restart_inputs', ('private-selector',)), ('_script_restart_source', ('private-selector',)),
+                ('_script_restart_session', ('private-selector',)), ('_script_restart_stopped', ('private-selector',))):
             with self.subTest(method=method), self.assertRaisesRegex(ValueError, 'INSTALLED_CODE_BINDING_UNAVAILABLE'):
                 getattr(adapter, method)(*arguments)
 
-    def restart_sources(self):
+    def restart_sources(self, *, staged_restart=True):
+        if not staged_restart:
+            self.native.target['testBuild'].update(scenePath='/scene.json', launchEnvironment={})
+            self.native.target['capabilities'] = {'appium:autoLaunch': False}
+            self.state['targetFingerprint'] = hashlib.sha256(json.dumps(self.native.target,
+                sort_keys=True, separators=(',', ':')).encode()).hexdigest()
         storage, files, manager = self.file_manager()
         manager.open(); manager.file_picker_open(); manager.file_picker_choose('script-bundle/main.js')
         source = ScriptBoundary(); source.engine['url'] = storage.root.as_uri() + '/script-bundle/main.js'
@@ -708,6 +743,7 @@ class IOSNormalScriptsTests(unittest.TestCase):
         def clock_metadata(packet):
             metadata(packet)
             packet['animationFence']['requestedEpochMs'] = packet['requestedEpochMs']
+            packet['lifecycle'] = dict(self.native.lifecycle)
         clock.mutate = clock_metadata
         def enrich(packet):
             metadata(packet); code_source(packet, originals('a' * 32)['script-bundle/main.js'].decode())
@@ -740,14 +776,57 @@ class IOSNormalScriptsTests(unittest.TestCase):
                 if producer is not None: return base64.b64encode(producer.original().encode()).decode()
             return original_execute(session, operation, values)
         for boundary in (patch.object(feature_observation, 'post_request', side_effect=post),
-                         patch.object(self.native, 'execute', side_effect=execute)):
+                         patch.object(self.native, 'execute', side_effect=execute),
+                         patch.object(appium_adapter, 'urlopen', side_effect=self.native.post)):
             boundary.start(); self.addCleanup(boundary.stop)
-        self.adapter._script_restart_prepare('test-only-selector')
-        state['restarted'] = True; self.native.pid = 43; self.native.instance = str(uuid.uuid4())
-        self.state.update(processIdentity='43', generation=2)
-        self.native.qt.opened = False; self.native.qt.page = 'home'; self.native.qt.rows = []
-        self.native.file_ui.opened = False
+        def transition():
+            state['restarted'] = True; self.native.pid = 43; self.native.instance = str(uuid.uuid4())
+            self.native.qt.opened = False; self.native.qt.page = 'home'; self.native.qt.rows = []
+            self.native.file_ui.opened = False
+        self.native.on_launch = transition
+        if staged_restart:
+            self.adapter._script_restart_prepare('test-only-selector'); transition()
+            self.state.update(processIdentity='43', generation=2)
         return storage, source, presence, state
+
+    def test_ios_normal_restart_uses_one_sdk_stop_launch_original_lifecycle_probe_and_file_handoff(self):
+        storage, _source, _presence, _state = self.restart_sources(staged_restart=False)
+        result = self.adapter._script_restart('test-only-selector')
+        self.assertEqual(['stop', 'launch'], self.native.lifecycle_inputs)
+        self.assertEqual(self.native.lifecycle, result['native']['lifecycle'])
+        self.assertEqual(2, result['native']['lifecycle']['launches'])
+        self.assertEqual('NATIVE_UI_COMPONENT_ONLY', self.adapter.script_restart_inputs_store('test-only-selector').read()['newBinding']['scope'])
+        self.adapter._script_restart('test-only-selector')
+        self.assertEqual(['stop', 'launch'], self.native.lifecycle_inputs)
+        self.assertEqual(1, sum(command['operation'] == 'stage' for command in storage.commands))
+
+    def test_ios_restart_ignored_stop_prevents_launch_and_is_never_replayed(self):
+        self.restart_sources(staged_restart=False); self.native.ignore_app_stop = True
+        for _ in range(2):
+            with self.assertRaises(RuntimeError): self.adapter._script_restart('test-only-selector')
+        self.assertEqual(['stop'], self.native.lifecycle_inputs)
+        self.assertEqual('stop-issued', self.adapter.script_restart_inputs_store('test-only-selector').read()['phase'])
+
+    def test_ios_restart_lost_sdk_returns_preserve_intent_and_resume_without_repeating_inputs(self):
+        self.restart_sources(staged_restart=False); self.native.lose_stop_ack = self.native.lose_launch_ack = True
+        for _ in range(2):
+            with self.assertRaises(RuntimeError): self.adapter._script_restart('test-only-selector')
+        actual = self.adapter._script_restart('test-only-selector')
+        self.assertEqual(['stop', 'launch'], self.native.lifecycle_inputs)
+        self.assertEqual('ESRCH', actual['handoff']['exit']['errorSymbol'])
+
+    def test_ios_restart_ignored_launch_is_unavailable_and_never_replayed(self):
+        self.restart_sources(staged_restart=False); self.native.ignore_app_launch = True
+        for _ in range(2):
+            with self.assertRaises(RuntimeError): self.adapter._script_restart('test-only-selector')
+        self.assertEqual(['stop', 'launch'], self.native.lifecycle_inputs)
+        self.assertEqual('launch-issued', self.adapter.script_restart_inputs_store('test-only-selector').read()['phase'])
+
+    def test_ios_restart_input_intent_prevents_green_cleanup_after_other_owners_are_absent(self):
+        self.adapter.script_restart_inputs_store('test-only-selector').write({'unresolved': True}, None)
+        with self.assertRaises(RuntimeError): self.adapter.cleanup('test-only-selector')
+        self.assertTrue(self.native.deleted)
+        self.assertIsNotNone(self.adapter.script_restart_inputs_store('test-only-selector').read())
 
     def test_ios_restart_handoff_preserves_original_files_and_component_scope_using_http_afc_sources(self):
         storage, source, presence, _state = self.restart_sources()

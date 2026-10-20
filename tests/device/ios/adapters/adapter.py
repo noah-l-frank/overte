@@ -30,6 +30,8 @@ from adapters.collaboration_observation import actor_receipt, portable_observati
 from adapters.normal_ui import NativeUI
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.script_restart_handoff import ScriptRestartHandoff
+from adapters.restart_inputs import RestartInputs, run_script_restart
+from ios.adapters import appium_adapter as ios_backend
 from ios.adapters.normal_input import NativeInput
 from ios.adapters import normal_navigation
 from ios.adapters import normal_snapshot
@@ -173,6 +175,45 @@ class IOSNativeMixin:
         return handoff.adopt(binding, observer.process_presence(), observer.script_execution_observer(),
             self._bound_script_files(selector, ui, binding).native, ui, observe,
             TokenScriptFilePicker(ui.io, handoff.directory()))
+
+    def script_restart_inputs_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('normal-script-restart-inputs.json'))
+
+    def _script_restart_inputs(self, selector):
+        return RestartInputs(self.script_restart_inputs_store(selector),
+            [self.script_restart_store(selector), self.script_files_store(selector), self.script_store(selector)],
+            component_only=True)
+
+    def _script_restart_source(self, selector):
+        ui, _observe, binding = self._script_runtime(selector)
+        native = ui.io.native
+        observer = FeatureObservation(native.client, native.session, native.target, native.observe_process)
+        return binding, observer.native_observer()
+
+    def _script_restart_session(self, selector):
+        # An existing session only: do not create/launch/install while checking
+        # the stopped side of the restart boundary.
+        origin = self._script_restart_inputs(selector).read()['oldBinding']
+        target = self.target(selector); state = self.read_session(selector)
+        need(state is not None and type(state.get('sessionId')) is str
+             and state.get('generation') == origin['generation']
+             and state.get('targetFingerprint') == origin['targetFingerprint']
+             and hashlib.sha256(json.dumps(target, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+                == origin['targetFingerprint'])
+        return ios_backend.WebDriver(target['serverUrl']), state, target
+
+    def _script_restart_stopped(self, selector):
+        client, state, target = self._script_restart_session(selector)
+        process = self.native_process(client, state['sessionId'], target)
+        if process is None:
+            self.reset_launch_state(selector, state)  # Host flags after original absence only.
+        return {'running': process is not None, 'identity': str(process['pid']) if process is not None else None}
+
+    def _script_restart(self, selector):
+        return run_script_restart(self._script_restart_inputs(selector), self._script_restart_handoff(selector),
+            lambda: self._script_restart_source(selector), lambda: self._script_restart_prepare(selector),
+            lambda: self.invoke(selector, 'app.stop', {}), lambda: self._script_restart_stopped(selector),
+            lambda: self.invoke(selector, 'app.launch', {}), lambda: self._script_restart_adopt(selector))
 
     def _graphics_controls(self, selector, intent):
         from adapters.token_graphics_ui import TokenGraphicsUI
@@ -334,6 +375,7 @@ class IOSNativeMixin:
              and self.chat_capture_store(selector).read() is None
              and self.private_login_input_store(selector).read() is None
              and self.script_restart_store(selector).read() is None
+             and self.script_restart_inputs_store(selector).read() is None
              and self.script_files_store(selector).read() is None and self.account_probe_store(selector).read() is None
              and self.account_origin_store(selector).read() is None)
         return result
