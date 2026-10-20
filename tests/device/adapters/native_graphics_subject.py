@@ -108,7 +108,7 @@ class NativeGraphicsSubject:
             self.send(request)
             for attempt in range(51):
                 need(self.guard() is not False)
-                raw=self.original();need(type(raw) in (str,bytes) and len(raw.encode() if type(raw) is str else raw)<=LIMIT)
+                raw=self.original();need(type(raw) is str and len(raw.encode())<=LIMIT)
                 try:value=decode(raw) if raw else None
                 except json.JSONDecodeError:value=None
                 need(self.guard() is not False)
@@ -116,13 +116,16 @@ class NativeGraphicsSubject:
                 previous=now
                 if type(value) is dict and value.get('requestId')==request['commandId']:
                     epoch=value.get('capturedEpochMs') if self.ios else self.clock_ms()
+                    need(integer(epoch,1) and (self.ios or epoch>=requested))
                     validate(value,request,self.pid,epoch)
                     need(self.ios or value['requestedEpochMs']>=requested)
                     if self.last is not None:
                         need(value['instance']==self.last['instance'] and value['sequence']>self.last['sequence']
                              and value['capturedEpochMs']>=self.last['capturedEpochMs'])
                     need(self.guard() is not False)
-                    if not self.ios:fresh(value['capturedEpochMs'],self.clock_ms())
+                    if not self.ios:
+                        current=self.clock_ms();need(integer(current,1) and current>=epoch)
+                        fresh(value['capturedEpochMs'],current)
                     now=self.monotonic();need(number(now,0,1e15) and now>=previous and now-started<(1.5 if self.ios else 5))
                     self.last=deepcopy(value);return value
                 if attempt<50:self.sleep(.1)

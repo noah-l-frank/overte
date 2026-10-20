@@ -164,6 +164,12 @@ class GraphicsSubjectTests(unittest.TestCase):
                 reader.read(RUN)
             self.assertIsNone(reader.last)
 
+    def test_native_clock_regression_is_not_accepted_as_permitted_future_skew(self):
+        for clocks in ((20000,19999),(20000,20000,19999)):
+            source=Boundary();reader=source.reader();values=iter(clocks);reader.clock_ms=lambda:next(values)
+            with self.subTest(clocks=clocks),self.assertRaises(NativeUIError):reader.read(RUN)
+            self.assertIsNone(reader.last)
+
     def test_ios_nonce_and_monotonic_budget_do_not_assume_equal_wall_clocks(self):
         source=Boundary();reader=source.reader(ios=True);reader.clock_ms=lambda:999999999
         value=reader.read(RUN);self.assertTrue(value['requestId'].startswith('ios-'))

@@ -65,11 +65,12 @@ persist each role's original source cursors and historical context before return
 a feature result; rebuilding a reader is not permission to reset provenance.
 Original metadata is private evidence, not an owned live entity or image buffer.
 
-Nineteen synthetic reader/probe cases cover direct observed properties, explicit
+Twenty synthetic reader/probe cases cover direct observed properties, explicit
 absence, moved/renamed/hidden UUIDs, incomplete/conflicting inventories, foreign
 objects, malformed camera/entity/haze fields, restricted scan scope, stale or
 replaced originals, ignored delivery, bounded read retries/decode and final
-freshness/guard budgets. Three Phone factory checks cover original transport,
+freshness/guard budgets. Native clock regressions are rejected separately from
+permitted timestamp skew. Three Phone factory checks cover original transport,
 changed candidate/process refusal and closed independent read admission. These
 verify test logic only; they do not qualify native behavior, scene loading or
 rendering on a device.
