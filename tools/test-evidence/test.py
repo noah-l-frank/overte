@@ -2,9 +2,12 @@
 """Behavioral regressions for trusted, complete test input identities."""
 
 from copy import deepcopy
+from fnmatch import fnmatchcase
 from pathlib import Path
+import ast
 import hashlib
 import importlib.util
+import itertools
 import json
 import os
 import subprocess
@@ -207,6 +210,64 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual([item["path"] for item in selected], ["a", "z"])
         self.assertEqual([item["mode"] for item in selected], ["120000", "160000"])
         self.assertEqual(selected[-1]["type"], "commit")
+
+    def test_selected_entries_matches_stdlib_globs_for_complex_paths_and_patterns(self):
+        paths = ['a', 'A', '.hidden', 'a/b', 'a/b/c', 'a/.hidden', 'a\nb', 'a/b\nc',
+                 'é/雪.py', 'a[1].py', '[literal', 'a]b', 'a\\b', 'a-b', 'a!b', 'abc.py', 'abc.pyx']
+        paths += [''.join(chars) for size in (1,2,3)
+                  for chars in itertools.product('ab[]!\\é\n', repeat=size)]
+        modes = [('100644','blob'), ('100755','blob'), ('120000','blob'), ('160000','commit')]
+        tree = {path:entry(path,*modes[index % len(modes)]) for index,path in enumerate(reversed(paths))}
+        patterns = ['*', '**', '?', 'a*', '*b', 'a?b', 'a/**', 'a/*/c', '*.py',
+                    '[ab]*', '[!a-c]*', 'a[[]1].py', '[[]*', '[literal', 'a[]]b',
+                    'a\\*', '*\n*', 'é/*', 'A', 'missing*', '[z-a]', '[!]', '[', '\\']
+        groups = [[], *[[pattern] for pattern in patterns], patterns,
+                  ['a/**','*.py','*\n*','é/*'], ['a*','*b','a/**','*']]
+        original = deepcopy(tree)
+        for group in groups:
+            expected = [{'path':path, **tree[path]} for path in sorted(tree)
+                        if any(fnmatchcase(path,pattern) for pattern in group)]
+            with self.subTest(patterns=group):
+                self.assertEqual(INPUTS.selected_entries(tree,group), expected)
+        self.assertEqual(tree, original)
+
+    def test_selected_entries_validates_even_empty_patterns_and_never_caches_results(self):
+        for tree in ({'../escape':entry('bad')}, {'bad':entry('bad','040000','tree')},
+                     {'bad':{'mode':'100644','type':'blob','sha':'not-a-hash'}}):
+            with self.subTest(tree=tree), self.assertRaises(INPUTS.InputError):
+                INPUTS.selected_entries(tree, [])
+        for patterns in (None, [''], [None], ['/absolute'], ['a/../b'], ['a//b'], ['*','*']):
+            with self.subTest(patterns=patterns), self.assertRaises(INPUTS.InputError):
+                INPUTS.selected_entries({}, patterns)
+        tree = {'b':entry('old')}
+        first = INPUTS.selected_entries(tree,['*'])
+        tree['b'] = entry('new','100755'); tree['a'] = entry('link','120000')
+        second = INPUTS.selected_entries(tree,['*'])
+        self.assertEqual(first, [{'path':'b', **entry('old')}])
+        self.assertEqual(second, [{'path':path, **tree[path]} for path in ('a','b')])
+        del tree['b']
+        self.assertEqual(INPUTS.selected_entries(tree,['*']), [{'path':'a', **tree['a']}])
+
+    def test_selected_entries_matches_real_complete_git_tree_and_policy_patterns(self):
+        root = Path(__file__).resolve().parents[2]
+        tree = INPUTS.full_tree(root, 'HEAD')
+        registry = INPUTS.load_registry(root/'.github/test-suites.json')
+        host_ast = ast.parse((root/'tools/repository-checks/host_selection.py').read_bytes())
+        programs = next(ast.literal_eval(node.value) for node in host_ast.body
+                        if isinstance(node,ast.Assign)
+                        and any(isinstance(target,ast.Name) and target.id == 'PROGRAM_INPUTS'
+                                for target in node.targets))
+        closures = set()
+        for suite in registry['suites'].values():
+            closures.update(suite['closure']['inputs']); closures.update(suite['closure']['required'])
+            for directory in suite.get('python_imports',{}).get('roots',[]):
+                closures.update((directory,directory+'/**'))
+        for label,patterns in (('controls',registry['control_inputs']),
+                               ('suite-closures',sorted(closures)), ('programs',list(programs))):
+            expected = [{'path':path, **tree[path]} for path in sorted(tree)
+                        if any(fnmatchcase(path,pattern) for pattern in patterns)]
+            with self.subTest(policy=label):
+                self.assertEqual(INPUTS.selected_entries(tree,patterns), expected)
 
     def test_warm_path_normalization_never_reuses_entry_validation_or_fingerprints(self):
         path = "tests/feature/test.py"

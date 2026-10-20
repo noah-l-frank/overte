@@ -941,10 +941,72 @@ class MetadataSchedulingTests(unittest.TestCase):
         self.assertFalse(value['qualification'])
         self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
 
+    def test_completed_ordinary_endpoint_update_times_remain_distinct_and_authenticated(self):
+        c = self.case
+        def independent_updates(endpoint, value):
+            if endpoint.endswith('/actions/runs/100/attempts/1'):
+                value['updated_at'] = '2026-10-15T10:04:31Z'
+            return value
+        c.api.mutate = independent_updates
+        for conclusion in ('success', 'failure', 'cancelled'):
+            c.runs[100].update(status='completed', conclusion=conclusion)
+            with self.subTest(conclusion=conclusion):
+                value = self.schedule()
+                self.assertEqual((value['original_status'], value['original_conclusion']),
+                                 ('completed', conclusion))
+                self.assertFalse(value['qualification'])
+        source = c.adapter._scheduling_source(c.runs[100], c.binding, self.policy,
+            now=NOW, scheduling_progress=True)
+        self.assertEqual(source['completed_observations']['listed']['updated_at'],
+                         '2026-10-15T10:04:30Z')
+        self.assertEqual(source['completed_observations']['latest']['updated_at'],
+                         '2026-10-15T10:04:30Z')
+        self.assertEqual(source['completed_observations']['attempt']['updated_at'],
+                         '2026-10-15T10:04:31Z')
+        self.assertEqual(source['run']['updated_at'], '2026-10-15T10:04:31Z')
+        self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
+
+    def test_completed_ordinary_each_endpoint_update_must_have_valid_time_order(self):
+        for endpoint_kind in ('listed', 'latest', 'attempt'):
+            for stamp in ('not-a-time', '2026-10-15T09:58:59Z', '2026-10-15T10:05:03Z'):
+                self.setUp(); c = self.case
+                def invalid_update(endpoint, value):
+                    if endpoint_kind == 'listed' and '/actions/workflows/99/runs?' in endpoint:
+                        next(row for row in value['workflow_runs'] if row['id'] == 100)['updated_at'] = stamp
+                    elif endpoint_kind == 'latest' and endpoint.endswith('/actions/runs/100'):
+                        value['updated_at'] = stamp
+                    elif endpoint_kind == 'attempt' and endpoint.endswith('/actions/runs/100/attempts/1'):
+                        value['updated_at'] = stamp
+                    return value
+                c.api.mutate = invalid_update
+                with self.subTest(endpoint=endpoint_kind, stamp=stamp), self.assertRaises(P.ProtocolError) as error:
+                    c.adapter.metadata_schedule(17, 101, self.policy, now=NOW,
+                        observation_clock=lambda:NOW + timedelta(seconds=2))
+                self.assertNotIsInstance(error.exception, A.SchedulingPending)
+
+    def test_completed_ordinary_each_endpoint_is_stable_between_scheduling_bookends(self):
+        for endpoint_kind in ('listed', 'latest', 'attempt'):
+            self.setUp(); c = self.case; inventories = [0]
+            def changed_endpoint(endpoint, value):
+                if '/actions/workflows/99/runs?' in endpoint:
+                    inventories[0] += 1
+                    if endpoint_kind == 'listed' and inventories[0] >= 2:
+                        next(row for row in value['workflow_runs'] if row['id'] == 100)['updated_at'] = '2026-10-15T10:04:31Z'
+                elif inventories[0] >= 2 and (
+                        endpoint_kind == 'latest' and endpoint.endswith('/actions/runs/100')
+                        or endpoint_kind == 'attempt' and endpoint.endswith('/actions/runs/100/attempts/1')):
+                    value['updated_at'] = '2026-10-15T10:04:31Z'
+                return value
+            c.api.mutate = changed_endpoint
+            with self.subTest(endpoint=endpoint_kind), self.assertRaisesRegex(A.ApiError, 'source changed'):
+                self.schedule()
+
     def test_scheduling_only_original_progress_waits_for_a_fresh_complete_admission(self):
         for bookend in ('initial', 'final'):
             for shape in ('update', 'state'):
                 self.setUp(); c = self.case; inventories = [0]
+                if shape == 'update':
+                    c.runs[100].update(status='in_progress', conclusion=None)
                 def progress(endpoint, value):
                     if '/actions/workflows/99/runs?' in endpoint:
                         inventories[0] += 1
@@ -1147,6 +1209,7 @@ class MetadataSchedulingTests(unittest.TestCase):
 
     def test_later_observation_does_not_normalize_original_producer_progress(self):
         self.setUp()
+        self.case.runs[100].update(status='in_progress', conclusion=None)
         with self.assertRaisesRegex(P.ProtocolError,'inventory changed'):
             self.progressing_schedule(identity=100)
 
@@ -1185,6 +1248,7 @@ class MetadataSchedulingTests(unittest.TestCase):
 
     def test_original_progress_is_not_normalized_by_current_metadata_projection(self):
         c = self.case
+        c.runs[100].update(status='in_progress', conclusion=None)
         def changed_original(endpoint, value):
             if endpoint.endswith('/actions/runs/100/attempts/1'):
                 value['updated_at'] = '2026-10-15T10:04:31Z'
@@ -1317,7 +1381,9 @@ class MetadataSchedulingTests(unittest.TestCase):
                     'labels':'/actions/workflows/99/runs?'}[shape]
                 if suffix in endpoint:
                     reads += 1
-                    threshold = 2 if shape != 'labels' else 1
+                    # The ordinary source is classified before its opening
+                    # admission. Change the attempt at its closing admission.
+                    threshold = 4 if shape == 'run' else 2 if shape != 'labels' else 1
                     if reads >= threshold:
                         if shape == 'job': value['jobs'][0]['steps'][0]['conclusion'] = 'failure'
                         elif shape == 'check': value['conclusion'] = 'failure'
@@ -1364,6 +1430,46 @@ class MetadataCanonicalResultTests(unittest.TestCase):
         before=len(self.case.api.calls)
         self.assertEqual(self.case.adapter.metadata_result_status(self.observed)['status'],'in_progress')
         self.assertEqual(self.case.api.calls[before:],[A.PREFIX+'/actions/runs/100'])
+
+    def test_completed_result_accepts_distinct_valid_endpoint_update_times_without_normalization(self):
+        c = self.case
+        def independent_updates(endpoint, value):
+            if endpoint.endswith('/actions/runs/100/attempts/1'):
+                value['updated_at'] = '2026-10-15T10:04:31Z'
+            return value
+        c.api.mutate = independent_updates
+        value = c.adapter.metadata_result_success(self.observed, now=NOW)
+        self.assertEqual(value, {'job_id':151, 'qualification':False})
+        self.assertEqual(c.runs[100]['updated_at'], '2026-10-15T10:04:30Z')
+        self.assertFalse(any('/actions/artifacts/' in endpoint for endpoint in c.api.calls))
+
+    def test_completed_result_validates_both_endpoint_updates_against_native_completion_and_now(self):
+        for endpoint_kind in ('latest', 'attempt'):
+            for stamp in ('not-a-time', '2026-10-15T09:58:59Z',
+                          '2026-10-15T10:03:59Z', '2026-10-15T10:05:01Z'):
+                self.setUp(); c = self.case
+                def invalid_update(endpoint, value):
+                    if endpoint.endswith('/actions/runs/100' + (
+                            '/attempts/1' if endpoint_kind == 'attempt' else '')):
+                        value['updated_at'] = stamp
+                    return value
+                c.api.mutate = invalid_update
+                with self.subTest(endpoint=endpoint_kind, stamp=stamp), self.assertRaises(ValueError):
+                    c.adapter.metadata_result_success(self.observed, now=NOW)
+
+    def test_completed_result_each_endpoint_raw_bookend_remains_exact(self):
+        for endpoint_kind in ('latest', 'attempt'):
+            self.setUp(); c = self.case; reads = [0]
+            def changed_endpoint(endpoint, value):
+                if endpoint.endswith('/actions/runs/100' + (
+                        '/attempts/1' if endpoint_kind == 'attempt' else '')):
+                    reads[0] += 1
+                    if reads[0] >= 2:
+                        value['updated_at'] = '2026-10-15T10:04:31Z'
+                return value
+            c.api.mutate = changed_endpoint
+            with self.subTest(endpoint=endpoint_kind), self.assertRaisesRegex(ValueError, 'changed before output'):
+                c.adapter.metadata_result_success(self.observed, now=NOW)
 
     def test_codeql_uses_its_own_exact_canonical_name_not_a_repository_job(self):
         c=self.case
@@ -3795,7 +3901,8 @@ class AffectedPostmergeConsumerTests(unittest.TestCase):
         with patch.object(C.execution,'validate_receipt',wraps=C.execution.validate_receipt) as validate:
             result=self.lookup()
         self.assertTrue(result['reused'],result)
-        self.assertEqual(len(self.fixture.registry['suites']),60)
+        self.assertEqual(len(self.fixture.registry['suites']),61)
+        self.assertIn('native-owner-lifecycle',self.fixture.registry['suites'])
         self.assertEqual(self.profile['selection']['reason'],'protected-affected-dependencies')
         self.assertNotIn('device-control-plane-full',self.profile['suites'])
         self.assertTrue(set(self.profile['suites'])<set(self.fixture.registry['suites']))
@@ -4670,6 +4777,153 @@ class CurrentParentTransitionTests(unittest.TestCase):
         self.assertEqual(value['executed_suites'],[]);self.assertEqual(value['reused_suites'],[])
         self.assertFalse(value['qualification']);self.assertIsNone(value['execution'])
         self.C.execution.execute.assert_not_called()
+
+    def lifecycle_transition(self, before=None, after=None):
+        """Actual reviewed definitions and authenticated bounded Git-blob bytes."""
+        if before is None:
+            before=deepcopy(self.registry)
+            del before['suites']['native-owner-lifecycle']
+        else:before=deepcopy(before)
+        after=deepcopy(self.registry) if after is None else deepcopy(after)
+        path='.github/test-suites.json'
+        previous=(json.dumps(before,indent=2)+'\n').encode()
+        current=(json.dumps(after,indent=2)+'\n').encode()
+        previous_sha=self.C.source_admission.blob_id(previous)
+        self.source.base[path]=self.C.source_admission.ordinary(previous_sha)
+        self.source.default[path]=self.C.source_admission.ordinary(self.C.source_admission.blob_id(current))
+        self.source.bodies[path]=current;(self.root/path).write_bytes(current)
+        self.registry_blobs={previous_sha:previous}
+        def request(endpoint,maximum,**_options):
+            self.assertEqual(maximum,100_000)
+            self.api.calls.append(endpoint)
+            identity=endpoint.removeprefix(A.PREFIX+'/git/blobs/')
+            self.assertIn(identity,self.registry_blobs)
+            raw=self.registry_blobs[identity]
+            return json.dumps({'sha':identity,'size':len(raw),'encoding':'base64',
+                'content':base64.b64encode(raw).decode()}).encode()
+        client=A.GitHubReadOnly();client._request=request
+        self.api.immutable_blob=client.immutable_blob
+        runner='tests/run-project-tests.py'
+        self.assertEqual(self.source.default[runner]['mode'],'100755')
+        self.source.base[runner]=self.C.source_admission.ordinary(
+            self.C.source_admission.blob_id(b'previous reviewed CI runner\n'),'100755')
+        # This actual source preparation script is ordinary 644 in both Git
+        # trees. Its workflow chmod does not grant a new executable exception.
+        preparation='tools/repository-checks/android-host-prepare.sh'
+        raw=(self.C.ROOT/preparation).read_bytes()
+        self.source.default[preparation]=self.C.source_admission.ordinary(self.C.source_admission.blob_id(raw))
+        self.source.base[preparation]=self.C.source_admission.ordinary(
+            self.C.source_admission.blob_id(b'previous reviewed Android host preparation\n'))
+        leaf=self.root/preparation;leaf.parent.mkdir(parents=True,exist_ok=True);leaf.write_bytes(raw)
+        return before,after
+
+    def test_monotonic_lifecycle_and_preserved_ci_runner_skip_optional_execution_and_final_parent_rederives(self):
+        before,after=self.lifecycle_transition()
+        self.assertEqual((len(before['suites']),len(after['suites'])),(60,61))
+        self.assertEqual({name:row for name,row in after['suites'].items()
+            if name!='native-owner-lifecycle'},before['suites'])
+        self.assertEqual(after['control_inputs'],before['control_inputs'])
+        value=self.schedule()
+        self.assertFalse(value['qualification'] or value['reusable'])
+        self.assertEqual(value['authority'],'none');self.assertIsNone(value['execution'])
+        self.assertEqual(value['executed_suites'],[]);self.assertEqual(value['reused_suites'],[])
+        self.assertEqual(value['selection'],self.selected)
+        with patch.object(self.C,'verify_main',side_effect=ValueError('original source has no reusable E')):
+            result=self.C.lookup(self.event,self.environment,self.adapter,root=self.root,clock=lambda:NOW)
+        self.assertFalse(result['reused']);self.assertEqual(result['optional_qualification'],value)
+        self.environment['GITHUB_JOB']='qualify-parent';self.source.job['name']='Qualify exact parent'
+        needs={'route':{'result':'skipped','outputs':{}},'common-parent':{'result':'success','outputs':{}},
+            'platform-tests':{'result':'skipped','outputs':{}}}
+        with patch.object(self.C.producer,'ROOT',self.root):
+            # Exercise the real aggregate fallback, including provisional
+            # controller rejection and independent current-parent bookends.
+            self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
+            for state in ('failure','skipped','cancelled',None):
+                changed=deepcopy(needs);changed['common-parent']['result']=state
+                with self.subTest(common=state),self.assertRaises(ValueError):
+                    self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,changed)
+            missing=deepcopy(needs);del missing['common-parent']
+            with self.assertRaises(ValueError):
+                self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,missing)
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_lifecycle_transition_rejects_changed_definitions_controls_owner_removal_and_unknown_owner(self):
+        original=deepcopy(self.registry)
+        for change in ('quick-command','quick-closure','host-command','controls','remove','remove-lifecycle','unknown',
+                       'new-command','new-context','new-scope','new-closure','new-layer','order'):
+            before=deepcopy(original);del before['suites']['native-owner-lifecycle']
+            after=deepcopy(original)
+            if change=='quick-command':after['suites']['producer-proof']['command'].append('--changed')
+            elif change=='quick-closure':after['suites']['producer-proof']['closure']['required'].append('unreviewed.py')
+            elif change=='host-command':after['suites']['safe-landing-lifecycle']['command'].append('--changed')
+            elif change=='controls':after['control_inputs'].append('unreviewed-control.json')
+            elif change=='remove':del after['suites']['safe-landing-lifecycle']
+            elif change=='remove-lifecycle':
+                before=deepcopy(original);del after['suites']['native-owner-lifecycle']
+            elif change=='unknown':
+                for registry in (before,after):
+                    registry['suites']['unknown-owner']=registry['suites'].pop('safe-landing-lifecycle')
+            elif change=='new-command':after['suites']['native-owner-lifecycle']['command'].append('--changed')
+            elif change=='new-context':after['suites']['native-owner-lifecycle']['environment']='unknown-host'
+            elif change=='new-scope':after['suites']['native-owner-lifecycle']['scope']='candidate'
+            elif change=='new-closure':after['suites']['native-owner-lifecycle']['closure']['required'].pop()
+            elif change=='new-layer':after['suites']['native-owner-lifecycle']['layer']='quick'
+            else:after['suites']={name:after['suites'][name] for name in reversed(after['suites'])}
+            self.lifecycle_transition(before,after)
+            with self.subTest(change=change),self.assertRaises(ValueError):self.schedule()
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_lifecycle_transition_rejects_registry_alias_missing_and_unauthenticated_old_blob(self):
+        self.lifecycle_transition()
+        path='.github/test-suites.json'
+        for side in (self.source.base,self.source.default):
+            original=deepcopy(side[path])
+            for mode in ('100755','120000','160000'):
+                side[path]={**original,'mode':mode,'type':'commit' if mode=='160000' else 'blob'}
+                with self.subTest(side='base' if side is self.source.base else 'current',mode=mode),self.assertRaises(ValueError):
+                    self.schedule()
+            side[path]=original
+        original=deepcopy(self.source.base[path]);del self.source.base[path]
+        with self.assertRaises(ValueError):self.schedule()
+        self.source.base[path]=original
+        self.registry_blobs[original['sha']]=b'not the immutable original registry'
+        with self.assertRaises(ValueError):self.schedule()
+        with patch.object(self.api,'immutable_blob',side_effect=A.ApiError('original Git blob unavailable')):
+            with self.assertRaises(ValueError):self.schedule()
+            with patch.object(self.C,'verify_main',side_effect=ValueError('no original proof')):
+                value=self.C.lookup(self.event,self.environment,self.adapter,root=self.root,clock=lambda:NOW)
+            self.assertFalse(value['reused']);self.assertNotIn('optional_qualification',value)
+
+    def test_lifecycle_transition_rejects_executable_mode_changes_aliases_unknown_executables_and_product(self):
+        self.lifecycle_transition()
+        base,current=deepcopy(self.source.base),deepcopy(self.source.default)
+        runner='tests/run-project-tests.py'
+        for change in ('mode-change','alias','missing','unknown-executable','product'):
+            self.source.base=deepcopy(base);self.source.default=deepcopy(current)
+            if change=='mode-change':self.source.base[runner]['mode']='100644'
+            elif change=='alias':self.source.default[runner]['mode']='120000'
+            elif change=='missing':del self.source.base[runner]
+            elif change=='unknown-executable':
+                path='tools/branch-cleanup/unknown-executable.py'
+                self.source.base[path]=self.C.source_admission.ordinary('a'*40,'100755')
+                self.source.default[path]=self.C.source_admission.ordinary('b'*40,'100755')
+            else:self.source.default['interface/src/unreviewed.cpp']=self.C.source_admission.ordinary('a'*40)
+            with self.subTest(change=change),self.assertRaises(ValueError):self.schedule()
+        self.source.base=base;self.source.default=current
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_lifecycle_transition_retains_current_native_and_final_source_bookends(self):
+        self.lifecycle_transition()
+        self.schedule()
+        original=self.adapter._integrated_current;calls=[]
+        def changed(*args,**kwargs):
+            binding,refs=original(*args,**kwargs);calls.append(True)
+            return binding,({**refs,'default':'f'*40} if len(calls)>1 else refs)
+        with patch.object(self.adapter,'_integrated_current',side_effect=changed),self.assertRaises(ValueError):self.schedule()
+        self.assertEqual(len(calls),2)
+        for key,value in (('GITHUB_RUN_ATTEMPT','2'),('GITHUB_SHA','f'*40),('GITHUB_REPOSITORY','overte-org/overte')):
+            with self.subTest(key=key),patch.dict(self.environment,{key:value}),self.assertRaises(ValueError):self.schedule()
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
 
     def partial_selection(self):
         omitted={'producer-proof','python-test-runner','release-bundle','project-coverage','native-registration'}
