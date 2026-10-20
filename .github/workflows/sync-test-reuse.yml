@@ -1,5 +1,5 @@
 name: Sync test reuse
-run-name: Sync test reuse for PR ${{ github.event.pull_request.number || 'contract-seed' }}
+run-name: ${{ github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body) && 'Sync metadata' || 'Sync test reuse' }} for PR ${{ github.event.pull_request.number || 'contract-seed' }}
 
 on: # zizmor: ignore[dangerous-triggers] Default-branch data-only gate; candidate execution is dispatched read-only without secrets.
   pull_request_target:
@@ -15,21 +15,88 @@ on: # zizmor: ignore[dangerous-triggers] Default-branch data-only gate; candidat
   workflow_dispatch:
 
 permissions:
-  actions: write
+  actions: read
   checks: read
   contents: read
   pull-requests: read
 
 concurrency:
-  group: sync-test-reuse-${{ github.event.pull_request.number || github.run_id }}
+  # A text edit must not cancel the original gate or its isolated validator.
+  group: sync-test-reuse-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body) && github.run_id || 'qualification' }}
   cancel-in-progress: true
 
 jobs:
+  event-policy:
+    name: Classify synchronization event
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      metadata_only: ${{ steps.event.outputs.metadata_only }}
+    steps:
+      - name: Check out trusted event policy and its import closure
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            tools/sync-test-reuse
+            tools/branch-policy
+            tools/repository-checks
+            tools/test-evidence
+            .github/sync-test-reuse.json
+      - name: Classify only complete title or body edits
+        id: event
+        run: >-
+          python3 -B tools/sync-test-reuse/gate.py classify-metadata
+          --event "$GITHUB_EVENT_PATH" --output "$GITHUB_OUTPUT"
+  metadata-owner:
+    name: Retain original Sync owner
+    needs: event-policy
+    if: needs.event-policy.result == 'success' && needs.event-policy.outputs.metadata_only == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      pull-requests: read
+    outputs:
+      metadata_authenticated: ${{ steps.owner.outputs.metadata_authenticated }}
+    steps:
+      - name: Check out protected original-owner verification
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Authenticate original independent Sync execution without new work
+        id: owner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 -B tools/sync-test-reuse/gate.py retain-metadata-owner
+          --event "$GITHUB_EVENT_PATH" --output "$GITHUB_OUTPUT"
   sync-test-reuse:
-    name: sync-test-reuse
+    name: ${{ needs.event-policy.result == 'success' && needs.event-policy.outputs.metadata_only == 'true' && needs.metadata-owner.result == 'success' && needs.metadata-owner.outputs.metadata_authenticated == 'true' && 'sync-test-reuse (metadata unchanged)' || 'sync-test-reuse' }}
+    needs: [event-policy, metadata-owner]
+    if: always() && !(needs.event-policy.result == 'success' && needs.event-policy.outputs.metadata_only == 'true' && needs.metadata-owner.result == 'success' && needs.metadata-owner.outputs.metadata_authenticated == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    permissions:
+      actions: write
+      checks: read
+      contents: read
+      pull-requests: read
     steps:
+      - name: Require a successful event policy
+        env:
+          EVENT_POLICY: ${{ needs.event-policy.result }}
+        run: test "$EVENT_POLICY" = success
+      - name: Reject unauthenticated text edits without dispatching a validator
+        if: needs.event-policy.outputs.metadata_only == 'true'
+        run: exit 1
       - name: Check out trusted default-branch gate only
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
