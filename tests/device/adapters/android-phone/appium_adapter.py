@@ -72,6 +72,7 @@ from overte_phone_script_actions import PhoneScriptActions
 from overte_phone_script_feature import PhoneScriptFeature, ScriptFixtureReader
 from feature_journeys.witness import Client as FeatureFixtureClient
 from overte_phone_account_fixture import origin as account_fixture_origin, launch_command as account_fixture_launch
+from overte_phone_account_menu import PhoneAccountMenu
 
 SCRIPT_FEATURE_OPERATIONS={'feature.scripts.'+kind for kind in ('act','observe','cleanup')}
 
@@ -672,6 +673,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+LOGIN_UI_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid)
         return TokenLoginUI(io,intent,run,origin)
+
+    def _account_menu(self, selector, intent, run, origin):
+        ui,_observe,binding,check,installed=self.normal_feature_runtime(selector,read_only=True)
+        source=self._native_feature_observer(selector,read_only=True)
+        check();source.guard()
+        require(source.pid==int(binding['processIdentity'].split(':')[0])
+                and self.installed_identity(selector)==installed,'PHONE_ACCOUNT_MENU_CONTEXT_CHANGED')
+        return PhoneAccountMenu(ui,source,intent,run,origin)
 
     def _audio_controls(self, selector, intent):
         # Internal ordinary-input prerequisite. Caller must persist ownership;
