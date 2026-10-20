@@ -439,6 +439,14 @@ This changes no product auth endpoint or TLS trust. Normal login/cancel/UI/error
 restart and independent actor composition remain open, and no full Authentication
 capability or device result is enabled. Native source remains uncompiled.
 
+Authentication fixture preparation now uses the existing shell-only debug
+launcher and native `HIFI_METAVERSE_URL` lookup through a strict process-only
+HTTPS-origin extra. Default-off launch, stored settings and TLS trust remain
+unchanged. Ten host transport/grammar cases pass. The Java parser tests are
+written but uncompiled/unrun under the no-build scope. This is preparation;
+the complete Authentication adapter and normal Logout composition remain open.
+See [the exact startup protocol](ACCOUNT_FIXTURE_LAUNCH.md).
+
 ## Normal account input continuation
 
 `_login_controls(selector,intent,run,origin)` binds normal Qt login view/error

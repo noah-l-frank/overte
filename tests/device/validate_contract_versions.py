@@ -45,6 +45,7 @@ REQUIRED = {
     "phone-script-ui-inventory": 1,
     "phone-script-measurements": 2,
     "phone-existing-input-session": 1,
+    "phone-account-fixture-launch": 1,
     "phone-script-source-lock": 1,
     "phone-script-actions": 1,
     "phone-script-causality": 1,

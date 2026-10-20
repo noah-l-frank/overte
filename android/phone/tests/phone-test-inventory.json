@@ -61,7 +61,9 @@
       "android/phone/apps/phoneInterface/src/test/java/org/overte/phone/E2eFlightControlActivityTest.java"
     ],
     "android/phone/apps/phoneInterface/src/debug/java/org/overte/phone/E2eLauncherActivity.java": [
-      "android/phone/tests/phone-host-regression-test.sh"
+      "android/phone/tests/phone-host-regression-test.sh",
+      "android/phone/apps/phoneInterface/src/test/java/org/overte/phone/E2eAccountOriginTest.java",
+      "android/phone/tests/device/test_account_fixture_launch.py"
     ],
     "android/phone/apps/phoneInterface/src/main/java/org/overte/phone/PermissionsActivity.java": [
       "android/phone/apps/phoneInterface/src/test/java/org/overte/phone/PermissionsActivityRobolectricTest.java"

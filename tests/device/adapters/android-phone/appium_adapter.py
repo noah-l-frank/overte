@@ -71,6 +71,7 @@ from overte_phone_script_observation import PhoneScriptObservation
 from overte_phone_script_actions import PhoneScriptActions
 from overte_phone_script_feature import PhoneScriptFeature, ScriptFixtureReader
 from feature_journeys.witness import Client as FeatureFixtureClient
+from overte_phone_account_fixture import origin as account_fixture_origin, launch_command as account_fixture_launch
 
 SCRIPT_FEATURE_OPERATIONS={'feature.scripts.'+kind for kind in ('act','observe','cleanup')}
 
@@ -443,6 +444,32 @@ class PhoneAppiumAdapter(AppiumAdapter):
             client=FeatureFixtureClient(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''),
                 os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN',''))
         return PhoneScriptFeature(self,selector,ScriptFixtureReader(client,run),role=role)
+
+    def account_fixture_configuration(self,target):
+        enabled=os.environ.get('OVERTE_PHONE_ACCOUNT_FIXTURE','0')
+        require(enabled in ('0','1'),'PHONE_ACCOUNT_FIXTURE_CONFIGURATION_INVALID')
+        if enabled=='0':return None
+        require(self.candidate is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target) and target.get('scene',{}).get('kind')=='android-debug-e2e'
+                and target.get('capabilities',{}).get('appium:autoLaunch') is False,
+                'PHONE_ACCOUNT_FIXTURE_REQUIRES_BOUND_SHELL_LAUNCHER')
+        return account_fixture_origin(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''))
+
+    def start_android_e2e(self,client,session,target):
+        configured=self.account_fixture_configuration(target)
+        if configured is None:return super().start_android_e2e(client,session,target)
+        selector=target.get('selector')
+        require(type(selector) is str and self.target(selector)==target,'PHONE_ACCOUNT_FIXTURE_TARGET_CHANGED')
+        with self.existing_input_session(selector):
+            _client,current,_state=self.existing_session(selector)
+            require(current==session,'PHONE_ACCOUNT_FIXTURE_SDK_CHANGED')
+            self.installed_identity(selector)
+            package=target['appId'];device=target['capabilities']['appium:udid']
+            # One ordinary shell-only debug Activity launch. Its receipt proves
+            # no endpoint, credentials, TLS, login or new-process function.
+            PhoneAdapter(self.candidate).adb.execute(['shell',account_fixture_launch(package,
+                os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''))],target=device,timeout=5)
+            self.installed_identity(selector)
 
     def script_observation_store(self, selector, role, *, stage=0):
         require(role in ('primary','actor'),'PHONE_SCRIPT_OBSERVATION_ROLE_REQUIRED')
@@ -1006,6 +1033,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def invoke(self, selector, operation, values):
         PhoneAdapter.require_bound_operation(self, operation, values)
+        if operation in ('app.launch','scene.load'):
+            self.account_fixture_configuration(self.target(selector))
         if operation in SCRIPT_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)
