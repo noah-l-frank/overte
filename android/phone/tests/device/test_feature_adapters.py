@@ -74,6 +74,7 @@ class Native:
         self.sequence = 0
         self.clock = 0.0
         self.identity = '31:14'
+        self.epoch_ms = 10000
         self.ignore_stop = False
         self.ignore_delete = False
         self.mutation = None
@@ -188,7 +189,7 @@ class Native:
             raise AssertionError('Unexpected native file')
         self.sequence += 1
         value = dict(schemaVersion=1, requestId=self.request['commandId'], instance='f' * 32, complete=True,
-            sampleSequence=self.sequence, sampleEpochMs=10000, scripts=self.rows)
+            sampleSequence=self.sequence, sampleEpochMs=self.epoch_ms, scripts=self.rows)
         if self.request['includeAvatarEntities']:
             value.update(entitiesComplete=True, avatarEntities=self.entities)
         return json.dumps(value)
@@ -683,6 +684,66 @@ class FeatureAdapterTests(unittest.TestCase):
             monotonic=lambda: source.clock, sleep=source.sleep))
         boundary.start(); self.addCleanup(boundary.stop)
         return source, self.adapter._script_files(SELECTOR)
+
+    def file_manager_boundaries(self):
+        storage = ScriptFilesBoundary(self.fixture.root)
+        file_ui = FileNativeBoundary(storage.root)
+        self.native.epoch_ms = 20000
+        def send(client, session, target, command, process):
+            self.assertEqual(PACKAGE, target['appId']); self.assertEqual('31:14', process['identity'])
+            if command['action'] == 'feature-script-files': storage.send(command)
+            elif command['action'] == 'phone-script-file-ui': file_ui.send(command)
+            else: self.native.command(client, session, target, command, process)
+        def read(device, package, path, **options):
+            self.assertEqual(PACKAGE, package); self.assertEqual({'attempts': 1}, options)
+            if path == 'files/overte-e2e/feature-script-files.json': return storage.read()
+            if path == 'files/overte-e2e/phone-script-file-ui.json': return json.dumps(file_ui.value)
+            return self.native.read(device, package, path, **options)
+        original = file_ui.ui.activate
+        def input(identifier, **kwargs):
+            if identifier == 'scripts.from-file':
+                self.assertTrue(self.adapter.script_store(SELECTOR).read()['pickerOwned'])
+                file_ui.ui.chosen = []
+            if identifier == 'script-file.confirm':
+                self.assertTrue(self.adapter.script_store(SELECTOR).read()['loadAttempted'])
+            original(identifier, **kwargs)
+            if identifier == 'script-file.confirm' and file_ui.ui.accepted:
+                actual = file_ui.ui.accepted[-1]; self.native.rows.append(dict(url=actual, path=actual))
+        file_ui.ui.activate = input
+        for boundary in (
+            patch.object(self.adapter, 'write_android_client_command', side_effect=send),
+            patch.object(self.fixture.adb, 'read_debug_app_file', side_effect=read),
+            patch.object(self.fixture.adb, 'epoch_milliseconds', return_value=20000),
+            patch.object(appium, 'NativeScriptFiles', partial(NativeScriptFiles,
+                monotonic=lambda: storage.clock, sleep=storage.sleep)),
+            patch.object(appium, 'PhoneScriptFileIO', partial(appium.PhoneScriptFileIO,
+                monotonic=lambda: file_ui.ui.clock, sleep=file_ui.ui.sleep)),
+            patch.object(appium, 'TokenScriptFilePicker', partial(TokenScriptFilePicker,
+                monotonic=lambda: file_ui.ui.clock, sleep=file_ui.ui.sleep))):
+            boundary.start(); self.addCleanup(boundary.stop)
+        files = self.adapter._script_files(SELECTOR); files.stage('a' * 32)
+        return storage, file_ui, files, self.adapter._script_file_manager(SELECTOR)
+
+    def test_phone_file_manager_journals_normal_selection_and_separate_file_cleanup(self):
+        storage, file_ui, files, manager = self.file_manager_boundaries()
+        manager.open(); manager.file_picker_open(); manager.file_picker_cancel()
+        manager = self.adapter._script_file_manager(SELECTOR)
+        manager.file_picker_open(); manager.file_picker_choose('script-bundle/main.js')
+        actual = file_ui.ui.accepted[-1]
+        self.assertEqual((storage.root / 'script-bundle/main.js').as_uri(), actual)
+        manager.stop_source(actual); manager.close()
+        self.assertIsNone(self.adapter.script_store(SELECTOR).read())
+        self.assertTrue(storage.root.exists()); files.release(); self.assertFalse(storage.root.exists())
+        self.assertFalse(any(cap.startswith('feature.') for cap in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_file_manager_replaced_candidate_blocks_input_and_preserves_original_intents(self):
+        _storage, file_ui, files, manager = self.file_manager_boundaries()
+        manager.open(); manager.file_picker_open()
+        before = len(file_ui.commands); self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): manager.file_picker_choose('script.js')
+        self.assertEqual(before, len(file_ui.commands))
+        self.assertTrue(self.adapter.script_store(SELECTOR).read()['pickerOwned'])
+        self.assertIsNotNone(files.store.read())
 
     def test_phone_native_effect_counters_are_actual_rows_and_process_loss_blocks_new_reads(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')

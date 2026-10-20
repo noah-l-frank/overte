@@ -1,5 +1,17 @@
 # Phone adapter implementation, local source only
 
+Current file-bundle input packet: `_script_file_manager(selector)` now composes
+the [existing manager's file ownership scope](../../native/SCRIPT_FILE_OWNERSHIP.md)
+with original staged bytes, actual normal Phone manager/file-picker controls and
+the existing private journal. Its UI and service reads recheck installed
+candidate/process/session continuity. All **107** feature-adapter host cases
+pass, including ordinary cancel/select/stop, separately observed file removal
+and changed installed bytes blocking another input while intent survives.
+The native UI/storage boundaries are synthetic. Full Scripts coordination,
+independent effect/peer cleanup and verified restart adoption remain missing;
+general cleanup still refuses unresolved file intent. No full feature capability
+or device qualification is enabled.
+
 Current Scripts packet: the existing candidate/APK/PID-start-bound execution
 factory transports [original load history v1](../../native/SCRIPT_LOAD_HISTORY.md)
 without changing the command schema or original callback epochs. A new wrapper

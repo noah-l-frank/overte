@@ -324,6 +324,25 @@ class PhoneAppiumAdapter(AppiumAdapter):
         check()
         return OwnedScriptFiles(files, self.script_files_store(selector), context)
 
+    def _script_file_manager(self, selector):
+        native_ui, observe, context, check, installed = self.normal_feature_runtime(selector)
+        target = self.target(selector)
+        def guard():
+            check()
+            require(self.installed_identity(selector) == installed, 'PHONE_SCRIPT_FILE_MANAGER_INSTALL_CHANGED')
+        native_ui.check_continuity = guard
+        def original(after):
+            guard(); value = observe(after); guard(); return value
+        guard()
+        files = self._script_files(selector)
+        directory = files.verify()
+        picker = self._script_file_picker(selector, directory)
+        result = NormalScriptManager(PhoneScriptUI(native_ui, target['appId']), original,
+            self.script_store(selector), context, source_kind='script-file-bundle',
+            file_owner=files, file_picker=picker)
+        result.sample(); guard()
+        return result  # Input/cleanup ownership only; no full Scripts capability.
+
     def _script_file_picker(self, selector, directory):
         # Internal primitive only. The full area still needs staged-byte
         # ownership, persistent dialog/source cleanup and execution/effect joins.
