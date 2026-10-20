@@ -42,6 +42,7 @@ REQUIRED = {
     "native-script-load-history": 1,
     "native-process-presence": 1,
     "normal-script-file-ownership": 1,
+    "script-restart-handoff": 1,
     "emote-source-profile": 1,
     "native-script-file-controls": 1,
     "native-script-fixture-storage": 1,
