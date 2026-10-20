@@ -1,5 +1,16 @@
 # iOS feature adapter implementation status
 
+Current restart-source packet: `_process_presence(selector)` uses the
+[original kernel presence source](../../native/PROCESS_PRESENCE.md), raw guarded
+native scope, exact HTTP/AFC paths and separate native clocks. All **400**
+no-build iOS host cases pass, including five new factory cases for original
+ESRCH/unknown results, stale/missing/foreign observations, late final clock,
+session/target/process changes and unbound entrypoint refusal before I/O. A
+Scripts profile/editor is unnecessary. Native/kernel/OS boundaries are synthetic;
+iOS policy may yield unknown, which cannot qualify process death. Native source
+is uncompiled, the physical source plugin is uninstalled/inactive and devices
+remain untested. Full restart ownership and complete feature adapters remain open.
+
 Current file-bundle input packet: `_script_file_manager(selector)` composes the
 [existing file ownership scope](../../native/SCRIPT_FILE_OWNERSHIP.md) with
 original HTTP/AFC file bytes, independent native clocks and normal UIKit/Qt

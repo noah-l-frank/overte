@@ -175,6 +175,9 @@ class IOSNativeMixin:
             return self.native_process(client,session,target)
         return FeatureObservation(client,session,target,process)
 
+    def _process_presence(self, selector):
+        return self._native_source_scope(selector).process_presence()
+
     def _navigation_replies(self,selector):
         return self._native_source_scope(selector).navigation_replies()
 

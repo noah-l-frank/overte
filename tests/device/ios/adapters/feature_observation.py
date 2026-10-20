@@ -35,6 +35,7 @@ from adapters.native_chat_view import NativeChatView, FILE as CHAT_VIEW_FILE, co
 from adapters.native_web_dom import NativeWebDOMObservation, FILE as WEB_DOM_FILE, command as web_dom_command
 from adapters.pending_commit_owner import NativePendingCommitOwner, FILE as PENDING_OWNER_FILE, command as pending_owner_command
 from adapters.native_navigation_replies import NativeNavigationReplies, FILE as NAVIGATION_REPLIES_FILE, command as navigation_replies_command
+from adapters.native_process_presence import NativeProcessPresence, FILE as PROCESS_PRESENCE_FILE, LIMIT as PROCESS_PRESENCE_LIMIT, command as process_presence_command
 from ios.adapters.bundle_observation import NativeBundleObservation, FILE as BUNDLE_FILE, command as bundle_command
 from adapters.private_login_input import command as private_input_command
 from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE,
@@ -114,6 +115,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-web-dom-observe':web_dom_command(command,ios=True)
         elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='feature-navigation-replies':navigation_replies_command(command,ios=True)
+        elif command.get('action')=='feature-process-presence':process_presence_command(command,ios=True)
         elif command.get('action')=='ios-bundle-observe':bundle_command(command)
         elif command.get('action') == 'feature-account-probe':account_probe_command(command,ios=True)
         elif command.get('action') == 'feature-account-origin':account_origin_command(command,ios=True)
@@ -191,6 +193,12 @@ class FeatureObservation:
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+BUNDLE_FILE
         return NativeBundleObservation(self.send,lambda:self.original(remote=remote,limit=NATIVE_FEATURE_LIMIT),
             self.guard,self.process['pid'],lambda:self.native_observer().read(0),monotonic=self.monotonic,sleep=self.sleep)
+
+    def process_presence(self):
+        self.guard(); remote = self.remote.rsplit('/', 1)[0] + '/' + PROCESS_PRESENCE_FILE
+        def clock(): return self.native_observer().read(0)['capturedEpochMs']
+        return NativeProcessPresence(self.send, lambda: self.original(remote=remote, limit=PROCESS_PRESENCE_LIMIT),
+            clock, self.guard, self.process['pid'], ios=True, monotonic=self.monotonic, sleep=self.sleep)
 
     def navigation_replies(self):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+NAVIGATION_REPLIES_FILE

@@ -164,6 +164,9 @@ def create_adapter(args, base_class):
         def _navigation_replies(self,*args,**kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
+        def _process_presence(self,*args,**kwargs):
+            raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
+
         def _pending_owner(self,*args,**kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
