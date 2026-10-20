@@ -55,7 +55,8 @@ class BrowserResourcesTests(unittest.TestCase):
 
     def test_original_page_and_real_echo_scripts_replace_dom_copy_stubs(self):
         status,headers,body=self.fetch(self.path+'reference.html')
-        self.assertEqual(200,status);self.assertIn(b'id="text"',body);self.assertIn(b'id="bridge"',body)
+        self.assertEqual(200,status);self.assertIn(('<meta name="overte-fixture-owner" content="'+self.run+'">').encode(),body)
+        self.assertIn(b'id="text"',body);self.assertIn(b'id="bridge"',body)
         self.assertIn(b'href="page-b.html"',body);self.assertIn(b'href="recovery.html"',body)
         self.assertNotIn(b'owned-text',body);self.assertNotIn(b'{text:v}',body)
         self.assertIn(headers['X-Overte-Fixture-Response'].encode(),body)
@@ -142,6 +143,7 @@ class BrowserResourcesTests(unittest.TestCase):
         encoded=inline_data_url(self.run,TICKET,url)
         self.assertTrue(encoded.startswith('data:text/html;charset=utf-8;base64,'))
         self.assertEqual(raw,base64.b64decode(encoded.split(',',1)[1],validate=True))
+        self.assertIn(('<meta name="overte-fixture-owner" content="'+self.run+'">').encode(),raw)
         self.assertIn((ROOT/'reference.js').read_bytes(),raw)
         self.assertIn(base64.b64encode(marker_bytes(self.run,TICKET)),raw)
         self.assertNotIn(base64.b64encode(marker_bytes(self.run,'b'*32)),raw)
