@@ -1,6 +1,33 @@
+# Version 16: mobile Script restart absence and explicit normal reimport
+
+Current readers/producers use v16 exclusively; v15 inventory/matrix are retained
+as historical source assumptions, not product acceptance. There is no qualified
+complete v15 product producer to migrate. Native/public foundation versions and
+`/feature-fixture/v1` transport remain independently versioned and unchanged.
+
+The actual mobile startup branches deliberately load system defaults rather
+than the saved user-source list. The v15 Script journey inherited execution and
+an open manager across restart; that assumption is invalid on the three reviewed
+mobile product bases. Version 16 requires stopped owned execution/companions/
+effects, closed manager/picker and cleared error after actual process restart.
+It holds this state for three seconds before explicit normal reopen, picker
+cancel and later ordinary reimport of the controlled bundle. It has nineteen
+checkpoints; all six Script state fields now require independent actor facts.
+Missing-URL failure also uses a three-second stable window and actual load/error
+observations. Read only v16; never accept a v15 three-field witness as complete.
+
+The adapter must preserve original staged files/ownership, prove actual old-PID
+exit and new candidate/process/native source, and bind cleanup only after fresh
+absence/original-byte observations. Restart cannot load/stop a script, recreate
+inputs or hide autoload by forced Stop. The later normal picker selection is the
+only reimport. See [the exact source and adapter contract](SCRIPTS_SOURCE.md).
+Host simulations and original entry-point JavaScript checks qualify test logic
+only. Native C++ remains uncompiled, full area adapters remain missing and all
+clients remain untested on devices.
+
 # Version 15: actual Places page/search state and named lookup HTTP source
 
-Current producers/readers use v15 exclusively; v14 inventory/matrix remain
+Version 15 producers/readers used v15 exclusively; its predecessor inventory/matrix remained
 historical. There is no complete qualified v14 producer to migrate. Navigation
 now has fifteen checkpoints and eight independent state fields. A new empty
 query already displays the owned directory row. An unmatched query must remove

@@ -6,6 +6,10 @@ them. The original common packet changed only its own test worktree. The later
 authorized continuation adds E2E-only instrumentation to native sources; other
 sessions, frozen builds, global workflows and acceptance evidence stay unchanged.
 
+Scripts v16 corrects mobile default-only startup: restart must stop owned execution,
+then normal reopen/cancel/reimport must establish actual new execution. All six
+Script fields need independent facts. See [the source contract](feature_journeys/SCRIPTS_SOURCE.md).
+
 Navigation v15 corrects actual empty-query results, cancelled bookmark edits,
 page recreation and a real named-lookup 404/modal. Its controlled HTTP provider
 and original receipt reader are mandatory. No remaining shared source correction
@@ -51,7 +55,7 @@ to implement the new complete area contract.
 | audio | `audio-controls`, `permission-recovery`, `sound-playback`, `voice-roundtrip` | Automatic memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation; OS permissions remain in the composed foundation. | audio, file, peer, silence | Logic present; adapter missing; device untested |
 | chat | `text-input` | Unicode send/receive, cancelled draft, actual Local/Domain histories, distant Local rejection, history reopen, no-mixer local echo and explicit retyped resend. | peer | Logic present; adapter missing; device untested |
 | snapshots | `snapshot-output-parity` | Actual pending-cancel history; Photos Save denial with successful private capture; measured Save backend, original Save/share/upload bytes, system-sheet cancellation and resume. | file, image, peer | Logic present; adapter missing; device untested |
-| scripts | `scripts-management`, `scripted-entity` | File-bundle picker cancel/accept, actual relative companion execution, application restart, stop and URL failure; separate existing entity-script consent. | peer | Logic present; adapter missing; device untested |
+| scripts | `scripts-management`, `scripted-entity` | File-bundle execution; actual mobile restart/three-second absence; separate normal reopen/cancel/reimport; current native/UI URL failure and complete cleanup. Separate existing entity-script consent remains. | peer | Logic present; adapter missing; device untested |
 | assets | `asset-load` | glTF/OBJ bundle paths and folder rename, real FBX bake disable/enable, Add to World, disabled Delete, vanished selected file and picker cancellation. | changed, file, image, peer | Logic present; adapter missing; device untested |
 | lifecycle-input | `lifecycle-under-load`, `tablet-input-isolation`, `text-input` | Distinct editor contexts/drafts, actual page Back/resume, original pending stale input rejection, held world input, stationary release and immutable counters. | changed, image, peer | Logic present; adapter missing; device untested |
 | tablet-web | `tablet-web-video`, `tablet` | Same browser flows plus ordinary inline app routing and input ownership. | changed, image, peer | Logic present; adapter missing; device untested |
@@ -63,7 +67,7 @@ also requires changed feature-subject pixels; `audio`/`silence` inspect PCM;
 `file` inspects original bytes; `peer` reads the independent actor journal.
 Existing modules retain their additional image, PCM, process and file checks.
 
-The [machine matrix](feature_journeys/coverage.v15.json), [journey guide](FEATURE_JOURNEYS.md)
+The [machine matrix](feature_journeys/coverage.v16.json), [journey guide](FEATURE_JOURNEYS.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md) record the exact contracts.
 All rows currently depend on real product transports and independently measuring
 target observers. Adapter implementation is now in progress on the separate local platform

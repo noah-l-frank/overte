@@ -367,6 +367,7 @@ class Journey:
                 # full observation window; an early empty sample is insufficient.
                 negative = (any(word in step['verb'] for word in ('cancel', 'denied', 'reject', 'stale', 'foreign', 'stop', 'delete', 'discard'))
                     or self.area=='lifecycle-input' and step['verb'] in {'back','release-input','close-editor'}
+                    or self.area=='scripts' and step['verb'] in {'restart-app','load-url'}
                     or self.area=='world-navigation' and step['verb'] in {'directory-search','navigate-missing','dismiss-error','close'}
                     or self.area=='assets' and step['verb'] in {'inspect-baking-unavailable','upload-picker-accept-unavailable','retire-staged-primary'}
                     or self.area=='chat' and step['verb'] in {'close','peer-send-distant','network-remove-mixer','network-restore-mixer','await-no-replay'}
