@@ -29,6 +29,7 @@ from self_tests.test_native_script_files import Boundary as FilesBoundary
 from adapters.native_feature_observation import NativeFeatureObservation
 from self_tests.test_native_web_dom import Boundary as WebDOMBoundary, RUN as WEB_RUN, URL as WEB_URL
 from self_tests.test_pending_commit_owner import Boundary as PendingOwnerBoundary, RUN as INPUT_RUN
+from self_tests.test_native_navigation_replies import Boundary as NavigationReplyBoundary, RUN as LOOKUP_RUN
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_storage import receipt_file
 from self_tests.test_world_render_evidence import Boundary as WorldBoundary
@@ -229,6 +230,46 @@ class PicoNormalScriptsTests(unittest.TestCase):
         source,_native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);source.fault='keep-files'
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertTrue(source.path.exists());self.assertIsNotNone(self.instance._account_origin_store(self.native.target).read())
+
+    def navigation_replies(self):
+        source=NavigationReplyBoundary();epoch=self.native.epoch_milliseconds(self.native.target)
+        source.epoch=lambda:epoch+round(source.clock*1000)
+        original_write=self.native.write_debug_app_file;original_read=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            request=json.loads(raw)
+            if request['action']!='feature-navigation-replies':return original_write(target,package,path,raw)
+            self.assertEqual('org.overte.pico',package);self.assertEqual(adapter.ANDROID_CONTROL_COMMAND,path);source.send(request)
+        def read(target,package,path,**options):
+            if path.endswith('/feature-navigation-replies.json'):
+                self.assertEqual({'attempts':1},options);return source.original()
+            return original_read(target,package,path,**options)
+        active=type(self.instance)._navigation_replies.__wrapped__.__globals__
+        for boundary in (patch.object(self.native,'write_debug_app_file',side_effect=write),
+            patch.object(self.native,'read_debug_app_file',side_effect=read),
+            patch.object(self.native,'epoch_milliseconds',side_effect=lambda _target:source.epoch()),
+            patch.dict(active,NativeFeatureObservation=partial(NativeFeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.instance._navigation_replies(self.native.target)
+
+    def test_pico_navigation_replies_retain_only_original_current_callback_receipt(self):
+        source,reader=self.navigation_replies();self.assertEqual([],reader.read(LOOKUP_RUN)['events'])
+        source.error();value=source.join(reader,barrier=source.epoch())
+        self.assertEqual(source.events[0],value['native']);self.assertEqual([],self.qt.inputs)
+        self.assertFalse(any(c.startswith('feature.') for c in self.instance.capabilities(self.native.target)))
+
+    def test_pico_navigation_replies_ignored_source_retired_scope_and_foreign_pid_cannot_pass(self):
+        source,reader=self.navigation_replies();source.ignored=True
+        with self.assertRaises(RuntimeError):reader.read(LOOKUP_RUN)
+        self.assertEqual(1,len(source.commands));source.ignored=False;source.error();source.generation+=1
+        with self.assertRaises(RuntimeError):source.join(reader,barrier=source.epoch())
+        source.edit=lambda value:value.update(processId=124)
+        with self.assertRaises(RuntimeError):reader.read(LOOKUP_RUN)
+
+    def test_pico_navigation_replies_changed_candidate_stops_before_another_command(self):
+        source,reader=self.navigation_replies();reader.read(LOOKUP_RUN);before=len(source.commands);self.native.digest='f'*64
+        with self.assertRaises(RuntimeError):reader.read(LOOKUP_RUN)
+        self.assertEqual(before,len(source.commands))
 
     def pending_owner(self,intent=True):
         source=PendingOwnerBoundary();epoch=self.native.epoch_milliseconds(self.native.target)
