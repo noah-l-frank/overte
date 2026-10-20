@@ -1,4 +1,4 @@
-"""Strict v14 action/read boundary for feature additions to the existing harness."""
+"""Strict v15 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
@@ -118,6 +118,11 @@ def state(area, value, run=None):
                 allowed = {item for row in checkpoints for item in row[key]}
                 if any(item not in allowed for item in value[key]):
                     raise ValueError('Product list contains private or unowned values')
+    if area == 'world-navigation':
+        if not value['panel'] and (value['searchQuery'] or value['searchResults']):
+            raise ValueError('Closed Places cannot borrow a retired page query or model')
+        if value['bookmark'] != bool(value['bookmarkName']):
+            raise ValueError('Bookmark presence disagrees with its actual owned name')
     if area == 'lifecycle-input':
         exact(value['positionDelta'],{'x','y','z'},'actual world position delta')
         delta=[number(value['positionDelta'][key],-1_000_000,1_000_000) for key in ('x','y','z')]

@@ -1,6 +1,29 @@
+# Version 15: actual Places page/search state and named lookup HTTP source
+
+Current producers/readers use v15 exclusively; v14 inventory/matrix remain
+historical. There is no complete qualified v14 producer to migrate. Navigation
+now has fifteen checkpoints and eight independent state fields. A new empty
+query already displays the owned directory row. An unmatched query must remove
+it before the matching query restores it. Cancelled bookmark add/rename do not
+persist. Normal select/arrival/close and bookmark-visit/arrival/close are explicit
+bounded composites, so no stale model/query is inherited after closure/restart.
+The renamed bookmark persists; normal reopen starts a genuinely new Places page.
+
+The failed lookup is the owned missing hifi name, not a missing serverless URL.
+The common checkpoint requires a current-ticket original completed HTTP 404
+receipt, native current named-request failure/modal and unchanged B arrival.
+Native Go To can hide or remain after submission; normal error dismissal also
+closes any remaining owned Go To page. The mandatory optional-in-configuration
+provider fails readiness/registration when absent, unhealthy, busy or full.
+Its HTTP input receipts never substitute for current product/peer observations.
+
+See [the exact source, backend and adapter handoff](NAVIGATION_SOURCE.md).
+All full area triples remain absent and devices untested. No native source is
+compiled by this packet. Existing native owner sources remain E2E-only.
+
 # Version 14: actual editor contexts, pending stale input and held-world release
 
-Current producers/readers use v14 exclusively; v13 JSON inventory/matrix remain
+At this historical revision producers/readers used v14 exclusively; v13 JSON inventory/matrix remain
 historical. No qualified complete v13 producer exists. Lifecycle/input now has
 sixteen checkpoints and eleven independently observed fields. Every actual owned
 Create/Chat/Scripts page starts with its own empty field, receives its own

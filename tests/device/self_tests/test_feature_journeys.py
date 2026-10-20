@@ -69,6 +69,7 @@ class Boundary:
         self.emote_final=False
         self.auth_process=1;self.auth_delayed_process=None;self.auth_delayed_held=False;self.auth_delayed_valid=False
         self.web_ready=False;self.web_history=[];self.web_late_at=None
+        self.navigation_responses=[]
 
     def epoch(self):
         return 2_000_000 + getattr(self, 'clock', 0) * 1000
@@ -115,14 +116,26 @@ class Boundary:
                 if self.fault!='web-resume-old-document':s['documentLoads']+=1
             return
         if a == 'world-navigation':
-            if verb in {'open', 'close'}: s['panel'] = verb == 'open'
+            if verb in {'open','close'}:
+                s.update(panel=verb=='open',searchQuery='',searchResults=[self.ctx['destination']] if verb=='open' else [])
+                if self.fault=='navigation-reused-query' and verb=='open':s.update(searchQuery=self.ctx['name'])
+                if verb=='open' and self.fault!='navigation-no-http-directory':self.navigation_response('directory')
             elif verb == 'bookmark-add': s.update(bookmark=True, bookmarkName=data['name'])
+            elif verb == 'bookmark-add-cancel' and self.fault=='navigation-cancel-add-saved':s.update(bookmark=True,bookmarkName=data['name'])
+            elif verb == 'bookmark-rename-cancel' and self.fault=='navigation-cancel-rename-saved':s['bookmarkName']=data['name']
             elif verb == 'bookmark-rename': s['bookmarkName'] = data['name']
-            elif verb == 'directory-search': s['searchResults'] = [self.ctx['destination']]
-            elif verb == 'directory-select': s['location'] = 'B'
-            elif verb == 'navigate-missing': s['error'] = 'not-found'
-            elif verb == 'dismiss-error': s['error'] = 'none'
-            elif verb == 'bookmark-visit': s['location'] = 'A'
+            elif verb == 'directory-search' and self.fault!='navigation-ignored-search':
+                s.update(searchQuery=data['query'],searchResults=[] if data['query']==self.ctx['hidden'] else [self.ctx['destination']])
+            elif verb in {'directory-select','bookmark-visit'}:
+                s.update(location='B' if verb=='directory-select' else 'A',panel=False,searchQuery='',searchResults=[])
+                if self.fault=='navigation-ack-without-arrival':s['location']='A' if verb=='directory-select' else 'B'
+                if self.fault=='navigation-old-model':s['searchResults']=[self.ctx['destination']]
+            elif verb == 'navigate-missing':
+                s.update(error='none' if self.fault=='navigation-no-native-error' else 'not-found',addressDialog=True)
+                if self.fault=='navigation-missing-changes-location':s['location']='A'
+                if self.fault!='navigation-no-http-404':self.navigation_response('missing-name')
+            elif verb == 'dismiss-error':
+                s.update(error='none',addressDialog=self.fault=='navigation-unclosed-address-dialog')
             elif verb == 'bookmark-delete': s.update(bookmark=False, bookmarkName='')
         elif a == 'authentication':
             if verb == 'login-open': s['dialog'] = True
@@ -536,14 +549,62 @@ class Boundary:
         if self.fault == 'process-replaced' and phase == 'observed' and self.verb != 'baseline':
             raise AssertionError('Process replaced during normal observation')
 
+    def navigation_response(self,kind):
+        # An independent boundary reducer, never copied from a checkpoint.
+        self.navigation_responses.append(dict(sequence=len(self.navigation_responses)+1,responseId=secrets.token_hex(16),
+            ticket=TICKET if self.fault=='navigation-foreign-http-ticket' and kind=='missing-name' else self.ticket,
+            kind=kind,status=200 if kind=='directory' else 404,bytes=100,sha256='a'*64,
+            completedEpochMs=int(self.epoch())-(2000 if self.fault=='navigation-old-http-404' and kind=='missing-name' else 0)))
+
+    def navigation_source(self):
+        return dict(navigationProviderVersion=1,instance='f'*32,runId=RUN,inputs=dict(protocolSignature='AAAAAAAAAAAAAAAAAAAAAA==',
+            sourceRevision='a'*40,sceneUrl='http://controlled.test/scene.json'),capturedEpochMs=int(self.epoch()),active=True,
+            ticket=self.ticket,responses=copy.deepcopy(self.navigation_responses),failedResponses=0)
+
     def execute(self):
         return Journey(self.area, RUN, f'http://controlled.test/feature-fixture/v1/runs/{RUN}/',
             invoke=self.invoke, witness=self.witness, activate=self.activate,
             read_artifact=self.files.__getitem__, image_policy=POLICY, continuity=self.continuity,
-            monotonic=lambda:self.clock, epoch_ms=self.epoch, sleep=self.sleep, report=self.reports.append).execute()
+            monotonic=lambda:self.clock, epoch_ms=self.epoch, sleep=self.sleep, report=self.reports.append, navigation_source=self.navigation_source).execute()
 
 
 class FeatureJourneys(unittest.TestCase):
+    def test_navigation_actual_empty_query_filtering_cancellation_and_reopen_have_independent_reads(self):
+        boundary=Boundary('world-navigation');boundary.execute();samples=boundary.reports[0]['samples']
+        query=[s['state'] for s in samples if s['phase'].endswith('-directory-search')]
+        self.assertTrue(any(s['searchQuery']==context(RUN)['hidden'] and not s['searchResults'] for s in query))
+        self.assertTrue(any(s['searchQuery']==context(RUN)['name'] and s['searchResults']==[context(RUN)['destination']] for s in query))
+        opened=[s['state'] for s in samples if s['phase'].endswith('-open')]
+        self.assertTrue(all(s['searchQuery']=='' and s['searchResults']==[context(RUN)['destination']] for s in opened))
+        failed=[s for s in samples if s['phase'].endswith('-navigate-missing')]
+        self.assertTrue(all(s['state']['error']=='not-found' and s['navigationHttp'][0]['status']==404 for s in failed))
+        self.assertEqual(15,len(SCENARIOS['world-navigation']['steps']))
+
+    def test_navigation_ignored_effects_cancelled_saves_and_retired_pages_cannot_pass(self):
+        for fault in ('navigation-ignored-search','navigation-cancel-add-saved','navigation-cancel-rename-saved',
+                      'navigation-reused-query','navigation-ack-without-arrival','navigation-old-model',
+                      'navigation-no-native-error','navigation-missing-changes-location','navigation-unclosed-address-dialog'):
+            with self.subTest(fault=fault),self.assertRaises((AssertionError,ValueError)):
+                Boundary('world-navigation',fault).execute()
+
+    def test_navigation_requires_actual_owned_directory_and_current_named_404_receipts(self):
+        for fault in ('navigation-no-http-directory','navigation-no-http-404','navigation-foreign-http-ticket','navigation-old-http-404'):
+            with self.subTest(fault=fault),self.assertRaises((AssertionError,ValueError)):
+                Boundary('world-navigation',fault).execute()
+        boundary=Boundary('world-navigation');boundary.navigation_source=None
+        with self.assertRaisesRegex(ValueError,'navigation HTTP source'):boundary.execute()
+        self.assertEqual([],boundary.actions)
+
+    def test_navigation_final_http_source_read_cannot_finish_after_the_existing_deadline(self):
+        boundary=Boundary('world-navigation');original=boundary.navigation_source;reads=[0]
+        def late():
+            if boundary.verb=='open':
+                reads[0]+=1
+                if reads[0]==3:boundary.clock+=21
+            return original()
+        boundary.navigation_source=late
+        with self.assertRaisesRegex(AssertionError,'checkpoint deadline'):boundary.execute()
+
     def test_avatar_actual_unavailable_and_loaded_fallback_both_recover(self):
         for fault in ('', 'avatar-native-fallback'):
             with self.subTest(fault=fault):
@@ -1385,9 +1446,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v14.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v15.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v14.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v15.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():

@@ -6,12 +6,13 @@ them. The original common packet changed only its own test worktree. The later
 authorized continuation adds E2E-only instrumentation to native sources; other
 sessions, frozen builds, global workflows and acceptance evidence stay unchanged.
 
-The current v14 matrix still flags Navigation source correction. Lifecycle v14
-corrects actual editor/draft/Back/context/input-history semantics; its original
-native pending-input and complete platform input routes remain missing. Assets
-v13 corrects actual bundle/bake/permission/picker behavior. Those draft assumptions must be resolved before
-composing their full adapters. Avatar v12 now distinguishes actual loaded
-geometry from the advertised URL and proves normal bookmark recovery.
+Navigation v15 corrects actual empty-query results, cancelled bookmark edits,
+page recreation and a real named-lookup 404/modal. Its controlled HTTP provider
+and original receipt reader are mandatory. No remaining shared source correction
+is flagged in the current matrix. Lifecycle v14, Assets v13 and Avatar v12
+previously corrected their actual original-source semantics. The native retained
+input owner/private channel is now registered in all three separate platform
+branches; complete Lifecycle joins remain missing.
 
 Every row means **test logic exists · adapter missing · untested on devices**.
 These are implementation statuses, not complete product-feature acceptance.
@@ -40,7 +41,7 @@ to implement the new complete area contract.
 
 | Area | Existing common modules retained | Added shared user flows | Required additional evidence | Status |
 | --- | --- | --- | --- | --- |
-| world-navigation | `domain-enter`, `domain-roundtrip`, `places-navigation`, `look`, `move`, `input-neutral`, `collision`, `jump`, `fly`, `scene-reload` | Bookmark CRUD and restart durability; directory/search, failed navigation, recovery. | changed, image, peer | Logic present; adapter missing; device untested |
+| world-navigation | `domain-enter`, `domain-roundtrip`, `places-navigation`, `look`, `move`, `input-neutral`, `collision`, `jump`, `fly`, `scene-reload` | Cancelled bookmark add/rename, CRUD/restart durability, actual empty/unmatched/owned query models, recreated pages and original named-404/native-modal recovery. | changed, image, peer | Logic present; adapter missing; device untested |
 | authentication | No prior feature journey | Invalid login; close/reopen a pending view; real restart before valid old-grant release; successful login/restart and native logout; separate fixture revocation. | peer | Logic present; adapter missing; device untested |
 | avatar-people | `multi-user` | Actual loaded/requested avatar, Model wearable, native load failure and bookmark recovery; mutual contact consent/cancel/reject/removal. | changed, image, peer | Logic present; adapter missing; device untested |
 | create | `create-management`, `entity-sync`, `world-interaction` | Model URL/texture/voxel creation/edit, real entity-JSON picker cancellation/import, exact-slot original export and rez denial/retry. | changed, file, image, peer | Logic present; adapter missing; device untested |
@@ -62,7 +63,7 @@ also requires changed feature-subject pixels; `audio`/`silence` inspect PCM;
 `file` inspects original bytes; `peer` reads the independent actor journal.
 Existing modules retain their additional image, PCM, process and file checks.
 
-The [machine matrix](feature_journeys/coverage.v14.json), [journey guide](FEATURE_JOURNEYS.md)
+The [machine matrix](feature_journeys/coverage.v15.json), [journey guide](FEATURE_JOURNEYS.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md) record the exact contracts.
 All rows currently depend on real product transports and independently measuring
 target observers. Adapter implementation is now in progress on the separate local platform
