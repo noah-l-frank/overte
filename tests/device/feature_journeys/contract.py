@@ -1,4 +1,4 @@
-"""Strict v9 action/read boundary for feature additions to the existing harness."""
+"""Strict v10 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
@@ -119,9 +119,14 @@ def state(area, value, run=None):
                 if any(item not in allowed for item in value[key]):
                     raise ValueError('Product list contains private or unowned values')
     if area == 'chat':
-        if value['channel'] not in {'local','domain'}:
-            raise ValueError('Unsupported actual Chat channel')
-        visible = value[value['channel']+'Messages'] if value['open'] else []
+        if value['open']:
+            if value['channel'] not in {'local','domain'}:
+                raise ValueError('Open Chat lacks an actual active channel')
+            visible=value[value['channel']+'Messages']
+        else:
+            if value['channel']!='none' or value['draft']!='' or value['focused'] or value['keyboard']:
+                raise ValueError('Closed Chat retains a fictional active channel/editor/keyboard')
+            visible=[]
         if value['messages'] != visible:
             raise ValueError('Chat visible rows disagree with original channel history')
         if value['keyboard'] and not value['focused']:
