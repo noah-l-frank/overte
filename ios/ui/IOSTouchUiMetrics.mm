@@ -25,6 +25,10 @@
 #include <QtQml>
 #if defined(OVERTE_IOS_E2E_TEST_BUILD)
 #include "IOSNormalUiInput.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../tests/device/native/PendingFieldCommitOwner.h"
+#include <QMouseEvent>
+#endif
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QThread>
@@ -323,10 +327,57 @@ QPointer<TabletProxy>& normalUiTablet() {
     return tablet;
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void installIOSPendingCommitOwner() {
+    using namespace overte::e2e;
+    if (!NSThread.isMainThread || !qApp || QThread::currentThread() != qApp->thread()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || qApp->property(pendingCommitProviderProperty()).isValid()) { return; }
+    const auto roots = [] {
+        PendingFieldCommitOwner::Roots result;
+        if (!NSThread.isMainThread || UIApplication.sharedApplication.applicationState != UIApplicationStateActive
+                || activeWindow() == nil || QGuiApplication::applicationState() != Qt::ApplicationActive) { return result; }
+        auto ui = DependencyManager::isSet<OffscreenUi>() ? DependencyManager::get<OffscreenUi>() : nullptr;
+        auto tablet = normalUiTablet();
+        auto hud = ui ? ui->getRootItem() : nullptr;
+        auto page = tablet && tablet->property("tabletShown").toBool() ? tablet->getIOSTabletRoot() : nullptr;
+        for (auto root : {hud, page}) {
+            if (!root) { continue; }
+            auto window = root->window();
+            if (!window || root->thread() != qApp->thread() || window->thread() != qApp->thread()) { return PendingFieldCommitOwner::Roots(); }
+            result.items.append(root);
+        }
+        result.available = !result.items.isEmpty(); return result;
+    };
+    const auto pointer = [roots](QQuickItem* item, QQuickWindow* window, const QPointF& point) {
+        if (!roots().available || !NormalControlUi::ownsPoint(item, window, point)) { return false; }
+        QPointer<QQuickItem> original = item; QPointer<QQuickWindow> surface = window;
+        QMouseEvent down(QEvent::MouseButtonPress, point, point, point, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        const bool delivered = QCoreApplication::sendEvent(surface, &down);
+        bool released {false};
+        if (surface) {
+            QMouseEvent up(QEvent::MouseButtonRelease, point, point, point, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+            released = QCoreApplication::sendEvent(surface, &up);
+        }
+        return delivered && released && original && surface;
+    };
+    const auto owner = std::make_shared<PendingFieldCommitOwner>(roots, pointer);
+    PendingCommitProvider provider = [owner](const QVariantMap& command) {
+        if (!NSThread.isMainThread || !qApp || QThread::currentThread() != qApp->thread()
+                || !QCoreApplication::arguments().contains("--testScript")) { return QVariantMap(); }
+        return owner->request(command); // The Test entry point additionally requires its private results/lifecycle guards.
+    };
+    qApp->setProperty(pendingCommitProviderProperty(), QVariant::fromValue(provider));
+}
+#endif
+
 QJsonObject refreshNormalUiInput() {
     auto& input = normalUiInput();
     if (!NSThread.isMainThread || !qApp || QThread::currentThread() != qApp->thread()
             || activeWindow() == nil) { return input.observe(nullptr, nullptr, false); }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    installIOSPendingCommitOwner();
+#endif
     auto ui = DependencyManager::isSet<OffscreenUi>() ? DependencyManager::get<OffscreenUi>() : nullptr;
     auto tablet = normalUiTablet();
     return input.observe(ui ? ui->getRootItem() : nullptr, tablet ? tablet->getIOSTabletRoot() : nullptr,

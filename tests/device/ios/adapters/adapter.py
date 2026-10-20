@@ -141,6 +141,10 @@ class IOSNativeMixin:
         manager = self._scripts(selector)
         return TokenGraphicsUI(IOSGraphicsIO(manager.ui.io),intent)
 
+    def _pending_owner(self,selector,intent=None):
+        manager=self._scripts(selector);native=manager.ui.io.native
+        return FeatureObservation(native.client,native.session,native.target,native.observe_process).pending_owner(intent)
+
     def _web_dom(self,selector):
         manager=self._scripts(selector);native=manager.ui.io.native
         return FeatureObservation(native.client,native.session,native.target,native.observe_process).web_dom()

@@ -33,6 +33,7 @@ from adapters.native_account_probe import (NativeAccountProbe, OwnedAccountProbe
 from adapters.native_chat_observation import NativeChatObservation, OwnedChatCapture, FILE as CHAT_FILE, command as chat_command
 from adapters.native_chat_view import NativeChatView, FILE as CHAT_VIEW_FILE, command as chat_view_command
 from adapters.native_web_dom import NativeWebDOMObservation, FILE as WEB_DOM_FILE, command as web_dom_command
+from adapters.pending_commit_owner import NativePendingCommitOwner, FILE as PENDING_OWNER_FILE, command as pending_owner_command
 from ios.adapters.bundle_observation import NativeBundleObservation, FILE as BUNDLE_FILE, command as bundle_command
 from adapters.private_login_input import command as private_input_command
 from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE,
@@ -110,6 +111,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-chat-observe':chat_command(command,ios=True)
         elif command.get('action')=='feature-chat-view-observe':chat_view_command(command,ios=True)
         elif command.get('action')=='feature-web-dom-observe':web_dom_command(command,ios=True)
+        elif command.get('action')=='feature-pending-commit-owner':pending_owner_command(command,ios=True)
         elif command.get('action')=='ios-bundle-observe':bundle_command(command)
         elif command.get('action') == 'feature-account-probe':account_probe_command(command,ios=True)
         elif command.get('action') == 'feature-account-origin':account_origin_command(command,ios=True)
@@ -185,6 +187,12 @@ class FeatureObservation:
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+BUNDLE_FILE
         return NativeBundleObservation(self.send,lambda:self.original(remote=remote,limit=NATIVE_FEATURE_LIMIT),
             self.guard,self.process['pid'],lambda:self.native_observer().read(0),monotonic=self.monotonic,sleep=self.sleep)
+
+    def pending_owner(self,intent=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+PENDING_OWNER_FILE
+        def clock():return self.native_observer().read(0)['capturedEpochMs']
+        return NativePendingCommitOwner(self.send,lambda:self.original(remote=remote,limit=32768),
+            clock,self.guard,self.process['pid'],ios=True,intent=intent,monotonic=self.monotonic,sleep=self.sleep)
 
     def web_dom(self):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+WEB_DOM_FILE
