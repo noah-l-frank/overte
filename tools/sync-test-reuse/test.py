@@ -2481,15 +2481,16 @@ class RequiredCodeQLInvocationTests(unittest.TestCase):
                           "_SCHEDULING_SOURCE_WORKFLOW = '" + "b76ade9fd7a76da21bf2cb2161deae7a262163e8" + "'\n"
                           "_BOOLEAN_RESULTS_WORKFLOW = '3b7a88765b7181a1bc7dd6f48b9b459e590055d3'\n"
                           "_REQUIRED_CONTEXT_RESULTS_WORKFLOW = '7b0703d88d404f38c1b3dec92f77f03586c9144c'\n"
+                          "_UPLOAD_RESULTS_WORKFLOW = 'b29e0558dc69bc9dd6fc6b47bd6024382be4079d'\n"
                           "def result_workflow_blobs():\n"
                           "    return (_RESULTS_WORKFLOW, _RETARGET_RESULTS_WORKFLOW, "
-                          "_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW)\n"
+                          "_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW, _UPLOAD_RESULTS_WORKFLOW)\n"
                           "def result_workflow_sources():\n"
                           "    return ((_RESULTS_WORKFLOW, None), (_RETARGET_RESULTS_WORKFLOW, None), "
                           "(_PINNED_RESULTS_WORKFLOW, None), (_METADATA_RESULTS_WORKFLOW, _METADATA_SOURCE_WORKFLOW), "
                           "(_SCHEDULING_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW), "
                           "(_BOOLEAN_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW), "
-                          "(_REQUIRED_CONTEXT_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))\n")
+                          "(_REQUIRED_CONTEXT_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW), (_UPLOAD_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))\n")
         self.write_policy()
         side = lambda ref, sha: {'ref': ref, 'sha': sha, 'repo': {'full_name': REPOSITORY, 'id': REPOSITORY_ID}}
         self.pr = {'number': 610, 'state': 'open', 'mergeable': True, 'merge_commit_sha': MERGE,
@@ -2677,14 +2678,27 @@ class RequiredCodeQLInvocationTests(unittest.TestCase):
             with self.subTest(malformed=malformed), self.assertRaises(gate.GateError): self.validate()
             current[1] = entry('.github/workflows/pr-metadata-context.yml', 'b76ade9fd7a76da21bf2cb2161deae7a262163e8')
 
+    def test_eighth_upload_generation_requires_its_exact_helper_and_ordinary_workflow(self):
+        current = self.documents[f'repos/{REPOSITORY}/git/trees/{TREE}?recursive=1']['tree']
+        current[:] = [entry('.github/workflows/codeql.yml', 'b29e0558dc69bc9dd6fc6b47bd6024382be4079d'),
+            entry('.github/workflows/pr-metadata-context.yml', 'b76ade9fd7a76da21bf2cb2161deae7a262163e8')]
+        self.assertTrue(self.validate())
+        for mutation in ({'sha':METADATA_SOURCE_BLOB}, {'mode':'100755'}, {'mode':'120000'},
+                         {'mode':'160000','type':'commit'}):
+            original=deepcopy(current[1]); current[1].update(mutation)
+            with self.subTest(mutation=mutation),self.assertRaises(gate.GateError): self.validate()
+            current[1]=original
+        current[0]['sha']='f'*40
+        with self.assertRaises(gate.GateError): self.validate()
+
     def test_trusted_metadata_generation_inventory_must_be_complete_and_ordered(self):
         source = self.policy_root / 'tools/repository-checks/codeql.py'
         original = source.read_text()
         for mutation in (original.replace(METADATA_WORKFLOW_BLOB, WORKFLOW_BLOB),
                          original.replace(METADATA_WORKFLOW_BLOB, '0' * 40),
                          original.replace(METADATA_SOURCE_BLOB, '0' * 40),
-                         original.replace('_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW)',
-                                          '_METADATA_RESULTS_WORKFLOW, _PINNED_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW)')):
+                         original.replace('_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW, _UPLOAD_RESULTS_WORKFLOW)',
+                                          '_METADATA_RESULTS_WORKFLOW, _PINNED_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW, _UPLOAD_RESULTS_WORKFLOW)')):
             source.write_text(mutation)
             with self.subTest(mutation=mutation), self.assertRaises(gate.GateError):
                 self.validate()

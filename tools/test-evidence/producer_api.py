@@ -49,10 +49,14 @@ ORDINARY_RUN_NAME = 'Overte native ordinary qualification v2'
 METADATA_INTENT_KIND = 'authenticated-metadata-nonproducer-intent'
 _SCHEDULING_RUN_FIELDS = ('id', 'workflow_id', 'check_suite_id', 'path', 'event', 'head_sha',
                           'head_branch', 'run_attempt', 'run_number', 'display_title')
+CODEQL_UPLOAD_WORKFLOW = 'b29e0558dc69bc9dd6fc6b47bd6024382be4079d'
+CODEQL_UPLOAD_TEMPLATE = 'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml'
 # A server-rendered title is meaningful only under these exact reviewed native
 # recipes. Their nonproducer intent structurally excludes every heavy job even
 # when recognition is missing/failed. Historical recipes require their marker.
 _NATIVE_INTENT_RECIPES = frozenset({
+    ('.github/workflows/codeql.yml', CODEQL_UPLOAD_WORKFLOW,
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/repository-checks.yml', '22fe0d6d39d120f800099136d7d1ab5280d80b41',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/codeql.yml', '7b0703d88d404f38c1b3dec92f77f03586c9144c',
@@ -1019,6 +1023,13 @@ class Adapter:
         identity = positive(listed.get("id"))
         latest = self._object(f"actions/runs/{identity}")
         attempt_number = positive(latest.get("run_attempt"))
+        if attempt_number > 1 and policy.caller_path == '.github/workflows/codeql.yml':
+            source = self._scheduling_source(listed, binding, policy, now=now, integrated=integrated,
+                observation_clock=observation_clock, scheduling_progress=True)
+            require(source.get('codeql_result_continuation') is not None
+                and source['run'].get('display_title') == ORDINARY_RUN_NAME,
+                'CodeQL retry is not an authenticated ordinary source')
+            return None
         if attempt_number != 1:
             raise OriginalAttemptUnavailable("original metadata attempt unavailable")
         attempt = self._object(f"actions/runs/{identity}/attempts/1")
@@ -1135,6 +1146,111 @@ class Adapter:
                 "source": source, "run": {key: attempt.get(key) for key in fields},
                 "references": references, "jobs": jobs, "checks": checks, "artifacts": artifacts}
 
+    def codeql_result_attempts(self, run_id, source, head, *, attempt, now=None, completed=False):
+        """Authenticate one whole native analysis attempt and its real result gate.
+
+        A full fresh current attempt never borrows prior analyses. The sole
+        continuation is result-only attempt2 after successful analysis1 and a
+        failure confined to its result-verification step. No object is aliased.
+        """
+        now = _now() if now is None else now
+        P._now(now); positive(run_id); sha(source); sha(head); positive(attempt)
+        require(type(completed) is bool, 'invalid CodeQL completion mode')
+        latest = self._object(f'actions/runs/{run_id}')
+        result = self._object(f'actions/runs/{run_id}/attempts/{attempt}')
+        registered = self._object('actions/workflows/codeql.yml')
+        require(registered.get('path') == '.github/workflows/codeql.yml' and registered.get('state') == 'active',
+                'CodeQL result workflow is not registered')
+        fields = ('id','workflow_id','check_suite_id','path','event','head_sha','head_branch',
+                  'run_number','display_title','run_attempt','run_started_at','status','conclusion')
+        require(all(latest.get(key) == result.get(key) for key in fields)
+                and latest.get('id') == run_id and latest.get('workflow_id') == positive(registered.get('id'))
+                and latest.get('path') == '.github/workflows/codeql.yml' and latest.get('head_sha') == head
+                and latest.get('event') in {'pull_request','push','schedule'}
+                and latest.get('run_attempt') == attempt, 'CodeQL attempt source changed')
+        _, parents, workflows = self._workflow_tuple(source, paths=METADATA_CALLERS['.github/workflows/codeql.yml'])
+        require(workflows == {'.github/workflows/codeql.yml': {'mode':'100644','type':'blob','sha':CODEQL_UPLOAD_WORKFLOW},
+                METADATA_WORKFLOW: {'mode':'100644','type':'blob','sha':'b76ade9fd7a76da21bf2cb2161deae7a262163e8'}},
+                'CodeQL upload recipe is not the exact protected generation')
+        if result['event'] == 'pull_request':
+            require(len(parents) == 2 and parents[1] == head and result.get('display_title') == ORDINARY_RUN_NAME,
+                    'CodeQL upload source lacks ordered ordinary PR identity')
+        current_jobs = self._pages(f'actions/runs/{run_id}/attempts/{attempt}/jobs', 'jobs')
+        continuation = attempt == 2 and len(current_jobs) == 1 and current_jobs[0].get('name') == 'codeql-security-results'
+        analysis_attempt = 1 if continuation else attempt
+        analysis = self._object(f'actions/runs/{run_id}/attempts/1') if continuation else result
+        originals = self._pages(f'actions/runs/{run_id}/attempts/1/jobs','jobs') if continuation else current_jobs
+        if continuation:
+            require(result['event'] == 'pull_request' and analysis.get('run_attempt') == 1
+                and all(analysis.get(key) == result.get(key) for key in (
+                    'id','workflow_id','path','event','head_sha','head_branch','run_number','display_title'))
+                and (analysis.get('status'),analysis.get('conclusion')) == ('completed','failure')
+                and P._time(analysis.get('updated_at')) <= P._time(result.get('run_started_at')),
+                'CodeQL result retry has no matching failed original')
+        if result['event'] == 'pull_request':
+            associations = result.get('pull_requests')
+            require(type(associations) is list and len(associations) == 1 and type(associations[0]) is dict,
+                    'CodeQL original PR association unavailable')
+            number = positive(associations[0].get('number'))
+            refs = result.get('referenced_workflows')
+            require(type(refs) is list and refs and all(type(row) is dict
+                and row.get('sha') == source and row.get('ref') == f'refs/pull/{number}/merge'
+                and row.get('path') in {REPOSITORY+'/'+path+'@'+source for path in workflows} for row in refs)
+                and len({row['path'] for row in refs}) == len(refs)
+                and any(row['path'] == REPOSITORY+'/'+METADATA_WORKFLOW+'@'+source for row in refs)
+                and all(run.get('referenced_workflows') == refs and run.get('pull_requests') == associations
+                        for run in (latest,analysis)), 'CodeQL native source chain differs across attempts')
+        for run in (latest,result,analysis):
+            require(all(run.get(key,{}).get('id') == 1319052603 and run[key].get('full_name') == REPOSITORY
+                        for key in ('repository','head_repository')), 'foreign CodeQL upload run')
+            require(run.get('status') in P._PENDING | {'completed'}
+                and ((run['status'] == 'completed' and run.get('conclusion') in P._CONCLUSIONS)
+                     or run['status'] in P._PENDING and run.get('conclusion') is None),
+                'CodeQL native result status is malformed')
+            require(P._time(run.get('run_started_at')) <= P._time(run.get('updated_at')) <= now,
+                    'CodeQL native result chronology differs')
+            suite = self._object(f"check-suites/{positive(run.get('check_suite_id'))}")
+            require(suite.get('id') == run['check_suite_id'] and suite.get('head_sha') == head
+                and suite.get('app',{}).get('id') == 15368
+                and suite.get('repository',{}).get('id') == 1319052603
+                and suite['repository'].get('full_name') == REPOSITORY, 'CodeQL native App/source differs')
+        allowed_status = {('completed','success')} if completed else {(state,None) for state in P._PENDING} | {('completed','success')}
+        require(all((run['status'],run.get('conclusion')) in allowed_status for run in (latest,result)),
+                'CodeQL result failed or remains pending')
+        names = [job.get('name') for job in originals]
+        require(len(names) == len(set(names)), 'CodeQL analysis job names are ambiguous')
+        selected = [language for language in ('javascript-typescript','python') if f'CodeQL ({language})' in names]
+        allowed = {METADATA_JOB,'Select affected CodeQL languages','codeql-security-results',
+                   *(f'CodeQL ({language})' for language in selected)}
+        require(set(names) == allowed, 'CodeQL analysis job inventory is incomplete or unknown')
+        checks = {}
+        for job in originals:
+            fact = self._job(job,analysis,15368,final_name=job['name']); checks[fact.job_id] = vars(fact)
+            if job['name'] == 'codeql-security-results':
+                if continuation:
+                    require((fact.status,fact.conclusion) == ('completed','failure'),
+                            'CodeQL retry has no original failed result gate')
+                    steps = job.get('steps')
+                    require(type(steps) is list and steps and all(type(step) is dict for step in steps),
+                            'CodeQL original gate steps unavailable')
+                    failed = [step for step in steps if step.get('conclusion') in {'failure','cancelled','timed_out'}]
+                    require(len(failed) == 1 and failed[0].get('name') == 'Require current selected-language security results'
+                        and all(step.get('status') == 'completed' and step.get('conclusion') in {'success','skipped','failure'}
+                                for step in steps), 'CodeQL original failure was not confined to result verification')
+                else:
+                    require((fact.status,fact.conclusion) in allowed_status, 'current CodeQL native gate failed')
+                continue
+            expected = 'skipped' if job['name'] == METADATA_JOB and analysis['event'] != 'pull_request' else 'success'
+            require((fact.status,fact.conclusion) == ('completed',expected), 'CodeQL current selector/analyzer did not succeed')
+        if continuation:
+            require(selected, 'CodeQL result-only continuation has no selected analyses')
+            fact = self._job(current_jobs[0],result,15368,final_name='codeql-security-results')
+            require((fact.status,fact.conclusion) in allowed_status, 'CodeQL retry native gate failed or unavailable')
+            checks[fact.job_id] = vars(fact)
+        return {'analysis_attempt':analysis_attempt,'result_attempt':attempt,'source_commit':source,
+                'analysis_run':analysis,'result_run':result,'latest_run':latest,
+                'analysis_jobs':originals,'result_jobs':current_jobs,'native_checks':checks,'languages':selected}
+
     def _scheduling_source(self, listed, binding, policy, *, now, integrated=False,
                            allow_intent_progress=False, observation_clock=None,
                            scheduling_progress=False):
@@ -1148,13 +1264,25 @@ class Adapter:
         require(type(scheduling_progress) is bool, 'invalid scheduling progress mode')
         identity = positive(listed.get('id'))
         latest = self._object(f'actions/runs/{identity}')
-        require(latest.get('run_attempt') == 1, 'scheduling original attempt unavailable')
-        run = self._object(f'actions/runs/{identity}/attempts/1')
+        continuation = None
+        if positive(latest.get('run_attempt')) > 1 and policy.caller_path == '.github/workflows/codeql.yml':
+            current_jobs = self._pages(f"actions/runs/{identity}/attempts/{latest['run_attempt']}/jobs",'jobs')
+            only_gate = latest['run_attempt'] == 2 and len(current_jobs) == 1 and current_jobs[0].get('name') == 'codeql-security-results'
+            origin = self._object(f'actions/runs/{identity}/attempts/1') if only_gate else latest
+            edges = [row for row in origin.get('referenced_workflows', []) if type(row) is dict
+                and row.get('path', '').startswith(REPOSITORY + '/' + METADATA_WORKFLOW + '@')]
+            require(len(edges) == 1, 'CodeQL result retry original native source is unavailable')
+            continuation = self.codeql_result_attempts(identity, sha(edges[0].get('sha')),
+                binding['head_sha'], attempt=latest['run_attempt'], now=now)
+        require(latest.get('run_attempt') == (continuation['result_attempt'] if continuation else 1), 'scheduling original attempt unavailable')
+        run = continuation['analysis_run'] if continuation else self._object(f'actions/runs/{identity}/attempts/1')
         fields = ('id', 'workflow_id', 'check_suite_id', 'path', 'event', 'head_sha', 'head_branch',
                   'run_attempt', 'run_number', 'status', 'conclusion', 'run_started_at', 'updated_at', 'display_title')
-        require(all(listed.get(key) == latest.get(key) == run.get(key)
+        require(all(listed.get(key) == latest.get(key) and (continuation is not None and key in {
+                    'run_attempt','check_suite_id'} or latest.get(key) == run.get(key))
                     for key in _SCHEDULING_RUN_FIELDS if key != 'display_title')
-            and run.get('run_attempt') == 1 and binding['base_ref'] in METADATA_TARGETS,
+            and run.get('run_attempt') == (continuation['analysis_attempt'] if continuation else 1)
+            and binding['base_ref'] in METADATA_TARGETS,
             'scheduling original native attempt changed')
         positive(run.get('run_number'))
         require(run.get('workflow_id') == policy.caller_workflow_id
@@ -1245,7 +1373,7 @@ class Adapter:
             completed_matching = completed_ordinary and all(
                 listed.get(key) == latest.get(key) == run.get(key)
                 for key in fields if key != 'updated_at')
-            if not matching and not completed_matching:
+            if not matching and not completed_matching and continuation is None:
                 raise SchedulingPending('ordinary scheduling native inventory changed after its cutoff')
             if advanced:
                 raise SchedulingPending('ordinary scheduling source is in the future of its fixed cutoff')
@@ -1256,6 +1384,11 @@ class Adapter:
         require(P._time(run.get('updated_at')) <= observed_now, 'scheduling update time is in the future')
         value = {'run': run, 'generation': generations[0], 'source': source, 'workflows': workflows,
                  'candidate': {'merge_sha': revision, 'merge_tree': tree, 'merge_parents': parents}}
+        if continuation is not None:
+            value['codeql_result_continuation'] = {
+                'result_identity':{key:continuation['result_run'].get(key) for key in _SCHEDULING_RUN_FIELDS},
+                'analysis_jobs':continuation['analysis_jobs'],
+                'result_job_ids':[job['id'] for job in continuation['result_jobs']]}
         if completed_ordinary:
             # _scheduling_identity retains these same-endpoint observations at
             # the closing admission, including the unmodified update times.
@@ -1375,7 +1508,7 @@ class Adapter:
                 continue
             require(source['run'].get('display_title') == ORDINARY_RUN_NAME,
                     'ordinary scheduling source has no reviewed ordinary intent')
-            jobs = self._pages(f'actions/runs/{identity}/attempts/1/jobs', 'jobs')
+            jobs = self._pages(f"actions/runs/{identity}/attempts/{source['run']['run_attempt']}/jobs", 'jobs')
             matches = [job for job in jobs if job.get('name') == METADATA_JOB]
             if not matches:
                 raise SchedulingPending('ordinary scheduling source job unavailable')
@@ -1443,20 +1576,22 @@ class Adapter:
                 if kind == 'current':
                     require(fresh['run']['status'] in P._PENDING, 'current scheduling invocation stopped')
                 if kind == 'ordinary':
-                    jobs = self._pages(f"actions/runs/{row['id']}/attempts/1/jobs", 'jobs')
+                    jobs = self._pages(f"actions/runs/{row['id']}/attempts/{fresh['run']['run_attempt']}/jobs", 'jobs')
                     matches = [job for job in jobs if job.get('name') == METADATA_JOB]
                     require(len(matches) == 1 and matches[0] == extra[0]
                         and vars(self._job(matches[0], fresh['run'], 15368, final_name=METADATA_JOB)) == extra[1],
                         'scheduling ordinary source job changed')
         original = originals[0]['run']
+        result_identity = originals[0].get('codeql_result_continuation', {}).get('result_identity')
+        actual_result = self._object(f"actions/runs/{original['id']}") if result_identity else original
         return {'kind': 'native-nonproducer-scheduling', 'qualification': False,
                 'metadata_only': 'true', 'binding': binding, 'references': references,
                 'current_run_id': current_run_id, 'original_run_id': original['id'],
                 'current_merge_sha': current['candidate']['merge_sha'],
                 'original_merge_sha': originals[0]['candidate']['merge_sha'],
-                'original_status': original['status'], 'original_conclusion': original.get('conclusion'),
+                'original_status': actual_result['status'], 'original_conclusion': actual_result.get('conclusion'),
                 'diagnostics': diagnostics,
-                'original_identity': {key: original.get(key) for key in _SCHEDULING_RUN_FIELDS}}
+                'original_identity': result_identity or {key: original.get(key) for key in _SCHEDULING_RUN_FIELDS}}
 
     def metadata_result_status(self, observed):
         """One fixed-ID native read between full source admissions; no discovery."""
@@ -1464,6 +1599,13 @@ class Adapter:
             and observed.get('qualification') is False and observed.get('metadata_only') == 'true',
             'metadata result requires an authenticated scheduling observation')
         identity = observed.get('original_identity')
+        if type(identity) is dict and type(identity.get('run_attempt')) is int and identity['run_attempt'] > 1:
+            require(identity.get('path') == '.github/workflows/codeql.yml', 'foreign result retry caller')
+            split = self.codeql_result_attempts(positive(observed.get('original_run_id')),
+                sha(observed.get('original_merge_sha')), observed['binding']['head_sha'], attempt=identity['run_attempt'])
+            require({key:split['result_run'].get(key) for key in _SCHEDULING_RUN_FIELDS} == identity,
+                    'CodeQL result retry identity changed')
+            return split['result_run']
         require(type(identity) is dict and set(identity) == set(_SCHEDULING_RUN_FIELDS)
             and positive(identity.get('id')) == positive(observed.get('original_run_id'))
             and identity.get('run_attempt') == 1
@@ -1491,6 +1633,23 @@ class Adapter:
         """
         now = _now() if now is None else now
         P._now(now)
+        require(type(observed) is dict, 'metadata result observation is malformed')
+        if type(observed.get('original_identity', {}).get('run_attempt')) is int and observed['original_identity']['run_attempt'] > 1:
+            run = self.metadata_result_status(observed)
+            split = self.codeql_result_attempts(run['id'], observed['original_merge_sha'],
+                observed['binding']['head_sha'], attempt=run['run_attempt'], now=now, completed=True)
+            require(_scheduling_context_matches((observed['binding'], observed['references']),
+                    self.current(observed['binding']['pull_request'])), 'CodeQL result retry candidate changed')
+            require(self.codeql_result_attempts(run['id'], observed['original_merge_sha'],
+                    observed['binding']['head_sha'], attempt=run['run_attempt'], now=now, completed=True) == split
+                and self._scheduling_diagnostics(observed['binding']['pull_request'],
+                    SimpleNamespace(caller_path=run['path'])) == observed['diagnostics'],
+                    'CodeQL result retry changed before metadata output')
+            require(_scheduling_context_matches((observed['binding'],observed['references']),
+                    self.current(observed['binding']['pull_request'])), 'CodeQL retry closing candidate changed')
+            gate = next(job for job in split['result_jobs'] if job['name'] == 'codeql-security-results')
+            return {'job_id':gate['id'],'qualification':False,
+                    'analysis_attempt':split['analysis_attempt'],'result_attempt':split['result_attempt']}
         run = self.metadata_result_status(observed)
         require(run['status'] == 'completed' and run.get('conclusion') == 'success',
                 'original workflow did not succeed')

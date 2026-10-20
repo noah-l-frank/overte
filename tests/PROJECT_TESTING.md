@@ -1934,3 +1934,26 @@ workflow recipes must still match the trusted default recipe exactly. Native
 App, original attempt, association and current base/head/merge checks remain
 required at both bookends. Manual validation still requires the exact current
 default caller; an older caller never replaces the current merge context.
+
+The source-staged `codeql-upload-provenance.yml` successor records the pinned
+Analyze action's opaque `sarif-id` output in one small native artifact per selected
+language. The protected reader authenticates the original job/App, immutable
+workflow/source, actual attempt, whole archive digest and exact upload metadata,
+then reads that specific SARIF processing status and analysis. This binds delayed
+server processing without extending the legacy analysis-created job window or
+interpreting an upload ID as a timestamp. Error-free `errors: null` and `errors: []`
+are accepted; processing errors, unknown or missing uploads, altered artifacts,
+open findings and changed source/native bookends still fail closed.
+
+Only specific authenticated pending uploads receive a bounded twenty-minute wait;
+the new result job has a twenty-five-minute budget. A wholly fresh retry must
+succeed with its own complete selector/analyzer inventory and actual attempt's
+uploads. A result-only second attempt may use analysis attempt one only when all
+its selected analyzers and selector succeeded, its sole failure was the result
+verification step, and attempt two contains only the genuine native result job.
+It never combines languages from different attempts or ignores a newer failed
+analyzer. Ordinary and text-edit result consumers retain both real attempts and
+fresh current-PR, default-source, native-job and artifact bookends. This provides
+security-result verification, not a test-environment receipt or reuse authority.
+The old seven recipes remain unchanged; the new recipe must first be protected
+and explicitly activated before it can supply this proof.

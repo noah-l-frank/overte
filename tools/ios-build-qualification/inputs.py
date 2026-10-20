@@ -89,6 +89,7 @@ INDEPENDENT_HOST_PATHS = frozenset({
     'tools/repository-checks/metadata_context.py',
     'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml',
     'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml',
+    'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml',
     '.github/workflows/pr-metadata-context.yml',
     ".github/shared-sandbox.json",
     ".github/workflows/shared-sandbox-host-diagnostic.yml",

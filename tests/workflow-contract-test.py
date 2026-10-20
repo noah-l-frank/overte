@@ -146,6 +146,8 @@ def codeql_generation(case, source):
     case.assertEqual(blob(original_default_workflow('codeql').decode()), policy._SCHEDULING_RESULTS_WORKFLOW)
     case.assertEqual(blob(boolean_workflow('codeql').decode()), policy._BOOLEAN_RESULTS_WORKFLOW)
     case.assertEqual(blob(metadata.read_text()), policy._REQUIRED_CONTEXT_RESULTS_WORKFLOW)
+    upload = metadata.with_name('codeql-upload-provenance.yml')
+    case.assertEqual(blob(upload.read_text()), policy._UPLOAD_RESULTS_WORKFLOW)
     helper = metadata.with_name('pr-metadata-context.yml')
     case.assertEqual(blob(helper.read_text()), policy._SCHEDULING_SOURCE_WORKFLOW)
     case.assertIn((blob(metadata.read_text()), blob(helper.read_text())), policy.result_workflow_sources())
@@ -155,7 +157,8 @@ def codeql_generation(case, source):
              policy._METADATA_RESULTS_WORKFLOW: 'metadata-pinned-results',
              policy._SCHEDULING_RESULTS_WORKFLOW: 'scheduling-pinned-results',
              policy._BOOLEAN_RESULTS_WORKFLOW: 'boolean-scheduling-pinned-results',
-             policy._REQUIRED_CONTEXT_RESULTS_WORKFLOW: 'required-context-pinned-results'}
+             policy._REQUIRED_CONTEXT_RESULTS_WORKFLOW: 'required-context-pinned-results',
+             policy._UPLOAD_RESULTS_WORKFLOW: 'native-upload-pinned-results'}
     identity = blob(source)
     case.assertIn(identity, known, 'unreviewed CodeQL workflow cannot inherit omission contracts')
     return known[identity]
@@ -164,9 +167,9 @@ def codeql_generation(case, source):
 def codeql_analyze_condition(case, source):
     generation = codeql_generation(case, source)
     condition = ("needs.select.outputs.metadata_only != 'true' && needs.select.outputs.scan == 'true'"
-                 if generation in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}
+                 if generation in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'}
                  else "needs.select.outputs.scan == 'true'")
-    if generation in {'scheduling-pinned-results','boolean-scheduling-pinned-results', 'required-context-pinned-results'}:
+    if generation in {'scheduling-pinned-results','boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'}:
         intent = "github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics'))"
         condition = "always() && !cancelled() && needs.select.result == 'success' && " + condition + ' && !(' + intent + ')'
     return condition
@@ -500,7 +503,7 @@ class LightweightWorkflowContracts(unittest.TestCase):
             source = path.read_text(encoding="utf-8")
             self.assertEqual(workflow_events(source)['push']['paths-ignore'], ['**/*.md'])
         source = CODEQL_WORKFLOW.read_text(encoding="utf-8")
-        if codeql_generation(self, source) in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}:
+        if codeql_generation(self, source) in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'}:
             # Required context is published for docs; the immutable selector
             # omits both analyzer jobs, rather than omitting the entire check.
             self.assertNotIn('paths-ignore', workflow_events(source)['pull_request'])
@@ -617,8 +620,8 @@ class CodeQLWorkflowContracts(unittest.TestCase):
         generation=codeql_generation(self,self.source)
         local=[action for action in actions if action.startswith('./')]
         self.assertEqual(local,['./.github/workflows/pr-metadata-context.yml']
-                         if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'} else [])
-        self.assertEqual(len(actions),8 if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'} else
+                         if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'} else [])
+        self.assertEqual(len(actions),9 if generation == 'native-upload-pinned-results' else 8 if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'} else
             7 if generation in {'results','retarget-results','pinned-results'} else 5)
         self.assertEqual([action for action in actions if action not in local and not FULL_SHA_ACTION.fullmatch(action)], [])
         codeql = [action for action in actions if action.startswith("github/codeql-action/")]
@@ -652,9 +655,9 @@ class CodeQLWorkflowContracts(unittest.TestCase):
         aggregate = self.source.split('  codeql-checks:', 1)[1]
         self.assertIn('if: always()', aggregate)
         self.assertIn('needs: [select, analyze]', aggregate)
-        selected = codeql_generation(self, self.source) in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}
+        selected = codeql_generation(self, self.source) in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'}
         job = workflow_data(self.source)['jobs']['codeql-checks']
-        canonical = codeql_generation(self,self.source)=='required-context-pinned-results'
+        canonical = codeql_generation(self,self.source) in {'required-context-pinned-results','native-upload-pinned-results'}
         self.assertEqual(job['if'], "always() && (needs.select.result != 'success' || needs.select.outputs.metadata_only != 'true')"
                          if selected and not canonical else 'always()')
         self.assertEqual(job['name'], "${{ needs.select.result == 'success' && needs.select.outputs.metadata_only == 'true' && "
@@ -673,12 +676,12 @@ class CodeQLWorkflowContracts(unittest.TestCase):
 
 
     def test_selected_results_are_independent_and_cannot_bypass_the_truth_table(self):
-        if codeql_generation(self, self.source) not in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}:
+        if codeql_generation(self, self.source) not in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'}:
             self.skipTest("Selected-result generation is covered by its staged workflow contracts")
         workflow = workflow_data(self.source)
         job = workflow['jobs']['codeql-checks']
         permissions={'contents':'read','actions':'read','pull-requests':'read','security-events':'read'}
-        canonical=codeql_generation(self,self.source)=='required-context-pinned-results'
+        canonical=codeql_generation(self,self.source) in {'required-context-pinned-results','native-upload-pinned-results'}
         if canonical:permissions['checks']='read'
         self.assertEqual(job['permissions'],permissions)
         steps = job['steps']
@@ -796,6 +799,12 @@ class BooleanSchedulingCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
     @classmethod
     def setUpClass(cls):
         cls.source = boolean_workflow('codeql').decode()
+
+
+class NativeUploadCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
+    @classmethod
+    def setUpClass(cls):
+        cls.source = (ROOT / 'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml').read_text()
 
 
 class RequiredContextCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):

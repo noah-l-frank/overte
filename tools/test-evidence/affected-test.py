@@ -785,6 +785,7 @@ class ShippingPolicyTests(unittest.TestCase):
             'tools/repository-checks/metadata_context.py',
             'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml',
             'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml',
+            'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml',
             '.github/workflows/pr-metadata-context.yml',
             'tools/repository-checks/workflows/producers/legacy/repository-checks-protected-ci-v1.yml',
             'tools/repository-checks/workflows/producers/legacy/parent-qualification-postmerge-v1.yml',

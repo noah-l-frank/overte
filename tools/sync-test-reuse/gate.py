@@ -795,7 +795,7 @@ def validate_required_codeql_workflow(event: dict, api: GitHubApi, policy_root: 
     generations = tuple(validate_sha(value, 'approved CodeQL result workflow')
                         for value in trusted.result_workflow_blobs())
     pairs = trusted.result_workflow_sources()
-    if (type(pairs) is not tuple or len(pairs) != 7
+    if (type(pairs) is not tuple or len(pairs) != 8
             or any(type(row) is not tuple or len(row) != 2 for row in pairs)):
         raise GateError('approved CodeQL workflow/helper pairs unavailable')
     sources = {validate_sha(row[0], 'approved CodeQL result workflow'):
@@ -804,12 +804,13 @@ def validate_required_codeql_workflow(event: dict, api: GitHubApi, policy_root: 
     approved = set(generations)
     metadata_workflow = validate_sha(trusted._METADATA_RESULTS_WORKFLOW, 'approved CodeQL metadata workflow')
     metadata_source = validate_sha(trusted._METADATA_SOURCE_WORKFLOW, 'approved CodeQL metadata source')
-    if len(generations) != 7 or len(approved) != 7 or tuple(sources) != generations \
+    if len(generations) != 8 or len(approved) != 8 or tuple(sources) != generations \
             or '0' * 40 in approved or any(sources[oid] is not None for oid in generations[:3]) \
             or pairs[3] != (metadata_workflow, metadata_source) \
             or pairs[4] != (trusted._SCHEDULING_RESULTS_WORKFLOW, trusted._SCHEDULING_SOURCE_WORKFLOW) \
             or pairs[5] != (trusted._BOOLEAN_RESULTS_WORKFLOW, trusted._SCHEDULING_SOURCE_WORKFLOW) \
             or pairs[6] != (trusted._REQUIRED_CONTEXT_RESULTS_WORKFLOW, trusted._SCHEDULING_SOURCE_WORKFLOW) \
+            or pairs[7] != (trusted._UPLOAD_RESULTS_WORKFLOW, trusted._SCHEDULING_SOURCE_WORKFLOW) \
             or any(value == '0' * 40 for value in sources.values()):
         raise GateError('approved CodeQL workflow identity is unavailable')
     refs = {f'repos/{repository}/git/ref/heads/{quote(ref, safe="")}': 'refs/heads/' + ref

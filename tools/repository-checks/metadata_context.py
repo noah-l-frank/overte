@@ -300,6 +300,8 @@ def _source_policy(root, adapter, binding, references, native_value, protected, 
     extras = ('tools/repository-checks/codeql.py', 'tools/repository-checks/codeql_results.py',
               'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml',
               '.github/codeql/codeql-config.yml')
+    if A.CODEQL_UPLOAD_TEMPLATE in default:
+        extras += (A.CODEQL_UPLOAD_TEMPLATE,)
     for relative in extras:
         require(base.get(relative) == default.get(relative) and base.get(relative, {}).get('mode') == '100644'
             and base[relative]['type'] == 'blob', 'metadata semantic reader differs from current default')
@@ -346,6 +348,10 @@ def _source_policy(root, adapter, binding, references, native_value, protected, 
                 sources.pop('metadata-scheduling-v2', None)
             generations[row['name']], sources[row['name']] = entries, pair
     else:
+        if default.get(A.CODEQL_UPLOAD_TEMPLATE) == {'mode':'100644','type':'blob','sha':A.CODEQL_UPLOAD_WORKFLOW}:
+            generations['codeql-native-upload-v1'] = {
+                caller:default[A.CODEQL_UPLOAD_TEMPLATE], SOURCE_WORKFLOW:default[SOURCE_TEMPLATE]}
+            sources['codeql-native-upload-v1'] = {SOURCE:base[SOURCE]}
         generations['codeql-metadata-v1'] = {caller: {'mode': '100644', 'type': 'blob',
             'sha': '3a273057a38255ca368d3028594fb94227ba7c3b'}, SOURCE_WORKFLOW: old_source}
         sources['codeql-metadata-v1'] = old_helper
