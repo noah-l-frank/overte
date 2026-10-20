@@ -35,6 +35,7 @@ def inline_source(run,ticket,fixture_url):
     script=pinned_resource('web-source/reference.js').decode('utf-8')
     if '</script' in script.lower():raise ValueError('Original inline script needs a reviewed HTML encoding')
     page=page.replace('Overte web parity reference','Overte owned inline parity')
+    page=page.replace('</head>','<meta name="overte-fixture-owner" content="'+run+'"></head>')
     page=page.replace('<script src="reference.js"></script>','<script>'+script+'</script>')
     page=page.replace('preload="metadata"','preload="none"')
     # The only inline image checkpoint is initial open. Later text/bridge/retire
@@ -104,7 +105,8 @@ class BrowserResources:
                 # A real ordinary link exposes the failing/recovered resource.
                 body = body.replace('<button id="back">', '<a id="recovery" href="recovery.html">Recovery document</a><button id="back">')
                 marker = '/feature-fixture/v1/runs/' + run + '/tickets/' + ticket + '/marker.png'
-                head = '<meta name="overte-fixture-response" content="' + response + '">'
+                head = ('<meta name="overte-fixture-response" content="' + response + '">'
+                        '<meta name="overte-fixture-owner" content="' + run + '">')
                 body = body.replace('</head>', head + '</head>')
                 body = body.replace('<body>', '<body><img id="feature-marker" alt="Owned challenge" src="' + marker + '">')
                 body = body.replace('</body>', '<script src="feature-marker.js"></script></body>')
