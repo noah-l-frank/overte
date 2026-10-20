@@ -19,7 +19,7 @@ from .scenarios import SCENARIOS
 # These are raw secondary observations, not acknowledgments of requested input.
 # Full checkpoint semantics and actor measurement sources are in the handoff.
 WITNESS_KEYS = {
- 'world-navigation': ['location', 'bookmark', 'bookmarkName', 'searchResults', 'error'],
+ 'world-navigation': ['location','bookmark','bookmarkName','searchQuery','searchResults','error','panel','addressDialog'],
  'authentication': ['principal', 'dialog', 'error', 'pending', 'protectedAccess', 'delayedGrantOutstanding'],
  'avatar-people': ['avatar', 'requestedAvatar', 'modelLoaded', 'loadFailed', 'scale', 'wearable', 'bookmarked', 'connection', 'dialog'],
  'create': ['objects', 'editor', 'picker', 'error', 'canRez', 'selection', 'textured', 'voxelValue'],
@@ -157,6 +157,19 @@ class Client:
     def register(self, area):
         if getattr(self,'run',None) is not None and not getattr(self,'closed',False):
             raise ValueError('An existing owned fixture run must close first')
+        if area=='world-navigation':
+            from .navigation_fixture import configuration
+            provider=self.request('/navigation-provider')
+            exact(provider,{'navigationProviderVersion','instance','inputs','capturedEpochMs','ready','activeRuns','failedResponses','internalErrors'},'navigation provider readiness')
+            if (type(provider['navigationProviderVersion']) is not int or provider['navigationProviderVersion']!=1
+                    or provider['ready'] is not True or type(provider['activeRuns']) is not int or provider['activeRuns']!=0
+                    or type(provider['failedResponses']) is not int or provider['failedResponses']!=0
+                    or type(provider['internalErrors']) is not int or provider['internalErrors']!=0):
+                raise ValueError('Required original navigation provider is unavailable')
+            self.navigation_instance=identifier(provider['instance'])
+            self.navigation_inputs,_urls=configuration(provider['inputs'])
+            number(provider['capturedEpochMs'],1)
+            self.navigation_previous=None
         if area=='authentication':
             from urllib.parse import urlsplit
             if urlsplit(self.url).scheme!='https':raise ValueError('Authentication requires the trusted HTTPS account fixture')
@@ -197,7 +210,18 @@ class Client:
         if self.area=='authentication':
             now=number(self.monotonic())
             if now<previous or now-started>=5:raise ValueError('Account fixture cleanup exceeded its bound')
+        if self.area=='world-navigation':
+            if self.navigation_status()['active']:raise ValueError('Navigation fixture cleanup is incomplete')
         self.closed=True
+
+    def navigation_status(self):
+        if self.area!='world-navigation':raise ValueError('No owned navigation provider')
+        from .navigation_fixture import validate_status
+        value=self.request('/runs/'+self.run+'/navigation')
+        validate_status(value,instance=self.navigation_instance,run=self.run,inputs=self.navigation_inputs,
+            previous=self.navigation_previous)
+        self.navigation_previous=json.loads(json.dumps(value))
+        return value
 
     def account_status(self):
         from .contract import number

@@ -23,6 +23,7 @@ from feature_journeys.fixtures import check, companion, payload
 from feature_journeys.witness import Journal
 from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PROFILE_PATH,REQUEST_HEADER,RUN_HEADER,TICKET_HEADER
 from feature_journeys.browser_fixture import BrowserResources
+from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
 
 PREFIX = '/feature-fixture/v1'
 
@@ -83,6 +84,17 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:return self.send(404,{'error':'not-found'})
         return self.send(200,data[1],data[0])
 
+    def navigation_request(self,parsed):
+        if parsed.path!=DIRECTORY and not parsed.path.startswith(DIRECTORY+'/'):return False
+        provider=self.server.navigation_resources
+        if (self.command!='GET' or provider is None or parsed.scheme or parsed.netloc or parsed.fragment):
+            self.send(404,{'error':'not-found'});return True
+        self.connection.settimeout(2)
+        with provider.response(parsed.path,parsed.query) as response:
+            if response is None:self.send(404,{'error':'not-found'})
+            else:self.send(response[0],response[1],response_id=response[2])
+        return True
+
     def account_request(self,parsed):
         if parsed.path not in (TOKEN_PATH,PROFILE_PATH):return False
         provider=self.server.account_provider
@@ -132,6 +144,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not (asset or current) or len(pieces)<2 or not self.server.browser_resources.has_run(pieces[1]):
                     return self.send(404,{'error':'not-found'})
             if self.account_request(parsed):return
+            if self.navigation_request(parsed):return
             if parsed.query or parsed.fragment or not parsed.path.startswith(PREFIX + '/'):
                 return self.send(404, {'error': 'not-found'})
             parts = parsed.path[len(PREFIX) + 1:].split('/')
@@ -166,6 +179,9 @@ class Handler(BaseHTTPRequestHandler):
                 if self.server.account_provider is None:return self.send(503,{'error':'account-provider-unavailable'})
                 return self.send(200,dict(providerVersion=2,instance=self.server.account_provider.instance,
                     transport='https',tlsVersion=self.connection.version(),internalErrors=self.server.internal_errors))
+            if self.command=='GET' and parts==['navigation-provider']:
+                if self.server.navigation_resources is None:return self.send(503,{'error':'navigation-provider-unavailable'})
+                return self.send(200,dict(self.server.navigation_resources.ready(),internalErrors=self.server.internal_errors))
             body = None
             if self.command == 'POST':
                 size = int(self.headers.get('Content-Length', '0'))
@@ -176,7 +192,14 @@ class Handler(BaseHTTPRequestHandler):
                 exact(body, {'area'}, 'fixture registration')
                 if body['area']=='authentication' and self.server.account_provider is None:
                     return self.send(503,{'error':'account-provider-unavailable'})
+                if body['area']=='world-navigation' and self.server.navigation_resources is None:
+                    return self.send(503,{'error':'navigation-provider-unavailable'})
                 run=self.server.journal.register(body['area'])
+                if body['area']=='world-navigation':
+                    try:self.server.navigation_resources.provision(run)
+                    except Exception:
+                        self.server.journal.close(run)
+                        raise
                 if body['area'] in ('world-web','tablet-web'):self.server.browser_resources.open(run)
                 if body['area']=='authentication' and self.server.account_provider is not None:
                     try:self.server.account_provider.provision(run)
@@ -187,7 +210,12 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) < 2 or parts[0] != 'runs':
                 return self.send(404, {'error': 'not-found'})
             run = identifier(parts[1])
+            if parts[2:]==['navigation']:
+                if self.command=='GET' and self.server.navigation_resources is not None:
+                    return self.send(200,self.server.navigation_resources.snapshot(run))
+                return self.send(503,{'error':'navigation-provider-unavailable'})
             if parts[2:]==['browser']:
+
                 if self.command=='GET':return self.send(200,self.server.browser_resources.snapshot(run))
                 return self.send(403,{'error':'forbidden'})
             if parts[2:]==['browser','control']:
@@ -212,6 +240,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.command == 'POST' and parts[2:] == ['active'] and reader:
                 exact(body, {'ticket', 'verb', 'inputs'}, 'fixture challenge')
                 self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
+                if self.server.journal.runs[run]['area']=='world-navigation':
+                    self.server.navigation_resources.activate(run,body['ticket'])
                 if body['verb']=='restore-resource' and self.server.browser_resources.has_run(run):
                     self.server.browser_resources.control(run,{'operation':'restore-resource'})
                 if self.server.account_provider is not None and run in self.server.account_provider.runs:
@@ -232,6 +262,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.command == 'GET' and len(parts) == 2:
                 return self.send(200, self.server.journal.snapshot(run))
             if self.command == 'DELETE' and len(parts) == 2 and reader:
+                if self.server.navigation_resources is not None and run in self.server.navigation_resources.runs:
+                    self.server.navigation_resources.retire(run)
                 if self.server.account_provider is not None and run in self.server.account_provider.runs:
                     self.server.account_provider.retire(run)
                 self.server.journal.close(run)
@@ -268,7 +300,7 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None):
     if (type(reader_token) is not str or type(actor_token) is not str
             or min(len(reader_token), len(actor_token)) < 32 or reader_token == actor_token):
         raise ValueError('Separate private reader and independent publisher tokens are required')
@@ -282,9 +314,12 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
         raise ValueError('Account credentials require an explicitly trusted HTTPS fixture')
     if browser_peer_of is not None and (not isinstance(browser_peer_of,FixtureServer) or browser_peer_of.browser_peer
             or account_provider is not None):raise ValueError('Browser second listener needs the original primary owner')
+    if navigation_resources is not None and (not isinstance(navigation_resources,NavigationResources) or browser_peer_of is not None):
+        raise ValueError('Navigation provider requires its original primary owner')
     if account_provider is not None:account_provider._attach(reader_token,actor_token)
     server = FixtureServer(address, Handler)
     server.account_provider,server.tls_context=account_provider,tls_context
+    server.navigation_resources=navigation_resources
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token
     server.journal = Journal() if browser_peer_of is None else browser_peer_of.journal
@@ -307,7 +342,7 @@ def main():
         parser.error('--private-config is required to serve')
     from adapters.normal_feature_state import PrivateFeatureState
     config=PrivateFeatureState(args.private_config.absolute()).read()
-    fields={'readerToken','actorToken','host','port'}|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())
+    fields={'readerToken','actorToken','host','port'}|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())
     exact(config,fields,'private fixture configuration')
     tls=None;provider=None
     if 'tls' in config:
@@ -323,9 +358,10 @@ def main():
     if 'accountProvider' in config:
         if config['accountProvider'] is not True:raise ValueError('Explicit account provider opt-in is required')
         provider=AccountProvider()
+    navigation=NavigationResources(config['navigationProvider']) if 'navigationProvider' in config else None
     with ExitStack() as owned:
         server=owned.enter_context(make_server(config['readerToken'],config['actorToken'],(config['host'],config['port']),
-            account_provider=provider,tls_context=tls))
+            account_provider=provider,tls_context=tls,navigation_resources=navigation))
         peer=None;worker=None
         if 'browserPeer' in config:
             exact(config['browserPeer'],{'host','port'},'private second browser listener')

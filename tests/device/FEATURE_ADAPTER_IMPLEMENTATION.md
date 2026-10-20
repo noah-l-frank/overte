@@ -5,7 +5,7 @@ implemented**: Phone has new ordinary Create/script foundation bindings; Pico
 has a candidate-bound original-observation backend; iOS has an original-read
 component behind its unchanged installed-code gate. **No complete new
 `feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
-All fourteen complete version 9 adapters remain missing, and all device qualification
+All fourteen complete version 15 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.
 
@@ -117,7 +117,7 @@ untested**. Existing/new foundations are narrower implementation scopes.
 | Snapshots | Existing original normal SNAP capture/file contract retained | Existing original normal SNAP capture/file contract retained | Existing native SNAP component retained; bound execution blocked | Actual export/share permission path, original share/upload bytes/completion/cancel/failure receipts and controlled external sink; private capture-file presence alone is insufficient |
 | Scripts | Ordinary From URL/row foundations; normal file-bundle picker; private staged originals and persisted file ownership | Same normal Script/VR file-bundle controls and staged-original ownership under candidate/OpenXR guards | Same native UIKit/Qt component and staged originals; bound execution blocked | Persist picker/engine ownership, join actual loaded companions and advancing entity effects to an independent observer, and implement verified restart ownership handoff. Script import itself has no consent modal; entity-script consent remains in its existing foundation |
 | Assets | No new asset-browser capability | No new asset-browser capability | No new asset-browser capability | Native mapping/path row identity and import/rename/delete/bake inputs, actual complete ATP/companion/bake state, original resolved bytes and real domain write-permission actor |
-| Lifecycle/input | Existing process/input foundations retained | Existing process/OpenXR foundations retained | Existing foreground PID/native input component retained | Actual native lifecycle notification counters, feature-editor context generations/focus, retired input rejection and independent ownership/displacement/resume observations |
+| Lifecycle/input | Existing process/input foundations plus original native retained-event owner/private transport | Same original owner through actual VR surface route | Same original owner through native HUD/tablet and guarded private HTTP/AFC route | All native sources remain uncompiled. Complete editor/context generations, actual OS/VR keyboard, original effective world input/position, independent actor and recovery/cleanup joins remain missing; Pico Create Back/VR keyboard is unestablished |
 
 Common blockers affecting the full triples:
 
@@ -304,3 +304,22 @@ now rejects matching old mixer identities after both sources observed absence
 (ten receiver cases pass). Native node recovery, normal primary Chat UI/storage,
 peer stimuli/publisher and complete-area activation remain required. These host
 results do not qualify product behavior or devices.
+
+
+## Navigation v15 source correction and pending-input owner continuation
+
+The [current Navigation contract](feature_journeys/NAVIGATION_SOURCE.md) corrects
+actual Places query/model/page lifetime and adds cancelled bookmark edits and a
+real owned named-lookup 404/native-modal join. The existing fixture server now
+provides the mandatory version-1 controlled directory/lookup source, with
+original completed-write receipts, immutable history and independently verified
+retirement. Actual native UI, bookmark persistence, endpoint setup/restoration,
+arrival/modal correlation and independent product actor remain missing in full
+platform adapters; HTTP input delivery alone cannot supply them.
+
+The [version-1 native retained-event owner](native/PENDING_COMMIT_OWNER.md) is now
+registered on separate local platform sources: Phone `28a613cb89`, Pico
+`56f5be7eaf`, iOS `ef3ebf6766`. Their local component selections passed 101,
+50 and 380 checks respectively, plus ten iOS binding contracts. These checks
+use synthetic native/OS boundaries. All new C++ remains uncompiled and devices
+untested. No complete area triple or device acceptance was added.
