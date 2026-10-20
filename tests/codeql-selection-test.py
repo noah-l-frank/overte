@@ -2441,18 +2441,18 @@ class NativeUploadResultsTests(unittest.TestCase):
         subprocess.run(['git','checkout','-q','--detach',self.base],cwd=self.protected,check=True)
         self.api = NativeUploadApi(self)
 
-    def add_artifact(self, attempt, *, extra=None):
+    def add_artifact(self, attempt, *, extra=None, language='python', upload=None):
         import io,zipfile
         payload = {'schema':1,'kind':'native-codeql-upload-id','repository':RESULTS.REPOSITORY,
-            'repository_id':RESULTS.REPOSITORY_ID,'run_id':12,'run_attempt':attempt,'language':'python',
+            'repository_id':RESULTS.REPOSITORY_ID,'run_id':12,'run_attempt':attempt,'language':language,
             'source_commit':self.candidate,'ref':self.env['GITHUB_REF'],'workflow':RESULTS.WORKFLOW,
-            'workflow_sha':self.candidate,'sarif_id':self.upload}
+            'workflow_sha':self.candidate,'sarif_id':self.upload if upload is None else upload}
         if extra: payload.update(extra)
         raw = io.BytesIO()
         with zipfile.ZipFile(raw,'w') as archive: archive.writestr('upload.json',json.dumps(payload))
-        value = raw.getvalue(); identity = 100 + attempt
+        value = raw.getvalue(); identity = (100 if language == 'python' else 200) + attempt
         self.archives[identity] = value
-        self.artifacts.append({'id':identity,'name':f'codeql-upload-12-{attempt}-python',
+        self.artifacts.append({'id':identity,'name':f'codeql-upload-12-{attempt}-{language}',
             'digest':'sha256:' + hashlib.sha256(value).hexdigest(),'size_in_bytes':len(value),'expired':False,
             'created_at':'2026-10-15T21:00:25Z' if attempt == 1 else '2026-10-15T21:31:25Z',
             'expires_at':'2026-10-29T21:00:25Z','workflow_run':{'id':12,'repository_id':RESULTS.REPOSITORY_ID,
@@ -2497,6 +2497,74 @@ class NativeUploadResultsTests(unittest.TestCase):
         reader.pinned=True
         windows=reader.jobs(reader.context(),['python'])
         self.assertEqual(reader.analyses(['python'],windows),{})
+
+    def branch_upload_context(self, event, target='main'):
+        self.head = self.candidate
+        ref = 'refs/heads/'+target
+        self.env.update(GITHUB_EVENT_NAME=event, GITHUB_REF=ref,
+            GITHUB_REF_TYPE='branch', GITHUB_WORKFLOW_REF=RESULTS.REPOSITORY+'/'+RESULTS.WORKFLOW+'@'+ref)
+        self.event = {'repository':deepcopy(self.repo), 'before':self.base,
+            'after':self.candidate, 'deleted':False, 'ref':ref}
+        self.refs['heads/'+target] = self.candidate
+        if target == 'main':
+            subprocess.run(['git','checkout','-q','--detach',self.candidate],cwd=self.protected,check=True)
+        self.runs[1].update(event=event, head_sha=self.candidate, head_branch=target,
+            pull_requests=[], referenced_workflows=[])
+        for row in self.jobs:
+            row['head_sha'] = self.candidate
+            if row['name'] == self.A.METADATA_JOB:
+                row.update(name='Authenticate PR text edit', conclusion='skipped', steps=[])
+        self.analyses[0]['ref'] = ref
+        self.artifacts.clear()
+        self.add_artifact(1)
+
+    def test_native_push_upload_verifies_skipped_call_on_all_seven_targets(self):
+        for target in sorted(RESULTS.TARGETS):
+            with self.subTest(target=target):
+                self.setUp()
+                self.branch_upload_context('push', target)
+                result = self.verify()
+                self.assertEqual(result['languages'], ['python'])
+                self.assertEqual(result['native_uploads'][0]['artifact_id'], 101)
+
+    def test_native_schedule_upload_verifies_both_languages_and_skipped_call(self):
+        self.branch_upload_context('schedule')
+        self.env['CODEQL_EXPECTED_LANGUAGES'] = json.dumps(list(CODEQL.LANGUAGES))
+        javascript = deepcopy(next(row for row in self.jobs if row['name']=='CodeQL (python)'))
+        javascript.update(id=84, name='CodeQL (javascript-typescript)',
+            check_run_url=f'https://api.github.com/{RESULTS.PREFIX}/check-runs/84')
+        self.jobs.append(javascript)
+        upload = '5771cd18-cc98-11f1-9b96-0ef876cdb593'
+        self.statuses[upload] = deepcopy(self.statuses[self.upload])
+        self.statuses[upload]['analyses_url'] = self.statuses[upload]['analyses_url'].replace(self.upload,upload)
+        analysis = deepcopy(self.analyses[0])
+        analysis.update(id=92, sarif_id=upload, category='/language:javascript-typescript',
+            environment='{"language":"javascript-typescript"}')
+        self.analyses.append(analysis)
+        self.add_artifact(1, language='javascript-typescript', upload=upload)
+        self.assertEqual(self.verify()['languages'], list(CODEQL.LANGUAGES))
+
+    def test_branch_attempt_requires_exact_skipped_parent_job(self):
+        for event in ('push', 'schedule'):
+            with self.subTest(event=event):
+                self.setUp()
+                self.branch_upload_context(event)
+                adapter = self.A.Adapter(self.api)
+                result = adapter.codeql_result_attempts(12, self.candidate, self.head, attempt=1)
+                self.assertEqual(result['languages'], ['python'])
+                metadata = next(row for row in self.jobs if row['name']=='Authenticate PR text edit')
+                for name, conclusion in ((self.A.METADATA_JOB, 'skipped'),
+                        ('Authenticate PR text edit', 'success')):
+                    metadata.update(name=name, conclusion=conclusion)
+                    with self.subTest(name=name, conclusion=conclusion), self.assertRaises(ValueError):
+                        adapter.codeql_result_attempts(12, self.candidate, self.head, attempt=1)
+                metadata.update(name='Authenticate PR text edit', conclusion='skipped')
+
+    def test_pr_attempt_rejects_branch_skipped_parent_job(self):
+        metadata = next(row for row in self.jobs if row['name']==self.A.METADATA_JOB)
+        metadata.update(name='Authenticate PR text edit', conclusion='skipped', steps=[])
+        with self.assertRaises(ValueError):
+            self.A.Adapter(self.api).codeql_result_attempts(12,self.candidate,self.head,attempt=1)
 
     def test_document_only_native_result_and_retry_need_no_analysis_or_alert_inventory(self):
         self.git('checkout','-q','--detach',self.base)

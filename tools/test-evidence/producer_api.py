@@ -1220,7 +1220,10 @@ class Adapter:
         names = [job.get('name') for job in originals]
         require(len(names) == len(set(names)), 'CodeQL analysis job names are ambiguous')
         selected = [language for language in ('javascript-typescript','python') if f'CodeQL ({language})' in names]
-        allowed = {METADATA_JOB,'Select affected CodeQL languages','codeql-security-results',
+        # Actions expands an executed reusable workflow into its nested job
+        # name. A call skipped at the parent event guard retains the call name.
+        metadata_job = METADATA_JOB if analysis['event'] == 'pull_request' else 'Authenticate PR text edit'
+        allowed = {metadata_job,'Select affected CodeQL languages','codeql-security-results',
                    *(f'CodeQL ({language})' for language in selected)}
         require(set(names) == allowed, 'CodeQL analysis job inventory is incomplete or unknown')
         checks = {}
@@ -1240,7 +1243,7 @@ class Adapter:
                 else:
                     require((fact.status,fact.conclusion) in allowed_status, 'current CodeQL native gate failed')
                 continue
-            expected = 'skipped' if job['name'] == METADATA_JOB and analysis['event'] != 'pull_request' else 'success'
+            expected = 'skipped' if job['name'] == metadata_job and analysis['event'] != 'pull_request' else 'success'
             require((fact.status,fact.conclusion) == ('completed',expected), 'CodeQL current selector/analyzer did not succeed')
         if continuation:
             fact = self._job(current_jobs[0],result,15368,final_name='codeql-security-results')
