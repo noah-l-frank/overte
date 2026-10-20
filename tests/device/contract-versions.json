@@ -9,6 +9,7 @@
     "feature-account-provider": {"current": 2, "reads": [2]},
     "native-feature-observation": {"current": 1, "reads": [1]},
     "independent-chat-receiver": {"current": 1, "reads": [1]},
+    "native-chat-actor-files": {"current": 1, "reads": [1]},
     "native-chat-observation": {"current": 1, "reads": [1]},
     "native-account-observation": {"current": 1, "reads": [1]},
     "native-account-probe": {"current": 1, "reads": [1]},
