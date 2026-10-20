@@ -1,18 +1,18 @@
-# Feature adapter handoff, contract v9
+# Feature adapter handoff, contract v10
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
-packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v9.json) and
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v10.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 tracks subsequent local platform packets and prerequisites. These do not change
-the complete v9 contract or grant device acceptance.
+the complete v10 contract or grant device acceptance.
 
 ## Action and read boundary
 
 For each closed area, advertise all three operations only after implementing
-and qualifying their complete v9 contract:
+and qualifying their complete v10 contract:
 
 - `feature.<area>.act` accepts exactly `{contractVersion: 9, runId, ticket,
   fixtureUrl, verb, inputs}`. `runId` and `ticket` are fresh 32-character lowercase
@@ -433,3 +433,20 @@ uncompiled. Platform wrappers, private original model/settings endpoints, actual
 keyboard/route measurements and full Chat composition remain outstanding. The
 closed-page active-channel assumption also requires source-contract correction;
 never copy local as a measured property of a destroyed QML page.
+
+## Chat version 10 source correction
+
+[CHAT_SOURCE.md](feature_journeys/CHAT_SOURCE.md) now defines closed `channel:none`,
+actual Local re-entry, all ten independently witnessed UI/storage/peer fields,
+mandatory independent open/type observations, actual tab focus outcomes and a
+real background/resume checkpoint. Do not substitute QML keyboard requests, old
+widget defaults, retained reducer state or lifecycle input counts for actual
+observations. The complete flow has 25 checkpoints. Old v9 whole-area samples
+cannot be promoted by inventing the missing independent fields. The original
+normal-control components remain primitive v1; complete v10 adapters are missing.
+
+The v10 common journey group passes 67 host cases; the complete permitted common
+selection passes 721 with no skips, failures, errors or compiler attempts. The
+three native compiler-dependent voice cases remain explicitly excluded. These
+results validate host test logic only. Native instrumentation remains uncompiled,
+complete area adapters remain missing and all three physical clients are untested.
