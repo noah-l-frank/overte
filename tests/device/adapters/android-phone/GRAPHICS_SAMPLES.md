@@ -35,6 +35,8 @@ validation floors only. Every `read(ticket,after_epoch)` must acquire a new fram
 The whole source attempt is bounded at 20 seconds and retains each underlying
 source's existing deadline. Original clocks are never retimed. Final native
 clock and guard latency remain inside the 1,500 ms freshness requirement.
+An independent local elapsed-age floor from the first original native acquisition
+also prevents a frozen native clock from hiding slow PNG completion or cleanup.
 
 ## Files and measurement retirement
 
@@ -104,7 +106,7 @@ records; stopping the app cannot make unresolved source ownership green.
 
 ## Host verification
 
-Twenty-nine source cases, including loops over every source cursor and native/UI
+Thirty source cases, including loops over every source cursor and native/UI
 birth, use real private host journals/PNG/receipt files with explicit synthetic
 native and fixture boundaries. They cover original joins, factory recreation,
 GPU-frame reuse, foreign/old pixels, lost dispatch and file-intent responses,

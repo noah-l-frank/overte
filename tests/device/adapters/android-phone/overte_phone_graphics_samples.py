@@ -408,6 +408,7 @@ class PhoneGraphicsSamples:
         self._track_storage(owned,bound)
         bound()
         try:
+            acquisition_started=self.monotonic();need(number(acquisition_started,previous,1e15));previous=acquisition_started
             before=native.read(native.sequence);remember('native',before)
             first=subject.read(self.run);remember('subject',first)
             graphics=ui.capture();remember('graphics',graphics)
@@ -439,5 +440,6 @@ class PhoneGraphicsSamples:
         freshness_started=self.monotonic();need(number(freshness_started,previous,1e15))
         final_epoch=native.clock_ms();need(integer(final_epoch,current_epoch));fresh(actual['capturedEpochMs'],final_epoch)
         bound()
-        need(final_epoch-actual['capturedEpochMs']+math.ceil((previous-freshness_started)*1000)<=1500)
+        need(max(final_epoch-actual['capturedEpochMs']+math.ceil((previous-freshness_started)*1000),
+            before['capturedEpochMs']-actual['capturedEpochMs']+math.ceil((previous-acquisition_started)*1000))<=1500)
         return deepcopy(dict(sequence=self.state['sequence'],imagePath=str(self.artifact_root/image['name']),**actual))

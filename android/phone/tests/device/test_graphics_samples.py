@@ -459,3 +459,14 @@ class GraphicsSamplesTests(unittest.TestCase):
             self.assertIsNotNone(unpack(self.state()['payload'])[0]['pending']['retirement'])
             self.boundary.change_phase();samples.retire_changed_ticket()
             self.assertFalse((self.root/'world-primary.json').exists())
+
+    def test_frozen_native_clock_cannot_make_a_slow_original_png_completion_fresh(self):
+        with self.boundary.lock.held():
+            samples=self.boundary.factory();original=samples.images.intent
+            def delayed(value):
+                original(value)
+                if value['phase']=='saved':self.boundary.clock+=1.6
+            samples.images.intent=delayed
+            with self.assertRaises(NativeUIError):samples.read(TICKET,20000)
+            self.assertFalse((self.root/'world-primary.json').exists())
+            self.assertEqual(1,self.boundary.counters['capture'])
