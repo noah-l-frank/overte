@@ -1329,6 +1329,8 @@ class MetadataSchedulingTests(unittest.TestCase):
                 ('15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a','3b7a88765b7181a1bc7dd6f48b9b459e590055d3'),
             'protected-producer-original-default-required-context-v1':
                 ('22fe0d6d39d120f800099136d7d1ab5280d80b41','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
+            'protected-producer-optional-parent-source-v1':
+                ('22fe0d6d39d120f800099136d7d1ab5280d80b41','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
         }
         self.assertIn(installed,variants)
         caller=self.case.policy.caller_path
@@ -3361,7 +3363,7 @@ class MetadataRetentionConsumerTests(unittest.TestCase):
         real_host = C.producer._host_policy()
         real_package = real_host.package_policy()
         generations = real_package.workflow_generations()
-        self.assertEqual(len(generations), 26)
+        self.assertEqual(len(generations), 27)
         prior_generations=generations[:25]
         self.assertEqual(len(prior_generations), 25)
         self.assertEqual(len([row for row in prior_generations if row['name']!='protected-producer-original-default-boolean-v1']),24)
