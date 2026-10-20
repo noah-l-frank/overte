@@ -334,5 +334,3 @@ def result(event, environment, candidate, needs, *, get=None, read=artifact_byte
         remaining = wait_seconds - (clock() - started)
         require(remaining > 0, 'original iOS result wait expired')
         sleep(min(15, remaining))
-
-
