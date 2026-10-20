@@ -75,8 +75,9 @@ class ScriptHistoryTests(unittest.TestCase):
         self.assertNotEqual(frames[0]['execution']['requestId'], frames[1]['execution']['requestId'])
         self.assertEqual((20000, 20000), tuple(frame['epochMs'] for frame in frames))
         self.assertNotIn('state', frames[0]); self.assertEqual([], self.f.ui_source.input_requests)
+        recorded=history.canonical(history.unpack(two['transcript']))
         first['state']['effects'] = 999
-        self.assertNotIn(b'999', history.canonical(history.unpack(two['transcript'])))
+        self.assertEqual(recorded,history.canonical(history.unpack(self.store.read()['transcript'])))
 
     def test_reconstruction_cannot_return_a_cached_success_when_fresh_source_is_ignored(self):
         self.acquire(); saved = self.store.read()

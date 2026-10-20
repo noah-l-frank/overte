@@ -14,7 +14,7 @@ from overte_phone_script_file_scope import join, file_cursor, VERSION as FILE_VE
 from overte_phone_script_measurements import fixture_scope
 from adapters.token_script_file_ui import file_url
 
-VERSION = 1
+VERSION = 2
 
 
 class PhoneScriptObservation:
@@ -33,10 +33,10 @@ class PhoneScriptObservation:
             self.previous = store.read()
             self.state = dict(sourceObservationVersion=VERSION, sourceKind='phone-script-observation',
                 binding=self.binding, runId=run, role=role, directory=None, fixtureUrl=fixture_url,
-                phase='ready', sequence=0, fileCursor=None)
+                phase='ready', sequence=0, fileCursor=None, fileObservation=None)
             if self.previous is not None:
                 exact(self.previous, set(self.state))
-                for key in set(self.state) - {'phase', 'sequence', 'fileCursor','directory'}:
+                for key in set(self.state) - {'phase', 'sequence', 'fileCursor','fileObservation','directory'}:
                     need(same(self.previous[key], self.state[key]))
                 need(self.previous['phase'] == 'ready' and integer(self.previous['sequence'], 1, 1000000000))
                 directory=self.previous['directory']
@@ -47,6 +47,10 @@ class PhoneScriptObservation:
                 need(type(cursor['fileScopeVersion']) is int and cursor['fileScopeVersion'] == FILE_VERSION
                      and integer(cursor['sequence'], 1) and integer(cursor['capturedEpochMs'], 1)
                      and cursor['directory'] == directory)
+                packet=self.previous['fileObservation']
+                original=file_cursor(run,directory,int(self.binding['processIdentity'].split(':')[0]),packet,
+                    packet['capturedEpochMs'],packet['capturedEpochMs'])
+                need(same(original,cursor))
                 self.state = deepcopy(self.previous)
                 self.directory=directory
         except Exception:
@@ -106,8 +110,10 @@ class PhoneScriptObservation:
                 measured['capturedEpochMs'] = original['capturedEpochMs']
                 need(same(measured, original)); check()
                 finished = deepcopy(self.state)
-                finished.update(phase='ready', sequence=finished['sequence'] + 1, directory=directory,fileCursor=actual['fileCursor'])
+                finished.update(phase='ready', sequence=finished['sequence'] + 1, directory=directory,
+                                fileCursor=actual['fileCursor'],fileObservation=reader.file_observation())
                 self.write(finished);self.directory=directory; check()
-                return deepcopy(dict(sourceObservationVersion=VERSION, sequence=finished['sequence'], **actual))
+                return deepcopy(dict(sourceObservationVersion=VERSION, sequence=finished['sequence'],
+                                     sources=reader.last_sources, **actual))
         except Exception:
             raise NativeUIError('Phone Script observation failed; original provenance and ownership are retained') from None

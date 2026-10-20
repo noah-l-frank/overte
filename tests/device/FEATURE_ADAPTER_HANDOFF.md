@@ -512,3 +512,14 @@ results validate host test logic only. Native instrumentation remains uncompiled
 complete area adapters remain missing and all three physical clients are untested.
 
 Version 11 corrects browser source semantics and document transitions; see [the exact Web handoff](feature_journeys/WEB_SOURCE.md). It does not promote complete adapters or device acceptance.
+
+## Complete Android Phone Script extension
+
+The Phone branch now implements the v16 Script triple, original normal input
+causality/readiness, five-source observations, actual owned HTTP404 receipts,
+separate per-role restart histories, a separately credentialed publisher and
+verified cleanup/journal retirement. See [the versioned Phone handoff](adapters/android-phone/SCRIPT_FEATURE.md).
+Only this area is implemented on Phone; the other thirteen Phone areas and
+complete Pico/iOS adapters remain pending. Native code is uncompiled, all device
+qualification remains open, and missing required capabilities still fail the
+whole selected suite. Host simulations establish control logic only.

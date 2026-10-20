@@ -1,3 +1,18 @@
+# Current Android Phone adapter status
+
+The full v16 Script extension is now implemented through the existing adapter
+entrypoint: `feature.scripts.act/observe/cleanup`, with an explicit default-off
+`OVERTE_PHONE_FEATURE_SCRIPTS=1` configuration. It includes normal inputs,
+original five-source observations, actual HTTP404 receipts, per-role restart
+history, a separate credentialed publisher and verified cleanup/host-journal
+retirement. See [the exact handoff](SCRIPT_FEATURE.md).
+
+This is source implementation and host verification only. Native instrumentation
+has not been compiled; no device, installation, build or Jenkins run was performed.
+The remaining thirteen complete Android feature adapters are still missing.
+Pico and iOS are paused until all fourteen Android areas are complete. Historical
+component notes below do not supersede this current status.
+
 # Phone adapter implementation, local source only
 
 Active implementation scope is **Android Phone only** until all fourteen areas

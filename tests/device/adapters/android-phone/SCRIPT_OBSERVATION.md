@@ -1,7 +1,7 @@
-# Durable five-source Script observations, version 1
+# Durable five-source Script observations, version 2
 
 `_script_observation(selector, run, fixture_url, role=..., fixture_state=...,
-retired_owner=...)` composes the existing original-source readers, four-source
+retired_owner=..., stage=0|1, source_lock=...)` composes the existing original-source readers, four-source
 history and file/resource join. It returns `PhoneScriptObservation`, with
 `read(ticket, after_epoch, after_sequence=None)`. Roles remain `primary` and
 `actor`; their history and observation journals are separate. The native-command
@@ -16,9 +16,9 @@ run, role and fixture URL. A completed record additionally retains the actual
 directory and original advancing file cursor. Changed contexts, foreign scopes,
 unsupported versions and interrupted records cannot be implicitly adopted.
 
-The exact private record is `sourceObservationVersion:1`,
+The exact private record is `sourceObservationVersion:2`,
 `sourceKind:"phone-script-observation"`, `binding`, `runId`, `role`, `directory`,
-`fixtureUrl`, `phase`, `sequence`, `fileCursor`. The existing private parent,
+`fixtureUrl`, `phase`, `sequence`, `fileCursor`, `fileObservation`. The original fifth-source packet is retained and revalidated against that cursor; version 1 journals are rejected without implicit migration. The existing private parent,
 mode-0600, single-link, no-symlink, atomic replace and 64 KiB cap are unchanged.
 The observation sequence is a count of sealed acquisitions, not a native
 function/event count. A future caller cursor fails before any source request;
@@ -53,8 +53,8 @@ General Phone cleanup still executes base teardown and refuses success while
 any original observation journal remains. There is no unconditional reset or
 discard operation.
 
-The private result contains `sourceObservationVersion:1`, `sequence`,
-`fileScopeVersion:1`, `measurement`, `resources`, `fileCursor`. Measurements remain
+The private result contains `sourceObservationVersion:2`, `sequence`,
+`fileScopeVersion:1`, `measurement`, `resources`, `fileCursor`, `sources`. `sources` holds the four original source envelopes and their original acquisition epoch, for causal validation by the owning facade. Measurements remain
 original execution/code/module/effect/UI/service/lifecycle values, with the oldest
 of five source clocks. Raw native metadata stays private. The coordinator must
 use these values in the existing v16 observation shape; it must not publish
@@ -69,9 +69,11 @@ ownership and another thread; cross-process exclusion remains tested. Native
 file-source cases additionally reject within-instance clock rollback. All are
 host simulations; C++ is uncompiled and devices remain untested.
 
-This completes the internal five-source observation transaction for one original
-process. It does not yet implement the full nineteen-step feature coordinator,
-its pre-input/load barriers and readiness, original HTTP404 join, explicit
-per-role restart-history handoff, independently running publisher or complete
-verified cleanup. Those must be wired before advertising `feature.scripts.*`.
-No full feature capability, product pass or physical acceptance is promoted.
+This is the five-source observation transaction for one original process.
+The [full Phone Script owner](SCRIPT_FEATURE.md) now composes it with inputs,
+HTTP evidence, explicit per-role restart history, independent publication and
+verified cleanup. Stage 0 retains the original process journal; stage 1 uses
+separate `-restart` filenames. Only the full owner authorizes stage 1 after the
+original restart protocol, old independent observations and each role's new
+kernel/source proof. Neither a new stage nor a historical frame is fresh evidence.
+Native instrumentation is uncompiled and devices remain untested.

@@ -1423,6 +1423,7 @@ class FeatureAdapterTests(unittest.TestCase):
         from adapters.token_script_file_ui import file_url
         storage, file_ui, files, manager = self.file_manager_boundaries(stage=not absent)
         self.script_measurement_storage=storage
+        self.script_measurement_ui=file_ui
         if not absent:
             manager.open(); manager.file_picker_open(); manager.file_picker_choose('script.js')
             if stopped:manager.stop_source(storage.root.as_uri()+'/script.js')

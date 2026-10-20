@@ -15,6 +15,10 @@ from adapters.normal_ui import NativeUIError
 VERSION = 1
 
 
+class PhoneScriptSourceBusy(NativeUIError):
+    """Only genuine contention may be retried by the independent publisher."""
+
+
 class PhoneScriptSourceLock:
     def __init__(self, path, *, timeout=5):
         need(number(timeout, 0.01, 5))
@@ -50,6 +54,8 @@ class PhoneScriptSourceLock:
                 yield
                 need(self._owner is owner)
                 self.assert_held()
+            except PhoneScriptSourceBusy:
+                raise PhoneScriptSourceBusy('Phone Script source is busy') from None
             except Exception:
                 raise NativeUIError('Phone Script source serialization is unavailable') from None
             return
@@ -61,23 +67,29 @@ class PhoneScriptSourceLock:
             descriptor = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0)
                                  | getattr(os, 'O_NONBLOCK', 0), 0o600)
             self._check(descriptor, path)
-            started = previous = time.monotonic()
+            started = previous = time.monotonic();contended=False
             for attempt in range(202):
                 self._check(descriptor, path)
                 now = time.monotonic()
-                need(number(now, 0, 1e15) and previous <= now and now - started < self.timeout)
+                need(number(now, 0, 1e15) and previous <= now)
+                if now-started>=self.timeout:
+                    if contended:raise PhoneScriptSourceBusy('Phone Script source is busy')
+                    need(False)
                 previous = now
                 try:
                     fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     break
                 except BlockingIOError:
-                    need(attempt < 201)
+                    contended=True
+                    if attempt>=201:raise PhoneScriptSourceBusy('Phone Script source is busy')
                     time.sleep(min(0.025, self.timeout / 4))
             self._check(descriptor, path)
             owner = (path, descriptor, os.getpid(), threading.get_ident())
             self._owner = owner
             yield
             self.assert_held()
+        except PhoneScriptSourceBusy:
+            raise PhoneScriptSourceBusy('Phone Script source is busy') from None
         except Exception:
             raise NativeUIError('Phone Script source serialization is unavailable') from None
         finally:

@@ -18,16 +18,16 @@ previously corrected their actual original-source semantics. The native retained
 input owner/private channel is now registered in all three separate platform
 branches; complete Lifecycle joins remain missing.
 
-Every row means **test logic exists · adapter missing · untested on devices**.
+All rows have shared test logic. Android Phone now implements the complete Script extension; its native instrumentation remains uncompiled and untested on devices. The other thirteen Phone area adapters and all complete Pico/iOS area adapters remain missing.
 These are implementation statuses, not complete product-feature acceptance.
 The [source compatibility review](FEATURE_SOURCE_COMPATIBILITY.md) identifies
 remaining platform Emote prerequisites. Version 5 corrects ordinary override/chooser semantics, adds nine automatic completions and a separate early-restoration check. Version 4 corrects Graphics to immediate settings and independently measured original preferences. Version 2 corrected Scripts to the real file-bundle picker; version 3 corrected
 Audio to automatic in-memory capture/play/drain/completion;
 its adapter input/observer join is still incomplete. Host logic is present; it is not yet a qualified
-product workflow. No complete area adapter is advertised.
+product workflow. Only the Phone Script extension can be explicitly enabled; this promotes no physical acceptance.
 The later [local adapter packet audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
-records narrower foundation implementations and concrete native blockers; no
-complete new area triple has been enabled by that work.
+records the earlier foundation implementations and concrete native blockers.
+The later Phone Script facade is described in its [current handoff](adapters/android-phone/SCRIPT_FEATURE.md).
 The [controlled HTTPS account backend](feature_journeys/ACCOUNT_PROVIDER.md) now
 supplies real owned grants/profile access and delayed-response/revocation controls;
 native Authentication observation/input and complete adapter composition remain open.
@@ -55,7 +55,7 @@ to implement the new complete area contract.
 | audio | `audio-controls`, `permission-recovery`, `sound-playback`, `voice-roundtrip` | Automatic memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation; OS permissions remain in the composed foundation. | audio, file, peer, silence | Logic present; adapter missing; device untested |
 | chat | `text-input` | Unicode send/receive, cancelled draft, actual Local/Domain histories, distant Local rejection, history reopen, no-mixer local echo and explicit retyped resend. | peer | Logic present; adapter missing; device untested |
 | snapshots | `snapshot-output-parity` | Actual pending-cancel history; Photos Save denial with successful private capture; measured Save backend, original Save/share/upload bytes, system-sheet cancellation and resume. | file, image, peer | Logic present; adapter missing; device untested |
-| scripts | `scripts-management`, `scripted-entity` | File-bundle execution; actual mobile restart/three-second absence; separate normal reopen/cancel/reimport; current native/UI URL failure and complete cleanup. Separate existing entity-script consent remains. | peer | Logic present; adapter missing; device untested |
+| scripts | `scripts-management`, `scripted-entity` | File-bundle execution; actual mobile restart/three-second absence; separate normal reopen/cancel/reimport; current native/UI URL failure and complete cleanup. Separate existing entity-script consent remains. | peer | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | assets | `asset-load` | glTF/OBJ bundle paths and folder rename, real FBX bake disable/enable, Add to World, disabled Delete, vanished selected file and picker cancellation. | changed, file, image, peer | Logic present; adapter missing; device untested |
 | lifecycle-input | `lifecycle-under-load`, `tablet-input-isolation`, `text-input` | Distinct editor contexts/drafts, actual page Back/resume, original pending stale input rejection, held world input, stationary release and immutable counters. | changed, image, peer | Logic present; adapter missing; device untested |
 | tablet-web | `tablet-web-video`, `tablet` | Same browser flows plus ordinary inline app routing and input ownership. | changed, image, peer | Logic present; adapter missing; device untested |

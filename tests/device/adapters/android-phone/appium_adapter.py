@@ -69,6 +69,10 @@ from overte_phone_script_history import PhoneScriptHistory, PhoneDurableScriptMe
 from overte_phone_script_lock import PhoneScriptSourceLock
 from overte_phone_script_observation import PhoneScriptObservation
 from overte_phone_script_actions import PhoneScriptActions
+from overte_phone_script_feature import PhoneScriptFeature, ScriptFixtureReader
+from feature_journeys.witness import Client as FeatureFixtureClient
+
+SCRIPT_FEATURE_OPERATIONS={'feature.scripts.'+kind for kind in ('act','observe','cleanup')}
 
 
 class PhoneAppiumAdapter(AppiumAdapter):
@@ -155,6 +159,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
                     and self.controlled_android_client(target),
                     'PHONE_NORMAL_SCRIPTS_REQUIRES_BOUND_DEBUG_TARGET')
             values = sorted(set(values) | SCRIPT_OPERATIONS)
+        full_scripts=os.environ.get('OVERTE_PHONE_FEATURE_SCRIPTS','0')
+        require(full_scripts in ('0','1'),'PHONE_FEATURE_SCRIPTS_CONFIGURATION_INVALID')
+        if full_scripts=='1':
+            require(script_enabled=='1','PHONE_FEATURE_SCRIPTS_REQUIRES_NORMAL_SCRIPTS')
+            FeatureFixtureClient(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''),
+                                 os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN',''))
+            values=sorted(set(values)|SCRIPT_FEATURE_OPERATIONS)
         create_enabled = os.environ.get('OVERTE_PHONE_NORMAL_CREATE', '0')
         require(create_enabled in ('0', '1'), 'PHONE_NORMAL_CREATE_CONFIGURATION_INVALID')
         if create_enabled == '1':
@@ -190,13 +201,17 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 if file_observation:
                     from adapters.native_script_files import command as validate_files
                     validate_files(command)
-                allowed_fields = ({'schemaVersion', 'commandId', 'action', 'operation', 'runId', 'ownerToken'},) if file_observation else (
+                process_observation = type(command) is dict and command.get('action') == 'feature-process-presence'
+                if process_observation:
+                    from adapters.native_process_presence import command as validate_presence
+                    validate_presence(command)
+                allowed_fields = ({'schemaVersion', 'commandId', 'action', 'queryProcessId'},) if process_observation else ({'schemaVersion', 'commandId', 'action', 'operation', 'runId', 'ownerToken'},) if file_observation else (
                     {'schemaVersion', 'commandId', 'action'}, {'schemaVersion', 'commandId', 'action', 'request'})
                 require(type(command) is dict and set(command) in allowed_fields
                     and type(command.get('schemaVersion')) is int and command['schemaVersion'] == 1
                     and type(command.get('commandId')) is str and re.fullmatch('[0-9a-f]{32}', command['commandId'])
                     and type(command.get('action')) is str
-                    and (file_observation or command['action'] in {'feature-native-observe', 'feature-script-observe'} and 'request' not in command
+                    and (process_observation or file_observation or command['action'] in {'feature-native-observe', 'feature-script-observe'} and 'request' not in command
                          or command['action'] == 'phone-script-file-ui' and type(command.get('request')) is dict
                          and command['request'] == dict(schemaVersion=1, commandId=command['commandId'], action='observe')
                          and type(command['request']['schemaVersion']) is int),
@@ -211,8 +226,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda: binding.adb.epoch_milliseconds(device), guard,
             int(context['processIdentity'].split(':')[0]))
 
-    def _process_presence(self, selector):
-        native = self._native_feature_observer(selector)
+    def _process_presence(self, selector, *, read_only=False):
+        native = self._native_feature_observer(selector, read_only=read_only)
         target = self.target(selector); device = target['capabilities']['appium:udid']
         transport = PhoneAdapter(self.candidate).adb
         return NativeProcessPresence(native.send,
@@ -388,11 +403,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
         result.file_observation=lambda:deepcopy(storage.last_packet)
         return result
 
-    def script_history_store(self, selector, role):
+    def script_history_store(self, selector, role, *, stage=0):
         require(role in ('primary','actor'),'PHONE_SCRIPT_HISTORY_ROLE_REQUIRED')
-        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-'+role+'-history.json'))
+        require(type(stage) is int and stage in (0,1),'PHONE_SCRIPT_HISTORY_STAGE_INVALID')
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-'+role+'-history'+('-restart' if stage else '')+'.json'))
 
-    def _script_durable_measurements(self, selector, run, fixture_url, *, role, fixture_state='present', retired_owner=None, source_lock=None):
+    def _script_durable_measurements(self, selector, run, fixture_url, *, role, fixture_state='present', retired_owner=None, source_lock=None, stage=0):
         # Both roles acquire originals through existing-session/read-only
         # admission. Private histories and source requests are role-separated.
         require(role in ('primary','actor'),'PHONE_SCRIPT_HISTORY_ROLE_REQUIRED')
@@ -404,7 +420,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
             reader=self._script_measurements(selector,run,fixture_url,read_only=True,fixture_state=fixture_state,retired_owner=retired_owner)
             _ui,_observe,binding,check,_installed=self.normal_feature_runtime(selector,read_only=True)
             check();reader.guard()
-            store=self.script_history_store(selector,role)
+            store=self.script_history_store(selector,role,stage=stage)
             history=PhoneScriptHistory(store,binding,run,role,reader.directory,fixture_url)
             check();reader.guard()
             return PhoneDurableScriptMeasurements(reader,history,source_lock=source_lock)
@@ -415,24 +431,41 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def _script_actions(self, selector, run, fixture_url):
         return PhoneScriptActions(self,selector,run,fixture_url)
 
-    def script_observation_store(self, selector, role):
-        require(role in ('primary','actor'),'PHONE_SCRIPT_OBSERVATION_ROLE_REQUIRED')
-        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-'+role+'-observation.json'))
+    def script_feature_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-feature.json'))
 
-    def _script_observation(self, selector, run, fixture_url, *, role, fixture_state='present', retired_owner=None):
+    def script_retirement_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-retirement.json'))
+
+    def _script_feature(self, selector, run, *, role='primary', client=None):
+        if client is None:
+            require(role=='primary','PHONE_SCRIPT_ACTOR_REQUIRES_SEPARATE_CLIENT')
+            client=FeatureFixtureClient(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''),
+                os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN',''))
+        return PhoneScriptFeature(self,selector,ScriptFixtureReader(client,run),role=role)
+
+    def script_observation_store(self, selector, role, *, stage=0):
+        require(role in ('primary','actor'),'PHONE_SCRIPT_OBSERVATION_ROLE_REQUIRED')
+        require(type(stage) is int and stage in (0,1),'PHONE_SCRIPT_OBSERVATION_STAGE_INVALID')
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-'+role+'-observation'+('-restart' if stage else '')+'.json'))
+
+    def _script_observation(self, selector, run, fixture_url, *, role, fixture_state='present', retired_owner=None, stage=0, source_lock=None):
         # Original existing-session readers only; no full operation/publisher.
         require(role in ('primary','actor'),'PHONE_SCRIPT_OBSERVATION_ROLE_REQUIRED')
         fixture_scope(run,fixture_url)
-        source_lock=PhoneScriptSourceLock(self.state_path(selector).with_name('phone-script-sources.lock'))
+        lock_path=self.state_path(selector).with_name('phone-script-sources.lock')
+        source_lock=PhoneScriptSourceLock(lock_path) if source_lock is None else source_lock
+        require(isinstance(source_lock,PhoneScriptSourceLock) and source_lock.path==lock_path,
+                'PHONE_SCRIPT_OBSERVATION_SOURCE_LOCK_REQUIRED')
         def make(lock):
             return self._script_durable_measurements(selector,run,fixture_url,role=role,
-                fixture_state=fixture_state,retired_owner=retired_owner,source_lock=lock)
+                fixture_state=fixture_state,retired_owner=retired_owner,source_lock=lock,stage=stage)
         with source_lock.held():
             ui,_observe,binding,check,installed=self.normal_feature_runtime(selector,read_only=True)
             def guard():
                 check()
                 require(self.installed_identity(selector)==installed,'PHONE_SCRIPT_OBSERVATION_INSTALL_CHANGED')
-            return PhoneScriptObservation(self.script_observation_store(selector,role),binding,
+            return PhoneScriptObservation(self.script_observation_store(selector,role,stage=stage),binding,
                 run,role,fixture_url,make,source_lock,guard,monotonic=ui.monotonic)
 
     def _script_files(self, selector, *, read_only=False):
@@ -839,6 +872,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        feature_error=False
+        try:
+            feature=self.script_feature_store(selector).read() or self.script_retirement_store(selector).read()
+            if feature is not None:self._script_feature(selector,feature['runId']).finalize()
+        except Exception:feature_error=True # Preserve full ownership; base teardown still runs.
         chat_error=False
         try:
             owned=self.chat_capture_store(selector).read()
@@ -900,12 +938,16 @@ class PhoneAppiumAdapter(AppiumAdapter):
             binding.adb.shell(device, 'am', 'force-stop', target['appId'])
             binding.wait_for_process_stopped(device)
         result = super().cleanup(selector)
+        require(not feature_error and self.script_feature_store(selector).read() is None
+                and self.script_retirement_store(selector).read() is None
+                and all(PrivateFeatureState(self.state_path(selector).with_name('phone-script-'+role+'-feature.json')).read() is None
+                        for role in ('primary','actor')),'PHONE_SCRIPT_FEATURE_CLEANUP_INCOMPLETE')
         require(self.script_restart_inputs_store(selector).read() is None, 'PHONE_SCRIPT_RESTART_INPUTS_CLEANUP_INCOMPLETE')
         require(self.script_restart_store(selector).read() is None, 'PHONE_SCRIPT_RESTART_CLEANUP_INCOMPLETE')
         require(self.script_actions_store(selector).read() is None,'PHONE_SCRIPT_ACTIONS_CLEANUP_INCOMPLETE')
-        require(all(self.script_history_store(selector,role).read() is None for role in ('primary','actor')),
+        require(all(self.script_history_store(selector,role,stage=stage).read() is None for role in ('primary','actor') for stage in (0,1)),
                 'PHONE_SCRIPT_HISTORY_CLEANUP_INCOMPLETE')
-        require(all(self.script_observation_store(selector,role).read() is None for role in ('primary','actor')),
+        require(all(self.script_observation_store(selector,role,stage=stage).read() is None for role in ('primary','actor') for stage in (0,1)),
                 'PHONE_SCRIPT_OBSERVATION_CLEANUP_INCOMPLETE')
         if owned is not None:
             require(result == {'cleaned': True}, 'PHONE_NORMAL_SNAPSHOT_CLEANUP_INCOMPLETE')
@@ -964,6 +1006,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def invoke(self, selector, operation, values):
         PhoneAdapter.require_bound_operation(self, operation, values)
+        if operation in SCRIPT_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),
+                    'PHONE_SCRIPT_FEATURE_NOT_ENABLED')
+            return getattr(self._script_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
         if operation.startswith('places.'):
             return self.normal_navigation(selector, operation, values)
         if operation in SNAPSHOT_OPERATIONS:

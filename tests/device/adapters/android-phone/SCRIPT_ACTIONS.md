@@ -70,8 +70,8 @@ corrected to keep observation fields out of input replies; the production parser
 remains strict. SDK acknowledgments do not establish product function. Native
 code is uncompiled and devices remain untested.
 
-The full feature facade still needs to persist/check input callback causality
-through readiness and quiet windows, join actual owned HTTP404 receipts, explicitly
-hand off each role's observation/history across restart, run an independently
-acquiring publisher and verify/retire complete cleanup. No complete
-`feature.scripts.*` capability or device acceptance is promoted by this input layer.
+The [full Script feature owner](SCRIPT_FEATURE.md) now composes this input
+layer with original callback/readiness proof, owned HTTP404 receipts, explicit
+per-role restart histories, independent publication and verified cleanup. This
+layer's acknowledgment remains input delivery only. Physical acceptance is
+unchanged; native instrumentation remains uncompiled.

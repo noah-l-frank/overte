@@ -230,6 +230,23 @@ class Journey:
                     if actual_lifecycle is not None and value['lifecycle']!=actual_lifecycle:
                         stable_since=None;stable_count=0
                     actual_lifecycle=value['lifecycle'].copy()
+                elif self.area=='scripts' and label.endswith('-restart-app'):
+                    # A normal mobile stop can persist Hidden/Suspended before
+                    # process exit. Startup can also receive real visibility
+                    # transitions. Keep the exact launch delta, monotonic native
+                    # backgrounds/activations and a settled observation window;
+                    # never replace original counters with requested increments.
+                    prior=actual_lifecycle
+                    required=self.required_lifecycle
+                    counts=value['lifecycle']
+                    if (counts['launches']!=required['launches']
+                            or counts['activations']<required['activations']
+                            or counts['backgrounds']<required['backgrounds']
+                            or prior is not None and any(counts[key]<prior[key] for key in counts)):
+                        raise AssertionError('Script restart lost original native lifecycle continuity')
+                    if prior is not None and counts!=prior:
+                        stable_since=None;stable_count=0
+                    actual_lifecycle=counts.copy()
                 else:okay=okay and value['lifecycle']==self.required_lifecycle
             witness = None
             if 'peer' in kinds:
