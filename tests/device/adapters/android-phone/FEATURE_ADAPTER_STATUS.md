@@ -67,11 +67,18 @@ The complete feature owner still needs to compose this original file evidence.
 The [durable Graphics source producer](GRAPHICS_SAMPLES.md) now retains each
 role/process source history, requires a new recorded-view GPU frame and original
 owned PNG, and verifies native memory plus complete receipt retirement before
-returning measured facts. Twenty-nine focused source cases and the whole-cleanup
+returning measured facts. Thirty focused source cases and the whole-cleanup
 wrapper cover interruptions, provenance rollback and lost/ignored responses.
 Version 2 adds original changed-ticket retirement without input replay or cached
-publication; partial/unknown artifacts stay red. Ordinary scene/settings/restart ownership, specific
-pixel-effect checks and the complete Graphics coordinator still remain pending.
+publication; partial/unknown artifacts stay red. Ordinary scene/settings/restart
+ownership and the complete Graphics coordinator still remain pending.
+
+The [target-pixel comparison component](GRAPHICS_EFFECTS.md) now independently
+checks the projected distant board and mirror surface using original recorded
+camera matrices, excluding challenge pixels. Fifteen host cases reject missing
+GPU work, ignored effects, wrong hues, unrelated changes and incompatible/old
+originals. Full normal scene/settings/restart orchestration and the complete
+Graphics coordinator still remain pending; no Graphics capability is enabled.
 
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original

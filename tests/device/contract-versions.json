@@ -64,6 +64,7 @@
     "phone-graphics-measurements": {"current": 2, "reads": [2]},
     "phone-graphics-images": {"current": 1, "reads": [1]},
     "phone-graphics-samples": {"current": 2, "reads": [2]},
+    "phone-graphics-effects": {"current": 1, "reads": [1]},
     "world-render-acquisition": {"current": 2, "reads": [1, 2]},
     "world-render-trace": {"current": 2, "reads": [1, 2]},
     "world-render-storage": {"current": 1, "reads": [1]},

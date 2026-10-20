@@ -45,6 +45,7 @@ REQUIRED = {
     "phone-graphics-measurements": 2,
     "phone-graphics-images": 1,
     "phone-graphics-samples": 2,
+    "phone-graphics-effects": 1,
     "native-script-code-identity": 1,
     "native-script-load-history": 1,
     "native-process-presence": 1,
