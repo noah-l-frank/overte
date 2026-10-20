@@ -1823,7 +1823,7 @@ class AndroidPlatformPartitionTests(unittest.TestCase):
         self.assertEqual(jobs['common-parent']['needs'],'route')
         self.assertIn('always() && !cancelled()',jobs['common-parent']['if'])
         self.assertIn('"main","apple-main"',jobs['common-parent']['if'])
-        self.assertEqual(jobs['platform-tests']['if'],"needs.route.result == 'success' && needs.route.outputs.platform_required == 'true'")
+        self.assertEqual(jobs['platform-tests']['if'],"needs.route.result == 'success' && needs.route.outputs.source_admitted == 'true' && needs.route.outputs.platform_required == 'true'")
         self.assertIn('"android-main","android-vr"',jobs['route']['if'])
         self.assertNotIn('needs',jobs['route'])
         self.assertEqual(jobs['route']['permissions'],{name:'read' for name in ('contents','actions','pull-requests','checks')})
