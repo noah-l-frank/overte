@@ -16,8 +16,26 @@ from adapters.normal_ui import NativeUIError
 from contracts import validate_operation_arguments
 from scripts_observation import OPERATIONS, script_url
 from create_observation import owned_url
+from urllib.parse import urlsplit
 
 DIAGNOSTIC_FILE = 'normal-feature-observation.json'
+MISSING_VERSION = 1
+
+
+def missing_script_url(url):
+    need(type(url) is str and 0 < len(url) <= 4096 and url.isascii()
+         and not any(ord(c) <= 32 for c in url) and '%' not in url and '\\' not in url
+         and '?' not in url and '#' not in url)
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        raise NativeUIError('Invalid owned missing Script URL') from None
+    need(parts.scheme in {'http', 'https'} and bool(parts.hostname)
+         and parts.username is None and parts.password is None
+         and (port is None or 1 <= port <= 65535)
+         and re.fullmatch(r'/feature-fixture/v1/runs/[0-9a-f]{32}/tickets/[0-9a-f]{32}/missing\.js', parts.path))
+    return url
 
 
 def read_native_diagnostic(read, clock_ms, guard, after_sequence, *,
@@ -102,9 +120,10 @@ class NormalScriptManager:
         self.ui, self.observe, self.store = ui, observe, store
         self.binding = dict(context(binding, component_only=component_only))
         self.monotonic, self.sleep = monotonic, sleep
-        need(source_kind in {'scripts', 'create-observer', 'script-file-bundle'})
+        need(source_kind in {'scripts', 'create-observer', 'script-file-bundle', 'feature-script-missing'})
         self.source_kind = source_kind
         bundled = source_kind == 'script-file-bundle'
+        missing = source_kind == 'feature-script-missing'
         self.file_owner, self.file_picker = file_owner, file_picker
         if bundled:
             from adapters.native_script_files import OwnedScriptFiles
@@ -115,16 +134,18 @@ class NormalScriptManager:
         else:
             need(file_owner is None and file_picker is None)
         self.previous = store.read()
-        initial = dict(schemaVersion=3 if bundled else 2, sourceKind=source_kind, binding=self.binding,
+        initial = dict(schemaVersion=4 if missing else 3 if bundled else 2, sourceKind=source_kind, binding=self.binding,
             tabletOwned=False, managerOwned=False, dialogOwned=False, source=None,
             loadAttempted=False, observerInstance=None, afterSequence=0)
         if bundled: initial.update(fileOwnershipVersion=1, fileOwner=None, pickerOwned=False)
+        if missing: initial.update(missingLoadVersion=MISSING_VERSION, missingLoad=None)
         self.state = self.previous or initial
         value = self.state
         need(type(value) is dict and set(value) == {'schemaVersion', 'sourceKind', 'binding', 'tabletOwned',
              'managerOwned', 'dialogOwned', 'source', 'loadAttempted', 'observerInstance', 'afterSequence'}
              | ({'fileOwnershipVersion', 'fileOwner', 'pickerOwned'} if bundled else set())
-             and type(value['schemaVersion']) is int and value['schemaVersion'] == (3 if bundled else 2)
+             | ({'missingLoadVersion', 'missingLoad'} if missing else set())
+             and type(value['schemaVersion']) is int and value['schemaVersion'] == (4 if missing else 3 if bundled else 2)
              and value['sourceKind'] == source_kind
              and context(value['binding'], component_only=component_only) == self.binding
              and all(type(value[key]) is bool for key in
@@ -141,10 +162,14 @@ class NormalScriptManager:
                  and (not value['pickerOwned'] or value['managerOwned'] and value['fileOwner'] is not None)
                  and (value['source'] is None or value['fileOwner'] is not None))
             self.check_file_owner(value['fileOwner'])
+        if missing:
+            need(type(value['missingLoadVersion']) is int and value['missingLoadVersion'] == MISSING_VERSION)
+            self.check_missing_load(value['missingLoad'])
         if value['source'] is not None:
             self.validate_url(value['source'])
 
     def validate_url(self, url):
+        if self.source_kind == 'feature-script-missing': return missing_script_url(url)
         if self.source_kind == 'scripts':
             return script_url(url, missing=url.endswith('/missing.js'))
         if self.source_kind == 'script-file-bundle':
@@ -243,7 +268,8 @@ class NormalScriptManager:
 
     def source(self, url):
         self.validate_url(url)
-        source = url.removesuffix('missing.js') + 'client.js' if url.endswith('/missing.js') else url
+        source = (url.removesuffix('missing.js') + 'client.js'
+                  if self.source_kind != 'feature-script-missing' and url.endswith('/missing.js') else url)
         need(self.state['source'] in (None, source))
         if self.state['source'] is None:
             rows = self.sample()
@@ -264,6 +290,7 @@ class NormalScriptManager:
         return (found[0], filename(url)) if found else None
 
     def owned_row_action(self, url, action):
+        need(self.source_kind != 'feature-script-missing')
         need(self.state['source'] == url)
         rows = self.sample()
         row = self.row(rows, url)
@@ -340,7 +367,7 @@ class NormalScriptManager:
         return {'performed': True}
 
     def load_source(self, url):
-        need(self.source_kind != 'script-file-bundle')  # This scope must use the ordinary file picker.
+        need(self.source_kind not in {'script-file-bundle', 'feature-script-missing'})
         source = self.source(url)
         self.close_dialog()
         rows = self.sample()
@@ -354,5 +381,79 @@ class NormalScriptManager:
         self.mark(dialogOwned=False)
 
     def stop_source(self, url):
+        need(self.source_kind != 'feature-script-missing')
         self.owned_row_action(url, 'stop')
         self.mark(loadAttempted=False)
+
+    def check_missing_load(self, value):
+        from adapters.native_script_loads import validate as loads, result
+        if value is None:
+            need(not self.state['loadAttempted'])
+            return
+        need(type(value) is dict and set(value) == {'phase', 'instance', 'pid', 'sequence', 'epoch', 'history', 'completed'}
+             and value['phase'] in ('issued', 'settled')
+             and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}', value['instance'])
+             and type(value['pid']) is int and value['pid'] > 0
+             and type(value['sequence']) is int and value['sequence'] > 0
+             and type(value['epoch']) is int and value['epoch'] > 0
+             and self.binding['processIdentity'].split(':')[0] == str(value['pid'])
+             and self.state['source'] is not None
+             and self.state['loadAttempted'] == (value['phase'] == 'issued'))
+        loads(value['history'], value['epoch'])
+        completed = value['completed']
+        if value['phase'] == 'issued': need(completed is None)
+        else:
+            need(type(completed) is dict and set(completed) == {'epoch', 'history', 'event'}
+                 and type(completed['epoch']) is int and completed['epoch'] >= value['epoch'])
+            final = loads(completed['history'], completed['epoch']); prefix = value['history']
+            need(final['instance'] == prefix['instance'] and final['events'][:prefix['sequence']] == prefix['events'])
+            actual = result(dict(source=dict(loadSourceVersion=1, loads=final), capturedEpochMs=completed['epoch']),
+                self.state['source'], after_sequence=prefix['sequence'], after_epoch=value['epoch'])
+            need(completed['event'] == actual and actual['success'] is False)
+
+    def missing_reader(self, execution):
+        from adapters.native_script_observation import NativeScriptObservation
+        need(self.source_kind == 'feature-script-missing' and isinstance(execution, NativeScriptObservation)
+             and self.binding['processIdentity'].split(':')[0] == str(execution.pid)
+             and execution.guard() is not False)
+        return execution
+
+    def load_missing(self, url, execution):
+        execution = self.missing_reader(execution)
+        need(self.state['managerOwned'] and self.state['missingLoad'] is None)
+        self.ui.wait_manager()
+        self.source(url)
+        self.close_dialog()
+        need(not any(row['url'] == url for row in self.sample()))
+        self.mark(dialogOwned=True)
+        self.ui.open_url_dialog(); self.ui.fill_url(url)
+        packet = execution.read(execution.sequence, require_load_history=True)
+        need(not any(engine['url'] == url for engine in packet['source']['engines']))
+        origin = dict(phase='issued', instance=packet['instance'], pid=packet['processId'],
+            sequence=packet['sequence'], epoch=packet['capturedEpochMs'], history=deepcopy(packet['source']['loads']), completed=None)
+        # Persist before the single ordinary submission. A lost receipt is not
+        # permission to submit again, stop an unknown engine or discard intent.
+        self.mark(missingLoad=origin, loadAttempted=True)
+        self.ui.submit_url(); self.ui.wait_dialog_absent()
+        self.mark(dialogOwned=False)
+
+    def settle_missing(self, execution):
+        from adapters.native_script_loads import result
+        execution = self.missing_reader(execution)
+        origin = self.state['missingLoad']; need(origin is not None)
+        packet = execution.read(max(execution.sequence, origin['sequence']), require_load_history=True)
+        loads = packet['source']['loads']; prefix = origin['history']
+        need(packet['instance'] == origin['instance'] and packet['processId'] == origin['pid']
+             and packet['capturedEpochMs'] >= origin['epoch'] and loads['instance'] == prefix['instance']
+             and loads['events'][:prefix['sequence']] == prefix['events'])
+        event = result(packet, self.state['source'], after_sequence=prefix['sequence'], after_epoch=origin['epoch'])
+        if origin['completed'] is not None:
+            final = origin['completed']
+            need(packet['capturedEpochMs'] >= final['epoch'] and event == final['event']
+                 and loads['events'][:final['history']['sequence']] == final['history']['events'])
+        need(event['success'] is False and not any(engine['url'] == self.state['source']
+             for engine in packet['source']['engines']))
+        need(not any(row['url'] == self.state['source'] for row in self.sample()) and execution.guard() is not False)
+        self.mark(missingLoad=origin | dict(phase='settled', completed=dict(epoch=packet['capturedEpochMs'],
+            history=deepcopy(loads), event=deepcopy(event))), loadAttempted=False)
+        return event  # Original callback/status; visible error and quiet cleanup are separate.

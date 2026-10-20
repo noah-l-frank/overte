@@ -130,7 +130,7 @@ inline bool validScriptUrlText(const QString& text) {
     const QUrl url(text);
     return text.size() <= 4096 && url.isValid() && (url.scheme() == "http" || url.scheme() == "https")
         && !url.host().isEmpty() && url.userInfo().isEmpty() && !url.hasQuery() && !url.hasFragment()
-        && QRegularExpression("\\A(?:/script-management/[0-9a-f]{32}/(?:client|missing)\\.js|/create/[0-9a-f]{32}/observer\\.js)\\z")
+        && QRegularExpression("\\A(?:/script-management/[0-9a-f]{32}/(?:client|missing)\\.js|/feature-fixture/v1/runs/[0-9a-f]{32}/tickets/[0-9a-f]{32}/missing\\.js|/create/[0-9a-f]{32}/observer\\.js)\\z")
             .match(url.path()).hasMatch();
 #else
     Q_UNUSED(text)
