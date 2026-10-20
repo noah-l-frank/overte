@@ -7,6 +7,7 @@
     "capability-registry": {"current": 1, "reads": [1]},
     "feature-journey": {"current": 11, "reads": [11]},
     "feature-account-provider": {"current": 2, "reads": [2]},
+    "web-dom-observation": {"current": 1, "reads": [1]},
     "feature-browser-resources": {"current": 1, "reads": [1]},
     "native-feature-observation": {"current": 1, "reads": [1]},
     "native-ios-bundle-observation": {"current": 1, "reads": [1]},

@@ -139,6 +139,10 @@ destructive cleanup. Original inode/process/source guards remain mandatory.
 The existing engine retains 20-second per-checkpoint and bounded sample budgets,
 three fresh stable samples, actual lifecycle counters, original image/PCM bytes,
 capability gates, private journal roles and no-green missing capability behavior.
-The new native document/status/DOM/callback sources, normal app/button inputs,
+The [passive DOM component](../native/WEB_DOM_OBSERVATION.md) now exists with
+nine original-reference host counterexamples, but is not natively injected.
+The native document/status/callback sources, DOM integration, normal app/button inputs,
 publisher and complete cleanup still need implementation Phone → Pico → iOS.
-Canonical iOS installed-code refusal remains until actual association exists.
+Canonical iOS physical installed-code binding is implemented in its isolated
+iOS branch; runtime activation/deadlines and device qualification remain open.
+Legacy simulator binding still refuses physical identity.
