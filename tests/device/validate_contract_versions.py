@@ -44,6 +44,7 @@ REQUIRED = {
     "normal-script-file-ownership": 1,
     "script-restart-handoff": 1,
     "normal-restart-inputs": 1,
+    "android-process-query": 1,
     "emote-source-profile": 1,
     "native-script-file-controls": 1,
     "native-script-fixture-storage": 1,
