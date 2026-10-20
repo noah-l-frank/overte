@@ -1,13 +1,18 @@
 # Joined Phone Script measurements, version 2
 
-`_script_measurements(selector, run, fixture_url, read_only=False)` connects the
+`_script_measurements(selector, run, fixture_url, read_only=False,
+fixture_state='present', retired_owner=None)` connects the
 existing original APK/PID-start/session-bound sources to `PhoneScriptMeasurements`.
-It requires the current original staged-file owner for that run, verifies all
-four actual fixture files and obtains the original native directory. It never
+The default requires the current original staged-file owner for that run,
+verifies all four actual fixture files and obtains the original native directory.
+The explicit `absent` mode uses the [original native location](../../native/SCRIPT_FIXTURE_LOCATION.md)
+with a reserved owner before staging or an explicit original `retired_owner`
+after release. A fresh actual absence query replaces neither execution nor UI
+measurements with constants. Current/foreign owners block retired scope use. It never
 stages, loads, stops, restarts, opens/closes a dialog or changes preferences.
 `read_only=True` uses the non-repairing existing-session path throughout. The
 read-only native allowlist additionally admits only the exact owned fixture
-**observe** command; stage/release remain forbidden.
+**observe/locate** commands; stage/release remain forbidden.
 
 `read(ticket, after_epoch)` independently acquires original execution/code/module/
 effect/load history, Phone UI inventory, current Script service rows and native
@@ -60,9 +65,14 @@ is eligible for later actor facts, after that actor acquires its own sources.
 Native engine/effect metadata and all raw paths/data stay private. Returning a
 copy prevents callers from altering the original history/lifecycle.
 
-This is a live internal reader for **existing staged fixtures**, not a complete
-feature producer. Before advertising `feature.scripts.*`, the coordinator must
-add initial baseline without staged resources, explicit restart handoff for the [durable original-source transcript](SCRIPT_HISTORY.md),
+This is a live internal reader for original present/absent fixture scopes,
+not a complete feature producer. [The separate file/source join](SCRIPT_FILE_SCOPE.md)
+uses its `last_sources` and `file_observation()` originals, folds in the file
+clock and derives physical resource aliases. Its original file cursor must be
+persisted by the full coordinator alongside acquisition uncertainty; the
+four-source transcript alone does not persist file provenance. Before
+advertising `feature.scripts.*`, the coordinator must wire the initial/final
+baseline and this file cursor, explicit restart handoff for the [durable original-source transcript](SCRIPT_HISTORY.md),
 separately frozen load barriers, one-send normal action ownership,
 verified restart transition, joining [actual fixture HTTP failure receipts](../../feature_journeys/SCRIPT_HTTP_SOURCE.md), an independent
 publisher with separate acquisition and serialization, and complete idempotent
@@ -71,10 +81,10 @@ Neither reader may adopt a requested restart. Pure joins alone do not prove call
 HTTP delivery, process death or fixture removal. No capability is promoted here.
 
 The existing mandatory Phone runtime owner registers the device-free
-`test_script_measurements.py` group in both modes. All **32** cases pass,
+`test_script_measurements.py` group in both modes. All **40** cases pass,
 including actual-service format, wrong code, missing results, foreign companions,
 orphan effects, stale/foreign errors, broken Label binding, original clocks,
 source replacement, ignored acquisition, owner loss and deadline enforcement.
 Four additional factory cases use the actual bound wrapper and original
-file/readers; all **149** Phone feature-adapter host cases pass. SDK/ADB/native
+file/readers; all **161** Phone feature-adapter host cases pass. SDK/ADB/native
 boundaries remain synthetic. C++ is uncompiled; no device acceptance is claimed.

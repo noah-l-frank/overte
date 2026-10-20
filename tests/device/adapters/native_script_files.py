@@ -31,7 +31,7 @@ def command(value, *, ios=False):
     if value.get('operation') == 'stage': fields.add('files')
     exact(value, fields)
     need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1
-         and value['action'] == 'feature-script-files' and value['operation'] in ('stage', 'observe', 'release')
+         and value['action'] == 'feature-script-files' and value['operation'] in ('stage', 'observe', 'release', 'locate')
          and type(value['commandId']) is str and re.fullmatch(('ios-' if ios else '(?:ios-)?') + '[0-9a-f]{32}', value['commandId'])
          and type(value['runId']) is str and re.fullmatch('[0-9a-f]{32}', value['runId'])
          and type(value['ownerToken']) is str and re.fullmatch('[0-9a-f]{64}', value['ownerToken']))
@@ -58,8 +58,10 @@ class NativeScriptFiles:
         self.send, self.original, self.clock_ms, self.guard, self.pid = send, read, clock_ms, guard, pid
         self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
         self.instance, self.sequence = None, 0
+        self.last_packet = None
 
     def request(self, operation, run, owner, files=None):
+        self.last_packet = None
         try:
             request = dict(schemaVersion=1, commandId=('ios-' if self.ios else '') + uuid.uuid4().hex,
                 action='feature-script-files', operation=operation, runId=run, ownerToken=owner)
@@ -101,6 +103,7 @@ class NativeScriptFiles:
                     now = self.monotonic()
                     need(number(now, 0, 1e15) and now >= previous and now - started < 5)
                     self.instance, self.sequence = value['instance'], value['sequence']
+                    self.last_packet = deepcopy(value)
                     return deepcopy(value['source'])
                 if attempt < 50: self.sleep(0.1)
         except Exception:
@@ -109,6 +112,12 @@ class NativeScriptFiles:
 
     @staticmethod
     def validate_source(value, operation, run):
+        if operation == 'locate':
+            exact(value, {'locationVersion', 'exists', 'directory'})
+            need(type(value['locationVersion']) is int and value['locationVersion'] == 1
+                 and type(value['exists']) is bool
+                 and file_url(value['directory']).endswith('/feature-script-' + run))
+            return
         if operation != 'observe':
             exact(value, {'performed'}); need(value['performed'] is True); return
         need(type(value) is dict and type(value.get('exists')) is bool)
@@ -146,14 +155,29 @@ class OwnedScriptFiles:
              and value['hashes'] == {name: hashlib.sha256(raw).hexdigest() for name, raw in originals(value['runId']).items()})
         return value
 
-    def stage(self, run):
+    def reserve(self, run):
+        """Record exclusive input/cleanup intent without any native request."""
         need(self.store.read() is None)
         files = originals(run)
         value = dict(contractVersion=1, runId=run, ownerToken=secrets.token_hex(32), binding=self.binding,
                      hashes={name: hashlib.sha256(raw).hexdigest() for name, raw in files.items()})
-        self.store.write(value, None)  # Persist before crossing the native boundary.
-        self.native.request('stage', run, value['ownerToken'], files)
+        self.store.write(value, None)
+        return deepcopy(self.owned())
+
+    def stage_reserved(self):
+        # The full coordinator must persist its stage phase before this one
+        # attempt. No uncertain stage is retried; verify/release are separate.
+        value = self.owned()
+        self.native.request('stage', value['runId'], value['ownerToken'], originals(value['runId']))
         return self.verify()
+
+    def stage(self, run):
+        self.reserve(run)
+        return self.stage_reserved()
+
+    def locate(self):
+        value = self.owned()
+        return self.native.request('locate', value['runId'], value['ownerToken'])
 
     def verify(self):
         value = self.owned()

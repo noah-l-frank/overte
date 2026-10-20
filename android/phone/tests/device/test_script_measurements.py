@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / 'tests/device'))
 sys.path.insert(0, str(ROOT / 'tests/device/adapters/android-phone'))
 from overte_phone_script_measurements import compose, PhoneScriptMeasurements
+from overte_phone_script_file_scope import join as file_scope
+from self_tests.test_native_script_files import Boundary as FileStorage
 from overte_phone_script_files import PhoneScriptFileIO
 from script_file_native_boundary import FileNativeBoundary
 from adapters.native_feature_observation import NativeFeatureObservation
@@ -134,6 +136,85 @@ class ScriptMeasurementTests(unittest.TestCase):
                 return value, epoch
             reader.service = rewrite
             with self.subTest(fault=fault), self.assertRaises(NativeUIError): reader.read(TICKET, 19000)
+
+    def file_packet(self, operation='observe'):
+        if not hasattr(self,'file_storage'):
+            self.file_storage=FileStorage(self.root.parent);self.file_storage.root=self.root
+            self.file_storage.owner='9'*64
+            self.file_storage.mutate=lambda packet:packet.update(instance=self.execution['instance'])
+            self.file_native=self.file_storage.native()
+        self.file_native.request(operation,RUN,'9'*64)
+        return deepcopy(self.file_native.last_packet)
+
+    def scoped(self, **changes):
+        values=dict(run=RUN,ticket=TICKET,directory=self.directory,fixture_url=FIXTURE,pid=31,
+            sources=dict(epochMs=20000,execution=self.execution,ui=self.ui,service=self.service,lifecycle=self.lifecycle),
+            files=changes['files'] if 'files' in changes else self.file_packet(),epoch=20000,after_epoch=19000)
+        return file_scope(**(values|changes))
+
+    def test_file_scope_uses_actual_bytes_presence_and_physical_resources_without_host_intent(self):
+        actual=self.scoped()
+        self.assertEqual(['entity:script-effect','file:script-fixtures','panel:script-manager','script:owned-script'],actual['resources'])
+        self.assertEqual(self.measured(),actual['measurement'])
+        self.assertEqual(1,actual['fileCursor']['sequence'])
+        self.assertEqual(self.directory,actual['fileCursor']['directory'])
+
+    def test_file_scope_original_absence_after_release_does_not_hide_unclosed_ui(self):
+        self.empty();self.file_packet();self.file_native.request('release',RUN,'9'*64)
+        packet=self.file_packet('locate')
+        actual=self.scoped(files=packet)
+        self.assertEqual(['panel:script-manager'],actual['resources'])
+        self.assertTrue(actual['measurement']['state']['open'])
+        self.ui['scriptInventory']=inventory(tabletPresent=False,tabletShown=False)
+        self.assertEqual([],self.scoped(files=packet)['resources'])
+
+    def test_file_scope_oldest_original_file_epoch_is_preserved_without_retiming(self):
+        packet=self.file_packet();packet.update(capturedEpochMs=19980,requestedEpochMs=19980)
+        actual=self.scoped(files=packet)
+        self.assertEqual(19980,actual['measurement']['capturedEpochMs'])
+        self.assertEqual(19980,actual['fileCursor']['capturedEpochMs'])
+
+    def test_file_scope_missing_zero_tick_effect_data_cannot_prove_resource_absence(self):
+        from self_tests.test_native_script_observation import effect_source
+        effect_source(self.execution,ticks=0)
+        actual=self.scoped()
+        self.assertEqual(0,actual['measurement']['state']['effects'])
+        self.assertIn('entity:script-effect',actual['resources'])
+        self.execution['source']['effects']['entities'][0]['userData']=''
+        with self.assertRaises(NativeUIError):self.scoped()
+
+    def test_file_scope_replayed_cursor_regressed_clock_or_foreign_birth_is_rejected(self):
+        first=self.scoped();packet=self.file_packet()
+        for previous in (first['fileCursor']|dict(sequence=packet['sequence']),
+                         first['fileCursor']|dict(capturedEpochMs=20001),
+                         first['fileCursor']|dict(instance='f'*32),
+                         first['fileCursor']|dict(directory='file:///foreign/private'),
+                         first['fileCursor']|dict(fileScopeVersion=True)):
+            with self.subTest(fields=list(previous)),self.assertRaises(NativeUIError):self.scoped(files=packet,previous=previous)
+        actual=self.scoped(files=packet,previous=first['fileCursor'])
+        self.assertEqual(packet['sequence'],actual['fileCursor']['sequence'])
+
+    def test_file_scope_foreign_stale_prebarrier_missing_and_ack_only_sources_cannot_be_substituted(self):
+        packet=self.file_packet()
+        for changes in (dict(instance='f'*32),dict(processId=32),dict(runId='f'*32),
+                        dict(schemaVersion=True),dict(requestId='foreign'),
+                        dict(requestedEpochMs=18000,capturedEpochMs=18000),
+                        dict(requestedEpochMs=18999,capturedEpochMs=18999),
+                        dict(requestedEpochMs=20000,capturedEpochMs=20300),
+                        dict(operation='stage',source=dict(performed=True)),
+                        dict(source=dict(locationVersion=1,exists=False)),dict(source={})):
+            with self.subTest(fields=list(changes)),self.assertRaises((ValueError,RuntimeError)):
+                self.scoped(files=packet|changes)
+
+    def test_file_scope_original_changed_companion_and_missing_file_fail_instead_of_becoming_empty_resources(self):
+        self.file_packet();(self.root/'companion.js').write_bytes(b'actual foreign companion bytes')
+        with self.assertRaises(NativeUIError):self.scoped()
+        (self.root/'companion.js').unlink()
+        with self.assertRaises(NativeUIError):self.scoped()
+
+    def test_file_scope_location_presence_alone_cannot_prove_controlled_file_bytes(self):
+        packet=self.file_packet('locate')
+        with self.assertRaises(NativeUIError):self.scoped(files=packet)
 
     def failure(self):
         self.empty()

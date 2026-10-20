@@ -749,7 +749,7 @@ class FeatureAdapterTests(unittest.TestCase):
         with self.assertRaises(RuntimeError): reader.read(29)
         self.assertEqual(before, len(source.commands))
 
-    def file_manager_boundaries(self):
+    def file_manager_boundaries(self, *, stage=True):
         storage = ScriptFilesBoundary(self.fixture.root)
         file_ui = FileNativeBoundary(storage.root)
         self.native.epoch_ms = 20000
@@ -785,8 +785,13 @@ class FeatureAdapterTests(unittest.TestCase):
             patch.object(appium, 'TokenScriptFilePicker', partial(TokenScriptFilePicker,
                 monotonic=lambda: file_ui.ui.clock, sleep=file_ui.ui.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
-        files = self.adapter._script_files(SELECTOR); files.stage('a' * 32)
-        return storage, file_ui, files, self.adapter._script_file_manager(SELECTOR)
+        files = self.adapter._script_files(SELECTOR)
+        if stage:
+            files.stage('a'*32)
+            manager=self.adapter._script_file_manager(SELECTOR)
+        else:
+            files.reserve('a'*32);manager=None
+        return storage,file_ui,files,manager
 
     def test_phone_file_manager_journals_normal_selection_and_separate_file_cleanup(self):
         storage, file_ui, files, manager = self.file_manager_boundaries()
@@ -1276,13 +1281,15 @@ class FeatureAdapterTests(unittest.TestCase):
         with self.assertRaises(RuntimeError): reader.read(0)
         self.assertEqual([], source.commands)
 
-    def script_measurement_boundaries(self, *, stopped=False, pending=False,file_birth=None):
+    def script_measurement_boundaries(self, *, stopped=False, pending=False,file_birth=None,absent=False,orphan=False):
         from self_tests.test_script_ui_inventory import inventory
         from self_tests.test_script_manager_status import observed
         from adapters.token_script_file_ui import file_url
-        storage, file_ui, files, manager = self.file_manager_boundaries()
-        manager.open(); manager.file_picker_open(); manager.file_picker_choose('script.js')
-        if stopped:manager.stop_source(storage.root.as_uri()+'/script.js')
+        storage, file_ui, files, manager = self.file_manager_boundaries(stage=not absent)
+        self.script_measurement_storage=storage
+        if not absent:
+            manager.open(); manager.file_picker_open(); manager.file_picker_choose('script.js')
+            if stopped:manager.stop_source(storage.root.as_uri()+'/script.js')
         for row in self.native.rows: row['path'] = file_url(row['url'])
         if file_birth is not None:storage.mutate=lambda packet:packet.update(instance=file_birth)
         source, lifecycle = ScriptBoundary(), NativeFeatureBoundary()
@@ -1295,15 +1302,17 @@ class FeatureAdapterTests(unittest.TestCase):
             history.update(loadSourceVersion=1, loads=dict(complete=True, instance='c' * 32, sequence=0, events=[]))
             row = history['effects']['entities'][0]
             row.update(name='e2e-' + 'a' * 32 + '-script', userData=json.dumps(dict(runId='a' * 32, ticks=2)))
-            if stopped:
-                history['engines']=[];history['effects'].update(entities=[],scannedEntities=0)
+            if stopped or absent:
+                history['engines']=[]
+                if not orphan:history['effects'].update(entities=[],scannedEntities=0)
             membership_source(packet)
             if pending:
                 from self_tests.test_native_script_membership import manager as known_manager
                 membership_source(packet,[known_manager('5'*32,storage.root.as_uri()+'/script.js')],1)
         source.mutate = measured
         lifecycle.mutate = lambda packet: packet.update(processId=31,instance='d'*32)
-        file_ui.mutate = lambda packet: packet.update(scriptInventory=inventory([observed(statusText='', labelText='', labelVisible=False)]))
+        file_ui.mutate = lambda packet: packet.update(scriptInventory=inventory(tabletPresent=False,tabletShown=False) if absent
+            else inventory([observed(statusText='',labelText='',labelVisible=False)]))
         commands = []
         def send(client, session, target, command, process):
             commands.append(deepcopy(command))
@@ -1324,6 +1333,92 @@ class FeatureAdapterTests(unittest.TestCase):
             boundary.start(); self.addCleanup(boundary.stop)
         fixture = 'http://fixture.test/feature-fixture/v1/runs/' + 'a' * 32 + '/'
         return commands, fixture, files
+
+    def test_phone_absent_scope_requires_nonrepairing_admission_before_any_sdk_or_native_request(self):
+        commands,fixture,files=self.script_measurement_boundaries(absent=True)
+        calls=self.read_only_boundaries();before=len(calls)
+        with self.assertRaises((ValueError,RuntimeError)):
+            self.adapter._script_measurements(SELECTOR,'a'*32,fixture,fixture_state='absent')
+        self.assertEqual(before,len(calls));self.assertEqual([],commands)
+        self.assertIsNotNone(files.store.read());self.assertFalse(self.script_measurement_storage.root.exists())
+
+    def test_phone_initial_script_baseline_uses_actual_native_location_without_staging_files(self):
+        commands,fixture,files=self.script_measurement_boundaries(absent=True)
+        self.read_only_boundaries();before=list(self.native.inputs)
+        reader=self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary',fixture_state='absent')
+        actual=reader.read('b'*32,19000)
+        self.assertEqual(dict(running=[],picker=False,error='none',effects=0,open=False,companions=[]),actual['state'])
+        self.assertFalse(self.script_measurement_storage.root.exists());self.assertIsNotNone(files.store.read())
+        self.assertEqual(self.script_measurement_storage.root.as_uri(),reader.reader.directory)
+        original=reader.reader.file_observation()
+        self.assertEqual('locate',original['operation']);self.assertEqual(20000,original['capturedEpochMs'])
+        self.assertFalse(original['source']['exists']);self.assertEqual(before,self.native.inputs)
+        self.assertTrue(all(value['operation']=='locate' for value in commands if value['action']=='feature-script-files'))
+        self.assertEqual([],self.native.lifecycle_inputs)
+
+    def test_phone_original_fixture_cycle_reobserves_baselines_without_recreating_files_or_resetting_history(self):
+        _commands,fixture,files=self.script_measurement_boundaries(absent=True)
+        self.read_only_boundaries();before=list(self.native.inputs)
+        def measured(mode,retired=None):
+            return self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary',
+                fixture_state=mode,retired_owner=retired).read('b'*32,19000)
+        initial=measured('absent');owner=deepcopy(files.owned())
+        files.stage_reserved();self.assertTrue(self.script_measurement_storage.root.exists())
+        # Staging bytes alone does not execute a script or open the product UI.
+        self.assertEqual(initial,measured('present'))
+        files.release();self.assertIsNone(files.store.read());self.assertFalse(self.script_measurement_storage.root.exists())
+        self.assertEqual(initial,measured('absent',owner))
+        self.assertEqual(6,self.adapter.script_history_store(SELECTOR,'primary').read()['revision'])
+        operations=[row['operation'] for row in self.script_measurement_storage.commands]
+        self.assertEqual(1,operations.count('stage'));self.assertEqual(1,operations.count('release'))
+        self.assertEqual(before,self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+
+    def test_phone_retired_fixture_scope_never_adopts_a_current_owner_or_foreign_old_binding(self):
+        commands,fixture,files=self.script_measurement_boundaries(absent=True)
+        self.read_only_boundaries();owner=deepcopy(files.owned());before=len(commands)
+        with self.assertRaises((ValueError,RuntimeError)):
+            self.adapter._script_measurements(SELECTOR,'a'*32,fixture,read_only=True,fixture_state='absent',retired_owner=owner)
+        self.assertEqual(before,len(commands));files.release();before=len(commands)
+        foreign=deepcopy(owner);foreign['binding']['processIdentity']='31:foreign-original-start'
+        with self.assertRaises((ValueError,RuntimeError)):
+            self.adapter._script_measurements(SELECTOR,'a'*32,fixture,read_only=True,fixture_state='absent',retired_owner=foreign)
+        self.assertEqual(before,len(commands));self.assertIsNone(files.store.read())
+        reader=self.adapter._script_measurements(SELECTOR,'a'*32,fixture,read_only=True,fixture_state='absent',retired_owner=owner)
+        files.reserve('a'*32);before=len(commands)
+        with self.assertRaises((ValueError,RuntimeError)):reader.read('b'*32,19000)
+        self.assertEqual(before,len(commands));self.assertIsNotNone(files.store.read())
+
+    def test_phone_absent_script_baseline_cannot_hide_original_pending_managers_or_orphan_effects(self):
+        _commands,fixture,files=self.script_measurement_boundaries(absent=True,pending=True)
+        self.read_only_boundaries()
+        reader=self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary',fixture_state='absent')
+        with self.assertRaises(RuntimeError):reader.read('b'*32,19000)
+        self.assertEqual('reading',self.adapter.script_history_store(SELECTOR,'primary').read()['phase'])
+        self.assertIsNotNone(files.store.read())
+
+    def test_phone_absent_script_baseline_rejects_an_actual_owned_effect_without_an_engine(self):
+        _commands,fixture,files=self.script_measurement_boundaries(absent=True,orphan=True)
+        self.read_only_boundaries()
+        reader=self.adapter._script_measurements(SELECTOR,'a'*32,fixture,read_only=True,fixture_state='absent')
+        with self.assertRaises(RuntimeError):reader.read('b'*32,19000)
+        self.assertIsNotNone(files.store.read())
+
+    def test_phone_absent_script_baseline_rejects_existing_files_without_removal_or_restaging(self):
+        _commands,fixture,files=self.script_measurement_boundaries()
+        self.read_only_boundaries();before=list(self.native.inputs)
+        with self.assertRaises((ValueError,RuntimeError)):
+            self.adapter._script_measurements(SELECTOR,'a'*32,fixture,read_only=True,fixture_state='absent')
+        self.assertTrue(self.script_measurement_storage.root.exists());self.assertIsNotNone(files.store.read())
+        self.assertEqual(before,self.native.inputs)
+        self.assertEqual(1,sum(row['operation']=='stage' for row in self.script_measurement_storage.commands))
+
+    def test_phone_script_baseline_rejects_missing_location_without_guessing_or_stage_recovery(self):
+        _commands,fixture,files=self.script_measurement_boundaries(absent=True)
+        self.read_only_boundaries()
+        self.script_measurement_storage.mutate=lambda packet:packet['source'].pop('directory',None)
+        with self.assertRaises(RuntimeError):
+            self.adapter._script_measurements(SELECTOR,'a'*32,fixture,read_only=True,fixture_state='absent')
+        self.assertIsNotNone(files.store.read());self.assertFalse(self.script_measurement_storage.root.exists())
 
     def test_phone_durable_script_factory_restores_original_cursors_without_input_or_session_repair(self):
         commands,fixture,_files=self.script_measurement_boundaries()

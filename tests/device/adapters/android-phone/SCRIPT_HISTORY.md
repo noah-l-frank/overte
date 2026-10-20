@@ -77,9 +77,17 @@ bounded decode/capacity, private source locking, cross-process exclusion and
 unsafe/replaced lock rejection. Four Phone factory cases check actual binding and general
 cleanup refusal. Boundaries are synthetic; no native compilation or devices run.
 
-The full nineteen-step coordinator still needs baseline before staging, explicit
+Original [present/absent fixture scopes](../../native/SCRIPT_FIXTURE_LOCATION.md)
+now support baseline source reads before staging and after actual release,
+without resetting the four-source history. Explicit original retired scope is
+limited to absent reads and cannot bypass a current owner. The separate
+[file/source join](SCRIPT_FILE_SCOPE.md) adds actual file clocks, bytes, presence
+and resource aliases. Its advancing original file cursor still requires durable
+full-coordinator ownership; this four-source transcript does not store it.
+
+The full nineteen-step coordinator still needs to wire these baselines, explicit
 restart history handoff, frozen action/load barriers, original HTTP404 join,
 serialized independent publisher acquisition and complete verified cleanup.
-This component requires already staged fixtures and a single original process;
+This component requires an explicit original fixture scope and one original process;
 it never implicitly accepts a new restart birth or deletes the old transcript.
 No complete `feature.scripts.*` capability or device acceptance is promoted.

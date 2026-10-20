@@ -183,7 +183,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
         def send(command):
             if read_only:
                 file_observation = (type(command) is dict and command.get('action') == 'feature-script-files'
-                                    and command.get('operation') == 'observe')
+                                    and command.get('operation') in ('observe','locate'))
                 if file_observation:
                     from adapters.native_script_files import command as validate_files
                     validate_files(command)
@@ -345,9 +345,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def script_files_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-script-files.json'))
 
-    def _script_measurements(self, selector, run, fixture_url, *, read_only=False):
+    def _script_measurements(self, selector, run, fixture_url, *, read_only=False, fixture_state='present', retired_owner=None):
         # Actual original acquisitions only. Full run/publisher/cleanup and
         # durable cross-invocation history remain separate mandatory ownership.
+        require(fixture_state in ('present','absent') and (retired_owner is None or fixture_state=='absent'),
+                'PHONE_SCRIPT_FIXTURE_STATE_INVALID')
+        require(fixture_state=='present' or read_only is True,'PHONE_SCRIPT_ABSENCE_REQUIRES_READ_ONLY')
+        retired_owner=deepcopy(retired_owner)
+        real_store=self.script_files_store(selector)
+        require(retired_owner is None or real_store.read() is None,'PHONE_SCRIPT_RETIRED_SCOPE_HAS_CURRENT_OWNER')
         native = self._native_feature_observer(selector, read_only=read_only)
         _ui, observe, binding, check, _installed = self.normal_feature_runtime(selector, read_only=read_only)
         target = self.target(selector); device = target['capabilities']['appium:udid']
@@ -356,26 +362,40 @@ class PhoneAppiumAdapter(AppiumAdapter):
             return lambda: transport.read_debug_app_file(device, target['appId'], 'files/overte-e2e/' + name, attempts=1)
         def guard():
             check(); native.guard()
+            require(retired_owner is None or real_store.read() is None,'PHONE_SCRIPT_RETIRED_SCOPE_HAS_CURRENT_OWNER')
         storage = NativeScriptFiles(native.send, original(SCRIPT_FIXTURE_FILE), native.clock_ms, guard, native.pid)
-        files = OwnedScriptFiles(storage, self.script_files_store(selector), binding)
+        class RetiredScope:
+            # Original private cleanup scope only; never current file evidence.
+            def read(self):return deepcopy(retired_owner)
+        files = OwnedScriptFiles(storage, real_store if retired_owner is None else RetiredScope(), binding)
         require(files.owned()['runId'] == run, 'PHONE_SCRIPT_MEASUREMENTS_OWNED_RUN_REQUIRED')
-        directory = files.verify()
+        def verify():
+            require(files.owned()['runId']==run,'PHONE_SCRIPT_MEASUREMENTS_OWNED_RUN_REQUIRED')
+            if fixture_state=='present':return files.verify()
+            location=files.locate()
+            require(location['exists'] is False,'PHONE_SCRIPT_BASELINE_FILES_NOT_ABSENT')
+            return location['directory']
+        directory = verify()
         execution = NativeScriptObservation(native.send, original(SCRIPT_EXECUTION_FILE), native.clock_ms, guard, native.pid)
         ui = PhoneScriptFileIO(native.send, original(SCRIPT_FILE_UI_FILE), native.clock_ms, guard, native.pid)
-        return PhoneScriptMeasurements(run, directory, fixture_url, execution, ui, observe, native, files.verify, guard,
+        result=PhoneScriptMeasurements(run, directory, fixture_url, execution, ui, observe, native, verify, guard,
                                        file_instance=lambda:files.native.instance)
+        # Original file envelope is private input to the full coordinator's
+        # file-clock/resource join, never an expected availability result.
+        result.file_observation=lambda:deepcopy(storage.last_packet)
+        return result
 
     def script_history_store(self, selector, role):
         require(role in ('primary','actor'),'PHONE_SCRIPT_HISTORY_ROLE_REQUIRED')
         return PrivateFeatureState(self.state_path(selector).with_name('phone-script-'+role+'-history.json'))
 
-    def _script_durable_measurements(self, selector, run, fixture_url, *, role):
+    def _script_durable_measurements(self, selector, run, fixture_url, *, role, fixture_state='present', retired_owner=None):
         # Both roles acquire originals through existing-session/read-only
         # admission. Private histories and source requests are role-separated.
         require(role in ('primary','actor'),'PHONE_SCRIPT_HISTORY_ROLE_REQUIRED')
         source_lock=PhoneScriptSourceLock(self.state_path(selector).with_name('phone-script-sources.lock'))
         with source_lock.held():
-            reader=self._script_measurements(selector,run,fixture_url,read_only=True)
+            reader=self._script_measurements(selector,run,fixture_url,read_only=True,fixture_state=fixture_state,retired_owner=retired_owner)
             _ui,_observe,binding,check,_installed=self.normal_feature_runtime(selector,read_only=True)
             check();reader.guard()
             store=self.script_history_store(selector,role)
