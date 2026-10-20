@@ -1587,6 +1587,23 @@ evidence authority. Missing initial proof keeps the existing documentation
 fallback; changed proof during final verification fails the owner. These source
 contracts still require actual native qualification before reuse is enabled.
 
+Delegated CI37 synchronization keeps the same ordered 37-suite selection. When
+no existing native producer or E proof covers it, the trusted validator may
+consume the four commands already completed by that PR's original Repository
+documentation and workflow-contract jobs. This requires the exact registered
+caller and documentation recipes, native attempt 1 and App, the same current
+B/H/M/tree, complete successful job inventories and fresh source bookends.
+Pending owners wait before candidate tests; failed, stale or changed owners
+block rather than cause those four commands to run again. The validator then
+executes the remaining 33 commands and reports only their actual JUnit cases.
+An independently selected product or Android owner keeps the previous CI37
+execution route; this narrow no-product command proof cannot represent it.
+The separate native four-command proof is not an environment, fingerprint or E;
+the combined report remains `qualification: false` and `reusable: false`.
+Metadata retention and the finite identical-tree Android parent consumer
+independently revalidate both owners. Closed PR associations may be cleared
+only after the existing exact normal-merge geometry has been authenticated.
+
 A partial parent run uploads its real JUnit results and a diagnostic
 `host-selection.json` with the exact candidate, package plan, selected and
 omitted names, and `reusable: false`. That report makes no passing claim for

@@ -4719,5 +4719,93 @@ class RetainedInheritedSyncMetadataTests(unittest.TestCase):
             gate._metadata_report(API(),f.prefix,f.child,f.item,f.request,PARENT,self.validator,
                 f.registry,f.selected,TREE,f.now,normal_parent='a'*40)
 
+
+
+class RetainedStandaloneSyncMetadataTests(unittest.TestCase):
+    """Mixed data keeps native four + actual33, including exact normal reuse."""
+    def setUp(self):
+        self.f=RetainedSyncMetadataTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
+        self.validator=gate.package_checks.load('mixed_sync_validator','tools/test-evidence/validate-sync.py')
+        f=self.f
+        self.four=[n for n in f.names if n in self.validator.STANDALONE_CI_COMMANDS]
+        self.remaining=[n for n in f.names if n not in self.four]
+        self.proof=self.validator.NativeStandaloneCIProof({'kind':'same-pr-native-standalone-ci-commands-v1',
+            'qualification':False,'reusable':False,'source':PARENT,'suites':self.four,
+            'native':{'selected_jobs':{'documentation':{'completed_at':'2026-10-19T21:34:00Z'},
+                'contracts':{'completed_at':'2026-10-19T21:34:00Z'}}}})
+        for name in ('listed','run','attempt','check_suite'):
+            self.proof['native'][name]={'pull_requests':[{'number':610,'base':{'sha':BASE},'head':{'sha':HEAD}}]}
+        self.proof['native']['checks']={}
+        self.mixed(f)
+        f.docs[f.prefix+'/git/commits/'+PARENT]={'sha':PARENT,'tree':{'sha':TREE},'parents':[]}
+
+    def mixed(self,f):
+        f.selection['standalone_ci_schedule']=True
+        f.observed['requested_suites']=self.remaining
+        f.observed['results']=[r for r in f.observed['results']if r['name']in self.remaining]
+        f.report.update(mode='native-standalone-ci',executed_suites=list(self.remaining),reused_suites=list(self.four),
+            qualification=False,reusable=False,standalone_owner_evidence=deepcopy(dict(self.proof)))
+        self.pack(f)
+
+    def pack(self,f):
+        xml='<testsuite tests="33" failures="0" errors="0" skipped="0">'+''.join('<testcase name="'+n+'"/>'for n in self.remaining)+'</testsuite>'
+        f.pack(mutate=lambda payload:payload.update({'build/test-results/sync-selected.xml':xml.encode()}))
+
+    def verify(self,**kwargs):
+        real=gate.package_checks.load
+        def load(name,path):
+            return self.validator if path=='tools/test-evidence/validate-sync.py'else real(name,path)
+        with mock.patch.object(gate.package_checks,'load',side_effect=load), \
+                mock.patch.object(self.validator,'verify_standalone_ci_owners',return_value=deepcopy(self.proof))as owner:
+            result=self.f.verify(**kwargs)
+            self.assertGreaterEqual(owner.call_count,2,'both original and closing native owner facts are required')
+            for call in owner.call_args_list:
+                self.assertEqual(call.kwargs['protected_source'],PARENT)
+            return result
+
+    def test_complete_native_four_plus_actual33_retains_metadata_without_new_work_or_E(self):
+        result=self.verify()
+        self.assertIs(result['metadata_authenticated'],True);self.assertIs(result['new_execution'],False)
+        self.assertIs(result['qualification'],False);self.assertEqual(result['validation_run'],300)
+        self.assertEqual(self.f.observed['requested_suites'],self.remaining)
+
+    def test_missing_overlap_forged_partial_receipt_or_fake_JUnit_cannot_claim37(self):
+        f=self.f
+        changes=[lambda:f.report['reused_suites'].pop(),
+            lambda:f.report['executed_suites'].append(self.four[0]),
+            lambda:f.observed['results'].pop(),
+            lambda:f.report.update(qualification=True),
+            lambda:f.report['standalone_owner_evidence'].update(source='a'*40)]
+        for index,change in enumerate(changes):
+            before=deepcopy((f.report,f.observed));change();self.pack(f)
+            with self.subTest(index=index),self.assertRaises((gate.GateError,ValueError)):self.verify()
+            f.report,f.observed=deepcopy(before);self.pack(f)
+        xml='<testsuite tests="37" failures="0" errors="0" skipped="0">'+''.join('<testcase name="'+n+'"/>'for n in f.names)+'</testsuite>'
+        f.pack(mutate=lambda payload:payload.update({'build/test-results/sync-selected.xml':xml.encode()}))
+        with self.assertRaises(gate.GateError):self.verify()
+
+    def test_failed_or_changed_native_four_never_falls_back_to_old_full37_report(self):
+        with mock.patch.object(self.validator,'verify_standalone_ci_owners',side_effect=ValueError('native command failed')):
+            real=gate.package_checks.load
+            with mock.patch.object(gate.package_checks,'load',side_effect=lambda n,p:self.validator if p=='tools/test-evidence/validate-sync.py'else real(n,p)),self.assertRaises(ValueError):
+                self.f.verify()
+
+    def test_exact_normal_parent_can_retain_mixed_original37_without_executing33_again(self):
+        parent=ExactAndroidTreeParentTests();parent.setUp();self.addCleanup(parent.doCleanups)
+        self.mixed(parent.f)
+        real=gate.package_checks.load
+        with mock.patch.object(gate.package_checks,'load',side_effect=lambda n,p:self.validator if p=='tools/test-evidence/validate-sync.py'else real(n,p)), \
+                mock.patch.object(self.validator,'verify_standalone_ci_owners',return_value=deepcopy(self.proof))as native:
+            proof=parent.verify(pure=True)
+        self.assertIsInstance(proof,gate.NativeExactTreeParentEvidence)
+        self.assertEqual(proof['requested_suites'],parent.f.names)
+        self.assertEqual(proof['original_report']['executed_suites'],self.remaining)
+        self.assertEqual(proof['original_report']['reused_suites'],self.four)
+        self.assertTrue(gate._original_ci_command_coverage(proof['original_report'],parent.f.names))
+        self.assertGreaterEqual(native.call_count,2)
+        self.assertTrue(all(c.kwargs['normal_parent']==parent.normal for c in native.call_args_list))
+        recursive=deepcopy(proof['original_report']);recursive['mode']='native-exact-tree-parent'
+        self.assertFalse(gate._original_ci_command_coverage(recursive,parent.f.names))
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
