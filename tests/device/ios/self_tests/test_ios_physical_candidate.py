@@ -153,9 +153,12 @@ class PhysicalCandidateTests(unittest.TestCase):
             class Base:
                 def __init__(self,platform):self.platform=platform
                 def describe(self,_):return {'executionIdentity':{'untrusted':True}}
+                def target(self,_):return {'platform':'ios','physical':True,'artifactMode':'signed-ipa'}
             args.platform='ios';args.action='describe';adapter=binding.create_adapter(args,Base)
-            self.assertEqual({},adapter.describe('test-only'))
-            with self.assertRaisesRegex(ValueError,'INSTALLED_CODE_BINDING_UNAVAILABLE'):adapter.ensure_session('test-only')
+            self.assertIsInstance(adapter,Base)
+            # A physical candidate still cannot use a session that may install
+            # artifacts, or create identity before actual native measurements.
+            with self.assertRaisesRegex(ValueError,'INSTALLED_CODE_BINDING_REJECTED'):adapter.ensure_session('test-only')
 
     def test_preflight_rejects_foreign_runtime_missing_shared_tiers_or_forged_bundle(self):
         summary=consumer.verify(self.args)

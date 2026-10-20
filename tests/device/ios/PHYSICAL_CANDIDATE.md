@@ -5,8 +5,9 @@ it does not build, install, stage, sign or run a client. The old IO-001 simulato
 preflight remains unchanged. Native binding accepts exactly one of its original
 `--candidate-manifest` or new `--physical-candidate-metadata`, alongside the
 existing independently frozen source/artifact/input/version/channel/evidence
-flags. The new physical path still cannot create a session or advertise an
-installed identity: actual native bundle/PID association must be joined next.
+flags. The physical path is now composed with
+[installed-code binding](INSTALLED_CODE_BINDING.md). It requires actual native
+bundle/PID measurements before a session description can advertise identity.
 
 ## Required independent inputs
 
@@ -37,7 +38,7 @@ The original-bundle algorithm additionally hashes the final IPA's actual app
 files. This expected app-content manifest remains separate from the later
 native measured manifest; it is not returned as a measured device result.
 
-## Result and next binding step
+## Offline result and native binding
 
 The result includes `physicalHandoffVersion:1`, status
 `IOS_PHYSICAL_CANDIDATE_BYTES_BOUND_VERIFICATION_PENDING`,

@@ -39,7 +39,7 @@ from ios.adapters.feature_observation import FeatureObservation
 from navigation_observation import OPERATIONS as NORMAL_NAVIGATION_OPERATIONS, viewpoint_urls
 
 
-class IOSAdapter(AppiumAdapter):
+class IOSNativeMixin:
     CLIENT_OPERATIONS = frozenset({
         "asset.load", "audio.mute", "navigation.enter-domain", "setting.set",
     })
@@ -69,25 +69,25 @@ class IOSAdapter(AppiumAdapter):
     def _script_execution_observer(self, selector, client, session, state, target):
         return self._feature_observer(selector, client, session, state, target).script_execution_observer()
 
-    @staticmethod
-    def advertised_capabilities(target):
-        values = set(AppiumAdapter.advertised_capabilities(target))
+    @classmethod
+    def advertised_capabilities(cls, target):
+        values = set(super().advertised_capabilities(target))
         if (target.get("platform") == "ios" and target.get("physical") is True
                 and target.get("testBuild")
                 and target.get("probe") == {"kind": "ios-documents"}):
-            values |= IOSAdapter.CLIENT_OPERATIONS | IOSAdapter.NATIVE_OPERATIONS
+            values |= cls.CLIENT_OPERATIONS | cls.NATIVE_OPERATIONS
             if native_consent.enabled(target):
                 values.add("entity-script.review")
             if native_integration.enabled(target):
-                values |= IOSAdapter.INTEGRATION_OPERATIONS
+                values |= cls.INTEGRATION_OPERATIONS
             if native_primary.enabled(target):
                 values.add("input.primary")
             if native_upgrade.configuration(target) is not None:
                 values |= {"app.install", "app.upgrade"}
             if native_permission.enabled(target):
                 values |= {"permission.snapshot", "permission.set"}
-            if IOSAdapter.collaboration_configuration(target) is not None:
-                values |= IOSAdapter.COLLABORATION_OPERATIONS
+            if cls.collaboration_configuration(target) is not None:
+                values |= cls.COLLABORATION_OPERATIONS
             if normal_navigation.configuration(target) is not None:
                 values |= NORMAL_NAVIGATION_OPERATIONS
             if normal_snapshot.configuration(target) is not None:
@@ -253,8 +253,8 @@ class IOSAdapter(AppiumAdapter):
                 scripts.invoke('scripts.manager.close', {})
         except Exception:
             script_error = True
-        # The canonical installed-code gate still rejects _scripts(). Always
-        # reach original native/session teardown and retain unresolved sources.
+        # Always reach original native/session teardown if owned-source cleanup
+        # fails, including when candidate inputs or installed binding are lost.
         result = super().cleanup(selector)
         need(not chat_error and not script_error and not private_error and not probe_error and not origin_error and store.read() is None
              and self.chat_capture_store(selector).read() is None
@@ -947,3 +947,7 @@ class IOSAdapter(AppiumAdapter):
         else:
             fail("unsupported extended iOS operation")
         return {"performed": True}
+
+
+class IOSAdapter(IOSNativeMixin, AppiumAdapter):
+    """Unbound component entrypoint; canonical native binding supplies its own base."""

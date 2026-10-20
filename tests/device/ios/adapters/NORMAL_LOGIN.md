@@ -1,5 +1,11 @@
 # iOS normal login UI and private input
 
+Current physical binding: [installed-code binding v1](../INSTALLED_CODE_BINDING.md) guards these
+components with actual installed bundle/PID measurements. Legacy simulator and
+cleanup-only modes still refuse component access. Historical blanket-refusal
+statements below do not describe the new physical path. Complete feature-area
+capabilities and device qualification remain absent.
+
 The E2E-only Qt/UIKit source recognizes common login-control metadata v2. It reads
 actual generic QML component/root IDs, visible error/spinner/server state and
 owner-thread AccountManager context. Original native root generations/control

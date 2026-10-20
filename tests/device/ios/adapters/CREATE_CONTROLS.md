@@ -1,5 +1,11 @@
 # iOS original Create controls v1
 
+Current physical binding: [installed-code binding v1](../INSTALLED_CODE_BINDING.md) guards these
+components with actual installed bundle/PID measurements. Legacy simulator and
+cleanup-only modes still refuse component access. Historical blanket-refusal
+statements below do not describe the new physical path. Complete feature-area
+capabilities and device qualification remain absent.
+
 `IOSAdapter._create_controls(selector, intent)` composes the common
 `TokenCreateUI` with `create_controls.IOSCreateIO` on the existing normal Script
 component's real foreground PID/session/fingerprint continuity closure. This is

@@ -1,7 +1,8 @@
 """Original native feature reads over the existing owned HTTP/AFC component.
 
 This transport does not establish installed-code identity or advertise a feature
-capability. The canonical bound adapter remains blocked until that join exists.
+capability. Canonical physical binding independently establishes that join
+before exposing these components; direct component use remains unbound.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0

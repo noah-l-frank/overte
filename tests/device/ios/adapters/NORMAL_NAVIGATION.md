@@ -1,5 +1,11 @@
 # Normal iOS navigation input
 
+Current physical binding: [installed-code binding v1](../INSTALLED_CODE_BINDING.md) guards these
+components with actual installed bundle/PID measurements. Legacy simulator and
+cleanup-only modes still refuse component access. Historical blanket-refusal
+statements below do not describe the new physical path. Complete feature-area
+capabilities and device qualification remain absent.
+
 This is an opt-in native UI component profile. It does not establish installed
 code identity or qualify a device acceptance result. The canonical candidate
 adapter still rejects execution with

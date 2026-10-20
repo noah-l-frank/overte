@@ -92,27 +92,22 @@ after verified process/source retirement; a successful file-input ACK alone is
 not cleanup. No caller may substitute archive expectations or a primary sample
 for the independent native bytes.
 
-## Remaining canonical binding work
+## Canonical physical binding
 
-The legacy canonical preflight calls the IO-001 verifier, whose
-audited artifact is a simulator ZIP, not a physical IPA. It cannot be treated
-as a physical candidate receipt. The new
-[physical candidate consumer](PHYSICAL_CANDIDATE.md) retains independently
-validated source/input/SBOM/artifact provenance and selects the final physical
-IPA. Comparing the native measured bundle above and actual OS process before
-reporting executionIdentity remains the next separate join. The simulator
-preflight stays unchanged.
+The [physical candidate consumer](PHYSICAL_CANDIDATE.md) and
+[installed-code binding v1](INSTALLED_CODE_BINDING.md) now compose the actual
+native bundle, original DVT OS PID and original candidate/input/SBOM readers.
+Legacy simulator candidate mode remains refused. The new physical path requires
+preinstalled targets, fresh original measurements and persistent ownership;
+neither version strings nor launch acknowledgments establish identity.
 
-The component's `mobile:overteProcessInfo` path also depends on a prepared driver
-extension. Replacing it indiscriminately with `activeAppInfo` would identify the
-foreground system app during backgrounding. A standard foreground OS PID source
-may be used for bounded bootstrap, with explicit separately measured background
-state and new native birth/PID guards after return; never invent a cached PID as
-a fresh background observation. Those integration changes remain open.
+The source-only [process plugin](process_plugin/README.md) supplies the original
+bundle/PID/background query. It still needs separate immutable Proxmox packaging
+and activation; no runtime or device was changed. The first-hash/outer-deadline
+integration also remains open. Missing sources and complete feature capabilities
+continue to fail; host checks do not establish device qualification.
 
-Until this complete chain exists, `OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE`
-and missing complete capabilities stay authoritative. The nineteen host cases
-cover independently read original app/IPA bytes, changed QML/Script/executable/
-signature/plist, unsafe/foreign files, framing, original private transport,
-pending/replayed/foreign/changed sources, native-clock correlation and original
-probe grammar. They do not execute or validate the C++ worker or an installation.
+The nineteen bundle-source host cases cover original IPA bytes, changed QML/
+Script/executable/signature/plist, unsafe/foreign files, framing, original private
+transport, pending/replayed/changed sources, native-clock correlation and probe
+grammar. They do not compile or validate the C++ worker or an installation.

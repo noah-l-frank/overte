@@ -1,5 +1,11 @@
 # Original Chat control component
 
+Current physical binding: [installed-code binding v1](INSTALLED_CODE_BINDING.md) guards these
+components with actual installed bundle/PID measurements. Legacy simulator and
+cleanup-only modes still refuse component access. Historical blanket-refusal
+statements below do not describe the new physical path. Complete feature-area
+capabilities and device qualification remain absent.
+
 The explicit native UI component adapter now exposes
 `_chat_controls(selector,intent,run)` through `IOSChatIO` and the shared
 `TokenChatUI`. The canonical installed-candidate adapter still refuses this

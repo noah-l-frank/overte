@@ -1,5 +1,21 @@
 # iOS feature adapter implementation status
 
+Current: physical native binding now composes original candidate/IPA provenance,
+actual native bundle bytes and original DVT process/source observations with a
+persistent private lifecycle journal. See
+[installed-code binding v1](../../ios/INSTALLED_CODE_BINDING.md). The iOS no-build
+selection passes **372** host cases with zero failures/errors/skips/compiler
+attempts. Five canonical CLI cases and five original binding cases also pass.
+Native C++ is uncompiled, the source-only process plugin is inactive/uninstalled,
+and devices remain untested. Initial native-hash/runner deadline integration
+and every complete `feature.<area>.act/observe/cleanup` triple remain open.
+
+The entries below are historical component packet evidence. Their blanket
+canonical-refusal statements apply to legacy simulator candidate mode and
+cleanup-only/unbound entrypoints; they are superseded for the new guarded
+physical path above. All components still retain their explicit limited scope.
+
+
 One new component source case preserves original native Rig call/pose times
 without comparing host/native wall clocks and rejects later source downgrade.
 The focused source group now passes **24** host cases; the broad no-build iOS

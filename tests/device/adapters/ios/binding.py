@@ -1,4 +1,4 @@
-"""iOS candidate preflight for the canonical Appium adapter, not install proof."""
+"""Canonical iOS candidate preflight and physical original-bundle binding."""
 # SPDX-License-Identifier: Apache-2.0
 import json
 import os
@@ -93,14 +93,17 @@ def candidate_preflight(args):
         except ValueError:raise ValueError('OVT_IOS_CANDIDATE_PREFLIGHT_REJECTED') from None
         if bundle['bundleId']!=runtime['bundleIdentifier']:
             raise ValueError('OVT_IOS_CANDIDATE_PREFLIGHT_REJECTED')
-    # Successful candidate checking is deliberately not returned as the Common
-    # executionIdentity object. Actual installed-code association is unavailable.
+    # Candidate bytes alone never constitute the Common executionIdentity.
+    # The physical adapter must independently compare original installed bytes.
     return result
 
 
 def create_adapter(args, base_class):
     if args.platform != "ios":
         raise ValueError("OVT_IOS_NATIVE_PROFILE_REJECTED")
+    if getattr(args, "physical_candidate_metadata", None) or args.action == "cleanup":
+        from ios.adapters.installed_adapter import create_physical_adapter
+        return create_physical_adapter(args, base_class, candidate_preflight, cleanup_only=args.action == "cleanup")
     if args.action != "cleanup":
         candidate_preflight(args)  # Fail before reading a target or opening I/O.
 

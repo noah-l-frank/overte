@@ -5,6 +5,7 @@ import importlib.util
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -24,11 +25,22 @@ class Base:
     def describe(self, selector):
         return {"adapter": self.adapter_id, "executionIdentity": {"untrusted": True}}
 
+    def state_path(self, selector):
+        return self.directory / "session.json"
+
+    def read_session(self, selector):
+        return None
+
     def cleanup(self, selector):
         return {"cleaned": True}
 
 
 class Binding(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        Base.directory = Path(temporary.name)
+
     def load(self, action="describe"):
         return adapter.cli(["--platform", "ios", "--native-binding", action])
 
