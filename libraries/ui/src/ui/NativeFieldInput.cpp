@@ -168,6 +168,22 @@ QString commitNonce() {
 QString commitSha(const QString& value) {
     return QString::fromLatin1(QCryptographicHash::hash(value.toUtf8(), QCryptographicHash::Sha256).toHex());
 }
+bool selectAllPreparedField(QQuickWindow* surface) {
+    // Use the actual Qt platform binding (including Meta-based platforms).
+    // An unsupported chord is unavailable; do not guess a Ctrl-only fallback.
+    for (const auto& binding : QKeySequence::keyBindings(QKeySequence::SelectAll)) {
+        if (binding.count() != 1) { continue; }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        const int combined = binding[0].toCombined();
+#else
+        const int combined = binding[0];
+#endif
+        const auto modifiers = static_cast<Qt::KeyboardModifier>(combined & static_cast<int>(Qt::KeyboardModifierMask));
+        const int code = combined & ~static_cast<int>(Qt::KeyboardModifierMask);
+        if (code > 0 && code != Qt::Key_unknown) { return key(surface, code, Qt::KeyboardModifiers(modifiers)); }
+    }
+    return false;
+}
 QQmlContext* scriptFilterContext(QQuickItem* field) {
     if (!QCoreApplication::instance() || !field
             || field->thread() != QCoreApplication::instance()->thread()
@@ -324,7 +340,7 @@ std::unique_ptr<PreparedFieldCommit> prepareFocusedScriptFilterCommit(
     if (!context || !original || original->text != "retry-" + text.right(32)) { return {}; }
     if (std::min(original->cursor, original->anchor) != 0
             || std::max(original->cursor, original->anchor) != original->text.size()) {
-        key(guardedSurface, Qt::Key_A, Qt::ControlModifier);
+        selectAllPreparedField(guardedSurface);
     }
     const auto selected = focusedText(guardedField, guardedSurface);
     if (!selected || !context || scriptFilterContext(guardedField) != context || selected->text != original->text

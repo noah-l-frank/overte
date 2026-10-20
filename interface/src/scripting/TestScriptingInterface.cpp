@@ -29,6 +29,7 @@
 #include "../../../tests/device/native/FeatureLifecycle.h"
 #include "../../../tests/device/native/ChatViewObservation.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
+#include "../../../tests/device/native/PendingFieldCommitBridge.h"
 #include <ui/TabletScriptingInterface.h>
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
@@ -170,6 +171,22 @@ QVariantMap TestScriptingInterface::featureWorldRenderReceipt(const QVariantMap&
     return {{"receiptVersion",1},{"commandId",id},{"requestId",request},{"receiptId",receipt},
         {"operation",operation},{"instance",state->instance()}, {"sequence",static_cast<qulonglong>(++_featureWorldReceiptSequence)},
         {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()}, {"source",source}};
+}
+
+QVariantMap TestScriptingInterface::featurePendingCommitOwner(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this, [&] { result = featurePendingCommitOwner(command); }, Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::pendingCommitOwnerCommand(command)) { return {}; }
+    const auto original = qApp->property(overte::e2e::pendingCommitProviderProperty());
+    if (original.userType() != qMetaTypeId<overte::e2e::PendingCommitProvider>()) { return {}; }
+    const auto provider = original.value<overte::e2e::PendingCommitProvider>();
+    return provider ? provider(command) : QVariantMap();
 }
 
 QVariantMap TestScriptingInterface::featureWebDOMObservation(const QVariantMap& command) {
@@ -751,6 +768,8 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
+            || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
+            || filename == "feature-pending-commit-owner.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"

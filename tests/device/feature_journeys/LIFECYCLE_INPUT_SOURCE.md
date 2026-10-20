@@ -3,8 +3,9 @@
 This is shared logic and a concrete input/observer contract, not a completed
 platform adapter. All three full-area adapters and device acceptance are still
 missing. A default-off [native retained-event helper and reader](../native/PREPARED_FIELD_COMMIT.md)
-now exist, but their native UI owner/transport and complete pending-input/context
-join remain unresolved alongside some actual Back/keyboard routes. The C++ is
+now exist alongside the [native owner/private transport](../native/PENDING_COMMIT_OWNER.md).
+Platform registration and the complete pending-input/context join remain unresolved
+alongside some actual Back/keyboard routes. The C++ is
 uncompiled; no compiler, installation or device is run here.
 
 ## Actual pages and normal input
