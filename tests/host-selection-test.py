@@ -1070,25 +1070,30 @@ class HostSelectionTests(unittest.TestCase):
         paths = ('tests/device/contracts/chat/test_chat_qml.py',
                  'tests/device/contracts/snapshot/test_snapshot_qml.py',
                  'tests/device/contracts/snapshot/test_snapshot_native.py')
-        with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS, {'apple-ios': HOST.program_digest(self.tree)}):
+        with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS, {
+                'apple-ios': HOST.program_digest(self.reviewed_fixture_tree(self.tree, 'apple-ios'))}):
             for path in paths:
                 previous = copy_git_tree(self.tree);previous[path]['sha'] = 'a' * 40
-                owners = set(HOST.REQUIRED_INPUT_OWNERS[path]) | {'device-control-plane-full'}
-                for hint in ([path], ['tests/branch-cleanup-test.py']):
-                    with self.subTest(path=path, hint=hint):
-                        selected = self.selected(hint, base_tree=previous, target='apple-ios')
-                        self.assertEqual(set(selected['suites']), self.ci_quick | owners)
-                        self.assertTrue(selected['full_host'])
-                        self.assertFalse(selected['include_platform'])
-                smaller = {'suites': sorted(self.ci_quick | (owners - {'device-control-plane-full'})),
-                    'full_host': True, 'include_platform': False, 'reason': 'protected-affected-dependencies'}
-                with self.subTest(omission=path), patch.object(HOST, 'affected_selection', return_value=smaller):
-                    selected = self.selected([path], base_tree=previous, target='apple-ios')
-                self.assertEqual(set(selected['suites']), self.ci_quick | owners)
-                self.assertIn('device-control-plane-full', HOST.required_input_owners(
-                    self.tree, [path], previous, target='apple-ios'))
-                self.assertNotIn('device-control-plane-full', HOST.required_input_owners(
-                    self.tree, [path], self.tree, target='apple-ios'))
+                reviewed_previous = self.reviewed_fixture_tree(previous, 'apple-ios')
+                with patch.dict(HOST.REVIEWED_PREDECESSORS, {
+                        'apple-ios': HOST.program_digest(reviewed_previous)}):
+                    owners = set(HOST.REQUIRED_INPUT_OWNERS[path]) | {'device-control-plane-full'}
+                    for hint in ([path], ['tests/branch-cleanup-test.py']):
+                        with self.subTest(path=path, hint=hint):
+                            selected = self.selected(hint, base_tree=previous, target='apple-ios')
+                            self.assertEqual(set(selected['suites']), self.ci_quick | owners)
+                            self.assertTrue(selected['full_host'])
+                            self.assertFalse(selected['include_platform'])
+                    smaller = {'suites': sorted(self.ci_quick | (owners - {'device-control-plane-full'})),
+                        'full_host': True, 'include_platform': False, 'reason': 'protected-affected-dependencies'}
+                    with self.subTest(omission=path), patch.object(HOST, 'affected_selection', return_value=smaller):
+                        selected = self.selected([path], base_tree=previous, target='apple-ios')
+                    self.assertEqual(set(selected['suites']), self.ci_quick | owners)
+                    self.assertIn('device-control-plane-full', HOST.required_input_owners(
+                        self.tree, [path], previous, target='apple-ios'))
+                    self.assertNotIn('device-control-plane-full', HOST.required_input_owners(
+                        self.tree, [path], self.tree, target='apple-ios'))
+
 
     def test_ios_fixture_fallback_does_not_broaden_workflow_or_proved_targets(self):
         fixtures={target:self.reviewed_fixture_tree(self.tree,target)
