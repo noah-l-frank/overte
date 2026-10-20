@@ -1,4 +1,4 @@
-"""Strict v8 action/read boundary for feature additions to the existing harness."""
+"""Strict v9 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
@@ -126,6 +126,22 @@ def state(area, value, run=None):
             raise ValueError('Chat visible rows disagree with original channel history')
         if value['keyboard'] and not value['focused']:
             raise ValueError('Chat keyboard has no actual editor focus')
+    if area == 'snapshots':
+        backend=value['saveBackend'];permission=value['savePermission']
+        if backend not in {'photos-add-only','media-store','document-picker'} or permission not in ({'granted','denied'} if backend=='photos-add-only' else {'not-required'}):
+            raise ValueError('Snapshot Save backend and original OS authorization disagree')
+        if any(type(value[k]) is not int or not 0<=value[k]<=1 for k in ('files','saved','uploads','shares')):
+            raise ValueError('Snapshot owned output inventory is invalid')
+        if value['saveSheet'] and backend!='document-picker' or value['saveSheet'] and value['shareSheet']:
+            raise ValueError('Snapshot system sheet does not belong to its backend')
+        if (value['saved'] or value['uploads'] or value['shares']) and value['files']!=1:
+            raise ValueError('Snapshot external result has no retained owned capture')
+        history=value['captureHistory']
+        if (history and history[0]!='pending' or any((a,b) not in {('pending','cancelled'),('pending','complete'),('cancelled','pending'),('complete','pending')} for a,b in zip(history,history[1:]))
+                or bool(value['pending'])!=bool(history and history[-1]=='pending')):
+            raise ValueError('Snapshot original capture history and pending state disagree')
+        if value['pending'] and (value['files'] or value['saveSheet'] or value['shareSheet']):
+            raise ValueError('Snapshot pending capture overlaps a retained output or export sheet')
     if area == 'graphics':
         number(value['resolution'],0.1,2.0); number(value['renderScale'],0.1,2.0)
     if area == 'audio':
@@ -178,11 +194,13 @@ def result(operation, value):
     kinds, names = set(), set()
     for artifact in value['artifacts']:
         fields = {'kind', 'name', 'sequence', 'capturedEpochMs', 'ticket'}
-        if type(artifact) is dict and artifact.get('kind') == 'image':
+        if type(artifact) is dict and (artifact.get('kind') == 'image' or area=='snapshots' and artifact.get('kind')=='file'):
             fields.add('source')
         exact(artifact, fields, 'feature artifact')
         if artifact['kind'] == 'image' and artifact['source'] not in {'native-screen', 'world-render-target'}:
             raise ValueError('Unsupported original image acquisition source')
+        if area=='snapshots' and artifact['kind']=='file' and artifact['source'] not in {'snapshot-private-original','snapshot-saved-original','snapshot-receiver-original','snapshot-upload-original'}:
+            raise ValueError('Snapshot file has no supported original acquisition source')
         if artifact['kind'] not in {'image', 'audio', 'file'} or artifact['kind'] in kinds:
             raise ValueError('Unsupported or duplicate artifact kind')
         kinds.add(artifact['kind'])

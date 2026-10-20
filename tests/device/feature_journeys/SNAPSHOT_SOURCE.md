@@ -1,9 +1,9 @@
-# Snapshot source audit for the next common contract correction
+# Snapshot source and adapter boundary, common journey v9
 
-The current common v8 Snapshot journey still has source mismatches. Do not
-activate a complete Snapshot adapter against that draft. This audit records
-actual source behavior; the corrected versioned scenario and adapter composition
-are implementation work, not device evidence.
+Version 9 corrects the source mismatches found in the v8 draft. It separates
+private capture from real OS Save, observes actual pending-cancel history and
+system sheets, and requires original destination/receiver/upload bytes. This is
+common test logic; full native adapters and physical evidence are still missing.
 
 Reviewed product bases are Phone `718d069add`, Pico `c5bf8ac17b` and iOS
 `864f8b79a4`. Current local platform branches retain these functional sources.
@@ -23,15 +23,39 @@ The normal Snapshot script permits a local private capture without a network
 permission lookup. Native capture has an original request ID, pending delays,
 render/encode work and real status callbacks. `cancelNativeCapture` invalidates
 the ID, clears timers, calls `Snapshot.cancelCapture` and reports cancellation
-only when a request existed. An idle cancel is vacuous. The corrected journey
-must first observe an actual pending owned capture (for example animated), then
-cancel through normal UI and independently check original private files and
-late callbacks for a full negative observation window. Do not add artificial
-product success, failure or delay setters as instrumentation.
+only when a request existed. An idle cancel is vacuous.
 
-A denied Photos permission does not deny private capture. Android Save requires
-no storage permission. The v8 `set-storage-permission` / denied-capture sequence
-must be removed rather than implemented with a fabricated permission error.
+The v9 `capture-cancel` action is a fast ordinary UI recipe: select animated/PNG,
+click Take snapshot, independently record the actual new pending request and
+normal QML capturing state, then click its real Cancel button **before renderer
+submission**. There is only a 350-ms first delay before the script hides the
+tablet; do not insert a 0.5-second common poll or host round trips before Cancel.
+Use bounded local target automation on the original visible controls. It may
+observe/retry reads; it must not invoke the script handler, change delays, set
+properties, pause the event loop or call Snapshot.cancelCapture as an input.
+If the actual pending state or Cancel button cannot be observed/reached within
+that window, fail and retain cleanup intent; never replace it with idle Cancel.
+
+`captureHistory` is an original immutable sequence for this run's owned request
+contexts: `pending,cancelled,pending,complete` over the two capture attempts.
+`pending` comes from the actual script request ID/scheduled work plus its real
+clearPreviousImages/capturing transition; `cancelled` requires that same still
+active original request and actual cancel callback/timer retirement. `complete`
+requires the next actual native complete callback. A requested click, command
+sequence or future expected phase is no substitute. Both primary and independent
+actors freshly acquire the original context/sequence/time-correlated history;
+neither copies the other's normalized checkpoint. Stale/foreign request callbacks
+must not append phases. The common negative window then requires no original
+files or late completions, pending false and the real cancellation history for
+three seconds. Cancel after a still file has already been written cannot claim
+that file never existed.
+
+`open` identifies the actual SNAP review route (`AppUi.isOpen`), whose visibility
+is separate while Snapshot temporarily hides the tablet. Capture completion
+normally restores the tablet. A successful private still/PNG must be acquired
+under its original capture challenge even when Photos Save is denied. Android
+has no runtime storage permission to deny. The v8 `set-storage-permission` /
+denied-capture sequence is rejected by the v9 action grammar.
 
 ## Distinct normal Save backends
 
@@ -42,7 +66,11 @@ must be removed rather than implemented with a fabricated permission error.
 | Supported Android below API 29 document picker | Save uses ACTION_CREATE_DOCUMENT. Observe the actual chooser before cancellation, or select an owned destination and verify actual copied bytes after return/focus. An existing unrelated user document must never be deleted as cleanup. |
 
 A real backend/version policy must be measured and pinned independently before
-choosing applicable permission/chooser checks. Unsupported or absent native
+choosing applicable permission/chooser checks. The measured initial Photos
+add-only authorization must already be granted in the owned fixture setup;
+Android must report not-required. An unowned/unsupported initial state fails
+before input, not a green skip. The initial backend/authorization is retained
+exactly for independent cleanup restoration. Unsupported or absent native
 export backends must fail the mandatory capability gate, not become a green
 platform skip. Conditional checks must not omit common capture, successful Save,
 share, upload, resume or cleanup obligations. Original permission state and
@@ -72,16 +100,50 @@ receiver output and server delivery, drains pending native leases/late callbacks
 and restores the original settings/permissions. An OS commit or external delivery
 cannot be withdrawn by merely closing the review or killing the app.
 
-The v8 witness currently includes only file/upload/share counts. The correction
-must also independently witness actual pending state, review/system sheets,
-backend/permission and errors, with original artifact provenance for each sink.
+The v9 witness includes all twelve state fields, including actual pending
+history, review route/system sheets, backend/permission and errors. The 18-row
+closed inventory has 15 applicable Photos checkpoints, 12 MediaStore checkpoints
+and 15 document-picker checkpoints. Only the Photos permission/denied-Save and
+document-picker open/cancel rows are conditional; all common flows stay required.
+Unknown backends are errors. The runner records the pinned source profile and
+non-applicable row indices explicitly, never as executed successful actions.
+
+The private PNG is decoded and its actual SHA-256 retained by the runner.
+Subsequent file evidence must come from the actual OS-saved original, real
+receiver or authenticated upload body and match those captured bytes. Snapshot
+file artifacts require the corresponding closed `source` acquisition category;
+relabeling a copied private capture as an external receipt is prohibited. The
+independent actor must read the actual endpoint and its original result, rather
+than echo native success/chooser selection or copy the primary adapter's state.
+
+System-sheet/settings rows may produce actual deactivation/background/activation
+notifications. Their counters must be monotonic, bound PID and launches must
+stay unchanged, and the final native counters must settle for the normal
+observation window before being pinned for the next checkpoint. No counter is
+incremented by the runner as a claimed OS event. Other lifecycle inputs retain
+the existing exact notification requirements.
 Existing `snapshot-output-parity` remains the owner of still/animated/panorama/
 cubemap decoding; extend it rather than creating a parallel output runner.
 
-The existing ten `tests/javascript/test/snapshot.production.test.js` cases are
+The existing Snapshot JS suite, now eleven cases with an added idle-Cancel
+counterexample, is
 now registered in the common control-plane selection through
 `test_snapshot_source_semantics.py`. They run the original script on explicit
 synthetic native/timer seams: normal modes/preferences/readiness, pre-render
 cancellation, old callback rejection, GIF review, upload cancellation/errors and
-shutdown. They do not execute renderer, OS export services or a full feature
-scenario, and do not correct the v8 common draft by themselves.
+shutdown. They do not execute renderer, OS export services or a full physical feature
+scenario. Seven v9 common counterexample groups separately exercise all source
+profiles, false pending proof, ignored effects/sheets, permission/error mismatch,
+missing external results, wrong file source/changed original bytes, backend
+replacement, native lifecycle continuity and incomplete cleanup. These are
+hardware-free test-logic checks only.
+
+Before platform activation, qualify the actual OS/settings/chooser lifecycle.
+The current source profile preserves the same primary process across system UI;
+an OS version that terminates the app on permission changes cannot be accepted
+by relabeling that replacement or inventing counters. It needs an explicit
+reviewed restart/ownership profile before advertisement, or a concrete unsupported
+profile failure. A real independent Photos/MediaStore/document/receiver actor
+with permission to read and remove only this run's originals is also required;
+the primary add-only Photos grant does not itself authorize library enumeration
+or cleanup. These are full-adapter activation prerequisites, still unimplemented.

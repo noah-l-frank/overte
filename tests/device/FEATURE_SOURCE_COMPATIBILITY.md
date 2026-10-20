@@ -6,7 +6,7 @@ has now exposed assumptions in several draft workflows that do not describe the
 actual product UI. Host-model success does not resolve those mismatches. No
 complete area capability may be advertised as implemented on that basis.
 
-The current contract is version 8. Version 2 corrected Scripts to the ordinary
+The current contract is version 9. Version 2 corrected Scripts to the ordinary
 file-bundle picker and actual relative companion execution, with negative
 cases for execution after cancellation, missing companions and frozen ticks.
 Version 3 corrected Audio to its automatic memory-preview cycle.
@@ -19,6 +19,8 @@ uses a real process restart to retire a delayed response consumer, and requires
 actual delayed authority plus independent UI/error facts.
 Version 8 corrects Create model URLs versus entity-JSON picking, actual export
 DataVersion and the exact original texture slot.
+Version 9 corrects Snapshot pending cancellation, private capture versus OS Save,
+actual backend/authorization, system sheets and original external output bytes.
 See [the explicit migration](feature_journeys/CONTRACT_MIGRATION.md).
 
 These are test-contract corrections, not permission to add functional
@@ -35,10 +37,11 @@ versioned before any complete area producer is enabled.
 | Scripts | `Application::loadScriptURLDialog()` loads the submitted URL directly. `Application::loadDialog()` opens **Open Script and Companion Files** and loads the selected local source. `TabletRunningScripts.qml` provides the normal From URL/File controls. Entity-script consent is separate. | **Common flow corrected in version 2.** Native actual engine/require histories now exist on all three source branches. All three branches now have normal source-bound file-bundle controls and private original-byte staging/cleanup intent. Picker/engine ownership, restart handoff and the full companion/effect observer joins remain missing; URL foundations do not establish them. |
 | Emotes | On the Phone adapter product base, `scripts/system/+android_phoneInterface/phoneEmote.js` selects a real bundled clip, calls the one-shot override, hides the tablet, and restores the rig on its timer. The common-base PhoneEmote copy does not hide the tablet; the desktop/Pico `emote.js` surface has different Sit/cancel behavior. Choosing the actually running startup script must precede binding an input recipe. | **Common flow corrected in version 5.** Ordinary plays require a native override; chooser lifetime permits the reviewed hidden/retained variants. Nine non-Sit clips must complete without cancellation. The explicit Waving abort requires native restoration before nominal end, with independent timing/peer facts. Sit reset does not claim that early-abort condition. Reopen the actual chooser as required and judge loaded/evaluated native clips, original poses/images and real peer effects. No product change is authorized to make a draft test pass. |
 | Create | NativeCreate NEW Model supplies modelURL. Its Browse button opens Select .json to Import and invokes the ordinary Clipboard entity-JSON importer; it is not a raw glTF/OBJ picker. Application exports a new EntityTree whose persistence version is 0. GLTFSerializer names the pinned image texture checker.png. | **Corrected in version 8.** Test both normal model URLs, actual JSON picker open/cancel/accept, original exact-slot export, voxel changes and an actual create retry after domain rez recovery. Reject arbitrary texture-slot aliases, duplicate JSON and rewritten exported bytes. |
+| Snapshots | Private capture does not need Photos permission; Android Save uses MediaStore or ACTION_CREATE_DOCUMENT without runtime storage permission. Photos Save requests add-only authorization. Share completion is handoff, not stored receiver bytes; the script has a short pre-render cancellation window and later hides the tablet temporarily. | **Corrected in version 9.** Measure a supported Save backend, require actual pending-to-cancelled history from a fast normal UI recipe, retain private capture despite denied Photos Save, inspect actual Save/receiver/upload originals, and witness actual system sheets/error/authorization. OS lifecycle/PID profiles and independent destination/cleanup actors remain unqualified; never simulate a missing OS API. |
 | Chat | All three reviewed product bases use the same ArmoredChat JS/QML and MessagesClient source. There are Local/Domain tabs, separate histories and a 20-metre Local admission bound. Sending clears the editor immediately; native absence of a MessagesMixer emits local-only echo. No offline UI, retry queue or peer filter exists. | **Corrected in version 7.** Exercise actual channels, cancelled draft, distant Local rejection, stored history, original no-mixer local echo and explicit retyped resend. Observe remote delivery independently and allow two real local history rows after resend. Do not add product filtering/error/retry behavior to satisfy the draft. |
 
 Additional source checks remain open, particularly the platform-specific private
-Snapshot capture versus user export/share permission paths. Create v8 corrects
+Snapshot capture versus user export/share permission paths (corrected in v9). Create v8 corrects
 the reviewed JSON/model/export mismatch; its full native picker/storage/entity
 observer composition is still missing. Absence is not
 inferred from a single source search. The other seven area drafts still require
@@ -48,7 +51,9 @@ Implemented source packets remain useful and independently reviewable:
 Phone's ordinary Create/Scripts foundations; Pico's ordinary native Script
 foundation; iOS's explicitly unbound native Script component; and the shared
 native lifecycle, evaluated animation/pose and memory-preview status sources.
-They do not complete the fourteen version 8 triples. Required capability gates stay
+Snapshot v9 now records supported original Save backends, cancellation history,
+system sheets and original external files; see [its source contract](feature_journeys/SNAPSHOT_SOURCE.md).
+They do not complete the fourteen version 9 triples. Required capability gates stay
 closed, original compiler-dependent tests remain excluded from no-build runs,
 and all physical qualification remains unperformed.
 
