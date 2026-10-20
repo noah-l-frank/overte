@@ -104,24 +104,9 @@ def payload(resource, run, ticket):
               'let m=document.querySelector("#marker");if(m.getAttribute("src")!==p)m.src=p;'
               '}finally{pending=false}}refresh();setInterval(refresh,100);</script>')
         return 'text/html; charset=utf-8',body.encode()
-    if resource in {'reference.html', 'page-b.html', 'inline.html'}:
-        # Browser observations are independently received via the actor journal;
-        # origin rejection is also verified by the unchanged product counter.
-        page = {'reference.html': 'reference', 'page-b.html': 'B', 'inline.html': 'inline'}[resource]
-        color = {'reference': '#186840', 'B': '#602060', 'inline': '#204080'}[page]
-        current = '/feature-fixture/v1/runs/' + run + '/current'
-        body = ('<!doctype html><meta charset="utf-8"><title>Owned ' + page + '</title>'
-                '<body style="background:' + color + ';color:white"><h1>Owned ' + page + '</h1>'
-                '<img id="marker" src="marker.png"><input id="owned-text"><button id="submit">Send</button>'
-                '<output id="echo"></output><script>'
-                'setInterval(async()=>{let r=await fetch(' + json.dumps(current) + ',{cache:"no-store"});'
-                'let v=await r.json();let p="/feature-fixture/v1/runs/' + run + '/tickets/"+v.ticket+"/marker.png";'
-                'let m=document.querySelector("#marker");if(m.getAttribute("src")!==p)m.src=p;},250);'
-                'document.querySelector("#submit").onclick=()=>{let v=document.querySelector("input").value;'
-                'document.querySelector("output").textContent=v;'
-                'if(window.EventBridge)EventBridge.emitWebEvent(JSON.stringify({text:v}));};'
-                '</script>')
-        return 'text/html; charset=utf-8', body.encode()
+    # Browser documents/scripts are served by BrowserResources from the original
+    # parity fixture, with actual HTTP status/response IDs. An HTTP inline.html
+    # page cannot exercise the native inline-source carrier.
     if resource in {'model.gltf', 'model.obj'}:
         return 'application/octet-stream', companion('gltf-bundle/main.gltf' if resource.endswith('gltf') else 'obj-bundle/main.obj')
     aliases = {'mesh/triangle.bin': 'gltf-bundle/mesh/triangle.bin',
