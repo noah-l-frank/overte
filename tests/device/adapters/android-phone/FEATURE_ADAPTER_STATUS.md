@@ -117,6 +117,14 @@ refuses remaining preference ownership. Background/restart ownership and the
 complete independent Graphics coordinator remain pending; no full capability
 is enabled.
 
+The [normal Graphics background/activation owner](GRAPHICS_BACKGROUND.md) now
+requires independent actual OS background and fresh native lifecycle/preference
+persistence on the same process. Fourteen focused cases plus the actual OS/
+cleanup wrappers reject ignored/lost inputs, replaced scope and missing native
+effects. Metadata may retire before the later explicit restart without resetting
+preferences. Restart ownership and the complete independent Graphics coordinator
+remain pending; no full capability or device acceptance is promoted.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

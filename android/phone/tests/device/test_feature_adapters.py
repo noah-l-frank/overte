@@ -930,6 +930,29 @@ class FeatureAdapterTests(unittest.TestCase):
             base.assert_called_once()
         self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_graphics_background_or_activation_intent(self):
+        store=self.adapter.graphics_background_store(SELECTOR);store.write({'unresolved':True},None)
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_GRAPHICS_BACKGROUND_CLEANUP_INCOMPLETE'):
+                self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
+    def test_graphics_os_status_uses_existing_session_without_foreground_native_guard_or_repair(self):
+        calls=self.read_only_boundaries();_ui,_observer,binding,_guard,_installed=self.adapter.normal_feature_runtime(SELECTOR,read_only=True)
+        with patch.object(self.adapter,'query_app_state',return_value=3),patch.object(self.adapter,'normal_feature_runtime',side_effect=AssertionError('Unexpected foreground-only source')):
+            actual=self.adapter._graphics_lifecycle_status(SELECTOR,binding)
+        self.assertEqual(dict(binding=binding,foreground=False,running=True,appState=3),actual)
+        self.assertFalse(any(method=='POST' for method,_path,_body in calls));self.assertEqual([],self.native.lifecycle_inputs)
+
+    def test_graphics_os_status_rejects_changed_process_install_session_and_unstable_os_read(self):
+        self.read_only_boundaries();_ui,_observer,binding,_guard,_installed=self.adapter.normal_feature_runtime(SELECTOR,read_only=True)
+        for changed in (binding|dict(processIdentity='32:14'),binding|dict(artifactSha256='f'*64),binding|dict(sessionId='foreign-session')):
+            with self.subTest(changed=changed),self.assertRaises(ValueError):self.adapter._graphics_lifecycle_status(SELECTOR,changed)
+        with patch.object(self.adapter,'query_app_state',side_effect=[4,3]),self.assertRaises(ValueError):
+            self.adapter._graphics_lifecycle_status(SELECTOR,binding)
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+
     def test_general_cleanup_cannot_forget_owned_graphics_scene_or_unrestored_view(self):
         store=self.adapter.graphics_scene_store(SELECTOR);store.write({'unresolved':True},None)
         with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:

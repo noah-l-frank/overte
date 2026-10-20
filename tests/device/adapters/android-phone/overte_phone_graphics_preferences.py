@@ -9,7 +9,7 @@ from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.token_graphics_ui import TokenGraphicsUI,on_grid
 from feature_journeys.contract import arguments,identifier
-from overte_phone_graphics_scene import PhoneGraphicsScene
+from overte_phone_graphics_scene import PhoneGraphicsScene,operation
 from overte_phone_graphics_samples import restore_native
 from overte_phone_script_history import pack,unpack,same
 
@@ -112,8 +112,9 @@ class PhoneGraphicsPreferences:
         if self.state is not None:advance(self.state['native'],packet);self.state['native']=deepcopy(packet);self.save()
         return packet
 
+    @operation
     def prepare(self):
-        self.started=self.monotonic();self.bound();need(self.scene.state['phase']=='active')
+        self.bound();need(self.scene.state['phase']=='active')
         if self.state is None:
             first=self.source();second=self.source();advance(first,second)
             need(first['graphics']==second['graphics'] and first['lifecycle']==second['lifecycle']
@@ -195,10 +196,11 @@ class PhoneGraphicsPreferences:
         before=self.state['current']['barrier']['graphics']
         need(all(packet['graphics'][field]==before[field] for field in before if field not in changed))
 
+    @operation
     def act(self,call):
         call=deepcopy(arguments('feature.graphics.act',call))
         need(call['runId']==self.run and call['fixtureUrl']==self.fixture_url and call['verb'] in VERBS)
-        self.started=self.monotonic();self.bound();need(self.state is not None and not self.state['restoration'])
+        self.bound();need(self.state is not None and not self.state['restoration'])
         need(same(self.store.read(),self.previous))
         if call['ticket'] in self.state['tickets']:
             need(self.state['current'] is not None and same(self.state['current']['arguments'],call))
@@ -221,9 +223,10 @@ class PhoneGraphicsPreferences:
         self.unchanged_other_preferences(call,current['proof']['native'])
         self.state['phase']='acknowledged';self.save();self.bound();return {'performed':True}
 
+    @operation
     def cleanup(self):
         """Restore only original preferences and close owned UI; no world verdict."""
-        self.started=self.monotonic();self.bound();need(self.state is not None)
+        self.bound();need(self.state is not None)
         if self.state['phase']=='cleaned':
             self.observe_step(dict(verb='restore-original'),'close');packet=self.source()
             need(packet['graphics']==self.state['original']['graphics']);return deepcopy(packet)
@@ -244,6 +247,7 @@ class PhoneGraphicsPreferences:
             self.state['phase']='cleaned';self.save();self.bound();return deepcopy(packet)
         finally:self.restoring=False
 
+    @operation
     def retire(self):
         self.cleanup();need(self.state['phase']=='cleaned');self.decode(self.previous)
         need(same(self.store.read(),self.previous));self.store.discard(self.previous)

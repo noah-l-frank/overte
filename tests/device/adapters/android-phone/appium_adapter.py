@@ -425,6 +425,31 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def graphics_preferences_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-preferences.json'))
 
+    def graphics_background_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-background.json'))
+
+    def _graphics_lifecycle_status(self, selector, binding):
+        # OS/process observation remains available while native/UI foreground
+        # guards are correctly unavailable. No session creation or activation.
+        with self.existing_input_session(selector):
+            target=self.target(selector);fingerprint=self.snapshot_fingerprint(target)
+            installed=self.installed_identity(selector)
+            client,session,state=self.existing_session(selector)
+            require(fingerprint==binding['targetFingerprint'] and session==binding['sessionId']
+                    and state.get('generation')==binding['generation']
+                    and all(installed[key]==binding[key] for key in ('sourceRevision','artifactSha256')),
+                    'PHONE_GRAPHICS_LIFECYCLE_BINDING_CHANGED')
+            before=self.query_app_state(client,session,target)
+            process=self.process_state(selector,client,session,state,target)
+            after=self.query_app_state(client,session,target)
+            require(type(before) is int and before in (2,3,4) and after==before
+                    and process.get('running') is True and process.get('identity')==binding['processIdentity']
+                    and self.snapshot_fingerprint(self.target(selector))==fingerprint,
+                    'PHONE_GRAPHICS_LIFECYCLE_PROCESS_OR_OS_STATE_CHANGED')
+            observed={key:installed[key] for key in ('sourceRevision','artifactSha256')}
+            observed.update(processIdentity=process['identity'],sessionId=session,generation=state['generation'],targetFingerprint=fingerprint)
+            return dict(binding=observed,foreground=after==4,running=process['running'],appState=after)
+
     def graphics_samples_store(self, selector, role, stage):
         require(role in ('primary','actor') and type(stage) is int and stage in (0,1),
                 'PHONE_GRAPHICS_SOURCE_SCOPE_REQUIRED')
@@ -1153,6 +1178,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE')
         require(not world_error and all(self.world_render_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_WORLD_RENDER_CLEANUP_INCOMPLETE')
+        require(self.graphics_background_store(selector).read() is None,'PHONE_GRAPHICS_BACKGROUND_CLEANUP_INCOMPLETE')
         require(self.graphics_preferences_store(selector).read() is None,'PHONE_GRAPHICS_PREFERENCES_CLEANUP_INCOMPLETE')
         require(self.graphics_scene_store(selector).read() is None,'PHONE_GRAPHICS_SCENE_CLEANUP_INCOMPLETE')
         require(all(self.graphics_samples_store(selector,role,stage).read() is None
