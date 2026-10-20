@@ -1243,7 +1243,6 @@ class Adapter:
             expected = 'skipped' if job['name'] == METADATA_JOB and analysis['event'] != 'pull_request' else 'success'
             require((fact.status,fact.conclusion) == ('completed',expected), 'CodeQL current selector/analyzer did not succeed')
         if continuation:
-            require(selected, 'CodeQL result-only continuation has no selected analyses')
             fact = self._job(current_jobs[0],result,15368,final_name='codeql-security-results')
             require((fact.status,fact.conclusion) in allowed_status, 'CodeQL retry native gate failed or unavailable')
             checks[fact.job_id] = vars(fact)

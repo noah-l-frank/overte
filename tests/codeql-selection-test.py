@@ -2498,6 +2498,33 @@ class NativeUploadResultsTests(unittest.TestCase):
         windows=reader.jobs(reader.context(),['python'])
         self.assertEqual(reader.analyses(['python'],windows),{})
 
+    def test_document_only_native_result_and_retry_need_no_analysis_or_alert_inventory(self):
+        self.git('checkout','-q','--detach',self.base)
+        self.write('docs/native-upload.md','# Documentation-only native result fixture\n')
+        self.head=self.commit()
+        self.candidate=self.git('commit-tree',self.git('rev-parse','HEAD^{tree}'),
+            '-p',self.base,'-p',self.head,'-m','Document-only merge')
+        self.git('checkout','-q','--detach',self.candidate)
+        self.pr['head']['sha']=self.head; self.pr['merge_commit_sha']=self.candidate
+        self.event['pull_request']=deepcopy(self.pr)
+        self.env.update(GITHUB_SHA=self.candidate,GITHUB_WORKFLOW_SHA=self.candidate,CODEQL_EXPECTED_LANGUAGES='[]')
+        self.refs.update({'heads/fix/main/example':self.head,'pull/42/merge':self.candidate})
+        self.merge={'sha':self.candidate,'parents':[{'sha':self.base},{'sha':self.head}],
+            'commit':{'tree':{'sha':self.git('rev-parse',self.candidate+'^{tree}')}}}
+        self.runs[1]['head_sha']=self.head
+        self.runs[1]['referenced_workflows'][0].update(sha=self.candidate,
+            path=RESULTS.REPOSITORY+'/'+self.A.METADATA_WORKFLOW+'@'+self.candidate)
+        self.jobs[:]=[row for row in self.jobs if row['name']!='CodeQL (python)']
+        for row in self.jobs: row['head_sha']=self.head
+        self.artifacts=[]; self.analyses=[]
+        for retry in (False,True):
+            with self.subTest(retry=retry):
+                if retry: self.retry()
+                self.api.calls=[]; result=self.verify()
+                self.assertEqual(result['languages'],[])
+                self.assertEqual((result['analysis_attempt'],result['result_attempt']),(1,2 if retry else 1))
+                self.assertFalse(any('/code-scanning/' in endpoint for endpoint in self.api.calls))
+
     def test_result_only_second_attempt_uses_original_native_analysis_and_artifact(self):
         self.retry(); result=self.verify()
         self.assertEqual((result['analysis_attempt'],result['result_attempt']),(1,2))
