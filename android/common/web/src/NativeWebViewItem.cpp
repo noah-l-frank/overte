@@ -828,6 +828,7 @@ QVariantMap NativeWebViewItem::featureWebDOMObservation(const QVariantMap& comma
         if (!item) { continue; }
         // No unbounded blocking invocation into another QML/GUI thread.
         if (item->thread()!=QThread::currentThread()) { return {}; }
+        if (!item->isVisible() || !item->isEnabled()) { continue; }
         QString source;bool inlineSource;
         { QMutexLocker guard(&item->_mutex);source=item->_session.url().toString(QUrl::FullyEncoded);inlineSource=item->_inlineProvided; }
         if (item->_surface!=surface || inlineSource || !source.startsWith(prefix)
