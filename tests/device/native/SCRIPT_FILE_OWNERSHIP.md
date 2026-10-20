@@ -65,14 +65,17 @@ empty selection on each new dialog, matching `NativeFileBrowser.qml`'s default
 counterexample checks recoverable failed Cancel. No C++ is compiled and no
 device behavior is qualified by these tests.
 
-A real app restart still needs an explicit separately verified ownership handoff:
+A real app restart uses an explicit separately verified ownership handoff:
 same independently verified installed artifact/target and original file token,
 observed old process death, actual new process/source identity, current owned
 script absence/byte observations and durable adoption before cleanup input.
 The v16 mobile recipe expects no automatic user-script execution: normal reopen
 and reimport are separate subsequent actions; see [the current Script flow](../feature_journeys/SCRIPTS_SOURCE.md). The native
 `.owner.v1.json` already survives process death; host context equality must not
-be weakened to bypass the remaining handoff.
+be weakened to bypass the handoff. The [version 1 transaction](SCRIPT_RESTART_HANDOFF.md)
+now implements original observations and recoverable private file/manager binding
+transfer. One-send normal lifecycle orchestration and full independent feature
+evidence/cleanup remain required; no complete feature capability is enabled.
 
 Phone `_script_file_manager(selector)` uses original staged bytes plus normal
 Phone manager/file controls and rechecks installed identity on UI/service I/O.
