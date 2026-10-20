@@ -49,6 +49,7 @@
 #include <ScriptEngines.h>
 #if defined(ANDROID_APP_PHONE_INTERFACE)
 #include "../../../tests/device/native/ScriptFileUi.h"
+#include "../../../tests/device/adapters/android-phone/PendingCommitOwner.h"
 #include "../../../tests/device/native/PrivateFeatureCommand.h"
 #include <QMouseEvent>
 #endif
@@ -202,6 +203,13 @@ QVariantMap TestScriptingInterface::featurePendingCommitOwner(const QVariantMap&
     if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
             || !QCoreApplication::arguments().contains("--testScript")
             || !overte::e2e::previewDirectory(_testResultsLocation) || !overte::e2e::pendingCommitOwnerCommand(command)) { return {}; }
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    overte::e2e::installPhonePendingCommitOwner([this] {
+        return !_testResultsLocation.isEmpty() && _featureLifecycle && !_featureLifecycle->snapshot().isEmpty()
+            && QCoreApplication::arguments().contains("--testScript")
+            && overte::e2e::previewDirectory(_testResultsLocation);
+    });
+#endif
     const auto original = qApp->property(overte::e2e::pendingCommitProviderProperty());
     if (original.userType() != qMetaTypeId<overte::e2e::PendingCommitProvider>()) { return {}; }
     const auto provider = original.value<overte::e2e::PendingCommitProvider>();

@@ -21,6 +21,7 @@ from create_journey import INITIAL, EDITED
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from adapters.native_feature_observation import NativeFeatureObservation
 from self_tests.test_native_web_dom import Boundary as WebDOMBoundary, RUN as WEB_RUN, URL as WEB_URL
+from self_tests.test_pending_commit_owner import Boundary as PendingOwnerBoundary, RUN as INPUT_RUN
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
 from self_tests.test_recorded_preview_history import complete as completed_voice
 from adapters.recorded_preview_history import measured_state as measured_audio_state
@@ -440,6 +441,55 @@ class FeatureAdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'PHONE_ACCOUNT_ORIGIN_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
             base.assert_called_once()
         self.assertTrue(source.path.exists());self.assertIsNotNone(self.adapter.account_origin_store(SELECTOR).read())
+
+    def pending_owner_boundaries(self, intent=True):
+        source=self.preview_boundaries(PendingOwnerBoundary(),'feature-pending-commit-owner.json')
+        def edit(value):
+            value['processId']=31
+            if value['commit']:value['commit']['observation']['processId']=31
+        source.edit=edit
+        def read(_device,package,path,**options):
+            self.assertEqual(PACKAGE,package);self.assertEqual('files/overte-e2e/feature-pending-commit-owner.json',path)
+            self.assertEqual({'attempts':1},options);return source.original()
+        for boundary in (patch.object(self.fixture.adb,'read_debug_app_file',side_effect=read),
+            patch.object(self.fixture.adb,'epoch_milliseconds',side_effect=lambda _device:source.epoch()),
+            patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._pending_owner(SELECTOR,source.intents.append if intent else None)
+
+    def test_phone_pending_owner_uses_bound_private_source_and_original_retirement(self):
+        source,owner=self.pending_owner_boundaries()
+        owner.focus(INPUT_RUN);owner.type_owned(INPUT_RUN);held=owner.hold(INPUT_RUN)
+        source.replace_context();owner.attempt_retired(INPUT_RUN,held['commit']['observation']['eventId'])
+        result=owner.release_owned(INPUT_RUN,held['commit']['observation']['eventId'])
+        self.assertEqual([],result['resources']['pendingRuns']);self.assertEqual(31,result['processId'])
+        self.assertEqual(source.intents,[c for c in source.commands if c['operation']!='observe'])
+        self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_pending_owner_ignored_focus_and_incomplete_cleanup_fail_without_replay(self):
+        source,owner=self.pending_owner_boundaries();source.fault='focus-ignored'
+        with self.assertRaises(RuntimeError):owner.focus(INPUT_RUN)
+        self.assertEqual(1,sum(c['operation']=='focus' for c in source.commands))
+        source.fault='';owner.focus(INPUT_RUN);owner.type_owned(INPUT_RUN);held=owner.hold(INPUT_RUN)
+        source.fault='release-ignored'
+        with self.assertRaises(RuntimeError):owner.release_owned(INPUT_RUN,held['commit']['observation']['eventId'])
+
+    def test_phone_pending_owner_changed_candidate_and_foreign_process_stop_new_effects(self):
+        source,owner=self.pending_owner_boundaries();owner.read(INPUT_RUN);before=len(source.commands)
+        original_digest=self.fixture.adb.digest;self.fixture.adb.digest='f'*64
+        with self.assertRaises(RuntimeError):owner.read(INPUT_RUN)
+        self.assertEqual(before,len(source.commands))
+        self.fixture.adb.digest=original_digest
+        original=source.edit
+        def foreign(value):original(value);value['processId']=32
+        source.edit=foreign
+        with self.assertRaises(RuntimeError):owner.read(INPUT_RUN)
+
+    def test_phone_pending_owner_without_durable_intent_cannot_mutate(self):
+        source,owner=self.pending_owner_boundaries(intent=False);owner.read(INPUT_RUN)
+        with self.assertRaises(RuntimeError):owner.focus(INPUT_RUN)
+        self.assertFalse(any(c['operation']!='observe' for c in source.commands))
 
     def web_dom_boundaries(self):
         source=self.preview_boundaries(WebDOMBoundary(),'feature-web-dom-observation.json')
