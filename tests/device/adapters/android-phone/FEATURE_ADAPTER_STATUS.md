@@ -16,7 +16,8 @@ component notes below do not supersede this current status.
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary
-measurement lease. Twenty new host counterexamples verify this source owner.
+measurement lease. Thirty-one host counterexamples verify this v2 source owner,
+including interrupted-ticket retirement without input replay or old-fact publication.
 The complete Authentication coordinator, three-restart role histories,
 independent publisher and final run retirement remain in progress. This
 component does not advertise a full Authentication capability.

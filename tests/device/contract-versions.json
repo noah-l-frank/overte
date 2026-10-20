@@ -35,7 +35,7 @@
     "phone-existing-input-session": {"current": 1, "reads": [1]},
     "phone-account-fixture-launch": {"current": 1, "reads": [1]},
     "phone-normal-account-menu": {"current": 1, "reads": [1]},
-    "phone-authentication-samples": {"current": 1, "reads": [1]},
+    "phone-authentication-samples": {"current": 2, "reads": [2]},
     "phone-authentication-causality": {"current": 1, "reads": [1]},
     "phone-authentication-actions": {"current": 1, "reads": [1]},
     "phone-script-source-lock": {"current": 1, "reads": [1]},

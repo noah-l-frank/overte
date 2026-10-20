@@ -26,8 +26,18 @@ from overte_phone_script_files import validate as validate_tablet
 from overte_phone_script_history import pack,unpack,same
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=1
+VERSION=2
 EMPTY=hashlib.sha256(b'').hexdigest()
+
+
+def provider_status(value,run,instance,epoch):
+    exact(value,{'providerVersion','instance','runId','capturedEpochMs','eventSequence','accountExists',
+        'heldRequests','armedHold','inflightRequests','accessTokens','refreshTokens','grantsEnabled'})
+    need(type(value['providerVersion']) is int and value['providerVersion']==2 and value['instance']==instance
+         and value['runId']==run and all(type(value[key]) is bool for key in ('accountExists','armedHold','grantsEnabled'))
+         and all(integer(value[key]) for key in ('capturedEpochMs','eventSequence','heldRequests','inflightRequests','accessTokens','refreshTokens'))
+         and value['heldRequests']<=1 and value['inflightRequests']<=16 and value['accessTokens']<=64 and value['refreshTokens']<=64)
+    fresh(value['capturedEpochMs'],epoch)
 
 
 def _native(reader,previous):
@@ -142,12 +152,7 @@ def measurement(run,ticket,origin,frame,*,provider_instance,native_epoch,host_ep
     delayed=frame['delayed'];validate_delayed(delayed,run)
     need(delayed['instance']==provider_instance);fresh(delayed['capturedEpochMs'],host_epoch)
     status=frame['status']
-    exact(status,{'providerVersion','instance','runId','capturedEpochMs','eventSequence','accountExists',
-        'heldRequests','armedHold','inflightRequests','accessTokens','refreshTokens','grantsEnabled'})
-    need(type(status['providerVersion']) is int and status['providerVersion']==2 and status['instance']==provider_instance
-         and status['runId']==run and all(type(status[key]) is bool for key in ('accountExists','armedHold','grantsEnabled'))
-         and all(integer(status[key]) for key in ('capturedEpochMs','eventSequence','heldRequests','inflightRequests','accessTokens','refreshTokens')))
-    fresh(status['capturedEpochMs'],host_epoch)
+    provider_status(status,run,provider_instance,host_epoch)
     need(status['capturedEpochMs']>=delayed['capturedEpochMs'] and status['eventSequence']>=delayed['eventSequence']
          and status['heldRequests']<=1 and status['inflightRequests']<=16
          and status['accessTokens']<=64 and status['refreshTokens']<=64)
@@ -191,7 +196,7 @@ class PhoneAuthenticationSamples:
         self.guard=guard
         self.previous=self.store.read()
         self.state=dict(binding=deepcopy(context(binding)),phase='ready',sequence=0,native=None,login=None,
-                        tablet=None,probe=None,origin=None,delayed=None,status=None,pending=None,frame=None)
+                        tablet=None,probe=None,origin=None,delayed=None,status=None,pending=None,frame=None,retirements=[])
         if self.previous is not None:
             old=self._decode(self.previous)
             need(same(old['binding'],self.state['binding']) and old['phase']=='ready')
@@ -207,21 +212,78 @@ class PhoneAuthenticationSamples:
              and value['providerInstance']==self.provider_instance and value['fixtureUrl']==self.client.url)
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
         exact(state,set(self.state));context(state['binding'])
-        need(state['phase'] in ('ready','reading') and integer(state['sequence'],0,1000000000))
+        need(state['phase'] in ('ready','reading') and integer(state['sequence'],0,1000000000)
+             and type(state['retirements']) is list and len(state['retirements'])<=32)
         if state['phase']=='ready':
             need(state['pending'] is None)
             if state['sequence']==0:need(all(state[key] is None for key in
-                ('native','login','tablet','probe','origin','delayed','status','frame')))
+                ('native','login','tablet','probe','origin','delayed','status','frame')) and not state['retirements'])
             else:
-                frame=state['frame'];need(type(frame) is dict)
-                for cursor,source in (('native','nativeAfter'),('login','login'),('tablet','tablet'),
-                                     ('probe','probeReleased'),('origin','originAbsent'),('delayed','delayed'),('status','status')):
-                    need(same(state[cursor],frame[source]))
-                need(same(frame['originOwner']['binding'],state['binding']))
-                measurement(self.run,frame['probe']['ticket'],self.origin,frame,provider_instance=self.provider_instance,
-                    native_epoch=frame['nativeAfter']['capturedEpochMs'],host_epoch=frame['status']['capturedEpochMs'],
-                    after_epoch=1,actor=self.role=='actor')
+                frame=state['frame']
+                retired=state['retirements'][-1] if state['retirements'] else None
+                last_retired=retired is not None and retired['sequence']==state['sequence']
+                if frame is not None:
+                    need(same(frame['originOwner']['binding'],state['binding']))
+                    measurement(self.run,frame['probe']['ticket'],self.origin,frame,provider_instance=self.provider_instance,
+                        native_epoch=frame['nativeAfter']['capturedEpochMs'],host_epoch=frame['status']['capturedEpochMs'],
+                        after_epoch=1,actor=self.role=='actor')
+                    if not last_retired:
+                        for cursor,source in (('native','nativeAfter'),('login','login'),('tablet','tablet'),
+                                             ('probe','probeReleased'),('origin','originAbsent'),('delayed','delayed'),('status','status')):
+                            need(same(state[cursor],frame[source]))
+                else:need(last_retired)
+                previous_sequence=0
+                for retirement in state['retirements']:
+                    exact(retirement,{'sequence','ticket','active','status','cursors','cleanup'})
+                    need(integer(retirement['sequence'],previous_sequence+1,state['sequence']));previous_sequence=retirement['sequence']
+                    identifier(retirement['ticket']);self._active(retirement['active'])
+                    need(retirement['active']['ticket']!=retirement['ticket'])
+                    exact(retirement['cursors'],{'native','login','tablet','probe','origin','delayed','status'})
+                    self._cursors(retirement['cursors'],state['binding'],retirement['cleanup']['originOwner'])
+                    need(same(retirement['status'],retirement['cursors']['status']))
+                if last_retired:need(all(same(state[key],retired['cursors'][key]) for key in retired['cursors']))
         return state
+
+    def _active(self,value):
+        from feature_journeys.contract import arguments
+        from feature_journeys.scenarios import VERSION as CONTRACT
+        exact(value,{'schemaVersion','runId','area','ticket','stimulus'})
+        need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['runId']==self.run
+             and value['area']=='authentication');identifier(value['ticket'])
+        exact(value['stimulus'],{'verb','inputs'})
+        if value['stimulus']['verb'] in ('baseline','cleanup'):need(value['stimulus']['inputs']=={})
+        else:arguments('feature.authentication.act',dict(contractVersion=CONTRACT,runId=self.run,
+            fixtureUrl=self.client.url+'/runs/'+self.run+'/',ticket=value['ticket'],**value['stimulus']))
+        return value
+
+    def _cursors(self,rows,binding,origin_owner):
+        native=rows['native'];pid=int(binding['processIdentity'].split(':')[0])
+        validate_native(native,native.get('requestId'),pid,native['capturedEpochMs'],require_account=True)
+        observed=native['account'];owned=hashlib.sha256(('e2e-'+self.run).encode()).hexdigest()
+        need(observed['principalSha256'] in (EMPTY,owned)
+             and (not observed['observation']['tokenPresent'] or observed['principalSha256']==owned)
+             and observed['observation']['endpointSha256'] in
+                 {hashlib.sha256(text.encode()).hexdigest() for text in (self.origin,self.origin+'/')})
+        for key,validator in (('login',validate_login),('tablet',validate_tablet)):
+            packet=rows[key]
+            if packet is not None:validator(packet,packet.get('commandId'),pid,packet['capturedEpochMs'])
+        probe=rows['probe']
+        if probe is not None:
+            request=dict(schemaVersion=1,action='feature-account-probe',**{key:probe[key] for key in
+                ('commandId','requestId','runId','ticket','operation')})
+            validate_probe(probe,request,pid,probe['capturedEpochMs'])
+            need(probe['runId']==self.run and probe['instance']==native['account']['observation']['instance']
+                 and probe['operation']=='inspect' and probe['source']==dict(inflight=False,responseBytes=0,credentialBytes=0,released=True))
+        packet=rows['origin']
+        if packet is not None:
+            need(origin_owner is not None and same(origin_owner['binding'],binding))
+            request=dict(schemaVersion=1,action='feature-account-origin',operation='observe',commandId=packet['commandId'],
+                runId=self.run,ownerToken=origin_owner['data']['ownerToken'],instance=native['instance'])
+            validate_origin(packet,request,pid,packet['capturedEpochMs'])
+            need(packet['source']['retired'] and not packet['source']['originExists'] and not packet['source']['ownerExists'])
+        validate_delayed(rows['delayed'],self.run);need(rows['delayed']['instance']==self.provider_instance)
+        status=rows['status'];provider_status(status,self.run,self.provider_instance,status['capturedEpochMs'])
+        need(status['capturedEpochMs']>=rows['delayed']['capturedEpochMs'] and status['eventSequence']>=rows['delayed']['eventSequence'])
 
     def save(self):
         self.lock.assert_held();need(same(self.store.read(),self.previous))
@@ -232,7 +294,7 @@ class PhoneAuthenticationSamples:
     def read(self,ticket,after_epoch):
         identifier(ticket);need(integer(after_epoch,1));self.lock.assert_held()
         need(self.state['phase']=='ready' and self.state['sequence']<1000000000)
-        self.state.update(phase='reading',pending=dict(ticket=ticket,probeOwner=None,originOwner=None));self.save()
+        self.state.update(phase='reading',pending=dict(ticket=ticket,probeOwner=None,originOwner=None,originStageAttempted=False));self.save()
         started=previous=self.monotonic()
         need(number(started,0,1e15))
         def bound():
@@ -250,33 +312,41 @@ class PhoneAuthenticationSamples:
                      and admission['capturedEpochMs']>=old['capturedEpochMs'])
             _native(native,admission);self.state['native']=deepcopy(admission);self.save();bound()
             before=native.read(native.sequence,require_account=True)
+            self.state['native']=deepcopy(before);self.save();bound()
             owned=hashlib.sha256(('e2e-'+self.run).encode()).hexdigest();account=before['account']
             need(account['principalSha256'] in (EMPTY,owned) and (not account['observation']['tokenPresent'] or account['principalSha256']==owned))
             need(account['observation']['endpointSha256'] in {hashlib.sha256(text.encode()).hexdigest() for text in (self.origin,self.origin+'/')})
             if self.state['origin'] is not None:
                 origin.source.sequence=self.state['origin']['sequence'];origin.source.captured=self.state['origin']['capturedEpochMs']
+            self.state['pending']['originStageAttempted']=True;self.save();bound()
             origin.stage(self.run,self.origin)
             owner=origin.owned();self.state['pending']['originOwner']=deepcopy(owner);self.save();bound()
             present=origin.source.request(owner['data'],'observe')
+            self.state['origin']=deepcopy(present);self.save();bound()
             login=self.adapter._login_controls(self.selector,lambda *_args:need(False),self.run,self.origin,read_only=True).io
             _ui(login,self.state['login'],validate_login);ui=login.capture();bound()
+            self.state['login']=deepcopy(ui);self.save();bound()
             probe=self.adapter._account_probe(self.selector,read_only=True,role=self.role)
             if self.state['probe'] is not None:
                 old=self.state['probe'];probe.probe.instance=old['instance'];probe.probe.sequence=old['sequence'];probe.probe.captured=old['capturedEpochMs']
             response=probe.acquire(self.run,ticket)
+            self.state['probe']=deepcopy(response)
             self.state['pending']['probeOwner']=deepcopy(probe.owner.owned());self.save();bound()
             tablet=self.adapter._script_file_io(self.selector,read_only=True)
             _ui(tablet,self.state['tablet'],validate_tablet);tabs=tablet.capture();bound()
             if self.state['tablet'] is not None:need(tabs['capturedEpochMs']>=self.state['tablet']['capturedEpochMs'])
+            self.state['tablet']=deepcopy(tabs);self.save();bound()
             proof=self.client.request('/runs/'+self.run+'/account/proof/'+ticket+'/'+response['requestId']) if self.role=='actor' else None
             released=probe.release();self.state['probe']=deepcopy(released);self.save();bound()
             origin.release()
             absent=origin.source.request(owner['data'],'observe');self.state['origin']=deepcopy(absent);self.save();bound()
             after=native.read(native.sequence,require_account=True);bound()
+            self.state['native']=deepcopy(after);self.save();bound()
             delayed=self.client.request('/runs/'+self.run+'/account/delayed')
             accepted=DelayedGrantObservation(self.run,self.provider_instance)
             if self.state['delayed'] is not None:accepted.accept(self.state['delayed'])
             accepted.accept(delayed)
+            self.state['delayed']=deepcopy(delayed);self.save();bound()
             status=self.client.account_status();bound()
             frame=dict(nativeBefore=before,login=ui,tablet=tabs,probe=response,originPresent=present,
                 probeOwner=self.state['pending']['probeOwner'],originOwner=owner,probeReleased=released,
@@ -287,3 +357,78 @@ class PhoneAuthenticationSamples:
                 tablet=deepcopy(tabs),delayed=deepcopy(delayed),status=deepcopy(status),pending=None,frame=frame)
             self.save();bound()
             return deepcopy(dict(sequence=self.state['sequence'],**actual))
+
+    def retire_changed_ticket(self):
+        """Drain only this interrupted measurement after an original phase change.
+
+        This same live owner still holds the native-channel lock. A crashed
+        sampler cannot call this by recreating a clean owner. No product input,
+        source result or actor publication is manufactured during retirement.
+        """
+        self.lock.assert_held();need(self.state['phase']=='reading' and self.state['pending'] is not None
+            and len(self.state['retirements'])<32 and self.state['sequence']<1000000000)
+        active=deepcopy(self._active(self.client.request('/runs/'+self.run+'/active')))
+        need(active['ticket']!=self.state['pending']['ticket'])
+        started=previous=self.monotonic();need(number(started,0,1e15))
+        def bound():
+            nonlocal previous
+            self.lock.assert_held();need(self.guard() is not False)
+            now=self.monotonic();need(number(now,0,1e15) and previous<=now and now-started<20);previous=now
+        with self.adapter.existing_input_session(self.selector):
+            native=self.adapter._native_feature_observer(self.selector,read_only=True);_native(native,self.state['native'])
+            packet=native.read(native.sequence,require_account=True)
+            native._authentication_epoch=packet['capturedEpochMs']
+            self.state['native']=deepcopy(packet);self.save();bound()
+            probe=self.adapter._account_probe(self.selector,read_only=True,role=self.role)
+            probe_owner=probe.owner.store.read()
+            cleanup=dict(probe=None,originOwner=None,origin=None)
+            if probe_owner is not None:
+                own=probe.owner.owned()
+                need(own['probe']['runId']==self.run and own['probe']['ticket']==self.state['pending']['ticket'])
+                if self.state['probe'] is not None:
+                    old=self.state['probe'];probe.probe.instance=old['instance'];probe.probe.sequence=old['sequence'];probe.probe.captured=old['capturedEpochMs']
+                released=probe.release();self.state['probe']=deepcopy(released);cleanup['probe']=deepcopy(released);self.save();bound()
+            elif self.state['probe'] is not None and self.state['probe']['operation']=='read':
+                # A lost return after the owned release may already have
+                # retired its host file. Only the persisted original nonce
+                # authorizes an idempotent measurement release/inspection.
+                known=self.state['pending']['probeOwner'];need(known is not None)
+                need(known['probe']['requestId']==self.state['probe']['requestId']
+                     and known['probe']['runId']==self.run and known['probe']['ticket']==self.state['pending']['ticket'])
+                released=probe.probe.release(known['probe']);self.state['probe']=deepcopy(released)
+                cleanup['probe']=deepcopy(released);self.save();bound()
+            origin=self.adapter._account_origin(self.selector)
+            _native(native,origin.native_admission);self.state['native']=deepcopy(origin.native_admission);self.save();bound()
+            own=origin.store.read()
+            if own is not None:
+                need(self.state['pending']['originStageAttempted'])
+                own=origin.owned();need(own['data']['runId']==self.run and own['data']['origin']==self.origin)
+                known=self.state['pending']['originOwner']
+                if known is not None:need(same(own,known))
+                if self.state['origin'] is not None:
+                    old=self.state['origin'];origin.source.sequence=old['sequence'];origin.source.captured=old['capturedEpochMs']
+                origin.release();absent=origin.source.request(own['data'],'observe')
+                self.state['origin']=deepcopy(absent);cleanup.update(originOwner=deepcopy(own),origin=deepcopy(absent));self.save();bound()
+            elif self.state['origin'] is not None:
+                prior=self.state['pending']['originOwner']
+                if prior is None and self.state['frame'] is not None:prior=self.state['frame']['originOwner']
+                if prior is None and self.state['retirements']:prior=self.state['retirements'][-1]['cleanup']['originOwner']
+                need(prior is not None)
+                absent=origin.source.request(prior['data'],'observe');self.state['origin']=deepcopy(absent)
+                cleanup.update(originOwner=deepcopy(prior),origin=deepcopy(absent));self.save();bound()
+            packet=native.read(native.sequence,require_account=True);self.state['native']=deepcopy(packet);self.save();bound()
+            delayed=self.client.request('/runs/'+self.run+'/account/delayed')
+            history=DelayedGrantObservation(self.run,self.provider_instance)
+            if self.state['delayed'] is not None:history.accept(self.state['delayed'])
+            history.accept(delayed);fresh(delayed['capturedEpochMs'],self.epoch_ms())
+            self.state['delayed']=deepcopy(delayed);self.state['status']=self.client.account_status();bound()
+            fresh(self.state['status']['capturedEpochMs'],self.epoch_ms())
+            confirmed=self._active(self.client.request('/runs/'+self.run+'/active'))
+            need(confirmed['ticket']==active['ticket'] and same(confirmed,active));bound()
+            rows={key:deepcopy(self.state[key]) for key in ('native','login','tablet','probe','origin','delayed','status')}
+            self._cursors(rows,self.state['binding'],cleanup['originOwner'])
+            retirement=dict(sequence=self.state['sequence']+1,ticket=self.state['pending']['ticket'],active=active,
+                status=deepcopy(self.state['status']),cursors=rows,cleanup=cleanup)
+            self.state.update(phase='ready',sequence=self.state['sequence']+1,pending=None,
+                retirements=self.state['retirements']+[retirement]);self.save();bound()
+            return deepcopy(retirement) # Ownership/provenance retirement only, never measured feature state.

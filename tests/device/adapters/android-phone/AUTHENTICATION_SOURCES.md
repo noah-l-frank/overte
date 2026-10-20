@@ -1,4 +1,4 @@
-# Phone Authentication original-source acquisitions v1
+# Phone Authentication original-source acquisitions v2
 
 `overte_phone_authentication.PhoneAuthenticationSamples` is an internal source
 owner, not the complete `feature.authentication` adapter. Script is still the
@@ -57,9 +57,27 @@ An ignored/missing/foreign/stale source, retained measurement bytes/files,
 candidate loss, storage failure or uncertain result leaves pending provenance
 and original sublease ownership. Neither recreation nor a repeated read may
 reset that pending acquisition. The future full coordinator must drain these
-owned leases while preserving uncertainty, fail the run, and retire host
+owned leases while preserving same-ticket uncertainty, fail the run, and retire host
 journals only after independently observed run cleanup. A successful input ACK
 never satisfies this source protocol. No full capability is advertised here.
+
+An actor can race the runner's fixture activation while still holding the native
+source lock. A protected GET or proof for the previous ticket can legitimately
+be rejected by the now-current provider. Version 2 persists every accepted
+source cursor immediately, and allows only that same live pending owner to
+`retire_changed_ticket()` under its still-held source lock. It reads the actual
+authenticated active phase twice, requires a different closed-inventory ticket,
+drains only its original run/request/origin leases, reacquires actual native and
+provider history, and records a bounded private retirement transcript. It sends
+no login/UI input, republishes no old result, and never relabels a sample.
+
+The next read must acquire entirely fresh originals for the new ticket. A
+same-ticket error, changed scope, retained bytes/files, missing authority,
+another phase change during retirement, or expired budget still fails and
+retains pending state. A recreated interrupted owner cannot invoke this path.
+The last successful original frame remains an archive; it is never returned as
+a new read. Up to 32 interrupted-ticket retirements are retained without history
+truncation. Version 1 journals are rejected without migration or rewriting.
 
 The read-only command pipe admits exact native getters, protected measurement
 read/release/inspect, origin observe and Login UI observe. It rejects origin
@@ -70,9 +88,10 @@ staging uses the ordinary fixture owner only inside the existing session pin.
 
 `android/phone/tests/device/test_authentication_samples.py` exercises the real
 source readers, real private journal/fixture files and explicit synthetic native
-and provider seams. Twenty cases cover role separation, actual 200/401 joins,
+and provider seams. Thirty-one cases cover role separation, actual 200/401 joins,
 pending/error UI, foreign account/endpoint, ignored source input, retained files
 and credential bytes, lost writes, stale owners, source reconstruction, delayed
-authority, wrong proofs and acquisition deadlines. The existing Phone adapter
+authority, wrong proofs, ticket-transition retirement, lost stage/GET/release
+returns, legacy-journal rejection and acquisition deadlines. The existing Phone adapter
 tests also verify the concrete read-only factories and both-role cleanup.
 These simulations establish test logic only; they do not execute an APK.

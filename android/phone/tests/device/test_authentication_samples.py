@@ -51,6 +51,7 @@ class Sources:
         self.tablet=FileNativeBoundary(root/'native')
         self.tablet.mutate=lambda packet:packet.update(processId=123,controls=[],scriptInventory=inventory(tabletShown=False))
         self.calls=[];self.requests=[];self.proof_edit={};self.status_edit={};self.delayed_edit={}
+        self.active=dict(schemaVersion=1,runId=RUN,area='authentication',ticket=TICKET,stimulus=dict(verb='baseline',inputs={}))
         self.client=Client.__new__(Client)
         self.client.url=ORIGIN+'/feature-fixture/v1';self.client.run=RUN;self.client.area='authentication'
         self.client.account_instance=PROVIDER;self.client.account_epoch=self.client.account_sequence=0
@@ -58,6 +59,8 @@ class Sources:
         self.client.account_status=self.status
 
     def state_path(self,_selector):return self.path
+    def account_origin_store(self,_selector):return PrivateFeatureState(self.root/'origin.json')
+    def account_probe_store(self,_selector,*,role='primary'):return PrivateFeatureState(self.root/(role+'-probe.json'))
     def normal_feature_runtime(self,_selector,*,read_only):
         assert read_only
         return None,None,deepcopy(BINDING),lambda:self.okay,None
@@ -93,12 +96,13 @@ class Sources:
             monotonic=lambda:self.tablet.ui.clock,sleep=self.tablet.ui.sleep)
     def request(self,path):
         self.requests.append(path)
+        if path=='/runs/'+RUN+'/active':return deepcopy(self.active)
         if path=='/runs/'+RUN+'/account/delayed':
             return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=1,
                 grantsEnabled=True,requests=[],delayedGrantOutstanding=False)|self.delayed_edit
-        if path.startswith('/runs/'+RUN+'/account/proof/'+TICKET+'/'):
+        if path.startswith('/runs/'+RUN+'/account/proof/'):
             return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=1,
-                kind='profile-request',ticket=TICKET,requestId=path.rsplit('/',1)[1],status=self.probe.value['source']['httpStatus'],
+                kind='profile-request',ticket=path.rsplit('/',2)[1],requestId=path.rsplit('/',1)[1],status=self.probe.value['source']['httpStatus'],
                 principal='owned' if self.fact['loggedIn'] else 'anonymous',protectedAccess=self.fact['loggedIn'])|self.proof_edit
         raise AssertionError('Unexpected synthetic provider route')
     def status(self):
@@ -322,6 +326,111 @@ class AuthenticationSampleTests(unittest.TestCase):
             with patch.object(current.store,'write',side_effect=OSError('Synthetic storage failure')):
                 with self.assertRaises(OSError):current.read(TICKET,19000)
             self.assertEqual(before,len(self.sources.native.commands))
+
+    def interrupt_at_proof(self,reader):
+        original=self.sources.client.request
+        def unavailable(path):
+            if '/account/proof/' in path:raise ValueError('Synthetic retired protected request')
+            return original(path)
+        with patch.object(self.sources.client,'request',side_effect=unavailable),self.assertRaises(ValueError):reader.read(TICKET,19000)
+        self.sources.active['ticket']='f'*32
+
+    def test_actual_phase_change_retires_own_measurement_leases_and_requires_new_originals_before_publication(self):
+        self.acquire('actor');previous=deepcopy(self.stored('actor')['frame'])
+        with self.lock.held():
+            reader=self.reader('actor');self.interrupt_at_proof(reader)
+            retirement=reader.retire_changed_ticket()
+            self.assertEqual(TICKET,retirement['ticket']);self.assertEqual('f'*32,retirement['active']['ticket'])
+            self.assertNotIn('state',retirement);self.assertEqual(previous,reader.state['frame'])
+            self.assertIsNone(self.sources.account_origin_store('selector').read())
+            self.assertIsNone(self.sources.account_probe_store('selector',role='actor').read())
+            self.assertFalse(self.sources.origin.path.exists())
+            recovered=self.reader('actor');actual=recovered.read('f'*32,19000)
+            self.assertEqual(3,actual['sequence']);self.assertEqual('f'*32,recovered.state['frame']['probe']['ticket'])
+            self.assertNotEqual(previous['probe']['requestId'],recovered.state['frame']['probe']['requestId'])
+        self.assertEqual([],self.sources.login.inputs);self.assertEqual([],self.sources.tablet.input_requests)
+
+    def test_same_ticket_source_failure_cannot_be_forgotten_as_a_transition(self):
+        with self.lock.held():
+            reader=self.reader('actor');self.interrupt_at_proof(reader);self.sources.active['ticket']=TICKET
+            before=len(self.sources.native.commands)
+            with self.assertRaises(NativeUIError):reader.retire_changed_ticket()
+            self.assertEqual(before,len(self.sources.native.commands));self.assertEqual('reading',reader.state['phase'])
+            self.assertIsNotNone(self.sources.account_probe_store('selector',role='actor').read())
+
+    def test_missing_foreign_or_untyped_active_phase_cannot_authorize_source_retirement(self):
+        with self.lock.held():
+            reader=self.reader('actor');self.interrupt_at_proof(reader);active=deepcopy(self.sources.active)
+            for edit in (dict(runId='f'*32),dict(area='scripts'),dict(schemaVersion=True),dict(ticket='foreign'),
+                         dict(stimulus=dict(verb='login-submit',inputs={'account':'expected'}))):
+                self.sources.active=active|edit
+                with self.subTest(edit=edit),self.assertRaises((NativeUIError,ValueError)):reader.retire_changed_ticket()
+            self.assertEqual('reading',reader.state['phase']);self.assertTrue(self.sources.origin.path.exists())
+
+    def test_retained_probe_bytes_still_fail_retirement_after_a_real_phase_change(self):
+        with self.lock.held():
+            reader=self.reader('actor');self.interrupt_at_proof(reader);self.sources.probe.pending=True
+            with self.assertRaises(NativeUIError):reader.retire_changed_ticket()
+            self.assertEqual('reading',reader.state['phase']);self.assertIsNotNone(self.sources.account_probe_store('selector',role='actor').read())
+            self.assertEqual(1,sum(command['operation']=='read' for command in self.sources.probe.commands))
+
+    def test_retained_origin_files_still_fail_retirement_after_actual_probe_drain(self):
+        with self.lock.held():
+            reader=self.reader('actor');self.interrupt_at_proof(reader);self.sources.origin.fault='keep-files'
+            with self.assertRaises(NativeUIError):reader.retire_changed_ticket()
+            self.assertEqual('reading',reader.state['phase']);self.assertIsNotNone(self.sources.account_origin_store('selector').read())
+            self.assertIsNone(self.sources.account_probe_store('selector',role='actor').read());self.assertTrue(self.sources.origin.path.exists())
+
+    def test_phase_change_after_missing_origin_stage_return_uses_original_durable_owner_without_restaging(self):
+        with self.lock.held():
+            reader=self.reader('actor');stage=OwnedAccountOrigin.stage
+            def lost(owner,run,origin):stage(owner,run,origin);raise OSError('Synthetic lost stage return')
+            with patch.object(OwnedAccountOrigin,'stage',new=lost),self.assertRaises(OSError):reader.read(TICKET,19000)
+            self.sources.active['ticket']='f'*32;reader.retire_changed_ticket();recovered=self.reader('actor')
+            self.assertEqual('ready',recovered.state['phase']);self.assertFalse(self.sources.origin.path.exists())
+            self.assertEqual(1,sum(command['operation']=='stage' for command in self.sources.origin.commands))
+
+    def test_phase_change_after_lost_protected_get_return_never_reissues_get(self):
+        with self.lock.held():
+            reader=self.reader('actor');acquire=OwnedAccountProbe.acquire
+            def lost(owner,run,ticket):acquire(owner,run,ticket);raise OSError('Synthetic lost GET return')
+            with patch.object(OwnedAccountProbe,'acquire',new=lost),self.assertRaises(OSError):reader.read(TICKET,19000)
+            self.sources.active['ticket']='f'*32;reader.retire_changed_ticket()
+            self.assertEqual(1,sum(command['operation']=='read' for command in self.sources.probe.commands))
+            self.assertIsNone(self.sources.account_probe_store('selector',role='actor').read());self.reader('actor')
+
+    def test_lost_probe_release_return_can_only_drain_the_original_owned_nonce(self):
+        with self.lock.held():
+            reader=self.reader('actor');release=OwnedAccountProbe.release
+            def lost(owner):release(owner);raise OSError('Synthetic lost drain return')
+            with patch.object(OwnedAccountProbe,'release',new=lost),self.assertRaises(OSError):reader.read(TICKET,19000)
+            self.sources.active['ticket']='f'*32;reader.retire_changed_ticket();self.reader('actor')
+            self.assertEqual(1,sum(command['operation']=='read' for command in self.sources.probe.commands))
+            self.assertEqual(1,len({command['requestId'] for command in self.sources.probe.commands}))
+
+    def test_changed_native_birth_or_candidate_cannot_retire_the_old_scope(self):
+        with self.lock.held():
+            reader=self.reader('actor');self.interrupt_at_proof(reader)
+            mutate=self.sources.native.mutate
+            self.sources.native.mutate=lambda packet:(mutate(packet),packet.update(instance='f'*32))
+            with self.assertRaises(NativeUIError):reader.retire_changed_ticket()
+            self.assertEqual('reading',reader.state['phase']);self.assertTrue(self.sources.origin.path.exists())
+
+    def test_retirement_whole_deadline_includes_fresh_native_acquisition(self):
+        with self.lock.held():
+            reader=self.reader('actor');self.interrupt_at_proof(reader)
+            send=self.sources.native.send
+            def late(command):send(command);self.sources.clock=20
+            self.sources.native.send=late
+            with self.assertRaises(NativeUIError):reader.retire_changed_ticket()
+            self.assertEqual('reading',reader.state['phase']);self.assertTrue(self.sources.origin.path.exists())
+
+    def test_legacy_sample_version_is_not_rewritten_or_queried_during_recreation(self):
+        self.acquire();store=PrivateFeatureState(self.root/'phone-authentication-primary-0-samples.json')
+        old=store.read();legacy=old|dict(authenticationSamplesVersion=1);store.write(legacy,old)
+        before=len(self.sources.native.commands)
+        with self.lock.held(),self.assertRaises(NativeUIError):self.reader()
+        self.assertEqual(before,len(self.sources.native.commands));self.assertEqual(legacy,store.read())
 
 
 if __name__=='__main__':unittest.main()
