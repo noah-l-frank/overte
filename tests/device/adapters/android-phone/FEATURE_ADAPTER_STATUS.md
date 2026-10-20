@@ -49,6 +49,12 @@ roles before base teardown and refuses any remaining scope. Unknown/unissued
 receipt intent remains a failure, never guessed absence. Ten Phone and two shared
 counterexamples cover these boundaries. Full Graphics coordination remains pending.
 
+[Original Graphics PNG evidence](GRAPHICS_IMAGES.md) now has durable planned/
+opened/saved intent, actual file identity, exclusive creation and original
+encoded/pixel digest verification. Fourteen real host-file counterexamples keep
+foreign, partial, missing or replaced files from becoming completed evidence.
+This prerequisite still needs the complete durable source and feature owner.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary
