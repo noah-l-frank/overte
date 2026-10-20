@@ -1,5 +1,15 @@
 # Pico feature adapter implementation status
 
+Internal `_script_missing_manager` now composes [missing-load v1](../../native/SCRIPT_MISSING_LOAD.md)
+with ordinary menu/From URL/token field input, original callback history and
+independent current service rows. The existing native input validator adds only
+the owned ticket missing-resource URL. No existing public/file manager scope is
+implicitly adopted. All **69** normal-Scripts host cases pass, including ignored
+input, forbidden replay, current candidate replacement and scope refusal.
+Native SDK/OS/UI boundaries are synthetic; visible-error/actor/effect/quiet-cleanup
+joins and complete feature triples remain missing. Native code is uncompiled
+and devices remain untested.
+
 Common journey contract is **v16**. Internal `_script_restart` now composes
 [one-send restart intent](../../native/RESTART_INPUTS.md), ordinary Android
 stop/launch, a strict original own-UID PID query, original persisted native

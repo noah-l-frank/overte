@@ -50,6 +50,7 @@ from self_tests.test_native_account_probe import Boundary as AccountProbeBoundar
 from self_tests.test_native_account_origin import Boundary as AccountOriginBoundary, ORIGIN as ACCOUNT_ORIGIN
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from self_tests.test_native_account_observation import account_source
+from self_tests.test_native_script_loads import history as load_history, event as load_event
 
 
 class PicoNormalScriptsTests(unittest.TestCase):
@@ -177,6 +178,71 @@ class PicoNormalScriptsTests(unittest.TestCase):
             boundary.start();self.addCleanup(boundary.stop)
         factory=self.instance._graphics_controls if graphics else self.instance._audio_controls
         return native,factory(self.native.target,native.intent)
+
+    def missing_load(self, *, ignored=False):
+        source, events = ScriptBoundary(), []
+        url = 'http://fixture.test/feature-fixture/v1/runs/' + 'a' * 32 + '/tickets/' + 'b' * 32 + '/missing.js'
+        def observed(packet):
+            epoch = self.native.epoch_milliseconds(self.native.target)
+            packet.update(processId=123, requestedEpochMs=epoch, capturedEpochMs=epoch)
+            packet['source']['engines'] = []; load_history(packet, events)
+        source.mutate = observed
+        write_original, read_original = self.native.write_debug_app_file, self.native.read_debug_app_file
+        def write(target, package, path, raw):
+            request = json.loads(raw)
+            if request['action'] == 'feature-script-observe': source.send(request)
+            else: return write_original(target, package, path, raw)
+        def read(target, package, path, **kwargs):
+            if path.endswith('/feature-script-observation.json'):
+                self.assertEqual({'attempts': 1}, kwargs); return source.original()
+            return read_original(target, package, path, **kwargs)
+        activate_original = self.qt.activate
+        def activate(identifier, **kwargs):
+            activate_original(identifier, **kwargs)
+            if identifier == 'scripts.url.submit' and not ignored:
+                events.append(load_event(url=self.qt.text,
+                    callbackEpochMs=self.native.epoch_milliseconds(self.native.target)))
+        for boundary in (patch.object(self.native, 'write_debug_app_file', side_effect=write),
+                         patch.object(self.native, 'read_debug_app_file', side_effect=read),
+                         patch.object(self.qt, 'activate', side_effect=activate)):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return source, url
+
+    def test_pico_missing_script_normal_menu_input_and_original_failure_retire_explicitly(self):
+        source, url = self.missing_load()
+        manager = self.instance._script_missing_manager(self.native.target); manager.open()
+        manager.load_missing(url, self.instance._script_execution_observer(self.native.target))
+        manager = self.instance._script_missing_manager(self.native.target)
+        actual = manager.settle_missing(self.instance._script_execution_observer(self.native.target))
+        self.assertEqual(source.sample['source']['loads']['events'][0], actual)
+        self.assertEqual('NotFound', actual['status']); manager.close()
+        state, _ui = self.instance._script_paths(self.native.target)
+        self.assertIsNone(PrivateFeatureState(state).read())
+        self.assertEqual(1, self.qt.inputs.count('scripts.url.submit'))
+
+    def test_pico_missing_script_ignored_submit_cannot_retire_or_replay(self):
+        _source, url = self.missing_load(ignored=True)
+        manager = self.instance._script_missing_manager(self.native.target); manager.open()
+        manager.load_missing(url, self.instance._script_execution_observer(self.native.target))
+        with self.assertRaises(RuntimeError): manager.settle_missing(self.instance._script_execution_observer(self.native.target))
+        with self.assertRaises(RuntimeError): manager.load_missing(url, self.instance._script_execution_observer(self.native.target))
+        state, _ui = self.instance._script_paths(self.native.target)
+        self.assertTrue(PrivateFeatureState(state).read()['loadAttempted'])
+        self.assertEqual(1, self.qt.inputs.count('scripts.url.submit'))
+
+    def test_pico_missing_script_replaced_candidate_is_refused_before_source_or_input(self):
+        source, url = self.missing_load()
+        manager = self.instance._script_missing_manager(self.native.target); manager.open()
+        manager.load_missing(url, self.instance._script_execution_observer(self.native.target))
+        before = (len(source.commands), list(self.qt.inputs)); self.native.digest = 'f' * 64
+        with self.assertRaises((RuntimeError, ValueError)): self.instance._script_missing_manager(self.native.target)
+        self.assertEqual(before, (len(source.commands), self.qt.inputs))
+
+    def test_pico_missing_script_cannot_adopt_existing_public_manager_owner(self):
+        self.instance.invoke(self.native.target, 'scripts.manager.open', {})
+        before = list(self.qt.inputs)
+        with self.assertRaisesRegex(ValueError, 'OVT_PICO_BINDING_REJECTED'): self.instance._script_missing_manager(self.native.target)
+        self.assertEqual(before, self.qt.inputs)
 
     def account_origin(self):
         source=AccountOriginBoundary(self.fixture.state_root/'native-origin-files');native=NativeFeatureBoundary()

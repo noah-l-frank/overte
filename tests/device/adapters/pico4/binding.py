@@ -227,6 +227,15 @@ def create_adapter(args, base_class):
             state, _ui = self._script_paths(target)
             return normal_scripts.manager(ui, observe, binding, state, file_owner=files, file_picker=picker)
 
+        @_private
+        def _script_missing_manager(self, target):
+            ui, observe, binding = self._script_runtime(target)
+            state, _ui = self._script_paths(target)
+            result = normal_scripts.NormalScriptManager(ui, observe, PrivateFeatureState(state), binding,
+                source_kind='feature-script-missing')
+            result.sample()
+            return result
+
         def _script_restart_store(self, target):
             state, _ui = self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'normal-script-restart-')))
