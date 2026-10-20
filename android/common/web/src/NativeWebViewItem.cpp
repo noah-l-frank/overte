@@ -264,8 +264,8 @@ void NativeWebViewItem::create() {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (featureEnabled()) {
         const auto source=resourceText(":/overte/e2e/browser/web-dom-observation.js");
-        if (source.isEmpty()) { return; } // Missing test resources never become a ready source.
-        editorScript += "\n(function(){"+source+"\nObject.defineProperty(window,'__overteFeatureWebDOM',{value:overteWebDOMSource(window),writable:false,configurable:false});})();";
+        // A missing observer blocks evidence, without changing product navigation.
+        if (!source.isEmpty()) { editorScript += "\n(function(){"+source+"\nObject.defineProperty(window,'__overteFeatureWebDOM',{value:overteWebDOMSource(window),writable:false,configurable:false});})();"; }
     }
 #endif
     jstring url = jni.string(browser.toString(QUrl::FullyEncoded)), agent = jni.string(_userAgent), bootstrap = jni.string(script);
