@@ -12,7 +12,8 @@ from adapters.normal_feature_state import context
 from ios.adapters.bundle_identity import compare
 from ios.adapters.bundle_observation import validate
 
-VERSION = 1
+VERSION = 2
+READS = (1, 2)
 SCOPE = {'sourceRevision', 'artifactSha256', 'sessionId', 'generation', 'targetFingerprint'}
 SDK = {'appium': '3.7.0', 'xcuitest': '12.8.0', 'remoteXpc': '5.15.3'}
 
@@ -59,14 +60,16 @@ class InstalledCodeBinding:
             return None
         need(type(value) is dict and set(value) == {'bindingVersion', 'phase', 'scope',
              'source', 'process', 'observation', 'previousInstance'}
-             and type(value['bindingVersion']) is int and value['bindingVersion'] == VERSION
+             and type(value['bindingVersion']) is int and value['bindingVersion'] in READS
              and value['scope'] == self.scope and value['phase'] in
              ('preparing', 'bound', 'retiring', 'retired'))
         previous = value['previousInstance']
         need(previous is None or type(previous) is str and re.fullmatch('[0-9a-f]{32}', previous))
         context(dict(value['scope'], processIdentity='1'))
         if value['phase'] == 'preparing':
-            need(all(value[k] is None for k in ('source', 'process', 'observation')))
+            need(all(value[k] is None for k in ('process', 'observation')))
+            if value['bindingVersion'] == 1: need(value['source'] is None)
+            else: source(value['source'])
         else:
             source(value['source'])
             observed, process = value['observation'], value['process']
@@ -86,18 +89,23 @@ class InstalledCodeBinding:
     def begin(self):
         previous = self.record()
         need(previous is None or previous['phase'] == 'retired')
+        if previous is not None: self.retired_absence()
+        provenance = deepcopy(source(self.process_source()))
+        need(previous is None or provenance == previous['source'])
         # The caller must journal this before the controlled launch. An existing
         # process may only be handled by the original controlled-launch path.
         current = dict(bindingVersion=VERSION, phase='preparing', scope=deepcopy(self.scope),
-                       source=None, process=None, observation=None,
+                       source=provenance, process=None, observation=None,
                        previousInstance=previous['observation']['instance'] if previous else None)
         self.store.write(current, previous)
         self.started = True
 
     def bind(self):
         previous = self.record()
-        need(self.started and previous is not None and previous['phase'] == 'preparing')
+        need(self.started and previous is not None and previous['phase'] == 'preparing'
+             and previous['bindingVersion'] == VERSION)
         provenance = deepcopy(source(self.process_source()))
+        need(provenance == previous['source'])
         process = self.original_process()
         need(process is not None)
         observed = deepcopy(self.observation(self.native_bundle(), process['pid']))

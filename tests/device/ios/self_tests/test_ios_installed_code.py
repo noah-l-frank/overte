@@ -36,6 +36,37 @@ class InstalledCodeTests(unittest.TestCase):
         self.assertEqual('bound', self.store.read()['phase'])
         return result
 
+    def test_preparing_records_original_source_before_launch_and_rejects_replacement_before_bind(self):
+        self.binding.begin(); original = self.store.read()
+        self.assertEqual(2, original['bindingVersion']); self.assertEqual(self.source, original['source'])
+        self.source['instance'] = 'e' * 32
+        with self.assertRaises(ValueError): self.binding.bind()
+        self.assertEqual(original, self.store.read())
+
+    def test_missing_or_unavailable_original_source_cannot_create_new_launch_intent(self):
+        original = deepcopy(self.source)
+        for fault in (None, original | {'available': False}, original | {'cleanupPending': True}):
+            self.source = fault
+            with self.subTest(fault=fault), self.assertRaises(ValueError): self.binding.begin()
+            self.assertIsNone(self.store.read())
+
+    def test_legacy_bound_readers_remain_supported_but_preparing_cannot_invent_missing_provenance(self):
+        self.active(); current = self.store.read()
+        self.store.write(current | {'bindingVersion': 1}, current)
+        self.make().verify(); self.assertEqual(1, self.store.read()['bindingVersion'])
+        self.store.discard(self.store.read()); self.binding.begin(); current = self.store.read()
+        self.store.write(current | dict(bindingVersion=1, source=None), current)
+        self.assertIsNone(self.make().record()['source'])
+        for action in (self.binding.bind, self.make().bind, self.make().begin, self.make().verify):
+            with self.assertRaises(ValueError): action()
+        self.assertEqual(1, self.store.read()['bindingVersion']); self.assertIsNone(self.store.read()['source'])
+
+    def test_retired_source_change_cannot_overwrite_original_owner_with_new_preparing_intent(self):
+        self.active(); self.binding.begin_retirement(); self.process = None; self.binding.finish_retirement()
+        original = self.store.read(); self.source['instance'] = 'e' * 32
+        with self.assertRaises(ValueError): self.make().begin()
+        self.assertEqual(original, self.store.read())
+
     def test_measured_bundle_after_journaled_launch_then_new_nonce_on_every_verification(self):
         claim = self.active(); original = self.store.read()
         self.assertEqual(dict(schemaVersion=1, sourceRevision='a'*40, artifactSha256='e'*64,

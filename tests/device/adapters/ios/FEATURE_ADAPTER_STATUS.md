@@ -1,5 +1,16 @@
 # iOS feature adapter implementation status
 
+The installed-code host journal now writes **version 2** and explicitly reads
+versions 1 and 2. Its preparing owner freezes the actual SDK process-source
+before launch; ordinary binding requires that same source afterward. Missing,
+unavailable or replaced sources cannot create/adopt launch intent. Existing
+v1 bound/retiring/retired owners retain their strict readers; an incomplete
+v1 preparing owner cannot invent absent provenance or be auto-migrated.
+All **423** permitted no-build iOS host cases and ten additional binding checks
+pass; offline documentation checks pass. This is a prerequisite for explicit
+lost-launch recovery, which is still pending. No start is replayed, no complete
+feature triple is enabled, native code is uncompiled and devices untested.
+
 Internal `_script_manager_status` now reads the [original manager display source](../../native/SCRIPT_MANAGER_STATUS.md)
 through the existing private native UI transport. The closed parser admits only
 optional manager metadata on the existing From File carrier, preserves distinct

@@ -52,6 +52,23 @@ changed. Source-info alone is neither code identity nor device acceptance.
 
 `installed-code-binding.json` uses the existing private ownership store, with
 closed `bindingVersion,phase,scope,source,process,observation,previousInstance`.
+The current host journal writer is version 2; readers explicitly support
+versions 1 and 2. A v2 `preparing` record freezes the original validated SDK
+process-source metadata before any launch. Its process/byte observation remain
+null until actual binding. Ordinary `bind()` still requires the original
+in-memory launch owner and now requires that exact persisted SDK source before
+and after the independently measured installed bundle. A retired source must
+remain independently absent and unchanged before a new preparing intent can
+replace it. Missing/unavailable/pending SDK sources cannot create launch intent.
+
+Existing v1 bound/retiring/retired owners retain their original verification
+and cleanup readers; no bytes, source or completion result is synthesized.
+A v1 preparing owner has no original prelaunch source and remains unqualified:
+it cannot be auto-migrated, adopted, rebound or used to replay launch. A fresh
+CLI still cannot bind any abandoned preparing owner. Explicit physical restart
+recovery remains a separate pending implementation; version 2 supplies its
+necessary original provenance without enabling recovery by itself.
+
 Scope is exact source SHA, original archive SHA, actual Appium session,
 generation and current target fingerprint. The original session state and
 fingerprint are rechecked around every source read. An existing owner whose
