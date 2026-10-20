@@ -28,6 +28,10 @@ _HISTORICAL_WORKFLOW_BYTES += (('15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a', 'c-r
 # Frozen Boolean25 CodeQL predecessor; canonical26 activation must not replace this fixture.
 _HISTORICAL_WORKFLOW_BYTES += (('3b7a88765b7181a1bc7dd6f48b9b459e590055d3', 'c%1E7>vP(=693L$v7wzBa$=KblhTtjhbBy$dvi!mA)VXXlVOCt2DL_VC7Fai{`WhQY-59I)5qj~X}$!c)oORO``ZT(;FOCgVG5?GNI(<;nfN|R$;DHM1xge%1iU4_f|xRf0T4!_`3Dq0SOAhI!bc#%luAiC^J<Jtu?;6Yz`xIHB4Mswc=+)nG{#g-l97iqWNN6_;rJMwIEkX6!1oDC<-nsy&?pgl#8;FvLy7@a7#O0B5{*A0Y>d(y5s8LH<*uSCLiqFvs?YLZ-fZga^#Vj>gprnDnMr{rVHs6Zi&7#pJDyQ};}{&m0>NqEMx2e^fRZueQc+(z&89i)T+C1?1V$8{;o^}PXR+Wx;-i4su90Sml#75eBIfWuArTF!PmFw;`19vljk9(QAWq~&{|6We!u$!!HoTb<%C>;SafEL1Gv#s%GJ(^L^jkdP3>RN#qWIa3sn4&?Eiq9O>C!Rd0`0v3F4Q+STbtfAs2hnEzF;ZTJT_wS7#RjzATawR=ggl7&gci+0_z#q_oj^WCm1AAs)h@`;H(YxokQ4zP1uC}daV|tNW(&EGM_VrOvyF~Btfm_bLJ;PAoJ&X`vG)7;jJ>Nz%-Ex7|u|DPneGpSX#C8pj?2!I3hj*RT2csBvM`tU@UkNx54KDzK>iTeyJngaPcmT_zisiTwJ#PS+u{$lIaLV!PNzZ*{NSK>NJZ-MZ$(OFo9TlAQNtozM)H*8w)-bC}kUzNU&CW%SXmLve<Slq*}kS*x5<c1ewwt5iVaYyu{GZunl(rRvUn2kJNulUTGJtrOIpm1pRmAC4GULUQpagqz*o><ypB}najymEZkgCbMvk8=F`ZWx}j>4NmT&2AvFTp6tdCS_?1PzC5to-+yh9A&`%+iAqKL&>~Xm>k?4lZWy4(CFtpwhsb^uv$eGp)MwhP>zoT)iRk}}a)XMvbpla?K^A-1Ofc1@WfP^9X3WKzIfrzkiLdGZ!sYsY~HOMEUgsH^c-S@WlZHl5(<cV^plqE`g{()KMiHZ}ItCpE%$XPVE-YgZyGJVsO+AEP+@X&v`EX9*?L|A?>r&t`4K4EL=^=3wDwig*Wt>LtZwH6wwq{>P^NhQQQqW(Ok&*D9Orj~gco~S?ff<1qK7Y_*W4@Tr@``~EzARvd2_jk7aoui%I!@UuCvOU^?2QWMIw!NL4VG#<9?J=}^l)^w@%q3M^%)J0Zl0<4~Q~$yOS=G_bbSSQ)kW?zy7Z_-GC6R1HNFs>^A{i4Q(am&f!>7U~fZ{xot%V?#P*%_=l*+{!4UqX*TQc=a^!Zp9GGJca=hHYsg<zqE3(%-y3j^!I`2{p++ogO3*{o=~=P!nXi+^`}CHpD<4q4esz0Tn5Rd@JTchEWQ3_8QJ-k{qX*i+SUz2dPJsK3m%fAXSxdUbx*d;U$V({hWlagn`9SR4Lui*Gtt6VCR)Jp;E7?z8OKTWcQ5I;$7Y7id_vCV*>Kp#Jdr+2F<1vtjpDw>KDGb_Or%*`{f7mMMCjzq*>jDzn(VxEfqu4eF~tKmt&ctlRPl3uvG-K4tm}E*9~oQTprHp;LpdF`WC0QyXfz=!KmSl|OL<j5WdT4@Y5ISuEQy1@b(8azxL-F@-RcKWs}Kcp6XF#oe<`zdP)|=v3fVsmRu~h9@Uvr4|@r$VIWv&_t!!I_dOI&rUmo)q7S*7aqAPkFBAW!>WjL5*4_ZaENJ)A)!%4#C<i;Oe3Nr?Vl1lx~|~7=<cqoP2y@5>JKw3>Nv_t(!G-U^%b^R)E0yBkE|auneeUTtO`5e_urk%*G^%JPGc?<=mT58i|`%_J~eJ1(NRWrNz|msHzEv<&0#O%B#;eF&~TPTahjg4ONP2AZZw+(4vW-&Y`DE~@)hU0Ku4rRp;8hJnN#9i>%wct3~Q*QOe)=pH1hLX5K*a`t4s=a9>bd%i4ug63$ULkgNE~#%!u>_jg@P<bo0^K0>@g?X#x!w^f|+##2P?AH}nlIJ!CT~ID6xifYQ0%0*5$FATlkf+NGDy3N7zOP=$?!X^tKE&00N3rm<Y;+=So2`G+~pFY?j#kzpZ~XpA_I3JjWF#BWeEsyM}hGSw*DtDj>FBo}J<4(IZCAQCJ+@8xTaW9eM2*!V3Hq%Geo>+VO7$~4sgcANp287rj)ZX+KkCCv6OLDLlSp`Hq=Mo#x}`*YLTf+<mg-sY8NGXssZp|Ao}_7NMl0gf=R-+z);8%3=u=}nbeQvO#1`ArSvxAs1J+uzjNt+Zw)`qHLE5QXD;c3vkQHzZP(>jUeQ3rxto(}s`6=YRDtdW}l&C_uv9I-zvltzk=lEfg*HSY)lQn3m)|V^nYJz9JpSXFPQELK#&{Qm6BpG&5NpTAJ=pKM41aj>3Z{2f@*H@EErbaeFV=e|)$f;wU&Eqy2-BJlQ+a;_rKVhu)L5@|y~w4HKne*>1H`$MpHMRe8O@2#G}53iu7v`7_%eB`k>0o$Y$Nhu-eeYD8Ib`*`0|M0g*hs!FETL6$JBTsDmo8U^l@2iVplsbWd$a~9IE8`21iqb@5&CX6LA6RwqN|9wIQg1{NYo5jolZ<Qdv(ur0-GhbU@o?M)E|2`kS>b~rsUG$1wzJ9OV!&5<0X5U@q>F!mRT%}9va17S?%i48pF1w3&rD^YHI+&i5j=7k(q29{Tp!%&%7nVJi9Vy*M{!MSp!O!xQ>l5<26HfM`YX)~^xi>23b$83K&0?m1W6x}5Ma%W~O~`&^0Qf!AzDjV<B2oX=GEZxm!mMju{Pnx%-IKxaWw(EIK3MN6B{=Dybb1w}RTDY;*Xec6U;npTaZ76Wifg_nu1m`3uui?C6jV}AIE)Gp%W~C$7W*hLzihNq7N1OJYNwOmCOmywBHe5P`V$ULKQnv^g!!y7paC$htVp`%`Qy><Q@~rQV5iItCGnS$XmyC0y>J>rzh;^FtNpB5=9)Q{?j9)%Fh-_jOn<9P-=mo6?)?c?#wGvnIaY>A*>AqN&*rHs1G&_SYhmiH<KHy1cmH$QJsEUQhv%K%^Q+GDZvP8-Rq>0%mu9ken-C3Cg}iuP;88IpvV&J$e^riVYySf-DC@K'),)
 
+
+# Exact preregistered27 bytes; deployed26 and its canonical template stay unchanged.
+_HISTORICAL_WORKFLOW_BYTES += (('b1c19c17052f5eb411720208c1676489efb4919f', 'c-rk<eOKE?*8iVRq0&5+-B^AhV1lW4ONpDXNq~Y$yNAv3k>xQc$dV$-5H{tzKfgOOl18#@Lm)}hRnKX#W=8XJ@16TTqwlp7m$`xGIBcYir_nTE+KxL4JbR>hS1t>*fLXTBwl&w&Oe?Z4nRev`7h}h}(!4;k%*b@SGtIYM&2~dPIH4Au+o2YE)4*c&71x}wj&^7U%#F17Q`51>Hr}#5cg1JH#12FJ3_B~DW_fOeMqvkInxhpwTGIfpS=Us17I;&?qxrleBh!)b=;KH2%#O~d!+OBR0~%7hxlxP5a}y;ri0N9)F>KfH1Me(gA%+{9PRLf?c|$%8j1w{Xp=omNj_GP*Dv=ytz$WC4>~V)r-NgDU<G`Ez>-b>5qMxps0*=N6HLJDc@iJI_t5<9J30HY%!PE^6&+TZ_;na<$#@c$lxz1}Md%`d?V`96QA7;J5i*qof|8j5?g@ik5qn7zo$1wu-e#*jJYwMg@7itkk_NP%Ygh1}V98K&fVxx{mpbjJEhjoB8VipPwNdfZJdfZsxfsfB&IRHvV_Q(X#)ouXv<kft`nJ%dHvbU*BdC@VWu@_7Rw0=9tts(PzzGd7AZz~{TNK)A)xDl|lD42${SP&k)!agu-N*K_5&#|p*Ig4pXn3T9_aH!+upP!7LSnF$S!!)gpq4~7A@pNrtWNx<CTTQF=w6(VRWN2<Rhb`I56(}jj3`mHL#abkRu}iETWafLJ9eKfZeZ<D*)QJYe0DIv)1qneD9mP{mOF`*&7#S88g05`rmUz#^O+vspWJbII10=|di8o?P8g{fllPXQCiy12=k>@#K1LPhV?9#^Q7MrOJuU*UFO#(IzXY13Ii($jr9){jzrcgk~5a<%9sr%P6&0LdsA|F32Y{e_Et%={f!^RLziyFm*MlHv-!|LxsFv*#&1Qkwbha2Z!7}cW>(c)GL?&G#G!R}0>bHb@by9z(GWczAEGi2Z;6YN^*MjJ9rj%jIUnmzHoAd2B>V+-XszpP^JWlEpVUkv&OFMInLB8|KYrtD6@OC^oQGz=O;+im#Q(Yfb7(TqLKIM$3`u#TU8(vJ^Lj&^&4=O;Ty&-CP_@3mj;4_Jr5kd$NE(DR}&3QWJQ?R)BCK&?}UX^>oES$OlD1rT6yf1+4BH^Xzs9@aF%PEGT|8hWXL8JH3Noelv43sR-V8Fo#Z1`b-+C6`S)BRRph8!F?T5AnE?v>1W)I=0KY)K7ilxnAVCwpFP<Uf)m}jWw6CQRUKfrmWgg=zs(hgm$FyDzI|X20q`=LoW!tprWU!7Rb`3u6b$NjyZIgUd@a#b#2VQ;+u95=0@S&cR$`_3PCB_1-q`<5t~3S(D;kl_qcqesiPgACz^>>Y>U6AsCe6@9y0F*3`&Y@np9Yh8HPaU5gUQ(t*DX(d;LYfe;C)jfE009kXr_=GLS6>^0i9HoH3!7KhclS2cHI3EwHwlHUXZ^GyFIQuD~RLb2B(&QFV5uw}5^;I;P^<Y?Q+Qx~(vG<a@T8?_bWZn_KgdT!eleMUYdChUwdq!`88_1z&8qo_TIK#u(i0qTyXK5Pm~{9FJ6+S%_R}_oGg%!wc;HaurPP=)W*Xx<Jz(dtn_L-VQwXRF5~i{<fy?SQhgmv^0I+k*Ztc(jCc3J*Ew%*YrP(=XUgBIy82C+jv8=hj+i$Tw60*Eo1Geep8z;j6Le=&wG6ZP68ODZrScxH{L)-egkcDvP&BNqnYi2q-k#3)`wHu84Wz2LF=n1WLB-#sjw20h*Z+LP|_-`W-S?`TGh-jp`SS$A+D|yFPVnj?pm{{fmoCG>SsjzPNmxI#uFPug&Ux(T0n7E-Q-2m<0`Folm2UE+w!3uT7!92{i!P(iGlNw`zZlxwP;Tg0_%=vjza3J<_$^S4fx(4oO|9ySFn*9*8v955wK7<>N@6RI5M?CN6h6{QW&b~0I}ZK{WYUWM8S0yj$-c-WfIUqNUHv=Jo=CzOnJTxG7pAtTOO5wNLlhOf3Uq!znKMIO7DcAivE1B|KjAA!BOw<;CQcpaP)5-2-6ETn$Cf|^!35sGu}h%No%XQvDR)r$<aL5@CGDJx+Fs?nGGm<>%Hmi_XmeN{TKS%0{j#IO?#=^;UK)80M8edDxYJvj+B$x3ZmLd6@Lby{a*%35`<JR)viJ)N(V%wgW)w4m`Zgn@npO6gRW3-IpoNmiFtPpM1nZFejr+sZll*e-c-dSRA#+O^3o2u5eqf5;s>>nZADd$f$HWX=~qyPUd7xez^RXp><_%ZutA(MY~<!a1J9cUOob)0P}VB6v0U#$l62=x_V~pPpX@C91$0OP%S|M9|FzF5G{-7wMNpa~GvZ8VVn)_EtlXxtWg6qRAJ>~VdQCK5)=JE>nga}1x4U9({5J#e9!r5bJ7v*E;yo6nI-hAjm@+;IwGFAew2S0Y^VLGn%_F1R<?COFlfu=A?!;;!-5TPV7Q{i6CCz}bu4o{Jrh@!TW&xnSAt%e{nqZE)xi#i^<LoH5OVkF{I9&#{;#k4o$NE1Z0;dqqm#o_=nqksGW|H(SpH8kCR;No=h(sc1_UU3~8UsXC-q3+*nj0Lb?&<}mV?%LUaF+?JFg?qj+$gYF*gXy4-XbNI{&Lrr9R5@c{WeDuXeMcb1KPWigbB7rYo-~!Eta}+L^Ns%hAN&<n{P!IWJC+@-)y$m*Y(0i1R~yO=y=1tLIi_Hhy`65_Fz}$F!UU_kt#WMN+N__XwZza6fOK;q9@L-Y4dnNbw=-pbdQA2k4E$mp0+w~XLTOgW1~xLwi7WVi!(APPnct`tB4%&F8!__5B83ade1A=gd`C`PvAsY7-{JbO|R8zNkSCG3&hsY8(nv2gw%F|MXImPd6zemRwMZ#Ta_Wl6EtP)%=Gmtm^RrJu<(ZZf0|$wR9Zi0A4c{WDe^#Y9`Srn<z#>bjTB1IfO{1O1E|gke;mjSkQl*`2Lmq7sU6LR)>zHzIOMt_ZsU{Gr#aP<hBcik;mqWN7R=*RHx&ni{#J<lS}LGwvYAl%kNNb_EHQo)eX~YnnH?cf42j{dq|+rUL#w2=R_)+e{C&x;#g9Jri}<w@0iZ+d1o3zTrz><`@sJwx_2c9xugV!<K8(+mjQKE64LdmLAD;A~f(f%hCxH*cK)4#Sor<#hRR9YZ4db;6qKO}?(4wwjl2jk-|8bR#?*}m6D*9pG##G!n`s1|Mx=#EoanN$PrYqinZ9o-l7KV)C$P~s+sKsv4x=M+vOD5xRIufn({&enik7t?i=h(9Zhvsda%iXR<e2(cwuBV-6ulM@>-m_2iS97lvNfd4MQQXz4)+L82o970GOO1VigEwBNz`z46>`S<glc<U69!|XQsWXc~qcBF;cBo#vt=~8X)}D(u;c!3`=Ni6_fV_3{!!7rN8h28{yMHgo<N|l3rRma}hn7BA<#o7?|LekZf+-$El_r(ep@&}9eb2A7s?}}YxQ>6hB~;1P*QkPPHLHUGZMwl=wW=$YFc<5M0*z-;T?5b?O)VA-;(#91p*X%K_M>5>A(z!hl860%aP;!{aA&vINGexXgvyIhoOoY`&mj3Ih(vuQp)%9CGOr;#wI6=az7x?n#2&?SrNUpS^EV)BLxd?f3d5;I%vYyIYLgh>xp-8H_Nw;hpW57BFKpk3K1971M)2auUE&HTj@(JUC-**wLrl2b8^0v7rx4-6o8D2sH~8)Kt3kha+#ejB?C<xEB*j60XuOZwobujJ9O@dKVq+A?2cI-QSLCh?e3gN(GVoOfzRJK?8Tcv#UuEE{41AS=uQKpe2ENL`R~h&!17Bs}s|<XVfv+;~RR+Gwz?b51dIeQZoBB93W1rcs=_n4T!y|g|#<8a<b-IVJFZ>4zd#Fyr`}(B-G#&@j@8&($Ww30UJZ`Fo@2?S2`SeH%ypa<I{fZ(e26sDRzT9?h6dhP<#6)0lyl4HL%*pt2IYo~({r^G`x~2=a`hX*I)a5>Al=`N10f!8a<a9aWHP~H)gl6N0|M*85#}Qj{HTBHdg@IZenqeQvZDB`(gy`589QRm{q3nqy#`A#TTIlUZy=SmBPL8uNTRx98_@jbE_39%?^>XKVk4LQLzplbgeS804(EFped(z)K*q{Hl3gx-m#UlN5^-*R$jYsPA8jsZBRw0^I&o%(m;Qw$m{+a%i1>(2TLaF4%Rc(7)>F~#Do~&MzUI;D++}bWVD8Ti2;59?20?i<!AJ#Z$jI@^8F$+zrjDyQKc=N7t@Ym=nKqZth1zZlf@Z%&2HjbwYS_Qfc;f;fOK0BSvPC5kP!42}u(a!$vi_FrL^O7p<qE;*i?9BCy$UF-rEoiHc6)XQywr5^LE&=dI$>efPR_}vy9wT1P0=`SyBlx>?%crs81!)Ozh?9q!!cJUumOW^hz#5mb3M1r@j3ruDe$2$?8u6UOBM-&Xfkib0pZ+oou1}`SJau!W4Baq@Zj&b9KC37bFqkI>{_<#v#S(1hbJIN|4G$1Q1dF&=<Z0Z<m+}d$jQag7OUv;6++6cnN4x!#omYd`2hVyLIg-g>h}TXO#_hB@X-8>alzEguVFBsF<7$tu6@W=@^02^JvKV?NnL#m_{^!zfvPz>slffo_bX~mbm5sez!vxb#=rh$XV+uKjClI#CAqU_W-THSU8FJgD)>T&2bKA%eH1IRC*rqjXwk;Dm9vkEFcyqnA^>p;Ky}tDnrR(j@r&haV7K?k)2VsDGV;xO@Qg5y4MF88!!~o3&^KsGQ=e6~%t<C1<+7_n7#!oh$Zoz}a*6^pjzQHy|q>^k|Po5UehI&xuvbLt*8$q9uIaB|)!{>JeEFcHof5Gtnrm68A7Vz`1&Bo(lbAzpKtPj^Vn$3+iNO7yxZa3S*k<}iLt>Jj9T}+E3Xo}o1!?BMXfN7xE0@S}k8?DVOmA(<IUSx$q#b?|_0X>6--warDrW4?*8Eop|h7liI+jdsePy?xA#w7)p&Wp<5y)P=YCgueztccW1l|;J40MG2uf?`6BmMLAROPb@caQ{eo%ymmjLkvJus!B-}-wgUPBE9#=VQ&{n(u2cSJNwIZpX?1Ccha8ulmuW!c;n#}XLvyb!1**+A7vIt4aD%s@pP`|>)A;=y0=D%@nqZu;+)o(zBnt;6K@UCGeY)QDyOFh^w4}gGWzx8)vLjagX6wRLOcU7?viJN@C7So`tHH&!&g0|(;oG9dwYlT-;P0sC0NY%qh)@aWIl~Y`7!2sZvHHG&U~_8M&%g^S=`<+vnQ@<(vWB@%vq2j`Mb5<$Bz>p^p_AIbI_bBAa|A<;dF$nto+EJaJb=VI~LzMoz4*xG0=6WA{l-A7H`PAuY|WmK45#3Z~@;BHRD?QkAi5VZyO@-(s&<n)9!sVVo2r-c+TbqoJf}j=XI!P8x-HBqRfM=M{w=Tnef`o2s8a<2gM4ki?xC>gQFik7gjpvHINY&RbAQc$h%t0&7y56^GMc^D^r$w#fGFJy11i@8e?_uqm8t1V|JnHOfbJ;XpB7vsd^M2C+^}<llHPUxh|FVc$zKYIo?iKP(k`JQ~)a=MzWw+f>}{n0{_Cw82(E-My~aQvZ`5eF9KByIuS6!9-`1!aUUa_E`H0`Wi_aaGg{5qKEuA?jLl#aMGUz#1?WTVw`k)x4hj7Doeg&dmg#AqMcmZ*Eo#Rt+L;z@*`koK37!a^f)KksCT2$UNW!OV-^h0C==y;eT82T%kYG57haIHDE_M=ql8n1G&qKWKJK;hyKBWGW;T0m`GqJchwx`IsRbtJBfxAy(r%9;kA-U^tI)wb91+5f}QoQsG<s3p8gD^sJi$@!0B=x7*lY_Kt(jdLyo3*6A*G~A!BaNRtqTE`57nTMYvO&5%==w&Cb#|`p`2J2X@q)T`NS6#oN>AQ+OvwoXt|2stq4xoAa@7~QCcgj@mMpY%u2smqW|}Nk_vUq7>8el1HULQ*_{EGVD}bUO(uU=8BMoH&{h#L>@LGW+eyS+&hRRt5Nx9<O)S$QjX7A`=|20&6@|FspqMSxny2IsXMIf*%WbX&yFLflonzZ;q45tBnggBarToAY~1~e}>?505;obDnNf<*b04J6R|2BmJq&n}D7gQ6Mxasn5vdnvVluITflECvd5ra`t+@qtn&*!0Rq0rUy<Nb2=tlT_GBnh~Vd)RKcW@!sfhD}u>0ezEcyPDwB1{tF86L899e(pBT*JX-GL(iht?MJEJjZ*g4Ak8kabUW%E$zsJE)*elM^<oXFG0>!>g23&SVRIyjF)3cUp_G;MsQq1j0;Jb%5P-ZMi#ZFm5W_pS@3B-KGt;lT=UeUoK&j<`mXA0kQ3@61OB9C`KbTsiKMwdlfO)7eaB=tBRA&(@|G21ZqW@OI*ewa8sh#_FK!0oXhgh3Q!7x>kdIn=%ZlDf61Po3|}sZeA9JpdU#gj?@!RQ$>AK81qkyZt`Z-FIh_SN)4Q7vOzdf4j)c<+7RI`fQk^5#4GH(#mx6aKiXoVXb$`c}ZHspND%r7A60r$CGk>CI@N@8{;g~;=}27CUp%8>|h7?i@ZL}PKE@&8Ig4#<(uaQpqBRNUi&V0z`T(ms9SBin0?=!*UKQc1SvH71d^+nD#IQr>PH6N)KHEjPyDaua*=2OJP$3c5d^@;z|nO8kQ)=SH!70QR|idTr6kxaSZNlHGaLHErxRj096gx|r|kdUM$X1oryL+g>{I!9xM^*)+veux8fy>R!|`zADH}CM7GkX%Pu9%!&8^Yq=F_clad@4>c-dzJ3N!xhj#7aj@><YY1M)gfT}1S_7fi`EB*sk>7~y7=j<#Mz4OtrCX08w&_g8G<8(F?C@a1Y|kzg!me*!&!8j4q`KrSn_3A1V}Zg)4;^pm1^w|jF@!nk(#JfJyrd1VIfT(aCOO6?_wPZG!`siDOhxdqpqIBm$z%}YC>_b-uYMiVjAiRg>N)4MzS&-R|}^ly=$SMUvrFB#{a%@QS_*_TQZRn=nkW~f;}&S=nzyqwXbQO&d&oE4DU9DDEhNs^EI`Ka$J=1`GepZY$1Thj4go{r_p)GL?1$TxbDOO&``Kj#8AdH0e0z*FL=O>Zfq{qfLuuzi9{_O9PTTK}RSLsB;1;lKMY4)&iN?Du~^+Uxgz`FFp!%k#YTmj3xZoWyg5?d<D9$`?R4ZcI!`dVw<EPl{}jYj}&U_=cx$lpa3U_mdFiQIF6n)G7ny4h#N9m&uj)l9l(8mG_dB_mY+Ol9l(8mG_dB_mY+Ol9l(8mG_dB_mY+Ol9l(8mG_dB_mY+Ol9l(8ebx{1DEC9ej<&zw=Xm55M2ROc@%<-B%&B+oFM2o87yJkhxgV1x-Q<frG4K)*Tz;143w)L*`9wzkQlQ)CT+2%q5(H*$|M&`bYurB<U`d=|&J{v=IMAgY-`b5H54nEj){Vc=ofcmUI`KKMF^^RwK;p^dMF*lqWW>1b!DGWs`BZ%9t?0OMQM+3lgX4EwXz*~pGY#$|)y{CDn-?mlF_n8U($jt)B_H`^=a`PO|JpH<B0PPsxKM6xNX%y3cQXeA@3V*{N1h80_@Uwg27Yq%i_$S0$rO{=IK7`H4NNZJHpbHB+sa*-Fq?Qb6U-(7Qhqmx0PMDgr8(fjp|+YVkN2^f_9Y9bt*h$7BCrIvUpHymd6Z3Mm^rK{W&pyTt>Gm_HGHN@=nZ5IDF>nMvMCG=$4E_%FupD=KGm0=Sry-PDyGbkhPn5-x%?@(B?zQ8tJ&P!#f=q(VD&SdlAFDyHKnM`jjLHSe^2qwox_)n<7Y49DT(Y(x?oj_$bj%|;DT>woW-Q=rtRY$_zbu*K};r;%32&5uYXk@8lM*=V_sfAm(e9>5>RGzNlKCxo!m<$)bC6o$!WbWrZ9eHjq&!%;@6eCGS4}gHtrWVbFs~AOPnkI_R^eZs4ZQRQFKt_)``y4PMnXfQwua`Sav#$$fQobs+T!>^eIWdBBA&?`)N<U!rw$q=4RiS4}B_`XcFORKAMsJY^W^Drn22N7wn6sf|Z}bEI)-=ehRZpIV)4n%9OJ*<*ZCOD^t$Ol(RDBtV}s8Q_jkivohtZOgSr4&dQXtGUcpHIV)4n3R2Ee^H<*3W}ck|?2Lc-a!%?Q{7d<=hfFEMrSUI%yDy>B9iP1FAB$ch?_b9U`{KHsYNjnN5$e5q6^~|-7(noCRH=Td7wh1VKL3XgJc-+gR7civ`k5;Vhrm$s3jA<21v%iu*=uR?ZmigQwem2&B+sW&=*y-8o8A@O;EGu!&JBK+oV;r;zfSk7I+*V4UrM&0x~F4$(^JvT$4f{H1AY`isG2-{eUr2JPW6P2^tX`T@}j;>f1zqFWnNXu6%LlU_I8e0-NpD8<^gG7atrXweJ!CtBi%(7cOh`Z_aSR~CaQzyY(z)D$y)XzOoP|6ktV$pL-8h)m_baW_71`muod?T5CS2KI|Wt^O&e{qlSV;o^btvtwn=D;Z#byw;f3w{(2{Ous43A#lRhLjk*X-y01Idr%}<l2vE<HP1~6-wVaM_J<TQyo;yKQtb3Qde;i}rtONwZ5)@PI=<dmzd-Rv%izfe18e6iTBx{ySIbdlhYG!SuFLT56!bmTfO3st3$i&QQ!7l_o_9fWBzD=AIm=Xv5(;v;D{3xMw-*vJDQZbjmEV8;P@%CU)82V>84L(YJ4ErT-(w+nirFie_}Ew6A0DDJ4}QXx45!21QG<(<`M`r?(?TwL^i{P9N+R4pOI&POo7j=(_7P7{3ONLFsLnE@nV@alKn8Ir!aS-fRuH&_-;eD(u*GZ#?B+2Ck8@xcc9!fGL<>+y@(yA{xN4Z3bMk2@*3=HN~!N=nb*1Q50pQ}48DI=-_yLZ7j4i*FPZ3pEr4$+&Fkv%YejE4Sz%%iHJ+7&iB6*RZ?Ikh`~2MP=?FMI&T{yx!sLn|ht{+@_?!Wmkh<@|36vdS@TL(1LDd{tXNUe$ThwIeja7%@ySh>QL})@w=eksgM1}%t?$@5Fw|{45wQ{H8*e|1<?RB7jn&CVH7zP>Ym>tPTd5F(io%S@B1a<SU(?nQSvEORi_K@1*SU(f(w=MdE;gn#{bd*0l_h3w%zRy2<XHC==!K>D9JANyvA8AG;#S;ji%&^E`zuriJ7d#6dD>f@}2?~_o)B)W8=sAWTdbBKPh!>_5'),)
+
 def historical_workflow_bytes():
     result = {}
     for oid, encoded in _HISTORICAL_WORKFLOW_BYTES:
@@ -785,7 +789,7 @@ except (ValueError,OSError):
 class RequiredContextGenerationTests(unittest.TestCase):
     def test_complete_source26_preserves_every_prior_tuple_and_requires_exact_pre_enrollment(self):
         rows=PACKAGES.workflow_generations()
-        self.assertEqual(len(rows),26)
+        self.assertEqual(len(rows),27)
         self.assertEqual(hashlib.sha256(json.dumps(rows[:25],sort_keys=True,
             separators=(',',':')).encode()).hexdigest(),'35a79aca341baae04e6840ad670ad3a7e1848085687ed66cc14201ae89b80659')
         previous,following=rows[24],rows[25]
@@ -812,6 +816,112 @@ class RequiredContextGenerationTests(unittest.TestCase):
             subprocess.check_output(['git','show','HEAD:.github/workflows/repository-checks.yml'],cwd=ROOT))
         self.assertEqual((ROOT/'.github/workflows/codeql.yml').read_bytes(),
             subprocess.check_output(['git','show','HEAD:.github/workflows/codeql.yml'],cwd=ROOT))
+
+
+class OptionalParentGenerationTests(unittest.TestCase):
+    name = 'protected-producer-optional-parent-source-v1'
+    parent = '.github/workflows/parent-qualification.yml'
+
+    def test_preregistration_preserves_every_old_tuple_and_the_actual_deployed_recipe(self):
+        rows = PACKAGES.workflow_generations()
+        self.assertEqual(len(rows), 27)
+        self.assertEqual(hashlib.sha256(json.dumps(rows[:26], sort_keys=True,
+            separators=(',', ':')).encode()).hexdigest(),
+            '92e641b712f88bcb66808c51d8fe4b95b4cfb8834c0d39b3869adc4587fa7ec8')
+        previous, following = rows[25:]
+        self.assertEqual(following['name'], self.name)
+        self.assertEqual(set(following['workflows']), set(PACKAGES.METADATA_WORKFLOW_PATHS))
+        self.assertEqual([path for path in following['workflows']
+            if following['workflows'][path] != previous['workflows'][path]], [self.parent])
+        self.assertEqual(following['workflows'][self.parent], {'mode': '100644', 'type': 'blob',
+            'sha': 'b1c19c17052f5eb411720208c1676489efb4919f'})
+        self.assertEqual(PACKAGES.validate_tree_wiring(following['workflows']), self.name)
+        old_catalog = json.dumps({'schema': 1, 'repository': {'full_name': PACKAGES.REPOSITORY,
+            'id': PACKAGES.REPOSITORY_ID}, 'generations': rows[:26]}).encode()
+        with patch.object(PACKAGES, '_trusted_bytes', return_value=old_catalog):
+            self.assertEqual(PACKAGES.validate_tree_wiring(previous['workflows']), previous['name'])
+            with self.assertRaises(ValueError):
+                PACKAGES.validate_tree_wiring(following['workflows'])
+        deployed = PACKAGES.validate_wiring(ROOT)
+        self.assertIn(deployed, {previous['name'], following['name']})
+        installed = next(row for row in (previous, following) if row['name'] == deployed)
+        for relative in (self.parent,
+                'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'):
+            raw = (ROOT / relative).read_bytes()
+            self.assertEqual(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest(),
+                installed['workflows'][self.parent]['sha'])
+        guard = (ROOT / 'tools/test-evidence/source_admission.py').read_bytes()
+        self.assertEqual(hashlib.sha1(b'blob ' + str(len(guard)).encode() + b'\0' + guard).hexdigest(),
+            'aed06c587034f2762552eeb666bda1f4b6efff23')
+
+    def test_new_parent_bytes_are_portable_and_only_the_exact_complete_tuple_is_admitted(self):
+        rows = PACKAGES.workflow_generations()
+        following = rows[-1]
+        raw = historical_workflow_bytes()[following['workflows'][self.parent]['sha']]
+        self.assertEqual(hashlib.sha256(raw).hexdigest(),
+            'de5f645f53c1f28865e859e2c471cf2e30a26e7f935b5d1e6b73d7a863ab2dc8')
+        for mutation in ('unknown', 'missing', 'executable', 'symlink', 'submodule', 'mixed-caller'):
+            changed = deepcopy(following['workflows'])
+            if mutation == 'unknown': changed[self.parent]['sha'] = 'f' * 40
+            elif mutation == 'missing': del changed[self.parent]
+            elif mutation in {'executable', 'symlink'}:
+                changed[self.parent]['mode'] = '100755' if mutation == 'executable' else '120000'
+            elif mutation == 'submodule': changed[self.parent]['type'] = 'commit'
+            else:
+                changed['.github/workflows/repository-checks.yml'] = deepcopy(
+                    rows[24]['workflows']['.github/workflows/repository-checks.yml'])
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                PACKAGES.validate_tree_wiring(changed)
+        previous = deepcopy(following['workflows'])
+        previous[self.parent] = deepcopy(rows[25]['workflows'][self.parent])
+        self.assertEqual(PACKAGES.validate_tree_wiring(previous), rows[25]['name'])
+
+    def test_android_stdlib_dispatch_and_execution_require_the_same_complete_registered_recipe(self):
+        spec = importlib.util.spec_from_file_location('optional_parent_android_policy',
+            ROOT / 'tools/repository-checks/android_gate.py')
+        android = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(android)
+        rows = PACKAGES.workflow_generations()
+        following = rows[-1]
+        tree = deepcopy(following['workflows'])
+        raw = (ROOT / 'tools/repository-checks/workflows/android-owned/android-required.yml').read_bytes()
+        tree[android.WORKFLOW] = android._blob(raw)
+        self.assertEqual(android.validate_tree_wiring(tree), self.name)
+        catalog = json.loads((ROOT / PACKAGES.GENERATION_MANIFEST).read_bytes())
+        inventory = b'\0'.join((entry['mode'] + ' ' + entry['type'] + ' ' + entry['sha']
+            + '\t' + path).encode() for path, entry in sorted(tree.items())) + b'\0'
+        def read(repository, *arguments):
+            if arguments == ('show', 'HEAD:' + PACKAGES.GENERATION_MANIFEST):
+                return json.dumps(catalog).encode()
+            self.assertEqual(arguments, ('ls-tree', '-rz', '--full-tree', 'a' * 40, '--', '.github/workflows'))
+            return inventory
+        with patch.object(android, '_bootstrap_git', side_effect=read):
+            self.assertEqual(android._source_generation(ROOT, 'a' * 40, ROOT), self.name)
+            catalog['generations'] = catalog['generations'][:26]
+            with self.assertRaises(ValueError): android._source_generation(ROOT, 'a' * 40, ROOT)
+            catalog['generations'] = deepcopy(rows)
+            extra = deepcopy(following)
+            extra['name'] = self.name + '-unreviewed'
+            extra['workflows'][self.parent]['sha'] = 'e' * 40
+            catalog['generations'].append(extra)
+            with self.assertRaises(ValueError): android._source_generation(ROOT, 'a' * 40, ROOT)
+
+    def test_retained_source_schema_is_available_without_enrolling_optional_guard_imports(self):
+        with patch.object(sys, 'path', [str(ROOT / 'tools/test-evidence'), *sys.path]):
+            spec = importlib.util.spec_from_file_location('optional_parent_producer_workflow',
+                ROOT / 'tools/test-evidence/producer_workflow.py')
+            producer = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(producer)
+        following = PACKAGES.workflow_generations()[-1]
+        policy = SimpleNamespace(package_policy=lambda: PACKAGES)
+        for target in ('main', 'apple-main', 'apple-ios', 'android-main', 'android-phone',
+                       'android-vr', 'android-vr-pico'):
+            with self.subTest(target=target):
+                self.assertEqual(producer.execution_schema(policy, following['workflows'], target), 4)
+        self.assertNotIn(self.name, producer.source_admission.CURRENT_PARENT_GENERATIONS)
+        unknown = deepcopy(following['workflows'])
+        unknown[self.parent]['sha'] = 'f' * 40
+        with self.assertRaises(ValueError): producer.execution_schema(policy, unknown, 'apple-ios')
 
 
 class MetadataRequiredResultTests(unittest.TestCase):
@@ -1278,6 +1388,7 @@ class AggregateTests(unittest.TestCase):
             'protected-producer-original-default-v1': None,
             'protected-producer-original-default-boolean-v1': 'producers/repository-checks.yml',
             'protected-producer-original-default-required-context-v1': 'producers/repository-checks.yml',
+            'protected-producer-optional-parent-source-v1': 'producers/repository-checks.yml',
         }
         metadata = generation in metadata_callers
         if metadata:
@@ -1290,7 +1401,8 @@ class AggregateTests(unittest.TestCase):
         protected = generation in ('protected-producer-metadata-ci-v1', 'protected-producer-seven-target-ci-v1',
                                    'protected-producer-original-default-v1',
                                    'protected-producer-original-default-boolean-v1',
-                                   'protected-producer-original-default-required-context-v1')
+                                   'protected-producer-original-default-required-context-v1',
+                                   'protected-producer-optional-parent-source-v1')
         if generation == 'android-owned-npm5-sync-ci-v1' or protected:
             spec = importlib.util.spec_from_file_location('aggregate_android_generation',
                 ROOT / 'tools/repository-checks/android_gate.py')
@@ -1304,7 +1416,8 @@ class AggregateTests(unittest.TestCase):
             self.assertEqual(android.validate_tree_wiring(tree), generation)
             if generation in ('protected-producer-original-default-v1',
                               'protected-producer-original-default-boolean-v1',
-                              'protected-producer-original-default-required-context-v1'):
+                              'protected-producer-original-default-required-context-v1',
+                              'protected-producer-optional-parent-source-v1'):
                 self.assertEqual(dependencies, required_jobs | {'native', 'android', 'workflow-contracts'})
             else:
                 self.assertEqual(dependencies, required_jobs | {'native', 'android'})
@@ -1317,7 +1430,8 @@ class AggregateTests(unittest.TestCase):
         if 'main' in CONFIG.get('browser_client_required_branches', []):
             self.assertIn('browser-client', dependencies)
         if metadata:
-            canonical = generation == 'protected-producer-original-default-required-context-v1'
+            canonical = generation in {'protected-producer-original-default-required-context-v1',
+                'protected-producer-optional-parent-source-v1'}
             self.assertEqual(jobs['repository-checks']['if'], 'always()' if canonical else
                 "always() && (needs.route.result != 'success' || needs.route.outputs.metadata_only != 'true')")
             self.assertEqual(jobs['repository-checks']['name'], 'repository-checks' if canonical else
@@ -1409,7 +1523,8 @@ class NativeOwnerAggregateTests(unittest.TestCase):
         self.assertEqual(proof, self.proof)
 
     def test_only_exact_future22_adds_native_owner_semantics_without_changing21(self):
-        for generation in (CHECKS._NATIVE_OWNER_GENERATION, 'protected-producer-original-default-v1'):
+        for generation in (CHECKS._NATIVE_OWNER_GENERATION, 'protected-producer-original-default-v1',
+                'protected-producer-optional-parent-source-v1'):
             self.policy.validate_wiring=lambda _,value=generation:value
             with self.subTest(generation=generation):
                 represented,proof=self.bound()
@@ -2300,7 +2415,8 @@ class PackageChecksTests(unittest.TestCase):
                'protected-producer-ci37-v1','protected-producer-metadata-ci-v1',
                'protected-producer-seven-target-ci-v1','protected-producer-original-default-v1',
                'protected-producer-original-default-boolean-v1',
-               'protected-producer-original-default-required-context-v1'}
+               'protected-producer-original-default-required-context-v1',
+               'protected-producer-optional-parent-source-v1'}
         self.assertEqual(PACKAGES._PROTECTED_ROUTE_GENERATIONS,names)
         for name in (*sorted(names),'postmerge-original-e-v1','npm-consumers-v1'):
             root,_,_=self.protected_workflow_fixture(name)
@@ -2635,7 +2751,7 @@ class PackageChecksTests(unittest.TestCase):
     def test_budget_source23_is_atomic_trusted_only_and_keeps_original22_immutable(self):
         all_rows = PACKAGES.workflow_generations()
         self.assertEqual(len(all_rows[:25]), 25)
-        self.assertEqual(len(all_rows), 26)
+        self.assertEqual(len(all_rows), 27)
         rows = all_rows[:24]
         self.assertEqual(len([row for row in rows
                               if row['name'] != 'npm-consumers-sync-ci-budget-cleanup-v1']), 23)
@@ -2715,7 +2831,7 @@ class PackageChecksTests(unittest.TestCase):
     def test_callback_source24_is_one_exact_five_endpoint_successor_without_native_authority(self):
         all_rows = PACKAGES.workflow_generations()
         self.assertEqual(len(all_rows[:25]), 25)
-        self.assertEqual(len(all_rows), 26)
+        self.assertEqual(len(all_rows), 27)
         rows = all_rows[:24]
         self.assertEqual(rows[-1]['name'], 'npm-consumers-sync-ci-budget-cleanup-v1')
         previous = next(row for row in rows if row['name']=='npm-consumers-sync-ci-budget-v1')

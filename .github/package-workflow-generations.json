@@ -754,6 +754,41 @@
           "sha": "b76ade9fd7a76da21bf2cb2161deae7a262163e8"
         }
       }
+    },
+    {
+      "name": "protected-producer-optional-parent-source-v1",
+      "workflows": {
+        ".github/workflows/project-tests.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9"
+        },
+        ".github/workflows/parent-qualification.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "b1c19c17052f5eb411720208c1676489efb4919f"
+        },
+        ".github/workflows/sync-validation.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "747bd6424d1e9b533ae35a81b524ceefc06b286b"
+        },
+        ".github/workflows/repository-checks.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "22fe0d6d39d120f800099136d7d1ab5280d80b41"
+        },
+        ".github/workflows/browser-client.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "8f6e3e009e201ce6c9980f4f23ff4a994588bb9d"
+        },
+        ".github/workflows/pr-metadata-context.yml": {
+          "mode": "100644",
+          "type": "blob",
+          "sha": "b76ade9fd7a76da21bf2cb2161deae7a262163e8"
+        }
+      }
     }
   ]
 }

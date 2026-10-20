@@ -1257,7 +1257,8 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         generation=packages.validate_wiring(root)
         self.assertIn(generation,{'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-v1',
             'protected-producer-original-default-boolean-v1',
-            'protected-producer-original-default-required-context-v1'})
+            'protected-producer-original-default-required-context-v1',
+            'protected-producer-optional-parent-source-v1'})
         return packages,generation
 
     def setUp(self):
@@ -1382,7 +1383,8 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         packages,generation=self.workflow_fixture_generation(VALIDATION.ROOT)
         if generation in {'protected-producer-original-default-v1',
                 'protected-producer-original-default-boolean-v1',
-                'protected-producer-original-default-required-context-v1'}:
+                'protected-producer-original-default-required-context-v1',
+                'protected-producer-optional-parent-source-v1'}:
             self.assertEqual(active,path.read_text())
             self.assertIn('expected-empty-setup',active)
             # Bind every independently stored canonical endpoint as well as the
