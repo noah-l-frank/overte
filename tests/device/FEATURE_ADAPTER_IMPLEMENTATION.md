@@ -269,3 +269,13 @@ compiler attempts; three existing native compiler checks remain explicitly
 excluded. The existing original Snapshot JS suite now has eleven passing cases.
 No complete Snapshot adapter, OS storage/receiver actor or physical result is
 claimed by these synthetic-boundary checks.
+
+The [independent Chat receiver v1](native/INDEPENDENT_CHAT_RECEIVER.md) now pins
+actual separately read primary/peer source identities and mixer history and
+extracts remote reception order without accepting self/local/foreign echoes.
+Its real private journals retain partial cleanup intent. Nine new host cases
+and the existing 21 receive-source cases pass; the complete permitted common
+selection passes 663 cases. An E2E-only script-callable native source/Assignment
+Client opt-in is present, but uncompiled. An authenticated/private running actor
+transport, peer/mixer stimuli, primary UI/storage and complete area joins are
+still required; no complete Chat capability is enabled.

@@ -361,3 +361,16 @@ file as a new delivery. Native/independent actors must obtain those bytes from
 the real owned endpoint; the common reader pins the original PNG's SHA-256 and
 checks destination equality and its original capture challenge. No full Snapshot
 adapter is enabled by the common correction or synthetic counterexamples.
+
+## Independent Chat receiver v1 component
+
+The [receiver/source handoff](native/INDEPENDENT_CHAT_RECEIVER.md) now defines
+separately acquired primary and peer native caches, actual process/source/mixer
+pairing, original remote message order/multiplicity and durable receiver cleanup.
+Nine new host counterexamples pass; the complete permitted no-build common
+selection passes 663 cases without skips/failures/errors/compiler attempts.
+The existing read-only MessagesClient source can be invoked from an explicitly
+opted-in E2E Assignment Client script on its real owner thread. Default domain
+peer motion/heartbeat still does not produce Chat receipts. Private actor
+transport, peer stimulus/mixer ownership, normal primary UI/storage joins and
+complete adapter activation remain missing. Native source is uncompiled.

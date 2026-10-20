@@ -56,7 +56,7 @@ public:
     void startThread();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     // Test-only metadata read/cache retirement; never sends a message.
-    QVariantMap featureChatObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureChatObservation(const QVariantMap& command);
 #endif
 
     /*@jsdoc
