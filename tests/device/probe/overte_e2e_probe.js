@@ -1018,6 +1018,23 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "feature-chat-view-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                var chatView={chatViewVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureChatViewObservation === "function") {
+                        var originalChatView=Test.featureChatViewObservation(command);
+                        if (originalChatView && originalChatView.commandId === command.commandId) { chatView=originalChatView; }
+                    }
+                } catch (_chatViewError) { /* Missing original UI/storage/keyboard is not a result. */ }
+                Test.saveObject(chatView,"feature-chat-view-observation.json");
+            }
+            return;
+        }
         if (command && command.action==="feature-chat-observe" && validChatObservationCommand(command)) {
             if (command.commandId!==lastChatObservationCommand) {
                 lastChatObservationCommand=String(command.commandId);
@@ -1433,7 +1450,7 @@
 
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
-                || command.action === "feature-chat-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
+                || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-world-render-observe"

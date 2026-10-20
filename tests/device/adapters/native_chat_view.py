@@ -1,0 +1,134 @@
+"""Passive original Chat model/settings source; not a full feature verdict.
+
+The selected channel, visible model and persisted history are separate sources.
+Neither a normal input receipt nor a receive-cache event supplies missing rows.
+"""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+import json
+import re
+import time
+import uuid
+from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
+from adapters.normal_ui import NativeUIError
+from feature_journeys.fixtures import context
+
+VERSION = 1
+FILE = 'feature-chat-view-observation.json'
+HEX = '[0-9a-f]{32}'
+
+
+def command(value, *, ios=False):
+    exact(value, {'schemaVersion', 'commandId', 'action', 'runId'})
+    need(type(ios) is bool and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
+         and value['action'] == 'feature-chat-view-observe'
+         and type(value['commandId']) is str and re.fullmatch(('ios-' if ios else '') + HEX, value['commandId'])
+         and type(value['runId']) is str and re.fullmatch(HEX, value['runId']))
+    return value
+
+
+def validate(value, request, pid, epoch):
+    exact(request, {'schemaVersion', 'commandId', 'action', 'runId'})
+    need(type(request['commandId']) is str)
+    command(request, ios=request['commandId'].startswith('ios-'))
+    exact(value, {'chatViewVersion', 'commandId', 'runId', 'instance', 'sequence', 'processId', 'capturedEpochMs', 'source'})
+    need(type(value['chatViewVersion']) is int and value['chatViewVersion'] == VERSION
+         and value['commandId'] == request['commandId'] and value['runId'] == request['runId']
+         and type(value['instance']) is str and re.fullmatch(HEX, value['instance'])
+         and integer(value['sequence'], 1) and integer(pid, 1) and integer(value['processId'], 1) and value['processId'] == pid)
+    fresh(value['capturedEpochMs'], epoch)
+    source = value['source']
+    exact(source, {'tabletShown', 'editorFocused', 'editorHasDraft', 'keyboard', 'ui', 'storage'})
+    need(all(type(source[key]) is bool for key in ('tabletShown', 'editorFocused', 'editorHasDraft')))
+    keyboard = source['keyboard']
+    need(type(keyboard) is dict and type(keyboard.get('available')) is bool)
+    exact(keyboard, {'available', 'backend', 'visible'} if keyboard['available'] else {'available'})
+    if keyboard['available']:
+        need(keyboard['backend'] == 'native-touch-metrics' and type(keyboard['visible']) is bool)
+    texts = {context(request['runId'])[key] for key in ('unicode', 'reply', 'hidden', 'retry')}
+    ui = source['ui']
+    need(type(ui) is dict and type(ui.get('present')) is bool)
+    exact(ui, {'present', 'generation', 'channel', 'draft', 'keyboardRequested', 'localMessages', 'domainMessages',
+               'localRowCount', 'domainRowCount', 'visibleMessages', 'visibleRowCount'} if ui['present'] else {'present'})
+    if ui['present']:
+        need(source['tabletShown'] and type(ui['generation']) is str and re.fullmatch(HEX, ui['generation'])
+             and ui['channel'] in ('local', 'domain', 'settings') and type(ui['draft']) is str
+             and ui['draft'] in texts | {''} and type(ui['keyboardRequested']) is bool
+             and (not ui['draft'] or source['editorHasDraft']))
+        for prefix in ('local', 'domain', 'visible'):
+            rows, count = ui[prefix + 'Messages'], ui[prefix + 'RowCount']
+            need(type(rows) is list and integer(count, 0, 1000) and len(rows) <= count
+                 and all(type(text) is str and text in texts for text in rows))
+    storage = source['storage']
+    exact(storage, {'kind', 'count', 'unowned', 'events', 'configSha256'})
+    need(storage['kind'] in ('unset', 'null', 'empty-string', 'array', 'string-list')
+         and integer(storage['count'], 0, 1000) and integer(storage['unowned'], 0, 1000)
+         and type(storage['events']) is list and storage['count'] == storage['unowned'] + len(storage['events'])
+         and type(storage['configSha256']) is str and re.fullmatch('[0-9a-f]{64}', storage['configSha256']))
+    if storage['kind'] not in ('array', 'string-list'):
+        need(storage['count'] == 0)
+    if storage['kind'] == 'string-list':
+        need(not storage['events'])  # Actual stored strings are not accepted-message maps.
+    for event in storage['events']:
+        exact(event, {'channel', 'text', 'timestamp'})
+        need(event['channel'] in ('local', 'domain') and type(event['text']) is str and event['text'] in texts
+             and integer(event['timestamp'], 1) and event['timestamp'] <= value['capturedEpochMs'])
+    return value
+
+
+def measured_view(value):
+    """Only the actual UI fields. No delivery, saved-history or peer claim.
+
+    Absent UI remains absent. A real nonempty hidden editor/focused editor or
+    unavailable keyboard cannot be laundered into the journey's closed state.
+    """
+    request = dict(schemaVersion=1, action='feature-chat-view-observe',
+                   **{key: value[key] for key in ('commandId', 'runId')})
+    validate(value, request, value['processId'], value['capturedEpochMs'])
+    source = value['source']; ui = source['ui']; keyboard = source['keyboard']
+    need(keyboard['available'])
+    if not ui['present']:
+        need(not source['editorFocused'] and not source['editorHasDraft'] and not keyboard['visible'])
+        return dict(open=False, channel='none', draft='', focused=False, keyboard=False, messages=[])
+    need(ui['channel'] in ('local', 'domain'))
+    return dict(open=True, channel=ui['channel'], draft=ui['draft'], focused=source['editorFocused'],
+                keyboard=keyboard['visible'], messages=list(ui['visibleMessages']))
+
+
+class NativeChatView:
+    def __init__(self, send, read, clock_ms, guard, pid, *, ios=False, monotonic=time.monotonic, sleep=time.sleep):
+        need(all(callable(v) for v in (send, read, clock_ms, guard, monotonic, sleep)) and integer(pid, 1) and type(ios) is bool)
+        self.send, self.original, self.clock_ms, self.guard, self.pid = send, read, clock_ms, guard, pid
+        self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
+        self.instance, self.sequence, self.captured, self.run = None, 0, 0, None
+
+    def read(self, run):
+        try:
+            request = dict(schemaVersion=1, commandId=('ios-' if self.ios else '') + uuid.uuid4().hex,
+                           action='feature-chat-view-observe', runId=run)
+            command(request, ios=self.ios)
+            need(self.run in (None, run) and self.guard() is not False)
+            started = previous = self.monotonic(); need(number(started, 0, 1e15))
+            requested = self.clock_ms(); need(integer(requested, 1)); self.send(request)
+            for attempt in range(51):
+                need(self.guard() is not False); raw = self.original()
+                try: value = decode(raw) if raw else None
+                except json.JSONDecodeError: value = None
+                if type(value) is dict and value.get('commandId') == request['commandId']:
+                    # AFC/PID acquisition bounds iOS freshness. Host UTC never
+                    # replaces a native timestamp from another clock domain.
+                    epoch = value.get('capturedEpochMs') if self.ios else self.clock_ms()
+                    validate(value, request, self.pid, epoch)
+                    need(self.instance in (None, value['instance']) and value['sequence'] > self.sequence
+                         and value['capturedEpochMs'] >= self.captured
+                         and (self.ios or value['capturedEpochMs'] >= requested))
+                    now = self.monotonic()
+                    need(number(now, 0, 1e15) and previous <= now and now - started < 5 and self.guard() is not False)
+                    self.run, self.instance, self.sequence, self.captured = run, value['instance'], value['sequence'], value['capturedEpochMs']
+                    return value
+                now = self.monotonic(); need(number(now, 0, 1e15) and now >= previous); previous = now
+                if now - started >= 5 or attempt == 50: break
+                self.sleep(min(.1, 5 - (now - started)))
+        except Exception:
+            raise NativeUIError('Native Chat view observation failed') from None
+        raise NativeUIError('Native Chat view observation is unavailable')
