@@ -103,10 +103,22 @@ class TokenScriptFilePicker:
         return value
 
     def capture(self):
+        return self._capture(allow_closed=False)
+
+    def observe_absent(self):
+        # Pico reports ready:false for a genuinely closed tablet. This
+        # read-only path requires its explicit closed bit and empty controls;
+        # every ordinary picker input still uses strict ready:true captures.
+        value = self._capture(allow_closed=True)
+        need(self.picker(value) is None)
+        return value
+
+    def _capture(self, *, allow_closed):
         value = self.io.capture()
         need(type(value) is dict and value.get('fileControlsVersion') == 1
-             and type(value['fileControlsVersion']) is int and value.get('ready') is True
+             and type(value['fileControlsVersion']) is int and type(value.get('ready')) is bool
              and type(value.get('controls')) is list and len(value['controls']) <= 384)
+        need(value['ready'] or allow_closed and value.get('open') is False and value['controls'] == [])
         identity = value.get('instance', value.get('bridgeId'))
         need(type(identity) is str and bool(identity) and self.instance in (None, identity))
         self.instance = identity
