@@ -62,7 +62,15 @@ coordination remains pending.
 opened/saved intent, actual file identity, exclusive creation and original
 encoded/pixel digest verification. Fourteen real host-file counterexamples keep
 foreign, partial, missing or replaced files from becoming completed evidence.
-This prerequisite still needs the complete durable source and feature owner.
+The complete feature owner still needs to compose this original file evidence.
+
+The [durable Graphics source producer](GRAPHICS_SAMPLES.md) now retains each
+role/process source history, requires a new recorded-view GPU frame and original
+owned PNG, and verifies native memory plus complete receipt retirement before
+returning measured facts. Seventeen focused source cases and the whole-cleanup
+wrapper cover interruptions, provenance rollback and lost/ignored responses.
+Changed-ticket retirement, ordinary scene/settings/restart ownership, specific
+pixel-effect checks and the complete Graphics coordinator still remain pending.
 
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original

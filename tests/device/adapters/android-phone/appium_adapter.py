@@ -414,6 +414,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         name='phone-world-render-owner.json' if role=='primary' else 'phone-world-render-actor-owner.json'
         return PrivateFeatureState(self.state_path(selector).with_name(name))
 
+    def graphics_samples_store(self, selector, role, stage):
+        require(role in ('primary','actor') and type(stage) is int and stage in (0,1),
+                'PHONE_GRAPHICS_SOURCE_SCOPE_REQUIRED')
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-'+role+'-'+str(stage)+'-samples.json'))
+
     def _graphics_subject_observer(self, selector, *, read_only=False):
         native=self._native_feature_observer(selector,read_only=read_only)
         target=self.target(selector);device=target['capabilities']['appium:udid']
@@ -1112,6 +1117,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE')
         require(not world_error and all(self.world_render_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_WORLD_RENDER_CLEANUP_INCOMPLETE')
+        require(all(self.graphics_samples_store(selector,role,stage).read() is None
+                    for role in ('primary','actor') for stage in (0,1)),
+                'PHONE_GRAPHICS_SOURCE_CLEANUP_INCOMPLETE')
         require(not probe_error and all(self.account_probe_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_ACCOUNT_PROBE_CLEANUP_INCOMPLETE')
         require(not origin_error and self.account_origin_store(selector).read() is None,
