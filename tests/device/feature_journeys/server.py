@@ -212,6 +212,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.command == 'POST' and parts[2:] == ['active'] and reader:
                 exact(body, {'ticket', 'verb', 'inputs'}, 'fixture challenge')
                 self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
+                if body['verb']=='restore-resource' and self.server.browser_resources.has_run(run):
+                    self.server.browser_resources.control(run,{'operation':'restore-resource'})
                 if self.server.account_provider is not None and run in self.server.account_provider.runs:
                     self.server.account_provider.activate(run,body['ticket'])
                     stimulus=self.server.journal.active(run)['stimulus']

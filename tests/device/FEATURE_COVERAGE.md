@@ -38,7 +38,7 @@ to implement the new complete area contract.
 | avatar-people | `multi-user` | Avatar URL/bookmark, scale, wearable, invalid URL, mutual contact consent/cancel/reject/removal. | changed, image, peer | Logic present; adapter missing; device untested |
 | create | `create-management`, `entity-sync`, `world-interaction` | Model URL/texture/voxel creation/edit, real entity-JSON picker cancellation/import, exact-slot original export and rez denial/retry. | changed, file, image, peer | Logic present; adapter missing; device untested |
 | emotes | No prior feature journey | Ten actual native overrides, nine automatic completions, all observed Sit variants, chooser lifetime, early restoration and resume. | changed, image, peer | Logic present; adapter missing; device untested |
-| world-web | `world-web-video` | Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume. | changed, image, peer | Draft logic present; source corrections required; adapter missing; device untested |
+| world-web | `world-web-video` | Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume. | changed, image, peer | Logic present; adapter missing; device untested |
 | graphics | `render-health` | Immediate resolution/Haze/Mirrors, actual completed-frame/pass effects, close/restart durability and measured original restoration. | changed, image | Logic present; adapter missing; device untested |
 | audio | `audio-controls`, `permission-recovery`, `sound-playback`, `voice-roundtrip` | Automatic memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation; OS permissions remain in the composed foundation. | audio, file, peer, silence | Logic present; adapter missing; device untested |
 | chat | `text-input` | Unicode send/receive, cancelled draft, actual Local/Domain histories, distant Local rejection, history reopen, no-mixer local echo and explicit retyped resend. | peer | Logic present; adapter missing; device untested |
@@ -46,7 +46,7 @@ to implement the new complete area contract.
 | scripts | `scripts-management`, `scripted-entity` | File-bundle picker cancel/accept, actual relative companion execution, application restart, stop and URL failure; separate existing entity-script consent. | peer | Logic present; adapter missing; device untested |
 | assets | `asset-load` | Upload cancel, browse, companion mappings, rename, bake, Add to World and original resolved bytes, permission denial, delete and 404. | changed, file, image, peer | Logic present; adapter missing; device untested |
 | lifecycle-input | `lifecycle-under-load`, `tablet-input-isolation`, `text-input` | Create/Chat/Scripts editor focus, Back, world-input isolation, resume, context replacement and stale input. | changed, image, peer | Logic present; adapter missing; device untested |
-| tablet-web | `tablet-web-video`, `tablet` | Same browser flows plus ordinary inline app routing and input ownership. | changed, image, peer | Draft logic present; source corrections required; adapter missing; device untested |
+| tablet-web | `tablet-web-video`, `tablet` | Same browser flows plus ordinary inline app routing and input ownership. | changed, image, peer | Logic present; adapter missing; device untested |
 
 All areas also require fresh product samples, independent baseline/cleanup
 observations, native lifecycle counters and empty owned-resource inventories
@@ -55,7 +55,7 @@ also requires changed feature-subject pixels; `audio`/`silence` inspect PCM;
 `file` inspects original bytes; `peer` reads the independent actor journal.
 Existing modules retain their additional image, PCM, process and file checks.
 
-The [machine matrix](feature_journeys/coverage.v10.json), [journey guide](FEATURE_JOURNEYS.md)
+The [machine matrix](feature_journeys/coverage.v11.json), [journey guide](FEATURE_JOURNEYS.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md) record the exact contracts.
 All rows currently depend on real product transports and independently measuring
 target observers. Adapter implementation is now in progress on the separate local platform
@@ -90,3 +90,5 @@ adds preserved Domain history/channel plus released editor/keyboard after a real
 background/resume. The 25 checkpoints remain host-tested logic; complete adapters
 are missing. Browser draft source defects remain explicitly open in the v10
 machine matrix through `sourceCorrectionRequired:true`.
+
+Version 11 replaces the browser drafts with 19 world/26 tablet checkpoints: actual document replacement and independently witnessed status/origin/Send attempts, real server restoration followed by normal Reload, reconstructed blank resume and real inline source/retired callback. See [the exact Web source contract](feature_journeys/WEB_SOURCE.md). Native sources and complete adapters remain missing; device status is untested. The v10 draft descriptions above are historical.

@@ -6,8 +6,8 @@ and existing verified/ranged video transport. Four original source hashes are
 in the existing `resource-pins.v1.json`; missing or changed sources fail before
 a response receipt is published. No native browser, product or device ran.
 
-This is a prerequisite packet, not complete Web E2E. Shared journey v10 still
-has the [documented draft assumptions](WEB_SOURCE_AUDIT.md). Do not advertise
+This is a prerequisite packet, not complete Web E2E. Shared journey v11 now corrects the draft semantics in
+[the exact Web handoff](WEB_SOURCE.md). Do not advertise
 complete browser capabilities until the breaking journey correction, native
 sources/normal inputs, independent publisher and cleanup are composed.
 
@@ -87,8 +87,10 @@ media resources retired and both private response/control inventories removed
 before closing the run. The new read-only server receipts establish none of
 those product cleanup effects. Adapter missing/device untested stays explicit.
 
-Ten device-free cases use actual loopback HTTP listeners to verify original
+Twelve device-free cases use actual loopback HTTP listeners to verify original
 protocol bytes, repeated 404, actual restore without fabricated navigation,
 second-origin roles, forbidden/unknown/replayed controls, unavailable sources,
 retired tickets/owners, absent HTTP-inline route, exact ranged media bytes and
 bounded immutable receipts. These are fixture/test-logic checks only.
+
+In v11 the reader activation of `restore-resource` invokes the real once-only server control; the product adapter performs no second control or native navigation for that row. `inline_source`/`inline_data_url` generate exact checked original inline input bytes and a ticket-bound PNG without fabricating HTTP/document receipts.

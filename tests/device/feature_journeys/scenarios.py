@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 10
+VERSION = 11
 
 
 def emote_rows():
@@ -129,18 +129,33 @@ SCENARIOS = {
     ('background-resume', {}, {}, ['peer']),
     ('close', {}, dict(panel=False), []),
 ]),
-'world-web': scenario('World browser text, bridge origin, navigation and resume',
-    dict(surface='world', text='', page='reference', bridgeMessages=0, error='none', focused=False, open=False), [
-    ('open', {}, dict(open=True), ['image']),
+'world-web': scenario('Actual documents, foreign input, HTTP recovery and recreated resume',
+    dict(surface='world',text='',page='none',bridgeMessages=0,bridgeEchoes=0,attemptedMessages=0,documentLoads=0,
+         httpStatus=0,origin='none',documentKind='none',inlineLeases=0,deferredMessages=0,
+         error='none',focused=False,open=False), [
+    ('open', {}, dict(open=True,page='reference',httpStatus=200,origin='primary',documentKind='http',
+        documentLoads={'min':1,'max':1000000}), ['image','peer']),
     ('focus-type', dict(text='$unicode'), dict(text='$unicode', focused=True), ['peer']),
-    ('submit', {}, dict(bridgeMessages=1), ['peer']),
-    ('foreign-origin-message', {}, {}, ['peer']),
+    ('submit', {}, dict(bridgeMessages=1,bridgeEchoes=1,attemptedMessages=1,focused=False), ['peer']),
+    # Clear before navigation: neither backend promises to retain form data
+    # through document destruction or a nonce-recovery history reload.
+    ('clear-text', {}, dict(text='',focused=True), ['peer']),
     ('navigate', dict(resource='page-b.html'), dict(page='B', focused=False), ['changed', 'peer']),
-    ('back', {}, dict(page='reference', text='$unicode'), ['changed', 'peer']),
-    ('navigate', dict(resource='missing.html'), dict(error='not-found'), ['peer']),
-    ('reload', {}, dict(error='none'), ['image', 'peer']),
-    ('background-resume', {}, {}, ['image', 'peer']),
-    ('close', {}, dict(open=False, focused=False), ['peer']),
+    ('back', {}, dict(page='reference'), ['changed','peer']),
+    ('navigate-foreign',dict(resource='reference.html'),dict(page='foreign',origin='foreign'),['changed','peer']),
+    ('foreign-origin-message', {}, dict(attemptedMessages=2), ['peer']),
+    ('back', {}, dict(page='reference',origin='primary'), ['changed','peer']),
+    ('navigate',dict(resource='recovery.html'),dict(page='recovery',httpStatus=404),['image','peer']),
+    ('reload',{}, {}, ['peer']),
+    ('restore-resource',{}, {}, ['peer']),
+    ('reload', {}, dict(httpStatus=200), ['image','peer']),
+    # Recreate the original source URL on both backends after backgrounding.
+    ('navigate',dict(resource='reference.html'),dict(page='reference'),['changed','peer']),
+    ('background-resume', {}, {}, ['image','peer']),
+    ('focus-type',dict(text='$reply'),dict(text='$reply',focused=True),['peer']),
+    ('submit',{},dict(bridgeMessages=2,bridgeEchoes=2,attemptedMessages=3,focused=False),['peer']),
+    ('clear-text',{},dict(text='',focused=True),['peer']),
+    ('close', {}, dict(open=False,focused=False,page='none',origin='none',documentKind='none',httpStatus=0), ['peer']),
 ]),
 # These are state type prototypes, not assumed user defaults. The engine
 # independently establishes and freezes the actual original preference/render
@@ -317,11 +332,30 @@ SCENARIOS['tablet-web']['title'] = 'Tablet browser and inline app isolation'
 SCENARIOS['tablet-web']['baseline']['surface'] = 'tablet'
 for step in SCENARIOS['tablet-web']['steps']:
     step['state']['surface'] = 'tablet'
-inline = dict(verb='open-inline-app', inputs=dict(resource='inline.html'),
-              state={**SCENARIOS['tablet-web']['steps'][-2]['state'], 'page': 'inline'}, evidence=['changed', 'peer'])
-SCENARIOS['tablet-web']['steps'].insert(-1, inline)
-# The close checkpoint must retain the last actual page.
-SCENARIOS['tablet-web']['steps'][-1]['state']['page'] = 'inline'
+inline_state=deepcopy(SCENARIOS['tablet-web']['steps'][-2]['state'])
+inline_rows=[]
+for verb,inputs,changes,evidence in [
+    ('open-inline-app',dict(resource='parity-inline-v1'),dict(page='inline',origin='inline',documentKind='inline',httpStatus=0,inlineLeases=1,focused=False),['changed','peer']),
+    ('focus-type',dict(text='$unicode'),dict(text='$unicode',focused=True),['peer']),
+    ('submit',{},dict(bridgeMessages=3,bridgeEchoes=3,attemptedMessages=4,focused=False),['peer']),
+    ('clear-text',{},dict(text='',focused=True),['peer']),
+    # Hold one actual normal Send callback, then retire its real carrier. The
+    # stale stimulus must retain its original native document/token/bytes.
+    ('hold-inline-message',{},dict(deferredMessages=1,attemptedMessages=5,focused=False),['peer']),
+    ('return-from-inline',{},dict(page='reference',origin='primary',documentKind='http',httpStatus=200,inlineLeases=0),['changed','peer']),
+    ('deliver-retired-inline-message',{},dict(deferredMessages=0),['peer']),
+]:
+    inline_state.update(changes)
+    inline_rows.append(dict(verb=verb,inputs=inputs,state=deepcopy(inline_state),evidence=evidence))
+SCENARIOS['tablet-web']['steps'][-1:-1]=inline_rows
+SCENARIOS['tablet-web']['steps'][-1]['state'].update(bridgeMessages=3,bridgeEchoes=3,attemptedMessages=5)
+for area in ('world-web','tablet-web'):
+    for step in SCENARIOS[area]['steps']:
+        # Ordinary buttons do not prescribe the platform's editor-focus
+        # aftermath. Observe it independently; do not invent a blur handler.
+        if step['verb'] in {'submit','hold-inline-message'}:step['state']['focused']={'oneOf':[False,True]}
+        step['documentTransition']='replace' if step['verb'] in {
+            'open','navigate','navigate-foreign','back','reload','background-resume','open-inline-app','return-from-inline'} else 'retain'
 
 
 # This is a closed source policy, not an optional capability. Unknown export
