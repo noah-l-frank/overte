@@ -5,7 +5,7 @@
     "adapter-manifest": {"current": 1, "reads": [1]},
     "artifact-manifest": {"current": 1, "reads": [1]},
     "capability-registry": {"current": 1, "reads": [1]},
-    "feature-journey": {"current": 8, "reads": [8]},
+    "feature-journey": {"current": 9, "reads": [9]},
     "feature-account-provider": {"current": 2, "reads": [2]},
     "native-feature-observation": {"current": 1, "reads": [1]},
     "native-chat-observation": {"current": 1, "reads": [1]},
