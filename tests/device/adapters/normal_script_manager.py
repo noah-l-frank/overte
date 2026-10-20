@@ -9,6 +9,7 @@ import math
 import json
 import re
 import time
+from copy import deepcopy
 
 from adapters.normal_feature_state import context, need
 from adapters.normal_ui import NativeUIError
@@ -96,20 +97,34 @@ def filename(value):
 
 class NormalScriptManager:
     def __init__(self, ui, observe, store, binding, *, source_kind='scripts',
-                 monotonic=time.monotonic, sleep=time.sleep, component_only=False):
+                 monotonic=time.monotonic, sleep=time.sleep, component_only=False,
+                 file_owner=None, file_picker=None):
         self.ui, self.observe, self.store = ui, observe, store
         self.binding = dict(context(binding, component_only=component_only))
         self.monotonic, self.sleep = monotonic, sleep
-        need(source_kind in {'scripts', 'create-observer'})
+        need(source_kind in {'scripts', 'create-observer', 'script-file-bundle'})
         self.source_kind = source_kind
+        bundled = source_kind == 'script-file-bundle'
+        self.file_owner, self.file_picker = file_owner, file_picker
+        if bundled:
+            from adapters.native_script_files import OwnedScriptFiles
+            from adapters.token_script_file_ui import TokenScriptFilePicker
+            need(isinstance(file_owner, OwnedScriptFiles) and isinstance(file_picker, TokenScriptFilePicker)
+                 and file_owner.binding == self.binding and file_owner.component_only == component_only)
+            file_owner.owned()  # Persistent native-file intent must already exist.
+        else:
+            need(file_owner is None and file_picker is None)
         self.previous = store.read()
-        self.state = self.previous or dict(schemaVersion=2, sourceKind=source_kind, binding=self.binding,
+        initial = dict(schemaVersion=3 if bundled else 2, sourceKind=source_kind, binding=self.binding,
             tabletOwned=False, managerOwned=False, dialogOwned=False, source=None,
             loadAttempted=False, observerInstance=None, afterSequence=0)
+        if bundled: initial.update(fileOwnershipVersion=1, fileOwner=None, pickerOwned=False)
+        self.state = self.previous or initial
         value = self.state
         need(type(value) is dict and set(value) == {'schemaVersion', 'sourceKind', 'binding', 'tabletOwned',
              'managerOwned', 'dialogOwned', 'source', 'loadAttempted', 'observerInstance', 'afterSequence'}
-             and type(value['schemaVersion']) is int and value['schemaVersion'] == 2
+             | ({'fileOwnershipVersion', 'fileOwner', 'pickerOwned'} if bundled else set())
+             and type(value['schemaVersion']) is int and value['schemaVersion'] == (3 if bundled else 2)
              and value['sourceKind'] == source_kind
              and context(value['binding'], component_only=component_only) == self.binding
              and all(type(value[key]) is bool for key in
@@ -120,13 +135,66 @@ class NormalScriptManager:
              and (not value['managerOwned'] or value['tabletOwned'])
              and (not value['dialogOwned'] or value['managerOwned'])
              and (not value['loadAttempted'] or value['source'] is not None))
+        if bundled:
+            need(type(value['fileOwnershipVersion']) is int and value['fileOwnershipVersion'] == 1
+                 and type(value['pickerOwned']) is bool and not value['dialogOwned']
+                 and (not value['pickerOwned'] or value['managerOwned'] and value['fileOwner'] is not None)
+                 and (value['source'] is None or value['fileOwner'] is not None))
+            self.check_file_owner(value['fileOwner'])
         if value['source'] is not None:
             self.validate_url(value['source'])
 
     def validate_url(self, url):
         if self.source_kind == 'scripts':
             return script_url(url, missing=url.endswith('/missing.js'))
+        if self.source_kind == 'script-file-bundle':
+            owner = self.state['fileOwner']; need(owner is not None)
+            need(type(url) is str and url in {owner['directory'] + '/' + name for name in ('script.js', 'script-bundle/main.js')})
+            return url
         return owned_url(url, {'observer.js'})
+
+    def check_file_owner(self, value):
+        from adapters.token_script_file_ui import file_url
+        current = self.file_owner.owned()
+        if value is None: return current
+        need(type(value) is dict and set(value) == {'runId', 'ownerToken', 'hashes', 'directory'}
+             and all(value[key] == current[key] for key in ('runId', 'ownerToken', 'hashes'))
+             and file_url(value['directory']).endswith('/feature-script-' + current['runId'])
+             and value['directory'] == self.file_picker.directory)
+        return current
+
+    def file_picker_open(self):
+        need(self.source_kind == 'script-file-bundle' and self.state['managerOwned']
+             and not self.state['pickerOwned'])
+        current = self.check_file_owner(self.state['fileOwner'])
+        directory = self.file_owner.verify()  # Separate original byte read, not stage ACK.
+        need(directory == self.file_picker.directory)
+        owner = {key: deepcopy(current[key]) for key in ('runId', 'ownerToken', 'hashes')}
+        owner['directory'] = directory
+        need(self.state['fileOwner'] in (None, owner))
+        self.ui.wait_manager()
+        need(self.file_picker.picker(self.file_picker.capture()) is None)
+        self.mark(fileOwner=owner, pickerOwned=True)  # Before one ordinary Open.
+        self.file_picker.open()
+
+    def file_picker_choose(self, resource):
+        need(self.source_kind == 'script-file-bundle' and self.state['pickerOwned']
+             and not self.state['loadAttempted'] and resource in ('script.js', 'script-bundle/main.js'))
+        self.check_file_owner(self.state['fileOwner'])
+        need(self.file_owner.verify() == self.state['fileOwner']['directory'])
+        source = self.state['fileOwner']['directory'] + '/' + resource
+        rows = self.sample()
+        need(not any(filename(row['url']).lower() == filename(source).lower() for row in rows))
+        # A partial/uncertain selection must never be replayed or adopted as
+        # functional success. Record the exact owned source before any choice.
+        self.mark(source=source, loadAttempted=True)
+        self.file_picker.choose(resource)
+        self.mark(pickerOwned=False)
+
+    def file_picker_cancel(self):
+        need(self.source_kind == 'script-file-bundle' and self.state['pickerOwned'])
+        self.check_file_owner(self.state['fileOwner'])
+        self.close_dialog()
 
     def mark(self, **changes):
         value = self.state | changes
@@ -229,12 +297,23 @@ class NormalScriptManager:
         self.previous = None
 
     def close_dialog(self):
+        if self.source_kind == 'script-file-bundle':
+            if self.state['pickerOwned']:
+                self.check_file_owner(self.state['fileOwner'])
+                if self.file_picker.picker(self.file_picker.capture()) is not None:
+                    self.file_picker.cancel()
+                else:
+                    self.file_picker.wait(lambda value: self.file_picker.picker(value) is not None, absent=True)
+                self.mark(pickerOwned=False)
+            return
         if self.state['dialogOwned']:
             self.ui.cancel_dialog()
             self.ui.wait_dialog_absent()
             self.mark(dialogOwned=False)
 
     def close_tablet(self):
+        need(not self.state['dialogOwned']
+             and (self.source_kind != 'script-file-bundle' or not self.state['pickerOwned']))
         if self.state['tabletOwned']:
             self.ui.close_tablet()
             self.ui.wait_tablet_absent()
@@ -261,6 +340,7 @@ class NormalScriptManager:
         return {'performed': True}
 
     def load_source(self, url):
+        need(self.source_kind != 'script-file-bundle')  # This scope must use the ordinary file picker.
         source = self.source(url)
         self.close_dialog()
         rows = self.sample()
