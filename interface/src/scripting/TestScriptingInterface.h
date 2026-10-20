@@ -166,6 +166,8 @@ public slots:
 #if defined(Q_OS_IOS)
     Q_INVOKABLE QVariantMap featureIOSBundleObservation(const QVariantMap& command);
 #endif
+
+    Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);

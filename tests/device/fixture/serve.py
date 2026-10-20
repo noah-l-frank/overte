@@ -501,6 +501,12 @@ class FixtureState:
             try:bundle_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid original iOS bundle read request") from None
             valid=True
+        elif action == "feature-web-dom-observe":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_web_dom import command as web_dom_command
+            try:web_dom_command(command,ios=True)
+            except (ValueError,RuntimeError):raise ValueError("invalid native Web DOM request") from None
+            valid=True
         elif action == "feature-chat-view-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_chat_view import command as chat_view_command

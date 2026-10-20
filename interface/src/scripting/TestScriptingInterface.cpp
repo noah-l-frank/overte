@@ -68,6 +68,8 @@
 #if defined(Q_OS_IOS)
 #include "../../../tests/device/ios/InstalledBundleIdentity.h"
 #endif
+
+#include "../../../tests/device/native/WebDOMObservationBridge.h"
 #include <ui/TabletScriptingInterface.h>
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
@@ -508,6 +510,21 @@ QVariantMap TestScriptingInterface::featureIOSBundleObservation(const QVariantMa
     return _featureIOSBundle->observe(command);
 }
 #endif
+
+QVariantMap TestScriptingInterface::featureWebDOMObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureWebDOMObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::webDOMCommand(command)) { return {}; }
+    const auto original=qApp->property(overte::e2e::webDOMProviderProperty());
+    if (original.userType()!=qMetaTypeId<overte::e2e::WebDOMProvider>()) { return {}; }
+    const auto provider=original.value<overte::e2e::WebDOMProvider>();
+    return provider ? provider(command) : QVariantMap();
+}
 
 QVariantMap TestScriptingInterface::featureChatViewObservation(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
