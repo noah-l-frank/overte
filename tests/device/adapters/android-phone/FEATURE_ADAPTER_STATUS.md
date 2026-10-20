@@ -1,5 +1,14 @@
 # Phone adapter implementation, local source only
 
+Internal `_script_missing_manager` now uses the existing normal Phone From URL
+controls and same private manager store with [missing-load v1](../../native/SCRIPT_MISSING_LOAD.md).
+It preserves original callback status/history and independent service absence,
+refuses ignored input/replay, rejects changed installed bytes before source or
+UI input, and cannot adopt a public/file manager owner. All **123** Phone
+feature-adapter host cases pass. Actual SDK/native/storage boundaries are
+synthetic; the complete visible-error/actor/effect/quiet-cleanup coordinator is
+still missing. No full feature triple is registered and devices remain untested.
+
 Internal `_script_restart(selector)` now composes ordinary shared Appium
 `app.stop` and controlled `app.launch`/startActivity input with
 [one-send input intent and original persisted lifecycle](../../native/RESTART_INPUTS.md),

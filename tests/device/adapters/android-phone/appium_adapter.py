@@ -346,6 +346,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
         result.sample()
         return result  # Input/cleanup ownership only; no full Scripts capability.
 
+    def _script_missing_manager(self, selector):
+        ui, observe, binding = self._script_file_runtime(selector)
+        result = NormalScriptManager(ui, observe, self.script_store(selector), binding,
+            source_kind='feature-script-missing')
+        result.sample()
+        return result
+
     def _script_file_runtime(self, selector):
         native_ui, observe, context, check, installed = self.normal_feature_runtime(selector)
         target = self.target(selector)

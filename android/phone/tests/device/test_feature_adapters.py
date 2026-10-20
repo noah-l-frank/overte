@@ -30,7 +30,7 @@ from adapters.recorded_preview_evidence import RecordedPreviewEvidence
 from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, code_source, RUN as EFFECT_RUN
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 from adapters.native_script_loads import result as load_result
-from self_tests.test_native_script_loads import history as load_history, URL as LOAD_URL
+from self_tests.test_native_script_loads import history as load_history, URL as LOAD_URL, event as load_event
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_feature_observation import probe_source
 from adapters.token_script_file_ui import TokenScriptFilePicker
@@ -1074,6 +1074,69 @@ class FeatureAdapterTests(unittest.TestCase):
         with self.assertRaises(RuntimeError): reader.read(second['sequence'])
         self.assertEqual(second['sequence'], reader.sequence)
         self.assertEqual([], self.native.inputs)
+
+    def missing_load(self, *, ignored=False):
+        source = ScriptBoundary(); events = []
+        url = 'http://fixture.test/feature-fixture/v1/runs/' + 'a' * 32 + '/tickets/' + 'b' * 32 + '/missing.js'
+        def observed(packet):
+            packet.update(requestedEpochMs=self.native.epoch_ms, capturedEpochMs=self.native.epoch_ms)
+            packet['source']['engines'] = []; load_history(packet, events)
+        source.mutate = observed
+        send_original = self.adapter.write_android_client_command
+        read_original = self.fixture.adb.read_debug_app_file
+        def send(client, session, target, request, process):
+            if request['action'] == 'feature-script-observe': source.send(request)
+            else: return send_original(client, session, target, request, process)
+        def read(device, package, path, **kwargs):
+            if path.endswith('/feature-script-observation.json'):
+                self.assertEqual({'attempts': 1}, kwargs); return source.original()
+            return read_original(device, package, path, **kwargs)
+        for boundary in (patch.object(self.adapter, 'write_android_client_command', side_effect=send),
+                         patch.object(self.fixture.adb, 'read_debug_app_file', side_effect=read)):
+            boundary.start(); self.addCleanup(boundary.stop)
+        def input(name):
+            if name == 'OK' and not ignored:
+                events.append(load_event(url=self.native.text, callbackEpochMs=self.native.epoch_ms))
+        self.native.mutation = input
+        return source, url
+
+    def test_phone_missing_script_uses_normal_input_original_failure_and_explicit_retirement(self):
+        source, url = self.missing_load()
+        manager = self.adapter._script_missing_manager(SELECTOR); manager.open()
+        manager.load_missing(url, self.adapter._script_execution_observer(SELECTOR))
+        manager = self.adapter._script_missing_manager(SELECTOR)
+        actual = manager.settle_missing(self.adapter._script_execution_observer(SELECTOR))
+        self.assertEqual(source.sample['source']['loads']['events'][0], actual)
+        self.assertEqual('NotFound', actual['status']); manager.close()
+        self.assertIsNone(self.adapter.script_store(SELECTOR).read())
+        self.assertEqual(1, self.native.inputs.count('OK'))
+        self.assertFalse(any(cap.startswith('feature.') for cap in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_missing_script_ignored_submit_cannot_retire_or_replay(self):
+        _source, url = self.missing_load(ignored=True)
+        manager = self.adapter._script_missing_manager(SELECTOR); manager.open()
+        manager.load_missing(url, self.adapter._script_execution_observer(SELECTOR))
+        with self.assertRaises(RuntimeError): manager.settle_missing(self.adapter._script_execution_observer(SELECTOR))
+        with self.assertRaises(RuntimeError): manager.load_missing(url, self.adapter._script_execution_observer(SELECTOR))
+        self.assertTrue(self.adapter.script_store(SELECTOR).read()['loadAttempted'])
+        self.assertEqual(1, self.native.inputs.count('OK'))
+
+    def test_phone_missing_script_candidate_loss_cannot_be_adopted(self):
+        source, url = self.missing_load()
+        manager = self.adapter._script_missing_manager(SELECTOR); manager.open()
+        manager.load_missing(url, self.adapter._script_execution_observer(SELECTOR))
+        before = len(source.commands); self.fixture.adb.digest = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'PHONE_INSTALLED_BYTES_MISMATCH'):
+            self.adapter._script_missing_manager(SELECTOR)
+        self.assertEqual(before, len(source.commands))
+        self.assertTrue(self.adapter.script_store(SELECTOR).read()['loadAttempted'])
+
+    def test_phone_missing_script_cannot_adopt_existing_public_manager_owner(self):
+        self.invoke('scripts.manager.open')
+        before = list(self.native.inputs)
+        with self.assertRaises(RuntimeError): self.adapter._script_missing_manager(SELECTOR)
+        self.assertEqual(before, self.native.inputs)
+        self.assertEqual('scripts', self.adapter.script_store(SELECTOR).read()['sourceKind'])
 
 
     def test_phone_script_execution_source_uses_bound_original_native_module_history(self):
