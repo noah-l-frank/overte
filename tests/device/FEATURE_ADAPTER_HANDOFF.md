@@ -11,6 +11,11 @@ Navigation v15 uses the [actual Places and owned HTTP source contract](feature_j
 All eight current state fields require independent original observations;
 actual HTTP inputs do not establish that a client consumed them.
 
+The [passive native navigation reply source](native/NAVIGATION_REPLIES.md)
+adds original current RequestTicket/HTTP response-ID provenance and a strict
+fixture-receipt join. Platform factory registration and independent actual
+modal/arrival/UI/storage observations are still missing; native code is uncompiled.
+
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
 packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v15.json) and

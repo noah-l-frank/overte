@@ -24,6 +24,9 @@
 #include <DependencyManager.h>
 
 #include "AccountManager.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "FeatureNavigationReplies.h"
+#endif
 
 extern const QString REDIRECT_HIFI_ADDRESS;
 extern const QString DEFAULT_OVERTE_ADDRESS;
@@ -142,6 +145,9 @@ class AddressManager : public QObject, public Dependency {
     Q_PROPERTY(QString placename READ getPlaceName)
     Q_PROPERTY(QString domainID READ getDomainID)
 public:
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureNavigationReplies(const QVariantMap& command);
+#endif
     using PositionGetter = std::function<glm::vec3()>;
     using OrientationGetter = std::function<glm::quat()>;
 
@@ -553,6 +559,9 @@ private:
 
     QUrl _previousAPILookup;
     overte::network::RequestScope _lookupRequests;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::FeatureNavigationReplies _featureNavigationReplies;
+#endif
     bool _clientLookupPolicy { false };
     bool _lookupForeground { true };
     bool _lookupNeedsExplicitIntent { false };

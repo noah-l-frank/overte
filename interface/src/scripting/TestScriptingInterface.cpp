@@ -79,6 +79,7 @@
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
+#include <AddressManager.h>
 #include <MessagesClient.h>
 #include <AudioClient.h>
 #include <avatars-renderer/SkeletonModel.h>
@@ -511,6 +512,23 @@ QVariantMap TestScriptingInterface::featureIOSBundleObservation(const QVariantMa
     return _featureIOSBundle->observe(command);
 }
 #endif
+
+QVariantMap TestScriptingInterface::featureNavigationReplies(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureNavigationReplies(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::previewDirectory(_testResultsLocation)
+            || !overte::e2e::FeatureNavigationReplies::command(command) || !DependencyManager::isSet<AddressManager>()) { return {}; }
+    const auto address=DependencyManager::get<AddressManager>();QVariantMap result;
+    if (QThread::currentThread()==address->thread()) { result=address->featureNavigationReplies(command); }
+    else if (!address->thread() || !address->thread()->isRunning()
+            || !QMetaObject::invokeMethod(address.data(),[&] { result=address->featureNavigationReplies(command); },Qt::BlockingQueuedConnection)) { return {}; }
+    return result;
+}
 
 QVariantMap TestScriptingInterface::featurePendingCommitOwner(const QVariantMap& command) {
     if (QThread::currentThread() != thread()) {
@@ -1264,7 +1282,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
-            || filename == "feature-pending-commit-owner.json"
+            || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"
