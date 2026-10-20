@@ -33,6 +33,7 @@ from self_tests.test_native_script_files import Boundary as ScriptFilesBoundary
 from script_file_native_boundary import FileNativeBoundary
 from audio_native_boundary import AudioNativeBoundary, ControlNativeBoundary
 from login_native_boundary import LoginNativeBoundary
+from chat_native_boundary import ChatNativeBoundary
 from adapters.token_login_ui import TokenLoginUI
 from self_tests.test_token_login_ui import RUN as LOGIN_RUN, ORIGIN as LOGIN_ORIGIN, CREDS as LOGIN_CREDS
 from adapters.token_graphics_ui import TokenGraphicsUI
@@ -850,6 +851,98 @@ applyAndroidControlCommand(outer(choice));applyAndroidControlCommand(outer({...c
 if(calls.length!==3)throw Error("host bounds");
 delete Test.phoneCreateUi;applyAndroidControlCommand(outer({...observe,commandId:"3".repeat(32)}));
 if(files[3].v.available!==false)throw Error("missing native hook green");
+'''.replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
+
+    def chat_control_boundaries(self):
+        from adapters.token_chat_ui import TokenChatUI
+        source=ChatNativeBoundary();self.native.screen='chat'
+        def send(client,session,target,command,process):
+            self.assertEqual({'running':True,'identity':'31:14'},process);source.send(command)
+        def read(_device,package,path,**kwargs):
+            self.assertEqual('files/overte-e2e/phone-chat-ui.json',path)
+            self.assertEqual({'attempts':1},kwargs);return json.dumps(source.value)
+        for boundary in (
+            patch.object(self.adapter,'write_android_client_command',side_effect=send),
+            patch.object(self.fixture.adb,'read_debug_app_file',side_effect=read,create=True),
+            patch.object(self.fixture.adb,'epoch_milliseconds',return_value=20000,create=True),
+            patch.object(appium,'PhoneChatIO',partial(appium.PhoneChatIO,
+                monotonic=lambda:source.native.clock,sleep=source.native.sleep)),
+            patch.object(appium,'TokenChatUI',partial(TokenChatUI,
+                monotonic=lambda:source.native.clock,sleep=source.native.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        source.intents=[]
+        return source,self.adapter._chat_controls(SELECTOR,source.intents.append,CHAT_RUN)
+
+    def test_phone_chat_controls_use_unicode_normal_send_enter_and_original_counter(self):
+        from feature_journeys.fixtures import context
+        source,ui=self.chat_control_boundaries()
+        ui.select_channel('domain');ui.type(context(CHAT_RUN)['unicode']);ui.send()
+        ui.type(context(CHAT_RUN)['retry']);ui.send(enter=True);ui.close()
+        self.assertEqual([('domain',context(CHAT_RUN)['unicode']),('domain',context(CHAT_RUN)['retry'])],source.ui.sent)
+        self.assertFalse(source.ui.panel);self.assertEqual([],source.ui.domain)
+        self.assertEqual(list(range(1,len(source.input_requests)+1)),[r['sequence'] for r in source.input_requests])
+        self.assertNotIn(context(CHAT_RUN)['unicode'],str(source.intents))
+        self.assertFalse(any(c.startswith('feature.chat.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_chat_consumed_but_ignored_field_is_not_success(self):
+        from feature_journeys.fixtures import context
+        source,ui=self.chat_control_boundaries();source.ui.ignore_effect=True
+        with self.assertRaises(RuntimeError):ui.type(context(CHAT_RUN)['unicode'])
+        self.assertEqual('',source.ui.draft);self.assertFalse(source.ui.focus)
+        self.assertEqual(1,len(source.input_requests))
+
+    def test_phone_chat_draft_or_native_context_changes_do_not_retarget_input(self):
+        from feature_journeys.fixtures import context
+        source,ui=self.chat_control_boundaries();ui.type(context(CHAT_RUN)['unicode']);reference=ui.capture()
+        before=len(source.input_requests);source.ui.draft=context(CHAT_RUN)['retry']
+        with self.assertRaises(RuntimeError):ui.io.activate('chat.send',reference=reference)
+        self.assertEqual(before,len(source.input_requests));self.assertEqual([],source.ui.sent)
+        source.before_input=lambda:setattr(source.ui,'generation','f'*32)
+        with self.assertRaises(RuntimeError):ui.send()
+        self.assertEqual([],source.ui.sent)
+
+    def test_phone_chat_missing_marker_wrong_pid_time_and_changed_candidate_are_unavailable(self):
+        for fault in ('version','missing','pid','epoch'):
+            with self.subTest(fault=fault):
+                source,ui=self.chat_control_boundaries()
+                def mutate(value):
+                    if fault=='missing':value.pop('chatControlsVersion',None)
+                    elif fault=='version':value['chatControlsVersion']=True
+                    elif fault=='pid':value['processId']=99
+                    else:value['capturedEpochMs']=1
+                source.mutate=mutate
+                with self.assertRaises(RuntimeError):ui.select_channel('domain')
+                self.assertEqual([],source.input_requests)
+        self.fixture.adb.digest='f'*64
+        with self.assertRaises(ValueError):self.adapter._chat_controls(SELECTOR,lambda _:None,CHAT_RUN)
+
+    def test_actual_phone_probe_chat_grammar_rejects_fake_results_and_non_normal_shortcuts(self):
+        program=r'''
+const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,keys)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(keys.sort());
+let calls=[],files=[];
+const Test={phoneChatUi:r=>{calls.push(r);return {commandId:r.commandId,performed:true};},saveObject:(v,name)=>files.push({v,name})};
+SOURCE
+const outer=r=>({schemaVersion:1,commandId:r.commandId,action:"phone-chat-ui",request:r});
+const observe={schemaVersion:1,commandId:"a".repeat(32),action:"observe"};
+applyAndroidControlCommand(outer(observe));applyAndroidControlCommand(outer(observe));
+if(calls.length!==1||files[0].name!=="phone-chat-ui.json")throw Error("original observe or dedup");
+const input={schemaVersion:1,commandId:"b".repeat(32),action:"replace",instance:"c".repeat(32),generation:"d".repeat(32),
+sequence:1,observedElapsedMs:0,controlId:"chat.input",controlToken:"e".repeat(32),text:"Overte ä Ω 東京 "+"a".repeat(32)};
+applyAndroidControlCommand(outer(input));
+for(const change of [{sequence:true},{text:"private user content"},{text:input.text+"\n"},{controlId:"chat.page"},
+ {commandId:"f".repeat(32)+"\n"},{instance:"f".repeat(32)+"\n"},{action:"send-message-direct"},{expected:{messages:[]}}]){
+ applyAndroidControlCommand(outer({...input,commandId:"f".repeat(32),...change}));}
+if(calls.length!==2)throw Error("untyped, private or shortcut input");
+let enter={...input,commandId:"1".repeat(32),action:"submit"};delete enter.text;
+applyAndroidControlCommand(outer(enter));
+let activate={...enter,action:"activate",controlId:"chat.send",commandId:"2".repeat(32)};
+applyAndroidControlCommand(outer({...activate,controlId:"chat.send\n"}));applyAndroidControlCommand(outer(activate));
+if(calls.length!==4)throw Error("original Enter/Send or newline control");
+delete Test.phoneChatUi;applyAndroidControlCommand(outer({...observe,commandId:"3".repeat(32)}));
+if(files[4].v.available!==false)throw Error("missing native hook green");
 '''.replace('SOURCE',probe_source())
         result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
         self.assertEqual(0,result.returncode,result.stderr)

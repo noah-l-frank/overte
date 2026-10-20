@@ -306,3 +306,25 @@ and Phone wrapper/probe tests use synthetic native boundaries, not a compiled
 client or device. Actual layout, scrolling, combo focus and native compilation
 remain unqualified. Model/texture, import picker/export, PolyVox, permission
 actors and their original resource/file/peer evidence are still required.
+
+## Original Chat controls v1
+
+`_chat_controls(selector,intent,run)` now constructs the shared `TokenChatUI`
+through `PhoneChatIO`, its closed private `phone-chat-ui` probe command and the
+E2E-only `Test.phoneChatUi` Qt dispatcher. It measures original UI context,
+clock/PID/source/input counters and actual containing tablet visibility, keeps
+captured draft/channel/focus tokens through fresh admission, and uses ordinary
+pointer/IME/Return input. The strict probe rejects arbitrary text, trailing-newline
+identities, extra desired results and direct message/handler shortcuts.
+
+Five added host cases cover normal Unicode Send/Return, ignored widget effects,
+changed original draft/context, missing/wrong native version/PID/epoch/candidate,
+and the actual original JavaScript command grammar/dedup/missing hook. The full
+Phone feature-adapter group passes 91 host checks. Native Qt code is uncompiled;
+no Phone, APK execution, build or Jenkins test was run.
+
+This is an input component. QML `keyboardRequested` is not actual OS keyboard
+visibility. Independently read original model/settings history, actual keyboard/
+route state, peer stimuli/receiver/publisher, source-correct closed-page semantics
+and complete owned cleanup still need composition. No `feature.chat.*` triple is
+advertised. See the shared [control contract](../../native/NORMAL_CHAT_CONTROLS.md).

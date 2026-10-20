@@ -204,6 +204,24 @@
         }
         return /^(?:settings\.entry|audio\.(?:entry|settings-entry|record|live-echo|mute|mode\.(?:desktop|vr)|back))$/.test(String(request.controlId));
     }
+    function phoneChatNonce(value) { return typeof value === "string" && value.length === 32 && /^[0-9a-f]{32}$/.test(value); }
+    var lastPhoneChatRequest = "";
+    function validPhoneChatRequest(request) {
+        if (!request || request.schemaVersion !== 1 || !phoneChatNonce(request.commandId)) { return false; }
+        if (request.action === "observe") { return objectKeysMatch(request,["schemaVersion","commandId","action"]); }
+        var keys=["schemaVersion","commandId","action","instance","generation","sequence","observedElapsedMs","controlId","controlToken"];
+        if (request.action === "replace") { keys.push("text"); }
+        if (["activate","replace","submit"].indexOf(request.action) === -1 || !objectKeysMatch(request,keys)
+                || !phoneChatNonce(request.instance) || !phoneChatNonce(request.generation)
+                || !phoneChatNonce(request.controlToken)
+                || !phoneFileInteger(request.sequence,1,9007199254740991)
+                || !phoneFileInteger(request.observedElapsedMs,0,9007199254740991) || typeof request.controlId !== "string") { return false; }
+        if (request.action === "replace") { return request.controlId === "chat.input" && typeof request.text === "string"
+            && !/[\x00-\x1f\x7f]/.test(request.text) && (request.text === "" || /^(?:Overte ä Ω 東京 |(?:reply|hidden|retry)-)[0-9a-f]{32}$/.test(request.text)); }
+        if (request.action === "submit") { return request.controlId === "chat.input"; }
+        var allowed=/^(?:tablet\.(?:home|page\.(?:[1-9]|[12][0-9]|3[0-2]))|chat\.(?:entry|input|send|close|local|domain))$/.exec(request.controlId);
+        return allowed !== null && allowed[0] === request.controlId;
+    }
     var lastPhoneCreateRequest = "";
     function validPhoneCreateRequest(request) {
         if (!request || request.schemaVersion !== 1 || !/^[0-9a-f]{32}$/.test(String(request.commandId))) { return false; }
@@ -1123,6 +1141,23 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "phone-chat-ui") {
+            if (command.schemaVersion === 1 && phoneChatNonce(command.commandId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
+                    && validPhoneChatRequest(command.request) && command.request.commandId === command.commandId
+                    && command.commandId !== lastPhoneChatRequest) {
+                lastPhoneChatRequest=String(command.commandId);
+                var chatUi={schemaVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.phoneChatUi === "function") {
+                        var chatOriginal=Test.phoneChatUi(command.request);
+                        if (chatOriginal && chatOriginal.commandId === command.commandId) { chatUi=chatOriginal; }
+                    }
+                } catch (_phoneChatError) { /* No raw private editor/exception export. */ }
+                Test.saveObject(chatUi,"phone-chat-ui.json");
+            }
+            return;
+        }
         if (command && command.action === "phone-create-ui") {
             if (command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                     && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
@@ -1635,7 +1670,7 @@
                 || command.action === "feature-chat-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
-                || command.action === "phone-login-ui" || command.action === "phone-create-ui"
+                || command.action === "phone-login-ui" || command.action === "phone-create-ui" || command.action === "phone-chat-ui"
                 || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui"
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"

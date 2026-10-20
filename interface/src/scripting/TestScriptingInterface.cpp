@@ -472,6 +472,7 @@ QVariantMap TestScriptingInterface::phoneScriptFileUi(const QVariantMap& command
 QVariantMap TestScriptingInterface::phoneAudioUi(const QVariantMap& command) { return phoneControlUi(command, 1); }
 QVariantMap TestScriptingInterface::phoneGraphicsUi(const QVariantMap& command) { return phoneControlUi(command, 2); }
 QVariantMap TestScriptingInterface::phoneCreateUi(const QVariantMap& command) { return phoneControlUi(command, 4); }
+QVariantMap TestScriptingInterface::phoneChatUi(const QVariantMap& command) { return phoneControlUi(command, 5); }
 QVariantMap TestScriptingInterface::phoneLoginUi(const QVariantMap& command) { return phoneControlUi(command, 3); }
 QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, int surfaceKind) {
     if (QThread::currentThread() != thread()) {
@@ -485,7 +486,7 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
     const auto root = ui->getRootItem();
     const auto window = ui->getWindow();
     const bool audioSurface = surfaceKind == 1;
-    if (surfaceKind < 0 || surfaceKind > 4) { return {}; }
+    if (surfaceKind < 0 || surfaceKind > 5) { return {}; }
     overte::e2e::GraphicsUiContext graphicsContext;
     overte::e2e::AudioUiContext audioContext;
     overte::e2e::LoginUiContext loginContext;
@@ -517,11 +518,14 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
         if (!_phoneLoginUi) { _phoneLoginUi=std::make_shared<overte::e2e::LoginUi>(); }
     } else if (surfaceKind == 4) {
         if (!_phoneCreateUi) { _phoneCreateUi=std::make_shared<overte::e2e::CreateUi>(); }
+    } else if (surfaceKind == 5) {
+        if (!_phoneChatUi) { _phoneChatUi=std::make_shared<overte::e2e::ChatUi>(); }
     } else if (!_phoneScriptFileUi) { _phoneScriptFileUi = std::make_shared<overte::e2e::ScriptFileUi>(); }
     auto controls = audioSurface ? static_cast<overte::e2e::NormalControlUi*>(_phoneAudioUi.get())
         : surfaceKind == 2 ? static_cast<overte::e2e::NormalControlUi*>(_phoneGraphicsUi.get())
         : surfaceKind == 3 ? static_cast<overte::e2e::NormalControlUi*>(_phoneLoginUi.get())
         : surfaceKind == 4 ? static_cast<overte::e2e::NormalControlUi*>(_phoneCreateUi.get())
+        : surfaceKind == 5 ? static_cast<overte::e2e::NormalControlUi*>(_phoneChatUi.get())
         : static_cast<overte::e2e::NormalControlUi*>(_phoneScriptFileUi.get());
     const auto request = QJsonObject::fromVariantMap(command);
     const auto id = request.value("commandId").toString();

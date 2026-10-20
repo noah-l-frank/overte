@@ -10,6 +10,7 @@ from self_tests.test_token_create_ui import Controls
 
 
 class CreateNativeBoundary:
+    wire_action='phone-create-ui'
     def __init__(self,directory):
         self.native=NativeCreate(directory);self.native.tablet=True;self.native.page='create'
         self.ui=Controls(self.native);self.ui.generation='b'*32;self.ui.pid=31
@@ -24,7 +25,7 @@ class CreateNativeBoundary:
             capturedEpochMs=20000,processId=31,ready=value['ready'],controls=value['controls'])
 
     def send(self,outer):
-        assert set(outer)=={'schemaVersion','commandId','action','request'} and outer['action']=='phone-create-ui'
+        assert set(outer)=={'schemaVersion','commandId','action','request'} and outer['action']==self.wire_action
         request=deepcopy(outer['request']);assert request['commandId']==outer['commandId'];self.commands.append(request)
         if request['action']=='observe':self.value=self.raw()|dict(commandId=request['commandId'],action='observe')
         else:
