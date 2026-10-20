@@ -138,10 +138,11 @@ class Client:
         self.url, self.token = url, reader_token
         self.monotonic,self.sleep=monotonic,sleep
 
-    def request(self, path, value=None, method=None, *, script_nonce=None):
+    def request(self, path, value=None, method=None, *, script_nonce=None, graphics_nonce=None):
         raw = None if value is None else json.dumps(value).encode()
         headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'}
         if script_nonce is not None:headers['X-Overte-Script-Read']=identifier(script_nonce)
+        if graphics_nonce is not None:headers['X-Overte-Graphics-Read']=identifier(graphics_nonce)
         request = Request(self.url + path, data=raw, method=method,
                           headers=headers)
         try:
@@ -196,6 +197,7 @@ class Client:
         exact(result, {'runId'}, 'feature fixture registration')
         self.run = identifier(result['runId'])
         self.area,self.closed=area,False
+        if area=='graphics':self.graphics_instance=self.graphics_previous=None
         return self.run, self.url + '/runs/' + self.run + '/'
 
     def activate(self, ticket, verb='baseline', inputs=None):
@@ -226,7 +228,33 @@ class Client:
             if self.navigation_status()['active']:raise ValueError('Navigation fixture cleanup is incomplete')
         if self.area=='scripts':
             if self.script_status()['active']:raise ValueError('Script fixture cleanup is incomplete')
+        if self.area=='graphics' and getattr(self,'graphics_instance',None) is not None:
+            if self.graphics_status()['active']:raise ValueError('Graphics fixture cleanup is incomplete')
         self.closed=True
+
+    def graphics_status(self):
+        if self.area!='graphics':raise ValueError('No owned Graphics provider')
+        from .graphics_resources import validate_status
+        if getattr(self,'graphics_instance',None) is None:
+            provider=self.request('/graphics-provider')
+            exact(provider,{'graphicsProviderVersion','instance','fixtureUrl','capturedEpochMs','ready','activeRuns',
+                'failedResponses','internalErrors'},'Graphics provider readiness')
+            if (type(provider['graphicsProviderVersion']) is not int or provider['graphicsProviderVersion']!=1
+                    or provider['fixtureUrl']!=self.url or type(provider['ready']) is not bool
+                    or type(provider['capturedEpochMs']) is not int or provider['capturedEpochMs']<=0
+                    or type(provider['activeRuns']) is not int or not 0<=provider['activeRuns']<=1
+                    or type(provider['failedResponses']) is not int or provider['failedResponses']!=0
+                    or type(provider['internalErrors']) is not int or provider['internalErrors']!=0):
+                raise ValueError('Required original Graphics provider is unavailable')
+            self.graphics_instance=identifier(provider['instance']);self.graphics_previous=None
+        nonce=secrets.token_hex(16)
+        value=self.request('/runs/'+self.run+'/graphics',graphics_nonce=nonce)
+        validate_status(value,instance=self.graphics_instance,run=self.run,url=self.url,request=nonce,
+            previous=self.graphics_previous)
+        if not -250<=time.time()*1000-value['capturedEpochMs']<=1500:
+            raise ValueError('Original Graphics provider snapshot is stale')
+        self.graphics_previous=copy.deepcopy(value)
+        return value
 
     def script_status(self):
         if self.area!='scripts':raise ValueError('No owned Script provider')

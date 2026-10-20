@@ -20,6 +20,13 @@ Controlled subject ownership, independent pixel-effect classification and the
 complete Graphics coordinator remain pending. This prerequisite enables no
 full feature capability and makes no native/device qualification claim.
 
+The [controlled Graphics HTTP scene provider](../../feature_journeys/GRAPHICS_SUBJECT.md)
+now serves an immutable original scene ticket from an explicitly configured
+actual origin, records original bounded socket writes and independently exposes
+retirement. Scene delivery remains a fixture input; it cannot supply product
+entity/view/render observations. Full Graphics ownership and coordination remain
+pending and its capability remains disabled.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

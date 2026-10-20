@@ -44,3 +44,48 @@ The generator is registered with four device-free construction/counterexample
 checks. They prove stimulus shape and isolation only. Native acquisition, actual
 geometry visibility and all product/device rendering remain unqualified. This
 fixture is an adapter prerequisite; it does not activate `feature.graphics.*`.
+
+## Controlled HTTP scene resource, version 1
+
+The existing fixture server now accepts an optional private configuration field
+`"graphicsProvider":{"fixtureUrl":"https://<actual-origin>/feature-fixture/v1"}`.
+The URL must be canonical, credential-free and match the real request scheme and
+Host exactly. No placeholder/forwarded/request-selected origin is used. The
+normal server lifecycle owns the provider; no additional test service is needed.
+
+`GET /graphics-provider` and `GET /runs/<run>/graphics` are private reader/actor
+routes. The latter requires exactly one fresh `X-Overte-Graphics-Read: <32hex>`
+nonce. Status version 1 identifies the provider birth, actual fixture URL, run,
+request nonce, original capture epoch, health, active ownership, current ticket,
+immutable scene ticket and complete bounded activation/HTTP response histories.
+`Client.graphics_status()` pins these identities and verifies append-only
+histories, clocks, original scene byte digest and request scope. An actor cannot
+activate or delete a run. Calling it does not set any product state.
+
+The first registered Graphics challenge becomes the immutable `sceneTicket`.
+`/runs/<run>/tickets/<sceneTicket>/graphics-scene.v1.json` supplies the original
+generated entity document with the actual owned marker URL. It remains byte
+stable across later challenges and ordinary app restarts; its marker page polls
+the independently current ticket. Another ticket cannot select a replacement
+scene. A missing provider, foreign run, changed origin or retired owner cannot
+serve a successful scene. Generic host simulations may still register Graphics
+without this optional provider; a complete product adapter must require it and
+must fail when it is absent.
+
+Each original HTTP response receipt records a unique response ID, serialized
+status, original byte length/SHA-256, scene and active tickets, request authority/
+scheme and start/completion epochs. The real socket write must be observed once
+and complete; ignored, truncated, changed or duplicate writes poison readiness
+and publish no receipt. Recorded non-200 status stays non-200. These are resource
+delivery facts only: they cannot prove that a client requested, loaded or rendered
+the subject. Actual native entity/view and same-frame image checks remain required.
+
+Retirement holds the same ownership lock as in-flight scene delivery, preserves
+original histories and prevents later scene replies. An independently read
+retired status is required after the reader's delete ACK when this provider has
+been attached. Native Web cancellation, entity absence, preference/view restoration
+and host journal retirement remain separate required cleanup. Provider bounds
+are 32 retained runs, one active Graphics run and 256 activations/responses per
+run. Exhaustion retains provenance and fails closed. All routes retain the
+existing authorization, no-store headers, private logging and two-second socket
+budget; these are host-only fixture changes, not device acceptance.
