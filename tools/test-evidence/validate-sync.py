@@ -166,6 +166,10 @@ def _parent_provenance(evidence, reused, gate):
         return None
     if isinstance(evidence, getattr(gate, 'NativePrEvidence', ())):
         return None  # This PR's execution must never be described as parent proof.
+    if isinstance(evidence, getattr(gate, 'NativeExactTreeParentEvidence', ())):
+        return {key: evidence[key] for key in ('kind', 'source', 'parent_branch', 'parent_commit',
+            'parent_tree', 'original_commit', 'qualified_at', 'expires_at', 'original_proof', 'original_report')} | {
+            'qualification': False, 'reusable': False, 'inherited_suites': list(reused)}
     if isinstance(evidence, getattr(gate, 'NativeParentEvidence', ())):
         return {key: evidence[key] for key in ('kind', 'parent_branch', 'parent_commit', 'parent_tree',
             'original_commit', 'original_git_context', 'qualified_at', 'expires_at', 'original_proof')} | {
@@ -435,8 +439,11 @@ def _native_ci_reuse(args, gate, api, config, request, registry, local_tree, sel
     if args.mode != "reuse" or not callable(getattr(gate, 'native_parent_evidence', None)):
         return None, [], list(selected)
     if native_evidence is None:
+        exact = getattr(gate, 'native_exact_tree_parent_evidence', None)
+        evidence = exact(api, config, request) if callable(exact) and not selection.get('native_current_owner_required') else None
         current = getattr(gate, 'native_pr_evidence', None)
-        evidence = current(api, config, request) if callable(current) else None
+        if evidence is None:
+            evidence = current(api, config, request) if callable(current) else None
         if evidence is None:
             if selection.get('native_current_owner_required'):
                 raise ValidationError('selected native current owner is unavailable; second execution is forbidden')
@@ -446,6 +453,12 @@ def _native_ci_reuse(args, gate, api, config, request, registry, local_tree, sel
                 return None, [], list(selected)
     else:
         evidence = native_evidence
+    if isinstance(evidence, getattr(gate, 'NativeExactTreeParentEvidence', ())):
+        if evidence.get('candidate_inputs') != local_tree or evidence.get('requested_suites') != selected \
+                or evidence.get('reusable') is not False or evidence.get('qualification') is not False \
+                or selection.get('native_current_owner_required'):
+            raise ValidationError('identical-tree original CI proof differs from selected current inputs')
+        return evidence, list(selected), []
     original_pr = isinstance(evidence, getattr(gate, 'NativePrEvidence', ()))
     if selection.get('native_current_owner_required') and not original_pr:
         raise ValidationError('selected current PR cannot be replaced with parent evidence')
@@ -513,9 +526,10 @@ def _native_zero_setup(args, gate, api, config, request, candidate, initial, reg
     if evidence is None or required or reused != selected:
         return None, None
     original_pr = isinstance(evidence, getattr(gate, 'NativePrEvidence', ()))
+    identical = isinstance(evidence, getattr(gate, 'NativeExactTreeParentEvidence', ()))
     if original_pr:
         _native_current_platform(args, gate, api, request, candidate, registry, selection, evidence)
-    if not original_pr and execution.platform_suites(candidate, registry['suites']):
+    if not original_pr and not identical and execution.platform_suites(candidate, registry['suites']):
         return None, None
     if gate.parse_time(evidence['expires_at'], 'expires_at') <= datetime.now(timezone.utc):
         return None, None
@@ -532,10 +546,19 @@ def _native_zero_setup(args, gate, api, config, request, candidate, initial, reg
             platform_partition=evidence.get('platform_partition'))
     else:
         value['parent_commit'] = evidence['parent_commit']
+        if identical:
+            value.update(kind='native-exact-tree-parent-zero-command-setup-v1', source=evidence['source'])
     return execution.digest(value), evidence
 
 
 def _recheck_native_ci(gate, api, config, request, evidence, registry, local_tree, reused):
+    if isinstance(evidence, getattr(gate, 'NativeExactTreeParentEvidence', ())):
+        final = gate.native_exact_tree_parent_evidence(api, config, request)
+        if not isinstance(final, gate.NativeExactTreeParentEvidence) or final != evidence \
+                or final.get('candidate_inputs') != local_tree or final.get('requested_suites') != reused \
+                or gate.parse_time(final['expires_at'], 'expires_at') <= datetime.now(timezone.utc):
+            raise ValidationError('identical-tree original CI proof changed after differential validation')
+        return
     original_pr = isinstance(evidence, getattr(gate, 'NativePrEvidence', ()))
     try:
         final = (gate.native_pr_evidence(api, config, request, timeout=0) if original_pr
@@ -798,6 +821,9 @@ def validate_sync(args, *, api=None):
     if final_pending != pending:
         raise ValidationError("Android sync ownership or source PR labels changed during execution")
     _recheck(api, gate, request)
+    identical = isinstance(evidence, getattr(gate, 'NativeExactTreeParentEvidence', ()))
+    if identical:
+        mode = 'native-exact-tree-parent'
     result = {
         "schema": 1, "producer": PRODUCER, "repository": request.repository,
         "repository_id": request.repository_id, "pull_request": request.number,
@@ -813,6 +839,8 @@ def validate_sync(args, *, api=None):
     }
     if pending:
         result.update(pending_platform_owners=pending, reusable=False, qualification=False)
+    if identical:
+        result.update(reusable=False, qualification=False)
     if external_packages:
         # The required project aggregate owns these checks. This consumer does
         # not claim their execution or fabricate a successful JUnit case.
