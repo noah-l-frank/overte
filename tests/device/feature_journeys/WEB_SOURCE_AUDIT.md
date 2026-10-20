@@ -1,7 +1,8 @@
 # Browser source audit and unresolved v9 assumptions
 
 This audit is a prerequisite for complete world/tablet browser adapters. The
-existing shared v9 browser scenarios are draft test logic; their source semantics
+existing v9 browser scenarios, carried unchanged into shared v10, are draft
+test logic; their source semantics
 are not yet qualified. Missing adapters must continue to fail the mandatory area
 gates. Do not implement success receipts that conceal the following mismatches.
 Native source additions require separate source review, host checks and later

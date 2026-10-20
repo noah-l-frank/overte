@@ -1,4 +1,4 @@
-# Chat source and adapter boundary, common journey v7
+# Chat source and adapter boundary, common journey v10
 
 The reviewed Phone (`718d069add`), Pico (`c5bf8ac17b`) and iOS (`864f8b79a4`)
 product bases contain identical relevant sources:
@@ -86,3 +86,26 @@ ledger, authenticated actor publication, service orchestration and whole-run
 cleanup are still required on all three adapters. The existing domain
 peer's movement/heartbeat supplies none of those Chat delivery facts. Native
 instrumentation is uncompiled and all physical tests remain unperformed.
+
+## Version 10 active-page and independent UI correction
+
+The closed page has no active channel: report `channel:none`, empty draft/visible
+rows and no actual editor focus/keyboard. Never return the QML default local as
+a measured property after the component was destroyed. Ordinary reopening must
+measure the new original page's actual Local channel and stored history.
+
+All ten Chat state fields are now independently witnessed, including draft,
+focus and **actual** OS/VR keyboard visibility. Open/type checkpoints require
+peer evidence too; declaring extra witness keys without checking them during
+typing would allow a fake empty draft/focus witness to pass. QML keyboardRaised
+is only a request and cannot populate actual keyboard. Tab pointer focus/keyboard
+aftermath is read and may be either valid source outcome; a raised keyboard
+still requires actual editor focus. The native QML MouseAreas do not explicitly
+blur the TextArea, so the contract must not invent that side effect.
+
+The 25-step flow now includes real background/resume after reopening/selecting
+the retained Domain history. Require actual native lifecycle advancement, the
+retained original channel/history and released editor focus/keyboard on resume.
+Ignored lifecycle input, reset channel, lost history or a ghost keyboard fails.
+Source-correct closed-page cleanup and all original native/source/resource
+requirements remain mandatory. Full adapter implementations are still missing.

@@ -1,3 +1,24 @@
+# Version 10: actual closed Chat page and independent UI/lifecycle facts
+
+Current feature-journey producers/readers use v10 exclusively. A destroyed Chat
+page has no actual active channel (`none`); ordinary open measures Local anew.
+All ten state fields, including draft/focus/actual keyboard, are independently
+witnessed at meaningful open/type checkpoints. Tab focus outcomes are observed,
+not inferred from a requested channel. A real background/resume checkpoint now
+requires preserved channel/history, native lifecycle advancement and released
+editor/keyboard. This changes the complete flow to 25 steps.
+
+No qualified complete product adapter advertised v9. The old v9 JSON files remain
+historical; do not translate a v9 sample into v10 by filling newly required
+independent facts or relabeling an absent QML property. Existing native primitive
+versions, snapshot v9 Save profiles, resource/journal transport and older
+foundations retain their own contracts. World/tablet browser drafts still require
+the separate documented source correction; this Chat increment does not qualify
+those adapters. Current inventory/matrix files are adapter-contract.v10.json and
+coverage.v10.json. Required capability gates and all device status distinctions
+remain unchanged. References to current files/readers in the historical
+sections below describe their own revisions, not the active v10 contract.
+
 # Common feature journey migration: current version 9
 
 ## Version 9: actual Snapshot capture, Save backends and external originals

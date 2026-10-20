@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 9
+VERSION = 10
 
 
 def emote_rows():
@@ -200,36 +200,37 @@ SCENARIOS = {
 # only an independent actual peer ledger proves remote delivery.
 'chat': scenario('Channel histories, cancelled draft, local fallback and explicit resend',
     dict(draft='', messages=[], localMessages=[], domainMessages=[], peerMessages=[],
-         channel='local', mixerConnected=True, focused=False, keyboard=False, open=False), [
-    ('open', {}, dict(open=True), []),
-    ('type', dict(text='$unicode'), dict(draft='$unicode', focused=True, keyboard=True), []),
-    ('close', {}, dict(open=False, draft='', focused=False, keyboard=False), ['peer']),
-    ('open', {}, dict(open=True), []),
-    ('select-channel', dict(channel='domain'), dict(channel='domain'), ['peer']),
-    ('type', dict(text='$unicode'), dict(draft='$unicode', focused=True, keyboard=True), []),
+         channel='none', mixerConnected=True, focused=False, keyboard=False, open=False), [
+    ('open', {}, dict(open=True,channel='local'), ['peer']),
+    ('type', dict(text='$unicode'), dict(draft='$unicode', focused=True, keyboard=True), ['peer']),
+    ('close', {}, dict(open=False, draft='', channel='none', focused=False, keyboard=False), ['peer']),
+    ('open', {}, dict(open=True,channel='local'), ['peer']),
+    ('select-channel', dict(channel='domain'), dict(channel='domain',focused={'oneOf':[False,True]},keyboard={'oneOf':[False,True]}), ['peer']),
+    ('type', dict(text='$unicode'), dict(draft='$unicode', focused=True, keyboard=True), ['peer']),
     ('send', {}, dict(draft='', messages=['$unicode'], domainMessages=['$unicode'], peerMessages=['$unicode'],
         focused={'oneOf':[False,True]}, keyboard={'oneOf':[False,True]}), ['peer']),
     ('peer-send', dict(text='$reply', channel='domain'), dict(messages=['$unicode','$reply'], domainMessages=['$unicode','$reply']), ['peer']),
-    ('select-channel', dict(channel='local'), dict(channel='local', messages=[], focused=False, keyboard=False), ['peer']),
+    ('select-channel', dict(channel='local'), dict(channel='local', messages=[], focused={'oneOf':[False,True]}, keyboard={'oneOf':[False,True]}), ['peer']),
     ('peer-send', dict(text='$hidden', channel='domain'), dict(domainMessages=['$unicode','$reply','$hidden']), ['peer']),
     ('peer-send', dict(text='$reply', channel='local'), dict(messages=['$reply'], localMessages=['$reply']), ['peer']),
     ('peer-send-distant', dict(text='$hidden', channel='local'), {}, ['peer']),
-    ('select-channel', dict(channel='domain'), dict(channel='domain', messages=['$unicode','$reply','$hidden']), ['peer']),
-    ('close', {}, dict(open=False, draft='', focused=False, keyboard=False, channel='local', messages=[]), ['peer']),
-    ('open', {}, dict(open=True, messages=['$reply']), ['peer']),
-    ('select-channel', dict(channel='domain'), dict(channel='domain', messages=['$unicode','$reply','$hidden']), ['peer']),
+    ('select-channel', dict(channel='domain'), dict(channel='domain', messages=['$unicode','$reply','$hidden'], focused={'oneOf':[False,True]}, keyboard={'oneOf':[False,True]}), ['peer']),
+    ('close', {}, dict(open=False, draft='', focused=False, keyboard=False, channel='none', messages=[]), ['peer']),
+    ('open', {}, dict(open=True, channel='local', messages=['$reply']), ['peer']),
+    ('select-channel', dict(channel='domain'), dict(channel='domain', messages=['$unicode','$reply','$hidden'], focused={'oneOf':[False,True]}, keyboard={'oneOf':[False,True]}), ['peer']),
+    ('background-resume', {}, dict(focused=False,keyboard=False), ['peer']),
     ('network-remove-mixer', {}, dict(mixerConnected=False), ['peer']),
-    ('type', dict(text='$retry'), dict(draft='$retry', focused=True, keyboard=True), []),
+    ('type', dict(text='$retry'), dict(draft='$retry', focused=True, keyboard=True), ['peer']),
     ('send', {}, dict(draft='', messages=['$unicode','$reply','$hidden','$retry'],
         domainMessages=['$unicode','$reply','$hidden','$retry'],
         focused={'oneOf':[False,True]}, keyboard={'oneOf':[False,True]}), ['peer']),
     ('network-restore-mixer', {}, dict(mixerConnected=True), ['peer']),
     ('await-no-replay', {}, {}, ['peer']),
-    ('type', dict(text='$retry'), dict(draft='$retry', focused=True, keyboard=True), []),
+    ('type', dict(text='$retry'), dict(draft='$retry', focused=True, keyboard=True), ['peer']),
     ('send', {}, dict(draft='', messages=['$unicode','$reply','$hidden','$retry','$retry'],
         domainMessages=['$unicode','$reply','$hidden','$retry','$retry'], peerMessages=['$unicode','$retry'],
         focused={'oneOf':[False,True]}, keyboard={'oneOf':[False,True]}), ['peer']),
-    ('close', {}, dict(open=False, draft='', channel='local', messages=[], focused=False, keyboard=False), ['peer']),
+    ('close', {}, dict(open=False, draft='', channel='none', messages=[], focused=False, keyboard=False), ['peer']),
 ]),
 # OS-specific Save rows are selected only after independently witnessing a
 # supported actual backend. Capture/share/upload/cleanup remain mandatory.
