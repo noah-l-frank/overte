@@ -39,6 +39,13 @@ INDEPENDENT_ROOTS = (
 )
 FOREIGN_LOCKS = frozenset({"browser-client/package-lock.json",
                           "script-archive/marketplace/S3Server/package-lock.json"})
+REVIEWED_CI_INPUTS = frozenset({
+    ".github/android-orchestration.json", "tests/PROJECT_TESTING.md",
+    "tests/android-orchestration-test.py", "tools/repository-checks/android_gate.py",
+    "tools/repository-checks/host_selection.py", "tools/sync-test-reuse/gate.py",
+    "tools/sync-test-reuse/test.py", "tools/test-evidence/affected-test.py",
+    "tools/test-evidence/validate-sync-test.py", "tools/test-evidence/validate-sync.py",
+})
 HERMETIC_METADATA_TEST = "android/phone/tests/phone-release-metadata-test.py"
 HERMETIC_METADATA_BLOB = "8f0968ab4af834577b894971af09244cb9c82316"
 BLOCKERS = {"extended-tier-prerequisite-transfer", "advisory-profile-owner-handoff",
@@ -220,6 +227,68 @@ def _reviewed_lock_delta(candidate, event, sha, source, before, paths, anchor, *
         return None
 
 
+def _reviewed_ci_delta(source, before, paths, policy, branch, event, *, event_name, policy_root):
+    """Scheduling only; actual B/M remain unchanged and supply no test result."""
+    if event_name != "pull_request" or before is None or not paths \
+            or not set(paths).issubset(REVIEWED_CI_INPUTS):
+        return False
+    owner = android()
+    if set(paths).intersection(owner.EXECUTION_FILES):
+        return False
+    try:
+        if _diagnostic_presence(event["pull_request"].get("labels", [])):
+            return False
+        if paths != sorted(path for path in source.entries.keys() | before.entries.keys()
+                           if source.entries.get(path) != before.entries.get(path)):
+            return False
+        trusted = _sources(policy_root)
+        if policy != trusted.json(POLICY) or source.entries.get(POLICY) != trusted.entries.get(POLICY):
+            return False
+        for path in paths:
+            if any(tree.entries.get(path, {}).get("type") != "blob" or
+                   tree.entries[path]["mode"] not in {"100644", "100755"} for tree in (before, source)) \
+                    or source.entries[path] != trusted.entries.get(path):
+                return False
+        # Only the already source-bound lock records may change within policy.
+        old_policy, new_policy = before.json(POLICY), source.json(POLICY)
+        if type(old_policy) is not dict or type(new_policy) is not dict:
+            return False
+        old_records, new_records = old_policy.pop("reviewed_lock_sources"), new_policy.pop("reviewed_lock_sources")
+        if type(old_records) is not dict or type(new_records) is not dict \
+                or old_policy != new_policy or set(old_records) != set(new_records) \
+                or set(new_records) != set(policy["reviewed_lock_sources"]):
+            return False
+        for records in (old_records, new_records):
+            if any(type(row) is not dict or set(row) != {"commit", "tree", "readers", "entries"}
+                    or any(type(row[k]) is not str or re.fullmatch("[0-9a-f]{40}", row[k]) is None for k in ("commit", "tree"))
+                    or type(row["readers"]) is not str or re.fullmatch("sha256:[0-9a-f]{64}", row["readers"]) is None
+                    or type(row["entries"]) is not int or row["entries"] < 0 for row in records.values()):
+                return False
+        anchor = policy["reviewed_lock_sources"][branch]
+        if anchor["entries"] <= 0:
+            return False
+        for tree in (before, source):
+            if tree.entries.get(HERMETIC_METADATA_TEST) != {
+                    "mode": "100755", "type": "blob", "sha": HERMETIC_METADATA_BLOB} \
+                    or any(tree.entries.get(path, {}).get("mode") != "100644" or
+                           tree.entries[path].get("type") != "blob" for path in FOREIGN_LOCKS):
+                return False
+        # This comparison copy is never passed to source admission or emitted
+        # as historical provenance. It replaces only the checked canonical CI
+        # entries, retaining the complete negative inventory on both sides.
+        compared = {**before.entries, **{path: source.entries[path] for path in paths}}
+        if any(len(entries) - len(FOREIGN_LOCKS) != anchor["entries"] or
+               lock_reader_identity(entries) != anchor["readers"] for entries in (source.entries, compared)):
+            return False
+        if validate_tree_wiring(source.entries, policy_root=policy_root) not in CURRENT_SOURCE_GENERATIONS \
+                or validate_tree_wiring(trusted.entries, policy_root=policy_root) not in CURRENT_SOURCE_GENERATIONS:
+            return False
+        packages().validate_tree_wiring(before.entries)
+        return True
+    except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError):
+        return False
+
+
 def _policy_identity(policy_root):
     owner = android()
     names = [POLICY, ".github/android-checks.json", ".github/package-workflow-generations.json",
@@ -333,6 +402,9 @@ def candidate_plan(candidate, event, sha, *, event_name="pull_request", policy_r
                 policy["reviewed_lock_sources"][branch], event_name=event_name, base=base, head=head)
             if lock_package_plan is not None:
                 selected, reason = False, "reviewed-package-lock-inputs"
+        elif _reviewed_ci_delta(source, before, paths, policy, branch, event,
+                event_name=event_name, policy_root=policy_root):
+            selected, reason = False, "reviewed-canonical-ci-inputs"
         elif before is not None and all(path.startswith(INDEPENDENT_ROOTS) for path in paths):
             regular = all(item is None or item["mode"] in {"100644", "100755"} and item["type"] == "blob"
                           for path in paths for item in (before.entries.get(path), source.entries.get(path)))

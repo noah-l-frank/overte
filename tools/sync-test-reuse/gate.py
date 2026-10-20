@@ -1947,10 +1947,10 @@ def _metadata_standalone_owners(api, request, source, validator, registry, repor
         protected_tree=commit_tree(commit(api, request.repository, source)))
     validator.verify_standalone_ci_provenance(report['standalone_owner_evidence'], proof,
         request, normal_parent=normal_parent)
-    if max(parse_time(job['completed_at'], 'standalone owner completion')
-            for job in proof['native']['selected_jobs'].values()) > parse_time(
-                report['execution']['started_at'], 'remaining commands start'):
-        raise GateError('standalone commands were not completed before the remaining CI execution')
+    if max(parse_time(job['completed_at'], 'standalone native completion')
+            for job in proof['native']['jobs'] if job['name'] in proof['native']['checks']) > parse_time(
+                report['completed_at'], 'mixed report completion'):
+        raise GateError('standalone native owners were not completed before the mixed report')
     return proof
 
 
@@ -2123,12 +2123,12 @@ def retain_metadata_owner(event, config, api, *, environment=None, now=None):
     request = classify_event(event, config, api)
     if request is None or request.repair_paths or request.profile in {'documentation', 'tool-dependencies'}:
         raise GateError('metadata retention requires the exact independently selected Sync context')
-    if any(env.get(k) != v for k, v in {'GITHUB_REF': 'refs/heads/' + request.base,
-            'GITHUB_SHA': request.base_sha, 'GITHUB_WORKFLOW_SHA': request.base_sha,
-            'GITHUB_WORKFLOW_REF': request.repository + '/.github/workflows/sync-test-reuse.yml@refs/heads/' + request.base}.items()):
-        raise GateError('metadata current native caller recipe/base differs')
-    prefix = 'repos/' + request.repository
     source = _dispatch_checkout_source()
+    if any(env.get(k) != v for k, v in {'GITHUB_REF': 'refs/heads/main',
+            'GITHUB_SHA': source, 'GITHUB_WORKFLOW_SHA': source,
+            'GITHUB_WORKFLOW_REF': request.repository + '/.github/workflows/sync-test-reuse.yml@refs/heads/main'}.items()):
+        raise GateError('metadata current native caller recipe/default differs')
+    prefix = 'repos/' + request.repository
     _dispatch_source(api, config, request.repository, source)
     registration = api.json(prefix + '/actions/workflows/350930894')
     if (registration.get('id'), registration.get('path'), registration.get('state')) != (

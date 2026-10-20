@@ -1825,6 +1825,37 @@ class StandaloneNativeOwnersTests(unittest.TestCase):
             'tree':[{'path':p,**v}for p,v in self.tree.items()]}
         self.calls=[]
 
+    def android_owners(self):
+        self.request.base='android-main';self.pr['base']['ref']='android-main'
+        self.docs[self.prefix+'/branches/android-main']={'name':'android-main','protected':True,'commit':{'sha':self.b}}
+        self.docs[self.prefix+'/git/ref/heads/android-main']={'object':{'type':'commit','sha':self.b}}
+        self.jobs[:]=[job for job in self.jobs if job['name']!='android']
+        path='.github/workflows/android-required.yml';raw=(VALIDATION.ROOT/path).read_bytes()
+        self.tree[path]={'mode':'100644','type':'blob','sha':__import__('hashlib').sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+        for run in (self.run,self.docs[self.prefix+'/actions/runs/901'],self.docs[self.prefix+'/actions/runs/901/attempts/1'],
+                self.docs[self.prefix+'/actions/workflows/900/runs?head_sha='+self.h+'&per_page=100']['workflow_runs'][0]):
+            run['referenced_workflows'].append({'path':self.repo['full_name']+'/'+path+'@'+self.m,
+                'sha':self.m,'ref':'refs/pull/42/merge'})
+        steps=('Independently select the complete Android union',
+            'Execute and verify the independently selected Android owners once',
+            'Recompute candidate union and require complete successful ownership')
+        for index,(role,step)in enumerate(zip(('route','execute','verify'),steps)):
+            identifier=930+index
+            start,end=(('20:01:00','20:02:00'),('20:02:00','20:03:00'),('20:03:00','20:04:00'))[index]
+            stamp=lambda value:'2026-10-20T'+value+'Z'
+            job={'id':identifier,'name':'android / '+role,'run_id':901,'run_attempt':1,'head_sha':self.h,
+                'status':'completed','conclusion':'success','started_at':stamp(start),'completed_at':stamp(end),
+                'check_run_url':'https://api.github.com/'+self.prefix+'/check-runs/'+str(identifier),
+                'steps':[{'name':step,'status':'completed','conclusion':'success',
+                    'started_at':stamp(start),'completed_at':stamp(end)}]}
+            self.jobs.append(job)
+            self.docs[self.prefix+'/check-runs/'+str(identifier)]={'id':identifier,'name':job['name'],'head_sha':self.h,
+                'status':'completed','conclusion':'success','app':{'id':15368},'check_suite':{'id':902},
+                'started_at':job['started_at'],'completed_at':job['completed_at'],
+                'pull_requests':deepcopy(self.run['pull_requests']),
+                'details_url':'https://github.com/'+self.repo['full_name']+'/actions/runs/901/job/'+str(identifier)}
+        self.docs[self.prefix+'/actions/runs/901/attempts/1/jobs?per_page=100']['total_count']=len(self.jobs)
+
     def verify(self, *, mutate=None, normal_parent=None, controller=None, observation_clock=None):
         owner=self
         class API:
@@ -1856,6 +1887,39 @@ class StandaloneNativeOwnersTests(unittest.TestCase):
         self.assertEqual(self.calls.count(self.prefix+'/git/trees/'+self.t+'?recursive=1'),1)
         self.assertEqual(self.calls.count(self.prefix+'/check-runs/910'),0,'unrelated skipped jobs grant no command coverage')
         self.assertLessEqual(len(self.calls),50)
+
+    def test_completed_independent_Android_three_job_owner_still_supplies_only_four_CI_commands(self):
+        self.android_owners();proof=self.verify()
+        self.assertEqual(len(proof['suites']),4);self.assertEqual(set(proof['commands']),set(VALIDATION.STANDALONE_CI_COMMANDS))
+        self.assertEqual(set(proof['native']['selected_jobs']),{'documentation / documentation','workflow-contracts'})
+        self.assertTrue({'android / route','android / execute','android / verify'}<=proof['native']['checks'].keys())
+        self.assertIs(proof['qualification'],False);self.assertIs(proof['reusable'],False)
+        self.assertNotIn('platform_results',proof);self.assertNotIn('environment',proof)
+
+    def test_incomplete_failed_pending_or_foreign_Android_owner_cannot_supply_command_coverage(self):
+        self.android_owners()
+        for shape in ('missing','duplicate','unknown','mixed','failed','pending','attempt','head','app','step','step-failed','source','ordering'):
+            def change(path,value):
+                if path.endswith('/jobs?per_page=100'):
+                    row=next(j for j in value['jobs']if j['name']=='android / execute')
+                    if shape=='missing':value['jobs'].remove(row);value['total_count']-=1
+                    elif shape in ('duplicate','mixed'):
+                        extra=deepcopy(row);extra['id']=990
+                        if shape=='mixed':extra.update(name='android',conclusion='skipped',steps=[])
+                        value['jobs'].append(extra);value['total_count']+=1
+                    elif shape=='unknown':row['name']='android / foreign'
+                    elif shape=='failed':row['conclusion']='failure'
+                    elif shape=='pending':row.update(status='in_progress',conclusion=None,completed_at=None)
+                    elif shape=='attempt':row['run_attempt']=2
+                    elif shape=='head':row['head_sha']='a'*40
+                    elif shape=='step':row['steps'][0]['name']='Run a different owner'
+                    elif shape=='step-failed':row['steps'][0]['conclusion']='failure'
+                    elif shape=='ordering':row['started_at']='2026-10-20T20:00:30Z'
+                if shape=='app'and path.endswith('/check-runs/931'):value['app']['id']=1
+                if shape=='source'and path.endswith('/actions/runs/901'):value['referenced_workflows'][-1]['sha']='a'*40
+                return value
+            with self.subTest(shape=shape),self.assertRaises((VALIDATION.ValidationError,self.gate.GateError)):
+                self.verify(mutate=change)
 
     def test_wrong_attempt_source_recipe_App_steps_incomplete_inventory_and_failure_are_denied(self):
         variants = [
@@ -1938,7 +2002,7 @@ class StandaloneNativeOwnersTests(unittest.TestCase):
         self.docs[self.prefix+'/git/commits/'+normal]['parents'].reverse()
         with self.assertRaises(VALIDATION.ValidationError):self.verify(normal_parent=normal)
 
-    def test_only_pending_retries_are_bounded_before_execution(self):
+    def test_only_pending_proof_retries_are_bounded(self):
         proof=VALIDATION.NativeStandaloneCIProof({'fixture':'completed native facts'})
         with patch.object(VALIDATION,'verify_standalone_ci_owners',side_effect=[VALIDATION.StandalonePending('pending'),proof])as verify, \
                 patch.object(VALIDATION.time,'monotonic',return_value=0),patch.object(VALIDATION.time,'sleep')as sleep:
@@ -2001,12 +2065,18 @@ class StandaloneNativeConsumerTests(unittest.TestCase):
             '.github/test-suites.json':{'mode':'100644','type':'blob','sha':'b'*40}})
         self.schedule_inputs={key:deepcopy(tree)for key in ('base_tree','candidate_tree','trusted_tree')}
 
-    def run_case(self, *, opening=None, closing=None, reuse=None):
+    def run_case(self, *, opening=None, closing=None, reuse=None, probe=None):
         f=self.f
+        observations=0
+        def observe(*args,**kwargs):
+            nonlocal observations
+            observations+=1
+            read=probe if observations==1 else closing
+            return deepcopy(self.proof)if read is None else read(*args,**kwargs)
         with patch.object(VALIDATION,'_ci_selection',return_value=deepcopy(self.selection)), \
                 patch.object(VALIDATION,'_native_ci_reuse',return_value=reuse or(None,[],self.names)), \
                 patch.object(VALIDATION,'_native_standalone_ci_owners',side_effect=opening or(lambda *a:deepcopy(self.proof)))as owner, \
-                patch.object(VALIDATION,'verify_standalone_ci_owners',side_effect=closing or(lambda *a,**k:deepcopy(self.proof))), \
+                patch.object(VALIDATION,'verify_standalone_ci_owners',side_effect=observe), \
                 patch.object(VALIDATION,'_recheck_native_ci'),patch.object(runtime,'capture_host_environment',side_effect=AssertionError('no E capture')):
             result=f.validate()
             return result,owner
@@ -2019,13 +2089,57 @@ class StandaloneNativeConsumerTests(unittest.TestCase):
         self.assertEqual([c.get('name')for c in xml.iter('testcase')],self.required)
         self.assertIs(result['reusable'],False);self.assertIs(result['qualification'],False)
         self.assertEqual(result['execution']['requested_suites'],self.required)
-        self.assertEqual(result['standalone_owner_evidence'],self.proof);self.assertEqual(owner.call_count,1)
+        self.assertEqual(result['standalone_owner_evidence'],self.proof);owner.assert_not_called()
 
-    def test_pending_or_failed_native_proof_blocks_before_any_candidate_command(self):
-        for error in (VALIDATION.StandalonePending('pending'),VALIDATION.ValidationError('failed')):
+    def test_completed_independent_Android_still_leaves_only33_CI_commands_to_execute(self):
+        self.proof['native']={'jobs':[{'name':'android / '+role,'status':'completed','conclusion':'success'}
+            for role in ('route','execute','verify')]}
+        result,owner=self.run_case()
+        self.assertEqual(result['executed_suites'],self.required);self.assertEqual(len(self.f.executed()),33)
+        self.assertEqual(result['reused_suites'],self.proof['suites']);owner.assert_not_called()
+        self.assertIs(result['qualification'],False);self.assertNotIn('platform_results',result)
+
+    def test_known_failed_or_invalid_native_proof_blocks_before_any_candidate_command(self):
+        for proof in (None,dict(self.proof),VALIDATION.NativeStandaloneCIProof(dict(self.proof,suites=[]))):
+            with self.subTest(proof=proof),self.assertRaises(VALIDATION.ValidationError):
+                self.run_case(probe=lambda *a,**k:proof)
+            self.assertEqual(self.f.executed(),[]);self.assertFalse(self.f.args.receipt.exists())
+        with self.assertRaises(VALIDATION.ValidationError):
+            self.run_case(probe=lambda *a,**k:(_ for _ in()).throw(VALIDATION.ValidationError('failed')))
+        self.assertEqual(self.f.executed(),[]);self.assertFalse(self.f.args.receipt.exists())
+
+    def test_pending_native_Android_allows33_concurrently_but_no_report_until_completed_proof(self):
+        self.proof['native']={'jobs':[{'name':'android / '+role,'status':'completed','conclusion':'success'}
+            for role in ('route','execute','verify')]}
+        def pending(*args,**kwargs):
+            self.assertEqual(self.f.executed(),[]);self.assertFalse(self.f.args.receipt.exists())
+            raise VALIDATION.StandalonePending('original Android is running')
+        def completed(*args):
+            self.assertEqual(self.f.executed(),['alpha']*len(self.required))
+            observed=json.loads(Path(str(self.f.args.receipt)+'.ci-execution.json').read_bytes())
+            self.assertEqual(observed['requested_suites'],self.required)
+            self.assertFalse(self.f.args.receipt.exists(),'33 alone must never produce a successful report')
+            return deepcopy(self.proof)
+        result,owner=self.run_case(probe=pending,opening=completed)
+        owner.assert_called_once()
+        self.assertEqual(result['executed_suites'],self.required)
+        self.assertEqual(result['reused_suites'],self.proof['suites'])
+        self.assertIs(result['qualification'],False);self.assertIs(result['reusable'],False)
+
+    def test_failed_or_still_pending_final_owner_cannot_report_success_or_repeat_native_four(self):
+        for error in (VALIDATION.ValidationError('Android failed'),VALIDATION.StandalonePending('wait expired')):
+            self.f.log.unlink(missing_ok=True)
+            def pending(*args,**kwargs):raise VALIDATION.StandalonePending('original Android is running')
+            def failed(*args):
+                self.assertEqual(self.f.executed(),['alpha']*len(self.required))
+                observed=json.loads(Path(str(self.f.args.receipt)+'.ci-execution.json').read_bytes())
+                self.assertEqual(observed['requested_suites'],self.required)
+                self.assertFalse(self.f.args.receipt.exists())
+                raise error
             with self.subTest(error=type(error)),self.assertRaises(VALIDATION.ValidationError):
-                self.run_case(opening=lambda *a:(_ for _ in()).throw(error))
-            self.assertEqual(self.f.executed(),[])
+                self.run_case(probe=pending,opening=failed)
+            self.assertEqual(self.f.executed(),['alpha']*len(self.required))
+            self.assertFalse(self.f.args.receipt.exists())
 
     def test_closing_drift_does_not_retry_or_repeat_the_completed33(self):
         changed=deepcopy(self.proof);changed['candidate']='a'*40
@@ -2038,7 +2152,7 @@ class StandaloneNativeConsumerTests(unittest.TestCase):
         self.assertEqual(result['reused_suites'],self.names);self.assertEqual(self.f.executed(),[])
         owner.assert_not_called();self.assertNotIn('standalone_owner_evidence',result)
 
-    def test_independent_Android_schedule_keeps_prior37_without_entering_native_factory(self):
+    def test_independent_product_schedule_keeps_prior37_without_entering_native_factory(self):
         f=self.f
         for name,command in VALIDATION.STANDALONE_CI_COMMANDS.items():
             path=f.candidate/command[1];path.parent.mkdir(parents=True,exist_ok=True)
@@ -2061,7 +2175,7 @@ class StandaloneNativeConsumerTests(unittest.TestCase):
             self.assertEqual(android.candidate_plan.call_args.kwargs['pr_context'],context)
             android.candidate_plan.return_value['required']=True
             self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
-                **self.schedule_inputs,pr_context=context),False)
+                **self.schedule_inputs,pr_context=context),True)
             native.plan.return_value={'mode':'full'};android.candidate_plan.reset_mock()
             self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
                 **self.schedule_inputs),False)
