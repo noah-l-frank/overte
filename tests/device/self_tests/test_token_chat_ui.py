@@ -22,14 +22,14 @@ class Widgets:
     def __init__(self):
         self.panel=False;self.tablet=True;self.ready=True;self.focus=False;self.keyboard_request=False
         self.draft='';self.channel='local';self.local=[];self.domain=[];self.sequence=0;self.elapsed=100
-        self.instance='b'*32;self.generation='c'*32;self.pid=123;self.page_life=0;self.tokens={}
+        self.instance='b'*32;self.generation='c'*32;self.pid=123;self.page_life=0;self.tokens={};self.geometry=(10,20,200,48)
         self.calls=[];self.sent=[];self.before=None;self.mutate=None
         self.ignore=False;self.ignore_effect=False;self.lose_ack=False;self.clock=0
     def sleep(self,seconds):self.clock+=seconds;self.elapsed+=int(seconds*1000)
     def capture(self):
         controls=[]
         def row(identifier,**extra):
-            signature=(self.page_life,self.channel,self.draft,self.focus,self.keyboard_request)
+            signature=(self.page_life,self.channel,self.draft,self.focus,self.keyboard_request,self.geometry)
             if identifier not in self.tokens or self.tokens[identifier][0]!=signature:
                 self.tokens[identifier]=(signature,uuid.uuid4().hex)
             result=dict(id=identifier,token=self.tokens[identifier][1],enabled=True,focused=False,inputReady=True,**extra)
@@ -116,6 +116,11 @@ class ChatControlTests(unittest.TestCase):
             self.widgets.before=lambda:setattr(self.widgets,field,value)
             with self.subTest(field=field),self.assertRaises(NativeUIError):self.ui.send(enter=True)
             self.assertEqual([],self.widgets.sent)
+
+    def test_original_widget_geometry_change_retires_its_captured_input_token(self):
+        self.opened();reference=self.ui.capture();self.widgets.geometry=(40,50,120,48)
+        with self.assertRaises(NativeUIError):self.widgets.activate('chat.local',reference=reference)
+        self.assertEqual(1,len(self.widgets.calls))
 
     def test_five_second_reference_age_and_consumed_sequence_do_not_get_recaptured(self):
         self.opened();reference=self.ui.capture();self.widgets.elapsed+=5001

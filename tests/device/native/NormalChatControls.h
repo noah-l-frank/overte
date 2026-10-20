@@ -114,6 +114,10 @@ inline QString chatControlSource(QQuickItem* item,const QString& id) {
         row["sourceDraftSha256"]=QString::fromLatin1(QCryptographicHash::hash(actual.toString().toUtf8(),QCryptographicHash::Sha256).toHex());
         row["sourceEditorFocus"]=editor->hasActiveFocus();
     }
+    if (!item || !item->window()) { return {}; }
+    const auto center=item->mapToScene(QPointF(item->width()/2,item->height()/2));
+    if (!std::isfinite(center.x()) || !std::isfinite(center.y()) || !std::isfinite(item->width()) || !std::isfinite(item->height())) { return {}; }
+    row["sceneX"]=center.x();row["sceneY"]=center.y();row["width"]=item->width();row["height"]=item->height();
     return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(row).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex());
 }
 #endif

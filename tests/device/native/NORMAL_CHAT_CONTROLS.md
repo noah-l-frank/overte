@@ -27,7 +27,7 @@ the Python owner additionally pins its exact run. Arbitrary messages/credentials
 cannot enter the command or public observation contract.
 
 Captured control tokens bind the original native widget, actual draft/channel/
-focus/keyboard request and current input counter. Original tokens/elapsed time
+focus/keyboard request, actual scene geometry and current input counter. Original tokens/elapsed time
 are retained through fresh backend admission; an implementation must not replace
 a captured reference with a newly observed widget. Old (>5-second), changed,
 foreign-process, already-consumed or expired references fail. Existing native
@@ -92,9 +92,9 @@ Qt/platform route, rather than inferred from the requested channel.
 
 ## Host checks and remaining work
 
-Fourteen cases cover normal Unicode/channel/Send/BACK, actual Return input,
+Fifteen cases cover normal Unicode/channel/Send/BACK, actual Return input,
 no invented receive rows, native-consumed-counter freshness, ignored effects,
-original-context/draft/channel/focus changes, expired/replayed references,
+original-context/draft/channel/focus/geometry changes, expired/replayed references,
 foreign/private text, failed durable intent, uncertain Send ACK without replay,
 PID/instance/clock regression, closed metadata/types, incomplete close and missing
 sources. All pass on synthetic widget state with actual private files. They do
