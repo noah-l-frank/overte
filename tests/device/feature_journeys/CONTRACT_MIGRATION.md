@@ -1,3 +1,23 @@
+# Version 11: actual browser document, HTTP response and inline lifetimes
+
+Current producers/readers use v11 exclusively; v10 JSON files are historical.
+No qualified complete v10 adapter exists, and no migration may fill missing
+native facts from requests. World/tablet flows now have 19/26 checkpoints and
+all fifteen browser fields require independent actual observations. Normal
+Reload/Back/navigation/resume must advance actual native completed-document
+count; primary and independent counter reads must agree. Server restoration
+retains the current 404 document until actual normal Reload yields a new 200.
+A foreign normal Send attempt is mandatory before rejecting delivery. Actual
+inline data/carrier ownership, one retained original callback and three seconds
+of rejected late delivery replace the HTTP inline stub. New data generation
+reuses pinned reference DOM/real echo script. Clearing before navigation avoids
+invented form persistence across destroyed/reconstructed views.
+
+See [the exact Web contract](WEB_SOURCE.md) and [owned HTTP stimuli](BROWSER_RESOURCES.md).
+Other area semantics retain v10 behavior; independently versioned primitive
+contracts stay unchanged. Full native sources/adapters, native compilation and
+all device qualification remain incomplete. Registry/inventory/matrix use v11.
+
 # Version 10: actual closed Chat page and independent UI/lifecycle facts
 
 Current feature-journey producers/readers use v10 exclusively. A destroyed Chat
