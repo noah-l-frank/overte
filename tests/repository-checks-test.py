@@ -978,8 +978,11 @@ class OptionalParentGenerationTests(unittest.TestCase):
         import ast
         original = next(node for node in ast.parse(guard).body
             if isinstance(node, ast.FunctionDef) and node.name == 'authenticate')
-        self.assertEqual(hashlib.sha256(ast.dump(original, include_attributes=False).encode()).hexdigest(),
-            '475d4595108d78b9c72a871fd6bdf502ffec3304412b1fe33312bae585bffdcf')
+        # Commit to the exact historical source bytes, not interpreter-specific AST formatting.
+        original_source = ast.get_source_segment(guard.decode('utf-8'), original)
+        self.assertIsNotNone(original_source)
+        self.assertEqual(hashlib.sha256(original_source.encode('utf-8')).hexdigest(),
+            '281687553095dfa040a0c7f161278a3f49fbda20d8abb47bbc3c503c4a001d7d')
 
     def test_new_parent_bytes_are_portable_and_only_the_exact_complete_tuple_is_admitted(self):
         rows = PACKAGES.workflow_generations()
