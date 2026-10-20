@@ -766,7 +766,7 @@
         ".github/workflows/parent-qualification.yml": {
           "mode": "100644",
           "type": "blob",
-          "sha": "b1c19c17052f5eb411720208c1676489efb4919f"
+          "sha": "58a3fc7724df62d5102b674fe0be06e1654a356c"
         },
         ".github/workflows/sync-validation.yml": {
           "mode": "100644",

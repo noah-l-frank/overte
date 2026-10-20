@@ -571,7 +571,7 @@ class ShippingPolicyTests(unittest.TestCase):
             if path=='.github/workflows/parent-qualification.yml':
                 # Whole historical recipes retain their real Parent bytes when
                 # the separately preregistered optional successor is installed.
-                parent=('b1c19c17052f5eb411720208c1676489efb4919f'
+                parent=('58a3fc7724df62d5102b674fe0be06e1654a356c'
                     if installed['name']=='protected-producer-optional-parent-source-v1'
                     else '9bfc6f8723b1f59426f913472b78206844a7f201')
                 expected=dict(mode='100644',type='blob',sha=parent)
