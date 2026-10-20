@@ -8,7 +8,8 @@ the inputs used to authorize reuse.
 
 from __future__ import annotations
 
-from fnmatch import fnmatchcase
+from fnmatch import fnmatchcase, translate
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 import hashlib
 import json
@@ -46,11 +47,23 @@ def _canonical(value: object) -> bytes:
         raise InputError("input identity must contain canonical JSON values") from error
 
 
+@lru_cache(maxsize=32768)
+def _normalized_relative_path(value: str) -> bool:
+    # Only lexical normalization is memoized. Entry modes, types, object IDs,
+    # membership and source provenance are still validated on every call.
+    relative = PurePosixPath(value)
+    return not (relative.is_absolute() or ".." in relative.parts
+                or str(relative) != value or value == ".")
+
+
 def _path(value: object, label: str) -> str:
     if not isinstance(value, str) or not value or "\0" in value:
         raise InputError(f"{label} must be a nonempty relative path")
-    relative = PurePosixPath(value)
-    if relative.is_absolute() or ".." in relative.parts or str(relative) != value or value == ".":
+    # Preserve the original behavior for custom str subclasses too, including
+    # unhashable subclasses; native JSON paths use ordinary immutable strings.
+    normalized = (_normalized_relative_path(value) if type(value) is str
+                  else _normalized_relative_path.__wrapped__(value))
+    if not normalized:
         raise InputError(f"{label} must be a normalized relative path")
     return value
 
@@ -202,8 +215,13 @@ def full_tree(root: Path | str, commit: str = "HEAD") -> dict[str, dict[str, str
 
 
 def _selected_entries(tree: dict, patterns: list[str]) -> list[dict[str, str]]:
+    if not patterns:
+        return []
+    # Each stdlib translation retains its own DOTALL scope and end anchor.
+    # Match every path once without changing glob semantics or caching inputs.
+    matches = re.compile('|'.join(translate(pattern) for pattern in patterns)).match
     return [{"path": path, **tree[path]} for path in sorted(tree)
-            if any(fnmatchcase(path, pattern) for pattern in patterns)]
+            if matches(path)]
 
 
 def selected_entries(tree: dict, patterns: list[str]) -> list[dict[str, str]]:
@@ -441,7 +459,7 @@ _AFFECTED_TARGET_PROFILES = {
 
 # Additional installed apple-ios data family only. The complete raw reader
 # digest still binds every neighboring input; these entries never normalize it.
-INSTALLED_COMPILER_READER = 'sha256:d57dea0d6e1db2ccf001d910d6f171f08827e5fef16f91dfcd9153b74198aeb8'
+INSTALLED_COMPILER_READER = 'sha256:6dff2d9d9ea405fe3a1921e4000ee191d99657c4ebcd871f665ed69e7d4748a2'
 INSTALLED_COMPILER_PROFILE = {
     '.github/workflows/ios-integrated.yml': {'mode': '100644', 'type': 'blob',
         'sha': '9367feef078a9311919ad920bf15b0d61800cf94'},

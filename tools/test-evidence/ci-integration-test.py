@@ -160,6 +160,137 @@ class SelectionIntegrationTests(unittest.TestCase):
         policy.candidate_selection.assert_not_called()
 
 
+class FiniteExecutableSelectionTests(unittest.TestCase):
+    """Real finite router and CI37 admission, without capture or execution."""
+    @classmethod
+    def setUpClass(cls):
+        spec=importlib.util.spec_from_file_location('finite_executable_profile_fixtures',
+            Path(__file__).with_name('ci-profile-test.py'))
+        cls.fixtures=importlib.util.module_from_spec(spec);spec.loader.exec_module(cls.fixtures)
+
+    def setUp(self):
+        self.fixture=self.fixtures.SevenTargetProfileTests();self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root=self.fixture.root;self.registry=self.fixture.registry;self.git=self.fixture.f.git
+        self.router=P._host_policy();self.package=self.router.package_policy()
+        self.source=inputs.full_tree(C.ROOT,'HEAD')
+        generation=self.package.validate_tree_wiring(self.source)
+        workflows=next(row['workflows'] for row in self.package.workflow_generations() if row['name']==generation)
+        document=json.loads((C.ROOT/'.github/android-owner-transfer.json').read_bytes())
+        self.items={**document['legacy_workflows'],**document['source_contracts']}
+        required=set(workflows)|{'.github/android-owner-transfer.json',
+            '.github/ios-host-orchestration.json','tools/ios-build-qualification/host.py',
+            'tools/ios-build-qualification/inputs.py','tools/ios-build-qualification/check.py',
+            'tools/ios-build-qualification/host-workflow.yml'}|{item['source'] for item in self.items.values()}
+        for name in required:
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_bytes((C.ROOT/name).read_bytes());path.chmod(0o644)
+        owner=self.root/'.github/workflows/ios-build-qualification.yml'
+        owner.write_bytes((C.ROOT/'tools/ios-build-qualification/host-workflow.yml').read_bytes())
+        self.modes={name:entry['mode'] for name,entry in inputs.INSTALLED_COMPILER_PROFILE.items()}
+        self.installed={}
+        for name,mode in self.modes.items():
+            raw=('old private cache fixture '+name+'\n').encode()
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
+            path.chmod(int(mode,8)&0o777)
+            self.installed[name]={**self.fixture.f.blob(('new private cache fixture '+name+'\n').encode()),'mode':mode}
+        self.commit('Record complete finite owner fixture')
+        tree=inputs.full_tree(self.root,'HEAD')
+        graph=json.loads((self.root/inputs.AFFECTED_POLICY).read_bytes())
+        self.independent=graph['suites']['device-control-plane-full']['native_independent_paths']
+        graph['lookup_digest']=inputs.affected_lookup_digest(tree)
+        graph['suites']['device-control-plane-full']['reviewed_reader_digest']=inputs.device_reader_digest(tree,self.independent)
+        for target,sha in P.source_admission.TARGET_PROFILES.items():
+            current={**tree,'tests/platform-profile.json':P.source_admission.ordinary(sha)}
+            graph['targets'][target]={'profile':current['tests/platform-profile.json'],
+                'lookup_digest':inputs.affected_lookup_digest(current),
+                'reader_digest':inputs.device_reader_digest(current,self.independent)}
+        (self.root/inputs.AFFECTED_POLICY).write_bytes((json.dumps(graph,indent=2)+'\n').encode())
+        self.commit('Enroll exact private reader fixture')
+        self.trusted=inputs.full_tree(self.root,'HEAD')
+        self.stack=ExitStack();self.addCleanup(self.stack.close)
+        self.stack.enter_context(patch.object(self.router,'ROOT',self.root))
+        self.stack.enter_context(patch.object(self.router,'REVIEWED_PROGRAMS',self.router.program_digest(self.trusted,self.root)))
+        self.stack.enter_context(patch.object(C,'SOURCE_READY',True))
+
+    def commit(self,message):
+        self.git('add','--all');self.git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid',
+            'commit','--quiet','-m',message)
+
+    def transition(self,target):
+        base=deepcopy(self.trusted)
+        base['tests/platform-profile.json']=P.source_admission.ordinary(P.source_admission.TARGET_PROFILES[target])
+        candidate=deepcopy(base)
+        if target=='apple-ios':
+            candidate.update(deepcopy(self.installed))
+            self.stack.enter_context(patch.object(inputs,'INSTALLED_COMPILER_PROFILE',self.installed))
+            self.stack.enter_context(patch.object(inputs,'INSTALLED_COMPILER_READER',inputs.device_reader_digest(candidate,self.independent)))
+            self.stack.enter_context(patch.object(self.router,'REVIEWED_INSTALLED_PROGRAMS',
+                {'apple-ios':self.router.program_digest(candidate,self.root)}))
+            approved=self.router.program_digest(base,self.root)
+        else:
+            for name,item in self.items.items():
+                base[name]={'mode':item['mode'],'type':'blob','sha':item['reviewed_blob']}
+                candidate[name]={**self.trusted[item['source']],'mode':item['mode']}
+            approved=self.router.program_digest(candidate,self.root)
+        self.stack.enter_context(patch.dict(self.router.REVIEWED_CHILD_PROGRAMS,{target:approved}))
+        return base,candidate
+
+    def test_ios_cache_and_all_four_android_handoffs_reach_actual_ci37_admission(self):
+        for target in ('apple-ios','android-main','android-phone','android-vr','android-vr-pico'):
+            base,candidate=self.transition(target)
+            with self.subTest(target=target), patch.object(C,'validate_selection',wraps=C.validate_selection) as admit:
+                result=P.selection_profile(self.router,self.registry,candidate,base,self.trusted,root=self.root,target=target,
+                    read_blob=lambda oid:P.source_blob(self.root,oid))
+                self.assertEqual(result['profile'],C.PROFILE)
+                self.assertTrue(result['suites'])
+                self.assertLessEqual(set(result['suites']),set(C.SUITES))
+                self.assertEqual(result['binding']['suites'],list(C.SUITES))
+                self.assertIs(admit.call_args.kwargs['regular'],True)
+                self.assertIs(result['selection']['full_host'],False)
+                self.assertIs(result['selection']['include_platform'],False)
+
+    def test_existing_ci_executable_owners_reach_actual_ci37_on_main_and_apple(self):
+        path='tests/project-suite-self-test.py'
+        self.assertEqual(self.trusted[path]['mode'],'100755')
+        for target in ('main','apple-main','apple-ios'):
+            base=deepcopy(self.trusted)
+            base['tests/platform-profile.json']=P.source_admission.ordinary(P.source_admission.TARGET_PROFILES[target])
+            candidate=deepcopy(base)
+            base[path]={**self.fixture.f.blob(b'previous reviewed CI executable fixture\n'),'mode':'100755'}
+            with self.subTest(target=target), patch.dict(self.router.REVIEWED_CHILD_PROGRAMS,
+                    {target:self.router.program_digest(candidate,self.root)}):
+                result=P.selection_profile(self.router,self.registry,candidate,base,self.trusted,
+                    root=self.root,target=target,read_blob=lambda oid:P.source_blob(self.root,oid))
+                self.assertEqual(result['profile'],C.PROFILE)
+                self.assertTrue(result['suites'])
+                self.assertLessEqual(set(result['suites']),set(C.SUITES))
+                self.assertEqual(result['binding']['suites'],list(C.SUITES))
+
+    def test_executable_proof_does_not_admit_a_changed_original_controller(self):
+        path='tests/run-project-tests.py'
+        base=deepcopy(self.trusted);candidate=deepcopy(base)
+        base[path]={**self.fixture.f.blob(b'previous execution controller fixture\n'),'mode':'100755'}
+        with patch.object(C,'validate_selection',wraps=C.validate_selection) as admit:
+            with self.assertRaises(P.PreExecutionUnavailable) as failure:
+                P.selection_profile(self.router,self.registry,candidate,base,self.trusted,
+                    root=self.root,target='main',read_blob=lambda oid:P.source_blob(self.root,oid))
+            self.assertIs(admit.call_args.kwargs['regular'],True)
+            self.assertIn('original base controller differs',str(failure.exception.__cause__))
+
+    def test_selected_json_cannot_replace_the_independent_executable_proof(self):
+        for target in ('apple-ios','android-main'):
+            base,candidate=self.transition(target)
+            paths=sorted(name for name in base.keys()|candidate.keys() if base.get(name)!=candidate.get(name))
+            selected=self.router.select(candidate,paths,False,base_tree=base,trusted_tree=self.trusted,
+                candidate_root=self.root,trusted_root=self.root,target=target)
+            self.assertFalse(selected['full_host'])
+            with self.subTest(target=target), patch.object(self.router,'select',return_value=selected), \
+                    patch.object(self.router,'finite_ci_regularity',return_value=False), \
+                    self.assertRaises(P.PreExecutionUnavailable):
+                P.selection_profile(self.router,self.registry,candidate,base,self.trusted,root=self.root,target=target)
+
+
 class AffectedProtectedAdmissionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -227,7 +358,8 @@ class AffectedProtectedAdmissionTests(unittest.TestCase):
         with patch.object(C,'validate_selection',side_effect=AssertionError('no CI37 identity')):
             prepared=self.profile()
         selected=prepared['selection'];names=prepared['suites']
-        self.assertEqual(len(self.registry['suites']),60)
+        self.assertEqual(len(self.registry['suites']),61)
+        self.assertIn('native-owner-lifecycle',self.registry['suites'])
         self.assertEqual(selected['reason'],'protected-affected-dependencies')
         self.assertEqual(names,selected['affected']['required'])
         self.assertTrue(set(names)<set(self.registry['suites']))
@@ -1172,7 +1304,8 @@ class CleanupDataGitRouteTests(unittest.TestCase):
         self.assertEqual(result['suites'],list(C.SUITES))
         self.assertEqual(reads,[self.base_tree[C.DATA_PATH]['sha'],self.tree[C.DATA_PATH]['sha']])
         self.assertEqual(result['binding']['generation_digest'],self.policy['generation_digest'])
-        self.assertEqual(len(self.registry['suites']),60)
+        self.assertEqual(len(self.registry['suites']),61)
+        self.assertIn('native-owner-lifecycle',self.registry['suites'])
 
     def test_malformed_or_rebound_cleanup_blobs_never_receive_the_ci37_profile(self):
         for content in (b'{"holds":{}}',json.dumps({**self.updated,'artifact_retention_days':31}).encode(),
@@ -1285,6 +1418,44 @@ class AndroidPlatformPartitionTests(unittest.TestCase):
                 self.assertEqual(self.profile,original)
                 P.protocol.validate_plan({'owners':{'shared-host':value['common_owner']}})
         self.assertIn(P.PLATFORM_GENERATION,{row['name'] for row in self.package.workflow_generations()})
+
+    def test_retained_complete_legacy60_still_has_its_independent_platform_owner(self):
+        self.registry = deepcopy(self.registry)
+        del self.registry['suites']['native-owner-lifecycle']
+        self.names = list(self.registry['suites'])
+        self.assertEqual(len(self.names), 60)
+        raw = (json.dumps(self.registry, indent=2)+'\n').encode()
+        entry = P.source_admission.ordinary(P.source_admission.blob_id(raw))
+        for tree in (self.trusted, self.base, self.tree):
+            tree['.github/test-suites.json'] = deepcopy(entry)
+        self.profile['suites'] = self.names
+        self.profile['selection']['suites'] = self.names
+        original = P.sandbox._source
+        with patch.object(P.sandbox, '_source', side_effect=lambda root, path:
+                          raw if path == '.github/test-suites.json' else original(root, path)):
+            value = self.partition()
+        self.assertEqual(value['common_owner']['suites'], self.names)
+        self.assertEqual(len(value['commands']), 13)
+
+    def test_lifecycle_host_owner_cannot_replace_one_of_the_original60(self):
+        self.registry = deepcopy(self.registry)
+        del self.registry['suites']['safe-landing-lifecycle']
+        self.names = list(self.registry['suites'])
+        self.assertEqual(len(self.names), 60)
+        self.assertIn('native-owner-lifecycle', self.names)
+        self.profile['suites'] = self.names
+        self.profile['selection']['suites'] = self.names
+        with self.assertRaises(P.PreExecutionUnavailable):
+            self.partition()
+
+    def test_boolean_complete_generation_records_its_actual_name_in_platform_partition(self):
+        self.package_boundary.validate_tree_wiring.return_value='protected-producer-original-default-boolean-v1'
+        partition=self.partition()
+        self.assertEqual(partition['generation'],'protected-producer-original-default-boolean-v1')
+        self.assertEqual(partition['common_owner']['suites'],self.names)
+        self.assertEqual(len(partition['commands']),13)
+        self.package_boundary.validate_tree_wiring.return_value='protected-producer-original-default-boolean-v1-neighbor'
+        self.assertIsNone(self.partition())
 
     def test_admitted_seven_target_ci_owner_does_not_invent_platform_work(self):
         names=list(C.SUITES)

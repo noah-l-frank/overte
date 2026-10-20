@@ -48,16 +48,76 @@ NONPRODUCER_RUN_NAME = 'Overte native metadata nonproducer v2'
 ORDINARY_RUN_NAME = 'Overte native ordinary qualification v2'
 METADATA_INTENT_KIND = 'authenticated-metadata-nonproducer-intent'
 _SCHEDULING_RUN_FIELDS = ('id', 'workflow_id', 'check_suite_id', 'path', 'event', 'head_sha',
-                          'head_branch', 'run_attempt', 'display_title')
+                          'head_branch', 'run_attempt', 'run_number', 'display_title')
 # A server-rendered title is meaningful only under these exact reviewed native
 # recipes. Their nonproducer intent structurally excludes every heavy job even
 # when recognition is missing/failed. Historical recipes require their marker.
 _NATIVE_INTENT_RECIPES = frozenset({
+    ('.github/workflows/repository-checks.yml', '22fe0d6d39d120f800099136d7d1ab5280d80b41',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
+    ('.github/workflows/codeql.yml', '7b0703d88d404f38c1b3dec92f77f03586c9144c',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
+    ('.github/workflows/repository-checks.yml', '15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
+    ('.github/workflows/codeql.yml', '3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/repository-checks.yml', 'bc9c4284286b5c3d2de07a3ecf3b98393e2f2a2c',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
+    ('.github/workflows/repository-checks.yml', '81bcf1933edc435826e2de411a777cccd4dec7c7',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/codeql.yml', 'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1',
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
 })
+RETAINED_OWNER_GENERATIONS = frozenset({'protected-producer-original-default-v1',
+    'protected-producer-original-default-boolean-v1',
+    'protected-producer-original-default-required-context-v1'})
+
+
+def retain_native_metadata_sources(generations, sources):
+    """Retain exact original workflow/helper pairs without replacing current ones."""
+    prior = {METADATA_SOURCE: {'mode':'100644','type':'blob',
+        'sha':'c6ce80aa78d2f2161b1ea0caf715a6346187e8b9'}}
+    for name, workflows in list(generations.items()):
+        marker = workflows.get(METADATA_WORKFLOW, {})
+        old = (marker.get('sha') == 'b76ade9fd7a76da21bf2cb2161deae7a262163e8'
+            and (set(workflows) == METADATA_WORKFLOWS
+                and workflows['.github/workflows/repository-checks.yml'].get('sha') == '81bcf1933edc435826e2de411a777cccd4dec7c7'
+                or set(workflows) == METADATA_CALLERS['.github/workflows/codeql.yml']
+                and workflows['.github/workflows/codeql.yml'].get('sha') == 'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'))
+        if old and not any(workflows == row and sources[key] == prior for key,row in generations.items()):
+            key = name + '-reviewed-helper-v1'
+            require(key not in generations, 'retained helper pair name collides')
+            generations[key], sources[key] = workflows, prior
+    # The Boolean generation was deployed with this exact helper before the
+    # canonical required-context successor. Preserve its real native pair too;
+    # a current template cannot rewrite an original invocation's helper.
+    boolean_prior = {METADATA_SOURCE: {'mode':'100644','type':'blob',
+        'sha':'8f157f4bb98f56fc431dfff301f566727096bf7c'}}
+    for name, workflows in list(generations.items()):
+        caller = ('.github/workflows/repository-checks.yml' if set(workflows) == METADATA_WORKFLOWS
+                  else '.github/workflows/codeql.yml' if set(workflows) == METADATA_CALLERS['.github/workflows/codeql.yml']
+                  else None)
+        if caller is None or workflows[METADATA_WORKFLOW].get('sha') != 'b76ade9fd7a76da21bf2cb2161deae7a262163e8':
+            continue
+        approved = ({'81bcf1933edc435826e2de411a777cccd4dec7c7','15d1b9ca9d4b58831cd5f8226efcd47681dd3e8a'}
+                    if caller.endswith('/repository-checks.yml') else
+                    {'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1','3b7a88765b7181a1bc7dd6f48b9b459e590055d3'})
+        if workflows[caller].get('sha') in approved and not any(
+                workflows == row and sources[key] == boolean_prior for key, row in generations.items()):
+            key = name + '-reviewed-helper-v2'
+            require(key not in generations, 'retained Boolean helper pair name collides')
+            generations[key], sources[key] = workflows, boolean_prior
+    return generations, sources
+
+
+def _retained_metadata_generation(policy, workflows):
+    """Return the real catalog name of exactly one reviewed complete tuple."""
+    matches = [name for name in RETAINED_OWNER_GENERATIONS
+        if policy.generations.get(name) == workflows]
+    require(len(matches) == 1, 'retained workflow tuple is unknown or ambiguous')
+    return matches[0]
+
+
 METADATA_TARGETS = frozenset({'main', 'apple-main', 'apple-ios', 'android-main',
                               'android-phone', 'android-vr', 'android-vr-pico'})
 _PR_REUSABLES = METADATA_WORKFLOWS | frozenset('.github/workflows/' + name + '.yml' for name in (
@@ -119,6 +179,30 @@ def metadata_inventory_record(row, observation):
 
 def _scheduling_identity(source):
     return {**source, 'run': {key: source['run'].get(key) for key in _SCHEDULING_RUN_FIELDS}}
+
+
+def _scheduling_candidate_matches(candidate, binding):
+    """Compare authenticated immutable candidates only for result scheduling.
+
+    The caller has already authenticated the native reusable source and read
+    its immutable commit. This cannot authorize producer evidence or receipts.
+    """
+    sha(candidate.get('merge_sha')); sha(candidate.get('merge_tree'))
+    expected = [sha(binding.get('base_sha')), sha(binding.get('head_sha'))]
+    require(binding.get('merge_parents') == expected, 'scheduling live ordered candidate differs')
+    return candidate['merge_tree'] == sha(binding.get('merge_tree')) and candidate.get('merge_parents') == expected
+
+
+def _scheduling_context_matches(before, after):
+    """Only a regenerated temporary M may differ between result bookends."""
+    binding, references = before
+    fresh, refs = after
+    return (_scheduling_candidate_matches(fresh, binding)
+        and {k: v for k, v in binding.items() if k != 'merge_sha'} ==
+            {k: v for k, v in fresh.items() if k != 'merge_sha'}
+        and references.get('merge') == binding['merge_sha'] and refs.get('merge') == fresh['merge_sha']
+        and {k: v for k, v in references.items() if k != 'merge'} ==
+            {k: v for k, v in refs.items() if k != 'merge'})
 
 
 def _now():
@@ -680,8 +764,8 @@ class Adapter:
         """Classify complete introducing-H inventory; no absent-artifact inference."""
         _metadata_policy(policy)
         require(policy.caller_path == '.github/workflows/repository-checks.yml', 'unknown retention caller')
-        row22 = policy.generations.get('protected-producer-original-default-v1')
-        require(type(row22) is dict, 'fixed no-execution generation is not enrolled')
+        require(any(type(policy.generations.get(name)) is dict for name in RETAINED_OWNER_GENERATIONS),
+            'fixed no-execution generation is not enrolled')
         endpoint = f"actions/workflows/{policy.caller_workflow_id}/runs?head_sha={binding['head_sha']}"
         listed = self._pages(endpoint, 'workflow_runs', search=True)
         require(bool(listed), 'retained introducing-head inventory is missing')
@@ -693,8 +777,9 @@ class Adapter:
                 classified[identity] = {'metadata': marker}
                 continue
             source = self._scheduling_source(row, binding, policy, now=now, integrated=True)
-            require(source['generation'] == 'protected-producer-original-default-v1'
-                and source['workflows'] == row22 and source['run'].get('display_title') == ORDINARY_RUN_NAME,
+            family = _retained_metadata_generation(policy, source['workflows'])
+            require(source['workflows'] == policy.generations[family]
+                and source['run'].get('display_title') == ORDINARY_RUN_NAME,
                 'retained ordinary source recipe differs')
             run = source['run']
             require((run.get('status'), run.get('conclusion')) == ('completed', 'success'),
@@ -728,9 +813,11 @@ class Adapter:
 
     def _origin_empty_push(self, binding, integration, policy, now, *, current_run=None):
         target, revision = binding['base_ref'], binding['merge_sha']
-        expected = policy.generations['protected-producer-original-default-v1']
         _, _, workflows = self._workflow_tuple(revision, paths=METADATA_CALLERS[policy.caller_path])
-        require(workflows == expected and self._metadata_source(binding['base_sha']) == policy.sources['protected-producer-original-default-v1'],
+        _retained_metadata_generation(policy, workflows)
+        original_source = self._metadata_source(binding['base_sha'])
+        require(any(workflows == row and original_source == policy.sources[name]
+                    for name,row in policy.generations.items()),
             'retained unchanged workflow/helper recipe differs')
         endpoint = f'actions/workflows/350930890/runs?branch={quote(target, safe="")}&event=push&head_sha={revision}'
         listed = self._pages(endpoint, 'workflow_runs', search=True)
@@ -794,8 +881,7 @@ class Adapter:
             # inputs; only parent recipes have the completed no-execution job.
             return IntegratedOrigin(current, references)
         _metadata_policy(metadata_policy)
-        row22 = metadata_policy.generations.get('protected-producer-original-default-v1')
-        if row22 is None:
+        if not any(name in metadata_policy.generations for name in RETAINED_OWNER_GENERATIONS):
             return IntegratedOrigin(current, references)
         binding, integration, associations = current, references['integration'], references['associated_prs']
         hops = []
@@ -804,7 +890,8 @@ class Adapter:
             if previous_tree != binding['merge_tree']:
                 break
             _, _, workflows = self._workflow_tuple(binding['merge_sha'], paths=METADATA_CALLERS[metadata_policy.caller_path])
-            if workflows != row22:
+            if not any(metadata_policy.generations.get(name) == workflows
+                       for name in RETAINED_OWNER_GENERATIONS):
                 # No old/unknown recipe is transparent. Preserve the original
                 # strict execution lookup at this integration, never skip it.
                 break
@@ -911,7 +998,8 @@ class Adapter:
                     "metadata helper parent is missing or aliased")
             cursor = entry["sha"]
 
-    def metadata_observation(self, listed, binding, policy, *, integrated=False, now=None):
+    def metadata_observation(self, listed, binding, policy, *, integrated=False, now=None,
+                             observation_clock=None, scheduling_progress=False):
         """Classify a finite native non-producer; this never supplies a result.
 
         The referenced reusable workflow authenticates original M. Marker text,
@@ -920,7 +1008,11 @@ class Adapter:
         """
         _metadata_policy(policy)
         P.validate_binding(binding)
-        now = _now() if now is None else now
+        require(type(scheduling_progress) is bool, 'invalid scheduling progress mode')
+        if observation_clock is None:
+            observation_clock = _now if now is None else lambda: now
+        require(callable(observation_clock), 'invalid metadata observation clock')
+        now = observation_clock() if now is None else now
         P._now(now)
         identity = positive(listed.get("id"))
         latest = self._object(f"actions/runs/{identity}")
@@ -934,9 +1026,21 @@ class Adapter:
             entries[METADATA_WORKFLOW]['sha']) in _NATIVE_INTENT_RECIPES for entries in policy.generations.values())
         if attempt.get('display_title') == NONPRODUCER_RUN_NAME or current_intent_recipes \
                 and attempt.get('display_title') not in {NONPRODUCER_RUN_NAME, ORDINARY_RUN_NAME}:
-            intent = self._native_metadata_intent(listed, binding, policy, now=now, integrated=integrated)
+            intent = self._native_metadata_intent(listed, binding, policy, now=now,
+                integrated=integrated, observation_clock=observation_clock)
             if intent is not None:
                 return intent
+        if scheduling_progress and attempt.get('display_title') == ORDINARY_RUN_NAME:
+            # Only scheduling may wait for a complete original observation.
+            # Authenticate the entire immutable source before classifying a
+            # mutable native read as pending; this never excludes a producer.
+            source = self._scheduling_source(listed, binding, policy, now=now,
+                integrated=integrated, observation_clock=observation_clock,
+                scheduling_progress=True)
+            recipe = (policy.caller_path, source['workflows'][policy.caller_path]['sha'],
+                      source['workflows'][METADATA_WORKFLOW]['sha'])
+            if recipe in _NATIVE_INTENT_RECIPES:
+                return None
         require(all(listed.get(key) == latest.get(key) == attempt.get(key) for key in fields),
                 "metadata run/attempt inventory changed")
         references = attempt.get("referenced_workflows")
@@ -1029,7 +1133,9 @@ class Adapter:
                 "source": source, "run": {key: attempt.get(key) for key in fields},
                 "references": references, "jobs": jobs, "checks": checks, "artifacts": artifacts}
 
-    def _scheduling_source(self, listed, binding, policy, *, now, integrated=False, allow_intent_progress=False):
+    def _scheduling_source(self, listed, binding, policy, *, now, integrated=False,
+                           allow_intent_progress=False, observation_clock=None,
+                           scheduling_progress=False):
         """Native same-M provenance only; no descriptor, E, result or authority.
 
         A reusable reference alone does not classify a queued invocation. The
@@ -1037,16 +1143,18 @@ class Adapter:
         an ordinary scheduling owner separately needs its fixed source step.
         """
         _metadata_policy(policy)
+        require(type(scheduling_progress) is bool, 'invalid scheduling progress mode')
         identity = positive(listed.get('id'))
         latest = self._object(f'actions/runs/{identity}')
         require(latest.get('run_attempt') == 1, 'scheduling original attempt unavailable')
         run = self._object(f'actions/runs/{identity}/attempts/1')
         fields = ('id', 'workflow_id', 'check_suite_id', 'path', 'event', 'head_sha', 'head_branch',
-                  'run_attempt', 'status', 'conclusion', 'run_started_at', 'updated_at', 'display_title')
+                  'run_attempt', 'run_number', 'status', 'conclusion', 'run_started_at', 'updated_at', 'display_title')
         require(all(listed.get(key) == latest.get(key) == run.get(key)
                     for key in _SCHEDULING_RUN_FIELDS if key != 'display_title')
             and run.get('run_attempt') == 1 and binding['base_ref'] in METADATA_TARGETS,
             'scheduling original native attempt changed')
+        positive(run.get('run_number'))
         require(run.get('workflow_id') == policy.caller_workflow_id
             and run.get('path') == policy.caller_path and run.get('event') == 'pull_request'
             and run.get('head_sha') == binding['head_sha'] and run.get('head_branch') == binding['head_ref']
@@ -1088,8 +1196,12 @@ class Adapter:
                 'scheduling native intent identity changed')
         progress = (allow_intent_progress and recipe in _NATIVE_INTENT_RECIPES
                     and run.get('display_title') == NONPRODUCER_RUN_NAME)
-        require(progress or all(listed.get(key) == latest.get(key) == run.get(key) for key in fields),
-                'scheduling native run observation changed')
+        ordinary = (scheduling_progress and recipe in _NATIVE_INTENT_RECIPES
+                    and run.get('display_title') == ORDINARY_RUN_NAME)
+        completed_ordinary = ordinary and all(row.get('status') == 'completed'
+                                             for row in (listed, latest, run))
+        matching = all(listed.get(key) == latest.get(key) == run.get(key) for key in fields)
+        require(progress or ordinary or matching, 'scheduling native run observation changed')
         suite = self._object(f"check-suites/{positive(run.get('check_suite_id'))}")
         require(suite.get('id') == run['check_suite_id'] and suite.get('head_sha') == binding['head_sha']
             and suite.get('app', {}).get('id') == 15368
@@ -1099,15 +1211,59 @@ class Adapter:
             require(observed.get('status') in P._PENDING | {'completed'}
                 and (observed['status'] == 'completed') == (observed.get('conclusion') in P._CONCLUSIONS),
                 'scheduling run status differs')
+        observed_now = now
+        if (progress or ordinary) and observation_clock is not None:
+            # A live never-producer may advance while the native GETs run.
+            # Sample after those reads. An ordinary source still needs its
+            # fixed cutoff: valid later progress causes a fresh full retry.
+            require(callable(observation_clock), 'invalid scheduling observation clock')
+            observed_now = observation_clock()
+            P._now(observed_now)
+            require(observed_now >= now, 'scheduling observation clock moved backwards')
+        if ordinary:
+            advanced = False
+            for observed in (listed, latest, run):
+                require(observed['status'] == 'completed' or observed.get('conclusion') is None,
+                        'pending scheduling source has a native conclusion')
+                updated = P._time(observed.get('updated_at'))
+                require(updated <= observed_now, 'scheduling update time is in the future')
+                started = observed.get('run_started_at')
+                if started is None:
+                    require(observed['status'] in P._PENDING,
+                            'completed scheduling source has no native start')
+                else:
+                    started = P._time(started)
+                    require(started <= updated, 'scheduling source time order differs')
+                    require(started <= observed_now, 'scheduling source starts in the future')
+                    advanced |= started > now
+                advanced |= updated > now
+            # Completed list/latest and attempt responses can retain distinct
+            # updated_at values. Keep each actual timestamp and authenticate
+            # its chronology above; every other observed field remains exact.
+            completed_matching = completed_ordinary and all(
+                listed.get(key) == latest.get(key) == run.get(key)
+                for key in fields if key != 'updated_at')
+            if not matching and not completed_matching:
+                raise SchedulingPending('ordinary scheduling native inventory changed after its cutoff')
+            if advanced:
+                raise SchedulingPending('ordinary scheduling source is in the future of its fixed cutoff')
         if run.get('run_started_at') is not None:
-            require(P._time(run['run_started_at']) <= now, 'scheduling source starts in the future')
+            require(P._time(run['run_started_at']) <= observed_now, 'scheduling source starts in the future')
         else:
             require(run['status'] in P._PENDING, 'completed scheduling source has no native start')
-        require(P._time(run.get('updated_at')) <= now, 'scheduling update time is in the future')
-        return {'run': run, 'generation': generations[0], 'source': source, 'workflows': workflows,
-                'candidate': {'merge_sha': revision, 'merge_tree': tree, 'merge_parents': parents}}
+        require(P._time(run.get('updated_at')) <= observed_now, 'scheduling update time is in the future')
+        value = {'run': run, 'generation': generations[0], 'source': source, 'workflows': workflows,
+                 'candidate': {'merge_sha': revision, 'merge_tree': tree, 'merge_parents': parents}}
+        if completed_ordinary:
+            # _scheduling_identity retains these same-endpoint observations at
+            # the closing admission, including the unmodified update times.
+            value['completed_observations'] = {
+                name: {key: observed.get(key) for key in fields}
+                for name, observed in (('listed', listed), ('latest', latest), ('attempt', run))}
+        return value
 
-    def _native_metadata_intent(self, listed, binding, policy, *, now, integrated=False):
+    def _native_metadata_intent(self, listed, binding, policy, *, now, integrated=False,
+                                observation_clock=None):
         """Exact native never-producer recipe; queued intent supplies no result.
 
         REST display_title is the server-rendered run-name only when set in the
@@ -1115,7 +1271,7 @@ class Adapter:
         for a historical/unknown recipe, PR text, candidate field or old head.
         """
         source = self._scheduling_source(listed, binding, policy, now=now, integrated=integrated,
-                                         allow_intent_progress=True)
+            allow_intent_progress=True, observation_clock=observation_clock)
         run, workflows = source['run'], source['workflows']
         recipe = (policy.caller_path, workflows[policy.caller_path]['sha'], workflows[METADATA_WORKFLOW]['sha'])
         if recipe not in _NATIVE_INTENT_RECIPES:
@@ -1159,7 +1315,8 @@ class Adapter:
         return policy.caller_path.endswith('/repository-checks.yml') and any(
             row['name'] == 'android-long-diagnostics' for row in labels)
 
-    def metadata_schedule(self, number, current_run_id, policy, *, diagnostics=False, now=None):
+    def metadata_schedule(self, number, current_run_id, policy, *, diagnostics=False, now=None,
+                          observation_clock=None):
         """Suppress duplicate scheduling while preserving original gate state.
 
         The current invocation is excluded only after its own immutable native
@@ -1167,7 +1324,10 @@ class Adapter:
         nonproducer or an ordinary source with the successful fixed native step.
         A pending/failed source is intentionally not promoted to successful proof.
         """
-        now = _now() if now is None else now
+        if observation_clock is None:
+            observation_clock = _now if now is None else lambda: now
+        require(callable(observation_clock), 'invalid scheduling observation clock')
+        now = observation_clock() if now is None else now
         P._now(now); positive(current_run_id); _metadata_policy(policy)
         require(type(diagnostics) is bool and self._scheduling_diagnostics(number, policy) == diagnostics,
                 'scheduling meaningful diagnostic labels changed')
@@ -1182,11 +1342,17 @@ class Adapter:
                 'scheduling current invocation is missing or ambiguous')
         observations, ordinary = {}, []
         current_row = next(row for row in listed if row['id'] == current_run_id)
-        current = self._scheduling_source(current_row, binding, policy, now=now)
+        # The current exact never-producer has its own running result job.
+        # GitHub's list/latest/attempt endpoints can report different progress
+        # timestamps while that job runs. Bind its immutable native intent,
+        # just as for other authenticated metadata invocations; no original
+        # execution status or canonical result is accepted by this projection.
+        current = self._scheduling_source(current_row, binding, policy, now=now,
+            allow_intent_progress=True, observation_clock=observation_clock)
         require((policy.caller_path, current['workflows'][policy.caller_path]['sha'],
                  current['workflows'][METADATA_WORKFLOW]['sha']) in _NATIVE_INTENT_RECIPES,
                 'scheduling current workflow has no exact never-producer recipe')
-        require(current['candidate']['merge_sha'] == binding['merge_sha']
+        require(_scheduling_candidate_matches(current['candidate'], binding)
             and current['run'].get('display_title') == NONPRODUCER_RUN_NAME
             and current['run']['status'] in P._PENDING and current['run'].get('conclusion') is None,
             'scheduling current invocation is not the active exact candidate')
@@ -1195,12 +1361,14 @@ class Adapter:
             if identity == current_run_id:
                 observations[identity] = ('current', current)
                 continue
-            marker = self.metadata_observation(row, binding, policy, now=now)
+            marker = self.metadata_observation(row, binding, policy, now=now,
+                observation_clock=observation_clock, scheduling_progress=True)
             if marker is not None:
                 observations[identity] = ('metadata', marker)
                 continue
-            source = self._scheduling_source(row, binding, policy, now=now)
-            if source['candidate']['merge_sha'] != binding['merge_sha']:
+            source = self._scheduling_source(row, binding, policy, now=now,
+                observation_clock=observation_clock, scheduling_progress=True)
+            if not _scheduling_candidate_matches(source['candidate'], binding):
                 observations[identity] = ('other-source', source)
                 continue
             require(source['run'].get('display_title') == ORDINARY_RUN_NAME,
@@ -1222,34 +1390,52 @@ class Adapter:
                 and len(steps) == 1 and steps[0].get('status') == 'completed'
                 and steps[0].get('conclusion') == 'success'
                 and P._time(fact.started_at) <= P._time(steps[0].get('started_at'))
-                <= P._time(steps[0].get('completed_at')) <= P._time(fact.completed_at) <= now,
+                <= P._time(steps[0].get('completed_at')) <= P._time(fact.completed_at),
                 'ordinary scheduling source was not independently observed')
-            require(P._time(source['run']['run_started_at']) < P._time(current['run']['run_started_at']),
+            if P._time(fact.completed_at) > now:
+                recipe = (policy.caller_path, source['workflows'][policy.caller_path]['sha'],
+                          source['workflows'][METADATA_WORKFLOW]['sha'])
+                if recipe in _NATIVE_INTENT_RECIPES:
+                    observed_now = observation_clock()
+                    P._now(observed_now)
+                    require(observed_now >= now, 'scheduling observation clock moved backwards')
+                    require(P._time(fact.completed_at) <= observed_now,
+                            'ordinary scheduling source job completed in the future')
+                    raise SchedulingPending('ordinary scheduling source job completed after its cutoff')
+                require(False, 'ordinary scheduling source was not independently observed')
+            # Start timestamps have only second resolution and two separately
+            # queued native events can share one. The workflow-specific run
+            # sequence is independently bound across list/latest/attempt.
+            require(source['run']['run_number'] < current['run']['run_number'],
                     'ordinary scheduling source is not older')
             observations[identity] = ('ordinary', source, job, vars(fact))
             if steps[0]['name'] == ORDINARY_SOURCE_STEP + (
                     ' (diagnostics requested)' if diagnostics else ' (diagnostics absent)'):
                 ordinary.append(source)
-        require(bool(ordinary), 'matching ordinary scheduling source unavailable')
-        newest = max(P._time(row['run']['run_started_at']) for row in ordinary)
-        originals = [row for row in ordinary if P._time(row['run']['run_started_at']) == newest]
-        require(len(originals) == 1 and newest < P._time(current['run']['run_started_at']),
+        if not ordinary:
+            raise SchedulingPending('matching ordinary scheduling source unavailable')
+        newest = max(row['run']['run_number'] for row in ordinary)
+        originals = [row for row in ordinary if row['run']['run_number'] == newest]
+        require(len(originals) == 1 and newest < current['run']['run_number'],
                 'ordinary scheduling source is ambiguous or newer')
         # Complete fresh inventories and native source checks; neither transient
         # availability nor run IDs are cached or supplied by a caller marker.
         final_list = self._pages(endpoint, 'workflow_runs', search=True)
         require([{key: row.get(key) for key in _SCHEDULING_RUN_FIELDS} for row in final_list]
             == [{key: row.get(key) for key in _SCHEDULING_RUN_FIELDS} for row in listed]
-            and self.current(number) == (binding, references)
+            and _scheduling_context_matches((binding, references), self.current(number))
             and self._scheduling_diagnostics(number, policy) == diagnostics,
             'scheduling candidate, semantic labels or inventory changed')
         for row in final_list:
             kind, source, *extra = observations[row['id']]
             if kind == 'metadata':
-                require(self.metadata_observation(row, binding, policy, now=now) == source,
+                require(self.metadata_observation(row, binding, policy, now=now,
+                    observation_clock=observation_clock, scheduling_progress=True) == source,
                         'scheduling nonproducer source changed')
             else:
-                fresh = self._scheduling_source(row, binding, policy, now=now)
+                fresh = self._scheduling_source(row, binding, policy, now=now,
+                    allow_intent_progress=kind == 'current', observation_clock=observation_clock,
+                    scheduling_progress=True)
                 require(_scheduling_identity(fresh) == _scheduling_identity(source),
                         'scheduling native source changed')
                 if kind == 'current':
@@ -1264,10 +1450,87 @@ class Adapter:
         return {'kind': 'native-nonproducer-scheduling', 'qualification': False,
                 'metadata_only': 'true', 'binding': binding, 'references': references,
                 'current_run_id': current_run_id, 'original_run_id': original['id'],
-                'original_status': original['status'], 'original_conclusion': original.get('conclusion')}
+                'current_merge_sha': current['candidate']['merge_sha'],
+                'original_merge_sha': originals[0]['candidate']['merge_sha'],
+                'original_status': original['status'], 'original_conclusion': original.get('conclusion'),
+                'diagnostics': diagnostics,
+                'original_identity': {key: original.get(key) for key in _SCHEDULING_RUN_FIELDS}}
+
+    def metadata_result_status(self, observed):
+        """One fixed-ID native read between full source admissions; no discovery."""
+        require(type(observed) is dict and observed.get('kind') == 'native-nonproducer-scheduling'
+            and observed.get('qualification') is False and observed.get('metadata_only') == 'true',
+            'metadata result requires an authenticated scheduling observation')
+        identity = observed.get('original_identity')
+        require(type(identity) is dict and set(identity) == set(_SCHEDULING_RUN_FIELDS)
+            and positive(identity.get('id')) == positive(observed.get('original_run_id'))
+            and identity.get('run_attempt') == 1
+            and identity.get('display_title') == ORDINARY_RUN_NAME
+            and identity.get('path') in METADATA_CALLERS, 'original result native identity unavailable')
+        run = self._object(f"actions/runs/{identity['id']}")
+        require(all(run.get(key) == value for key, value in identity.items())
+            and type(run.get('run_attempt')) is int and run['run_attempt'] == 1,
+            'original result native identity or attempt changed')
+        binding = observed['binding']
+        require(run.get('head_sha') == binding['head_sha'] and run.get('head_branch') == binding['head_ref']
+            and all(run.get(key, {}).get('id') == 1319052603 and run[key].get('full_name') == REPOSITORY
+                    for key in ('repository','head_repository')),
+            'original result repository or head changed')
+        require(run.get('status') in P._PENDING | {'completed'}
+            and ((run['status'] == 'completed' and run.get('conclusion') in P._CONCLUSIONS)
+                 or run['status'] in P._PENDING and run.get('conclusion') is None),
+            'original result native status unavailable')
+        return run
+
+    def metadata_result_success(self, observed, *, now=None):
+        """Authenticate the real canonical native job before mirroring success.
+
+        No producer artifact, execution receipt or qualification is minted.
+        """
+        now = _now() if now is None else now
+        P._now(now)
+        run = self.metadata_result_status(observed)
+        require(run['status'] == 'completed' and run.get('conclusion') == 'success',
+                'original workflow did not succeed')
+        attempt = self._object(f"actions/runs/{run['id']}/attempts/1")
+        fields = (*_SCHEDULING_RUN_FIELDS, 'repository', 'head_repository', 'pull_requests',
+                  'referenced_workflows', 'status', 'conclusion', 'run_started_at')
+        require(type(attempt.get('run_attempt')) is int and attempt['run_attempt'] == 1
+            and all(attempt.get(key) == run.get(key) for key in fields),
+            'original successful attempt changed')
+        canonical = {'repository-checks.yml':'repository-checks',
+                     'codeql.yml':'codeql-security-results'}[run['path'].rsplit('/',1)[1]]
+        jobs = self._pages(f"actions/runs/{run['id']}/attempts/1/jobs", 'jobs')
+        identities = [positive(row.get('id')) for row in jobs]
+        require(len(identities) == len(set(identities)), 'original canonical job inventory repeats an identity')
+        matches = [row for row in jobs if row.get('name') == canonical]
+        require(len(matches) == 1, 'original canonical native aggregate unavailable or ambiguous')
+        fact = self._job(matches[0], run, 15368, final_name=canonical)
+        require(fact.status == 'completed' and fact.conclusion == 'success'
+            and all(P._time(observed.get('run_started_at')) <= P._time(fact.started_at)
+                <= P._time(fact.completed_at) <= P._time(observed.get('updated_at')) <= now
+                for observed in (run, attempt)),
+            'original canonical native aggregate did not succeed in its workflow')
+        require(self.metadata_result_status(observed) == run
+            and self._object(f"actions/runs/{run['id']}/attempts/1") == attempt
+            and self._pages(f"actions/runs/{run['id']}/attempts/1/jobs", 'jobs') == jobs
+            and vars(self._job(matches[0], run, 15368, final_name=canonical)) == vars(fact),
+            'original canonical result changed before output')
+        require(type(observed.get('diagnostics')) is bool
+            and self._scheduling_diagnostics(observed['binding']['pull_request'],
+                SimpleNamespace(caller_path=run['path'])) == observed['diagnostics'],
+            'original result diagnostic demand changed before output')
+        return {'job_id':fact.job_id,'qualification':False}
 
     def _metadata_observation(self, listed, policy, binding, now, *, integrated=False):
         if policy.metadata_generations is None:
+            return None
+        if listed.get('display_title') == ORDINARY_RUN_NAME and any(
+                (policy.caller_path, row[policy.caller_path]['sha'], row[METADATA_WORKFLOW]['sha'])
+                in _NATIVE_INTENT_RECIPES for row in policy.metadata_generations.values()):
+            # None opts INTO the full strict _observation producer path. An
+            # ordinary intent never excludes a run or grants metadata/result
+            # authority, and its timestamps need no metadata classification.
             return None
         value = self.metadata_observation(listed, binding, MetadataPolicy(policy.caller_workflow_id,
             policy.caller_path, policy.metadata_generations, policy.metadata_sources), integrated=integrated, now=now)

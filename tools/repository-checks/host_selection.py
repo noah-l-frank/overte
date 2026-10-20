@@ -9,12 +9,18 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 import signal
 import subprocess
 import importlib.util
 from types import SimpleNamespace
+
+# Partial hosted execution uses plain Python, outside the isolated producer.
+# Keep both this supervisor and its commands from changing immutable imports.
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/test-evidence'))
@@ -39,6 +45,7 @@ CI_TESTS = frozenset({
     'tests/ios-input-selection-test.py', 'tests/codeql-selection-test.py',
     'tests/browser-cpu-selection-test.py', 'tests/host-selection-test.py', 'tests/android-owner-transfer-test.py',
     'tests/unittest-runner-test.py',
+    'tests/producer-owner-lifecycle-test.py',
 })
 CI_POLICY = frozenset({
     '.github/test-suite-dependencies.json',
@@ -115,6 +122,10 @@ PROGRAM_INPUTS = (
     'tools/test-evidence/attested.py', 'tools/test-evidence/execution.py',
     'tools/test-evidence/inputs.py', 'tools/test-evidence/producer.py',
     'tools/test-evidence/producer_api.py', 'tools/test-evidence/run.py',
+    # The lifecycle owner imports these fixture builders. Their bytes are real
+    # reader inputs even though the fixture file also has a CI unit-test owner.
+    'tests/producer-owner-lifecycle-test.py', 'tools/test-evidence/ci-integration-test.py',
+    'tools/test-evidence/producer-api-test.py', 'tools/test-evidence/producer-test.py',
     'tools/test-evidence/runtime.py', 'tools/test-evidence/validate-sync.py',
     '.github/shared-sandbox.json', 'tools/test-evidence/sandbox.py',
     'tools/test-evidence/sandbox_host.py', 'tools/test-evidence/sandbox_host_fixture.py',
@@ -144,25 +155,27 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = '4832d6fe6f911bb637db093f8097b0d491f1954d27cc4e87cc4a44b7d593e209'
+REVIEWED_PROGRAMS = 'c4b5512f6a9575657590e9cc2a27f6b710bec7e993f42b8688a9da197fd05d1b'
 REVIEWED_CHILD_PROGRAMS = {
-    'apple-main': '4171ea61dba3d1b2b05a2779631ea1beeeebaffe9b66e0d529ce2d5b5d7684f9',
-    'apple-ios': '0db6cbd519ed86b48e5ef74085e5e94abaec0de31961855ef58e92e2a80e1199',
-    'android-main': '77bf2c5fb11c27cae5732a9fe3a1ceb3f288b054f70de878b84d0f465163b64e',
-    'android-phone': '2543946cef39f446cfc980f86bfe623396f59b81a9b3fb5fdaec666dc7226428',
-    'android-vr': '77bf2c5fb11c27cae5732a9fe3a1ceb3f288b054f70de878b84d0f465163b64e',
-    'android-vr-pico': '5439cde1a7b5c730c6ad768a67c295e28da56d45f30b38027e1a56391064ea63',
+    'apple-main': '12aa9097f69e7576b8694bfb783477a0c0db488640b69077e01fc3460e936eb7',
+    'apple-ios': 'acfc186e9e259949183b05d2cd8ae52389d3907a7603b27fb4c0101d3b7dadd7',
+    'android-main': 'b1574c849d34736f18465c5312f4d2275040cdb2d989c0c1eb8e69308a6bbb28',
+    'android-phone': '272b69e6009cf70d22b502a83b66ad25d2fa487c5df52f780cc5083e456e8b7d',
+    'android-vr': 'b1574c849d34736f18465c5312f4d2275040cdb2d989c0c1eb8e69308a6bbb28',
+    'android-vr-pico': '5454d1e2929545baa4f0c7b49734bf81b9cb7531696cec9996e96664d7fedea9',
 }
 # Separate exact installed family; None admits nothing until genuine enrollment.
-REVIEWED_INSTALLED_PROGRAMS = {'apple-ios': '9fbc1f120488d226686672af39ca2c818892764a29b22b61af61d26ab2472e50'}
+REVIEWED_INSTALLED_PROGRAMS = {
+    'apple-ios': '2230afa7a0da0051e9c3089a139403e01fd2a6d001e6b913d65099cd229a9764',
+}
 REVIEWED_PREDECESSORS = {
-    'main': '6c6064992d2e2e189e06af5957c147fd1ac0996b886b8d0b6f30dbf856ee9afe',
-    'apple-main': 'ad02726fc123ea762f37e077f6ad11bf54b568542c89ebba9ae6477d9225288a',
-    'apple-ios': '5cd6ed41804507a65889ceacbf54133cbcebb4e27bb0fa2b75f482bc75580204',
-    'android-main': 'd147bfc9379e072f4fa66629351c829170a20a28e17795dbe9a71414a2215758',
-    'android-phone': '350cdd5c2055b1c25eb5b12545bb0623b9fb1ada2e1b655961cd28d962f35c1a',
-    'android-vr': 'd147bfc9379e072f4fa66629351c829170a20a28e17795dbe9a71414a2215758',
-    'android-vr-pico': 'de10d4031bd12aa8ed13931f037fa8b5a34bd49f917f67411e1dcf2fb255df79',
+    'main': '282cb41841da7476b474d22935588ab10345e17f1ae9e18abfb696b503505d5a',
+    'apple-main': '0e81507b0a9218a3873934bf6c228531f2e0f866a380385121933d34369d24e8',
+    'apple-ios': 'a3a215d18c6a425115ec5f7365fb7a8070f83f149e4d889842bace145f373f03',
+    'android-main': 'e3b0f2eb724b5363fcfc95922b1a4d719d3b0b77cefca4bdd85f5b939a631cac',
+    'android-phone': '3db44f3104664b9852e8d8ce3393ce057e02cfda54aef95836aa865b8a352352',
+    'android-vr': '5fb11973cf6463d77f996b29518d6031df0e96dc96eecea059ad70bdff826179',
+    'android-vr-pico': 'f6ef4e1c6dc736cb614c4854cf352d0f7b821f6c579d121832008503df76bff9',
 }
 CONTROL_PLANE = 'tests/device/run_control_plane_tests.py'
 # These inputs are read by the full Device suite. They are CI-owned for
@@ -286,7 +299,72 @@ def ci_owned(path):
             or path.endswith('.md') or path.endswith('.mdx'))
 
 
-def _regular_ci_delta(tree, base_tree, paths, package_paths):
+def _android_handoff_scope(tree, base_tree, paths, trusted_tree, trusted_root, target):
+    """Route one complete protected Android handoff without excluding its readers.
+
+    The manifest and payload identities come from actual trusted HEAD, never
+    candidate policy. The ordinary program digest still binds all seven target
+    files, and the separate required Android owner remains responsible for them.
+    """
+    targets = {'android-main', 'android-phone', 'android-vr', 'android-vr-pico'}
+    if target not in targets or not all(isinstance(value, dict) for value in
+            (tree, base_tree, trusted_tree)) or not isinstance(paths, (tuple, list)):
+        return {}
+    try:
+        if len(paths) != len(set(paths)) or set(paths) != {
+                path for path in base_tree.keys() | tree.keys() if base_tree.get(path) != tree.get(path)}:
+            return {}
+        policy = package_policy()
+        if policy.validate_tree_wiring(tree) not in policy._PROTECTED_ROUTE_GENERATIONS:
+            return {}
+        profile = {'mode': '100644', 'type': 'blob', 'sha': inputs._AFFECTED_TARGET_PROFILES[target]}
+        if any(snapshot.get('tests/platform-profile.json') != profile for snapshot in (base_tree, tree)):
+            return {}
+        actual = inputs.full_tree(trusted_root, 'HEAD')
+        manifest = '.github/android-owner-transfer.json'
+        entry = actual.get(manifest, {})
+        if entry.get('mode') != '100644' or entry.get('type') != 'blob' \
+                or any(snapshot.get(manifest) != entry for snapshot in (trusted_tree, tree)):
+            return {}
+        size = subprocess.check_output(['git', '--no-replace-objects', 'cat-file', '-s', entry['sha']],
+                                       cwd=trusted_root, timeout=30)
+        if int(size) > 100_000:
+            return {}
+        raw = subprocess.check_output(['git', '--no-replace-objects', 'cat-file', 'blob', entry['sha']],
+                                      cwd=trusted_root, timeout=30)
+        document = json.loads(raw, object_pairs_hook=inputs._unique_object)
+        if set(document) != {'schema', 'repository', 'repository_id', 'legacy_workflows', 'source_contracts', 'profiles'} \
+                or type(document['schema']) is not int or document['schema'] != 1 \
+                or document['repository'] != 'noah-l-frank/overte' \
+                or type(document['repository_id']) is not int or document['repository_id'] != 1319052603 \
+                or set(document['profiles']) != targets \
+                or len(document['legacy_workflows']) != 2 or len(document['source_contracts']) != 5:
+            return {}
+        items = {**document['legacy_workflows'], **document['source_contracts']}
+        if len(items) != 7:
+            return {}
+        scope = {}
+        for path, item in items.items():
+            source = 'tools/repository-checks/workflows/android-owned/handoff/' + path
+            if set(item) != {'source', 'reviewed_blob', 'mode'} or item['source'] != source \
+                    or item['mode'] not in {'100644', '100755'}:
+                return {}
+            payload = actual.get(source, {})
+            if payload.get('mode') != '100644' or payload.get('type') != 'blob' \
+                    or any(snapshot.get(source) != payload for snapshot in (trusted_tree, tree)):
+                return {}
+            current = {**payload, 'mode': item['mode']}
+            previous = {'mode': item['mode'], 'type': 'blob', 'sha': item['reviewed_blob']}
+            inputs._validate_tree({path: previous})
+            if base_tree.get(path) not in (previous, current) or tree.get(path) != current:
+                return {}
+            scope[path] = item['mode']
+        return scope
+    except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError, AttributeError):
+        return {}
+
+
+def _regular_ci_delta(tree, base_tree, paths, package_paths, *, handoff_scope=None):
     """Distinguish reviewed CI executables from documentation-safe inputs.
 
     The ordinary package/router flag intentionally rejects every executable.
@@ -297,14 +375,15 @@ def _regular_ci_delta(tree, base_tree, paths, package_paths):
         return False
     changed = {path for path in base_tree.keys() | tree.keys()
                if base_tree.get(path) != tree.get(path)}
-    if changed != set(paths) or not changed & CI_EXECUTABLE_PATHS:
+    handoff_scope = handoff_scope or {}
+    if changed != set(paths) or not changed & (CI_EXECUTABLE_PATHS | handoff_scope.keys()):
         return False
-    if any(not (ci_owned(path) or path in package_paths) for path in changed):
+    if any(not (ci_owned(path) or path in package_paths or path in handoff_scope) for path in changed):
         return False
     for path in changed:
         old, new = base_tree.get(path), tree.get(path)
-        expected = '100755' if path in CI_EXECUTABLE_PATHS else '100644'
-        if path in CI_EXECUTABLE_PATHS and (old is None or new is None):
+        expected = handoff_scope.get(path, '100755' if path in CI_EXECUTABLE_PATHS else '100644')
+        if path in CI_EXECUTABLE_PATHS | handoff_scope.keys() and (old is None or new is None):
             return False
         for entry in (old, new):
             if entry is not None and (entry.get('mode') != expected or entry.get('type') != 'blob'):
@@ -318,6 +397,139 @@ def regular_ci_inventory(plan, base_tree, candidate_tree):
         return False
     return plan.get('regular') is True or _regular_ci_delta(
         candidate_tree, base_tree, plan.get('paths', ()), package_owned_paths(plan))
+
+
+
+def _ios_routing_views(tree, base_tree, trusted_tree, trusted_root, target):
+    """Finite source-bound routing data; no physical or candidate policy import."""
+    if target not in {"apple-main", "apple-ios"} or not all(type(value) is dict
+            for value in (tree, base_tree, trusted_tree)):
+        return None
+    # This exact reviewed independent iOS policy defines the same two data
+    # stages. Its immutable identity is a family prerequisite, never executable
+    # input. Sparse trusted checkouts and protected projections need no new file.
+    policy = {"mode": "100644", "type": "blob", "sha": "5023a064f19232da2934362ac9f3278f7935cfd5"}
+    if trusted_tree.get("tools/ios-build-qualification/inputs.py") != policy:
+        return None
+    data = {
+        ".github/workflows/apple-branch-topology.yml": (
+            "9a8aa6f7a9fc28924b5212c9be703c213f3dd694", "455fdd13c7580f474e291f67595c4d97a0891f04"),
+        ".github/workflows/ios-bootstrap.yml": (
+            "e8df02954fc83cc1efefcf36adbaeb19fe21cdae", "787651befbf7a627633b80185d798d7567db2466"),
+    }
+    parent = target == "apple-main"
+    def stage(snapshot):
+        if parent:
+            bootstrap = snapshot.get(".github/workflows/ios-bootstrap.yml")
+            if bootstrap != {"mode": "100644", "type": "blob", "sha": "ea772c34abdee24a42babd94529bf1e753020fb3"}:
+                return None
+            variants = ((0,), (1,))
+        else:
+            variants = ((0, 0), (1, 0), (1, 1))
+        for index, values in enumerate(variants):
+            if all(snapshot.get(path) == {"mode": "100644", "type": "blob", "sha": identities[variant]}
+                   for (path, identities), variant in zip(data.items(), values)):
+                return index
+        return None
+    try:
+        for snapshot in (base_tree, tree):
+            inputs._validate_tree(snapshot)
+            if any(item["mode"] not in {"100644", "100755"} or item["type"] != "blob"
+                   for item in snapshot.values()):
+                return None
+        stages = [stage(snapshot) for snapshot in (base_tree, tree)]
+        if None in stages or stages == [0, 0] or parent and 2 in stages:
+            return None
+        changed = {path for path in data if base_tree.get(path) != tree.get(path)}
+        if changed and not 0 <= stages[1] - stages[0] <= 1:
+            return None
+        comparisons = [{path: {**item, "sha": data[path][0]}
+                        if path in data and (not parent or path == ".github/workflows/apple-branch-topology.yml")
+                        else dict(item) for path, item in snapshot.items()} for snapshot in (base_tree, tree)]
+        return {"paths": changed, "base": comparisons[0], "candidate": comparisons[1]}
+    except (ValueError, OSError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def finite_ci_regularity(tree, base_tree, paths, trusted_tree, *, candidate_root=ROOT,
+                         trusted_root=ROOT, target=None, unknown=False):
+    """Recompute only the enrolled Android handoff or exact iOS cache transition.
+
+    This proves ordinary source modes, never execution or application PASS.
+    The global CI ownership and raw reader complements deliberately stay intact.
+    Callers without this complete trusted context retain their existing rules.
+    """
+    if unknown is not False or target not in {'apple-ios', 'android-main', 'android-phone',
+            'android-vr', 'android-vr-pico'} or not all(isinstance(value, dict)
+            for value in (tree, base_tree, trusted_tree)) or not isinstance(paths, (tuple, list)):
+        return False
+    try:
+        if not paths or len(paths) != len(set(paths)) or set(paths) != {
+                path for path in base_tree.keys() | tree.keys() if base_tree.get(path) != tree.get(path)}:
+            return False
+        for snapshot in (base_tree, tree, trusted_tree):
+            inputs._validate_tree(snapshot)
+            if any(entry['mode'] not in {'100644', '100755'} or entry['type'] != 'blob'
+                   for entry in snapshot.values()):
+                return False
+        source, _ = execution.checkout_identity(trusted_root)
+        actual = inputs.full_tree(trusted_root, source)
+        if actual != trusted_tree or program_digest(actual, trusted_root) not in {
+                REVIEWED_PROGRAMS, REVIEWED_PREDECESSORS['main']}:
+            return False
+        policy = package_policy()
+        current_generation = policy.validate_tree_wiring(actual)
+        if current_generation not in policy._PROTECTED_ROUTE_GENERATIONS \
+                or policy.validate_tree_wiring(tree) != current_generation:
+            return False
+        before_generation = policy.validate_tree_wiring(base_tree)
+        if target != 'apple-ios':
+            scope = _android_handoff_scope(tree, base_tree, paths, actual, trusted_root, target)
+            return bool(scope) and _regular_ci_delta(tree, base_tree, paths, (), handoff_scope=scope) \
+                and program_digest(tree, candidate_root) == REVIEWED_CHILD_PROGRAMS.get(target)
+        profile = inputs.INSTALLED_COMPILER_PROFILE
+        routing = _ios_routing_views(tree,base_tree,actual,trusted_root,target)
+        before_inputs = base_tree if routing is None else routing['base']
+        current_inputs = tree if routing is None else routing['candidate']
+        extra = set() if routing is None else routing['paths']
+        if before_generation != current_generation or set(paths) != set(profile) | extra \
+                or not inputs.installed_compiler_profile(tree, target=target) \
+                or any(base_tree.get(path, {}).get('mode') != entry['mode']
+                    or base_tree[path].get('type') != 'blob' for path, entry in profile.items()) \
+                or program_digest(before_inputs, candidate_root) != REVIEWED_CHILD_PROGRAMS.get(target) \
+                or program_digest(current_inputs, candidate_root) != REVIEWED_INSTALLED_PROGRAMS.get(target):
+            return False
+        # The independent iOS required owner must retain its protected decision
+        # rules. Its exact compiler_pr_data_selection still requires own-host
+        # execution while omitting application provisioning/build jobs.
+        authority = ('.github/ios-host-orchestration.json', 'tools/ios-build-qualification/host.py',
+            'tools/ios-build-qualification/inputs.py', 'tools/ios-build-qualification/check.py',
+            'tools/ios-build-qualification/host-workflow.yml', inputs.AFFECTED_POLICY,
+            '.github/test-suites.json')
+        if any(actual.get(path, {}).get('mode') != '100644' or actual[path].get('type') != 'blob'
+                or any(snapshot.get(path) != actual[path] for snapshot in (base_tree, tree))
+                for path in authority):
+            return False
+        owner = '.github/workflows/ios-build-qualification.yml'
+        if any(snapshot.get(owner) != actual['tools/ios-build-qualification/host-workflow.yml']
+               for snapshot in (base_tree, tree)):
+            return False
+        registry = inputs.load_registry(Path(trusted_root) / '.github/test-suites.json')
+        raw = inputs.load_dependencies(Path(trusted_root) / inputs.AFFECTED_POLICY, registry)
+        oid = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+        document = json.loads(raw, object_pairs_hook=inputs._unique_object)
+        if actual[inputs.AFFECTED_POLICY]['sha'] != oid or document['schema'] != 2:
+            return False
+        row = document['targets'][target]
+        independent = document['suites']['device-control-plane-full']['native_independent_paths']
+        return (all(snapshot.get('tests/platform-profile.json') == row['profile']
+                and inputs.affected_lookup_digest(snapshot) == row['lookup_digest']
+                for snapshot in (base_tree, tree))
+            and inputs.device_reader_digest(before_inputs, independent) == row['reader_digest']
+            and inputs.device_reader_digest(current_inputs, independent) == inputs.INSTALLED_COMPILER_READER)
+    except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError, AttributeError,
+            execution.ExecutionError):
+        return False
 
 
 def _protected_producer_transition(tree, paths, base_tree, trusted_tree, target):
@@ -439,9 +651,21 @@ def _select_legacy(tree, paths, regular, *, unknown=False, trusted_tree=None, ca
     reason = 'unowned-inputs'
     if not isinstance(package_paths, (tuple, list)) or any(path not in PACKAGE_LOCKS for path in package_paths):
         raise ValueError('host package ownership requires finite separately owned lock paths')
-    if unknown or not paths or (not regular and not _regular_ci_delta(tree, base_tree, paths, package_paths)):
+    if target == 'apple-ios' and not package_paths and finite_ci_regularity(
+            tree, base_tree, paths, trusted_tree, candidate_root=candidate_root,
+            trusted_root=trusted_root, target=target, unknown=unknown):
+        return {'suites': [name for name in names if registry['suites'][name]['layer'] == 'quick'
+                    and name not in PRODUCT_QUICK_SUITES],
+                'reason': 'reviewed-ci-only-inputs', 'full_host': False, 'include_platform': False}
+    handoff_scope = {} if unknown else _android_handoff_scope(
+        tree, base_tree, paths, trusted_tree, trusted_root, target)
+    routing = None if unknown else _ios_routing_views(tree,base_tree,trusted_tree,trusted_root,target)
+    routing_paths = set() if routing is None else routing['paths']
+    if unknown or not paths or (not regular and not _regular_ci_delta(
+            tree, base_tree, paths, package_paths, handoff_scope=handoff_scope)):
         reason = 'unknown-or-nonregular-inventory'
-    elif not all(isinstance(path, str) and (ci_owned(path) or path in package_paths) for path in paths):
+    elif not all(isinstance(path, str) and (ci_owned(path) or path in package_paths or path in handoff_scope or path in routing_paths)
+                 for path in paths):
         reason = 'unowned-inputs'
     else:
         try:
@@ -449,7 +673,8 @@ def _select_legacy(tree, paths, regular, *, unknown=False, trusted_tree=None, ca
             # These exact foreign lock bytes are not product reader inputs.
             # Changed locks still require their separate mandatory owner and
             # ordinary entries on both sides; unchanged locks need no new run.
-            reviewed_tree = tree
+            reviewed_tree = tree if routing is None else routing['candidate']
+            reviewed_base = base_tree if routing is None else routing['base']
             if package_paths:
                 if base_tree is None or any(
                         not isinstance(snapshot.get(path), dict)
@@ -465,7 +690,10 @@ def _select_legacy(tree, paths, regular, *, unknown=False, trusted_tree=None, ca
                     inputs.installed_compiler_profile(snapshot, target=target)
                     for snapshot in (base_tree, tree)):
                 reviewed = all(program_digest(snapshot, candidate_root) == installed
-                               for snapshot in (base_tree, tree))
+                               for snapshot in (reviewed_base, reviewed_tree))
+            if routing is not None:
+                reviewed &= program_digest(reviewed_base,candidate_root) in {expected,
+                    REVIEWED_PREDECESSORS.get(target),installed}
             if trusted_tree is not None:
                 reviewed &= program_digest(trusted_tree, trusted_root) in {
                     REVIEWED_PROGRAMS, REVIEWED_PREDECESSORS['main']}
@@ -633,6 +861,61 @@ def requires_artifact_namespace(suite_names):
     return False
 
 
+def incomplete_parent_qualification(event, plan, selected, report, environment, *, default_source):
+    """Decline optional incomplete qualification, without claiming suite PASS.
+
+    Only the fixed native Parent job consumes its own earlier authenticated
+    scheduling observation. Required PR/Sync tests and complete receipts never
+    use this branch. The observation cannot be used as execution evidence.
+    """
+    target = target_branch(event)
+    if target not in {'main', 'apple-main'} or plan.get('host_mode') != 'full' \
+            or plan.get('unknown') is not False or plan.get('package_set') \
+            or plan.get('tool_projects') or selected.get('include_platform') is not False \
+            or selected.get('additional_suites') or selected.get('platform_suites'):
+        return False
+    required = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'noah-l-frank/overte',
+        'GITHUB_REPOSITORY_ID': '1319052603', 'GITHUB_EVENT_NAME': 'push',
+        'GITHUB_JOB': 'common-parent', 'GITHUB_RUN_ATTEMPT': '1',
+        'GITHUB_REF': 'refs/heads/'+target, 'GITHUB_SHA': plan.get('candidate'),
+        'GITHUB_WORKFLOW_SHA': plan.get('candidate'), 'RUNNER_ENVIRONMENT': 'github-hosted',
+        'ImageOS': 'ubuntu24', 'GITHUB_WORKFLOW_REF':
+            'noah-l-frank/overte/.github/workflows/parent-qualification.yml@refs/heads/'+target}
+    if any(environment.get(key) != value for key, value in required.items()):
+        return False
+    if not isinstance(report, dict) or report.get('reused') is not False \
+            or report.get('reason') != 'original-proof-unavailable':
+        return False
+    observation = report.get('optional_qualification')
+    if not isinstance(observation, dict):
+        return False
+    fixed = {'schema': 1, 'kind': 'optional-parent-qualification-schedule-v1',
+        'authority': 'none', 'reusable': False, 'qualification': False,
+        'executed_suites': [], 'reused_suites': [], 'execution': None}
+    if any(type(observation.get(key)) is not type(value) or observation.get(key) != value
+           for key, value in fixed.items()):
+        return False
+    binding, refs = observation.get('binding'), observation.get('refs')
+    if not isinstance(binding, dict) or not isinstance(refs, dict):
+        return False
+    integration = refs.get('integration')
+    if not isinstance(integration, dict):
+        return False
+    run_id = environment.get('GITHUB_RUN_ID', '')
+    return (run_id.isdecimal() and int(run_id) > 0
+        and integration.get('push_run_id') == int(run_id) and integration.get('push_attempt') == 1
+        and integration.get('workflow_path') == '.github/workflows/parent-qualification.yml'
+        and integration.get('commit') == refs.get('target') == binding.get('merge_sha') == plan.get('candidate')
+        and integration.get('tree') == binding.get('merge_tree') == plan.get('tree')
+        and integration.get('target') == binding.get('base_ref') == target
+        and binding.get('base_sha') == event.get('before') == plan.get('base')
+        and event.get('after') == plan.get('candidate') and event.get('forced') is False
+        and event.get('deleted') is False and refs.get('default_ref') == 'main'
+        and refs.get('default') == default_source
+        and observation.get('default_authority') ==
+            {'name': 'main', 'protected': True, 'commit': default_source})
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--candidate', type=Path, required=True)
@@ -671,12 +954,12 @@ def main():
         complete_receipt = (set(selected['suites']) == set(registry['suites']) and not additions
                             and selected['include_platform'])
         print(json.dumps(selected, sort_keys=True), flush=True)
+        report = {'schema': 1, 'kind': 'host-impact-selection', 'reusable': False,
+                  'candidate': before[0], 'tree': before[1], 'package_plan': plan['plan'],
+                  'selection': selected,
+                  'omitted_suites': [name for name in registry['suites'] if name not in selected['suites']],
+                  'complete_receipt_required': complete_receipt}
         if args.selection_report is not None:
-            report = {'schema': 1, 'kind': 'host-impact-selection', 'reusable': False,
-                      'candidate': before[0], 'tree': before[1], 'package_plan': plan['plan'],
-                      'selection': selected,
-                      'omitted_suites': [name for name in registry['suites'] if name not in selected['suites']],
-                      'complete_receipt_required': complete_receipt}
             args.selection_report.parent.mkdir(parents=True, exist_ok=True)
             args.selection_report.write_text(json.dumps(report, sort_keys=True, indent=2) + '\n')
         if args.select_only:
@@ -690,6 +973,43 @@ def main():
             return 0
         if args.junit is None:
             raise ValueError('host execution requires a test report path')
+        if (os.environ.get('GITHUB_EVENT_NAME') == 'push'
+                and os.environ.get('GITHUB_JOB') == 'project-tests'
+                and target_branch(event) in {'apple-ios', 'android-phone', 'android-vr-pico'}
+                and not additions and not selected['platform_suites']):
+            import postmerge
+            original = postmerge.leaf_common_reuse(candidate, event, os.environ, selected['suites'],
+                include_platform=selected['include_platform'], root=ROOT)
+            if original is not None:
+                report.update(original_common=original, executed_suites=[],
+                    reused_suites=selected['suites'], qualification=False, execution=None)
+                if args.selection_report is not None:
+                    args.selection_report.write_text(json.dumps(report, sort_keys=True, indent=2) + '\n')
+                print(json.dumps(original, sort_keys=True), flush=True)
+                return 0
+        if not complete_receipt and os.environ.get('GITHUB_JOB') == 'common-parent':
+            # The earlier native API lookup owns this workspace file. Candidate
+            # commands have not run, and this branch publishes no test receipt.
+            workspace = Path(os.environ.get('GITHUB_WORKSPACE', '/nonexistent')).resolve()
+            schedule_path = workspace / 'build/parent-qualification/original-proof.json'
+            observation = None
+            try:
+                if candidate == workspace / 'candidate' and ROOT == workspace / 'trusted' \
+                        and all(not path.is_symlink() for path in
+                            (workspace / 'build', schedule_path.parent, schedule_path)) \
+                        and schedule_path.is_file() and schedule_path.stat().st_size <= 2_000_000:
+                    observation = json.loads(schedule_path.read_bytes(), object_pairs_hook=inputs._unique_object)
+            except (OSError, ValueError):
+                pass  # Missing or malformed scheduling data never omits tests.
+            if incomplete_parent_qualification(event, plan, selected, observation, os.environ,
+                                               default_source=execution.checkout_identity(ROOT)[0]):
+                report.update(qualification_status='unavailable', qualification=False,
+                    executed_suites=[], reused_suites=[], execution=None)
+                if args.selection_report is not None:
+                    args.selection_report.write_text(json.dumps(report, sort_keys=True, indent=2) + '\n')
+                print('Optional parent qualification unavailable: incomplete selection; no suites executed, '
+                      'no test pass or reusable evidence published.', flush=True)
+                return 0
         registry = inputs.load_registry(ROOT / '.github/test-suites.json')
         suites = [package.Suite(name, registry['suites'][name]['layer'], tuple(
             sys.executable if index == 0 and value == 'python' else value

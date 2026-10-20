@@ -2,6 +2,7 @@
 """Negative selection coverage against the real trusted host program closure."""
 from copy import deepcopy
 import importlib.util
+import hashlib
 import json
 import base64
 import zlib
@@ -19,6 +20,20 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('host_impact_tests', ROOT / 'tools/repository-checks/host_selection.py')
 HOST = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(HOST)
+
+
+def reviewed_routing_sources():
+    spec = importlib.util.spec_from_file_location("ios_routing_source_fixture", ROOT / "tests/ios-input-selection-test.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.reviewed_routing_sources()
+
+
+def reviewed_parent_bootstrap():
+    spec = importlib.util.spec_from_file_location("ios_parent_routing_source_fixture", ROOT / "tests/ios-input-selection-test.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.reviewed_parent_bootstrap()
 
 
 def historical_workflows():
@@ -62,6 +77,22 @@ class HostSelectionTests(unittest.TestCase):
                            unknown=unknown, trusted_tree=self.tree if trusted_tree is None else trusted_tree,
                            target=target, base_tree=base_tree, package_paths=package_paths)
 
+    def reviewed_fixture_tree(self, tree, target):
+        # Positive synthetic target fixtures compare the same finite routing
+        # family as the protected selector. Keep actual Utop/Uboot maps and raw
+        # program identities intact; this is not a new reviewed source hash.
+        original=copy_git_tree(tree)
+        raw=HOST.program_digest(tree)
+        native=json.loads((ROOT/HOST.inputs.AFFECTED_POLICY).read_bytes())['suites'][
+            'device-control-plane-full']['native_independent_paths']
+        reader=HOST.inputs.device_reader_digest(tree,native)
+        routing=HOST._ios_routing_views(tree,tree,self.tree,ROOT,target)
+        comparison=tree if routing is None else routing['candidate']
+        self.assertEqual(tree,original)
+        self.assertEqual(HOST.program_digest(tree),raw)
+        self.assertEqual(HOST.inputs.device_reader_digest(tree,native),reader)
+        return copy_git_tree(comparison)
+
     def producer_transition(self):
         policy = HOST.package_policy()
         generations = {generation['name']: generation['workflows'] for generation in policy.workflow_generations()}
@@ -78,6 +109,167 @@ class HostSelectionTests(unittest.TestCase):
         self.assertEqual(result, {'suites': list(self.registry['suites']),
             'reason': 'reviewed-protected-producer-transition', 'full_host': True, 'include_platform': True})
         self.assertEqual(len(result['suites']), len(set(result['suites'])))
+
+    def test_boolean_caller_pair_activation_uses_ordinary_ci_only_selection(self):
+        policy=HOST.package_policy()
+        rows={row['name']:row['workflows'] for row in policy.workflow_generations()}
+        previous=copy_git_tree(self.tree)
+        previous.update(deepcopy(rows['protected-producer-original-default-v1']))
+        templates={'.github/workflows/repository-checks.yml':'tools/repository-checks/workflows/producers/repository-checks.yml',
+            '.github/workflows/codeql.yml':'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml'}
+        for template in templates.values():
+            raw=(ROOT/template).read_bytes()
+            previous[template]={'mode':'100644','type':'blob',
+                'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+        previous['.github/workflows/codeql.yml']={'mode':'100644','type':'blob',
+            'sha':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'}
+        candidate=copy_git_tree(previous)
+        candidate.update(deepcopy(rows['protected-producer-original-default-boolean-v1']))
+        candidate['.github/workflows/codeql.yml']={'mode':'100644','type':'blob',
+            'sha':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3'}
+        paths=sorted(templates)
+        self.assertEqual(policy.validate_tree_wiring(previous),'protected-producer-original-default-v1')
+        self.assertEqual(policy.validate_tree_wiring(candidate),'protected-producer-original-default-boolean-v1')
+        with patch.object(HOST,'REVIEWED_PROGRAMS',HOST.program_digest(previous)):
+            result=self.selected(paths,tree=candidate,trusted_tree=previous,base_tree=previous)
+        self.assertEqual(result['reason'],'reviewed-ci-only-inputs')
+        self.assertEqual(result['suites'],json.loads((ROOT/'.github/ci37-runtime.json').read_text())['suites'])
+        self.assertFalse(result['full_host']);self.assertFalse(result['include_platform'])
+        self.assertFalse(HOST._protected_producer_transition(candidate,paths,previous,previous,'main'))
+        for path,change in (('.github/workflows/repository-checks.yml',{'sha':'f'*40}),
+                ('.github/workflows/repository-checks.yml',{'mode':'100755'}),
+                ('.github/workflows/browser-client.yml',{'sha':'f'*40})):
+            unknown=copy_git_tree(candidate);unknown[path].update(change)
+            with self.subTest(path=path,change=change),self.assertRaises(ValueError):
+                policy.validate_tree_wiring(unknown)
+
+    def android_handoff(self, target='android-main'):
+        document=json.loads((ROOT/'.github/android-owner-transfer.json').read_text())
+        items={**document['legacy_workflows'],**document['source_contracts']}
+        previous,candidate=copy_git_tree(self.tree),copy_git_tree(self.tree)
+        profile={'mode':'100644','type':'blob','sha':HOST.inputs._AFFECTED_TARGET_PROFILES[target]}
+        previous['tests/platform-profile.json']=deepcopy(profile)
+        candidate['tests/platform-profile.json']=deepcopy(profile)
+        for path,item in items.items():
+            previous[path]={'mode':item['mode'],'type':'blob','sha':item['reviewed_blob']}
+            candidate[path]={**self.tree[item['source']],'mode':item['mode']}
+        return previous,candidate,items
+
+    def handoff_selected(self, previous, candidate, *, target='android-main', trusted=None, paths=None,
+                         regular=False, unknown=False):
+        if paths is None:
+            paths=sorted(path for path in previous.keys()|candidate.keys()
+                         if previous.get(path)!=candidate.get(path))
+        # Only the candidate fixture's program identity is reviewed here. This
+        # cannot authorize an unknown predecessor or alter the routing manifest.
+        with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{target:HOST.program_digest(candidate)}):
+            return self.selected(paths,tree=candidate,base_tree=previous,target=target,
+                trusted_tree=self.tree if trusted is None else trusted,regular=regular,unknown=unknown)
+
+    def test_complete_trusted_android_handoff_routes_ci_without_excluding_program_inputs(self):
+        for target in ('android-main','android-phone','android-vr','android-vr-pico'):
+            with self.subTest(target=target):
+                previous,candidate,items=self.android_handoff(target)
+                paths=sorted(items)
+                before=HOST.program_digest(candidate)
+                selected=self.handoff_selected(previous,candidate,target=target)
+                self.assertEqual(set(selected['suites']),self.ci_quick)
+                self.assertEqual(selected['reason'],'reviewed-ci-only-inputs')
+                self.assertFalse(selected['full_host']);self.assertFalse(selected['include_platform'])
+                scope=HOST._android_handoff_scope(candidate,previous,paths,self.tree,ROOT,target)
+                self.assertEqual(scope,{path:item['mode'] for path,item in items.items()})
+                self.assertTrue(HOST._regular_ci_delta(candidate,previous,paths,(),handoff_scope=scope))
+                self.assertFalse(HOST._regular_ci_delta(candidate,previous,paths,()))
+                self.assertEqual(HOST.program_digest(candidate),before)
+                for path in items:
+                    self.assertFalse(HOST.ci_owned(path),path)
+                    altered=copy_git_tree(candidate);altered[path]['sha']='f'*40
+                    self.assertNotEqual(HOST.program_digest(altered),before,path)
+                # A previously installed member may coexist with the reviewed
+                # old members, but every final destination must be current.
+                first=next(iter(items));previous[first]=deepcopy(candidate[first])
+                self.assertFalse(self.handoff_selected(previous,candidate,target=target)['full_host'])
+
+    def test_android_handoff_regularity_requires_the_complete_independent_context(self):
+        for target in ('android-main','android-phone','android-vr','android-vr-pico'):
+            previous,candidate,items=self.android_handoff(target)
+            paths=sorted(items)
+            with self.subTest(target=target), patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,
+                    {target:HOST.program_digest(candidate)}):
+                self.assertTrue(HOST.finite_ci_regularity(candidate,previous,paths,self.tree,target=target))
+                plan={'unknown':False,'regular':False,'paths':paths}
+                self.assertFalse(HOST.regular_ci_inventory(plan,previous,candidate))
+                for change in ('target','unknown','paths','mode','predecessor','trusted','program'):
+                    old,new,trusted=copy_git_tree(previous),copy_git_tree(candidate),copy_git_tree(self.tree)
+                    kw={'target':target}
+                    proposed=list(paths)
+                    first=next(path for path,item in items.items() if item['mode']=='100755')
+                    if change=='target':kw['target']='apple-ios'
+                    elif change=='unknown':kw['unknown']=True
+                    elif change=='paths':proposed=paths[:-1]
+                    elif change=='mode':new[first]['mode']='100644'
+                    elif change=='predecessor':old[first]['sha']='a'*40
+                    elif change=='trusted':trusted['tests/requirements-host.txt']['sha']='a'*40
+                    else:
+                        old['libraries/extra-native-reader.h']=new['libraries/extra-native-reader.h']={
+                            'mode':'100644','type':'blob','sha':'a'*40}
+                    with self.subTest(change=change):
+                        self.assertFalse(HOST.finite_ci_regularity(new,old,proposed,trusted,**kw))
+
+    def test_android_handoff_rejects_unknown_predecessor_and_incomplete_or_nonregular_destinations(self):
+        previous,candidate,items=self.android_handoff()
+        for path in items:
+            for side,change in (('base',{'sha':'f'*40}),('candidate',{'sha':'f'*40}),
+                    ('base',{'mode':'100644' if items[path]['mode']=='100755' else '100755'}),
+                    ('candidate',{'mode':'120000'}),('base',{'type':'commit','mode':'160000'})):
+                with self.subTest(path=path,side=side,change=change):
+                    old,new=copy_git_tree(previous),copy_git_tree(candidate)
+                    (old if side=='base' else new)[path].update(change)
+                    # Nonregular inventories must not become reviewed merely
+                    # to reach this gate; use the already reviewed final tree.
+                    with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{'android-main':HOST.program_digest(candidate)}):
+                        paths=sorted(p for p in old.keys()|new.keys() if old.get(p)!=new.get(p))
+                        result=self.selected(paths,tree=new,base_tree=old,target='android-main',regular=True)
+                        self.assertTrue(result['full_host']);self.assertTrue(result['include_platform'])
+            for side in ('base','candidate'):
+                with self.subTest(path=path,missing=side):
+                    old,new=copy_git_tree(previous),copy_git_tree(candidate)
+                    del (old if side=='base' else new)[path]
+                    self.assertTrue(self.handoff_selected(old,new)['full_host'])
+            partial=copy_git_tree(candidate);partial[path]=deepcopy(previous[path])
+            self.assertTrue(self.handoff_selected(previous,partial)['full_host'])
+
+    def test_android_handoff_cannot_authorize_manifest_payload_profile_or_mixed_wiring_changes(self):
+        previous,candidate,items=self.android_handoff()
+        for path in ('.github/android-owner-transfer.json',next(iter(items.values()))['source'],
+                     'tests/platform-profile.json','.github/workflows/project-tests.yml'):
+            with self.subTest(path=path):
+                altered=copy_git_tree(candidate);altered[path]['sha']='f'*40
+                self.assertTrue(self.handoff_selected(previous,altered)['full_host'])
+        trusted=copy_git_tree(self.tree)
+        trusted['.github/android-owner-transfer.json']['sha']='f'*40
+        self.assertTrue(self.handoff_selected(previous,candidate,trusted=trusted)['full_host'])
+        # The older protected manifest/payload is not candidate authority. Its
+        # reviewed destinations remain valid; final payloads must still be D's.
+        previous['.github/android-owner-transfer.json']['sha']='e'*40
+        source=items['android/common/tests/robolectric/build.gradle']['source']
+        previous[source]['sha']='e'*40
+        self.assertFalse(self.handoff_selected(previous,candidate)['full_host'])
+
+    def test_android_handoff_does_not_waive_extra_paths_false_delta_or_non_android_targets(self):
+        previous,candidate,items=self.android_handoff()
+        for path in ('android/common/tests/new-handoff.py','libraries/shared/src/unreviewed.cpp',
+                     'Android/common/tests/ci/test_ci_contract.py'):
+            changed=copy_git_tree(candidate);changed[path]={'mode':'100644','type':'blob','sha':'f'*40}
+            with self.subTest(path=path):
+                self.assertTrue(self.handoff_selected(previous,changed)['full_host'])
+        for target in ('main','apple-main','apple-ios'):
+            with self.subTest(target=target):
+                self.assertTrue(self.handoff_selected(previous,candidate,target=target)['full_host'])
+        paths=sorted(items)
+        for altered in (paths[:-1],paths+[paths[0]]):
+            self.assertTrue(self.handoff_selected(previous,candidate,paths=altered)['full_host'])
+        self.assertTrue(self.handoff_selected(previous,candidate,unknown=True)['full_host'])
 
     def test_consumer_parent_is_preserved_by_each_exact_later_producer_pair(self):
         policy=HOST.package_policy()
@@ -899,7 +1091,9 @@ class HostSelectionTests(unittest.TestCase):
                     self.tree, [path], self.tree, target='apple-ios'))
 
     def test_ios_fixture_fallback_does_not_broaden_workflow_or_proved_targets(self):
-        reviewed = {target: HOST.program_digest(self.tree) for target in HOST.REVIEWED_CHILD_PROGRAMS}
+        fixtures={target:self.reviewed_fixture_tree(self.tree,target)
+                  for target in HOST.REVIEWED_CHILD_PROGRAMS}
+        reviewed={target:HOST.program_digest(tree) for target,tree in fixtures.items()}
         with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS, reviewed):
             path = '.github/workflows/issue-intake.yml'
             previous = copy_git_tree(self.tree);previous[path]['sha'] = 'b' * 40
@@ -909,9 +1103,10 @@ class HostSelectionTests(unittest.TestCase):
             self.assertNotIn('device-control-plane-full', selected['suites'])
             for target in ('main', 'apple-main', 'android-main', 'android-phone', 'android-vr', 'android-vr-pico'):
                 for path, owners in HOST.REQUIRED_INPUT_OWNERS.items():
-                    previous = copy_git_tree(self.tree);previous[path]['sha'] = 'c' * 40
+                    current=fixtures.get(target,self.tree)
+                    previous = copy_git_tree(current);previous[path]['sha'] = 'c' * 40
                     with self.subTest(target=target, path=path):
-                        selected = self.selected([path], base_tree=previous, target=target)
+                        selected = self.selected([path], tree=current,base_tree=previous, target=target)
                         self.assertEqual(set(selected['suites']), self.ci_quick | set(owners))
                         self.assertNotIn('device-control-plane-full', selected['suites'])
                         self.assertFalse(selected['include_platform'])
@@ -1051,6 +1246,7 @@ class HostSelectionTests(unittest.TestCase):
             with self.subTest(target=target):
                 child=copy_git_tree(self.tree)
                 child['tests/platform-profile.json']['sha']=str(index+1)*40
+                child=self.reviewed_fixture_tree(child,target)
                 digest=HOST.program_digest(child)
                 previous=copy_git_tree(child);previous[HOST.CONTROL_PLANE]['sha']='a'*40
                 with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{target:digest}):
@@ -1521,6 +1717,45 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         'ios/tests/qt-checkpoint-artifact-test.py': '100755',
     }
 
+
+    def test_routing_data_comparison_is_sparse_safe_source_bound_and_import_free(self):
+        topology='.github/workflows/apple-branch-topology.yml'
+        bootstrap='.github/workflows/ios-bootstrap.yml'
+        ordinary=lambda sha:{'mode':'100644','type':'blob','sha':sha}
+        data={topology:('9a8aa6f7a9fc28924b5212c9be703c213f3dd694','455fdd13c7580f474e291f67595c4d97a0891f04'),
+              bootstrap:('e8df02954fc83cc1efefcf36adbaeb19fe21cdae','787651befbf7a627633b80185d798d7567db2466')}
+        helper='tools/ios-build-qualification/inputs.py'
+        trusted={helper:ordinary('5023a064f19232da2934362ac9f3278f7935cfd5')}
+        def stage(value,parent=False):
+            return {topology:ordinary(data[topology][value>0]),bootstrap:ordinary(
+                'ea772c34abdee24a42babd94529bf1e753020fb3' if parent else data[bootstrap][value==2])}
+        with tempfile.TemporaryDirectory(prefix='host-routing-without-ios-policy-') as folder,patch.dict(sys.modules):
+            sparse=Path(folder);self.assertFalse((sparse/helper).exists())
+            sys.modules.pop('host_protected_ios_routing',None)
+            for parent,pairs in ((True,((0,1),(1,1))),(False,((0,1),(1,1),(1,2),(2,2)))):
+                for before_stage,after_stage in pairs:
+                    before,current=stage(before_stage,parent),stage(after_stage,parent)
+                    raw=deepcopy((before,current,trusted));target='apple-main' if parent else 'apple-ios'
+                    with self.subTest(parent=parent,before=before_stage,after=after_stage):
+                        full=HOST._ios_routing_views(current,before,trusted,ROOT,target)
+                        self.assertIsNotNone(full)
+                        self.assertEqual(HOST._ios_routing_views(current,before,trusted,sparse,target),full)
+                        self.assertEqual((before,current,trusted),raw)
+            self.assertNotIn('host_protected_ios_routing',sys.modules)
+            for change in ('policy','policy-mode','reverse','skip-stage','unknown','mode','alias','parent','target'):
+                before,current,authority=stage(1),stage(2),deepcopy(trusted);target='apple-ios'
+                if change=='policy':authority[helper]['sha']='a'*40
+                elif change=='policy-mode':authority[helper]['mode']='100755'
+                elif change=='reverse':before,current=current,before
+                elif change=='skip-stage':before=stage(0)
+                elif change=='unknown':current[bootstrap]['sha']='b'*40
+                elif change=='mode':current[bootstrap]['mode']='100755'
+                elif change=='alias':current[bootstrap]['mode']='120000'
+                elif change=='parent':target='apple-main'
+                else:target='android-vr-pico'
+                with self.subTest(change=change):
+                    self.assertIsNone(HOST._ios_routing_views(current,before,authority,sparse,target))
+
     @contextlib.contextmanager
     def private_git_profiles(self):
         """Real private Git inputs; tiny profile bytes are fixture data, not IOS5."""
@@ -1617,11 +1852,386 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         self.assertEqual(HOST.inputs.INSTALLED_COMPILER_PROFILE,
             {path:{'mode':mode,'type':'blob','sha':sha} for path,(mode,sha) in expected.items()})
         self.assertEqual(HOST.inputs.INSTALLED_COMPILER_READER,
-            'sha256:d57dea0d6e1db2ccf001d910d6f171f08827e5fef16f91dfcd9153b74198aeb8')
+            'sha256:6dff2d9d9ea405fe3a1921e4000ee191d99657c4ebcd871f665ed69e7d4748a2')
         for path in expected:
             self.assertNotIn(path,HOST.DEVICE_CONTROL_INPUTS)
         self.assertIn('ios',HOST.inputs._DEVICE_INPUTS)
         self.assertFalse(HOST.inputs.installed_compiler_profile(HOST.inputs.INSTALLED_COMPILER_PROFILE,target='main'))
+
+    @contextlib.contextmanager
+    def transition_profiles(self, *, routing=False):
+        """Real small Git trees; no historical iOS objects or product execution."""
+        package=HOST.package_policy()
+        source=HOST.inputs.full_tree(ROOT,'HEAD')
+        generation=package.validate_tree_wiring(source)
+        workflow_paths=next(row['workflows'] for row in package.workflow_generations() if row['name']==generation)
+        required=set(workflow_paths)|{'.github/test-suites.json','.github/package-workflow-generations.json',
+            'tests/platform-profile.json','tools/test-evidence/inputs.py',HOST.inputs.AFFECTED_POLICY,
+            '.github/ios-host-orchestration.json','tools/ios-build-qualification/host.py',
+            'tools/ios-build-qualification/inputs.py','tools/ios-build-qualification/check.py',
+            'tools/ios-build-qualification/host-workflow.yml'}
+        with tempfile.TemporaryDirectory(prefix='ios-cache-transition-') as folder:
+            root=Path(folder)
+            def git(*args):
+                return HOST.subprocess.check_output(['git','-c','core.hooksPath=/dev/null',
+                    '-c','commit.gpgsign=false','-c','user.name=Cache transition fixture',
+                    '-c','user.email=fixture@example.invalid',*args],cwd=root).decode().strip()
+            def write(path,data,mode=0o644):
+                leaf=root/path;leaf.parent.mkdir(parents=True,exist_ok=True);leaf.write_bytes(data);leaf.chmod(mode)
+            def snapshot():
+                git('add','--all');git('commit','-qm','Record immutable cache transition fixture')
+                return git('rev-parse','HEAD'),HOST.inputs.full_tree(root,'HEAD')
+            git('init','-q','--initial-branch=main')
+            for path in required:write(path,(ROOT/path).read_bytes())
+            if routing:
+                for path,bodies in reviewed_routing_sources().items():write(path,bodies[0].encode())
+            write('.github/workflows/ios-build-qualification.yml',
+                  (ROOT/'tools/ios-build-qualification/host-workflow.yml').read_bytes())
+            shared=(json.dumps({'schema':1,'platform':'shared','suites':[]},indent=2)+'\n').encode()
+            write('tests/platform-profile.json',shared)
+            for path,mode in self.PROFILE_MODES.items():write(path,('old '+path+'\n').encode(),int(mode,8)&0o777)
+            _,old=snapshot()
+            registry=HOST.inputs.load_registry(root/'.github/test-suites.json')
+            graph=json.loads((root/HOST.inputs.AFFECTED_POLICY).read_bytes())
+            independent=graph['suites']['device-control-plane-full']['native_independent_paths']
+            graph['targets']['apple-ios']={'profile':old['tests/platform-profile.json'],
+                'lookup_digest':HOST.inputs.affected_lookup_digest(old),
+                'reader_digest':HOST.inputs.device_reader_digest(old,independent)}
+            write(HOST.inputs.AFFECTED_POLICY,(json.dumps(graph,indent=2)+'\n').encode())
+            old_sha,old=snapshot()
+            for path,mode in self.PROFILE_MODES.items():write(path,('new '+path+'\n').encode(),int(mode,8)&0o777)
+            _,new=snapshot();git('checkout','-q','--detach',old_sha)
+            profile={path:new[path].copy() for path in self.PROFILE_MODES}
+            with (patch.object(HOST,'REVIEWED_PROGRAMS',HOST.program_digest(old,root)),
+                  patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{'apple-ios':HOST.program_digest(old,root)}),
+                  patch.object(HOST,'REVIEWED_INSTALLED_PROGRAMS',{'apple-ios':HOST.program_digest(new,root)}),
+                  patch.object(HOST.inputs,'INSTALLED_COMPILER_PROFILE',profile),
+                  patch.object(HOST.inputs,'INSTALLED_COMPILER_READER',HOST.inputs.device_reader_digest(new,independent))):
+                yield root,old,new,registry
+
+    def test_exact_routing_data_and_installed_continuation_keep_raw_inputs_and_ci37(self):
+        sources=reviewed_routing_sources();topology,bootstrap=sources
+        ordinary=lambda text:{"mode":"100644","type":"blob","sha":hashlib.sha1(b"blob "+str(len(text.encode())).encode()+b"\0"+text.encode()).hexdigest()}
+        with self.transition_profiles(routing=True) as (root,old,new,registry):
+            def select(base,current,target="apple-ios"):
+                paths=sorted(p for p in base.keys()|current.keys() if base.get(p)!=current.get(p))
+                regular=all(e is None or e["mode"]=="100644"and e["type"]=="blob"for p in paths for e in(base.get(p),current.get(p)))
+                return HOST.select(current,paths,regular,base_tree=base,trusted_tree=old,
+                    candidate_root=root,trusted_root=root,target=target)
+            for family in (old,new):
+                parent=copy_git_tree(family);parent[topology]=ordinary(sources[topology][1])
+                child=copy_git_tree(parent);child[bootstrap]=ordinary(sources[bootstrap][1])
+                for before,current in ((family,parent),(parent,child)):
+                    raw=deepcopy((before,current));result=select(before,current)
+                    self.assertEqual(len(result["suites"]),37);self.assertFalse(result["full_host"])
+                    self.assertFalse(result["include_platform"]);self.assertEqual((before,current),raw)
+                later=copy_git_tree(child);later["tools/branch-cleanup/cleanup.py"]={"mode":"100644","type":"blob","sha":"a"*40}
+                result=select(child,later);self.assertEqual(len(result["suites"]),37)
+                self.assertFalse(result["full_host"]);self.assertNotIn("device-control-plane-full",result["suites"])
+            parent=copy_git_tree(old);parent[topology]=ordinary(sources[topology][1])
+            mixed=copy_git_tree(new);mixed[topology]=ordinary(sources[topology][1]);mixed[bootstrap]=ordinary(sources[bootstrap][1])
+            result=select(parent,mixed);self.assertEqual(len(result["suites"]),37);self.assertFalse(result["full_host"])
+            # Parent topology belongs to apple-main, never an IOS-only bypass.
+            parent_base=copy_git_tree(old);parent_base[bootstrap]=ordinary(reviewed_parent_bootstrap())
+            parent_topology=copy_git_tree(parent_base);parent_topology[topology]=ordinary(sources[topology][1])
+            with patch.dict(HOST.REVIEWED_CHILD_PROGRAMS,{"apple-main":HOST.program_digest(parent_base,root)}):
+                result=select(parent_base,parent_topology,"apple-main");self.assertEqual(len(result["suites"]),37)
+                self.assertFalse(result["full_host"]);self.assertFalse(result["include_platform"])
+            self.assertNotEqual(HOST.program_digest(parent,root),HOST.program_digest(old,root))
+
+    def test_routing_comparison_rejects_unknown_modes_rollback_wrong_target_and_reader_drift(self):
+        sources=reviewed_routing_sources();topology,bootstrap=sources
+        ordinary=lambda text:{"mode":"100644","type":"blob","sha":hashlib.sha1(b"blob "+str(len(text.encode())).encode()+b"\0"+text.encode()).hexdigest()}
+        with self.transition_profiles(routing=True) as (root,old,new,registry):
+            parent=copy_git_tree(old);parent[topology]=ordinary(sources[topology][1])
+            child=copy_git_tree(parent);child[bootstrap]=ordinary(sources[bootstrap][1])
+            for label in ("bootstrap-first","unknown","missing","mode","rollback","reader","cache","target","mixed","parent-bootstrap-on-ios"):
+                before,current=copy_git_tree(parent),copy_git_tree(child);target="apple-ios"
+                if label=="bootstrap-first":before=copy_git_tree(old)
+                elif label=="unknown":current[bootstrap]["sha"]="a"*40
+                elif label=="missing":del current[topology]
+                elif label=="mode":current[bootstrap]["mode"]="100755"
+                elif label=="rollback":before,current=current,before
+                elif label=="reader":current["ios/new-native-reader.hpp"]={"mode":"100644","type":"blob","sha":"b"*40}
+                elif label=="cache":current["ios/ci/qt-checkpoint-artifact.py"]["sha"]="c"*40
+                elif label=="target":target="android-main"
+                elif label=="parent-bootstrap-on-ios":
+                    before[bootstrap]=ordinary(reviewed_parent_bootstrap());current[bootstrap]=ordinary(reviewed_parent_bootstrap())
+                else:current[topology]=ordinary(sources[topology][0])
+                paths=sorted(p for p in before.keys()|current.keys() if before.get(p)!=current.get(p))
+                with self.subTest(change=label):
+                    result=HOST.select(current,paths,True,base_tree=before,trusted_tree=old,
+                        candidate_root=root,trusted_root=root,target=target)
+                    self.assertTrue(result["full_host"]);self.assertTrue(result["include_platform"])
+            policy="tools/ios-build-qualification/inputs.py"
+            for field,value in (("sha","a"*40),("mode","120000")):
+                with self.subTest(untrusted_policy_field=field):
+                    untrusted=copy_git_tree(old);untrusted[policy][field]=value
+                    self.assertIsNone(HOST._ios_routing_views(child,parent,untrusted,root,"apple-ios"))
+
+    def test_exact_cache_installation_selects_only_ci37_without_changing_raw_readers(self):
+        with self.transition_profiles() as (root,old,new,registry):
+            paths=sorted(self.PROFILE_MODES)
+            identities=[HOST.program_digest(tree,root) for tree in (old,new)]
+            self.assertTrue(HOST.finite_ci_regularity(new,old,paths,old,
+                candidate_root=root,trusted_root=root,target='apple-ios'))
+            selected=HOST.select(new,paths,False,base_tree=old,trusted_tree=old,
+                candidate_root=root,trusted_root=root,target='apple-ios')
+            expected=[name for name,suite in registry['suites'].items()
+                      if suite['layer']=='quick' and name not in HOST.PRODUCT_QUICK_SUITES]
+            self.assertEqual(selected,{'suites':expected,'reason':'reviewed-ci-only-inputs',
+                'full_host':False,'include_platform':False})
+            self.assertEqual(len(expected),37)
+            self.assertEqual([HOST.program_digest(tree,root) for tree in (old,new)],identities)
+            self.assertFalse(HOST.regular_ci_inventory({'unknown':False,'regular':False,'paths':paths},old,new))
+            for path in paths:
+                if not path.endswith('.md'):self.assertFalse(HOST.ci_owned(path))
+
+    def test_cache_installation_rejects_wrong_or_incomplete_families_and_dirty_trust(self):
+        with self.transition_profiles() as (root,old,new,_):
+            paths=sorted(self.PROFILE_MODES)
+            for change in ('target','unknown','partial','duplicate','mode','alias','bytes','missing',
+                           'predecessor','trusted','authority','owner','neighbor','historical','reverse','reader','program','dirty'):
+                before,current,trusted=copy_git_tree(old),copy_git_tree(new),copy_git_tree(old)
+                proposed=list(paths);kw={'target':'apple-ios'}
+                helper='ios/ci/qt-checkpoint-artifact.py'
+                if change=='target':kw['target']='apple-main'
+                elif change=='unknown':kw['unknown']=True
+                elif change=='partial':proposed.pop()
+                elif change=='duplicate':proposed.append(proposed[0])
+                elif change in {'mode','alias'}:current[helper]['mode']='100644' if change=='mode' else '120000'
+                elif change=='bytes':current[helper]['sha']='a'*40
+                elif change=='missing':del current[helper]
+                elif change=='predecessor':before[helper]['sha']='a'*40
+                elif change=='trusted':trusted[helper]['sha']='a'*40
+                elif change=='authority':before['tools/ios-build-qualification/host.py']['sha']='a'*40
+                elif change=='owner':
+                    before['.github/workflows/ios-build-qualification.yml']['sha']='a'*40
+                    current['.github/workflows/ios-build-qualification.yml']['sha']='a'*40
+                elif change in {'neighbor','historical'}:
+                    current['ios/ci/unreviewed_reader.py']={'mode':'100644','type':'blob','sha':'a'*40}
+                    if change=='historical':before['ios/ci/unreviewed_reader.py']=current['ios/ci/unreviewed_reader.py']
+                elif change=='reverse':before,current=current,before
+                elif change=='dirty':(root/'untracked-fixture.txt').write_text('not trusted')
+                with self.subTest(change=change), contextlib.ExitStack() as stack:
+                    if change=='reader':stack.enter_context(patch.object(HOST.inputs,'INSTALLED_COMPILER_READER','sha256:'+'0'*64))
+                    if change=='program':stack.enter_context(patch.object(HOST,'REVIEWED_INSTALLED_PROGRAMS',{'apple-ios':None}))
+                    self.assertFalse(HOST.finite_ci_regularity(current,before,proposed,trusted,
+                        candidate_root=root,trusted_root=root,**kw))
+                if change=='dirty':(root/'untracked-fixture.txt').unlink()
+
+
+class OptionalParentQualificationTests(unittest.TestCase):
+    def setUp(self):
+        self.source, self.base, self.tree, self.default = ('a'*40, 'b'*40, 'c'*40, 'd'*40)
+        self.event = {'ref': 'refs/heads/apple-main', 'before': self.base,
+                      'after': self.source, 'forced': False, 'deleted': False}
+        self.plan = {'candidate': self.source, 'base': self.base, 'tree': self.tree,
+                     'host_mode': 'full', 'unknown': False, 'package_set': [], 'tool_projects': []}
+        self.selected = {'include_platform': False, 'additional_suites': [], 'platform_suites': []}
+        self.environment = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': 'noah-l-frank/overte',
+            'GITHUB_REPOSITORY_ID': '1319052603', 'GITHUB_EVENT_NAME': 'push',
+            'GITHUB_JOB': 'common-parent', 'GITHUB_RUN_ATTEMPT': '1',
+            'GITHUB_RUN_ID': '123', 'GITHUB_REF': self.event['ref'], 'GITHUB_SHA': self.source,
+            'GITHUB_WORKFLOW_SHA': self.source, 'RUNNER_ENVIRONMENT': 'github-hosted', 'ImageOS': 'ubuntu24',
+            'GITHUB_WORKFLOW_REF': 'noah-l-frank/overte/.github/workflows/parent-qualification.yml@refs/heads/apple-main'}
+        self.observation = {'schema': 1, 'kind': 'optional-parent-qualification-schedule-v1',
+            'authority': 'none', 'reusable': False, 'qualification': False, 'execution': None,
+            'executed_suites': [], 'reused_suites': [],
+            'binding': {'base_ref': 'apple-main', 'base_sha': self.base,
+                        'merge_sha': self.source, 'merge_tree': self.tree},
+            'refs': {'target': self.source, 'default_ref': 'main', 'default': self.default,
+                'integration': {'push_run_id': 123, 'push_attempt': 1,
+                    'workflow_path': '.github/workflows/parent-qualification.yml',
+                    'target': 'apple-main', 'commit': self.source, 'tree': self.tree}},
+            'default_authority': {'name': 'main', 'protected': True, 'commit': self.default}}
+        self.report = {'reused': False, 'reason': 'original-proof-unavailable',
+                       'optional_qualification': self.observation}
+
+    def accepts(self):
+        return HOST.incomplete_parent_qualification(self.event, self.plan, self.selected,
+            self.report, self.environment, default_source=self.default)
+
+    def test_only_incomplete_optional_common_qualification_is_declined(self):
+        self.assertTrue(self.accepts())
+        self.assertIsNone(self.observation['execution'])
+        self.assertEqual([], self.observation['executed_suites'])
+        self.assertFalse(self.observation['reusable'])
+        for field, value in (('include_platform', True), ('additional_suites', ['new-command']),
+                             ('platform_suites', ['android-test'])):
+            with self.subTest(field=field), patch.dict(self.selected, {field: value}):
+                self.assertFalse(self.accepts())
+        for field, value in (('host_mode', 'delegated-sync'), ('unknown', True),
+                             ('package_set', ['script-archive/marketplace/S3Server']),
+                             ('tool_projects', ['browser-client'])):
+            with self.subTest(field=field), patch.dict(self.plan, {field: value}):
+                self.assertFalse(self.accepts())
+
+    def test_pr_sync_foreign_stale_missing_and_authority_claims_never_skip(self):
+        for field, value in (('GITHUB_EVENT_NAME', 'pull_request'), ('GITHUB_EVENT_NAME', 'workflow_dispatch'),
+                             ('GITHUB_JOB', 'project'), ('GITHUB_RUN_ATTEMPT', '2'),
+                             ('GITHUB_SHA', 'e'*40), ('GITHUB_REPOSITORY', 'overte-org/overte'),
+                             ('GITHUB_WORKFLOW_SHA', 'e'*40), ('GITHUB_RUN_ID', '124')):
+            with self.subTest(field=field, value=value), patch.dict(self.environment, {field: value}):
+                self.assertFalse(self.accepts())
+        for mapping, field, value in ((self.observation, 'reusable', True),
+                (self.observation, 'executed_suites', ['test-evidence']),
+                (self.observation['binding'], 'merge_tree', 'e'*40),
+                (self.observation['refs'], 'default', 'e'*40),
+                (self.event, 'forced', True), (self.event, 'before', 'e'*40)):
+            with self.subTest(field=field), patch.dict(mapping, {field: value}):
+                self.assertFalse(self.accepts())
+        with patch.dict(self.report, {'optional_qualification': None}):
+            self.assertFalse(self.accepts())
+
+    def test_cli_declines_incomplete_qualification_without_running_or_publishing_tests(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory).resolve()
+            trusted, candidate = workspace/'trusted', workspace/'candidate'
+            trusted.mkdir(); candidate.mkdir()
+            schedule = workspace/'build/parent-qualification/original-proof.json'
+            schedule.parent.mkdir(parents=True)
+            schedule.write_text(json.dumps(self.report))
+            event = workspace/'event.json'; event.write_text(json.dumps(self.event))
+            junit, selection_report = workspace/'tests.xml', workspace/'selection.json'
+            plan = {**self.plan, 'plan': 'fixture-plan', 'regular': True, 'paths': ['tools/example.py']}
+            selected = {**self.selected, 'suites': ['contract'], 'full_host': False, 'reason': 'fixture'}
+            registry = {'suites': {'contract': {'layer': 'quick', 'command': ['python', 'contract.py'],
+                                               'environment': 'fixture'}}}
+            package = SimpleNamespace(run_suites=Mock(side_effect=AssertionError('no optional tests')))
+            policy = SimpleNamespace(validate_wiring=lambda _: None, candidate_plan=lambda *_: plan)
+            argv = ['host_selection.py', '--candidate', str(candidate), '--event', str(event),
+                    '--sha', self.source, '--expected-plan', 'fixture-plan', '--junit', str(junit),
+                    '--selection-report', str(selection_report)]
+            with patch.object(HOST, 'ROOT', trusted), patch.object(sys, 'argv', argv), \
+                    patch.dict(HOST.os.environ, {**self.environment, 'GITHUB_WORKSPACE': str(workspace)}, clear=True), \
+                    patch.object(HOST.execution, '_runner', return_value=package), \
+                    patch.object(HOST.execution, 'checkout_identity', side_effect=lambda path:
+                        (self.source,self.tree) if path == candidate else (self.default,'e'*40)), \
+                    patch.object(HOST, 'package_policy', return_value=policy), \
+                    patch.object(HOST.inputs, 'full_tree', return_value={}), \
+                    patch.object(HOST.inputs, 'load_registry', return_value=registry), \
+                    patch.object(HOST, 'candidate_registry', return_value=registry), \
+                    patch.object(HOST, 'select', return_value=selected), \
+                    patch.object(HOST.execution, 'platform_suites', return_value=[]), \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(HOST.main(), 0)
+            package.run_suites.assert_not_called()
+            self.assertFalse(junit.exists())
+            result = json.loads(selection_report.read_text())
+            self.assertEqual(result['qualification_status'], 'unavailable')
+            self.assertEqual(result['executed_suites'], [])
+            self.assertIsNone(result['execution'])
+            self.assertFalse(result['qualification'])
+            self.assertFalse(result['reusable'])
+            self.assertIn('no test pass or reusable evidence published', output.getvalue())
+
+
+class LeafOriginalExecutionTests(unittest.TestCase):
+    def cli(self, *, proof=True, target='apple-ios', event_name='push', platform=False,
+            select_only=False, failure=False, additions=False):
+        import postmerge
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory)/'candidate'; candidate.mkdir()
+            event = Path(directory)/'event.json'
+            event.write_text(json.dumps({'ref':'refs/heads/'+target}))
+            junit, report, output = (Path(directory)/name for name in ('tests.xml','report.json','outputs'))
+            plan = {'candidate':'a'*40,'plan':'fixture','host_mode':'full','base':None,
+                'regular':True,'unknown':False,'paths':['tools/branch-cleanup/cleanup.py']}
+            registry = {'suites':{'contract':{'layer':'quick','environment':'fixture',
+                'command':['python','contract.py']}}}
+            selected = {'suites':['contract'],'include_platform':platform,'full_host':platform,'reason':'fixture'}
+            proposed = deepcopy(registry)
+            if additions:
+                proposed['suites']['new-contract'] = {**deepcopy(registry['suites']['contract']),
+                    'command':['python','new-contract.py']}
+            value = {'kind':'leaf-original-common-reuse-v1','reusable':False,'qualification':False,
+                'execution':None,'executed_suites':[],'reused_suites':['contract'],
+                'proof':{'original_commit':'b'*40,'current_commit':'a'*40}}
+            runner = SimpleNamespace(Suite=lambda *args:args,run_suites=Mock(return_value=1 if failure else 0))
+            policy = SimpleNamespace(validate_wiring=lambda _:None,candidate_plan=lambda *_:plan)
+            argv = ['host_selection.py','--candidate',str(candidate),'--event',str(event),
+                '--sha','a'*40,'--expected-plan','fixture','--junit',str(junit),'--selection-report',str(report)]
+            if select_only: argv += ['--select-only','--output',str(output)]
+            with patch.object(sys,'argv',argv), patch.dict(HOST.os.environ,
+                    {'GITHUB_EVENT_NAME':event_name,'GITHUB_JOB':'project-tests'},clear=True), \
+                    patch.object(HOST.execution,'_runner',return_value=runner), \
+                    patch.object(HOST.execution,'checkout_identity',return_value=('a'*40,'c'*40)), \
+                    patch.object(HOST,'package_policy',return_value=policy), \
+                    patch.object(HOST.inputs,'full_tree',return_value={}), \
+                    patch.object(HOST.inputs,'load_registry',return_value=registry), \
+                    patch.object(HOST,'candidate_registry',return_value=proposed), \
+                    patch.object(HOST,'select',return_value=selected), \
+                    patch.object(HOST.execution,'platform_suites',return_value=(
+                        [('platform-contract',['python','platform.py'])] if platform else [])), \
+                    patch.object(postmerge,'leaf_common_reuse',return_value=value if proof else None) as lookup, \
+                    contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
+                status = HOST.main()
+            return status,runner,lookup,json.loads(report.read_text()),junit.exists()
+
+    def test_late_common_hook_preserves_original_provenance_without_new_junit_or_execution(self):
+        status,runner,lookup,report,junit = self.cli()
+        self.assertEqual(status,0); runner.run_suites.assert_not_called(); lookup.assert_called_once()
+        self.assertFalse(junit)
+        self.assertEqual(report['executed_suites'],[])
+        self.assertEqual(report['reused_suites'],['contract'])
+        self.assertNotEqual(report['original_common']['proof']['original_commit'],report['candidate'])
+        self.assertIsNone(report['execution']);self.assertFalse(report['reusable'])
+        # Setup cannot use an unauthenticated speculative early lookup.
+        _,runner,lookup,_,_ = self.cli(select_only=True)
+        runner.run_suites.assert_not_called();lookup.assert_not_called()
+
+    def test_unavailable_proof_runs_exactly_once_and_failure_is_not_retried(self):
+        for failure in (False,True):
+            with self.subTest(failure=failure):
+                status,runner,lookup,report,_ = self.cli(proof=False,failure=failure)
+                self.assertEqual(status, int(failure));runner.run_suites.assert_called_once();lookup.assert_called_once()
+                self.assertNotIn('original_common',report)
+
+    def test_pr_foreign_leaf_new_command_and_actual_platform_work_retain_their_owners(self):
+        for options in ({'event_name':'pull_request'},{'target':'apple-main'},
+                        {'platform':True},{'additions':True}):
+            with self.subTest(options=options):
+                status,runner,lookup,report,_ = self.cli(**options)
+                self.assertEqual(status,0);runner.run_suites.assert_called_once();lookup.assert_not_called()
+                self.assertNotIn('original_common',report)
+                if options.get('platform'):
+                    self.assertIn('platform-contract',[suite[0] for suite in runner.run_suites.call_args.args[1]])
+
+
+class HostImportHygieneTests(unittest.TestCase):
+    def test_plain_entrypoint_and_inherited_commands_preserve_the_immutable_import_tree(self):
+        # The hosted partial fallback invokes Python without -B. Exercise real
+        # imports in a fresh process, including a child, with no ambient opt-out.
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entry = root/'tools/repository-checks/host_selection.py'
+            entry.parent.mkdir(parents=True)
+            entry.write_bytes((ROOT/'tools/repository-checks/host_selection.py').read_bytes())
+            modules = root/'tools/test-evidence'
+            modules.mkdir()
+            for name in ('execution.py', 'inputs.py', 'runtime.py'):
+                (modules/name).write_bytes((ROOT/'tools/test-evidence'/name).read_bytes())
+            wrapper = '''
+import os, runpy, subprocess, sys
+from pathlib import Path
+os.environ.pop('PYTHONDONTWRITEBYTECODE', None)
+os.environ.pop('PYTHONPYCACHEPREFIX', None)
+entry = Path(sys.argv[1])
+sys.argv = [str(entry), '--help']
+try:
+    runpy.run_path(str(entry), run_name='__main__')
+except SystemExit as error:
+    if error.code not in (None, 0):
+        raise
+subprocess.run([sys.executable, '-S', '-c', 'import execution, inputs'],
+    cwd=entry.parents[1]/'test-evidence', check=True)
+'''
+            result = subprocess.run([sys.executable, '-I', '-S', '-c', wrapper, str(entry)],
+                capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(list(root.rglob('__pycache__')), [])
 
 
 if __name__=='__main__':

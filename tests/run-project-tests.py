@@ -118,6 +118,8 @@ SUITES = (
     Suite("source-layout", "quick", (sys.executable, "tests/source-layout-test.py")),
     Suite("shared-script-behavior", "host", ("node", "--test", *tuple(
         str(path.relative_to(ROOT)) for path in sorted((ROOT / "tests/javascript/test").glob("*.test.js"))))),
+    Suite("native-owner-lifecycle", "host", (
+        sys.executable, "tests/producer-owner-lifecycle-test.py")),
     Suite("native-ctest", "native", ("bash", "tests/project-native-test.sh")),
 )
 
@@ -225,7 +227,7 @@ def write_junit(path: Path, results: list[dict[str, object]], elapsed: float) ->
 def command_owner():
     """Adopt escaped descendants even when a nested scheduler is force-killed."""
     if not sys.platform.startswith("linux"):
-        yield lambda: None
+        yield lambda running=None: None
         return
     # Keep each CLI self-contained for its existing sparse/bootstrap checkouts.
     children = Path(f"/proc/self/task/{os.getpid()}/children")
@@ -242,7 +244,18 @@ def command_owner():
     if libc.prctl(36, 1, 0, 0, 0) != 0:
         raise OSError(ctypes.get_errno(), "cannot set child-subreaper state")
 
-    def reap():
+    def reap(running=None):
+        if running is not None:
+            # Nested cleanup tests can orphan an already terminated worker
+            # while their immediate suite is still running. Reap only adopted
+            # children; Popen retains ownership of the active suite's status.
+            for pid in map(int, children.read_text().split()):
+                if pid != running:
+                    try:
+                        os.waitpid(pid, os.WNOHANG)
+                    except ChildProcessError:
+                        pass
+            return
         # The immediate Popen child must already be waited for. The checked
         # standalone scope owns all remaining adopted children.
         deadline = time.monotonic() + 1
@@ -323,6 +336,7 @@ def run_owned_command(command, timeout, cancelled, reap):
                             f"interrupted by signal {cancelled[0]}")
                 return process.returncode, output, ""
             except subprocess.TimeoutExpired:
+                reap(process.pid)
                 continue
     except BaseException:
         stop_process(process, reap)
