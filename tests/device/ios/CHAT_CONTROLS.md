@@ -20,14 +20,21 @@ HTTP/AFC path. They cover Unicode Send/Return and consumed counters, ignored
 effects, stale draft and late geometry, absent/invalid metadata and frames,
 fictional keyboard facts, failed intent, incomplete close, process replacement
 and canonical refusal before I/O. The permitted iOS host selection passes 312
-checks; five canonical binding-entry checks also pass. Twenty explicitly reviewed
+checks before the view component; five canonical binding-entry checks also pass. Twenty explicitly reviewed
 native/compiler-dependent cases are excluded from that selection. No compiler,
 IPA/client execution, device, installation or Jenkins job was used. Native
 C++/ObjC++ remains source-reviewed and uncompiled.
 
-Full original model/settings endpoints, actual keyboard/input-route observations,
-independent peer stimuli/receipts/publisher, closed-page source-contract correction
-and whole-run ownership/cleanup remain required. The input component never
+The passive `_chat_view(selector)` component now reads original UI/model/live
+settings source v1 over the original private AFC path. Three additional wrapper
+counterexamples exercise original inventories/native epochs, ignored/foreign
+observations, lost sessions and explicit canonical refusal before I/O. The source
+is documented [with its exact handoff](../native/CHAT_VIEW_OBSERVATION.md). Common
+journey v10 corrects the closed-page channel to `none`. The permitted iOS host
+selection now passes **315** cases with no failures, skips or compiler attempts.
+
+Actual keyboard/input-route qualification, independent peer stimuli/receipts/
+publisher and whole-run ownership/cleanup remain required. The input component never
 advertises complete `feature.chat.*` operations or substitutes editor clearing
 for acceptance/rendering/delivery. See
 [the shared native control contract](../native/NORMAL_CHAT_CONTROLS.md).

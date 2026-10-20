@@ -141,6 +141,10 @@ class IOSAdapter(AppiumAdapter):
         manager = self._scripts(selector)
         return TokenGraphicsUI(IOSGraphicsIO(manager.ui.io),intent)
 
+    def _chat_view(self,selector):
+        manager=self._scripts(selector);native=manager.ui.io.native
+        return FeatureObservation(native.client,native.session,native.target,native.observe_process).chat_view()
+
     def chat_capture_store(self,selector):
         return PrivateFeatureState(self.state_path(selector).with_name('chat-capture-owner.json'))
 

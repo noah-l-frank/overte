@@ -30,6 +30,7 @@ from adapters.owned_world_render import OwnedWorldRenderCapture
 from adapters.native_account_probe import (NativeAccountProbe, OwnedAccountProbe, FILE as ACCOUNT_PROBE_FILE,
     command as account_probe_command)
 from adapters.native_chat_observation import NativeChatObservation, OwnedChatCapture, FILE as CHAT_FILE, command as chat_command
+from adapters.native_chat_view import NativeChatView, FILE as CHAT_VIEW_FILE, command as chat_view_command
 from adapters.private_login_input import command as private_input_command
 from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE,
     command as account_origin_command)
@@ -104,6 +105,7 @@ class FeatureObservation:
             limit = 49152
         elif command.get('action')=='feature-private-login-input':private_input_command(command)
         elif command.get('action')=='feature-chat-observe':chat_command(command,ios=True)
+        elif command.get('action')=='feature-chat-view-observe':chat_view_command(command,ios=True)
         elif command.get('action') == 'feature-account-probe':account_probe_command(command,ios=True)
         elif command.get('action') == 'feature-account-origin':account_origin_command(command,ios=True)
         elif command.get('action') == 'feature-world-render-storage':world_storage_command(command,ios=True)
@@ -173,6 +175,11 @@ class FeatureObservation:
             lambda: self.original(remote=remote, limit=65536),
             self.epoch_ms, self.guard, self.process['pid'], ios=True,
             monotonic=self.monotonic, sleep=self.sleep)
+
+    def chat_view(self):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+CHAT_VIEW_FILE
+        return NativeChatView(self.send,lambda:self.original(remote=remote,limit=NATIVE_FEATURE_LIMIT),
+            self.epoch_ms,self.guard,self.process['pid'],ios=True,monotonic=self.monotonic,sleep=self.sleep)
 
     def chat_capture(self,owner,run):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+CHAT_FILE
