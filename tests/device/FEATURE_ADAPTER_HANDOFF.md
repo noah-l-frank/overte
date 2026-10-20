@@ -1,37 +1,43 @@
-# Feature adapter handoff, contract v14
+# Feature adapter handoff, contract v15
 
-The [prepared native IME event primitive](native/PREPARED_FIELD_COMMIT.md)
-adds default-off actual event ownership, weak Qt-context rejection and a strict
-original-receipt reader. Its native UI owner/nonce transport and full lifecycle
-observer join are still missing; the C++ is uncompiled and devices untested.
+The [prepared native IME event](native/PREPARED_FIELD_COMMIT.md) and
+[native owner/private transport](native/PENDING_COMMIT_OWNER.md) retain original
+Qt event/context identity and verify fresh effects and actual pending inventory.
+Source-only native providers and guarded component transports are registered on
+the separate Phone, Pico and iOS branches. Their C++ is uncompiled; full Lifecycle
+observer/recovery joins and device qualification remain missing.
+
+Navigation v15 uses the [actual Places and owned HTTP source contract](feature_journeys/NAVIGATION_SOURCE.md).
+All eight current state fields require independent original observations;
+actual HTTP inputs do not establish that a client consumed them.
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
-packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v14.json) and
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v15.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 tracks subsequent local platform packets and prerequisites. These do not change
-the complete v14 contract or grant device acceptance.
+the complete v15 contract or grant device acceptance.
 
 ## Action and read boundary
 
 For each closed area, advertise all three operations only after implementing
-and qualifying their complete v14 contract:
+and qualifying their complete v15 contract:
 
-- `feature.<area>.act` accepts exactly `{contractVersion: 14, runId, ticket,
+- `feature.<area>.act` accepts exactly `{contractVersion: 15, runId, ticket,
   fixtureUrl, verb, inputs}`. `runId` and `ticket` are fresh 32-character lowercase
   hexadecimal strings. `fixtureUrl` is a credential-free HTTP(S) URL whose exact
   path is `/feature-fixture/v1/runs/<runId>/`. `verb` and `inputs` must match the
   closed inventory, including expanded owned text. Return exactly
   `{"performed": true}` after delivering ordinary input, never a result verdict.
-- `feature.<area>.observe` accepts exactly `{contractVersion: 14, runId,
-  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 14,
+- `feature.<area>.observe` accepts exactly `{contractVersion: 15, runId,
+  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 15,
   runId, sequence, capturedEpochMs, state, artifacts, resources, lifecycle}`.
   `state` has every field declared for that area, measured from current product
   state. Unknown, inaccessible or unsupported observations are errors. Empty
   lists and default values cannot substitute for a failed read.
-- `feature.<area>.cleanup` accepts exactly `{contractVersion: 14, runId}` and
+- `feature.<area>.cleanup` accepts exactly `{contractVersion: 15, runId}` and
   returns exactly `{"performed": true}`. Restore only the captured owned test
   scope. The common test calls it twice and then independently observes the
   initial state, empty owned-resource inventory and three seconds of stable
@@ -207,7 +213,7 @@ receipt, requested value or UI text alone cannot substitute for an effect.
 
 | Area | Required actual measurement source and semantics |
 | --- | --- |
-| world-navigation | Actual address/grounded position (A/B from `navigation_observation.POSITIONS`) plus independently read bookmark storage and directory response; A/B identify the controlled viewpoints. A failed navigation retains B and shows `not-found`. Restart retains the renamed bookmark. |
+| world-navigation | [Version 15 actual-source contract](feature_journeys/NAVIGATION_SOURCE.md): current Places field/model and Go To dialog, exact owned bookmark storage and actual arrival/position at A/B. Original directory response and a current named-lookup HTTP 404 are mandatory alongside an independently observed matching native error/modal. Normal composites close selected pages; restart retains the bookmark and a fresh reopened Places page starts with an empty query. |
 | authentication | Provider session/profile and protected-resource access identify `anonymous` or `owned`. Invalid credentials create no session. Keep the actual request pending through close/reopen; restart its consumer before releasing a real valid old grant. Observe anonymous new-process protected access and actual retained delayed server authority. Restart retains valid login; native logout clears current local authority and survives restart. Separate fixture cleanup revokes remote issued tokens. |
 | avatar-people | [Version 12 source contract](feature_journeys/AVATAR_SOURCE.md): independently observe actual loaded geometry separately from advertised/requested URL, original failed-load history, dynamic-Hips owned Model wearable and bookmark storage/recovery. A missing model must become unavailable or actual loaded fallback, never an assumed retained A or fabricated UI error. Connection success requires two distinct consenting principals and original backend relationship reads; UI/peer messages are insufficient. All nine state fields require independent current observations. |
 | create | Real entity/server query identifies exact owned objects, selection, texture source, voxel value and effective rez permission. Cancel imports create nothing. Use the owned domain host. Create PolyVox with an 8×8×8 volume and the normal central-cube initial shape; use ordinary properties to place a unit-size volume two metres in front of the controlled avatar. `voxel-edit` selects cube/remove, a 0.5 m brush and one click at the visible front-face centre. `voxelValue` is 0 for unchanged saved voxel data and 1 only after the actual saved bytes differ from the creation baseline with native `isVoxelDataReady` true; it is never the requested brush setting. Model/texture/voxel changes require real geometry pixels; denied rez leaves zero objects and explicit permission feedback. |

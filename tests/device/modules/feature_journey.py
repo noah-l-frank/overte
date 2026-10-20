@@ -51,7 +51,8 @@ def main():
         Journey(args.area, run, url, invoke=invoke, witness=client.observe, activate=client.activate,
             read_artifact=lambda name: read_private_artifact(ARTIFACT_DIR, name), image_policy=policy,
             continuity=continuity, monotonic=time.monotonic, epoch_ms=lambda: time.time() * 1000,
-            sleep=time.sleep, report=lambda value: write_json('feature-journey-observation.json', value)).execute()
+            sleep=time.sleep, report=lambda value: write_json('feature-journey-observation.json', value),
+            navigation_source=client.navigation_status if args.area=='world-navigation' else None).execute()
     except AssertionError as error:
         raise AssertionFailure(str(error)) from error
     except (ValueError, OSError, KeyError) as error:
