@@ -12,6 +12,7 @@ import uuid
 
 from contracts import validate_operation_arguments
 from navigation_observation import OPERATIONS, viewpoint_urls
+from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_control,text as chat_text,same_reference as chat_same_reference
 from adapters.token_create_ui import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,ascii_text,same_reference
 from adapters.token_login_ui import IDS as LOGIN_IDS,VERSION as LOGIN_VERSION,metadata_fields as login_metadata_fields,validate_metadata as validate_login_metadata
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
@@ -80,6 +81,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'graphicsControlsVersion' in value:
         fields.add('graphicsControlsVersion')
         need(type(value['graphicsControlsVersion']) is int and value['graphicsControlsVersion']==1)
+    if type(value) is dict and 'chatControlsVersion' in value:
+        fields.add('chatControlsVersion')
+        need(type(value['chatControlsVersion']) is int and value['chatControlsVersion']==1)
     if type(value) is dict and 'createControlsVersion' in value:
         fields.add('createControlsVersion')
         need(type(value['createControlsVersion']) is int and value['createControlsVersion']==1)
@@ -103,7 +107,10 @@ def validate_snapshot(value, process_id, epoch_ms):
         if control['id'].startswith('graphics.'):need(value.get('graphicsControlsVersion')==1)
         is_graphics=graphics_control(control['id']) and value.get('graphicsControlsVersion')==1
         is_create=control['id'].startswith('create.')
-        if is_create:
+        is_chat=control['id'].startswith('chat.')
+        if is_chat:
+            need(value.get('chatControlsVersion')==1);chat_metadata(control);fields=set(control)
+        elif is_create:
             need(value.get('createControlsVersion')==1);create_metadata(control);fields=set(control)
         elif control['id'] in LOGIN_IDS:
             need(value.get('loginControlsVersion')==LOGIN_VERSION);fields |= login_metadata_fields(control['id'])
@@ -121,13 +128,14 @@ def validate_snapshot(value, process_id, epoch_ms):
         if control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
         need(set(control) == fields
-             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or is_create and create_control(control['id']))
+             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or is_create and create_control(control['id']) or is_chat and chat_control(control['id']))
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
         if control['id'] in SNAPSHOT_CHOICES:
             need(type(control['checked']) is bool)
-        if is_create:create_metadata(control)
+        if is_chat:chat_metadata(control)
+        elif is_create:create_metadata(control)
         elif control['id'] in LOGIN_IDS:validate_login_metadata(control)
         elif is_graphics:validate_graphics_metadata(control)
         elif audio_control(control['id']): validate_audio_metadata(control)
@@ -245,11 +253,24 @@ class PicoNavigation:
         need(snapshot['ready'] and control is not None and snapshot['lastCommandSequence'] < MAX_INTEGER)
         if token is not None: need(control['token'] == token)
         is_create=control_id.startswith('create.')
+        is_chat=control_id.startswith('chat.')
         if reference is not None:
-            from adapters.pico4.normal_create import project
-            original=same_reference(reference,project(snapshot),control_id)
+            need(type(reference) is dict)
+            if 'chatControlsVersion' in reference:
+                from adapters.pico4.normal_chat import project as chat_project
+                original=chat_same_reference(reference,chat_project(snapshot),control_id)
+            else:
+                from adapters.pico4.normal_create import project
+                original=same_reference(reference,project(snapshot),control_id)
             need(original['token']==control['token'])
-        if is_create:
+        if is_chat:
+            need(reference is not None and snapshot.get('chatControlsVersion')==1 and control['inputReady']
+                 and control_id!='chat.page' and value is None and direction is None and index is None and source is None
+                 and action in ('activate','replace','submit'))
+            if action in ('replace','submit'):need(control_id=='chat.input' and control['focused'])
+            if action=='replace':chat_text(text)
+            else:need(text is None)
+        elif is_create:
             need(reference is not None and snapshot.get('createControlsVersion')==1 and control['inputReady']
                  and control_id!='create.page' and value is None and action in ('activate','replace','select-index','scroll'))
             if action=='replace':need(create_field(control_id) and control['focused']);ascii_text(text)
@@ -302,6 +323,8 @@ class PicoNavigation:
                     script_url(text, missing=text.endswith('/missing.js'))
                 else:
                     owned_url(text, {'observer.js'})
+            elif is_chat:
+                need(control_id=='chat.input');chat_text(text)
             elif is_create:
                 need(create_field(control_id));ascii_text(text)
             elif control_id in ('login.username','login.password','login.server'):

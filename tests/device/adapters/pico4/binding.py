@@ -236,6 +236,12 @@ def create_adapter(args, base_class):
             manager=self._scripts(target)
             return TokenCreateUI(PicoCreateIO(manager.ui.io),intent)
 
+        def _chat_controls(self, target, intent, run):
+            from adapters.token_chat_ui import TokenChatUI
+            from adapters.pico4.normal_chat import PicoChatIO
+            manager=self._scripts(target)
+            return TokenChatUI(PicoChatIO(manager.ui.io),intent,run)
+
         def _login_controls(self, target, intent, run, origin):
             from adapters.token_login_ui import TokenLoginUI
             from adapters.pico4.normal_login import PicoLoginIO

@@ -324,3 +324,21 @@ No full Create capability is advertised: durable full-run composition, model/
 texture inputs, JSON file picker/export, PolyVox, permission actors and actual
 file/image/peer joins are still open. Physical Pico input/layout remains
 unqualified. Common feature contract is v8; native Create controls are v1.
+
+## Original Chat controls v1
+
+`_chat_controls(target,intent,run)` now constructs `TokenChatUI(PicoChatIO(...))`
+through the existing installed-candidate/PID/OpenXR-bound normal tablet input.
+The native survey identifies actual original Chat controls and emits closed
+`chatControlsVersion:1` metadata. Pointer/IME/Return input keeps the captured
+reference and actual counter through fresh admission; it does not recapture a
+changed draft/channel/context or call a message/QML-handler shortcut.
+
+Six new host cases pass. The affected normal Script/Login/Create/Chat selection
+passes 62 cases. Checks cover Unicode Send/Return, consumed-but-ignored input,
+changed original draft/context, unavailable version/candidate, mandatory original
+references, private text, fictional keyboard facts, failed intent and incomplete
+close. No complete `feature.chat.*` capability is enabled. Actual UI/storage/
+keyboard/peer/publisher/source-contract and whole-run cleanup joins remain
+required. Native source is uncompiled and Pico/device/build/Jenkins runs remain
+unperformed. See [NORMAL_CHAT_CONTROLS.md](../../native/NORMAL_CHAT_CONTROLS.md).
