@@ -102,8 +102,11 @@ class Boundary:
             if a == 'audio' and s['recording']:
                 s.update(recording=False, phase='cancelled', history=['capturing', 'cancelled'],
                          bufferedFrames=0, error='backgrounded')
-            if a == 'lifecycle-input':
+            if a in ('lifecycle-input','chat'):
                 s.update(keyboard=False, focused=False)
+            if a=='chat' and self.fault=='chat-resume-loses-history':s.update(domainMessages=[],messages=[])
+            if a=='chat' and self.fault=='chat-resume-default-channel':s.update(channel='local',messages=list(s['localMessages']))
+            if a=='chat' and self.fault=='chat-resume-ghost-keyboard':s.update(focused=True,keyboard=True)
             return
         if a == 'world-navigation':
             if verb in {'open', 'close'}: s['panel'] = verb == 'open'
@@ -225,7 +228,8 @@ class Boundary:
         elif a == 'chat':
             if verb in {'open','close'}:
                 s['open'] = verb == 'open'
-                if verb == 'close': s.update(draft='',channel='local',focused=False,keyboard=False)
+                if verb == 'close':s.update(draft='',channel='local' if self.fault=='chat-closed-default-channel' else 'none',focused=False,keyboard=False)
+                else:s.update(channel='local')
             elif verb == 'type': s.update(draft=data['text'], focused=True, keyboard=True)
             elif verb == 'select-channel': s.update(channel=data['channel'],focused=False,keyboard=False)
             elif verb == 'send':
@@ -421,6 +425,10 @@ class Boundary:
         self.actor_sequence += 1
         if self.fault not in {'missing-witness','frozen-witness'} or self.actor_sequence == 1:
             facts = projection(self.area, self.state)
+            if self.area=='chat':
+                if self.fault=='chat-peer-draft':facts['draft']=''
+                if self.fault=='chat-peer-focus':facts.update(focused=False,keyboard=False)
+                if self.fault=='chat-peer-missing-keyboard':facts.pop('keyboard')
             self.journal.publish(RUN, dict(ticket=self.ticket, actor='owned-observer',
                 actorSequence=self.actor_sequence, capturedEpochMs=self.epoch(), facts=facts))
         value = self.journal.snapshot(RUN)
@@ -607,7 +615,7 @@ class FeatureJourneys(unittest.TestCase):
         samples=boundary.reports[0]['samples']
         offline=[row['state'] for row in samples if not row['state']['mixerConnected'] and row['state']['draft']=='']
         self.assertTrue(any(row['domainMessages'].count(context(RUN)['retry'])==1 and row['peerMessages']==[context(RUN)['unicode']] for row in offline))
-        final=next(row['state'] for row in reversed(samples) if row['phase'].startswith('23-send'))
+        final=next(row['state'] for row in reversed(samples) if row['phase'].endswith('-send'))
         self.assertEqual(2,final['domainMessages'].count(context(RUN)['retry']))
         self.assertEqual(1,final['peerMessages'].count(context(RUN)['retry']))
         quiet=[phase for phase in boundary.reports[0]['phases'] if phase['phase'].endswith('await-no-replay')]
@@ -622,16 +630,39 @@ class FeatureJourneys(unittest.TestCase):
                 self.assertFalse(boundary.reports[0]['sequenceCompleted'])
                 self.assertTrue(boundary.reports[0]['cleanupSucceeded'])
 
+    def test_chat_closed_channel_and_resume_use_actual_absence_history_and_lifecycle(self):
+        boundary=Boundary('chat');boundary.execute();samples=boundary.reports[0]['samples']
+        self.assertTrue(all(row['state']['channel']=='none' for row in samples if not row['state']['open']))
+        phases=[p for p in boundary.reports[0]['phases'] if p['phase'].endswith('background-resume')]
+        self.assertEqual(1,len(phases))
+        resumed=[r for r in samples if r['phase'].endswith('background-resume')]
+        self.assertTrue(resumed);self.assertTrue(all(r['state']['channel']=='domain' and r['state']['domainMessages'] for r in resumed))
+        for fault in ('chat-closed-default-channel','background-ignored','chat-resume-loses-history',
+                      'chat-resume-default-channel','chat-resume-ghost-keyboard'):
+            with self.subTest(fault=fault):
+                broken=Boundary('chat',fault)
+                with self.assertRaises((AssertionError,ValueError)):broken.execute()
+                self.assertFalse(broken.reports[0]['sequenceCompleted'])
+
+    def test_chat_requires_fresh_independent_draft_focus_and_keyboard_facts(self):
+        from feature_journeys.witness import WITNESS_KEYS
+        self.assertEqual(set(SCENARIOS['chat']['baseline']),set(WITNESS_KEYS['chat']))
+        for fault in ('chat-peer-draft','chat-peer-focus','chat-peer-missing-keyboard'):
+            with self.subTest(fault=fault):
+                broken=Boundary('chat',fault)
+                with self.assertRaises((AssertionError,ValueError)):broken.execute()
+                self.assertFalse(broken.reports[0]['sequenceCompleted'])
+
     def test_chat_rejects_invented_filter_error_contract_and_prior_version(self):
         request=dict(contractVersion=VERSION,runId=RUN,ticket=TICKET,
             fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/',verb='select-channel',inputs={'channel':'domain'})
         self.assertEqual(request,arguments('feature.chat.act',request))
-        for change in ({'contractVersion':6},{'verb':'filter-peer','inputs':{'enabled':True}},
+        for change in ({'contractVersion':9},{'contractVersion':6},{'verb':'filter-peer','inputs':{'enabled':True}},
                        {'verb':'network-disconnect','inputs':{}},{'verb':'back','inputs':{}},
                        {'inputs':{'channel':'peer'}}):
             with self.assertRaises(ValueError):arguments('feature.chat.act',request|change)
         boundary=Boundary('chat');value=boundary.observe({})
-        for edit in ({'channel':'peer'},{'messages':['not rendered']},{'keyboard':True}, {'filtered':False}):
+        for edit in ({'channel':'peer'},{'channel':'local'},{'channel':'domain'},{'draft':context(RUN)['unicode']},{'messages':['not rendered']},{'keyboard':True}, {'filtered':False}):
             changed=copy.deepcopy(value);changed['state'].update(edit)
             with self.assertRaises(ValueError):result('feature.chat.observe',changed)
 
@@ -1078,9 +1109,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v9.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v10.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v9.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v10.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():

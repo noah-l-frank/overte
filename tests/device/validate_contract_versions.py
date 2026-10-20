@@ -39,7 +39,7 @@ REQUIRED = {
     "recorded-preview-signal": 1,
     "recorded-preview-evidence": 1,
     "recorded-preview-history": 1,
-    "feature-journey": 9, "acceptance-policy": 1, "adapter-manifest": 1, "artifact-manifest": 1,
+    "feature-journey": 10, "acceptance-policy": 1, "adapter-manifest": 1, "artifact-manifest": 1,
     "capability-registry": 1, "fixture-environment": 1, "matrix-summary": 1,
     "voice-test": 1, "probe-snapshot": 2, "run-manifest": 1, "run-summary": 1, "timeline": 1,
 }
@@ -85,7 +85,7 @@ def main() -> int:
             (root / "schemas/probe-snapshot.schema.json").read_text(encoding="utf-8"))[
                 "properties"]["schemaVersion"]["const"],
     }
-    feature_inventory = root / "feature_journeys/adapter-contract.v9.json"
+    feature_inventory = root / "feature_journeys/adapter-contract.v10.json"
     if feature_inventory.is_file():
         observed["feature-journey"] = json.loads(feature_inventory.read_text())["contractVersion"]
     acceptance_policy = root / "acceptance-policy.json"
