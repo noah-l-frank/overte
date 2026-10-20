@@ -1,4 +1,4 @@
-# Unenrolled future Android owner recipe; no active workflow or catalog pin installs this source.
+# Preregistered successor28. Active generation27 and its historical recipe stay unchanged.
 name: Shared project CI
 permissions:
   contents: read
@@ -103,9 +103,20 @@ jobs:
                 need(type(base) is str and re.fullmatch('[0-9a-f]{40}',base))
             branch=get('branches/'+target)
             need(branch.get('protected') is True and branch.get('name')==target and branch.get('commit',{}).get('sha')==(base if isinstance(pr,dict) else source))
-            commit=get('git/commits/'+base)
+            optional_leaf=(os.environ.get('GITHUB_EVENT_NAME')=='push' and target in {'apple-ios','android-phone','android-vr-pico'}
+                and os.environ.get('GITHUB_JOB') in {'route','project-tests','platform-tests','project-results'})
+            loader=base
+            if optional_leaf:
+                reference=get('git/ref/heads/main')
+                loader=reference.get('object',{}).get('sha')
+                need(reference.get('ref')=='refs/heads/main' and reference.get('object',{}).get('type')=='commit'
+                    and type(loader) is str and re.fullmatch('[0-9a-f]{40}',loader))
+                authority=get('branches/main')
+                need(authority.get('name')=='main' and authority.get('protected') is True
+                    and authority.get('commit',{}).get('sha')==loader)
+            commit=get('git/commits/'+loader)
             tree=commit.get('tree',{}).get('sha')
-            need(commit.get('sha')==base and type(tree) is str and re.fullmatch('[0-9a-f]{40}',tree))
+            need(commit.get('sha')==loader and type(tree) is str and re.fullmatch('[0-9a-f]{40}',tree))
             inventory=get('git/trees/'+tree+'?recursive=1')
             need(inventory.get('sha')==tree and inventory.get('truncated') is False and type(inventory.get('tree')) is list)
             name='tools/test-evidence/source_admission.py'
@@ -121,7 +132,7 @@ jobs:
             need(hashlib.sha1(b'blob '+str(len(body)).encode()+b'\0'+body).hexdigest()==entries[0].get('sha'))
             scope={'__name__':'protected_source_bootstrap','__file__':str(path)}
             exec(compile(body,str(path),'exec'),scope)
-            scope['authenticate'](event,os.environ,scope['GitHubSource'](deadline=deadline),root)
+            scope['optional_leaf_import' if optional_leaf else 'authenticate'](event,os.environ,scope['GitHubSource'](deadline=deadline),root)
             admitted=True
         except (ValueError,OSError,KeyError,TypeError,AttributeError,RuntimeError,subprocess.SubprocessError):
             pass
@@ -195,12 +206,6 @@ jobs:
           tests/platform-profile.json
           tests/requirements-host.txt
           tests/requirements-repository.txt
-    - name: Check out the exact candidate without credentials
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      with:
-        path: candidate
-        fetch-depth: 2
-        persist-credentials: false
     - name: Authenticate the protected base commitment before repository imports
       id: protected-source
       env:
@@ -257,9 +262,20 @@ jobs:
                 need(type(base) is str and re.fullmatch('[0-9a-f]{40}',base))
             branch=get('branches/'+target)
             need(branch.get('protected') is True and branch.get('name')==target and branch.get('commit',{}).get('sha')==(base if isinstance(pr,dict) else source))
-            commit=get('git/commits/'+base)
+            optional_leaf=(os.environ.get('GITHUB_EVENT_NAME')=='push' and target in {'apple-ios','android-phone','android-vr-pico'}
+                and os.environ.get('GITHUB_JOB') in {'route','project-tests','platform-tests','project-results'})
+            loader=base
+            if optional_leaf:
+                reference=get('git/ref/heads/main')
+                loader=reference.get('object',{}).get('sha')
+                need(reference.get('ref')=='refs/heads/main' and reference.get('object',{}).get('type')=='commit'
+                    and type(loader) is str and re.fullmatch('[0-9a-f]{40}',loader))
+                authority=get('branches/main')
+                need(authority.get('name')=='main' and authority.get('protected') is True
+                    and authority.get('commit',{}).get('sha')==loader)
+            commit=get('git/commits/'+loader)
             tree=commit.get('tree',{}).get('sha')
-            need(commit.get('sha')==base and type(tree) is str and re.fullmatch('[0-9a-f]{40}',tree))
+            need(commit.get('sha')==loader and type(tree) is str and re.fullmatch('[0-9a-f]{40}',tree))
             inventory=get('git/trees/'+tree+'?recursive=1')
             need(inventory.get('sha')==tree and inventory.get('truncated') is False and type(inventory.get('tree')) is list)
             name='tools/test-evidence/source_admission.py'
@@ -275,7 +291,7 @@ jobs:
             need(hashlib.sha1(b'blob '+str(len(body)).encode()+b'\0'+body).hexdigest()==entries[0].get('sha'))
             scope={'__name__':'protected_source_bootstrap','__file__':str(path)}
             exec(compile(body,str(path),'exec'),scope)
-            scope['authenticate'](event,os.environ,scope['GitHubSource'](deadline=deadline),root)
+            scope['optional_leaf_import' if optional_leaf else 'authenticate'](event,os.environ,scope['GitHubSource'](deadline=deadline),root)
             admitted=True
         except (ValueError,OSError,KeyError,TypeError,AttributeError,RuntimeError,subprocess.SubprocessError):
             pass
@@ -283,14 +299,34 @@ jobs:
             output.write('admitted='+str(admitted).lower()+'\n')
         print('Protected source commitment '+('admitted.' if admitted else 'unavailable; existing execution remains required.'))
         SOURCE_GUARD
+    - name: Authenticate optional leaf common unavailability
+      id: optional
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/apple-ios' || github.ref == 'refs/heads/android-phone'
+        || github.ref == 'refs/heads/android-vr-pico')
+      env:
+        GH_TOKEN: ${{ github.token }}
+        ADMITTED: ${{ steps.protected-source.outputs.admitted }}
+      run: |
+        set -euo pipefail
+        test "$ADMITTED" = true
+        /usr/bin/python3 -I -S -B -c 'import runpy,sys;sys.path.insert(0,sys.argv.pop(1));runpy.run_path(sys.argv.pop(1),run_name="__main__")' trusted/tools/test-evidence trusted/tools/test-evidence/producer_workflow.py optional-leaf-common
+    - name: Check out the exact candidate without credentials
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        path: candidate
+        fetch-depth: 2
+        persist-credentials: false
+      if: steps.optional.outputs.common_unavailable != 'true'
     - name: Set up Python
       uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
       with:
         python-version: '3.12'
+      if: steps.optional.outputs.common_unavailable != 'true'
     - name: Set up Node.js
       uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
       with:
         node-version: '22'
+      if: steps.optional.outputs.common_unavailable != 'true'
     - name: Independently select affected host contracts
       id: host
       env:
@@ -298,16 +334,17 @@ jobs:
       run: /usr/bin/python3 -I -S -B -c 'import runpy,sys;sys.path.insert(0,sys.argv.pop(1));runpy.run_path(sys.argv.pop(1),run_name="__main__")'
         trusted/tools/test-evidence trusted/tools/repository-checks/host_selection.py --candidate candidate --event
         "$GITHUB_EVENT_PATH" --sha "$GITHUB_SHA" --expected-plan "$EXPECTED_PLAN" --select-only --output "$GITHUB_OUTPUT"
+      if: steps.optional.outputs.common_unavailable != 'true'
     - name: Set up Java
-      if: needs.route.outputs.protected_full != 'true' || steps.protected-source.outputs.admitted != 'true' || steps.host.outputs.full_host
-        != 'false'
+      if: steps.optional.outputs.common_unavailable != 'true' && (needs.route.outputs.protected_full != 'true' ||
+        steps.protected-source.outputs.admitted != 'true' || steps.host.outputs.full_host != 'false')
       uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
       with:
         distribution: temurin
         java-version: '17'
     - name: Verify runner prerequisites
-      if: needs.route.outputs.protected_full != 'true' || steps.protected-source.outputs.admitted != 'true' || steps.host.outputs.full_host
-        != 'false'
+      if: steps.optional.outputs.common_unavailable != 'true' && (needs.route.outputs.protected_full != 'true' ||
+        steps.protected-source.outputs.admitted != 'true' || steps.host.outputs.full_host != 'false')
       run: |
         set -euo pipefail
         command -v bash
@@ -319,7 +356,7 @@ jobs:
         node --version
         java -version
     - name: Install QML and portable C++ contract prerequisites
-      if: steps.host.outputs.full_host == 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (steps.host.outputs.full_host == 'true')
       run: |
         set -euo pipefail
         sudo apt-get update
@@ -338,8 +375,8 @@ jobs:
           test -x "/usr/bin/$tool" || { printf 'Missing fixed system prerequisite: %s\n' "$tool" >&2; exit 1; }
         done
     - name: Prepare the protected trusted host environment
-      if: needs.route.outputs.protected_full == 'true' && steps.protected-source.outputs.admitted == 'true' && steps.host.outputs.full_host
-        != 'false'
+      if: steps.optional.outputs.common_unavailable != 'true' && (needs.route.outputs.protected_full == 'true' &&
+        steps.protected-source.outputs.admitted == 'true' && steps.host.outputs.full_host != 'false')
       run: |
         test ! -e /opt/overte-ci
         sudo -n /usr/bin/install -d -m 755 -o "$UID" /opt/overte-ci
@@ -378,8 +415,8 @@ jobs:
         # Preserve executable/read bits and do not follow descendant aliases.
         sudo -n /usr/bin/chmod -R go-w -- /opt/overte-ci "$PYTHON_ROOT" "$NODE_ROOT" "$JAVA_HOME"
     - name: Prepare the protected CI37 host environment
-      if: needs.route.outputs.protected_full == 'true' && steps.protected-source.outputs.admitted == 'true' && steps.host.outputs.full_host
-        == 'false'
+      if: steps.optional.outputs.common_unavailable != 'true' && (needs.route.outputs.protected_full == 'true' &&
+        steps.protected-source.outputs.admitted == 'true' && steps.host.outputs.full_host == 'false')
       run: |
         set -euo pipefail
         missing=()
@@ -419,8 +456,8 @@ jobs:
         sudo -n /usr/bin/chown -hR root:root -- /opt/overte-ci "$PYTHON_ROOT" "$NODE_ROOT"
         sudo -n /usr/bin/chmod -R go-w -- /opt/overte-ci "$PYTHON_ROOT" "$NODE_ROOT"
     - name: Verify protected CI37 runner prerequisites
-      if: needs.route.outputs.protected_full == 'true' && steps.protected-source.outputs.admitted == 'true' && steps.host.outputs.full_host
-        == 'false'
+      if: steps.optional.outputs.common_unavailable != 'true' && (needs.route.outputs.protected_full == 'true' &&
+        steps.protected-source.outputs.admitted == 'true' && steps.host.outputs.full_host == 'false')
       run: |
         set -euo pipefail
         command -v bash
@@ -437,7 +474,8 @@ jobs:
           sudo -n /usr/bin/apt-get update
           sudo -n /usr/bin/apt-get install --yes --no-install-recommends bubblewrap
         fi
-      if: needs.route.outputs.protected_full == 'true' && steps.protected-source.outputs.admitted == 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (needs.route.outputs.protected_full == 'true' &&
+        steps.protected-source.outputs.admitted == 'true')
     - name: Provision the fixed disposable diagnostic account
       id: account
       run: |
@@ -453,10 +491,12 @@ jobs:
         # Match the existing disposable Ubuntu host namespace prerequisite.
         # No application, SDK or device builds are fetched or launched.
         sudo -n /usr/sbin/sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      if: needs.route.outputs.protected_full == 'true' && steps.protected-source.outputs.admitted == 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (needs.route.outputs.protected_full == 'true' &&
+        steps.protected-source.outputs.admitted == 'true')
     - name: Execute the selected protected shared owner
       id: protected
-      if: needs.route.outputs.protected_full == 'true' && steps.protected-source.outputs.admitted == 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (needs.route.outputs.protected_full == 'true' &&
+        steps.protected-source.outputs.admitted == 'true')
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
@@ -481,15 +521,17 @@ jobs:
           QUALIFY_NODE_ROOT="$NODE_ROOT" QUALIFY_JAVA_HOME="${JAVA_HOME:-}" \
           /usr/bin/python3 -I -S -B -c 'import runpy,sys;sys.path.insert(0,sys.argv.pop(1));runpy.run_path(sys.argv.pop(1),run_name="__main__")' "$GITHUB_WORKSPACE/trusted/tools/test-evidence" "$GITHUB_WORKSPACE/trusted/tools/test-evidence/producer_workflow.py" shared --candidate "$GITHUB_WORKSPACE/candidate"
     - name: Set up Java for pre-execution fallback
-      if: needs.route.outputs.protected_full == 'true' && steps.protected-source.outputs.admitted == 'true' && steps.host.outputs.full_host
-        == 'false' && steps.protected.outputs.protected_executed != 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (needs.route.outputs.protected_full == 'true' &&
+        steps.protected-source.outputs.admitted == 'true' && steps.host.outputs.full_host == 'false' && steps.protected.outputs.protected_executed
+        != 'true')
       uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
       with:
         distribution: temurin
         java-version: '17'
     - name: Verify fallback runner prerequisites
-      if: needs.route.outputs.protected_full == 'true' && steps.protected-source.outputs.admitted == 'true' && steps.host.outputs.full_host
-        == 'false' && steps.protected.outputs.protected_executed != 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (needs.route.outputs.protected_full == 'true' &&
+        steps.protected-source.outputs.admitted == 'true' && steps.host.outputs.full_host == 'false' && steps.protected.outputs.protected_executed
+        != 'true')
       run: |
         set -euo pipefail
         command -v bash
@@ -501,7 +543,8 @@ jobs:
         node --version
         java -version
     - name: Install selected artifact namespace utility
-      if: steps.protected.outputs.protected_executed != 'true' && steps.host.outputs.requires_artifact_namespace == 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (steps.protected.outputs.protected_executed !=
+        'true' && steps.host.outputs.requires_artifact_namespace == 'true')
       env:
         FULL_HOST: ${{ steps.host.outputs.full_host }}
       run: |
@@ -526,7 +569,8 @@ jobs:
         unshare --user --map-root-user --net true
         python3 -m venv build/host-tests-env
         build/host-tests-env/bin/python -m pip install --disable-pip-version-check -r candidate/tests/requirements-host.txt
-      if: steps.protected.outputs.protected_executed != 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (steps.protected.outputs.protected_executed !=
+        'true')
     - name: Run independently selected host contracts
       env:
         EXPECTED_PLAN: ${{ needs.route.outputs.package_plan }}
@@ -541,9 +585,10 @@ jobs:
             --candidate candidate --event "$GITHUB_EVENT_PATH" --sha "$GITHUB_SHA" \
             --expected-plan "$EXPECTED_PLAN" --junit build/test-results/project-tests.xml
         fi
-      if: steps.protected.outputs.protected_executed != 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (steps.protected.outputs.protected_executed !=
+        'true')
     - name: Upload test report
-      if: always()
+      if: steps.optional.outputs.common_unavailable != 'true' && (always())
       uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
       with:
         name: project-test-results
@@ -560,14 +605,17 @@ jobs:
         path: ${{ runner.temp }}/ci-protected-receipt/receipt.json
         if-no-files-found: error
         retention-days: 1
-      if: steps.protected.outputs.protected_executed == 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (steps.protected.outputs.protected_executed ==
+        'true')
     - name: Remove only the disposable account created here
-      if: always() && steps.account.outputs.created == 'true'
+      if: steps.optional.outputs.common_unavailable != 'true' && (always() && steps.account.outputs.created == 'true')
       run: sudo -n /usr/sbin/userdel overte-ci-qualification
     name: Shared tests
     outputs:
       receipt_sha256: ${{ steps.protected.outputs.receipt_sha256 }}
       protected_executed: ${{ steps.protected.outputs.protected_executed }}
+      common_unavailable: ${{ steps.optional.outputs.common_unavailable }}
+      common_binding: ${{ steps.optional.outputs.common_binding }}
     permissions:
       contents: read
       actions: read
@@ -766,9 +814,20 @@ jobs:
                 need(type(base) is str and re.fullmatch('[0-9a-f]{40}',base))
             branch=get('branches/'+target)
             need(branch.get('protected') is True and branch.get('name')==target and branch.get('commit',{}).get('sha')==(base if isinstance(pr,dict) else source))
-            commit=get('git/commits/'+base)
+            optional_leaf=(os.environ.get('GITHUB_EVENT_NAME')=='push' and target in {'apple-ios','android-phone','android-vr-pico'}
+                and os.environ.get('GITHUB_JOB') in {'route','project-tests','platform-tests','project-results'})
+            loader=base
+            if optional_leaf:
+                reference=get('git/ref/heads/main')
+                loader=reference.get('object',{}).get('sha')
+                need(reference.get('ref')=='refs/heads/main' and reference.get('object',{}).get('type')=='commit'
+                    and type(loader) is str and re.fullmatch('[0-9a-f]{40}',loader))
+                authority=get('branches/main')
+                need(authority.get('name')=='main' and authority.get('protected') is True
+                    and authority.get('commit',{}).get('sha')==loader)
+            commit=get('git/commits/'+loader)
             tree=commit.get('tree',{}).get('sha')
-            need(commit.get('sha')==base and type(tree) is str and re.fullmatch('[0-9a-f]{40}',tree))
+            need(commit.get('sha')==loader and type(tree) is str and re.fullmatch('[0-9a-f]{40}',tree))
             inventory=get('git/trees/'+tree+'?recursive=1')
             need(inventory.get('sha')==tree and inventory.get('truncated') is False and type(inventory.get('tree')) is list)
             name='tools/test-evidence/source_admission.py'
@@ -784,7 +843,7 @@ jobs:
             need(hashlib.sha1(b'blob '+str(len(body)).encode()+b'\0'+body).hexdigest()==entries[0].get('sha'))
             scope={'__name__':'protected_source_bootstrap','__file__':str(path)}
             exec(compile(body,str(path),'exec'),scope)
-            scope['authenticate'](event,os.environ,scope['GitHubSource'](deadline=deadline),root)
+            scope['optional_leaf_import' if optional_leaf else 'authenticate'](event,os.environ,scope['GitHubSource'](deadline=deadline),root)
             admitted=True
         except (ValueError,OSError,KeyError,TypeError,AttributeError,RuntimeError,subprocess.SubprocessError):
             pass
@@ -1036,9 +1095,20 @@ jobs:
                 need(type(base) is str and re.fullmatch('[0-9a-f]{40}',base))
             branch=get('branches/'+target)
             need(branch.get('protected') is True and branch.get('name')==target and branch.get('commit',{}).get('sha')==(base if isinstance(pr,dict) else source))
-            commit=get('git/commits/'+base)
+            optional_leaf=(os.environ.get('GITHUB_EVENT_NAME')=='push' and target in {'apple-ios','android-phone','android-vr-pico'}
+                and os.environ.get('GITHUB_JOB') in {'route','project-tests','platform-tests','project-results'})
+            loader=base
+            if optional_leaf:
+                reference=get('git/ref/heads/main')
+                loader=reference.get('object',{}).get('sha')
+                need(reference.get('ref')=='refs/heads/main' and reference.get('object',{}).get('type')=='commit'
+                    and type(loader) is str and re.fullmatch('[0-9a-f]{40}',loader))
+                authority=get('branches/main')
+                need(authority.get('name')=='main' and authority.get('protected') is True
+                    and authority.get('commit',{}).get('sha')==loader)
+            commit=get('git/commits/'+loader)
             tree=commit.get('tree',{}).get('sha')
-            need(commit.get('sha')==base and type(tree) is str and re.fullmatch('[0-9a-f]{40}',tree))
+            need(commit.get('sha')==loader and type(tree) is str and re.fullmatch('[0-9a-f]{40}',tree))
             inventory=get('git/trees/'+tree+'?recursive=1')
             need(inventory.get('sha')==tree and inventory.get('truncated') is False and type(inventory.get('tree')) is list)
             name='tools/test-evidence/source_admission.py'
@@ -1054,7 +1124,7 @@ jobs:
             need(hashlib.sha1(b'blob '+str(len(body)).encode()+b'\0'+body).hexdigest()==entries[0].get('sha'))
             scope={'__name__':'protected_source_bootstrap','__file__':str(path)}
             exec(compile(body,str(path),'exec'),scope)
-            scope['authenticate'](event,os.environ,scope['GitHubSource'](deadline=deadline),root)
+            scope['optional_leaf_import' if optional_leaf else 'authenticate'](event,os.environ,scope['GitHubSource'](deadline=deadline),root)
             admitted=True
         except (ValueError,OSError,KeyError,TypeError,AttributeError,RuntimeError,subprocess.SubprocessError):
             pass
