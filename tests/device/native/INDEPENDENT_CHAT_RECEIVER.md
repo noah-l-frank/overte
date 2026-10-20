@@ -92,3 +92,10 @@ rewritten/dropped events, changed source/PID, failed journal write, failed purge
 foreign state, partial purge after sidecar loss and acquisition/clock limits. All nine pass; the existing 21
 native reception-source cases also pass. These checks validate Python protocol/
 ownership logic only, not the C++ bridge, real mixer delivery or a physical peer.
+
+The subsequent [owned MessagesMixer actuator](MESSAGES_MIXER_CONTROL.md) supplies
+controlled process outage/restart inputs while retaining the peer/domain. Its
+process receipts cannot replace the receiver's native node observations. A tenth
+receiver case now rejects matching old mixer identities after both saw absence;
+actual recovery requires a fresh original mixer identity. No full Chat adapter
+has been enabled.

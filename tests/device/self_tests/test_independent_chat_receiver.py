@@ -76,6 +76,15 @@ class IndependentChatTests(unittest.TestCase):
         self.assertEqual('f'*64,self.store.read()['mixerSha256'])
         self.assertFalse(self.store.read()['primaryAbsent']);self.assertFalse(self.store.read()['peerAbsent'])
 
+    def test_old_matching_mixer_nodes_after_actual_absence_do_not_establish_recovery(self):
+        self.receiver.sample();self.primary.mixer=False;self.native.mixer=False;self.receiver.sample()
+        self.primary.mixer=True;self.native.mixer=True
+        with self.assertRaises(NativeUIError):self.receiver.sample()
+        self.assertTrue(self.store.read()['primaryAbsent']);self.assertTrue(self.store.read()['peerAbsent'])
+        self.mixer='f'*64;self.primary.mutate=lambda value:value['source'].update(mixerSha256='f'*64)
+        self.receiver.sample();self.assertEqual('f'*64,self.store.read()['mixerSha256'])
+        self.assertFalse(self.store.read()['primaryAbsent']);self.assertFalse(self.store.read()['peerAbsent'])
+
     def test_missing_primary_cache_or_unavailable_peer_cannot_be_a_received_ledger(self):
         self.primary.present=False;self.primary.opened=0
         with self.assertRaises(NativeUIError):self.receiver.sample()
