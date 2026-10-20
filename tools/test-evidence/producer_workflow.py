@@ -332,7 +332,8 @@ def source_blob(repository, oid):
 
 
 def _affected_full_selection(policy, registry, selected, candidate_tree, base_tree, trusted_tree, paths,
-                             regular, *, root, target, _reuse_only=False):
+                             regular, *, root, target, _reuse_only=False, _scheduling_only=False,
+                             _scheduling_read=None):
     """Admit a finite source-proved subset without changing the full runtime.
 
     The selector's label or supplied names are insufficient. Reconstruct the
@@ -354,7 +355,11 @@ def _affected_full_selection(policy, registry, selected, candidate_tree, base_tr
         if target != 'main':
             host.require(dependencies['schema'] == 2 and execution_schema(policy,candidate_tree,target) == 4,
                 'child affected proof requires the retained-source seven-target generation')
-            if _reuse_only:
+            if _scheduling_only:
+                _,files=ci_profile.scheduling_controller_source(root,read_source=_scheduling_read)
+                source_admission.compatibility(base_tree,trusted_tree,target,
+                    read_actual=files.__getitem__,actual_imports=source_admission.actual_import_inventory(root))
+            elif _reuse_only:
                 ci_profile.reuse_controller_precheck(base_tree,trusted_tree,target,root=root)
             else:
                 source_admission.compatibility(base_tree,trusted_tree,target,
@@ -385,7 +390,7 @@ def _affected_full_selection(policy, registry, selected, candidate_tree, base_tr
 
 
 def _selection_profile(policy, registry, candidate_tree, base_tree, trusted_tree, *, root=ROOT, target='main', read_blob=None,
-                       _reuse_only=False):
+                       _reuse_only=False, _scheduling_only=False, _scheduling_read=None):
     """Derive the owner from complete immutable inputs, never receipt claims."""
     inputs._validate_registry(registry)
     host.require(type(base_tree) is dict and type(trusted_tree) is dict, 'protected selection needs complete base and trusted inputs')
@@ -398,7 +403,8 @@ def _selection_profile(policy, registry, candidate_tree, base_tree, trusted_tree
                              candidate_root=root, trusted_root=root, target=target)
     if selected.get('reason') == 'protected-affected-dependencies':
         _affected_full_selection(policy, registry, selected, candidate_tree, base_tree, trusted_tree,
-                                 paths, regular, root=root, target=target,_reuse_only=_reuse_only)
+            paths, regular, root=root, target=target,_reuse_only=_reuse_only,
+            _scheduling_only=_scheduling_only,_scheduling_read=_scheduling_read)
     names = execution.select_common(registry, selected['suites'])
     profile = FULL_PROFILE
     binding = None
@@ -429,9 +435,11 @@ def _selection_profile(policy, registry, candidate_tree, base_tree, trusted_tree
                     'CI subset has no independently established Qt-free upper bound')
                 if selected['reason'] != 'protected-ci-dependencies':
                     host.require(selected == legacy,'exact CI37 selection differs from its independent legacy plan')
-            validator=ci_profile.preliminary_reuse_selection if _reuse_only else ci_profile.validate_selection
+            validator=(ci_profile.scheduling_selection if _scheduling_only else
+                ci_profile.preliminary_reuse_selection if _reuse_only else ci_profile.validate_selection)
             binding = validator(selected,candidate_tree,trusted_tree,registry,target=target,
-                regular=regular,unknown=False,policy=runtime_policy,root=root,read_blob=read_blob,base_tree=base_tree)
+                regular=regular,unknown=False,policy=runtime_policy,root=root,read_blob=read_blob,base_tree=base_tree,
+                **({'read_source':_scheduling_read} if _scheduling_only else {}))
         except (ci_profile.CIProfileError, OSError, ValueError) as error:
             raise PreExecutionUnavailable('selected CI37 profile has no qualified source admission') from error
         profile = ci_profile.PROFILE
@@ -506,7 +514,8 @@ def platform_partition(policy, profile, registry, candidate_tree, base_tree, tru
         affected = (selected.get('reason') == 'protected-affected-dependencies'
             and selected.get('affected',{}).get('dependency_schema') == 2
             and selected['affected'].get('target') == target and bool(names) and set(names) < set(full_names))
-        host.require(len(full_names) == 60 and (names == full_names or affected) and profile['profile'] == FULL_PROFILE
+        full_count = 61 if 'native-owner-lifecycle' in registry['suites'] else 60
+        host.require(len(full_names) == full_count and (names == full_names or affected) and profile['profile'] == FULL_PROFILE
             and profile['binding'] is None and profile['suites'] == names
             and selected['suites'] == names and selected['full_host'] is True
             and selected['include_platform'] is True,
@@ -879,8 +888,8 @@ def _sync_source_admission(previous, current, local, event, *, read_blob):
         return raw, entry
     source_admission.compatibility(previous, local, target, read_actual=read, actual_imports=imports)
     registry = inputs.load_registry(ROOT / '.github/test-suites.json')
-    profile = selection_profile(policy, registry, current, previous, local,
-        root=ROOT, target=target, read_blob=read_blob)
+    profile = _selection_profile(policy, registry, current, previous, local,
+        root=ROOT, target=target, read_blob=read_blob,_scheduling_only=True,_scheduling_read=read)
     selected = profile['selection']
     partition = platform_partition(policy, profile, registry, current, previous, local,
         root=ROOT, target=target, read_blob=read_blob)

@@ -337,7 +337,8 @@ RETAINED_SOURCE_KIND = 'original-protected-default-source-v1'
 RETAINED_SOURCE_GENERATION = 'protected-producer-original-default-v1'
 RETAINED_SOURCE_GENERATIONS = frozenset({RETAINED_SOURCE_GENERATION,
     'protected-producer-original-default-boolean-v1',
-    'protected-producer-original-default-required-context-v1'})
+    'protected-producer-original-default-required-context-v1',
+    'protected-producer-optional-parent-source-v1'})
 _RETAINED_FIELDS = frozenset({'schema','kind','default_commit','default_tree','commit_object',
     'admission','manifest_digest','projection_digest','binding'})
 _PROJECTION_BINDING = frozenset({'source','run_id','run_attempt','profile','snapshot','git_context',
@@ -694,9 +695,13 @@ def definition_digest(registry):
     expected = tuple(name for name, suite in suites.items()
                      if suite["layer"] == "quick" and name not in _PRODUCT_QUICK)
     _require(expected == SUITES, "trusted quick inventory is not the reviewed CI37 generation")
-    _require(suites.keys() == set(SUITES) | _PRODUCT_QUICK | _HOST_SUITES
+    legacy_inventory = set(SUITES) | _PRODUCT_QUICK | _HOST_SUITES
+    lifecycle_inventory = legacy_inventory | {'native-owner-lifecycle'}
+    _require(suites.keys() in (legacy_inventory, lifecycle_inventory)
              and all(suites[name]["layer"] == "quick" for name in _PRODUCT_QUICK)
-             and all(suites[name]["layer"] == "host" for name in _HOST_SUITES),
+             and all(suites[name]["layer"] == "host" for name in _HOST_SUITES)
+             and ('native-owner-lifecycle' not in suites
+                  or suites['native-owner-lifecycle']['layer'] == 'host'),
              "CI37 requires a complete registry with its separate product owners")
     return _digest({"suites": [{"name": name, "definition": suites[name]} for name in SUITES],
                     "registry_inventory": list(suites),
@@ -736,7 +741,8 @@ def generation(tree, registry):
 
 def _validate_selection(selection, candidate_tree, trusted_tree, registry, *, target="main",
                        regular=True, unknown=False, policy=None, require_enabled=True, root=ROOT, read_blob=None,
-                       controller_manifest=None, base_tree=None, _reuse_derivation=False, _original=None):
+                       controller_manifest=None, base_tree=None, _reuse_derivation=False, _original=None,
+                       _scheduling_files=None):
     """Admit only a versioned independently derived CI owner and controller class.
 
     Production callers leave require_enabled at its default. False is for pure
@@ -786,7 +792,7 @@ def _validate_selection(selection, candidate_tree, trusted_tree, registry, *, ta
                 'controller CI37 selected owner implementation is missing')
         manifest=(_original.manifest if _original is not None else
             _actual_controller_manifest(root) if controller_manifest is None else controller_manifest)
-        files=None if _original is None else _original.files
+        files=_scheduling_files if _original is None else _original.files
         actual=_validate_controller_manifest(manifest,root,_source_files=files)
         raw,actual_policy=_diagnostic_file(root,POLICY)
         _require(_validate_policy(json.loads(raw,object_pairs_hook=inputs._unique_object))==value,
@@ -863,6 +869,54 @@ def validate_selection(selection, candidate_tree, trusted_tree, registry, *, tar
     return _validate_selection(selection,candidate_tree,trusted_tree,registry,target=target,
         regular=regular,unknown=unknown,policy=policy,require_enabled=require_enabled,root=root,
         read_blob=read_blob,controller_manifest=controller_manifest,base_tree=base_tree)
+
+
+def scheduling_controller_source(root, *, read_source=None):
+    """Read actual D metadata, allowing only immutable sparse omissions.
+
+    This is scheduling data only. Capture and runtime admission still require
+    their complete materialized controller and never call this reader.
+    """
+    import source_admission
+    root=Path(root)
+    source=_controller_git(root,'rev-parse','--verify','HEAD^{commit}').decode('ascii').strip()
+    tree,entries=_diagnostic_source(root,source)
+    files={}
+    for name in controller_paths():
+        expected=entries.get(name)
+        mode='100755' if name=='tests/run-project-tests.py' else '100644'
+        _require(type(expected) is dict and expected.get('mode')==mode and expected.get('type')=='blob',
+            'scheduling controller source is missing or nonordinary')
+        path=root
+        for part in Path(name).parts:
+            path/=part
+            _require(not path.is_symlink(),'scheduling controller source contains an alias')
+        if path.exists():
+            raw,actual=source_admission.actual_bytes(root,name)
+        else:
+            _require(_controller_git(root,'ls-files','-v','--error-unmatch','--',name)==('S '+name+'\n').encode(),
+                'scheduling controller file is missing outside sparse checkout')
+            raw=(_controller_git(root,'cat-file','blob',expected['sha']) if read_source is None
+                else read_source(name)[0])
+            _require(type(raw) is bytes,'scheduling immutable source bytes are unavailable')
+            actual=source_admission.ordinary(source_admission.blob_id(raw),mode)
+        _require(len(raw)<=1_000_000 and actual==expected,'scheduling controller bytes differ from actual D')
+        files[name]=(raw,actual)
+    _require(source_admission.actual_import_inventory(root)==_lookup_inventory(entries),
+        'scheduling actual import lookup differs from immutable D')
+    commit=_controller_git(root,'cat-file','commit',source)
+    manifest={'schema':1,'kind':CONTROLLER_KIND,'source_commit':source,'source_tree':tree,
+        'commit_object':base64.b64encode(commit).decode('ascii'),'entries':entries}
+    _validate_controller_manifest(manifest,root,_source_files=files)
+    return manifest,files
+
+
+def scheduling_selection(selection, candidate_tree, trusted_tree, registry, *, root=ROOT, read_source=None, **kwargs):
+    """Same immutable eligibility in sparse/full readers; no runtime admission."""
+    _require('controller_manifest' not in kwargs,'scheduling source cannot be supplied by a caller')
+    manifest,files=scheduling_controller_source(root,read_source=read_source)
+    return _validate_selection(selection,candidate_tree,trusted_tree,registry,root=root,
+        controller_manifest=manifest,_scheduling_files=files,**kwargs)
 
 
 def preliminary_reuse_selection(*args, **kwargs):

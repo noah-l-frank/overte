@@ -70,7 +70,8 @@ _NATIVE_INTENT_RECIPES = frozenset({
 })
 RETAINED_OWNER_GENERATIONS = frozenset({'protected-producer-original-default-v1',
     'protected-producer-original-default-boolean-v1',
-    'protected-producer-original-default-required-context-v1'})
+    'protected-producer-original-default-required-context-v1',
+    'protected-producer-optional-parent-source-v1'})
 
 
 def retain_native_metadata_sources(generations, sources):
@@ -999,7 +1000,7 @@ class Adapter:
             cursor = entry["sha"]
 
     def metadata_observation(self, listed, binding, policy, *, integrated=False, now=None,
-                             observation_clock=None):
+                             observation_clock=None, scheduling_progress=False):
         """Classify a finite native non-producer; this never supplies a result.
 
         The referenced reusable workflow authenticates original M. Marker text,
@@ -1008,6 +1009,7 @@ class Adapter:
         """
         _metadata_policy(policy)
         P.validate_binding(binding)
+        require(type(scheduling_progress) is bool, 'invalid scheduling progress mode')
         if observation_clock is None:
             observation_clock = _now if now is None else lambda: now
         require(callable(observation_clock), 'invalid metadata observation clock')
@@ -1029,6 +1031,17 @@ class Adapter:
                 integrated=integrated, observation_clock=observation_clock)
             if intent is not None:
                 return intent
+        if scheduling_progress and attempt.get('display_title') == ORDINARY_RUN_NAME:
+            # Only scheduling may wait for a complete original observation.
+            # Authenticate the entire immutable source before classifying a
+            # mutable native read as pending; this never excludes a producer.
+            source = self._scheduling_source(listed, binding, policy, now=now,
+                integrated=integrated, observation_clock=observation_clock,
+                scheduling_progress=True)
+            recipe = (policy.caller_path, source['workflows'][policy.caller_path]['sha'],
+                      source['workflows'][METADATA_WORKFLOW]['sha'])
+            if recipe in _NATIVE_INTENT_RECIPES:
+                return None
         require(all(listed.get(key) == latest.get(key) == attempt.get(key) for key in fields),
                 "metadata run/attempt inventory changed")
         references = attempt.get("referenced_workflows")
@@ -1122,7 +1135,8 @@ class Adapter:
                 "references": references, "jobs": jobs, "checks": checks, "artifacts": artifacts}
 
     def _scheduling_source(self, listed, binding, policy, *, now, integrated=False,
-                           allow_intent_progress=False, observation_clock=None):
+                           allow_intent_progress=False, observation_clock=None,
+                           scheduling_progress=False):
         """Native same-M provenance only; no descriptor, E, result or authority.
 
         A reusable reference alone does not classify a queued invocation. The
@@ -1130,6 +1144,7 @@ class Adapter:
         an ordinary scheduling owner separately needs its fixed source step.
         """
         _metadata_policy(policy)
+        require(type(scheduling_progress) is bool, 'invalid scheduling progress mode')
         identity = positive(listed.get('id'))
         latest = self._object(f'actions/runs/{identity}')
         require(latest.get('run_attempt') == 1, 'scheduling original attempt unavailable')
@@ -1182,8 +1197,12 @@ class Adapter:
                 'scheduling native intent identity changed')
         progress = (allow_intent_progress and recipe in _NATIVE_INTENT_RECIPES
                     and run.get('display_title') == NONPRODUCER_RUN_NAME)
-        require(progress or all(listed.get(key) == latest.get(key) == run.get(key) for key in fields),
-                'scheduling native run observation changed')
+        ordinary = (scheduling_progress and recipe in _NATIVE_INTENT_RECIPES
+                    and run.get('display_title') == ORDINARY_RUN_NAME)
+        completed_ordinary = ordinary and all(row.get('status') == 'completed'
+                                             for row in (listed, latest, run))
+        matching = all(listed.get(key) == latest.get(key) == run.get(key) for key in fields)
+        require(progress or ordinary or matching, 'scheduling native run observation changed')
         suite = self._object(f"check-suites/{positive(run.get('check_suite_id'))}")
         require(suite.get('id') == run['check_suite_id'] and suite.get('head_sha') == binding['head_sha']
             and suite.get('app', {}).get('id') == 15368
@@ -1194,21 +1213,55 @@ class Adapter:
                 and (observed['status'] == 'completed') == (observed.get('conclusion') in P._CONCLUSIONS),
                 'scheduling run status differs')
         observed_now = now
-        if progress and observation_clock is not None:
+        if (progress or ordinary) and observation_clock is not None:
             # A live never-producer may advance while the native GETs run.
-            # Sample after those reads; ordinary execution retains its fixed
-            # original cutoff and no timestamp is accepted from the future.
+            # Sample after those reads. An ordinary source still needs its
+            # fixed cutoff: valid later progress causes a fresh full retry.
             require(callable(observation_clock), 'invalid scheduling observation clock')
             observed_now = observation_clock()
             P._now(observed_now)
             require(observed_now >= now, 'scheduling observation clock moved backwards')
+        if ordinary:
+            advanced = False
+            for observed in (listed, latest, run):
+                require(observed['status'] == 'completed' or observed.get('conclusion') is None,
+                        'pending scheduling source has a native conclusion')
+                updated = P._time(observed.get('updated_at'))
+                require(updated <= observed_now, 'scheduling update time is in the future')
+                started = observed.get('run_started_at')
+                if started is None:
+                    require(observed['status'] in P._PENDING,
+                            'completed scheduling source has no native start')
+                else:
+                    started = P._time(started)
+                    require(started <= updated, 'scheduling source time order differs')
+                    require(started <= observed_now, 'scheduling source starts in the future')
+                    advanced |= started > now
+                advanced |= updated > now
+            # Completed list/latest and attempt responses can retain distinct
+            # updated_at values. Keep each actual timestamp and authenticate
+            # its chronology above; every other observed field remains exact.
+            completed_matching = completed_ordinary and all(
+                listed.get(key) == latest.get(key) == run.get(key)
+                for key in fields if key != 'updated_at')
+            if not matching and not completed_matching:
+                raise SchedulingPending('ordinary scheduling native inventory changed after its cutoff')
+            if advanced:
+                raise SchedulingPending('ordinary scheduling source is in the future of its fixed cutoff')
         if run.get('run_started_at') is not None:
             require(P._time(run['run_started_at']) <= observed_now, 'scheduling source starts in the future')
         else:
             require(run['status'] in P._PENDING, 'completed scheduling source has no native start')
         require(P._time(run.get('updated_at')) <= observed_now, 'scheduling update time is in the future')
-        return {'run': run, 'generation': generations[0], 'source': source, 'workflows': workflows,
-                'candidate': {'merge_sha': revision, 'merge_tree': tree, 'merge_parents': parents}}
+        value = {'run': run, 'generation': generations[0], 'source': source, 'workflows': workflows,
+                 'candidate': {'merge_sha': revision, 'merge_tree': tree, 'merge_parents': parents}}
+        if completed_ordinary:
+            # _scheduling_identity retains these same-endpoint observations at
+            # the closing admission, including the unmodified update times.
+            value['completed_observations'] = {
+                name: {key: observed.get(key) for key in fields}
+                for name, observed in (('listed', listed), ('latest', latest), ('attempt', run))}
+        return value
 
     def _native_metadata_intent(self, listed, binding, policy, *, now, integrated=False,
                                 observation_clock=None):
@@ -1310,11 +1363,12 @@ class Adapter:
                 observations[identity] = ('current', current)
                 continue
             marker = self.metadata_observation(row, binding, policy, now=now,
-                observation_clock=observation_clock)
+                observation_clock=observation_clock, scheduling_progress=True)
             if marker is not None:
                 observations[identity] = ('metadata', marker)
                 continue
-            source = self._scheduling_source(row, binding, policy, now=now)
+            source = self._scheduling_source(row, binding, policy, now=now,
+                observation_clock=observation_clock, scheduling_progress=True)
             if not _scheduling_candidate_matches(source['candidate'], binding):
                 observations[identity] = ('other-source', source)
                 continue
@@ -1337,8 +1391,19 @@ class Adapter:
                 and len(steps) == 1 and steps[0].get('status') == 'completed'
                 and steps[0].get('conclusion') == 'success'
                 and P._time(fact.started_at) <= P._time(steps[0].get('started_at'))
-                <= P._time(steps[0].get('completed_at')) <= P._time(fact.completed_at) <= now,
+                <= P._time(steps[0].get('completed_at')) <= P._time(fact.completed_at),
                 'ordinary scheduling source was not independently observed')
+            if P._time(fact.completed_at) > now:
+                recipe = (policy.caller_path, source['workflows'][policy.caller_path]['sha'],
+                          source['workflows'][METADATA_WORKFLOW]['sha'])
+                if recipe in _NATIVE_INTENT_RECIPES:
+                    observed_now = observation_clock()
+                    P._now(observed_now)
+                    require(observed_now >= now, 'scheduling observation clock moved backwards')
+                    require(P._time(fact.completed_at) <= observed_now,
+                            'ordinary scheduling source job completed in the future')
+                    raise SchedulingPending('ordinary scheduling source job completed after its cutoff')
+                require(False, 'ordinary scheduling source was not independently observed')
             # Start timestamps have only second resolution and two separately
             # queued native events can share one. The workflow-specific run
             # sequence is independently bound across list/latest/attempt.
@@ -1366,11 +1431,12 @@ class Adapter:
             kind, source, *extra = observations[row['id']]
             if kind == 'metadata':
                 require(self.metadata_observation(row, binding, policy, now=now,
-                    observation_clock=observation_clock) == source,
+                    observation_clock=observation_clock, scheduling_progress=True) == source,
                         'scheduling nonproducer source changed')
             else:
                 fresh = self._scheduling_source(row, binding, policy, now=now,
-                    allow_intent_progress=kind == 'current', observation_clock=observation_clock)
+                    allow_intent_progress=kind == 'current', observation_clock=observation_clock,
+                    scheduling_progress=True)
                 require(_scheduling_identity(fresh) == _scheduling_identity(source),
                         'scheduling native source changed')
                 if kind == 'current':
@@ -1429,7 +1495,7 @@ class Adapter:
                 'original workflow did not succeed')
         attempt = self._object(f"actions/runs/{run['id']}/attempts/1")
         fields = (*_SCHEDULING_RUN_FIELDS, 'repository', 'head_repository', 'pull_requests',
-                  'referenced_workflows', 'status', 'conclusion', 'run_started_at', 'updated_at')
+                  'referenced_workflows', 'status', 'conclusion', 'run_started_at')
         require(type(attempt.get('run_attempt')) is int and attempt['run_attempt'] == 1
             and all(attempt.get(key) == run.get(key) for key in fields),
             'original successful attempt changed')
@@ -1442,8 +1508,9 @@ class Adapter:
         require(len(matches) == 1, 'original canonical native aggregate unavailable or ambiguous')
         fact = self._job(matches[0], run, 15368, final_name=canonical)
         require(fact.status == 'completed' and fact.conclusion == 'success'
-            and P._time(run.get('run_started_at')) <= P._time(fact.started_at)
-            <= P._time(fact.completed_at) <= P._time(run.get('updated_at')) <= now,
+            and all(P._time(observed.get('run_started_at')) <= P._time(fact.started_at)
+                <= P._time(fact.completed_at) <= P._time(observed.get('updated_at')) <= now
+                for observed in (run, attempt)),
             'original canonical native aggregate did not succeed in its workflow')
         require(self.metadata_result_status(observed) == run
             and self._object(f"actions/runs/{run['id']}/attempts/1") == attempt
@@ -1458,6 +1525,13 @@ class Adapter:
 
     def _metadata_observation(self, listed, policy, binding, now, *, integrated=False):
         if policy.metadata_generations is None:
+            return None
+        if listed.get('display_title') == ORDINARY_RUN_NAME and any(
+                (policy.caller_path, row[policy.caller_path]['sha'], row[METADATA_WORKFLOW]['sha'])
+                in _NATIVE_INTENT_RECIPES for row in policy.metadata_generations.values()):
+            # None opts INTO the full strict _observation producer path. An
+            # ordinary intent never excludes a run or grants metadata/result
+            # authority, and its timestamps need no metadata classification.
             return None
         value = self.metadata_observation(listed, binding, MetadataPolicy(policy.caller_workflow_id,
             policy.caller_path, policy.metadata_generations, policy.metadata_sources), integrated=integrated, now=now)

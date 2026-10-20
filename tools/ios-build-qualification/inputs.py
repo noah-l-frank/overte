@@ -35,6 +35,19 @@ import subprocess
 REVIEWED_REVISION = "2fc894a0605103843b36653f250f854714a963ee"
 REVIEWED_BOUNDARY = "sha256:8527f25d58c8ebf8eebab8a9e43517899b7afce2e511026d2873a69ab82f1794"
 
+# Exact routing-only data, with unchanged manual/build/ownership commands.
+# The parent-owned topology is installed first; bootstrap retirement is iOS-only.
+# Comparison never rewrites an actual source snapshot or supplies native PASS.
+ROUTING_DATA = {
+    ".github/workflows/apple-branch-topology.yml": (
+        "9a8aa6f7a9fc28924b5212c9be703c213f3dd694", "455fdd13c7580f474e291f67595c4d97a0891f04"),
+    ".github/workflows/ios-bootstrap.yml": (
+        "e8df02954fc83cc1efefcf36adbaeb19fe21cdae", "787651befbf7a627633b80185d798d7567db2466"),
+}
+ROUTING_PROFILES = ((0, 0), (1, 0), (1, 1))
+PARENT_ROUTING_BOOTSTRAP = "ea772c34abdee24a42babd94529bf1e753020fb3"
+
+
 # Reviewed host control-plane files, not generic tests/** or tools/** patterns.
 # In particular, E2E builds can compile tests/device source and fixtures.
 # These exact files are outside the reviewed app configure/build/package graph.
@@ -43,6 +56,8 @@ REVIEWED_BOUNDARY = "sha256:8527f25d58c8ebf8eebab8a9e43517899b7afce2e511026d2873
 # its device-control-plane-full and project-runner owners remain independently required.
 # Independent required CI must still validate these files before any app waiver.
 INDEPENDENT_HOST_PATHS = frozenset({
+    # Standalone fake-API producer lifecycle; no application or device readers.
+    'tests/producer-owner-lifecycle-test.py',
     "tools/repository-checks/workflows/android-owned/handoff/android/common/tests/robolectric/build.gradle",
     # Linux-only shared Device launcher; its required Device owner is unchanged.
     "tests/device/run_artifact_identity.py",
@@ -328,7 +343,58 @@ def read_snapshot(repository: Path | str, revision: str) -> Snapshot:
         raise InputError("invalid immutable tree inventory") from error
 
 
+
+def routing_data_stage(snapshot: Snapshot, *, parent=False):
+    if type(parent) is not bool:
+        return None
+    observed = {entry.path: entry for entry in snapshot.entries}
+    if parent:
+        bootstrap = observed.get(".github/workflows/ios-bootstrap.yml")
+        if bootstrap is None or bootstrap.mode != "100644" or bootstrap.object_type != "blob" \
+                or bootstrap.oid != PARENT_ROUTING_BOOTSTRAP:
+            return None
+        topology = observed.get(".github/workflows/apple-branch-topology.yml")
+        if topology is not None and topology.mode == "100644" and topology.object_type == "blob":
+            identities = ROUTING_DATA[".github/workflows/apple-branch-topology.yml"]
+            return identities.index(topology.oid) if topology.oid in identities else None
+        return None
+    for stage, variants in enumerate(ROUTING_PROFILES):
+        if all(path in observed and observed[path].mode == "100644"
+               and observed[path].object_type == "blob" and observed[path].oid == identities[variant]
+               for (path, identities), variant in zip(ROUTING_DATA.items(), variants)):
+            return stage
+    return None
+
+
+def routing_data_changes(previous: Snapshot, current: Snapshot, *, parent=False):
+    """Known forward parent-topology/child-bootstrap data or unchanged family."""
+    stages = routing_data_stage(previous, parent=parent), routing_data_stage(current, parent=parent)
+    # Protected callers can load separate instances of this trusted module.
+    # Compare immutable values, never dynamic dataclass identities.
+    before = {entry.path: entry.identity() for entry in previous.entries}
+    after = {entry.path: entry.identity() for entry in current.entries}
+    changed = {path for path in ROUTING_DATA if before.get(path) != after.get(path)}
+    if not changed:
+        return set()
+    if None in stages or not 0 <= stages[1] - stages[0] <= 1:
+        return None
+    return changed
+
+
+def routing_data_comparison(snapshot: Snapshot, *, parent=False):
+    """Return explicitly synthetic comparison entries; retain raw snapshots."""
+    if routing_data_stage(snapshot, parent=parent) is None:
+        return None
+    return Snapshot(snapshot.revision, snapshot.tree, tuple(
+        Entry(entry.path, entry.mode, entry.object_type, ROUTING_DATA[entry.path][0])
+        if entry.path in ROUTING_DATA and (not parent or entry.path == ".github/workflows/apple-branch-topology.yml")
+        else entry for entry in snapshot.entries))
+
+
 def _kind(entry: Entry) -> str:
+    if entry.mode == "100644" and entry.object_type == "blob" \
+            and entry.oid in ROUTING_DATA.get(entry.path, ()):
+        return "independent-host"
     expected = "100755" if entry.path in INDEPENDENT_EXECUTABLE_HOST_PATHS else "100644"
     if entry.path in INDEPENDENT_HOST_PATHS and entry.mode == expected:
         return "independent-host"
@@ -342,9 +408,11 @@ def _kind(entry: Entry) -> str:
 
 
 def _boundary(snapshot: Snapshot) -> str:
+    comparison = routing_data_comparison(snapshot) or snapshot
     return _digest({"domain": _BOUNDARY_DOMAIN,
-                    "entries": [entry.identity() for entry in snapshot.entries
-                                if _kind(entry) == "application-input" and entry.path not in NPM_PACKAGE_PROFILES]})
+                    "entries": [entry.identity() for entry in comparison.entries
+                                if (_kind(entry) == "application-input" or entry.path in ROUTING_DATA)
+                                and entry.path not in NPM_PACKAGE_PROFILES]})
 
 
 def review_boundary(repository: Path | str, revision: str) -> dict:
@@ -488,6 +556,8 @@ def candidate_plan(repository: Path | str, base: str, candidate: str, *, package
         reason = "empty-change-inventory"
     elif base_identity["nonregular_paths"] or candidate_identity["nonregular_paths"]:
         reason = "unproven-symlink-or-gitlink-closure"
+    elif routing_data_changes(previous, current) is None:
+        reason = "unreviewed-routing-data-transition"
     elif any(change["kind"] == "application-input" for change in changes):
         reason = "application-inputs-changed"
     elif not applicable:

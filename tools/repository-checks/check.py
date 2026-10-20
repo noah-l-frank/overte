@@ -721,7 +721,8 @@ def bound_project_owners(needs, candidate, event, sha):
     generation = package_policy().validate_wiring(candidate) if candidate is not None else None
     if generation not in {_NATIVE_OWNER_GENERATION, 'protected-producer-original-default-v1',
             'protected-producer-original-default-boolean-v1',
-            'protected-producer-original-default-required-context-v1'}:
+            'protected-producer-original-default-required-context-v1',
+            'protected-producer-optional-parent-source-v1'}:
         if 'workflow-contracts' in needs:
             raise ValueError('contract fallback requires an exact complete native-owner generation')
         if present:
