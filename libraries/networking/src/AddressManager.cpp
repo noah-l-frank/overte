@@ -683,12 +683,24 @@ void AddressManager::goToAddressFromObject(const QVariantMap& dataObject, const 
     }
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap AddressManager::featureNavigationReplies(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) { return {}; }
+    return _featureNavigationReplies.snapshot(command,_lookupRequests.snapshot());
+}
+#endif
+
 void AddressManager::handleAPIError(QNetworkReply* errorReply) {
     QPointer<QNetworkReply> guardedReply(errorReply);
     const auto lookup = _lookupRequests.snapshot();
     const auto current = [&] { return guardedReply && lookup.current() &&
         overte::network::replyCurrent(guardedReply.data()); };
     if (!current()) { return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Passive current callback provenance. This does not emit an error signal,
+    // create a modal, retry a request or change the existing lifetime guards.
+    _featureNavigationReplies.recordCurrentError(errorReply,lookup);
+#endif
     qCDebug(networking) << overte::security::diagnosticEvent(overte::security::DiagnosticEvent::ConnectionFailed);
 
     if (!current()) { return; }

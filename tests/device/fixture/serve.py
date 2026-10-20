@@ -495,6 +495,12 @@ class FixtureState:
             try:account_origin_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native account origin request") from None
             valid=True
+        elif action == "feature-navigation-replies":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_navigation_replies import command as navigation_replies_command
+            try:navigation_replies_command(command,ios=True)
+            except (ValueError,RuntimeError):raise ValueError("invalid native navigation reply request") from None
+            valid=True
         elif action == "feature-pending-commit-owner":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.pending_commit_owner import command as pending_owner_command

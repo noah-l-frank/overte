@@ -8,6 +8,7 @@
     "feature-journey": {"current": 15, "reads": [15]},
     "feature-navigation-provider": {"current": 1, "reads": [1]},
     "asset-input-bundle": {"current": 1, "reads": [1]},
+    "native-navigation-replies": {"current": 1, "reads": [1]},
     "native-pending-field-commit": {"current": 1, "reads": [1]},
     "native-pending-commit-owner": {"current": 1, "reads": [1]},
     "feature-account-provider": {"current": 2, "reads": [2]},
