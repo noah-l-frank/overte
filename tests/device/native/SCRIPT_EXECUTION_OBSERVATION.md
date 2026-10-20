@@ -6,6 +6,12 @@ not execute, restart, stop, require, include or evaluate any code on request.
 No product functionality changes. The source is uncompiled and unqualified on
 devices; current Python/JavaScript tests prove control logic only.
 
+The optional [original top-level load history](SCRIPT_LOAD_HISTORY.md) adds
+`loadSourceVersion:1`/`loads` to this same source. Full error consumers must
+require it explicitly; a loaded signal or absent engine does not prove the
+original fetch status. The extension preserves actual callback epochs and
+requires an immutable prior prefix.
+
 `ScriptManager::require()` records the **actual resolved module URL** at normal
 successful instantiation, actual cache reuse or a normal fetch/evaluation error.
 Each manager has a native random 32-hex identity. Its lock-protected module
