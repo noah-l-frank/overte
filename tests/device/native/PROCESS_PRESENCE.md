@@ -80,5 +80,11 @@ the actual Python reader/closed fixture/original JavaScript probe. They cover
 ignored/missing/foreign/stale results, self-absence, unknown/permission cases,
 relabeled wrong errno, independent clocks/deadlines, cursor retention, command
 scope, caller mutation and unavailable hooks. These checks prove test logic
-only. Platform factories and full restart ownership joins remain pending; no
-complete feature capability is enabled.
+only. Internal `_process_presence` factories now exist on the three separate
+local platform branches. Phone/Pico use their original candidate/PID-start/
+foreground (and Pico OpenXR) private readers. iOS uses its raw qualified native
+scope without a Scripts profile/editor, exact HTTP/AFC documents and separate
+native clocks; legacy/unbound entrypoints refuse before target/transport I/O.
+Their host selections pass Phone 110, Pico 24 native-feature and iOS 400 no-build
+cases. Full restart ownership joins remain pending; no complete feature
+capability or device qualification is enabled.
