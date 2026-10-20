@@ -372,14 +372,33 @@ class Boundary:
                 s.update(mappings=[],selected='',bakeState='none',baking=False,bakeAvailable=False,deleteEnabled=False)
                 if self.fault!='leaked-companions':s['companions']=[]
         elif a == 'lifecycle-input':
-            if verb == 'open-editor': s.update(editor=data['editor'], focused=True, keyboard=True)
-            elif verb == 'type': s['text'] = data['text']
-            elif verb == 'back':
-                if s['keyboard']: s.update(keyboard=False, focused=False)
-                else: s['editor'] = 'none'
-            elif verb == 'replace-context': s.update(generation=2, text='', editor='none', focused=False, keyboard=False)
-            elif verb == 'world-input' and s['editor'] == 'none': s['worldDisplacement'] = 1.0
-            elif verb == 'restore': s['worldDisplacement'] = 0.0
+            if verb=='open-editor':
+                self.life_context=getattr(self,'life_context',0)+1
+                s.update(editor=data['editor'],text='',focused=True,keyboard=True,generation=self.life_context)
+                if self.fault=='life-inherited-editor-text' and data['editor']=='chat':s['text']=self.ctx['unicode']
+            elif verb=='type':s['text']=data['text']
+            elif verb=='back':
+                s.update(editor='none',text='',keyboard=False,focused=False,generation=0)
+                if self.fault=='life-back-only-hides-keyboard':s.update(editor='create',text=self.ctx['unicode'],generation=1)
+            elif verb=='hold-editor-input':
+                if self.fault!='life-hold-ignored':
+                    self.life_pending=(s['generation'],data['text']);s['deferredInputs']=1
+            elif verb=='replace-context':
+                if self.fault!='life-context-replacement-ignored':
+                    self.life_context+=1;s.update(generation=self.life_context,text='',focused=False,keyboard=False)
+            elif verb=='deliver-stale-input':
+                if not getattr(self,'life_pending',None):raise AssertionError('No original pending input to deliver')
+                old_generation,text=self.life_pending
+                if self.fault!='life-stale-attempt-ignored':s['staleAttempts']+=1
+                if old_generation==s['generation'] or self.fault=='life-stale-input-adopted':s['text']=text
+                if self.fault not in {'life-stale-input-not-released','life-cleanup-pending-leak'}:self.life_pending=None;s['deferredInputs']=0
+            elif verb=='close-editor':s.update(editor='none',text='',generation=0,focused=False,keyboard=False)
+            elif verb=='world-input':
+                if self.fault!='life-world-event-not-dispatched':s['worldAttempts']+=1
+                if s['editor']=='none':s.update(worldDisplacement=1.0,heldInputs=['forward'],positionDelta=dict(x=0.0,y=0.0,z=-1.0))
+            elif verb=='release-input':
+                if self.fault!='life-release-ignored':s['heldInputs']=[]
+            elif verb=='restore' and self.fault!='life-restore-ignored':s.update(worldDisplacement=0.0,positionDelta=dict(x=0.0,y=0.0,z=0.0))
 
     def invoke(self, operation, fields):
         self.actions.append((operation, copy.deepcopy(fields)))
@@ -388,8 +407,12 @@ class Boundary:
         if kind == 'cleanup':
             self.verb = 'cleanup'
             if self.fault != 'cleanup-ignored':
+                input_history={k:self.state.get(k) for k in ('worldAttempts','staleAttempts')}
                 self.state = copy.deepcopy(self.graphics_original if self.area=='graphics' and hasattr(self,'graphics_original')
                                            else self.snapshot_original_state if self.area=='snapshots' else SCENARIOS[self.area]['baseline'])
+                if self.area=='lifecycle-input':
+                    for key,original in input_history.items():self.state[key]=0 if self.fault=='life-cleanup-resets-history' else original
+                    if self.fault!='life-cleanup-pending-leak':self.life_pending=None
                 if self.area=='emotes':self.emote_started=self.emote_restored=self.emote_due=None
             self.resources = ['entity:leaked'] if self.fault == 'cleanup-resource-leak' else []
         else:
@@ -430,6 +453,14 @@ class Boundary:
                 and 0<=(self.emote_restored-self.emote_started)*1000<1750)
         if self.area=='scripts' and self.state['running'] and self.fault!='script-effects-stalled':
             self.state['effects'] += 1
+        if self.area=='lifecycle-input':self.state['deferredInputs']=int(getattr(self,'life_pending',None) is not None)
+        if self.area=='lifecycle-input' and self.fault=='life-release-still-moving' and self.verb=='release-input':
+            self.state['worldDisplacement']+=0.02
+            self.state['positionDelta']['z']=-self.state['worldDisplacement']
+        if self.area=='lifecycle-input' and self.fault=='life-release-motion-constant-distance' and self.verb=='release-input':
+            import math
+            angle=0.04*math.sin(self.clock*2*math.pi)
+            self.state['positionDelta']=dict(x=angle,y=0.0,z=-math.sqrt(1-angle*angle))
         state = copy.deepcopy(self.state)
         if self.area=='emotes' and getattr(self,'forge_restore_timing',False) and self.emote_final and self.verb=='cancel':
             state['restoredBeforeNominalEnd']=True # Only the adapter seam lies; the independent actor must disagree.
@@ -594,6 +625,45 @@ class FeatureJourneys(unittest.TestCase):
         for change in ({'baking':True},{'bakeAvailable':True},{'deleteEnabled':True},
                        {'selected':context(RUN)['assetGltf']},{'stagedAvailable':True}):
             with self.subTest(change=change),self.assertRaises(ValueError):state('assets',dict(baseline,**change),RUN)
+
+    def test_lifecycle_editor_pages_have_distinct_text_contexts_and_real_pending_input(self):
+        boundary=Boundary('lifecycle-input');boundary.execute();samples=boundary.reports[0]['samples']
+        opened=[s['state'] for s in samples if s['phase'].endswith('-open-editor')]
+        self.assertEqual({('create',1),('chat',2),('scripts',3)},{(s['editor'],s['generation']) for s in opened})
+        self.assertTrue(all(s['text']=='' for s in opened))
+        held=next(s['state'] for s in samples if s['phase'].endswith('-hold-editor-input'))
+        self.assertEqual(1,held['deferredInputs']);self.assertEqual(context(RUN)['retry'],held['text'])
+        retired=next(s['state'] for s in samples if s['phase'].endswith('-deliver-stale-input'))
+        self.assertEqual(4,retired['generation']);self.assertEqual('',retired['text'])
+        self.assertEqual(1,retired['staleAttempts']);self.assertEqual(0,retired['deferredInputs'])
+        cleanup=[s['state'] for s in samples if s['phase']=='cleanup-restored-baseline'][-1]
+        self.assertEqual(2,cleanup['worldAttempts']);self.assertEqual(1,cleanup['staleAttempts'])
+        self.assertEqual(0,cleanup['generation']);self.assertEqual(0,cleanup['deferredInputs'])
+        self.assertEqual(16,len(SCENARIOS['lifecycle-input']['steps']))
+
+    def test_lifecycle_ignored_events_stale_adoption_moving_release_and_wrong_back_cannot_pass(self):
+        faults=('life-inherited-editor-text','life-back-only-hides-keyboard','life-hold-ignored',
+                'life-context-replacement-ignored','life-stale-input-adopted','life-stale-input-not-released',
+                'life-stale-attempt-ignored','life-world-event-not-dispatched','life-release-ignored',
+                'life-release-still-moving','life-release-motion-constant-distance','life-restore-ignored')
+        for fault in faults:
+            with self.subTest(fault=fault),self.assertRaises((AssertionError,ValueError)):
+                Boundary('lifecycle-input',fault).execute()
+
+    def test_lifecycle_cleanup_cannot_erase_original_history_or_hide_pending_native_input(self):
+        for fault in ('life-cleanup-resets-history','life-cleanup-pending-leak'):
+            boundary=Boundary('lifecycle-input',fault)
+            with self.subTest(fault=fault),self.assertRaises((AssertionError,ValueError)):boundary.execute()
+            self.assertFalse(boundary.reports[0]['cleanupSucceeded'])
+
+    def test_lifecycle_all_actual_ui_context_and_attempt_fields_are_independently_read(self):
+        from feature_journeys.witness import WITNESS_KEYS
+        self.assertEqual(set(SCENARIOS['lifecycle-input']['baseline']),set(WITNESS_KEYS['lifecycle-input']))
+        from feature_journeys.contract import state
+        baseline=SCENARIOS['lifecycle-input']['baseline']
+        for change in ({'generation':1},{'text':context(RUN)['unicode']},{'deferredInputs':2},
+                       {'worldAttempts':-1},{'staleAttempts':-1},{'positionDelta':{'x':0.0,'y':0.0,'z':1.0}}):
+            with self.subTest(change=change),self.assertRaises(ValueError):state('lifecycle-input',dict(baseline,**change),RUN)
 
     def test_all14_complete_with_independent_boundary_model_and_observed_cleanup(self):
         self.assertEqual(14, len(SCENARIOS))
@@ -1315,9 +1385,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v13.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v14.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v13.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v14.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():
