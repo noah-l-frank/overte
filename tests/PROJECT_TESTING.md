@@ -580,12 +580,21 @@ Subsequent CI-only changes retain the existing 37-suite selection.
 New isolated publication requires execution schema 3 and an independently
 reconstructed source context: the original commit, its ordered immediate
 parents, their tree identities and the actual shallow boundary. Legacy schema
-1/2 validation remains available to its existing callers. The current 60 suites
+1/2 validation remains available to its existing callers. The current 61 suites
 read checkout content or self-created Git fixtures, rather than asserting
 ambient history; their content fingerprints remain reusable across an unchanged
 input closure. A future suite that consumes ambient commit/history semantics
 must use the existing `candidate` scope. Source provenance is still checked for
 every original receipt.
+
+The separate `native-owner-lifecycle` host suite checks the complete native
+capture, authority selection and current-owner handoff with independent API
+endpoint observations. It preserves the original 60 commands and the CI37
+roster. Its first installation uses the existing monotonic fallback: all trusted
+commands and the new command must pass, standalone documentation and workflow
+contracts remain required, and no reusable receipt is claimed. Later ordinary
+producer runs authenticate their full source, jobs and artifacts independently
+of metadata-only classification.
 
 Runtime admission precedes candidate execution. Unavailable admission can leave
 the existing mandatory nonreusable path selected; a started suite failure,
@@ -807,8 +816,34 @@ merge inventories must preserve the original reviewed application boundary.
 Installed-profile continuation admits only already independent CI or document
 changes. Separate own-host omission still requires the existing CI/npm subset,
 mode and required-package-owner proofs plus the complete installed profile;
-cache transitions and guide changes keep the own-host checks. Unknown bytes,
+cache transitions and guide changes keep the own-host checks. The installed PR
+profile also binds the complete reviewed host complement of retained source
+`f2c84088cc78e365837ee7e4ba0f7ce98b2f5329`, independently verified by its required
+iOS host owner. All three immutable inputs must match that same complement and
+the complete exact installed profile before an independent CI change can omit
+own-host execution. This separate certificate preserves the historical global
+and v3 boundaries; it supplies no build result or qualification. Unknown bytes,
 modes, neighboring inputs or changed application readers retain their gates.
+
+The protected selector also enrolls two exact routing-only workflow revisions.
+The parent-owned Apple topology revision keeps complete commit history and every
+topology assertion while fetching blobs only for its trusted checker and ownership
+map. After that parent revision is installed, the iOS bootstrap revision skips its
+legacy host launcher and prerequisite setup on protected `apple-ios` PR and push
+events; the required iOS qualification owner still verifies its selected host
+contracts. Manual bootstrap requests and PRs to other bases keep their commands.
+
+Only the original, topology-installed and topology-plus-bootstrap states are
+accepted, in that order. The Apple parent comparison separately binds its exact
+unchanged bootstrap revision and projects only topology; iOS never accepts that
+parent bootstrap as its own routing profile. Exact workflow blobs, ordinary modes and complete reader
+boundaries remain required. These comparisons can also accompany the reviewed
+five-file compiler-cache installation after the topology revision is present.
+Routing changes retain the required iOS host checks while omitting application
+compilation. Installed routing data may accompany later independently selected CI
+changes; reversed, partial, unknown or mixed application changes retain the
+ordinary gates. Comparison entries never replace actual Git identities or create
+passing results.
 
 A relevant feature or fix PR can read compiler DATA through the protected base's
 isolated parser, accepting only a matching protected `apple-ios` native producer
@@ -942,6 +977,7 @@ entries out of this shared table allows it to propagate unchanged to children.
 | `server-console-behavior` | `quick` | `python3 tests/run-project-tests.py --suite server-console-behavior` |
 | `source-layout` | `quick` | `python3 tests/run-project-tests.py --suite source-layout` |
 | `shared-script-behavior` | `host` | `python3 tests/run-project-tests.py --suite shared-script-behavior` |
+| `native-owner-lifecycle` | `host` | `python3 tests/run-project-tests.py --suite native-owner-lifecycle` |
 | `native-ctest` | `native` | `python3 tests/run-project-tests.py --suite native-ctest` |
 <!-- generated:test-suites:end -->
 
@@ -1298,6 +1334,16 @@ receipt stay outside the immutable candidate. Failed or incomplete owners block
 the inner and outer final checks; uploaded receipts are diagnostic records,
 not authenticated reusable artifact authority. An empty union performs no Android
 tool setup and accepts no fabricated successful execution receipt.
+
+For the selected `android-vr-pico` native PR base or push/manual branch, the
+trusted helper also supplies Qt 5 development tools and WebChannel headers plus
+Qt 6 development tools and the QtQml, Models, WorkerScript and QtQuick modules.
+It checks the actual pkg-config modules, `moc`/`rcc`, WebChannel header and QML
+plugins first, avoiding another package installation when they are available.
+Other Android targets keep their existing setup. Missing prerequisites after
+installation fail setup; all selected real Qt/JVM contracts remain mandatory.
+These are host test prerequisites, not an Overte application build or reusable
+qualification.
 
 Only verified empty tree deltas or changes within the exact reviewed independent
 Browser and repository administration roots can omit Android executions. Both
@@ -1836,7 +1882,13 @@ runs no tests, builds or CodeQL analyses and creates no receipt or execution
 qualification. Its successful context mirrors original truth, not new evidence.
 The marker CLI separately allows at most 180 seconds for original tiny-source
 registration, without changing the pure scheduling contract or accepting an
-unknown source. No rule/context bypass, new dispatch or rerun is involved.
+unknown source. Within that same bound, only the scheduling reader may retry
+valid progress from an authenticated modern ordinary invocation. A new attempt
+repeats complete source admission with a fresh cutoff; it does not normalize the
+original run or accept a successful result. Immutable source, App, attempt and
+chronology drift, and timestamps beyond the fresh trusted observation, remain
+errors. General observations and original result/evidence readers stay strict.
+No rule/context bypass, new dispatch or rerun is involved.
 
 The shared producer revalidates executable CI handoffs before CI37 admission.
 Only the complete reviewed seven-file Android owner handoff, or the exact
