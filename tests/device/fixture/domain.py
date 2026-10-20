@@ -22,6 +22,8 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fixture.collaboration_broker import CollaborationBroker
 from fixture.owned_processes import OwnedProcesses
+from fixture.messages_mixer import MessagesMixer
+from adapters.normal_feature_state import PrivateFeatureState, need
 
 
 ROOT = Path(__file__).resolve().parent
@@ -93,23 +95,25 @@ class DomainControlHandler(BaseHTTPRequestHandler):
     token = ""
     transition = None
     collaboration = None
+    mixer = None
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
-        if self.path != "/v1/collaboration-state" or self.headers.get("X-Overte-E2E-Token") != self.token:
+        if self.path not in {"/v1/collaboration-state", "/v1/messages-mixer-state"} or self.headers.get("X-Overte-E2E-Token") != self.token:
             self.send_error(404)
             return
         try:
-            payload = (json.dumps(self.collaboration.state(), sort_keys=True) + "\n").encode()
+            actual = self.mixer(None) if self.path == "/v1/messages-mixer-state" else self.collaboration.state()
+            payload = (json.dumps(actual, sort_keys=True) + "\n").encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
-        except RuntimeError:
+        except (RuntimeError, OSError):
             self.send_error(503, "independent actor is not ready")
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
-        if self.path not in {"/v1/domain-state", "/v1/collaboration-edit"} or self.headers.get(
+        if self.path not in {"/v1/domain-state", "/v1/collaboration-edit", "/v1/messages-mixer-state"} or self.headers.get(
                 "X-Overte-E2E-Token") != self.token:
             self.send_error(404)
             return
@@ -132,7 +136,12 @@ class DomainControlHandler(BaseHTTPRequestHandler):
                     or command.get("schemaVersion") != 1
                     or command.get("action") not in {"offline", "online"}):
                 raise ValueError("invalid domain control command")
-            result = self.transition(command["action"])
+            if self.path == "/v1/messages-mixer-state":
+                if type(command["schemaVersion"]) is not int:
+                    raise ValueError("invalid mixer control version")
+                result = self.mixer(command["action"])
+            else:
+                result = self.transition(command["action"])
             payload = (json.dumps(result, sort_keys=True) + "\n").encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -141,7 +150,9 @@ class DomainControlHandler(BaseHTTPRequestHandler):
             self.wfile.write(payload)
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as error:
             self.send_error(400, str(error))
-        except (OSError, RuntimeError):
+        except (OSError, RuntimeError) as error:
+            import traceback
+            print("domain-fixture-control-error:", type(error).__name__, [(Path(frame.filename).name, frame.lineno) for frame in traceback.extract_tb(error.__traceback__)], file=sys.stderr)
             self.send_error(503, "controlled stack transition failed")
 
     def log_message(self, format_string: str, *arguments: object) -> None:
@@ -444,13 +455,43 @@ def main() -> int:
     expected_domain_id = str(uuid.uuid4())
     domain_id = None
     generation = 0
+    mixer = None
+    mixer_store = PrivateFeatureState(output / "messages-mixer-intent.json")
+    mixer_expected = None
     stack_state = "offline"
     transition_lock = threading.Lock()
     stopping = threading.Event()
 
+    def write_mixer_intent(value):
+        nonlocal mixer_expected
+        need(mixer_expected is None and mixer_store.read() is None)
+        mixer_expected = dict(value)
+        mixer_store.write(value, None)
+
+    def clear_mixer_intent():
+        nonlocal mixer_expected
+        actual = mixer_store.read()
+        if actual is not None:
+            need(mixer_expected is not None)
+            mixer_store.discard(mixer_expected)
+        else:
+            need(mixer_expected is None or mixer is not None and not mixer.dispatched)
+        mixer_expected = None
+
+    def spawn_assignment(assignment_type):
+        process = subprocess.Popen(
+            [str(assignment_client), "-t", assignment_type, "-a", "127.0.0.1",
+             "--server-port", str(args.domain_port),
+             "--disable-domain-port-auto-discovery",
+             "--log-directory", str(output / "assignment-logs"),
+             "--logOptions", "nocolor,process_id,milliseconds"],
+            **process_options(environment, assignment_log))
+        assignment_processes.append(process)
+        return process
+
     def start_stack() -> None:
         nonlocal domain_process, assignment_processes, assignment_agent_processes
-        nonlocal domain_id, generation, stack_state
+        nonlocal domain_id, generation, stack_state, mixer
         if stack_state == "online":
             return
         # The broker and assignment seed start afresh on each controlled
@@ -477,14 +518,16 @@ def main() -> int:
             domain_process = None
             raise RuntimeError("controlled domain identity changed during restart")
         domain_id = observed_id
+        mixer_process = None
         for assignment_type in ("0", "1", "3", "4", "5", "6"):
-            assignment_processes.append(subprocess.Popen(
-                [str(assignment_client), "-t", assignment_type, "-a", "127.0.0.1",
-                 "--server-port", str(args.domain_port),
-                 "--disable-domain-port-auto-discovery",
-                 "--log-directory", str(output / "assignment-logs"),
-                 "--logOptions", "nocolor,process_id,milliseconds"],
-                **process_options(environment, assignment_log)))
+            process = spawn_assignment(assignment_type)
+            if assignment_type == "4":
+                mixer_process = process
+        if sys.platform.startswith("linux"):
+            need(mixer_store.read() is None and mixer_expected is None)
+            mixer = MessagesMixer(mixer_process, owned_processes.matches,
+                                  lambda: spawn_assignment("4"),
+                                  write_mixer_intent, clear_mixer_intent, mixer_store.read)
         for pool in ("overte-e2e-domain", "overte-e2e-peer"):
             actor_options = []
             if args.feature_chat_receiver and pool == "overte-e2e-peer":
@@ -531,7 +574,7 @@ def main() -> int:
 
     def stop_stack() -> None:
         nonlocal domain_process, assignment_processes, assignment_agent_processes
-        nonlocal generation, stack_state
+        nonlocal generation, stack_state, mixer
         was_online = stack_state == "online"
         stack_state = "offline"
         for process in reversed(assignment_agent_processes):
@@ -543,6 +586,7 @@ def main() -> int:
         assignment_agent_processes = []
         assignment_processes = []
         domain_process = None
+        mixer = None
         if was_online:
             generation += 1
 
@@ -559,6 +603,19 @@ def main() -> int:
             return {"schemaVersion": 1, "state": stack_state,
                     "generation": generation}
 
+    def mixer_control(action):
+        with transition_lock:
+            if stack_state != "online" or mixer is None:
+                raise RuntimeError("owned MessagesMixer control is unavailable")
+            if action is None:
+                return mixer.state()
+            original = mixer.process
+            actual = mixer.transition(action)
+            if original is not None and mixer.process is not original:
+                need(original.poll() is not None and original in assignment_processes)
+                assignment_processes.remove(original)
+            return actual
+
     def request_stop(_signal=None, _frame=None) -> None:
         stopping.set()
 
@@ -571,6 +628,7 @@ def main() -> int:
         control_token = secrets.token_urlsafe(32)
         DomainControlHandler.token = control_token
         DomainControlHandler.transition = staticmethod(transition)
+        DomainControlHandler.mixer = staticmethod(mixer_control)
         control = ThreadingHTTPServer(("127.0.0.1", args.control_port), DomainControlHandler)
         control_thread = threading.Thread(target=control.serve_forever, daemon=True)
         control_thread.start()
@@ -589,17 +647,22 @@ def main() -> int:
             "collaborationEditUrl": f"http://127.0.0.1:{control.server_address[1]}/v1/collaboration-edit",
             "collaborationStateUrl": f"http://127.0.0.1:{control.server_address[1]}/v1/collaboration-state",
         }
+        if args.feature_chat_receiver and mixer is not None:
+            ready["messagesMixerControlUrl"] = f"http://127.0.0.1:{control.server_address[1]}/v1/messages-mixer-state"
         if args.ready_file:
             atomic_json(args.ready_file.resolve(), ready)
         print(json.dumps({key: value for key, value in ready.items()
                           if key != "controlToken"}, sort_keys=True), flush=True)
         while not stopping.wait(0.25):
-            if stack_state == "online" and domain_process.poll() is not None:
-                raise RuntimeError("domain-server exited while fixture was active")
-            if stack_state == "online" and any(
-                    process.poll() is not None
-                    for process in (*assignment_processes, *assignment_agent_processes)):
-                raise RuntimeError("assignment-client exited while fixture was active")
+            # Serialize monitoring with an intentionally stopped service. Other
+            # processes remain alive and are checked immediately afterwards.
+            with transition_lock:
+                if stack_state == "online" and domain_process.poll() is not None:
+                    raise RuntimeError("domain-server exited while fixture was active")
+                if stack_state == "online" and any(
+                        process.poll() is not None
+                        for process in (*assignment_processes, *assignment_agent_processes)):
+                    raise RuntimeError("assignment-client exited while fixture was active")
     finally:
         with transition_lock:
             stop_stack()

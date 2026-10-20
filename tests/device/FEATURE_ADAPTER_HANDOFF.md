@@ -391,3 +391,22 @@ existing four domain-controller cases pass. The preceding common regression
 selection passed 683 checks; the final two FD-provenance counterexamples and the
 55-case focused Chat selection passed afterwards. No build/compiler/device
 execution occurred. Full Chat composition/capabilities remain missing.
+
+## Owned MessagesMixer actuator v1
+
+The existing domain fixture now has a private authenticated mixer-only process
+control path. It pins owned type 4, persists and independently reads intent,
+signals the original process through a pidfd, verifies actual exit/live restart
+and journal absence, and preserves peer/domain/other services. See
+[MESSAGES_MIXER_CONTROL.md](native/MESSAGES_MIXER_CONTROL.md). Fourteen focused
+synthetic-worker cases and four controller cases pass. The independent receiver
+now rejects matching old mixer identities after both sources observed absence
+(ten receiver cases pass). Native node recovery, normal primary Chat UI/storage,
+peer stimuli/publisher and complete-area activation remain required. These host
+results do not qualify product behavior or devices.
+
+The final permitted common regression selection passes 704 host checks with no
+skips, failures, errors or compiler attempts (three explicitly excluded native
+build checks). This selection includes both new Chat actor transport/FD checks
+and all owned mixer/controller cases. It proves test logic only; native code
+is still uncompiled and all physical client runs remain unperformed.

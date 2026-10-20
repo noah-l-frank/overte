@@ -86,6 +86,11 @@ class IndependentChatReceiver:
                 value['primaryAbsent'] |= not p['mixerPresent'];value['peerAbsent'] |= not q['mixerPresent']
                 if p['mixerPresent'] and q['mixerPresent']:
                     need(p['mixerSha256']==q['mixerSha256'])
+                    if value['primaryAbsent'] and value['peerAbsent']:
+                        # The owned service restart allocates a new native
+                        # assignment/session UUID. Old matching cached nodes
+                        # cannot establish recovery after both saw absence.
+                        need(p['mixerSha256']!=value['mixerSha256'])
                     if p['mixerSha256']!=value['mixerSha256']:
                         need(value['primaryAbsent'] and value['peerAbsent'])
                         value.update(mixerSha256=p['mixerSha256'],primaryAbsent=False,peerAbsent=False)
