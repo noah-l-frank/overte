@@ -1994,6 +1994,12 @@ class StandaloneNativeConsumerTests(unittest.TestCase):
             'qualification':False,'reusable':False,'candidate':f.commit,'tree':f.tree_sha,
             'suites':[n for n in self.names if n in VALIDATION.STANDALONE_CI_COMMANDS]})
         self.required=[n for n in self.names if n not in self.proof['suites']]
+        tree={'.github/workflows/'+name+'.yml':{'mode':'100644','type':'blob','sha':'a'*40}
+            for name in ('pr-metadata-context','native-tests','project-tests','android-required','workflow-security')}
+        tree.update({'.github/workflows/repository-checks.yml':{'mode':'100644','type':'blob','sha':'22fe0d6d39d120f800099136d7d1ab5280d80b41'},
+            '.github/workflows/documentation-checks.yml':{'mode':'100644','type':'blob','sha':'a86e36287a315eed7bbadf366f923966a04bd806'},
+            '.github/test-suites.json':{'mode':'100644','type':'blob','sha':'b'*40}})
+        self.schedule_inputs={key:deepcopy(tree)for key in ('base_tree','candidate_tree','trusted_tree')}
 
     def run_case(self, *, opening=None, closing=None, reuse=None):
         f=self.f
@@ -2050,15 +2056,65 @@ class StandaloneNativeConsumerTests(unittest.TestCase):
             validate_execution_generation=Mock(),candidate_plan=Mock(return_value={'candidate':self.f.request.merge_sha,'required':False}))
         def load(name,path):return native if str(path).endswith('native-tests/check.py')else android
         with patch.object(VALIDATION,'_trusted_module',side_effect=load):
-            self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,pr_context=context),True)
+            self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
+                **self.schedule_inputs,pr_context=context),True)
             self.assertEqual(android.candidate_plan.call_args.kwargs['pr_context'],context)
             android.candidate_plan.return_value['required']=True
-            self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,pr_context=context),False)
+            self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
+                **self.schedule_inputs,pr_context=context),False)
             native.plan.return_value={'mode':'full'};android.candidate_plan.reset_mock()
-            self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan),False)
+            self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
+                **self.schedule_inputs),False)
             android.candidate_plan.assert_not_called()
             native.plan.return_value={'mode':'skip'};android.candidate_plan.side_effect=ValueError('source mismatch')
-            with self.assertRaises(ValueError):VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan)
+            with self.assertRaises(ValueError):VALIDATION._standalone_ci_schedule(
+                self.f.candidate,event,self.f.request,plan,**self.schedule_inputs)
+
+    def test_static_recipe_registry_and_complete_callee_entries_choose_only_supported_native_four(self):
+        plan={'host_mode':'delegated-sync','package_set':[],'paths':['tools/branch-cleanup/cleanup.py'],'regular':True}
+        native=SimpleNamespace(plan=Mock(return_value={'mode':'skip'}))
+        android=SimpleNamespace(activated=Mock(return_value=False),has_staged_caller=Mock(return_value=False))
+        def load(name,path):return native if str(path).endswith('native-tests/check.py')else android
+        def selected(frames):
+            return VALIDATION._standalone_ci_schedule(self.f.candidate,{},self.f.request,plan,**frames)
+        with patch.object(VALIDATION,'_trusted_module',side_effect=load):
+            self.assertIs(selected(self.schedule_inputs),True)
+            for side in self.schedule_inputs:
+                for path in ('.github/workflows/repository-checks.yml',
+                        '.github/workflows/documentation-checks.yml','.github/test-suites.json'):
+                    for shape in ('changed','missing','mode','type'):
+                        frames=deepcopy(self.schedule_inputs)
+                        if shape=='missing':frames[side].pop(path)
+                        else:frames[side][path][{'changed':'sha','mode':'mode','type':'type'}[shape]]={
+                            'changed':'c'*40,'mode':'100755','type':'commit'}[shape]
+                        with self.subTest(side=side,path=path,shape=shape):self.assertIs(selected(frames),False)
+            for name in ('pr-metadata-context','native-tests','project-tests','android-required','workflow-security'):
+                path='.github/workflows/'+name+'.yml'
+                for side in ('candidate_tree','trusted_tree'):
+                    for shape in ('changed','missing','mode','type'):
+                        frames=deepcopy(self.schedule_inputs)
+                        if shape=='missing':frames[side].pop(path)
+                        else:frames[side][path][{'changed':'sha','mode':'mode','type':'type'}[shape]]={
+                            'changed':'c'*40,'mode':'100755','type':'commit'}[shape]
+                        with self.subTest(side=side,path=path,shape=shape):self.assertIs(selected(frames),False)
+                frames=deepcopy(self.schedule_inputs);frames['base_tree'][path]['sha']='c'*40
+                with self.subTest(old_base_callee=name):self.assertIs(selected(frames),True)
+
+    def test_unsupported_recipe_keeps_actual37_without_entering_expected_native_proof(self):
+        f=self.f
+        for name,command in VALIDATION.STANDALONE_CI_COMMANDS.items():
+            path=f.candidate/command[1];path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_text("from pathlib import Path\nimport os\nwith Path(os.environ['FIXTURE_EXECUTION_LOG']).open('a') as s:s.write("+repr(name+'\n')+")\n")
+        f.ci_refresh()
+        self.schedule_inputs['base_tree']['.github/workflows/documentation-checks.yml']['sha']='c'*40
+        plan={'host_mode':'delegated-sync','package_set':[]}
+        with patch.object(VALIDATION,'_trusted_module',side_effect=AssertionError('unsupported recipe is decided before owner routing')):
+            self.selection['standalone_ci_schedule']=VALIDATION._standalone_ci_schedule(
+                f.candidate,{},f.request,plan,**self.schedule_inputs)
+        self.assertIs(self.selection['standalone_ci_schedule'],False)
+        result,owner=self.run_case(opening=lambda *a:(_ for _ in()).throw(AssertionError('unsupported recipe cannot enter native proof')))
+        self.assertEqual(result['mode'],'affected-ci');self.assertEqual(result['executed_suites'],self.names)
+        self.assertEqual(len(f.executed()),37);owner.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

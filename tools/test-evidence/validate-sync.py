@@ -373,10 +373,30 @@ def _native_standalone_ci_owners(api, gate, request, registry, selection):
             time.sleep(min(5, max(0, deadline - time.monotonic())))
 
 
-def _standalone_ci_schedule(candidate, event, request, plan, *, pr_context=None):
-    """Scheduling only: unrelated required owners keep the prior CI37 route."""
+def _standalone_ci_schedule(candidate, event, request, plan, *, base_tree, candidate_tree,
+                            trusted_tree, pr_context=None):
+    """Scheduling only: unsupported sources/owners keep the prior CI37 route."""
     if plan.get('package_set') or plan.get('host_mode') != 'delegated-sync':
         return False
+    for path, sha in {
+            '.github/workflows/repository-checks.yml': '22fe0d6d39d120f800099136d7d1ab5280d80b41',
+            '.github/workflows/documentation-checks.yml': 'a86e36287a315eed7bbadf366f923966a04bd806'}.items():
+        expected = {'mode': '100644', 'type': 'blob', 'sha': sha}
+        if any(tree.get(path) != expected for tree in (base_tree, candidate_tree, trusted_tree)):
+            return False
+    registry = trusted_tree.get('.github/test-suites.json')
+    if registry is None or registry.get('mode') != '100644' or registry.get('type') != 'blob' \
+            or any(tree.get('.github/test-suites.json') != registry for tree in (base_tree, candidate_tree)):
+        return False
+    # The fixed caller's six reusable sources must also match the protected
+    # candidate. Their older B versions need not match; they grant no coverage.
+    for name in ('pr-metadata-context', 'native-tests', 'project-tests', 'android-required',
+                 'documentation-checks', 'workflow-security'):
+        path = '.github/workflows/' + name + '.yml'
+        entry = trusted_tree.get(path)
+        if entry is None or entry.get('mode') != '100644' or entry.get('type') != 'blob' \
+                or candidate_tree.get(path) != entry:
+            return False
     native = _trusted_module('sync_standalone_native_schedule', ROOT / 'tools/native-tests/check.py')
     mode = native.plan(plan['paths'], plan['regular']).get('mode')
     if mode not in {'skip', 'core', 'full'}:
@@ -642,8 +662,9 @@ def _ci_selection(args, request, candidate, initial, registry, api):
             # required repository aggregate, including external npm receipts.
             tree = inputs.full_tree(candidate, initial[0])
             base_tree = inputs.full_tree(candidate, request.base_sha)
+            trusted_tree = inputs.full_tree(ROOT, "HEAD")
             selected = host.select(tree, plan["paths"], host.regular_ci_inventory(plan, base_tree, tree),
-                unknown=plan["unknown"], trusted_tree=inputs.full_tree(ROOT, "HEAD"), candidate_root=candidate,
+                unknown=plan["unknown"], trusted_tree=trusted_tree, candidate_root=candidate,
                 trusted_root=ROOT, target=request.base, base_tree=base_tree,
                 package_paths=host.package_owned_paths(plan))
             if plan.get('host_mode') == 'full' and args.mode != 'reuse':
@@ -684,6 +705,7 @@ def _ci_selection(args, request, candidate, initial, registry, api):
         # This never authorizes coverage. A positive unrelated product/Android
         # owner preserves the existing37 before the native proof is selected.
         result['standalone_ci_schedule'] = _standalone_ci_schedule(candidate, event, request, plan,
+            base_tree=base_tree, candidate_tree=tree, trusted_tree=trusted_tree,
             pr_context=context.planning() if context is not None else None)
     result["selection"] = execution.digest(result)
     return result
