@@ -68,6 +68,7 @@ from overte_phone_script_scope import transfer_file_scope
 from overte_phone_script_history import PhoneScriptHistory, PhoneDurableScriptMeasurements
 from overte_phone_script_lock import PhoneScriptSourceLock
 from overte_phone_script_observation import PhoneScriptObservation
+from overte_phone_script_actions import PhoneScriptActions
 
 
 class PhoneAppiumAdapter(AppiumAdapter):
@@ -407,6 +408,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
             history=PhoneScriptHistory(store,binding,run,role,reader.directory,fixture_url)
             check();reader.guard()
             return PhoneDurableScriptMeasurements(reader,history,source_lock=source_lock)
+
+    def script_actions_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-script-actions.json'))
+
+    def _script_actions(self, selector, run, fixture_url):
+        return PhoneScriptActions(self,selector,run,fixture_url)
 
     def script_observation_store(self, selector, role):
         require(role in ('primary','actor'),'PHONE_SCRIPT_OBSERVATION_ROLE_REQUIRED')
@@ -895,6 +902,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
         result = super().cleanup(selector)
         require(self.script_restart_inputs_store(selector).read() is None, 'PHONE_SCRIPT_RESTART_INPUTS_CLEANUP_INCOMPLETE')
         require(self.script_restart_store(selector).read() is None, 'PHONE_SCRIPT_RESTART_CLEANUP_INCOMPLETE')
+        require(self.script_actions_store(selector).read() is None,'PHONE_SCRIPT_ACTIONS_CLEANUP_INCOMPLETE')
         require(all(self.script_history_store(selector,role).read() is None for role in ('primary','actor')),
                 'PHONE_SCRIPT_HISTORY_CLEANUP_INCOMPLETE')
         require(all(self.script_observation_store(selector,role).read() is None for role in ('primary','actor')),

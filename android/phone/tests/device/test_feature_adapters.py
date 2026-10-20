@@ -1448,7 +1448,7 @@ class FeatureAdapterTests(unittest.TestCase):
         source.mutate = measured
         lifecycle.mutate = lambda packet: packet.update(processId=31,instance='d'*32)
         file_ui.mutate = lambda packet: packet.update(scriptInventory=inventory(tabletPresent=False,tabletShown=False) if absent
-            else inventory([observed(statusText='',labelText='',labelVisible=False)]))
+            else inventory([observed(statusText='',labelText='',labelVisible=False)])) if packet['action']=='observe' else None
         commands = []
         def send(client, session, target, command, process):
             commands.append(deepcopy(command))

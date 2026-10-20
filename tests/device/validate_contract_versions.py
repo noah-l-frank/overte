@@ -46,6 +46,7 @@ REQUIRED = {
     "phone-script-measurements": 2,
     "phone-existing-input-session": 1,
     "phone-script-source-lock": 1,
+    "phone-script-actions": 1,
     "phone-script-observation": 1,
     "phone-script-file-scope": 1,
     "phone-script-history": 1,

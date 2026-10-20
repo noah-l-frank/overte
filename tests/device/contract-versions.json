@@ -34,6 +34,7 @@
     "phone-script-measurements": {"current": 2, "reads": [2]},
     "phone-existing-input-session": {"current": 1, "reads": [1]},
     "phone-script-source-lock": {"current": 1, "reads": [1]},
+    "phone-script-actions": {"current": 1, "reads": [1]},
     "phone-script-observation": {"current": 1, "reads": [1]},
     "phone-script-file-scope": {"current": 1, "reads": [1]},
     "phone-script-history": {"current": 1, "reads": [1]},

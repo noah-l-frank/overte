@@ -3,6 +3,16 @@
 Active implementation scope is **Android Phone only** until all fourteen areas
 are complete. Pico and iOS work is paused and preserved on their own branches.
 
+[Durable normal Script inputs](SCRIPT_ACTIONS.md) now route all shared verbs
+through existing ordinary controls, freeze original native pre-input barriers
+and persist one-send intent. Eighteen new host cases cover ten normal inputs,
+missing URL/close, explicit restart and lost-return/ignored-input recovery.
+All 188 existing Phone adapter checks also pass.
+Input ACKs remain separate from measured function. Full readiness/callback
+causality, HTTP404 join, per-role observation restart handoff, independent
+publisher and verified complete cleanup remain open. No full capability or
+physical result is promoted.
+
 [Durable five-source observations](SCRIPT_OBSERVATION.md) now preserve the
 original file cursor alongside the four-source transcript. Every native file
 query, including factory admission, is checked before it can hide a rollback.
