@@ -158,6 +158,11 @@ class IOSNativeMixin:
         result.sample()
         return result
 
+    def _script_manager_status(self, selector):
+        from adapters.script_manager_status import manager_status
+        ui, _observe, _binding = self._script_runtime(selector)
+        return manager_status(ui.io.capture())
+
     def script_restart_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('normal-script-restart.json'))
 

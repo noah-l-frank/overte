@@ -146,7 +146,7 @@ class InstalledAdapterTests(unittest.TestCase):
 
     def test_restart_factories_preserve_candidate_gate_before_any_session_or_private_owner_io(self):
         self.artifact.write_bytes(b'changed original artifact boundary')
-        for method in ('_script_missing_manager', '_script_restart_prepare', '_script_restart_adopt', '_script_restart_handoff',
+        for method in ('_script_manager_status', '_script_missing_manager', '_script_restart_prepare', '_script_restart_adopt', '_script_restart_handoff',
                        '_script_restart_inputs', '_script_restart_source', '_script_restart', '_script_restart_stopped'):
             with self.subTest(method=method), self.assertRaises(ValueError):
                 getattr(self.adapter, method)('test-only')

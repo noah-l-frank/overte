@@ -121,7 +121,7 @@ def observation(value, pid, now_ms=None):
         if type(control) is dict and file_control(control.get('id')):
             if value.get('fileControlsVersion') != 1:
                 raise NativeUIError('Native iOS file controls lack their source extension')
-            fields |= file_metadata_fields(control['id'])
+            fields |= file_metadata_fields(control['id'], control)
         if type(control) is dict and script_control(control.get('id')):
             if value.get('featureControlsVersion') != 1:
                 raise NativeUIError('Native iOS Script controls lack their source extension')

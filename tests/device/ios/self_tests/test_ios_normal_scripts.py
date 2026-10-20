@@ -301,6 +301,39 @@ class IOSNormalScriptsTests(unittest.TestCase):
         with self.assertRaises(RuntimeError): self.adapter._script_missing_manager('test-only-selector')
         self.assertEqual(before, self.native.qt.inputs)
 
+    def manager_status_source(self):
+        from self_tests.test_script_manager_status import observed
+        self.native.file_ui = FileBoundary(self.path.parent / ('feature-script-' + 'a' * 32))
+        measured = observed(statusText='actual native root', labelText='actual separate label')
+        original = self.native.file_ui.capture
+        def capture():
+            value = original()
+            for row in value['controls']:
+                if row['id'] == 'scripts.from-file': row['manager'] = dict(measured)
+            return value
+        self.native.file_ui.capture = capture
+        self.adapter._scripts('test-only-selector').open()
+        return measured
+
+    def test_ios_manager_status_preserves_original_afc_separate_label_values_without_input(self):
+        measured = self.manager_status_source(); before = list(self.native.qt.inputs)
+        self.assertEqual(measured, self.adapter._script_manager_status('test-only-selector'))
+        measured['labelText'] = 'new actual label'
+        self.assertEqual(measured, self.adapter._script_manager_status('test-only-selector'))
+        self.assertEqual(before, self.native.qt.inputs)
+
+    def test_ios_manager_status_unavailable_or_foreign_context_cannot_be_adopted(self):
+        measured = self.manager_status_source(); measured['componentSource'] = 'file:///foreign.qml'
+        with self.assertRaises(RuntimeError): self.adapter._script_manager_status('test-only-selector')
+        measured.clear(); measured.update(managerSourceVersion=1, available=False)
+        with self.assertRaises(RuntimeError): self.adapter._script_manager_status('test-only-selector')
+
+    def test_ios_manager_status_changed_process_preserves_owner_and_prevents_input(self):
+        self.manager_status_source(); before = list(self.native.qt.inputs); self.native.pid = 99
+        with self.assertRaises(RuntimeError): self.adapter._script_manager_status('test-only-selector')
+        self.assertEqual(before, self.native.qt.inputs)
+        self.assertIsNotNone(self.adapter.script_store('test-only-selector').read())
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup); os.chmod(directory.name, 0o700)
@@ -791,7 +824,7 @@ class IOSNormalScriptsTests(unittest.TestCase):
         with patch.object(component.AppiumAdapter, 'load_targets', return_value={}):
             adapter = binding.create_adapter(SimpleNamespace(platform='ios', action='cleanup'), component.AppiumAdapter)
         for method, arguments in (('_script_runtime', ('private-selector',)),
-                ('_script_file_manager', ('private-selector',)), ('_script_missing_manager', ('private-selector',)), ('_bound_script_files', ('private-selector', None, None)),
+                ('_script_file_manager', ('private-selector',)), ('_script_missing_manager', ('private-selector',)), ('_script_manager_status', ('private-selector',)), ('_bound_script_files', ('private-selector', None, None)),
                 ('_script_restart_prepare', ('private-selector',)), ('_script_restart_adopt', ('private-selector',)),
                 ('_script_restart_handoff', ('private-selector',)), ('_script_restart', ('private-selector',)),
                 ('_script_restart_inputs', ('private-selector',)), ('_script_restart_source', ('private-selector',)),

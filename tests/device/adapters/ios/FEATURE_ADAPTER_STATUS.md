@@ -1,5 +1,16 @@
 # iOS feature adapter implementation status
 
+Internal `_script_manager_status` now reads the [original manager display source](../../native/SCRIPT_MANAGER_STATUS.md)
+through the existing private native UI transport. The closed parser admits only
+optional manager metadata on the existing From File carrier, preserves distinct
+actual root/Label text and refuses missing/unavailable/foreign sources. It sends
+no UI input. Candidate/process replacement retains the existing source guards.
+All **419** permitted no-build iOS host cases and ten additional binding checks
+pass. Native UI/SDK boundaries are synthetic; instrumentation is uncompiled,
+the physical source plugin uninstalled/inactive and devices untested. Full
+callback/display/actor/effect/quiet-cleanup composition and complete feature
+triples remain open. No acceptance capability is promoted.
+
 Internal `_script_missing_manager` now connects [missing-load v1](../../native/SCRIPT_MISSING_LOAD.md)
 to ordinary token-bound UIKit/Qt From URL input, actual HTTP/AFC callback history
 and independent current service rows. The native edit allowlist admits only the
