@@ -19,6 +19,7 @@ REQUIRED = {
     "native-account-probe": 1,
     "native-account-origin": 1,
     "feature-account-provider": 2,
+    "feature-browser-resources": 1,
     "native-animation-history": 1,
     "native-script-controls": 1,
     "native-private-login-input": 2,
