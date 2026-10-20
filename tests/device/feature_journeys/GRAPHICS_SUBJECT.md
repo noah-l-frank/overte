@@ -80,6 +80,13 @@ and publish no receipt. Recorded non-200 status stays non-200. These are resourc
 delivery facts only: they cannot prove that a client requested, loaded or rendered
 the subject. Actual native entity/view and same-frame image checks remain required.
 
+The passive [native subject/view source](../native/GRAPHICS_SUBJECT_OBSERVATION.md)
+now supplies original per-UUID presence/absence and camera facts. The separate
+[world-render source](../native/WORLD_RENDER_ACQUISITION.md) supplies original
+pixels and same-view batch provenance. Neither source establishes fixture
+preparation, complete foreign-state preservation, image-effect classification
+or full-area cleanup on its own.
+
 Retirement holds the same ownership lock as in-flight scene delivery, preserves
 original histories and prevents later scene replies. An independently read
 retired status is required after the reader's delete ACK when this provider has

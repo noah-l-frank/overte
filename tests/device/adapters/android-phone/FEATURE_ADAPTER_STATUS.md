@@ -27,6 +27,14 @@ retirement. Scene delivery remains a fixture input; it cannot supply product
 entity/view/render observations. Full Graphics ownership and coordination remain
 pending and its capability remains disabled.
 
+The [original Graphics subject/view source](../../native/GRAPHICS_SUBJECT_OBSERVATION.md)
+now directly queries all seven run-owned UUIDs, including moved/renamed/hidden
+entities, and reads the actual native camera/address. Its explicitly limited
+spatial scan is not promoted to full foreign-world preservation. The guarded
+internal Phone factory and separate read-only admission are connected. Full
+scene/view ownership, restoration, image effects and Graphics coordination remain
+pending; native instrumentation remains uncompiled.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

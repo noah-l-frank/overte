@@ -34,6 +34,7 @@ from adapters.native_script_loads import result as load_result
 from self_tests.test_native_script_loads import history as load_history, URL as LOAD_URL, event as load_event
 from self_tests.test_native_script_membership import membership_source
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
+from self_tests.test_native_graphics_subject import Boundary as GraphicsSubjectBoundary, RUN as GRAPHICS_RUN
 from self_tests.test_native_feature_observation import probe_source
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
@@ -832,6 +833,33 @@ class FeatureAdapterTests(unittest.TestCase):
             monotonic=lambda: source.clock, sleep=source.sleep))
         boundary.start(); self.addCleanup(boundary.stop)
         return source, self.adapter._process_presence(SELECTOR)
+
+    def graphics_subject_boundaries(self):
+        source=self.preview_boundaries(GraphicsSubjectBoundary(),'feature-graphics-subject.json')
+        boundary=patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+            monotonic=lambda:source.clock,sleep=source.sleep))
+        boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._graphics_subject_observer(SELECTOR)
+
+    def test_phone_graphics_subject_factory_returns_original_inventory_without_feature_promotion(self):
+        source,reader=self.graphics_subject_boundaries();source.add();value=reader.read(GRAPHICS_RUN)
+        self.assertEqual(source.sample,value);self.assertEqual(6,len(value['source']['absentIds']))
+        self.assertEqual([],self.native.inputs)
+        self.assertFalse(any(c.startswith('feature.graphics.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_graphics_subject_factory_blocks_changed_candidate_or_process_before_dispatch(self):
+        source,reader=self.graphics_subject_boundaries();reader.read(GRAPHICS_RUN);before=len(source.commands)
+        original=self.fixture.adb.digest;self.fixture.adb.digest='f'*64
+        with self.assertRaises(RuntimeError):reader.read(GRAPHICS_RUN)
+        self.fixture.adb.digest=original;self.native.identity='31:15'
+        with self.assertRaises(RuntimeError):reader.read(GRAPHICS_RUN)
+        self.assertEqual(before,len(source.commands))
+
+    def test_phone_graphics_subject_readonly_command_has_no_input_or_expected_state_route(self):
+        command=dict(schemaVersion=1,commandId='a'*32,action='feature-graphics-subject-observe',runId=GRAPHICS_RUN)
+        appium.readonly_feature_command(command)
+        for change in (dict(expectedView=[0,0,0]),dict(entities=[]),dict(action='feature-graphics-subject-prepare')):
+            with self.subTest(change=change),self.assertRaises((RuntimeError,ValueError)):appium.readonly_feature_command(command|change)
 
     def test_phone_process_presence_keeps_original_kernel_states_without_scripts_input(self):
         source, reader = self.process_presence_boundaries()

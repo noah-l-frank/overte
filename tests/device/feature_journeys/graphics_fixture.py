@@ -6,6 +6,13 @@ from urllib.parse import urlsplit
 
 VIEW = dict(position=dict(x=0.0,y=1.6,z=0.0),rotation=dict(x=0.0,y=0.0,z=0.0,w=1.0))
 VERSION = 1
+NAMES = ('zone','floor','fog-board','resolution-bars','reflector','reflected-color','marker')
+
+
+def subject_ids(run):
+    from .contract import identifier
+    namespace=uuid.UUID(hex=identifier(run))
+    return {name:str(uuid.uuid5(namespace,'graphics-subject-v1/'+name)) for name in NAMES}
 
 
 def scene(run, ticket, fixture_url):

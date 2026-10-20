@@ -60,6 +60,7 @@ from adapters.script_restart_handoff import ScriptRestartHandoff
 from adapters.restart_inputs import RestartInputs, run_script_restart
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
+from adapters.native_graphics_subject import NativeGraphicsSubject, FILE as GRAPHICS_SUBJECT_FILE
 from adapters.world_render_storage import NativeWorldRenderStorage
 from adapters.owned_world_render import WorldRenderOwner, OwnedWorldRenderCapture
 from overte_phone_script_files import PhoneScriptFileIO, FILE as SCRIPT_FILE_UI_FILE
@@ -94,6 +95,9 @@ def readonly_feature_command(command):
     elif action=='feature-process-presence':
         from adapters.native_process_presence import command as validate_presence
         validate_presence(command)
+    elif action=='feature-graphics-subject-observe':
+        from adapters.native_graphics_subject import command as validate_subject
+        validate_subject(command)
     elif action=='feature-account-origin':
         from adapters.native_account_origin import command as validate_origin
         validate_origin(command)
@@ -397,6 +401,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def world_render_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-world-render-owner.json'))
+
+    def _graphics_subject_observer(self, selector, *, read_only=False):
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid']
+        transport=PhoneAdapter(self.candidate).adb
+        return NativeGraphicsSubject(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],
+                'files/overte-e2e/'+GRAPHICS_SUBJECT_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _world_render_capture(self, selector):
         # Internal original-image prerequisite, not a full feature producer.

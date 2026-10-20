@@ -60,6 +60,7 @@
     "emote-source-profile": {"current": 1, "reads": [1]},
     "graphics-subject": {"current": 1, "reads": [1]},
     "feature-graphics-resources": {"current": 1, "reads": [1]},
+    "native-graphics-subject": {"current": 1, "reads": [1]},
     "world-render-acquisition": {"current": 2, "reads": [1, 2]},
     "world-render-trace": {"current": 1, "reads": [1]},
     "world-render-storage": {"current": 1, "reads": [1]},

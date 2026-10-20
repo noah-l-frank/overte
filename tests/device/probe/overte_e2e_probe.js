@@ -266,6 +266,7 @@
         return /^(?:settings\.entry|graphics\.(?:settings-entry|haze|mirrors))$/.test(String(request.controlId));
     }
     var lastProcessPresenceRequest = "";
+    var lastGraphicsSubjectRequest = "";
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
@@ -1432,6 +1433,23 @@
         }
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+                && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && command.action === "feature-graphics-subject-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastGraphicsSubjectRequest) { return; }
+            lastGraphicsSubjectRequest = command.commandId;
+            var subject = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureGraphicsSubjectObservation === "function") {
+                    var originalSubject = Test.featureGraphicsSubjectObservation(command);
+                    if (originalSubject && originalSubject.requestId === command.commandId) { subject = originalSubject; }
+                }
+            } catch (_graphicsSubjectError) { /* Missing originals remain unavailable. */ }
+            Test.saveObject(subject, "feature-graphics-subject.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "feature-world-render-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
             if (command.commandId !== lastWorldRenderRequest) {
@@ -1784,6 +1802,7 @@
                 || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui"
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
+                || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-script-files")) {
             // Android's existing private channel is separate from the HTTP
             // fixture command endpoint. Reuse the closed native feature path.

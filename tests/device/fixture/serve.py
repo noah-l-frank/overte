@@ -495,6 +495,12 @@ class FixtureState:
             try:account_origin_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native account origin request") from None
             valid=True
+        elif action == "feature-graphics-subject-observe":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_graphics_subject import command as graphics_subject_command
+            try:graphics_subject_command(command,ios=True)
+            except (ValueError,RuntimeError):raise ValueError("invalid native Graphics subject request") from None
+            valid=True
         elif action == "feature-process-presence":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_process_presence import command as process_presence_command
