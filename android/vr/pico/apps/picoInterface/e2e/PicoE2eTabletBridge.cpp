@@ -2,6 +2,10 @@
 
 #include "PicoE2eTabletBridge.h"
 #include "PicoE2eNavigationUi.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../../../../tests/device/native/PendingFieldCommitOwner.h"
+#include "../../../../../../tests/device/native/PrivatePreviewFiles.h"
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -289,6 +293,39 @@ bool sendPointerClick(QQuickItem* item, OffscreenQmlSurface* surface) {
     return item && sendPointerAt(item, surface, item->mapToScene(QPointF(item->width()/2, item->height()/2)));
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void installPendingCommitOwner() {
+    using namespace overte::e2e;
+    if (!qApp || QThread::currentThread() != qApp->thread() || !bridgeEnabled()
+            || !previewDirectory(BRIDGE_DIRECTORY) || qApp->property(pendingCommitProviderProperty()).isValid()) { return; }
+    const auto roots = [] {
+        PendingFieldCommitOwner::Roots result;
+        if (!bridgeEnabled() || QGuiApplication::applicationState() != Qt::ApplicationActive
+                || !DependencyManager::isSet<TabletScriptingInterface>()) { return result; }
+        const auto tablet = DependencyManager::get<TabletScriptingInterface>()->getTablet(SYSTEM_TABLET);
+        auto root = tablet ? tablet->getTabletRoot() : nullptr;
+        auto surface = tablet ? tablet->getTabletSurface() : nullptr;
+        auto window = surface ? surface->getWindow() : nullptr;
+        if (!tablet || !tablet->property("tabletShown").toBool() || !root || !window || root->window() != window
+                || root->thread() != qApp->thread() || window->thread() != qApp->thread()) { return result; }
+        result.available = true; result.items.append(root); return result;
+    };
+    const auto pointer = [roots](QQuickItem* item, QQuickWindow* window, const QPointF& point) {
+        if (!roots().available || !NormalControlUi::ownsPoint(item, window, point)) { return false; }
+        const auto tablet = DependencyManager::get<TabletScriptingInterface>()->getTablet(SYSTEM_TABLET);
+        auto surface = tablet ? tablet->getTabletSurface() : nullptr;
+        return surface && surface->getWindow() == window && sendPointerAt(item, surface, point);
+    };
+    const auto owner = std::make_shared<PendingFieldCommitOwner>(roots, pointer);
+    PendingCommitProvider provider = [owner](const QVariantMap& command) {
+        if (!qApp || QThread::currentThread() != qApp->thread() || !bridgeEnabled()
+                || !previewDirectory(BRIDGE_DIRECTORY)) { return QVariantMap(); }
+        return owner->request(command);
+    };
+    qApp->setProperty(pendingCommitProviderProperty(), QVariant::fromValue(provider));
+}
+#endif
+
 class TabletBridge : public QObject {
 public:
     explicit TabletBridge(QObject* owner) : QObject(owner) {
@@ -301,6 +338,9 @@ private:
         if (!bridgeEnabled()) {
             return;
         }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        installPendingCommitOwner();
+#endif
         const Observation observation = observeTablet();
         writeJson(OBSERVATION_PATH, {
             { QStringLiteral("bridgeVersion"), 1 },

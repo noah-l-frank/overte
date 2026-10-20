@@ -28,6 +28,7 @@ from self_tests.test_token_audio_ui import AudioBoundary
 from self_tests.test_native_script_files import Boundary as FilesBoundary
 from adapters.native_feature_observation import NativeFeatureObservation
 from self_tests.test_native_web_dom import Boundary as WebDOMBoundary, RUN as WEB_RUN, URL as WEB_URL
+from self_tests.test_pending_commit_owner import Boundary as PendingOwnerBoundary, RUN as INPUT_RUN
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_storage import receipt_file
 from self_tests.test_world_render_evidence import Boundary as WorldBoundary
@@ -228,6 +229,52 @@ class PicoNormalScriptsTests(unittest.TestCase):
         source,_native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);source.fault='keep-files'
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertTrue(source.path.exists());self.assertIsNotNone(self.instance._account_origin_store(self.native.target).read())
+
+    def pending_owner(self,intent=True):
+        source=PendingOwnerBoundary();epoch=self.native.epoch_milliseconds(self.native.target)
+        source.epoch=lambda:epoch+round(source.clock*1000)
+        original_write=self.native.write_debug_app_file;original_read=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            request=json.loads(raw)
+            if request['action']!='feature-pending-commit-owner':return original_write(target,package,path,raw)
+            self.assertEqual('org.overte.pico',package);self.assertEqual(adapter.ANDROID_CONTROL_COMMAND,path);source.send(request)
+        def read(target,package,path,**kwargs):
+            if path.endswith('/feature-pending-commit-owner.json'):
+                self.assertEqual({'attempts':1},kwargs);return source.original()
+            return original_read(target,package,path,**kwargs)
+        active=type(self.instance)._pending_owner.__wrapped__.__globals__
+        for boundary in (patch.object(self.native,'write_debug_app_file',side_effect=write),
+            patch.object(self.native,'read_debug_app_file',side_effect=read),
+            patch.object(self.native,'epoch_milliseconds',side_effect=lambda _target:source.epoch()),
+            patch.dict(active,NativeFeatureObservation=partial(NativeFeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.instance._pending_owner(self.native.target,source.intents.append if intent else None)
+
+    def test_pico_pending_owner_retains_original_event_and_observes_actual_retirement(self):
+        source,owner=self.pending_owner();owner.focus(INPUT_RUN);owner.type_owned(INPUT_RUN);held=owner.hold(INPUT_RUN)
+        event=held['commit']['observation']['eventId'];source.replace_context();owner.attempt_retired(INPUT_RUN,event)
+        self.assertEqual([],owner.release_owned(INPUT_RUN,event)['resources']['pendingRuns'])
+        self.assertEqual(source.intents,[c for c in source.commands if c['operation']!='observe'])
+        self.assertFalse(any(c.startswith('feature.') for c in self.instance.capabilities(self.native.target)))
+
+    def test_pico_pending_owner_ignored_input_foreign_pid_and_candidate_fail(self):
+        source,owner=self.pending_owner();source.fault='focus-ignored'
+        with self.assertRaises(RuntimeError):owner.focus(INPUT_RUN)
+        self.assertEqual(1,sum(c['operation']=='focus' for c in source.commands))
+        source.fault='';source.edit=lambda value:value.update(processId=124)
+        with self.assertRaises(RuntimeError):owner.read(INPUT_RUN)
+        source.edit=None;owner.read(INPUT_RUN);before=len(source.commands);self.native.digest='f'*64
+        with self.assertRaises(RuntimeError):owner.read(INPUT_RUN)
+        self.assertEqual(before,len(source.commands))
+
+    def test_pico_pending_owner_requires_durable_intent_and_actual_cleanup(self):
+        source,owner=self.pending_owner(intent=False)
+        with self.assertRaises(RuntimeError):owner.focus(INPUT_RUN)
+        self.assertFalse(any(c['operation']!='observe' for c in source.commands))
+        owner.intent=source.intents.append
+        owner.focus(INPUT_RUN);owner.type_owned(INPUT_RUN);held=owner.hold(INPUT_RUN);source.fault='release-ignored'
+        with self.assertRaises(RuntimeError):owner.release_owned(INPUT_RUN,held['commit']['observation']['eventId'])
 
     def web_dom(self):
         source=WebDOMBoundary()
