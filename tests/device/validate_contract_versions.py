@@ -42,6 +42,7 @@ REQUIRED = {
     "graphics-subject": 2,
     "feature-graphics-resources": 1,
     "native-graphics-subject": 2,
+    "native-phone-scene-loads": 1,
     "phone-graphics-measurements": 2,
     "phone-graphics-images": 1,
     "phone-graphics-samples": 2,

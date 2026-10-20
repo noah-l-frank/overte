@@ -183,6 +183,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureWorldRenderReceipt(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderReceipts(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureGraphicsSubjectObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureSceneLoadObservation(const QVariantMap& command);
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)
     Q_INVOKABLE QVariantMap voiceTest(const QVariantMap& command);

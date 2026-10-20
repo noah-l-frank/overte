@@ -62,6 +62,7 @@ from adapters.restart_inputs import RestartInputs, run_script_restart
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
 from adapters.native_graphics_subject import NativeGraphicsSubject, FILE as GRAPHICS_SUBJECT_FILE
+from adapters.native_phone_scene_loads import NativePhoneSceneLoads, FILE as SCENE_LOAD_FILE
 from adapters.world_render_receipts import NativeWorldReceiptInventory, NativeWorldReceiptBatchFiles, INVENTORY_FILE as WORLD_RECEIPT_FILE
 from adapters.world_render_storage import NativeWorldRenderStorage
 from adapters.owned_world_render import WorldRenderOwner, OwnedWorldRenderCapture
@@ -100,6 +101,9 @@ def readonly_feature_command(command):
     elif action=='feature-graphics-subject-observe':
         from adapters.native_graphics_subject import command as validate_subject
         validate_subject(command)
+    elif action=='feature-scene-load-observe':
+        from adapters.native_phone_scene_loads import command as validate_scene_load
+        validate_scene_load(command)
     elif action=='feature-world-render-storage':
         from adapters.world_render_storage import command as validate_storage
         validate_storage(command)
@@ -427,6 +431,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return NativeGraphicsSubject(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],
                 'files/overte-e2e/'+GRAPHICS_SUBJECT_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _scene_load_observer(self, selector, *, read_only=True):
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativePhoneSceneLoads(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+SCENE_LOAD_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _world_render_capture(self, selector, *, read_only=False, role='primary', require_trace=False, require_frame_view=False):

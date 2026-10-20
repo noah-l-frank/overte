@@ -94,6 +94,13 @@ foreign replacement pages, and keep editor dismissal separate from loaded-world
 proof. Complete scene/action/restart ownership and the Graphics coordinator
 remain pending; no full capability or physical result is promoted.
 
+The passive [Phone scene-load lifetime source](../../native/PHONE_SCENE_LOAD_OBSERVATION.md)
+now observes actual resource-request/queued-handoff reference groups. Commit ACKs
+cannot stand in for complete original lifetime drainage. Fourteen shared and
+three Phone wrapper cases cover pending/old/foreign/incomplete evidence. Native
+instrumentation remains uncompiled. Complete scene/action/restart ownership and
+the full Graphics coordinator remain pending.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

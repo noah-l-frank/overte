@@ -61,6 +61,7 @@
     "graphics-subject": {"current": 2, "reads": [2]},
     "feature-graphics-resources": {"current": 1, "reads": [1]},
     "native-graphics-subject": {"current": 2, "reads": [1, 2]},
+    "native-phone-scene-loads": {"current": 1, "reads": [1]},
     "phone-graphics-measurements": {"current": 2, "reads": [2]},
     "phone-graphics-images": {"current": 1, "reads": [1]},
     "phone-graphics-samples": {"current": 2, "reads": [2]},

@@ -1230,8 +1230,21 @@ void Application::loadServerlessDomain(QUrl domainURL) {
 void Application::loadServerlessDomainWithTicket(QUrl domainURL,
         const overte::network::RequestTicket& navigationTicket) {
     if (QThread::currentThread() != thread()) {
-        QMetaObject::invokeMethod(this, [this, domainURL, navigationTicket] {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        const auto featureDelivery = _featurePhoneSceneLoads->begin("delivery",0,domainURL);
+#endif
+        QMetaObject::invokeMethod(this, [this, domainURL, navigationTicket
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                , featureDelivery
+#endif
+                ] {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureDelivery) { featureDelivery->phase("running"); }
+#endif
             loadServerlessDomainWithTicket(domainURL, navigationTicket);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureDelivery) { featureDelivery->phase("delivered"); }
+#endif
         }, Qt::QueuedConnection);
         return;
     }
@@ -1257,11 +1270,17 @@ void Application::loadServerlessDomainWithTicket(QUrl domainURL,
     const auto loadTicket = _phoneServerlessLoadRequests.next();
 #endif
     const quint64 requestGeneration = ++_serverlessDomainRequestGeneration;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    const auto featureLoad = _featurePhoneSceneLoads->begin("request",requestGeneration,domainURL);
+#endif
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     __android_log_print(ANDROID_LOG_INFO, "OvertePhoneRuntime",
         "world_request local=%d empty=%d", domainURL.isLocalFile(), domainURL.isEmpty());
 #endif
     if (domainURL.isEmpty()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+        if (featureLoad) { featureLoad->phase("empty"); }
+#endif
         return;
     }
 #if defined(ANDROID_APP_PICO_INTERFACE)
@@ -1338,6 +1357,9 @@ void Application::loadServerlessDomainWithTicket(QUrl domainURL,
         this, trimmedUrl, DEFAULT_IS_OBSERVABLE, DEFAULT_CALLER_ID, "Application::loadServerlessDomain");
 
     if (!request) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+        if (featureLoad) { featureLoad->phase("failed"); }
+#endif
 #if defined(ANDROID_APP_PICO_INTERFACE)
         _picoServerlessLoadFailed = true;
 #endif
@@ -1345,8 +1367,14 @@ void Application::loadServerlessDomainWithTicket(QUrl domainURL,
     }
 
     connect(request, &ResourceRequest::finished, this, [=, this]() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+        if (featureLoad) { featureLoad->reply(static_cast<int>(request->getResult()),request->getData().size()); }
+#endif
 #if defined(ANDROID_APP_PHONE_INTERFACE)
         if (!navigationTicket.current() || !loadTicket.current()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureLoad) { featureLoad->phase("stale"); }
+#endif
             PHONE_LOADING("phase=serverless_stale stage=result");
             request->deleteLater();
             return;
@@ -1356,6 +1384,9 @@ void Application::loadServerlessDomainWithTicket(QUrl domainURL,
             request->getData().size(), requestGeneration == _serverlessDomainRequestGeneration);
 #endif
         if (requestGeneration != _serverlessDomainRequestGeneration) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+            if (featureLoad) { featureLoad->phase("stale"); }
+#endif
             qCInfo(interfaceapp) << "PICO_SERVERLESS_TRACE staleRequestIgnored"
                 << domainURL;
             request->deleteLater();
@@ -1376,6 +1407,9 @@ void Application::loadServerlessDomainWithTicket(QUrl domainURL,
             const bool prepared = prepareServerlessDomainContents(domainURL, request->getData(), namedPaths);
 #endif
             if (!prepared) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+                if (featureLoad) { featureLoad->phase("failed"); }
+#endif
 #if defined(ANDROID_APP_PHONE_INTERFACE)
                 if (navigationTicket.current() && loadTicket.current()) {
                     __android_log_write(ANDROID_LOG_WARN, "OvertePhoneRuntime", "world_parse_ok=0");
@@ -1393,15 +1427,28 @@ void Application::loadServerlessDomainWithTicket(QUrl domainURL,
             }
 #if defined(ANDROID_APP_PHONE_INTERFACE)
             __android_log_write(ANDROID_LOG_INFO, "OvertePhoneRuntime", "world_parse_ok=1");
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureLoad) { featureLoad->phase("parsed"); }
+#endif
 #endif
             auto nodeList = DependencyManager::get<NodeList>();
 #if defined(ANDROID_APP_PHONE_INTERFACE)
             // Serialize the final connected flag with hardReset on its owner
             // thread. A check on this thread alone would leave a check/use race.
             QPointer<Application> application(this);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureLoad) { featureLoad->phase("queued"); }
+#endif
             QMetaObject::invokeMethod(&nodeList->getDomainHandler(),
-                [application, nodeList, namedPaths, navigationTicket, loadTicket, requestGeneration] {
+                [application, nodeList, namedPaths, navigationTicket, loadTicket, requestGeneration
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                    , featureLoad
+#endif
+                    ] {
                     if (!navigationTicket.current() || !loadTicket.current()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                        if (featureLoad) { featureLoad->phase("stale"); }
+#endif
                         PHONE_LOADING("phase=serverless_stale stage=handoff");
                         return;
                     }
@@ -1411,15 +1458,25 @@ void Application::loadServerlessDomainWithTicket(QUrl domainURL,
                         handler.getScheme() == URL_SCHEME_OVERTE ? 1 : 0,
                         handler.isServerless() ? 1 : 0, handler.getUUID().isNull() ? 0 : 1);
                     handler.connectedToServerless(namedPaths);
-                    QMetaObject::invokeMethod(application.data(), [application, navigationTicket, loadTicket, requestGeneration] {
+                    QMetaObject::invokeMethod(application.data(), [application, navigationTicket, loadTicket, requestGeneration
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                            , featureLoad
+#endif
+                            ] {
                         if (!application) { return; }
                         if (!navigationTicket.current() || !loadTicket.current() ||
                                 requestGeneration != application->_serverlessDomainRequestGeneration) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                            if (featureLoad) { featureLoad->phase("stale"); }
+#endif
                             PHONE_LOADING("phase=serverless_stale stage=ack");
                             return;
                         }
                         application->setIsServerlessMode(true);
                         application->_octreeProcessor->getFullSceneReceivedCounter()++;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                        if (featureLoad) { featureLoad->phase("committed"); }
+#endif
                         PHONE_LOADING("phase=serverless_committed");
                     }, Qt::QueuedConnection);
                 }, Qt::QueuedConnection);
@@ -1452,6 +1509,9 @@ void Application::loadServerlessDomainWithTicket(QUrl domainURL,
             finishPicoServerlessImport();
 #endif
         } else {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+            if (featureLoad) { featureLoad->phase("failed"); }
+#endif
 #if defined(ANDROID_APP_PICO_INTERFACE)
             _picoServerlessLoadFailed = true;
 #endif

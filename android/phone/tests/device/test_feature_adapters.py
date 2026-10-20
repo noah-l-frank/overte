@@ -36,6 +36,8 @@ from self_tests.test_native_script_loads import history as load_history, URL as 
 from self_tests.test_native_script_membership import membership_source
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_graphics_subject import Boundary as GraphicsSubjectBoundary, RUN as GRAPHICS_RUN
+from self_tests.test_native_phone_scene_loads import Boundary as SceneLoadBoundary, URL as SCENE_LOAD_URL
+from adapters.native_phone_scene_loads import committed as committed_scene
 from self_tests.test_native_feature_observation import probe_source
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
@@ -1024,6 +1026,32 @@ class FeatureAdapterTests(unittest.TestCase):
             monotonic=lambda: source.clock, sleep=source.sleep))
         boundary.start(); self.addCleanup(boundary.stop)
         return source, self.adapter._process_presence(SELECTOR)
+
+    def scene_load_boundaries(self):
+        source=self.preview_boundaries(SceneLoadBoundary(),'feature-scene-load.json')
+        boundary=patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+            monotonic=lambda:source.clock,sleep=source.sleep))
+        boundary.start();self.addCleanup(boundary.stop);self.read_only_boundaries()
+        return source,self.adapter._scene_load_observer(SELECTOR)
+
+    def test_phone_scene_load_factory_preserves_original_lifetimes_without_session_repair_or_feature_promotion(self):
+        source,reader=self.scene_load_boundaries();value=reader.read(GRAPHICS_RUN)
+        self.assertEqual(source.sample,value);self.assertEqual(1,committed_scene(value,SCENE_LOAD_URL)['generation'])
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+        self.assertFalse(any(c.startswith('feature.graphics.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_scene_load_factory_cannot_hide_pending_group_or_changed_candidate(self):
+        source,reader=self.scene_load_boundaries();source.rows[0].update(pending=True,releasedEpochMs=None)
+        with self.assertRaises(RuntimeError):committed_scene(reader.read(GRAPHICS_RUN),SCENE_LOAD_URL)
+        before=len(source.commands);self.fixture.adb.digest='f'*64
+        with self.assertRaises(RuntimeError):reader.read(GRAPHICS_RUN)
+        self.assertEqual(before,len(source.commands))
+
+    def test_phone_scene_load_readonly_grammar_rejects_expected_results_or_scene_input(self):
+        value=dict(schemaVersion=1,commandId='a'*32,action='feature-scene-load-observe',runId=GRAPHICS_RUN)
+        appium.readonly_feature_command(value)
+        for change in (dict(expectedPending=0),dict(url=SCENE_LOAD_URL),dict(action='feature-scene-load-cancel')):
+            with self.subTest(change=change),self.assertRaises((RuntimeError,ValueError)):appium.readonly_feature_command(value|change)
 
     def graphics_subject_boundaries(self):
         source=self.preview_boundaries(GraphicsSubjectBoundary(),'feature-graphics-subject.json')
