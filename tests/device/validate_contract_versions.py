@@ -46,6 +46,7 @@ REQUIRED = {
     "recorded-preview-signal": 1,
     "recorded-preview-evidence": 1,
     "recorded-preview-history": 1,
+    "native-navigation-replies": 1,
     "feature-navigation-provider": 1,
     "feature-journey": 15, "acceptance-policy": 1, "adapter-manifest": 1, "artifact-manifest": 1,
     "capability-registry": 1, "fixture-environment": 1, "matrix-summary": 1,

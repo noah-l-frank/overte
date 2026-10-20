@@ -1252,6 +1252,23 @@
             }
             return;
         }
+        if (command && command.action === "feature-navigation-replies") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+                var navigationReplies={navigationReplyVersion:1,commandId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureNavigationReplies === "function") {
+                        var originalNavigationReplies=Test.featureNavigationReplies(command);
+                        if (originalNavigationReplies && originalNavigationReplies.commandId === command.commandId) { navigationReplies=originalNavigationReplies; }
+                    }
+                } catch (_navigationReplyError) { /* Missing original provenance is not an empty successful history. */ }
+                Test.saveObject(navigationReplies,"feature-navigation-replies.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-pending-commit-owner") {
             var pendingOwnerFields = ["schemaVersion","commandId","action","operation","runId","eventId"];
             var pendingOwnerInput = /^(focus|type|hold|attempt)$/.test(String(command.operation));
@@ -1738,7 +1755,7 @@
     function applyAndroidControlCommand(command) {
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
-                || command.action === "feature-pending-commit-owner"
+                || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "phone-login-ui" || command.action === "phone-create-ui" || command.action === "phone-chat-ui"
