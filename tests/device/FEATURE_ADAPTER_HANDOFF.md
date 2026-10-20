@@ -1,5 +1,10 @@
 # Feature adapter handoff, contract v14
 
+The [prepared native IME event primitive](native/PREPARED_FIELD_COMMIT.md)
+adds default-off actual event ownership, weak Qt-context rejection and a strict
+original-receipt reader. Its native UI owner/nonce transport and full lifecycle
+observer join are still missing; the C++ is uncompiled and devices untested.
+
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
 packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v14.json) and
