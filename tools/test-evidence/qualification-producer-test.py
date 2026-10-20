@@ -200,7 +200,7 @@ class SyncProtectedSourceTests(unittest.TestCase):
         for patcher in (mock.patch.object(producer, 'protected_admission'),
                 mock.patch.object(producer, '_host_policy', return_value=self.policy),
                 mock.patch.object(producer.inputs, 'load_registry', return_value={'suites': {'producer-proof': {}}}),
-                mock.patch.object(producer, 'selection_profile', side_effect=lambda *args, **kwargs: self.profile),
+                mock.patch.object(producer, '_selection_profile', side_effect=lambda *args, **kwargs: self.profile),
                 mock.patch.object(producer, 'platform_partition', side_effect=lambda *args, **kwargs: self.partition),
                 mock.patch.object(producer.source_admission, 'actual_import_inventory', side_effect=lambda root: s.imports()),
                 mock.patch.object(producer.ci_profile, 'load_policy', return_value={

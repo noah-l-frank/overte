@@ -4,6 +4,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from copy import copy, deepcopy
 import importlib.util
 import io
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -231,7 +232,15 @@ class AndroidOwnerTransferTests(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 gate.validate_tree_wiring(forged)
         generations = gate.packages().workflow_generations()
-        self.assertEqual(len(generations),26)
+        self.assertEqual(len(generations),27)
+        self.assertEqual(hashlib.sha256(json.dumps(generations[:26],sort_keys=True,
+            separators=(',',':')).encode()).hexdigest(),
+            '92e641b712f88bcb66808c51d8fe4b95b4cfb8834c0d39b3869adc4587fa7ec8')
+        following=generations[26]
+        self.assertEqual(following['name'],'protected-producer-optional-parent-source-v1')
+        self.assertEqual(following['workflows']['.github/workflows/parent-qualification.yml'],
+            {'mode':'100644','type':'blob','sha':'987d8f0d198e40211ab0f33286a55852e286c174'})
+        generations=generations[:26]
         required_context='protected-producer-original-default-required-context-v1'
         historical=[row for row in generations if row['name']!=required_context]
         self.assertEqual(len(historical),25)
@@ -249,6 +258,10 @@ class AndroidOwnerTransferTests(unittest.TestCase):
             enrolled = next(row for row in generations if row['name'] == name)
             self.assertEqual(set(enrolled['workflows']), set(gate.packages().METADATA_WORKFLOW_PATHS))
             self.assertEqual(gate.packages().validate_tree_wiring(enrolled['workflows']), name)
+        self.assertEqual(gate.packages().validate_tree_wiring(following['workflows']),following['name'])
+        unknown=deepcopy(following['workflows'])
+        unknown['.github/workflows/parent-qualification.yml']['sha']='f'*40
+        with self.assertRaises(ValueError):gate.packages().validate_tree_wiring(unknown)
 
     def test_partial_selected_host_does_not_execute_product_or_claim_reuse(self):
         self.prepare_project()
