@@ -225,7 +225,9 @@ def _native_effective_role(api, event, live_base):
         source_sha = validate_sha(default.get('commit', {}).get('sha'), 'native validation source')
     else:
         path, workflow, job, ref = '.github/workflows/sync-test-reuse.yml', 350930894, 'sync-test-reuse', 'refs/heads/' + target
-        source_sha = live_base
+        # The native caller may retain an older base snapshot. Authenticate its
+        # actual source separately; only current M.parent0/ref defines live B.
+        source_sha = validate_sha(env.get('GITHUB_SHA'), 'native synchronization caller source')
         if env.get('GITHUB_EVENT_NAME') != 'pull_request_target':
             raise GateError('unknown native synchronization role')
         if env.get('GITHUB_BASE_REF') != target or env.get('GITHUB_HEAD_REF') != pr['head']['ref']:
@@ -282,6 +284,8 @@ def _native_effective_role(api, event, live_base):
     source = _base_source()
     try:
         reader = _base_reader(api, repo)
+        if not manual:
+            source.validate_base_snapshot(reader, source_sha, live_base)
         for association in associations:
             source.validate_base_snapshot(reader, association.get('base', {}).get('sha'), live_base)
         default = reader.get('branches/main')
