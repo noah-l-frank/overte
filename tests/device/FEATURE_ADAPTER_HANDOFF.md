@@ -35,8 +35,9 @@ verified restart adoption remain pending. No full feature capability is enabled.
 The [passive native process-presence source](native/PROCESS_PRESENCE.md) provides
 an original kernel result for a previously observed PID. Permission/unknown
 results cannot qualify old-process death; Stop ACKs and PID replacement remain
-insufficient. Its host logic is checked, while native behavior, platform factory
-wiring and the complete ownership handoff still need implementation/qualification.
+insufficient. Its host logic and three internal platform factory bindings are
+checked. Native behavior and the complete ownership handoff still need
+implementation/qualification; no full feature capability is enabled.
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
