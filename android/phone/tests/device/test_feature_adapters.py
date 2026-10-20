@@ -20,6 +20,7 @@ from create_observation import PREFIX
 from create_journey import INITIAL, EDITED
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from adapters.native_feature_observation import NativeFeatureObservation
+from self_tests.test_native_web_dom import Boundary as WebDOMBoundary, RUN as WEB_RUN, URL as WEB_URL
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
 from self_tests.test_recorded_preview_history import complete as completed_voice
 from adapters.recorded_preview_history import measured_state as measured_audio_state
@@ -439,6 +440,37 @@ class FeatureAdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'PHONE_ACCOUNT_ORIGIN_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
             base.assert_called_once()
         self.assertTrue(source.path.exists());self.assertIsNotNone(self.adapter.account_origin_store(SELECTOR).read())
+
+    def web_dom_boundaries(self):
+        source=self.preview_boundaries(WebDOMBoundary(),'feature-web-dom-observation.json')
+        source.mutate=lambda value:value.update(processId=31)
+        def read(_device,package,path,**options):
+            self.assertEqual(PACKAGE,package);self.assertEqual('files/overte-e2e/feature-web-dom-observation.json',path)
+            self.assertEqual({'attempts':1},options);return source.original()
+        for boundary in (patch.object(self.fixture.adb,'read_debug_app_file',side_effect=read,create=True),
+            patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._web_dom(SELECTOR)
+
+    def test_phone_native_web_dom_uses_actual_private_file_and_separate_clock_without_full_capability(self):
+        source,reader=self.web_dom_boundaries();value=reader.read(WEB_RUN,'world',WEB_URL)
+        self.assertEqual(31,value['processId']);self.assertEqual('Grüße 🌍',value['source']['dom']['editor']['text'])
+        self.assertEqual(0,value['source']['nativeView']['httpErrorStatus']);self.assertEqual([],self.native.inputs)
+        self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_native_web_dom_ignored_or_foreign_pid_cannot_become_empty_success(self):
+        source,reader=self.web_dom_boundaries();source.ignored=True
+        with self.assertRaises(RuntimeError):reader.read(WEB_RUN,'world',WEB_URL)
+        self.assertEqual(1,len(source.commands));self.assertLessEqual(source.clock,5)
+        source.ignored=False;source.mutate=lambda value:value.update(processId=32)
+        with self.assertRaises(RuntimeError):reader.read(WEB_RUN,'world',WEB_URL)
+
+    def test_phone_native_web_dom_changed_candidate_or_process_blocks_new_request(self):
+        source,reader=self.web_dom_boundaries();reader.read(WEB_RUN,'world',WEB_URL);before=len(source.commands)
+        self.fixture.adb.digest='f'*64
+        with self.assertRaises(RuntimeError):reader.read(WEB_RUN,'world',WEB_URL)
+        self.assertEqual(before,len(source.commands))
 
     def chat_view_boundaries(self):
         source=self.preview_boundaries(ChatViewBoundary(),'feature-chat-view-observation.json')

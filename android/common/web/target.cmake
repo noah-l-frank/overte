@@ -5,6 +5,9 @@ function(overte_target_embedded_web target)
         "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/src/NativeWebViewItem.cpp"
         "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/src/NativeWebViewItem.h"
         "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/embedded-web.qrc")
+    if(OVERTE_E2E_FEATURE_TESTS)
+        target_sources(${target} PRIVATE "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/feature-web.qrc")
+    endif()
     target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/src"
         "${CMAKE_SOURCE_DIR}/libraries/shared/src")
     target_link_libraries(${target} Qt5::Quick Qt5::WebChannel Qt5::Network)

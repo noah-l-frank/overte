@@ -99,6 +99,10 @@ public final class EmbeddedWebView {
         if (Looper.myLooper() != Looper.getMainLooper()) throw new IllegalStateException("UI thread required");
     }
     private static native void nativeInitialize();
+    private static native boolean nativeFeatureEnabled();
+    private static native void nativeFeatureDOMResult(long handle,long grant,long page,String document,String requestId,String result);
+    private static native void nativeFeatureFinished(long handle,long grant,long page,String document);
+    private static native void nativeFeatureHTTPError(long handle,long grant,long page,String document,int status);
     private static native void nativeForeground(boolean active);
     private static native long nativeGeneration(long handle);
     private static native long nativeLifecycleRevision(long handle);
@@ -395,6 +399,30 @@ public final class EmbeddedWebView {
         }
         return selected != null && goBack(expectedOwner, selected);
     }
+    // Closed E2E read only. No caller-controlled JavaScript, DOM selector or
+    // expected result reaches the WebView through this entrypoint.
+    public static void featureRead(long handle, long grant, long page, String requestId) {
+        if (!nativeFeatureEnabled() || requestId == null || requestId.length() > 36
+                || !requestId.matches("(?:ios-)?[0-9a-f]{32}")) return;
+        post(handle, instance -> {
+            EmbeddedWebHost owner = host.get();
+            String document = instance.view.getUrl();
+            if (!instance.featureInstrumentation || instance.destroyedDocument || owner == null || owner != instance.owner
+                    || owner.activity() != instance.activity || !owner.isForeground() || !instance.activity.hasWindowFocus()
+                    || !instance.document.admits(grant, page, true, 1)
+                    || !nativeEditorAllowed(handle, grant, page, document)) return;
+            String script = "window.__overteFeatureWebDOM?JSON.stringify(window.__overteFeatureWebDOM.read("
+                + JSONObject.quote(requestId) + ")):null";
+            instance.view.evaluateJavascript(script, result -> {
+                if (VIEWS.get(handle) != instance || instance.destroyedDocument || !instance.active
+                        || host.get() != owner || owner.activity() != instance.activity || !owner.isForeground()
+                        || !instance.activity.hasWindowFocus() || !instance.document.admits(grant, page, true, 1)
+                        || document == null || !document.equals(instance.view.getUrl())
+                        || !nativeEditorAllowed(handle, grant, page, document)) return;
+                nativeFeatureDOMResult(handle, grant, page, document, requestId, result);
+            });
+        });
+    }
     public static void evaluate(long handle, long grant, long page, String javascript) {
         post(handle, instance -> {
             if (instance.destroyedDocument || !instance.document.admits(grant, page, true, 1)) return;
@@ -447,6 +475,7 @@ public final class EmbeddedWebView {
         final WebView view;
         final boolean overlay;
         final String bootstrap, editorBootstrap;
+        final boolean featureInstrumentation = nativeFeatureEnabled();
         final WebDocumentState document = new WebDocumentState();
         final WebResourceLease resources;
         Rect bounds, clip;
@@ -734,11 +763,16 @@ public final class EmbeddedWebView {
             }
             @Override public void onPageFinished(WebView source, String url) {
                 if (!active || destroyedDocument || source != view || !url.equals(view.getUrl())) return;
+                if (featureInstrumentation) nativeFeatureFinished(handle, document.grant(), document.page(), url);
                 loading = false; if (archive != null) archive.visit(url);
                 authorize(); armTexture(); commitAudio(); publish();
             }
             @Override public void doUpdateVisitedHistory(WebView source, String url, boolean reload) {
                 if (renderer != null) { renderer.invalidate(); armTexture(); } publish();
+            }
+            @Override public void onReceivedHttpError(WebView source, WebResourceRequest request, WebResourceResponse response) {
+                if (featureInstrumentation && source == view && active && !destroyedDocument && request.isForMainFrame())
+                    nativeFeatureHTTPError(handle, document.grant(), document.page(), request.getUrl().toString(), response.getStatusCode());
             }
             @Override public void onReceivedSslError(WebView source, SslErrorHandler handler, SslError error) {
                 handler.cancel(); status = LOAD_FAILED; loading = false; publish();

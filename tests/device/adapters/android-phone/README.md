@@ -1,5 +1,11 @@
 # Phone SH-004 installed-candidate adapter
 
+The [native browser DOM component](WEB_DOM_OBSERVATION.md) now wires the exact
+common passive source through the actual Android backend and guarded private
+adapter file transport. The Phone feature adapter group passes 97 host cases.
+Native compilation/devices and complete browser feature adapters remain open.
+
+
 This Phone-owned entry delegates device behavior to the original Shared Android
 adapter. Its manifest retains `android-phone-adb`. The Shared Android and Appium
 adapters are not modified and gain no installation claim from this wrapper.

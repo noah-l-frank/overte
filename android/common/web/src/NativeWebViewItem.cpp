@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "NativeWebViewItem.h"
 #include <QCoreApplication>
+#include <QDateTime>
+#include <QJsonArray>
+#include <QThread>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../../tests/device/native/WebDOMObservationBridge.h"
+#endif
 #include <QFile>
 #include <QFocusEvent>
 #include <QHash>
@@ -70,7 +76,25 @@ bool call(const char* method, const char* signature, jvalue* args) {
     return valid;
 }
 QString resourceText(const QString& path) { QFile file(path); return file.open(QFile::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString(); }
-void registerType() { qmlRegisterType<NativeWebViewItem>("Overte.Android", 1, 0, "NativeWebView"); }
+bool featureEnabled() {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto arguments=QCoreApplication::arguments();
+    const int script=arguments.indexOf("--testScript"),results=arguments.indexOf("--testResultsLocation");
+    return script>=0 && script+1<arguments.size() && !arguments[script+1].isEmpty()
+        && results>=0 && results+1<arguments.size() && !arguments[results+1].isEmpty();
+#else
+    return false;
+#endif
+}
+void registerType() {
+    qmlRegisterType<NativeWebViewItem>("Overte.Android", 1, 0, "NativeWebView");
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (featureEnabled() && QCoreApplication::instance()) {
+        overte::e2e::WebDOMProvider provider=[](const QVariantMap& command) { return NativeWebViewItem::featureWebDOMObservation(command); };
+        QCoreApplication::instance()->setProperty(overte::e2e::webDOMProviderProperty(),QVariant::fromValue(provider));
+    }
+#endif
+}
 }
 Q_COREAPP_STARTUP_FUNCTION(registerType)
 
@@ -236,7 +260,14 @@ void NativeWebViewItem::create() {
         browser = _resumeDocument.isEmpty() ? _mapping.toBrowser(_session.url()) : _resumeDocument;
     }
     const QString script = resourceText(":/overte/android/web/resources/transport.js") + '\n' + _bootstrap;
-    const QString editorScript = resourceText(":/overte/android/web/resources/editor-transport.js") + '\n' + resourceText(":/overte/android/web/resources/editor.js");
+    QString editorScript = resourceText(":/overte/android/web/resources/editor-transport.js") + '\n' + resourceText(":/overte/android/web/resources/editor.js");
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (featureEnabled()) {
+        const auto source=resourceText(":/overte/e2e/browser/web-dom-observation.js");
+        if (source.isEmpty()) { return; } // Missing test resources never become a ready source.
+        editorScript += "\n(function(){"+source+"\nObject.defineProperty(window,'__overteFeatureWebDOM',{value:overteWebDOMSource(window),writable:false,configurable:false});})();";
+    }
+#endif
     jstring url = jni.string(browser.toString(QUrl::FullyEncoded)), agent = jni.string(_userAgent), bootstrap = jni.string(script);
     if (!url || !agent || !bootstrap) { if (jni.env->ExceptionCheck()) jni.env->ExceptionClear(); retryCreation(); return; }
     jstring editorBootstrap = jni.string(editorScript);
@@ -771,6 +802,142 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_overte_web_EmbeddedWebView_nativeR
         ? env->NewObject(type, constructor, jint(response.action), bytes, mime, charset) : nullptr;
     env->DeleteLocalRef(bytes); env->DeleteLocalRef(mime); env->DeleteLocalRef(charset); env->DeleteLocalRef(type);
     return result;
+}
+
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap NativeWebViewItem::featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source) {
+    const auto epoch=QDateTime::currentMSecsSinceEpoch();
+    if (epoch<=0 || epoch<_featureWebEpoch || _featureWebSequence>=9007199254740991ULL) { return {}; }
+    _featureWebEpoch=epoch;
+    return {{"webNativeVersion",1},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
+        {"surface",_surface==Tablet ? "tablet" : "world"},{"instance",_featureWebInstance},
+        {"sequence",static_cast<qulonglong>(++_featureWebSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"capturedEpochMs",epoch},{"status",status},{"source",source}};
+}
+QVariantMap NativeWebViewItem::featureWebDOMObservation(const QVariantMap& command) {
+    if (!featureEnabled() || !overte::e2e::webDOMCommand(command)) { return {}; }
+    QList<QPointer<NativeWebViewItem>> original;
+    { QMutexLocker guard(&registryMutex);
+      if (registry.size()>128) { return {}; }
+      for (auto* item:registry) { original.append(item); } }
+    QPointer<NativeWebViewItem> selected;
+    const auto prefix=command.value("fixtureUrl").toString()+"tickets/";
+    const auto surface=command.value("surface").toString()=="tablet" ? Tablet : WorldEntity;
+    for (const auto& item:original) {
+        if (!item) { continue; }
+        // No unbounded blocking invocation into another QML/GUI thread.
+        if (item->thread()!=QThread::currentThread()) { return {}; }
+        QString source;bool inlineSource;
+        { QMutexLocker guard(&item->_mutex);source=item->_session.url().toString(QUrl::FullyEncoded);inlineSource=item->_inlineProvided; }
+        if (item->_surface!=surface || inlineSource || !source.startsWith(prefix)
+                || !QRegularExpression("\\A[0-9a-f]{32}/(?:index|reference)\\.html\\z").match(source.mid(prefix.size())).hasMatch()) { continue; }
+        if (selected) { return {}; }selected=item;
+    }
+    return selected ? selected->featureWebDOMRequest(command) : QVariantMap();
+}
+QVariantMap NativeWebViewItem::featureWebDOMRequest(const QVariantMap& command) {
+    if (!featureEnabled() || !overte::e2e::webDOMCommand(command) || thread()!=QThread::currentThread()) { return {}; }
+    quint64 grant,page;QUrl document;
+    { QMutexLocker guard(&_mutex);grant=_session.generation();page=_page;document=_document; }
+    if (!grant || !page || !allowsEditorDocument(grant,page,document)) { return {}; }
+    const auto id=command.value("commandId").toString();
+    if (!_featureWebCommand.isEmpty() && _featureWebCommand.value("commandId")==id) {
+        if (_featureWebCommand!=command || _featureWebGrant!=grant || _featureWebPage!=page || _featureWebDocument!=document) { return {}; }
+    } else {
+        if (_featureWebPacket.value("status")=="pending") { return {}; }
+        _featureWebCommand=command;_featureWebGrant=grant;_featureWebPage=page;_featureWebDocument=document;
+        _featureWebIssued=false;_featureWebTimer.start();_featureWebPacket=featureWebPacket(command,"pending");
+    }
+    if (_featureWebPacket.value("status")!="pending") { return _featureWebPacket; }
+    if (!_featureWebTimer.isValid() || _featureWebTimer.elapsed()>=4000) {
+        _featureWebPacket=featureWebPacket(command,"unavailable");return _featureWebPacket;
+    }
+    if (_featureWebFinishedGrant!=grant || _featureWebFinishedPage!=page
+            || _featureWebFinishedDocument!=document) { return _featureWebPacket; }
+    if (!_featureWebIssued) {
+        _featureWebIssued=true;
+        Jni jni;if (!jni.env) { _featureWebPacket=featureWebPacket(command,"unavailable");return _featureWebPacket; }
+        const auto nonce=jni.string(id);if (!nonce) { _featureWebPacket=featureWebPacket(command,"unavailable");return _featureWebPacket; }
+        jvalue args[4];args[0].j=_handle;args[1].j=grant;args[2].j=page;args[3].l=nonce;
+        const bool posted=call("featureRead", "(JJJLjava/lang/String;)V",args);jni.env->DeleteLocalRef(nonce);
+        if (!posted) { _featureWebPacket=featureWebPacket(command,"unavailable"); }
+    }
+    return _featureWebPacket;
+}
+void NativeWebViewItem::acceptFeatureWebFinished(quint64 grant, quint64 page, const QUrl& document) {
+    QPointer<NativeWebViewItem> self(this);
+    QMetaObject::invokeMethod(this,[self,grant,page,document] {
+        if (!self || !featureEnabled() || !self->allowsEditorDocument(grant,page,document)) { return; }
+        { QMutexLocker guard(&self->_mutex);if (!self->current(grant,page) || self->_document!=document) { return; } }
+        self->_featureWebFinishedGrant=grant;self->_featureWebFinishedPage=page;self->_featureWebFinishedDocument=document;
+    },Qt::QueuedConnection);
+}
+void NativeWebViewItem::acceptFeatureWebHTTPError(quint64 grant, quint64 page, const QUrl& document, int status) {
+    QPointer<NativeWebViewItem> self(this);
+    QMetaObject::invokeMethod(this,[self,grant,page,document,status] {
+        if (!self || !featureEnabled() || status<400 || status>599 || !self->allowsEditorDocument(grant,page,document)) { return; }
+        { QMutexLocker guard(&self->_mutex);if (!self->current(grant,page) || self->_document!=document) { return; } }
+        self->_featureWebHTTPGrant=grant;self->_featureWebHTTPPage=page;self->_featureWebHTTPStatus=status;
+    },Qt::QueuedConnection);
+}
+void NativeWebViewItem::acceptFeatureWebDOM(quint64 grant, quint64 page, const QUrl& document,
+                                         const QString& request, const QByteArray& result) {
+    QPointer<NativeWebViewItem> self(this);
+    QMetaObject::invokeMethod(this,[self,grant,page,document,request,result] {
+        if (!self || !featureEnabled() || self->_featureWebPacket.value("status")!="pending"
+                || self->_featureWebCommand.value("commandId")!=request || self->_featureWebGrant!=grant
+                || self->_featureWebPage!=page || self->_featureWebDocument!=document
+                || !self->_featureWebTimer.isValid() || self->_featureWebTimer.elapsed()>=4000
+                || !self->allowsEditorDocument(grant,page,document)) { return; }
+        QString source;bool inlineLease;
+        { QMutexLocker guard(&self->_mutex);
+          if (!self->current(grant,page) || self->_document!=document) { return; }
+          source=self->_session.url().toString(QUrl::FullyEncoded);inlineLease=self->_inlineProvided && self->_inlineDocument.current(); }
+        const auto quoted=QJsonDocument::fromJson('['+result+']');QVariantMap dom;
+        if (result.size()<=262144 && quoted.isArray() && quoted.array().size()==1 && quoted.array()[0].isString()) {
+            const auto raw=quoted.array()[0].toString().toUtf8();
+            if (raw.size()<=262144) { const auto parsed=QJsonDocument::fromJson(raw);if (parsed.isObject()) { dom=parsed.object().toVariantMap(); } }
+        }
+        const auto actualDocument=dom.value("document").toMap();
+        if (QJsonObject::fromVariantMap(dom).value("webDOMVersion")!=QJsonValue(1)
+                || dom.value("requestId")!=request || actualDocument.value("runId")!=self->_featureWebCommand.value("runId")
+                || actualDocument.value("href")!=document.toString(QUrl::FullyEncoded) || inlineLease
+                || self->_featureWebFinishedGrant!=grant || self->_featureWebFinishedPage!=page || self->_featureWebFinishedDocument!=document) {
+            self->_featureWebPacket=self->featureWebPacket(self->_featureWebCommand,"unavailable");return;
+        }
+        QVariantMap view{{"handle",QString::number(self->_handle)},{"creation",static_cast<qulonglong>(self->_creationRevision)},
+            {"grant",static_cast<qulonglong>(grant)},{"page",static_cast<qulonglong>(page)},{"url",document.toString(QUrl::FullyEncoded)},
+            {"nativeFinished",true},{"httpErrorStatus",self->_featureWebHTTPGrant==grant && self->_featureWebHTTPPage==page ? self->_featureWebHTTPStatus : 0},
+            {"inlineLease",inlineLease},{"sourceUrl",source},{"sourceIdentity",self->_sourceIdentity}};
+        self->_featureWebPacket=self->featureWebPacket(self->_featureWebCommand,"ready",{{"nativeView",view},{"dom",dom}});
+    },Qt::QueuedConnection);
+}
+#endif
+
+extern "C" JNIEXPORT jboolean JNICALL Java_org_overte_web_EmbeddedWebView_nativeFeatureEnabled(JNIEnv*, jclass) { return featureEnabled(); }
+extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeFeatureDOMResult(JNIEnv* env, jclass, jlong handle,
+    jlong grant,jlong page,jstring document,jstring request,jstring result) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Bound Java UTF-16 before allocating a native copy of arbitrary script data.
+    if (!result || env->GetStringLength(result)>524288) { return; }
+    const auto url=QUrl(string(env,document));const auto nonce=string(env,request);const auto raw=string(env,result).toUtf8();
+    QMutexLocker guard(&registryMutex);if (auto* item=registry.value(handle)) { item->acceptFeatureWebDOM(grant,page,url,nonce,raw); }
+#endif
+}
+extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeFeatureFinished(JNIEnv* env, jclass,jlong handle,
+    jlong grant,jlong page,jstring document) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto url=QUrl(string(env,document));QMutexLocker guard(&registryMutex);
+    if (auto* item=registry.value(handle)) { item->acceptFeatureWebFinished(grant,page,url); }
+#endif
+}
+extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeFeatureHTTPError(JNIEnv* env,jclass,jlong handle,
+    jlong grant,jlong page,jstring document,jint status) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto url=QUrl(string(env,document));QMutexLocker guard(&registryMutex);
+    if (auto* item=registry.value(handle)) { item->acceptFeatureWebHTTPError(grant,page,url,status); }
+#endif
 }
 
 extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeResult(JNIEnv* env, jclass, jlong handle, jlong grant, jlong page, jlong request, jstring result) {
