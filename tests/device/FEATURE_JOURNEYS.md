@@ -24,8 +24,8 @@ The source of truth for actions and checkpoints is
 is in [`contract.py`](feature_journeys/contract.py), execution in
 [`engine.py`](feature_journeys/engine.py), and byte inspection in
 [`evidence.py`](feature_journeys/evidence.py). The checked
-[adapter inventory](feature_journeys/adapter-contract.v8.json) contains input
-vocabularies, observation field types and independent witness fields. Its v8
+[adapter inventory](feature_journeys/adapter-contract.v9.json) contains input
+vocabularies, observation field types and independent witness fields. Its v9
 contract is registered in `contract-versions.json`; breaking changes require a
 new version and explicit compatibility policy for still-supported producers.
 
@@ -96,3 +96,10 @@ Version 4 Graphics uses [measured original preferences](feature_journeys/CONTRAC
 and the versioned [Graphics subject](feature_journeys/GRAPHICS_SUBJECT.md). These
 are common test/fixture contracts; native rendering and full adapters remain
 unqualified and mandatory capability gates remain closed.
+
+Snapshot contract v9 pins the actual independently measured OS Save backend and
+authorization, requires original pending-cancel history and separately acquired
+Save/receiver/upload bytes, and records source-specific non-applicable rows
+explicitly. All common flows and the complete area capability remain mandatory.
+See [the exact source policy](feature_journeys/SNAPSHOT_SOURCE.md); synthetic
+profiles do not establish a qualified OS/settings/chooser or cleanup actor.

@@ -5,7 +5,7 @@ implemented**: Phone has new ordinary Create/script foundation bindings; Pico
 has a candidate-bound original-observation backend; iOS has an original-read
 component behind its unchanged installed-code gate. **No complete new
 `feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
-All fourteen complete version 8 adapters remain missing, and all device qualification
+All fourteen complete version 9 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.
 
@@ -99,7 +99,7 @@ trust/origin setup or a complete actor/coordinator; no capability is enabled.
 
 ## Fourteen-area source audit
 
-All rows below mean: **test logic present; full version 8 adapter missing; devices
+All rows below mean: **test logic present; full version 9 adapter missing; devices
 untested**. Existing/new foundations are narrower implementation scopes.
 
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
@@ -248,7 +248,7 @@ tab/entity selection and scrollbar input. Fifteen synthetic-boundary cases
 compose the existing Create owner/observer and reject ignored effects, context
 replacement and unresolved cleanup. The full local no-build common selection
 passes 645 host cases (three native compiler checks explicitly excluded).
-Native Qt source remains uncompiled; platform adoption and the complete v8
+Native Qt source remains uncompiled; platform adoption and the complete v9
 model/file/export/PolyVox/permission actor composition remain pending.
 
 The separate platform branches now connect the shared Create input recipe:
@@ -257,3 +257,15 @@ Phone `e88825d4d0` / `46ae6d6461`, Pico `cc6ea0224e` / `b70f01e528`, iOS
 records exact routes, host checks and remaining obligations. This closes a
 normal-input prerequisite on all three branches, not a complete feature area.
 All fourteen complete area triples still require adapters and physical checks.
+
+Snapshot contract v9 now corrects private capture versus real OS Save, actual
+pending/cancel history, Photos/MediaStore/document-picker source profiles,
+system sheets, original saved/receiver/upload bytes and cleanup restoration.
+The [source-specific handoff](feature_journeys/SNAPSHOT_SOURCE.md) documents the
+short normal pre-render cancellation window and remaining actual OS/actor
+qualification. All **65** common journey cases and the complete permitted
+**654**-case no-build common selection pass, with no failures/skips/errors or
+compiler attempts; three existing native compiler checks remain explicitly
+excluded. The existing original Snapshot JS suite now has eleven passing cases.
+No complete Snapshot adapter, OS storage/receiver actor or physical result is
+claimed by these synthetic-boundary checks.

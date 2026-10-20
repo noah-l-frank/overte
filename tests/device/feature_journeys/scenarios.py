@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 8
+VERSION = 9
 
 
 def emote_rows():
@@ -231,19 +231,28 @@ SCENARIOS = {
         focused={'oneOf':[False,True]}, keyboard={'oneOf':[False,True]}), ['peer']),
     ('close', {}, dict(open=False, draft='', channel='local', messages=[], focused=False, keyboard=False), ['peer']),
 ]),
-'snapshots': scenario('Capture cancellation, permission, share/upload and resume',
-    dict(open=False, pending=False, files=0, uploads=0, shares=0, permission='granted', error='none'), [
+# OS-specific Save rows are selected only after independently witnessing a
+# supported actual backend. Capture/share/upload/cleanup remain mandatory.
+'snapshots': scenario('Pending capture cancellation, actual Save backend, share/upload and resume',
+    dict(open=False,pending=False,captureHistory=[],files=0,saved=0,uploads=0,shares=0,
+         saveBackend='photos-add-only',savePermission='granted',saveSheet=False,shareSheet=False,error='none'), [
     ('open', {}, dict(open=True), []),
-    ('capture-cancel', {}, {}, ['peer']),
-    ('set-storage-permission', dict(state='denied'), dict(permission='denied'), []),
-    ('capture', {}, dict(error='permission-denied'), ['peer']),
-    ('set-storage-permission', dict(state='granted'), dict(permission='granted', error='none'), []),
-    ('capture', {}, dict(files=1), ['image', 'file', 'peer']),
-    ('share-cancel', {}, {}, ['peer']),
-    ('share', {}, dict(shares=1), ['file', 'peer']),
+    ('capture-cancel', dict(mode='animated',format='png'), dict(captureHistory=['pending','cancelled']), ['peer']),
+    ('set-save-permission', dict(state='denied'), dict(savePermission='denied'), ['peer']),
+    ('capture', dict(mode='still',format='png'), dict(files=1,captureHistory=['pending','cancelled','pending','complete']), ['image','file','peer']),
+    ('save-denied', {}, dict(error='permission-denied'), ['peer']),
+    ('set-save-permission', dict(state='granted'), dict(savePermission='granted'), ['peer']),
+    ('save-picker-open', {}, dict(saveSheet=True,error='none'), ['peer']),
+    ('save-picker-cancel', {}, dict(saveSheet=False), ['peer']),
+    ('save-picker-open', {}, dict(saveSheet=True), ['peer']),
+    ('save', {}, dict(saved=1,saveSheet=False,error='none'), ['file','peer']),
+    ('share-open', {}, dict(shareSheet=True), ['peer']),
+    ('share-cancel', {}, dict(shareSheet=False), ['peer']),
+    ('share-open', {}, dict(shareSheet=True), ['peer']),
+    ('share-select-owned', {}, dict(shareSheet=False,shares=1), ['file','peer']),
     ('upload-fail', {}, dict(error='offline'), ['peer']),
-    ('upload', {}, dict(uploads=1, error='none'), ['peer']),
-    ('background-resume', {}, {}, ['image', 'peer']),
+    ('upload', {}, dict(uploads=1,error='none'), ['file','peer']),
+    ('background-resume', {}, {}, ['image','peer']),
     ('close', {}, dict(open=False), []),
 ]),
 'scripts': scenario('File-bundle picker cancellation, execution and application restart',
@@ -312,6 +321,34 @@ inline = dict(verb='open-inline-app', inputs=dict(resource='inline.html'),
 SCENARIOS['tablet-web']['steps'].insert(-1, inline)
 # The close checkpoint must retain the last actual page.
 SCENARIOS['tablet-web']['steps'][-1]['state']['page'] = 'inline'
+
+
+# This is a closed source policy, not an optional capability. Unknown export
+# backends fail before ordinary input, and the independent witness includes
+# backend, authorization, pending state and both actual system sheets.
+SNAPSHOT_BACKENDS=('photos-add-only','media-store','document-picker')
+_snapshots=SCENARIOS['snapshots']
+_snapshots['measuredBaselineFields']=['saveBackend','savePermission']
+for _step in _snapshots['steps']:
+    _step['state']['saveBackend']={'oneOf':list(SNAPSHOT_BACKENDS)}
+    _step['originalFields']=['saveBackend']
+    if _step['verb'] in {'set-save-permission','save-denied','save-picker-open','save-picker-cancel','save','share-open','share-cancel','share-select-owned'}:
+        _step['systemUi']=True
+    if _step['verb'] in {'set-save-permission','save-denied'}:
+        _step['backends']=['photos-add-only']
+    elif _step['verb'] in {'save-picker-open','save-picker-cancel'}:
+        _step['backends']=['document-picker']
+    if _step['verb'] not in {'set-save-permission','save-denied'}:
+        permission=_step['state']['savePermission']
+        _step['state']['savePermission']={'oneOf':[permission,'not-required']}
+del _snapshots,_step,permission
+
+
+def snapshot_profile(value):
+    backend=value['saveBackend'];permission=value['savePermission']
+    if backend not in SNAPSHOT_BACKENDS or permission!=('granted' if backend=='photos-add-only' else 'not-required'):
+        raise AssertionError('Snapshot baseline lacks a supported independently measured Save backend/owned authorization')
+    return backend
 
 
 # Fields retain their independently measured initial values until a real
