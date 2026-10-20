@@ -345,13 +345,15 @@ class WorkflowCostTests(unittest.TestCase):
                                       'protected-producer-metadata-ci-v1', 'protected-producer-seven-target-ci-v1',
                                       'protected-producer-original-default-v1',
                                       'protected-producer-original-default-boolean-v1',
-                                      'protected-producer-original-default-required-context-v1')
+                                      'protected-producer-original-default-required-context-v1',
+                                      'protected-producer-optional-parent-source-v1')
             condition = "needs.route.outputs.native != 'skip'"
             if metadata:
                 condition = "needs.route.outputs.metadata_only != 'true' && " + condition
             if generation in ('protected-producer-original-default-v1',
                               'protected-producer-original-default-boolean-v1',
-                                      'protected-producer-original-default-required-context-v1'):
+                                      'protected-producer-original-default-required-context-v1',
+                                      'protected-producer-optional-parent-source-v1'):
                 intent = ("github.event_name == 'pull_request' && ((github.event.action == 'edited' && "
                           "!github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || "
                           "((github.event.action == 'labeled' || github.event.action == 'unlabeled') && "
@@ -360,7 +362,8 @@ class WorkflowCostTests(unittest.TestCase):
             self.assertEqual(jobs['native']['if'], condition)
             if generation in ('protected-producer-original-default-v1',
                               'protected-producer-original-default-boolean-v1',
-                                      'protected-producer-original-default-required-context-v1'):
+                                      'protected-producer-original-default-required-context-v1',
+                                      'protected-producer-optional-parent-source-v1'):
                 # Evaluate the actual, exactly bound native guard: skipped
                 # metadata ancestry must not suppress a selected ordinary job.
                 defaults = {'always()': True, 'cancelled()': False,
@@ -387,7 +390,8 @@ class WorkflowCostTests(unittest.TestCase):
                         expression = re.sub(r'!(?!=)', ' not ', expression).replace('&&', ' and ').replace('||', ' or ')
                         self.assertIs(eval(expression, {'__builtins__': {}}, {}), expected)
             self.assertEqual(jobs['native']['needs'], 'route')
-            canonical = generation == 'protected-producer-original-default-required-context-v1'
+            canonical = generation in {'protected-producer-original-default-required-context-v1',
+                                       'protected-producer-optional-parent-source-v1'}
             self.assertEqual(jobs['repository-checks']['if'],
                              "always() && (needs.route.result != 'success' || needs.route.outputs.metadata_only != 'true')"
                              if metadata and not canonical else 'always()')
