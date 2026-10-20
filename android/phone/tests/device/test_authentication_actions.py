@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import sys
 import tempfile
 import time
@@ -52,6 +53,10 @@ class InputSources(Sources):
         def native(packet):
             packet.update(account=deepcopy(self.fact),processId=self.pid,instance=format(self.stage+10,'032x'),lifecycle=deepcopy(self.lifecycle))
         self.native.mutate=native
+        self.origin.mutate=lambda packet:packet.update(processId=self.pid)
+        self.probe.instance=self.fact['observation']['instance'];self.probe.sequence=0
+        tablet=self.tablet.mutate
+        self.tablet.mutate=lambda packet:(tablet(packet),packet.update(processId=self.pid))
         capture=self.login.ui.capture
         def ui():
             observed=self.fact['observation'];self.login.ui.account=observed['instance']
@@ -89,10 +94,11 @@ class InputSources(Sources):
     def account_origin_store(self,_selector):return PrivateFeatureState(self.root/'origin.json')
     def account_probe_store(self,_selector,*,role='primary'):return PrivateFeatureState(self.root/(role+'-probe.json'))
     def authentication_restart_store(self,_selector,stage):return PrivateFeatureState(self.root/('phone-authentication-restart-'+str(stage)+'.json'))
-    def _login_controls(self,_selector,intent,_run,_origin):
+    def _login_controls(self,_selector,intent,_run,_origin,*,read_only=False):
         self.check(False)
         io=PhoneLoginIO(self.login.send,lambda:json.dumps(self.login.value),lambda:20000,lambda:self.okay,self.pid,
             monotonic=lambda:self.login.ui.clock,sleep=self.login.ui.sleep)
+        if read_only:return SimpleNamespace(io=io)
         def persist(stage,original,control):
             intent(stage,original,control);self.login.ui.intent(stage,original,control)
         return TokenLoginUI(io,persist,RUN,ORIGIN,monotonic=lambda:self.login.ui.clock,sleep=self.login.ui.sleep)

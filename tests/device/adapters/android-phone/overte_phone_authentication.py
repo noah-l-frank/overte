@@ -337,6 +337,10 @@ class PhoneAuthenticationSamples:
             if self.state['tablet'] is not None:need(tabs['capturedEpochMs']>=self.state['tablet']['capturedEpochMs'])
             self.state['tablet']=deepcopy(tabs);self.save();bound()
             proof=self.client.request('/runs/'+self.run+'/account/proof/'+ticket+'/'+response['requestId']) if self.role=='actor' else None
+            if proof is not None and self.state['frame'] is not None:
+                previous_proof=self.state['frame']['proof']
+                need(previous_proof is not None and proof['eventSequence']>previous_proof['eventSequence']
+                     and proof['capturedEpochMs']>=previous_proof['capturedEpochMs'])
             released=probe.release();self.state['probe']=deepcopy(released);self.save();bound()
             origin.release()
             absent=origin.source.request(owner['data'],'observe');self.state['origin']=deepcopy(absent);self.save();bound()

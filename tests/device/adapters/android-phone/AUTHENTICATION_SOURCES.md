@@ -100,10 +100,10 @@ staging uses the ordinary fixture owner only inside the existing session pin.
 
 `android/phone/tests/device/test_authentication_samples.py` exercises the real
 source readers, real private journal/fixture files and explicit synthetic native
-and provider seams. Thirty-one cases cover role separation, actual 200/401 joins,
+and provider seams. Thirty-two cases cover role separation, actual 200/401 joins,
 pending/error UI, foreign account/endpoint, ignored source input, retained files
 and credential bytes, lost writes, stale owners, source reconstruction, delayed
 authority, wrong proofs, ticket-transition retirement, lost stage/GET/release
-returns, legacy-journal rejection and acquisition deadlines. The existing Phone adapter
+returns, replayed peer-event cursors, legacy-journal rejection and acquisition deadlines. The existing Phone adapter
 tests also verify the concrete read-only factories and both-role cleanup.
 These simulations establish test logic only; they do not execute an APK.

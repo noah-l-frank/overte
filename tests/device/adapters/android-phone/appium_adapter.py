@@ -327,6 +327,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def authentication_actions_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-actions.json'))
 
+    def authentication_feature_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-feature.json'))
+
+    def authentication_retirement_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-retirement.json'))
+
     def authentication_restart_store(self, selector, stage):
         require(type(stage) is int and 1<=stage<=3,'PHONE_AUTHENTICATION_RESTART_SCOPE_REQUIRED')
         return PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-restart-'+str(stage)+'.json'))
@@ -1051,6 +1057,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(self.authentication_actions_store(selector).read() is None
                 and all(self.authentication_restart_store(selector,stage).read() is None for stage in range(1,4)),
                 'PHONE_AUTHENTICATION_INPUT_CLEANUP_INCOMPLETE')
+        require(self.authentication_feature_store(selector).read() is None and self.authentication_retirement_store(selector).read() is None
+                and all(PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-'+role+'-feature.json')).read() is None
+                        for role in ('primary','actor')),'PHONE_AUTHENTICATION_FEATURE_CLEANUP_INCOMPLETE')
         return result
 
     def normal_navigation(self, selector, operation, values):

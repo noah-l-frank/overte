@@ -6,6 +6,9 @@ from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch
+import os
+import tempfile
+import hashlib
 
 ROOT=Path(__file__).resolve().parents[4]
 sys.path[:0]=[str(ROOT/'tests/device'),str(ROOT/'tests/device/adapters/android-phone')]
@@ -108,6 +111,145 @@ class AuthenticationFixtureTests(unittest.TestCase):
             with self.subTest(field=field),self.assertRaises(NativeUIError):self.source.read()
             self.assertEqual(before,len(self.calls));self.assertEqual(value,getattr(self.client,field))
             setattr(self.client,field,original)
+
+
+class AuthenticationOwnerTests(unittest.TestCase):
+    def setUp(self):
+        from test_authentication_actions import InputSources
+        from overte_phone_authentication_actions import PhoneAuthenticationActions
+        from overte_phone_authentication_feature import PhoneAuthenticationFeature
+        from feature_journeys.witness import Journal
+        from self_tests.test_script_ui_inventory import inventory
+        from adapters.normal_feature_state import PrivateFeatureState
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        self.root=Path(temporary.name);os.chmod(self.root,0o700)
+        self.s=InputSources(self.root);self.calls=[];self.counter=0
+        self.journal=Journal(lambda:20000)
+        with patch('feature_journeys.witness.secrets.token_hex',return_value=RUN):self.assertEqual(RUN,self.journal.register('authentication'))
+        self.journal.activate(RUN,TICKET)
+        self.provider=dict(providerVersion=2,instance=INSTANCE,transport='https',tlsVersion='TLSv1.3',internalErrors=0)
+        self.grants_enabled=True
+        # Preserve the original source helper's provider proof, then route the
+        # control protocol through the real shared journal reducer. No desired
+        # checkpoint or state is ever returned from this test transport.
+        originals=self.s.request
+        def request(role,path,value=None,method=None,**kwargs):
+            self.assertEqual({},kwargs);self.calls.append((role,path))
+            if path=='/account-provider':return deepcopy(self.provider)
+            if path=='/runs/'+RUN+'/account/status':
+                return dict(providerVersion=2,instance=INSTANCE,runId=RUN,capturedEpochMs=20000,eventSequence=self.s.provider_sequence,
+                    accountExists=True,heldRequests=0,armedHold=False,inflightRequests=0,
+                    accessTokens=int(self.s.fact['loggedIn']),refreshTokens=int(self.s.fact['loggedIn']),grantsEnabled=self.grants_enabled)
+            if path=='/runs/'+RUN+'/active':
+                if value is not None:
+                    self.assertEqual('primary',role);self.journal.activate(RUN,**value);return {}
+                return self.journal.active(RUN)
+            if path=='/runs/'+RUN:return self.journal.snapshot(RUN)
+            if path=='/runs/'+RUN+'/samples':
+                self.assertEqual('actor',role);self.journal.publish(RUN,value);return {}
+            if '/account/proof/' in path:
+                self.assertEqual('actor',role)
+                if path.rsplit('/',2)[1]!=self.journal.active(RUN)['ticket']:raise ValueError('Synthetic retired actual request')
+                return originals(path)|dict(capturedEpochMs=20000)
+            if path=='/runs/'+RUN+'/account/delayed':return originals(path)|dict(capturedEpochMs=20000)
+            self.fail('Unexpected synthetic fixture request')
+        self.s.client.request=lambda *args,**kwargs:request('primary',*args,**kwargs)
+        del self.s.client.account_status
+        actor=Client(URL,'y'*64);actor.request=lambda *args,**kwargs:request('actor',*args,**kwargs)
+        # Both sources read the actual current synthetic native token. The
+        # independent fixture proof is generated only for that actual request.
+        probe=self.s.probe.mutate
+        def response(packet):
+            probe(packet)
+            if packet['operation']=='read':
+                accepted=self.s.fact['loggedIn'] and self.grants_enabled
+                packet['source'].update(httpStatus=200 if accepted else 401,networkError=0 if accepted else 204,
+                    tokenAttached=self.s.fact['observation']['tokenValid'],
+                    principalSha256=hashlib.sha256(('e2e-'+RUN).encode() if accepted else b'').hexdigest())
+        self.s.probe.mutate=response
+        self.s.tablet.mutate=lambda packet:packet.update(processId=self.s.pid,controls=[],scriptInventory=inventory(tabletShown=self.s.menu_client.panel is not None))
+        self.s.authentication_samples_store=lambda _selector,role,stage:PrivateFeatureState(self.root/('phone-authentication-'+role+'-'+str(stage)+'-samples.json'))
+        self.s.authentication_actions_store=lambda _selector:PrivateFeatureState(self.root/'phone-authentication-actions.json')
+        self.s._authentication_actions=lambda selector,client,run:PhoneAuthenticationActions(self.s,selector,client,run)
+        self.primary=PhoneAuthenticationFeature(self.s,'selector',AuthenticationFixtureReader(self.s.client,RUN,epoch_ms=lambda:20000),
+            monotonic=lambda:self.s.clock,sleep=lambda value:setattr(self.s,'clock',self.s.clock+value))
+        self.actor=PhoneAuthenticationFeature(self.s,'selector',AuthenticationFixtureReader(actor,RUN,epoch_ms=lambda:20000),role='actor',
+            monotonic=lambda:self.s.clock,sleep=lambda value:setattr(self.s,'clock',self.s.clock+value))
+    def observe(self,owner=None):
+        from feature_journeys.scenarios import VERSION
+        return (owner or self.primary).observe(dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+    def act(self,verb,inputs=None):
+        from feature_journeys.scenarios import VERSION
+        self.counter+=1;ticket=format(self.counter,'032x');inputs=inputs or {}
+        self.s.client.activate(ticket,verb,inputs)
+        return self.primary.act(dict(contractVersion=VERSION,runId=RUN,fixtureUrl=URL+'/runs/'+RUN+'/',ticket=ticket,verb=verb,inputs=inputs))
+
+    def test_baseline_has_two_independent_native_and_http_acquisitions_without_input(self):
+        primary=self.observe();actor=self.observe(self.actor)
+        self.assertEqual(primary['state'],actor['state']);self.assertEqual([],primary['resources'])
+        self.assertEqual((1,1),(primary['sequence'],actor['sequence']))
+        first,last=self.primary.role_state()['last']['frame'],self.actor.role_state()['last']['frame']
+        self.assertNotEqual(first['probe']['requestId'],last['probe']['requestId'])
+        self.assertIsNone(first['proof']);self.assertIsNotNone(last['proof'])
+        self.assertEqual([],self.s.login.inputs);self.assertEqual([],self.s.inputs)
+
+    def test_actor_waits_for_primary_owned_scope_and_for_each_actual_input_phase(self):
+        with self.assertRaises(AuthenticationPhasePending):self.observe(self.actor)
+        self.assertIsNone(self.actor.role_store.read());self.observe()
+        self.s.client.activate('f'*32,'login-open',{})
+        with self.assertRaises(AuthenticationPhasePending):self.observe(self.actor)
+        self.assertEqual([],self.s.login.inputs);self.assertIsNone(self.actor.role_state()['last'])
+
+    def test_invalid_then_owned_login_normal_input_is_joined_with_fresh_independent_protected_access(self):
+        self.observe();self.actor.publish()
+        for verb,inputs in (('login-open',{}),('login-submit',{'account':'invalid'}),('login-cancel',{}),
+                            ('login-open',{}),('login-submit',{'account':'owned'})):
+            self.act(verb,inputs);primary=self.observe();self.actor.publish()
+            actual=self.journal.snapshot(RUN)['entries'][-1]['facts']
+            self.assertEqual(primary['state'],actual)
+        self.assertTrue(primary['state']['protectedAccess']);self.assertEqual('owned',primary['state']['principal'])
+        self.assertFalse(primary['state']['dialog']);self.assertEqual(2,sum(action=='submit' for _,action in self.s.login.inputs))
+
+    def test_each_role_acquires_own_restart_exit_and_new_account_birth(self):
+        self.observe();self.observe(self.actor)
+        self.act('restart-app');primary=self.observe();actor=self.observe(self.actor)
+        self.assertEqual(2,primary['lifecycle']['launches']);self.assertEqual(primary['state'],actor['state'])
+        one,two=self.primary.role_state(),self.actor.role_state()
+        self.assertEqual((1,1),(one['stage'],two['stage']))
+        self.assertNotEqual(one['restarts'][0]['exit']['commandId'],two['restarts'][0]['exit']['commandId'])
+        for role in (one,two):
+            self.assertNotEqual(role['last']['frame']['nativeAfter']['account']['observation']['instance'],
+                role['restarts'][0]['oldFrame']['nativeAfter']['account']['observation']['instance'])
+
+    def test_missing_own_old_role_observation_cannot_borrow_primary_restart_proof(self):
+        self.observe();self.act('restart-app');self.observe()
+        with self.assertRaises(NativeUIError):self.observe(self.actor)
+        self.assertIsNone(self.actor.role_state()['last'])
+
+    def test_corrupt_role_exit_history_blocks_another_fresh_observation(self):
+        from overte_phone_script_history import pack,unpack
+        self.observe();self.observe(self.actor);self.act('restart-app');self.observe();self.observe(self.actor)
+        store=self.actor.role_store;old=store.read();state=unpack(old['payload'])[0]
+        state['restarts'][0]['exit'].update(presence='unknown',nativeError=1,errorSymbol='EPERM')
+        store.write(old|dict(payload=pack([state])),old)
+        before=len(self.s.native.commands)
+        with self.assertRaises(NativeUIError):self.observe(self.actor)
+        self.assertEqual(before,len(self.s.native.commands))
+
+    def test_missing_native_result_retains_reading_role_and_source_ownership(self):
+        self.observe();self.s.native.ignored=True
+        with self.assertRaises(NativeUIError):self.observe()
+        self.assertEqual('reading',self.primary.role_state()['phase'])
+
+    def test_observer_cannot_publish_a_retired_sample_under_the_next_ticket(self):
+        self.observe();self.observe(self.actor)
+        post=self.actor.source.client.request
+        def changed(path,value=None,method=None,**kwargs):
+            if path.endswith('/samples'):
+                self.journal.activate(RUN,'f'*32,'login-open',{})
+            return post(path,value,method,**kwargs)
+        with patch.object(self.actor.source.client,'request',side_effect=changed):self.assertIsNone(self.actor.publish())
+        self.assertEqual([],self.journal.snapshot(RUN)['entries'])
 
 
 if __name__=='__main__':unittest.main()

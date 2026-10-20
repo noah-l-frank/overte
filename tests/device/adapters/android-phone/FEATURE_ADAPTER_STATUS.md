@@ -16,7 +16,7 @@ component notes below do not supersede this current status.
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary
-measurement lease. Thirty-one host counterexamples verify this v2 source owner,
+measurement lease. Thirty-two host counterexamples verify this v2 source owner,
 including interrupted-ticket retirement without input replay or old-fact publication.
 The complete Authentication coordinator, three-restart role histories,
 independent publisher and final run retirement remain in progress. This
@@ -29,6 +29,15 @@ boundaries. Eighteen input and fourteen causality host cases cover normal,
 ignored, uncertain and retained-ownership paths. Complete independent role
 restart histories, publisher and verified whole-run cleanup are still pending;
 this input owner is not a full Authentication capability.
+
+[Authentication input/observer composition](AUTHENTICATION_COORDINATOR.md) now
+joins ordinary inputs, actual protected requests and each role's own old/new
+process archives. Nineteen fixture/coordinator cases and the other focused
+Authentication cases pass (83 total); 324 Phone/identity cases and 25 Script
+facade cases pass. The common no-build suite passes 1,026 cases. Complete
+Authentication cleanup, host retirement, standalone publisher integration and
+full capability registration remain in progress. No Authentication capability
+or physical qualification is promoted by this internal owner.
 
 # Phone adapter implementation, local source only
 

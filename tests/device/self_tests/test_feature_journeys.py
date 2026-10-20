@@ -1161,6 +1161,40 @@ class FeatureJourneys(unittest.TestCase):
             with self.subTest(fault=fault),self.assertRaises(AssertionError):boundary.execute()
             self.assertFalse(boundary.reports[0]['sequenceCompleted'])
 
+    def test_all_explicit_restart_journeys_retain_actual_mobile_visibility_counters(self):
+        areas=[area for area,scenario in SCENARIOS.items() if any(step['verb']=='restart-app' for step in scenario['steps'])]
+        self.assertIn('authentication',areas)
+        for area in areas:
+            with self.subTest(area=area):
+                boundary=Boundary(area);original=boundary.invoke;counts=[]
+                def invoke(operation,fields):
+                    value=original(operation,fields)
+                    if operation.endswith('.act') and fields['verb']=='restart-app':
+                        boundary.lifecycle['backgrounds']+=1;boundary.lifecycle['activations']+=2
+                        counts.append(copy.deepcopy(boundary.lifecycle))
+                    return value
+                boundary.invoke=invoke;boundary.execute()
+                samples=[row for row in boundary.reports[0]['samples'] if row['phase'].endswith('-restart-app')]
+                self.assertTrue(samples);self.assertTrue(counts)
+                self.assertTrue(all(row['lifecycle'] in counts for row in samples))
+                self.assertTrue(boundary.reports[0]['sequenceCompleted'])
+
+    def test_authentication_restart_rejects_missing_launch_activation_regression_and_unsettled_visibility(self):
+        for fault in ('launch','activation','regression','unsettled'):
+            boundary=Boundary('authentication');original=boundary.invoke;observations=[0]
+            def invoke(operation,fields):
+                value=original(operation,fields)
+                if operation.endswith('.observe') and boundary.verb=='restart-app':
+                    observations[0]+=1
+                    if fault=='launch':value['lifecycle']['launches']-=1
+                    elif fault=='activation':value['lifecycle']['activations']-=1
+                    elif fault=='regression':value['lifecycle']['activations']+=2 if observations[0]==1 else 0
+                    else:value['lifecycle']['backgrounds']+=observations[0]
+                return value
+            boundary.invoke=invoke
+            with self.subTest(fault=fault),self.assertRaises(AssertionError):boundary.execute()
+            self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
     def test_script_restart_late_execution_is_rejected_before_any_reopen_input(self):
         boundary=Boundary('scripts','script-restart-late-replay')
         with self.assertRaisesRegex(AssertionError,'11-restart-app'):boundary.execute()

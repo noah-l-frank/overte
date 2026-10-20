@@ -21,7 +21,7 @@ from overte_phone_script_history import pack,unpack
 from overte_phone_script_lock import PhoneScriptSourceLock
 from overte_phone_login import PhoneLoginIO
 from adapters.native_account_origin import NativeAccountOrigin,OwnedAccountOrigin
-from adapters.native_account_probe import AccountProbeOwner,OwnedAccountProbe
+from adapters.native_account_probe import AccountProbeOwner,OwnedAccountProbe,NativeAccountProbe
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from feature_journeys.witness import Client
@@ -42,11 +42,18 @@ BINDING=dict(sourceRevision='e'*40,artifactSha256='f'*64,processIdentity='123:or
 class Sources:
     """Explicit source seams; fixture ownership and journals are real host files."""
     def __init__(self,root):
-        self.root=root;self.path=root/'binding.json';self.clock=0.;self.okay=True;self.pinned=0
+        self.root=root;self.path=root/'binding.json';self.clock=0.;self.okay=True;self.pinned=0;self.pid=123
         self.fact=account();self.fact['observation']['endpointSha256']=hashlib.sha256(ORIGIN.encode()).hexdigest()
         self.native=NativeBoundary();self.native.mutate=lambda packet:packet.update(account=deepcopy(self.fact))
         self.origin=OriginBoundary(root/'native');self.probe=ProbeBoundary()
-        self.probe.mutate=lambda packet:packet['source'].update(endpointSha256=self.fact['observation']['endpointSha256']) if packet['operation']=='read' else None
+        self.provider_sequence=0
+        def response(packet):
+            packet['processId']=self.pid
+            if packet['operation']=='read':
+                self.provider_sequence+=1
+                packet['source'].update(endpointSha256=self.fact['observation']['endpointSha256'],
+                    credentialGeneration=self.fact['observation']['credentialGeneration'])
+        self.probe.mutate=response
         self.login=LoginNativeBoundary();self.login.mutate=lambda packet:packet.update(processId=123)
         self.tablet=FileNativeBoundary(root/'native')
         self.tablet.mutate=lambda packet:packet.update(processId=123,controls=[],scriptInventory=inventory(tabletShown=False))
@@ -76,38 +83,39 @@ class Sources:
         self.check(read_only);return self.native.reader()
     def _account_origin(self,_selector):
         self.check(False)
-        admission=self.native.reader().read(0,require_account=True)
-        source=NativeAccountOrigin(self.origin.send,self.origin.read,lambda:20000,lambda:self.okay,123,admission['instance'],
+        admission=self._native_feature_observer(_selector,read_only=True).read(0,require_account=True)
+        source=NativeAccountOrigin(self.origin.send,self.origin.read,lambda:20000,lambda:self.okay,self.pid,admission['instance'],
             monotonic=lambda:self.origin.clock,sleep=self.origin.sleep)
-        owner=OwnedAccountOrigin(source,PrivateFeatureState(self.root/'origin.json'),BINDING)
+        owner=OwnedAccountOrigin(source,PrivateFeatureState(self.root/'origin.json'),self.normal_feature_runtime(_selector,read_only=True)[2])
         owner.native_admission=admission;return owner
     def _account_probe(self,_selector,*,read_only,role):
         self.check(read_only)
-        owner=AccountProbeOwner(PrivateFeatureState(self.root/(role+'-probe.json')),BINDING,lambda:self.okay)
-        probe=self.probe.reader();probe.intent=owner.intent
+        owner=AccountProbeOwner(PrivateFeatureState(self.root/(role+'-probe.json')),self.normal_feature_runtime(_selector,read_only=True)[2],lambda:self.okay)
+        probe=NativeAccountProbe(self.probe.send,self.probe.read,lambda:20000,lambda:self.okay,self.pid,
+            intent=owner.intent,monotonic=lambda:self.probe.clock,sleep=self.probe.sleep)
         return OwnedAccountProbe(probe,owner)
     def _login_controls(self,_selector,_intent,_run,_origin,*,read_only):
         self.check(read_only)
-        return SimpleNamespace(io=PhoneLoginIO(self.login.send,lambda:json.dumps(self.login.value),lambda:20000,lambda:self.okay,123,
+        return SimpleNamespace(io=PhoneLoginIO(self.login.send,lambda:json.dumps(self.login.value),lambda:20000,lambda:self.okay,self.pid,
             monotonic=lambda:self.login.ui.clock,sleep=self.login.ui.sleep))
     def _script_file_io(self,_selector,*,read_only):
         self.check(read_only)
-        return PhoneScriptFileIO(self.tablet.send,lambda:json.dumps(self.tablet.value),lambda:20000,lambda:self.okay,123,
+        return PhoneScriptFileIO(self.tablet.send,lambda:json.dumps(self.tablet.value),lambda:20000,lambda:self.okay,self.pid,
             monotonic=lambda:self.tablet.ui.clock,sleep=self.tablet.ui.sleep)
     def request(self,path):
         self.requests.append(path)
         if path=='/runs/'+RUN+'/active':return deepcopy(self.active)
         if path=='/runs/'+RUN+'/account/delayed':
-            return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=1,
+            return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=self.provider_sequence,
                 grantsEnabled=True,requests=[],delayedGrantOutstanding=False)|self.delayed_edit
         if path.startswith('/runs/'+RUN+'/account/proof/'):
-            return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=1,
+            return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=self.provider_sequence,
                 kind='profile-request',ticket=path.rsplit('/',2)[1],requestId=path.rsplit('/',1)[1],status=self.probe.value['source']['httpStatus'],
                 principal='owned' if self.fact['loggedIn'] else 'anonymous',protectedAccess=self.fact['loggedIn'])|self.proof_edit
         raise AssertionError('Unexpected synthetic provider route')
     def status(self):
         self.requests.append('status')
-        return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=1,
+        return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=self.provider_sequence,
             accountExists=True,heldRequests=0,armedHold=False,inflightRequests=0,
             accessTokens=int(self.fact['loggedIn']),refreshTokens=int(self.fact['loggedIn']),grantsEnabled=True)|self.status_edit
     def logged_in(self):
@@ -431,6 +439,12 @@ class AuthenticationSampleTests(unittest.TestCase):
         before=len(self.sources.native.commands)
         with self.lock.held(),self.assertRaises(NativeUIError):self.reader()
         self.assertEqual(before,len(self.sources.native.commands));self.assertEqual(legacy,store.read())
+
+    def test_new_request_nonce_cannot_hide_a_replayed_original_peer_event_cursor(self):
+        self.acquire('actor');self.sources.proof_edit=dict(eventSequence=1)
+        with self.assertRaises(NativeUIError):self.acquire('actor')
+        self.assertEqual('reading',self.stored('actor')['phase'])
+        self.assertIsNotNone(self.sources.account_probe_store('selector',role='actor').read())
 
 
 if __name__=='__main__':unittest.main()

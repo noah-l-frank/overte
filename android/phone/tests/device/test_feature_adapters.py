@@ -760,6 +760,16 @@ class FeatureAdapterTests(unittest.TestCase):
                 base.assert_called_once()
             self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_authentication_whole_run_role_or_retirement_metadata(self):
+        stores=[self.adapter.authentication_feature_store(SELECTOR),self.adapter.authentication_retirement_store(SELECTOR)]+[
+            appium.PrivateFeatureState(self.state_path.with_name('phone-authentication-'+role+'-feature.json')) for role in ('primary','actor')]
+        for store in stores:
+            store.write({'unresolved':True},None)
+            with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+                with self.assertRaisesRegex(ValueError,'PHONE_AUTHENTICATION_FEATURE_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+                base.assert_called_once()
+            self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_authentication_restart_requires_original_sdk_and_actual_os_absence_without_session_repair(self):
         self.read_only_boundaries();_ui,_observe,binding,_guard,_installed=self.adapter.normal_feature_runtime(SELECTOR,read_only=True)
         with patch.object(AppiumAdapter,'ensure_session',side_effect=AssertionError('Unexpected session repair')):
