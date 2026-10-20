@@ -62,6 +62,7 @@ from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WOR
 from adapters.world_render_storage import NativeWorldRenderStorage
 from adapters.owned_world_render import WorldRenderOwner, OwnedWorldRenderCapture
 from overte_phone_script_files import PhoneScriptFileIO, FILE as SCRIPT_FILE_UI_FILE
+from overte_phone_script_measurements import PhoneScriptMeasurements
 
 
 class PhoneAppiumAdapter(AppiumAdapter):
@@ -178,12 +179,18 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
         def send(command):
             if read_only:
-                require(type(command) is dict and set(command) in (
+                file_observation = (type(command) is dict and command.get('action') == 'feature-script-files'
+                                    and command.get('operation') == 'observe')
+                if file_observation:
+                    from adapters.native_script_files import command as validate_files
+                    validate_files(command)
+                allowed_fields = ({'schemaVersion', 'commandId', 'action', 'operation', 'runId', 'ownerToken'},) if file_observation else (
                     {'schemaVersion', 'commandId', 'action'}, {'schemaVersion', 'commandId', 'action', 'request'})
+                require(type(command) is dict and set(command) in allowed_fields
                     and type(command.get('schemaVersion')) is int and command['schemaVersion'] == 1
                     and type(command.get('commandId')) is str and re.fullmatch('[0-9a-f]{32}', command['commandId'])
                     and type(command.get('action')) is str
-                    and (command['action'] in {'feature-native-observe', 'feature-script-observe'} and 'request' not in command
+                    and (file_observation or command['action'] in {'feature-native-observe', 'feature-script-observe'} and 'request' not in command
                          or command['action'] == 'phone-script-file-ui' and type(command.get('request')) is dict
                          and command['request'] == dict(schemaVersion=1, commandId=command['commandId'], action='observe')
                          and type(command['request']['schemaVersion']) is int),
@@ -334,6 +341,25 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def script_files_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-script-files.json'))
+
+    def _script_measurements(self, selector, run, fixture_url, *, read_only=False):
+        # Actual original acquisitions only. Full run/publisher/cleanup and
+        # durable cross-invocation history remain separate mandatory ownership.
+        native = self._native_feature_observer(selector, read_only=read_only)
+        _ui, observe, binding, check, _installed = self.normal_feature_runtime(selector, read_only=read_only)
+        target = self.target(selector); device = target['capabilities']['appium:udid']
+        transport = PhoneAdapter(self.candidate).adb
+        def original(name):
+            return lambda: transport.read_debug_app_file(device, target['appId'], 'files/overte-e2e/' + name, attempts=1)
+        def guard():
+            check(); native.guard()
+        storage = NativeScriptFiles(native.send, original(SCRIPT_FIXTURE_FILE), native.clock_ms, guard, native.pid)
+        files = OwnedScriptFiles(storage, self.script_files_store(selector), binding)
+        require(files.owned()['runId'] == run, 'PHONE_SCRIPT_MEASUREMENTS_OWNED_RUN_REQUIRED')
+        directory = files.verify()
+        execution = NativeScriptObservation(native.send, original(SCRIPT_EXECUTION_FILE), native.clock_ms, guard, native.pid)
+        ui = PhoneScriptFileIO(native.send, original(SCRIPT_FILE_UI_FILE), native.clock_ms, guard, native.pid)
+        return PhoneScriptMeasurements(run, directory, fixture_url, execution, ui, observe, native, files.verify, guard)
 
     def _script_files(self, selector):
         _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector)

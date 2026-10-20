@@ -21,7 +21,9 @@ restart.
 `_native_feature_observer`, `_script_execution_observer` and `_script_file_io`
 accept the same strictly boolean `read_only` option. Read-only native transports
 admit only the existing exact native-feature getter, Script-execution getter
-and Phone Script-file-UI **observe** request. They reject UI input, fixture
+and Phone Script-file-UI **observe** request. The joined
+[Script reader](SCRIPT_MEASUREMENTS.md) additionally permits the strict native
+fixture **observe** request with the original owner token. They reject UI input, fixture
 stage/release, lifecycle commands and desired-state fields before dispatch.
 Request schema/type/nonce fields remain strict. The file IO object's input
 methods cannot use this transport to deliver a click. Native diagnostics in the

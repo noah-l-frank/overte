@@ -3,6 +3,16 @@
 Active implementation scope is **Android Phone only** until all fourteen areas
 are complete. Pico and iOS work is paused and preserved on their own branches.
 
+Internal `_script_measurements` now [joins all six original Script
+measurements](SCRIPT_MEASUREMENTS.md), including actual submitted code, loaded
+companions, owned local Box ticks, independent service rows, passive UI/error
+display, original failure callbacks and native lifecycle. Its read-only variant
+cannot stage fixtures, repair sessions or send input. All **142** Phone
+feature-adapter host cases plus **28** joined-measurement cases pass.
+Full durable nineteen-step coordination, independently acquired publisher facts,
+HTTP receipts and complete cleanup still remain; no full triple is advertised.
+Native instrumentation is uncompiled and devices are untested.
+
 The [independent reader's existing-session seam](READ_ONLY_SOURCES.md) now
 refuses session creation/repair, app activation and native mutation commands.
 Original installed bytes, foreground/PID/start time, target/session and source

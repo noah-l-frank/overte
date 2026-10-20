@@ -1244,6 +1244,81 @@ class FeatureAdapterTests(unittest.TestCase):
         with self.assertRaises(RuntimeError): reader.read(0)
         self.assertEqual([], source.commands)
 
+    def script_measurement_boundaries(self):
+        from self_tests.test_script_ui_inventory import inventory
+        from self_tests.test_script_manager_status import observed
+        from adapters.token_script_file_ui import file_url
+        storage, file_ui, files, manager = self.file_manager_boundaries()
+        manager.open(); manager.file_picker_open(); manager.file_picker_choose('script.js')
+        for row in self.native.rows: row['path'] = file_url(row['url'])
+        source, lifecycle = ScriptBoundary(), NativeFeatureBoundary()
+        source.engine['url'] = storage.root.as_uri() + '/script.js'
+        source.engine['required']['modules'][0]['url'] = storage.root.as_uri() + '/companion.js'
+        def measured(packet):
+            code_source(packet, originals('a' * 32)['script.js'].decode())
+            effect_source(packet); history = packet['source']
+            history.update(loadSourceVersion=1, loads=dict(complete=True, instance='c' * 32, sequence=0, events=[]))
+            row = history['effects']['entities'][0]
+            row.update(name='e2e-' + 'a' * 32 + '-script', userData=json.dumps(dict(runId='a' * 32, ticks=2)))
+        source.mutate = measured
+        lifecycle.mutate = lambda packet: packet.update(processId=31)
+        file_ui.mutate = lambda packet: packet.update(scriptInventory=inventory([observed(statusText='', labelText='', labelVisible=False)]))
+        commands = []
+        def send(client, session, target, command, process):
+            commands.append(deepcopy(command))
+            if command['action'] == 'feature-script-files': storage.send(command)
+            elif command['action'] == 'phone-script-file-ui': file_ui.send(command)
+            elif command['action'] == 'feature-script-observe': source.send(command)
+            elif command['action'] == 'feature-native-observe': lifecycle.send(command)
+            else: self.native.command(client, session, target, command, process)
+        def read(device, package, path, **kwargs):
+            self.assertEqual({'attempts': 1}, kwargs)
+            if path.endswith('/feature-script-files.json'): return storage.read()
+            if path.endswith('/phone-script-file-ui.json'): return json.dumps(file_ui.value)
+            if path.endswith('/feature-script-observation.json'): return source.original()
+            if path.endswith('/feature-native-observation.json'): return lifecycle.original()
+            return self.native.read(device, package, path, **kwargs)
+        for boundary in (patch.object(self.adapter, 'write_android_client_command', side_effect=send),
+                         patch.object(self.fixture.adb, 'read_debug_app_file', side_effect=read)):
+            boundary.start(); self.addCleanup(boundary.stop)
+        fixture = 'http://fixture.test/feature-fixture/v1/runs/' + 'a' * 32 + '/'
+        return commands, fixture, files
+
+    def test_phone_script_measurements_factory_joins_real_readers_original_bytes_and_all_six_fields(self):
+        commands, fixture, files = self.script_measurement_boundaries()
+        before = list(self.native.inputs)
+        reader = self.adapter._script_measurements(SELECTOR, 'a' * 32, fixture)
+        actual = reader.read('b' * 32, 19000)
+        self.assertEqual(dict(running=['owned-script'], picker=False, error='none', effects=2,
+                             open=True, companions=['companion.js']), actual['state'])
+        self.assertEqual(dict(backgrounds=0, activations=1, launches=1), actual['lifecycle'])
+        self.assertEqual(before, self.native.inputs)
+        self.assertEqual(files.verify(), reader.directory)
+        self.assertFalse(any(value['action'] == 'feature-script-files' and value['operation'] != 'observe' for value in commands))
+
+    def test_phone_script_measurements_independent_factory_cannot_repair_session_stage_or_deliver_input(self):
+        commands, fixture, _files = self.script_measurement_boundaries()
+        self.read_only_boundaries(); before = list(self.native.inputs)
+        reader = self.adapter._script_measurements(SELECTOR, 'a' * 32, fixture, read_only=True)
+        self.assertEqual(2, reader.read('b' * 32, 19000)['state']['effects'])
+        self.assertEqual(before, self.native.inputs)
+        self.assertEqual([], self.native.lifecycle_inputs)
+        self.assertTrue(all(value['operation'] == 'observe' for value in commands if value['action'] == 'feature-script-files'))
+        with self.assertRaises(RuntimeError): reader.ui.activate('scripts.from-file')
+
+    def test_phone_script_measurements_changed_candidate_blocks_source_and_keeps_ownership(self):
+        commands, fixture, files = self.script_measurement_boundaries()
+        reader = self.adapter._script_measurements(SELECTOR, 'a' * 32, fixture)
+        before = len(commands); self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): reader.read('b' * 32, 19000)
+        self.assertEqual(before, len(commands)); self.assertIsNotNone(files.store.read())
+
+    def test_phone_script_measurements_foreign_run_cannot_adopt_staged_fixture_owner(self):
+        commands, fixture, files = self.script_measurement_boundaries()
+        before = len(commands)
+        with self.assertRaises((ValueError, RuntimeError)): self.adapter._script_measurements(SELECTOR, 'e' * 32, fixture)
+        self.assertEqual(before, len(commands)); self.assertEqual('a' * 32, files.owned()['runId'])
+
     def file_picker_boundaries(self):
         root = self.fixture.root / ('feature-script-' + 'a' * 32)
         root.mkdir()
