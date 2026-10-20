@@ -47,8 +47,9 @@ def folder_text(value):
     return value
 
 
-def metadata_fields(identifier):
+def metadata_fields(identifier, row=None):
     need(file_control(identifier))
+    if identifier == 'scripts.from-file' and type(row) is dict and 'manager' in row: return {'manager'}
     if identifier.startswith('script-file.row.'):
         return {'sourceUrl', 'rowLabel', 'selected', 'directory'}
     if identifier == 'script-file.folder': return {'text', 'picker'}
@@ -60,6 +61,9 @@ def metadata_fields(identifier):
 def validate_metadata(row):
     fields = metadata_fields(row['id'])
     need(fields <= set(row))
+    if row['id'] == 'scripts.from-file' and 'manager' in row:
+        from adapters.script_manager_status import validate
+        validate(row['manager'])
     if row['id'].startswith('script-file.row.'):
         file_url(row['sourceUrl'])
         need(bounded_text(row['rowLabel']) and type(row['selected']) is bool and type(row['directory']) is bool)
