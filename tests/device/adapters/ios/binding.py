@@ -11,6 +11,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[4]
 VERIFIER = ROOT / "ios/tools/candidate/verify_candidate_handoff.py"
+PHYSICAL_VERIFIER = ROOT / "ios/tools/candidate/verify_physical_e2e_handoff.py"
 # Forward the existing iOS consumer's CLI; do not parse Common evidence here.
 INPUT_FLAGS = (
     "artifact-root", "repository", "expected-source-sha", "shared-contract-root",
@@ -23,6 +24,7 @@ INPUT_FLAGS = (
 def configure_parser(parser):
     # Optional at parse time so cleanup still works after losing candidate files.
     parser.add_argument("--candidate-manifest")
+    parser.add_argument("--physical-candidate-metadata")
     parser.add_argument("--expected-artifact-sha256")
     for flag in INPUT_FLAGS:
         parser.add_argument("--" + flag)
@@ -30,14 +32,18 @@ def configure_parser(parser):
 
 def candidate_preflight(args):
     values = [getattr(args, name.replace("-", "_"), None) for name in INPUT_FLAGS]
-    if not args.candidate_manifest or any(not value for value in values):
+    physical=getattr(args,'physical_candidate_metadata',None)
+    if bool(args.candidate_manifest)==bool(physical) or any(not value for value in values):
         raise ValueError("OVT_IOS_CANDIDATE_INPUTS_REQUIRED")
     if not re.fullmatch(r"[0-9a-f]{40}", args.expected_source_sha or "") or not re.fullmatch(
             r"[0-9a-f]{64}", args.expected_artifact_sha256 or ""):
         raise ValueError("OVT_IOS_CANDIDATE_EXPECTATIONS_REJECTED")
-    if not VERIFIER.is_file() or VERIFIER.is_symlink():
+    verifier=PHYSICAL_VERIFIER if physical else VERIFIER
+    if not verifier.is_file() or verifier.is_symlink():
         raise ValueError("OVT_IOS_CANDIDATE_VERIFIER_UNAVAILABLE")
-    command = [sys.executable, "-B", str(VERIFIER), args.candidate_manifest]
+    command = [sys.executable, "-B", str(verifier)]
+    if physical:command.extend(['--terminal-candidate-metadata',physical,'--expected-artifact-sha256',args.expected_artifact_sha256])
+    else:command.append(args.candidate_manifest)
     for name, value in zip(INPUT_FLAGS, values):
         command.extend(["--" + name, value])
     # Never forward stage/execute flags. No simulator/device action is possible
@@ -62,7 +68,7 @@ def candidate_preflight(args):
         except (ValueError, UnicodeError):
             raise ValueError("OVT_IOS_CANDIDATE_PREFLIGHT_REJECTED") from None
     if (not isinstance(result, dict) or
-            result.get("status") != "IOS_CANDIDATE_BYTES_BOUND_VERIFICATION_PENDING" or
+            result.get("status") != ("IOS_PHYSICAL_CANDIDATE_BYTES_BOUND_VERIFICATION_PENDING" if physical else "IOS_CANDIDATE_BYTES_BOUND_VERIFICATION_PENDING") or
             result.get("sharedBuildInputJoin") != "BOUND_TO_INDEPENDENT_INPUTS" or
             result.get("simulator") != "NOT_EXECUTED" or
             not isinstance(result.get("sbomPair"), dict) or
@@ -72,8 +78,24 @@ def candidate_preflight(args):
             not isinstance(result.get("artifactIdentity"), dict) or
             result["artifactIdentity"].get("artifactSha256") != args.expected_artifact_sha256):
         raise ValueError("OVT_IOS_CANDIDATE_PREFLIGHT_REJECTED")
+    if physical:
+        from ios.adapters.bundle_identity import compare
+        runtime=result.get('runtime');bundle=result.get('bundleIdentity')
+        if (type(result.get('physicalHandoffVersion')) is not int or result['physicalHandoffVersion']!=1
+                or result.get('sharedEvidence')!='BOUND' or result.get('physicalDevice')!='NOT_EXECUTED'
+                or type(runtime) is not dict or set(runtime)!={'platform','artifact','bundleIdentifier','appRoot'}
+                or runtime['platform']!='iphoneos' or runtime['appRoot']!='Payload/Overte.app'
+                or type(runtime['artifact']) is not str or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,180}\.ipa',runtime['artifact'])
+                or result['artifactIdentity'].get('status')!='ARTIFACT_BYTES_BOUND_VERIFICATION_PENDING'
+                or result['artifactIdentity'].get('sourceRevision')!=args.expected_source_sha):
+            raise ValueError('OVT_IOS_CANDIDATE_PREFLIGHT_REJECTED')
+        try:compare(bundle,bundle)
+        except ValueError:raise ValueError('OVT_IOS_CANDIDATE_PREFLIGHT_REJECTED') from None
+        if bundle['bundleId']!=runtime['bundleIdentifier']:
+            raise ValueError('OVT_IOS_CANDIDATE_PREFLIGHT_REJECTED')
     # Successful candidate checking is deliberately not returned as the Common
     # executionIdentity object. Actual installed-code association is unavailable.
+    return result
 
 
 def create_adapter(args, base_class):

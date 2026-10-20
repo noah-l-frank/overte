@@ -94,12 +94,14 @@ for the independent native bytes.
 
 ## Remaining canonical binding work
 
-The existing canonical preflight currently calls the IO-001 verifier, whose
+The legacy canonical preflight calls the IO-001 verifier, whose
 audited artifact is a simulator ZIP, not a physical IPA. It cannot be treated
-as a physical candidate receipt. A physical candidate consumer must retain
-independently validated source/input/SBOM/artifact provenance, select the final
-physical IPA and compare the native measured bundle above before reporting the
-existing executionIdentity claim. Do not silently weaken that preflight.
+as a physical candidate receipt. The new
+[physical candidate consumer](PHYSICAL_CANDIDATE.md) retains independently
+validated source/input/SBOM/artifact provenance and selects the final physical
+IPA. Comparing the native measured bundle above and actual OS process before
+reporting executionIdentity remains the next separate join. The simulator
+preflight stays unchanged.
 
 The component's `mobile:overteProcessInfo` path also depends on a prepared driver
 extension. Replacing it indiscriminately with `activeAppInfo` would identify the
