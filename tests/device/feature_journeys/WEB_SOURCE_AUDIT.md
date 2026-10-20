@@ -29,10 +29,12 @@ server input has not changed the current document, then use normal Reload and
 observe a new actual successful response/document. Neither requested availability
 nor an independent actor's own HTTP GET can stand in for the product's navigation.
 
-The shared generated `reference.html/page-b.html/inline.html` stub currently only
+The historical generated `reference.html/page-b.html/inline.html` stub only
 copies editor text into DOM and emits `{text:...}`. That is not the existing
 native parity echo protocol. It lacks ordinary navigation/history/reload controls
-and does not establish actual native script delivery. Reuse/extend the existing
+and did not establish actual native script delivery. The new
+[owned browser resources v1](BROWSER_RESOURCES.md) now replaces those served
+stubs using the existing
 `fixture/parity/index.html`, `reference.js` and ordinary `client.js` source instead
 of introducing another browser test application. The existing reference bridge
 accepts only an actual matching script echo, and client.js deliberately does not
@@ -68,6 +70,11 @@ Any intentional per-backend profile must be closed and bound to the reviewed
 source; it must not accept whichever result a broken client happens to return.
 
 ## Remaining implementation packet
+
+The owned browser-resource prerequisite now supplies checked original parity
+sources, a resource-only second listener and a real 404/restored-200 resource
+with separate original HTTP response receipts. It is host-checked fixture logic,
+not a correction of the unchanged v10 draft scenario or a product observation.
 
 Before promoting complete browser capabilities, correct the shared breaking
 contract and independently witnessed fields, provide the controlled second

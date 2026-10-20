@@ -3,6 +3,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import argparse
+from contextlib import ExitStack
 import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -12,6 +13,7 @@ import ssl
 import stat
 import time
 import sys
+import threading
 from urllib.parse import urlsplit
 
 if __package__ in (None, ''):
@@ -20,6 +22,7 @@ from feature_journeys.contract import exact, identifier, json_document
 from feature_journeys.fixtures import check, companion, payload
 from feature_journeys.witness import Journal
 from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PROFILE_PATH,REQUEST_HEADER,RUN_HEADER,TICKET_HEADER
+from feature_journeys.browser_fixture import BrowserResources
 
 PREFIX = '/feature-fixture/v1'
 
@@ -50,15 +53,35 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass  # No private URLs, tokens, account aliases or request bodies in logs.
 
-    def send(self, status, value, content_type='application/json'):
+    def send(self, status, value, content_type='application/json', *, response_id=None):
         body = value if isinstance(value, bytes) else json.dumps(value).encode()
         self.send_response(status)
         self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
+        if response_id is not None:self.send_header('X-Overte-Fixture-Response',identifier(response_id))
         self.end_headers()
         self.wfile.write(body)
+
+    def resource(self,run,ticket,name):
+        if name=='reference.mp4' and self.server.browser_resources.has_run(run):
+            from fixture.parity_http import load_reference,send_reference
+            if not hasattr(self.server,'parity_payload'):
+                self.server.parity_manifest,self.server.parity_payload=load_reference(Path(__file__).resolve().parents[1]/'fixture')
+            return send_reference(self)
+        data=self.server.browser_resources.resource(run,ticket,name,
+            origin='foreign' if self.server.browser_peer else 'primary')
+        if data is not None:
+            status,content_type,body,response=data
+            return self.send(status,body,content_type,response_id=response)
+        if self.server.browser_peer and not self.server.browser_resources.has_run(run):
+            return self.send(404,{'error':'not-found'})
+        data=payload(name,run,ticket)
+        if data is None:
+            try:data=('application/octet-stream',companion(name))
+            except ValueError:return self.send(404,{'error':'not-found'})
+        return self.send(200,data[1],data[0])
 
     def account_request(self,parsed):
         if parsed.path not in (TOKEN_PATH,PROFILE_PATH):return False
@@ -99,6 +122,15 @@ class Handler(BaseHTTPRequestHandler):
     def handle_request(self):
         try:
             parsed = urlsplit(self.path)
+            if self.server.browser_peer:
+                # The second actual listener is resource-only, even with an
+                # accidental reader/publisher token. It cannot mutate runs or
+                # reach account endpoints.
+                pieces=parsed.path[len(PREFIX)+1:].split('/') if parsed.path.startswith(PREFIX+'/') else []
+                asset=(self.command=='GET' and len(pieces)>=5 and pieces[0]=='runs' and pieces[2]=='tickets')
+                current=(self.command=='GET' and len(pieces)==3 and pieces[0]=='runs' and pieces[2]=='current')
+                if not (asset or current) or len(pieces)<2 or not self.server.browser_resources.has_run(pieces[1]):
+                    return self.send(404,{'error':'not-found'})
             if self.account_request(parsed):return
             if parsed.query or parsed.fragment or not parsed.path.startswith(PREFIX + '/'):
                 return self.send(404, {'error': 'not-found'})
@@ -113,13 +145,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not self.server.journal.has_ticket(run, ticket):
                     return self.send(404, {'error': 'not-found'})
                 resource = '/'.join(parts[4:])
-                data = payload(resource, run, ticket)
-                if data is None:
-                    try:
-                        data = ('application/octet-stream', companion(resource))
-                    except ValueError:
-                        return self.send(404, {'error': 'not-found'})
-                return self.send(200, data[1], data[0])
+                return self.resource(run,ticket,resource)
             if self.command == 'GET' and len(parts) == 3 and parts[0] == 'runs' and parts[2] == 'current':
                 return self.send(200, {'ticket': self.server.journal.active(identifier(parts[1]))['ticket']})
             # Flat resource paths have exactly five components.
@@ -127,10 +153,7 @@ class Handler(BaseHTTPRequestHandler):
                 run, ticket = identifier(parts[1]), identifier(parts[3])
                 if not self.server.journal.has_ticket(run, ticket):
                     return self.send(404, {'error': 'not-found'})
-                data = payload(parts[4], run, ticket)
-                if data is None:
-                    return self.send(404, {'error': 'not-found'})
-                return self.send(200, data[1], data[0])
+                return self.resource(run,ticket,parts[4])
             if self.command=='GET' and len(parts)==4 and parts[0]=='runs' and parts[2:]==['account','delayed']:
                 run=identifier(parts[1])
                 if (self.server.account_provider is None or run not in self.server.journal.runs
@@ -154,6 +177,7 @@ class Handler(BaseHTTPRequestHandler):
                 if body['area']=='authentication' and self.server.account_provider is None:
                     return self.send(503,{'error':'account-provider-unavailable'})
                 run=self.server.journal.register(body['area'])
+                if body['area'] in ('world-web','tablet-web'):self.server.browser_resources.open(run)
                 if body['area']=='authentication' and self.server.account_provider is not None:
                     try:self.server.account_provider.provision(run)
                     except Exception:
@@ -163,6 +187,14 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) < 2 or parts[0] != 'runs':
                 return self.send(404, {'error': 'not-found'})
             run = identifier(parts[1])
+            if parts[2:]==['browser']:
+                if self.command=='GET':return self.send(200,self.server.browser_resources.snapshot(run))
+                return self.send(403,{'error':'forbidden'})
+            if parts[2:]==['browser','control']:
+                if self.command=='POST' and reader:
+                    self.server.browser_resources.control(run,body)
+                    return self.send(200,{}) # Read status independently; ACK is not client recovery.
+                return self.send(403,{'error':'forbidden'})
             if len(parts)>=3 and parts[2]=='account':
                 provider=self.server.account_provider
                 if provider is None:return self.send(503,{'error':'account-provider-unavailable'})
@@ -201,6 +233,7 @@ class Handler(BaseHTTPRequestHandler):
                 if self.server.account_provider is not None and run in self.server.account_provider.runs:
                     self.server.account_provider.retire(run)
                 self.server.journal.close(run)
+                self.server.browser_resources.close(run)
                 return self.send(200, {})
             return self.send(403, {'error': 'forbidden'})
         except (ValueError, KeyError, TypeError,UnicodeError):
@@ -233,7 +266,7 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None):
     if (type(reader_token) is not str or type(actor_token) is not str
             or min(len(reader_token), len(actor_token)) < 32 or reader_token == actor_token):
         raise ValueError('Separate private reader and independent publisher tokens are required')
@@ -245,12 +278,16 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
         raise ValueError('A TLS 1.2+ server context is required')
     if account_provider is not None and (not isinstance(account_provider,AccountProvider) or tls_context is None):
         raise ValueError('Account credentials require an explicitly trusted HTTPS fixture')
+    if browser_peer_of is not None and (not isinstance(browser_peer_of,FixtureServer) or browser_peer_of.browser_peer
+            or account_provider is not None):raise ValueError('Browser second listener needs the original primary owner')
     if account_provider is not None:account_provider._attach(reader_token,actor_token)
     server = FixtureServer(address, Handler)
     server.account_provider,server.tls_context=account_provider,tls_context
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token
-    server.journal = Journal()
+    server.journal = Journal() if browser_peer_of is None else browser_peer_of.journal
+    server.browser_resources = BrowserResources() if browser_peer_of is None else browser_peer_of.browser_resources
+    server.browser_peer = browser_peer_of is not None
     server.daemon_threads = True
     return server
 
@@ -268,7 +305,7 @@ def main():
         parser.error('--private-config is required to serve')
     from adapters.normal_feature_state import PrivateFeatureState
     config=PrivateFeatureState(args.private_config.absolute()).read()
-    fields={'readerToken','actorToken','host','port'}|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())
+    fields={'readerToken','actorToken','host','port'}|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())
     exact(config,fields,'private fixture configuration')
     tls=None;provider=None
     if 'tls' in config:
@@ -284,12 +321,23 @@ def main():
     if 'accountProvider' in config:
         if config['accountProvider'] is not True:raise ValueError('Explicit account provider opt-in is required')
         provider=AccountProvider()
-    with make_server(config['readerToken'], config['actorToken'], (config['host'], config['port']),
-            account_provider=provider,tls_context=tls) as server:
+    with ExitStack() as owned:
+        server=owned.enter_context(make_server(config['readerToken'],config['actorToken'],(config['host'],config['port']),
+            account_provider=provider,tls_context=tls))
+        peer=None;worker=None
+        if 'browserPeer' in config:
+            exact(config['browserPeer'],{'host','port'},'private second browser listener')
+            peer=owned.enter_context(make_server(config['readerToken'],config['actorToken'],
+                (config['browserPeer']['host'],config['browserPeer']['port']),tls_context=tls,browser_peer_of=server))
+            worker=threading.Thread(target=peer.serve_forever,daemon=True);worker.start()
         try:
             server.serve_forever()
         except KeyboardInterrupt:
             pass
+        finally:
+            if peer is not None:
+                peer.shutdown();worker.join(timeout=2)
+                if worker.is_alive():raise ValueError('Owned second browser listener failed to stop')
 
 
 if __name__ == '__main__':

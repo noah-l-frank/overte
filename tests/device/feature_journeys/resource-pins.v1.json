@@ -73,6 +73,22 @@
     "mannequin/mannequin.fbx": {
       "source": "interface/resources/meshes/mannequin/mannequin.fbx",
       "sha256": "b9ca9d23f488bbc579968708895c8d998a0e49a5f24cbfc25157ffaebf14d7a8"
+    },
+    "web-source/index.html": {
+      "source": "tests/device/fixture/parity/index.html",
+      "sha256": "a3d2c19ba0c29f6b4787c316da6dffa43025c0317c753fdf85e76dafb7800a78"
+    },
+    "web-source/reference.js": {
+      "source": "tests/device/fixture/parity/reference.js",
+      "sha256": "a329c4a84f81dad21b4d9d1cdedae312aaa3014e50863dcbf695113da56cf68b"
+    },
+    "web-source/client.js": {
+      "source": "tests/device/fixture/parity/client.js",
+      "sha256": "b5a220da650167e704592de2abe80448a302b8e37c90985a7aa66a32f4d89942"
+    },
+    "web-source/injected.js": {
+      "source": "tests/device/fixture/parity/injected.js",
+      "sha256": "8f8cf011d35feb56b4fab6b714413d3bcd8396e98b64923f8c73c2b2e0f4142b"
     }
   }
 }
