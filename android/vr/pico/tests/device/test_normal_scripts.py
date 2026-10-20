@@ -244,6 +244,42 @@ class PicoNormalScriptsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'OVT_PICO_BINDING_REJECTED'): self.instance._script_missing_manager(self.native.target)
         self.assertEqual(before, self.qt.inputs)
 
+    def manager_status_source(self):
+        from self_tests.test_script_manager_status import observed
+        self.file_ui = FileBoundary(self.fixture.state_root / ('feature-script-' + 'a' * 32))
+        measured = observed(statusText='actual native root', labelText='actual separate label')
+        original = self.file_ui.capture
+        def capture():
+            value = original()
+            for row in value['controls']:
+                if row['id'] == 'scripts.from-file': row['manager'] = dict(measured)
+            return value
+        self.file_ui.capture = capture
+        self.instance.invoke(self.native.target, 'scripts.manager.open', {})
+        return measured
+
+    def test_pico_manager_status_keeps_original_separate_label_values_without_input(self):
+        measured = self.manager_status_source(); before = list(self.qt.inputs)
+        self.assertEqual(measured, self.instance._script_manager_status(self.native.target))
+        measured['labelText'] = 'new actual label'
+        self.assertEqual(measured, self.instance._script_manager_status(self.native.target))
+        self.assertEqual(before, self.qt.inputs)
+
+    def test_pico_manager_status_unavailable_or_foreign_context_cannot_be_adopted(self):
+        measured = self.manager_status_source()
+        measured['componentSource'] = 'file:///foreign.qml'
+        with self.assertRaisesRegex(ValueError, 'OVT_PICO_BINDING_REJECTED'):
+            self.instance._script_manager_status(self.native.target)
+        measured.clear(); measured.update(managerSourceVersion=1, available=False)
+        with self.assertRaisesRegex(ValueError, 'OVT_PICO_BINDING_REJECTED'):
+            self.instance._script_manager_status(self.native.target)
+
+    def test_pico_manager_status_changed_candidate_cannot_query_or_deliver_input(self):
+        self.manager_status_source(); before = list(self.qt.inputs); self.native.digest = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'OVT_PICO_BINDING_REJECTED'):
+            self.instance._script_manager_status(self.native.target)
+        self.assertEqual(before, self.qt.inputs)
+
     def account_origin(self):
         source=AccountOriginBoundary(self.fixture.state_root/'native-origin-files');native=NativeFeatureBoundary()
         def captured(value):

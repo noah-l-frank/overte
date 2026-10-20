@@ -236,6 +236,12 @@ def create_adapter(args, base_class):
             result.sample()
             return result
 
+        @_private
+        def _script_manager_status(self, target):
+            from adapters.script_manager_status import manager_status
+            ui, _observe, _binding = self._script_runtime(target)
+            return manager_status(ui.io.capture())
+
         def _script_restart_store(self, target):
             state, _ui = self._script_paths(target)
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'normal-script-restart-')))

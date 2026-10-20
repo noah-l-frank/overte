@@ -121,7 +121,7 @@ def validate_snapshot(value, process_id, epoch_ms):
             fields |= audio_metadata_fields(control['id'])
         elif file_control(control['id']):
             need(value.get('fileControlsVersion') == 1)
-            fields |= file_metadata_fields(control['id'])
+            fields |= file_metadata_fields(control['id'], control)
         elif script_control(control['id']):
             need(value.get('featureControlsVersion') == 1)
             fields |= metadata_fields(control['id'])

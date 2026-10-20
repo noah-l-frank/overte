@@ -1,5 +1,14 @@
 # Pico feature adapter implementation status
 
+Internal `_script_manager_status` now reads the [original manager display source](../../native/SCRIPT_MANAGER_STATUS.md)
+through the existing private Pico Qt/OpenXR observation. The closed parser admits
+optional manager metadata only on the From File carrier, preserves distinct
+actual root/Label text and refuses missing/unavailable/foreign sources. It sends
+no UI input and keeps candidate/process checks. All **72** normal-Scripts host
+cases pass. Native UI/SDK boundaries are synthetic; native instrumentation is
+uncompiled and devices untested. Full callback/display/actor/effect/quiet-cleanup
+composition and complete feature triples remain open.
+
 Internal `_script_missing_manager` now composes [missing-load v1](../../native/SCRIPT_MISSING_LOAD.md)
 with ordinary menu/From URL/token field input, original callback history and
 independent current service rows. The existing native input validator adds only
