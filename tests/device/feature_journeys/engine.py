@@ -70,6 +70,9 @@ class Journey:
         captured, epoch = value['capturedEpochMs'], number(self.epoch_ms(), 1)
         if captured < self.last_epoch or captured < barrier or captured > epoch + 250 or epoch - captured > 1500:
             raise ValueError('Actual product sample is stale or from a different clock context')
+        if (self.area=='lifecycle-input' and self.samples
+                and any(value['state'][key]<self.samples[-1]['state'][key] for key in ('worldAttempts','staleAttempts'))):
+            raise ValueError('Original native input history was reset or replaced')
         self.sequence, self.last_epoch = value['sequence'], captured
         return value
 
@@ -175,10 +178,17 @@ class Journey:
         last_problem = 'required product state was not observed'
         initial_effects = None
         actual_lifecycle=None
+        release_position=None
         for _attempt in range(81):
             value = self.observe(ticket, barrier)
             current = self.now()
             okay = matches(value['state'], expected)
+            if self.area=='lifecycle-input' and label.endswith('-release-input'):
+                position=tuple(value['state']['positionDelta'][key] for key in ('x','y','z'))
+                if release_position is not None and math.dist(position,release_position)>0.025:
+                    stable_since=None;stable_count=0
+                    release_position=position
+                if release_position is None:release_position=position
             if self.browser_transition is not None:
                 transition,before=self.browser_transition
                 loads=value['state']['documentLoads']
@@ -331,6 +341,7 @@ class Journey:
                 # Negative/cancellation/quiet assertions must remain true for a
                 # full observation window; an early empty sample is insufficient.
                 negative = (any(word in step['verb'] for word in ('cancel', 'denied', 'reject', 'stale', 'foreign', 'stop', 'delete', 'discard'))
+                    or self.area=='lifecycle-input' and step['verb'] in {'back','release-input','close-editor'}
                     or self.area=='assets' and step['verb'] in {'inspect-baking-unavailable','upload-picker-accept-unavailable','retire-staged-primary'}
                     or self.area=='chat' and step['verb'] in {'close','peer-send-distant','network-remove-mixer','network-restore-mixer','await-no-replay'}
                     or self.area in {'world-web','tablet-web'} and step['verb'] in {'restore-resource','deliver-retired-inline-message','close'})
@@ -351,7 +362,13 @@ class Journey:
                     # Idempotence must be real. Two acknowledgments alone cannot
                     # establish removal or restoration of the initial state.
                     self.call('cleanup')
-                    self.wait('cleanup-restored-baseline', ticket, barrier, expected_baseline, ['peer'], duration=3.0)
+                    cleanup_baseline=dict(expected_baseline)
+                    if self.area=='lifecycle-input':
+                        # Original event history remains immutable after its
+                        # active owner retires. Cleanup cannot reset a counter.
+                        for key in ('worldAttempts','staleAttempts'):
+                            cleanup_baseline[key]=self.samples[-1]['state'][key]
+                    self.wait('cleanup-restored-baseline', ticket, barrier, cleanup_baseline, ['peer'], duration=3.0)
                     cleanup_okay = True
                 except BaseException as error:
                     cleanup_errors.append(error)

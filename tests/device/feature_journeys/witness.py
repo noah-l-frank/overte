@@ -33,7 +33,7 @@ WITNESS_KEYS = {
  'snapshots': ['open','pending','captureHistory','files','saved','uploads','shares','saveBackend','savePermission','saveSheet','shareSheet','error'],
  'scripts': ['running', 'effects', 'companions'],
  'assets': ['mappings', 'selected', 'baking', 'bakeState', 'bakeAvailable', 'canWrite', 'deleteEnabled', 'error', 'open', 'sceneModel', 'companions', 'picker', 'pickerFile', 'stagedAvailable'],
- 'lifecycle-input': ['heldInputs', 'worldDisplacement', 'generation'],
+ 'lifecycle-input': ['editor','text','keyboard','focused','heldInputs','worldDisplacement','positionDelta','generation','deferredInputs','worldAttempts','staleAttempts'],
 }
 
 
