@@ -21,6 +21,7 @@ from self_tests.test_token_script_ui import NativeBoundary, SOURCE
 from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
+from adapters.normal_feature_state import PrivateFeatureState
 from adapters.token_graphics_ui import TokenGraphicsUI
 from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
@@ -685,6 +686,46 @@ class PicoNormalScriptsTests(unittest.TestCase):
                 monotonic=lambda: source.clock, sleep=source.sleep))):
             boundary.start(); self.addCleanup(boundary.stop)
         return source, self.instance._script_files(self.native.target)
+
+    def file_manager(self):
+        source, files = self.file_storage(); files.stage('a' * 32)
+        self.file_ui = FileBoundary(source.root)
+        original = self.file_ui.activate
+        def input(identifier, **kwargs):
+            path, _ui = self.instance._script_paths(self.native.target)
+            state = PrivateFeatureState(path).read()
+            if identifier == 'scripts.from-file':
+                self.assertTrue(state['pickerOwned']); self.file_ui.chosen = []
+            if identifier == 'script-file.confirm': self.assertTrue(state['loadAttempted'])
+            original(identifier, **kwargs)
+            if identifier == 'script-file.confirm' and self.file_ui.accepted:
+                actual = self.file_ui.accepted[-1]; self.qt.rows.append(dict(url=actual, path=actual))
+        self.file_ui.activate = input
+        boundary = patch.object(pico_binding, 'TokenScriptFilePicker', partial(TokenScriptFilePicker,
+            monotonic=lambda: self.file_ui.clock, sleep=self.file_ui.sleep))
+        boundary.start(); self.addCleanup(boundary.stop)
+        return source, files, self.instance._script_file_manager(self.native.target)
+
+    def test_pico_file_manager_journals_normal_selection_and_separate_native_file_absence(self):
+        source, files, manager = self.file_manager()
+        manager.open(); manager.file_picker_open(); manager.file_picker_cancel()
+        manager = self.instance._script_file_manager(self.native.target)
+        manager.file_picker_open(); manager.file_picker_choose('script-bundle/main.js')
+        actual = self.file_ui.accepted[-1]
+        self.assertEqual((source.root / 'script-bundle/main.js').as_uri(), actual)
+        manager.stop_source(actual); manager.close()
+        path, _ui = self.instance._script_paths(self.native.target)
+        self.assertIsNone(PrivateFeatureState(path).read())
+        self.assertTrue(source.root.exists()); files.release(); self.assertFalse(source.root.exists())
+        self.assertFalse(any(cap.startswith('feature.') for cap in self.instance.capabilities()))
+
+    def test_pico_file_manager_candidate_loss_blocks_input_and_preserves_original_owners(self):
+        source, files, manager = self.file_manager(); manager.open(); manager.file_picker_open()
+        before = (len(self.native.inputs), len(source.commands)); self.native.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): manager.file_picker_choose('script.js')
+        self.assertEqual(before, (len(self.native.inputs), len(source.commands)))
+        path, _ui = self.instance._script_paths(self.native.target)
+        self.assertTrue(PrivateFeatureState(path).read()['pickerOwned']); self.assertIsNotNone(files.store.read())
 
     def test_pico_staged_original_bytes_use_bound_transport_and_separate_release_absence(self):
         source, files = self.file_storage()

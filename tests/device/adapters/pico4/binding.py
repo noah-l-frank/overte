@@ -183,15 +183,19 @@ def create_adapter(args, base_class):
             directory = self.pico_configuration[1]
             return directory / ('normal-script-state-' + key + '.json'), directory / ('normal-script-ui-' + key + '.json')
 
-        def _scripts(self, target):
+        def _script_runtime(self, target):
             scene = normal_scripts.configuration(os.environ)
             _need(scene is not None and self.pico_configuration is not None
                   and candidate['e2e_input_layer'] is True)
             identity = self.require_controlled_debug_identity(target)
             installed = self._installation(target)
-            state, ui = self._script_paths(target)
-            return normal_scripts.flow(self, target, scene, installed, identity, state, ui,
+            _state, ui = self._script_paths(target)
+            return normal_scripts.runtime(self, target, scene, installed, identity, ui,
                 lambda operation: super(PicoBoundAdapter, self).invoke(target, operation, {}))
+
+        def _scripts(self, target):
+            state, _ui = self._script_paths(target)
+            return normal_scripts.manager(*self._script_runtime(target), state)
 
         def _script_files_store(self, target):
             state, _ui = self._script_paths(target)
@@ -199,13 +203,25 @@ def create_adapter(args, base_class):
 
         @_private
         def _script_files(self, target):
-            manager = self._scripts(target)
+            _ui, _observe, binding = self._script_runtime(target)
+            return self._bound_script_files(target, binding)
+
+        def _bound_script_files(self, target, binding):
             native = self._native_feature_observer(target)
             files = NativeScriptFiles(native.send,
                 lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
                     'files/overte-e2e/' + SCRIPT_FIXTURE_FILE, attempts=1),
                 native.clock_ms, native.guard, native.pid)
-            return OwnedScriptFiles(files, self._script_files_store(target), manager.binding)
+            return OwnedScriptFiles(files, self._script_files_store(target), binding)
+
+        @_private
+        def _script_file_manager(self, target):
+            ui, observe, binding = self._script_runtime(target)
+            files = self._bound_script_files(target, binding)
+            directory = files.verify()
+            picker = TokenScriptFilePicker(ui.io, directory)
+            state, _ui = self._script_paths(target)
+            return normal_scripts.manager(ui, observe, binding, state, file_owner=files, file_picker=picker)
 
         def _graphics_controls(self, target, intent):
             from adapters.token_graphics_ui import TokenGraphicsUI
@@ -259,10 +275,9 @@ def create_adapter(args, base_class):
             return TokenAudioUI(PicoAudioIO(manager.ui.io), intent)
 
         def _script_file_picker(self, target, directory):
-            # Reuse the original candidate/OpenXR/normal Script UI context.
-            # Persistent file ownership and the full v2 effect join come later.
-            manager = self._scripts(target)
-            return TokenScriptFilePicker(manager.ui.io, directory)
+            # Original candidate/OpenXR UI source, independent of manager journal mode.
+            ui, _observe, _binding = self._script_runtime(target)
+            return TokenScriptFilePicker(ui.io, directory)
 
         def _navigation_path(self, target):
             _need(self.pico_configuration is not None)

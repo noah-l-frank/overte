@@ -1,5 +1,17 @@
 # Pico feature adapter implementation status
 
+Current file-bundle input packet: `_script_file_manager(target)` composes the
+[existing file ownership scope](../../native/SCRIPT_FILE_OWNERSHIP.md) with the
+actual candidate/OpenXR-bound VR manager, original staged bytes and normal file
+picker. File/GUI source factories now reuse the original UI runtime independently
+of the manager journal's URL/file mode. All **55** normal-Scripts and **21**
+native-feature host checks pass, including normal cancel/select/stop, separately
+observed file absence and candidate loss retaining both original intents.
+Native/VR/storage boundaries are synthetic. Full Scripts coordination,
+independent effect/peer cleanup and restart adoption remain missing; unresolved
+file intent still prevents general cleanup from returning green. Native source
+is uncompiled, and devices remain untested.
+
 Current Scripts packet: the candidate/OpenXR/PID-start-bound execution factory
 preserves [original load history v1](../../native/SCRIPT_LOAD_HISTORY.md), including
 actual failure status and original callback epochs. A new source case rejects

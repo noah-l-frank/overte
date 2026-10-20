@@ -67,7 +67,7 @@ class PicoScriptIO:
         self.navigation.io.bind_input()
 
 
-def flow(adapter, target, scene, installed, identity, state_path, ui_path, controller):
+def runtime(adapter, target, scene, installed, identity, ui_path, controller):
     native = NativeNavigationIO(adapter, target, identity, controller)
     navigation = PicoNavigation(native, ui_path, installed, identity, scene)
     io = PicoScriptIO(navigation)  # Refuse a missing actual producer before UI.
@@ -78,6 +78,17 @@ def flow(adapter, target, scene, installed, identity, state_path, ui_path, contr
     binding = {key: installed[key] for key in ('sourceRevision', 'artifactSha256')}
     binding.update(processIdentity=identity, sessionId=io.bridge, generation=0,
         targetFingerprint=hashlib.sha256((target + '\0' + str(adapter.pico_configuration)).encode()).hexdigest())
-    result = NormalScriptManager(TokenScriptUI(io), observe, PrivateFeatureState(state_path), binding)
+    return TokenScriptUI(io), observe, binding
+
+
+def manager(ui, observe, binding, state_path, *, file_owner=None, file_picker=None):
+    options = {} if file_owner is None else dict(source_kind='script-file-bundle',
+        file_owner=file_owner, file_picker=file_picker)
+    need(file_owner is not None or file_picker is None)
+    result = NormalScriptManager(ui, observe, PrivateFeatureState(state_path), binding, **options)
     result.sample()
     return result
+
+
+def flow(adapter, target, scene, installed, identity, state_path, ui_path, controller):
+    return manager(*runtime(adapter, target, scene, installed, identity, ui_path, controller), state_path)
