@@ -719,7 +719,7 @@ class IsolatedConsumerTests(unittest.TestCase):
                 for path in sources}
             candidates=[row for row in catalog if row['name'] in {
                 'protected-producer-original-default-required-context-v1',
-                'protected-producer-optional-parent-source-v1'} and row['workflows']==actual]
+                'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'} and row['workflows']==actual]
             self.assertLessEqual(len(candidates),1)
             future=candidates[0] if candidates else None
             if future is None:
@@ -1267,7 +1267,7 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         self.assertIn(generation,{'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-v1',
             'protected-producer-original-default-boolean-v1',
             'protected-producer-original-default-required-context-v1',
-            'protected-producer-optional-parent-source-v1'})
+            'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'})
         return packages,generation
 
     def setUp(self):
@@ -1393,7 +1393,7 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         if generation in {'protected-producer-original-default-v1',
                 'protected-producer-original-default-boolean-v1',
                 'protected-producer-original-default-required-context-v1',
-                'protected-producer-optional-parent-source-v1'}:
+                'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'}:
             self.assertEqual(active,path.read_text())
             self.assertIn('expected-empty-setup',active)
             # Bind every independently stored canonical endpoint as well as the
@@ -1404,6 +1404,8 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
                 '.github/workflows/sync-validation.yml':'sync-ci-selection.yml',
                 '.github/workflows/browser-client.yml':'npm-consumers/browser-client.yml',
                 '.github/workflows/pr-metadata-context.yml':'metadata-edits/pr-metadata-context.yml'}
+            if generation=='protected-producer-optional-leaf-common-v1':
+                sources['.github/workflows/project-tests.yml']='producers/protected-project-tests-optional-leaf.yml'
             self.assertEqual(set(sources),set(packages.METADATA_WORKFLOW_PATHS))
             for target,relative in sources.items():
                 actual=(VALIDATION.ROOT/target).read_bytes()

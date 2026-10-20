@@ -1125,6 +1125,21 @@ fallback. Deploy this capability before the consumer-only correction: that
 later ordinary source update preserves identical `SELF` bytes and can exercise
 the new partial-current-parent path without a dummy qualification run.
 
+The preregistered successor `protected-producer-optional-leaf-common-v1` adds a
+separate current-controller import capability for normal protected leaf pushes
+on `apple-ios`, `android-phone` and `android-vr-pico`. It authenticates the native
+original attempt, App/job, complete installed recipe, actual merged PR and fresh
+protected refs before common candidate checkout or setup. Only when the original
+`B` cannot satisfy strict `B/D` source compatibility may the optional common
+qualification emit `UNAVAILABLE`: no executed suites, PASS, environment or
+receipt. The aggregate independently derives and authenticates that decision.
+Compatible sources retain the existing common execution path. Required PR,
+package, tool and separate Android platform owners remain unchanged; actual
+platform execution retains strict original-source admission. Preregistration
+leaves generation27 and its historical canonical recipe installed. Activate only
+the exact registered project successor after its source is protected on main,
+then propagate the combined ancestry once to the six child branches.
+
 Deployment requires two stages. The trusted helpers and approved templates
 must land on the default branch before installing the exact project, parent and sync
 templates plus the appropriate outer caller. The package caller with direct
@@ -1899,3 +1914,46 @@ owner. It retains CI37 and the independent iOS host contracts while avoiding
 unrelated shared product suites and an application build. Global CI path
 ownership and reader digests remain unchanged; partial, mixed, unknown,
 nonregular or differently targeted changes retain conservative coverage.
+
+The project aggregate authenticates route outputs according to their actual
+native event. A PR descriptor must provide the literal `protected_full` value;
+a supported leaf push omits that PR-only output and cannot claim a descriptor
+producer. Package and platform result verification remains independent in both
+cases. An absent push field is not interpreted as a PR qualification.
+
+The manual shared-host diagnostic uses isolated Python with bytecode writes
+disabled (`-I -B`), so loading reviewed source does not alter its retained
+inventory. A production pre-execution decline reports only the existing bounded
+public failure summary. It does not log raw exception arguments or environment
+values, qualify execution, or retry an executor after suites have started.
+
+Native Sync validation distinguishes the workflow caller's actual immutable
+source from the current PR base. For `pull_request_target`, the caller must be
+an independently proven ancestor of that base, and both caller and current
+workflow recipes must still match the trusted default recipe exactly. Native
+App, original attempt, association and current base/head/merge checks remain
+required at both bookends. Manual validation still requires the exact current
+default caller; an older caller never replaces the current merge context.
+
+The source-staged `codeql-upload-provenance.yml` successor records the pinned
+Analyze action's opaque `sarif-id` output in one small native artifact per selected
+language. The protected reader authenticates the original job/App, immutable
+workflow/source, actual attempt, whole archive digest and exact upload metadata,
+then reads that specific SARIF processing status and analysis. This binds delayed
+server processing without extending the legacy analysis-created job window or
+interpreting an upload ID as a timestamp. Error-free `errors: null` and `errors: []`
+are accepted; processing errors, unknown or missing uploads, altered artifacts,
+open findings and changed source/native bookends still fail closed.
+
+Only specific authenticated pending uploads receive a bounded twenty-minute wait;
+the new result job has a twenty-five-minute budget. A wholly fresh retry must
+succeed with its own complete selector/analyzer inventory and actual attempt's
+uploads. A result-only second attempt may use analysis attempt one only when all
+its selected analyzers and selector succeeded, its sole failure was the result
+verification step, and attempt two contains only the genuine native result job.
+It never combines languages from different attempts or ignores a newer failed
+analyzer. Ordinary and text-edit result consumers retain both real attempts and
+fresh current-PR, default-source, native-job and artifact bookends. This provides
+security-result verification, not a test-environment receipt or reuse authority.
+The old seven recipes remain unchanged; the new recipe must first be protected
+and explicitly activated before it can supply this proof.
