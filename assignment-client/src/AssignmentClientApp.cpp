@@ -111,6 +111,12 @@ AssignmentClientApp::AssignmentClientApp(int argc, char* argv[]) :
     const QCommandLineOption forceCrashReportingOption("forceCrashReporting", "Force crash reporting to initialize.");
     parser.addOption(forceCrashReportingOption);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Explicit opt-in for native read-only fixture sources, not a script path
+    // or a replacement assignment. Normal assignment behavior is unchanged.
+    parser.addOption(QCommandLineOption("testScript","Enable E2E-only native observation sources for an owned fixture actor."));
+#endif
+
     if (!parser.parse(QCoreApplication::arguments())) {
         std::cout << parser.errorText().toStdString() << std::endl; // Avoid Qt log spam
         parser.showHelp();

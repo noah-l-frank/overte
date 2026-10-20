@@ -43,7 +43,13 @@ MessagesClient::MessagesClient() {
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 QVariantMap MessagesClient::featureChatObservation(const QVariantMap& command) {
-    if (QThread::currentThread() != thread()) { return {}; }
+    if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    if (QThread::currentThread() != thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap original;
+        if (!QMetaObject::invokeMethod(this,[&] { original=featureChatObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return original;
+    }
     const auto nodes = DependencyManager::get<NodeList>();
     const auto mixer = nodes->soloNodeOfType(NodeType::MessagesMixer);
     return _featureChat.request(command, nodes->getSessionUUID(), mixer ? mixer->getUUID() : QUuid());
