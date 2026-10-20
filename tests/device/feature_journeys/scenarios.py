@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 12
+VERSION = 13
 
 
 def emote_rows():
@@ -295,24 +295,47 @@ SCENARIOS = {
     ('load-url', dict(resource='missing.js'), dict(error='not-found'), ['peer']),
     ('close', {}, dict(open=False, error='none'), []),
 ]),
-'assets': scenario('Asset mappings, companion import, bake, permissions and deletion',
-    dict(mappings=[], selected='', baking=False, bakeState='none', canWrite=True, error='none', open=False, sceneModel=False, companions=[]), [
-    ('open', {}, dict(open=True), []),
-    ('upload-cancel', dict(resource='model.gltf'), {}, ['peer']),
-    ('upload', dict(resource='model.gltf'), dict(mappings=['$name'], selected='$name', companions=['mesh/triangle.bin', 'textures/checker.png']), ['peer']),
-    ('browse', dict(name='$name'), {}, ['image', 'peer']),
-    ('rename', dict(name='$renamed'), dict(mappings=['$renamed'], selected='$renamed'), ['peer']),
-    ('bake', {}, dict(bakeState='ready'), ['image', 'peer']),
-    ('import-selected', {}, dict(sceneModel=True), ['changed', 'file', 'peer']),
-    ('remove-owned-model', {}, dict(sceneModel=False), ['changed', 'peer']),
-    ('set-write-permission', dict(allowed=False), dict(canWrite=False), ['peer']),
-    ('delete-denied', {}, dict(error='permission-denied'), ['peer']),
-    ('set-write-permission', dict(allowed=True), dict(canWrite=True, error='none'), ['peer']),
-    ('delete-owned', {}, dict(mappings=[], selected='', bakeState='none', companions=[]), ['peer']),
-    ('upload', dict(resource='model.obj'), dict(mappings=['$name'], selected='$name', companions=['materials/palette.mtl', 'textures/checker.png']), ['peer']),
-    ('delete-owned', {}, dict(mappings=[], selected='', companions=[]), ['peer']),
-    ('upload', dict(resource='missing.gltf'), dict(error='not-found'), ['peer']),
-    ('close', {}, dict(open=False, error='none'), []),
+# AssetServer only bakes FBX. Preserve bundle-relative filenames/extensions;
+# ordinary Delete is disabled without write permission and cannot show an error.
+'assets': scenario('Actual bundle mappings, FBX baking, disabled Delete and vanished picker file',
+    dict(mappings=[], selected='', baking=False, bakeState='none', bakeAvailable=False,
+         canWrite=True, deleteEnabled=False, error='none', open=False, sceneModel=False,
+         companions=[], picker=False, pickerFile='', stagedAvailable=False), [
+    ('open', {}, dict(open=True), ['peer']),
+    ('upload-picker-open', dict(resource='gltf-bundle/main.gltf'), dict(picker=True,stagedAvailable=True), ['peer']),
+    ('upload-picker-cancel', {}, dict(picker=False,stagedAvailable=False), ['peer']),
+    ('upload', dict(resource='gltf-bundle/main.gltf'), dict(mappings=['$assetGltf','$assetBin','$assetTexture'],
+        selected='$assetGltf', companions=['mesh/triangle.bin','textures/checker.png'],
+        bakeState='unsupported',deleteEnabled=True), ['peer']),
+    ('browse', dict(name='$assetGltf'), {}, ['image','peer']),
+    ('rename-folder', dict(name='$renamed'), dict(mappings=['$renamedAssetGltf','$renamedAssetBin','$renamedAssetTexture'],
+        selected='$renamedAssetGltf'), ['peer']),
+    ('inspect-baking-unavailable', {}, {}, ['peer']),
+    ('import-selected', {}, dict(sceneModel=True), ['changed','file','peer']),
+    ('remove-owned-model', {}, dict(sceneModel=False), ['changed','peer']),
+    ('set-write-permission', dict(allowed=False), dict(canWrite=False,deleteEnabled=False), ['peer']),
+    ('delete-denied', {}, {}, ['peer']),
+    ('set-write-permission', dict(allowed=True), dict(canWrite=True,deleteEnabled=True), ['peer']),
+    ('delete-owned', {}, dict(mappings=[],selected='',bakeState='none',deleteEnabled=False,companions=[]), ['peer']),
+    ('upload', dict(resource='obj-bundle/main.obj'), dict(mappings=['$assetObj','$assetMtl','$assetTexture'],
+        selected='$assetObj',companions=['materials/palette.mtl','textures/checker.png'],
+        bakeState='unsupported',deleteEnabled=True), ['peer']),
+    ('import-selected', {}, dict(sceneModel=True), ['changed','peer']),
+    ('remove-owned-model', {}, dict(sceneModel=False), ['changed','peer']),
+    ('delete-owned', {}, dict(mappings=[],selected='',bakeState='none',deleteEnabled=False,companions=[]), ['peer']),
+    ('upload', dict(resource='asset-stand.fbx'), dict(mappings=['$assetFbx'],selected='$assetFbx',
+        bakeAvailable=True,deleteEnabled=True,bakeState='ready',baking=False), ['peer']),
+    ('set-baking', dict(enabled=False), dict(bakeState='disabled',baking=False), ['peer']),
+    ('set-baking', dict(enabled=True), dict(bakeState='ready',baking=False), ['image','peer']),
+    ('import-selected', {}, dict(sceneModel=True), ['changed','peer']),
+    ('remove-owned-model', {}, dict(sceneModel=False), ['changed','peer']),
+    ('delete-owned', {}, dict(mappings=[],selected='',bakeState='none',bakeAvailable=False,deleteEnabled=False), ['peer']),
+    ('upload-picker-open', dict(resource='gltf-bundle/main.gltf'), dict(picker=True,stagedAvailable=True), ['peer']),
+    ('upload-picker-select', {}, dict(pickerFile='main.gltf'), ['peer']),
+    ('retire-staged-primary', {}, dict(stagedAvailable=False), ['peer']),
+    ('upload-picker-accept-unavailable', {}, dict(error='file-unavailable'), ['peer']),
+    ('upload-picker-cancel', {}, dict(picker=False,pickerFile='',error='none'), ['peer']),
+    ('close', {}, dict(open=False), ['peer']),
 ]),
 'lifecycle-input': scenario('Feature editor focus, Back and background ownership',
     dict(editor='none', text='', keyboard=False, focused=False, heldInputs=[], worldDisplacement=0.0, generation=1), [

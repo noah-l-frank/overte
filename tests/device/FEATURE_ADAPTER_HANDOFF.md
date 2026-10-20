@@ -1,32 +1,32 @@
-# Feature adapter handoff, contract v12
+# Feature adapter handoff, contract v13
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
-packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v12.json) and
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v13.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 tracks subsequent local platform packets and prerequisites. These do not change
-the complete v12 contract or grant device acceptance.
+the complete v13 contract or grant device acceptance.
 
 ## Action and read boundary
 
 For each closed area, advertise all three operations only after implementing
-and qualifying their complete v12 contract:
+and qualifying their complete v13 contract:
 
-- `feature.<area>.act` accepts exactly `{contractVersion: 12, runId, ticket,
+- `feature.<area>.act` accepts exactly `{contractVersion: 13, runId, ticket,
   fixtureUrl, verb, inputs}`. `runId` and `ticket` are fresh 32-character lowercase
   hexadecimal strings. `fixtureUrl` is a credential-free HTTP(S) URL whose exact
   path is `/feature-fixture/v1/runs/<runId>/`. `verb` and `inputs` must match the
   closed inventory, including expanded owned text. Return exactly
   `{"performed": true}` after delivering ordinary input, never a result verdict.
-- `feature.<area>.observe` accepts exactly `{contractVersion: 12, runId,
-  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 12,
+- `feature.<area>.observe` accepts exactly `{contractVersion: 13, runId,
+  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 13,
   runId, sequence, capturedEpochMs, state, artifacts, resources, lifecycle}`.
   `state` has every field declared for that area, measured from current product
   state. Unknown, inaccessible or unsupported observations are errors. Empty
   lists and default values cannot substitute for a failed read.
-- `feature.<area>.cleanup` accepts exactly `{contractVersion: 12, runId}` and
+- `feature.<area>.cleanup` accepts exactly `{contractVersion: 13, runId}` and
   returns exactly `{"performed": true}`. Restore only the captured owned test
   scope. The common test calls it twice and then independently observes the
   initial state, empty owned-resource inventory and three seconds of stable
@@ -213,7 +213,7 @@ receipt, requested value or UI text alone cannot substitute for an effect.
 | chat | Acquire original rendered channel rows, persisted Local/Domain histories and actual active MessagesMixer presence separately from the independently received peer ledger. `select-channel` uses Local/Domain tabs; it does not block a peer. A Domain payload arriving while Local is selected remains in Domain history and becomes visible on switching back. A Local sender more than 20 metres away is rejected. Close destroys the owned page and cancels an unsent draft; reopening starts on Local and reconstructs original persisted history. Sane mixer removal must be observed before offline Send: native MessagesClient then emits local-only echo, QML clears the draft, and the actual remote peer receives nothing. Restoring the mixer never queues/replays that message; require a full three-second quiet window. Explicitly retype before resending: local Domain history contains the two actual copies while the remote peer contains exactly one retry. No offline banner, preserved draft or delivery ACK is invented. |
 | snapshots | Independently witness original pending/cancel/complete history, actual review/system sheets, supported Save backend and OS authorization, app-private captures, OS-saved originals, share-receiver files and authenticated upload bodies. Denied Photos Save retains a valid private capture; Android Save needs no storage permission. A chooser callback is handoff only. Read original bytes from each destination and require equality with the pinned private PNG. Cleanup removes only owned originals and restores measured authorization. See SNAPSHOT_SOURCE.md for exact profiles and cancellation timing. |
 | scripts | `picker-open` activates the existing Running Scripts **From File** control and observes the real **Open Script and Companion Files** picker. `picker-cancel` dismisses it and leaves zero running engines/effects. `picker-accept` chooses the owned `script.js` plus companion or `script-bundle/main.js` with its relative `companion.js`, using the platform's real file/bundle picker. The accepted source loads directly; no client-script consent dialog is invented. `companions` lists actual relative modules resolved by the current owned engine, not requested filenames or retained staged-file presence. Read actual running engines and the ticking owned entity independently. Restart starts actual execution from the retained owned source again. `effects` must advance at least two actual ticks in a successful observation window; Stop leaves zero active effects/engines/entities/companions. The separate `load-url` uses From URL with the owned missing.js URL; actual load failure leaves no running engine. Entity-script consent remains in the reused `scripted-entity` suite. |
-| assets | Independently enumerate owned server mappings, selected resolved resource, finished bake output, actual rezzed model and effective write permissions. `import-selected` uses the real Add to World button and model dialog; `remove-owned-model` deletes only that owned entity through normal Create controls. Only this run's unpredictable mapping names may change. `mappings` lists owned bundle roots; `companions` lists every mapped relative dependency (glTF mesh/texture or OBJ material/texture), so partial uploads and leaked companions fail. glTF and OBJ companions must remain resolvable. Bake `ready` means usable derived output, not queued work. Denied delete preserves mapping; permitted delete removes it; missing upload cannot create one. |
+| assets | [Version 13 source contract](feature_journeys/ASSETS_SOURCE.md): exact original glTF/OBJ primary/companion mapping paths, normal folder rename preserving references, real FBX bake disable/enable with actual server/oven originals, independently loaded world models, actual disabled Delete without invented permission error, and real selected-file disappearance before normal picker confirmation. All fourteen state fields require independent current observations. |
 | lifecycle-input | Observe actual editor/focus/keyboard ownership, held-input routes, world displacement from independent native positions and context generations. World input while editing produces no displacement. Back first releases keyboard, then closes editor. Replace context before delayed input; the new context remains empty. World input works once focus is released and remains bounded; cleanup releases every held route and restores position. |
 
 Normalize only documented public aliases. The actor may retain private IDs in
