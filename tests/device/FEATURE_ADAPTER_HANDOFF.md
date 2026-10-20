@@ -24,6 +24,13 @@ than infer success/error from that signal or manager membership. File and
 execution receipt readers use separate native clocks, including the iOS
 HTTP/AFC factories. Full Scripts coordination and restart ownership remain open.
 
+The existing Script manager now also has a
+[controlled file-bundle ownership scope](native/SCRIPT_FILE_OWNERSHIP.md): it
+journals actual original file ownership and picker/load intent before normal
+selection, preserves failed cleanup for recovery, and keeps public URL
+foundation contracts unchanged. Platform factories and verified restart
+adoption for this scope remain pending; it enables no full feature capability.
+
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
 packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v15.json) and
