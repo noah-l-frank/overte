@@ -196,7 +196,7 @@ class ScriptRestartHandoff:
                  and not any(_under(row['url'], directory) or _under(row['path'], directory) for row in service['scripts']))
             service_instance, service_sequence = service['instance'], service['sampleSequence']
             need(ui.tablet_visible() is False and ui.manager_visible() is False
-                 and picker.picker(picker.capture()) is None)
+                 and picker.picker(picker.observe_absent()) is None)
             # Include original I/O and guard time in the whole handoff bound.
             need(presence.guard() is not False and execution.guard() is not False and files.guard() is not False)
             now = self.monotonic(); need(number(now, 0, 1e15) and now >= previous and now - started < 20)
