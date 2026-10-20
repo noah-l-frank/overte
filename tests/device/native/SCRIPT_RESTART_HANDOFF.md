@@ -78,6 +78,15 @@ events, produce independent actor facts, observe sticky missing-URL status and
 coordinate full uncertain-load/effect/file cleanup. It must refuse general
 cleanup while a handoff remains unresolved. These joins remain unimplemented.
 
+Internal prepare/adopt factories are now connected on all three separate local
+platform branches. Phone preserves installed APK/PID-start/session guards; Pico
+preserves installed candidate/OpenXR/foreground guards and actual closed-unready
+tablet semantics. iOS uses original HTTP/AFC plus separate native clocks, retains
+explicit component-only binding and guards physical entrypoints before any
+session/owner I/O; legacy unbound paths refuse. Every platform's general cleanup
+refuses an unresolved handoff even if other host owners are absent. These
+factories still do not perform lifecycle input or advertise a complete feature.
+
 Host counterexamples use actual private journals and original temporary fixture
 bytes with synthetic OS/native/UI boundaries. They cover old process permission
 or presence, wrong candidate/target/source, missing/changed/relocated originals,

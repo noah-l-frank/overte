@@ -41,6 +41,15 @@ was changed.
 
 ## Implemented source packets
 
+The [Script restart ownership transaction v1](native/SCRIPT_RESTART_HANDOFF.md)
+and the three internal platform prepare/adopt factories verify original old-PID
+exit, new native birth/empty execution, unchanged original file bytes and closed
+manager/picker before a recoverable two-record binding transfer. Pico's actual
+closed `ready:false` tablet is accepted only for read-only absence; input gates
+remain strict. The transaction issues no app/UI/Script input and cannot replace
+full lifecycle orchestration, independent actor/error or final effect/file
+cleanup. Host simulations check these ownership rules, not native/device behavior.
+
 Phone's existing candidate-bound Appium wrapper now implements all five
 `scripts.*` foundation operations and all eight `create.*` foundation operations.
 Inputs use ordinary native Tablet, source dialogs, exact script rows, Create
