@@ -213,7 +213,7 @@ jobs:
             RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" ImageOS="$ImageOS" ImageVersion="$ImageVersion" \
             QUALIFY_GITHUB_ENV="$GITHUB_ENV" QUALIFY_GITHUB_OUTPUT="$GITHUB_OUTPUT" \
             QUALIFY_NODE_ROOT="$NODE_ROOT" QUALIFY_JAVA_HOME="${JAVA_HOME:-}" \
-            /usr/bin/python3 -I "$GITHUB_WORKSPACE/tools/test-evidence/sandbox_host.py" --profile "$DIAGNOSTIC_PROFILE" \
+            /usr/bin/python3 -I -B "$GITHUB_WORKSPACE/tools/test-evidence/sandbox_host.py" --profile "$DIAGNOSTIC_PROFILE" \
             | /usr/bin/tee "$RUNNER_TEMP/shared-sandbox-diagnostic/result.json" > /dev/null
         env:
           DIAGNOSTIC_PROFILE: ${{ inputs.profile }}

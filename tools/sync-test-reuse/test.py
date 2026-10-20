@@ -2225,6 +2225,117 @@ class EffectiveBaseTopologyTests(unittest.TestCase):
             put(f'check-suites/{suite}', {'id': suite, 'head_sha': source, 'app': {'id': 15368}, 'repository': repo})
         self.api = MappingApi(self.docs)
 
+    def older_caller(self):
+        environment = dict(self.env, GITHUB_SHA=HEAD, GITHUB_WORKFLOW_SHA=HEAD)
+        self.docs[f'repos/{REPOSITORY}/git/commits/{HEAD}'] = {
+            'sha': HEAD, 'tree': {'sha': TREE}, 'parents': []}
+        return environment
+
+    def test_older_actual_caller_keeps_raw_source_and_resolves_current_base_at_both_bookends(self):
+        environment = self.older_caller()
+        before = deepcopy((self.event, environment, self.docs))
+        with mock.patch.dict('os.environ', environment, clear=True):
+            context = gate.effective_pr_context(self.event, self.api)
+            self.assertEqual(context.planning(), {'base': BASE, 'head': self.default,
+                'candidate': MERGE, 'event_base': HEAD})
+            self.assertTrue(gate.validate_required_codeql_workflow(self.event, self.api, pr_context=context))
+            request = gate.SyncRequest(REPOSITORY, REPOSITORY_ID, 610, 'android-main', BASE, 'main',
+                self.default, REPOSITORY_ID, MERGE, 'direct', 'main', self.default, 'android',
+                ('docs/change.md',), ('docs/change.md',), event_base_sha=HEAD)
+            self.assertEqual(gate.recheck_effective_request(self.api, request,
+                event_pr=self.event['pull_request']), context)
+            self.assertEqual(gate.os.environ['GITHUB_SHA'], HEAD)
+            self.assertEqual(gate.os.environ['GITHUB_WORKFLOW_SHA'], HEAD)
+        self.assertEqual((self.event, environment, self.docs), before)
+
+    def test_older_caller_requires_its_own_ancestry_and_exact_ordinary_recipe(self):
+        environment = self.older_caller()
+        original = deepcopy(self.docs)
+        compare = f'repos/{REPOSITORY}/compare/{HEAD}...{BASE}?per_page=1'
+        tree = f'repos/{REPOSITORY}/git/trees/{TREE}?recursive=1'
+        for mutation in ('mismatched-workflow-source', 'missing-caller', 'missing-ancestry', 'diverged',
+                         'reverse', 'wrong-merge-base', 'boolean-count', 'caller-recipe', 'caller-mode',
+                         'caller-alias', 'truncated-caller'):
+            self.docs.clear(); self.docs.update(deepcopy(original)); env = dict(environment)
+            if mutation == 'mismatched-workflow-source': env['GITHUB_WORKFLOW_SHA'] = BASE
+            elif mutation == 'missing-caller': self.docs[f'repos/{REPOSITORY}/git/commits/{HEAD}'] = {}
+            elif mutation == 'missing-ancestry': self.docs[compare] = {}
+            elif mutation == 'diverged': self.docs[compare]['status'] = 'diverged'
+            elif mutation == 'reverse': self.docs[compare].update(status='behind', ahead_by=0, behind_by=1)
+            elif mutation == 'wrong-merge-base': self.docs[compare]['merge_base_commit']['sha'] = PARENT
+            elif mutation == 'boolean-count': self.docs[compare]['ahead_by'] = True
+            elif mutation == 'truncated-caller': self.docs[tree]['truncated'] = True
+            else:
+                recipe = next(row for row in self.docs[tree]['tree']
+                              if row['path'] == '.github/workflows/sync-test-reuse.yml')
+                recipe['sha' if mutation == 'caller-recipe' else 'mode'] = (
+                    MERGE if mutation == 'caller-recipe' else '100755' if mutation == 'caller-mode' else '120000')
+            with self.subTest(mutation=mutation), mock.patch.dict('os.environ', env, clear=True):
+                with self.assertRaises(gate.GateError): gate.effective_pr_context(self.event, self.api)
+
+    def test_older_caller_does_not_hide_native_or_current_context_drift(self):
+        environment = self.older_caller(); original = deepcopy(self.docs)
+        request = gate.SyncRequest(REPOSITORY, REPOSITORY_ID, 610, 'android-main', BASE, 'main',
+            self.default, REPOSITORY_ID, MERGE, 'direct', 'main', self.default, 'android',
+            ('docs/change.md',), ('docs/change.md',), event_base_sha=HEAD)
+        for mutation in ('base', 'head', 'merge-parents', 'run-head', 'attempt', 'failed-run',
+                         'cancelled-run', 'app', 'association', 'attempt-association'):
+            self.docs.clear(); self.docs.update(deepcopy(original))
+            with self.subTest(mutation=mutation), mock.patch.dict('os.environ', environment, clear=True):
+                gate.effective_pr_context(self.event, self.api)
+                if mutation == 'base': self.docs[f'repos/{REPOSITORY}/branches/android-main']['commit']['sha'] = PARENT
+                elif mutation == 'head': self.docs[f'repos/{REPOSITORY}/git/ref/heads/main']['object']['sha'] = PARENT
+                elif mutation == 'merge-parents': self.docs[f'repos/{REPOSITORY}/commits/refs/pull/610/merge']['parents'].reverse()
+                elif mutation == 'app': self.docs[f'repos/{REPOSITORY}/check-suites/9010']['app']['id'] = 7
+                elif mutation in {'association', 'attempt-association'}:
+                    path = 'actions/runs/901' + ('/attempts/1' if mutation == 'attempt-association' else '')
+                    self.docs[f'repos/{REPOSITORY}/' + path]['pull_requests'] = []
+                else:
+                    for path in ('actions/runs/901', 'actions/runs/901/attempts/1'):
+                        run = self.docs[f'repos/{REPOSITORY}/' + path]
+                        if mutation == 'run-head': run['head_sha'] = BASE
+                        elif mutation == 'attempt': run['run_attempt'] = 2
+                        else: run.update(status='completed', conclusion='failure' if mutation == 'failed-run' else 'cancelled')
+                with self.assertRaises(gate.GateError):
+                    gate.recheck_effective_request(self.api, request, event_pr=self.event['pull_request'])
+
+    def test_manual_validation_still_requires_the_actual_current_default_caller(self):
+        env = {**self.env, 'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_RUN_ID': '902',
+            'GITHUB_JOB': 'validate', 'GITHUB_REF': 'refs/heads/main',
+            'GITHUB_SHA': HEAD, 'GITHUB_WORKFLOW_SHA': HEAD,
+            'GITHUB_WORKFLOW_REF': REPOSITORY + '/.github/workflows/sync-validation.yml@refs/heads/main'}
+        with mock.patch.dict('os.environ', env, clear=True), self.assertRaises(gate.GateError):
+            gate.effective_pr_context(self.event, self.api)
+
+    def test_source_getter_accepts_only_bounded_exact_caller_ancestry_resources(self):
+        source = gate._base_source(); urls = []
+        class Response:
+            status = 200
+            def __init__(self, url): self.url = url
+            def geturl(self): return self.url
+            def read(self, maximum): return b'{}'
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+        def opened(request, timeout):
+            self.assertEqual(request.get_method(), 'GET')
+            self.assertLessEqual(timeout, 10)
+            urls.append(request.full_url)
+            return Response(request.full_url)
+        valid = (f'compare/{HEAD}...{BASE}?per_page=1', f'git/commits/{HEAD}',
+                 f'git/trees/{TREE}?recursive=1')
+        with mock.patch.dict('os.environ', {'GH_TOKEN':'fake-source-token'}, clear=True), \
+             mock.patch.object(source.urllib.request, 'urlopen', side_effect=AssertionError('live I/O forbidden')), \
+             mock.patch.object(source.urllib.request, 'build_opener', return_value=SimpleNamespace(open=opened)) as builder:
+            api = source.GitHubSource()
+            for endpoint in valid: self.assertEqual(api.get(endpoint), {})
+            self.assertEqual(urls, ['https://api.github.com/repos/' + REPOSITORY + '/' + name for name in valid])
+            for endpoint in (f'compare/{HEAD}...{BASE}', f'compare/{HEAD}...{BASE}?per_page=100',
+                             f'compare/{HEAD}...{BASE}?per_page=1&page=2',
+                             f'git/commits/{HEAD}/extra', f'git/trees/{TREE}?recursive=0'):
+                before = builder.call_count
+                with self.subTest(endpoint=endpoint), self.assertRaises(source.SourceUnavailable): api.get(endpoint)
+                self.assertEqual(builder.call_count, before)
+
     def test_actual_prt_context_uses_native_H_run_but_protected_B_workflow_and_complete_delta(self):
         with mock.patch.dict('os.environ', self.env, clear=True):
             context = gate.effective_pr_context(self.event, self.api)
@@ -2370,15 +2481,16 @@ class RequiredCodeQLInvocationTests(unittest.TestCase):
                           "_SCHEDULING_SOURCE_WORKFLOW = '" + "b76ade9fd7a76da21bf2cb2161deae7a262163e8" + "'\n"
                           "_BOOLEAN_RESULTS_WORKFLOW = '3b7a88765b7181a1bc7dd6f48b9b459e590055d3'\n"
                           "_REQUIRED_CONTEXT_RESULTS_WORKFLOW = '7b0703d88d404f38c1b3dec92f77f03586c9144c'\n"
+                          "_UPLOAD_RESULTS_WORKFLOW = 'b29e0558dc69bc9dd6fc6b47bd6024382be4079d'\n"
                           "def result_workflow_blobs():\n"
                           "    return (_RESULTS_WORKFLOW, _RETARGET_RESULTS_WORKFLOW, "
-                          "_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW)\n"
+                          "_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW, _UPLOAD_RESULTS_WORKFLOW)\n"
                           "def result_workflow_sources():\n"
                           "    return ((_RESULTS_WORKFLOW, None), (_RETARGET_RESULTS_WORKFLOW, None), "
                           "(_PINNED_RESULTS_WORKFLOW, None), (_METADATA_RESULTS_WORKFLOW, _METADATA_SOURCE_WORKFLOW), "
                           "(_SCHEDULING_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW), "
                           "(_BOOLEAN_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW), "
-                          "(_REQUIRED_CONTEXT_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))\n")
+                          "(_REQUIRED_CONTEXT_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW), (_UPLOAD_RESULTS_WORKFLOW, _SCHEDULING_SOURCE_WORKFLOW))\n")
         self.write_policy()
         side = lambda ref, sha: {'ref': ref, 'sha': sha, 'repo': {'full_name': REPOSITORY, 'id': REPOSITORY_ID}}
         self.pr = {'number': 610, 'state': 'open', 'mergeable': True, 'merge_commit_sha': MERGE,
@@ -2566,14 +2678,27 @@ class RequiredCodeQLInvocationTests(unittest.TestCase):
             with self.subTest(malformed=malformed), self.assertRaises(gate.GateError): self.validate()
             current[1] = entry('.github/workflows/pr-metadata-context.yml', 'b76ade9fd7a76da21bf2cb2161deae7a262163e8')
 
+    def test_eighth_upload_generation_requires_its_exact_helper_and_ordinary_workflow(self):
+        current = self.documents[f'repos/{REPOSITORY}/git/trees/{TREE}?recursive=1']['tree']
+        current[:] = [entry('.github/workflows/codeql.yml', 'b29e0558dc69bc9dd6fc6b47bd6024382be4079d'),
+            entry('.github/workflows/pr-metadata-context.yml', 'b76ade9fd7a76da21bf2cb2161deae7a262163e8')]
+        self.assertTrue(self.validate())
+        for mutation in ({'sha':METADATA_SOURCE_BLOB}, {'mode':'100755'}, {'mode':'120000'},
+                         {'mode':'160000','type':'commit'}):
+            original=deepcopy(current[1]); current[1].update(mutation)
+            with self.subTest(mutation=mutation),self.assertRaises(gate.GateError): self.validate()
+            current[1]=original
+        current[0]['sha']='f'*40
+        with self.assertRaises(gate.GateError): self.validate()
+
     def test_trusted_metadata_generation_inventory_must_be_complete_and_ordered(self):
         source = self.policy_root / 'tools/repository-checks/codeql.py'
         original = source.read_text()
         for mutation in (original.replace(METADATA_WORKFLOW_BLOB, WORKFLOW_BLOB),
                          original.replace(METADATA_WORKFLOW_BLOB, '0' * 40),
                          original.replace(METADATA_SOURCE_BLOB, '0' * 40),
-                         original.replace('_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW)',
-                                          '_METADATA_RESULTS_WORKFLOW, _PINNED_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW)')):
+                         original.replace('_PINNED_RESULTS_WORKFLOW, _METADATA_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW, _UPLOAD_RESULTS_WORKFLOW)',
+                                          '_METADATA_RESULTS_WORKFLOW, _PINNED_RESULTS_WORKFLOW, _SCHEDULING_RESULTS_WORKFLOW, _BOOLEAN_RESULTS_WORKFLOW, _REQUIRED_CONTEXT_RESULTS_WORKFLOW, _UPLOAD_RESULTS_WORKFLOW)')):
             source.write_text(mutation)
             with self.subTest(mutation=mutation), self.assertRaises(gate.GateError):
                 self.validate()

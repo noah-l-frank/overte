@@ -52,11 +52,13 @@ SOURCE_GUARD_BLOB = '20580c3ea413e63a6779898fdd3d2c5e051625f4'
 CURRENT_PARENT_IMPORT_GUARD_BLOB = '3b97657d8874a842c74a0cbf5a8032e06b941e65'
 BOOLEAN_SOURCE_GUARD_BLOB = 'a89e1d51be5039214def84d8f6f5a06f3dfaea29'
 REQUIRED_CONTEXT_SOURCE_GUARD_BLOB = 'aed06c587034f2762552eeb666bda1f4b6efff23'
+OPTIONAL_LEAF_SOURCE_GUARD_BLOB = '9c2897b7971daea2a3460a0d8146a0cbe2ac86aa'
 CURRENT_SOURCE_GENERATION = "protected-producer-original-default-v1"
 CURRENT_SOURCE_GENERATIONS = frozenset({CURRENT_SOURCE_GENERATION,
     "protected-producer-original-default-boolean-v1",
     "protected-producer-original-default-required-context-v1",
-    "protected-producer-optional-parent-source-v1"})
+    "protected-producer-optional-parent-source-v1",
+    "protected-producer-optional-leaf-common-v1"})
 CURRENT_SOURCE_TARGETS = frozenset({"android-main", "android-vr", "android-vr-pico", "android-phone"})
 CURRENT_JOBS = {
     "android / route": "Independently select the complete Android union",
@@ -487,7 +489,7 @@ def _protected_default(policy_root, *, api=None):
         if path.is_symlink():raise ValueError('Android stdlib guard has an aliased source')
     raw=_bootstrap_git(root,'show','HEAD:'+relative)
     if not path.is_file() or path.stat().st_size>128_000 or path.stat().st_mode&0o111 \
-            or path.read_bytes()!=raw or _blob(raw)['sha'] not in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB, REQUIRED_CONTEXT_SOURCE_GUARD_BLOB):
+            or path.read_bytes()!=raw or _blob(raw)['sha'] not in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB, REQUIRED_CONTEXT_SOURCE_GUARD_BLOB, OPTIONAL_LEAF_SOURCE_GUARD_BLOB):
         raise ValueError('Android stdlib guard has no reviewed bootstrap identity')
     search=list(sys.path);bytecode=sys.dont_write_bytecode;standard=Path(os.__file__).resolve().parent
     sys.path[:]=[str(standard),str(standard/'lib-dynload')]
@@ -774,7 +776,7 @@ def _source_generation(candidate,sha,policy_root):
     if type(value) is not dict or set(value)!={'schema','repository','generations'} or type(value['schema']) is not int \
             or value['schema']!=1 or value['repository']!={'full_name':REPOSITORY,'id':REPOSITORY_ID} \
             or type(value['repository'].get('id')) is not int \
-            or type(value['generations']) is not list or not 1<=len(value['generations'])<=27:
+            or type(value['generations']) is not list or not 1<=len(value['generations'])<=28:
         raise ValueError('Android source catalog is not the finite protected schema')
     four={'.github/workflows/'+name+'.yml' for name in ('project-tests','parent-qualification','sync-validation','repository-checks')}
     five=four|{'.github/workflows/browser-client.yml'};six=five|{'.github/workflows/pr-metadata-context.yml'}

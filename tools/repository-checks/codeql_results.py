@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
+import io
 import importlib.util
 import json
 import os
@@ -18,6 +20,8 @@ import re
 import subprocess
 import sys
 import time
+import uuid
+import zipfile
 from urllib.parse import urlencode, quote
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +32,9 @@ WORKFLOW = '.github/workflows/codeql.yml'
 ANALYSIS_KEY = WORKFLOW + ':analyze'
 MAX_PAGES = 10
 PROCESSING_SECONDS = 90
+UPLOAD_PROCESSING_SECONDS = 20 * 60
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 # Fixed public tokens only; exception messages, API bodies and source paths
 # remain private. These labels cannot affect qualification or retry behavior.
 _FAILURE_PHASES = frozenset({'server-event', 'invocation', 'current-context',
@@ -116,6 +123,7 @@ class Verifier:
         self.api = api if api is not None else default_api()
         self.clock, self.sleep = clock, sleep
         self.pinned = False
+        self.upload_bound = False
         self.observed_merges = set()
         require(type(event) is dict and environment.get('GITHUB_ACTIONS') == 'true', 'Actions server context required')
         require(environment.get('GITHUB_REPOSITORY') == REPOSITORY
@@ -306,16 +314,29 @@ class Verifier:
                 require(tree.get(path) in [{'mode': '100644', 'type': 'blob', 'sha': value} for value in allowed],
                         'analysis workflow or configuration is not approved')
         self.pinned = trees[-1].get(WORKFLOW) in codeql.pinned_workflow_entries()
+        self.upload_bound = trees[-1].get(WORKFLOW) == {
+            'mode':'100644','type':'blob','sha':codeql._UPLOAD_RESULTS_WORKFLOW}
         plan = codeql.select_repository(self.root, self.base, self.source, event=self.event_name)
         require(plan['languages'] == self.expected, 'caller language plan differs from independent immutable selection')
         return plan['languages']
 
     def jobs(self, context, selected):
-        records = self.pages(f'actions/runs/{self.run_id}/attempts/{self.attempt}/jobs', field='jobs')
+        attempt = self.attempt
+        if self.upload_bound:
+            sys.path.insert(0, str(ROOT / 'tools/test-evidence'))
+            from producer_api import Adapter
+            self.native_attempts = Adapter(self.api).codeql_result_attempts(self.run_id,
+                self.source, self.head, attempt=self.attempt)
+            require(self.native_attempts['languages'] == selected, 'native original language roster differs')
+            records = self.native_attempts['analysis_jobs']
+            context = {**context, 'start':timestamp(self.native_attempts['analysis_run']['run_started_at'])}
+            attempt = self.native_attempts['analysis_attempt']
+        else:
+            records = self.pages(f'actions/runs/{self.run_id}/attempts/{attempt}/jobs', field='jobs')
         selectors = [job for job in records if job.get('name') == 'Select affected CodeQL languages']
         require(len(selectors) == 1, 'independent language-selector job missing or ambiguous')
         selector = selectors[0]
-        require(positive(selector.get('run_id')) == self.run_id and positive(selector.get('run_attempt')) == self.attempt
+        require(positive(selector.get('run_id')) == self.run_id and positive(selector.get('run_attempt')) == attempt
                 and selector.get('head_sha') == self.head and selector.get('status') == 'completed'
                 and selector.get('conclusion') == 'success'
                 and context['start'] <= timestamp(selector.get('started_at')) <= timestamp(selector.get('completed_at')),
@@ -326,7 +347,7 @@ class Verifier:
             matches = [job for job in records if job.get('name') == f'CodeQL ({language})']
             require(len(matches) == 1, 'selected CodeQL job missing or ambiguous')
             job = matches[0]
-            require(positive(job.get('run_id')) == self.run_id and positive(job.get('run_attempt')) == self.attempt
+            require(positive(job.get('run_id')) == self.run_id and positive(job.get('run_attempt')) == attempt
                     and job.get('head_sha') == self.head and job.get('status') == 'completed'
                     and job.get('conclusion') == 'success', 'selected CodeQL job did not succeed in current attempt')
             started, completed = timestamp(job.get('started_at')), timestamp(job.get('completed_at'))
@@ -348,7 +369,119 @@ class Verifier:
             windows[language] = (step_start, step_end, positive(job.get('id')))
         return windows
 
+    def protected_default(self):
+        """The new upload reader runs only from the actual current default."""
+        repo = self.obj(''); repository(repo)
+        default = branch(repo.get('default_branch'))
+        actual = subprocess.check_output(['git','--no-replace-objects','rev-parse','HEAD^{commit}'],
+            cwd=ROOT,text=True,stderr=subprocess.PIPE,timeout=30).strip()
+        require(self.ref_sha('heads/' + default) == sha(actual), 'protected CodeQL reader default changed')
+        for relative in ('tools/repository-checks/codeql.py','tools/repository-checks/codeql_results.py',
+                         'tools/test-evidence/producer_api.py'):
+            path = ROOT / relative
+            raw = subprocess.check_output(['git','--no-replace-objects','show','HEAD:' + relative],
+                cwd=ROOT,stderr=subprocess.PIPE,timeout=30)
+            require(path.is_file() and not path.is_symlink() and not path.stat().st_mode & 0o111
+                and path.read_bytes() == raw, 'protected CodeQL reader differs from immutable default')
+        return actual
+
+    def upload_proofs(self, selected, windows):
+        items = self.pages(f'actions/runs/{self.run_id}/artifacts', field='artifacts')
+        analysis_attempt = self.native_attempts['analysis_attempt']
+        expected_names = {f'codeql-upload-{self.run_id}-{analysis_attempt}-{language}' for language in selected}
+        names = [row.get('name') for row in items]
+        allowed_names = {f'codeql-upload-{self.run_id}-{attempt}-{language}'
+            for attempt in range(1,analysis_attempt+1) for language in selected}
+        require(set(names) <= allowed_names and expected_names <= set(names) and len(names) == len(set(names)),
+                'native upload artifact inventory is missing, ambiguous or unknown')
+        proofs = {}
+        now = datetime.now(timezone.utc)
+        for language in selected:
+            name = f'codeql-upload-{self.run_id}-{analysis_attempt}-{language}'
+            item = next(row for row in items if row.get('name') == name)
+            detail = self.obj(f"actions/artifacts/{positive(item.get('id'))}")
+            require(all(detail.get(key) == item.get(key) for key in (
+                'id','name','digest','size_in_bytes','expired','created_at','expires_at','workflow_run')),
+                'native upload artifact changed')
+            owner = detail.get('workflow_run', {})
+            require(owner.get('id') == self.run_id and owner.get('repository_id') == REPOSITORY_ID
+                and owner.get('head_repository_id') == REPOSITORY_ID and owner.get('head_sha') == self.head
+                and detail.get('expired') is False and type(detail.get('size_in_bytes')) is int
+                and 0 < detail['size_in_bytes'] <= 64_000
+                and type(detail.get('digest')) is str and re.fullmatch(r'sha256:[0-9a-f]{64}',detail['digest']),
+                'native upload artifact owner, expiry or digest is unavailable')
+            require(timestamp(detail['created_at']) <= now < timestamp(detail['expires_at'])
+                and (timestamp(detail['expires_at']) - timestamp(detail['created_at'])).total_seconds() <= 15*86400,
+                'native upload artifact expired or has unknown retention')
+            raw = self.api.bytes(PREFIX + f"/actions/artifacts/{detail['id']}/zip")
+            require(type(raw) is bytes and len(raw) == detail['size_in_bytes']
+                and 'sha256:' + hashlib.sha256(raw).hexdigest() == detail['digest'], 'native upload artifact bytes differ')
+            try:
+                with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                    files = archive.infolist()
+                    require(len(files) == 1 and files[0].filename == 'upload.json'
+                        and not files[0].is_dir() and not files[0].flag_bits & 1
+                        and (files[0].external_attr >> 16) & 0o170000 in (0,0o100000)
+                        and 0 < files[0].file_size <= 4096, 'native upload artifact member is not exact')
+                    value = document(archive.read(files[0]).decode('utf-8'))
+            except (ValueError,KeyError,OSError,UnicodeError,zipfile.BadZipFile) as error:
+                raise ResultError('native upload artifact is malformed') from error
+            required = {'schema':1,'kind':'native-codeql-upload-id','repository':REPOSITORY,
+                'repository_id':REPOSITORY_ID,'run_id':self.run_id,'run_attempt':analysis_attempt,'language':language,
+                'source_commit':self.source,'ref':self.ref,'workflow':WORKFLOW,'workflow_sha':self.source}
+            require(type(value) is dict and set(value) == {*required,'sarif_id'}
+                and all(type(value[key]) is type(expected) and value[key] == expected for key,expected in required.items()),
+                'native upload metadata differs from independently authenticated execution')
+            try:
+                require(type(value['sarif_id']) is str and str(uuid.UUID(value['sarif_id'])) == value['sarif_id'],
+                        'native upload ID is malformed')
+            except ValueError as error:
+                raise ResultError('native upload ID is malformed') from error
+            job = next(row for row in self.native_attempts['analysis_jobs'] if row.get('id') == windows[language][2])
+            steps = job.get('steps', [])
+            bound = []
+            for label in ('Record the native CodeQL upload identity','Publish the native CodeQL upload identity'):
+                matches = [step for step in steps if step.get('name') == label]
+                require(len(matches) == 1 and (matches[0].get('status'),matches[0].get('conclusion')) == ('completed','success'),
+                        'native upload identity recording/publication did not succeed')
+                bound.append(matches[0])
+            require(windows[language][1] <= timestamp(bound[0]['started_at'])
+                <= timestamp(bound[0]['completed_at']) <= timestamp(bound[1]['started_at'])
+                <= timestamp(detail['created_at']) <= timestamp(bound[1]['completed_at']) <= timestamp(job['completed_at']),
+                'native upload artifact is outside its actual successful publication step')
+            proofs[language] = {'value':value,'artifact':detail,'job_id':job['id']}
+        require(len({proof['value']['sarif_id'] for proof in proofs.values()}) == len(proofs),
+                'selected languages share an ambiguous native upload ID')
+        return proofs
+
+    def uploaded_analyses(self, selected, windows):
+        chosen = {}
+        for language in selected:
+            upload = self.uploads[language]['value']['sarif_id']
+            status = self.obj('code-scanning/sarifs/' + upload)
+            require(status.get('errors') in (None,[]) and status.get('processing_status') in {'pending','complete'}, 'native SARIF processing failed or is unknown')
+            if status['processing_status'] == 'pending':
+                continue
+            expected = 'https://api.github.com/' + PREFIX + '/code-scanning/analyses?' + urlencode({'sarif_id':upload})
+            require(status.get('analyses_url') == expected, 'native SARIF analysis URL escaped its upload identity')
+            records = self.pages('code-scanning/analyses?' + urlencode({'sarif_id':upload}))
+            require(len(records) == 1, 'native SARIF upload has missing or ambiguous processed analyses')
+            record = records[0]
+            require(record.get('sarif_id') == upload and record.get('ref') == self.ref
+                and record.get('commit_sha') == self.source and record.get('category') == '/language:' + language
+                and record.get('analysis_key') == ANALYSIS_KEY and record.get('tool', {}).get('name') == 'CodeQL'
+                and record['tool'].get('version') == '2.27.2' and record.get('error') == ''
+                and type(record.get('rules_count')) is int and record['rules_count'] > 0
+                and document(record.get('environment','')) == {'language':language},
+                'processed native upload identity, source or security analysis differs')
+            require(windows[language][0] <= timestamp(record.get('created_at')) <= datetime.now(timezone.utc),
+                    'processed native upload chronology differs')
+            chosen[language] = record
+        return chosen
+
     def analyses(self, selected, windows):
+        if self.upload_bound:
+            return self.uploaded_analyses(selected, windows)
         records = self.pages('code-scanning/analyses?' + urlencode({'ref': self.ref, 'tool_name': 'CodeQL'}))
         for record in records:
             require(record.get('ref') == self.ref and record.get('tool', {}).get('name') == 'CodeQL',
@@ -389,16 +522,21 @@ class Verifier:
                 require(instance.get('commit_sha') == self.source, 'selected open-alert instance is stale')
                 raise ResultError('open CodeQL finding in a selected category blocks this candidate')
 
-    def verify(self, *, processing_seconds=PROCESSING_SECONDS):
+    def verify(self, *, processing_seconds=None):
         self.phase = 'invocation'
-        require(type(processing_seconds) in (int, float) and 0 <= processing_seconds <= PROCESSING_SECONDS,
-                'invalid result-processing bound')
         self.phase = 'current-context'
         before = self.context()
         self.phase = 'immutable-selection'
         selected = self.plan()
+        bound = UPLOAD_PROCESSING_SECONDS if self.upload_bound else PROCESSING_SECONDS
+        if processing_seconds is None: processing_seconds = bound
+        require(type(processing_seconds) in (int,float) and 0 <= processing_seconds <= bound, 'invalid result-processing bound')
+        default = self.protected_default() if self.upload_bound else None
         self.phase = 'selected-jobs'
         windows = self.jobs(before, selected)
+        native = getattr(self, 'native_attempts', None)
+        if self.upload_bound:
+            self.uploads = self.upload_proofs(selected, windows)
         deadline = self.clock() + processing_seconds
         self.phase = 'selected-analyses'
         while selected:
@@ -406,7 +544,7 @@ class Verifier:
             if len(chosen) == len(selected):
                 break
             require(self.clock() < deadline, 'selected current analysis missing after bounded processing wait')
-            self.sleep(min(5, max(0, deadline - self.clock())))
+            self.sleep(min(30 if self.upload_bound else 5, max(0, deadline - self.clock())))
         else:
             chosen = {}
         if selected:
@@ -421,13 +559,20 @@ class Verifier:
             self.open_alerts(selected)
         self.phase = 'jobs-bookend'
         require(self.jobs(before, selected) == windows, 'selected job execution changed during verification')
+        if self.upload_bound:
+            require(self.native_attempts['analysis_jobs'] == native['analysis_jobs']
+                and self.upload_proofs(selected, windows) == self.uploads
+                and self.protected_default() == default, 'native original upload or protected default changed')
         self.phase = 'context-bookend'
         require(self.context() == before, 'server candidate or run context changed during verification')
         return {'schema': 1, 'run_id': self.run_id, 'run_attempt': self.attempt, 'languages': selected,
                 'source_commit': self.source, 'observed_merge_commits': sorted(self.observed_merges),
                 'analyses': [{'id': chosen[x]['id'], 'category': chosen[x]['category'],
                               'rules_count': chosen[x]['rules_count'], 'job_id': windows[x][2]} for x in selected],
-                'open_selected_findings': 0}
+                'open_selected_findings': 0, **({'analysis_attempt':native['analysis_attempt'],
+                    'result_attempt':native['result_attempt'], 'native_uploads':[{'language':x,
+                        'sarif_id':self.uploads[x]['value']['sarif_id'],
+                        'artifact_id':self.uploads[x]['artifact']['id']} for x in selected]} if self.upload_bound else {})}
 
 
 def _metadata_modules():
@@ -462,9 +607,11 @@ class _OriginalAnalysis:
     """
     get, obj, pages = Verifier.get, Verifier.obj, Verifier.pages
     jobs, analyses, open_alerts = Verifier.jobs, Verifier.analyses, Verifier.open_alerts
+    upload_proofs, uploaded_analyses = Verifier.upload_proofs, Verifier.uploaded_analyses
 
     def __init__(self, api, binding, run_id):
         self.api, self.run_id, self.attempt, self.pinned = api, run_id, 1, True
+        self.upload_bound = False
         self.source, self.head = binding['merge_sha'], binding['head_sha']
         self.ref = f"refs/pull/{binding['pull_request']}/merge"
 
@@ -482,6 +629,7 @@ class MetadataVerifier:
         self.root, self.event, self.env = Path(root), event, environment
         self.api = api if api is not None else default_api()
         self.clock, self.sleep = clock, sleep
+        self.native_splits = {}
 
     def _trusted(self, marker, postmerge):
         require(marker.SOURCE_READY is True and postmerge._source_qualified() is True,
@@ -508,6 +656,15 @@ class MetadataVerifier:
     def _run(self, listed, binding, workflow_id, *, current=False):
         identity = positive(listed.get('id'))
         latest = self.obj(f'actions/runs/{identity}')
+        if not current and positive(latest.get('run_attempt')) > 1:
+            A, _, _ = _metadata_modules()
+            split = A.Adapter(self.api).codeql_result_attempts(identity, binding['merge_sha'],
+                binding['head_sha'], attempt=latest['run_attempt'], completed=True)
+            require(all(listed.get(key) == latest.get(key) for key in (
+                'id','workflow_id','check_suite_id','event','path','head_sha','head_branch','run_attempt','status','conclusion'))
+                and latest.get('workflow_id') == workflow_id, 'CodeQL retry list/latest source differs')
+            self.native_splits[identity] = split
+            return split['result_run']
         attempt = self.obj(f'actions/runs/{identity}/attempts/1')
         require(positive(latest.get('run_attempt')) == 1,
                 'original CodeQL attempt is unavailable or changed')
@@ -566,9 +723,7 @@ class MetadataVerifier:
                 metadata[positive(listed.get('id'))] = observed
         return records, metadata, ordinary
 
-    def verify(self, *, processing_seconds=PROCESSING_SECONDS):
-        require(type(processing_seconds) in (int, float) and 0 <= processing_seconds <= PROCESSING_SECONDS,
-                'invalid result-processing bound')
+    def verify(self, *, processing_seconds=None):
         A, postmerge, marker = _metadata_modules()
         native, trusted_workflows, sources = self._trusted(marker, postmerge)
         workflows = trusted_workflows
@@ -598,11 +753,24 @@ class MetadataVerifier:
         _, base_tree = postmerge.full_tree(adapter, binding['base_sha'])
         candidate_tree_sha, candidate_tree = postmerge.full_tree(adapter, binding['merge_sha'])
         require(candidate_tree_sha == binding['merge_tree'], 'candidate source inventory differs')
+        upload_bound = candidate_tree.get(WORKFLOW) == {
+            'mode':'100644','type':'blob','sha':codeql._UPLOAD_RESULTS_WORKFLOW}
+        if upload_bound:
+            expected = {'mode':'100644','type':'blob','sha':codeql._UPLOAD_RESULTS_WORKFLOW}
+            require(codeql.inputs.full_tree(self.root,'HEAD').get(codeql._UPLOAD_RESULTS_TEMPLATE) == expected
+                and not codeql.result_workflow_rollback(base_tree.get(WORKFLOW),candidate_tree.get(WORKFLOW)),
+                'native upload metadata recipe was not independently preregistered')
+            workflows = {**trusted_workflows, WORKFLOW:expected}
+            policy = A.MetadataPolicy(policy.caller_workflow_id, WORKFLOW,
+                {'codeql-native-upload-v1':workflows}, {'codeql-native-upload-v1':sources})
+        bound = UPLOAD_PROCESSING_SECONDS if upload_bound else PROCESSING_SECONDS
+        if processing_seconds is None: processing_seconds = bound
+        require(type(processing_seconds) in (int,float) and 0 <= processing_seconds <= bound, 'invalid result-processing bound')
         # The protected Boolean template is pre-enrolled while its exact old
         # active caller is retained. Select that actual immutable pair without
         # relabelling an original analysis as the new caller.
         ordinary = lambda oid: {'mode':'100644','type':'blob','sha':oid}
-        if trusted_workflows.get(WORKFLOW) == ordinary(codeql._REQUIRED_CONTEXT_RESULTS_WORKFLOW):
+        if not upload_bound and trusted_workflows.get(WORKFLOW) == ordinary(codeql._REQUIRED_CONTEXT_RESULTS_WORKFLOW):
             variants = [ordinary(value) for value in (codeql._SCHEDULING_RESULTS_WORKFLOW,
                 codeql._BOOLEAN_RESULTS_WORKFLOW, codeql._REQUIRED_CONTEXT_RESULTS_WORKFLOW)]
             base_caller, candidate_caller = base_tree.get(WORKFLOW), candidate_tree.get(WORKFLOW)
@@ -643,8 +811,11 @@ class MetadataVerifier:
         current_run = self._run(current[0], binding, policy.caller_workflow_id, current=True)
         self._native_source(adapter, current_run, binding, workflows)
         require(ordinary, 'original ordinary CodeQL qualification is unavailable')
-        newest = max(timestamp(item['run_started_at']) for item in ordinary)
-        originals = [item for item in ordinary if timestamp(item['run_started_at']) == newest]
+        def origin_start(item):
+            split = self.native_splits.get(item['id'])
+            return timestamp((split['analysis_run'] if split else item)['run_started_at'])
+        newest = max(origin_start(item) for item in ordinary)
+        originals = [item for item in ordinary if origin_start(item) == newest]
         require(len(originals) == 1, 'latest ordinary CodeQL run ordering is ambiguous')
         original = originals[0]
         require(original['id'] != native['run_id'] and original['status'] == 'completed'
@@ -658,18 +829,24 @@ class MetadataVerifier:
         require(suite.get('id') == original['check_suite_id'] and suite.get('head_sha') == binding['head_sha']
                 and suite.get('app', {}).get('id') == 15368, 'original CodeQL native check suite differs')
         proof = _OriginalAnalysis(self.api, binding, original['id'])
+        proof.upload_bound = upload_bound
+        proof.attempt = original['run_attempt']
         context = {'start': timestamp(original['run_started_at'])}
         windows = proof.jobs(context, selected)
-        job_records = proof.pages(f"actions/runs/{original['id']}/attempts/1/jobs", field='jobs')
+        if upload_bound:
+            proof.uploads = proof.upload_proofs(selected, windows)
+        origin = proof.native_attempts['analysis_run'] if upload_bound else original
+        analysis_attempt = proof.native_attempts['analysis_attempt'] if upload_bound else 1
+        job_records = proof.pages(f"actions/runs/{original['id']}/attempts/{analysis_attempt}/jobs", field='jobs')
         require({job.get('name') for job in job_records if job.get('name') in
                  {'CodeQL (' + language + ')' for language in codeql.LANGUAGES}} ==
                 {'CodeQL (' + language + ')' for language in selected},
                 'original selected language execution differs')
-        checks = {job['id']: vars(adapter._job(job, original, 15368, final_name=job['name']))
+        checks = {job['id']: vars(adapter._job(job, origin, 15368, final_name=job['name']))
                   for job in job_records if job.get('name') in
                   {'Select affected CodeQL languages', *('CodeQL (' + x + ')' for x in selected)}}
-        require(all(context['start'] <= timestamp(job['started_at']) <= timestamp(job['completed_at'])
-                    <= timestamp(original['updated_at']) for job in job_records if job['id'] in checks),
+        require(all(timestamp(origin['run_started_at']) <= timestamp(job['started_at']) <= timestamp(job['completed_at'])
+                    <= timestamp(origin['updated_at']) for job in job_records if job['id'] in checks),
                 'original selected job is outside its completed native run')
         deadline = self.clock() + processing_seconds
         while selected:
@@ -677,7 +854,7 @@ class MetadataVerifier:
             if len(chosen) == len(selected):
                 break
             require(self.clock() < deadline, 'original selected analysis is missing after bounded processing wait')
-            self.sleep(min(5, max(0, deadline - self.clock())))
+            self.sleep(min(30 if upload_bound else 5, max(0, deadline - self.clock())))
         else:
             chosen = {}
         if selected:
@@ -688,11 +865,13 @@ class MetadataVerifier:
             require(proof.analyses(selected, windows) == chosen, 'original analysis inventory changed')
             proof.open_alerts(selected)
         require(proof.jobs(context, selected) == windows, 'original job execution changed')
-        final_jobs = proof.pages(f"actions/runs/{original['id']}/attempts/1/jobs", field='jobs')
+        final_jobs = proof.pages(f"actions/runs/{original['id']}/attempts/{analysis_attempt}/jobs", field='jobs')
         require(final_jobs == job_records and
-                {job['id']: vars(adapter._job(job, original, 15368, final_name=job['name']))
+                 {job['id']: vars(adapter._job(job, origin, 15368, final_name=job['name']))
                  for job in final_jobs if job['id'] in checks} == checks,
                 'original native jobs or checks changed')
+        if upload_bound:
+            require(proof.upload_proofs(selected, windows) == proof.uploads, 'original native upload metadata changed')
         require(self._run(original, binding, policy.caller_workflow_id) == original,
                 'original CodeQL attempt changed')
         require(self._inventory(adapter, binding, policy, now) == snapshot,
@@ -703,10 +882,13 @@ class MetadataVerifier:
         validate_native_snapshot()
         return {'schema': 1, 'kind': 'revalidated-original-codeql', 'metadata_only': 'true',
                 'qualification': False, 'merge_sha': binding['merge_sha'],
-                'original_run_id': original['id'], 'run_attempt': 1, 'languages': selected,
+                'original_run_id': original['id'], 'run_attempt': original['run_attempt'], 'languages': selected,
                 'analyses': [{'id': chosen[x]['id'], 'category': chosen[x]['category'],
                               'rules_count': chosen[x]['rules_count'], 'job_id': windows[x][2]} for x in selected],
-                'open_selected_findings': 0}
+                'open_selected_findings': 0, **({'analysis_attempt':analysis_attempt,
+                    'result_attempt':original['run_attempt'], 'native_uploads':[{'language':x,
+                        'sarif_id':proof.uploads[x]['value']['sarif_id'],
+                        'artifact_id':proof.uploads[x]['artifact']['id']} for x in selected]} if upload_bound else {})}
 
 
 def failure_diagnostic(error, phase):

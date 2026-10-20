@@ -232,7 +232,7 @@ class AndroidOwnerTransferTests(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 gate.validate_tree_wiring(forged)
         generations = gate.packages().workflow_generations()
-        self.assertEqual(len(generations),27)
+        self.assertEqual(len(generations),28)
         self.assertEqual(hashlib.sha256(json.dumps(generations[:26],sort_keys=True,
             separators=(',',':')).encode()).hexdigest(),
             '92e641b712f88bcb66808c51d8fe4b95b4cfb8834c0d39b3869adc4587fa7ec8')
