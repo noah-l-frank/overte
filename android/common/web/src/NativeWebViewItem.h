@@ -3,6 +3,10 @@
 #pragma once
 #include "NativeResourceMapping.h"
 #include <QImage>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QElapsedTimer>
+#include <QUuid>
+#endif
 #include <QJSValue>
 #include <QHash>
 #include <QJsonObject>
@@ -118,6 +122,12 @@ public:
     void acceptResult(quint64 grant, quint64 page, quint64 request, const QByteArray& json);
     void acceptForeground(bool active);
     void acceptInputFocus(quint64 revision, quint64 birth, bool focused);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    static QVariantMap featureWebDOMObservation(const QVariantMap& command);
+    void acceptFeatureWebDOM(quint64 grant, quint64 page, const QUrl& document, const QString& request, const QByteArray& result);
+    void acceptFeatureWebFinished(quint64 grant, quint64 page, const QUrl& document);
+    void acceptFeatureWebHTTPError(quint64 grant, quint64 page, const QUrl& document, int status);
+#endif
 signals:
     void editorStateChanged(); void editorFocusChanged(bool active, bool numeric, bool password);
     void inlineDocumentChanged();
@@ -189,6 +199,19 @@ private:
     bool _inputFocused { true };
     QHash<quint64, QJSValue> _callbacks;
     QVector<QMetaObject::Connection> _geometryConnections;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureWebDOMRequest(const QVariantMap& command);
+    QVariantMap featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source = {});
+    const QString _featureWebInstance { QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-') };
+    quint64 _featureWebSequence { 0 }, _featureWebGrant { 0 }, _featureWebPage { 0 };
+    quint64 _featureWebFinishedGrant { 0 }, _featureWebFinishedPage { 0 };
+    quint64 _featureWebHTTPGrant { 0 }, _featureWebHTTPPage { 0 };
+    int _featureWebHTTPStatus { 0 }; qint64 _featureWebEpoch { 0 };
+    QUrl _featureWebDocument, _featureWebFinishedDocument;
+    QVariantMap _featureWebCommand, _featureWebPacket;
+    bool _featureWebIssued { false };
+    QElapsedTimer _featureWebTimer;
+#endif
     NativeWebTransport* _transport;
     NativeSurfaceBridge* _bridge;
     QWebChannel* _channel;

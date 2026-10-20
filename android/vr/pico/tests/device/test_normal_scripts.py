@@ -27,6 +27,7 @@ from adapters.token_audio_ui import TokenAudioUI
 from self_tests.test_token_audio_ui import AudioBoundary
 from self_tests.test_native_script_files import Boundary as FilesBoundary
 from adapters.native_feature_observation import NativeFeatureObservation
+from self_tests.test_native_web_dom import Boundary as WebDOMBoundary, RUN as WEB_RUN, URL as WEB_URL
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_storage import receipt_file
 from self_tests.test_world_render_evidence import Boundary as WorldBoundary
@@ -227,6 +228,49 @@ class PicoNormalScriptsTests(unittest.TestCase):
         source,_native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);source.fault='keep-files'
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertTrue(source.path.exists());self.assertIsNotNone(self.instance._account_origin_store(self.native.target).read())
+
+    def web_dom(self):
+        source=WebDOMBoundary()
+        def captured(value):
+            epoch=self.native.epoch_milliseconds(self.native.target)
+            value['capturedEpochMs']=epoch;value['source']['dom']['capturedEpochMs']=epoch
+        source.mutate=captured
+        original_write=self.native.write_debug_app_file;original_read=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            request=json.loads(raw)
+            if request['action']!='feature-web-dom-observe':return original_write(target,package,path,raw)
+            self.assertEqual('org.overte.pico',package);self.assertEqual(adapter.ANDROID_CONTROL_COMMAND,path)
+            source.send(request)
+        def read(target,package,path,**kwargs):
+            if path.endswith('/feature-web-dom-observation.json'):
+                self.assertEqual({'attempts':1},kwargs);return source.original()
+            return original_read(target,package,path,**kwargs)
+        active=type(self.instance)._web_dom.__wrapped__.__globals__
+        for boundary in (patch.object(self.native,'write_debug_app_file',side_effect=write),
+                         patch.object(self.native,'read_debug_app_file',side_effect=read),
+                         patch.dict(active,NativeFeatureObservation=partial(NativeFeatureObservation,
+                             monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.instance._web_dom(self.native.target)
+
+    def test_pico_native_web_dom_keeps_original_private_sources_and_unknown_success_status(self):
+        source,reader=self.web_dom();value=reader.read(WEB_RUN,'world',WEB_URL)
+        self.assertEqual(123,value['processId']);self.assertEqual('Grüße 🌍',value['source']['dom']['editor']['text'])
+        self.assertEqual(0,value['source']['nativeView']['httpErrorStatus']);self.assertEqual([],self.qt.inputs)
+
+    def test_pico_native_web_dom_ignored_or_foreign_process_fails(self):
+        source,reader=self.web_dom();source.ignored=True
+        with self.assertRaises(RuntimeError):reader.read(WEB_RUN,'world',WEB_URL)
+        self.assertEqual(1,len(source.commands));self.assertLessEqual(source.clock,5)
+        source.ignored=False;original=source.mutate
+        def foreign(value):original(value);value['processId']=124
+        source.mutate=foreign
+        with self.assertRaises(RuntimeError):reader.read(WEB_RUN,'world',WEB_URL)
+
+    def test_pico_native_web_dom_replaced_candidate_blocks_another_dispatch(self):
+        source,reader=self.web_dom();reader.read(WEB_RUN,'world',WEB_URL);before=len(source.commands);self.native.digest='f'*64
+        with self.assertRaises(RuntimeError):reader.read(WEB_RUN,'world',WEB_URL)
+        self.assertEqual(before,len(source.commands))
 
     def chat_view(self):
         source=ChatViewBoundary();source.source['keyboard']={'available':False}

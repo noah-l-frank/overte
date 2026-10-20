@@ -1,5 +1,12 @@
 # Pico feature adapter implementation status
 
+Current Web source packet: [native browser DOM component](WEB_DOM_OBSERVATION.md)
+wires the exact common passive source through the actual shared Android backend
+and candidate-bound Pico private transport. The modified normal Script component
+group passes **47** host cases; native C++/Java/JNI remains uncompiled and devices
+untested. Complete Web adapters, inline ownership and full cleanup remain open.
+
+
 One new candidate-bound source case verifies original Rig call/pose history,
 unchanged historical times across acquisitions and rejection of producer
 downgrade. The focused observation group now passes **19** host cases. This

@@ -17,6 +17,7 @@ from adapters.native_account_probe import (NativeAccountProbe, AccountProbeOwner
     FILE as ACCOUNT_PROBE_FILE)
 from adapters.native_chat_observation import NativeChatObservation, ChatCaptureOwner, OwnedChatCapture, FILE as CHAT_FILE
 from adapters.native_chat_view import NativeChatView, FILE as CHAT_VIEW_FILE
+from adapters.native_web_dom import NativeWebDOMObservation, FILE as WEB_DOM_FILE
 from adapters.native_account_origin import NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, AndroidPreviewFiles,
     FILE as RECORDED_PREVIEW_FILE)
@@ -327,6 +328,14 @@ def create_adapter(args, base_class):
                     'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
                 lambda: self.adb.epoch_milliseconds(target), guard,
                 int(original.identity.split(':')[0]))
+
+        @_private
+        def _web_dom(self,target):
+            manager=self._scripts(target);native=self._native_feature_observer(target)
+            native.guard();_need(native.pid==int(manager.binding['processIdentity'].split(':')[0]))
+            return NativeWebDOMObservation(native.send,
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+WEB_DOM_FILE,attempts=1),
+                native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
         @_private
         def _chat_view(self,target):
