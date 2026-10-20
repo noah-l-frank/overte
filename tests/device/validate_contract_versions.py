@@ -36,7 +36,7 @@ REQUIRED = {
     "world-render-acquisition": 2,
     "world-render-trace": 1,
     "world-render-storage": 1,
-    "world-render-ownership": 1,
+    "world-render-ownership": 2,
     "world-render-receipt-cleanup": 1,
     "graphics-subject": 2,
     "feature-graphics-resources": 1,

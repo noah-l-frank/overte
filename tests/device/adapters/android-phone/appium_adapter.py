@@ -61,6 +61,7 @@ from adapters.restart_inputs import RestartInputs, run_script_restart
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
 from adapters.native_graphics_subject import NativeGraphicsSubject, FILE as GRAPHICS_SUBJECT_FILE
+from adapters.world_render_receipts import NativeWorldReceiptCleanup, NativeWorldReceiptFiles, FILE as WORLD_RECEIPT_FILE
 from adapters.world_render_storage import NativeWorldRenderStorage
 from adapters.owned_world_render import WorldRenderOwner, OwnedWorldRenderCapture
 from overte_phone_script_files import PhoneScriptFileIO, FILE as SCRIPT_FILE_UI_FILE
@@ -86,7 +87,7 @@ def readonly_feature_command(command):
             and type(command.get('commandId')) is str and re.fullmatch('[0-9a-f]{32}',command['commandId']),
             'PHONE_READ_ONLY_COMMAND_REJECTED')
     action=command.get('action')
-    if action in ('feature-native-observe','feature-script-observe'):
+    if action in ('feature-native-observe','feature-script-observe','feature-world-render-observe'):
         require(set(command)=={'schemaVersion','commandId','action'},'PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='feature-script-files':
         from adapters.native_script_files import command as validate_files
@@ -98,6 +99,12 @@ def readonly_feature_command(command):
     elif action=='feature-graphics-subject-observe':
         from adapters.native_graphics_subject import command as validate_subject
         validate_subject(command)
+    elif action=='feature-world-render-storage':
+        from adapters.world_render_storage import command as validate_storage
+        validate_storage(command)
+    elif action=='feature-world-render-receipt':
+        from adapters.world_render_receipts import command as validate_receipt
+        validate_receipt(command)
     elif action=='feature-account-origin':
         from adapters.native_account_origin import command as validate_origin
         validate_origin(command)
@@ -105,7 +112,7 @@ def readonly_feature_command(command):
     elif action=='feature-account-probe':
         from adapters.native_account_probe import command as validate_probe
         validate_probe(command) # Only read/release/inspect; no URL or credentials.
-    elif action in ('phone-script-file-ui','phone-login-ui'):
+    elif action in ('phone-script-file-ui','phone-login-ui','phone-graphics-ui'):
         require(set(command)=={'schemaVersion','commandId','action','request'}
                 and type(command['request']) is dict
                 and command['request']==dict(schemaVersion=1,commandId=command['commandId'],action='observe')
@@ -399,8 +406,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
             AndroidPreviewFiles(transport, device, target['appId'], native.guard),
             native.clock_ms, native.guard, native.pid)
 
-    def world_render_store(self, selector):
-        return PrivateFeatureState(self.state_path(selector).with_name('phone-world-render-owner.json'))
+    def world_render_store(self, selector, *, role='primary'):
+        require(role in ('primary','actor'),'PHONE_WORLD_RENDER_ROLE_INVALID')
+        name='phone-world-render-owner.json' if role=='primary' else 'phone-world-render-actor-owner.json'
+        return PrivateFeatureState(self.state_path(selector).with_name(name))
 
     def _graphics_subject_observer(self, selector, *, read_only=False):
         native=self._native_feature_observer(selector,read_only=read_only)
@@ -411,22 +420,29 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/'+GRAPHICS_SUBJECT_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
-    def _world_render_capture(self, selector):
+    def _world_render_capture(self, selector, *, read_only=False, role='primary', require_trace=False):
         # Internal original-image prerequisite, not a full feature producer.
-        _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector)
-        native = self._native_feature_observer(selector)
+        require(type(read_only) is bool and type(require_trace) is bool and role in ('primary','actor')
+                and (role!='actor' or read_only),'PHONE_WORLD_RENDER_SCOPE_INVALID')
+        _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector,read_only=read_only)
+        native = self._native_feature_observer(selector,read_only=read_only)
         target = self.target(selector)
         device = target['capabilities']['appium:udid']
         transport = PhoneAdapter(self.candidate).adb
-        receipts = AndroidWorldRenderReceipts(transport, device, target['appId'], native.guard)
-        owner = WorldRenderOwner(self.world_render_store(selector), context, native.guard)
+        original = AndroidWorldRenderReceipts(transport, device, target['appId'], native.guard)
+        owner = WorldRenderOwner(self.world_render_store(selector,role=role), context, native.guard, role=role)
         options = dict(monotonic=native.monotonic, sleep=native.sleep)
-        storage = NativeWorldRenderStorage(native.send, receipts.read, native.clock_ms, native.guard,
+        storage = NativeWorldRenderStorage(native.send, original.read, native.clock_ms, native.guard,
             native.pid, receipt_intent=owner.receipt_intent, **options)
+        cleanup = NativeWorldReceiptCleanup(native.send,
+            lambda: transport.read_debug_app_file(device,target['appId'],
+                'files/overte-e2e/'+WORLD_RECEIPT_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,owner.owned,lambda:storage.instance,**options)
+        receipts = NativeWorldReceiptFiles(original,cleanup)
         capture = NativeWorldRenderCapture(native.send,
             lambda: transport.read_debug_app_file(device, target['appId'],
                 'files/overte-e2e/' + WORLD_RENDER_FILE, attempts=1),
-            storage, native.clock_ms, native.guard, native.pid, intent=owner.intent, **options)
+            storage, native.clock_ms, native.guard, native.pid, intent=owner.intent, require_trace=require_trace, **options)
         check()
         return OwnedWorldRenderCapture(capture, storage, owner, receipts)
 
@@ -701,10 +717,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + SCRIPT_FILE_UI_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid)
 
-    def _graphics_controls(self, selector, intent):
+    def _graphics_controls(self, selector, intent, *, read_only=False):
         # Internal ordinary-input component. Original render/pass/image and
         # full preference ownership/restart coordination remain mandatory.
-        native = self._native_feature_observer(selector)
+        native = self._native_feature_observer(selector,read_only=read_only)
         target = self.target(selector)
         device = target['capabilities']['appium:udid']
         transport = PhoneAdapter(self.candidate).adb
@@ -996,6 +1012,15 @@ class PhoneAppiumAdapter(AppiumAdapter):
             feature=self.script_feature_store(selector).read() or self.script_retirement_store(selector).read()
             if feature is not None:self._script_feature(selector,feature['runId']).finalize()
         except Exception:feature_error=True # Preserve full ownership; base teardown still runs.
+        world_error=False
+        for role in ('primary','actor'):
+            try:
+                if self.world_render_store(selector,role=role).read() is not None:
+                    lock=PhoneScriptSourceLock(self.state_path(selector).with_name('phone-script-sources.lock'))
+                    with lock.held():
+                        if self.world_render_store(selector,role=role).read() is not None:
+                            self._world_render_capture(selector,read_only=True,role=role).release()
+            except Exception:world_error=True # Attempt both roles and base teardown; never forget ownership.
         chat_error=False
         try:
             owned=self.chat_capture_store(selector).read()
@@ -1081,6 +1106,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_NORMAL_CREATE_CLEANUP_INCOMPLETE')
         require(not chat_error and self.chat_capture_store(selector).read() is None,
                 'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE')
+        require(not world_error and all(self.world_render_store(selector,role=role).read() is None for role in ('primary','actor')),
+                'PHONE_WORLD_RENDER_CLEANUP_INCOMPLETE')
         require(not probe_error and all(self.account_probe_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_ACCOUNT_PROBE_CLEANUP_INCOMPLETE')
         require(not origin_error and self.account_origin_store(selector).read() is None,

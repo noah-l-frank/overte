@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import json
+import math
 import re
 import time
 import uuid
@@ -56,9 +57,17 @@ class NativeWorldReceiptCleanup:
                          and value['instance']==instance and integer(value['sequence'],self.sequence+1)
                          and integer(value['processId'],1) and value['processId']==self.pid
                          and integer(value['capturedEpochMs'],1) and (self.ios or value['capturedEpochMs']>=requested))
-                    fresh(value['capturedEpochMs'],value['capturedEpochMs'] if self.ios else self.clock_ms())
+                    freshness_started=self.monotonic();need(number(freshness_started,0,1e15) and freshness_started>=previous)
+                    epoch=value['capturedEpochMs'] if self.ios else self.clock_ms()
+                    need(integer(epoch,1) and (self.ios or epoch>=requested))
+                    fresh(value['capturedEpochMs'],epoch)
                     exact(value['source'],{'performed'} if operation=='remove' else {'exists'})
                     need(type(value['source'].get('performed' if operation=='remove' else 'exists')) is bool)
+                    need(self.guard() is not False and self.native_instance()==instance and self.ownership()==owner)
+                    finished=self.monotonic()
+                    need(number(finished,0,1e15) and finished>=freshness_started
+                         and finished-started<(1.5 if self.ios else 5)
+                         and epoch-value['capturedEpochMs']+math.ceil((finished-freshness_started)*1000)<=1500)
                     self.sequence=value['sequence']
                     return value['source']
                 if attempt<50:self.sleep(.03)
@@ -68,3 +77,14 @@ class NativeWorldReceiptCleanup:
 
     def remove(self,name):need(self.request('remove',name)['performed'] is True)
     def absent(self,name):return self.request('inspect',name)['exists'] is False
+
+
+class NativeWorldReceiptFiles:
+    """Original transport reads; native-issued digest/ownership gates deletion."""
+    def __init__(self,files,cleanup):
+        need(callable(getattr(files,'read',None)) and isinstance(cleanup,NativeWorldReceiptCleanup))
+        self.files,self.cleanup=files,cleanup
+
+    def read(self,name):return self.files.read(name)
+    def remove(self,name):return self.cleanup.remove(name)
+    def absent(self,name):return self.cleanup.absent(name)

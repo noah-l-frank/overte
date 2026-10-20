@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from functools import partial
 from copy import deepcopy
+import hashlib
 import json
 import os
 import shlex
@@ -289,22 +290,40 @@ class FeatureAdapterTests(unittest.TestCase):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
 
-    def world_render_boundaries(self):
+    def world_render_boundaries(self, *, role='primary', read_only=False, require_trace=False):
         source=WorldBoundary();storage=WorldStorageBoundary();storage.raw=source.raw
         storage.mutate=lambda sample:sample.update(instance='a'*32)
         root=self.fixture.root/'files/overte-e2e';root.mkdir(parents=True,mode=0o700)
         local=LocalAdb(self.fixture.root)
+        local.receipt_commands=[];issued={};receipt_sequence=0
         local.read_debug_app_file=lambda _device,_package,path,**_options:(root/path.rsplit('/',1)[1]).read_text()
         def send(_client,_session,target,command,process):
+            nonlocal receipt_sequence
             self.assertEqual(PACKAGE,target['appId']);self.assertEqual('31:14',process['identity'])
-            journal=self.adapter.world_render_store(SELECTOR).read()
+            journal=self.adapter.world_render_store(SELECTOR,role=role).read()
             self.assertEqual(command.get('requestId',command['commandId']),journal['capture']['commandId'])
             if command['action']=='feature-world-render-observe':
                 source.intents.append(command);source.send(command)
+            elif command['action']=='feature-world-render-receipt':
+                local.receipt_commands.append(deepcopy(command));receipt_sequence+=1
+                self.assertIn(command['receiptId'],journal['receipts'])
+                name=receipt_file(command['receiptId']);path=root/name
+                digest=issued.get(name)
+                if (digest is None or storage.present or path.is_symlink()
+                        or path.exists() and hashlib.sha256(path.read_bytes()).hexdigest()!=digest):
+                    value=dict(schemaVersion=1,requestId=command['commandId'],available=False)
+                else:
+                    if command['operation']=='remove' and not local.ignore_remove:path.unlink(missing_ok=True)
+                    value=dict(receiptVersion=1,commandId=command['commandId'],requestId=command['requestId'],
+                        receiptId=command['receiptId'],operation=command['operation'],instance='a'*32,
+                        sequence=receipt_sequence,processId=31,capturedEpochMs=20000,
+                        source=dict(performed=True) if command['operation']=='remove' else dict(exists=path.exists()))
+                (root/'world-render-receipt-result.json').write_text(json.dumps(value))
             else:
                 self.assertIn(command['commandId'],journal['receipts'])
                 storage.intents.append(command);storage.send(command)
                 name=receipt_file(command['commandId']);(root/name).write_text(storage.files[name])
+                issued[name]=hashlib.sha256((root/name).read_bytes()).hexdigest()
         def read(_device,package,path,**kwargs):
             self.assertEqual(PACKAGE,package);self.assertEqual({'attempts':1},kwargs)
             if path.endswith('/world-render-observation.json'):return source.original()
@@ -320,14 +339,16 @@ class FeatureAdapterTests(unittest.TestCase):
             patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
                 monotonic=lambda:source.clock,sleep=source.sleep))):
             boundary.start();self.addCleanup(boundary.stop)
-        return source,local,self.adapter._world_render_capture(SELECTOR)
+        return source,local,self.adapter._world_render_capture(SELECTOR,read_only=read_only,role=role,require_trace=require_trace)
 
     def test_phone_world_original_pixels_and_separate_memory_file_cleanup_use_bound_factory(self):
         source,local,capture=self.world_render_boundaries()
         value,raw=capture.read(0);self.assertEqual(source.raw,raw)
         self.assertIsNotNone(self.adapter.world_render_store(SELECTOR).read())
         capture.release();self.assertIsNone(self.adapter.world_render_store(SELECTOR).read())
-        self.assertEqual([],list((local.path/'files/overte-e2e').iterdir()))
+        self.assertEqual([],list((local.path/'files/overte-e2e').glob('world-render-storage-*')))
+        self.assertTrue((local.path/'files/overte-e2e/world-render-receipt-result.json').is_file())
+        self.assertEqual([],local.calls) # No shell unlink bypasses native issued-digest checks.
         self.assertEqual([],self.native.inputs)
         self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
 
@@ -343,6 +364,106 @@ class FeatureAdapterTests(unittest.TestCase):
         self.native.identity='32:foreign-start';before=len(source.commands)
         with self.assertRaisesRegex(ValueError,'PHONE_NORMAL_SCRIPTS_PROCESS_OR_SESSION_CHANGED'):capture.release()
         self.assertEqual(before,len(source.commands));self.assertIsNotNone(self.adapter.world_render_store(SELECTOR).read())
+
+    def test_independent_world_capture_uses_its_own_role_journal_without_sdk_repair(self):
+        self.read_only_boundaries()
+        source,local,capture=self.world_render_boundaries(role='actor',read_only=True)
+        capture.read(0)
+        owner=self.adapter.world_render_store(SELECTOR,role='actor').read()
+        self.assertEqual(2,owner['ownershipVersion']);self.assertEqual('actor',owner['role'])
+        self.assertIsNone(self.adapter.world_render_store(SELECTOR).read())
+        capture.release();self.assertIsNone(self.adapter.world_render_store(SELECTOR,role='actor').read())
+        self.assertEqual([],local.calls);self.assertEqual([],self.native.inputs)
+
+    def test_role_scoped_capture_rejects_legacy_or_copied_foreign_role_ownership(self):
+        _source,_local,capture=self.world_render_boundaries();capture.read(0)
+        primary=self.adapter.world_render_store(SELECTOR).read();self.read_only_boundaries()
+        actor_store=self.adapter.world_render_store(SELECTOR,role='actor')
+        actor_store.write(primary,None)
+        actor=self.adapter._world_render_capture(SELECTOR,read_only=True,role='actor')
+        with self.assertRaises(RuntimeError):actor.release()
+        self.assertEqual(primary,actor_store.read())
+        legacy=deepcopy(primary);legacy.pop('role');legacy['ownershipVersion']=1
+        actor_store.write(legacy,primary)
+        with self.assertRaises(RuntimeError):actor.release()
+        self.assertEqual(legacy,actor_store.read())
+
+    def test_actor_or_unknown_render_roles_cannot_bootstrap_a_normal_input_session(self):
+        for values in (dict(role='actor'),dict(role='foreign',read_only=True),dict(require_trace=1)):
+            with self.subTest(values=values),self.assertRaises(ValueError):self.adapter._world_render_capture(SELECTOR,**values)
+        self.assertIsNone(self.adapter.world_render_store(SELECTOR).read())
+
+    def test_required_graphics_trace_cannot_fall_back_to_a_legacy_acquired_image(self):
+        source,_local,capture=self.world_render_boundaries(require_trace=True)
+        with self.assertRaises(RuntimeError):capture.read(0)
+        self.assertIsNotNone(self.adapter.world_render_store(SELECTOR).read())
+        capture.release();self.assertIsNone(self.adapter.world_render_store(SELECTOR).read())
+
+    def test_changed_receipt_bytes_cannot_be_removed_as_an_original_native_receipt(self):
+        _source,local,capture=self.world_render_boundaries();capture.read(0)
+        owner=self.adapter.world_render_store(SELECTOR).read();name=receipt_file(owner['receipts'][0])
+        path=local.path/'files/overte-e2e'/name;path.write_text('foreign replacement')
+        with self.assertRaises(RuntimeError):capture.release()
+        self.assertEqual('foreign replacement',path.read_text())
+        self.assertIsNotNone(self.adapter.world_render_store(SELECTOR).read());self.assertEqual([],local.calls)
+
+    def test_unissued_measurement_receipt_intent_is_retained_without_guessing_absence(self):
+        _source,local,capture=self.world_render_boundaries();capture.read(0)
+        original=capture.owner.owned();nonce='f'*32
+        capture.owner.receipt_intent(dict(schemaVersion=1,commandId=nonce,action='feature-world-render-storage',
+            requestId=original['capture']['commandId'],operation='inspect'))
+        with self.assertRaises(RuntimeError):capture.release()
+        self.assertIn(nonce,capture.owner.owned()['receipts']);self.assertEqual([],local.calls)
+
+    def test_general_cleanup_drains_owned_world_capture_before_base_teardown(self):
+        _source,local,capture=self.world_render_boundaries();capture.read(0);self.read_only_boundaries()
+        def base(_selector):
+            self.assertIsNone(self.adapter.world_render_store(SELECTOR).read())
+            self.assertEqual([],list((local.path/'files/overte-e2e').glob('world-render-storage-*')))
+            return {'cleaned':True}
+        with patch.object(AppiumAdapter,'cleanup',side_effect=base) as original:
+            self.assertEqual({'cleaned':True},self.adapter.cleanup(SELECTOR));original.assert_called_once()
+
+    def test_general_cleanup_attempts_actor_capture_even_after_primary_release_fails(self):
+        _source,_local,capture=self.world_render_boundaries();capture.read(0)
+        primary=self.adapter.world_render_store(SELECTOR).read();actor=deepcopy(primary);actor['role']='actor'
+        actor_store=self.adapter.world_render_store(SELECTOR,role='actor');actor_store.write(actor,None)
+        attempts=[]
+        class Cleanup:
+            def release(inner):actor_store.discard(actor_store.read())
+        def factory(_selector,*,read_only,role):
+            self.assertTrue(read_only);attempts.append(role)
+            if role=='primary':raise RuntimeError('Synthetic unavailable original source')
+            return Cleanup()
+        with patch.object(self.adapter,'_world_render_capture',side_effect=factory),patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_WORLD_RENDER_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertEqual(['primary','actor'],attempts);self.assertEqual(primary,self.adapter.world_render_store(SELECTOR).read())
+        self.assertIsNone(actor_store.read())
+
+    def test_general_cleanup_cannot_green_an_ignored_actor_receipt_removal(self):
+        self.read_only_boundaries()
+        _source,local,capture=self.world_render_boundaries(role='actor',read_only=True);capture.read(0);local.ignore_remove=True
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_WORLD_RENDER_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertIsNotNone(self.adapter.world_render_store(SELECTOR,role='actor').read())
+        local.ignore_remove=False
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}):self.adapter.cleanup(SELECTOR)
+        self.assertIsNone(self.adapter.world_render_store(SELECTOR,role='actor').read())
+
+    def test_readonly_render_and_graphics_commands_are_closed_measurements_not_inputs(self):
+        nonce='a'*32
+        commands=[dict(schemaVersion=1,commandId=nonce,action='feature-world-render-observe'),
+            dict(schemaVersion=1,commandId=nonce,action='feature-world-render-storage',requestId='b'*32,operation='inspect'),
+            dict(schemaVersion=1,commandId=nonce,action='feature-world-render-receipt',requestId='b'*32,receiptId='c'*32,operation='remove'),
+            dict(schemaVersion=1,commandId=nonce,action='phone-graphics-ui',request=dict(schemaVersion=1,commandId=nonce,action='observe'))]
+        for value in commands:
+            appium.readonly_feature_command(value)
+            with self.subTest(action=value['action']),self.assertRaises((ValueError,RuntimeError)):
+                appium.readonly_feature_command(value|dict(expectedPixels='desired'))
+        edited=deepcopy(commands[-1]);edited['request']['action']='set-value';edited['request']['value']=.6
+        with self.assertRaises((ValueError,RuntimeError)):appium.readonly_feature_command(edited)
 
     def test_phone_atomic_audio_history_keeps_native_terminal_frames_and_refuses_source_downgrade(self):
         source = self.native_feature_boundaries(); original = source.mutate

@@ -43,6 +43,12 @@ or foreign originals. It is a pure join, without full transport/fixture/input/
 restart/publisher/cleanup ownership or complete feature-specific pixel verdicts.
 No Graphics triple is advertised.
 
+Original world images now have [separate role-bound ownership](GRAPHICS_ACQUISITION.md)
+and native issuer/digest-gated receipt removal. General cleanup attempts both
+roles before base teardown and refuses any remaining scope. Unknown/unissued
+receipt intent remains a failure, never guessed absence. Ten Phone and two shared
+counterexamples cover these boundaries. Full Graphics coordination remains pending.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

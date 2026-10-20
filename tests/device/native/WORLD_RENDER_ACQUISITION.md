@@ -7,6 +7,13 @@ exist; the Phone internal factory is connected. No world image can be obtained t
 complete feature adapter at this stage. Full capabilities remain unadvertised.
 Native C++ is uncompiled and all devices unqualified.
 
+The Phone factory now uses [role-bound v2 ownership and native issuer-verified
+receipt cleanup](../adapters/android-phone/GRAPHICS_ACQUISITION.md), including
+separate read-only actor acquisition and general teardown checks for both roles.
+The unscoped v1 owner remains explicit for legacy components. Copying or silently
+migrating one role's journal cannot authorize the other role's image or cleanup.
+The full Graphics fixture/settings/source/publisher coordinator is still missing.
+
 ## Same-view execution provenance, capture version 2
 
 An E2E `--testScript` primary mono forward view now creates its own native
@@ -169,7 +176,7 @@ is zero. A release ACK alone cannot establish absence. Each storage command's
 original receipt is `world-render-storage-<normalized command nonce>.json` in
 the existing private results channel. Platform IO must remove these owned
 receipt artifacts and independently verify absence, including partial/timeout
-receipts. `WorldRenderOwner` persists version-1 context-bound acquisition and
+receipts. `WorldRenderOwner` persists explicit unscoped v1 or role-bound v2 acquisition and
 each unique receipt intent before dispatch, using the existing private atomic
 store. At most 1024 receipt IDs fit within its 64KiB bound. Recovery cannot
 adopt a different process/session/candidate or replace an unfinished capture.

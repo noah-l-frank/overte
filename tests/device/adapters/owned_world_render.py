@@ -9,9 +9,10 @@ from adapters.world_render_storage import command as storage_command,receipt_fil
 
 
 class WorldRenderOwner:
-    def __init__(self,store,binding,guard,*,component_only=False):
-        need(callable(guard))
+    def __init__(self,store,binding,guard,*,component_only=False,role=None):
+        need(callable(guard) and (role is None or type(role) is str and role in ('primary','actor')))
         self.store,self.guard,self.component_only=store,guard,component_only
+        self.role,self.version=role,1 if role is None else 2
         self.binding=deepcopy(context(binding,component_only=component_only))
 
     @staticmethod
@@ -25,8 +26,9 @@ class WorldRenderOwner:
     def owned(self):
         need(self.guard() is not False)
         value=self.store.read()
-        need(type(value) is dict and set(value)=={'ownershipVersion','binding','capture','receipts'}
-             and type(value['ownershipVersion']) is int and value['ownershipVersion']==1
+        need(type(value) is dict and set(value)=={'ownershipVersion','binding','capture','receipts'}|({'role'} if self.role is not None else set())
+             and type(value['ownershipVersion']) is int and value['ownershipVersion']==self.version
+             and (self.role is None or value['role']==self.role)
              and context(value['binding'],component_only=self.component_only)==self.binding
              and self.acquisition(value['capture']) and type(value['receipts']) is list and len(value['receipts'])<=1024)
         need(all(type(n) is str and re.fullmatch('(?:ios-)?[0-9a-f]{32}',n) for n in value['receipts'])
@@ -37,7 +39,8 @@ class WorldRenderOwner:
     def intent(self,command):
         need(self.guard() is not False and self.store.read() is None)
         self.acquisition(command)
-        value=dict(ownershipVersion=1,binding=self.binding,capture=deepcopy(command),receipts=[])
+        value=dict(ownershipVersion=self.version,binding=self.binding,capture=deepcopy(command),receipts=[])
+        if self.role is not None:value['role']=self.role
         self.store.write(value,None)
 
     def receipt_intent(self,command):
