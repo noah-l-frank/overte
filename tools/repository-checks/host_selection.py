@@ -143,6 +143,7 @@ PROGRAM_INPUTS = (
     'tools/repository-checks/workflows/producers/repository-checks.yml',
     'tools/repository-checks/workflows/producers/parent-qualification.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
+    'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
     'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml',
     # Actual assertions consume these documents; the generic Markdown rule does
     # not exempt them. Their membership, modes and bytes remain immutable inputs.
@@ -155,27 +156,27 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = '8d6190816bd03602e5547adab08fd8434a3d150d087acc0da98b7cec4fd165d0'
+REVIEWED_PROGRAMS = 'c53ab5fd0d7edc39929c6272ad34af1fd5d09ffdfa8376d0aafa60249a46f160'
 REVIEWED_CHILD_PROGRAMS = {
+    'apple-main': '74a77e4f28699a54ec29a55dd345961951a061f840868c74e7c3fab7f5d2c757',
+    'apple-ios': 'afa95077ca96b2610fd5636450409319d2d71de0a7492016f5927fc9bdca8fdf',
+    'android-main': '59ec0b467f3e439f014f5ccd0a6285b94fc1a66bf76a02439b66d358c50d2d8f',
+    'android-phone': '8e1c591f438ac45762ea77d3fceab70af1b588518801565da82ebe4e5646ebc6',
+    'android-vr': '59ec0b467f3e439f014f5ccd0a6285b94fc1a66bf76a02439b66d358c50d2d8f',
+    'android-vr-pico': 'bd0075ad3f16d386bfdeb4813fbd2fc984ae06e5a68a83a24b858a11ab46071c',
+}
+# Separate exact installed family; None admits nothing until genuine enrollment.
+REVIEWED_INSTALLED_PROGRAMS = {
+    'apple-ios': 'afa95077ca96b2610fd5636450409319d2d71de0a7492016f5927fc9bdca8fdf',
+}
+REVIEWED_PREDECESSORS = {
+    'main': 'ca908382ffc331b3f097718c2c4c3bed7674075704038c9605b7178b21d310d4',
     'apple-main': '4b5ba4774eb7fd60c324111934f7a5c009c359872b971419e0627f0aa61e5aa4',
-    'apple-ios': '645741296cf545d8bdb44f472772e34d7e6070d0471c880eda311574420ae866',
+    'apple-ios': '8f6e2c431b583220f5fb52a361048470588075136a042993aade08b01589a841',
     'android-main': '5922f787a6506c4516f6ee36b4310ef59c5ed81abe64e021f9860f3abe2da33d',
     'android-phone': '917996fd83789b524655804b70aeb363b33d5d280c47110a14a91dd8c1c351b6',
     'android-vr': '5922f787a6506c4516f6ee36b4310ef59c5ed81abe64e021f9860f3abe2da33d',
     'android-vr-pico': 'e0f53763c000539d722f7e84ed275d8eb38f69b3799527308403e2ef39f1b19d',
-}
-# Separate exact installed family; None admits nothing until genuine enrollment.
-REVIEWED_INSTALLED_PROGRAMS = {
-    'apple-ios': '8f6e2c431b583220f5fb52a361048470588075136a042993aade08b01589a841',
-}
-REVIEWED_PREDECESSORS = {
-    'android-main': '4431832b765b59a30025bb5fcea740c97e82c156c456339953ed5c391dcb4c0d',
-    'android-phone': '5289cce556bec0df5d2be788f9474668e5bc85a91053747c7e9fb5bb8044a1dc',
-    'android-vr': '4431832b765b59a30025bb5fcea740c97e82c156c456339953ed5c391dcb4c0d',
-    'android-vr-pico': '49e1d7221df47891d7882e7618fc5540722e4c89e5a7adbce68c69b42fb1eaa9',
-    'apple-ios': 'f04f368f5fbfcf5319abfbcd394dfb3a2775cc8bd3d503ae61a3e2aff444e404',
-    'apple-main': '591659fa999900ee10752cdaaa4f2bde2e7709d66bc845939a45e193c17d644c',
-    'main': 'f501f4f57f72472937f9c644b9af58bcd480ea5867a337de734d88703bee1670',
 }
 CONTROL_PLANE = 'tests/device/run_control_plane_tests.py'
 # These inputs are read by the full Device suite. They are CI-owned for
@@ -408,7 +409,7 @@ def _ios_routing_views(tree, base_tree, trusted_tree, trusted_root, target):
     # This exact reviewed independent iOS policy defines the same two data
     # stages. Its immutable identity is a family prerequisite, never executable
     # input. Sparse trusted checkouts and protected projections need no new file.
-    policy = {"mode": "100644", "type": "blob", "sha": "40b4ea9ab66570e63b8ff0f7d37e8da5262b8aba"}
+    policy = {"mode": "100644", "type": "blob", "sha": "5a25de7985760e8b56c2d94bb869e909404cf06a"}
     if trusted_tree.get("tools/ios-build-qualification/inputs.py") != policy:
         return None
     data = {
