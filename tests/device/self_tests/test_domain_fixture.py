@@ -14,14 +14,16 @@ import time
 import unittest
 import uuid
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTROLLER = ROOT / "fixture" / "domain.py"
 
 FAKE_DOMAIN = r'''#!/usr/bin/env python3
-import http.server, os, signal, sys, uuid
+import http.server, os, pathlib, signal, sys, uuid
 identity = sys.argv[sys.argv.index("-d") + 1] if "-d" in sys.argv else str(uuid.uuid4())
+(pathlib.Path(os.environ["XDG_DATA_HOME"]) / "domain-pid.json").write_text(str(os.getpid()))
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/id":
@@ -43,10 +45,12 @@ import json, os, pathlib, signal, sys, time, urllib.request
 stopping = False
 def stop(*_):
     global stopping
+    if "-t" in sys.argv and sys.argv[sys.argv.index("-t") + 1] == "4": time.sleep(0.35)
     stopping = True
 signal.signal(signal.SIGTERM, stop)
 arguments = pathlib.Path(os.environ["XDG_DATA_HOME"]) / ("args-" + (sys.argv[sys.argv.index("--pool") + 1] if "--pool" in sys.argv else sys.argv[sys.argv.index("-t") + 1]) + ".json")
 arguments.write_text(json.dumps(sys.argv))
+arguments.with_name(arguments.name.replace("args-", "pid-")).write_text(str(os.getpid()))
 if "--pool" in sys.argv and sys.argv[sys.argv.index("--pool") + 1] == "overte-e2e-domain":
     # Model the real entity server's persisted content across an outage. A
     # fresh assignment always seeds one shared object, so reused storage would
@@ -157,6 +161,54 @@ class DomainFixtureTest(unittest.TestCase):
                 with urlopen(metadata["peerScriptUrl"], timeout=2) as response:
                     peer_script = response.read().decode("utf-8")
                 self.assertIn("Agent.isAvatar = true", peer_script)
+                if chat_receiver:
+                    endpoint = metadata["messagesMixerControlUrl"]
+                    def mixer_request(action=None, *, token=metadata["controlToken"], extra=None):
+                        payload = None if action is None else json.dumps({"schemaVersion": 1, "action": action, **(extra or {})}).encode()
+                        return urlopen(Request(endpoint, method="GET" if payload is None else "POST", data=payload,
+                            headers={"X-Overte-E2E-Token": token, "Content-Type": "application/json"}), timeout=6)
+                    deadline = time.monotonic() + 3
+                    first_data = output / "runtime/stack-1/data"
+                    while len(list(first_data.glob("pid-*.json"))) < 8 and time.monotonic() < deadline:
+                        time.sleep(0.02)
+                    before_pids = {path.name: int(path.read_text()) for path in first_data.glob("*pid*.json")}
+                    mixer_pid = before_pids["pid-4.json"]
+                    with self.assertRaises(HTTPError) as rejected:
+                        mixer_request("offline", token="unowned")
+                    self.assertEqual(404, rejected.exception.code);rejected.exception.close()
+                    for extra in ({"schemaVersion": True}, {"expectedNode": "foreign"}):
+                        with self.assertRaises(HTTPError) as rejected:
+                            mixer_request("offline", extra=extra)
+                        self.assertEqual(400, rejected.exception.code);rejected.exception.close()
+                    with mixer_request() as response:
+                        initial = json.loads(response.read())
+                    self.assertTrue(initial["running"]);self.assertFalse(initial["pending"])
+                    with mixer_request("offline") as response:
+                        stopped = json.loads(response.read())
+                    self.assertFalse(stopped["running"]);self.assertFalse(stopped["pending"])
+                    self.assertFalse(Path(f"/proc/{mixer_pid}").exists())
+                    for name, pid in before_pids.items():
+                        if name != "pid-4.json":
+                            self.assertTrue(Path(f"/proc/{pid}").exists(), name + " must survive mixer removal")
+                    with mixer_request() as response:
+                        self.assertEqual(stopped, json.loads(response.read()))
+                    self.assertIsNone(process.poll(), "intentional slow mixer stop must not trip whole-stack monitoring")
+                    try:
+                        with mixer_request("online") as response:
+                            restored = json.loads(response.read())
+                    except HTTPError as error:
+                        error.close();process.terminate();diagnostics, _ = process.communicate(timeout=10)
+                        self.fail("mixer recovery failed:\n" + diagnostics)
+                    self.assertTrue(restored["running"]);self.assertFalse(restored["pending"])
+                    self.assertGreater(restored["generation"], stopped["generation"])
+                    deadline = time.monotonic() + 3
+                    while int((first_data / "pid-4.json").read_text()) == mixer_pid and time.monotonic() < deadline:
+                        time.sleep(0.02)
+                    self.assertNotEqual(mixer_pid, int((first_data / "pid-4.json").read_text()))
+                    self.assertFalse((output / "messages-mixer-intent.json").exists())
+                    for name, pid in before_pids.items():
+                        if name != "pid-4.json":
+                            self.assertEqual(pid, int((first_data / name).read_text()))
                 for action in ("offline", "online"):
                     request = Request(
                         metadata["controlUrl"], method="POST",
