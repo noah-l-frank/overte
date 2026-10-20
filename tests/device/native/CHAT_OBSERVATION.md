@@ -109,3 +109,11 @@ rewritten/dropped history, false cleanup ACK, failed durable intent/activation,
 source/context replacement, incomplete final inventory and clock failures.
 They verify observer/owner logic only. No C++/Qt/network/device qualification or
 complete feature capability is implied.
+
+The [independent receiver v1](INDEPENDENT_CHAT_RECEIVER.md) now pairs separately
+acquired original primary/peer sources and derives an actual remote receive
+ledger with durable source/mixer ownership. The existing native read method is
+script-invokable on its owner thread in explicitly enabled E2E Assignment Client
+processes. This opens a native source seam; authenticated/private actor transport,
+send/mixer ownership, complete UI/storage joins and device qualification remain
+missing. The default domain peer's heartbeat still proves no Chat receipt.

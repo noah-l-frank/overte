@@ -184,6 +184,9 @@ void AssignmentClientMonitor::spawnChildClient() {
 
     // unparse the parts of the command-line that the child cares about
     QStringList _childArguments;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (QCoreApplication::arguments().contains("--testScript")) { _childArguments.append("--testScript"); }
+#endif
     if (_assignmentPool != "") {
         _childArguments.append("--" + ASSIGNMENT_POOL_OPTION);
         _childArguments.append(_assignmentPool);
