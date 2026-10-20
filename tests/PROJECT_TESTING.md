@@ -1899,3 +1899,23 @@ owner. It retains CI37 and the independent iOS host contracts while avoiding
 unrelated shared product suites and an application build. Global CI path
 ownership and reader digests remain unchanged; partial, mixed, unknown,
 nonregular or differently targeted changes retain conservative coverage.
+
+The project aggregate authenticates route outputs according to their actual
+native event. A PR descriptor must provide the literal `protected_full` value;
+a supported leaf push omits that PR-only output and cannot claim a descriptor
+producer. Package and platform result verification remains independent in both
+cases. An absent push field is not interpreted as a PR qualification.
+
+The manual shared-host diagnostic uses isolated Python with bytecode writes
+disabled (`-I -B`), so loading reviewed source does not alter its retained
+inventory. A production pre-execution decline reports only the existing bounded
+public failure summary. It does not log raw exception arguments or environment
+values, qualify execution, or retry an executor after suites have started.
+
+Native Sync validation distinguishes the workflow caller's actual immutable
+source from the current PR base. For `pull_request_target`, the caller must be
+an independently proven ancestor of that base, and both caller and current
+workflow recipes must still match the trusted default recipe exactly. Native
+App, original attempt, association and current base/head/merge checks remain
+required at both bookends. Manual validation still requires the exact current
+default caller; an older caller never replaces the current merge context.
