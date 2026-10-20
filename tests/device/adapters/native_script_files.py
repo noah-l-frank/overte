@@ -59,6 +59,7 @@ class NativeScriptFiles:
         self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
         self.instance, self.sequence = None, 0
         self.last_packet = None
+        self.captured_epoch = 0
 
     def request(self, operation, run, owner, files=None):
         self.last_packet = None
@@ -94,7 +95,8 @@ class NativeScriptFiles:
                          and value['runId'] == run and value['operation'] == operation
                          and integer(value['requestedEpochMs'], 1) and integer(value['capturedEpochMs'], 1)
                          and 0 <= value['capturedEpochMs'] - value['requestedEpochMs'] < 5000
-                         and value['requestedEpochMs'] >= requested)
+                         and value['requestedEpochMs'] >= requested
+                         and value['capturedEpochMs'] >= self.captured_epoch)
                     epoch = self.clock_ms()
                     need(integer(epoch, 1) and epoch >= requested)
                     fresh(value['capturedEpochMs'], epoch)
@@ -104,6 +106,7 @@ class NativeScriptFiles:
                     need(number(now, 0, 1e15) and now >= previous and now - started < 5)
                     self.instance, self.sequence = value['instance'], value['sequence']
                     self.last_packet = deepcopy(value)
+                    self.captured_epoch = value['capturedEpochMs']
                     return deepcopy(value['source'])
                 if attempt < 50: self.sleep(0.1)
         except Exception:

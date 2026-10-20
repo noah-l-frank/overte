@@ -69,12 +69,13 @@ noncanonical base64/JSON, duplicate keys, nonfinite numbers and unknown fields.
 Raw paths and IDs remain private and must never enter public artifacts.
 
 The existing mandatory Phone runtime owner registers `test_script_history.py`
-in both modes. Thirty-four host-only cases exercise fresh reconstruction,
+in both modes. Thirty-seven host-only cases exercise fresh reconstruction,
 ignored/partial sources, retained retired identities/absence, rewritten modules/
 callbacks, original clock/cursor/birth/generation rollback, role separation,
 foreign bindings, stale objects, lost/failed private writes, full deadlines and
 bounded decode/capacity, private source locking, cross-process exclusion and
-unsafe/replaced lock rejection. Four Phone factory cases check actual binding and general
+unsafe/replaced lock rejection. The same explicitly supplied held lock can
+nest only in its owning process/thread; locked reads assert that ownership. Four Phone factory cases check actual binding and general
 cleanup refusal. Boundaries are synthetic; no native compilation or devices run.
 
 Original [present/absent fixture scopes](../../native/SCRIPT_FIXTURE_LOCATION.md)
@@ -82,8 +83,9 @@ now support baseline source reads before staging and after actual release,
 without resetting the four-source history. Explicit original retired scope is
 limited to absent reads and cannot bypass a current owner. The separate
 [file/source join](SCRIPT_FILE_SCOPE.md) adds actual file clocks, bytes, presence
-and resource aliases. Its advancing original file cursor still requires durable
-full-coordinator ownership; this four-source transcript does not store it.
+and resource aliases. The [five-source observation transaction](SCRIPT_OBSERVATION.md) now persists
+its advancing original file cursor, including uncertainty before source-factory
+queries. This four-source transcript remains separate from that record.
 
 The full nineteen-step coordinator still needs to wire these baselines, explicit
 restart history handoff, frozen action/load barriers, original HTTP404 join,

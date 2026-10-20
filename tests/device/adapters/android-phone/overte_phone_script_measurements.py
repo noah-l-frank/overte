@@ -30,6 +30,16 @@ def owned_tree(url, directory):
     return parts.scheme in ('file', '') and not parts.netloc and (path == root or path.startswith(root + '/'))
 
 
+def fixture_scope(run, fixture_url):
+    identifier(run)
+    need(type(fixture_url) is str and len(fixture_url) <= 512 and not any(ord(c) <= 32 for c in fixture_url)
+         and '?' not in fixture_url and '#' not in fixture_url and '%' not in fixture_url)
+    scope = urlsplit(fixture_url)
+    need(scope.scheme in ('http', 'https') and bool(scope.hostname) and scope.username is None
+         and scope.password is None and scope.path == '/feature-fixture/v1/runs/' + run + '/')
+    need(scope.port is None or 1 <= scope.port <= 65535)
+
+
 def compose(run, ticket, directory, fixture_url, pid, execution, ui, service, lifecycle, epoch, after_epoch):
     """Return six measured fields and original oldest acquisition epoch.
 
@@ -39,12 +49,7 @@ def compose(run, ticket, directory, fixture_url, pid, execution, ui, service, li
     active fixture ticket only scopes actual error provenance.
     """
     identifier(run); identifier(ticket)
-    need(type(fixture_url) is str and len(fixture_url) <= 512 and not any(ord(c) <= 32 for c in fixture_url)
-         and '?' not in fixture_url and '#' not in fixture_url and '%' not in fixture_url)
-    scope = urlsplit(fixture_url)
-    need(scope.scheme in ('http', 'https') and bool(scope.hostname) and scope.username is None
-         and scope.password is None and scope.path == '/feature-fixture/v1/runs/' + run + '/')
-    need(scope.port is None or 1 <= scope.port <= 65535)
+    fixture_scope(run, fixture_url)
     need(integer(pid, 1) and file_url(directory).endswith('/feature-script-' + run))
     need(type(execution) is dict and type(ui) is dict and type(lifecycle) is dict)
     validate_execution(execution, execution.get('requestId'), pid, epoch)

@@ -128,6 +128,13 @@ class ScriptFilesTests(unittest.TestCase):
             self.assertIsNone(self.files.native.last_packet)
         self.assertFalse(self.boundary.root.exists());self.assertIsNotNone(self.store.read())
 
+    def test_original_file_capture_clock_cannot_regress_behind_a_prior_accepted_query(self):
+        self.files.reserve(RUN);self.files.locate();self.files.native.clock_ms=lambda:19999
+        self.boundary.mutate=lambda packet:packet.update(requestedEpochMs=19999,capturedEpochMs=19999)
+        with self.assertRaises(NativeUIError):self.files.locate()
+        self.assertEqual(20000,self.files.native.captured_epoch);self.assertIsNone(self.files.native.last_packet)
+        self.assertIsNotNone(self.store.read())
+
     def test_ignored_new_location_query_cannot_reuse_previous_original_envelope(self):
         self.files.reserve(RUN);self.files.locate();before=len(self.boundary.commands)
         self.boundary.fault='ignored-locate'

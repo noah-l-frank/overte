@@ -10,6 +10,7 @@ import random
 import os
 import subprocess
 import tempfile
+import threading
 import sys
 import unittest
 from unittest.mock import patch
@@ -276,6 +277,30 @@ class SourceLockTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         self.path = Path(temp.name) / 'phone-script-sources.lock'
         self.lock = PhoneScriptSourceLock(self.path, timeout=0.1)
+
+    def test_explicit_same_instance_can_nest_without_releasing_outer_os_ownership(self):
+        with self.lock.held():
+            self.lock.assert_held()
+            with self.lock.held():self.lock.assert_held()
+            self.lock.assert_held()
+            with self.assertRaises(NativeUIError):
+                with PhoneScriptSourceLock(self.path,timeout=0.01).held():self.fail('outer ownership released')
+        with self.assertRaises(NativeUIError):self.lock.assert_held()
+
+    def test_unheld_lock_cannot_authorize_direct_locked_acquisition(self):
+        with self.assertRaises(NativeUIError):self.lock.assert_held()
+        self.assertFalse(self.path.exists())
+
+    def test_another_thread_cannot_reuse_the_same_instances_owner_token(self):
+        outcomes=[]
+        def other_thread():
+            try:
+                with self.lock.held():outcomes.append('unexpected overlap')
+            except NativeUIError:outcomes.append('refused')
+        with self.lock.held():
+            other=threading.Thread(target=other_thread);other.start();other.join(timeout=2)
+            self.assertFalse(other.is_alive());self.assertEqual(['refused'],outcomes)
+            self.lock.assert_held()
 
     def test_separate_process_cannot_overlap_original_source_acquisition(self):
         code = """import sys

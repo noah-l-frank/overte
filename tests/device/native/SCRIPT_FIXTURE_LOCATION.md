@@ -25,7 +25,8 @@ Location presence alone does not verify fixture contents. Existing independent
 
 `NativeScriptFiles.request` retains a deep copy of the last fully validated
 original packet in `last_packet`. It clears that slot before every request and
-on failed/ignored acquisition cannot return old data. It retains existing
+on failed/ignored acquisition cannot return old data. Accepted original capture
+clocks cannot regress within one getter instance. It retains existing
 one-send request IDs, five-second getter bound, current native clocks, candidate/
 PID/session guards and private-safe errors. The Phone read-only command allowlist
 admits exact observe/locate shapes only; stage/release remain forbidden there.
@@ -63,7 +64,7 @@ physical resource inventory. The coordinator still needs to persist its file
 cursor, integrate normal input/restart/HTTP/independent publisher and retire all
 journals only after complete cleanup. No full feature capability is promoted.
 
-Nineteen shared file-source cases (eight new), eight Phone factory cases and
+Twenty shared file-source cases (nine new), eight Phone factory cases and
 eight file-scope joins run without devices. They cover actual location/absence,
 private reservation, original byte readback, wrong/missing provenance, ignored
 queries, exclusive staging, retained ownership and baseline continuity across

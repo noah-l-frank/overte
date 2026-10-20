@@ -13,32 +13,22 @@ from overte_phone_script_measurements import compose
 VERSION = 1
 
 
-def join(run, ticket, directory, fixture_url, pid, sources, files, epoch, after_epoch, *, previous=None):
-    """Pure join of original acquisitions, never an input receipt or cache.
-
-    The owning coordinator must acquire these frames under the source lock,
-    retain the returned original file cursor before exposing a public result,
-    and persist uncertainty before acquisition. No expected state is accepted.
-    """
-    identifier(run); identifier(ticket)
-    exact(sources, {'epochMs', 'execution', 'ui', 'service', 'lifecycle'})
-    need(integer(epoch, 1) and integer(sources['epochMs'], 1) and sources['epochMs'] <= epoch)
-    measured = compose(run, ticket, directory, fixture_url, pid, sources['execution'], sources['ui'],
-                       sources['service'], sources['lifecycle'], epoch, after_epoch)
+def file_cursor(run, directory, pid, files, epoch, after_epoch, *, previous=None, native_instance=None):
+    """Check every original file acquisition, including factory admission."""
+    identifier(run)
+    need(integer(pid,1) and integer(epoch,1) and integer(after_epoch,1))
     exact(files, {'schemaVersion', 'requestId', 'instance', 'sequence', 'requestedEpochMs',
         'capturedEpochMs', 'processId', 'runId', 'operation', 'source'})
     need(type(files['schemaVersion']) is int and files['schemaVersion'] == 1
          and type(files['requestId']) is str and re.fullmatch('[0-9a-f]{32}', files['requestId']) is not None
-         and files['instance'] == sources['execution']['instance']
+         and type(files['instance']) is str and re.fullmatch('[0-9a-f]{32}', files['instance']) is not None
+         and (native_instance is None or files['instance'] == native_instance)
          and integer(files['sequence'], 1) and type(files['processId']) is int and files['processId'] == pid
          and files['runId'] == run and files['operation'] in ('observe', 'locate')
          and integer(files['requestedEpochMs'], 1) and integer(files['capturedEpochMs'], 1)
          and 0 <= files['capturedEpochMs'] - files['requestedEpochMs'] < 5000)
     fresh(files['capturedEpochMs'], epoch)
-    clocks = [files['capturedEpochMs']] + [sources[name][clock] for name, clock in
-        (('execution', 'capturedEpochMs'), ('ui', 'capturedEpochMs'), ('service', 'sampleEpochMs'),
-         ('lifecycle', 'capturedEpochMs'))]
-    need(min(clocks) >= after_epoch and max(clocks) - min(clocks) <= 1500)
+    need(files['capturedEpochMs'] >= after_epoch)
     source = files['source']
     NativeScriptFiles.validate_source(source, files['operation'], run)
     need(source.get('directory') == directory)
@@ -59,6 +49,28 @@ def join(run, ticket, directory, fixture_url, pid, sources, files, epoch, after_
              and integer(previous['sequence'], 1) and integer(previous['capturedEpochMs'], 1)
              and cursor['sequence'] > previous['sequence']
              and cursor['capturedEpochMs'] >= previous['capturedEpochMs'])
+    return deepcopy(cursor)
+
+
+def join(run, ticket, directory, fixture_url, pid, sources, files, epoch, after_epoch, *, previous=None):
+    """Pure join of original acquisitions, never an input receipt or cache.
+
+    The owning coordinator must acquire these frames under the source lock,
+    retain the returned original file cursor before exposing a public result,
+    and persist uncertainty before acquisition. No expected state is accepted.
+    """
+    identifier(run); identifier(ticket)
+    exact(sources, {'epochMs', 'execution', 'ui', 'service', 'lifecycle'})
+    need(integer(epoch, 1) and integer(sources['epochMs'], 1) and sources['epochMs'] <= epoch)
+    measured = compose(run, ticket, directory, fixture_url, pid, sources['execution'], sources['ui'],
+                       sources['service'], sources['lifecycle'], epoch, after_epoch)
+    cursor=file_cursor(run,directory,pid,files,epoch,after_epoch,previous=previous,
+                       native_instance=sources['execution']['instance'])
+    source=files['source']
+    clocks = [files['capturedEpochMs']] + [sources[name][clock] for name, clock in
+        (('execution', 'capturedEpochMs'), ('ui', 'capturedEpochMs'), ('service', 'sampleEpochMs'),
+         ('lifecycle', 'capturedEpochMs'))]
+    need(min(clocks) >= after_epoch and max(clocks) - min(clocks) <= 1500)
     resources = []
     if source['exists']: resources.append('file:script-fixtures')
     if measured['state']['open']: resources.append('panel:script-manager')

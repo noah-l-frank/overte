@@ -1568,6 +1568,162 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertTrue(all(value['operation']=='observe' for value in commands if value['action']=='feature-script-files'))
         self.assertEqual(4,self.adapter.script_history_store(SELECTOR,'primary').read()['revision'])
 
+    def test_phone_five_source_observation_seals_native_file_cursor_across_reconstruction(self):
+        commands,fixture,_files=self.script_measurement_boundaries();self.read_only_boundaries()
+        before=len(commands)
+        first=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+        self.assertEqual(before,len(commands)) # Admission sends no native source request.
+        one=first.read('b'*32,19000,after_sequence=0)
+        second=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+        two=second.read('b'*32,19000,after_sequence=one['sequence'])
+        self.assertEqual((1,2),(one['sequence'],two['sequence']))
+        self.assertEqual(one['measurement'],two['measurement'])
+        self.assertGreater(two['fileCursor']['sequence'],one['fileCursor']['sequence'])
+        self.assertEqual(['entity:script-effect','file:script-fixtures','panel:script-manager','script:owned-script'],two['resources'])
+        self.assertEqual(two['fileCursor'],second.store.read()['fileCursor'])
+        self.assertEqual(4,self.adapter.script_history_store(SELECTOR,'primary').read()['revision'])
+
+    def test_phone_five_source_observation_rejects_counter_rollback_at_factory_admission(self):
+        commands,fixture,_files=self.script_measurement_boundaries();self.read_only_boundaries()
+        self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary').read('b'*32,19000)
+        original=self.adapter.script_history_store(SELECTOR,'primary').read()
+        before=sum(command['action']=='feature-script-observe' for command in commands)
+        self.script_measurement_storage.sequence=0
+        source=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+        with self.assertRaises(RuntimeError):source.read('b'*32,19000)
+        self.assertEqual(before,sum(command['action']=='feature-script-observe' for command in commands))
+        self.assertEqual(original,self.adapter.script_history_store(SELECTOR,'primary').read())
+        self.assertEqual('reading',source.store.read()['phase'])
+        with self.assertRaises(RuntimeError):self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+
+    def test_phone_five_source_observation_rejects_fresh_but_rewound_file_epoch_before_four_source_read(self):
+        commands,fixture,_files=self.script_measurement_boundaries();self.read_only_boundaries()
+        self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary').read('b'*32,19000)
+        before=sum(command['action']=='feature-script-observe' for command in commands)
+        self.script_measurement_storage.mutate=lambda packet:packet.update(requestedEpochMs=19999,capturedEpochMs=19999)
+        with patch.object(self.fixture.adb,'epoch_milliseconds',return_value=19999):
+            source=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+            with self.assertRaises(RuntimeError):source.read('b'*32,19000)
+        self.assertEqual(before,sum(command['action']=='feature-script-observe' for command in commands))
+        self.assertEqual('reading',source.store.read()['phase'])
+
+    def test_phone_five_source_observation_future_cursor_fails_without_source_dispatch_or_pending_write(self):
+        commands,fixture,_files=self.script_measurement_boundaries();self.read_only_boundaries()
+        source=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary');before=len(commands)
+        with self.assertRaises(RuntimeError):source.read('b'*32,19000,after_sequence=100)
+        self.assertEqual(before,len(commands));self.assertIsNone(source.store.read())
+
+    def test_phone_five_source_observation_failed_cursor_persistence_keeps_both_sources_owned(self):
+        _commands,fixture,_files=self.script_measurement_boundaries();self.read_only_boundaries()
+        source=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+        original=source.store.write
+        def fail(value,previous):
+            if value['phase']=='ready':raise OSError('simulated full private storage')
+            original(value,previous)
+        with patch.object(source.store,'write',side_effect=fail):
+            with self.assertRaises(RuntimeError):source.read('b'*32,19000)
+        self.assertEqual('reading',source.store.read()['phase'])
+        self.assertEqual(2,self.adapter.script_history_store(SELECTOR,'primary').read()['revision'])
+        with self.assertRaises(RuntimeError):self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+
+    def test_phone_five_source_observation_lost_finish_return_requires_another_fresh_acquisition(self):
+        commands,fixture,_files=self.script_measurement_boundaries();self.read_only_boundaries()
+        source=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+        original=source.store.write
+        def lost(value,previous):
+            original(value,previous)
+            if value['phase']=='ready':raise OSError('simulated lost private return')
+        with patch.object(source.store,'write',side_effect=lost):
+            with self.assertRaises(RuntimeError):source.read('b'*32,19000)
+        self.assertEqual('ready',source.store.read()['phase']);before=len(commands)
+        again=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary').read('b'*32,19000,after_sequence=0)
+        self.assertEqual(2,again['sequence']);self.assertGreater(len(commands),before)
+        self.assertEqual(4,self.adapter.script_history_store(SELECTOR,'primary').read()['revision'])
+
+    def test_phone_five_source_observation_stale_object_cannot_erase_a_later_cursor(self):
+        commands,fixture,_files=self.script_measurement_boundaries();self.read_only_boundaries()
+        old=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+        actual=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary').read('b'*32,19000)
+        before=len(commands)
+        with self.assertRaises(RuntimeError):old.read('b'*32,19000)
+        self.assertEqual(before,len(commands))
+        self.assertEqual(actual['fileCursor'],old.store.read()['fileCursor'])
+
+    def test_phone_five_source_observation_ignored_file_query_never_reuses_old_envelope(self):
+        _commands,fixture,_files=self.script_measurement_boundaries();self.read_only_boundaries()
+        self.script_measurement_storage.mutate=lambda packet:packet.update(requestId='f'*32)
+        source=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+        with self.assertRaises(RuntimeError):source.read('b'*32,19000)
+        self.assertEqual('reading',source.store.read()['phase'])
+        self.assertIsNone(self.adapter.script_history_store(SELECTOR,'primary').read())
+        with self.assertRaises(RuntimeError):self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+
+    def test_phone_five_source_observation_roles_keep_separate_cursors_and_original_reads(self):
+        commands,fixture,_files=self.script_measurement_boundaries();self.read_only_boundaries()
+        primary=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary')
+        one=primary.read('b'*32,19000);saved=primary.store.read()
+        actor=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='actor')
+        two=actor.read('b'*32,19000)
+        self.assertEqual(one['measurement'],two['measurement']);self.assertEqual(saved,primary.store.read())
+        self.assertGreater(two['fileCursor']['sequence'],one['fileCursor']['sequence'])
+        self.assertEqual(2,sum(command['action']=='feature-script-observe' for command in commands))
+        self.assertEqual('actor',actor.store.read()['role'])
+
+    def test_phone_five_source_observation_keeps_baseline_history_through_real_fixture_stage_and_release(self):
+        _commands,fixture,files=self.script_measurement_boundaries(absent=True);self.read_only_boundaries()
+        def read(mode,retired=None):
+            return self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary',
+                fixture_state=mode,retired_owner=retired).read('b'*32,19000)
+        one=read('absent');owner=deepcopy(files.owned());self.assertEqual([],one['resources'])
+        files.stage_reserved();two=read('present');self.assertEqual(['file:script-fixtures'],two['resources'])
+        files.release();three=read('absent',owner);self.assertEqual([],three['resources'])
+        self.assertEqual((1,2,3),(one['sequence'],two['sequence'],three['sequence']))
+        self.assertEqual(one['measurement'],three['measurement'])
+        self.assertEqual(6,self.adapter.script_history_store(SELECTOR,'primary').read()['revision'])
+        self.assertIsNone(files.store.read());self.assertFalse(self.script_measurement_storage.root.exists())
+
+    def test_phone_five_source_observation_whole_deadline_includes_parent_pending_persistence(self):
+        commands,fixture,_files=self.script_measurement_boundaries();self.read_only_boundaries()
+        source=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary');clock=[0.0]
+        source.monotonic=lambda:clock[0];original=source.store.write;before=len(commands)
+        def late(value,previous):original(value,previous);clock[0]=21
+        with patch.object(source.store,'write',side_effect=late):
+            with self.assertRaises(RuntimeError):source.read('b'*32,19000)
+        self.assertEqual(before,len(commands));self.assertEqual('reading',source.store.read()['phase'])
+
+    def test_phone_five_source_observation_preserves_original_provenance_when_candidate_changes(self):
+        commands,fixture,files=self.script_measurement_boundaries();self.read_only_boundaries()
+        source=self.adapter._script_observation(SELECTOR,'a'*32,fixture,role='primary');before=len(commands)
+        self.fixture.adb.digest='f'*64
+        with self.assertRaises((ValueError,RuntimeError)):source.read('b'*32,19000)
+        self.assertEqual(before,len(commands));self.assertIsNone(source.store.read())
+        self.assertIsNotNone(files.store.read())
+
+    def test_phone_cleanup_cannot_forget_unresolved_observation_when_other_journals_are_absent(self):
+        store=self.adapter.script_observation_store(SELECTOR,'primary');store.write({'unresolved':True},None)
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex((ValueError,RuntimeError),'PHONE_SCRIPT_OBSERVATION_CLEANUP_INCOMPLETE'):
+                self.adapter.cleanup(SELECTOR)
+        base.assert_called_once();self.assertIsNotNone(store.read())
+
+    def test_phone_durable_script_factory_and_read_share_the_full_coordinators_held_source_lock(self):
+        _commands,fixture,_files=self.script_measurement_boundaries()
+        self.read_only_boundaries()
+        source_lock=appium.PhoneScriptSourceLock(self.state_path.with_name('phone-script-sources.lock'))
+        with source_lock.held():
+            reader=self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary',source_lock=source_lock)
+            self.assertEqual(2,reader.read('b'*32,19000)['state']['effects'])
+            source_lock.assert_held()
+        self.assertEqual(2,self.adapter.script_history_store(SELECTOR,'primary').read()['revision'])
+
+    def test_phone_durable_script_factory_rejects_a_foreign_lock_before_any_source_or_input(self):
+        commands,fixture,_files=self.script_measurement_boundaries()
+        self.read_only_boundaries();before=len(commands)
+        wrong=appium.PhoneScriptSourceLock(self.state_path.with_name('foreign-script-sources.lock'))
+        with self.assertRaises((ValueError,RuntimeError)):
+            self.adapter._script_durable_measurements(SELECTOR,'a'*32,fixture,role='primary',source_lock=wrong)
+        self.assertEqual(before,len(commands));self.assertFalse(wrong.path.exists())
+
     def test_phone_durable_script_actor_uses_its_own_history_and_original_source_nonces(self):
         _commands,fixture,_files=self.script_measurement_boundaries()
         self.read_only_boundaries()

@@ -3,6 +3,16 @@
 Active implementation scope is **Android Phone only** until all fourteen areas
 are complete. Pico and iOS work is paused and preserved on their own branches.
 
+[Durable five-source observations](SCRIPT_OBSERVATION.md) now preserve the
+original file cursor alongside the four-source transcript. Every native file
+query, including factory admission, is checked before it can hide a rollback.
+Pending/lost writes retain provenance, and general cleanup refuses forgotten
+observation journals. All 188 Phone adapter, 40 measurement and 37 history/lock
+cases pass; 1,022 common no-build cases pass. Explicitly shared source locks permit safe factory/reader
+nesting only in the owning process/thread. Full nineteen-step input/readiness,
+HTTP404 join, per-role restart handoff, independent publisher and complete cleanup
+remain open; no full feature capability or physical result is promoted.
+
 [Existing-session input admission](EXISTING_INPUT_SESSION.md) now pins the
 ordinary Phone input helpers to the original SDK/session/candidate. Twelve new
 host cases cover normal picker input, explicit restart with original kernel/

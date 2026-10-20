@@ -38,10 +38,12 @@ Host reservation/cleanup intent is not a physical resource or proof of absence.
 Raw paths/IDs/bytes remain private; public aliases contain none of them.
 
 This pure join does not acquire sources, persist provenance or return a full
-feature result. The full coordinator must hold the shared source lock, persist
-acquisition uncertainty, use the durable four-source history, freeze each normal
-input/load barrier, and persist the returned file cursor before publishing any
-result. The four-source transcript intentionally remains separate from this
+feature result. The [five-source observation transaction](SCRIPT_OBSERVATION.md) now holds the
+shared source lock, persists acquisition uncertainty, restores the four-source
+history and retains the original file cursor. It checks factory admission
+against the old cursor too; additional queries cannot conceal a rollback. The
+full coordinator must freeze normal input/load barriers and wire this transaction
+before publishing any full feature result. The four-source transcript intentionally remains separate from this
 file cursor; recreating a cursor at each invocation is forbidden. Restart needs
 explicit independently proved new-process handoff. Actor facts require separate
 original acquisitions and publisher ownership. Cleanup must observe all actual

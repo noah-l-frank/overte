@@ -213,6 +213,7 @@ class PhoneDurableScriptMeasurements:
 
     def _read_locked(self,ticket,after_epoch,started):
         try:
+            self.source_lock.assert_held()
             identifier(ticket)
             need(integer(after_epoch, 1))
             reader, history = self.reader, self.history
