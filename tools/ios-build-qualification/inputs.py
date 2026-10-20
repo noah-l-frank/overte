@@ -56,6 +56,8 @@ PARENT_ROUTING_BOOTSTRAP = "ea772c34abdee24a42babd94529bf1e753020fb3"
 # its device-control-plane-full and project-runner owners remain independently required.
 # Independent required CI must still validate these files before any app waiver.
 INDEPENDENT_HOST_PATHS = frozenset({
+    # Standalone fake-API producer lifecycle; no application or device readers.
+    'tests/producer-owner-lifecycle-test.py',
     "tools/repository-checks/workflows/android-owned/handoff/android/common/tests/robolectric/build.gradle",
     # Linux-only shared Device launcher; its required Device owner is unchanged.
     "tests/device/run_artifact_identity.py",
