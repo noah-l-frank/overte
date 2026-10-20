@@ -1,5 +1,12 @@
 # Pico feature adapter implementation status
 
+Current Scripts packet: the candidate/OpenXR/PID-start-bound execution factory
+preserves [original load history v1](../../native/SCRIPT_LOAD_HISTORY.md), including
+actual failure status and original callback epochs. A new source case rejects
+producer downgrade; all **21** native-feature observation host checks pass.
+Common journey contract is **v15**. No full feature triple is enabled; native
+code remains uncompiled and devices untested.
+
 Current Web source packet: [native browser DOM component](WEB_DOM_OBSERVATION.md)
 wires the exact common passive source through the actual shared Android backend
 and candidate-bound Pico private transport. The modified normal Script component

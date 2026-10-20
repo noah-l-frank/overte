@@ -21,6 +21,8 @@ from self_tests.test_recorded_preview_history import complete as completed_voice
 from adapters.recorded_preview_history import measured_state as measured_audio_state
 from self_tests.test_native_script_observation import Boundary as ScriptBoundary, effect_source, code_source, RUN as EFFECT_RUN
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
+from adapters.native_script_loads import result as load_result
+from self_tests.test_native_script_loads import history as load_history, URL as LOAD_URL
 from self_tests.test_native_animation_history import history_source
 from adapters.native_animation_history import clip_run
 from self_tests.test_native_account_observation import account_source
@@ -244,6 +246,27 @@ class FeatureObservationTests(unittest.TestCase):
         self.assertEqual(code,second['source']['engines'][0]['code'])
         source.mutate=original
         with self.assertRaises(RuntimeError):reader.read(second['sequence'],require_code_identity=True)
+
+    def test_pico_original_load_failure_history_survives_transport_and_refuses_downgrade(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        original = source.mutate
+        def observed(packet):
+            if original: original(packet)
+            load_history(packet)
+        source.mutate = observed
+        reader = self.adapter._script_execution_observer(self.native.target)
+        first = reader.read(0, require_load_history=True)
+        second = reader.read(first['sequence'], require_load_history=True)
+        self.assertEqual(first['source']['loads'], second['source']['loads'])
+        actual = load_result(second, LOAD_URL, after_sequence=0, after_epoch=19000)
+        self.assertEqual('NotFound', actual['status']); self.assertFalse(actual['success'])
+        self.assertEqual(19001, actual['callbackEpochMs'])
+        self.assertTrue(all(set(command) == {'schemaVersion', 'commandId', 'action'} for command in source.commands))
+        source.mutate = original
+        with self.assertRaises(RuntimeError): reader.read(second['sequence'])
+        self.assertEqual(second['sequence'], reader.sequence)
+        self.assertEqual([], self.native.inputs)
+
 
     def test_pico_script_execution_source_retains_real_loaded_module_and_engine_identity(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
