@@ -1852,7 +1852,7 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         self.assertEqual(HOST.inputs.INSTALLED_COMPILER_PROFILE,
             {path:{'mode':mode,'type':'blob','sha':sha} for path,(mode,sha) in expected.items()})
         self.assertEqual(HOST.inputs.INSTALLED_COMPILER_READER,
-            'sha256:6dff2d9d9ea405fe3a1921e4000ee191d99657c4ebcd871f665ed69e7d4748a2')
+            'sha256:19a737af0ac45317ca56947ef26dee6f8594da8d05c1f86992657a75b74b700b')
         for path in expected:
             self.assertNotIn(path,HOST.DEVICE_CONTROL_INPUTS)
         self.assertIn('ios',HOST.inputs._DEVICE_INPUTS)
