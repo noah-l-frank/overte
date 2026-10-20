@@ -475,7 +475,8 @@ class ShippingPolicyTests(unittest.TestCase):
         accepted={'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1','android-owned-npm5-sync-ci-v1',
                   'protected-producer-original-default-v1','protected-producer-original-default-boolean-v1',
             'protected-producer-original-default-required-context-v1',
-            'protected-producer-optional-parent-source-v1'}
+            'protected-producer-optional-parent-source-v1',
+            'protected-producer-optional-leaf-common-v1'}
         matches=[row['workflows'] for row in generations if row['name'] in accepted
                  and all(source.get(path)==entry for path,entry in row['workflows'].items())]
         self.assertEqual(len(matches),1)
@@ -525,7 +526,8 @@ class ShippingPolicyTests(unittest.TestCase):
         installed=[row for row in generations if row['name'] in {
             'protected-producer-original-default-v1','protected-producer-original-default-boolean-v1',
             'protected-producer-original-default-required-context-v1',
-            'protected-producer-optional-parent-source-v1'}]
+            'protected-producer-optional-parent-source-v1',
+            'protected-producer-optional-leaf-common-v1'}]
         if not installed:
             installed=[row for row in generations if row['name']=='protected-producer-seven-target-ci-v1']
         endpoint='.github/workflows/pr-metadata-context.yml'
@@ -541,6 +543,7 @@ class ShippingPolicyTests(unittest.TestCase):
                 'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
                 'protected-producer-original-default-required-context-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
                 'protected-producer-optional-parent-source-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
+                'protected-producer-optional-leaf-common-v1':'b29e0558dc69bc9dd6fc6b47bd6024382be4079d',
                 'protected-producer-seven-target-ci-v1':'3a273057a38255ca368d3028594fb94227ba7c3b'}[actual['name']]
         self.assertEqual(tree['.github/workflows/codeql.yml'],dict(mode='100644',type='blob',sha=codeql))
         tree.update(deepcopy(previous));tree.pop(endpoint,None)
@@ -564,7 +567,8 @@ class ShippingPolicyTests(unittest.TestCase):
         installed=[row for row in generations if row['name'] in {
             'protected-producer-original-default-v1','protected-producer-original-default-boolean-v1',
             'protected-producer-original-default-required-context-v1',
-            'protected-producer-optional-parent-source-v1'}
+            'protected-producer-optional-parent-source-v1',
+            'protected-producer-optional-leaf-common-v1'}
             and all(actual.get(path)==entry for path,entry in row['workflows'].items())]
         self.assertEqual(len(installed),1,'installed S must be its actual complete old, Boolean or canonical-result tuple')
         installed=installed[0]
@@ -577,6 +581,10 @@ class ShippingPolicyTests(unittest.TestCase):
             '.github/workflows/sync-validation.yml':'tools/repository-checks/workflows/sync-ci-selection.yml',
             '.github/workflows/browser-client.yml':'.github/workflows/browser-client.yml',
         }
+        if installed['name']=='protected-producer-optional-leaf-common-v1':
+            self.assertEqual(future['.github/workflows/project-tests.yml'],
+                dict(mode='100644',type='blob',sha='f4765fa63bdfede51cf6d711d24a952c5d0e0316'))
+            templates['.github/workflows/project-tests.yml']='tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml'
         self.assertEqual(set(historical),set(templates))
         if future is not None:self.assertEqual(set(future),set(templates))
         for path,template in templates.items():
@@ -586,7 +594,8 @@ class ShippingPolicyTests(unittest.TestCase):
                 # Whole historical recipes retain their real Parent bytes when
                 # the separately preregistered optional successor is installed.
                 parent=('987d8f0d198e40211ab0f33286a55852e286c174'
-                    if installed['name']=='protected-producer-optional-parent-source-v1'
+                    if installed['name'] in {'protected-producer-optional-parent-source-v1',
+                        'protected-producer-optional-leaf-common-v1'}
                     else '9bfc6f8723b1f59426f913472b78206844a7f201')
                 expected=dict(mode='100644',type='blob',sha=parent)
             elif installed['name'] in prior_callers and path=='.github/workflows/repository-checks.yml':
@@ -665,7 +674,8 @@ class ShippingPolicyTests(unittest.TestCase):
                 ('protected-producer-original-default-v1','e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1'),
                 ('protected-producer-original-default-boolean-v1','3b7a88765b7181a1bc7dd6f48b9b459e590055d3'),
                 ('protected-producer-original-default-required-context-v1','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
-                ('protected-producer-optional-parent-source-v1','7b0703d88d404f38c1b3dec92f77f03586c9144c')):
+                ('protected-producer-optional-parent-source-v1','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
+                ('protected-producer-optional-leaf-common-v1','b29e0558dc69bc9dd6fc6b47bd6024382be4079d')):
             variant=deepcopy(actual)
             row=next(row['workflows'] for row in generations if row['name']==name)
             variant.update(deepcopy(row))

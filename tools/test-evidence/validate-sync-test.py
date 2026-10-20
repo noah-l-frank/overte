@@ -1404,6 +1404,8 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
                 '.github/workflows/sync-validation.yml':'sync-ci-selection.yml',
                 '.github/workflows/browser-client.yml':'npm-consumers/browser-client.yml',
                 '.github/workflows/pr-metadata-context.yml':'metadata-edits/pr-metadata-context.yml'}
+            if generation=='protected-producer-optional-leaf-common-v1':
+                sources['.github/workflows/project-tests.yml']='producers/protected-project-tests-optional-leaf.yml'
             self.assertEqual(set(sources),set(packages.METADATA_WORKFLOW_PATHS))
             for target,relative in sources.items():
                 actual=(VALIDATION.ROOT/target).read_bytes()
