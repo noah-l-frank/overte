@@ -31,7 +31,7 @@ def validate(value, command, pid, epoch):
     ids, tokens = set(), set()
     for row in value['controls']:
         need(type(row) is dict and file_control(row.get('id')))
-        exact(row, {'id', 'token', 'enabled', 'focused'} | metadata_fields(row['id']))
+        exact(row, {'id', 'token', 'enabled', 'focused'} | metadata_fields(row['id'], row))
         need(nonce(row['token']) and row['token'] not in tokens and row['id'] not in ids
              and type(row['enabled']) is bool and type(row['focused']) is bool)
         validate_metadata(row)

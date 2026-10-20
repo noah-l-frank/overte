@@ -1,5 +1,15 @@
 # Phone adapter implementation, local source only
 
+Internal `_script_manager_status` now reads the [original manager display source](../../native/SCRIPT_MANAGER_STATUS.md)
+through the existing private native UI transport. The closed parser admits only
+optional manager metadata on the existing From File carrier, preserves distinct
+actual root/Label text and refuses missing/unavailable/foreign sources. It sends
+no UI input. Candidate/process replacement retains the existing source guards.
+All **126** Phone feature-adapter host cases pass. Native UI/SDK boundaries are
+synthetic; native instrumentation remains uncompiled and devices untested.
+Full callback/display/actor/effect/quiet-cleanup composition and complete feature
+triples remain open. No acceptance capability is promoted.
+
 Internal `_script_missing_manager` now uses the existing normal Phone From URL
 controls and same private manager store with [missing-load v1](../../native/SCRIPT_MISSING_LOAD.md).
 It preserves original callback status/history and independent service absence,

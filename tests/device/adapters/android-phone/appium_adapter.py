@@ -424,15 +424,21 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def _script_file_picker(self, selector, directory):
         # Internal primitive only. The full area still needs staged-byte
         # ownership, persistent dialog/source cleanup and execution/effect joins.
+        return TokenScriptFilePicker(self._script_file_io(selector), directory)
+
+    def _script_manager_status(self, selector):
+        from adapters.script_manager_status import manager_status
+        return manager_status(self._script_file_io(selector).capture())
+
+    def _script_file_io(self, selector):
         native = self._native_feature_observer(selector)
         target = self.target(selector)
         device = target['capabilities']['appium:udid']
         transport = PhoneAdapter(self.candidate).adb
-        io = PhoneScriptFileIO(native.send,
+        return PhoneScriptFileIO(native.send,
             lambda: transport.read_debug_app_file(device, target['appId'],
                 'files/overte-e2e/' + SCRIPT_FILE_UI_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid)
-        return TokenScriptFilePicker(io, directory)
 
     def _graphics_controls(self, selector, intent):
         # Internal ordinary-input component. Original render/pass/image and

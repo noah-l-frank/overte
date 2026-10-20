@@ -1,6 +1,7 @@
 """Phone feature adapter boundary tests; no device or candidate APK execution."""
 # SPDX-License-Identifier: Apache-2.0
 from functools import partial
+from copy import deepcopy
 import json
 import os
 import shlex
@@ -1187,6 +1188,35 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual(1, sum(row['controlId'] == 'script-file.confirm' for row in source.input_requests))
         self.assertTrue(all(set(command) == {'schemaVersion', 'commandId', 'action', 'request'} for command in source.commands))
         self.assertEqual([], self.native.inputs)
+
+    def test_phone_manager_status_returns_actual_separate_label_metadata_without_input(self):
+        from self_tests.test_script_manager_status import observed
+        source, _picker = self.file_picker_boundaries()
+        actual = observed(statusText='original native root', labelText='separate original label')
+        def measured(packet):
+            for row in packet.get('controls', []):
+                if row['id'] == 'scripts.from-file': row['manager'] = deepcopy(actual)
+        source.mutate = measured
+        self.assertEqual(actual, self.adapter._script_manager_status(SELECTOR))
+        self.assertEqual([], source.input_requests); self.assertEqual([], self.native.inputs)
+        actual['labelText'] = 'new actual label'
+        self.assertEqual(actual, self.adapter._script_manager_status(SELECTOR))
+
+    def test_phone_manager_status_missing_or_foreign_source_is_not_empty_success(self):
+        from self_tests.test_script_manager_status import observed
+        source, _picker = self.file_picker_boundaries()
+        with self.assertRaises(RuntimeError): self.adapter._script_manager_status(SELECTOR)
+        def foreign(packet):
+            for row in packet.get('controls', []):
+                if row['id'] == 'scripts.from-file': row['manager'] = observed(componentSource='file:///foreign.qml')
+        source.mutate = foreign
+        with self.assertRaises(RuntimeError): self.adapter._script_manager_status(SELECTOR)
+        self.assertEqual([], source.input_requests)
+
+    def test_phone_manager_status_candidate_loss_is_refused_before_original_source_query(self):
+        source, _picker = self.file_picker_boundaries(); self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises((ValueError, RuntimeError)): self.adapter._script_manager_status(SELECTOR)
+        self.assertEqual([], source.commands)
 
     def test_phone_file_input_ack_cannot_hide_ignored_native_selection(self):
         source, picker = self.file_picker_boundaries(); source.ui.fault = 'row'
