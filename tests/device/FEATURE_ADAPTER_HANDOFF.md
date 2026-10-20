@@ -39,6 +39,19 @@ or Script input is replayed. Internal prepare/adopt factories are connected on
 all three local branches. Full lifecycle input/execution/actor/error/cleanup
 coordination remains pending. No full feature capability is enabled.
 
+The [one-send normal restart controller](native/RESTART_INPUTS.md) is now
+connected internally on all three local platform branches. Ordinary stop/launch
+inputs retain their original SDK/OS/native gates and persisted lifecycle counts;
+uncertain input is never replayed. Physical iOS launch binding and Pico OpenXR
+session recovery after a lost launch receipt remain unqualified. Full Scripts
+coordination is still incomplete.
+
+The [owned missing Script load scope](native/SCRIPT_MISSING_LOAD.md) adds a
+closed normal From URL input with durable one-send ownership and original
+callback/history/service-row checks. It preserves actual terminal status and
+refuses stale, foreign or rewritten evidence. Visible UI errors, independent
+actor and full cleanup joins remain separate required work.
+
 The [passive native process-presence source](native/PROCESS_PRESENCE.md) provides
 an original kernel result for a previously observed PID. Permission/unknown
 results cannot qualify old-process death; Stop ACKs and PID replacement remain
