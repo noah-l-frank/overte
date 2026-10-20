@@ -21,6 +21,9 @@
 #include <QSet>
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; }
+#if defined(Q_OS_IOS)
+namespace overte::e2e { class InstalledBundleIdentity; }
+#endif
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class PrivateLoginInput; }
 #endif
@@ -160,6 +163,9 @@ public slots:
     Q_INVOKABLE QVariantMap featureNativeObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureChatObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureChatViewObservation(const QVariantMap& command);
+#if defined(Q_OS_IOS)
+    Q_INVOKABLE QVariantMap featureIOSBundleObservation(const QVariantMap& command);
+#endif
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);
@@ -231,6 +237,9 @@ private:
     overte::e2e::AccountOriginLease* _featureAccountOriginLease {nullptr};
     QSharedPointer<overte::e2e::PrivateLoginInput> _privateLoginInput;
     std::shared_ptr<overte::e2e::ChatViewObservation> _featureChatView;
+#if defined(Q_OS_IOS)
+    std::shared_ptr<overte::e2e::InstalledBundleIdentity> _featureIOSBundle;
+#endif
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
     QString _featurePendingRequest;

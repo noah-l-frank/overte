@@ -99,6 +99,7 @@
     var normalFeatureInstance = String(Uuid.generate()).replace(/[{}-]/g, "").toLowerCase();
     var normalFeatureSequence = 0;
     var lastChatObservationCommand="";
+    var lastIOSBundleDone="";
     function validChatObservationCommand(command) {
         return command && command.schemaVersion===1 && command.action==="feature-chat-observe"
             && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
@@ -1018,6 +1019,23 @@
     }
 
     function applyClientCommand(command) {
+        if (command && command.action === "ios-bundle-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string" && command.commandId.length === 36
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action"])
+                    && command.commandId !== lastIOSBundleDone) {
+                var installedBundle={bundleObservationVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureIOSBundleObservation === "function") {
+                        var originalBundle=Test.featureIOSBundleObservation(command);
+                        if (originalBundle && originalBundle.commandId === command.commandId) { installedBundle=originalBundle; }
+                    }
+                } catch (_bundleReadError) { /* No paths or archive expectations are exported. */ }
+                if (installedBundle.status !== "pending") { lastIOSBundleDone=command.commandId; }
+                Test.saveObject(installedBundle,"ios-installed-bundle-observation.json");
+            }
+            return;
+        }
         if (command && command.action === "feature-chat-view-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)

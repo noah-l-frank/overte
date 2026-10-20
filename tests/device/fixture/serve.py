@@ -495,6 +495,12 @@ class FixtureState:
             try:account_origin_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native account origin request") from None
             valid=True
+        elif action == "ios-bundle-observe":
+            sys.path.insert(0,str(ROOT.parent))
+            from ios.adapters.bundle_observation import command as bundle_command
+            try:bundle_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid original iOS bundle read request") from None
+            valid=True
         elif action == "feature-chat-view-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_chat_view import command as chat_view_command

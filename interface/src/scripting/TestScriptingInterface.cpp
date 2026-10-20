@@ -65,6 +65,9 @@
 #include "../../../tests/device/native/NormalLoginControls.h"
 #include "../../../tests/device/native/PrivateLoginInput.h"
 #include "../../../tests/device/native/ChatViewObservation.h"
+#if defined(Q_OS_IOS)
+#include "../../../tests/device/ios/InstalledBundleIdentity.h"
+#endif
 #include <ui/TabletScriptingInterface.h>
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
@@ -490,6 +493,21 @@ QVariantMap TestScriptingInterface::featureWorldRenderReceipt(const QVariantMap&
         {"operation",operation},{"instance",state->instance()}, {"sequence",static_cast<qulonglong>(++_featureWorldReceiptSequence)},
         {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()}, {"source",source}};
 }
+
+#if defined(Q_OS_IOS)
+QVariantMap TestScriptingInterface::featureIOSBundleObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureIOSBundleObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    if (!_featureIOSBundle) { _featureIOSBundle=std::make_shared<overte::e2e::InstalledBundleIdentity>(); }
+    return _featureIOSBundle->observe(command);
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureChatViewObservation(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {

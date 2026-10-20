@@ -93,6 +93,10 @@ set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/../documents/IOSDocumentP
     PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 target_link_libraries(Overte "-framework UniformTypeIdentifiers")
 target_link_libraries(Overte "-framework Security" "-framework LocalAuthentication")
+if(OVERTE_E2E_FEATURE_TESTS)
+    # Read-only original CFBundle identity source; absent from normal builds.
+    target_link_libraries(Overte "-framework CoreFoundation")
+endif()
 
 # Real Full Client caller: a foreground-only, 30-second native metrics sampler.
 # Render-budget adaptation remains the Shared renderer's responsibility.

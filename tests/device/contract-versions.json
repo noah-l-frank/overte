@@ -9,6 +9,8 @@
     "feature-account-provider": {"current": 2, "reads": [2]},
     "feature-browser-resources": {"current": 1, "reads": [1]},
     "native-feature-observation": {"current": 1, "reads": [1]},
+    "native-ios-bundle-observation": {"current": 1, "reads": [1]},
+    "ios-bundle-byte-identity": {"current": 1, "reads": [1]},
     "independent-chat-receiver": {"current": 1, "reads": [1]},
     "owned-messages-mixer": {"current": 1, "reads": [1]},
     "native-chat-actor-files": {"current": 1, "reads": [1]},
