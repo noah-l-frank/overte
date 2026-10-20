@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 from functools import partial
 from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -346,6 +347,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ready-file", type=Path)
     parser.add_argument("--startup-timeout-seconds", type=int, default=30)
     parser.add_argument("--assignment-warmup-seconds", type=float, default=2.0)
+    parser.add_argument("--feature-chat-receiver", action="store_true",
+                        help="Opt in the dedicated peer to native E2E private Chat IPC; requires an instrumented Assignment Client.")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     for name in ("domain_port", "http_port"):
@@ -483,12 +486,27 @@ def main() -> int:
                  "--logOptions", "nocolor,process_id,milliseconds"],
                 **process_options(environment, assignment_log)))
         for pool in ("overte-e2e-domain", "overte-e2e-peer"):
+            actor_options = []
+            if args.feature_chat_receiver and pool == "overte-e2e-peer":
+                # A fresh private directory per actual stack birth. The native
+                # actor exclusively creates its original source/result files.
+                actor_root = content_runtime / "chat-peer"
+                actor_root.mkdir(mode=0o700)
+                actor_options = ["--testScript", "--e2eChatActorDir", str(actor_root)]
+                atomic_json(output / "chat-actor-config.json", {
+                    "actorFilesVersion": 1,
+                    "directory": str(actor_root),
+                    "expectedScriptSha256": hashlib.sha256((ROOT / manifest["peerScript"]).read_bytes()).hexdigest(),
+                    "expectedExecutableSha256": hashlib.sha256(assignment_client.read_bytes()).hexdigest(),
+                    "ownerToken": owned_processes.owner,
+                    "configHome": owned_processes.config_home,
+                })
             assignment_agent_processes.append(subprocess.Popen(
                 [str(assignment_client), "-t", "2", "--pool", pool,
                  "-a", "127.0.0.1", "--server-port", str(args.domain_port),
                  "--disable-domain-port-auto-discovery",
                  "--log-directory", str(output / "assignment-logs"),
-                 "--logOptions", "nocolor,process_id,milliseconds"],
+                 "--logOptions", "nocolor,process_id,milliseconds", *actor_options],
                 **process_options(environment, assignment_agent_log)))
         deadline = time.monotonic() + args.assignment_warmup_seconds
         while time.monotonic() < deadline:

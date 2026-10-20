@@ -279,3 +279,15 @@ selection passes 663 cases. An E2E-only script-callable native source/Assignment
 Client opt-in is present, but uncompiled. An authenticated/private running actor
 transport, peer/mixer stimuli, primary UI/storage and complete area joins are
 still required; no complete Chat capability is enabled.
+
+### Native Chat actor transport v1
+
+The E2E Assignment Client now has a default-off private native Chat file channel,
+with a host transport and Linux executable/PID/start/owner/FD guard. The existing
+domain fixture can explicitly stage it only for its dedicated peer. See
+[native/CHAT_ACTOR_FILES.md](native/CHAT_ACTOR_FILES.md). Fifteen real-file, seven
+kernel/synthetic-worker and four controller cases pass locally. The native code
+is source-reviewed, uncompiled and device/laboratory-untested. This is an actor
+transport component; full primary Chat UI/storage, peer stimuli, mixer-only
+outage/recovery, publisher and full feature capabilities remain missing. No
+product acceptance or capability promotion follows from these host results.
