@@ -1199,14 +1199,25 @@ def verify_platform_project(candidate, event, environment, adapter, needs):
     host.require(all(type(job) is dict for job in needs.values()), 'platform project job record is invalid')
     route = needs['route']
     published = route.get('outputs')
-    host.require(type(published) is dict and set(published) == set(package.outputs(plan)) | {
-        'protected_full', 'platform_required'}
-        and published['protected_full'] in {'true', 'false'}
+    event_name = environment.get('GITHUB_EVENT_NAME')
+    host.require(event_name in {'pull_request', 'push'}, 'unsupported platform project event')
+    direct_push = event_name == 'push'
+    if direct_push:
+        host.require(environment.get('GITHUB_REF') in {
+            'refs/heads/apple-ios', 'refs/heads/android-phone', 'refs/heads/android-vr-pico'}
+            and event.get('ref') == environment['GITHUB_REF'], 'unsupported platform project push route')
+    # The descriptor runs only on pull_request. Native leaf pushes therefore
+    # have no protected_full job output; they cannot claim a protected producer.
+    route_keys = set(package.outputs(plan)) | {'platform_required'} | (
+        set() if direct_push else {'protected_full'})
+    host.require(type(published) is dict and set(published) == route_keys
+        and (direct_push or published['protected_full'] in {'true', 'false'})
         and published['platform_required'] in {'true', 'false'}
-        and (published['protected_full'] == 'false' or plan['host_mode'] == 'full'),
+        and (direct_push or published['protected_full'] == 'false' or plan['host_mode'] == 'full'),
         'platform dispatch differs from its exact native route')
+    protected_full = not direct_push and published['protected_full'] == 'true'
     context = (current_platform_context(candidate, event, environment, adapter)
-        if published['protected_full'] == 'true' or environment.get('GITHUB_EVENT_NAME') == 'push'
+        if protected_full or direct_push
             and environment.get('GITHUB_REF', '').removeprefix('refs/heads/') in _PLATFORM_TARGETS else None)
     if context is not None:
         context['candidate'] = candidate
@@ -1805,9 +1816,11 @@ def main(argv=None):
     if args.role == 'shared':
         try:
             receipt = shared_execution(candidate, event, os.environ, adapter)
-        except PreExecutionUnavailable:
+        except PreExecutionUnavailable as error:
             # Admission is the sole recoverable exception. Once run_suites has
             # started, failure/cancellation/timeout remains a required failure.
+            print('Protected shared producer preexecution unavailable: '
+                  + json.dumps(host.failure_summary(error), sort_keys=True))
             _output({'protected_executed': 'false'}, protected=True)
             return 0
         destination = _directory('ci-protected-receipt', root_only=True)

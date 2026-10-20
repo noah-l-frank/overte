@@ -1607,10 +1607,63 @@ class AndroidPlatformPartitionTests(unittest.TestCase):
                 'partition':partition['digest'].removeprefix('sha256:')}}}
         return policy,needs,{'platform_partition':partition},plan
 
-    def verify_aggregate(self,policy,needs,context):
+    def verify_aggregate(self,policy,needs,context,*,event=None,environment=None):
         with patch.object(P,'_host_policy',return_value=policy),patch.object(P,'current_platform_context',return_value=context), \
              patch.object(P,'_platform_bookend'),patch.object(P,'completed_platform_job'):
-            return P.verify_platform_project(Path('/unexecuted'),{}, {'GITHUB_SHA':'a'*40},object(),needs)
+            return P.verify_platform_project(Path('/unexecuted'),event or {},
+                environment or {'GITHUB_SHA':'a'*40,'GITHUB_EVENT_NAME':'pull_request'},object(),needs)
+
+    def test_native_leaf_push_uses_actual_descriptor_free_route_and_preserves_platform_owner(self):
+        import yaml
+        route=yaml.safe_load((P.ROOT/'.github/workflows/project-tests.yml').read_bytes())['jobs']['route']
+        descriptor=next(step for step in route['steps'] if step.get('id')=='producer')
+        self.assertEqual(descriptor['if'],"github.event_name == 'pull_request' && steps.protected-source.outputs.admitted == 'true'")
+        self.assertEqual(route['outputs']['protected_full'],'${{ steps.producer.outputs.protected_full }}')
+        for target in ('apple-ios','android-phone','android-vr-pico'):
+            self.select_target('android-main' if target=='apple-ios' else target)
+            policy,needs,context,plan=self.aggregate_fixture()
+            del needs['route']['outputs']['protected_full']
+            needs['project-tests']['outputs']={}
+            if target=='apple-ios':
+                context=None
+                needs['route']['outputs']['platform_required']='false'
+                needs['platform-tests']={'result':'skipped','outputs':{}}
+            event={'ref':'refs/heads/'+target}
+            environment={'GITHUB_SHA':'a'*40,'GITHUB_EVENT_NAME':'push','GITHUB_REF':event['ref']}
+            with self.subTest(target=target):
+                self.assertEqual(self.verify_aggregate(policy,needs,context,event=event,
+                    environment=environment),self.package.receipt(plan))
+            for mutation in ('forged-producer','empty-producer','missing-platform','malformed-platform',
+                             'extra','failed-common','missing-common','failed-platform','missing-platform-job'):
+                changed=deepcopy(needs)
+                outputs=changed['route']['outputs']
+                if mutation=='forged-producer':outputs['protected_full']='true'
+                elif mutation=='empty-producer':outputs['protected_full']=''
+                elif mutation=='missing-platform':del outputs['platform_required']
+                elif mutation=='malformed-platform':outputs['platform_required']='yes'
+                elif mutation=='extra':outputs['unknown']='true'
+                elif mutation=='failed-common':changed['project-tests']['result']='failure'
+                elif mutation=='missing-common':del changed['project-tests']
+                elif mutation=='failed-platform':changed['platform-tests']['result']='failure'
+                else:del changed['platform-tests']
+                with self.subTest(target=target,mutation=mutation),self.assertRaises((H.Unavailable,ValueError)):
+                    self.verify_aggregate(policy,changed,context,event=event,environment=environment)
+        policy,needs,context,_=self.aggregate_fixture()
+        for mutation in ('missing-producer','empty-producer','malformed-producer','missing-platform'):
+            changed=deepcopy(needs)
+            if mutation=='missing-producer':del changed['route']['outputs']['protected_full']
+            elif mutation=='empty-producer':changed['route']['outputs']['protected_full']=''
+            elif mutation=='malformed-producer':changed['route']['outputs']['protected_full']='yes'
+            else:del changed['route']['outputs']['platform_required']
+            with self.subTest(pr_mutation=mutation),self.assertRaises(H.Unavailable):
+                self.verify_aggregate(policy,changed,context)
+        for event_name,ref,event_ref in (('edited','refs/heads/apple-ios','refs/heads/apple-ios'),
+                ('push','refs/heads/unknown','refs/heads/unknown'),
+                ('push','refs/heads/apple-ios','refs/heads/android-phone')):
+            changed=deepcopy(needs);del changed['route']['outputs']['protected_full']
+            with self.subTest(event_name=event_name,ref=ref,event_ref=event_ref),self.assertRaises(H.Unavailable):
+                self.verify_aggregate(policy,changed,context,event={'ref':event_ref},environment={
+                    'GITHUB_SHA':'a'*40,'GITHUB_EVENT_NAME':event_name,'GITHUB_REF':ref})
 
     def test_final_aggregate_requires_real_platform_job_and_keeps_generic_verifier_strict(self):
         policy,needs,context,plan=self.aggregate_fixture()
