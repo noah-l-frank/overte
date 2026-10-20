@@ -550,6 +550,126 @@ class NativeCallerSchedulingTests(unittest.TestCase):
             with self.subTest(action=action,label=label): self.assertEqual({name for name in names if self.scheduled(name)},names)
 
 
+class MetadataEventCliRetryTests(unittest.TestCase):
+    """Mutable native progress may retry admission, never producer authority."""
+
+    class Pending(ValueError):
+        pass
+
+    def run_cli(self, schedule, *, caller='repository-checks.yml', scheduling='true', retained=None):
+        from contextlib import redirect_stderr, redirect_stdout
+        import io
+        import time
+        self.seconds = 0
+        self.sleeps = []
+
+        def sleep(seconds):
+            self.sleeps.append(seconds)
+            self.seconds += seconds
+
+        with tempfile.TemporaryDirectory() as temporary:
+            path, output = Path(temporary) / 'event.json', Path(temporary) / 'outputs'
+            path.write_text(json.dumps(MetadataEditTests().edited({'body': {'from': 'Old'}})))
+            self.event_path = path
+            command = ['check.py', 'metadata-event', '--event', str(path), '--event-name',
+                       'pull_request', '--output', str(output)]
+            environment = {'NATIVE_METADATA_INTENT': 'true', 'NATIVE_METADATA_SCHEDULING': scheduling,
+                'GITHUB_WORKFLOW_REF': 'noah-l-frank/overte/.github/workflows/' + caller +
+                    '@refs/pull/17/merge', 'GITHUB_JOB': 'route' if caller == 'repository-checks.yml' else 'select'}
+            with patch.object(sys, 'argv', command), patch.dict(os.environ, environment), \
+                    patch.dict(sys.modules, {'producer_api': SimpleNamespace(SchedulingPending=self.Pending)}), \
+                    patch.object(time, 'monotonic', side_effect=lambda: self.seconds), \
+                    patch.object(time, 'sleep', side_effect=sleep), \
+                    patch.object(CHECKS, '_scheduled_metadata', side_effect=schedule) as scheduled, \
+                    patch.object(CHECKS, '_retained_metadata', side_effect=retained) as original, \
+                    patch.object(CHECKS, 'configuration') as configuration, \
+                    patch.object(CHECKS, 'plan') as producer, patch.object(CHECKS, 'verify') as verify, \
+                    redirect_stdout(io.StringIO()) as stdout, redirect_stderr(io.StringIO()) as stderr:
+                status = CHECKS.main()
+            configuration.assert_not_called(); producer.assert_not_called(); verify.assert_not_called()
+            return status, output.read_text() if output.exists() else None, scheduled, original, stdout.getvalue(), stderr.getvalue()
+
+    def ready(self):
+        return {'kind': 'native-nonproducer-scheduling', 'metadata_only': 'true',
+                'qualification': False, 'original_run_id': 101, 'original_status': 'in_progress'}
+
+    def test_both_native_selector_clis_retry_progress_with_fresh_complete_scheduling(self):
+        for caller in ('repository-checks.yml', 'codeql.yml'):
+            with self.subTest(caller=caller):
+                status, output, scheduled, retained, printed, _ = self.run_cli(
+                    [self.Pending('ordinary scheduling source is in the future of its fixed cutoff'), self.ready()],
+                    caller=caller)
+                self.assertEqual(status, 0)
+                self.assertEqual(output, 'metadata_only=true\n')
+                self.assertEqual(scheduled.call_count, 2)
+                self.assertIsNot(scheduled.call_args_list[0].args[0], scheduled.call_args_list[1].args[0])
+                retained.assert_not_called()
+                self.assertEqual(self.sleeps, [2])
+                self.assertEqual(json.loads(printed)['original_status'], 'in_progress')
+                self.assertIs(json.loads(printed)['qualification'], False)
+
+    def test_persistent_typed_progress_stops_at_the_existing_180_second_bound_without_output(self):
+        status, output, scheduled, retained, _, error = self.run_cli(self.Pending('ordinary progress pending'))
+        self.assertEqual(status, 1); self.assertIsNone(output)
+        self.assertEqual(self.seconds, 180)
+        self.assertTrue(self.sleeps)
+        self.assertTrue(all(0 < seconds <= 2 for seconds in self.sleeps))
+        self.assertEqual(scheduled.call_count, len(self.sleeps) + 1)
+        self.assertIn('ordinary progress pending', error)
+        retained.assert_not_called()
+
+    def test_hard_source_context_errors_never_retry_or_fall_back(self):
+        for reason in ('foreign repository', 'stale protected source', 'moved merge candidate',
+                       'attempt changed', 'malformed native inventory'):
+            with self.subTest(reason=reason):
+                status, output, scheduled, retained, _, error = self.run_cli(ValueError(reason))
+                self.assertEqual(status, 1); self.assertIsNone(output)
+                self.assertEqual(scheduled.call_count, 1)
+                self.assertEqual(self.sleeps, [])
+                self.assertIn(reason, error)
+                retained.assert_not_called()
+
+    def test_retry_rereads_event_and_reauthenticates_moved_context_instead_of_reusing_admission(self):
+        heads = []
+
+        def schedule(value):
+            heads.append(value['pull_request']['head']['sha'])
+            if len(heads) == 1:
+                changed = deepcopy(value); changed['pull_request']['head']['sha'] = 'd' * 40
+                self.event_path.write_text(json.dumps(changed))
+                raise self.Pending('ordinary progress pending')
+            raise ValueError('moved head no longer matches original source')
+
+        status, output, scheduled, retained, _, error = self.run_cli(schedule)
+        self.assertEqual(status, 1); self.assertIsNone(output)
+        self.assertEqual(heads, ['2' * 40, 'd' * 40])
+        self.assertEqual(scheduled.call_count, 2); self.assertEqual(self.sleeps, [2])
+        self.assertIn('moved head', error); retained.assert_not_called()
+
+    def test_retained_verifier_and_pure_classifier_keep_single_attempt_fail_closed_semantics(self):
+        status, output, scheduled, retained, _, _ = self.run_cli(None, scheduling='false',
+            retained=self.Pending('retained verifier unavailable'))
+        self.assertEqual(status, 1); self.assertIsNone(output)
+        scheduled.assert_not_called(); retained.assert_called_once(); self.assertEqual(self.sleeps, [])
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'event.json'
+            path.write_text(json.dumps(MetadataEditTests().edited()))
+            with patch.dict(os.environ, {'NATIVE_METADATA_INTENT':'true', 'NATIVE_METADATA_SCHEDULING':'true'}), \
+                    patch.object(CHECKS, '_scheduled_metadata', side_effect=self.Pending('still pending')) as call, \
+                    self.assertRaises(self.Pending):
+                CHECKS.classify_metadata_event(path, 'pull_request')
+            call.assert_called_once()
+
+    def test_admission_returning_after_deadline_does_not_emit_a_metadata_decision(self):
+        def slow(_):
+            self.seconds = 181
+            return self.ready()
+        status, output, scheduled, retained, _, error = self.run_cli(slow)
+        self.assertEqual(status, 1); self.assertIsNone(output)
+        scheduled.assert_called_once(); retained.assert_not_called()
+        self.assertEqual(self.sleeps, []); self.assertIn('exceeded', error)
+
+
 class MetadataSchedulingBoundaryTests(unittest.TestCase):
     def marker(self):
         spec = importlib.util.spec_from_file_location('metadata_scheduling_boundary',
