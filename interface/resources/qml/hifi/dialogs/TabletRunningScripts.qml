@@ -76,7 +76,7 @@ Rectangle {
         }
         TextField { objectName: "scriptFilter"; placeholderText: "Filter installed scripts"; Layout.fillWidth: true; implicitHeight: 48; onTextChanged: browser.filterText = text; id: filter }
         NativeModelTree { id: browser; objectName: "scriptTree"; Layout.fillWidth: true; Layout.fillHeight: true; sourceModel: root.scriptsModel; onActivated: function(index) { root.loadScript(root.scriptsModel.data(index, 256)); } }
-        Label { text: root.status; color: "#cccccc"; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text.length > 0 }
+        Label { id: scriptStatus; text: root.status; color: "#cccccc"; wrapMode: Text.WordWrap; Layout.fillWidth: true; visible: text.length > 0 }
         NativeKeyboardHost { Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; inputFocused: filter.activeFocus }
     }
 }
