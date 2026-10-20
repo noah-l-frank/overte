@@ -19,6 +19,7 @@ from adapters.native_chat_observation import NativeChatObservation, ChatCaptureO
 from adapters.native_chat_view import NativeChatView, FILE as CHAT_VIEW_FILE
 from adapters.native_web_dom import NativeWebDOMObservation, FILE as WEB_DOM_FILE
 from adapters.native_navigation_replies import NativeNavigationReplies, FILE as NAVIGATION_REPLIES_FILE
+from adapters.native_process_presence import NativeProcessPresence, FILE as PROCESS_PRESENCE_FILE
 from adapters.pending_commit_owner import NativePendingCommitOwner, FILE as PENDING_OWNER_FILE
 from adapters.native_account_origin import NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, AndroidPreviewFiles,
@@ -345,6 +346,14 @@ def create_adapter(args, base_class):
                     'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
                 lambda: self.adb.epoch_milliseconds(target), guard,
                 int(original.identity.split(':')[0]))
+
+        @_private
+        def _process_presence(self, target):
+            native = self._native_feature_observer(target)
+            return NativeProcessPresence(native.send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + PROCESS_PRESENCE_FILE, attempts=1),
+                native.clock_ms, native.guard, native.pid, monotonic=native.monotonic, sleep=native.sleep)
 
         @_private
         def _navigation_replies(self,target):

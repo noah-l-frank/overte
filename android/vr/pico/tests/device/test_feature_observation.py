@@ -23,6 +23,7 @@ from self_tests.test_native_script_observation import Boundary as ScriptBoundary
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 from adapters.native_script_loads import result as load_result
 from self_tests.test_native_script_loads import history as load_history, URL as LOAD_URL
+from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_animation_history import history_source
 from adapters.native_animation_history import clip_run
 from self_tests.test_native_account_observation import account_source
@@ -183,6 +184,37 @@ class FeatureObservationTests(unittest.TestCase):
                          patch.object(self.native, 'execute_bytes', side_effect=binary, create=True)):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
+
+    def process_presence(self):
+        source = self.preview_boundaries(PresenceBoundary(pid=123,
+            epoch_ms=lambda: self.native.epoch_milliseconds(self.native.target)), 'feature-process-presence.json')
+        return source, self.adapter._process_presence(self.native.target)
+
+    def test_pico_process_presence_preserves_raw_kernel_states_without_scripts_input(self):
+        source, reader = self.process_presence()
+        self.assertEqual('present', reader.read(122)['presence'])
+        source.presence = 'unknown'
+        with self.assertRaises(RuntimeError): reader.require_absent(122)
+        source.presence = 'absent'; actual = reader.require_absent(122)
+        self.assertEqual(source.value, actual); self.assertEqual(3, actual['nativeError'])
+        self.assertEqual([], self.native.inputs)
+
+    def test_pico_process_presence_ignored_or_foreign_source_cannot_prove_exit(self):
+        source, reader = self.process_presence(); source.ignored = True
+        with self.assertRaises(RuntimeError): reader.require_absent(122)
+        self.assertEqual(1, len(source.commands)); self.assertIsNone(reader.last)
+        source.ignored = False; source.presence = 'absent'; source.edit = lambda value: value.update(processId=124)
+        with self.assertRaises(RuntimeError): reader.require_absent(122)
+        self.assertIsNone(reader.last)
+
+    def test_pico_process_presence_changed_candidate_or_same_pid_new_birth_blocks_query(self):
+        source, reader = self.process_presence(); reader.read(122)
+        before = len(source.commands); original = self.native.digest; self.native.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): reader.read(122)
+        self.assertEqual(before, len(source.commands))
+        self.native.digest = original; self.native.identity = '123:another-start'
+        with self.assertRaises(RuntimeError): reader.read(122)
+        self.assertEqual(before, len(source.commands))
 
     def test_original_pico_preview_pcm_uses_bound_native_transport_and_verifies_cleanup(self):
         source = self.preview_boundaries()

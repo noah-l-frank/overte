@@ -1,5 +1,14 @@
 # Pico feature adapter implementation status
 
+Current restart-source packet: `_process_presence(target)` binds the
+[original kernel presence source](../../native/PROCESS_PRESENCE.md) to the
+existing candidate/OpenXR/PID-start/foreground private reader. All **24**
+native-feature host cases pass. Three new cases retain actual present/unknown/
+ESRCH results, reject ignored/foreign packets and block another query after
+candidate replacement or same-PID birth change. No Scripts UI input is sent.
+Native code is uncompiled and devices untested; full restart adoption and all
+complete feature adapters remain missing.
+
 Current file-bundle input packet: `_script_file_manager(target)` composes the
 [existing file ownership scope](../../native/SCRIPT_FILE_OWNERSHIP.md) with the
 actual candidate/OpenXR-bound VR manager, original staged bytes and normal file
