@@ -495,6 +495,12 @@ class FixtureState:
             try:account_origin_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native account origin request") from None
             valid=True
+        elif action == "feature-process-presence":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_process_presence import command as process_presence_command
+            try:process_presence_command(command,ios=True)
+            except (ValueError,RuntimeError):raise ValueError("invalid native process presence request") from None
+            valid=True
         elif action == "feature-navigation-replies":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_navigation_replies import command as navigation_replies_command

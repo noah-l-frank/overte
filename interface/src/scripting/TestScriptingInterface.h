@@ -160,6 +160,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureChatViewObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureNavigationReplies(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureProcessPresence(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featurePendingCommitOwner(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
@@ -253,6 +254,7 @@ private:
     QSet<QUuid> _featureScriptEffectIds;
     quint64 _featureScriptFilesSequence {0};
     quint64 _featureWorldReceiptSequence {0};
+    quint64 _featureProcessPresenceSequence {0};
     QVariantMap _featureScriptFilesCommand, _featureScriptFilesResult;
 #endif
 #if defined(OVERTE_E2E_VOICE_TESTS)

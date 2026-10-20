@@ -30,6 +30,7 @@
 #include "../../../tests/device/native/ChatViewObservation.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../tests/device/native/PendingFieldCommitBridge.h"
+#include "../../../tests/device/native/ProcessPresence.h"
 #include <ui/TabletScriptingInterface.h>
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
@@ -192,6 +193,31 @@ QVariantMap TestScriptingInterface::featureWorldRenderReceipt(const QVariantMap&
     return {{"receiptVersion",1},{"commandId",id},{"requestId",request},{"receiptId",receipt},
         {"operation",operation},{"instance",state->instance()}, {"sequence",static_cast<qulonglong>(++_featureWorldReceiptSequence)},
         {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()}, {"source",source}};
+}
+
+QVariantMap TestScriptingInterface::featureProcessPresence(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this, [&] { result = featureProcessPresence(command); }, Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || !overte::e2e::previewDirectory(_testResultsLocation)
+            || !overte::e2e::ProcessPresence::command(command) || _featureProcessPresenceSequence >= 1000000000) { return {}; }
+    const auto requested = QDateTime::currentMSecsSinceEpoch();
+    auto result = overte::e2e::ProcessPresence::observe(command.value("queryProcessId").toInt());
+    if (result.isEmpty()) { return {}; }
+    result.insert("processPresenceVersion", 1);
+    result.insert("commandId", command.value("commandId"));
+    result.insert("instance", _featureObservationInstance);
+    result.insert("sequence", static_cast<qulonglong>(++_featureProcessPresenceSequence));
+    result.insert("processId", QCoreApplication::applicationPid());
+    result.insert("queryProcessId", command.value("queryProcessId"));
+    result.insert("requestedEpochMs", requested);
+    result.insert("capturedEpochMs", QDateTime::currentMSecsSinceEpoch());
+    return result;
 }
 
 QVariantMap TestScriptingInterface::featureNavigationReplies(const QVariantMap& command) {
@@ -1044,6 +1070,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
+            || filename == "feature-process-presence.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "phone-script-file-ui.json" || filename == "phone-audio-ui.json" || filename == "phone-graphics-ui.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
