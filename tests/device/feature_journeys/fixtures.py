@@ -10,7 +10,12 @@ from voice_peer.voice_signal import RATE, samples
 
 
 def context(run):
-    return dict(name='e2e-' + run, renamed='renamed-' + run,
+    name,renamed='e2e-'+run,'renamed-'+run
+    return dict(name=name, renamed=renamed,
+                assetGltf=name+'/main.gltf',assetBin=name+'/mesh/triangle.bin',assetTexture=name+'/textures/checker.png',
+                renamedAssetGltf=renamed+'/main.gltf',renamedAssetBin=renamed+'/mesh/triangle.bin',
+                renamedAssetTexture=renamed+'/textures/checker.png',assetObj=name+'/main.obj',
+                assetMtl=name+'/materials/palette.mtl',assetFbx=name+'/stand.fbx',
                 unicode='Overte ä Ω 東京 ' + run, destination='owned-place-' + run,
                 reply='reply-' + run, hidden='hidden-' + run, retry='retry-' + run)
 
@@ -77,6 +82,8 @@ def payload(resource, run, ticket):
         output = io.BytesIO()
         image.save(output, format='PNG')
         return 'image/png', output.getvalue()
+    if resource == 'asset-stand.fbx':
+        return 'application/octet-stream',pinned_resource(resource)
     if resource == 'avatar-a.fst' or resource.startswith('mannequin/'):
         try:
             return 'application/octet-stream', pinned_resource(resource)

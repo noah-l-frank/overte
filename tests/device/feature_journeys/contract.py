@@ -1,4 +1,4 @@
-"""Strict v12 action/read boundary for feature additions to the existing harness."""
+"""Strict v13 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
@@ -118,6 +118,17 @@ def state(area, value, run=None):
                 allowed = {item for row in checkpoints for item in row[key]}
                 if any(item not in allowed for item in value[key]):
                     raise ValueError('Product list contains private or unowned values')
+    if area == 'assets':
+        if value['baking'] != (value['bakeState'] == 'baking'):
+            raise ValueError('Asset bake activity disagrees with original server state')
+        if value['bakeAvailable'] != (value['bakeState'] in {'baking','ready','disabled'}):
+            raise ValueError('Asset bake control disagrees with the selected original file type')
+        if value['deleteEnabled'] and (not value['open'] or not value['canWrite'] or not value['selected']):
+            raise ValueError('Asset Delete cannot be enabled without a writable selection')
+        if value['selected'] and value['selected'] not in value['mappings']:
+            raise ValueError('Asset selection has no original owned mapping')
+        if not value['picker'] and (value['pickerFile'] or value['stagedAvailable']):
+            raise ValueError('Asset picker ownership outlived its original surface')
     if area == 'avatar-people':
         if value['modelLoaded'] != (value['avatar'] != 'unavailable'):
             raise ValueError('Avatar geometry readiness disagrees with the actual loaded model')

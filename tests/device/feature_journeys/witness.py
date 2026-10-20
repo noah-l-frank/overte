@@ -32,7 +32,7 @@ WITNESS_KEYS = {
  'chat': ['draft', 'messages', 'localMessages', 'domainMessages', 'peerMessages', 'channel', 'mixerConnected', 'focused', 'keyboard', 'open'],
  'snapshots': ['open','pending','captureHistory','files','saved','uploads','shares','saveBackend','savePermission','saveSheet','shareSheet','error'],
  'scripts': ['running', 'effects', 'companions'],
- 'assets': ['mappings', 'selected', 'bakeState', 'canWrite', 'sceneModel', 'companions'],
+ 'assets': ['mappings', 'selected', 'baking', 'bakeState', 'bakeAvailable', 'canWrite', 'deleteEnabled', 'error', 'open', 'sceneModel', 'companions', 'picker', 'pickerFile', 'stagedAvailable'],
  'lifecycle-input': ['heldInputs', 'worldDisplacement', 'generation'],
 }
 

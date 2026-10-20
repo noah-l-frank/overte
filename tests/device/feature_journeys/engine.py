@@ -331,6 +331,7 @@ class Journey:
                 # Negative/cancellation/quiet assertions must remain true for a
                 # full observation window; an early empty sample is insufficient.
                 negative = (any(word in step['verb'] for word in ('cancel', 'denied', 'reject', 'stale', 'foreign', 'stop', 'delete', 'discard'))
+                    or self.area=='assets' and step['verb'] in {'inspect-baking-unavailable','upload-picker-accept-unavailable','retire-staged-primary'}
                     or self.area=='chat' and step['verb'] in {'close','peer-send-distant','network-remove-mixer','network-restore-mixer','await-no-replay'}
                     or self.area in {'world-web','tablet-web'} and step['verb'] in {'restore-resource','deliver-retired-inline-message','close'})
                 self.wait(f'{index + 1:02d}-{step["verb"]}', ticket, barrier,

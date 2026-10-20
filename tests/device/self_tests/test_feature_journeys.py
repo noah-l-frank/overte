@@ -332,22 +332,45 @@ class Boundary:
             elif verb == 'load-url' and data['resource'] == 'missing.js': s['error'] = 'not-found'
             elif verb == 'stop-owned': s.update(running=[], effects=0, companions=[])
         elif a == 'assets':
-            if verb in {'open','close'}:
-                s['open'] = verb == 'open'
-                if verb == 'close': s['error'] = 'none'
-            elif verb == 'upload':
-                if data['resource'] == 'missing.gltf': s['error'] = 'not-found'
-                else: s.update(mappings=[self.ctx['name']], selected=self.ctx['name'],
-                    companions=['mesh/triangle.bin','textures/checker.png'] if data['resource']=='model.gltf' else ['materials/palette.mtl','textures/checker.png'])
-            elif verb == 'rename': s.update(mappings=[data['name']], selected=data['name'])
-            elif verb == 'bake': s['bakeState'] = 'ready'
-            elif verb == 'import-selected': s['sceneModel'] = True
-            elif verb == 'remove-owned-model': s['sceneModel'] = False
-            elif verb == 'set-write-permission': s.update(canWrite=data['allowed'], error='none')
-            elif verb == 'delete-denied': s['error'] = 'permission-denied'
-            elif verb == 'delete-owned':
-                s.update(mappings=[], selected='', bakeState='none')
-                if self.fault != 'leaked-companions': s['companions']=[]
+            if verb in {'open','close'}:s['open']=verb=='open'
+            elif verb=='upload-picker-open':s.update(picker=True,stagedAvailable=True)
+            elif verb=='upload-picker-select':s['pickerFile']='main.gltf'
+            elif verb=='retire-staged-primary':s['stagedAvailable']=self.fault=='assets-staged-retirement-ignored'
+            elif verb=='upload-picker-accept-unavailable':
+                if not s['stagedAvailable'] and self.fault!='assets-picker-no-file-error':s['error']='file-unavailable'
+                if self.fault=='assets-picker-unavailable-publishes':s.update(mappings=[self.ctx['assetGltf']],selected=self.ctx['assetGltf'])
+            elif verb=='upload-picker-cancel':s.update(picker=False,pickerFile='',error='none',stagedAvailable=False)
+            elif verb=='upload':
+                kind={'gltf-bundle/main.gltf':'gltf','obj-bundle/main.obj':'obj','asset-stand.fbx':'fbx'}[data['resource']]
+                primary={'gltf':'assetGltf','obj':'assetObj','fbx':'assetFbx'}[kind]
+                keys=[primary]+(['assetBin','assetTexture'] if kind=='gltf' else ['assetMtl','assetTexture'] if kind=='obj' else [])
+                s.update(mappings=[self.ctx[k] for k in keys],selected=self.ctx[primary],
+                    companions=['mesh/triangle.bin','textures/checker.png'] if kind=='gltf' else
+                               ['materials/palette.mtl','textures/checker.png'] if kind=='obj' else [],
+                    bakeState='ready' if kind=='fbx' else 'unsupported',bakeAvailable=kind=='fbx',deleteEnabled=True)
+                if self.fault=='assets-flat-name':s.update(mappings=[self.ctx['name']],selected=self.ctx['name'])
+                if self.fault=='assets-missing-companion' and kind!='fbx':s['mappings'].pop();s['companions'].pop()
+                if self.fault=='assets-gltf-baked' and kind=='gltf':s.update(bakeState='ready',bakeAvailable=True)
+            elif verb=='rename-folder':
+                old=self.ctx['name']+'/';new=data['name']+'/'
+                s['mappings']=[new+name[len(old):] for name in s['mappings']]
+                s['selected']=new+s['selected'][len(old):]
+                if self.fault=='assets-rename-breaks-bundle':s['mappings']=s['mappings'][:1];s['companions']=[]
+            elif verb=='set-baking':
+                s.update(bakeState='ready' if data['enabled'] else 'disabled',baking=False)
+                if self.fault=='assets-no-real-bake' and data['enabled']:s['bakeState']='disabled'
+                if self.fault=='assets-disable-unsettled-worker' and not data['enabled']:s.update(bakeState='baking',baking=True)
+            elif verb=='import-selected':s['sceneModel']=True
+            elif verb=='remove-owned-model':s['sceneModel']=False
+            elif verb=='set-write-permission':
+                s.update(canWrite=data['allowed'],deleteEnabled=data['allowed'] and bool(s['selected']))
+                if self.fault=='assets-delete-enabled-when-denied':s['deleteEnabled']=True
+            elif verb=='delete-denied':
+                if self.fault=='assets-denied-deletes':s.update(mappings=[],selected='',companions=[],bakeState='none',bakeAvailable=False)
+                if self.fault=='assets-invented-permission-error':s['error']='permission-denied'
+            elif verb=='delete-owned':
+                s.update(mappings=[],selected='',bakeState='none',baking=False,bakeAvailable=False,deleteEnabled=False)
+                if self.fault!='leaked-companions':s['companions']=[]
         elif a == 'lifecycle-input':
             if verb == 'open-editor': s.update(editor=data['editor'], focused=True, keyboard=True)
             elif verb == 'type': s['text'] = data['text']
@@ -539,6 +562,38 @@ class FeatureJourneys(unittest.TestCase):
         model=json.loads(companion('gltf-bundle/main.gltf'))
         for row in model['buffers']+model['images']:
             self.assertTrue(companion('gltf-bundle/'+row['uri']))
+
+    def test_assets_actual_bundle_paths_fbx_bake_and_file_disappearance(self):
+        boundary=Boundary('assets');boundary.execute();samples=boundary.reports[0]['samples']
+        ready=next(s['state'] for s in samples if s['phase'].endswith('-set-baking') and s['state']['bakeState']=='ready')
+        self.assertTrue(ready['selected'].endswith('/stand.fbx'));self.assertFalse(ready['baking'])
+        denied=next(s['state'] for s in samples if s['phase'].endswith('-delete-denied'))
+        self.assertFalse(denied['deleteEnabled']);self.assertEqual('none',denied['error']);self.assertEqual(3,len(denied['mappings']))
+        renamed=next(s['state'] for s in samples if s['phase'].endswith('-rename-folder'))
+        self.assertTrue(all(name.startswith(context(RUN)['renamed']+'/') for name in renamed['mappings']))
+        self.assertTrue(renamed['selected'].endswith('/main.gltf'))
+        missing=next(s['state'] for s in samples if s['phase'].endswith('-upload-picker-accept-unavailable'))
+        self.assertEqual('file-unavailable',missing['error']);self.assertTrue(missing['picker'])
+        self.assertEqual([],missing['mappings']);self.assertFalse(missing['stagedAvailable'])
+        self.assertEqual(29,len(SCENARIOS['assets']['steps']))
+
+    def test_assets_ignored_effects_invented_ui_errors_and_partial_bundles_cannot_pass(self):
+        faults=('assets-flat-name','assets-missing-companion','assets-gltf-baked','assets-rename-breaks-bundle',
+                'assets-no-real-bake','assets-disable-unsettled-worker','assets-delete-enabled-when-denied',
+                'assets-denied-deletes','assets-invented-permission-error','assets-staged-retirement-ignored',
+                'assets-picker-no-file-error','assets-picker-unavailable-publishes')
+        for fault in faults:
+            with self.subTest(fault=fault),self.assertRaises((AssertionError,ValueError)):
+                Boundary('assets',fault).execute()
+
+    def test_assets_all_picker_permission_and_bake_facts_require_an_independent_reader(self):
+        from feature_journeys.witness import WITNESS_KEYS
+        self.assertEqual(set(SCENARIOS['assets']['baseline']),set(WITNESS_KEYS['assets']))
+        from feature_journeys.contract import state
+        baseline=SCENARIOS['assets']['baseline']
+        for change in ({'baking':True},{'bakeAvailable':True},{'deleteEnabled':True},
+                       {'selected':context(RUN)['assetGltf']},{'stagedAvailable':True}):
+            with self.subTest(change=change),self.assertRaises(ValueError):state('assets',dict(baseline,**change),RUN)
 
     def test_all14_complete_with_independent_boundary_model_and_observed_cleanup(self):
         self.assertEqual(14, len(SCENARIOS))
@@ -1260,9 +1315,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v12.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v13.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v12.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v13.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():
