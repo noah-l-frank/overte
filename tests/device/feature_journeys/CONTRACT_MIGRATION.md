@@ -1,6 +1,28 @@
+# Version 12: actual avatar geometry, Model wearable and bookmark recovery
+
+Current producers/readers use v12 exclusively. The v11 JSON inventory/matrix
+remain historical; no qualified complete v11 area producer exists. Avatar now
+has fifteen checkpoints. Add Wearable uses the pinned glTF Model URL and the
+actual runtime Hips joint index. The unused legacy wearable entity-JSON resource
+is no longer served. `requestedAvatar`, `modelLoaded` and `loadFailed` replace
+the invented network-error popup assumption. `avatar` identifies actual current
+loaded geometry, never the requested URL. Actual failed loading removes old
+geometry and may select the bundled fallback while leaving the advertised bad
+URL unchanged. Require original failure history and unavailable/fallback state;
+normal bookmark selection must actually reload A, clear current-request failure,
+restore saved scale and remove the owned wearable. All nine Avatar fields are
+independently witnessed. Do not infer connection success from peer signaling.
+
+See [the exact source and evidence handoff](AVATAR_SOURCE.md). No version
+translation may synthesize these new facts. Other scenario semantics and native
+primitive versions stay unchanged. The matrix additionally marks the concrete
+Assets/Lifecycle draft mismatches found in the current source audit; those
+contracts still require correction. All full-area adapters and device
+qualification remain incomplete. Registry/inventory/matrix use v12.
+
 # Version 11: actual browser document, HTTP response and inline lifetimes
 
-Current producers/readers use v11 exclusively; v10 JSON files are historical.
+At this historical revision, producers/readers used v11 exclusively; v10 JSON files are historical.
 No qualified complete v10 adapter exists, and no migration may fill missing
 native facts from requests. World/tablet flows now have 19/26 checkpoints and
 all fifteen browser fields require independent actual observations. Normal
