@@ -890,6 +890,52 @@ def verify_no_execution(event, environment, adapter, *, candidate, root=ROOT,
     return before
 
 
+def _optional_parent_registry(adapter, previous, current, root):
+    """Bind only the reviewed monotonic lifecycle addition; no result authority."""
+    path = '.github/test-suites.json'
+    A.require(all(snapshot.get(path, {}).get('mode') == '100644'
+        and snapshot[path].get('type') == 'blob' for snapshot in (previous,current)),
+        'optional parent registry is not ordinary immutable data')
+    raw, entry = source_admission.actual_bytes(root, path)
+    A.require(entry == current[path], 'optional parent registry differs from actual current source')
+    registry = inputs._validate_registry(json.loads(raw, object_pairs_hook=inputs._unique_object))
+    ci_profile.definition_digest(registry)
+    if previous[path] == current[path]:
+        return registry
+    before_raw = adapter.api.immutable_blob(previous[path]['sha'])
+    A.require(type(before_raw) is bytes and len(before_raw) <= 64_000
+        and source_admission.blob_id(before_raw) == previous[path]['sha'],
+        'optional parent original registry bytes differ from immutable source')
+    before = inputs._validate_registry(json.loads(before_raw, object_pairs_hook=inputs._unique_object))
+    ci_profile.definition_digest(before)
+    name = 'native-owner-lifecycle'
+    suites = registry['suites']
+    # The entire reviewed HOST definition is finite, including its repository
+    # reader closure. A new name, command/context or partial declaration cannot
+    # inherit this scheduling-only exception.
+    definition = 'sha256:4b55b294089c6f6a594c2f168458aa71ef61a1a69a7d2109edd1788644552e53'
+    A.require(len(before['suites']) == 60 and len(suites) == 61 and name not in before['suites']
+        and list(suites) == [*before['suites'], name]
+        and registry == {**before, 'suites': {**before['suites'], name: suites[name]}}
+        and inputs._suite_definition_digest(suites[name]) == definition,
+        'optional parent registry is not the reviewed monotonic lifecycle addition')
+    return registry
+
+
+def _optional_parent_regular_inventory(policy, paths, previous, current):
+    """Keep exact reviewed CI executable modes, never arbitrary executable CI."""
+    for path in paths:
+        entries = previous.get(path), current.get(path)
+        if all(entry is None or entry.get('mode') == '100644' and entry.get('type') == 'blob'
+               for entry in entries):
+            continue
+        if path in policy.CI_EXECUTABLE_PATHS and all(type(entry) is dict
+                and entry.get('mode') == '100755' and entry.get('type') == 'blob' for entry in entries):
+            continue
+        return False
+    return True
+
+
 def current_parent_schedule(event, environment, adapter, *, root=ROOT, candidate=None,
                             clock=lambda: datetime.now(timezone.utc)):
     """Decline only optional partial current-main qualification; no B/E claim."""
@@ -910,14 +956,13 @@ def current_parent_schedule(event, environment, adapter, *, root=ROOT, candidate
     policy = producer._host_policy(); package = policy.package_policy()
     A.require(package.validate_tree_wiring(current) in producer.PLATFORM_GENERATIONS
         and previous.get('.github/workflows/parent-qualification.yml') == current.get('.github/workflows/parent-qualification.yml')
-        and previous.get('.github/test-suites.json') == current.get('.github/test-suites.json')
         and all(snapshot.get('tests/platform-profile.json') == inputs._AFFECTED_SHARED_PROFILE
             for snapshot in (previous,current)), 'partial current parent declarations changed')
     imported = source_admission.current_parent_import(context,environment,api,previous,current,root)
+    registry = _optional_parent_registry(adapter, previous, current, root)
     paths = sorted(path for path in previous.keys() | current.keys() if previous.get(path) != current.get(path))
     A.require(paths and all(policy.ci_owned(path) for path in paths)
-        and all(entry is None or entry.get('mode') == '100644' and entry.get('type') == 'blob'
-            for path in paths for entry in (previous.get(path),current.get(path))),
+        and _optional_parent_regular_inventory(policy, paths, previous, current),
         'current optional parent requires complete ordinary CI-only inputs')
     checks = package.load('current_parent_repository_policy','tools/repository-checks/check.py')
     config, branches = checks.configuration()
@@ -926,7 +971,6 @@ def current_parent_schedule(event, environment, adapter, *, root=ROOT, candidate
         legacy_projects=legacy.get('tool_projects','').split(',') if legacy.get('tool_projects') else (),
         include_browser=True) == {'host_mode':'full','tool_projects':[],'package_set':[]},
         'current optional parent cannot omit package or tool ownership')
-    registry = inputs.load_registry(root/'.github/test-suites.json')
     selected = policy.select(current,paths,True,trusted_tree=current,candidate_root=root,
         trusted_root=root,target='main',base_tree=previous)
     quick = [name for name,suite in registry['suites'].items()
@@ -938,7 +982,8 @@ def current_parent_schedule(event, environment, adapter, *, root=ROOT, candidate
         and names==[name for name in quick if name in names]
         and selected.get('reason')=='protected-ci-dependencies' and type(affected) is dict
         and type(affected.get('dependency_schema')) is int and affected['dependency_schema']==2
-        and affected.get('target')=='main' and affected.get('required')==names)
+        and affected.get('target')=='main' and type(affected.get('required')) is list
+        and names==[name for name in ci_profile.SUITES if name in affected['required']])
     A.require((names == quick or partial) and bool(quick) and set(quick) < set(registry['suites'])
         and selected['full_host'] is False and selected['include_platform'] is False
         and not selected.get('additional_suites') and not selected.get('platform_suites'),

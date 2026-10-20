@@ -506,7 +506,8 @@ def platform_partition(policy, profile, registry, candidate_tree, base_tree, tru
         affected = (selected.get('reason') == 'protected-affected-dependencies'
             and selected.get('affected',{}).get('dependency_schema') == 2
             and selected['affected'].get('target') == target and bool(names) and set(names) < set(full_names))
-        host.require(len(full_names) == 60 and (names == full_names or affected) and profile['profile'] == FULL_PROFILE
+        full_count = 61 if 'native-owner-lifecycle' in registry['suites'] else 60
+        host.require(len(full_names) == full_count and (names == full_names or affected) and profile['profile'] == FULL_PROFILE
             and profile['binding'] is None and profile['suites'] == names
             and selected['suites'] == names and selected['full_host'] is True
             and selected['include_platform'] is True,
