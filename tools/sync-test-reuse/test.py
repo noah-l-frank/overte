@@ -4222,18 +4222,40 @@ class RetainedSyncMetadataTests(unittest.TestCase):
 
     def test_ordinary_body_edit_keeps_existing_cheap_normal_route(self):
         event=deepcopy(self.event);event['pull_request']['head']['ref']='fix/apple/history-adoption'
+        context=gate.EffectivePRContext(base=BASE,head=HEAD,candidate=MERGE,event_base=BASE)
         with tempfile.TemporaryDirectory()as folder:
             path=Path(folder)/'event.json';path.write_text(json.dumps(event));args=SimpleNamespace(config=gate.DEFAULT_CONFIG,event=path,output=None)
-            with mock.patch.dict(gate.os.environ,{'GITHUB_EVENT_NAME':'pull_request_target'}), \
-                    mock.patch.object(gate,'validate_required_codeql_workflow')as codeql, \
-                    mock.patch.object(gate,'classify_event',return_value=None), \
-                    mock.patch.object(gate,'native_pr_evidence',side_effect=AssertionError('ordinary consulted test owner')), \
-                    mock.patch.object(gate,'write_outputs')as output:
-                self.assertEqual(gate.inspect(args),0);codeql.assert_called_once()
-                output.assert_called_once_with(None,{'classification':'ordinary','mode':'ordinary'})
-            with mock.patch.dict(gate.os.environ,{'GITHUB_EVENT_NAME':'pull_request_target'}),mock.patch.object(gate,'write_outputs')as output:
-                self.assertEqual(gate.classify_metadata(args),0)
-                output.assert_called_once_with(None,{'metadata_only':False})
+            expected_config=gate.load_config(args.config)
+            for actions in ('false','true'):
+                api=mock.create_autospec(gate.GitHubApi,instance=True)
+                for method in (api.json,api.bytes,api.native_producer_api):
+                    method.side_effect=AssertionError('ordinary unit test must not reach a GitHub transport')
+                with self.subTest(GITHUB_ACTIONS=actions), \
+                        mock.patch.dict(gate.os.environ,{'GITHUB_ACTIONS':actions,'GITHUB_EVENT_NAME':'pull_request_target'},clear=True), \
+                        mock.patch.object(gate,'GitHubApi',return_value=api)as factory, \
+                        mock.patch.object(gate,'effective_pr_context',return_value=context)as effective, \
+                        mock.patch.object(gate,'validate_required_codeql_workflow')as codeql, \
+                        mock.patch.object(gate,'classify_event',return_value=None)as classify, \
+                        mock.patch.object(gate,'native_pr_evidence',side_effect=AssertionError('ordinary consulted test owner'))as current, \
+                        mock.patch.object(gate,'native_exact_tree_parent_evidence',side_effect=AssertionError('ordinary consulted exact-tree owner'))as exact, \
+                        mock.patch.object(gate,'verify_evidence',side_effect=AssertionError('ordinary consulted parent proof'))as parent, \
+                        mock.patch.object(gate,'write_outputs')as output:
+                    self.assertEqual(gate.inspect(args),0)
+                    factory.assert_called_once_with()
+                    if actions=='true':
+                        effective.assert_called_once_with(event,api)
+                        codeql.assert_called_once_with(event,api,pr_context=context)
+                        classify.assert_called_once_with(event,expected_config,api,pr_context=context)
+                    else:
+                        effective.assert_not_called()
+                        codeql.assert_called_once_with(event,api)
+                        classify.assert_called_once_with(event,expected_config,api)
+                    current.assert_not_called();exact.assert_not_called();parent.assert_not_called()
+                    output.assert_called_once_with(None,{'classification':'ordinary','mode':'ordinary'})
+                    output.reset_mock()
+                    self.assertEqual(gate.classify_metadata(args),0)
+                    output.assert_called_once_with(None,{'metadata_only':False})
+                    api.json.assert_not_called();api.bytes.assert_not_called();api.native_producer_api.assert_not_called()
 
     def test_legacy_inspect_pure_sync_edit_never_reenters_fallback(self):
         with tempfile.TemporaryDirectory()as folder:
