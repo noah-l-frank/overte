@@ -137,18 +137,27 @@ class Boundary:
             elif verb == 'logout': s.update(principal='anonymous', protectedAccess=False)
         elif a == 'avatar-people':
             if verb == 'avatar-url':
-                if data['resource'] == 'missing.fst': s['error'] = 'not-found'
-                else: s['avatar'] = 'A'
+                if data['resource'] == 'missing.fst':
+                    s.update(requestedAvatar='missing',avatar='unavailable',modelLoaded=False,loadFailed=True)
+                    if self.fault=='avatar-retains-old-model':s.update(avatar='A',modelLoaded=True)
+                    if self.fault=='avatar-no-failure-event':s['loadFailed']=False
+                    if self.fault=='avatar-native-fallback':s.update(avatar='fallback',modelLoaded=True)
+                else:s.update(avatar='A',requestedAvatar='A',modelLoaded=True,loadFailed=False)
             elif verb == 'avatar-bookmark-save': s['bookmarked'] = True
             elif verb == 'avatar-bookmark-delete': s['bookmarked'] = False
             elif verb == 'avatar-scale': s['scale'] = data['value']
-            elif verb == 'wearable-add': s['wearable'] = True
-            elif verb == 'dismiss-error': s['error'] = 'none'
-            elif verb == 'avatar-bookmark-choose': s.update(scale=1.0, wearable=False)
+            elif verb == 'wearable-add':
+                if data['resource']!='gltf-bundle/main.gltf':raise AssertionError('Model URL required')
+                s['wearable'] = self.fault!='avatar-wearable-ack-only'
+            elif verb == 'avatar-bookmark-choose':
+                s.update(avatar='A',requestedAvatar='A',modelLoaded=True,loadFailed=False,scale=1.0,wearable=False)
+                if self.fault=='avatar-bookmark-no-reload':s.update(avatar='unavailable',modelLoaded=False)
+                if self.fault=='avatar-bookmark-leaks-owned-wearable':s['wearable']=True
+                if self.fault=='avatar-bookmark-old-failure':s['loadFailed']=True
             elif verb == 'connection-request': s.update(connection='pending', dialog=True)
             elif verb in {'connection-cancel', 'peer-reject', 'connection-remove'}: s.update(connection='none', dialog=False)
             elif verb == 'peer-accept': s.update(connection='connected', dialog=False)
-            elif verb == 'avatar-restore': s['avatar'] = 'original'
+            elif verb == 'avatar-restore': s.update(avatar='original',requestedAvatar='original')
         elif a == 'create':
             if verb in {'open','close'}: s['editor'] = verb == 'open'
             elif verb == 'model-create':
@@ -481,6 +490,56 @@ class Boundary:
 
 
 class FeatureJourneys(unittest.TestCase):
+    def test_avatar_actual_unavailable_and_loaded_fallback_both_recover(self):
+        for fault in ('', 'avatar-native-fallback'):
+            with self.subTest(fault=fault):
+                boundary=Boundary('avatar-people',fault);boundary.execute()
+                samples=boundary.reports[0]['samples']
+                failed=next(s['state'] for s in samples if s['phase'].endswith('-avatar-url') and s['state']['requestedAvatar']=='missing')
+                self.assertEqual('fallback' if fault else 'unavailable',failed['avatar'])
+                self.assertTrue(failed['loadFailed'])
+                recovered=next(s['state'] for s in samples if s['phase'].endswith('-avatar-bookmark-choose'))
+                self.assertEqual('A',recovered['avatar']);self.assertTrue(recovered['modelLoaded'])
+                self.assertFalse(recovered['loadFailed']);self.assertFalse(recovered['wearable'])
+                self.assertEqual(1.0,recovered['scale'])
+                self.assertEqual(15,len(SCENARIOS['avatar-people']['steps']))
+
+    def test_avatar_missing_original_failure_model_or_bookmark_effect_cannot_pass(self):
+        for fault in ('avatar-retains-old-model','avatar-no-failure-event','avatar-wearable-ack-only',
+                      'avatar-bookmark-no-reload','avatar-bookmark-leaks-owned-wearable','avatar-bookmark-old-failure'):
+            with self.subTest(fault=fault),self.assertRaises((AssertionError,ValueError)):
+                Boundary('avatar-people',fault).execute()
+
+    def test_avatar_independent_model_request_failure_and_dialog_facts_are_required(self):
+        boundary=Boundary('avatar-people','product-echo-without-peer',target='avatar-url')
+        original=boundary.reduce
+        def ignored(verb,data):
+            if verb!='avatar-url':original(verb,data)
+        boundary.reduce=ignored
+        boundary.echo={'avatar':'A','requestedAvatar':'A'}
+        with self.assertRaises(AssertionError):boundary.execute()
+        from feature_journeys.witness import WITNESS_KEYS
+        self.assertEqual(set(SCENARIOS['avatar-people']['baseline']),set(WITNESS_KEYS['avatar-people']))
+        from feature_journeys.contract import state
+        baseline=SCENARIOS['avatar-people']['baseline']
+        for change in ({'modelLoaded':False},{'loadFailed':True},{'avatar':'fallback'}):
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                state('avatar-people',dict(baseline,**change),RUN)
+
+    def test_avatar_wearable_uses_model_companions_and_rejects_legacy_entity_json(self):
+        from feature_journeys.fixtures import payload
+        request=dict(contractVersion=VERSION,runId=RUN,ticket=TICKET,
+            fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/',
+            verb='wearable-add',inputs={'resource':'gltf-bundle/main.gltf'})
+        arguments('feature.avatar-people.act',request)
+        for resource in ('wearable.json','missing.gltf'):
+            with self.subTest(resource=resource),self.assertRaises(ValueError):
+                arguments('feature.avatar-people.act',dict(request,inputs={'resource':resource}))
+        self.assertIsNone(payload('wearable.json',RUN,TICKET))
+        model=json.loads(companion('gltf-bundle/main.gltf'))
+        for row in model['buffers']+model['images']:
+            self.assertTrue(companion('gltf-bundle/'+row['uri']))
+
     def test_all14_complete_with_independent_boundary_model_and_observed_cleanup(self):
         self.assertEqual(14, len(SCENARIOS))
         for area in SCENARIOS:
@@ -1201,9 +1260,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v11.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v12.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v11.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v12.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():

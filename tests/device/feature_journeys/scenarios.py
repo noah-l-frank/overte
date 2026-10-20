@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 11
+VERSION = 12
 
 
 def emote_rows():
@@ -72,15 +72,20 @@ SCENARIOS = {
     ('restart-app', {}, dict(dialog={'oneOf':[False,True]}), ['peer']),
     ('login-cancel', {}, dict(dialog=False), ['peer']),
 ]),
-'avatar-people': scenario('Avatar chooser and mutual connection consent',
-    dict(avatar='original', scale=1.0, wearable=False, bookmarked=False, connection='none', dialog=False, error='none'), [
-    ('avatar-url', dict(resource='avatar-a.fst'), dict(avatar='A'), ['image', 'peer']),
+# Avatar app Add Wearable creates a Model from a URL, not entity JSON. A bad
+# skeleton URL deletes the old geometry and may load the bundled fallback;
+# bookmark recovery waits for actual load before restoring scale/wearables.
+'avatar-people': scenario('Loaded avatar, actual model failure, bookmark recovery and mutual consent',
+    dict(avatar='original', requestedAvatar='original', modelLoaded=True, loadFailed=False,
+         scale=1.0, wearable=False, bookmarked=False, connection='none', dialog=False), [
+    ('avatar-url', dict(resource='avatar-a.fst'), dict(avatar='A', requestedAvatar='A'), ['image', 'peer']),
     ('avatar-bookmark-save', dict(name='$name'), dict(bookmarked=True), ['peer']),
     ('avatar-scale', dict(value=1.5), dict(scale=1.5), ['changed', 'peer']),
-    ('wearable-add', dict(resource='wearable.json'), dict(wearable=True), ['changed', 'peer']),
-    ('avatar-url', dict(resource='missing.fst'), dict(error='not-found'), ['peer']),
-    ('dismiss-error', {}, dict(error='none'), []),
-    ('avatar-bookmark-choose', dict(name='$name'), dict(scale=1.0, wearable=False), ['changed', 'peer']),
+    ('wearable-add', dict(resource='gltf-bundle/main.gltf'), dict(wearable=True), ['changed', 'peer']),
+    ('avatar-url', dict(resource='missing.fst'), dict(requestedAvatar='missing',
+        avatar={'oneOf':['unavailable','fallback']}, modelLoaded={'oneOf':[False,True]}, loadFailed=True), ['image','peer']),
+    ('avatar-bookmark-choose', dict(name='$name'), dict(avatar='A', requestedAvatar='A',
+        modelLoaded=True, loadFailed=False, scale=1.0, wearable=False), ['changed', 'peer']),
     ('connection-request', dict(peer='owned-peer'), dict(connection='pending', dialog=True), ['peer']),
     ('connection-cancel', {}, dict(connection='none', dialog=False), ['peer']),
     ('connection-request', dict(peer='owned-peer'), dict(connection='pending', dialog=True), ['peer']),
@@ -88,7 +93,7 @@ SCENARIOS = {
     ('connection-request', dict(peer='owned-peer'), dict(connection='pending', dialog=True), ['peer']),
     ('peer-accept', {}, dict(connection='connected', dialog=False), ['peer']),
     ('connection-remove', dict(peer='owned-peer'), dict(connection='none'), ['peer']),
-    ('avatar-restore', {}, dict(avatar='original'), ['image', 'peer']),
+    ('avatar-restore', {}, dict(avatar='original', requestedAvatar='original'), ['image', 'peer']),
     ('avatar-bookmark-delete', dict(name='$name'), dict(bookmarked=False), ['peer']),
 ]),
 # NativeCreate's file picker imports entity JSON. glTF/OBJ use the ordinary

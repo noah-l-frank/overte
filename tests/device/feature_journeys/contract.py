@@ -1,4 +1,4 @@
-"""Strict v11 action/read boundary for feature additions to the existing harness."""
+"""Strict v12 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
@@ -118,6 +118,13 @@ def state(area, value, run=None):
                 allowed = {item for row in checkpoints for item in row[key]}
                 if any(item not in allowed for item in value[key]):
                     raise ValueError('Product list contains private or unowned values')
+    if area == 'avatar-people':
+        if value['modelLoaded'] != (value['avatar'] != 'unavailable'):
+            raise ValueError('Avatar geometry readiness disagrees with the actual loaded model')
+        if value['loadFailed'] and value['requestedAvatar'] != 'missing':
+            raise ValueError('Avatar failure belongs to a different original request')
+        if value['avatar'] == 'fallback' and value['requestedAvatar'] != 'missing':
+            raise ValueError('Avatar fallback belongs to a different original request')
     if area in {'world-web','tablet-web'}:
         if (min(value[k] for k in ('documentLoads','bridgeMessages','bridgeEchoes','attemptedMessages'))<0
                 or value['inlineLeases'] not in (0,1) or value['deferredMessages'] not in (0,1)
