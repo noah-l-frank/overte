@@ -42,6 +42,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_graphics_images.py",
     "android/phone/tests/device/test_graphics_samples.py",
     "android/phone/tests/device/test_graphics_effects.py",
+    "android/phone/tests/device/test_graphics_surface.py",
 )
 CHECKS = DEPENDENCY_LIGHT_CHECKS + PREPARED_HOST_CHECKS + COMMON_HOST_CHECKS
 parser = argparse.ArgumentParser()

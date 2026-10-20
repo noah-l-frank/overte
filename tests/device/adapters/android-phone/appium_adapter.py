@@ -46,6 +46,7 @@ from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, Android
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from adapters.token_graphics_ui import TokenGraphicsUI
 from overte_phone_graphics import PhoneGraphicsIO, FILE as GRAPHICS_UI_FILE
+from overte_phone_graphics_surface import PhoneGraphicsSurface
 from adapters.token_chat_ui import TokenChatUI
 from overte_phone_chat_controls import PhoneChatIO, FILE as CHAT_UI_FILE
 from adapters.token_create_ui import TokenCreateUI
@@ -738,6 +739,24 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + GRAPHICS_UI_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid)
         return TokenGraphicsUI(io, intent)
+
+    def _graphics_surface(self, selector, run, intent, owns, lease, allow_url, *, lock, role='primary'):
+        require(role=='primary' and isinstance(lock,PhoneScriptSourceLock)
+                and lock.path==self.state_path(selector).with_name('phone-script-sources.lock'),
+                'PHONE_GRAPHICS_INPUT_SCOPE_REQUIRED')
+        lock.assert_held()
+        with self.existing_input_session(selector):
+            ui,_observe,_binding,_check,_installed=self.normal_feature_runtime(selector,read_only=True)
+            subject=self._graphics_subject_observer(selector,read_only=True)
+            graphics=self._graphics_controls(selector,lambda *_args:None)
+            def serialized(check):
+                def guard():
+                    lock.assert_held();result=check();lock.assert_held();return result
+                return guard
+            ui.check_continuity=serialized(ui.check_continuity)
+            subject.guard=serialized(subject.guard)
+            graphics.io.guard=serialized(graphics.io.guard)
+            return PhoneGraphicsSurface(ui,subject,graphics,run,intent,owns,lease,allow_url)
 
     def _create_controls(self, selector, intent):
         # Internal normal-input component. The caller owns the panel/entities

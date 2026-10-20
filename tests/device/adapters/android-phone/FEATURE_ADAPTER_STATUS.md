@@ -87,6 +87,13 @@ GPU work, ignored effects, wrong hues, unrelated changes and incompatible/old
 originals. Full normal scene/settings/restart orchestration and the complete
 Graphics coordinator still remain pending; no Graphics capability is enabled.
 
+The [ordinary Graphics input surface](GRAPHICS_SURFACE.md) now provides actual
+Go To/Settings/View-menu SDK/Qt input under the existing session and held source
+lock. Eighteen host cases retain durable UI leases, reject ignored inputs and
+foreign replacement pages, and keep editor dismissal separate from loaded-world
+proof. Complete scene/action/restart ownership and the Graphics coordinator
+remain pending; no full capability or physical result is promoted.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary
