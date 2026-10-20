@@ -247,7 +247,8 @@ class LanguageSelectionTests(unittest.TestCase):
         self.assertEqual(generations[:6], (CODEQL._RESULTS_WORKFLOW, CODEQL._RETARGET_RESULTS_WORKFLOW,
                                       CODEQL._PINNED_RESULTS_WORKFLOW, CODEQL._METADATA_RESULTS_WORKFLOW,
                                       CODEQL._SCHEDULING_RESULTS_WORKFLOW, CODEQL._BOOLEAN_RESULTS_WORKFLOW))
-        self.assertEqual(len(generations),7)
+        self.assertEqual(len(generations),8)
+        self.assertEqual(generations[7],CODEQL._UPLOAD_RESULTS_WORKFLOW)
         self.assertEqual(generations[6],CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW)
         for old_index, old in enumerate(generations):
             for new_index, new in enumerate(generations):
@@ -2071,7 +2072,8 @@ class MetadataResultTests(unittest.TestCase):
             ('3a273057a38255ca368d3028594fb94227ba7c3b', 'd04a6dc70213d8b549bac30c11cc15eaf0182dea'))
         self.assertEqual(len(CODEQL.result_workflow_sources()[:5]), 5)
         self.assertEqual(len(CODEQL.result_workflow_sources()[:6]), 6)
-        self.assertEqual(len(CODEQL.result_workflow_sources()), 7)
+        self.assertEqual(len(CODEQL.result_workflow_sources()[:7]), 7)
+        self.assertEqual(CODEQL.result_workflow_sources()[7],(CODEQL._UPLOAD_RESULTS_WORKFLOW,CODEQL._SCHEDULING_SOURCE_WORKFLOW))
 
     def test_staged_boolean_template_preserves_old_and_new_exact_native_analysis_pairs(self):
         ordinary=lambda oid:{'mode':'100644','type':'blob','sha':oid}
@@ -2295,6 +2297,416 @@ class MetadataResultTests(unittest.TestCase):
                 return value
             self.api.mutate = mutate
             with self.subTest(change=change), self.assertRaises(ValueError): self.verify()
+
+
+class NativeUploadApi(FakeCodeScanningApi):
+    """Real immutable Git plus entirely fake native API/artifact responses."""
+    def json(self, endpoint):
+        from urllib.parse import parse_qs, urlsplit
+        parsed = urlsplit(endpoint[len(RESULTS.PREFIX):])
+        path, query, o = parsed.path.lstrip('/'), parse_qs(parsed.query), self.owner
+        if self.error: raise self.error
+        if self.change: self.change(endpoint)
+        self.calls.append(endpoint)
+        if path == 'commits/refs/pull/42/merge': return deepcopy(o.merge)
+        if path == 'actions/workflows/7/runs':
+            return {'total_count':2,'workflow_runs':[deepcopy(o.runs[o.attempt]),deepcopy(o.metadata_run)]}
+        if path.startswith('actions/runs/13'):
+            if path.endswith('/jobs'): return {'total_count':len(o.metadata_jobs),'jobs':deepcopy(o.metadata_jobs)}
+            if path.endswith('/artifacts'): return {'total_count':0,'artifacts':[]}
+            return deepcopy(o.metadata_run)
+        if path.startswith('git/ref/'):
+            from urllib.parse import unquote
+            ref=unquote(path[len('git/ref/'):]); return {'ref':'refs/'+ref,'object':{'type':'commit','sha':o.refs[ref]}}
+        if path == 'actions/runs/12': return deepcopy(o.runs[o.attempt])
+        if path.startswith('actions/runs/12/attempts/'):
+            parts = path.split('/'); attempt = int(parts[4])
+            if len(parts) == 5: return deepcopy(o.runs[attempt])
+            if parts[5] == 'jobs': return {'total_count':len(o.attempt_jobs[attempt]),'jobs':deepcopy(o.attempt_jobs[attempt])}
+        if path.startswith('git/trees/'):
+            tree = path.rsplit('/',1)[1]
+            rows = []
+            for line in o.git('ls-tree',tree).splitlines():
+                metadata,name = line.split('\t'); mode,kind,oid = metadata.split()
+                rows.append({'path':name,'mode':mode,'type':kind,'sha':oid})
+            return {'sha':tree,'truncated':False,'tree':rows}
+        if path.startswith('check-suites/'):
+            identity = int(path.rsplit('/',1)[1])
+            return {'id':identity,'head_sha':o.head,'app':{'id':o.app},'repository':deepcopy(o.repo)}
+        if path.startswith('check-runs/'):
+            identity = int(path.rsplit('/',1)[1])
+            job = next(job for jobs in [*o.attempt_jobs.values(),getattr(o,'metadata_jobs',[])] for job in jobs if job['id'] == identity)
+            return {key:deepcopy(job.get(key)) for key in ('id','name','status','conclusion','started_at','completed_at')} | {
+                'head_sha':o.head,'app':{'id':o.app},'check_suite':{'id':o.metadata_run['check_suite_id'] if job['run_id']==13 else o.runs[job['run_attempt']]['check_suite_id']}}
+        if path == 'actions/runs/12/artifacts': return {'total_count':len(o.artifacts),'artifacts':deepcopy(o.artifacts)}
+        if path.startswith('actions/artifacts/'):
+            return deepcopy(next(row for row in o.artifacts if row['id'] == int(path.split('/')[2])))
+        if path.startswith('code-scanning/sarifs/'):
+            upload = path.rsplit('/',1)[1]
+            return deepcopy(o.statuses[upload])
+        if path == 'code-scanning/analyses' and 'sarif_id' in query:
+            return deepcopy([row for row in o.analyses if row['sarif_id'] == query['sarif_id'][0]])
+        # The base fake retains all existing PR/ref/commit/security guards.
+        callback = self.change; self.change = None
+        try: return super().json(endpoint)
+        finally: self.change = callback
+
+    def immutable_tree(self, tree):
+        rows=[]
+        for line in self.owner.git('ls-tree','-r',tree).splitlines():
+            metadata,name=line.split('\t'); mode,kind,oid=metadata.split()
+            rows.append({'path':name,'mode':mode,'type':kind,'sha':oid})
+        return {'sha':tree,'truncated':False,'tree':rows}
+
+    def bytes(self, endpoint):
+        self.calls.append(endpoint)
+        return self.owner.archives[int(endpoint.split('/')[-2])]
+
+
+class NativeUploadResultsTests(unittest.TestCase):
+    git = ImmutableRepositoryTests.git
+    write = ImmutableRepositoryTests.write
+    commit = ImmutableRepositoryTests.commit
+
+    def setUp(self):
+        import sys
+        SelectedResultTests.setUp(self)
+        self.write(RESULTS.WORKFLOW,(ROOT / CODEQL._UPLOAD_RESULTS_TEMPLATE).read_text())
+        self.write('.github/workflows/project-tests.yml',(ROOT /
+            'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml').read_text())
+        self.write('tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml',
+            (ROOT / 'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml').read_text())
+        self.write('.github/workflows/pr-metadata-context.yml',
+            (ROOT / 'tools/repository-checks/workflows/metadata-edits/pr-metadata-context.yml').read_text())
+        for relative in ('tools/repository-checks/codeql.py','tools/repository-checks/codeql_results.py',
+                         'tools/repository-checks/metadata_context.py',CODEQL._UPLOAD_RESULTS_TEMPLATE,
+                         'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml',
+                         'tools/test-evidence/producer_api.py'):
+            self.write(relative,(ROOT / relative).read_text())
+        self.base = self.commit()
+        self.write('tools/check.py','# independently changed Python input\n')
+        self.head = self.commit()
+        self.candidate = self.git('commit-tree',self.git('rev-parse','HEAD^{tree}'),
+            '-p',self.base,'-p',self.head,'-m','Native upload exact merge')
+        self.git('checkout','-q','--detach',self.candidate)
+        self.pr['base']['sha'] = self.base; self.pr['head']['sha'] = self.head
+        self.pr['merge_commit_sha'] = self.candidate
+        self.pr['labels']=[]
+        self.event['pull_request'] = deepcopy(self.pr)
+        self.env.update(GITHUB_SHA=self.candidate,GITHUB_WORKFLOW_SHA=self.candidate)
+        self.merge = {'sha':self.candidate,'parents':[{'sha':self.base},{'sha':self.head}],
+            'commit':{'tree':{'sha':self.git('rev-parse',self.candidate+'^{tree}')}}}
+        self.refs = {'heads/main':self.base,'heads/fix/main/example':self.head,'pull/42/merge':self.candidate}
+        self.run.update(head_sha=self.head,check_suite_id=501,run_number=10,
+            display_title='Ordinary PR checks',updated_at='2026-10-15T21:30:00Z',
+            pull_requests=[{'number':42}],referenced_workflows=[{'path':RESULTS.REPOSITORY +
+                '/.github/workflows/pr-metadata-context.yml@' + self.candidate,
+                'sha':self.candidate,'ref':'refs/pull/42/merge'}])
+        # Use the exact protected module constant, never a caller title claim.
+        sys.path.insert(0,str(ROOT / 'tools/test-evidence'))
+        import producer_api
+        self.A = producer_api
+        self.run['display_title'] = self.A.ORDINARY_RUN_NAME
+        self.attempt = 1; self.app = 15368
+        self.runs = {1:deepcopy(self.run)}
+        def step(name,start,end,conclusion='success'):
+            return {'name':name,'status':'completed','conclusion':conclusion,
+                'started_at':'2026-10-15T21:00:' + start + 'Z',
+                'completed_at':'2026-10-15T21:00:' + end + 'Z'}
+        def job(identity,name,start='00',end='30',steps=None):
+            return {'id':identity,'name':name,'run_id':12,'run_attempt':1,'head_sha':self.head,
+                'status':'completed','conclusion':'success','started_at':'2026-10-15T21:00:' + start + 'Z',
+                'completed_at':'2026-10-15T21:00:' + end + 'Z',
+                'check_run_url':f'https://api.github.com/{RESULTS.PREFIX}/check-runs/{identity}','steps':steps or []}
+        self.jobs = [job(80,'Select affected CodeQL languages',end='01'),
+            job(81,'CodeQL (python)',start='01',steps=[
+                step('Require reviewed CodeQL extractor version','02','03'),step('Analyze','10','20'),
+                step('Record the native CodeQL upload identity','21','22'),
+                step('Publish the native CodeQL upload identity','23','29')]),
+            job(82,self.A.METADATA_JOB,end='01',steps=[step(self.A.ORDINARY_SOURCE_STEP + ' (diagnostics absent)','00','01')]),
+            job(83,'codeql-security-results',start='30',end='40',steps=[
+                step('Require current selected-language security results','31','39')])]
+        self.jobs[-1].update(status='in_progress',conclusion=None,completed_at=None)
+        self.attempt_jobs = {1:self.jobs}
+        self.upload = '3771cd18-cc98-11f1-9b96-0ef876cdb593'
+        self.analyses[0].update(commit_sha=self.candidate,created_at='2026-10-15T21:24:22Z',sarif_id=self.upload)
+        self.statuses = {self.upload:{'processing_status':'complete','errors':None,
+            'analyses_url':'https://api.github.com/' + RESULTS.PREFIX + '/code-scanning/analyses?sarif_id=' + self.upload}}
+        self.artifacts=[]; self.archives={}
+        self.add_artifact(1)
+        protected = tempfile.TemporaryDirectory(prefix='codeql-native-default-'); self.addCleanup(protected.cleanup)
+        self.protected = Path(protected.name)
+        subprocess.run(['git','clone','-q','--no-hardlinks',str(self.root),str(self.protected)],check=True,
+            stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        subprocess.run(['git','checkout','-q','--detach',self.base],cwd=self.protected,check=True)
+        self.api = NativeUploadApi(self)
+
+    def add_artifact(self, attempt, *, extra=None):
+        import io,zipfile
+        payload = {'schema':1,'kind':'native-codeql-upload-id','repository':RESULTS.REPOSITORY,
+            'repository_id':RESULTS.REPOSITORY_ID,'run_id':12,'run_attempt':attempt,'language':'python',
+            'source_commit':self.candidate,'ref':self.env['GITHUB_REF'],'workflow':RESULTS.WORKFLOW,
+            'workflow_sha':self.candidate,'sarif_id':self.upload}
+        if extra: payload.update(extra)
+        raw = io.BytesIO()
+        with zipfile.ZipFile(raw,'w') as archive: archive.writestr('upload.json',json.dumps(payload))
+        value = raw.getvalue(); identity = 100 + attempt
+        self.archives[identity] = value
+        self.artifacts.append({'id':identity,'name':f'codeql-upload-12-{attempt}-python',
+            'digest':'sha256:' + hashlib.sha256(value).hexdigest(),'size_in_bytes':len(value),'expired':False,
+            'created_at':'2026-10-15T21:00:25Z' if attempt == 1 else '2026-10-15T21:31:25Z',
+            'expires_at':'2026-10-29T21:00:25Z','workflow_run':{'id':12,'repository_id':RESULTS.REPOSITORY_ID,
+                'head_repository_id':RESULTS.REPOSITORY_ID,'head_sha':self.head}})
+
+    def retry(self, *, fresh=False, complete=False):
+        self.attempt = 2; self.env['GITHUB_RUN_ATTEMPT'] = '2'
+        self.runs[1].update(status='completed',conclusion='failure')
+        self.jobs[-1].update(status='completed',conclusion='failure',completed_at='2026-10-15T21:30:00Z')
+        self.jobs[-1]['steps'][0]['conclusion']='failure'
+        second = deepcopy(self.runs[1]); second.update(run_attempt=2,check_suite_id=502,
+            run_started_at='2026-10-15T21:31:00Z',updated_at='2026-10-15T21:40:00Z',
+            status='completed' if complete else 'in_progress',conclusion='success' if complete else None)
+        self.runs[2] = second
+        rows = deepcopy(self.jobs if fresh else self.jobs[-1:])
+        for row in rows:
+            row.update(id=row['id']+100,run_attempt=2,conclusion='success',status='completed')
+            row['check_run_url']=f"https://api.github.com/{RESULTS.PREFIX}/check-runs/{row['id']}"
+            for key in ('started_at','completed_at'):
+                if row[key]: row[key]=row[key].replace('21:00:','21:31:').replace('21:30:','21:32:')
+            for step in row['steps']:
+                step['conclusion']='success'
+                for key in ('started_at','completed_at'): step[key]=step[key].replace('21:00:','21:31:')
+            if row['name']=='codeql-security-results' and not complete: row.update(status='in_progress',conclusion=None,completed_at=None)
+        self.attempt_jobs[2]=rows
+        if fresh:
+            old=self.upload; self.upload='4771cd18-cc98-11f1-9b96-0ef876cdb593'
+            self.statuses[self.upload]=deepcopy(self.statuses[old])
+            self.statuses[self.upload]['analyses_url']=self.statuses[self.upload]['analyses_url'].replace(old,self.upload)
+            self.analyses[0].update(sarif_id=self.upload,created_at='2026-10-15T21:54:22Z')
+            self.add_artifact(2)
+
+    def verify(self, **options):
+        with patch.object(RESULTS,'ROOT',self.protected):
+            return RESULTS.Verifier(self.root,self.event,self.env,api=self.api,**options).verify(processing_seconds=0)
+
+    def test_late_processed_native_upload_passes_without_relaxing_legacy_window(self):
+        result=self.verify()
+        self.assertEqual((result['analysis_attempt'],result['result_attempt']),(1,1))
+        self.assertEqual(result['native_uploads'][0]['sarif_id'],self.upload)
+        reader=RESULTS.Verifier(self.root,self.event,self.env,api=self.api)
+        reader.pinned=True
+        windows=reader.jobs(reader.context(),['python'])
+        self.assertEqual(reader.analyses(['python'],windows),{})
+
+    def test_document_only_native_result_and_retry_need_no_analysis_or_alert_inventory(self):
+        self.git('checkout','-q','--detach',self.base)
+        self.write('docs/native-upload.md','# Documentation-only native result fixture\n')
+        self.head=self.commit()
+        self.candidate=self.git('commit-tree',self.git('rev-parse','HEAD^{tree}'),
+            '-p',self.base,'-p',self.head,'-m','Document-only merge')
+        self.git('checkout','-q','--detach',self.candidate)
+        self.pr['head']['sha']=self.head; self.pr['merge_commit_sha']=self.candidate
+        self.event['pull_request']=deepcopy(self.pr)
+        self.env.update(GITHUB_SHA=self.candidate,GITHUB_WORKFLOW_SHA=self.candidate,CODEQL_EXPECTED_LANGUAGES='[]')
+        self.refs.update({'heads/fix/main/example':self.head,'pull/42/merge':self.candidate})
+        self.merge={'sha':self.candidate,'parents':[{'sha':self.base},{'sha':self.head}],
+            'commit':{'tree':{'sha':self.git('rev-parse',self.candidate+'^{tree}')}}}
+        self.runs[1]['head_sha']=self.head
+        self.runs[1]['referenced_workflows'][0].update(sha=self.candidate,
+            path=RESULTS.REPOSITORY+'/'+self.A.METADATA_WORKFLOW+'@'+self.candidate)
+        self.jobs[:]=[row for row in self.jobs if row['name']!='CodeQL (python)']
+        for row in self.jobs: row['head_sha']=self.head
+        self.artifacts=[]; self.analyses=[]
+        for retry in (False,True):
+            with self.subTest(retry=retry):
+                if retry: self.retry()
+                self.api.calls=[]; result=self.verify()
+                self.assertEqual(result['languages'],[])
+                self.assertEqual((result['analysis_attempt'],result['result_attempt']),(1,2 if retry else 1))
+                self.assertFalse(any('/code-scanning/' in endpoint for endpoint in self.api.calls))
+
+    def test_result_only_second_attempt_uses_original_native_analysis_and_artifact(self):
+        self.retry(); result=self.verify()
+        self.assertEqual((result['analysis_attempt'],result['result_attempt']),(1,2))
+        self.assertEqual(result['analyses'][0]['job_id'],81)
+        self.assertEqual(result['native_uploads'][0]['artifact_id'],101)
+
+    def test_whole_fresh_second_attempt_uses_only_its_actual_analysis_artifact(self):
+        self.retry(fresh=True); result=self.verify()
+        self.assertEqual((result['analysis_attempt'],result['result_attempt']),(2,2))
+        self.assertEqual(result['analyses'][0]['job_id'],181)
+        self.assertEqual(result['native_uploads'][0]['artifact_id'],102)
+        # A failed fresh analyzer cannot borrow the earlier successful analysis.
+        self.attempt_jobs[2][1]['conclusion']='failure'
+        with self.assertRaises(ValueError): self.verify()
+
+    def test_native_attempt_mixing_extra_analyzer_failed_gate_and_app_are_blocked(self):
+        for change in ('mixed','extra','failed','app','old-selector','original-gate','future-attempt','source-edge','PR-edge'):
+            with self.subTest(change=change):
+                self.setUp(); self.retry()
+                if change=='mixed': self.attempt_jobs[2][0]['run_attempt']=1
+                elif change=='extra': self.attempt_jobs[2].append(deepcopy(self.jobs[1]))
+                elif change=='failed': self.runs[2].update(status='completed',conclusion='failure')
+                elif change=='app': self.app=123
+                elif change=='old-selector': self.jobs[0]['conclusion']='failure'
+                elif change=='original-gate': self.jobs[-1]['steps'][0]['name']='Checkout'
+                elif change=='source-edge': self.runs[2]['referenced_workflows'][0]['sha']=self.head
+                elif change=='PR-edge': self.runs[2]['pull_requests']=[{'number':99}]
+                else: self.runs[2]['run_attempt']=3
+                with self.assertRaises(ValueError): self.verify()
+
+    def test_wrong_upload_payload_hash_extra_member_and_expiry_never_authorize_analysis(self):
+        import io,zipfile
+        for change in ('M','attempt','language','ID','hash','extra','symlink','expired','foreign','duplicate'):
+            with self.subTest(change=change):
+                self.setUp()
+                if change in ('M','attempt','language','ID'):
+                    self.artifacts.clear(); self.add_artifact(1,extra={
+                        'M':{'source_commit':self.head},'attempt':{'run_attempt':2},
+                        'language':{'language':'javascript-typescript'},'ID':{'sarif_id':'not-an-upload'}}[change])
+                elif change in ('extra','symlink'):
+                    value=io.BytesIO()
+                    with zipfile.ZipFile(value,'w') as archive:
+                        archive.writestr('upload.json',json.dumps({}))
+                        if change=='extra': archive.writestr('extra','unapproved')
+                        else:
+                            entry=zipfile.ZipInfo('alias'); entry.external_attr=0o120777 <<16; archive.writestr(entry,'upload.json')
+                    self.archives[101]=value.getvalue(); self.artifacts[0].update(
+                        digest='sha256:'+hashlib.sha256(value.getvalue()).hexdigest(),size_in_bytes=len(value.getvalue()))
+                elif change=='hash': self.artifacts[0]['digest']='sha256:'+'0'*64
+                elif change=='expired': self.artifacts[0]['expired']=True
+                elif change=='foreign': self.artifacts[0]['workflow_run']['head_sha']=self.base
+                else: self.artifacts.append(deepcopy(self.artifacts[0]))
+                with self.assertRaises(ValueError): self.verify()
+
+    def test_processing_pending_errors_wrong_id_source_or_category_fail_closed(self):
+        for change in ('pending','error','unknown','wrong-ID','wrong-M','category','rules','URL','version'):
+            with self.subTest(change=change):
+                self.setUp()
+                if change=='pending': self.statuses[self.upload]['processing_status']='pending'
+                elif change=='error': self.statuses[self.upload]['errors']=['SARIF invalid']
+                elif change=='unknown': self.statuses[self.upload]['processing_status']='failed'
+                elif change=='wrong-ID': self.analyses[0]['sarif_id']='4771cd18-cc98-11f1-9b96-0ef876cdb593'
+                elif change=='wrong-M': self.analyses[0]['commit_sha']=self.head
+                elif change=='category': self.analyses[0]['category']='/language:javascript-typescript'
+                elif change=='rules': self.analyses[0]['rules_count']=0
+                elif change=='version': self.analyses[0]['tool']['version']='2.28.0'
+                else: self.statuses[self.upload]['analyses_url']='https://example.com/analysis'
+                with self.assertRaises(ValueError): self.verify()
+
+    def test_default_native_artifact_and_current_pr_closing_drift_reject(self):
+        for change in ('default','PR','artifact','job'):
+            with self.subTest(change=change):
+                self.setUp(); reads=[0]
+                target={'default':'/git/ref/heads/main','PR':'/pulls/42','artifact':'/actions/runs/12/artifacts',
+                    'job':'/actions/runs/12/attempts/1/jobs'}[change]
+                def mutate(endpoint):
+                    if target in endpoint:
+                        reads[0]+=1
+                        if reads[0]==2:
+                            if change=='default': self.refs['heads/main']=self.head
+                            elif change=='PR': self.pr['head']['sha']=self.base
+                            elif change=='artifact': self.artifacts[0]['digest']='sha256:'+'0'*64
+                            else: self.jobs[1]['steps'][0]['conclusion']='failure'
+                self.api.change=mutate
+                with self.assertRaises(ValueError): self.verify()
+
+    def test_completed_retry_native_metadata_result_is_real_attempt_two_not_an_alias(self):
+        self.retry(complete=True)
+        adapter=self.A.Adapter(self.api)
+        split=adapter.codeql_result_attempts(12,self.candidate,self.head,attempt=2,completed=True)
+        self.assertEqual(split['analysis_run']['run_attempt'],1)
+        self.assertEqual(split['result_run']['run_attempt'],2)
+        self.assertEqual(split['analysis_run']['conclusion'],'failure')
+        observed={'kind':'native-nonproducer-scheduling','qualification':False,'metadata_only':'true',
+            'original_identity':{key:self.runs[2].get(key) for key in self.A._SCHEDULING_RUN_FIELDS},
+            'original_run_id':12,'original_merge_sha':self.candidate,'binding':adapter.current(42)[0],
+            'references':adapter.current(42)[1],'diagnostics':False}
+        self.assertEqual(adapter.metadata_result_status(observed)['run_attempt'],2)
+        result=adapter.metadata_result_success(observed)
+        self.assertEqual((result['analysis_attempt'],result['result_attempt'],result['job_id']),(1,2,183))
+        self.assertFalse(result['qualification'])
+        self.runs[2]['conclusion']='failure'
+        with self.assertRaises(ValueError): adapter.metadata_result_status(observed)
+
+    def test_metadata_end_to_end_revalidates_gate_only_and_whole_fresh_second_attempts(self):
+        from types import SimpleNamespace
+        for fresh in (False,True):
+            with self.subTest(fresh=fresh):
+                self.setUp(); self.retry(fresh=fresh,complete=True)
+                if fresh: self.jobs[2]['conclusion']='failure'
+                self.metadata_run={**deepcopy(self.runs[2]),'id':13,'run_number':11,'run_attempt':1,'check_suite_id':513,
+                    'status':'in_progress','conclusion':None,'display_title':self.A.NONPRODUCER_RUN_NAME,
+                    'run_started_at':'2026-10-15T21:59:00Z','updated_at':'2026-10-15T21:59:21Z'}
+                row=deepcopy(self.jobs[2]); row.update(id=240,run_id=13,run_attempt=1,
+                    check_run_url=f'https://api.github.com/{RESULTS.PREFIX}/check-runs/240',
+                    started_at='2026-10-15T21:59:01Z',completed_at='2026-10-15T21:59:20Z',
+                    steps=[{'name':self.A.METADATA_STEP,'status':'completed','conclusion':'success',
+                        'started_at':'2026-10-15T21:59:02Z','completed_at':'2026-10-15T21:59:19Z'}])
+                self.metadata_jobs=[row]
+                native={'number':42,'base_snapshot':self.base,'head':self.head,'merge':self.candidate,
+                    'run_id':13,'helper_blob':self.git('rev-parse',self.base+':'+self.A.METADATA_SOURCE)}
+                marker=SimpleNamespace(SOURCE_READY=True,SOURCE=self.A.METADATA_SOURCE,native=lambda *a,**k:deepcopy(native))
+                _,post,_=RESULTS._metadata_modules()
+                with patch.object(RESULTS,'_metadata_modules',return_value=(self.A,post,marker)), \
+                        patch.object(post,'_source_qualified',return_value=True):
+                    result=RESULTS.MetadataVerifier(self.protected,{}, {'GITHUB_JOB':'select'},api=self.api).verify(processing_seconds=0)
+                self.assertEqual(result['analysis_attempt'],2 if fresh else 1)
+                self.assertEqual(result['result_attempt'],2)
+                self.assertFalse(result['qualification'])
+                self.assertEqual(result['analyses'][0]['job_id'],181 if fresh else 81)
+                adapter=self.A.Adapter(self.api)
+                _,_,workflows=adapter._workflow_tuple(self.candidate,paths=self.A.METADATA_CALLERS[RESULTS.WORKFLOW])
+                policy=self.A.MetadataPolicy(7,RESULTS.WORKFLOW,{'native-upload':workflows},
+                    {'native-upload':adapter._metadata_source(self.base)})
+                observed=adapter.metadata_schedule(42,13,policy)
+                native_result=adapter.metadata_result_success(observed)
+                self.assertEqual(native_result['analysis_attempt'],2 if fresh else 1)
+                self.assertEqual(native_result['result_attempt'],2)
+                self.assertFalse(native_result['qualification'])
+
+    def test_upload_recipe_composes_with_exact_installed_project28_tuple(self):
+        spec=importlib.util.spec_from_file_location('upload_project28_packages',ROOT / 'tools/repository-checks/package_checks.py')
+        packages=importlib.util.module_from_spec(spec);spec.loader.exec_module(packages)
+        rows=packages.workflow_generations()
+        self.assertEqual(len(rows),28)
+        tree=CODEQL.inputs.full_tree(ROOT,'HEAD')
+        tree.update(deepcopy(rows[27]['workflows']))
+        tree[RESULTS.WORKFLOW]={'mode':'100644','type':'blob','sha':CODEQL._UPLOAD_RESULTS_WORKFLOW}
+        self.assertEqual(packages.validate_tree_wiring(tree),rows[27]['name'])
+        self.assertEqual(self.git('rev-parse',self.base+':.github/workflows/project-tests.yml'),
+            rows[27]['workflows']['.github/workflows/project-tests.yml']['sha'])
+        self.assertEqual(self.verify()['languages'],['python'])
+        tree['.github/workflows/project-tests.yml']['sha']='f'*40
+        with self.assertRaises(ValueError): packages.validate_tree_wiring(tree)
+
+    def test_passive_recipe_exposes_only_small_native_upload_identity_and_exact_generation(self):
+        import yaml
+        path=ROOT / CODEQL._UPLOAD_RESULTS_TEMPLATE; raw=path.read_bytes()
+        self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),CODEQL._UPLOAD_RESULTS_WORKFLOW)
+        value=yaml.safe_load(raw); analyze=value['jobs']['analyze']['steps']
+        step=next(row for row in analyze if row.get('name')=='Analyze')
+        self.assertEqual(step['id'],'analyze'); self.assertIs(step['with']['wait-for-processing'],False)
+        record=next(row for row in analyze if row.get('name')=='Record the native CodeQL upload identity')
+        self.assertIn("steps.analyze.outputs['sarif-id']",record['env']['CODEQL_SARIF_ID'])
+        self.assertIn('attempt>0',record['run']); self.assertNotIn('GITHUB_TOKEN',record['run'])
+        publish=next(row for row in analyze if row.get('name')=='Publish the native CodeQL upload identity')
+        self.assertEqual(publish['with']['overwrite'],False)
+        self.assertEqual(publish['with']['if-no-files-found'],'error')
+        self.assertEqual(CODEQL.result_workflow_sources()[-1],(CODEQL._UPLOAD_RESULTS_WORKFLOW,CODEQL._SCHEDULING_SOURCE_WORKFLOW))
+        self.assertFalse(path.is_symlink())
+        self.assertIn(path.stat().st_mode & 0o777,(0o444,0o644))
+        active=ROOT/RESULTS.WORKFLOW
+        self.assertFalse(active.is_symlink())
+        self.assertIn(active.stat().st_mode & 0o777,(0o444,0o644))
+        active_raw=active.read_bytes()
+        active_blob=hashlib.sha1(b'blob '+str(len(active_raw)).encode()+b'\0'+active_raw).hexdigest()
+        self.assertIn(active_blob,(CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW,CODEQL._UPLOAD_RESULTS_WORKFLOW))
+        if active_blob==CODEQL._UPLOAD_RESULTS_WORKFLOW:
+            self.assertEqual(active_raw,raw)
+        else:
+            self.assertEqual(active_blob,CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW)
+            self.assertNotEqual(active_raw,raw)
 
 
 if __name__ == "__main__":
