@@ -3,6 +3,13 @@
 Active implementation scope is **Android Phone only** until all fourteen areas
 are complete. Pico and iOS work is paused and preserved on their own branches.
 
+The [independent reader's existing-session seam](READ_ONLY_SOURCES.md) now
+refuses session creation/repair, app activation and native mutation commands.
+Original installed bytes, foreground/PID/start time, target/session and source
+guards remain mandatory. All **138** Phone feature-adapter host cases pass.
+This secures acquisition prerequisites; it does not yet implement the
+independent publisher or any complete `feature.*` triple.
+
 Internal `_script_ui_state` now reads the [complete passive manager/picker
 inventory](SCRIPT_UI_INVENTORY.md), including modal carrier suppression, hidden
 retained roots, original tablet visibility and outstanding system requests.

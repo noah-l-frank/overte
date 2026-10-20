@@ -9,11 +9,12 @@ import re
 from pathlib import Path
 import sys
 import uuid
+from copy import deepcopy
 from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from adapter import PhoneAdapter, main, require
-from adapters.appium.adapter import AppiumAdapter
+from adapters.appium.adapter import AppiumAdapter, WebDriver
 from contracts import validate_operation_arguments
 from adapters.normal_ui import NativeUI
 from adapters.phone_navigation import PhoneNavigation
@@ -160,14 +161,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def script_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-script-session.json'))
 
-    def _native_feature_observer(self, selector):
+    def _native_feature_observer(self, selector, *, read_only=False):
         # Internal native sources, not a complete feature.* capability. The
         # source hook is opt-in at build time and cannot be faked by an env flag.
         target = self.target(selector)
         require(self.candidate is not None and self.controlled_android_client(target),
                 'PHONE_NATIVE_FEATURE_BOUND_DEBUG_TARGET_REQUIRED')
-        _native, _scripts, context, check, installed = self.normal_feature_runtime(selector)
-        client, session, _state = self.ensure_session(selector)
+        _native, _scripts, context, check, installed = self.normal_feature_runtime(selector, read_only=read_only)
+        client, session, _state = self.existing_session(selector) if read_only else self.ensure_session(selector)
         device = target['capabilities']['appium:udid']
         binding = PhoneAdapter(self.candidate)
 
@@ -176,6 +177,17 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(self.installed_identity(selector) == installed, 'PHONE_NATIVE_FEATURE_INSTALL_CHANGED')
 
         def send(command):
+            if read_only:
+                require(type(command) is dict and set(command) in (
+                    {'schemaVersion', 'commandId', 'action'}, {'schemaVersion', 'commandId', 'action', 'request'})
+                    and type(command.get('schemaVersion')) is int and command['schemaVersion'] == 1
+                    and type(command.get('commandId')) is str and re.fullmatch('[0-9a-f]{32}', command['commandId'])
+                    and type(command.get('action')) is str
+                    and (command['action'] in {'feature-native-observe', 'feature-script-observe'} and 'request' not in command
+                         or command['action'] == 'phone-script-file-ui' and type(command.get('request')) is dict
+                         and command['request'] == dict(schemaVersion=1, commandId=command['commandId'], action='observe')
+                         and type(command['request']['schemaVersion']) is int),
+                    'PHONE_READ_ONLY_COMMAND_REJECTED')
             guard()
             self.write_android_client_command(client, session, target, command,
                 {'running': True, 'identity': context['processIdentity']})
@@ -310,8 +322,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         check()
         return OwnedWorldRenderCapture(capture, storage, owner, receipts)
 
-    def _script_execution_observer(self, selector):
-        native = self._native_feature_observer(selector)
+    def _script_execution_observer(self, selector, *, read_only=False):
+        native = self._native_feature_observer(selector, read_only=read_only)
         target = self.target(selector)
         device = target['capabilities']['appium:udid']
         transport = PhoneAdapter(self.candidate).adb
@@ -434,8 +446,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         from adapters.script_ui_inventory import ui_state
         return ui_state(self._script_file_io(selector).capture())
 
-    def _script_file_io(self, selector):
-        native = self._native_feature_observer(selector)
+    def _script_file_io(self, selector, *, read_only=False):
+        native = self._native_feature_observer(selector, read_only=read_only)
         target = self.target(selector)
         device = target['capabilities']['appium:udid']
         transport = PhoneAdapter(self.candidate).adb
@@ -551,9 +563,33 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(self.installed_identity(selector) == installed, 'PHONE_NORMAL_CREATE_INSTALL_CHANGED')
         return result
 
-    def normal_feature_runtime(self, selector, *, include_entities=False):
+    def existing_session(self, selector):
+        # Independent observations must never inherit ensure_session's repair,
+        # deletion, installation or new-session/automatic-launch behavior.
+        require(self.candidate is not None, 'PHONE_READ_ONLY_CANDIDATE_REQUIRED')
         target = self.target(selector)
-        client, session, state = self.ensure_session(selector)
+        before = deepcopy(self.read_session(selector))
+        fingerprint = self.snapshot_fingerprint(target)
+        require(before is not None and before.get('targetFingerprint') == fingerprint
+                and type(before.get('sessionId')) is str
+                and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}', before['sessionId']) is not None,
+                'PHONE_READ_ONLY_EXISTING_SESSION_REQUIRED')
+        installed = self.installed_identity(selector)
+        client = WebDriver(target['serverUrl'])
+        try:
+            client.call('GET', '/session/' + before['sessionId'])
+        except Exception:
+            raise RuntimeError('PHONE_READ_ONLY_SESSION_UNAVAILABLE') from None
+        require(self.snapshot_fingerprint(self.target(selector)) == fingerprint
+                and self.read_session(selector) == before
+                and self.installed_identity(selector) == installed,
+                'PHONE_READ_ONLY_SESSION_OR_CANDIDATE_CHANGED')
+        return client, before['sessionId'], before
+
+    def normal_feature_runtime(self, selector, *, include_entities=False, read_only=False):
+        require(type(read_only) is bool, 'PHONE_READ_ONLY_MODE_INVALID')
+        target = self.target(selector)
+        client, session, state = self.existing_session(selector) if read_only else self.ensure_session(selector)
         installed = self.installed_identity(selector)
         process = self.process_state(selector, client, session, state, target)
         require(process.get('running') is True and isinstance(process.get('identity'), str)

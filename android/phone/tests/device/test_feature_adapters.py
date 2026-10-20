@@ -1148,6 +1148,95 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual(['companion.js'], loaded_relative_modules(running_owned_engine(value, source.engine['url'])))
         self.assertEqual([], self.native.inputs)
 
+    def read_only_boundaries(self):
+        original = self.native.call
+        calls = []
+        def get(method, path, body=None):
+            calls.append((method, path, body))
+            if method == 'GET' and path == '/session/native-session': return {'capabilities': {'syntheticOnly': True}}
+            return original(method, path, body)
+        for boundary in (
+            patch.object(appium, 'WebDriver', return_value=self.native),
+            patch.object(self.native, 'call', side_effect=get),
+            patch.object(self.adapter, 'ensure_session', side_effect=AssertionError('Read-only source tried session repair'))):
+            boundary.start(); self.addCleanup(boundary.stop)
+        return calls
+
+    def test_phone_read_only_script_source_reads_existing_session_without_repair_or_input(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        calls = self.read_only_boundaries()
+        value = self.adapter._script_execution_observer(SELECTOR, read_only=True).read(0)
+        self.assertEqual(source.sample, value)
+        self.assertEqual([('GET', '/session/native-session', None)] * 2, calls)
+        self.assertEqual([], self.native.inputs); self.assertEqual([], self.native.lifecycle_inputs)
+
+    def test_phone_read_only_source_missing_foreign_or_unsafe_session_preserves_journal(self):
+        calls = self.read_only_boundaries()
+        original = deepcopy(self.adapter.read_session(SELECTOR))
+        for state in (None, original | {'targetFingerprint': 'f' * 64},
+                      original | {'sessionId': 'foreign/../session'}, original | {'sessionId': ''}):
+            with self.subTest(state=state), patch.object(self.adapter, 'read_session', return_value=state):
+                with self.assertRaises((ValueError, RuntimeError)): self.adapter.existing_session(SELECTOR)
+                self.assertEqual(state, self.adapter.read_session(SELECTOR))
+        self.assertEqual([], calls)
+        self.assertEqual(original, self.adapter.read_session(SELECTOR))
+
+    def test_phone_read_only_dead_sdk_session_fails_without_delete_recreate_or_private_error(self):
+        self.read_only_boundaries()
+        before = deepcopy(self.adapter.read_session(SELECTOR))
+        with patch.object(self.native, 'call', side_effect=RuntimeError('private endpoint and selector')):
+            with self.assertRaisesRegex(RuntimeError, '^PHONE_READ_ONLY_SESSION_UNAVAILABLE$'):
+                self.adapter.existing_session(SELECTOR)
+        self.assertEqual(before, self.adapter.read_session(SELECTOR))
+        self.assertEqual([], self.native.lifecycle_inputs)
+
+    def test_phone_read_only_candidate_loss_is_rejected_before_sdk_request(self):
+        calls = self.read_only_boundaries(); self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises((ValueError, RuntimeError)): self.adapter.existing_session(SELECTOR)
+        self.assertEqual([], calls)
+
+    def test_phone_read_only_session_replacement_during_sdk_query_cannot_be_adopted(self):
+        self.read_only_boundaries()
+        state = self.adapter.read_session(SELECTOR)
+        def replace(*_args):
+            state['sessionId'] = 'replacement-session'
+            return {}
+        with patch.object(self.native, 'call', side_effect=replace):
+            with self.assertRaises((ValueError, RuntimeError)): self.adapter.existing_session(SELECTOR)
+        self.assertEqual('replacement-session', self.adapter.read_session(SELECTOR)['sessionId'])
+        self.assertEqual([], self.native.inputs)
+
+    def test_phone_read_only_source_rejects_script_storage_ui_and_lifecycle_mutations_before_send(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        self.read_only_boundaries()
+        reader = self.adapter._native_feature_observer(SELECTOR, read_only=True)
+        requests = [dict(schemaVersion=1, commandId='a' * 32, action=action)
+                    for action in ('feature-script-files', 'app.stop', 'normal-script-ui')]
+        requests += [dict(schemaVersion=1, commandId='a' * 32, action='phone-script-file-ui',
+                         request=dict(schemaVersion=1, commandId='a' * 32, action='activate')),
+                     dict(schemaVersion=1, commandId='a' * 32, action='feature-script-observe', expected=[])]
+        for request in requests:
+            with self.subTest(request=request), self.assertRaises((ValueError, RuntimeError)): reader.send(request)
+        self.assertEqual([], source.commands); self.assertEqual([], self.native.inputs)
+
+    def test_phone_read_only_file_capture_cannot_be_used_for_normal_input(self):
+        source, _picker = self.file_picker_boundaries()
+        self.read_only_boundaries()
+        io = self.adapter._script_file_io(SELECTOR, read_only=True)
+        self.assertTrue(io.capture()['ready'])
+        with self.assertRaises(RuntimeError): io.activate('scripts.from-file')
+        self.assertEqual([], source.input_requests)
+        self.assertEqual([], self.native.inputs)
+
+    def test_phone_read_only_source_process_loss_blocks_send_without_recovery(self):
+        source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
+        calls = self.read_only_boundaries()
+        reader = self.adapter._script_execution_observer(SELECTOR, read_only=True)
+        before = len(calls); self.native.running = False
+        with self.assertRaises(RuntimeError): reader.read(0)
+        self.assertEqual(before, len(calls)); self.assertEqual([], source.commands)
+        self.assertEqual([], self.native.lifecycle_inputs)
+
     def test_phone_script_execution_source_rejects_replaced_installed_candidate(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
         reader = self.adapter._script_execution_observer(SELECTOR)
