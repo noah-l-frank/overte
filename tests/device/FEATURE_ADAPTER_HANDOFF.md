@@ -28,8 +28,9 @@ The existing Script manager now also has a
 [controlled file-bundle ownership scope](native/SCRIPT_FILE_OWNERSHIP.md): it
 journals actual original file ownership and picker/load intent before normal
 selection, preserves failed cleanup for recovery, and keeps public URL
-foundation contracts unchanged. Platform factories and verified restart
-adoption for this scope remain pending; it enables no full feature capability.
+foundation contracts unchanged. Internal factories are now connected in all
+three local platform branches; full execution/peer/cleanup coordination and
+verified restart adoption remain pending. No full feature capability is enabled.
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
