@@ -51,9 +51,12 @@ instrumentation remains uncompiled and all devices remain untested.
 
 Original world images now have [separate role-bound ownership](GRAPHICS_ACQUISITION.md)
 and native issuer/digest-gated receipt removal. General cleanup attempts both
-roles before base teardown and refuses any remaining scope. Unknown/unissued
-receipt intent remains a failure, never guessed absence. Ten Phone and two shared
-counterexamples cover these boundaries. Full Graphics coordination remains pending.
+roles before base teardown and refuses any remaining scope. The complete native
+issuer/file inventory can now prove never-issued intent only for the same retired,
+drained capture with actual filesystem absence. Unknown present files, lost host
+prefixes and changed originals remain failures. See the exact
+[inventory contract](../../native/WORLD_RENDER_RECEIPTS.md). Full Graphics
+coordination remains pending.
 
 [Original Graphics PNG evidence](GRAPHICS_IMAGES.md) now has durable planned/
 opened/saved intent, actual file identity, exclusive creation and original

@@ -61,7 +61,7 @@ from adapters.restart_inputs import RestartInputs, run_script_restart
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
 from adapters.native_graphics_subject import NativeGraphicsSubject, FILE as GRAPHICS_SUBJECT_FILE
-from adapters.world_render_receipts import NativeWorldReceiptCleanup, NativeWorldReceiptFiles, FILE as WORLD_RECEIPT_FILE
+from adapters.world_render_receipts import NativeWorldReceiptInventory, NativeWorldReceiptBatchFiles, INVENTORY_FILE as WORLD_RECEIPT_FILE
 from adapters.world_render_storage import NativeWorldRenderStorage
 from adapters.owned_world_render import WorldRenderOwner, OwnedWorldRenderCapture
 from overte_phone_script_files import PhoneScriptFileIO, FILE as SCRIPT_FILE_UI_FILE
@@ -105,6 +105,9 @@ def readonly_feature_command(command):
     elif action=='feature-world-render-receipt':
         from adapters.world_render_receipts import command as validate_receipt
         validate_receipt(command)
+    elif action=='feature-world-render-receipts':
+        from adapters.world_render_receipts import inventory_command
+        inventory_command(command)
     elif action=='feature-account-origin':
         from adapters.native_account_origin import command as validate_origin
         validate_origin(command)
@@ -434,11 +437,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         options = dict(monotonic=native.monotonic, sleep=native.sleep)
         storage = NativeWorldRenderStorage(native.send, original.read, native.clock_ms, native.guard,
             native.pid, receipt_intent=owner.receipt_intent, **options)
-        cleanup = NativeWorldReceiptCleanup(native.send,
+        cleanup = NativeWorldReceiptInventory(native.send,
             lambda: transport.read_debug_app_file(device,target['appId'],
                 'files/overte-e2e/'+WORLD_RECEIPT_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,owner.owned,lambda:storage.instance,**options)
-        receipts = NativeWorldReceiptFiles(original,cleanup)
+        receipts = NativeWorldReceiptBatchFiles(original,cleanup)
         capture = NativeWorldRenderCapture(native.send,
             lambda: transport.read_debug_app_file(device, target['appId'],
                 'files/overte-e2e/' + WORLD_RENDER_FILE, attempts=1),

@@ -543,6 +543,12 @@ class FixtureState:
             try:account_probe_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native account probe request") from None
             valid=True
+        elif action == "feature-world-render-receipts":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.world_render_receipts import inventory_command
+            try:inventory_command(command,ios=True)
+            except (ValueError,RuntimeError):raise ValueError("invalid complete world receipt inventory request") from None
+            valid=True
         elif action == "feature-world-render-receipt":
             sys.path.insert(0, str(ROOT.parent))
             from adapters.world_render_receipts import command as world_receipt_command

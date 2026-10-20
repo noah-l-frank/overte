@@ -239,6 +239,12 @@ cursor. iOS bounds the whole query to 1.5 seconds without equating wall clocks.
 It retries only original reads and never replays uncertain deletion. The probe
 deduplicates the command, preventing periodic writes after receipt consumption.
 
+The Phone factory now uses the separately versioned complete
+[receipt inventory v1](WORLD_RENDER_RECEIPTS.md) for one original whole-set remove
+and independent absence query. Its native issuance history can qualify absent
+never-issued intent only after permanent capture retirement and callback drainage;
+the legacy single-receipt hook above intentionally cannot supply that proof.
+
 `NativeWorldRenderCapture` requires a durable owner intent callback before the
 request because observation can create private native artifacts. A failed intent
 prevents request/file creation. Its platform IO must preserve existing actual

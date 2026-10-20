@@ -55,7 +55,8 @@ class WorldRenderOwner:
 class OwnedWorldRenderCapture:
     def __init__(self,capture,storage,owner,receipts,*,timeout=45):
         need(capture.files is storage and capture.intent==owner.intent and storage.receipt_intent==owner.receipt_intent
-             and all(callable(getattr(receipts,n,None)) for n in ('remove','absent')) and number(timeout,1,600))
+             and (callable(getattr(receipts,'retire',None)) or all(callable(getattr(receipts,n,None)) for n in ('remove','absent')))
+             and number(timeout,1,600))
         self.capture,self.storage,self.owner,self.receipts=capture,storage,owner,receipts
         self.timeout=timeout
 
@@ -73,13 +74,18 @@ class OwnedWorldRenderCapture:
         sample=self.storage.release(request) # Retire late requests; independently observe drained buffers.
         budget()
         value=self.owner.owned() # Includes the newly issued release/inspect receipt intents.
-        for nonce in value['receipts']:
+        if callable(getattr(self.receipts,'retire',None)):
+            self.receipts.retire() # Complete original issuer inventory, then a separate actual absence query.
             budget()
-            need(self.owner.guard() is not False)
-            name=receipt_file(nonce)
-            self.receipts.remove(name) # An ACK cannot discard the ownership journal.
-            need(self.owner.guard() is not False and self.receipts.absent(name) is True
-                 and self.owner.guard() is not False)
-            budget()
+            need(self.owner.guard() is not False and self.owner.owned()==value)
+        else:
+            for nonce in value['receipts']:
+                budget()
+                need(self.owner.guard() is not False)
+                name=receipt_file(nonce)
+                self.receipts.remove(name) # An ACK cannot discard the ownership journal.
+                need(self.owner.guard() is not False and self.receipts.absent(name) is True
+                     and self.owner.guard() is not False)
+                budget()
         self.owner.store.discard(value)
         return sample # Memory absence only; original metadata is retained as run evidence.

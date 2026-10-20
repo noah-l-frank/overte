@@ -119,6 +119,7 @@
     var lastWorldRenderRequest = "";
     var lastWorldRenderStorageCommand = "";
     var lastWorldRenderReceiptCommand = "";
+    var lastWorldRenderReceiptsCommand = "";
     var worldRenderTimer = null;
     function saveWorldRenderObservation(requestId, remaining) {
         if (requestId !== lastWorldRenderRequest) { return; }
@@ -1395,6 +1396,29 @@
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.requestId))
+                && command.action === "feature-world-render-receipts"
+                && /^(remove|inspect)$/.test(String(command.operation))
+                && Array.isArray(command.receiptIds) && command.receiptIds.length > 0 && command.receiptIds.length <= 1024
+                && command.receiptIds.every(function (id, index, ids) {
+                    return typeof id === "string" && /^(?:ios-)?[0-9a-f]{32}$/.test(id)
+                        && ids.indexOf(id) === index && /^ios-/.test(id) === /^ios-/.test(command.requestId);
+                })
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "requestId", "receiptIds", "operation"])) {
+            if (command.commandId === lastWorldRenderReceiptsCommand) { return; }
+            lastWorldRenderReceiptsCommand = command.commandId;
+            var receipts = {schemaVersion: 1, commandId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureWorldRenderReceipts === "function") {
+                    var originalReceipts = Test.featureWorldRenderReceipts(command);
+                    if (originalReceipts && originalReceipts.commandId === command.commandId) { receipts = originalReceipts; }
+                }
+            } catch (_worldReceiptsError) { /* A missing original issuer cannot prove cleanup. */ }
+            Test.saveObject(receipts, "world-render-receipts-result.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.requestId))
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.receiptId))
                 && command.action === "feature-world-render-receipt"
                 && /^(remove|inspect)$/.test(String(command.operation))
@@ -1802,6 +1826,7 @@
                 || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui"
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
+                || command.action === "feature-world-render-receipts"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-script-files")) {
             // Android's existing private channel is separate from the HTTP

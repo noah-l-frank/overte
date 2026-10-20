@@ -295,7 +295,7 @@ class FeatureAdapterTests(unittest.TestCase):
         storage.mutate=lambda sample:sample.update(instance='a'*32)
         root=self.fixture.root/'files/overte-e2e';root.mkdir(parents=True,mode=0o700)
         local=LocalAdb(self.fixture.root)
-        local.receipt_commands=[];issued={};receipt_sequence=0
+        local.receipt_commands=[];issued={};receipt_sequence=0;retired=set()
         local.read_debug_app_file=lambda _device,_package,path,**_options:(root/path.rsplit('/',1)[1]).read_text()
         def send(_client,_session,target,command,process):
             nonlocal receipt_sequence
@@ -307,11 +307,41 @@ class FeatureAdapterTests(unittest.TestCase):
                 if (source.sample is not None and source.sample.get('requestId')==command['commandId']
                         and source.sample.get('source',{}).get('available') is True):
                     storage.present=True # The synthetic GPU source actually acquired a new owned image.
+            elif command['action']=='feature-world-render-receipts':
+                local.receipt_commands.append(deepcopy(command));receipt_sequence+=1
+                self.assertEqual(journal['receipts'],command['receiptIds'])
+                names={receipt_file(nonce):nonce for nonce in command['receiptIds']}
+                complete=all(name in names for name,entry in issued.items() if entry[0]==command['requestId'])
+                valid=complete and command['requestId'] in retired and not storage.present and not storage.callbacks
+                for name in names:
+                    path=root/name;entry=issued.get(name)
+                    if (entry is not None and entry[0]!=command['requestId'] or path.is_symlink()
+                            or path.exists() and (not path.is_file() or path.stat().st_nlink!=1 or path.stat().st_uid!=os.geteuid()
+                                or path.stat().st_mode&0o7777!=0o600
+                                or entry is None or hashlib.sha256(path.read_bytes()).hexdigest()!=entry[1])):
+                        valid=False
+                if not valid:
+                    value=dict(schemaVersion=1,commandId=command['commandId'],available=False)
+                else:
+                    if command['operation']=='remove' and not local.ignore_remove:
+                        for name in names:
+                            if name in issued:(root/name).unlink(missing_ok=True)
+                    rows=[]
+                    for name,nonce in names.items():
+                        path=root/name;entry=issued.get(name);present=path.exists() or path.is_symlink()
+                        rows.append(dict(receiptId=nonce,issued=entry is not None,exists=present,
+                            originalMatches=entry is not None and present and hashlib.sha256(path.read_bytes()).hexdigest()==entry[1]))
+                    body=dict(retired=command['requestId'] in retired,present=storage.present,callbacks=storage.callbacks,
+                        pngBytes=len(storage.raw) if storage.present else 0,complete=complete,receipts=rows)
+                    if command['operation']=='remove':body['performed']=True
+                    value=dict(receiptInventoryVersion=1,commandId=command['commandId'],requestId=command['requestId'],
+                        operation=command['operation'],instance='a'*32,sequence=receipt_sequence,processId=31,capturedEpochMs=20000,source=body)
+                path=root/'world-render-receipts-result.json';path.write_text(json.dumps(value));path.chmod(0o600)
             elif command['action']=='feature-world-render-receipt':
                 local.receipt_commands.append(deepcopy(command));receipt_sequence+=1
                 self.assertIn(command['receiptId'],journal['receipts'])
                 name=receipt_file(command['receiptId']);path=root/name
-                digest=issued.get(name)
+                entry=issued.get(name);digest=entry[1] if entry is not None and entry[0]==command['requestId'] else None
                 if (digest is None or storage.present or path.is_symlink()
                         or path.exists() and hashlib.sha256(path.read_bytes()).hexdigest()!=digest):
                     value=dict(schemaVersion=1,requestId=command['commandId'],available=False)
@@ -321,12 +351,13 @@ class FeatureAdapterTests(unittest.TestCase):
                         receiptId=command['receiptId'],operation=command['operation'],instance='a'*32,
                         sequence=receipt_sequence,processId=31,capturedEpochMs=20000,
                         source=dict(performed=True) if command['operation']=='remove' else dict(exists=path.exists()))
-                (root/'world-render-receipt-result.json').write_text(json.dumps(value))
+                path=root/'world-render-receipt-result.json';path.write_text(json.dumps(value));path.chmod(0o600)
             else:
                 self.assertIn(command['commandId'],journal['receipts'])
                 storage.intents.append(command);storage.send(command)
-                name=receipt_file(command['commandId']);(root/name).write_text(storage.files[name])
-                issued[name]=hashlib.sha256((root/name).read_bytes()).hexdigest()
+                if command['operation']=='release':retired.add(command['requestId'])
+                name=receipt_file(command['commandId']);path=root/name;path.write_text(storage.files[name]);path.chmod(0o600)
+                issued[name]=(command['requestId'],hashlib.sha256(path.read_bytes()).hexdigest())
         def read(_device,package,path,**kwargs):
             self.assertEqual(PACKAGE,package);self.assertEqual({'attempts':1},kwargs)
             if path.endswith('/world-render-observation.json'):return source.original()
@@ -351,7 +382,8 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertIsNotNone(self.adapter.world_render_store(SELECTOR).read())
         capture.release();self.assertIsNone(self.adapter.world_render_store(SELECTOR).read())
         self.assertEqual([],list((local.path/'files/overte-e2e').glob('world-render-storage-*')))
-        self.assertTrue((local.path/'files/overte-e2e/world-render-receipt-result.json').is_file())
+        self.assertTrue((local.path/'files/overte-e2e/world-render-receipts-result.json').is_file())
+        self.assertEqual(['remove','inspect'],[command['operation'] for command in local.receipt_commands])
         self.assertEqual([],local.calls) # No shell unlink bypasses native issued-digest checks.
         self.assertEqual([],self.native.inputs)
         self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
@@ -422,13 +454,24 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual('foreign replacement',path.read_text())
         self.assertIsNotNone(self.adapter.world_render_store(SELECTOR).read());self.assertEqual([],local.calls)
 
-    def test_unissued_measurement_receipt_intent_is_retained_without_guessing_absence(self):
+    def test_unissued_measurement_receipt_intent_requires_original_retired_context_and_absence(self):
         _source,local,capture=self.world_render_boundaries();capture.read(0)
         original=capture.owner.owned();nonce='f'*32
         capture.owner.receipt_intent(dict(schemaVersion=1,commandId=nonce,action='feature-world-render-storage',
             requestId=original['capture']['commandId'],operation='inspect'))
+        capture.release()
+        self.assertIsNone(capture.owner.store.read());self.assertEqual([],local.calls)
+        rows=capture.receipts.proof['absent']['source']['receipts']
+        self.assertEqual([dict(receiptId=nonce,issued=False,exists=False,originalMatches=False)],[row for row in rows if row['receiptId']==nonce])
+
+    def test_unissued_intent_cannot_authorize_deletion_of_a_present_foreign_file(self):
+        _source,local,capture=self.world_render_boundaries();capture.read(0)
+        original=capture.owner.owned();nonce='f'*32
+        capture.owner.receipt_intent(dict(schemaVersion=1,commandId=nonce,action='feature-world-render-storage',
+            requestId=original['capture']['commandId'],operation='inspect'))
+        path=local.path/'files/overte-e2e'/receipt_file(nonce);path.write_text('foreign');path.chmod(0o600)
         with self.assertRaises(RuntimeError):capture.release()
-        self.assertIn(nonce,capture.owner.owned()['receipts']);self.assertEqual([],local.calls)
+        self.assertEqual('foreign',path.read_text());self.assertIn(nonce,capture.owner.owned()['receipts'])
 
     def test_general_cleanup_drains_owned_world_capture_before_base_teardown(self):
         _source,local,capture=self.world_render_boundaries();capture.read(0);self.read_only_boundaries()
@@ -472,6 +515,7 @@ class FeatureAdapterTests(unittest.TestCase):
         commands=[dict(schemaVersion=1,commandId=nonce,action='feature-world-render-observe'),
             dict(schemaVersion=1,commandId=nonce,action='feature-world-render-storage',requestId='b'*32,operation='inspect'),
             dict(schemaVersion=1,commandId=nonce,action='feature-world-render-receipt',requestId='b'*32,receiptId='c'*32,operation='remove'),
+            dict(schemaVersion=1,commandId=nonce,action='feature-world-render-receipts',requestId='b'*32,receiptIds=['c'*32],operation='inspect'),
             dict(schemaVersion=1,commandId=nonce,action='phone-graphics-ui',request=dict(schemaVersion=1,commandId=nonce,action='observe'))]
         for value in commands:
             appium.readonly_feature_command(value)

@@ -34,8 +34,8 @@ admitted on this channel. `_graphics_controls(...,read_only=True)` provides
 passive original UI reads; attempted input still fails its read-only admission.
 
 Android keeps the original guarded app-private transport for receipt reads.
-Deletion now uses `NativeWorldReceiptCleanup` through the existing native
-`feature-world-render-receipt` hook. The original native issuer must confirm that
+Deletion now uses `NativeWorldReceiptInventory` through the closed native
+`feature-world-render-receipts` hook. The original native issuer must confirm that
 the receipt nonce belongs to this retired capture/context and that present file
 bytes match its retained original digest. Changed/foreign/symlink files cannot be
 deleted as owned originals. A later separately issued native filesystem inspect
@@ -43,13 +43,17 @@ must confirm absence; neither release nor remove ACK qualifies. No shell unlink
 bypasses these issuer checks in the Phone factory. The original bounded native
 receipt-result metadata remains private evidence, with no image byte payload.
 
-Native image memory/callback drainage still precedes receipt removal. Failed
-or unissued receipt intents are retained; an unknown issuer cannot be replaced
-with a guessed absence. The current v1 native cleanup protocol intentionally
-cannot retire a never-issued receipt intent just because no file is visible.
-Such uncertainty remains an explicit cleanup failure until original scoped proof
-exists. A full source owner must account for that failure path; it may not drop
-the journal or infer success from process stop.
+Native image memory/callback drainage still precedes receipt removal. The native
+issuer compares the complete host intent list with its complete retained issuance
+history for this permanently retired capture. A never-issued intent can retire
+only with that original scoped proof and independent actual filesystem absence.
+A present unissued file cannot be deleted. Missing host prefixes, foreign native
+issuance, live buffers and outstanding callbacks refuse the whole operation.
+The native side validates every present original before deleting any. A fresh
+second command independently inspects the complete set after removal. Failed
+or unproved intents remain owned. See the exact
+[inventory protocol](../../native/WORLD_RENDER_RECEIPTS.md). Legacy single-receipt
+cleanup remains available to existing components; it cannot prove unissued intent.
 
 The existing whole-cleanup 45-second budget and each native query's five-second
 Phone budget remain in force. Native cleanup now checks final context/owner and
@@ -63,9 +67,9 @@ before base SDK teardown, also attempting the other role and base teardown after
 a failure. It then rejects either remaining journal or any failed retirement.
 Stopping the app is not evidence that persistent private receipts were removed.
 
-Ten additional Phone cases cover separate actor ownership without repair,
+Phone cases cover separate actor ownership without repair,
 legacy/foreign role rejection, missing required trace, changed receipt bytes,
-unissued intent retention, cleanup ordering, both-role attempts, ignored actor
+original unissued-intent proof, cleanup ordering, both-role attempts, ignored actor
 removal and closed read-only grammar. Two shared cases cover clock/context loss
 during freshness reads and final guard latency. Actual local files plus explicit
 synthetic native/SDK boundaries verify test logic only. Native code is uncompiled;
