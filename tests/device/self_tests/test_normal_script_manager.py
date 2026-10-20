@@ -126,6 +126,19 @@ class NormalScriptManagerTests(unittest.TestCase):
         self.invoke('scripts.manager.close')
         self.assertIsNone(self.native.store.read())
 
+    def test_failed_dialog_cancel_keeps_valid_ownership_and_can_be_recovered(self):
+        self.load(); flow = self.native.flow()
+        flow.mark(dialogOwned=True); self.native.open_url_dialog()
+        original = self.native.cancel_dialog
+        self.native.cancel_dialog = lambda: self.native.calls.append('ignored-cancel')
+        with self.assertRaises(NativeUIError): flow.close()
+        self.assertTrue(self.native.store.read()['dialogOwned'])
+        self.assertTrue(self.native.store.read()['managerOwned'])
+        self.assertNotIn('close', self.native.calls)
+        self.native.cancel_dialog = original
+        flow = self.native.flow(); flow.close_dialog(); flow.stop_source(SOURCE); flow.close()
+        self.assertIsNone(self.native.store.read())
+
     def test_ignored_stop_never_retires_ownership_or_returns_success(self):
         self.load()
         self.native.ignore_stop = True
