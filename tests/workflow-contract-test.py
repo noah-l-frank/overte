@@ -2187,6 +2187,123 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
 
 
 
+class OptionalParentSourceDeclineContracts(unittest.TestCase):
+    def setUp(self):
+        self.jobs=workflow_data(PARENT_QUALIFICATION_WORKFLOW.read_text())['jobs']
+
+    def decision(self, needs, admitted='true', raw=None, cancelled='false'):
+        steps=self.jobs['qualify-parent']['steps']
+        matches=[step for step in steps if step.get('id')=='admission']
+        self.assertEqual(len(matches),1,'optional source decline requires its stdlib decision')
+        self.assertEqual(matches[0]['if'],"always() && !cancelled()")
+        self.assertEqual(matches[0]['env']['CANCELLED'],"${{ job.status == 'cancelled' }}")
+        script='\n'.join(matches[0]['run'].splitlines()[1:-1])+'\n'
+        imports={alias.name for node in ast.walk(ast.parse(script)) if isinstance(node,ast.Import) for alias in node.names}
+        self.assertEqual(imports,{'json','os'})
+        with tempfile.TemporaryDirectory() as temporary:
+            output=Path(temporary)/'outputs'
+            result=subprocess.run([sys.executable,'-I','-S','-B','-c',script],cwd=temporary,
+                env={'PATH':os.defpath,'ADMITTED':admitted,'CANCELLED':cancelled,
+                    'CHECK_RESULTS':json.dumps(needs) if raw is None else raw,
+                    'GITHUB_OUTPUT':str(output)},capture_output=True,text=True)
+            values=dict(line.split('=',1) for line in output.read_text().splitlines()) if output.exists() else {}
+        return result,values
+
+    def needs(self, android=False):
+        return {'route':{'result':'success' if android else 'skipped','outputs':{
+                    'source_admitted':'true','parent_candidate':'exact-current-parent',
+                    'parent_plan':'exact-current-plan','platform_required':'false'} if android else {}},
+            'common-parent':{'result':'success','outputs':{'source_admitted':'true'}},
+            'platform-tests':{'result':'skipped','outputs':{}}}
+
+    def test_admitted_roles_keep_the_original_owner_protocol(self):
+        cases=[self.needs(),self.needs(True)]
+        platform=self.needs(True)
+        platform['route']['outputs']['platform_required']='true'
+        platform['platform-tests']={'result':'success','outputs':{
+            'source_admitted':'true','required':'true','verified':'true','partition':'exact-platform-partition'}}
+        cases.append(platform)
+        for needs in cases:
+            result,values=self.decision(needs)
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertEqual(values['available'],'true');self.assertEqual(result.stdout,'')
+            expected=json.loads(json.dumps(needs))
+            for job in expected.values():job['outputs'].pop('source_admitted',None)
+            self.assertEqual(json.loads(values['owner_results']),expected)
+
+    def test_unavailable_source_declines_without_execution_qualification_or_evidence(self):
+        cases=[(self.needs(), 'false')]
+        route=self.needs(True);route['route']['outputs']['source_admitted']='false'
+        route['common-parent']={'result':'skipped','outputs':{}};cases.append((route,'true'))
+        common=self.needs();common['common-parent']['outputs']['source_admitted']='false';cases.append((common,'true'))
+        platform=self.needs(True);platform['platform-tests']={'result':'success','outputs':{'source_admitted':'false'}}
+        cases.append((platform,'true'))
+        for needs,admitted in cases:
+            with self.subTest(needs=needs,admitted=admitted):
+                result,values=self.decision(needs,admitted)
+                self.assertEqual(result.returncode,0,result.stderr)
+                self.assertEqual(values,{'available':'false'})
+                report=json.loads(result.stdout)
+                self.assertEqual(report['kind'],'optional-parent-source-unavailable-v1')
+                self.assertEqual(report['scope'],'qualify-parent-decision')
+                self.assertEqual(report['executed_suites'],[]);self.assertEqual(report['reused_suites'],[])
+                self.assertIsNone(report['execution'])
+                self.assertFalse(report['qualification'] or report['reusable'] or report['new_E'])
+                self.assertEqual(report['upstream_results'],{name:job['result'] for name,job in needs.items()})
+
+    def test_source_unavailable_cannot_hide_failed_cancelled_or_malformed_jobs(self):
+        for name in self.needs():
+            for state in ('failure','cancelled','timed_out','in_progress',None):
+                needs=self.needs();needs[name]['result']=state
+                with self.subTest(name=name,state=state):
+                    result,values=self.decision(needs,'false')
+                    self.assertNotEqual(result.returncode,0);self.assertEqual(values,{})
+        for admitted in ('','TRUE','0','null'):
+            with self.subTest(admitted=admitted):
+                result,values=self.decision(self.needs(),admitted)
+                self.assertNotEqual(result.returncode,0);self.assertEqual(values,{})
+        for cancelled in ('true','','TRUE'):
+            with self.subTest(cancelled=cancelled):
+                result,values=self.decision(self.needs(),'false',cancelled=cancelled)
+                self.assertNotEqual(result.returncode,0);self.assertEqual(values,{})
+        for change in ('missing-job','extra-job','missing-admission','invalid-admission','invalid-outputs'):
+            needs=self.needs()
+            if change=='missing-job':del needs['platform-tests']
+            elif change=='extra-job':needs['unknown']={'result':'success','outputs':{}}
+            elif change=='missing-admission':needs['common-parent']['outputs']={}
+            elif change=='invalid-admission':needs['common-parent']['outputs']['source_admitted']=False
+            else:needs['common-parent']['outputs']=None
+            with self.subTest(change=change):
+                result,values=self.decision(needs,'false')
+                self.assertNotEqual(result.returncode,0);self.assertEqual(values,{})
+        for raw in ('null','[]','not-json','{"route":{},"route":{}}','{"value":NaN}'):
+            with self.subTest(raw=raw):
+                result,values=self.decision({},'false',raw=raw)
+                self.assertNotEqual(result.returncode,0);self.assertEqual(values,{})
+
+    def test_every_candidate_and_execution_step_requires_its_admitted_source(self):
+        gate="steps.protected-source.outputs.admitted == 'true'"
+        for name,job in self.jobs.items():
+            steps=job['steps'];guard=next(i for i,step in enumerate(steps) if step.get('id')=='protected-source')
+            candidate=next(i for i,step in enumerate(steps) if step.get('with',{}).get('path')=='candidate')
+            self.assertLess(guard,candidate,name)
+            if name=='qualify-parent':
+                self.assertEqual(steps[0],{'name':'Reject cancelled parent qualification',
+                    'if':'cancelled()','run':'exit 1'})
+                self.assertLess(0,guard)
+                self.assertEqual(steps[-1],{'name':'Reject late cancellation of parent qualification',
+                    'if':'cancelled()','run':'exit 1'})
+                for step in steps[guard+1:-1]:
+                    if step.get('id')!='admission':self.assertEqual(step['if'],"steps.admission.outputs.available == 'true'")
+                owners=next(step for step in steps if step['name']=='Require both actual parent owners')
+                self.assertEqual(owners['env']['CHECK_RESULTS'],'${{ steps.admission.outputs.owner_results }}')
+            else:
+                self.assertEqual(job['outputs']['source_admitted'],'${{ steps.protected-source.outputs.admitted }}')
+                for step in steps[guard+1:]:self.assertTrue(step.get('if','').startswith(gate),(name,step['name']))
+        for name in ('common-parent','platform-tests'):
+            self.assertIn("needs.route.outputs.source_admitted == 'true'",self.jobs[name]['if'])
+
+
 class SharedReleaseBundleWorkflowContracts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
