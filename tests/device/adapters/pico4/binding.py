@@ -29,6 +29,8 @@ from adapters.pico4 import normal_scripts
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from adapters.script_restart_handoff import ScriptRestartHandoff
+from adapters.restart_inputs import RestartInputs, run_script_restart
+from adapters.android_process_query import AndroidProcessQuery
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
@@ -247,6 +249,40 @@ def create_adapter(args, base_class):
             return handoff.adopt(binding, self._process_presence(target),
                 self._script_execution_observer(target), files.native, ui, observe,
                 TokenScriptFilePicker(ui.io, handoff.directory()))
+
+        def _script_restart_inputs_store(self, target):
+            state, _ui = self._script_paths(target)
+            return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'normal-script-restart-inputs-')))
+
+        def _script_restart_inputs(self, target):
+            state, _ui = self._script_paths(target)
+            return RestartInputs(self._script_restart_inputs_store(target),
+                [self._script_restart_store(target), self._script_files_store(target), PrivateFeatureState(state)])
+
+        def _script_restart_source(self, target):
+            _ui, _observe, binding = self._script_runtime(target)
+            native = self._native_feature_observer(target)
+            native.guard(); _need(native.pid == int(binding['processIdentity'].split(':')[0]))
+            return binding, native
+
+        def _script_restart_stopped(self, target):
+            origin = self._script_restart_inputs(target).read()['oldBinding']
+            def guard():
+                _need(hashlib.sha256((target + '\0' + str(self.pico_configuration)).encode()).hexdigest()
+                      == origin['targetFingerprint'])
+                installed = self._installation(target)
+                _need(all(installed[key] == origin[key] for key in ('sourceRevision', 'artifactSha256')))
+            source = AndroidProcessQuery(self.adb, 'org.overte.pico', guard)
+            receipt = source.read(target, int(origin['processIdentity'].split(':')[0]))
+            return {'running': bool(receipt['processIds']),
+                    'identity': origin['processIdentity'] if receipt['processIds'] else None}
+
+        @_private
+        def _script_restart(self, target):
+            return run_script_restart(self._script_restart_inputs(target), self._script_restart_handoff(target),
+                lambda: self._script_restart_source(target), lambda: self._script_restart_prepare(target),
+                lambda: self.invoke(target, 'app.stop', {}), lambda: self._script_restart_stopped(target),
+                lambda: self.invoke(target, 'app.launch', {}), lambda: self._script_restart_adopt(target))
 
         def _graphics_controls(self, target, intent):
             from adapters.token_graphics_ui import TokenGraphicsUI
@@ -557,6 +593,7 @@ def create_adapter(args, base_class):
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
                 _need(not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
+                      and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
                       and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None)

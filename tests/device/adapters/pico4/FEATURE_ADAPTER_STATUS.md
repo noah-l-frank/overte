@@ -1,5 +1,17 @@
 # Pico feature adapter implementation status
 
+Common journey contract is **v16**. Internal `_script_restart` now composes
+[one-send restart intent](../../native/RESTART_INPUTS.md), ordinary Android
+stop/launch, a strict original own-UID PID query, original persisted native
+lifecycle counters and Script ownership adoption. All **65** normal-Scripts
+host cases pass. Ignored stop/launch, lost acknowledgments, current candidate
+replacement and unresolved cleanup fail without replaying an issued input.
+A lost launch receipt before the original OpenXR session binding remains
+unqualified; an empty unchecked pidof result cannot prove process death.
+These are synthetic SDK/OS/native boundary checks, not device or latency
+qualification. Full Scripts actor/error/final cleanup joins and complete
+feature triples remain missing. Native code is uncompiled and devices untested.
+
 Common journey contract is **v16**. Internal `_script_restart_prepare/adopt`
 connect the [durable handoff v1](../../native/SCRIPT_RESTART_HANDOFF.md) to
 original candidate/OpenXR/PID-start/foreground-bound execution, file storage,
@@ -7,7 +19,7 @@ kernel exit and actual VR tablet/service sources. All **59** normal-Scripts
 host cases pass. New cases cover preserved originals/new empty process,
 closed unready tablet, unknown exit, retained execution, candidate replacement
 and unresolved-journal cleanup. No lifecycle/Script/UI input or restaging is
-issued by the handoff. Full one-send native lifecycle orchestration, independent
+issued by the handoff. Full feature orchestration, independent
 actor/error/cleanup joins and complete feature adapters remain missing.
 Native source is uncompiled and devices remain untested.
 

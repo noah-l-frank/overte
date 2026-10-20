@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 import unittest
 from unittest.mock import patch
 import uuid
@@ -23,6 +24,7 @@ from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
 from adapters.native_script_files import originals
 from adapters.script_restart_handoff import ScriptRestartHandoff
+from adapters.restart_inputs import RestartInputs
 from self_tests.test_native_script_observation import Boundary as ScriptBoundary, code_source, effect_source
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from adapters.normal_feature_state import PrivateFeatureState
@@ -732,13 +734,15 @@ class PicoNormalScriptsTests(unittest.TestCase):
         path, _ui = self.instance._script_paths(self.native.target)
         self.assertTrue(PrivateFeatureState(path).read()['pickerOwned']); self.assertIsNotNone(files.store.read())
 
-    def restart_sources(self):
+    def restart_sources(self, *, staged_restart=True):
         storage, files, manager = self.file_manager()
         manager.open(); manager.file_picker_open(); manager.file_picker_choose('script-bundle/main.js')
         source = ScriptBoundary(); source.engine['url'] = storage.root.as_uri() + '/script-bundle/main.js'
         source.engine['required']['modules'][0]['url'] = storage.root.as_uri() + '/script-bundle/companion.js'
         epoch = [self.native.epoch_milliseconds(self.native.target)]
         state = {'restarted': False, 'replay': False}
+        lifecycle = NativeFeatureBoundary()
+        state['lifecycle'] = dict(backgrounds=0, activations=1, launches=1)
         presence = PresenceBoundary(pid=124, epoch_ms=lambda: epoch[0]); presence.presence = 'absent'
         def enrich(packet):
             packet.update(processId=int(self.native.identity.split(':')[0]),
@@ -753,6 +757,12 @@ class PicoNormalScriptsTests(unittest.TestCase):
             if state['restarted'] and not state['replay']:
                 packet['source']['engines'] = []; packet['source']['effects'].update(scannedEntities=0, entities=[])
         source.mutate = enrich
+        def native_lifecycle(packet):
+            packet.update(processId=int(self.native.identity.split(':')[0]),
+                instance=('a' if state['restarted'] else 'd') * 32,
+                requestedEpochMs=epoch[0], capturedEpochMs=epoch[0], lifecycle=dict(state['lifecycle']))
+            packet['animationFence']['requestedEpochMs'] = packet['requestedEpochMs']
+        lifecycle.mutate = native_lifecycle
         storage.mutate = lambda packet: packet.update(processId=int(self.native.identity.split(':')[0]),
             instance=('a' if state['restarted'] else 'd') * 32, requestedEpochMs=epoch[0], capturedEpochMs=epoch[0])
         original_write, original_read = self.native.write_debug_app_file.side_effect, self.native.read_debug_app_file.side_effect
@@ -760,12 +770,14 @@ class PicoNormalScriptsTests(unittest.TestCase):
             command = json.loads(raw)
             if command['action'] == 'feature-script-observe': return source.send(command)
             if command['action'] == 'feature-process-presence': return presence.send(command)
+            if command['action'] == 'feature-native-observe': return lifecycle.send(command)
             return original_write(target, package, path, raw)
         def read(target, package, path, **kwargs):
             if path == adapter.ANDROID_CONTROL_MARKER:
                 return json.dumps(adapter.ANDROID_CONTROL_CONTRACT | {'processId': int(self.native.identity.split(':')[0])})
             if path.endswith('/feature-script-observation.json'): return source.original()
             if path.endswith('/feature-process-presence.json'): return presence.original()
+            if path.endswith('/feature-native-observation.json'): return lifecycle.original()
             return original_read(target, package, path, **kwargs)
         original_observe = self.qt.observe
         def observe(after):
@@ -779,14 +791,95 @@ class PicoNormalScriptsTests(unittest.TestCase):
             patch.object(self.native, 'epoch_milliseconds', side_effect=lambda *_: epoch[0]),
             patch.object(self.native, 'require_process_identity', side_effect=lambda identity: self.assertEqual(self.native.identity, identity)),
             patch.object(self.qt, 'observe', side_effect=observe),
-            patch.dict(active, ScriptRestartHandoff=partial(ScriptRestartHandoff, monotonic=lambda: self.qt.clock, sleep=sleep))):
+            patch.dict(active, ScriptRestartHandoff=partial(ScriptRestartHandoff, monotonic=lambda: self.qt.clock, sleep=sleep),
+                       RestartInputs=partial(RestartInputs, monotonic=lambda: self.qt.clock))):
             boundary.start(); self.addCleanup(boundary.stop)
         self.native.snapshot_mutation = lambda packet: packet.update(processId=int(self.native.identity.split(':')[0]))
-        self.instance._script_restart_prepare(self.native.target)
-        state['restarted'] = True; self.native.identity = '124:new-start'; self.native.bridge_id = str(uuid.uuid4())
-        self.native.opened = False; self.qt.opened = False; self.qt.page = 'home'; self.qt.rows = []
-        self.file_ui.opened = False
+        def transition():
+            state['restarted'] = True; self.native.identity = '124:new-start'; self.native.bridge_id = str(uuid.uuid4())
+            self.native.opened = False; self.qt.opened = False; self.qt.page = 'home'; self.qt.rows = []
+            self.file_ui.opened = False
+        if staged_restart:
+            self.instance._script_restart_prepare(self.native.target); transition()
+        else:
+            state.update(calls=[], ignore_stop=False, ps_error=False, lost_stop=False, lost_launch=False,
+                         openxr_identity=self.native.identity)
+            original_shell = self.native.shell; original_run = subprocess.run
+            self.native.command = ['synthetic-adb']
+            def shell(target, *arguments, **kwargs):
+                if arguments == ('am', 'force-stop', 'org.overte.pico'):
+                    state['calls'].append('stop')
+                    if not state['ignore_stop']:
+                        self.native.running = False; state['lifecycle']['backgrounds'] += 1
+                    if state['lost_stop']: raise RuntimeError('synthetic lost stop receipt')
+                    return ''
+                if arguments[:4] == ('am', 'start', '-W', '-n'):
+                    state['calls'].append('launch'); transition(); self.native.running = True
+                    state['lifecycle']['activations'] += 1; state['lifecycle']['launches'] += 1
+                    if state['lost_launch']: raise RuntimeError('synthetic lost launch receipt')
+                    return ''
+                return original_shell(target, *arguments, **kwargs)
+            def query(argv, **kwargs):
+                if argv[0] != 'synthetic-adb': return original_run(argv, **kwargs)
+                self.assertEqual(['synthetic-adb', '-s', self.native.target, 'exec-out', 'run-as',
+                    'org.overte.pico', '/system/bin/ps', '-p', '123', '-o', 'PID'], argv)
+                self.assertFalse(kwargs['check']); self.assertLessEqual(kwargs['timeout'], 5)
+                present = self.native.running and self.native.identity.startswith('123:')
+                raw = b'PID\n123\n' if present else b'PID\n'
+                return subprocess.CompletedProcess(argv, 0 if present else 1, raw,
+                    b'synthetic native permission failure' if state['ps_error'] else b'')
+            def discard(): state['openxr_identity'] = None
+            def begin(identity):
+                self.assertEqual(self.native.identity, identity); state['openxr_identity'] = identity
+            def require(identity): self.assertEqual(state['openxr_identity'], identity)
+            for boundary in (patch.object(self.native, 'shell', side_effect=shell),
+                patch.object(self.native, 'discard_local_state', side_effect=discard),
+                patch.object(self.native, 'begin', side_effect=begin, create=True),
+                patch.object(self.native, 'require_process_identity', side_effect=require),
+                patch('adapters.android_process_query.subprocess.run', side_effect=query)):
+                boundary.start(); self.addCleanup(boundary.stop)
         return storage, source, presence, state
+
+    def test_pico_normal_restart_uses_one_sdk_stop_launch_and_original_process_query_lifecycle_and_files(self):
+        storage, _source, _presence, state = self.restart_sources(staged_restart=False)
+        actual = self.instance._script_restart(self.native.target)
+        self.assertEqual(['stop', 'launch'], state['calls']); self.assertEqual(state['lifecycle'], actual['native']['lifecycle'])
+        self.assertEqual('124:new-start', state['openxr_identity'])
+        self.assertIsNone(self.instance._script_restart_store(self.native.target).read())
+        self.assertEqual('observed', self.instance._script_restart_inputs_store(self.native.target).read()['phase'])
+        self.instance._script_restart(self.native.target)
+        self.assertEqual(['stop', 'launch'], state['calls'])
+        self.assertEqual(1, sum(command['operation'] == 'stage' for command in storage.commands))
+
+    def test_pico_restart_ignored_stop_cannot_be_hidden_by_legacy_empty_pidof_or_replayed(self):
+        _storage, _source, _presence, state = self.restart_sources(staged_restart=False); state['ignore_stop'] = True
+        for _ in range(2):
+            with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        self.assertEqual(['stop'], state['calls'])
+        self.assertEqual('stop-issued', self.instance._script_restart_inputs_store(self.native.target).read()['phase'])
+
+    def test_pico_restart_failed_native_pid_selection_never_allows_launch(self):
+        _storage, _source, _presence, state = self.restart_sources(staged_restart=False); state['ps_error'] = True
+        with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        self.assertEqual(['stop'], state['calls']); self.assertIsNotNone(self.instance._script_restart_store(self.native.target).read())
+
+    def test_pico_restart_lost_stop_ack_recovers_current_absence_without_repeating_stop(self):
+        _storage, _source, _presence, state = self.restart_sources(staged_restart=False); state['lost_stop'] = True
+        with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        actual = self.instance._script_restart(self.native.target)
+        self.assertEqual(['stop', 'launch'], state['calls']); self.assertEqual(2, actual['native']['lifecycle']['launches'])
+
+    def test_pico_restart_uncertain_launch_cannot_fake_a_missing_new_openxr_binding_or_repeat_launch(self):
+        _storage, _source, _presence, state = self.restart_sources(staged_restart=False); state['lost_launch'] = True
+        for _ in range(2):
+            with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        self.assertEqual(['stop', 'launch'], state['calls']); self.assertIsNone(state['openxr_identity'])
+        self.assertEqual('launch-issued', self.instance._script_restart_inputs_store(self.native.target).read()['phase'])
+
+    def test_pico_restart_input_journal_blocks_general_cleanup_after_other_owners_retire(self):
+        self.instance._script_restart_inputs_store(self.native.target).write({'unresolved': True}, None)
+        with self.assertRaises(ValueError): self.cleanup_instance().cleanup(self.native.target)
+        self.assertIsNotNone(self.instance._script_restart_inputs_store(self.native.target).read())
 
     def test_pico_restart_handoff_observes_closed_unready_tablet_and_original_new_process_without_input(self):
         storage, source, presence, _state = self.restart_sources()
