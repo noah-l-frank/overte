@@ -1,5 +1,13 @@
 # iOS feature adapter implementation status
 
+Current Web source packet: [WK/DOM component](../../ios/WEB_DOM_OBSERVATION.md)
+wires the shared passive source to actual WK navigation/nonce/response facts and
+private HTTP/AFC reads followed by a separate native-clock acquisition. The
+no-build iOS selection passes **376** host cases. Native code is uncompiled and
+devices untested. Full Web adapters, iOS world native-dispatch witness, inline
+ownership and observed native cleanup remain missing.
+
+
 Current: physical native binding now composes original candidate/IPA provenance,
 actual native bundle bytes and original DVT process/source observations with a
 persistent private lifecycle journal. See

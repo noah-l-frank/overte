@@ -30,6 +30,9 @@ class IOSWebView : public QQuickPaintedItem {
     Q_PROPERTY(bool bridgeAvailable READ bridgeAvailable NOTIFY bridgeAvailableChanged)
 public:
     explicit IOSWebView(QQuickItem* parent = nullptr);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    static QVariantMap featureWebDOMObservation(const QVariantMap& command);
+#endif
     ~IOSWebView() override;
     QString url() const;
     QUrl currentUrl() const;
@@ -112,6 +115,10 @@ private:
     bool active() const;
     void evaluate(const QString& code);
     void closePresentation();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureWebDOMRequest(const QVariantMap& command);
+    QVariantMap featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source = {});
+#endif
     struct Private;
     std::unique_ptr<Private> _private;
 };

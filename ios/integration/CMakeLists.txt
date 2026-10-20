@@ -94,6 +94,7 @@ set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/../documents/IOSDocumentP
 target_link_libraries(Overte "-framework UniformTypeIdentifiers")
 target_link_libraries(Overte "-framework Security" "-framework LocalAuthentication")
 if(OVERTE_E2E_FEATURE_TESTS)
+    target_sources(Overte PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../web/feature-web.qrc")
     # Read-only original CFBundle identity source; absent from normal builds.
     target_link_libraries(Overte "-framework CoreFoundation")
 endif()

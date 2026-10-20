@@ -7,6 +7,14 @@
 #include "WKWebSnapshot.h"
 #include <EmbeddedWebPolicy.h>
 #include <QCoreApplication>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QDateTime>
+#include <QElapsedTimer>
+#include <QHash>
+#include <QMutex>
+#include <QThread>
+#include "../../tests/device/native/WebDOMObservationBridge.h"
+#endif
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -35,6 +43,9 @@
 namespace overte::ios {
 struct IOSWebViewNative {
     static bool current(IOSWebView*, std::uint64_t);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    static void featureResponse(IOSWebView*,std::uint64_t,WKWebView*,NSHTTPURLResponse*);
+#endif
     static bool navigation(IOSWebView*, std::uint64_t, NSURL*, bool, NSString*);
     static void message(IOSWebView*, std::uint64_t, NSString*, NSString*, NSURL*, bool);
     static void prepare(IOSWebView*, std::uint64_t, NSURL*);
@@ -50,6 +61,17 @@ struct IOSWebViewNative {
 }
 
 namespace {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QMutex featureRegistryMutex;
+QHash<quint64,QPointer<overte::ios::IOSWebView>> featureRegistry;
+quint64 featureNextHandle { 1 };
+bool featureEnabled() {
+    const auto arguments=QCoreApplication::arguments();
+    const int script=arguments.indexOf("--testScript"),results=arguments.indexOf("--testResultsLocation");
+    return script>=0 && script+1<arguments.size() && !arguments[script+1].isEmpty()
+        && results>=0 && results+1<arguments.size() && !arguments[results+1].isEmpty();
+}
+#endif
 QString qtString(NSString* text) { return text ? QString::fromUtf8(text.UTF8String) : QString(); }
 NSString* nativeString(const QString& text) {
     const auto bytes = text.toUtf8();
@@ -195,6 +217,11 @@ QVariant qtValue(id value) {
         overte::ios::IOSWebViewNative::navigation(owner, generation, response.response.URL,
             response.isForMainFrame, @"GET");
     if (allowed && response.isForMainFrame) { overte::ios::IOSWebViewNative::redirected(owner, generation, response.response.URL); }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (allowed && response.isForMainFrame && [response.response isKindOfClass:NSHTTPURLResponse.class]) {
+        overte::ios::IOSWebViewNative::featureResponse(owner,generation,view,(NSHTTPURLResponse*)response.response);
+    }
+#endif
     decisionHandler(allowed ? WKNavigationResponsePolicyAllow : WKNavigationResponsePolicyCancel);
 }
 - (void)webView:(WKWebView*)view didStartProvisionalNavigation:(WKNavigation*)navigation {
@@ -267,6 +294,18 @@ QVariant qtValue(id value) {
 
 namespace overte::ios {
 struct IOSWebView::Private {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const QString featureInstance { QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-') };
+    quint64 featureHandle { 0 },featureCreation { 0 },featureSequence { 0 },featureGrant { 0 },featurePage { 0 };
+    quint64 featureFinishedGrant { 0 },featureFinishedPage { 0 },featureVerifiedGrant { 0 },featureVerifiedPage { 0 };
+    quint64 featureHTTPGrant { 0 },featureHTTPPage { 0 };
+    qint64 featureEpoch { 0 },featureFinishedEpoch { 0 },featureHTTPStatus { 0 };
+    QUrl featureDocument,featureFinishedDocument,featureHTTPDocument;
+    QVariantMap featureCommand,featurePacket;
+    bool featureIssued { false };
+    QElapsedTimer featureTimer;
+    __weak WKWebView* featureFinishedView { nil };
+#endif
     web::EmbeddedWebSession policy;
     web::EmbeddedWebSession::Generation generation { 0 };
     IOSWebDocumentEpoch document;
@@ -296,6 +335,14 @@ struct IOSWebView::Private {
 };
 
 IOSWebView::IOSWebView(QQuickItem* parent) : QQuickPaintedItem(parent), _private(std::make_unique<Private>()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (featureEnabled()) {
+        QMutexLocker guard(&featureRegistryMutex);
+        if (featureNextHandle>0 && featureNextHandle<=9007199254740991ULL) {
+            _private->featureHandle=featureNextHandle++;featureRegistry.insert(_private->featureHandle,this);
+        }
+    }
+#endif
     static std::atomic<std::uint64_t> identity { 0 };
     _private->identity = QStringLiteral("ios-web-%1").arg(++identity);
     setAcceptedMouseButtons(Qt::AllButtons);
@@ -329,7 +376,12 @@ IOSWebView::IOSWebView(QQuickItem* parent) : QQuickPaintedItem(parent), _private
         evaluate(QStringLiteral("(function(v){var t=window.qt&&qt.webChannelTransport;if(t&&t.onmessage)t.onmessage({data:v[0]});})(%1);").arg(literal));
     });
 }
-IOSWebView::~IOSWebView() { tearDown(); }
+IOSWebView::~IOSWebView() {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    { QMutexLocker guard(&featureRegistryMutex);featureRegistry.remove(_private->featureHandle); }
+#endif
+    tearDown();
+}
 QString IOSWebView::url() const { return _private->originalSource; }
 QUrl IOSWebView::currentUrl() const { return _private->view.URL ? qtURL(_private->view.URL) : _private->url; }
 void IOSWebView::setUrl(const QString& value) {
@@ -557,6 +609,9 @@ void IOSWebView::open() {
             const auto size = QSize(static_cast<int>(qBound(1.0, owner->width(), 2048.0)),
                                     static_cast<int>(qBound(1.0, owner->height(), 2048.0)));
             state.view = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, size.width(), size.height()) configuration:configuration];
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureEnabled() && state.view && state.featureCreation<9007199254740991ULL) { ++state.featureCreation; }
+#endif
             state.view.navigationDelegate = state.delegate; state.view.UIDelegate = state.delegate;
             state.view.opaque = state.background;
             state.view.backgroundColor = state.background ? UIColor.whiteColor : UIColor.clearColor;
@@ -728,6 +783,12 @@ void IOSWebView::verifyDocument() {
         const auto verified = state.document.verify(generation, epoch,
             !error && [result isKindOfClass:NSNumber.class] && [result boolValue]);
         if (verified == IOSWebDocumentEpoch::Verification::Ready) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureEnabled() && state.featureFinishedGrant==generation && state.featureFinishedPage==epoch
+                    && state.featureFinishedView==state.view && state.featureFinishedDocument==qtURL(state.view.URL)) {
+                state.featureVerifiedGrant=generation;state.featureVerifiedPage=epoch;
+            }
+#endif
             owner->nativeNavigationFinished();
         } else if (verified == IOSWebDocumentEpoch::Verification::Reload) {
             // WK's back-forward cache can restore the old JavaScript context
@@ -795,6 +856,18 @@ void IOSWebView::prepareDocument(const QUrl& frame) {
     WKUserScript* bridge = [[WKUserScript alloc] initWithSource:nativeString(IOSWebChannel::transportJavaScript(_private->document.nonce()) + _private->bootstrap)
         injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
     [controller addUserScript:bridge];
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (featureEnabled()) {
+        QFile file(":/overte/e2e/browser/web-dom-observation.js");
+        if (file.open(QFile::ReadOnly) && file.size()<=65536) {
+            const auto source=QString::fromUtf8(file.readAll());
+            const auto observer=QStringLiteral("(function(){")+source+QStringLiteral("\nObject.defineProperty(window,'__overteFeatureWebDOM',{value:overteWebDOMSource(window),writable:false,configurable:false});})();");
+            WKUserScript* passive=[[WKUserScript alloc] initWithSource:nativeString(observer)
+                injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
+            [controller addUserScript:passive];
+        }
+    }
+#endif
     if (!_private->script.isEmpty()) {
         WKUserScript* user = [[WKUserScript alloc] initWithSource:nativeString(QString::fromUtf8(_private->script))
             injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES];
@@ -955,7 +1028,20 @@ void IOSWebViewNative::prepareNavigation(IOSWebView* owner, std::uint64_t genera
     }
 }
 void IOSWebViewNative::redirected(IOSWebView* owner, std::uint64_t generation, NSURL* frame) { if (current(owner, generation)) { owner->_private->document.redirected(qtURL(frame)); } }
-void IOSWebViewNative::finished(IOSWebView* owner, std::uint64_t generation) { if (current(owner, generation)) { owner->verifyDocument(); } }
+void IOSWebViewNative::finished(IOSWebView* owner, std::uint64_t generation) {
+    if (!current(owner,generation)) { return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (featureEnabled()) {
+        auto& state=*owner->_private;
+        const auto epoch=state.document.epoch();const auto document=qtURL(state.view.URL);
+        if (state.featureFinishedGrant!=generation || state.featureFinishedPage!=epoch || state.featureFinishedView!=state.view) {
+            state.featureFinishedGrant=generation;state.featureFinishedPage=epoch;state.featureFinishedView=state.view;
+            state.featureFinishedDocument=document;state.featureFinishedEpoch=QDateTime::currentMSecsSinceEpoch();
+        }
+    }
+#endif
+    owner->verifyDocument();
+}
 void IOSWebViewNative::started(IOSWebView* owner, std::uint64_t generation) {
     if (!current(owner, generation)) { return; }
     owner->retireDocumentPresentation();
@@ -963,6 +1049,109 @@ void IOSWebViewNative::started(IOSWebView* owner, std::uint64_t generation) {
 }
 void IOSWebViewNative::failed(IOSWebView* owner, std::uint64_t generation) { if (current(owner, generation)) { owner->fail(owner->tr("The web page could not be loaded. Reload to try again.")); } }
 void IOSWebViewNative::close(IOSWebView* owner) { if (owner) { owner->closePresentation(); } }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void IOSWebViewNative::featureResponse(IOSWebView* owner,std::uint64_t generation,WKWebView* view,NSHTTPURLResponse* response) {
+    if (!featureEnabled() || !current(owner,generation) || view!=owner->_private->view || !response) { return; }
+    auto& state=*owner->_private;
+    const auto frame=qtURL(response.URL);
+    if (!state.document.accepts(generation,state.document.nonce(),frame,true)) { return; }
+    state.featureHTTPGrant=generation;state.featureHTTPPage=state.document.epoch();
+    state.featureHTTPDocument=frame;state.featureHTTPStatus=response.statusCode;
+}
+QVariantMap IOSWebView::featureWebPacket(const QVariantMap& command,const QString& status,const QVariantMap& source) {
+    auto& state=*_private;const auto epoch=QDateTime::currentMSecsSinceEpoch();
+    if (epoch<=0 || epoch<state.featureEpoch || state.featureSequence>=9007199254740991ULL) { return {}; }
+    state.featureEpoch=epoch;
+    return {{"webNativeVersion",1},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
+        {"surface",state.surface=="tablet" ? "tablet" : "world"},{"instance",state.featureInstance},
+        {"sequence",static_cast<qulonglong>(++state.featureSequence)},{"processId",QCoreApplication::applicationPid()},
+        {"capturedEpochMs",epoch},{"status",status},{"source",source}};
+}
+QVariantMap IOSWebView::featureWebDOMObservation(const QVariantMap& command) {
+    if (!featureEnabled() || !NSThread.isMainThread || !overte::e2e::webDOMCommand(command)) { return {}; }
+    QList<QPointer<IOSWebView>> original;
+    { QMutexLocker guard(&featureRegistryMutex);
+      if (featureRegistry.size()>128) { return {}; }original=featureRegistry.values(); }
+    QPointer<IOSWebView> selected;
+    const auto prefix=command.value("fixtureUrl").toString()+"tickets/";
+    const auto surface=command.value("surface").toString()=="world" ? QStringLiteral("world-entity") : QStringLiteral("tablet");
+    for (const auto& item:original) {
+        if (!item) { continue; }
+        if (item->thread()!=QThread::currentThread()) { return {}; }
+        if (!item->active() || !item->_private->view || item->_private->inlineMode || item->_private->surface!=surface) { continue; }
+        const auto source=item->_private->policy.url().toString(QUrl::FullyEncoded);
+        if (!source.startsWith(prefix)
+                || !QRegularExpression("\\A[0-9a-f]{32}/(?:index|reference)\\.html\\z").match(source.mid(prefix.size())).hasMatch()) { continue; }
+        if (selected) { return {}; }selected=item;
+    }
+    return selected ? selected->featureWebDOMRequest(command) : QVariantMap();
+}
+QVariantMap IOSWebView::featureWebDOMRequest(const QVariantMap& command) {
+    if (!featureEnabled() || !NSThread.isMainThread || thread()!=QThread::currentThread()
+            || !overte::e2e::webDOMCommand(command) || !active() || !_private->view
+            || !_private->featureHandle || !_private->featureCreation || _private->featureCreation>=9007199254740991ULL) { return {}; }
+    auto& state=*_private;const auto generation=state.generation,epoch=state.document.epoch();
+    const auto document=qtURL(state.view.URL);const auto nonce=state.document.nonce();
+    if (!generation || !epoch || nonce.isEmpty() || document.isEmpty() || !state.document.accepts(generation,nonce,document,true)) { return {}; }
+    const auto requestId=command.value("commandId").toString();
+    if (!state.featureCommand.isEmpty() && state.featureCommand.value("commandId")==requestId) {
+        if (state.featureCommand!=command || state.featureGrant!=generation || state.featurePage!=epoch || state.featureDocument!=document) { return {}; }
+    } else {
+        if (state.featurePacket.value("status")=="pending") { return {}; }
+        state.featureCommand=command;state.featureGrant=generation;state.featurePage=epoch;state.featureDocument=document;
+        state.featureIssued=false;state.featureTimer.start();state.featurePacket=featureWebPacket(command,"pending");
+    }
+    if (state.featurePacket.value("status")!="pending") { return state.featurePacket; }
+    if (!state.featureTimer.isValid() || state.featureTimer.elapsed()>=4000) {
+        state.featurePacket=featureWebPacket(command,"unavailable");return state.featurePacket;
+    }
+    if (state.featureFinishedGrant!=generation || state.featureFinishedPage!=epoch || state.featureFinishedView!=state.view
+            || state.featureFinishedDocument!=document || state.featureVerifiedGrant!=generation || state.featureVerifiedPage!=epoch) { return state.featurePacket; }
+    if (!state.featureIssued) {
+        state.featureIssued=true;
+        const auto argument=encodedArguments(QJsonArray{requestId});
+        const auto code=QStringLiteral("return window.__overteFeatureWebDOM?JSON.stringify(window.__overteFeatureWebDOM.read(%1[0])):null;").arg(argument);
+        const auto script=guardedScript(code,nonce);
+        QPointer<IOSWebView> owner(this);__weak WKWebView* observed=state.view;
+        @try {
+            [state.view evaluateJavaScript:nativeString(script) completionHandler:^(id result,NSError* error) {
+                if (!owner || !featureEnabled() || !owner->active()) { return; }
+                auto& actual=*owner->_private;
+                if (!observed || observed!=actual.view || actual.generation!=generation || actual.document.epoch()!=epoch
+                        || actual.document.nonce()!=nonce || qtURL(observed.URL)!=document || actual.featureCommand.value("commandId")!=requestId
+                        || actual.featurePacket.value("status")!="pending" || !actual.featureTimer.isValid() || actual.featureTimer.elapsed()>=4000
+                        || !actual.document.accepts(generation,nonce,document,true)) { return; }
+                QVariantMap dom;
+                if (!error && [result isKindOfClass:NSString.class] && [(NSString*)result length]<=262144) {
+                    const auto raw=qtString((NSString*)result).toUtf8();
+                    if (raw.size()<=262144) { const auto parsed=QJsonDocument::fromJson(raw);if (parsed.isObject()) { dom=parsed.object().toVariantMap(); } }
+                }
+                const auto actualDocument=dom.value("document").toMap();
+                if (QJsonObject::fromVariantMap(dom).value("webDOMVersion")!=QJsonValue(1) || dom.value("requestId")!=requestId
+                        || actualDocument.value("runId")!=actual.featureCommand.value("runId")
+                        || actualDocument.value("href")!=document.toString(QUrl::FullyEncoded) || actual.inlineMode
+                        || actual.featureFinishedGrant!=generation || actual.featureFinishedPage!=epoch
+                        || actual.featureFinishedView!=actual.view || actual.featureFinishedDocument!=document
+                        || actual.featureVerifiedGrant!=generation || actual.featureVerifiedPage!=epoch) {
+                    actual.featurePacket=owner->featureWebPacket(actual.featureCommand,"unavailable");return;
+                }
+                // Keep original successful NSHTTP response status internally;
+                // the v1 field deliberately reports only actual HTTP errors.
+                const auto status=actual.featureHTTPGrant==generation && actual.featureHTTPPage==epoch
+                    && actual.featureHTTPDocument==document && actual.featureHTTPStatus>=400 && actual.featureHTTPStatus<=599 ? actual.featureHTTPStatus : 0;
+                QVariantMap view{{"handle",QString::number(actual.featureHandle)}, {"creation",static_cast<qulonglong>(actual.featureCreation)},
+                    {"grant",static_cast<qulonglong>(generation)},{"page",static_cast<qulonglong>(epoch)},{"url",document.toString(QUrl::FullyEncoded)},
+                    {"nativeFinished",true},{"httpErrorStatus",status},{"inlineLease",actual.inlineMode && actual.inlineBinding.current(owner.data())},
+                    {"sourceUrl",actual.policy.url().toString(QUrl::FullyEncoded)},{"sourceIdentity",actual.identity}};
+                actual.featurePacket=owner->featureWebPacket(actual.featureCommand,"ready",{{"nativeView",view},{"dom",dom}});
+            }];
+        } @catch (NSException*) { state.featurePacket=featureWebPacket(command,"unavailable"); }
+    }
+    return state.featurePacket;
+}
+#endif
+
 bool IOSWebViewNative::replayInline(IOSWebView* owner, std::uint64_t generation, NSURL* requestURL,
         bool backForward, bool fragmentOnly) {
     if (!current(owner, generation) || !owner->_private->inlineMode || fragmentOnly) { return false; }
@@ -985,6 +1174,14 @@ void IOSWebViewNative::load(IOSWebView* owner, std::uint64_t generation, NSURLRe
 } // namespace overte::ios
 
 namespace {
-void registerIOSWebView() { qmlRegisterType<overte::ios::IOSWebView>("Overte.iOS", 1, 0, "IOSWebView"); }
+void registerIOSWebView() {
+    qmlRegisterType<overte::ios::IOSWebView>("Overte.iOS",1,0,"IOSWebView");
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (featureEnabled() && QCoreApplication::instance()) {
+        overte::e2e::WebDOMProvider provider=[](const QVariantMap& command) { return overte::ios::IOSWebView::featureWebDOMObservation(command); };
+        QCoreApplication::instance()->setProperty(overte::e2e::webDOMProviderProperty(),QVariant::fromValue(provider));
+    }
+#endif
+}
 Q_COREAPP_STARTUP_FUNCTION(registerIOSWebView)
 }
