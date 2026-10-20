@@ -2,8 +2,9 @@
 
 The fourteen-area **common test logic exists**. This adapter phase is **partially
 implemented**: Phone has new ordinary Create/script foundation bindings; Pico
-has a candidate-bound original-observation backend; iOS has an original-read
-component behind its unchanged installed-code gate. **No complete new
+has a candidate-bound original-observation backend; iOS has original-read
+components and a separate physical installed-code source gate. Its source-only
+process plugin remains uninstalled/unqualified. **No complete new
 `feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
 All fourteen complete version 15 adapters remain missing, and all device qualification
 remains unperformed. An ignored input, an input ACK or a host simulation must
@@ -99,7 +100,7 @@ trust/origin setup or a complete actor/coordinator; no capability is enabled.
 
 ## Fourteen-area source audit
 
-All rows below mean: **test logic present; full version 9 adapter missing; devices
+All rows below mean: **test logic present; full version 15 adapter missing; devices
 untested**. Existing/new foundations are narrower implementation scopes.
 
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
@@ -115,7 +116,7 @@ untested**. Existing/new foundations are narrower implementation scopes.
 | Audio | New bound original memory-preview capture/sink PCM source | New bound original memory-preview capture/sink PCM source | New original memory-preview HTTP/AFC component | Normal Audio token/cycle inputs now connected internally on all three; full ownership, permission/mute/resume joins, independent acoustic capture and real peer; native accepted-write bytes do not prove audible output |
 | Chat | New candidate-bound native reception cache/owner and local/network distinction | Same new candidate/OpenXR-bound reception/cache owner | Same HTTP/AFC component; canonical installed-code binding blocked | Actual normal Local/Domain controls, draft/page/persisted histories, independently bound remote peer ledger, owned MessagesMixer remove/restore and whole-run cleanup. Native self/local echo never proves peer delivery. |
 | Snapshots | Existing original normal SNAP capture/file contract retained | Existing original normal SNAP capture/file contract retained | Existing native SNAP component retained; bound execution blocked | Actual export/share permission path, original share/upload bytes/completion/cancel/failure receipts and controlled external sink; private capture-file presence alone is insufficient |
-| Scripts | Ordinary From URL/row foundations; normal file-bundle picker; private staged originals and persisted file ownership | Same normal Script/VR file-bundle controls and staged-original ownership under candidate/OpenXR guards | Same native UIKit/Qt component and staged originals; bound execution blocked | Persist picker/engine ownership, join actual loaded companions and advancing entity effects to an independent observer, and implement verified restart ownership handoff. Script import itself has no consent modal; entity-script consent remains in its existing foundation |
+| Scripts | Ordinary From URL/row foundations; normal file-bundle picker; private staged originals and persisted file ownership | Same normal Script/VR file-bundle controls and staged-original ownership under candidate/OpenXR guards | Native UIKit/Qt component, staged originals and original execution reads with separate native clocks | Require actual load-result history for fetch errors: a failure may also emit a loaded signal. Persist picker/engine ownership, join actual loaded companions and advancing entity effects to an independent observer, and implement verified restart ownership handoff. Script import itself has no consent modal; entity-script consent remains in its existing foundation |
 | Assets | No new asset-browser capability | No new asset-browser capability | No new asset-browser capability | Native mapping/path row identity and import/rename/delete/bake inputs, actual complete ATP/companion/bake state, original resolved bytes and real domain write-permission actor |
 | Lifecycle/input | Existing process/input foundations plus original native retained-event owner/private transport | Same original owner through actual VR surface route | Same original owner through native HUD/tablet and guarded private HTTP/AFC route | All native sources remain uncompiled. Complete editor/context generations, actual OS/VR keyboard, original effective world input/position, independent actor and recovery/cleanup joins remain missing; Pico Create Back/VR keyboard is unestablished |
 
