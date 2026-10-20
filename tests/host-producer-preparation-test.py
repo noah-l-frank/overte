@@ -175,7 +175,7 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         prospective = next(g for g in self.generations if g['name'] == 'protected-shared-producer-v1')
         self.assertEqual(set(prospective['workflows']), set(PACKAGES.CONSUMER_WORKFLOW_PATHS))
         self.assertEqual(len(self.generations[:25]), 25)
-        self.assertEqual(len(self.generations), 27)
+        self.assertEqual(len(self.generations), 28)
         self.assertEqual(hashlib.sha256(json.dumps(self.generations[:26],sort_keys=True,
             separators=(',',':')).encode()).hexdigest(),
             '92e641b712f88bcb66808c51d8fe4b95b4cfb8834c0d39b3869adc4587fa7ec8')
@@ -292,6 +292,7 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
             'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
             'protected-producer-original-default-required-context-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
             'protected-producer-optional-parent-source-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
+            'protected-producer-optional-leaf-common-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
         }
         self.assertIn(installed,codeql_by_generation)
         self.assertEqual(rows[installed][caller],blob((ROOT/caller).read_bytes()))
@@ -301,7 +302,7 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         self.assertEqual(blob(codeql.read_bytes())['sha'],codeql_by_generation[installed])
         for name in ('protected-producer-original-default-v1','protected-producer-original-default-boolean-v1',
                      'protected-producer-original-default-required-context-v1',
-                     'protected-producer-optional-parent-source-v1'):
+                     'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'):
             self.assertEqual(PACKAGES.validate_tree_wiring(rows[name]),name)
             unknown=deepcopy(rows[name]);unknown[caller]['sha']='f'*40
             with self.subTest(name=name),self.assertRaises(ValueError):PACKAGES.validate_tree_wiring(unknown)

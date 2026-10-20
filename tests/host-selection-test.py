@@ -1329,6 +1329,7 @@ class HostSelectionTests(unittest.TestCase):
                  'tools/repository-checks/workflows/producers/repository-checks.yml',
                  'tools/repository-checks/workflows/producers/parent-qualification.yml',
                  'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
+                 'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
                  'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml')
         selected = self.selected(paths)
         self.assertEqual(set(selected['suites']), self.ci_quick)
@@ -1344,6 +1345,7 @@ class HostSelectionTests(unittest.TestCase):
                      'tools/repository-checks/workflows/producers/repository-checks.yml',
                      'tools/repository-checks/workflows/producers/parent-qualification.yml',
                      'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
+                     'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
                      'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'):
             candidate = copy_git_tree(self.tree)
             candidate[path] = {'mode': '100644', 'type': 'blob', 'sha': 'b' * 40}

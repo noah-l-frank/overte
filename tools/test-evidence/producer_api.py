@@ -71,7 +71,8 @@ _NATIVE_INTENT_RECIPES = frozenset({
 RETAINED_OWNER_GENERATIONS = frozenset({'protected-producer-original-default-v1',
     'protected-producer-original-default-boolean-v1',
     'protected-producer-original-default-required-context-v1',
-    'protected-producer-optional-parent-source-v1'})
+    'protected-producer-optional-parent-source-v1',
+    'protected-producer-optional-leaf-common-v1'})
 
 
 def retain_native_metadata_sources(generations, sources):

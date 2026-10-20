@@ -143,6 +143,7 @@ PROGRAM_INPUTS = (
     'tools/repository-checks/workflows/producers/repository-checks.yml',
     'tools/repository-checks/workflows/producers/parent-qualification.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
+    'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
     'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml',
     # Actual assertions consume these documents; the generic Markdown rule does
     # not exempt them. Their membership, modes and bytes remain immutable inputs.

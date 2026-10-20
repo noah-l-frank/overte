@@ -38,6 +38,7 @@ import source_admission
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = 'tools/repository-checks/workflows/producers/protected-project-tests.yml'
 PLATFORM_TEMPLATE = 'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml'
+OPTIONAL_LEAF_TEMPLATE = source_admission.OPTIONAL_LEAF_TEMPLATE
 PLATFORM_PARENT_TEMPLATE = 'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'
 PLATFORM_GENERATION = 'protected-producer-original-default-v1'
 PLATFORM_GENERATIONS = ci_profile.RETAINED_SOURCE_GENERATIONS
@@ -46,7 +47,7 @@ _PLATFORM_TARGETS = frozenset({'android-main', 'android-phone', 'android-vr', 'a
 _PLATFORM_SOURCES = (
     '.github/android-checks.json', '.github/android-owner-transfer.json',
     'tools/repository-checks/android.py', 'tools/repository-checks/android_gate.py',
-    'tools/repository-checks/android_handoff.py', PLATFORM_TEMPLATE, PLATFORM_PARENT_TEMPLATE,
+    'tools/repository-checks/android_handoff.py', PLATFORM_TEMPLATE, PLATFORM_PARENT_TEMPLATE, OPTIONAL_LEAF_TEMPLATE,
 )
 PRODUCTION_READY = True
 DESCRIPTOR_JOB = 'project / Publish producer descriptor'
@@ -474,6 +475,8 @@ def project_template(policy, candidate_tree):
     if PLATFORM_TEMPLATE not in candidate_tree:
         return TEMPLATE
     generation = policy.package_policy().validate_tree_wiring(candidate_tree)
+    if generation == source_admission.OPTIONAL_LEAF_GENERATION:
+        return OPTIONAL_LEAF_TEMPLATE
     return PLATFORM_TEMPLATE if generation in PLATFORM_GENERATIONS else TEMPLATE
 
 
@@ -583,6 +586,93 @@ def common_owner(profile, partition=None):
          'include_platform': profile['selection']['include_platform'], 'platform': {}})
 
 
+def optional_leaf_current(event, environment, adapter, *, root=ROOT):
+    """Authenticate an optional COMMON diagnostic, never execution or reuse.
+
+    Current-D imports and an actual protected normal PR integration are separate
+    authorities. Neither says that original B had these controllers or E.
+    """
+    class ReadSource:
+        def get(self, endpoint):
+            return adapter._object(endpoint)
+    source_api = ReadSource()
+    admitted = source_admission.optional_leaf_import(event, environment, source_api, root)
+    run_id = int(environment['GITHUB_RUN_ID'])
+    binding, refs = adapter._integrated_current(run_id, 15368, datetime.now(timezone.utc))
+    host.require(binding['base_ref'] in source_admission.OPTIONAL_LEAF_TARGETS
+        and binding['base_sha'] == admitted['base'] and binding['merge_sha'] == admitted['source']
+        and refs['target'] == admitted['source'] and refs['default'] == admitted['default']
+        and refs['default_ref'] == 'main'
+        and refs['integration']['workflow_id'] == 330551824
+        and refs['integration']['workflow_path'] == '.github/workflows/project-tests.yml',
+        'optional leaf normal integration differs from current protected imports')
+    previous = source_admission.api_tree(source_api, binding['base_sha'])
+    default = source_admission.api_tree(source_api, admitted['default'])
+    try:
+        source_admission.compatibility(previous, default, binding['base_ref'],
+            read_actual=lambda name:source_admission.actual_bytes(root,name),
+            actual_imports=source_admission.actual_import_inventory(root))
+        unavailable = False
+    except source_admission.SourceUnavailable:
+        unavailable = True
+    # A failure of CURRENT imports is never classified as cold original B.
+    host.require(source_admission.optional_leaf_import(event, environment, source_api, root) == admitted,
+        'optional leaf current imports changed while checking original source')
+    identity = {'schema':1, 'kind':'optional-leaf-common-source-decision-v1',
+        'binding':binding, 'references':refs, 'controller_digest':admitted['controller_digest'],
+        'lookup_digest':admitted['lookup_digest'], 'target_profile':admitted['target_profile'],
+        'original_base_inventory':protocol.digest(previous), 'qualification_unavailable':unavailable}
+    host.require(adapter._integrated_current(run_id, 15368, datetime.now(timezone.utc)) == (binding, refs),
+        'optional leaf normal integration changed')
+    return {'identity':identity, 'digest':protocol.digest(identity), 'run_id':run_id,
+        'binding':binding, 'refs':refs, 'native_job':admitted['native_job'], 'qualification_unavailable':unavailable}
+
+
+def optional_leaf_outputs(context):
+    """Typed unavailability only: no receipt, PASS, observed E or suite claim."""
+    return {'common_unavailable':str(context['qualification_unavailable']).lower(),
+        'common_binding':context['digest'].removeprefix('sha256:') if context['qualification_unavailable'] else ''}
+
+
+def verify_optional_leaf_common(context, adapter, outputs):
+    host.require(context.get('qualification_unavailable') is True,
+        'compatible original controllers must retain normal common execution')
+    expected = optional_leaf_outputs(context)
+    host.require(type(outputs) is dict and set(expected) <= set(outputs)
+        and set(outputs) <= set(expected) | {'receipt_sha256','protected_executed'}
+        and all(outputs[key] == value for key,value in expected.items())
+        and all(outputs.get(key,'') == '' for key in ('receipt_sha256','protected_executed')),
+        'optional common output is not the independently authenticated diagnostic')
+    attempt = adapter._object(f"actions/runs/{context['run_id']}/attempts/1")
+    host.require(attempt.get('id') == context['run_id'] and attempt.get('run_attempt') == 1
+        and attempt.get('head_sha') == context['binding']['merge_sha']
+        and attempt.get('workflow_id') == 330551824 and attempt.get('event') == 'push'
+        and attempt.get('path') == '.github/workflows/project-tests.yml'
+        and (attempt.get('status'),attempt.get('conclusion')) == ('in_progress',None),
+        'optional common current aggregate run changed')
+    jobs = adapter._pages(f"actions/runs/{context['run_id']}/attempts/1/jobs", 'jobs')
+    matches = [row for row in jobs if row.get('name') == 'Shared tests']
+    host.require(len(matches) == 1, 'optional common native job is missing or ambiguous')
+    row = matches[0]
+    fact = adapter._job(row, attempt, 15368, final_name='Shared tests')
+    host.require((fact.status, fact.conclusion) == ('completed','success'),
+        'optional common native diagnostic failed or is incomplete')
+    steps = row.get('steps')
+    host.require(type(steps) is list and all(type(step) is dict for step in steps),
+        'optional common native steps are unavailable')
+    marker = [step for step in steps if step.get('name') == 'Authenticate optional leaf common unavailability']
+    host.require(len(marker) == 1 and (marker[0].get('status'),marker[0].get('conclusion')) == ('completed','success'),
+        'optional common native diagnostic step did not succeed')
+    # Recipe28 guards every later step. A successful executor/receipt upload is
+    # inconsistent with this mode even if an output happens to match.
+    blocked = {'Check out the exact candidate without credentials', 'Independently select affected host contracts',
+        'Execute the selected protected shared owner', 'Run independently selected host contracts',
+        'Preserve only the finished protected receipt', 'Upload test report'}
+    host.require(all(len([step for step in steps if step.get('name') == name]) == 1 for name in blocked)
+        and all(step.get('conclusion') == 'skipped' for step in steps if step.get('name') in blocked),
+        'optional common diagnostic also executed or published a suite claim')
+
+
 def current_platform_context(candidate, event, environment, adapter, *, root=ROOT, clock=None):
     """Authenticate a push as a push; never manufacture an open PR context."""
     if environment.get('GITHUB_EVENT_NAME') == 'pull_request':
@@ -604,15 +694,21 @@ def current_platform_context(candidate, event, environment, adapter, *, root=ROO
         'platform push checkout differs from complete immutable API source')
     policy = _host_policy()
     package = policy.package_policy()
-    host.require(package.validate_tree_wiring(current) in PLATFORM_GENERATIONS,
+    generation = package.validate_tree_wiring(current)
+    host.require(generation in PLATFORM_GENERATIONS,
         'platform push needs the complete enrolled future generation')
     workflow = refs['integration']['workflow_path']
-    template = PLATFORM_PARENT_TEMPLATE if workflow == '.github/workflows/parent-qualification.yml' else PLATFORM_TEMPLATE
+    template = (PLATFORM_PARENT_TEMPLATE if workflow == '.github/workflows/parent-qualification.yml' else
+        OPTIONAL_LEAF_TEMPLATE if generation == source_admission.OPTIONAL_LEAF_GENERATION else PLATFORM_TEMPLATE)
     host.require(workflow in {'.github/workflows/parent-qualification.yml', '.github/workflows/project-tests.yml'}
         and current.get(workflow) == local.get(template), 'platform push workflow is not its fixed recipe')
     # Loading current controllers and deriving ownership grants no execution
     # authority. Original B lookup data may differ only in the fixed seventeen.
-    controller = postmerge.integrated_controller_for_reuse(policy, previous, current, local, target, root)
+    decision = (optional_leaf_current(event, environment, adapter, root=root)
+        if generation == source_admission.OPTIONAL_LEAF_GENERATION and target in source_admission.OPTIONAL_LEAF_TARGETS else None)
+    optional = decision is not None and decision['qualification_unavailable'] is True
+    controller = (decision['identity'] if optional else
+        postmerge.integrated_controller_for_reuse(policy, previous, current, local, target, root))
     registry = inputs.load_registry(root / '.github/test-suites.json')
     paths = sorted(path for path in previous.keys() | current.keys() if previous.get(path) != current.get(path))
     regular = bool(paths) and all(entry is None or entry['mode'] == '100644' and entry['type'] == 'blob'
@@ -652,6 +748,10 @@ def current_platform_context(candidate, event, environment, adapter, *, root=ROO
         partition = platform_partition(policy, profile, registry, current, previous, local,
             target=target, root=root, read_blob=adapter.api.immutable_blob)
         host.require(partition is not None, 'required Android platform push is unsupported')
+    elif selected is not None and optional:
+        # No common execution or E is admitted. Actual platform work above
+        # still requires original B and its existing strict runtime contract.
+        host.require(selected['include_platform'] is False, 'optional common cannot own platform execution')
     elif selected is not None and selected['full_host'] is True:
         # Planning a common owner executes nothing. Keep original-source lookup
         # available when its inert test members differ from current default.
@@ -1190,7 +1290,8 @@ def verify_platform_project(candidate, event, environment, adapter, needs):
     """A separate mandatory job cannot disappear behind the common receipt."""
     policy = _host_policy()
     package = policy.package_policy()
-    host.require(package.validate_wiring(candidate) in PLATFORM_GENERATIONS,
+    generation = package.validate_wiring(candidate)
+    host.require(generation in PLATFORM_GENERATIONS,
         'platform project aggregate requires the complete future generation')
     plan = package.candidate_plan(candidate, event, environment['GITHUB_SHA'])
     host.require(type(needs) is dict and set(needs) == {
@@ -1239,7 +1340,28 @@ def verify_platform_project(candidate, event, environment, adapter, needs):
         if key not in {'protected_full', 'platform_required'}}
     normalized = {key: value for key, value in needs.items() if key != 'platform-tests'}
     normalized['route'] = {**route, 'outputs': ordinary}
-    return package.verify(normalized, plan, candidate=candidate, event=event)
+    optional = (generation == source_admission.OPTIONAL_LEAF_GENERATION
+        and environment.get('GITHUB_EVENT_NAME') == 'push'
+        and environment.get('GITHUB_REF','').removeprefix('refs/heads/') in source_admission.OPTIONAL_LEAF_TARGETS
+        and plan['host_mode'] == 'full')
+    if optional:
+        common = optional_leaf_current(event, environment, adapter)
+        host.require(needs['project-tests'].get('result') == 'success', 'optional common diagnostic did not succeed')
+        if common['qualification_unavailable']:
+            verify_optional_leaf_common(common, adapter, needs['project-tests'].get('outputs'))
+        else:
+            published_common=needs['project-tests'].get('outputs')
+            host.require(type(published_common) is dict and published_common.get('common_unavailable') == 'false'
+                and set(published_common) <= {'common_unavailable','common_binding','protected_executed','receipt_sha256'}
+                and all(published_common.get(key,'') == '' for key in ('common_binding','protected_executed','receipt_sha256')),
+                'compatible optional leaf source cannot decline required common execution')
+    value = package.verify(normalized, plan, candidate=candidate, event=event)
+    if optional:
+        host.require(optional_leaf_current(event, environment, adapter)['identity'] == common['identity'],
+            'optional common native authority changed during owner verification')
+        if common['qualification_unavailable']:
+            return {'common_status':'unavailable', 'qualification':'false', 'reusable':'false', 'executed_suites':'[]'}
+    return value
 
 
 def parent_route_outputs(context):
@@ -1773,9 +1895,24 @@ def shared_execution(candidate, event, environment, adapter):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('role', choices=('descriptor', 'shared', 'publish', 'platform', 'platform-plan','parent-route',
-        'fallback-common', 'project-verify', 'parent-verify'))
-    parser.add_argument('--candidate', type=Path, required=True)
+        'fallback-common', 'project-verify', 'parent-verify', 'optional-leaf-common'))
+    parser.add_argument('--candidate', type=Path)
     args = parser.parse_args(argv)
+    if args.role == 'optional-leaf-common':
+        host.require(args.candidate is None, 'optional common diagnostic accepts no candidate path')
+        event_path = Path(os.environ['GITHUB_EVENT_PATH'])
+        host.require(event_path.is_file() and not event_path.is_symlink() and event_path.stat().st_size <= 1_000_000,
+            'optional common native event is unavailable')
+        event = json.loads(event_path.read_bytes(), object_pairs_hook=inputs._unique_object)
+        adapter = producer_api.Adapter()
+        context = optional_leaf_current(event, os.environ, adapter)
+        _output(optional_leaf_outputs(context))
+        if context['qualification_unavailable']:
+            print('Optional postmerge common qualification unavailable; executed_suites=[]; qualification=false; reusable=false. No receipt or E.')
+        else:
+            print('Original source compatibility is available; existing common execution remains required.')
+        return 0
+    host.require(args.candidate is not None, 'actual owner roles require the exact candidate checkout')
     if args.role in {'project-verify', 'parent-verify'}:
         event_path = Path(os.environ['GITHUB_EVENT_PATH'])
         host.require(event_path.is_file() and not event_path.is_symlink() and event_path.stat().st_size <= 1_000_000,

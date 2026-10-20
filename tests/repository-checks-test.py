@@ -912,7 +912,7 @@ except (ValueError,OSError):
 class RequiredContextGenerationTests(unittest.TestCase):
     def test_complete_source26_preserves_every_prior_tuple_and_requires_exact_pre_enrollment(self):
         rows=PACKAGES.workflow_generations()
-        self.assertEqual(len(rows),27)
+        self.assertEqual(len(rows),28)
         self.assertEqual(hashlib.sha256(json.dumps(rows[:25],sort_keys=True,
             separators=(',',':')).encode()).hexdigest(),'35a79aca341baae04e6840ad670ad3a7e1848085687ed66cc14201ae89b80659')
         previous,following=rows[24],rows[25]
@@ -947,11 +947,11 @@ class OptionalParentGenerationTests(unittest.TestCase):
 
     def test_preregistration_preserves_every_old_tuple_and_the_actual_deployed_recipe(self):
         rows = PACKAGES.workflow_generations()
-        self.assertEqual(len(rows), 27)
+        self.assertEqual(len(rows), 28)
         self.assertEqual(hashlib.sha256(json.dumps(rows[:26], sort_keys=True,
             separators=(',', ':')).encode()).hexdigest(),
             '92e641b712f88bcb66808c51d8fe4b95b4cfb8834c0d39b3869adc4587fa7ec8')
-        previous, following = rows[25:]
+        previous, following = rows[25:27]
         self.assertEqual(following['name'], self.name)
         self.assertEqual(set(following['workflows']), set(PACKAGES.METADATA_WORKFLOW_PATHS))
         self.assertEqual([path for path in following['workflows']
@@ -966,20 +966,24 @@ class OptionalParentGenerationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 PACKAGES.validate_tree_wiring(following['workflows'])
         deployed = PACKAGES.validate_wiring(ROOT)
-        self.assertIn(deployed, {previous['name'], following['name']})
-        installed = next(row for row in (previous, following) if row['name'] == deployed)
+        self.assertIn(deployed, {previous['name'], following['name'], 'protected-producer-optional-leaf-common-v1'})
+        installed = next(row for row in rows if row['name'] == deployed)
         for relative in (self.parent,
                 'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'):
             raw = (ROOT / relative).read_bytes()
             self.assertEqual(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest(),
                 installed['workflows'][self.parent]['sha'])
         guard = (ROOT / 'tools/test-evidence/source_admission.py').read_bytes()
-        self.assertEqual(hashlib.sha1(b'blob ' + str(len(guard)).encode() + b'\0' + guard).hexdigest(),
-            'aed06c587034f2762552eeb666bda1f4b6efff23')
+        # Successor28 adds CURRENT-only imports; the original B authenticator stays exact.
+        import ast
+        original = next(node for node in ast.parse(guard).body
+            if isinstance(node, ast.FunctionDef) and node.name == 'authenticate')
+        self.assertEqual(hashlib.sha256(ast.dump(original, include_attributes=False).encode()).hexdigest(),
+            '475d4595108d78b9c72a871fd6bdf502ffec3304412b1fe33312bae585bffdcf')
 
     def test_new_parent_bytes_are_portable_and_only_the_exact_complete_tuple_is_admitted(self):
         rows = PACKAGES.workflow_generations()
-        following = rows[-1]
+        following = next(row for row in rows if row['name'] == self.name)
         raw = historical_workflow_bytes()[following['workflows'][self.parent]['sha']]
         self.assertEqual(hashlib.sha256(raw).hexdigest(),
             'b8aa5446be12e6a044e3157ab7f32e611eed01c61071fe7be0c853473a969998')
@@ -1005,7 +1009,7 @@ class OptionalParentGenerationTests(unittest.TestCase):
         android = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(android)
         rows = PACKAGES.workflow_generations()
-        following = rows[-1]
+        following = next(row for row in rows if row['name'] == self.name)
         tree = deepcopy(following['workflows'])
         raw = (ROOT / 'tools/repository-checks/workflows/android-owned/android-required.yml').read_bytes()
         tree[android.WORKFLOW] = android._blob(raw)
@@ -1035,7 +1039,7 @@ class OptionalParentGenerationTests(unittest.TestCase):
                 ROOT / 'tools/test-evidence/producer_workflow.py')
             producer = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(producer)
-        following = PACKAGES.workflow_generations()[-1]
+        following = next(row for row in PACKAGES.workflow_generations() if row['name'] == self.name)
         policy = SimpleNamespace(package_policy=lambda: PACKAGES)
         for target in ('main', 'apple-main', 'apple-ios', 'android-main', 'android-phone',
                        'android-vr', 'android-vr-pico'):
@@ -2874,7 +2878,7 @@ class PackageChecksTests(unittest.TestCase):
     def test_budget_source23_is_atomic_trusted_only_and_keeps_original22_immutable(self):
         all_rows = PACKAGES.workflow_generations()
         self.assertEqual(len(all_rows[:25]), 25)
-        self.assertEqual(len(all_rows), 27)
+        self.assertEqual(len(all_rows), 28)
         rows = all_rows[:24]
         self.assertEqual(len([row for row in rows
                               if row['name'] != 'npm-consumers-sync-ci-budget-cleanup-v1']), 23)
@@ -2954,7 +2958,7 @@ class PackageChecksTests(unittest.TestCase):
     def test_callback_source24_is_one_exact_five_endpoint_successor_without_native_authority(self):
         all_rows = PACKAGES.workflow_generations()
         self.assertEqual(len(all_rows[:25]), 25)
-        self.assertEqual(len(all_rows), 27)
+        self.assertEqual(len(all_rows), 28)
         rows = all_rows[:24]
         self.assertEqual(rows[-1]['name'], 'npm-consumers-sync-ci-budget-cleanup-v1')
         previous = next(row for row in rows if row['name']=='npm-consumers-sync-ci-budget-v1')

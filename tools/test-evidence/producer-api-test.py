@@ -3375,7 +3375,7 @@ class MetadataRetentionConsumerTests(unittest.TestCase):
         real_host = C.producer._host_policy()
         real_package = real_host.package_policy()
         generations = real_package.workflow_generations()
-        self.assertEqual(len(generations), 27)
+        self.assertEqual(len(generations), 28)
         prior_generations=generations[:25]
         self.assertEqual(len(prior_generations), 25)
         self.assertEqual(len([row for row in prior_generations if row['name']!='protected-producer-original-default-boolean-v1']),24)
@@ -5330,6 +5330,105 @@ class OptionalAndroidParentCommonTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 workflow.legacy_common_fallback(context, {}, {'GITHUB_EVENT_NAME':'pull_request'}, object(), report=Path('/unused.xml'))
         execute.assert_called_once()
+
+
+class OptionalLeafCommonTests(unittest.TestCase):
+    """Native current-normal scheduling is not test execution or reusable E."""
+    def setUp(self):
+        from types import SimpleNamespace
+        import producer_workflow as W
+        self.W=W
+        self.source='a'*40;self.default='d'*40;self.base='b'*40
+        self.binding={'base_ref':'apple-ios','base_sha':self.base,'merge_sha':self.source}
+        self.refs={'target':self.source,'default':self.default,'default_ref':'main',
+            'integration':{'workflow_id':330551824,'workflow_path':'.github/workflows/project-tests.yml'}}
+        self.admitted={'base':self.base,'source':self.source,'default':self.default,
+            'controller_digest':'sha256:'+'1'*64,'lookup_digest':'sha256:'+'2'*64,
+            'target_profile':W.source_admission.ordinary(W.source_admission.SHARED_PROFILE),
+            'native_job':{'id':55,'name':'Shared tests'}}
+        self.environment={'GITHUB_RUN_ID':'500'}
+        self.adapter=SimpleNamespace(_integrated_current=lambda *args:(deepcopy(self.binding),deepcopy(self.refs)))
+        self.unavailable=True
+
+    def context(self):
+        with patch.object(self.W.source_admission,'optional_leaf_import',return_value=deepcopy(self.admitted)), \
+                patch.object(self.W.source_admission,'api_tree',return_value={}), \
+                patch.object(self.W.source_admission,'actual_import_inventory',return_value={}), \
+                patch.object(self.W.source_admission,'compatibility',side_effect=(
+                    self.W.source_admission.SourceUnavailable('cold original B') if self.unavailable else None)):
+            return self.W.optional_leaf_current({},self.environment,self.adapter)
+
+    def test_current_normal_binding_and_import_authorities_are_both_required_without_B_or_E_claim(self):
+        value=self.context()
+        self.assertEqual(self.W.optional_leaf_outputs(value),{'common_unavailable':'true',
+            'common_binding':value['digest'].removeprefix('sha256:')})
+        for key in ('environment','receipt','results','qualification','reusable','executed_suites'):
+            self.assertNotIn(key,value)
+        for where,key,bad in ((self.binding,'base_ref','main'),(self.binding,'base_sha','f'*40),
+                (self.binding,'merge_sha','f'*40),(self.refs,'default','f'*40),
+                (self.refs['integration'],'workflow_id',350930890)):
+            old=where[key];where[key]=bad
+            try:
+                with self.subTest(key=key),self.assertRaises(ValueError):self.context()
+            finally:where[key]=old
+        self.adapter._integrated_current=lambda *args:(_ for _ in ()).throw(A.ApiError('normal merged PR unavailable'))
+        with self.assertRaises(A.ApiError):self.context()
+
+    def native_fixture(self):
+        from types import SimpleNamespace
+        context=self.context()
+        attempt={'id':500,'run_attempt':1,'head_sha':self.source,'workflow_id':330551824,
+            'event':'push','path':'.github/workflows/project-tests.yml','status':'in_progress','conclusion':None}
+        names=('Check out the exact candidate without credentials','Independently select affected host contracts',
+            'Execute the selected protected shared owner','Run independently selected host contracts',
+            'Preserve only the finished protected receipt','Upload test report')
+        row={'name':'Shared tests','status':'completed','conclusion':'success','steps':[
+            {'name':'Authenticate optional leaf common unavailability','status':'completed','conclusion':'success'},
+            *[{'name':name,'status':'completed','conclusion':'skipped'} for name in names]]}
+        adapter=SimpleNamespace(_object=lambda endpoint:deepcopy(attempt),
+            _pages=lambda endpoint,key:[deepcopy(row)],
+            _job=lambda job,run,app,**kwargs:SimpleNamespace(status=job['status'],conclusion=job['conclusion']))
+        return context,attempt,row,adapter
+
+    def test_native_completed_diagnostic_requires_zero_executors_and_no_receipt_claim(self):
+        context,attempt,row,adapter=self.native_fixture()
+        outputs=self.W.optional_leaf_outputs(context)
+        self.W.verify_optional_leaf_common(context,adapter,outputs)
+        self.W.verify_optional_leaf_common(context,adapter,{**outputs,'protected_executed':'','receipt_sha256':''})
+        for bad in ({}, {**outputs,'protected_executed':'true'}, {**outputs,'receipt_sha256':'f'*64},
+                {**outputs,'common_binding':'f'*64}, {**outputs,'reusable':'false'}):
+            with self.subTest(outputs=bad),self.assertRaises(ValueError):self.W.verify_optional_leaf_common(context,adapter,bad)
+        for value in ('failure','cancelled',None):
+            with patch.dict(row,{'conclusion':value}),self.assertRaises(ValueError):
+                self.W.verify_optional_leaf_common(context,adapter,outputs)
+        for bad in ('success',None):
+            with patch.dict(row['steps'][-1],{'conclusion':bad}),self.assertRaises(ValueError):
+                self.W.verify_optional_leaf_common(context,adapter,outputs)
+        removed=row['steps'].pop()
+        with self.assertRaises(ValueError):self.W.verify_optional_leaf_common(context,adapter,outputs)
+        row['steps'].append(removed)
+        with patch.dict(attempt,{'run_attempt':2}),self.assertRaises(ValueError):
+            self.W.verify_optional_leaf_common(context,adapter,outputs)
+
+    def test_actual_optional_CLI_has_no_candidate_setup_execution_capture_or_receipt(self):
+        import os,tempfile
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        context=self.context()
+        with tempfile.TemporaryDirectory(prefix='optional-leaf-cli-') as temporary:
+            event=Path(temporary)/'event.json';event.write_text('{}')
+            output=Path(temporary)/'output';output.touch()
+            with patch.dict(os.environ,{'GITHUB_EVENT_PATH':str(event),'GITHUB_OUTPUT':str(output)},clear=True), \
+                    patch.object(self.W,'optional_leaf_current',return_value=context) as native, \
+                    patch.object(self.W.producer_api,'Adapter',return_value=object()), \
+                    patch.object(self.W,'protected_admission',side_effect=AssertionError('no producer/E admission')), \
+                    patch.object(self.W,'shared_execution',side_effect=AssertionError('no shared execution')), \
+                    patch.object(self.W.execution,'execute',side_effect=AssertionError('no legacy execution')), \
+                    patch.object(self.W.execution,'_write_receipt',side_effect=AssertionError('no receipt')):
+                self.assertEqual(self.W.main(['optional-leaf-common']),0)
+            self.assertEqual(native.call_count,1)
+            self.assertEqual(dict(line.split('=',1) for line in output.read_text().splitlines()),self.W.optional_leaf_outputs(context))
+            self.assertEqual({p.name for p in Path(temporary).iterdir()},{'event.json','output'})
 
 
 if __name__ == "__main__":

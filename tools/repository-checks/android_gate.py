@@ -56,7 +56,8 @@ CURRENT_SOURCE_GENERATION = "protected-producer-original-default-v1"
 CURRENT_SOURCE_GENERATIONS = frozenset({CURRENT_SOURCE_GENERATION,
     "protected-producer-original-default-boolean-v1",
     "protected-producer-original-default-required-context-v1",
-    "protected-producer-optional-parent-source-v1"})
+    "protected-producer-optional-parent-source-v1",
+    "protected-producer-optional-leaf-common-v1"})
 CURRENT_SOURCE_TARGETS = frozenset({"android-main", "android-vr", "android-vr-pico", "android-phone"})
 CURRENT_JOBS = {
     "android / route": "Independently select the complete Android union",
@@ -774,7 +775,7 @@ def _source_generation(candidate,sha,policy_root):
     if type(value) is not dict or set(value)!={'schema','repository','generations'} or type(value['schema']) is not int \
             or value['schema']!=1 or value['repository']!={'full_name':REPOSITORY,'id':REPOSITORY_ID} \
             or type(value['repository'].get('id')) is not int \
-            or type(value['generations']) is not list or not 1<=len(value['generations'])<=27:
+            or type(value['generations']) is not list or not 1<=len(value['generations'])<=28:
         raise ValueError('Android source catalog is not the finite protected schema')
     four={'.github/workflows/'+name+'.yml' for name in ('project-tests','parent-qualification','sync-validation','repository-checks')}
     five=four|{'.github/workflows/browser-client.yml'};six=five|{'.github/workflows/pr-metadata-context.yml'}

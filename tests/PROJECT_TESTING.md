@@ -1125,6 +1125,21 @@ fallback. Deploy this capability before the consumer-only correction: that
 later ordinary source update preserves identical `SELF` bytes and can exercise
 the new partial-current-parent path without a dummy qualification run.
 
+The preregistered successor `protected-producer-optional-leaf-common-v1` adds a
+separate current-controller import capability for normal protected leaf pushes
+on `apple-ios`, `android-phone` and `android-vr-pico`. It authenticates the native
+original attempt, App/job, complete installed recipe, actual merged PR and fresh
+protected refs before common candidate checkout or setup. Only when the original
+`B` cannot satisfy strict `B/D` source compatibility may the optional common
+qualification emit `UNAVAILABLE`: no executed suites, PASS, environment or
+receipt. The aggregate independently derives and authenticates that decision.
+Compatible sources retain the existing common execution path. Required PR,
+package, tool and separate Android platform owners remain unchanged; actual
+platform execution retains strict original-source admission. Preregistration
+leaves generation27 and its historical canonical recipe installed. Activate only
+the exact registered project successor after its source is protected on main,
+then propagate the combined ancestry once to the six child branches.
+
 Deployment requires two stages. The trusted helpers and approved templates
 must land on the default branch before installing the exact project, parent and sync
 templates plus the appropriate outer caller. The package caller with direct
