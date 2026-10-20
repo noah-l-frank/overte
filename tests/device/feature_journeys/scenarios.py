@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 14
+VERSION = 15
 
 
 def emote_rows():
@@ -34,19 +34,26 @@ def scenario(title, baseline, rows):
 # changed subject pixels. peer = independently journaled fixture-actor receipt;
 # file = original exported bytes; audio/silence = actual bounded PCM capture.
 SCENARIOS = {
-'world-navigation': scenario('Bookmarks, directory, failed arrival and recovery',
-    dict(location='A', bookmark=False, bookmarkName='', searchResults=[], error='none', panel=False), [
-    ('open', {}, dict(panel=True), []),
+# Search results project only owned rows. Empty query already shows the owned
+# directory entry; every fresh Places page has its own empty editor/model.
+'world-navigation': scenario('Actual Places filtering, bookmark cancellation/durability and named lookup recovery',
+    dict(location='A', bookmark=False, bookmarkName='', searchQuery='', searchResults=[], error='none', panel=False, addressDialog=False), [
+    ('open', {}, dict(panel=True, searchResults=['$destination']), ['peer']),
+    ('bookmark-add-cancel', dict(name='$name'), {}, ['peer']),
     ('bookmark-add', dict(name='$name'), dict(bookmark=True, bookmarkName='$name'), ['peer']),
+    ('bookmark-rename-cancel', dict(name='$renamed'), {}, ['peer']),
     ('bookmark-rename', dict(name='$renamed'), dict(bookmarkName='$renamed'), ['peer']),
-    ('directory-search', dict(query='$name'), dict(searchResults=['$destination']), ['peer']),
-    ('directory-select', dict(destination='$destination'), dict(location='B'), ['image', 'peer']),
-    ('navigate-missing', {}, dict(error='not-found', location='B'), ['peer']),
-    ('dismiss-error', {}, dict(error='none'), []),
+    ('directory-search', dict(query='$hidden'), dict(searchQuery='$hidden', searchResults=[]), ['peer']),
+    ('directory-search', dict(query='$name'), dict(searchQuery='$name', searchResults=['$destination']), ['peer']),
+    # These are bounded composites: normal select/actual arrival/normal close.
+    ('directory-select', dict(destination='$destination'), dict(location='B',panel=False,searchQuery='',searchResults=[]), ['image', 'peer']),
+    ('navigate-missing', {}, dict(error='not-found', addressDialog={'oneOf':[False,True]}), ['peer']),
+    ('dismiss-error', {}, dict(error='none',addressDialog=False), ['peer']),
     ('bookmark-visit', dict(name='$renamed'), dict(location='A'), ['changed', 'peer']),
     ('restart-app', {}, {}, ['peer']),
+    ('open', {}, dict(panel=True, searchResults=['$destination']), ['peer']),
     ('bookmark-delete', dict(name='$renamed'), dict(bookmark=False, bookmarkName=''), ['peer']),
-    ('close', {}, dict(panel=False), []),
+    ('close', {}, dict(panel=False,searchResults=[]), ['peer']),
 ]),
 'authentication': scenario('Owned login, view dismissal, retired response and persistence',
     dict(principal='anonymous', dialog=False, error='none', pending=False, protectedAccess=False, delayedGrantOutstanding=False), [

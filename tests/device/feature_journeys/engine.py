@@ -1,6 +1,7 @@
 """Common bounded feature execution with independent observations and cleanup."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
 import hashlib
 import math
 import secrets
@@ -9,6 +10,7 @@ from .contract import arguments, exact, identifier, number, result, state as val
 from .fixtures import context
 from .scenarios import SCENARIOS, VERSION, expand, snapshot_profile
 from .witness import projection
+from .navigation_fixture import configuration as navigation_configuration,validate_status as navigation_status
 
 
 def matches(actual, expected):
@@ -27,7 +29,7 @@ def matches(actual, expected):
 
 class Journey:
     def __init__(self, area, run, fixture_url, *, invoke, witness, activate,
-                 read_artifact, image_policy, continuity, monotonic, epoch_ms, sleep, report):
+                 read_artifact, image_policy, continuity, monotonic, epoch_ms, sleep, report, navigation_source=None):
         if area not in SCENARIOS:
             raise ValueError('Unknown common feature area')
         self.area, self.run, self.url = area, identifier(run), fixture_url
@@ -47,6 +49,9 @@ class Journey:
         self.source_profile=None;self.not_applicable=[];self.system_ui=False
         self.snapshot_file_source=None;self.snapshot_digest=None
         self.browser_transition=None
+        if area=='world-navigation' and not callable(navigation_source):raise ValueError('Original navigation HTTP source is required')
+        self.navigation_source=navigation_source;self.navigation_previous=None;self.navigation_required=None
+        self.navigation_instance=self.navigation_inputs=None
 
     def now(self):
         value = number(self.monotonic())
@@ -121,6 +126,19 @@ class Journey:
             return False, None
         return all(matches(entry['facts'], expected) for entry in new), new[-1]
 
+    def navigation(self,ticket,barrier):
+        if self.area!='world-navigation':return True,[]
+        value=self.navigation_source()
+        if self.navigation_instance is None:
+            self.navigation_instance=identifier(value['instance'])
+            self.navigation_inputs,_urls=navigation_configuration(value['inputs'])
+        navigation_status(value,instance=self.navigation_instance,run=self.run,inputs=self.navigation_inputs,previous=self.navigation_previous)
+        if not value['active'] or value['ticket']!=ticket:raise ValueError('Original navigation provider is retired or belongs to a different challenge')
+        self.navigation_previous=deepcopy(value)
+        receipts=[row for row in value['responses'] if row['kind']==self.navigation_required
+            and (self.navigation_required=='directory' or row['ticket']==ticket and row['completedEpochMs']>=barrier)]
+        return self.navigation_required is None or bool(receipts),receipts
+
     def artifacts(self, value, ticket, kinds):
         observations = []
         subject = None
@@ -183,6 +201,8 @@ class Journey:
             value = self.observe(ticket, barrier)
             current = self.now()
             okay = matches(value['state'], expected)
+            navigation_okay,navigation_receipts=self.navigation(ticket,barrier)
+            okay=okay and navigation_okay
             if self.area=='lifecycle-input' and label.endswith('-release-input'):
                 position=tuple(value['state']['positionDelta'][key] for key in ('x','y','z'))
                 if release_position is not None and math.dist(position,release_position)>0.025:
@@ -228,8 +248,12 @@ class Journey:
                     details, subject = self.artifacts(value, ticket, kinds)
                 except (AssertionError, OSError, EOFError, SyntaxError) as error:
                     okay, last_problem = False, str(error)
+            # Fixture, peer and artifact I/O also consume the existing checkpoint
+            # budget. A late final source read cannot turn an old sample green.
+            current=self.now()
+            if current>=deadline:raise AssertionError('Common '+self.area+' '+label+': source/evidence exceeded the checkpoint deadline; '+last_problem)
             self.samples.append(dict(phase=label, ticket=ticket, actionBarrierEpochMs=barrier, sequence=value['sequence'], capturedEpochMs=value['capturedEpochMs'],
-                                     state=value['state'], resources=value['resources'], lifecycle=value['lifecycle'], witness=witness, evidence=details))
+                                     state=value['state'], resources=value['resources'], lifecycle=value['lifecycle'], witness=witness, evidence=details, navigationHttp=navigation_receipts))
             if okay:
                 if progressing_script and initial_effects is None:
                     initial_effects = value['state']['effects']
@@ -284,6 +308,7 @@ class Journey:
                     self.not_applicable.append(dict(index=index+1,verb=step['verb'],sourceProfile=self.source_profile))
                     continue
                 self.system_ui=step.get('systemUi',False)
+                self.navigation_required={'open':'directory','navigate-missing':'missing-name'}.get(step['verb'])
                 if self.area in {'world-web','tablet-web'}:
                     self.browser_transition=(step['documentTransition'],self.samples[-1]['state']['documentLoads'])
 
@@ -342,6 +367,7 @@ class Journey:
                 # full observation window; an early empty sample is insufficient.
                 negative = (any(word in step['verb'] for word in ('cancel', 'denied', 'reject', 'stale', 'foreign', 'stop', 'delete', 'discard'))
                     or self.area=='lifecycle-input' and step['verb'] in {'back','release-input','close-editor'}
+                    or self.area=='world-navigation' and step['verb'] in {'directory-search','navigate-missing','dismiss-error','close'}
                     or self.area=='assets' and step['verb'] in {'inspect-baking-unavailable','upload-picker-accept-unavailable','retire-staged-primary'}
                     or self.area=='chat' and step['verb'] in {'close','peer-send-distant','network-remove-mixer','network-restore-mixer','await-no-replay'}
                     or self.area in {'world-web','tablet-web'} and step['verb'] in {'restore-resource','deliver-retired-inline-message','close'})
@@ -357,7 +383,7 @@ class Journey:
                     ticket = secrets.token_hex(16)
                     self.activate(ticket, 'cleanup', {})
                     barrier = number(self.epoch_ms(), 1)
-                    self.required_lifecycle = None;self.system_ui=False;self.browser_transition=None
+                    self.required_lifecycle = None;self.system_ui=False;self.browser_transition=None;self.navigation_required=None
                     self.call('cleanup')
                     # Idempotence must be real. Two acknowledgments alone cannot
                     # establish removal or restoration of the initial state.
