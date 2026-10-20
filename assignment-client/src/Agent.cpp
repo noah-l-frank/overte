@@ -31,6 +31,9 @@
 #include <LocationScriptingInterface.h>
 #include <AudioScriptingInterface.h>
 #include <MessagesClient.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QCryptographicHash>
+#endif
 #include <NetworkAccessManager.h>
 #include <NodeList.h>
 #include <udt/PacketHeaders.h>
@@ -378,6 +381,13 @@ void Agent::executeScript() {
     // are cleared before we call setFinished at the end of the function
     {
         _scriptManager = scriptManagerFactory(ScriptManager::AGENT_SCRIPT, _scriptContents, _payload);
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        // Actual downloaded assignment source, never an expected source digest
+        // supplied in a query. The native IPC path is an explicit actor opt-in.
+        const auto actualScriptSha=QString::fromLatin1(QCryptographicHash::hash(_scriptContents.toUtf8(),QCryptographicHash::Sha256).toHex());
+        DependencyManager::get<MessagesClient>()->configureFeatureChatActor(actualScriptSha);
+#endif
 
         // setup an Avatar for the script to use
         auto scriptedAvatar = DependencyManager::get<ScriptableAvatar>();

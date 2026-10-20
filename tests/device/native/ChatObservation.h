@@ -23,6 +23,7 @@ namespace overte::e2e {
 // signals can originate on script threads; the bounded cache is mutex protected.
 class ChatObservation {
 public:
+    QString instance() const { return _instance; }
     void received(const QString& channel, const QString& raw, const QUuid& sender, bool localOnly) {
         if (channel != QStringLiteral("chat") || raw.size() > 4096 || sender.isNull()) { return; }
         QJsonParseError error;

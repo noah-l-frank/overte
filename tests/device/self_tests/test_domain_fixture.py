@@ -45,6 +45,8 @@ def stop(*_):
     global stopping
     stopping = True
 signal.signal(signal.SIGTERM, stop)
+arguments = pathlib.Path(os.environ["XDG_DATA_HOME"]) / ("args-" + (sys.argv[sys.argv.index("--pool") + 1] if "--pool" in sys.argv else sys.argv[sys.argv.index("-t") + 1]) + ".json")
+arguments.write_text(json.dumps(sys.argv))
 if "--pool" in sys.argv and sys.argv[sys.argv.index("--pool") + 1] == "overte-e2e-domain":
     # Model the real entity server's persisted content across an outage. A
     # fresh assignment always seeds one shared object, so reused storage would
@@ -108,6 +110,13 @@ class DomainFixtureTest(unittest.TestCase):
 
     @unittest.skipIf(os.name == "nt", "executable-script fixture is POSIX-specific")
     def test_controller_owns_stack_and_publishes_exact_ready_contract(self):
+        self.check_controller(False)
+
+    @unittest.skipIf(os.name == "nt", "native actor-host IPC is POSIX-specific")
+    def test_chat_receiver_opt_in_is_private_and_limited_to_its_dedicated_peer(self):
+        self.check_controller(True)
+
+    def check_controller(self, chat_receiver):
         with tempfile.TemporaryDirectory(prefix="overte-domain-controller-test-") as temporary:
             root = Path(temporary)
             domain = root / "fake-domain.py"
@@ -128,6 +137,7 @@ class DomainFixtureTest(unittest.TestCase):
                 "--assignment-warmup-seconds", "0.1",
                 "--output-dir", str(output),
                 "--ready-file", str(ready),
+                *(["--feature-chat-receiver"] if chat_receiver else []),
             ], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             try:
                 deadline = time.monotonic() + 10
@@ -161,6 +171,25 @@ class DomainFixtureTest(unittest.TestCase):
                     self.assertEqual(action, transition["state"])
                     self.assertGreaterEqual(transition["generation"], 2)
                 self.assertIsNone(process.poll())
+                configured = output / "chat-actor-config.json"
+                self.assertEqual(chat_receiver, configured.exists())
+                arguments = list((output / "runtime").rglob("args-*.json"))
+                self.assertEqual(16, len(arguments))
+                for path in arguments:
+                    argv = json.loads(path.read_text())
+                    expected = chat_receiver and path.name == "args-overte-e2e-peer.json"
+                    self.assertEqual(expected, "--testScript" in argv)
+                    self.assertEqual(expected, "--e2eChatActorDir" in argv)
+                    if expected:
+                        actor_root = Path(argv[argv.index("--e2eChatActorDir") + 1])
+                        self.assertEqual(0o700, actor_root.stat().st_mode & 0o777)
+                        self.assertEqual(path.parent.parent / "chat-peer", actor_root)
+                if chat_receiver:
+                    private = json.loads(configured.read_text())
+                    self.assertEqual(0o600, configured.stat().st_mode & 0o777)
+                    self.assertEqual(output / "runtime/stack-3/chat-peer", Path(private["directory"]))
+                    self.assertEqual(64, len(private["expectedScriptSha256"]))
+                    self.assertEqual(64, len(private["expectedExecutableSha256"]))
                 seeds = list((output / "runtime").rglob("shared-entities.json"))
                 self.assertEqual(2, len(seeds), "both real controlled starts must retain their own seed")
                 self.assertEqual(2, len({p.parent for p in seeds}), "recovery must use fresh content storage")
@@ -172,6 +201,9 @@ class DomainFixtureTest(unittest.TestCase):
                 process.terminate()
                 stdout, _ = process.communicate(timeout=10)
             self.assertEqual(0, process.returncode, stdout)
+            if chat_receiver:
+                self.assertNotIn(private["ownerToken"], stdout)
+                self.assertNotIn(private["directory"], stdout)
             self.assertTrue((output / "domain-config.json").is_file())
             saved_config = json.loads((output / "domain-config.json").read_text())
             self.assertEqual("/0.0,0.0,4.0/0,0,0,1", saved_config["paths"]["/"]["viewpoint"])

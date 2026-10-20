@@ -21,6 +21,10 @@
 #include "NetworkLogging.h"
 #include "NodeList.h"
 #include "PacketReceiver.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "../../../tests/device/native/ChatActorFiles.h"
+#include <QTimer>
+#endif
 
 MessagesClient::MessagesClient() {
     setCustomDeleter([](Dependency* dependency){
@@ -42,6 +46,31 @@ MessagesClient::MessagesClient() {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+bool MessagesClient::configureFeatureChatActor(const QString& actualScriptSha256) {
+    if (!QCoreApplication::arguments().contains("--testScript")) { return false; }
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return false; }
+        bool configured{false};
+        if (!QMetaObject::invokeMethod(this,[&] { configured=configureFeatureChatActor(actualScriptSha256); },Qt::BlockingQueuedConnection)) { return false; }
+        return configured;
+    }
+    if (_featureChatActorFiles || _subscribedChannels.contains("chat")) { return false; }
+    const auto arguments=QCoreApplication::arguments();const auto index=arguments.indexOf("--e2eChatActorDir");
+    if (index<0 || index+1>=arguments.size()) { return false; }
+    auto files=std::make_shared<overte::e2e::ChatActorFiles>(arguments.at(index+1),actualScriptSha256,_featureChat.instance());
+    if (!files->available()) { return false; }
+    _featureChatActorFiles=files;
+    // This is an explicitly owned secondary fixture client, never a primary
+    // user input route. Refuse any pre-existing channel before owning it.
+    subscribe("chat");
+    auto timer=new QTimer(this);timer->setInterval(50);
+    connect(timer,&QTimer::timeout,this,[this,files,timer] {
+        files->tick([this](const QVariantMap& request) { return featureChatObservation(request); });
+        if (!files->available()) { timer->stop();unsubscribe("chat"); }
+    });
+    timer->start();return true;
+}
+
 QVariantMap MessagesClient::featureChatObservation(const QVariantMap& command) {
     if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
     if (QThread::currentThread() != thread()) {
