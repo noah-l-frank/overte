@@ -495,6 +495,12 @@ class FixtureState:
             try:account_origin_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native account origin request") from None
             valid=True
+        elif action == "feature-pending-commit-owner":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.pending_commit_owner import command as pending_owner_command
+            try:pending_owner_command(command,ios=True)
+            except (ValueError,RuntimeError):raise ValueError("invalid native pending input owner request") from None
+            valid=True
         elif action == "feature-web-dom-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_web_dom import command as web_dom_command
