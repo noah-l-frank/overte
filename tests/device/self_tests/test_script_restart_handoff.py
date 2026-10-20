@@ -290,6 +290,24 @@ class RestartHandoffTests(unittest.TestCase):
         with self.assertRaises(NativeUIError): self.adopt()
         self.assertEqual(NEW, self.native.store.read()['binding']); self.assertIsNotNone(self.store.read()['next'])
 
+    def test_original_closed_pico_tablet_is_observable_even_though_not_ready_for_input(self):
+        self.prepared(); self.new_process(); original = self.picker_io.capture
+        def closed(): return original() | dict(open=False, ready=False, controls=[])
+        self.picker_io.capture = closed
+        self.adopt(); self.assertIsNone(self.store.read())
+
+    def test_unready_picker_without_explicit_closed_empty_source_is_unavailable_and_never_allows_input(self):
+        self.prepared(); self.new_process(); original = self.picker_io.capture
+        for changed in (dict(ready=False), dict(ready=False, open=True, controls=[]),
+                        dict(ready=False, open=False), dict(ready=False, open=False, controls=[], fileControlsVersion=0)):
+            self.picker_io.capture = lambda: original() | changed
+            with self.subTest(changed=changed), self.assertRaises(NativeUIError): self.adopt()
+            self.assertIsNone(self.store.read()['next'])
+        self.picker_io.capture = lambda: original() | dict(ready=False, open=False, controls=[])
+        before = list(self.picker_io.actions)
+        with self.assertRaises(NativeUIError): self.new_picker.open()
+        self.assertEqual(before, self.picker_io.actions)
+
     def test_prepare_refuses_wrong_code_or_incomplete_existing_ownership_before_stop(self):
         flow = self.opened(); flow.file_picker_choose('script-bundle/main.js')
         original = self.engine.mutate

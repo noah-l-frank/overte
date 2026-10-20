@@ -36,6 +36,13 @@ kernel outcomes never count as death. A cached old service instance cannot be
 used as the new empty Script manager. No script-stop or UI-close input is issued
 to conceal retained state.
 
+The actual Pico native tablet reports `open:false,ready:false,controls:[]` when
+closed. `TokenScriptFilePicker.observe_absent()` accepts that original closed
+observation only with the existing mandatory source version, identity and
+transport freshness checks. A non-ready source without the explicit closed bit
+and empty control inventory is unavailable. All ordinary picker capture/input
+paths still require `ready:true`; no input gate or native source is weakened.
+
 Continue independent observations for at least three seconds on both host
 monotonic time and original native capture time, with multiple samples. The
 whole adoption, original I/O, final guards and private record writes have a
