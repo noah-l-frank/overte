@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 13
+VERSION = 14
 
 
 def emote_rows():
@@ -337,21 +337,29 @@ SCENARIOS = {
     ('upload-picker-cancel', {}, dict(picker=False,pickerFile='',error='none'), ['peer']),
     ('close', {}, dict(open=False), ['peer']),
 ]),
-'lifecycle-input': scenario('Feature editor focus, Back and background ownership',
-    dict(editor='none', text='', keyboard=False, focused=False, heldInputs=[], worldDisplacement=0.0, generation=1), [
-    ('open-editor', dict(editor='create'), dict(editor='create', focused=True, keyboard=True), []),
-    ('type', dict(text='$unicode'), dict(text='$unicode'), []),
-    ('world-input', dict(direction='forward'), {}, ['image']),
-    ('back', {}, dict(keyboard=False, focused=False), []),
-    ('back', {}, dict(editor='none'), []),
-    ('open-editor', dict(editor='chat'), dict(editor='chat', focused=True, keyboard=True), []),
-    ('background-resume', {}, dict(keyboard=False, focused=False), ['image', 'peer']),
-    ('open-editor', dict(editor='scripts'), dict(editor='scripts', keyboard=True, focused=True), []),
-    ('replace-context', {}, dict(generation=2, text='', editor='none', focused=False, keyboard=False), ['peer']),
-    ('deliver-stale-input', dict(text='$unicode'), {}, ['peer']),
-    ('world-input', dict(direction='forward'), dict(worldDisplacement={'min': 0.3, 'max': 3.0}), ['changed']),
-    ('release-input', {}, {}, ['peer']),
-    ('restore', {}, dict(worldDisplacement=0.0), ['image']),
+# Each editor is an independently created page/context. No text survives into
+# a different editor. Back closes the page through its real navigation route;
+# stale delivery retains one actual pending old-context input before replacement.
+'lifecycle-input': scenario('Editor context ownership, Back, held input and stale commit rejection',
+    dict(editor='none',text='',keyboard=False,focused=False,heldInputs=[],
+         worldDisplacement=0.0,positionDelta=dict(x=0.0,y=0.0,z=0.0),generation=0,deferredInputs=0,worldAttempts=0,staleAttempts=0), [
+    ('open-editor',dict(editor='create'),dict(editor='create',text='',focused=True,keyboard=True,generation=1),['peer']),
+    ('type',dict(text='$unicode'),dict(text='$unicode'),['peer']),
+    ('world-input',dict(direction='forward'),dict(worldAttempts=1),['image','peer']),
+    ('back',{},dict(editor='none',text='',keyboard=False,focused=False,generation=0),['peer']),
+    ('open-editor',dict(editor='chat'),dict(editor='chat',text='',focused=True,keyboard=True,generation=2),['peer']),
+    ('type',dict(text='$reply'),dict(text='$reply'),['peer']),
+    ('background-resume',{},dict(keyboard=False,focused=False),['image','peer']),
+    ('open-editor',dict(editor='scripts'),dict(editor='scripts',text='',keyboard=True,focused=True,generation=3),['peer']),
+    ('type',dict(text='$retry'),dict(text='$retry'),['peer']),
+    ('hold-editor-input',dict(text='$unicode'),dict(deferredInputs=1),['peer']),
+    ('replace-context',{},dict(generation=4,text='',focused=False,keyboard=False),['peer']),
+    ('deliver-stale-input',{},dict(deferredInputs=0,staleAttempts=1),['peer']),
+    ('close-editor',{},dict(editor='none',text='',generation=0),['peer']),
+    ('world-input',dict(direction='forward'),dict(heldInputs=['forward'],worldDisplacement={'min':0.3,'max':3.0},worldAttempts=2,
+        positionDelta=dict(x={'min':-3.0,'max':3.0},y={'min':-0.05,'max':0.05},z={'min':-3.0,'max':3.0})),['changed','peer']),
+    ('release-input',{},dict(heldInputs=[]),['peer']),
+    ('restore',{},dict(worldDisplacement=0.0,positionDelta=dict(x=0.0,y=0.0,z=0.0)),['image','peer']),
 ]),
 }
 # Same ordinary browser contract on the normal tablet plus inline app routing.

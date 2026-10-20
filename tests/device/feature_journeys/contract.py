@@ -1,4 +1,4 @@
-"""Strict v13 action/read boundary for feature additions to the existing harness."""
+"""Strict v14 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
@@ -118,6 +118,18 @@ def state(area, value, run=None):
                 allowed = {item for row in checkpoints for item in row[key]}
                 if any(item not in allowed for item in value[key]):
                     raise ValueError('Product list contains private or unowned values')
+    if area == 'lifecycle-input':
+        exact(value['positionDelta'],{'x','y','z'},'actual world position delta')
+        delta=[number(value['positionDelta'][key],-1_000_000,1_000_000) for key in ('x','y','z')]
+        if abs(math.sqrt(sum(component*component for component in delta))-value['worldDisplacement'])>0.025:
+            raise ValueError('World displacement disagrees with the actual original position delta')
+        if (not 0<=value['generation']<=64 or value['deferredInputs'] not in (0,1)
+                or not 0<=value['worldAttempts']<=1_000_000 or not 0<=value['staleAttempts']<=1_000_000):
+            raise ValueError('Invalid original editor context or pending input count')
+        if (value['editor']=='none') != (value['generation']==0):
+            raise ValueError('Inactive editor cannot borrow an original live context generation')
+        if value['editor']=='none' and value['text']:
+            raise ValueError('Inactive editor cannot borrow text from a retired page')
     if area == 'assets':
         if value['baking'] != (value['bakeState'] == 'baking'):
             raise ValueError('Asset bake activity disagrees with original server state')
