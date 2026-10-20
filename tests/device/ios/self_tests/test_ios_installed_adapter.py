@@ -135,6 +135,14 @@ class InstalledAdapterTests(unittest.TestCase):
         self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
         self.assertNotIn('app.install',self.adapter.advertised_capabilities(self.target))
 
+    def test_native_reply_factory_retains_actual_installed_candidate_gate_without_scripts_profile(self):
+        self.adapter.describe('test-only');self.assertNotIn('normalScripts',self.target)
+        reader=self.adapter._navigation_replies('test-only')
+        before=len(self.commands)
+        self.artifact.write_bytes(b'changed original artifact boundary')
+        with self.assertRaises(RuntimeError):reader.read('a'*32)
+        self.assertEqual(before,len(self.commands))
+
     def test_full_candidate_recheck_after_original_operation_blocks_changed_evidence(self):
         self.adapter.describe('test-only')
         self.after_operation=lambda:self.summary.update(changedEvidence=True)

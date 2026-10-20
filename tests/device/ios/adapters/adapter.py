@@ -141,6 +141,30 @@ class IOSNativeMixin:
         manager = self._scripts(selector)
         return TokenGraphicsUI(IOSGraphicsIO(manager.ui.io),intent)
 
+    def _native_source_scope(self,selector):
+        # Original raw native readers need the qualified session/process but no
+        # Scripts profile or editor. Canonical assert_ios_process_identity also
+        # preserves its installed-bundle/source/candidate binding on every I/O.
+        target=self.target(selector)
+        need(target.get('platform')=='ios' and target.get('physical') is True
+             and target.get('probe')=={'kind':'ios-documents'} and type(target.get('testBuild')) is dict)
+        client,session,state=self.ensure_session(selector)
+        fingerprint=hashlib.sha256(json.dumps(target,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        generation=state['generation']
+        need(type(generation) is int and generation>=0 and state.get('sessionId')==session
+             and state.get('targetFingerprint')==fingerprint)
+        def process():
+            current=self.read_session(selector)
+            need(current is not None and current.get('sessionId')==session and current.get('generation')==generation
+                 and current.get('targetFingerprint')==fingerprint
+                 and hashlib.sha256(json.dumps(self.target(selector),sort_keys=True,separators=(',',':')).encode()).hexdigest()==fingerprint)
+            self.assert_ios_process_identity(selector,client,session,state,target)
+            return self.native_process(client,session,target)
+        return FeatureObservation(client,session,target,process)
+
+    def _navigation_replies(self,selector):
+        return self._native_source_scope(selector).navigation_replies()
+
     def _pending_owner(self,selector,intent=None):
         manager=self._scripts(selector);native=manager.ui.io.native
         return FeatureObservation(native.client,native.session,native.target,native.observe_process).pending_owner(intent)

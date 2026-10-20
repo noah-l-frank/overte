@@ -74,6 +74,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 need(preflight(args) == candidate)
                 lease.guard()
 
+        def _native_source_scope(self,*args,**kwargs):
+            self._candidate_guard()
+            return super()._native_source_scope(*args,**kwargs)
+
         def _scripts(self, selector):
             self._candidate_guard()
             return super()._scripts(selector)
