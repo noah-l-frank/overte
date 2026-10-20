@@ -26,20 +26,28 @@ def verify_branch_restore_routing(workflow: str) -> None:
     def step(name):
         return workflow.split("      - name: " + name + "\n", 1)[1].split("      - name:", 1)[0]
 
-    def evaluate(name, values, ref):
+    def evaluate(name, values, ref, event="workflow_dispatch"):
         expression = re.search(r"^        if: (.+)$", step(name), re.MULTILINE)[1]
         expression = re.sub(r"steps\.([\w-]+)\.outputs\.([\w-]+)",
                             lambda m: repr(values.get((m[1], m[2]), "")), expression)
         expression = expression.replace("github.ref_name", repr(ref))
+        expression = expression.replace("github.ref", repr("refs/heads/" + ref))
+        expression = expression.replace("github.event_name", repr(event))
         expression = expression.replace("&&", " and ").replace("||", " or ")
         return bool(eval(expression, {"__builtins__": {}}, {}))
 
-    for ref, own, trusted in itertools.product(("973/merge", "fix/ios/cache", "apple-ios"), (False, True), (False, True)):
+    for ref, own, trusted, integrated in itertools.product(("973/merge", "fix/ios/cache", "apple-ios"),
+                                                          (False, True), (False, True), (False, True)):
         values = {("client-sccache-artifact", "restored"): str(own).lower(),
-                  ("client-sccache-apple-ios-artifact", "restored"): str(trusted).lower()}
+                  ("client-sccache-apple-ios-artifact", "restored"): str(trusted).lower(),
+                  ("client-sccache-integrated-artifact", "restored"): str(integrated).lower()}
+        assert evaluate("Restore durable full-client compiler checkpoint", values, ref) == (ref != "apple-ios")
+        for event in ("push", "workflow_dispatch", "pull_request"):
+            assert evaluate("Restore newest verified protected or integrated compiler DATA", values, ref, event) == (
+                ref == "apple-ios" and event in ("push", "workflow_dispatch"))
         assert evaluate("Restore trusted apple-ios full-client compiler checkpoint", values, ref) == (not own and ref != "apple-ios")
-        assert evaluate("Merge validated compiler objects without deleting existing entries", values, ref) == (own or trusted)
-        assert evaluate("Restore compatible full-client compiler checkpoint", values, ref) == (not own and not trusted)
+        assert evaluate("Merge validated compiler objects without deleting existing entries", values, ref) == (own or trusted or integrated)
+        assert evaluate("Restore compatible full-client compiler checkpoint", values, ref) == (not own and not trusted and not integrated)
         for cached in (False, True):
             values.update({("conan-cache", "cache-hit"): str(cached).lower(),
                            ("conan-artifact", "restored"): str(own).lower(),
@@ -57,12 +65,78 @@ def verify_branch_restore_routing(workflow: str) -> None:
                          '--artifact-prefix', '--github-output "$GITHUB_OUTPUT"'):
             assert required in block, (name, required)
 
+    compiler = step("Restore newest verified protected or integrated compiler DATA")
+    assert "qt-checkpoint-artifact.py restore-protected-compiler" in compiler
+    assert "continue-on-error: true" in compiler
+    for forbidden in ("--expected-branch", "--expected-repository-id", "--source", "--artifact-id", "--force"):
+        assert forbidden not in compiler, "consumer inputs must not select compiler DATA authority"
+
+
+def verify_protected_pr_compiler_consumer(workflow: str) -> None:
+    def step(name):
+        return workflow.split("      - name: " + name + "\n", 1)[1].split("      - name:", 1)[0]
+
+    def evaluate(name, event, base="apple-ios", same_fork=True, restored=False, repository="noah-l-frank/overte", namespace_match=True):
+        block = step(name)
+        expression = re.search(r"^        if: (.+)$", block, re.MULTILINE)[1]
+        values = {"github.event.pull_request.base.ref": base,
+                  "github.event.pull_request.head.repo.full_name": repository if same_fork else "foreign/overte",
+                  "github.repository": repository, "github.event_name": event,
+                  "github.ref_name": "29/merge"}
+        for key in sorted(values, key=len, reverse=True):
+            expression = expression.replace(key, repr(values[key]))
+        expression = re.sub(r"steps\.([\w-]+)\.outputs\.([\w-]+)",
+                            lambda match: repr(str(restored).lower() if match[1] == "client-sccache-pr-artifact"
+                                else "early" if match[1] == "client-sccache-pr-key" and match[2] == "namespace"
+                                else ("early" if namespace_match else "late")
+                                    if match[1] == "client-sccache-key" and match[2] == "namespace" else "false"),
+                            expression)
+        return bool(eval(expression.replace("&&", " and ").replace("||", " or "), {"__builtins__": {}}, {}))
+
+    names = ("Check out protected compiler DATA verifier",
+             "Select protected full-client compiler cache namespace",
+             "Restore verified protected compiler DATA for feature and fix PRs")
+    for event, base, same_fork, repository in itertools.product(
+            ("pull_request", "pull_request_target", "push", "workflow_dispatch"),
+            ("apple-ios", "main"), (False, True), ("noah-l-frank/overte", "foreign/overte")):
+        wanted = event == "pull_request" and base == "apple-ios" and same_fork and repository == "noah-l-frank/overte"
+        for name in names:
+            assert evaluate(name, event, base, same_fork, repository=repository) == wanted
+    checkout = step(names[0])
+    for text in ("repository: noah-l-frank/overte", "ref: ${{ github.event.pull_request.base.sha }}",
+                 "path: build-ios/compiler-data-protected", "persist-credentials: false", "fetch-depth: 1",
+                 "sparse-checkout-cone-mode: false", "/ios/ci/qt-checkpoint-artifact.py"):
+        assert text in checkout, text
+    parser = step(names[2])
+    assert "python3 -I -S -B build-ios/compiler-data-protected/ios/ci/qt-checkpoint-artifact.py restore-pr-compiler" in parser
+    assert "continue-on-error: true" in parser
+    for token in ("--cache-key", "--artifact-prefix", "--install-root", '--github-output "$GITHUB_OUTPUT"'):
+        assert token in parser
+    for token in ("--expected-branch", "--source", "--artifact-id", "--force", "gh api", "curl "):
+        assert token not in parser
+    for name in ("Restore durable full-client compiler checkpoint",
+                 "Restore trusted apple-ios full-client compiler checkpoint",
+                 "Restore compatible full-client compiler checkpoint"):
+        assert evaluate(name, "pull_request") is False, "a PR must never try a second compiler archive"
+    assert evaluate("Merge validated compiler objects without deleting existing entries", "pull_request", restored=True)
+    assert not evaluate("Merge validated compiler objects without deleting existing entries", "pull_request", restored=False)
+    assert not evaluate("Merge validated compiler objects without deleting existing entries", "pull_request", restored=True, namespace_match=False)
+    client = workflow[workflow.index("  integrated-configure:"):]
+    assert client.index(names[0]) < client.index(names[1]) < client.index(names[2]) < client.index("Set Apple compiler budget")
+    assert "python3 -I -S -B build-ios/compiler-data-protected/ios/ci/client-compiler-cache-key.py" in step(names[1])
+    assert "steps.client-sccache-pr-key.outputs.namespace == steps.client-sccache-key.outputs.namespace" in step("Merge validated compiler objects without deleting existing entries")
+    tool = (ROOT / "ios/ci/qt-checkpoint-artifact.py").read_text()
+    for token in ('COMPILER_PR_RECIPE = "', 'def _compiler_pr_consumer(', 'def _compiler_protected_origin(',
+                  'class _SelectedPRCompilerData(', 'def _select_pr_compiler_data(', 'selection.recheck()'):
+        assert token in tool
+
 
 def main() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     integrated = workflow[workflow.index("  integrated-configure:") :]
     build_script = BUILD_SCRIPT.read_text(encoding="utf-8")
     verify_branch_restore_routing(workflow)
+    verify_protected_pr_compiler_consumer(workflow)
     identity = "OVERTE_CHECKPOINT_BRANCH: ${{ github.head_ref || github.ref_name }}"
     assert workflow.count(identity) == 2, "V8/client artifacts must use API-compatible PR head identity"
     assert identity in (ROOT / ".github/workflows/ios-qt-source.yml").read_text(), "Qt artifacts must use the same PR identity"

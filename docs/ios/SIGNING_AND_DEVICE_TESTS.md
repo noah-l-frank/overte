@@ -167,16 +167,62 @@ not manufacture or infer physical-device acceptance.
 
 The integrated Xcode build routes C, C++, Objective-C and Objective-C++
 compilations through a pinned `sccache` client. It writes content-addressed
-compiler results into a bounded 512 MiB workspace cache
+compiler results into a bounded 4 GiB workspace cache
 as compilation succeeds. Immediately after either a successful Xcode build or
 a normal compiler/link failure, CI uploads that checkpoint under a new immutable
 generation. A later source-only fix can then reuse unchanged translation units.
-The cache namespace is bound to the exact Xcode, iPhoneOS SDK,
-CMake, Qt host/target, Conan, V8, MoltenVK and configure-policy identities; the
+The cache namespace is bound to the actual compiler bytes, runner architecture,
+Xcode build and iPhoneOS SDK version/build; the
 source revision is deliberately not part of that namespace because source,
-headers and compiler flags are already part of every content key. CI fails if
-Xcode bypasses the launcher or if the compiler cache reports write
-errors.
+headers and compiler flags are already part of every content key. E2E and
+development defines remain semantic compiler inputs. CI fails if Xcode bypasses
+the launcher. Cache write errors remain visible while valid partial local
+objects can still be preserved after a normal build failure.
+
+Protected `apple-ios` jobs use the fixed `qt-checkpoint-artifact.py
+restore-protected-compiler` command. It selects one checkpoint before downloading
+one archive, considering the existing protected-branch checkpoint and up to eight
+newer same-fork feature checkpoints. A feature checkpoint needs its original
+attempt-1 native PR workflow, the reviewed immutable writer source, a tested
+merge tree equal to the normally integrated head tree, and ancestry in the
+current protected branch. Its actual Actions compiler job must have successful
+cache validation, stop, creation and upload steps. The original upload action's
+artifact ID and whole ZIP digest must match the artifact API record; a name,
+successful build, timestamp or inner manifest alone cannot supply this proof.
+
+The selected ZIP has a 30-second socket/open timeout and a ten-minute total copy
+deadline. Native JSON and original job-log reads have 30- and 60-second whole
+operation deadlines, including a peer that trickles bytes. Its whole
+size/digest, original producer branch, compiler namespace,
+inner archive digest and bounded safe extraction must pass before installation.
+Protected source and original native facts are checked again before the staged
+directory is installed. Protected and other branch jobs keep their existing
+fallbacks. Same-fork feature/fix PR builds use `restore-pr-compiler` from an
+exact protected `apple-ios` base checkout with isolated Python startup (`-I -S
+-B`), before any candidate script runs. The protected namespace helper computes
+the actual compiler/SDK identity; objects are merged only if the later build
+namespace is still identical. The parser authenticates the current open PR, protected base, native merge,
+original attempt and Actions owner, then requires the PR's compiler recipe,
+parser, namespace and launcher inputs to equal that protected base. A changed
+recipe or missing proof declines this optional restore and leaves compilation
+available.
+
+This PR read path accepts only an actual protected-branch producer. Its original
+native writer, successful cache validation/stop/create/upload steps, artifact ID,
+whole ZIP digest and ancestry in the PR base are checked before one archive is
+downloaded. Candidate-branch and integrated-feature artifacts are not direct PR
+candidates; the older protected consumer's integrated discovery stays unchanged.
+PR builds skip the other compiler archive restores, so a missing or invalid
+protected candidate starts without downloading a second cache. The same bounded
+ZIP/inner archive validation and final PR/writer bookends apply before staged
+installation. Existing SDK/dependency provenance and sccache's source, header,
+compiler identity and full argument keys (including E2E/DEV flags) still apply.
+These checkpoints are compiler DATA, never application qualification, a reusable
+test receipt or an original execution environment. No warm-cache speedup is
+claimed until an independently necessary protected producer and relevant PR
+build establish compatible native toolchains and measure actual hits, misses,
+errors and durations. An unrelated demonstration build is not an acceptance
+prerequisite.
 
 The pinned sccache Xcode integration requires response files, Clang modules and
 the index store to be disabled. CI checks all four effective Xcode build
