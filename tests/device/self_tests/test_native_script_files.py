@@ -85,6 +85,33 @@ class ScriptFilesTests(unittest.TestCase):
         self.store = PrivateFeatureState(self.path / 'intent.json')
         self.files = OwnedScriptFiles(self.boundary.native(), self.store, BINDING)
 
+    def test_ios_current_nonce_cannot_make_old_or_preaction_file_receipt_fresh(self):
+        for requested,captured in ((18000,18000),(19999,20000)):
+            source=Boundary(self.path);source.mutate=lambda value:value.update(requestedEpochMs=requested,capturedEpochMs=captured)
+            reader=source.native(ios=True)
+            with self.subTest(requested=requested,captured=captured),self.assertRaises(NativeUIError):
+                reader.request('observe',RUN,'b'*64)
+            self.assertEqual(1,len(source.commands));self.assertEqual(0,reader.sequence)
+
+    def test_ios_file_clock_is_independent_monotonic_and_part_of_the_existing_deadline(self):
+        for fault in ('clock-regressed','late-clock','rewound-clock','late-initial','lost-initial-owner'):
+            source=Boundary(self.path);reader=source.native(ios=True);calls=[0]
+            def clock():
+                calls[0]+=1
+                if calls[0]==1:
+                    if fault=='late-initial':source.clock=6
+                    elif fault=='lost-initial-owner':source.okay=False
+                if calls[0]>1:
+                    if fault=='late-clock':source.clock=6
+                    elif fault=='rewound-clock':source.clock=-1
+                    else:return 19800
+                return 20000
+            reader.clock_ms=clock
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):reader.request('observe',RUN,'b'*64)
+            initial=fault in ('late-initial','lost-initial-owner')
+            self.assertEqual(1 if initial else 2,calls[0])
+            self.assertEqual(0 if initial else 1,len(source.commands));self.assertEqual(0,reader.sequence)
+
     def test_original_bytes_are_separately_read_after_stage_and_absence_after_release(self):
         self.assertEqual(self.boundary.root.as_uri(), self.files.stage(RUN))
         self.assertEqual(['stage', 'observe'], [c['operation'] for c in self.boundary.commands])

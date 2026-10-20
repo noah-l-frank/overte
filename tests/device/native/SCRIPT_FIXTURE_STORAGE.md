@@ -5,6 +5,15 @@ code, chooses a picker item or emits an execution verdict. Normal file selection
 actual engine/require history and advancing entity effects remain separate.
 C++ is **uncompiled**, and all device behavior is **unqualified**.
 
+Every request is bracketed by separately acquired original native clocks,
+including HTTP/AFC on iOS. The actual request timestamp cannot predate the
+first clock; the final clock cannot regress and must establish capture
+freshness. Neither host UTC nor the receipt's own capture time qualifies it.
+Clock reads and process guards share the existing five-second monotonic
+deadline. A late initial clock prevents sending, and a late final clock leaves
+the receipt cursor and durable cleanup intent uncommitted. Uncertain mutations
+are never replayed; normal independent file readback remains mandatory.
+
 The `feature-script-files` command has exactly `schemaVersion:1`, a fresh
 `commandId` (32 lowercase hex, `ios-` prefix on iOS), `action`, `operation`,
 `runId` (32 lowercase hex) and `ownerToken` (64 lowercase hex). Operations are
