@@ -299,7 +299,17 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         codeql=ROOT/'.github/workflows/codeql.yml'
         self.assertFalse(codeql.is_symlink())
         self.assertIn(codeql.stat().st_mode & 0o777,(0o444,0o644))
-        self.assertEqual(blob(codeql.read_bytes())['sha'],codeql_by_generation[installed])
+        allowed_codeql={codeql_by_generation[installed]}
+        if installed in {'protected-producer-original-default-required-context-v1',
+                         'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}:
+            self.assertEqual(rows[installed][caller],{'mode':'100644','type':'blob',
+                'sha':'22fe0d6d39d120f800099136d7d1ab5280d80b41'})
+            upload=ROOT/'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml'
+            self.assertFalse(upload.is_symlink())
+            self.assertIn(upload.stat().st_mode & 0o777,(0o444,0o644))
+            self.assertEqual(blob(upload.read_bytes())['sha'],'b29e0558dc69bc9dd6fc6b47bd6024382be4079d')
+            allowed_codeql.add('b29e0558dc69bc9dd6fc6b47bd6024382be4079d')
+        self.assertIn(blob(codeql.read_bytes())['sha'],allowed_codeql)
         for name in ('protected-producer-original-default-v1','protected-producer-original-default-boolean-v1',
                      'protected-producer-original-default-required-context-v1',
                      'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'):

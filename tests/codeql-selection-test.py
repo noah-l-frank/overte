@@ -2694,7 +2694,19 @@ class NativeUploadResultsTests(unittest.TestCase):
         self.assertEqual(publish['with']['overwrite'],False)
         self.assertEqual(publish['with']['if-no-files-found'],'error')
         self.assertEqual(CODEQL.result_workflow_sources()[-1],(CODEQL._UPLOAD_RESULTS_WORKFLOW,CODEQL._SCHEDULING_SOURCE_WORKFLOW))
-        self.assertNotEqual((ROOT / RESULTS.WORKFLOW).read_bytes(),raw)
+        self.assertFalse(path.is_symlink())
+        self.assertIn(path.stat().st_mode & 0o777,(0o444,0o644))
+        active=ROOT/RESULTS.WORKFLOW
+        self.assertFalse(active.is_symlink())
+        self.assertIn(active.stat().st_mode & 0o777,(0o444,0o644))
+        active_raw=active.read_bytes()
+        active_blob=hashlib.sha1(b'blob '+str(len(active_raw)).encode()+b'\0'+active_raw).hexdigest()
+        self.assertIn(active_blob,(CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW,CODEQL._UPLOAD_RESULTS_WORKFLOW))
+        if active_blob==CODEQL._UPLOAD_RESULTS_WORKFLOW:
+            self.assertEqual(active_raw,raw)
+        else:
+            self.assertEqual(active_blob,CODEQL._REQUIRED_CONTEXT_RESULTS_WORKFLOW)
+            self.assertNotEqual(active_raw,raw)
 
 
 if __name__ == "__main__":

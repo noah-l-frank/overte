@@ -1372,7 +1372,21 @@ class MetadataSchedulingTests(unittest.TestCase):
         self.assertFalse(codeql.is_symlink())
         self.assertIn(codeql.stat().st_mode & 0o777,(0o444,0o644))
         raw=codeql.read_bytes()
-        self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),variants[installed][1])
+        allowed_codeql={variants[installed][1]}
+        if installed in {'protected-producer-original-default-required-context-v1',
+                         'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}:
+            self.assertEqual(current,'22fe0d6d39d120f800099136d7d1ab5280d80b41')
+            upload=root/'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml'
+            self.assertFalse(upload.is_symlink())
+            self.assertIn(upload.stat().st_mode & 0o777,(0o444,0o644))
+            upload_raw=upload.read_bytes()
+            self.assertEqual(hashlib.sha1(b'blob '+str(len(upload_raw)).encode()+b'\0'+upload_raw).hexdigest(),
+                'b29e0558dc69bc9dd6fc6b47bd6024382be4079d')
+            allowed_codeql.add('b29e0558dc69bc9dd6fc6b47bd6024382be4079d')
+        self.assertIn(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),allowed_codeql)
+        # Only the installed security recipe identity is checked above. The
+        # following fake native jobs remain Repository scheduling observations;
+        # they supply no CodeQL analysis, upload or result proof.
         # The authentic current tuple and original22 recipe are independent
         # variants. Neither a label nor canonical staging supplies a new run.
         for recipe in dict.fromkeys((current,variants['protected-producer-original-default-v1'][0])):
