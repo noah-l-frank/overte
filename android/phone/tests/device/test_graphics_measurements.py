@@ -21,7 +21,7 @@ from feature_journeys.graphics_fixture import scene
 from feature_journeys.graphics_resources import GraphicsResources
 from self_tests.test_native_feature_observation import Boundary as NativeBoundary
 from self_tests.test_native_graphics_subject import Boundary as SubjectBoundary
-from self_tests.test_world_render_evidence import Boundary as RenderBoundary
+from self_tests.test_world_render_evidence import Boundary as RenderBoundary,frame_view
 from self_tests.test_token_graphics_ui import GraphicsBoundary
 from audio_native_boundary import ControlNativeBoundary
 from overte_phone_graphics_measurements import compose
@@ -72,7 +72,7 @@ class Sources:
                 managers=[],pickers=[],tabletPresent=True,tabletShown=True))
         render=RenderBoundary();self.capture=deepcopy(render.reader().read(0)[0])
         self.capture['source'].update(captureVersion=2,sourceExtent=[104,94],sourceViewport=[0,0,104,94],targetExtent=[160,144],
-            renderTrace=dict(traceVersion=1,frameId='8'*32,recordedEpochMs=20000,begunEpochMs=20000,completedEpochMs=20000,
+            renderTrace=dict(traceVersion=2,recordedView=frame_view(160/144),frameId='8'*32,recordedEpochMs=20000,begunEpochMs=20000,completedEpochMs=20000,
                 renderer='forward',view='main-mono',forwardBatches=2,forwardDrawCommands=8,hazeBatches=0,hazeDrawCommands=0,
                 mirrorBatches=0,mirrorDrawCommands=0))
         self.image()
@@ -208,6 +208,22 @@ class GraphicsMeasurementsTests(unittest.TestCase):
     def test_camera_projection_aspect_must_agree_with_original_world_target_extent(self):
         source=Sources()
         for packet in (source.subject_before,source.subject_after):packet['source']['view']['aspectRatio']=1.6
+        with self.assertRaises(NativeUIError):source.measure()
+
+    def test_fresh_capture_from_a_different_recorded_view_cannot_borrow_the_current_live_camera(self):
+        for change in (dict(position=[1,1.6,0]),dict(rotation=[0,1,0,0]),dict(fieldOfViewDegrees=75)):
+            source=Sources();source.capture['source']['renderTrace']['recordedView'].update(change)
+            with self.subTest(change=change),self.assertRaises(NativeUIError):source.measure()
+
+    def test_measurement_v2_requires_recorded_view_even_when_batch_counts_and_pixels_are_valid(self):
+        source=Sources();trace=source.capture['source']['renderTrace'];trace['traceVersion']=1;trace.pop('recordedView')
+        with self.assertRaises(NativeUIError):source.measure()
+
+    def test_normal_first_person_menu_mode_requires_the_same_actual_view_alignment(self):
+        source=Sources()
+        for packet in (source.subject_before,source.subject_after):packet['source']['view']['mode']='first person look at'
+        self.assertEqual(.65,source.measure()['state']['resolution'])
+        for packet in (source.subject_before,source.subject_after):packet['source']['view']['position'][2]=1
         with self.assertRaises(NativeUIError):source.measure()
 
     def test_foreign_entities_in_controlled_subject_scan_keep_preparation_red(self):

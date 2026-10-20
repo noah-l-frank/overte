@@ -1,4 +1,4 @@
-# Phone original Graphics measurement join, version 1
+# Phone original Graphics measurement join, version 2
 
 `overte_phone_graphics_measurements.compose` validates original source packets
 and derives actual v16 state. It accepts no verb, requested setting or expected
@@ -25,6 +25,17 @@ and aspect 0.0001. Quaternion sign equivalence is allowed without rewriting fact
 Old queued frame recordings cannot be retimed as post-barrier images. The actual
 camera aspect must agree with the original target extent within 0.01.
 
+Version 2 additionally requires trace version 2's immutable `recordedView` from
+the actual RenderArgs frustum used when this forward frame was recorded. Its
+original position, rotation, FOV and aspect must agree with the independently
+observed native view. The original row-major projection and near/far geometry
+must be finite, nonsingular perspective data. A later current Camera getter
+cannot reconstruct or replace a missing/different recorded view, even when
+image timestamps, batch counts and current marker cells are valid. Old trace-v1
+packets cannot satisfy this full measurement contract. Native instrumentation
+remains uncompiled; this is original command-generation view provenance, not a
+claim that a GPU uniform/readback or final pixels were independently qualified.
+
 Preparation checks require the original controlled HTTP scene ticket/receipt,
 actual scene URL, all seven native UUIDs and their actual v2 positions, geometry,
 names, colors, Zone haze, reflector mode and Web URL. Missing, renamed, moved,
@@ -32,6 +43,11 @@ foreign or stale subjects are rejected; HTTP success alone cannot prove readines
 The declared controlled-subject scan must contain no foreign entities. The current
 native view must match the fixed first-person fixture view. The scan's partial
 property scope is not promoted into complete global foreign-state preservation.
+
+The reviewed ordinary `View > First Person` action selects native `first person
+look at` (MenuOption::FirstPersonLookAt). That original mode and native `first
+person` are admitted only with the same measured fixture pose and recorded-view
+agreement. A label/selection ACK cannot substitute for actual alignment.
 
 Public `resolution/haze/mirror` come from original native preferences.
 `renderScale` is the arithmetic mean of actual source-viewport/target ratios,
@@ -50,17 +66,18 @@ challenge cells, a disjoint nonblank subject ROI and world-target source. Fresh
 transport digests cannot hide old/foreign marker pixels, a blank subject or a UI
 screenshot. Returned evidence contains original hashes, native trace and measured
 ratios. The existing common journey still independently checks change across
-original subject images. Feature-specific pixel classification, actual captured
-frame pose, durable scene/settings/restart ownership, independent publisher and
+original subject images. Feature-specific pixel classification, durable
+scene/settings/restart ownership, independent publisher and
 complete native/host cleanup are still required before advertising a full triple.
 No scene fixture or temporary image lease may be silently excluded from its
 owning cleanup ledger merely because this pure function returns a panel list.
 
-Eighteen Phone host cases use explicitly synthetic original getter/socket/pixel
+Twenty-one Phone host cases use explicitly synthetic original getter/socket/pixel
 boundaries. Fixed synthetic pixels do not depend on requested feature flags.
 Counterexamples cover settings without executed passes, passes despite false
 settings, legacy/missing traces, validly hashed wrong markers, blank/UI images,
 wrong scene/geometry/view, live mutation, lifecycle changes, old frame recordings,
 context/cursor loss, missing inventories, stale/retired provider ownership,
-anisotropy and mismatched projection aspect. These verify source-join logic only;
+anisotropy, mismatched projection aspect and a fresh image from a different
+recorded view. These verify source-join logic only;
 no native client, compiler, build, install or device was used.

@@ -35,11 +35,36 @@ def extent(value):
     return type(value) is list and len(value)==2 and all(integer(v,1,4096) for v in value) and value[0]*value[1]<=PIXELS
 
 
+def recorded_view(value):
+    exact(value,{'position','rotation','projection','fieldOfViewDegrees','aspectRatio','nearClip','farClip','perspective'})
+    need(type(value['position']) is list and len(value['position'])==3 and all(number(v,-1e6,1e6) for v in value['position'])
+         and type(value['rotation']) is list and len(value['rotation'])==4
+         and all(number(v,-1.01,1.01) for v in value['rotation']) and abs(sum(v*v for v in value['rotation'])-1)<.02
+         and number(value['fieldOfViewDegrees'],1,179) and number(value['aspectRatio'],.1,10)
+         and number(value['nearClip'],1e-6,1e6) and number(value['farClip'],1e-6,1e9)
+         and value['farClip']>value['nearClip'] and value['perspective'] is True
+         and type(value['projection']) is list and len(value['projection'])==16
+         and all(number(v,-1e12,1e12) for v in value['projection'])
+         and sum(abs(v) for v in value['projection'][12:15])>1e-12 and abs(value['projection'][15])<1e-6)
+    # Validate actual nonsingular numeric geometry, without replacing it with a
+    # guessed FOV-derived matrix or requiring a centered/off-axis projection.
+    matrix=[list(value['projection'][row*4:row*4+4]) for row in range(4)]
+    for column in range(4):
+        pivot=max(range(column,4),key=lambda row:abs(matrix[row][column]))
+        need(abs(matrix[pivot][column])>1e-12)
+        matrix[column],matrix[pivot]=matrix[pivot],matrix[column]
+        for row in range(column+1,4):
+            factor=matrix[row][column]/matrix[column][column]
+            for index in range(column+1,4):matrix[row][index]-=factor*matrix[column][index]
+    return value
+
+
 def render_trace(value,source,epoch):
+    need(type(value) is dict and type(value.get('traceVersion')) is int and value['traceVersion'] in (1,2))
     exact(value,{'traceVersion','frameId','recordedEpochMs','begunEpochMs','completedEpochMs','renderer','view',
-        'forwardBatches','forwardDrawCommands','hazeBatches','hazeDrawCommands','mirrorBatches','mirrorDrawCommands'})
-    need(type(value['traceVersion']) is int and value['traceVersion']==1
-         and type(value['frameId']) is str and re.fullmatch('[0-9a-f]{32}',value['frameId']) is not None
+        'forwardBatches','forwardDrawCommands','hazeBatches','hazeDrawCommands','mirrorBatches','mirrorDrawCommands'}
+        |({'recordedView'} if value['traceVersion']==2 else set()))
+    need(type(value['frameId']) is str and re.fullmatch('[0-9a-f]{32}',value['frameId']) is not None
          and value['renderer']=='forward' and value['view']=='main-mono')
     stamps=[value[k] for k in ('recordedEpochMs','begunEpochMs','completedEpochMs')]
     need(all(integer(v,1) for v in stamps) and stamps==sorted(stamps)
@@ -51,6 +76,7 @@ def render_trace(value,source,epoch):
              and batches<=draws and (batches==0)==(draws==0))
     need(value['hazeBatches']<=value['forwardBatches'] and value['hazeDrawCommands']<=value['forwardDrawCommands']
          and value['forwardBatches']<=2)
+    if value['traceVersion']==2:recorded_view(value['recordedView'])
     return value
 
 
@@ -75,6 +101,8 @@ def validate(value,request,pid,epoch):
     need(all(integer(v,1) for v in stamps) and stamps==sorted(stamps))
     fresh(source['capturedEpochMs'],epoch)
     if source['captureVersion']==2:render_trace(source['renderTrace'],source,epoch)
+    if source['captureVersion']==2 and source['renderTrace']['traceVersion']==2:
+        need(abs(source['renderTrace']['recordedView']['aspectRatio']-source['targetExtent'][0]/source['targetExtent'][1])<=.01)
     viewport=source['sourceViewport']
     need(type(viewport) is list and len(viewport)==4 and all(integer(v,0,4096) for v in viewport)
          and viewport[2]>0 and viewport[3]>0 and viewport[0]+viewport[2]<=source['sourceExtent'][0]
@@ -106,14 +134,14 @@ def measured_scale(value):
 
 
 class NativeWorldRenderCapture:
-    def __init__(self,send,read,files,clock_ms,guard,pid,*,intent,ios=False,require_trace=False,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,send,read,files,clock_ms,guard,pid,*,intent,ios=False,require_trace=False,require_frame_view=False,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(v) for v in (send,read,clock_ms,guard,intent,monotonic,sleep)) and integer(pid,1)
-             and type(ios) is bool and type(require_trace) is bool
+             and type(ios) is bool and type(require_trace) is bool and type(require_frame_view) is bool
              and callable(getattr(files,'read',None)))
         self.send,self.original,self.files,self.clock_ms,self.guard,self.pid=send,read,files,clock_ms,guard,pid
         self.ios,self.monotonic,self.sleep,self.intent=ios,monotonic,sleep,intent
         self.instance,self.sequence,self.acquisition,self.captured=None,0,0,0
-        self.require_trace,self.frames=require_trace,set()
+        self.require_trace,self.require_frame_view,self.frames=require_trace or require_frame_view,require_frame_view,set()
 
     def read(self,after_sequence):
         try:
@@ -139,6 +167,7 @@ class NativeWorldRenderCapture:
                     validate(value,request,self.pid,epoch)
                     source=value['source']
                     need(not self.require_trace or source['captureVersion']==2)
+                    need(not self.require_frame_view or source.get('renderTrace',{}).get('traceVersion')==2)
                     frame=source.get('renderTrace',{}).get('frameId')
                     need(frame is None or (frame not in self.frames and len(self.frames)<256))
                     need(self.instance in (None,value['instance']) and value['sequence']>after_sequence

@@ -15,7 +15,8 @@ namespace gpu {
 // provenance, not proof that a particular fragment was shaded or visible.
 class FeatureRenderTrace {
 public:
-    FeatureRenderTrace() : _id(QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')), _recorded(now()) {}
+    explicit FeatureRenderTrace(const QVariantMap& view) :
+        _id(QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')), _recorded(now()), _view(view) {}
 
     void begin(Backend* backend) {
         if (backend && backend == Backend::featureExecutingBackend() && !_begun) {
@@ -44,7 +45,7 @@ public:
 
     QVariantMap snapshot(Backend* backend) const {
         if (!_begun || !backend || backend != _backend || backend != Backend::featureExecutingBackend()) { return {}; }
-        return {{"traceVersion",1},{"frameId",_id},{"recordedEpochMs",_recorded},
+        return {{"traceVersion",2},{"frameId",_id},{"recordedEpochMs",_recorded},{"recordedView",_view},
             {"begunEpochMs",_begun},{"completedEpochMs",_completed},{"renderer","forward"},{"view","main-mono"},
             {"forwardBatches",_forwardBatches},{"forwardDrawCommands",_forwardDraws},
             {"hazeBatches",_hazeBatches},{"hazeDrawCommands",_hazeDraws},
@@ -54,6 +55,7 @@ private:
     static qint64 now() { return QDateTime::currentMSecsSinceEpoch(); }
     const QString _id;
     const qint64 _recorded;
+    const QVariantMap _view;
     Backend* _backend {nullptr};
     qint64 _begun {0}, _completed {0};
     qulonglong _forwardBatches {0}, _forwardDraws {0}, _hazeBatches {0}, _hazeDraws {0}, _mirrorBatches {0}, _mirrorDraws {0};

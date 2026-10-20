@@ -306,8 +306,22 @@ void PrepareForward::run(const RenderContextPointer& renderContext, const Inputs
     if (args->_mirrorDepth == 0) {
         args->_featureRenderTrace.reset();
         if (QCoreApplication::arguments().contains("--testScript") &&
-                args->_renderMode == RenderArgs::DEFAULT_RENDER_MODE && !args->isStereo()) {
-            const auto trace = std::make_shared<gpu::FeatureRenderTrace>();
+                args->_renderMode == RenderArgs::DEFAULT_RENDER_MODE && !args->isStereo() && args->hasViewFrustum()) {
+            const auto& view = args->getViewFrustum();
+            const auto& position = view.getPosition();
+            const auto& rotation = view.getOrientation();
+            const auto& matrix = view.getProjection();
+            QVariantList projection;
+            // Explicit row-major wire order; GLM's native indexing is column/row.
+            for (int row = 0; row < 4; ++row) {
+                for (int column = 0; column < 4; ++column) { projection.append(matrix[column][row]); }
+            }
+            const QVariantMap recordedView {{"position",QVariantList{position.x,position.y,position.z}},
+                {"rotation",QVariantList{rotation.x,rotation.y,rotation.z,rotation.w}},
+                {"projection",projection},{"fieldOfViewDegrees",view.getFieldOfView()},
+                {"aspectRatio",view.getAspectRatio()},{"nearClip",view.getNearClip()},
+                {"farClip",view.getFarClip()},{"perspective",view.isPerspective()}};
+            const auto trace = std::make_shared<gpu::FeatureRenderTrace>(recordedView);
             args->_featureRenderTrace = trace;
             gpu::doInBatch("FeatureForwardViewBegin", args->_context, [trace](gpu::Batch& batch) {
                 batch.runLambda([trace] { trace->begin(gpu::Backend::featureExecutingBackend()); });

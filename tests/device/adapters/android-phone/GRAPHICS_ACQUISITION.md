@@ -7,6 +7,10 @@ or launch a client. `require_trace=True` requires the original v2 same-view rend
 source, with no legacy fallback. These are internal components, not complete
 Graphics operations or device acceptance.
 
+`require_frame_view=True` additionally requires trace-v2 recorded-view provenance
+and implies `require_trace`. A legacy acquired image/trace cannot substitute for
+the actual frame's retained command-generation view.
+
 Each role has its own private original ownership file:
 `phone-world-render-owner.json` and `phone-world-render-actor-owner.json`.
 Role-bound ownership version 2 has exactly `ownershipVersion:2`, actual `binding`,

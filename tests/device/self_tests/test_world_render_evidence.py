@@ -5,6 +5,7 @@ from copy import deepcopy
 import hashlib
 import io
 import json
+import math
 from pathlib import Path
 import sys
 import subprocess
@@ -19,6 +20,25 @@ from adapters.world_render_evidence import NativeWorldRenderCapture,image_name,m
 def png(size=(16,12),mode='RGBA',color=(25,90,210,255)):
     image=Image.new(mode,size,color);output=io.BytesIO();image.save(output,format='PNG')
     return output.getvalue(),hashlib.sha256(image.tobytes()).hexdigest()
+
+
+def frame_view(aspect=4/3):
+    near,far=.1,100.;f=1/math.tan(math.radians(30))
+    return dict(position=[0,1.6,0],rotation=[0,0,0,1],fieldOfViewDegrees=60,aspectRatio=aspect,
+        nearClip=near,farClip=far,perspective=True,projection=[f/aspect,0,0,0,0,f,0,0,
+            0,0,-(far+near)/(far-near),-2*far*near/(far-near),0,0,-1,0])
+
+
+def trace_boundary(*,view=False):
+    source=Boundary()
+    def trace(packet):
+        execution=dict(traceVersion=2 if view else 1,frameId=format(source.acquisition,'032x'),recordedEpochMs=20000,
+            begunEpochMs=20000,completedEpochMs=20000,renderer='forward',view='main-mono',forwardBatches=2,
+            forwardDrawCommands=8,hazeBatches=2,hazeDrawCommands=8,mirrorBatches=1,mirrorDrawCommands=1)
+        if view:execution['recordedView']=frame_view()
+        packet['source'].update(captureVersion=2,renderTrace=execution)
+    source.mutate=trace
+    return source
 
 
 class Boundary:
@@ -218,14 +238,7 @@ if(files[2].v.available!==false)throw Error("missing hook green");
 
 class RenderTraceTests(unittest.TestCase):
     def boundary(self):
-        source=Boundary()
-        def trace(packet):
-            packet['source'].update(captureVersion=2,renderTrace=dict(traceVersion=1,
-                frameId=format(source.acquisition,'032x'),recordedEpochMs=20000,begunEpochMs=20000,
-                completedEpochMs=20000,renderer='forward',view='main-mono',forwardBatches=2,
-                forwardDrawCommands=8,hazeBatches=2,hazeDrawCommands=8,mirrorBatches=1,mirrorDrawCommands=1))
-        source.mutate=trace
-        return source
+        return trace_boundary()
 
     def rejects(self,change):
         source=self.boundary();original=source.mutate
@@ -311,6 +324,50 @@ class RenderTraceTests(unittest.TestCase):
         source=self.boundary();reader=source.reader(require_trace=True);reader.frames={format(i+100,'032x') for i in range(256)}
         with self.assertRaises(NativeUIError):reader.read(0)
         self.assertEqual(256,len(reader.frames));self.assertEqual([],source.reads)
+
+
+class RecordedFrameViewTests(unittest.TestCase):
+    def rejects(self,change):
+        source=trace_boundary(view=True);original=source.mutate
+        def edited(packet):original(packet);packet['source']['renderTrace']['recordedView'].update(change)
+        source.mutate=edited
+        with self.assertRaises(NativeUIError):source.reader(require_frame_view=True).read(0)
+        self.assertEqual([],source.reads)
+
+    def test_recorded_view_is_retained_with_original_image_frame_and_gpu_cursors(self):
+        source=trace_boundary(view=True);value,_=source.reader(require_frame_view=True).read(0)
+        self.assertEqual(frame_view(),value['source']['renderTrace']['recordedView'])
+        self.assertEqual(20000,value['source']['renderTrace']['recordedEpochMs'])
+        self.assertEqual({'schemaVersion','commandId','action'},set(source.commands[0]))
+
+    def test_required_recorded_view_never_accepts_a_legacy_trace_or_capture(self):
+        for source in (Boundary(),trace_boundary()):
+            with self.subTest(trace=source.mutate),self.assertRaises(NativeUIError):source.reader(require_frame_view=True).read(0)
+            self.assertEqual([],source.reads)
+
+    def test_missing_recorded_view_is_not_reconstructed_from_current_camera_or_extent(self):
+        source=trace_boundary(view=True);original=source.mutate
+        def missing(packet):original(packet);packet['source']['renderTrace'].pop('recordedView')
+        source.mutate=missing
+        with self.assertRaises(NativeUIError):source.reader(require_frame_view=True).read(0)
+
+    def test_pose_numbers_quaternion_and_lens_fields_are_closed_actual_geometry(self):
+        for change in (dict(position=[False,1,2]),dict(rotation=[0,0,0,0]),dict(fieldOfViewDegrees=0),
+                dict(nearClip=0),dict(farClip=.05),dict(perspective=False),dict(expectedPosition=[0,1.6,0])):
+            with self.subTest(change=change):self.rejects(change)
+
+    def test_incomplete_nonfinite_or_singular_projection_is_never_substituted_with_a_guessed_matrix(self):
+        for matrix in ([1]*15,[0]*16,[float('nan')]+[0]*15,[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]):
+            with self.subTest(matrix=matrix):self.rejects(dict(projection=matrix))
+
+    def test_recorded_projection_aspect_must_agree_with_actual_target_extent(self):
+        self.rejects(dict(aspectRatio=2.0))
+
+    def test_valid_off_axis_projection_is_preserved_as_recorded_instead_of_recentred(self):
+        source=trace_boundary(view=True);original=source.mutate
+        def offset(packet):original(packet);packet['source']['renderTrace']['recordedView']['projection'][2]=.1
+        source.mutate=offset;value,_=source.reader(require_frame_view=True).read(0)
+        self.assertEqual(.1,value['source']['renderTrace']['recordedView']['projection'][2])
 
 
 

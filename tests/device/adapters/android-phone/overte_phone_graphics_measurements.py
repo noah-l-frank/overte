@@ -17,7 +17,7 @@ from overte_phone_graphics import validate as graphics_packet
 from overte_phone_script_files import validate as tablet_packet
 from overte_phone_script_measurements import fixture_scope
 
-VERSION=1
+VERSION=2
 
 
 def near(actual,wanted,tolerance=1e-4):
@@ -50,7 +50,7 @@ def aligned_subject(packet,run,scene_ticket,fixture_url):
                  and row['haze']['color']==[haze['hazeColor'][axis] for axis in ('red','green','blue')]
                  and row['haze']['glare']==haze['hazeEnableGlare'] and row['haze']['altitudeEffect']==haze['hazeAltitudeEffect']
                  and near(row['haze']['backgroundBlend'],haze['hazeBackgroundBlend']))
-    view=source['view'];need(view['perspective'] and view['mode']=='first person'
+    view=source['view'];need(view['perspective'] and view['mode'] in ('first person','first person look at')
         and near(view['position'],[VIEW['position'][a] for a in 'xyz'],.01))
     # Quaternions q/-q represent the same measured view. Do not rewrite either.
     rotation=[VIEW['rotation'][a] for a in 'xyzw']
@@ -86,11 +86,18 @@ def compose(run,ticket,fixture_url,pid,provider,provider_instance,provider_reque
     need(not any(row['rootVisible'] for row in inventory['managers']) and not any(row['visible'] or row['requestId'] for row in inventory['pickers']))
     render_packet(capture,capture.get('requestId'),pid,epoch);original_pixels(capture,pixels)
     source=capture['source'];need(source['captureVersion']==2)
-    trace=source['renderTrace'];need(trace['forwardDrawCommands']>0)
+    trace=source['renderTrace'];need(trace['forwardDrawCommands']>0 and trace['traceVersion']==2)
     need(before['instance']==after['instance']==subject_before['instance']==subject_after['instance']
          and after['sequence']>before['sequence'] and subject_after['sequence']>subject_before['sequence']
          and before['graphics']==after['graphics'] and before['lifecycle']==after['lifecycle'])
     steady_subject(subject_before,subject_after)
+    # Compare the original recording view retained by this exact GPU frame,
+    # rather than treating a later live Camera getter as the image's pose.
+    recorded=trace['recordedView'];live=subject_before['source']['view']
+    need(near(recorded['position'],live['position'],.001)
+         and (near(recorded['rotation'],live['rotation'],.0001) or near(recorded['rotation'],[-v for v in live['rotation']],.0001))
+         and near(recorded['fieldOfViewDegrees'],live['fieldOfViewDegrees'],.001)
+         and near(recorded['aspectRatio'],live['aspectRatio'],.0001))
     ordered=[before['capturedEpochMs'],subject_before['requestedEpochMs'],subject_before['capturedEpochMs'],
         ui['capturedEpochMs'],tablet['capturedEpochMs'],trace['recordedEpochMs'],source['recordedEpochMs'],
         source['capturedEpochMs'],capture['capturedEpochMs'],subject_after['requestedEpochMs'],

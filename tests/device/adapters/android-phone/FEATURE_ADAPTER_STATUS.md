@@ -37,11 +37,17 @@ pending; native instrumentation remains uncompiled.
 
 The [original Graphics measurement join](GRAPHICS_MEASUREMENTS.md) now combines
 native settings, direct UUID/camera observations, original Graphics/Tablet UI,
-same-view render trace and original challenge pixels. Eighteen host counterexamples
+same-view render trace and original challenge pixels. Twenty-one host cases
 keep preferences separate from executed batches and reject inconsistent, stale
 or foreign originals. It is a pure join, without full transport/fixture/input/
 restart/publisher/cleanup ownership or complete feature-specific pixel verdicts.
 No Graphics triple is advertised.
+
+The join now requires trace-v2 original recorded-view metadata, keeping a fresh
+image from an earlier/different camera recording from borrowing current live
+Camera facts. Seven shared and three Phone join/factory cases cover the new
+view boundary, matrix validation and refused legacy fallback. This native
+instrumentation remains uncompiled and all devices remain untested.
 
 Original world images now have [separate role-bound ownership](GRAPHICS_ACQUISITION.md)
 and native issuer/digest-gated receipt removal. General cleanup attempts both

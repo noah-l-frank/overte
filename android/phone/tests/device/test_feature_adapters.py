@@ -54,7 +54,7 @@ from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_storage import receipt_file
-from self_tests.test_world_render_evidence import Boundary as WorldBoundary
+from self_tests.test_world_render_evidence import Boundary as WorldBoundary,trace_boundary
 from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
 from self_tests.test_owned_world_render import LocalAdb
 from self_tests.test_native_animation_history import history_source
@@ -290,7 +290,7 @@ class FeatureAdapterTests(unittest.TestCase):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
 
-    def world_render_boundaries(self, *, role='primary', read_only=False, require_trace=False):
+    def world_render_boundaries(self, *, role='primary', read_only=False, require_trace=False, require_frame_view=False):
         source=WorldBoundary();storage=WorldStorageBoundary();storage.raw=source.raw
         storage.mutate=lambda sample:sample.update(instance='a'*32)
         root=self.fixture.root/'files/overte-e2e';root.mkdir(parents=True,mode=0o700)
@@ -304,6 +304,9 @@ class FeatureAdapterTests(unittest.TestCase):
             self.assertEqual(command.get('requestId',command['commandId']),journal['capture']['commandId'])
             if command['action']=='feature-world-render-observe':
                 source.intents.append(command);source.send(command)
+                if (source.sample is not None and source.sample.get('requestId')==command['commandId']
+                        and source.sample.get('source',{}).get('available') is True):
+                    storage.present=True # The synthetic GPU source actually acquired a new owned image.
             elif command['action']=='feature-world-render-receipt':
                 local.receipt_commands.append(deepcopy(command));receipt_sequence+=1
                 self.assertIn(command['receiptId'],journal['receipts'])
@@ -339,7 +342,8 @@ class FeatureAdapterTests(unittest.TestCase):
             patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
                 monotonic=lambda:source.clock,sleep=source.sleep))):
             boundary.start();self.addCleanup(boundary.stop)
-        return source,local,self.adapter._world_render_capture(SELECTOR,read_only=read_only,role=role,require_trace=require_trace)
+        return source,local,self.adapter._world_render_capture(SELECTOR,read_only=read_only,role=role,
+            require_trace=require_trace,require_frame_view=require_frame_view)
 
     def test_phone_world_original_pixels_and_separate_memory_file_cleanup_use_bound_factory(self):
         source,local,capture=self.world_render_boundaries()
@@ -389,7 +393,7 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual(legacy,actor_store.read())
 
     def test_actor_or_unknown_render_roles_cannot_bootstrap_a_normal_input_session(self):
-        for values in (dict(role='actor'),dict(role='foreign',read_only=True),dict(require_trace=1)):
+        for values in (dict(role='actor'),dict(role='foreign',read_only=True),dict(require_trace=1),dict(require_frame_view=1)):
             with self.subTest(values=values),self.assertRaises(ValueError):self.adapter._world_render_capture(SELECTOR,**values)
         self.assertIsNone(self.adapter.world_render_store(SELECTOR).read())
 
@@ -398,6 +402,17 @@ class FeatureAdapterTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):capture.read(0)
         self.assertIsNotNone(self.adapter.world_render_store(SELECTOR).read())
         capture.release();self.assertIsNone(self.adapter.world_render_store(SELECTOR).read())
+
+    def test_required_recorded_view_factory_refuses_legacy_and_preserves_actual_frame_view(self):
+        source,_local,capture=self.world_render_boundaries(require_frame_view=True)
+        self.assertTrue(capture.capture.require_frame_view)
+        with self.assertRaises(RuntimeError):capture.read(0)
+        capture.release()
+        source.mutate=trace_boundary(view=True).mutate
+        value,_=capture.read(0)
+        self.assertEqual(2,value['source']['renderTrace']['traceVersion'])
+        self.assertEqual([0,1.6,0],value['source']['renderTrace']['recordedView']['position'])
+        capture.release()
 
     def test_changed_receipt_bytes_cannot_be_removed_as_an_original_native_receipt(self):
         _source,local,capture=self.world_render_boundaries();capture.read(0)

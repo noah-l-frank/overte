@@ -27,7 +27,7 @@ trace. No global last-frame trace is read. Nested mirror and secondary views do
 not start or replace the main trace. Deferred capture uses legacy version 1.
 
 The same original tone-map readback carries `captureVersion:2` and `renderTrace`:
-`traceVersion:1`, random native `frameId`, original `recordedEpochMs`,
+`traceVersion:2`, random native `frameId`, original `recordedEpochMs`,
 `begunEpochMs`, `completedEpochMs`, `renderer:"forward"`, `view:"main-mono"`,
 and integer `forwardBatches/forwardDrawCommands`, `hazeBatches/hazeDrawCommands`,
 `mirrorBatches/mirrorDrawCommands`. Haze counts identify draw-containing original
@@ -36,6 +36,23 @@ model. Mirror counts identify the root mirror composite batches with actual
 draw commands. Empty batches contribute zero. All callbacks require the same
 actual executing backend, and the image and trace travel in the same acquisition
 packet. Missing execution cannot downgrade a declared trace to legacy version 1.
+
+Trace version 2 additionally retains the immutable `recordedView` taken from the
+actual primary RenderArgs frustum at command generation: original world position,
+quaternion rotation, row-major 16-number projection, FOV, aspect ratio, near/far
+clip and perspective flag. The CPU view is kept with the same GPU command/frame
+object that later yields the original image and execution facts. No requested
+camera pose or expected matrix is accepted. It is a recording provenance source,
+not a separate GPU-uniform readback or fragment/visibility verdict.
+
+Readers continue explicitly accepting closed trace-v1 history. Full Phone
+Graphics measurement version 2 requires trace-v2 view provenance. The internal
+capture factory's `require_frame_view=True` implies required trace and rejects
+legacy capture/trace data. Missing views are never reconstructed from live
+Camera getters or guessed FOV matrices. Validation preserves valid off-axis
+projections, rejects singular/nonfinite/nonperspective data and checks original
+view aspect against target extent. Seven new shared cases and three Phone
+join/factory cases exercise these boundaries without compiling or rendering.
 
 These facts prove execution of draw-containing batches with those bindings.
 They do not identify visible fragments, prove shader arithmetic or prove an

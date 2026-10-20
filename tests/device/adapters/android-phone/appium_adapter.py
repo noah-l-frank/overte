@@ -420,9 +420,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/'+GRAPHICS_SUBJECT_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
-    def _world_render_capture(self, selector, *, read_only=False, role='primary', require_trace=False):
+    def _world_render_capture(self, selector, *, read_only=False, role='primary', require_trace=False, require_frame_view=False):
         # Internal original-image prerequisite, not a full feature producer.
-        require(type(read_only) is bool and type(require_trace) is bool and role in ('primary','actor')
+        require(type(read_only) is bool and type(require_trace) is bool and type(require_frame_view) is bool and role in ('primary','actor')
                 and (role!='actor' or read_only),'PHONE_WORLD_RENDER_SCOPE_INVALID')
         _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector,read_only=read_only)
         native = self._native_feature_observer(selector,read_only=read_only)
@@ -442,7 +442,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         capture = NativeWorldRenderCapture(native.send,
             lambda: transport.read_debug_app_file(device, target['appId'],
                 'files/overte-e2e/' + WORLD_RENDER_FILE, attempts=1),
-            storage, native.clock_ms, native.guard, native.pid, intent=owner.intent, require_trace=require_trace, **options)
+            storage, native.clock_ms, native.guard, native.pid, intent=owner.intent,
+            require_trace=require_trace, require_frame_view=require_frame_view, **options)
         check()
         return OwnedWorldRenderCapture(capture, storage, owner, receipts)
 
