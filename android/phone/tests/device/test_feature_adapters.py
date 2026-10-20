@@ -684,6 +684,87 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual([],self.native.inputs)
         self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
 
+    def test_independent_account_probe_uses_originals_and_separate_actor_ownership_without_sdk_repair(self):
+        source,_probe=self.account_probe_boundaries();self.read_only_boundaries()
+        actor=self.adapter._account_probe(SELECTOR,read_only=True,role='actor')
+        value=actor.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
+        self.assertEqual(401,value['source']['httpStatus'])
+        self.assertIsNone(self.adapter.account_probe_store(SELECTOR).read())
+        self.assertIsNotNone(self.adapter.account_probe_store(SELECTOR,role='actor').read())
+        actor.release();self.assertIsNone(self.adapter.account_probe_store(SELECTOR,role='actor').read())
+        self.assertEqual([],self.native.inputs)
+
+    def test_independent_origin_observation_retains_original_admission_and_cannot_stage_or_release(self):
+        _source,_native,origin=self.account_origin_boundaries();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN)
+        self.read_only_boundaries()
+        actor=self.adapter._account_origin(SELECTOR,read_only=True)
+        self.assertEqual(31,actor.native_admission['processId'])
+        self.assertTrue(actor.source.request(actor.owned()['data'],'observe')['source']['originExists'])
+        for operation in ('stage','release'):
+            with self.subTest(operation=operation),self.assertRaises((RuntimeError,ValueError)):
+                actor.source.request(actor.owned()['data'],operation)
+        self.assertIsNotNone(self.adapter.account_origin_store(SELECTOR).read());self.assertEqual([],self.native.inputs)
+
+    def test_independent_login_ui_capture_cannot_be_used_to_deliver_private_credential_input(self):
+        source,_controls=self.login_boundaries();self.read_only_boundaries()
+        actor=self.adapter._login_controls(SELECTOR,source.ui.intent,LOGIN_RUN,LOGIN_ORIGIN,read_only=True)
+        self.assertEqual(2,actor.capture()['loginControlsVersion'])
+        with self.assertRaises(RuntimeError):actor.open()
+        self.assertEqual([],source.ui.inputs)
+
+    def test_readonly_account_commands_reject_desired_facts_urls_credentials_and_mutations_before_dispatch(self):
+        source,_probe=self.account_probe_boundaries();self.read_only_boundaries()
+        native=self.adapter._native_feature_observer(SELECTOR,read_only=True)
+        good=dict(schemaVersion=1,commandId='f'*32,requestId='f'*32,action='feature-account-probe',
+            operation='read',runId=ACCOUNT_RUN,ticket=ACCOUNT_TICKET)
+        bad=[good|edit for edit in (dict(expected=True),dict(url='https://foreign.invalid'),dict(password='synthetic'),
+            dict(operation='login'),dict(schemaVersion=True),dict(commandId='ios-'+'f'*32))]
+        bad+=[dict(schemaVersion=1,commandId='f'*32,action='phone-login-ui',
+                   request=dict(schemaVersion=1,commandId='f'*32,action='activate')),
+              dict(schemaVersion=1,commandId='f'*32,action='feature-account-origin',operation='release',
+                   runId=ACCOUNT_RUN,ownerToken='f'*64,instance='f'*32)]
+        for value in bad:
+            with self.subTest(value=value),self.assertRaises((ValueError,RuntimeError)):native.send(value)
+        self.assertEqual([],source.commands);self.assertEqual([],self.native.inputs)
+
+    def test_general_cleanup_also_drains_separate_actor_probe_and_rejects_undrained_actor_intent(self):
+        source,_probe=self.account_probe_boundaries();self.read_only_boundaries()
+        actor=self.adapter._account_probe(SELECTOR,read_only=True,role='actor')
+        actor.acquire(ACCOUNT_RUN,ACCOUNT_TICKET);source.pending=True
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_ACCOUNT_PROBE_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertIsNotNone(self.adapter.account_probe_store(SELECTOR,role='actor').read())
+        source.pending=False
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}):self.adapter.cleanup(SELECTOR)
+        self.assertIsNone(self.adapter.account_probe_store(SELECTOR,role='actor').read())
+
+    def test_general_cleanup_cannot_forget_authentication_original_histories_in_any_role_or_process(self):
+        for role in ('primary','actor'):
+            for stage in range(4):
+                store=self.adapter.authentication_samples_store(SELECTOR,role,stage)
+                store.write({'unresolved':True},None)
+                with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+                    with self.assertRaisesRegex(ValueError,'PHONE_AUTHENTICATION_SOURCE_CLEANUP_INCOMPLETE'):
+                        self.adapter.cleanup(SELECTOR)
+                    base.assert_called_once()
+                self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
+    def test_general_cleanup_attempts_actor_retirement_even_if_primary_probe_retirement_fails(self):
+        primary=self.adapter.account_probe_store(SELECTOR);actor=self.adapter.account_probe_store(SELECTOR,role='actor')
+        primary.write({'unresolved':'primary'},None);actor.write({'unresolved':'actor'},None)
+        calls=[]
+        def probe(_selector,*,read_only,role):
+            calls.append(role)
+            if role=='primary':raise RuntimeError('Synthetic missing primary result')
+            class Owned:
+                def release(self):actor.discard(actor.read())
+            return Owned()
+        with patch.object(self.adapter,'_account_probe',side_effect=probe),patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_ACCOUNT_PROBE_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertEqual(['primary','actor'],calls);self.assertIsNotNone(primary.read());self.assertIsNone(actor.read())
+
     def test_phone_adapter_cleanup_drains_owned_probe_before_base_teardown(self):
         source,probe=self.account_probe_boundaries();probe.acquire(ACCOUNT_RUN,ACCOUNT_TICKET)
         with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:

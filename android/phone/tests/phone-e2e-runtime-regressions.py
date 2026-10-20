@@ -34,6 +34,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_script_feature_journey.py",
     "android/phone/tests/device/test_account_fixture_launch.py",
     "android/phone/tests/device/test_account_menu.py",
+    "android/phone/tests/device/test_authentication_samples.py",
 )
 CHECKS = DEPENDENCY_LIGHT_CHECKS + PREPARED_HOST_CHECKS + COMMON_HOST_CHECKS
 parser = argparse.ArgumentParser()

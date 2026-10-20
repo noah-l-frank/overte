@@ -77,6 +77,36 @@ from overte_phone_account_menu import PhoneAccountMenu
 SCRIPT_FEATURE_OPERATIONS={'feature.scripts.'+kind for kind in ('act','observe','cleanup')}
 
 
+def readonly_feature_command(command):
+    """Closed observations and retirement of their own measurement leases."""
+    require(type(command) is dict and type(command.get('schemaVersion')) is int and command['schemaVersion']==1
+            and type(command.get('commandId')) is str and re.fullmatch('[0-9a-f]{32}',command['commandId']),
+            'PHONE_READ_ONLY_COMMAND_REJECTED')
+    action=command.get('action')
+    if action in ('feature-native-observe','feature-script-observe'):
+        require(set(command)=={'schemaVersion','commandId','action'},'PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='feature-script-files':
+        from adapters.native_script_files import command as validate_files
+        validate_files(command)
+        require(command['operation'] in ('observe','locate'),'PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='feature-process-presence':
+        from adapters.native_process_presence import command as validate_presence
+        validate_presence(command)
+    elif action=='feature-account-origin':
+        from adapters.native_account_origin import command as validate_origin
+        validate_origin(command)
+        require(command['operation']=='observe','PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='feature-account-probe':
+        from adapters.native_account_probe import command as validate_probe
+        validate_probe(command) # Only read/release/inspect; no URL or credentials.
+    elif action in ('phone-script-file-ui','phone-login-ui'):
+        require(set(command)=={'schemaVersion','commandId','action','request'}
+                and type(command['request']) is dict
+                and command['request']==dict(schemaVersion=1,commandId=command['commandId'],action='observe')
+                and type(command['request']['schemaVersion']) is int,'PHONE_READ_ONLY_COMMAND_REJECTED')
+    else:require(False,'PHONE_READ_ONLY_COMMAND_REJECTED')
+
+
 class PhoneAppiumAdapter(AppiumAdapter):
     def __init__(self, candidate=None):
         super().__init__("android")
@@ -197,27 +227,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(self.installed_identity(selector) == installed, 'PHONE_NATIVE_FEATURE_INSTALL_CHANGED')
 
         def send(command):
-            if read_only:
-                file_observation = (type(command) is dict and command.get('action') == 'feature-script-files'
-                                    and command.get('operation') in ('observe','locate'))
-                if file_observation:
-                    from adapters.native_script_files import command as validate_files
-                    validate_files(command)
-                process_observation = type(command) is dict and command.get('action') == 'feature-process-presence'
-                if process_observation:
-                    from adapters.native_process_presence import command as validate_presence
-                    validate_presence(command)
-                allowed_fields = ({'schemaVersion', 'commandId', 'action', 'queryProcessId'},) if process_observation else ({'schemaVersion', 'commandId', 'action', 'operation', 'runId', 'ownerToken'},) if file_observation else (
-                    {'schemaVersion', 'commandId', 'action'}, {'schemaVersion', 'commandId', 'action', 'request'})
-                require(type(command) is dict and set(command) in allowed_fields
-                    and type(command.get('schemaVersion')) is int and command['schemaVersion'] == 1
-                    and type(command.get('commandId')) is str and re.fullmatch('[0-9a-f]{32}', command['commandId'])
-                    and type(command.get('action')) is str
-                    and (process_observation or file_observation or command['action'] in {'feature-native-observe', 'feature-script-observe'} and 'request' not in command
-                         or command['action'] == 'phone-script-file-ui' and type(command.get('request')) is dict
-                         and command['request'] == dict(schemaVersion=1, commandId=command['commandId'], action='observe')
-                         and type(command['request']['schemaVersion']) is int),
-                    'PHONE_READ_ONLY_COMMAND_REJECTED')
+            if read_only:readonly_feature_command(command)
             guard()
             self.write_android_client_command(client, session, target, command,
                 {'running': True, 'identity': context['processIdentity']})
@@ -292,27 +302,35 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def account_origin_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-account-origin-owner.json'))
 
-    def _account_origin(self, selector):
-        _ui,_observe,context,check,_installed=self.normal_feature_runtime(selector)
-        native=self._native_feature_observer(selector)
+    def _account_origin(self, selector, *, read_only=False):
+        _ui,_observe,context,check,_installed=self.normal_feature_runtime(selector,read_only=read_only)
+        native=self._native_feature_observer(selector,read_only=read_only)
         original=native.read(0,require_account=True) # Actual current native Test instance, not a caller's claimed context.
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         source=NativeAccountOrigin(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+ACCOUNT_ORIGIN_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,original['instance'],monotonic=native.monotonic,sleep=native.sleep)
         check()
-        return OwnedAccountOrigin(source,self.account_origin_store(selector),context)
+        result=OwnedAccountOrigin(source,self.account_origin_store(selector),context)
+        result.native_admission=deepcopy(original) # An owning ledger must validate this extra original query too.
+        return result
 
-    def account_probe_store(self, selector):
-        return PrivateFeatureState(self.state_path(selector).with_name('phone-account-probe-owner.json'))
+    def account_probe_store(self, selector, *, role='primary'):
+        require(role in ('primary','actor'),'PHONE_ACCOUNT_PROBE_ROLE_REQUIRED')
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-account-'+('actor-' if role=='actor' else '')+'probe-owner.json'))
 
-    def _account_probe(self, selector):
+    def authentication_samples_store(self, selector, role, stage):
+        require(role in ('primary','actor') and type(stage) is int and 0<=stage<=3,
+                'PHONE_AUTHENTICATION_SOURCE_SCOPE_REQUIRED')
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-'+role+'-'+str(stage)+'-samples.json'))
+
+    def _account_probe(self, selector, *, read_only=False, role='primary'):
         # Internal observation only; actual private origin provisioning is mandatory.
-        _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector)
-        native=self._native_feature_observer(selector)
+        _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector,read_only=read_only)
+        native=self._native_feature_observer(selector,read_only=read_only)
         target=self.target(selector);device=target['capabilities']['appium:udid']
         transport=PhoneAdapter(self.candidate).adb
-        owner=AccountProbeOwner(self.account_probe_store(selector),context,native.guard)
+        owner=AccountProbeOwner(self.account_probe_store(selector,role=role),context,native.guard)
         probe=NativeAccountProbe(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+ACCOUNT_PROBE_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,intent=owner.intent,monotonic=native.monotonic,sleep=native.sleep)
@@ -663,10 +681,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
             native.clock_ms,native.guard,native.pid,tablet_shown=ui.tablet_visible)
         return TokenChatUI(io,intent,run)
 
-    def _login_controls(self, selector, intent, run, origin):
+    def _login_controls(self, selector, intent, run, origin, *, read_only=False):
         # Input component only. The owner supplies actual private fixture
         # credentials and durable intent; full authentication remains closed.
-        native=self._native_feature_observer(selector)
+        native=self._native_feature_observer(selector,read_only=read_only)
         target=self.target(selector);device=target['capabilities']['appium:udid']
         transport=PhoneAdapter(self.candidate).adb
         io=PhoneLoginIO(native.send,
@@ -919,11 +937,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
             if owned is not None:self._chat_capture(selector,owned['runId']).retire()
         except Exception:chat_error=True
         probe_error=False
-        try:
-            if self.account_probe_store(selector).read() is not None:
-                self._account_probe(selector).release()
-        except Exception:
-            probe_error=True # Base teardown must still run; keep unresolved native ownership.
+        for role in ('primary','actor'):
+            try:
+                if self.account_probe_store(selector,role=role).read() is not None:
+                    self._account_probe(selector,read_only=(role=='actor'),role=role).release()
+            except Exception:
+                probe_error=True # Attempt the other role too; keep unresolved ownership.
         origin_error=False
         try:
             if self.account_origin_store(selector).read() is not None:
@@ -997,10 +1016,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_NORMAL_CREATE_CLEANUP_INCOMPLETE')
         require(not chat_error and self.chat_capture_store(selector).read() is None,
                 'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE')
-        require(not probe_error and self.account_probe_store(selector).read() is None,
+        require(not probe_error and all(self.account_probe_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_ACCOUNT_PROBE_CLEANUP_INCOMPLETE')
         require(not origin_error and self.account_origin_store(selector).read() is None,
                 'PHONE_ACCOUNT_ORIGIN_CLEANUP_INCOMPLETE')
+        require(all(self.authentication_samples_store(selector,role,stage).read() is None
+                    for role in ('primary','actor') for stage in range(4)),
+                'PHONE_AUTHENTICATION_SOURCE_CLEANUP_INCOMPLETE')
         return result
 
     def normal_navigation(self, selector, operation, values):

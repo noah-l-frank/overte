@@ -13,6 +13,14 @@ The remaining thirteen complete Android feature adapters are still missing.
 Pico and iOS are paused until all fourteen Android areas are complete. Historical
 component notes below do not supersede this current status.
 
+Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
+for each independent role, including real native protected requests, original
+UI/account/provider observations and measured retirement of every temporary
+measurement lease. Twenty new host counterexamples verify this source owner.
+The complete Authentication coordinator, three-restart role histories,
+independent publisher and final run retirement remain in progress. This
+component does not advertise a full Authentication capability.
+
 # Phone adapter implementation, local source only
 
 Active implementation scope is **Android Phone only** until all fourteen areas
