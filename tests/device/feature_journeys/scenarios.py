@@ -7,7 +7,7 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 15
+VERSION = 16
 
 
 def emote_rows():
@@ -283,7 +283,7 @@ SCENARIOS = {
     ('background-resume', {}, {}, ['image','peer']),
     ('close', {}, dict(open=False), []),
 ]),
-'scripts': scenario('File-bundle picker cancellation, execution and application restart',
+'scripts': scenario('Mobile process restart stops execution; normal file-bundle reimport resumes it',
     dict(running=[], picker=False, error='none', effects=0, open=False, companions=[]), [
     ('open', {}, dict(open=True), []),
     ('picker-open', {}, dict(picker=True), []),
@@ -297,7 +297,15 @@ SCENARIOS = {
     ('picker-open', {}, dict(picker=True), []),
     ('picker-accept', dict(resource='script-bundle/main.js'),
         dict(picker=False, running=['owned-script'], effects={'min': 2, 'max': 100000}, companions=['companion.js']), ['peer']),
-    ('restart-app', {}, {}, ['peer']),
+    # Mobile startup deliberately loads system defaults, not saved user scripts.
+    # Restart must never hide this transition with Script.load or a row reload.
+    ('restart-app', {}, dict(running=[],picker=False,error='none',effects=0,open=False,companions=[]), ['peer']),
+    ('open', {}, dict(open=True), ['peer']),
+    ('picker-open', {}, dict(picker=True), ['peer']),
+    ('picker-cancel', {}, dict(picker=False), ['peer']),
+    ('picker-open', {}, dict(picker=True), ['peer']),
+    ('picker-accept', dict(resource='script-bundle/main.js'),
+        dict(picker=False,running=['owned-script'],effects={'min':2,'max':100000},companions=['companion.js']), ['peer']),
     ('stop-owned', {}, dict(running=[], effects=0, companions=[]), ['peer']),
     ('load-url', dict(resource='missing.js'), dict(error='not-found'), ['peer']),
     ('close', {}, dict(open=False, error='none'), []),

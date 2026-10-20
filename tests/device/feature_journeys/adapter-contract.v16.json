@@ -1,0 +1,1624 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": 16,
+  "operationPattern": "feature.<area>.act|observe|cleanup",
+  "qualification": "Shared test logic only. Product adapters and independent target observers are not implemented by this inventory.",
+  "areas": {
+    "assets": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "upload-picker-open": [
+          {
+            "resource": "gltf-bundle/main.gltf"
+          },
+          {
+            "resource": "gltf-bundle/main.gltf"
+          }
+        ],
+        "upload-picker-cancel": [
+          {},
+          {}
+        ],
+        "upload": [
+          {
+            "resource": "gltf-bundle/main.gltf"
+          },
+          {
+            "resource": "obj-bundle/main.obj"
+          },
+          {
+            "resource": "asset-stand.fbx"
+          }
+        ],
+        "browse": [
+          {
+            "name": "$assetGltf"
+          }
+        ],
+        "rename-folder": [
+          {
+            "name": "$renamed"
+          }
+        ],
+        "inspect-baking-unavailable": [
+          {}
+        ],
+        "import-selected": [
+          {},
+          {},
+          {}
+        ],
+        "remove-owned-model": [
+          {},
+          {},
+          {}
+        ],
+        "set-write-permission": [
+          {
+            "allowed": false
+          },
+          {
+            "allowed": true
+          }
+        ],
+        "delete-denied": [
+          {}
+        ],
+        "delete-owned": [
+          {},
+          {},
+          {}
+        ],
+        "set-baking": [
+          {
+            "enabled": false
+          },
+          {
+            "enabled": true
+          }
+        ],
+        "upload-picker-select": [
+          {}
+        ],
+        "retire-staged-primary": [
+          {}
+        ],
+        "upload-picker-accept-unavailable": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "mappings": "list",
+        "selected": "str",
+        "baking": "bool",
+        "bakeState": "str",
+        "bakeAvailable": "bool",
+        "canWrite": "bool",
+        "deleteEnabled": "bool",
+        "error": "str",
+        "open": "bool",
+        "sceneModel": "bool",
+        "companions": "list",
+        "picker": "bool",
+        "pickerFile": "str",
+        "stagedAvailable": "bool"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "mappings",
+        "selected",
+        "baking",
+        "bakeState",
+        "bakeAvailable",
+        "canWrite",
+        "deleteEnabled",
+        "error",
+        "open",
+        "sceneModel",
+        "companions",
+        "picker",
+        "pickerFile",
+        "stagedAvailable"
+      ],
+      "existingModules": [
+        "asset-load"
+      ]
+    },
+    "audio": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "mute": [
+          {
+            "enabled": true
+          },
+          {
+            "enabled": false
+          },
+          {
+            "enabled": true
+          },
+          {
+            "enabled": false
+          }
+        ],
+        "record-start": [
+          {},
+          {},
+          {},
+          {},
+          {}
+        ],
+        "record-cancel": [
+          {}
+        ],
+        "await-completion": [
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "recording": "bool",
+        "preview": "bool",
+        "muted": "bool",
+        "recordedFrames": "int",
+        "playedFrames": "int",
+        "bufferedFrames": "int",
+        "phase": "str",
+        "history": "list",
+        "error": "str",
+        "open": "bool"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "recording",
+        "preview",
+        "muted",
+        "recordedFrames",
+        "playedFrames",
+        "bufferedFrames",
+        "phase",
+        "history",
+        "error"
+      ],
+      "existingModules": [
+        "audio-controls",
+        "permission-recovery",
+        "sound-playback",
+        "voice-roundtrip"
+      ]
+    },
+    "authentication": {
+      "inputVerbs": {
+        "login-open": [
+          {},
+          {},
+          {},
+          {}
+        ],
+        "login-submit": [
+          {
+            "account": "invalid"
+          },
+          {
+            "account": "delayed"
+          },
+          {
+            "account": "owned"
+          }
+        ],
+        "login-cancel": [
+          {},
+          {},
+          {},
+          {},
+          {}
+        ],
+        "restart-app": [
+          {},
+          {},
+          {}
+        ],
+        "release-stale-response": [
+          {}
+        ],
+        "logout": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "principal": "str",
+        "dialog": "bool",
+        "error": "str",
+        "pending": "bool",
+        "protectedAccess": "bool",
+        "delayedGrantOutstanding": "bool"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "principal",
+        "dialog",
+        "error",
+        "pending",
+        "protectedAccess",
+        "delayedGrantOutstanding"
+      ],
+      "existingModules": []
+    },
+    "avatar-people": {
+      "inputVerbs": {
+        "avatar-url": [
+          {
+            "resource": "avatar-a.fst"
+          },
+          {
+            "resource": "missing.fst"
+          }
+        ],
+        "avatar-bookmark-save": [
+          {
+            "name": "$name"
+          }
+        ],
+        "avatar-scale": [
+          {
+            "value": 1.5
+          }
+        ],
+        "wearable-add": [
+          {
+            "resource": "gltf-bundle/main.gltf"
+          }
+        ],
+        "avatar-bookmark-choose": [
+          {
+            "name": "$name"
+          }
+        ],
+        "connection-request": [
+          {
+            "peer": "owned-peer"
+          },
+          {
+            "peer": "owned-peer"
+          },
+          {
+            "peer": "owned-peer"
+          }
+        ],
+        "connection-cancel": [
+          {}
+        ],
+        "peer-reject": [
+          {}
+        ],
+        "peer-accept": [
+          {}
+        ],
+        "connection-remove": [
+          {
+            "peer": "owned-peer"
+          }
+        ],
+        "avatar-restore": [
+          {}
+        ],
+        "avatar-bookmark-delete": [
+          {
+            "name": "$name"
+          }
+        ]
+      },
+      "observationFields": {
+        "avatar": "str",
+        "requestedAvatar": "str",
+        "modelLoaded": "bool",
+        "loadFailed": "bool",
+        "scale": "float",
+        "wearable": "bool",
+        "bookmarked": "bool",
+        "connection": "str",
+        "dialog": "bool"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "avatar",
+        "requestedAvatar",
+        "modelLoaded",
+        "loadFailed",
+        "scale",
+        "wearable",
+        "bookmarked",
+        "connection",
+        "dialog"
+      ],
+      "existingModules": [
+        "multi-user"
+      ]
+    },
+    "chat": {
+      "inputVerbs": {
+        "open": [
+          {},
+          {},
+          {}
+        ],
+        "type": [
+          {
+            "text": "$unicode"
+          },
+          {
+            "text": "$unicode"
+          },
+          {
+            "text": "$retry"
+          },
+          {
+            "text": "$retry"
+          }
+        ],
+        "close": [
+          {},
+          {},
+          {}
+        ],
+        "select-channel": [
+          {
+            "channel": "domain"
+          },
+          {
+            "channel": "local"
+          },
+          {
+            "channel": "domain"
+          },
+          {
+            "channel": "domain"
+          }
+        ],
+        "send": [
+          {},
+          {},
+          {}
+        ],
+        "peer-send": [
+          {
+            "text": "$reply",
+            "channel": "domain"
+          },
+          {
+            "text": "$hidden",
+            "channel": "domain"
+          },
+          {
+            "text": "$reply",
+            "channel": "local"
+          }
+        ],
+        "peer-send-distant": [
+          {
+            "text": "$hidden",
+            "channel": "local"
+          }
+        ],
+        "background-resume": [
+          {}
+        ],
+        "network-remove-mixer": [
+          {}
+        ],
+        "network-restore-mixer": [
+          {}
+        ],
+        "await-no-replay": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "draft": "str",
+        "messages": "list",
+        "localMessages": "list",
+        "domainMessages": "list",
+        "peerMessages": "list",
+        "channel": "str",
+        "mixerConnected": "bool",
+        "focused": "bool",
+        "keyboard": "bool",
+        "open": "bool"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "draft",
+        "messages",
+        "localMessages",
+        "domainMessages",
+        "peerMessages",
+        "channel",
+        "mixerConnected",
+        "focused",
+        "keyboard",
+        "open"
+      ],
+      "existingModules": [
+        "text-input"
+      ]
+    },
+    "create": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "import-picker-open": [
+          {
+            "resource": "entity-import.json"
+          },
+          {
+            "resource": "entity-import.json"
+          }
+        ],
+        "import-picker-cancel": [
+          {}
+        ],
+        "model-create": [
+          {
+            "resource": "gltf-bundle/main.gltf"
+          },
+          {
+            "resource": "obj-bundle/main.obj"
+          }
+        ],
+        "apply-texture": [
+          {
+            "resource": "checker.png"
+          }
+        ],
+        "export-selection": [
+          {}
+        ],
+        "delete-owned": [
+          {},
+          {},
+          {},
+          {},
+          {}
+        ],
+        "import-picker-accept": [
+          {}
+        ],
+        "voxel-create": [
+          {}
+        ],
+        "voxel-edit": [
+          {
+            "mode": "remove",
+            "brushMeters": 0.5
+          }
+        ],
+        "set-rez-permission": [
+          {
+            "allowed": false
+          },
+          {
+            "allowed": true
+          }
+        ],
+        "create-denied": [
+          {}
+        ],
+        "create-retry": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "objects": "list",
+        "editor": "bool",
+        "picker": "bool",
+        "error": "str",
+        "canRez": "bool",
+        "selection": "list",
+        "textured": "bool",
+        "voxelValue": "int"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "objects",
+        "editor",
+        "picker",
+        "error",
+        "canRez",
+        "selection",
+        "textured",
+        "voxelValue"
+      ],
+      "existingModules": [
+        "create-management",
+        "entity-sync",
+        "world-interaction"
+      ]
+    },
+    "emotes": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "play": [
+          {
+            "name": "Crying"
+          },
+          {
+            "name": "Surprised"
+          },
+          {
+            "name": "Dancing"
+          },
+          {
+            "name": "Cheering"
+          },
+          {
+            "name": "Waving"
+          },
+          {
+            "name": "Fall"
+          },
+          {
+            "name": "Pointing"
+          },
+          {
+            "name": "Clapping"
+          },
+          {
+            "name": "Sit"
+          },
+          {
+            "name": "Love"
+          }
+        ],
+        "wait-complete": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {}
+        ],
+        "cancel": [
+          {},
+          {}
+        ],
+        "sit": [
+          {},
+          {},
+          {}
+        ],
+        "override": [
+          {
+            "name": "Waving"
+          }
+        ],
+        "background-resume": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "animation": "str",
+        "sit": "str",
+        "override": "bool",
+        "poseProgress": "float",
+        "panel": "bool",
+        "restoredBeforeNominalEnd": "bool"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "animation",
+        "sit",
+        "override",
+        "poseProgress",
+        "restoredBeforeNominalEnd"
+      ],
+      "existingModules": []
+    },
+    "graphics": {
+      "inputVerbs": {
+        "open": [
+          {},
+          {},
+          {}
+        ],
+        "set-resolution": [
+          {
+            "value": 0.5
+          },
+          {
+            "value": 0.6
+          }
+        ],
+        "close": [
+          {},
+          {},
+          {}
+        ],
+        "set-haze": [
+          {
+            "enabled": false
+          },
+          {
+            "enabled": true
+          }
+        ],
+        "set-mirrors": [
+          {
+            "enabled": false
+          },
+          {
+            "enabled": true
+          }
+        ],
+        "background-resume": [
+          {}
+        ],
+        "restart-app": [
+          {}
+        ],
+        "restore-original": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "resolution": "float",
+        "renderScale": "float",
+        "haze": "bool",
+        "hazePass": "bool",
+        "mirror": "bool",
+        "mirrorPass": "bool",
+        "dialog": "bool"
+      },
+      "measuredBaselineFields": [
+        "resolution",
+        "renderScale",
+        "haze",
+        "hazePass",
+        "mirror",
+        "mirrorPass"
+      ],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "resolution",
+        "renderScale",
+        "haze",
+        "hazePass",
+        "mirror",
+        "mirrorPass"
+      ],
+      "existingModules": [
+        "render-health"
+      ]
+    },
+    "lifecycle-input": {
+      "inputVerbs": {
+        "open-editor": [
+          {
+            "editor": "create"
+          },
+          {
+            "editor": "chat"
+          },
+          {
+            "editor": "scripts"
+          }
+        ],
+        "type": [
+          {
+            "text": "$unicode"
+          },
+          {
+            "text": "$reply"
+          },
+          {
+            "text": "$retry"
+          }
+        ],
+        "world-input": [
+          {
+            "direction": "forward"
+          },
+          {
+            "direction": "forward"
+          }
+        ],
+        "back": [
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "hold-editor-input": [
+          {
+            "text": "$unicode"
+          }
+        ],
+        "replace-context": [
+          {}
+        ],
+        "deliver-stale-input": [
+          {}
+        ],
+        "close-editor": [
+          {}
+        ],
+        "release-input": [
+          {}
+        ],
+        "restore": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "editor": "str",
+        "text": "str",
+        "keyboard": "bool",
+        "focused": "bool",
+        "heldInputs": "list",
+        "worldDisplacement": "float",
+        "positionDelta": "dict",
+        "generation": "int",
+        "deferredInputs": "int",
+        "worldAttempts": "int",
+        "staleAttempts": "int"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "editor",
+        "text",
+        "keyboard",
+        "focused",
+        "heldInputs",
+        "worldDisplacement",
+        "positionDelta",
+        "generation",
+        "deferredInputs",
+        "worldAttempts",
+        "staleAttempts"
+      ],
+      "existingModules": [
+        "lifecycle-under-load",
+        "tablet-input-isolation",
+        "text-input"
+      ]
+    },
+    "scripts": {
+      "inputVerbs": {
+        "open": [
+          {},
+          {}
+        ],
+        "picker-open": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {}
+        ],
+        "picker-cancel": [
+          {},
+          {},
+          {}
+        ],
+        "picker-accept": [
+          {
+            "resource": "script.js"
+          },
+          {
+            "resource": "script-bundle/main.js"
+          },
+          {
+            "resource": "script-bundle/main.js"
+          }
+        ],
+        "stop-owned": [
+          {},
+          {}
+        ],
+        "restart-app": [
+          {}
+        ],
+        "load-url": [
+          {
+            "resource": "missing.js"
+          }
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "running": "list",
+        "picker": "bool",
+        "error": "str",
+        "effects": "int",
+        "open": "bool",
+        "companions": "list"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [
+        "mobile-defaults-only-v1"
+      ],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "running",
+        "effects",
+        "companions",
+        "picker",
+        "error",
+        "open"
+      ],
+      "existingModules": [
+        "scripts-management",
+        "scripted-entity"
+      ]
+    },
+    "snapshots": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "capture-cancel": [
+          {
+            "mode": "animated",
+            "format": "png"
+          }
+        ],
+        "set-save-permission": [
+          {
+            "state": "denied"
+          },
+          {
+            "state": "granted"
+          }
+        ],
+        "capture": [
+          {
+            "mode": "still",
+            "format": "png"
+          }
+        ],
+        "save-denied": [
+          {}
+        ],
+        "save-picker-open": [
+          {},
+          {}
+        ],
+        "save-picker-cancel": [
+          {}
+        ],
+        "save": [
+          {}
+        ],
+        "share-open": [
+          {},
+          {}
+        ],
+        "share-cancel": [
+          {}
+        ],
+        "share-select-owned": [
+          {}
+        ],
+        "upload-fail": [
+          {}
+        ],
+        "upload": [
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "open": "bool",
+        "pending": "bool",
+        "captureHistory": "list",
+        "files": "int",
+        "saved": "int",
+        "uploads": "int",
+        "shares": "int",
+        "saveBackend": "str",
+        "savePermission": "str",
+        "saveSheet": "bool",
+        "shareSheet": "bool",
+        "error": "str"
+      },
+      "measuredBaselineFields": [
+        "saveBackend",
+        "savePermission"
+      ],
+      "sourceProfiles": [
+        "photos-add-only",
+        "media-store",
+        "document-picker"
+      ],
+      "systemUiVerbs": [
+        "save",
+        "save-denied",
+        "save-picker-cancel",
+        "save-picker-open",
+        "set-save-permission",
+        "share-cancel",
+        "share-open",
+        "share-select-owned"
+      ],
+      "conditionalSteps": [
+        {
+          "index": 3,
+          "verb": "set-save-permission",
+          "backends": [
+            "photos-add-only"
+          ]
+        },
+        {
+          "index": 5,
+          "verb": "save-denied",
+          "backends": [
+            "photos-add-only"
+          ]
+        },
+        {
+          "index": 6,
+          "verb": "set-save-permission",
+          "backends": [
+            "photos-add-only"
+          ]
+        },
+        {
+          "index": 7,
+          "verb": "save-picker-open",
+          "backends": [
+            "document-picker"
+          ]
+        },
+        {
+          "index": 8,
+          "verb": "save-picker-cancel",
+          "backends": [
+            "document-picker"
+          ]
+        },
+        {
+          "index": 9,
+          "verb": "save-picker-open",
+          "backends": [
+            "document-picker"
+          ]
+        }
+      ],
+      "documentTransitions": [],
+      "independentFields": [
+        "open",
+        "pending",
+        "captureHistory",
+        "files",
+        "saved",
+        "uploads",
+        "shares",
+        "saveBackend",
+        "savePermission",
+        "saveSheet",
+        "shareSheet",
+        "error"
+      ],
+      "existingModules": [
+        "snapshot-output-parity"
+      ]
+    },
+    "tablet-web": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "focus-type": [
+          {
+            "text": "$unicode"
+          },
+          {
+            "text": "$reply"
+          },
+          {
+            "text": "$unicode"
+          }
+        ],
+        "submit": [
+          {},
+          {},
+          {}
+        ],
+        "clear-text": [
+          {},
+          {},
+          {}
+        ],
+        "navigate": [
+          {
+            "resource": "page-b.html"
+          },
+          {
+            "resource": "recovery.html"
+          },
+          {
+            "resource": "reference.html"
+          }
+        ],
+        "back": [
+          {},
+          {}
+        ],
+        "navigate-foreign": [
+          {
+            "resource": "reference.html"
+          }
+        ],
+        "foreign-origin-message": [
+          {}
+        ],
+        "reload": [
+          {},
+          {}
+        ],
+        "restore-resource": [
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "open-inline-app": [
+          {
+            "resource": "parity-inline-v1"
+          }
+        ],
+        "hold-inline-message": [
+          {}
+        ],
+        "return-from-inline": [
+          {}
+        ],
+        "deliver-retired-inline-message": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "surface": "str",
+        "text": "str",
+        "page": "str",
+        "bridgeMessages": "int",
+        "bridgeEchoes": "int",
+        "attemptedMessages": "int",
+        "documentLoads": "int",
+        "httpStatus": "int",
+        "origin": "str",
+        "documentKind": "str",
+        "inlineLeases": "int",
+        "deferredMessages": "int",
+        "error": "str",
+        "focused": "bool",
+        "open": "bool"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [
+        {
+          "index": 1,
+          "verb": "open",
+          "transition": "replace"
+        },
+        {
+          "index": 2,
+          "verb": "focus-type",
+          "transition": "retain"
+        },
+        {
+          "index": 3,
+          "verb": "submit",
+          "transition": "retain"
+        },
+        {
+          "index": 4,
+          "verb": "clear-text",
+          "transition": "retain"
+        },
+        {
+          "index": 5,
+          "verb": "navigate",
+          "transition": "replace"
+        },
+        {
+          "index": 6,
+          "verb": "back",
+          "transition": "replace"
+        },
+        {
+          "index": 7,
+          "verb": "navigate-foreign",
+          "transition": "replace"
+        },
+        {
+          "index": 8,
+          "verb": "foreign-origin-message",
+          "transition": "retain"
+        },
+        {
+          "index": 9,
+          "verb": "back",
+          "transition": "replace"
+        },
+        {
+          "index": 10,
+          "verb": "navigate",
+          "transition": "replace"
+        },
+        {
+          "index": 11,
+          "verb": "reload",
+          "transition": "replace"
+        },
+        {
+          "index": 12,
+          "verb": "restore-resource",
+          "transition": "retain"
+        },
+        {
+          "index": 13,
+          "verb": "reload",
+          "transition": "replace"
+        },
+        {
+          "index": 14,
+          "verb": "navigate",
+          "transition": "replace"
+        },
+        {
+          "index": 15,
+          "verb": "background-resume",
+          "transition": "replace"
+        },
+        {
+          "index": 16,
+          "verb": "focus-type",
+          "transition": "retain"
+        },
+        {
+          "index": 17,
+          "verb": "submit",
+          "transition": "retain"
+        },
+        {
+          "index": 18,
+          "verb": "clear-text",
+          "transition": "retain"
+        },
+        {
+          "index": 19,
+          "verb": "open-inline-app",
+          "transition": "replace"
+        },
+        {
+          "index": 20,
+          "verb": "focus-type",
+          "transition": "retain"
+        },
+        {
+          "index": 21,
+          "verb": "submit",
+          "transition": "retain"
+        },
+        {
+          "index": 22,
+          "verb": "clear-text",
+          "transition": "retain"
+        },
+        {
+          "index": 23,
+          "verb": "hold-inline-message",
+          "transition": "retain"
+        },
+        {
+          "index": 24,
+          "verb": "return-from-inline",
+          "transition": "replace"
+        },
+        {
+          "index": 25,
+          "verb": "deliver-retired-inline-message",
+          "transition": "retain"
+        },
+        {
+          "index": 26,
+          "verb": "close",
+          "transition": "retain"
+        }
+      ],
+      "independentFields": [
+        "surface",
+        "text",
+        "page",
+        "bridgeMessages",
+        "bridgeEchoes",
+        "attemptedMessages",
+        "documentLoads",
+        "httpStatus",
+        "origin",
+        "documentKind",
+        "inlineLeases",
+        "deferredMessages",
+        "error",
+        "focused",
+        "open"
+      ],
+      "existingModules": [
+        "tablet-web-video",
+        "tablet"
+      ]
+    },
+    "world-navigation": {
+      "inputVerbs": {
+        "open": [
+          {},
+          {}
+        ],
+        "bookmark-add-cancel": [
+          {
+            "name": "$name"
+          }
+        ],
+        "bookmark-add": [
+          {
+            "name": "$name"
+          }
+        ],
+        "bookmark-rename-cancel": [
+          {
+            "name": "$renamed"
+          }
+        ],
+        "bookmark-rename": [
+          {
+            "name": "$renamed"
+          }
+        ],
+        "directory-search": [
+          {
+            "query": "$hidden"
+          },
+          {
+            "query": "$name"
+          }
+        ],
+        "directory-select": [
+          {
+            "destination": "$destination"
+          }
+        ],
+        "navigate-missing": [
+          {}
+        ],
+        "dismiss-error": [
+          {}
+        ],
+        "bookmark-visit": [
+          {
+            "name": "$renamed"
+          }
+        ],
+        "restart-app": [
+          {}
+        ],
+        "bookmark-delete": [
+          {
+            "name": "$renamed"
+          }
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "location": "str",
+        "bookmark": "bool",
+        "bookmarkName": "str",
+        "searchQuery": "str",
+        "searchResults": "list",
+        "error": "str",
+        "panel": "bool",
+        "addressDialog": "bool"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [],
+      "independentFields": [
+        "location",
+        "bookmark",
+        "bookmarkName",
+        "searchQuery",
+        "searchResults",
+        "error",
+        "panel",
+        "addressDialog"
+      ],
+      "existingModules": [
+        "domain-enter",
+        "domain-roundtrip",
+        "places-navigation",
+        "look",
+        "move",
+        "input-neutral",
+        "collision",
+        "jump",
+        "fly",
+        "scene-reload"
+      ]
+    },
+    "world-web": {
+      "inputVerbs": {
+        "open": [
+          {}
+        ],
+        "focus-type": [
+          {
+            "text": "$unicode"
+          },
+          {
+            "text": "$reply"
+          }
+        ],
+        "submit": [
+          {},
+          {}
+        ],
+        "clear-text": [
+          {},
+          {}
+        ],
+        "navigate": [
+          {
+            "resource": "page-b.html"
+          },
+          {
+            "resource": "recovery.html"
+          },
+          {
+            "resource": "reference.html"
+          }
+        ],
+        "back": [
+          {},
+          {}
+        ],
+        "navigate-foreign": [
+          {
+            "resource": "reference.html"
+          }
+        ],
+        "foreign-origin-message": [
+          {}
+        ],
+        "reload": [
+          {},
+          {}
+        ],
+        "restore-resource": [
+          {}
+        ],
+        "background-resume": [
+          {}
+        ],
+        "close": [
+          {}
+        ]
+      },
+      "observationFields": {
+        "surface": "str",
+        "text": "str",
+        "page": "str",
+        "bridgeMessages": "int",
+        "bridgeEchoes": "int",
+        "attemptedMessages": "int",
+        "documentLoads": "int",
+        "httpStatus": "int",
+        "origin": "str",
+        "documentKind": "str",
+        "inlineLeases": "int",
+        "deferredMessages": "int",
+        "error": "str",
+        "focused": "bool",
+        "open": "bool"
+      },
+      "measuredBaselineFields": [],
+      "sourceProfiles": [],
+      "systemUiVerbs": [],
+      "conditionalSteps": [],
+      "documentTransitions": [
+        {
+          "index": 1,
+          "verb": "open",
+          "transition": "replace"
+        },
+        {
+          "index": 2,
+          "verb": "focus-type",
+          "transition": "retain"
+        },
+        {
+          "index": 3,
+          "verb": "submit",
+          "transition": "retain"
+        },
+        {
+          "index": 4,
+          "verb": "clear-text",
+          "transition": "retain"
+        },
+        {
+          "index": 5,
+          "verb": "navigate",
+          "transition": "replace"
+        },
+        {
+          "index": 6,
+          "verb": "back",
+          "transition": "replace"
+        },
+        {
+          "index": 7,
+          "verb": "navigate-foreign",
+          "transition": "replace"
+        },
+        {
+          "index": 8,
+          "verb": "foreign-origin-message",
+          "transition": "retain"
+        },
+        {
+          "index": 9,
+          "verb": "back",
+          "transition": "replace"
+        },
+        {
+          "index": 10,
+          "verb": "navigate",
+          "transition": "replace"
+        },
+        {
+          "index": 11,
+          "verb": "reload",
+          "transition": "replace"
+        },
+        {
+          "index": 12,
+          "verb": "restore-resource",
+          "transition": "retain"
+        },
+        {
+          "index": 13,
+          "verb": "reload",
+          "transition": "replace"
+        },
+        {
+          "index": 14,
+          "verb": "navigate",
+          "transition": "replace"
+        },
+        {
+          "index": 15,
+          "verb": "background-resume",
+          "transition": "replace"
+        },
+        {
+          "index": 16,
+          "verb": "focus-type",
+          "transition": "retain"
+        },
+        {
+          "index": 17,
+          "verb": "submit",
+          "transition": "retain"
+        },
+        {
+          "index": 18,
+          "verb": "clear-text",
+          "transition": "retain"
+        },
+        {
+          "index": 19,
+          "verb": "close",
+          "transition": "retain"
+        }
+      ],
+      "independentFields": [
+        "surface",
+        "text",
+        "page",
+        "bridgeMessages",
+        "bridgeEchoes",
+        "attemptedMessages",
+        "documentLoads",
+        "httpStatus",
+        "origin",
+        "documentKind",
+        "inlineLeases",
+        "deferredMessages",
+        "error",
+        "focused",
+        "open"
+      ],
+      "existingModules": [
+        "world-web-video"
+      ]
+    }
+  }
+}

@@ -31,7 +31,7 @@ WITNESS_KEYS = {
            'bufferedFrames', 'phase', 'history', 'error'],
  'chat': ['draft', 'messages', 'localMessages', 'domainMessages', 'peerMessages', 'channel', 'mixerConnected', 'focused', 'keyboard', 'open'],
  'snapshots': ['open','pending','captureHistory','files','saved','uploads','shares','saveBackend','savePermission','saveSheet','shareSheet','error'],
- 'scripts': ['running', 'effects', 'companions'],
+ 'scripts': ['running', 'effects', 'companions', 'picker', 'error', 'open'],
  'assets': ['mappings', 'selected', 'baking', 'bakeState', 'bakeAvailable', 'canWrite', 'deleteEnabled', 'error', 'open', 'sceneModel', 'companions', 'picker', 'pickerFile', 'stagedAvailable'],
  'lifecycle-input': ['editor','text','keyboard','focused','heldInputs','worldDisplacement','positionDelta','generation','deferredInputs','worldAttempts','staleAttempts'],
 }

@@ -1,4 +1,4 @@
-# Feature adapter handoff, contract v15
+# Feature adapter handoff, contract v16
 
 The [prepared native IME event](native/PREPARED_FIELD_COMMIT.md) and
 [native owner/private transport](native/PENDING_COMMIT_OWNER.md) retain original
@@ -16,6 +16,8 @@ adds original current RequestTicket/HTTP response-ID provenance and a strict
 fixture-receipt join. The three local platform branches now register guarded
 internal factories. Independent actual modal/arrival/UI/storage observations
 and complete Navigation coordination are still missing; native code is uncompiled.
+
+Scripts v16 follows the [actual mobile default-only startup and explicit reimport contract](feature_journeys/SCRIPTS_SOURCE.md).
 
 Scripts additionally exposes the [original load-result history](native/SCRIPT_LOAD_HISTORY.md)
 through its existing private observation. An actual failed load can emit a later
@@ -41,31 +43,31 @@ implementation/qualification; no full feature capability is enabled.
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
-packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v15.json) and
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v16.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 tracks subsequent local platform packets and prerequisites. These do not change
-the complete v15 contract or grant device acceptance.
+the complete v16 contract or grant device acceptance.
 
 ## Action and read boundary
 
 For each closed area, advertise all three operations only after implementing
-and qualifying their complete v15 contract:
+and qualifying their complete v16 contract:
 
-- `feature.<area>.act` accepts exactly `{contractVersion: 15, runId, ticket,
+- `feature.<area>.act` accepts exactly `{contractVersion: 16, runId, ticket,
   fixtureUrl, verb, inputs}`. `runId` and `ticket` are fresh 32-character lowercase
   hexadecimal strings. `fixtureUrl` is a credential-free HTTP(S) URL whose exact
   path is `/feature-fixture/v1/runs/<runId>/`. `verb` and `inputs` must match the
   closed inventory, including expanded owned text. Return exactly
   `{"performed": true}` after delivering ordinary input, never a result verdict.
-- `feature.<area>.observe` accepts exactly `{contractVersion: 15, runId,
-  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 15,
+- `feature.<area>.observe` accepts exactly `{contractVersion: 16, runId,
+  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 16,
   runId, sequence, capturedEpochMs, state, artifacts, resources, lifecycle}`.
   `state` has every field declared for that area, measured from current product
   state. Unknown, inaccessible or unsupported observations are errors. Empty
   lists and default values cannot substitute for a failed read.
-- `feature.<area>.cleanup` accepts exactly `{contractVersion: 15, runId}` and
+- `feature.<area>.cleanup` accepts exactly `{contractVersion: 16, runId}` and
   returns exactly `{"performed": true}`. Restore only the captured owned test
   scope. The common test calls it twice and then independently observes the
   initial state, empty owned-resource inventory and three seconds of stable
@@ -251,7 +253,7 @@ receipt, requested value or UI text alone cannot substitute for an effect.
 | audio | Actual automatic three-second preview cycle: original native phase/history and capture/played/live-buffer frames, original pre-normalization input PCM plus independent acoustic PCM with the recorded-preview-v1 challenge. Completion requires capture/play/drain/completed history, equal captured/played frames and empty product buffers. The normal Record button cancels only an observed active cycle. Muted Start and mute/background cancellation are measured from real events/bytes. There are no Save/Preview Start/Stop/Discard controls. OS denial/recovery remains in the composed permission foundation. Cleanup releases E2E evidence separately and requires a verified restart to restore initial native idle history. |
 | chat | Acquire original rendered channel rows, persisted Local/Domain histories and actual active MessagesMixer presence separately from the independently received peer ledger. `select-channel` uses Local/Domain tabs; it does not block a peer. A Domain payload arriving while Local is selected remains in Domain history and becomes visible on switching back. A Local sender more than 20 metres away is rejected. Close destroys the owned page and cancels an unsent draft; reopening starts on Local and reconstructs original persisted history. Sane mixer removal must be observed before offline Send: native MessagesClient then emits local-only echo, QML clears the draft, and the actual remote peer receives nothing. Restoring the mixer never queues/replays that message; require a full three-second quiet window. Explicitly retype before resending: local Domain history contains the two actual copies while the remote peer contains exactly one retry. No offline banner, preserved draft or delivery ACK is invented. |
 | snapshots | Independently witness original pending/cancel/complete history, actual review/system sheets, supported Save backend and OS authorization, app-private captures, OS-saved originals, share-receiver files and authenticated upload bodies. Denied Photos Save retains a valid private capture; Android Save needs no storage permission. A chooser callback is handoff only. Read original bytes from each destination and require equality with the pinned private PNG. Cleanup removes only owned originals and restores measured authorization. See SNAPSHOT_SOURCE.md for exact profiles and cancellation timing. |
-| scripts | `picker-open` activates the existing Running Scripts **From File** control and observes the real **Open Script and Companion Files** picker. `picker-cancel` dismisses it and leaves zero running engines/effects. `picker-accept` chooses the owned `script.js` plus companion or `script-bundle/main.js` with its relative `companion.js`, using the platform's real file/bundle picker. The accepted source loads directly; no client-script consent dialog is invented. `companions` lists actual relative modules resolved by the current owned engine, not requested filenames or retained staged-file presence. Read actual running engines and the ticking owned entity independently. Restart starts actual execution from the retained owned source again. `effects` must advance at least two actual ticks in a successful observation window; Stop leaves zero active effects/engines/entities/companions. The separate `load-url` uses From URL with the owned missing.js URL; actual load failure leaves no running engine. Entity-script consent remains in the reused `scripted-entity` suite. |
+| scripts | `picker-open` activates the existing Running Scripts **From File** control and observes the real **Open Script and Companion Files** picker. `picker-cancel` dismisses it and leaves zero running engines/effects. `picker-accept` chooses the owned `script.js` plus companion or `script-bundle/main.js` with its relative `companion.js`, using the platform's real file/bundle picker. The accepted source loads directly; no client-script consent dialog is invented. `companions` lists actual relative modules resolved by the current owned engine, not requested filenames or retained staged-file presence. Read actual running engines and the ticking owned entity independently. Mobile restart must leave actual owned execution/effects/companions absent and the manager closed for three seconds. Normal reopen and cancelled picker remain separate; only a later ordinary file-bundle reimport may resume execution. All six Script state fields require independent facts. See the version 16 Script source handoff. `effects` must advance at least two actual ticks in a successful observation window; Stop leaves zero active effects/engines/entities/companions. The separate `load-url` uses From URL with the owned missing.js URL; actual load failure leaves no running engine. Entity-script consent remains in the reused `scripted-entity` suite. |
 | assets | [Version 13 source contract](feature_journeys/ASSETS_SOURCE.md): exact original glTF/OBJ primary/companion mapping paths, normal folder rename preserving references, real FBX bake disable/enable with actual server/oven originals, independently loaded world models, actual disabled Delete without invented permission error, and real selected-file disappearance before normal picker confirmation. All fourteen state fields require independent current observations. |
 | lifecycle-input | [Version 14 source contract](feature_journeys/LIFECYCLE_INPUT_SOURCE.md): actual distinct editor contexts/drafts, normal page Back, original one-slot pending input before context replacement and a real rejected stale callback attempt, independent effective held inputs/world displacement with stationary release, and retained immutable original input counters during cleanup. All eleven fields require independent current observations. Missing native/OS/VR/Back routes keep the complete capability absent. |
 
