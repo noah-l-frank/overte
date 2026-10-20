@@ -410,3 +410,26 @@ skips, failures, errors or compiler attempts (three explicitly excluded native
 build checks). This selection includes both new Chat actor transport/FD checks
 and all owned mixer/controller cases. It proves test logic only; native code
 is still uncompiled and all physical client runs remain unperformed.
+
+## Browser source audit prerequisite
+
+The current v9 browser draft has unresolved source mismatches: HTTP404 is not a
+native load error, reloading a permanently missing resource cannot recover it,
+the generated stub has no real script echo, foreign-origin negatives lack a
+proven attempt, and HTTP inline.html is not the actual native data-HTML route.
+See [WEB_SOURCE_AUDIT.md](feature_journeys/WEB_SOURCE_AUDIT.md) for confirmed source
+paths and the concrete correction/instrumentation packet. Browser capabilities
+remain unavailable; do not implement desired-state receipts around this draft.
+
+## Original Chat control component v1
+
+The shared [normal Chat control contract](native/NORMAL_CHAT_CONTROLS.md) now has
+original QML/model identification, native pointer/IME/Return input and a shared
+run-bound recipe. It retains captured draft/channel/focus references, requires
+durable intent and actual consumed counters, then reads actual widget effects.
+Its 14 host cases pass; the complete permitted common selection passes 718
+checks without skips, failures, errors or compiler attempts. Native code remains
+uncompiled. Platform wrappers, private original model/settings endpoints, actual
+keyboard/route measurements and full Chat composition remain outstanding. The
+closed-page active-channel assumption also requires source-contract correction;
+never copy local as a measured property of a destroyed QML page.
