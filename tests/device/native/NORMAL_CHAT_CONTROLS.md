@@ -79,14 +79,15 @@ The separate native `chatOriginalHistory(page,run)` helper reads the real
 using their original `text` roles, bounded row counts and original row order.
 It returns actual controlled run text preserving multiplicity, plus total row
 counts; it never copies a request into rows or retains other/private message
-content. Missing/wrong models or roles fail. This helper is not yet a complete
-private observation endpoint and cannot substitute for independently read
-persistent `ArmoredChat-Messages`/settings when the page is closed.
+content. Missing/wrong models or roles fail. The separate
+[Chat view observation](CHAT_VIEW_OBSERVATION.md) endpoint exposes these models
+and independently reads live `ArmoredChat-Messages`/settings with the page closed.
+Neither source is a complete adapter or a peer delivery proof.
 
-The current full v9 closed-page `channel:local` normalization is not an actual
-read of a destroyed QML property. A breaking source-contract correction should
-represent the absent active channel explicitly and independently inspect actual
-persisted history. Do not fill absent UI observations with checkpoint defaults.
+Historical v9 closed-page `channel:local` normalization was not an actual read
+of a destroyed QML property. Full journey v10 now represents absent active channel
+as `none` and requires independent history. Do not fill absent UI observations
+with checkpoint defaults.
 Normal tab pointer focus/keyboard aftermath also must be measured on the actual
 Qt/platform route, rather than inferred from the requested channel.
 

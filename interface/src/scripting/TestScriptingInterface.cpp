@@ -27,6 +27,8 @@
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../tests/device/native/FeatureLifecycle.h"
+#include "../../../tests/device/native/ChatViewObservation.h"
+#include <ui/TabletScriptingInterface.h>
 #include "../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../tests/device/native/PrivateScriptFiles.h"
 #include "../../../tests/device/native/PrivateAccountOrigin.h"
@@ -167,6 +169,36 @@ QVariantMap TestScriptingInterface::featureWorldRenderReceipt(const QVariantMap&
     return {{"receiptVersion",1},{"commandId",id},{"requestId",request},{"receiptId",receipt},
         {"operation",operation},{"instance",state->instance()}, {"sequence",static_cast<qulonglong>(++_featureWorldReceiptSequence)},
         {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()}, {"source",source}};
+}
+
+QVariantMap TestScriptingInterface::featureChatViewObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureChatViewObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !DependencyManager::isSet<OffscreenUi>()) { return {}; }
+    const auto ui=DependencyManager::get<OffscreenUi>();
+    if (!ui || !ui->getRootItem()) { return {}; }
+    QList<QQuickItem*> roots{ui->getRootItem()};bool shown{false};QVariantMap metrics;
+    if (DependencyManager::isSet<TabletScriptingInterface>()) {
+        const auto tablets=DependencyManager::get<TabletScriptingInterface>();
+        auto tablet=tablets->getTablet("com.highfidelity.interface.tablet.system");
+        metrics=tablets->getTouchUiRuntimeMetrics();
+        if (tablet) {
+            const auto actual=tablet->property("tabletShown");
+            if (actual.userType()!=QMetaType::Bool) { return {}; }shown=actual.toBool();
+#if defined(Q_OS_IOS)
+            roots.append(tablet->getIOSTabletRoot());
+#else
+            roots.append(tablet->getTabletRoot());
+#endif
+        }
+    }
+    if (!_featureChatView) { _featureChatView=std::make_shared<overte::e2e::ChatViewObservation>(); }
+    return _featureChatView->request(command,roots,shown,metrics);
 }
 
 QVariantMap TestScriptingInterface::featureChatObservation(const QVariantMap& command) {
