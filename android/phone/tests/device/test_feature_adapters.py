@@ -49,6 +49,8 @@ from adapters.native_animation_history import clip_run
 from self_tests.test_native_account_observation import account_source
 from self_tests.test_native_chat_observation import Boundary as ChatBoundary, RUN as CHAT_RUN, SELF as CHAT_SELF, PEER as CHAT_PEER
 from adapters.native_chat_observation import NativeChatObservation, received_texts
+from adapters.native_chat_view import NativeChatView, measured_view
+from self_tests.test_native_chat_view import Boundary as ChatViewBoundary
 from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
 from self_tests.test_native_account_origin import Boundary as AccountOriginBoundary, ORIGIN as ACCOUNT_ORIGIN
 
@@ -437,6 +439,33 @@ class FeatureAdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'PHONE_ACCOUNT_ORIGIN_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
             base.assert_called_once()
         self.assertTrue(source.path.exists());self.assertIsNotNone(self.adapter.account_origin_store(SELECTOR).read())
+
+    def chat_view_boundaries(self):
+        source=self.preview_boundaries(ChatViewBoundary(),'feature-chat-view-observation.json')
+        source.mutate=lambda value:value.update(processId=31)
+        boundary=patch.object(appium,'NativeChatView',partial(NativeChatView,
+            monotonic=lambda:source.clock,sleep=source.sleep))
+        boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._chat_view(SELECTOR)
+
+    def test_phone_chat_view_binds_original_ui_storage_file_without_delivery_claim(self):
+        source,reader=self.chat_view_boundaries();value=reader.read(CHAT_RUN)
+        self.assertEqual(31,value['processId']);self.assertEqual('domain',measured_view(value)['channel'])
+        self.assertEqual(2,len(value['source']['storage']['events']));self.assertEqual([],self.native.inputs)
+        self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_chat_view_ignored_input_or_stale_native_source_cannot_become_empty_success(self):
+        source,reader=self.chat_view_boundaries();source.ignored=True
+        with self.assertRaises(RuntimeError):reader.read(CHAT_RUN)
+        self.assertEqual(1,len(source.commands));self.assertLessEqual(source.clock,5)
+        source.ignored=False;source.mutate=lambda value:value.update(processId=32)
+        with self.assertRaises(RuntimeError):reader.read(CHAT_RUN)
+
+    def test_phone_chat_view_changed_apk_or_process_blocks_dispatch(self):
+        source,reader=self.chat_view_boundaries();reader.read(CHAT_RUN);before=len(source.commands)
+        self.fixture.adb.digest='f'*64
+        with self.assertRaisesRegex(RuntimeError,'Native Chat view observation failed'):reader.read(CHAT_RUN)
+        self.assertEqual(before,len(source.commands))
 
     def chat_capture_boundaries(self):
         source=self.preview_boundaries(ChatBoundary(),'feature-chat-observation.json')

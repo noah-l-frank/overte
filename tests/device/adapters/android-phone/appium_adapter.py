@@ -33,6 +33,7 @@ from adapters.native_feature_observation import NativeFeatureObservation, FILE a
 from adapters.native_account_probe import (NativeAccountProbe, AccountProbeOwner, OwnedAccountProbe,
     FILE as ACCOUNT_PROBE_FILE)
 from adapters.native_chat_observation import NativeChatObservation, ChatCaptureOwner, OwnedChatCapture, FILE as CHAT_FILE
+from adapters.native_chat_view import NativeChatView, FILE as CHAT_VIEW_FILE
 from adapters.native_account_origin import NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, AndroidPreviewFiles,
     FILE as RECORDED_PREVIEW_FILE)
@@ -178,6 +179,16 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
             lambda: binding.adb.epoch_milliseconds(device), guard,
             int(context['processIdentity'].split(':')[0]))
+
+    def _chat_view(self,selector):
+        _ui,_observe,context,check,installed=self.normal_feature_runtime(selector)
+        native=self._native_feature_observer(selector)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        check();require(self.installed_identity(selector)==installed and native.pid==int(context['processIdentity'].split(':')[0]),
+            'PHONE_CHAT_VIEW_CONTEXT_CHANGED')
+        return NativeChatView(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+CHAT_VIEW_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def chat_capture_store(self,selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-chat-capture-owner.json'))

@@ -1,5 +1,16 @@
 # Phone adapter implementation, local source only
 
+Latest continuation: `_chat_view(selector)` binds the new passive original QML
+and live settings source v1 to the existing installed APK/PID-start/session
+guards. It reads only the fixed original private result file, preserving visible
+model rows separately from Local/Domain models and stored accepted messages.
+Three new wrapper counterexamples reject ignored/missing/foreign observations
+and changed installed bytes before another request. All **94** feature-adapter
+host checks pass. Common journey contract is **v10**. This is still a component;
+full Chat peer/keyboard/cleanup composition and all complete `feature.*` triples
+remain missing. Native code is uncompiled and devices untested. See
+[the exact source and handoff](../../native/CHAT_VIEW_OBSERVATION.md).
+
 The native reader additionally accepts the bounded original Rig call/pose
 history with `require_animation_history=True`. One new bound source case keeps
 historical clip frames immutable across fresh acquisitions and rejects a later
