@@ -1,5 +1,14 @@
 # Phone adapter implementation, local source only
 
+Current restart-source packet: `_process_presence(selector)` now transports the
+[original kernel presence source](../../native/PROCESS_PRESENCE.md) through the
+existing APK/PID-start/session/foreground guards and one-attempt private reads.
+All **110** feature-adapter host cases pass. Three new source cases preserve
+present/unknown/actual ESRCH results, reject ignored/foreign sources and block
+another query after candidate replacement or same-PID birth change. No Scripts
+UI input is sent. Native code is uncompiled and devices untested; full restart
+ownership/adoption and complete feature adapters remain missing.
+
 Current file-bundle input packet: `_script_file_manager(selector)` now composes
 the [existing manager's file ownership scope](../../native/SCRIPT_FILE_OWNERSHIP.md)
 with original staged bytes, actual normal Phone manager/file-picker controls and

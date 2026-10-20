@@ -31,6 +31,7 @@ from self_tests.test_native_script_observation import Boundary as ScriptBoundary
 from adapters.native_script_observation import loaded_relative_modules, running_owned_engine, measured_effect
 from adapters.native_script_loads import result as load_result
 from self_tests.test_native_script_loads import history as load_history, URL as LOAD_URL
+from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_feature_observation import probe_source
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
@@ -684,6 +685,39 @@ class FeatureAdapterTests(unittest.TestCase):
             monotonic=lambda: source.clock, sleep=source.sleep))
         boundary.start(); self.addCleanup(boundary.stop)
         return source, self.adapter._script_files(SELECTOR)
+
+    def process_presence_boundaries(self):
+        source = self.preview_boundaries(PresenceBoundary(), 'feature-process-presence.json')
+        boundary = patch.object(appium, 'NativeFeatureObservation', partial(NativeFeatureObservation,
+            monotonic=lambda: source.clock, sleep=source.sleep))
+        boundary.start(); self.addCleanup(boundary.stop)
+        return source, self.adapter._process_presence(SELECTOR)
+
+    def test_phone_process_presence_keeps_original_kernel_states_without_scripts_input(self):
+        source, reader = self.process_presence_boundaries()
+        self.assertEqual('present', reader.read(29)['presence'])
+        source.presence = 'unknown'
+        with self.assertRaises(RuntimeError): reader.require_absent(29)
+        source.presence = 'absent'; actual = reader.require_absent(29)
+        self.assertEqual(source.value, actual); self.assertEqual(3, actual['nativeError'])
+        self.assertEqual([], self.native.inputs)
+
+    def test_phone_process_presence_ignored_or_foreign_source_cannot_prove_exit(self):
+        source, reader = self.process_presence_boundaries(); source.ignored = True
+        with self.assertRaises(RuntimeError): reader.require_absent(29)
+        self.assertEqual(1, len(source.commands)); self.assertIsNone(reader.last)
+        source.ignored = False; source.presence = 'absent'; source.edit = lambda value: value.update(processId=32)
+        with self.assertRaises(RuntimeError): reader.require_absent(29)
+        self.assertIsNone(reader.last)
+
+    def test_phone_process_presence_changed_candidate_or_same_pid_new_birth_blocks_another_query(self):
+        source, reader = self.process_presence_boundaries(); reader.read(29)
+        before = len(source.commands); original = self.fixture.adb.digest; self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises(RuntimeError): reader.read(29)
+        self.assertEqual(before, len(source.commands))
+        self.fixture.adb.digest = original; self.native.identity = '31:15'
+        with self.assertRaises(RuntimeError): reader.read(29)
+        self.assertEqual(before, len(source.commands))
 
     def file_manager_boundaries(self):
         storage = ScriptFilesBoundary(self.fixture.root)
