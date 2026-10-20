@@ -15,6 +15,7 @@ from urllib.parse import unquote, urlsplit
 
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
+from adapters.native_script_loads import validate as validate_loads
 
 FILE = 'feature-script-observation.json'
 LIMIT = 262144
@@ -36,11 +37,16 @@ def validate(value, request, pid, epoch):
     source = value['source']
     extended = type(source) is dict and 'effectSourceVersion' in source
     identified = type(source) is dict and 'sourceIdentityVersion' in source
+    loads = type(source) is dict and 'loadSourceVersion' in source
     fields = {'complete','engines'}
     if extended: fields |= {'effectSourceVersion','effects'}
     if identified:
         fields.add('sourceIdentityVersion')
         need(type(source['sourceIdentityVersion']) is int and source['sourceIdentityVersion'] == 1)
+    if loads:
+        fields |= {'loadSourceVersion', 'loads'}
+        need(type(source['loadSourceVersion']) is int and source['loadSourceVersion'] == 1)
+        validate_loads(source['loads'], value['capturedEpochMs'])
     exact(source, fields)
     need(source['complete'] is True and type(source['engines']) is list and len(source['engines']) <= 128)
     identities = set()
@@ -181,10 +187,11 @@ class NativeScriptObservation:
         self.effect_rows, self.absent_effects = {}, set()
         self.effects_required = False
         self.code_required = False
+        self.loads = None
 
-    def read(self, after_sequence, *, require_effects=False, require_code_identity=False):
+    def read(self, after_sequence, *, require_effects=False, require_code_identity=False, require_load_history=False):
         try:
-            need(type(require_effects) is bool and type(require_code_identity) is bool)
+            need(all(type(flag) is bool for flag in (require_effects, require_code_identity, require_load_history)))
             need(integer(after_sequence) and after_sequence >= self.sequence and self.guard() is not False)
             started = previous = self.monotonic()
             need(number(started, 0, 1e15))
@@ -214,6 +221,13 @@ class NativeScriptObservation:
                     need(self.instance in (None, value['instance']) and value['sequence'] > after_sequence
                          and value['requestedEpochMs'] >= requested)
                     source = value['source']
+                    loaded = source.get('loadSourceVersion') == 1
+                    need(not (require_load_history or self.loads is not None) or loaded)
+                    next_loads = source['loads'] if loaded else None
+                    if next_loads is not None and self.loads is not None:
+                        need(next_loads['instance'] == self.loads['instance']
+                             and next_loads['sequence'] >= self.loads['sequence']
+                             and next_loads['events'][:len(self.loads['events'])] == self.loads['events'])
                     need(not (require_effects or self.effects_required) or source.get('effectSourceVersion') == 1)
                     identified = source.get('sourceIdentityVersion') == 1
                     need(not (require_code_identity or self.code_required) or identified)
@@ -265,6 +279,7 @@ class NativeScriptObservation:
                         self.effect_rows, self.absent_effects = deepcopy(next_effects), absent
                         self.effects_required = True
                     self.code_required = self.code_required or identified
+                    if next_loads is not None: self.loads = deepcopy(next_loads)
                     self.instance, self.sequence = value['instance'], value['sequence']
                     return value
                 if attempt < 50: self.sleep(0.1)

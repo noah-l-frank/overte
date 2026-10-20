@@ -12,6 +12,16 @@
 //
 
 #include "ScriptManager.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "ScriptLoadObservation.h"
+namespace {
+overte::e2e::ScriptLoadObservation& featureScriptLoads() {
+    static overte::e2e::ScriptLoadObservation history;
+    return history;
+}
+}
+QVariantMap ScriptManager::featureLoadHistory() { return featureScriptLoads().snapshot(); }
+#endif
 #include <Finally.h>
 #include "../../../security/redaction/SafeDiagnostics.h"
 
@@ -636,6 +646,12 @@ void ScriptManager::loadURL(const QUrl& scriptURL, bool reload) {
         if (!completion.current()) {
             return;
         }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        // Only the original live callback supplies its URL, result and ticket.
+        // This is fetch completion, not proof of script initialization or effects.
+        featureScriptLoads().record(_e2eRequiredModules.snapshot().value("instance").toString(),
+            url, loadRequest.featureGeneration(), isURL, success, status);
+#endif
         qCDebug(scriptengine) << overte::security::diagnosticEvent(overte::security::DiagnosticEvent::Redacted);
         if (!completion.current()) {
             return;
