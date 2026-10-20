@@ -4933,6 +4933,53 @@ class CurrentParentTransitionTests(unittest.TestCase):
             'reason':'protected-ci-dependencies','affected':{
                 'dependency_schema':2,'target':'main','required':list(names)}}
 
+    def test_partial_ci_projection_retains_required_host_owner_without_optional_execution(self):
+        self.selected=self.partial_selection()
+        required=self.selected['affected']['required']
+        required.append('native-owner-lifecycle')
+        self.assertEqual(self.registry['suites']['native-owner-lifecycle']['layer'],'host')
+        self.assertNotIn('native-owner-lifecycle',self.C.ci_profile.SUITES)
+        self.assertEqual((len(self.selected['suites']),len(required)),(32,33))
+        self.source.base=deepcopy(self.source.default)
+        self.source.base['.github/android-orchestration.json']=self.C.source_admission.ordinary('f'*40)
+        path='tools/sync-test-reuse/test.py'
+        raw=(self.C.ROOT/path).read_bytes()
+        self.source.default[path]=self.C.source_admission.ordinary(self.C.source_admission.blob_id(raw))
+        self.source.base[path]=self.C.source_admission.ordinary('a'*40)
+        try:
+            value=self.schedule()
+        except ValueError as error:
+            self.fail(f'actual CI32/required33 projection must decline optional qualification: {error}')
+        self.assertEqual(value['selection'],self.selected)
+        self.assertEqual(value['selection']['affected']['required'],required)
+        self.assertEqual(value['current_imports']['authority'],'current-imports-only')
+        self.assertEqual(value['authority'],'none')
+        self.assertFalse(value['qualification'] or value['reusable'])
+        self.assertIsNone(value['execution'])
+        self.assertEqual(value['executed_suites'],[]);self.assertEqual(value['reused_suites'],[])
+        self.environment['GITHUB_JOB']='qualify-parent';self.source.job['name']='Qualify exact parent'
+        needs={'route':{'result':'skipped','outputs':{}},'common-parent':{'result':'success'},
+            'platform-tests':{'result':'skipped','outputs':{}}}
+        with patch.object(self.C.producer,'ROOT',self.root):
+            self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_partial_ci_projection_rejects_missing_malformed_and_unselected_ci_requirements(self):
+        self.selected=self.partial_selection()
+        self.selected['affected']['required'].append('native-owner-lifecycle')
+        baseline=deepcopy(self.selected)
+        for change in ('missing','null','string','mapping','missing-selected','unselected-ci'):
+            self.selected=deepcopy(baseline)
+            affected=self.selected['affected']
+            if change=='missing':del affected['required']
+            elif change=='null':affected['required']=None
+            elif change=='string':affected['required']='producer-api'
+            elif change=='mapping':affected['required']={name:True for name in affected['required']}
+            elif change=='missing-selected':affected['required'].remove(self.selected['suites'][0])
+            else:affected['required'].append('producer-proof')
+            with self.subTest(change=change),self.assertRaises(ValueError):self.schedule()
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
     def test_current_documentation_and_lock_partial_selection_declines_without_execution_or_pass(self):
         self.selected=self.partial_selection()
         # The existing current-main import boundary authenticates D itself;
