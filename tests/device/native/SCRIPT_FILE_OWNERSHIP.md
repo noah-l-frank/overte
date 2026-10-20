@@ -68,7 +68,9 @@ device behavior is qualified by these tests.
 A real app restart still needs an explicit separately verified ownership handoff:
 same independently verified installed artifact/target and original file token,
 observed old process death, actual new process/source identity, current owned
-script/byte observations and durable adoption before cleanup input. The native
+script absence/byte observations and durable adoption before cleanup input.
+The v16 mobile recipe expects no automatic user-script execution: normal reopen
+and reimport are separate subsequent actions; see [the current Script flow](../feature_journeys/SCRIPTS_SOURCE.md). The native
 `.owner.v1.json` already survives process death; host context equality must not
 be weakened to bypass the remaining handoff.
 
