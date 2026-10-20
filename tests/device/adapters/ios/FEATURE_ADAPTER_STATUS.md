@@ -1,5 +1,19 @@
 # iOS feature adapter implementation status
 
+Current file-bundle input packet: `_script_file_manager(selector)` composes the
+[existing file ownership scope](../../native/SCRIPT_FILE_OWNERSHIP.md) with
+original HTTP/AFC file bytes, independent native clocks and normal UIKit/Qt
+manager/picker controls. Its UI runtime is independent of the journal's URL/file
+mode. The physical runtime/storage paths retain the candidate/source gate;
+legacy/unbound entrypoints explicitly refuse the new factories before I/O.
+All **395** no-build iOS host cases and ten additional binding checks pass.
+The new cases cover normal cancel/select/stop, separate native file absence,
+process loss retaining ownership and unbound factory refusal. Native/OS storage
+boundaries are synthetic. Full execution/effect/peer/cleanup/restart joins remain
+missing; unresolved file intent still prevents general cleanup success. Native
+code remains uncompiled, the physical source plugin is uninstalled/inactive and
+devices remain untested.
+
 Current Script load packet: the existing HTTP/AFC execution factory preserves
 [original load history v1](../../native/SCRIPT_LOAD_HISTORY.md), with separate
 native-clock acquisitions. A new transport counterexample retains actual

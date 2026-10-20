@@ -28,6 +28,7 @@ from contracts import validate_operation_arguments, validate_operation_result
 from ios.adapters import native_ui, native_integration, native_primary, native_upgrade, native_permission, native_consent, native_crash
 from adapters.collaboration_observation import actor_receipt, portable_observation
 from adapters.normal_ui import NativeUI
+from adapters.token_script_file_ui import TokenScriptFilePicker
 from ios.adapters.normal_input import NativeInput
 from ios.adapters import normal_navigation
 from ios.adapters import normal_snapshot
@@ -99,7 +100,7 @@ class IOSNativeMixin:
     def script_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('normal-scripts.json'))
 
-    def _scripts(self, selector):
+    def _script_runtime(self, selector):
         target = self.target(selector)
         need(normal_scripts.configuration(target) is not None)
         client, session, state = self.ensure_session(selector)
@@ -119,21 +120,33 @@ class IOSNativeMixin:
         continuity()
         native = NativeInput(client, session, target, process)
         observer = FeatureObservation(client, session, target, process)
-        return normal_scripts.flow(NativeUI(client, session, continuity), native, observer,
-                                   self.script_store(selector), session, state)
+        return normal_scripts.runtime(NativeUI(client, session, continuity), native, observer, session, state)
+
+    def _scripts(self, selector):
+        return normal_scripts.manager(*self._script_runtime(selector), self.script_store(selector))
 
     def script_files_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('normal-script-files.json'))
 
     def _script_files(self, selector):
+        ui, _observe, binding = self._script_runtime(selector)
+        return self._bound_script_files(selector, ui, binding)
+
+    def _bound_script_files(self, selector, ui, binding):
         from adapters.native_script_files import OwnedScriptFiles
-        manager = self._scripts(selector)
-        native = manager.ui.io.native
+        native = ui.io.native
         # Reuse the actual session/fingerprint/PID continuity closure, rather
         # than creating a process-only component reader for persistent files.
         observer = FeatureObservation(native.client, native.session, native.target, native.observe_process)
         return OwnedScriptFiles(observer.script_fixture_files(), self.script_files_store(selector),
-                                manager.binding, component_only=True)
+                                binding, component_only=True)
+
+    def _script_file_manager(self, selector):
+        ui, observe, binding = self._script_runtime(selector)
+        files = self._bound_script_files(selector, ui, binding)
+        directory = files.verify()
+        return normal_scripts.manager(ui, observe, binding, self.script_store(selector),
+            file_owner=files, file_picker=TokenScriptFilePicker(ui.io, directory))
 
     def _graphics_controls(self, selector, intent):
         from adapters.token_graphics_ui import TokenGraphicsUI
@@ -252,8 +265,8 @@ class IOSNativeMixin:
 
     def _script_file_picker(self, selector, directory):
         from adapters.token_script_file_ui import TokenScriptFilePicker
-        manager = self._scripts(selector)
-        return TokenScriptFilePicker(manager.ui.io, directory)
+        ui, _observe, _binding = self._script_runtime(selector)
+        return TokenScriptFilePicker(ui.io, directory)
 
     def cleanup(self, selector):
         chat_error=False

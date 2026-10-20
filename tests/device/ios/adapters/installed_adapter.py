@@ -82,6 +82,14 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             self._candidate_guard()
             return super()._scripts(selector)
 
+        def _script_runtime(self, selector):
+            self._candidate_guard()
+            return super()._script_runtime(selector)
+
+        def _bound_script_files(self, *args, **kwargs):
+            self._candidate_guard()
+            return super()._bound_script_files(*args, **kwargs)
+
         def _private_login_input(self, *args, **kwargs):
             self._candidate_guard()
             return super()._private_login_input(*args, **kwargs)

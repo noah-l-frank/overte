@@ -65,7 +65,7 @@ class IOSScriptIO:
         self.ui.release_actions()
 
 
-def flow(ui, native, observer, store, session, state):
+def runtime(ui, native, observer, session, state):
     io = IOSScriptIO(ui, native)
     observed = io.capture()
     binding = dict(scope='NATIVE_UI_COMPONENT_ONLY', processIdentity=str(observed['processId']),
@@ -74,6 +74,17 @@ def flow(ui, native, observer, store, session, state):
     def observe(after):
         value = observer.read(after)
         return value, observer.epoch_ms()
-    result = NormalScriptManager(TokenScriptUI(io), observe, store, binding, component_only=True)
+    return TokenScriptUI(io), observe, binding
+
+
+def manager(ui, observe, binding, store, *, file_owner=None, file_picker=None):
+    options = {} if file_owner is None else dict(source_kind='script-file-bundle',
+        file_owner=file_owner, file_picker=file_picker)
+    need(file_owner is not None or file_picker is None)
+    result = NormalScriptManager(ui, observe, store, binding, component_only=True, **options)
     result.sample()
     return result
+
+
+def flow(ui, native, observer, store, session, state):
+    return manager(*runtime(ui, native, observer, session, state), store)

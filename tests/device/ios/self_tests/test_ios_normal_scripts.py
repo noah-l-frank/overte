@@ -641,6 +641,54 @@ class IOSNormalScriptsTests(unittest.TestCase):
             boundary.start(); self.addCleanup(boundary.stop)
         return source, self.adapter._script_files('test-only-selector')
 
+    def file_manager(self):
+        source, files = self.file_storage(); files.stage('a' * 32)
+        self.native.file_ui = FileBoundary(source.root)
+        original = self.native.file_ui.activate
+        def input(identifier, **kwargs):
+            state = self.adapter.script_store('test-only-selector').read()
+            if identifier == 'scripts.from-file':
+                self.assertTrue(state['pickerOwned']); self.native.file_ui.chosen = []
+            if identifier == 'script-file.confirm': self.assertTrue(state['loadAttempted'])
+            original(identifier, **kwargs)
+            if identifier == 'script-file.confirm' and self.native.file_ui.accepted:
+                actual = self.native.file_ui.accepted[-1]; self.native.qt.rows.append(dict(url=actual, path=actual))
+        self.native.file_ui.activate = input
+        boundary = patch.object(component, 'TokenScriptFilePicker', partial(TokenScriptFilePicker,
+            monotonic=lambda: self.native.file_ui.clock, sleep=self.native.file_ui.sleep))
+        boundary.start(); self.addCleanup(boundary.stop)
+        return source, files, self.adapter._script_file_manager('test-only-selector')
+
+    def test_ios_file_manager_journals_normal_selection_and_separate_native_file_absence(self):
+        source, files, manager = self.file_manager()
+        manager.open(); manager.file_picker_open(); manager.file_picker_cancel()
+        manager = self.adapter._script_file_manager('test-only-selector')
+        manager.file_picker_open(); manager.file_picker_choose('script-bundle/main.js')
+        actual = self.native.file_ui.accepted[-1]
+        self.assertEqual((source.root / 'script-bundle/main.js').as_uri(), actual)
+        manager.stop_source(actual); manager.close()
+        self.assertIsNone(self.adapter.script_store('test-only-selector').read())
+        self.assertTrue(source.root.exists()); files.release(); self.assertFalse(source.root.exists())
+        self.assertFalse(any(cap.startswith('feature.') for cap in self.adapter.advertised_capabilities(self.native.target)))
+
+    def test_ios_file_manager_process_loss_blocks_input_and_preserves_original_intents(self):
+        source, files, manager = self.file_manager(); manager.open(); manager.file_picker_open()
+        before = (len(self.native.commands), len(source.commands)); self.native.pid = 43
+        with self.assertRaises(RuntimeError): manager.file_picker_choose('script.js')
+        self.assertEqual(before, (len(self.native.commands), len(source.commands)))
+        self.assertTrue(self.adapter.script_store('test-only-selector').read()['pickerOwned'])
+        self.assertIsNotNone(files.store.read())
+
+    def test_ios_unbound_file_manager_runtime_and_storage_cannot_bypass_installed_source_gate(self):
+        from types import SimpleNamespace
+        from adapters.ios import binding
+        with patch.object(component.AppiumAdapter, 'load_targets', return_value={}):
+            adapter = binding.create_adapter(SimpleNamespace(platform='ios', action='cleanup'), component.AppiumAdapter)
+        for method, arguments in (('_script_runtime', ('private-selector',)),
+                ('_script_file_manager', ('private-selector',)), ('_bound_script_files', ('private-selector', None, None))):
+            with self.subTest(method=method), self.assertRaisesRegex(ValueError, 'INSTALLED_CODE_BINDING_UNAVAILABLE'):
+                getattr(adapter, method)(*arguments)
+
     def test_ios_staged_originals_use_actual_http_afc_and_separate_native_absence(self):
         source, files = self.file_storage()
         self.assertEqual(source.root.as_uri(), files.stage('a' * 32))
