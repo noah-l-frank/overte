@@ -118,6 +118,8 @@ SUITES = (
     Suite("source-layout", "quick", (sys.executable, "tests/source-layout-test.py")),
     Suite("shared-script-behavior", "host", ("node", "--test", *tuple(
         str(path.relative_to(ROOT)) for path in sorted((ROOT / "tests/javascript/test").glob("*.test.js"))))),
+    Suite("native-owner-lifecycle", "host", (
+        sys.executable, "tests/producer-owner-lifecycle-test.py")),
     Suite("native-ctest", "native", ("bash", "tests/project-native-test.sh")),
 )
 
