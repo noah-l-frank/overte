@@ -1066,6 +1066,13 @@ class BranchGovernanceWorkflowContracts(unittest.TestCase):
         setup = "steps.select.outputs.full_host == 'true'"
         if generation in ORIGINAL_DEFAULT_GENERATIONS:
             expected={path:dict(entry) for path,entry in future.items()}
+            if generation=='protected-producer-optional-leaf-common-v1':
+                project=ROOT/'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml'
+                self.assertTrue(project.is_file() and not project.is_symlink())
+                self.assertIn(project.stat().st_mode & 0o777,(0o444,0o644))
+                raw=project.read_bytes()
+                expected['.github/workflows/project-tests.yml']={'mode':'100644','type':'blob',
+                    'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
             if generation=='protected-producer-original-default-v1':
                 expected['.github/workflows/repository-checks.yml']={'mode':'100644','type':'blob',
                     'sha':'81bcf1933edc435826e2de411a777cccd4dec7c7'}

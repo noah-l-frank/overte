@@ -1516,6 +1516,7 @@ class AggregateTests(unittest.TestCase):
             'protected-producer-original-default-boolean-v1': 'producers/repository-checks.yml',
             'protected-producer-original-default-required-context-v1': 'producers/repository-checks.yml',
             'protected-producer-optional-parent-source-v1': 'producers/repository-checks.yml',
+            'protected-producer-optional-leaf-common-v1': 'producers/repository-checks.yml',
         }
         metadata = generation in metadata_callers
         if metadata:
@@ -1529,7 +1530,8 @@ class AggregateTests(unittest.TestCase):
                                    'protected-producer-original-default-v1',
                                    'protected-producer-original-default-boolean-v1',
                                    'protected-producer-original-default-required-context-v1',
-                                   'protected-producer-optional-parent-source-v1')
+                                   'protected-producer-optional-parent-source-v1',
+                                   'protected-producer-optional-leaf-common-v1')
         if generation == 'android-owned-npm5-sync-ci-v1' or protected:
             spec = importlib.util.spec_from_file_location('aggregate_android_generation',
                 ROOT / 'tools/repository-checks/android_gate.py')
@@ -1544,7 +1546,8 @@ class AggregateTests(unittest.TestCase):
             if generation in ('protected-producer-original-default-v1',
                               'protected-producer-original-default-boolean-v1',
                               'protected-producer-original-default-required-context-v1',
-                              'protected-producer-optional-parent-source-v1'):
+                              'protected-producer-optional-parent-source-v1',
+                              'protected-producer-optional-leaf-common-v1'):
                 self.assertEqual(dependencies, required_jobs | {'native', 'android', 'workflow-contracts'})
             else:
                 self.assertEqual(dependencies, required_jobs | {'native', 'android'})
@@ -1558,7 +1561,8 @@ class AggregateTests(unittest.TestCase):
             self.assertIn('browser-client', dependencies)
         if metadata:
             canonical = generation in {'protected-producer-original-default-required-context-v1',
-                'protected-producer-optional-parent-source-v1'}
+                'protected-producer-optional-parent-source-v1',
+                'protected-producer-optional-leaf-common-v1'}
             self.assertEqual(jobs['repository-checks']['if'], 'always()' if canonical else
                 "always() && (needs.route.result != 'success' || needs.route.outputs.metadata_only != 'true')")
             self.assertEqual(jobs['repository-checks']['name'], 'repository-checks' if canonical else

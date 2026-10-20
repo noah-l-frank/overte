@@ -41,6 +41,21 @@ _ORIGINAL_PARENT_WORKFLOW = ('9bfc6f8723b1f59426f913472b78206844a7f201', 'c-rk<e
 
 
 def historical_metadata_workflow(relative,generation,root):
+    if relative=='.github/workflows/project-tests.yml' and generation in {
+            'protected-producer-original-default-v1',
+            'protected-producer-original-default-boolean-v1',
+            'protected-producer-original-default-required-context-v1',
+            'protected-producer-optional-parent-source-v1'}:
+        # Keep the complete requested historical tuple independent of active28.
+        path=root/'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml'
+        assert path.is_file() and not path.is_symlink() and path.stat().st_mode & 0o777 in {0o444,0o644}
+        raw=path.read_bytes()
+        row=next(row for row in json.loads((root/'.github/package-workflow-generations.json').read_text())['generations']
+            if row['name']==generation)
+        assert row['workflows'][relative]=={'mode':'100644','type':'blob',
+            'sha':'28c32a5aa4ccfe75b14514d17a19c016dc1cf2e9'}
+        assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()==row['workflows'][relative]['sha']
+        return raw
     if generation in {'protected-producer-original-default-v1',
             'protected-producer-original-default-boolean-v1',
             'protected-producer-original-default-required-context-v1'} and relative in {
@@ -1342,6 +1357,8 @@ class MetadataSchedulingTests(unittest.TestCase):
             'protected-producer-original-default-required-context-v1':
                 ('22fe0d6d39d120f800099136d7d1ab5280d80b41','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
             'protected-producer-optional-parent-source-v1':
+                ('22fe0d6d39d120f800099136d7d1ab5280d80b41','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
+            'protected-producer-optional-leaf-common-v1':
                 ('22fe0d6d39d120f800099136d7d1ab5280d80b41','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
         }
         self.assertIn(installed,variants)
@@ -4707,9 +4724,10 @@ class CurrentParentTransitionTests(unittest.TestCase):
         for name in list(s.bodies):
             if name==C.source_admission.PROFILE:
                 raw=shared_profile
-            elif name in {'.github/workflows/parent-qualification.yml',C.producer.PLATFORM_PARENT_TEMPLATE}:
+            elif name in {'.github/workflows/project-tests.yml',
+                    '.github/workflows/parent-qualification.yml',C.producer.PLATFORM_PARENT_TEMPLATE}:
                 # These tests exercise the retained current-parent26 protocol.
-                # Its immutable workflow bytes must survive an active27 checkout.
+                # Its complete immutable tuple must survive an active27/28 checkout.
                 raw=historical_metadata_workflow(name,
                     'protected-producer-original-default-required-context-v1',C.ROOT)
             else:
