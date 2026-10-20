@@ -3,10 +3,13 @@
 `adapters/restart_inputs.py` supplies private one-send input intent for a normal
 app stop/launch pair. It composes with the existing Script ownership handoff;
 it is not a full journey, process-death verdict or complete feature capability.
-The three platform factories still need to connect these methods to their
-ordinary `app.stop`, `app.process` and `app.launch` operations and original native
-feature source. No platform binding or real device input is enabled by this
-shared component alone.
+The three separate local platform branches now connect the internal controller
+to their ordinary stop/launch routes and actual OS/native sources. Phone uses
+its original Appium SDK input and current OS reads; Pico requires a strict
+complete own-UID PID query; iOS retains explicit component scope and the physical
+installed-code gate. This shared component alone enables no device input or
+complete feature capability. Lost launch receipts before Pico OpenXR or physical
+iOS installed-code binding remain explicitly unqualified.
 
 Construct `RestartInputs(store, owners, component_only=False)` with the existing
 private input store and exactly three distinct private ownership stores in the
@@ -61,6 +64,16 @@ requested-operation summation is necessary. A different results directory,
 ignored launch, missing activation, extra restart or producer reset fails.
 Return the original complete native packet unchanged. Subsequent observations
 pin the same new binding/PID/birth and cannot regress previously recorded counts.
+
+`validate_native_restart(old,new)` supplies the same pure original PID/birth/
+persisted-counter comparison before an optional host input-session binding.
+It validates both strict native summaries, mutates neither and returns no
+observation, binding or functional verdict. It does not prove old-process death,
+selected installed bytes, target/source continuity or Script absence. Callers
+must still independently prove all those facts; it cannot authorize input,
+replay an uncertain launch or adopt an arbitrary existing session. Normal
+`RestartInputs.observe` retains every original context/generation check and
+uses this same comparison, so no lifecycle rule is duplicated or relaxed.
 
 The exact private envelope has `restartInputVersion:1`, `componentOnly`,
 `ownerFiles`, `scriptHandoff`, `oldBinding`, `oldNative`, `phase`, `newBinding`, `newNative`.

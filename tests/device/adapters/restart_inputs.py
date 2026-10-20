@@ -33,6 +33,19 @@ def native(value):
     return value
 
 
+def validate_native_restart(old, new):
+    """Compare original native births/counters before any optional host binding.
+
+    This alone is not process-death, candidate, input-session or Script proof.
+    Callers must obtain both packets through original independently guarded IO.
+    """
+    native(old); native(new)
+    need(new['pid'] != old['pid'] and new['instance'] != old['instance']
+         and new['lifecycle']['launches'] == old['lifecycle']['launches'] + 1
+         and new['lifecycle']['activations'] >= old['lifecycle']['activations'] + 1
+         and new['lifecycle']['backgrounds'] >= old['lifecycle']['backgrounds'])
+
+
 class RestartInputs:
     def __init__(self, store, owners, *, component_only=False, monotonic=time.monotonic):
         need(isinstance(store, PrivateFeatureState) and type(component_only) is bool and callable(monotonic))
@@ -51,13 +64,10 @@ class RestartInputs:
 
     def _new(self, old, new, old_native, new_native):
         self._binding(new, new_native)
+        validate_native_restart(old_native, new_native)
         immutable = {'targetFingerprint'} | (set() if self.component_only else {'sourceRevision', 'artifactSha256'})
         need(all(old[key] == new[key] for key in immutable)
-             and old['processIdentity'] != new['processIdentity'] and new['generation'] >= old['generation']
-             and new_native['pid'] != old_native['pid'] and new_native['instance'] != old_native['instance']
-             and new_native['lifecycle']['launches'] == old_native['lifecycle']['launches'] + 1
-             and new_native['lifecycle']['activations'] >= old_native['lifecycle']['activations'] + 1
-             and new_native['lifecycle']['backgrounds'] >= old_native['lifecycle']['backgrounds'])
+             and old['processIdentity'] != new['processIdentity'] and new['generation'] >= old['generation'])
 
     def read(self):
         value = self.store.read()
