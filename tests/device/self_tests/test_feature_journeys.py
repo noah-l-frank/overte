@@ -98,6 +98,16 @@ class Boundary:
                 if a=='authentication':
                     self.auth_process+=1
                     s.update(dialog=self.fault=='startup-login-open' and s['principal']=='anonymous',pending=False,error='none')
+                if a=='scripts':
+                    # The reviewed mobile startup routes load system defaults,
+                    # not the saved user-source list. This is model behavior,
+                    # independently reduced from the checkpoint assertions.
+                    previous_effects=s['effects']
+                    if self.fault not in {'script-restart-keeps-running','script-restart-forged-absence'}:
+                        s.update(running=[],effects=0,companions=[])
+                    if self.fault=='script-restart-residual-effect':s['effects']=previous_effects
+                    s.update(picker=False,error='none',open=self.fault=='script-restart-keeps-editor')
+                    self.script_restarted=True;self.script_restart_clock=self.clock
             return
         if verb == 'background-resume':
             if self.fault != 'background-ignored':
@@ -340,8 +350,14 @@ class Boundary:
                 s['open'] = verb == 'open'
                 if verb == 'close': s['error'] = 'none'
             elif verb == 'picker-open': s['picker'] = True
-            elif verb == 'picker-cancel': s['picker'] = False
-            elif verb == 'picker-accept': s.update(picker=False, running=['owned-script'], effects=4, companions=['companion.js'])
+            elif verb == 'picker-cancel':
+                s['picker'] = False
+                if getattr(self,'script_restarted',False) and self.fault=='script-restart-cancel-executes':
+                    s.update(running=['owned-script'],effects=4,companions=['companion.js'])
+            elif verb == 'picker-accept':
+                s['picker']=False
+                if not (getattr(self,'script_restarted',False) and self.fault=='script-reimport-ignored'):
+                    s.update(running=['owned-script'], effects=4, companions=['companion.js'])
             elif verb == 'load-url' and data['resource'] == 'missing.js': s['error'] = 'not-found'
             elif verb == 'stop-owned': s.update(running=[], effects=0, companions=[])
         elif a == 'assets':
@@ -464,6 +480,10 @@ class Boundary:
             # Independently timed model source, never copied from a checkpoint.
             self.state['restoredBeforeNominalEnd']=(self.emote_started is not None and self.emote_restored is not None
                 and 0<=(self.emote_restored-self.emote_started)*1000<1750)
+        if (self.area=='scripts' and self.fault=='script-restart-late-replay'
+                and getattr(self,'script_restarted',False) and not getattr(self,'script_late_replayed',False)
+                and self.clock-self.script_restart_clock>=1):
+            self.state.update(running=['owned-script'],effects=4,companions=['companion.js']);self.script_late_replayed=True
         if self.area=='scripts' and self.state['running'] and self.fault!='script-effects-stalled':
             self.state['effects'] += 1
         if self.area=='lifecycle-input':self.state['deferredInputs']=int(getattr(self,'life_pending',None) is not None)
@@ -475,6 +495,8 @@ class Boundary:
             angle=0.04*math.sin(self.clock*2*math.pi)
             self.state['positionDelta']=dict(x=angle,y=0.0,z=-math.sqrt(1-angle*angle))
         state = copy.deepcopy(self.state)
+        if self.area=='scripts' and self.fault=='script-restart-forged-absence' and self.verb=='restart-app':
+            state.update(running=[],effects=0,companions=[])
         if self.area=='emotes' and getattr(self,'forge_restore_timing',False) and self.emote_final and self.verb=='cancel':
             state['restoredBeforeNominalEnd']=True # Only the adapter seam lies; the independent actor must disagree.
         if self.fault == 'product-echo-without-peer' and self.verb == self.target:
@@ -536,6 +558,11 @@ class Boundary:
                 if self.fault=='chat-peer-draft':facts['draft']=''
                 if self.fault=='chat-peer-focus':facts.update(focused=False,keyboard=False)
                 if self.fault=='chat-peer-missing-keyboard':facts.pop('keyboard')
+            if self.area=='scripts':
+                if self.fault=='script-peer-open' and self.verb=='open':facts['open']=False
+                if self.fault=='script-peer-picker' and self.verb=='picker-open':facts['picker']=False
+                if self.fault=='script-peer-error' and self.verb=='load-url':facts['error']='none'
+                if self.fault=='script-peer-missing-picker':facts.pop('picker')
             self.journal.publish(RUN, dict(ticket=self.ticket, actor='owned-observer',
                 actorSequence=self.actor_sequence, capturedEpochMs=self.epoch(), facts=facts))
         value = self.journal.snapshot(RUN)
@@ -1080,6 +1107,45 @@ class FeatureJourneys(unittest.TestCase):
         for edit in ({'contractVersion':5},{'contractVersion':4},{'inputs':{'expected':'idle'}},{'inputs':{'restore':True}}):
             with self.assertRaises(ValueError):arguments('feature.emotes.act',request|edit)
 
+    def test_script_mobile_restart_clears_execution_and_explicit_reimport_uses_normal_picker(self):
+        boundary=Boundary('scripts');boundary.execute()
+        steps=SCENARIOS['scripts']['steps'];index=next(n for n,step in enumerate(steps) if step['verb']=='restart-app')
+        self.assertEqual(19,len(steps))
+        self.assertEqual(['open','picker-open','picker-cancel','picker-open','picker-accept','stop-owned','load-url','close'],
+                         [step['verb'] for step in steps[index+1:]])
+        label=f'{index+1:02d}-restart-app';report=boundary.reports[0]
+        phase=next(row for row in report['phases'] if row['phase']==label)
+        self.assertGreaterEqual(phase['stableSeconds'],3)
+        samples=[row['state'] for row in report['samples'] if row['phase']==label]
+        self.assertTrue(samples)
+        self.assertTrue(all(row==dict(running=[],effects=0,companions=[],picker=False,error='none',open=False) for row in samples))
+        accepts=[request['inputs']['resource'] for operation,request in boundary.actions
+                 if operation.endswith('.act') and request['verb']=='picker-accept']
+        self.assertEqual(['script.js','script-bundle/main.js','script-bundle/main.js'],accepts)
+        self.assertTrue(report['sequenceCompleted'])
+
+    def test_script_restart_cannot_inherit_old_execution_effects_or_editor(self):
+        for fault in ('restart-ignored','script-restart-keeps-running','script-restart-residual-effect',
+                      'script-restart-keeps-editor','script-restart-forged-absence'):
+            with self.subTest(fault=fault):
+                boundary=Boundary('scripts',fault)
+                with self.assertRaises(AssertionError):boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_script_restart_late_execution_is_rejected_before_any_reopen_input(self):
+        boundary=Boundary('scripts','script-restart-late-replay')
+        with self.assertRaisesRegex(AssertionError,'11-restart-app'):boundary.execute()
+        actions=[request['verb'] for operation,request in boundary.actions if operation.endswith('.act')]
+        self.assertEqual(1,actions.count('open'));self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
+    def test_script_reimport_and_cancel_after_restart_require_real_independent_effects(self):
+        for fault in ('script-reimport-ignored','script-restart-cancel-executes','script-peer-open',
+                      'script-peer-picker','script-peer-error','script-peer-missing-picker'):
+            with self.subTest(fault=fault):
+                boundary=Boundary('scripts',fault)
+                with self.assertRaises((AssertionError,ValueError)):boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+
     def test_script_picker_cancellation_and_real_companion_resolution_are_observed(self):
         for fault in ('execution-on-cancel', 'missing-relative-companion'):
             with self.subTest(fault=fault):
@@ -1099,11 +1165,12 @@ class FeatureJourneys(unittest.TestCase):
         request = dict(contractVersion=VERSION, runId=RUN, ticket=TICKET,
             fixtureUrl=f'http://controlled.test/feature-fixture/v1/runs/{RUN}/', verb='picker-open', inputs={})
         self.assertEqual(request, arguments('feature.scripts.act', request))
-        for changed in ({'contractVersion':1}, {'contractVersion':2}, {'verb':'consent-accept'}, {'verb':'load-folder', 'inputs':{'resource':'script-bundle'}}):
+        for changed in ({'contractVersion':1}, {'contractVersion':2}, {'contractVersion':15}, {'verb':'consent-accept'}, {'verb':'load-folder', 'inputs':{'resource':'script-bundle'}}):
             with self.assertRaises(ValueError): arguments('feature.scripts.act', request | changed)
         boundary = Boundary('scripts'); sample = boundary.observe({'afterSequence':0})
-        sample['contractVersion'] = 1
-        with self.assertRaises(ValueError): result('feature.scripts.observe', sample)
+        for prior in (1,15):
+            sample['contractVersion'] = prior
+            with self.assertRaises(ValueError): result('feature.scripts.observe', sample)
 
     def test_graphics_measures_nondefault_original_state_and_restores_it_without_sending_it(self):
         boundary=Boundary('graphics')
@@ -1446,9 +1513,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v15.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v16.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v15.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v16.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():
