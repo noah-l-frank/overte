@@ -1,32 +1,32 @@
-# Feature adapter handoff, contract v11
+# Feature adapter handoff, contract v12
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
-packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v11.json) and
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v12.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 tracks subsequent local platform packets and prerequisites. These do not change
-the complete v11 contract or grant device acceptance.
+the complete v12 contract or grant device acceptance.
 
 ## Action and read boundary
 
 For each closed area, advertise all three operations only after implementing
-and qualifying their complete v11 contract:
+and qualifying their complete v12 contract:
 
-- `feature.<area>.act` accepts exactly `{contractVersion: 11, runId, ticket,
+- `feature.<area>.act` accepts exactly `{contractVersion: 12, runId, ticket,
   fixtureUrl, verb, inputs}`. `runId` and `ticket` are fresh 32-character lowercase
   hexadecimal strings. `fixtureUrl` is a credential-free HTTP(S) URL whose exact
   path is `/feature-fixture/v1/runs/<runId>/`. `verb` and `inputs` must match the
   closed inventory, including expanded owned text. Return exactly
   `{"performed": true}` after delivering ordinary input, never a result verdict.
-- `feature.<area>.observe` accepts exactly `{contractVersion: 11, runId,
-  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 11,
+- `feature.<area>.observe` accepts exactly `{contractVersion: 12, runId,
+  afterSequence}`. It returns exactly `{schemaVersion: 1, contractVersion: 12,
   runId, sequence, capturedEpochMs, state, artifacts, resources, lifecycle}`.
   `state` has every field declared for that area, measured from current product
   state. Unknown, inaccessible or unsupported observations are errors. Empty
   lists and default values cannot substitute for a failed read.
-- `feature.<area>.cleanup` accepts exactly `{contractVersion: 11, runId}` and
+- `feature.<area>.cleanup` accepts exactly `{contractVersion: 12, runId}` and
   returns exactly `{"performed": true}`. Restore only the captured owned test
   scope. The common test calls it twice and then independently observes the
   initial state, empty owned-resource inventory and three seconds of stable
@@ -204,7 +204,7 @@ receipt, requested value or UI text alone cannot substitute for an effect.
 | --- | --- |
 | world-navigation | Actual address/grounded position (A/B from `navigation_observation.POSITIONS`) plus independently read bookmark storage and directory response; A/B identify the controlled viewpoints. A failed navigation retains B and shows `not-found`. Restart retains the renamed bookmark. |
 | authentication | Provider session/profile and protected-resource access identify `anonymous` or `owned`. Invalid credentials create no session. Keep the actual request pending through close/reopen; restart its consumer before releasing a real valid old grant. Observe anonymous new-process protected access and actual retained delayed server authority. Restart retains valid login; native logout clears current local authority and survives restart. Separate fixture cleanup revokes remote issued tokens. |
-| avatar-people | Independent peer observes actual model source, replicated scale, attached owned wearable and connection consent. Bookmark storage is independently enumerated. `original` refers to the captured initial avatar; A refers to the pinned avatar fixture. Scale/attachments must visibly change. Consent cancellation/rejection must leave no connection; acceptance is mutual. |
+| avatar-people | [Version 12 source contract](feature_journeys/AVATAR_SOURCE.md): independently observe actual loaded geometry separately from advertised/requested URL, original failed-load history, dynamic-Hips owned Model wearable and bookmark storage/recovery. A missing model must become unavailable or actual loaded fallback, never an assumed retained A or fabricated UI error. Connection success requires two distinct consenting principals and original backend relationship reads; UI/peer messages are insufficient. All nine state fields require independent current observations. |
 | create | Real entity/server query identifies exact owned objects, selection, texture source, voxel value and effective rez permission. Cancel imports create nothing. Use the owned domain host. Create PolyVox with an 8×8×8 volume and the normal central-cube initial shape; use ordinary properties to place a unit-size volume two metres in front of the controlled avatar. `voxel-edit` selects cube/remove, a 0.5 m brush and one click at the visible front-face centre. `voxelValue` is 0 for unchanged saved voxel data and 1 only after the actual saved bytes differ from the creation baseline with native `isVoxelDataReady` true; it is never the requested brush setting. Model/texture/voxel changes require real geometry pixels; denied rez leaves zero objects and explicit permission feedback. |
 | emotes | Ordinary plays/Sit must have a real native override, loaded selected resource and changed evaluated joints. `poseProgress` is the fraction of a nonempty original joint set that changed, never chooser progress. The nine non-Sit `wait-complete` actions send no product input or restoration call; actual automatic restoration and later evaluated idle pose must be observed. Choosers may hide/retain according to the selected submitted-source profile; reopen through ordinary input when necessary. Sit variant discovery resets through normal controls, gathers all actual Sit1/2/3 with at most 24 attempts per new variant and accepts either actual reset timing; no requested variant is sent. The final Waving cancellation additionally requires independently measured `restoredBeforeNominalEnd:true`, using the original native range/rate, restore event and later inactive evaluation with the 250ms margin in the version 5 migration. Delayed natural completion is false. Native timing does not identify button/timer cause: correlate original input/source and independent current peer/image effects. Unknown history is unavailable, never a guessed flag. Cleanup restores actual state and clears only the owned run association, not native history. |
 | world-web/tablet-web | [Version 11 source contract](feature_journeys/WEB_SOURCE.md): actual native documents/status/origins, independently witnessed trusted Send attempts, native/script acceptance and matching page echoes, actual 404/restoration/Reload, reconstructed blank resume and native inline carrier/retired callback. All fifteen fields require independent sources. No HTTP-inline, assumed form retention or host-GET substitution. |
