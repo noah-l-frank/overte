@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "native-pending-field-commit": 1,
     "asset-input-bundle": 1,
     "native-feature-observation": 1,
     "native-ios-bundle-observation": 1,
