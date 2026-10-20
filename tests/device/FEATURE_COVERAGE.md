@@ -18,19 +18,22 @@ previously corrected their actual original-source semantics. The native retained
 input owner/private channel is now registered in all three separate platform
 branches; complete Lifecycle joins remain missing.
 
-All rows have shared test logic. Android Phone now implements the complete Script extension; its native instrumentation remains uncompiled and untested on devices. The other thirteen Phone area adapters and all complete Pico/iOS area adapters remain missing.
+All rows have shared test logic. Android Phone now implements the complete Script and Authentication extensions; native instrumentation remains uncompiled and untested on devices. The other twelve Phone area adapters and all complete Pico/iOS area adapters remain missing.
 These are implementation statuses, not complete product-feature acceptance.
 The [source compatibility review](FEATURE_SOURCE_COMPATIBILITY.md) identifies
 remaining platform Emote prerequisites. Version 5 corrects ordinary override/chooser semantics, adds nine automatic completions and a separate early-restoration check. Version 4 corrects Graphics to immediate settings and independently measured original preferences. Version 2 corrected Scripts to the real file-bundle picker; version 3 corrected
 Audio to automatic in-memory capture/play/drain/completion;
 its adapter input/observer join is still incomplete. Host logic is present; it is not yet a qualified
-product workflow. Only the Phone Script extension can be explicitly enabled; this promotes no physical acceptance.
+product workflow. Phone Script and Authentication can be explicitly enabled; this promotes no physical acceptance.
 The later [local adapter packet audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 records the earlier foundation implementations and concrete native blockers.
 The later Phone Script facade is described in its [current handoff](adapters/android-phone/SCRIPT_FEATURE.md).
 The [controlled HTTPS account backend](feature_journeys/ACCOUNT_PROVIDER.md) now
 supplies real owned grants/profile access and delayed-response/revocation controls;
-native Authentication observation/input and complete adapter composition remain open.
+the complete Phone Authentication adapter now composes original native/UI/HTTP
+evidence, both observer roles, restart history and verified cleanup. See
+[the exact handoff](adapters/android-phone/AUTHENTICATION_FEATURE.md). Pico/iOS
+Authentication adapters and all physical qualification remain open.
 Version 6 corrects authentication cancellation semantics and adds actual delayed
 authority plus independent UI/error observations; this remains test logic only.
 Version 7 corrects Chat to actual channel selection, cancelled drafts, local fallback
@@ -46,7 +49,7 @@ to implement the new complete area contract.
 | Area | Existing common modules retained | Added shared user flows | Required additional evidence | Status |
 | --- | --- | --- | --- | --- |
 | world-navigation | `domain-enter`, `domain-roundtrip`, `places-navigation`, `look`, `move`, `input-neutral`, `collision`, `jump`, `fly`, `scene-reload` | Cancelled bookmark add/rename, CRUD/restart durability, actual empty/unmatched/owned query models, recreated pages and original named-404/native-modal recovery. | changed, image, peer | Logic present; adapter missing; device untested |
-| authentication | No prior feature journey | Invalid login; close/reopen a pending view; real restart before valid old-grant release; successful login/restart and native logout; separate fixture revocation. | peer | Logic present; adapter missing; device untested |
+| authentication | No prior feature journey | Invalid login; close/reopen a pending view; real restart before valid old-grant release; successful login/restart and native logout; separate fixture revocation. | peer | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | avatar-people | `multi-user` | Actual loaded/requested avatar, Model wearable, native load failure and bookmark recovery; mutual contact consent/cancel/reject/removal. | changed, image, peer | Logic present; adapter missing; device untested |
 | create | `create-management`, `entity-sync`, `world-interaction` | Model URL/texture/voxel creation/edit, real entity-JSON picker cancellation/import, exact-slot original export and rez denial/retry. | changed, file, image, peer | Logic present; adapter missing; device untested |
 | emotes | No prior feature journey | Ten actual native overrides, nine automatic completions, all observed Sit variants, chooser lifetime, early restoration and resume. | changed, image, peer | Logic present; adapter missing; device untested |

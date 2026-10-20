@@ -3,8 +3,8 @@
 `PhoneAuthenticationActions` joins the existing Token Login UI v2, ordinary
 Phone File-menu logout, existing-session input admission and `RestartInputs`.
 `overte_phone_authentication_causality` validates original AccountManager events.
-These are internal components; the complete Authentication capability is not
-advertised. Native instrumentation is uncompiled and devices are untested.
+These internal components are composed by the [complete Authentication adapter](AUTHENTICATION_FEATURE.md).
+Native instrumentation is uncompiled and devices are untested.
 
 ## Inputs and ordinary routes
 
@@ -81,8 +81,8 @@ while any input, process-stage source or restart journal remains. It does not
 delete such provenance to report success. The full feature owner still must
 join both roles' own old/new process histories, publish independent facts,
 observe native/UI/remote authority absence, and retire the known host journals
-with restart-safe cleanup. Those are current implementation work, not claims
-made by these components.
+with restart-safe cleanup. The full feature now supplies those checks; the
+input components alone do not claim them.
 
 `test_authentication_actions.py` has eighteen synthetic SDK/native/OS cases,
 including ordinary invalid/owned login, pending cancel/reopen, real menu input,

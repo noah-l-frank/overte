@@ -124,11 +124,19 @@ class AuthenticationOwnerTests(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
         self.root=Path(temporary.name);os.chmod(self.root,0o700)
         self.s=InputSources(self.root);self.calls=[];self.counter=0
-        self.journal=Journal(lambda:20000)
+        self.epoch=lambda:20000+round(self.s.clock*1000)
+        self.s.epoch_ms=self.epoch;self.s.provider_epoch_ms=self.epoch
+        self.journal=Journal(self.epoch)
         with patch('feature_journeys.witness.secrets.token_hex',return_value=RUN):self.assertEqual(RUN,self.journal.register('authentication'))
         self.journal.activate(RUN,TICKET)
         self.provider=dict(providerVersion=2,instance=INSTANCE,transport='https',tlsVersion='TLSv1.3',internalErrors=0)
-        self.grants_enabled=True
+        self.grants_enabled=True;self.account_exists=True;self.remote_tokens=self.remote_refresh=0
+        grant=self.s.grant
+        def native_grant(password):
+            grant(password)
+            if password=='synthetic-private-owned' and self.s.fact['loggedIn']:
+                self.remote_tokens+=1;self.remote_refresh+=1
+        self.s.grant=native_grant
         # Preserve the original source helper's provider proof, then route the
         # control protocol through the real shared journal reducer. No desired
         # checkpoint or state is ever returned from this test transport.
@@ -137,23 +145,49 @@ class AuthenticationOwnerTests(unittest.TestCase):
             self.assertEqual({},kwargs);self.calls.append((role,path))
             if path=='/account-provider':return deepcopy(self.provider)
             if path=='/runs/'+RUN+'/account/status':
-                return dict(providerVersion=2,instance=INSTANCE,runId=RUN,capturedEpochMs=20000,eventSequence=self.s.provider_sequence,
-                    accountExists=True,heldRequests=0,armedHold=False,inflightRequests=0,
-                    accessTokens=int(self.s.fact['loggedIn']),refreshTokens=int(self.s.fact['loggedIn']),grantsEnabled=self.grants_enabled)
+                return dict(providerVersion=2,instance=INSTANCE,runId=RUN,capturedEpochMs=self.epoch(),eventSequence=self.s.provider_sequence,
+                    accountExists=self.account_exists,heldRequests=sum(row['state']=='held' for row in self.s.provider_rows),armedHold=False,inflightRequests=0,
+                    accessTokens=self.remote_tokens,refreshTokens=self.remote_refresh,grantsEnabled=self.grants_enabled)
+            if path=='/runs/'+RUN+'/account/control':
+                self.assertEqual('primary',role);self.assertEqual({'operation':'cleanup'},value)
+                self.account_exists=False;self.grants_enabled=False;self.remote_tokens=self.remote_refresh=0
+                for row in self.s.provider_rows:
+                    row.update(accessValid=False,refreshValid=False)
+                    if row['state']=='held':row.update(state='cancelled',status=503)
+                return {}
             if path=='/runs/'+RUN+'/active':
                 if value is not None:
-                    self.assertEqual('primary',role);self.journal.activate(RUN,**value);return {}
+                    self.assertEqual('primary',role);self.journal.activate(RUN,**value);self.s.pending_ticket=value['ticket']
+                    if value['verb']=='cleanup':
+                        self.grants_enabled=False;self.remote_tokens=self.remote_refresh=0
+                        for row in self.s.provider_rows:
+                            row.update(accessValid=False,refreshValid=False)
+                            if row['state']=='held':row.update(state='cancelled',status=503)
+                    elif value['verb']=='release-stale-response':
+                        for row in self.s.provider_rows:
+                            if row['state']=='held':
+                                row.update(releasedEpochMs=self.epoch(),issuedEpochMs=self.epoch(),status=200,state='issued',accessValid=True,refreshValid=True)
+                                self.remote_tokens+=1;self.remote_refresh+=1
+                    return {}
                 return self.journal.active(RUN)
-            if path=='/runs/'+RUN:return self.journal.snapshot(RUN)
+            if path=='/runs/'+RUN:
+                if method=='DELETE':
+                    self.assertEqual('primary',role);self.assertFalse(self.account_exists)
+                    self.journal.close(RUN);return {}
+                return self.journal.snapshot(RUN)
             if path=='/runs/'+RUN+'/samples':
                 self.assertEqual('actor',role);self.journal.publish(RUN,value);return {}
             if '/account/proof/' in path:
                 self.assertEqual('actor',role)
                 if path.rsplit('/',2)[1]!=self.journal.active(RUN)['ticket']:raise ValueError('Synthetic retired actual request')
-                return originals(path)|dict(capturedEpochMs=20000)
-            if path=='/runs/'+RUN+'/account/delayed':return originals(path)|dict(capturedEpochMs=20000)
+                return originals(path)
+            if path=='/runs/'+RUN+'/account/delayed':
+                return originals(path)|dict(grantsEnabled=self.grants_enabled,
+                    delayedGrantOutstanding=any(row['accessValid'] or row['refreshValid'] for row in self.s.provider_rows))
             self.fail('Unexpected synthetic fixture request')
         self.s.client.request=lambda *args,**kwargs:request('primary',*args,**kwargs)
+        self.s.client.monotonic=lambda:self.s.clock
+        self.s.client.sleep=lambda value:setattr(self.s,'clock',self.s.clock+value)
         del self.s.client.account_status
         actor=Client(URL,'y'*64);actor.request=lambda *args,**kwargs:request('actor',*args,**kwargs)
         # Both sources read the actual current synthetic native token. The
@@ -167,13 +201,13 @@ class AuthenticationOwnerTests(unittest.TestCase):
                     tokenAttached=self.s.fact['observation']['tokenValid'],
                     principalSha256=hashlib.sha256(('e2e-'+RUN).encode() if accepted else b'').hexdigest())
         self.s.probe.mutate=response
-        self.s.tablet.mutate=lambda packet:packet.update(processId=self.s.pid,controls=[],scriptInventory=inventory(tabletShown=self.s.menu_client.panel is not None))
+        self.s.tablet.mutate=lambda packet:packet.update(processId=self.s.pid,capturedEpochMs=self.epoch(),controls=[],scriptInventory=inventory(tabletShown=self.s.menu_client.panel is not None))
         self.s.authentication_samples_store=lambda _selector,role,stage:PrivateFeatureState(self.root/('phone-authentication-'+role+'-'+str(stage)+'-samples.json'))
         self.s.authentication_actions_store=lambda _selector:PrivateFeatureState(self.root/'phone-authentication-actions.json')
         self.s._authentication_actions=lambda selector,client,run:PhoneAuthenticationActions(self.s,selector,client,run)
-        self.primary=PhoneAuthenticationFeature(self.s,'selector',AuthenticationFixtureReader(self.s.client,RUN,epoch_ms=lambda:20000),
+        self.primary=PhoneAuthenticationFeature(self.s,'selector',AuthenticationFixtureReader(self.s.client,RUN,epoch_ms=self.epoch),
             monotonic=lambda:self.s.clock,sleep=lambda value:setattr(self.s,'clock',self.s.clock+value))
-        self.actor=PhoneAuthenticationFeature(self.s,'selector',AuthenticationFixtureReader(actor,RUN,epoch_ms=lambda:20000),role='actor',
+        self.actor=PhoneAuthenticationFeature(self.s,'selector',AuthenticationFixtureReader(actor,RUN,epoch_ms=self.epoch),role='actor',
             monotonic=lambda:self.s.clock,sleep=lambda value:setattr(self.s,'clock',self.s.clock+value))
     def observe(self,owner=None):
         from feature_journeys.scenarios import VERSION
@@ -183,6 +217,12 @@ class AuthenticationOwnerTests(unittest.TestCase):
         self.counter+=1;ticket=format(self.counter,'032x');inputs=inputs or {}
         self.s.client.activate(ticket,verb,inputs)
         return self.primary.act(dict(contractVersion=VERSION,runId=RUN,fixtureUrl=URL+'/runs/'+RUN+'/',ticket=ticket,verb=verb,inputs=inputs))
+
+    def cleanup(self):
+        from feature_journeys.scenarios import VERSION
+        active=self.journal.active(RUN)
+        if active['stimulus']['verb']!='cleanup':self.s.client.activate('e'*32,'cleanup',{})
+        return self.primary.cleanup(dict(contractVersion=VERSION,runId=RUN))
 
     def test_baseline_has_two_independent_native_and_http_acquisitions_without_input(self):
         primary=self.observe();actor=self.observe(self.actor)
@@ -250,6 +290,239 @@ class AuthenticationOwnerTests(unittest.TestCase):
             return post(path,value,method,**kwargs)
         with patch.object(self.actor.source.client,'request',side_effect=changed):self.assertIsNone(self.actor.publish())
         self.assertEqual([],self.journal.snapshot(RUN)['entries'])
+
+    def test_cleanup_requires_fresh_native_and_host_quiet_window_and_two_fresh_idempotent_reads(self):
+        self.observe();self.observe(self.actor)
+        self.assertEqual({'performed':True},self.cleanup())
+        first=self.primary.control();self.assertEqual('cleaned',first['phase'])
+        frames=[row['frame'] for row in first['cleanupProof'] if row['kind']=='frame']
+        self.assertGreaterEqual(len(frames),3)
+        self.assertGreaterEqual(frames[-1]['nativeAfter']['capturedEpochMs']-frames[0]['nativeBefore']['capturedEpochMs'],3000)
+        self.assertEqual({'performed':True},self.cleanup())
+        primary=self.observe();actor=self.observe(self.actor)
+        self.assertEqual([],primary['resources']);self.assertEqual(primary['state'],actor['state'])
+        self.assertEqual([],self.s.login.inputs);self.assertEqual([],self.s.inputs)
+        self.assertTrue(all(row['probeReleased']['source']['credentialBytes']==0 for row in frames))
+
+    def test_cleanup_closes_actual_owned_menu_and_revokes_remote_authority_after_normal_logout(self):
+        self.observe();self.observe(self.actor)
+        for verb,inputs in (('login-open',{}),('login-submit',{'account':'owned'}),('logout',{})):
+            self.act(verb,inputs);self.observe();self.observe(self.actor)
+        self.assertIsNotNone(self.s.menu_client.panel);self.assertEqual(1,self.remote_tokens)
+        self.cleanup();self.assertIsNone(self.s.menu_client.panel)
+        self.assertEqual(0,self.remote_tokens);self.assertEqual([],self.observe()['resources'])
+        self.assertEqual(1,sum(resource=='nav.close' for resource,_label in self.s.menu_client.inputs))
+
+    def test_ignored_tablet_close_is_retained_and_is_not_replayed_on_another_cleanup_call(self):
+        self.observe();self.act('login-open');self.act('login-submit',{'account':'owned'});self.act('logout')
+        self.s.menu_client.ignore='nav.close'
+        with self.assertRaises(NativeUIError):self.cleanup()
+        self.assertIsNotNone(self.s.menu_client.panel);self.assertEqual('cleaning',self.primary.control()['phase'])
+        before=list(self.s.menu_client.inputs)
+        with self.assertRaises(NativeUIError):self.cleanup()
+        self.assertEqual(before,self.s.menu_client.inputs)
+
+    def test_remote_authority_not_revoked_cannot_be_hidden_by_native_anonymous_cleanup(self):
+        self.observe();self.s.client.activate('e'*32,'cleanup',{})
+        self.remote_tokens=1;self.remote_refresh=1;self.grants_enabled=True
+        with self.assertRaises(NativeUIError):self.cleanup()
+        self.assertEqual('cleaning',self.primary.control()['phase']);self.assertFalse(self.s.fact['loggedIn'])
+
+    def test_frozen_original_native_and_provider_clocks_cannot_satisfy_quiet_cleanup(self):
+        self.observe();self.s.epoch_ms=lambda:20000;self.s.provider_epoch_ms=lambda:20000
+        self.primary.source.epoch_ms=lambda:20000
+        self.epoch=lambda:20000
+        with self.assertRaises(NativeUIError):self.cleanup()
+        self.assertEqual('cleaning',self.primary.control()['phase'])
+
+    def ready_to_finalize(self):
+        self.observe();self.observe(self.actor);self.cleanup();self.observe();self.observe(self.actor)
+        self.s.client.close()
+
+    def test_final_host_retirement_requires_both_independent_cleanup_frames_and_retired_actual_fixture(self):
+        self.ready_to_finalize();before=sum(command['operation']=='read' for command in self.s.probe.commands)
+        self.assertEqual({'performed':True},self.primary.finalize())
+        self.assertTrue(all(store.read() is None for store in self.primary._retirement_paths()))
+        self.assertIsNone(self.primary.retirement_store.read())
+        self.assertEqual(before,sum(command['operation']=='read' for command in self.s.probe.commands))
+        self.assertFalse(self.s.origin.path.exists());self.assertEqual([],self.s.inputs)
+
+    def test_missing_actor_cleanup_cannot_be_replaced_with_primary_baseline(self):
+        self.observe();self.observe(self.actor);self.cleanup();self.observe();self.s.client.close()
+        with self.assertRaises(NativeUIError):self.primary.finalize()
+        self.assertIsNotNone(self.primary.store.read());self.assertIsNone(self.primary.retirement_store.read())
+
+    def test_actual_live_fixture_account_prevents_host_retirement_even_after_both_roles_cleaned(self):
+        self.observe();self.observe(self.actor);self.cleanup();self.observe();self.observe(self.actor)
+        with self.assertRaises(NativeUIError):self.primary.finalize()
+        self.assertIsNotNone(self.primary.store.read());self.assertIsNotNone(self.primary.retirement_store.read())
+
+    def test_host_retirement_recovery_rechecks_actual_native_absence_without_new_http_get_or_input(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        self.ready_to_finalize();discard=PrivateFeatureState.discard;removed=[]
+        def lost(store,previous):
+            discard(store,previous)
+            if store.path.name=='phone-authentication-actions.json' and not removed:
+                removed.append(1);raise OSError('Synthetic lost host-retirement return')
+        with patch.object(PrivateFeatureState,'discard',new=lost),self.assertRaises(NativeUIError):self.primary.finalize()
+        self.assertIsNotNone(self.primary.retirement_store.read())
+        before=len(self.s.native.commands)
+        self.assertEqual({'performed':True},self.primary.finalize())
+        self.assertGreater(len(self.s.native.commands),before);self.assertIsNone(self.primary.store.read())
+
+    def test_retained_native_probe_body_and_reopened_ui_prevent_final_retirement(self):
+        self.ready_to_finalize();self.s.probe.pending=True
+        with self.assertRaises(NativeUIError):self.primary.finalize()
+        self.assertIsNotNone(self.primary.store.read())
+        self.s.probe.pending=False;self.s.login.ui.dialog=True
+        with self.assertRaises(NativeUIError):self.primary.finalize()
+        self.assertIsNotNone(self.primary.store.read())
+
+    def test_replaced_known_host_journal_is_never_deleted_by_a_retirement_plan(self):
+        self.ready_to_finalize();self.s.probe.pending=True
+        with self.assertRaises(NativeUIError):self.primary.finalize()
+        self.s.probe.pending=False
+        store=self.s.authentication_actions_store('selector');old=store.read();replacement={'foreign':True};store.write(replacement,old)
+        with self.assertRaises(NativeUIError):self.primary.finalize()
+        self.assertEqual(replacement,store.read())
+
+    def test_entire_shared_journey_uses_both_original_readers_three_restarts_and_verified_retirement(self):
+        from feature_journeys.engine import Journey
+        import test_feature_adapters as bound
+        reports=[];f=self.registered_adapter()
+        def invoke(operation,fields):return f.adapter.invoke(bound.SELECTOR,operation,fields)
+        def witness():self.actor.publish();return self.s.client.observe()
+        journey=Journey('authentication',RUN,URL+'/runs/'+RUN+'/',invoke=invoke,witness=witness,
+            activate=self.s.client.activate,read_artifact=lambda _name:self.fail('Authentication requires original peer facts'),
+            image_policy={},continuity=lambda *_args:None,monotonic=lambda:self.s.clock,epoch_ms=self.epoch,
+            sleep=lambda value:setattr(self.s,'clock',self.s.clock+value),report=reports.append)
+        with (patch.dict(os.environ,dict(OVERTE_PHONE_FEATURE_AUTHENTICATION='1',OVERTE_PHONE_ACCOUNT_FIXTURE='1',
+                    OVERTE_E2E_FEATURE_FIXTURE_URL=URL,OVERTE_E2E_FEATURE_READER_TOKEN='x'*64)),
+              patch.object(f.adapter,'_authentication_feature',return_value=self.primary)):
+            journey.execute()
+        self.assertTrue(reports[-1]['sequenceCompleted']);self.assertTrue(reports[-1]['cleanupSucceeded'])
+        self.assertEqual(17,len(reports[-1]['phases'])-2)
+        self.assertEqual(['app.stop','app.launch']*3,self.s.inputs)
+        self.s.client.close();self.assertEqual({'performed':True},self.primary.finalize())
+        self.assertTrue(all(store.read() is None for store in self.primary._retirement_paths()))
+
+    def registered_adapter(self):
+        from test_account_fixture_launch import AccountFixtureLaunchTests
+        setup=AccountFixtureLaunchTests();setup.setUp();self.addCleanup(setup.doCleanups)
+        return setup.f
+
+    def test_existing_adapter_entrypoint_advertises_only_with_explicit_bound_https_launch_and_reader_configuration(self):
+        from feature_journeys.scenarios import VERSION
+        import test_feature_adapters as bound
+        f=self.registered_adapter()
+        config=dict(OVERTE_PHONE_FEATURE_AUTHENTICATION='1',OVERTE_PHONE_ACCOUNT_FIXTURE='1',
+            OVERTE_E2E_FEATURE_FIXTURE_URL=URL,OVERTE_E2E_FEATURE_READER_TOKEN='x'*64)
+        with patch.dict(os.environ,config),patch.object(f.adapter,'_authentication_feature',return_value=self.primary) as factory:
+            operations=f.adapter.advertised_capabilities(f.target)
+            self.assertTrue(all('feature.authentication.'+kind in operations for kind in ('act','observe','cleanup')))
+            actual=f.adapter.invoke(bound.SELECTOR,'feature.authentication.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+            self.assertEqual([],actual['resources']);factory.assert_called_once_with(bound.SELECTOR,RUN)
+        with patch.dict(os.environ,{'OVERTE_PHONE_FEATURE_AUTHENTICATION':'0'}),patch.object(f.adapter,'_authentication_feature') as factory:
+            with self.assertRaises(ValueError):f.adapter.invoke(bound.SELECTOR,'feature.authentication.observe',dict(contractVersion=VERSION,runId=RUN,afterSequence=0))
+            factory.assert_not_called()
+
+    def test_missing_required_launch_reader_or_https_scope_is_never_advertised_as_complete(self):
+        f=self.registered_adapter()
+        good=dict(OVERTE_PHONE_FEATURE_AUTHENTICATION='1',OVERTE_PHONE_ACCOUNT_FIXTURE='1',
+            OVERTE_E2E_FEATURE_FIXTURE_URL=URL,OVERTE_E2E_FEATURE_READER_TOKEN='x'*64)
+        for edit in (dict(OVERTE_PHONE_FEATURE_AUTHENTICATION='yes'),dict(OVERTE_PHONE_ACCOUNT_FIXTURE='0'),
+                     dict(OVERTE_E2E_FEATURE_FIXTURE_URL='http://owned.invalid/feature-fixture/v1'),dict(OVERTE_E2E_FEATURE_READER_TOKEN='')):
+            with self.subTest(edit=edit),patch.dict(os.environ,good|edit),self.assertRaises((ValueError,RuntimeError)):
+                f.adapter.advertised_capabilities(f.target)
+
+    def test_generic_cleanup_retires_verified_authentication_before_base_teardown_and_retains_unfinished_owner(self):
+        import test_feature_adapters as bound
+        f=self.registered_adapter();self.observe()
+        with (patch.object(f.adapter,'state_path',return_value=self.s.path),
+              patch.object(f.adapter,'_authentication_feature',return_value=self.primary),
+              patch.object(bound.AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base):
+            with self.assertRaisesRegex(ValueError,'PHONE_AUTHENTICATION_.*CLEANUP_INCOMPLETE'):f.adapter.cleanup(bound.SELECTOR)
+            base.assert_called_once();self.assertIsNotNone(self.primary.store.read())
+            self.observe(self.actor);self.cleanup();self.observe();self.observe(self.actor);self.s.client.close()
+            base.reset_mock()
+            self.assertEqual({'cleaned':True},f.adapter.cleanup(bound.SELECTOR));base.assert_called_once()
+        self.assertIsNone(self.primary.store.read())
+
+    def test_independent_registered_observer_worker_uses_actor_credential_and_own_sources_until_retired(self):
+        import script_observer
+        from types import SimpleNamespace
+        from overte_phone_authentication_feature import PhoneAuthenticationFeature
+        self.observe();self.observe(self.actor);self.cleanup();self.observe()
+        def factory(selector,run,*,role,client):
+            self.assertEqual('actor',role);self.assertEqual('y'*64,client.token)
+            client.request=self.actor.source.client.request
+            return PhoneAuthenticationFeature(self.s,selector,AuthenticationFixtureReader(client,run,epoch_ms=self.epoch),
+                role='actor',monotonic=lambda:self.s.clock,sleep=lambda value:setattr(self.s,'clock',self.s.clock+value))
+        adapter=SimpleNamespace(authentication_feature_store=lambda _selector:self.primary.store,
+            authentication_retirement_store=lambda _selector:self.primary.retirement_store,_authentication_feature=factory)
+        sleeps=[]
+        def sleep(value):
+            self.s.clock+=value;sleeps.append(value)
+            if len(sleeps)==1:self.s.client.close()
+        config=dict(area='authentication',target='selector',fixtureUrl=URL,actorToken='y'*64,durationSeconds=30)
+        before=list(self.s.login.inputs)
+        with patch.object(self.primary,'observe',side_effect=AssertionError('Unexpected primary observation')):
+            self.assertEqual(0,script_observer.run(adapter,config,monotonic=lambda:self.s.clock,sleep=sleep))
+        self.assertEqual(before,self.s.login.inputs);self.assertEqual('retired',self.actor.role_state()['phase'])
+
+    def test_authentication_observer_configuration_is_versioned_private_https_and_cannot_inherit_reader_fields(self):
+        import script_observer
+        from adapters.normal_feature_state import PrivateFeatureState
+        store=PrivateFeatureState(self.root/'observer.json')
+        value=dict(featureObserverVersion=2,area='authentication',target='selector',candidateArguments=[],
+            fixtureUrl=URL,actorToken='y'*64,durationSeconds=30)
+        store.write(value,None);self.assertEqual(value,script_observer.configuration(store.path))
+        for edit in (dict(featureObserverVersion=True),dict(area='assets'),dict(readerToken='x'*64),
+                     dict(fixtureUrl='http://owned.invalid/feature-fixture/v1'),dict(scriptObserverVersion=1)):
+            store.write(value|edit,store.read())
+            with self.subTest(edit=edit),self.assertRaises((ValueError,RuntimeError)):script_observer.configuration(store.path)
+        store.write(value,store.read());store.path.chmod(0o644)
+        with self.assertRaises(NativeUIError):script_observer.configuration(store.path)
+
+    def test_new_process_owner_can_finalize_from_archived_metadata_without_replaying_bootstrap_or_input(self):
+        from overte_phone_authentication_feature import PhoneAuthenticationFeature
+        self.ready_to_finalize()
+        client=Client(URL,'x'*64);client.request=self.s.client.request
+        flow=PhoneAuthenticationFeature(self.s,'selector',AuthenticationFixtureReader(client,RUN,epoch_ms=self.epoch),
+            monotonic=lambda:self.s.clock,sleep=lambda value:setattr(self.s,'clock',self.s.clock+value))
+        before=list(self.s.login.inputs)
+        self.assertEqual({'performed':True},flow.finalize())
+        self.assertEqual(before,self.s.login.inputs);self.assertIsNone(self.primary.store.read())
+
+    def test_final_retirement_deadline_preserves_plan_before_deleting_any_host_journal(self):
+        self.ready_to_finalize();send=self.s.origin.send
+        def late(command):send(command);self.s.clock+=30
+        self.s.origin.send=late
+        with self.assertRaises(NativeUIError):self.primary.finalize()
+        self.assertIsNotNone(self.primary.store.read());self.assertIsNotNone(self.s.authentication_actions_store('selector').read())
+        self.assertIsNotNone(self.primary.retirement_store.read())
+
+    def test_observer_wait_for_authentication_owner_has_a_deadline_and_no_native_query_or_session_bootstrap(self):
+        import script_observer
+        from types import SimpleNamespace
+        adapter=SimpleNamespace(authentication_feature_store=lambda _selector:self.primary.store,
+            authentication_retirement_store=lambda _selector:self.primary.retirement_store,
+            _authentication_feature=lambda *_args,**_kwargs:self.fail('Unexpected observer bootstrap'))
+        config=dict(area='authentication',target='selector',fixtureUrl=URL,actorToken='y'*64,durationSeconds=30)
+        with self.assertRaises(NativeUIError):script_observer.run(adapter,config,monotonic=lambda:self.s.clock,
+            sleep=lambda value:setattr(self.s,'clock',self.s.clock+value))
+        self.assertEqual([],self.s.native.commands);self.assertEqual([],self.s.login.inputs)
+
+    def test_replaced_prior_role_request_is_not_an_inspectable_native_registry_entry(self):
+        import uuid
+        self.ready_to_finalize();primary=self.primary.role_state()['last']['frame']['probe']
+        self.assertNotEqual(primary['requestId'],self.s.probe.slot[2])
+        with self.primary.lock.held(),self.s.existing_input_session('selector'):
+            reader=self.s._account_probe('selector',read_only=True,role='primary').probe
+            request=dict(schemaVersion=1,commandId=uuid.uuid4().hex,action='feature-account-probe',operation='inspect',
+                requestId=primary['requestId'],runId=RUN,ticket=primary['ticket'])
+            with self.assertRaises(NativeUIError):reader._perform(request)
+        self.assertEqual({'performed':True},self.primary.finalize())
 
 
 if __name__=='__main__':unittest.main()

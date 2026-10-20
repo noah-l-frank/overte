@@ -35,6 +35,7 @@ from login_native_boundary import LoginNativeBoundary
 class InputSources(Sources):
     def __init__(self,root):
         super().__init__(root)
+        self.provider_epoch_ms=lambda:int(time.time()*1000)
         self.pid=123;self.stage=0;self.lifecycle=dict(backgrounds=0,activations=1,launches=1)
         self.running=True;self.inputs=[];self.fault='';self.pending_ticket=None;self.provider_rows=[]
         self.proof_presence='absent';self.menu=None;self.bind();self.menu_client=MenuClient()
@@ -44,16 +45,21 @@ class InputSources(Sources):
         return dict(username='e2e-'+RUN,password='synthetic-private-'+role)
     def normal_feature_runtime(self,_selector,*,read_only):
         assert read_only and self.running and self.okay
-        return None,None,BINDING|dict(processIdentity=str(self.pid)+':original-start'),lambda:self.okay,None
+        ui=NativeUI(self.menu_client,'owned-sdk-session',lambda:self.okay,timeout=.5,
+            monotonic=lambda:self.menu_client.clock,sleep=lambda value:setattr(self.menu_client,'clock',self.menu_client.clock+value))
+        return ui,None,BINDING|dict(processIdentity=str(self.pid)+':original-start'),lambda:self.okay,None
     def _native_feature_observer(self,_selector,*,read_only):
         self.check(read_only)
-        return NativeFeatureObservation(self.native.send,self.native.original,lambda:20000,lambda:self.okay,self.pid,
+        return NativeFeatureObservation(self.native.send,self.native.original,self.epoch_ms,lambda:self.okay,self.pid,
             monotonic=lambda:self.native.clock,sleep=self.native.sleep)
     def bind(self):
         def native(packet):
-            packet.update(account=deepcopy(self.fact),processId=self.pid,instance=format(self.stage+10,'032x'),lifecycle=deepcopy(self.lifecycle))
+            epoch=self.epoch_ms();self.fact['observation']['capturedEpochMs']=epoch
+            packet.update(account=deepcopy(self.fact),processId=self.pid,instance=format(self.stage+10,'032x'),lifecycle=deepcopy(self.lifecycle),
+                requestedEpochMs=epoch,capturedEpochMs=epoch)
+            packet['animationFence']['requestedEpochMs']=epoch
         self.native.mutate=native
-        self.origin.mutate=lambda packet:packet.update(processId=self.pid)
+        self.origin.mutate=lambda packet:packet.update(processId=self.pid,requestedEpochMs=self.epoch_ms(),capturedEpochMs=self.epoch_ms())
         self.probe.instance=self.fact['observation']['instance'];self.probe.sequence=0
         tablet=self.tablet.mutate
         self.tablet.mutate=lambda packet:(tablet(packet),packet.update(processId=self.pid))
@@ -66,6 +72,7 @@ class InputSources(Sources):
         self.login.ui.capture=ui
         def output(packet):
             packet['processId']=self.pid
+            if packet['action']=='observe':packet['capturedEpochMs']=self.epoch_ms()
             if packet['action']=='submit' and packet['performed']:
                 self.grant(self.login.ui.fields.get('login.password'))
         self.login.mutate=output
@@ -75,11 +82,11 @@ class InputSources(Sources):
         observed=self.fact['observation'];observed['credentialGeneration']+=1
         if password=='synthetic-private-delayed':
             observed['loginPending']=True
-            self.provider_rows.append(dict(requestId='e'*32,requestTicket=self.pending_ticket,startedEpochMs=int(time.time()*1000),
+            self.provider_rows.append(dict(requestId='e'*32,requestTicket=self.pending_ticket,startedEpochMs=self.provider_epoch_ms(),
                 releasedEpochMs=0,issuedEpochMs=0,status=0,state='held',accessValid=False,refreshValid=False))
             return
         success=password=='synthetic-private-owned'
-        append(self.fact,event(sequence=observed['eventSequence']+1,generation=observed['credentialGeneration'],status=200 if success else 400))
+        append(self.fact,event(sequence=observed['eventSequence']+1,generation=observed['credentialGeneration'],epoch=self.epoch_ms(),status=200 if success else 400))
         if success:
             self.fact.update(loggedIn=True,principalSha256=hashlib.sha256(('e2e-'+RUN).encode()).hexdigest())
             observed.update(tokenPresent=True,tokenValid=True,refreshPresent=True)
@@ -88,7 +95,7 @@ class InputSources(Sources):
         self.login.ui.waiting=False;observed['loginPending']=False
     def request(self,path):
         if path=='/runs/'+RUN+'/account/delayed':
-            return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=int(time.time()*1000),eventSequence=1,
+            return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=self.provider_epoch_ms(),eventSequence=max(1,self.provider_sequence),
                 grantsEnabled=True,requests=deepcopy(self.provider_rows),delayedGrantOutstanding=False)
         return super().request(path)
     def account_origin_store(self,_selector):return PrivateFeatureState(self.root/'origin.json')
@@ -96,7 +103,7 @@ class InputSources(Sources):
     def authentication_restart_store(self,_selector,stage):return PrivateFeatureState(self.root/('phone-authentication-restart-'+str(stage)+'.json'))
     def _login_controls(self,_selector,intent,_run,_origin,*,read_only=False):
         self.check(False)
-        io=PhoneLoginIO(self.login.send,lambda:json.dumps(self.login.value),lambda:20000,lambda:self.okay,self.pid,
+        io=PhoneLoginIO(self.login.send,lambda:json.dumps(self.login.value),self.epoch_ms,lambda:self.okay,self.pid,
             monotonic=lambda:self.login.ui.clock,sleep=self.login.ui.sleep)
         if read_only:return SimpleNamespace(io=io)
         def persist(stage,original,control):
@@ -109,7 +116,7 @@ class InputSources(Sources):
             observed=self.fact['observation'];generation=observed['credentialGeneration']+1
             self.fact.update(loggedIn=False,principalSha256=hashlib.sha256(b'').hexdigest())
             observed.update(credentialGeneration=generation,tokenPresent=False,tokenValid=False,refreshPresent=False,loginPending=False,refreshPending=False)
-            append(self.fact,event(sequence=observed['eventSequence']+1,kind='logout-complete',generation=generation))
+            append(self.fact,event(sequence=observed['eventSequence']+1,kind='logout-complete',generation=generation,epoch=self.epoch_ms()))
         self.menu_client.after_click=clicked
         ui=NativeUI(self.menu_client,'original-menu-session',lambda:self.okay,timeout=.5,
             monotonic=lambda:self.menu_client.clock,sleep=lambda amount:setattr(self.menu_client,'clock',self.menu_client.clock+amount))
@@ -134,7 +141,7 @@ class InputSources(Sources):
         if self.fault=='lost-'+operation:raise RuntimeError('Synthetic lost SDK delivery return')
         return {'performed':True}
     def _process_presence(self,_selector,*,read_only):
-        self.check(read_only);source=PresenceBoundary(pid=self.pid);source.presence=self.proof_presence
+        self.check(read_only);source=PresenceBoundary(pid=self.pid,epoch_ms=self.epoch_ms);source.presence=self.proof_presence
         source.edit=lambda packet:packet.update(instance=format(self.stage+10,'032x'))
         return source.reader()
 

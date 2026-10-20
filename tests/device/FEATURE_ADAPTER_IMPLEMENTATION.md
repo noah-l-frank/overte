@@ -109,13 +109,18 @@ trust/origin setup or a complete actor/coordinator; no capability is enabled.
 
 ## Fourteen-area source audit
 
-All rows below mean: **test logic present; full version 16 adapter missing; devices
-untested**. Existing/new foundations are narrower implementation scopes.
+This foundation audit includes historical intermediate states. The complete
+Phone [Script](adapters/android-phone/SCRIPT_FEATURE.md) and
+[Authentication](adapters/android-phone/AUTHENTICATION_FEATURE.md) adapters are
+now source-implemented. The other twelve Phone areas and all complete Pico/iOS
+areas remain missing. All native code is uncompiled and devices are untested.
+Existing/new foundations below describe narrower implementation scopes unless
+the complete current Phone adapter is explicitly named.
 
 | Area | Phone foundation / new source work | Pico foundation / new source work | iOS foundation / new source work | Additional full-area requirements not available through the current adapters |
 | --- | --- | --- | --- | --- |
 | Worlds/navigation | Existing normal Go To/history retained | Existing real VR Go To/history retained | Existing native component navigation retained; bound execution blocked | Actual bookmark CRUD/persistence, directory/search/failure state and independent arrival/directory actor |
-| Authentication | No new login capability | No new login capability | No new login capability; installed-code gate applies | Controlled HTTPS account/profile fixture now exists; passive native pending/token/reply history now exists; explicit-origin protected-probe and owned origin-file factories now exist; normal login input recipes/private credential carriers now exist internally; native trust/setup, logout/restart/whole-run ownership and independent actor joins remain missing |
+| Authentication | Complete v16 triple: ordinary input, native/UI/HTTP sources, separate actor, three restarts and verified cleanup/retirement | No new login capability | No new login capability; installed-code gate applies | Phone source implementation complete; native build and all device qualification pending. Pico/iOS still need endpoint/normal-input/restart/actor/cleanup composition. |
 | Avatar/people | Existing replication foundations retained | Existing replication foundations retained | Existing component peer/replication code retained | Actual avatar chooser/bookmark/scale/wearable readers, mutual contact consent peer and original visible avatar effects |
 | Create | **New** ordinary cube/edit/history/delete/JSON import + observer/source cleanup | **New** original avatar-owned native ID reader; VR input controls missing | **New** original avatar-owned native ID reader component; bound execution blocked | Normal glTF/OBJ Model URL creation with companions, real entity-JSON file picker/staging, voxel stroke/settled data, exact-slot texture/render/export effects and real domain rez-denial/retry actor |
 | Emotes | Evaluated Rig/clip/pose and immutable native call/frame history | Same candidate-bound history reader | Same original native history component; canonical binding blocked | Full source-profile/normal-input/history/peer/image coordinator, measured completion/early-restoration timing and actual Sit identities; the original tablet Sit end-frame concern remains unresolved |

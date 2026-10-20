@@ -22,6 +22,7 @@ from overte_phone_script_lock import PhoneScriptSourceLock
 from overte_phone_login import PhoneLoginIO
 from adapters.native_account_origin import NativeAccountOrigin,OwnedAccountOrigin
 from adapters.native_account_probe import AccountProbeOwner,OwnedAccountProbe,NativeAccountProbe
+from adapters.native_feature_observation import NativeFeatureObservation
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from feature_journeys.witness import Client
@@ -39,24 +40,56 @@ BINDING=dict(sourceRevision='e'*40,artifactSha256='f'*64,processIdentity='123:or
              sessionId='owned-sdk-session',generation=1,targetFingerprint='1'*64)
 
 
+class SingleSlotProbeBoundary(ProbeBoundary):
+    """Mirror the real AccountProbe's one current request, not a fake registry."""
+    def __init__(self):
+        super().__init__();self.slot=None;self.used_requests=set();self.birth=self.instance
+
+    def send(self,request):
+        if self.ignored:return super().send(request)
+        if self.birth!=self.instance:
+            self.birth=self.instance;self.slot=None;self.used_requests.clear()
+        key=tuple(request[field] for field in ('runId','ticket','requestId'))
+        op=request['operation']
+        if op=='read' and key!=self.slot and request['requestId'] not in self.used_requests:
+            self.slot=key;self.used_requests.add(request['requestId'])
+        elif op=='release' and key!=self.slot and request['requestId'] not in self.used_requests:
+            self.slot=key;self.used_requests.add(request['requestId']) # Original never-delivered retirement.
+        if self.slot!=key:
+            self.commands.append(deepcopy(request));self.value=dict(commandId=request['commandId'],available=False);return
+        return super().send(request)
+
+
 class Sources:
     """Explicit source seams; fixture ownership and journals are real host files."""
     def __init__(self,root):
         self.root=root;self.path=root/'binding.json';self.clock=0.;self.okay=True;self.pinned=0;self.pid=123
+        self.epoch_ms=lambda:20000;self.provider_epoch_ms=lambda:9000000
         self.fact=account();self.fact['observation']['endpointSha256']=hashlib.sha256(ORIGIN.encode()).hexdigest()
-        self.native=NativeBoundary();self.native.mutate=lambda packet:packet.update(account=deepcopy(self.fact))
-        self.origin=OriginBoundary(root/'native');self.probe=ProbeBoundary()
+        self.native=NativeBoundary()
+        def native(packet):
+            epoch=self.epoch_ms();self.fact['observation']['capturedEpochMs']=epoch
+            packet.update(account=deepcopy(self.fact),capturedEpochMs=epoch,requestedEpochMs=epoch)
+            packet['animationFence']['requestedEpochMs']=epoch
+        self.native.mutate=native
+        self.origin=OriginBoundary(root/'native');self.probe=SingleSlotProbeBoundary()
+        self.origin.mutate=lambda packet:packet.update(processId=self.pid,requestedEpochMs=self.epoch_ms(),capturedEpochMs=self.epoch_ms())
         self.provider_sequence=0
         def response(packet):
             packet['processId']=self.pid
+            packet.update(requestedEpochMs=self.epoch_ms(),capturedEpochMs=self.epoch_ms())
             if packet['operation']=='read':
                 self.provider_sequence+=1
                 packet['source'].update(endpointSha256=self.fact['observation']['endpointSha256'],
-                    credentialGeneration=self.fact['observation']['credentialGeneration'])
+                    credentialGeneration=self.fact['observation']['credentialGeneration'],sentEpochMs=self.epoch_ms(),completedEpochMs=self.epoch_ms())
         self.probe.mutate=response
-        self.login=LoginNativeBoundary();self.login.mutate=lambda packet:packet.update(processId=123)
+        self.login=LoginNativeBoundary()
+        def login(packet):
+            packet['processId']=self.pid
+            if packet['action']=='observe':packet['capturedEpochMs']=self.epoch_ms()
+        self.login.mutate=login
         self.tablet=FileNativeBoundary(root/'native')
-        self.tablet.mutate=lambda packet:packet.update(processId=123,controls=[],scriptInventory=inventory(tabletShown=False))
+        self.tablet.mutate=lambda packet:packet.update(processId=self.pid,capturedEpochMs=self.epoch_ms(),controls=[],scriptInventory=inventory(tabletShown=False))
         self.calls=[];self.requests=[];self.proof_edit={};self.status_edit={};self.delayed_edit={}
         self.active=dict(schemaVersion=1,runId=RUN,area='authentication',ticket=TICKET,stimulus=dict(verb='baseline',inputs={}))
         self.client=Client.__new__(Client)
@@ -80,42 +113,44 @@ class Sources:
         assert self.pinned and self.okay
         self.calls.append(read_only)
     def _native_feature_observer(self,_selector,*,read_only):
-        self.check(read_only);return self.native.reader()
-    def _account_origin(self,_selector):
-        self.check(False)
+        self.check(read_only)
+        return NativeFeatureObservation(self.native.send,self.native.original,self.epoch_ms,lambda:self.okay,self.pid,
+            monotonic=lambda:self.native.clock,sleep=self.native.sleep)
+    def _account_origin(self,_selector,*,read_only=False):
+        self.check(read_only)
         admission=self._native_feature_observer(_selector,read_only=True).read(0,require_account=True)
-        source=NativeAccountOrigin(self.origin.send,self.origin.read,lambda:20000,lambda:self.okay,self.pid,admission['instance'],
+        source=NativeAccountOrigin(self.origin.send,self.origin.read,self.epoch_ms,lambda:self.okay,self.pid,admission['instance'],
             monotonic=lambda:self.origin.clock,sleep=self.origin.sleep)
         owner=OwnedAccountOrigin(source,PrivateFeatureState(self.root/'origin.json'),self.normal_feature_runtime(_selector,read_only=True)[2])
         owner.native_admission=admission;return owner
     def _account_probe(self,_selector,*,read_only,role):
         self.check(read_only)
         owner=AccountProbeOwner(PrivateFeatureState(self.root/(role+'-probe.json')),self.normal_feature_runtime(_selector,read_only=True)[2],lambda:self.okay)
-        probe=NativeAccountProbe(self.probe.send,self.probe.read,lambda:20000,lambda:self.okay,self.pid,
+        probe=NativeAccountProbe(self.probe.send,self.probe.read,self.epoch_ms,lambda:self.okay,self.pid,
             intent=owner.intent,monotonic=lambda:self.probe.clock,sleep=self.probe.sleep)
         return OwnedAccountProbe(probe,owner)
     def _login_controls(self,_selector,_intent,_run,_origin,*,read_only):
         self.check(read_only)
-        return SimpleNamespace(io=PhoneLoginIO(self.login.send,lambda:json.dumps(self.login.value),lambda:20000,lambda:self.okay,self.pid,
+        return SimpleNamespace(io=PhoneLoginIO(self.login.send,lambda:json.dumps(self.login.value),self.epoch_ms,lambda:self.okay,self.pid,
             monotonic=lambda:self.login.ui.clock,sleep=self.login.ui.sleep))
     def _script_file_io(self,_selector,*,read_only):
         self.check(read_only)
-        return PhoneScriptFileIO(self.tablet.send,lambda:json.dumps(self.tablet.value),lambda:20000,lambda:self.okay,self.pid,
+        return PhoneScriptFileIO(self.tablet.send,lambda:json.dumps(self.tablet.value),self.epoch_ms,lambda:self.okay,self.pid,
             monotonic=lambda:self.tablet.ui.clock,sleep=self.tablet.ui.sleep)
     def request(self,path):
         self.requests.append(path)
         if path=='/runs/'+RUN+'/active':return deepcopy(self.active)
         if path=='/runs/'+RUN+'/account/delayed':
-            return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=self.provider_sequence,
+            return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=self.provider_epoch_ms(),eventSequence=self.provider_sequence,
                 grantsEnabled=True,requests=[],delayedGrantOutstanding=False)|self.delayed_edit
         if path.startswith('/runs/'+RUN+'/account/proof/'):
-            return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=self.provider_sequence,
+            return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=self.provider_epoch_ms(),eventSequence=self.provider_sequence,
                 kind='profile-request',ticket=path.rsplit('/',2)[1],requestId=path.rsplit('/',1)[1],status=self.probe.value['source']['httpStatus'],
                 principal='owned' if self.fact['loggedIn'] else 'anonymous',protectedAccess=self.fact['loggedIn'])|self.proof_edit
         raise AssertionError('Unexpected synthetic provider route')
     def status(self):
         self.requests.append('status')
-        return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=9000000,eventSequence=self.provider_sequence,
+        return dict(providerVersion=2,instance=PROVIDER,runId=RUN,capturedEpochMs=self.provider_epoch_ms(),eventSequence=self.provider_sequence,
             accountExists=True,heldRequests=0,armedHold=False,inflightRequests=0,
             accessTokens=int(self.fact['loggedIn']),refreshTokens=int(self.fact['loggedIn']),grantsEnabled=True)|self.status_edit
     def logged_in(self):
@@ -445,6 +480,16 @@ class AuthenticationSampleTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):self.acquire('actor')
         self.assertEqual('reading',self.stored('actor')['phase'])
         self.assertIsNotNone(self.sources.account_probe_store('selector',role='actor').read())
+
+    def test_pure_archive_decoder_validates_original_scope_without_runtime_or_native_contact(self):
+        self.acquire();store=PrivateFeatureState(self.root/'phone-authentication-primary-0-samples.json')
+        before=len(self.sources.native.commands)
+        with patch.object(self.sources,'normal_feature_runtime',side_effect=AssertionError('Unexpected archive SDK access')):
+            archived=PhoneAuthenticationSamples.archive(store.read(),client=self.sources.client,run=RUN,
+                provider_instance=PROVIDER,role='primary',stage=0,binding=BINDING)
+        self.assertEqual('ready',archived['phase']);self.assertEqual(before,len(self.sources.native.commands))
+        with self.assertRaises(NativeUIError):PhoneAuthenticationSamples.archive(store.read(),client=self.sources.client,run=RUN,
+            provider_instance=PROVIDER,role='actor',stage=0,binding=BINDING)
 
 
 if __name__=='__main__':unittest.main()

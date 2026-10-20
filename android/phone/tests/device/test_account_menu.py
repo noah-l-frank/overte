@@ -61,6 +61,7 @@ class MenuClient:
                 stage='logout' if label.startswith('Directory Service: Logout') else label or resource
                 if stage==self.ignore:return None
                 if resource=='tablet.open' or resource=='nav.home':self.panel='home'
+                elif resource=='nav.close':self.panel=None
                 elif resource.startswith('tabletPage.'):self.page=int(resource.rsplit('.',1)[1])
                 elif label=='MENU':self.panel='menu'
                 elif label=='File':self.panel='file'

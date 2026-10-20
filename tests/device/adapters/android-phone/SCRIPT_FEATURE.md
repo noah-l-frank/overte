@@ -5,7 +5,9 @@ The existing Phone Appium entrypoint now implements all three v16 operations:
 Enable them explicitly with `OVERTE_PHONE_FEATURE_SCRIPTS=1`, the existing
 `OVERTE_PHONE_NORMAL_SCRIPTS=1`, a verified debug candidate and the existing
 `OVERTE_E2E_FEATURE_FIXTURE_URL` / `OVERTE_E2E_FEATURE_READER_TOKEN` settings.
-An incomplete configuration fails. Other complete feature triples remain absent.
+An incomplete configuration fails. Authentication is separately available under
+its [own explicit configuration](AUTHENTICATION_FEATURE.md); twelve other
+complete area triples remain absent.
 No acceptance policy or required-capability gate is weakened.
 
 This is source implementation with device-free control verification. Native

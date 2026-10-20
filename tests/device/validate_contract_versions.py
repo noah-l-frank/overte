@@ -52,6 +52,8 @@ REQUIRED = {
     "phone-authentication-actions": 1,
     "phone-authentication-fixture-reader": 1,
     "phone-authentication-owner": 1,
+    "phone-authentication-feature": 1,
+    "phone-feature-observer": 2,
     "phone-script-source-lock": 1,
     "phone-script-actions": 1,
     "phone-script-causality": 1,

@@ -1,43 +1,42 @@
 # Current Android Phone adapter status
 
-The full v16 Script extension is now implemented through the existing adapter
-entrypoint: `feature.scripts.act/observe/cleanup`, with an explicit default-off
-`OVERTE_PHONE_FEATURE_SCRIPTS=1` configuration. It includes normal inputs,
-original five-source observations, actual HTTP404 receipts, per-role restart
-history, a separate credentialed publisher and verified cleanup/host-journal
-retirement. See [the exact handoff](SCRIPT_FEATURE.md).
+The full v16 Script and Authentication triples are now implemented through the
+existing adapter entrypoint, each under its explicit default-off configuration.
+Both join ordinary inputs, original independent observations, each role's own
+restart histories, the separately credentialed publisher and verified cleanup/
+host-journal retirement. See [Script](SCRIPT_FEATURE.md) and
+[Authentication](AUTHENTICATION_FEATURE.md) for exact configurations and evidence.
 
 This is source implementation and host verification only. Native instrumentation
 has not been compiled; no device, installation, build or Jenkins run was performed.
-The remaining thirteen complete Android feature adapters are still missing.
+The remaining twelve complete Android feature adapters are still missing.
 Pico and iOS are paused until all fourteen Android areas are complete. Historical
 component notes below do not supersede this current status.
 
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary
-measurement lease. Thirty-two host counterexamples verify this v2 source owner,
+measurement lease. Thirty-three host counterexamples verify this v2 source owner,
 including interrupted-ticket retirement without input replay or old-fact publication.
-The complete Authentication coordinator, three-restart role histories,
-independent publisher and final run retirement remain in progress. This
-component does not advertise a full Authentication capability.
+The complete Authentication coordinator now composes those sources, three
+restart histories, independent publication and final native/fixture/journal
+retirement. The source component alone does not advertise capabilities.
 
 [Normal Authentication inputs and causality](AUTHENTICATION_INPUTS.md) now
 compose the original Login controls and owned File-menu logout with durable
 one-send intent, fresh native terminal events and three explicit process
 boundaries. Eighteen input and fourteen causality host cases cover normal,
-ignored, uncertain and retained-ownership paths. Complete independent role
-restart histories, publisher and verified whole-run cleanup are still pending;
-this input owner is not a full Authentication capability.
+ignored, uncertain and retained-ownership paths. The full feature adds the
+independent role histories, publisher and verified whole-run cleanup; input
+ACKs alone remain insufficient.
 
 [Authentication input/observer composition](AUTHENTICATION_COORDINATOR.md) now
 joins ordinary inputs, actual protected requests and each role's own old/new
-process archives. Nineteen fixture/coordinator cases and the other focused
-Authentication cases pass (83 total); 324 Phone/identity cases and 25 Script
-facade cases pass. The common no-build suite passes 1,026 cases. Complete
-Authentication cleanup, host retirement, standalone publisher integration and
-full capability registration remain in progress. No Authentication capability
-or physical qualification is promoted by this internal owner.
+process archives. Its forty fixture/coordinator cases include the entire
+seventeen-step common journey through the actual registered entrypoint,
+independent worker, native/fixture cleanup and interrupted host retirement.
+Together with source/input/causal cases this provides 105 focused Authentication
+host cases. No physical qualification is promoted by these simulations.
 
 # Phone adapter implementation, local source only
 

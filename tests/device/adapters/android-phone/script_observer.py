@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Separately credentialed Phone Script observer; run only in the device lab.
+"""Separately credentialed Phone feature observer; run only in the device lab.
 
 This entry point is never launched by host self-tests or by the primary adapter.
 It acquires its own original native sources and never invokes primary observe.
@@ -20,16 +20,25 @@ from adapters.native_feature_observation import exact, need, number
 from adapters.normal_feature_state import PrivateFeatureState
 from feature_journeys.witness import Client
 from overte_phone_script_feature import ScriptPhasePending,ScriptRunRetired
+from overte_phone_authentication_feature import AuthenticationPhasePending,AuthenticationRunRetired
+from overte_phone_account_fixture import origin as account_origin
 from overte_phone_script_lock import PhoneScriptSourceBusy
 
-VERSION=1
+SCRIPT_VERSION=1
+VERSION=2
 
 
 def configuration(path):
     value=PrivateFeatureState(path).read()
-    exact(value,{'scriptObserverVersion','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'})
-    need(type(value['scriptObserverVersion']) is int and value['scriptObserverVersion']==VERSION
-         and type(value['target']) is str and bool(value['target'])
+    if type(value) is dict and 'scriptObserverVersion' in value:
+        exact(value,{'scriptObserverVersion','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'})
+        need(type(value['scriptObserverVersion']) is int and value['scriptObserverVersion']==SCRIPT_VERSION)
+    else:
+        exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'})
+        need(type(value['featureObserverVersion']) is int and value['featureObserverVersion']==VERSION
+             and value['area'] in ('scripts','authentication'))
+        if value['area']=='authentication':account_origin(value['fixtureUrl'])
+    need(type(value['target']) is str and bool(value['target'])
          and type(value['candidateArguments']) is list and len(value['candidateArguments'])<=64
          and all(type(item) is str and item for item in value['candidateArguments'])
          and number(value['durationSeconds'],30,1800))
@@ -41,27 +50,32 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
+    area=config.get('area','scripts');need(area in ('scripts','authentication'))
+    if area=='authentication':account_origin(config['fixtureUrl'])
+    owner_store=adapter.authentication_feature_store if area=='authentication' else adapter.script_feature_store
+    retirement_store=adapter.authentication_retirement_store if area=='authentication' else adapter.script_retirement_store
+    make_flow=adapter._authentication_feature if area=='authentication' else adapter._script_feature
     while True:
         now=monotonic();need(number(now,0,1e15) and previous<=now and now-started<config['durationSeconds']);previous=now
         if flow is None:
-            metadata=adapter.script_feature_store(config['target']).read()
+            metadata=owner_store(config['target']).read()
             if metadata is not None:
                 need(metadata.get('fixtureUrl')==config['fixtureUrl']+'/runs/'+metadata['runId']+'/')
-                flow=adapter._script_feature(config['target'],metadata['runId'],role='actor',client=client)
+                flow=make_flow(config['target'],metadata['runId'],role='actor',client=client)
         if flow is not None:
             # Primary finalization can retire all journals after this actor's
             # actual cleanup sample. A foreign replacement remains an error.
-            metadata=adapter.script_feature_store(config['target']).read()
+            metadata=owner_store(config['target']).read()
             if metadata is None and flow.role_store.read() is None:return 0
             need(metadata is not None and metadata.get('runId')==flow.run)
-            retirement=adapter.script_retirement_store(config['target']).read()
+            retirement=retirement_store(config['target']).read()
             if retirement is not None:
                 need(retirement.get('kind')=='retirement' and retirement.get('runId')==flow.run
                      and retirement.get('fixtureUrl')==flow.fixture_url)
                 return 0 # Its actual cleanup observation was verified before this plan.
             try:flow.publish()
-            except ScriptRunRetired:return 0
-            except (ScriptPhasePending,PhoneScriptSourceBusy):pass
+            except (ScriptRunRetired,AuthenticationRunRetired):return 0
+            except (ScriptPhasePending,AuthenticationPhasePending,PhoneScriptSourceBusy):pass
         sleep(.25)
 
 
@@ -84,9 +98,10 @@ def main(argv=None):
         # This process owns only its actor credential and internal read-only
         # factories. It never advertises or invokes the primary feature triple.
         os.environ['OVERTE_PHONE_FEATURE_SCRIPTS']='0'
+        os.environ['OVERTE_PHONE_FEATURE_AUTHENTICATION']='0'
         return run(PhoneAppiumAdapter(candidate),config)
     except (OSError,RuntimeError,ValueError,TypeError,KeyError,RecursionError):
-        print('PHONE_SCRIPT_OBSERVER_REJECTED',file=sys.stderr)
+        print('PHONE_FEATURE_OBSERVER_REJECTED',file=sys.stderr)
         return 2
 
 

@@ -34,13 +34,14 @@ assertion failure.
 The fourteen-area [feature journeys](FEATURE_JOURNEYS.md) compose the existing
 modules with missing feature workflows. See the [coverage matrix](FEATURE_COVERAGE.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md): shared logic is implemented;
-the complete Phone Script extension is now source-implemented; the other area
+the complete Phone Script and Authentication extensions are now source-implemented; the other area
 adapters and physical-device qualification are pending. Native instrumentation
-remains uncompiled. See [the Phone handoff](adapters/android-phone/SCRIPT_FEATURE.md).
+remains uncompiled. See [the Script handoff](adapters/android-phone/SCRIPT_FEATURE.md)
+and [Authentication handoff](adapters/android-phone/AUTHENTICATION_FEATURE.md).
 The optional [controlled HTTPS account provider](feature_journeys/ACCOUNT_PROVIDER.md)
 supplies real password/refresh grants and protected profile requests for owned
-test accounts. It is a backend fixture; native Authentication integration is
-still incomplete.
+test accounts. The Phone Authentication adapter joins actual native/UI/protected
+request observations with that fixture; hardware qualification is still pending.
 
 - `smoke`: stable process launch and foreground state.
 - `asset-smoke`: one launch followed by controlled local texture delivery,

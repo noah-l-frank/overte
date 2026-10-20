@@ -1,11 +1,12 @@
-# Phone Authentication input/observer owner v1 — implementation in progress
+# Phone Authentication input/observer owner v1
 
 `PhoneAuthenticationFeature` currently composes the normal input owner and the
 two independent source ledgers under the existing native-channel lock. It is an
-internal prerequisite. The whole-run cleanup, final journal retirement and
-standalone observer integration are still being implemented. The complete
-`feature.authentication.act/observe/cleanup` capability is not registered or
-advertised. Script remains the only complete Phone area extension.
+internal part of the [complete Phone Authentication adapter](AUTHENTICATION_FEATURE.md).
+Whole-run cleanup, final journal retirement, the shared standalone observer and
+the complete `feature.authentication.act/observe/cleanup` triple are now joined.
+Phone Script and Authentication are source-implemented; native code is uncompiled
+and all physical qualification remains pending.
 
 ## Scope and transaction ownership
 
@@ -65,17 +66,18 @@ dismiss/reopen steps must complete within that real deadline; instrumentation
 does not extend it or reinterpret a timeout as a pending request. Host checks do
 not qualify device observation latency.
 
-## Verification and remaining integration
+## Verification
 
-Nineteen `test_authentication_feature.py` cases cover fixture attachment and
+Forty `test_authentication_feature.py` cases cover fixture attachment and
 input/observer composition with actual shared journal reduction and explicit
 synthetic native/SDK/HTTPS seams. Together with source, input and causal tests,
-83 focused Authentication cases pass. Native code remains uncompiled, and no
+105 focused Authentication cases pass. Native code remains uncompiled, and no
 device, installation, build or Jenkins execution was performed.
 
-The next implementation packet must verify cleanup through fresh native/UI/
-request/file/provider absence, preserve both roles' cleanup frames, retire only
-the known host journals with recoverable ownership, compose the standalone
-actor process, register the existing full-area triple and execute the entire
-unchanged Authentication journey through that facade. Until those checks pass,
-the coverage matrix continues to report the Authentication adapter missing.
+The complete integration now verifies fresh native/UI/request/file/provider
+absence, preserves both roles' own cleanup frames, retires only known hashed
+host journals after a new absence verification on each retry, uses the shared
+standalone actor and registers the existing triple. The entire unchanged
+seventeen-step Authentication journey passes through the existing entrypoint
+with synthetic native/SDK/HTTPS seams. See the complete handoff for exact
+configuration, cleanup and device-free evidence limits.

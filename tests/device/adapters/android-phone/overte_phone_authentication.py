@@ -28,6 +28,7 @@ from overte_phone_script_lock import PhoneScriptSourceLock
 
 VERSION=2
 EMPTY=hashlib.sha256(b'').hexdigest()
+STATE_FIELDS={'binding','phase','sequence','native','login','tablet','probe','origin','delayed','status','pending','frame','retirements'}
 
 
 def provider_status(value,run,instance,epoch):
@@ -211,7 +212,7 @@ class PhoneAuthenticationSamples:
              and value['runId']==self.run and value['role']==self.role and type(value['stage']) is int and value['stage']==self.stage
              and value['providerInstance']==self.provider_instance and value['fixtureUrl']==self.client.url)
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,set(self.state));context(state['binding'])
+        exact(state,STATE_FIELDS);context(state['binding'])
         need(state['phase'] in ('ready','reading') and integer(state['sequence'],0,1000000000)
              and type(state['retirements']) is list and len(state['retirements'])<=32)
         if state['phase']=='ready':
@@ -243,6 +244,22 @@ class PhoneAuthenticationSamples:
                     need(same(retirement['status'],retirement['cursors']['status']))
                 if last_retired:need(all(same(state[key],retired['cursors'][key]) for key in retired['cursors']))
         return state
+
+    @classmethod
+    def archive(cls,value,*,client,run,provider_instance,role,stage,binding):
+        """Pure historical validation after the original process has exited.
+
+        Construct only the decoder scope, without an adapter, SDK, lock, store
+        or runtime factory. Return data, never an owner usable for live reads.
+        """
+        need(isinstance(client,Client) and role in ('primary','actor') and integer(stage,0,3))
+        identifier(run);identifier(provider_instance);context(binding)
+        scope=object.__new__(cls)
+        scope.client,scope.run,scope.role,scope.stage=client,run,role,stage
+        scope.provider_instance=provider_instance;scope.origin=fixture_origin(client.url)
+        state=scope._decode(value)
+        need(state['phase']=='ready' and same(state['binding'],binding))
+        return deepcopy(state)
 
     def _active(self,value):
         from feature_journeys.contract import arguments

@@ -1,5 +1,12 @@
 # Feature adapter handoff, contract v16
 
+Current implementation: the complete Phone [Script](adapters/android-phone/SCRIPT_FEATURE.md)
+and [Authentication](adapters/android-phone/AUTHENTICATION_FEATURE.md) triples
+are source-implemented and device-free verified. The foundation notes below
+include earlier intermediate states. The other twelve Phone areas and all
+complete Pico/iOS areas remain missing; no native build or device qualification
+has been performed.
+
 The [prepared native IME event](native/PREPARED_FIELD_COMMIT.md) and
 [native owner/private transport](native/PENDING_COMMIT_OWNER.md) retain original
 Qt event/context identity and verify fresh effects and actual pending inventory.
@@ -519,7 +526,22 @@ The Phone branch now implements the v16 Script triple, original normal input
 causality/readiness, five-source observations, actual owned HTTP404 receipts,
 separate per-role restart histories, a separately credentialed publisher and
 verified cleanup/journal retirement. See [the versioned Phone handoff](adapters/android-phone/SCRIPT_FEATURE.md).
-Only this area is implemented on Phone; the other thirteen Phone areas and
+Script and Authentication are implemented on Phone; the other twelve Phone areas and
 complete Pico/iOS adapters remain pending. Native code is uncompiled, all device
 qualification remains open, and missing required capabilities still fail the
 whole selected suite. Host simulations establish control logic only.
+
+## Complete Android Phone Authentication extension
+
+The existing entrypoint implements the v16 Authentication triple behind
+`OVERTE_PHONE_FEATURE_AUTHENTICATION=1` and the controlled HTTPS debug-launch
+configuration. Normal login/cancel/logout inputs require original native reply
+causality. Primary and actor independently acquire native account state, real
+protected requests, original Login UI/tablet inventory and backend authority.
+All three restarts require each role's own old/new source history and fresh
+kernel exit proof. Cleanup requires actual native/UI/file/request/remote
+absence, both roles' own final frames and recoverable hash-scoped journal
+retirement. The same observer entrypoint accepts explicit v2 Authentication
+configuration while preserving Script v1. See [the exact versioned handoff](adapters/android-phone/AUTHENTICATION_FEATURE.md).
+The full common seventeen-step journey is host-verified with explicit synthetic
+native/SDK/HTTPS seams; this is not an APK execution or device acceptance.

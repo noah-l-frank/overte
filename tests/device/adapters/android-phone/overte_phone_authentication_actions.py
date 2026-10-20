@@ -25,13 +25,15 @@ EMPTY=hashlib.sha256(b'').hexdigest()
 
 
 class PhoneAuthenticationActions:
-    def __init__(self,adapter,selector,client,run,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,adapter,selector,client,run,*,monotonic=time.monotonic,sleep=time.sleep,
+                 epoch_ms=lambda:int(time.time()*1000)):
         identifier(run)
         need(isinstance(client,Client) and client.run==run and client.area=='authentication'
-             and callable(monotonic) and callable(sleep))
+             and callable(monotonic) and callable(sleep) and callable(epoch_ms))
         self.adapter,self.selector,self.client,self.run=adapter,selector,client,run
         self.origin=fixture_origin(client.url);self.fixture_url=client.url+'/runs/'+run+'/'
         self.monotonic,self.sleep=monotonic,sleep
+        self.epoch_ms=epoch_ms
         path=adapter.state_path(selector)
         self.store=PrivateFeatureState(path.with_name('phone-authentication-actions.json'))
         self.lock=PhoneScriptSourceLock(path.with_name('phone-script-sources.lock'))
@@ -272,7 +274,7 @@ class PhoneAuthenticationActions:
                     def record(frame):
                         need(len(self.state['current']['readiness'])<64)
                         self.state['native']=deepcopy(frame['native']);self.state['current']['readiness'].append(deepcopy(frame));self.save();bound()
-                    ready(call,before,reader,provider=self.client,monotonic=self.monotonic,sleep=self.sleep,record=record)
+                    ready(call,before,reader,provider=self.client,monotonic=self.monotonic,sleep=self.sleep,record=record,epoch_ms=self.epoch_ms)
                     self.state['current']['receipt']={'performed':True}
                 bound();self.state['phase']='acknowledged';self.save();bound()
                 return {'performed':True} # Native causality only; full independent state is still required.

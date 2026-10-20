@@ -70,11 +70,13 @@ from overte_phone_script_lock import PhoneScriptSourceLock
 from overte_phone_script_observation import PhoneScriptObservation
 from overte_phone_script_actions import PhoneScriptActions
 from overte_phone_script_feature import PhoneScriptFeature, ScriptFixtureReader
+from overte_phone_authentication_feature import PhoneAuthenticationFeature, AuthenticationFixtureReader
 from feature_journeys.witness import Client as FeatureFixtureClient
 from overte_phone_account_fixture import origin as account_fixture_origin, launch_command as account_fixture_launch
 from overte_phone_account_menu import PhoneAccountMenu
 
 SCRIPT_FEATURE_OPERATIONS={'feature.scripts.'+kind for kind in ('act','observe','cleanup')}
+AUTHENTICATION_FEATURE_OPERATIONS={'feature.authentication.'+kind for kind in ('act','observe','cleanup')}
 
 
 def readonly_feature_command(command):
@@ -198,6 +200,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             FeatureFixtureClient(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''),
                                  os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN',''))
             values=sorted(set(values)|SCRIPT_FEATURE_OPERATIONS)
+        full_authentication=os.environ.get('OVERTE_PHONE_FEATURE_AUTHENTICATION','0')
+        require(full_authentication in ('0','1'),'PHONE_FEATURE_AUTHENTICATION_CONFIGURATION_INVALID')
+        if full_authentication=='1':
+            require(self.account_fixture_configuration(target) is not None,'PHONE_FEATURE_AUTHENTICATION_REQUIRES_ACCOUNT_FIXTURE_LAUNCH')
+            FeatureFixtureClient(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''),
+                os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN',''))
+            values=sorted(set(values)|AUTHENTICATION_FEATURE_OPERATIONS)
         create_enabled = os.environ.get('OVERTE_PHONE_NORMAL_CREATE', '0')
         require(create_enabled in ('0', '1'), 'PHONE_NORMAL_CREATE_CONFIGURATION_INVALID')
         if create_enabled == '1':
@@ -340,6 +349,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def _authentication_actions(self, selector, client, run):
         from overte_phone_authentication_actions import PhoneAuthenticationActions
         return PhoneAuthenticationActions(self,selector,client,run)
+
+    def _authentication_feature(self, selector, run, *, role='primary', client=None):
+        if client is None:
+            require(role=='primary','PHONE_AUTHENTICATION_ACTOR_REQUIRES_SEPARATE_CLIENT')
+            client=FeatureFixtureClient(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''),
+                os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN',''))
+        return PhoneAuthenticationFeature(self,selector,AuthenticationFixtureReader(client,run),role=role)
 
     def _authentication_restart_stopped(self, selector, old_binding):
         target=self.target(selector)
@@ -957,6 +973,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        authentication_error=False
+        try:
+            feature=self.authentication_feature_store(selector).read() or self.authentication_retirement_store(selector).read()
+            if feature is not None:self._authentication_feature(selector,feature['runId']).finalize()
+        except Exception:authentication_error=True # Preserve scope; all other teardown is still attempted.
         feature_error=False
         try:
             feature=self.script_feature_store(selector).read() or self.script_retirement_store(selector).read()
@@ -1057,7 +1078,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(self.authentication_actions_store(selector).read() is None
                 and all(self.authentication_restart_store(selector,stage).read() is None for stage in range(1,4)),
                 'PHONE_AUTHENTICATION_INPUT_CLEANUP_INCOMPLETE')
-        require(self.authentication_feature_store(selector).read() is None and self.authentication_retirement_store(selector).read() is None
+        require(not authentication_error and self.authentication_feature_store(selector).read() is None and self.authentication_retirement_store(selector).read() is None
                 and all(PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-'+role+'-feature.json')).read() is None
                         for role in ('primary','actor')),'PHONE_AUTHENTICATION_FEATURE_CLEANUP_INCOMPLETE')
         return result
@@ -1109,6 +1130,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(operation in self.advertised_capabilities(self.target(selector)),
                     'PHONE_SCRIPT_FEATURE_NOT_ENABLED')
             return getattr(self._script_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+        if operation in AUTHENTICATION_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),
+                    'PHONE_AUTHENTICATION_FEATURE_NOT_ENABLED')
+            return getattr(self._authentication_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
         if operation.startswith('places.'):
             return self.normal_navigation(selector, operation, values)
         if operation in SNAPSHOT_OPERATIONS:

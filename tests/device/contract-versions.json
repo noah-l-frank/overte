@@ -40,6 +40,8 @@
     "phone-authentication-actions": {"current": 1, "reads": [1]},
     "phone-authentication-fixture-reader": {"current": 1, "reads": [1]},
     "phone-authentication-owner": {"current": 1, "reads": [1]},
+    "phone-authentication-feature": {"current": 1, "reads": [1]},
+    "phone-feature-observer": {"current": 2, "reads": [2]},
     "phone-script-source-lock": {"current": 1, "reads": [1]},
     "phone-script-actions": {"current": 1, "reads": [1]},
     "phone-script-causality": {"current": 1, "reads": [1]},
