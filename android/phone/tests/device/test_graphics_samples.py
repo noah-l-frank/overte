@@ -51,6 +51,8 @@ class Originals:
         self.client.url='http://controlled.invalid/feature-fixture/v1';self.client.run=RUN;self.client.area='graphics'
         self.client.graphics_instance=self.scene.instance;self.client.graphics_previous=None
         self.client.graphics_status=self.provider
+        self.active=dict(schemaVersion=1,runId=RUN,area='graphics',ticket=TICKET,stimulus=dict(verb='baseline',inputs={}))
+        self.client.request=lambda path:deepcopy(self.active) if path=='/runs/'+RUN+'/active' else (_ for _ in ()).throw(AssertionError('Unexpected fixture request'))
         self.lock=PhoneScriptSourceLock(root/'phone-script-sources.lock')
 
     def state_path(self,_selector):return self.root/'session.json'
@@ -93,6 +95,11 @@ class Originals:
     def provider(self):
         value=deepcopy(self.scene.provider);value['requestId']=uuid.uuid4().hex
         self.client.graphics_previous=deepcopy(value);return value
+
+    def change_phase(self,ticket='7'*32):
+        self.active=dict(schemaVersion=1,runId=RUN,area='graphics',ticket=ticket,stimulus=dict(verb='open',inputs={}))
+        rows=self.scene.provider['activations'];rows.append(dict(sequence=len(rows)+1,ticket=ticket,activatedEpochMs=20000))
+        self.scene.provider['ticket']=ticket;self.scene.image(ticket=ticket);self.storage.raw=self.scene.pixels
 
     def _world_render_capture(self,_selector,*,read_only,role,require_frame_view):
         assert read_only and require_frame_view
@@ -288,3 +295,145 @@ class GraphicsSamplesTests(unittest.TestCase):
                 if fault=='elapsed':boundary.fault='elapsed'
                 else:boundary.okay=False
                 with self.subTest(fault=fault),self.assertRaises(NativeUIError):samples.read(TICKET,20000)
+
+    def test_changed_phase_retires_a_failed_observation_but_requires_an_entirely_new_sample(self):
+        with self.boundary.lock.held():
+            samples=self.boundary.factory();self.boundary.scene.image(ticket='f'*32);self.boundary.storage.raw=self.boundary.scene.pixels
+            with self.assertRaises(AssertionError):samples.read(TICKET,20000)
+            self.boundary.change_phase();item=samples.retire_changed_ticket()
+            self.assertNotIn('state',item);self.assertEqual(TICKET,item['ticket']);self.assertEqual('7'*32,item['active']['ticket'])
+            self.assertEqual([item['cursors']['capture']['source']['renderTrace']['frameId']],samples.state['seenFrames'])
+            actual=self.boundary.factory().read('7'*32,20000)
+        self.assertEqual(2,actual['sequence']);self.assertEqual(2,self.boundary.counters['capture'])
+        self.assertEqual(1,len(unpack(self.state()['payload'])[0]['retirements']))
+
+    def test_same_ticket_cannot_reset_a_failed_read_or_replay_any_native_request(self):
+        with self.boundary.lock.held():
+            samples=self.boundary.factory();self.boundary.scene.image(ticket='f'*32);self.boundary.storage.raw=self.boundary.scene.pixels
+            with self.assertRaises(AssertionError):samples.read(TICKET,20000)
+            before=len(self.boundary.calls)
+            with self.assertRaises(NativeUIError):samples.retire_changed_ticket()
+            self.assertEqual(before,len(self.boundary.calls));self.assertEqual('reading',samples.state['phase'])
+            with self.assertRaises(NativeUIError):self.boundary.factory()
+
+    def test_changed_phase_can_retry_scoped_ignored_cleanup_without_replaying_capture(self):
+        for fault in ('memory','files'):
+            root=self.root/fault;root.mkdir(mode=0o700);boundary=Originals(root)
+            with boundary.lock.held():
+                samples=boundary.factory()
+                if fault=='memory':boundary.storage.ignore_release=True
+                else:boundary.inventory.ignore_remove=True
+                with self.assertRaises(NativeUIError):samples.read(TICKET,20000)
+                retained=deepcopy(samples.state['cursors']['storage'])
+                self.assertIsNotNone(retained)
+                boundary.storage.ignore_release=False;boundary.inventory.ignore_remove=False;boundary.change_phase()
+                item=samples.retire_changed_ticket()
+                self.assertGreater(item['cursors']['storage']['sequence'],retained['sequence'])
+                self.assertEqual(1,boundary.counters['capture']);self.assertFalse((root/'world-primary.json').exists())
+                self.assertEqual([],list(boundary.receipt_root.iterdir()))
+                actual=boundary.factory().read('7'*32,20000);self.assertEqual(2,actual['sequence'])
+
+    def test_unknown_capture_or_partial_png_remains_red_after_a_changed_ticket(self):
+        for fault in ('lost-capture-return','partial-png'):
+            root=self.root/fault;root.mkdir(mode=0o700);boundary=Originals(root)
+            with boundary.lock.held():
+                samples=boundary.factory()
+                if fault=='lost-capture-return':boundary.fault=fault
+                else:
+                    original=samples.images.intent
+                    def lost(value):
+                        original(value)
+                        if value['phase']=='opened':raise NativeUIError('Synthetic lost opened intent return')
+                    samples.images.intent=lost
+                with self.assertRaises(NativeUIError):samples.read(TICKET,20000)
+                boundary.change_phase()
+                with self.subTest(fault=fault),self.assertRaises((NativeUIError,OSError)):samples.retire_changed_ticket()
+                self.assertEqual('reading',samples.state['phase']);self.assertEqual(1,boundary.counters['capture'])
+
+    def test_absent_planned_file_intent_is_retained_as_an_original_negative_artifact(self):
+        with self.boundary.lock.held():
+            samples=self.boundary.factory();original=samples.images.intent
+            def lost(value):
+                original(value)
+                if value['phase']=='planned':raise NativeUIError('Synthetic lost planned intent return')
+            samples.images.intent=lost
+            with self.assertRaises(NativeUIError):samples.read(TICKET,20000)
+            self.boundary.change_phase();item=samples.retire_changed_ticket()
+            self.assertEqual([],samples.state['images']);self.assertEqual(1,len(item['abandonedImages']))
+            self.assertTrue(item['abandonedImages'][0]['absent'])
+            restored=self.boundary.factory();self.assertEqual(1,restored.state['sequence'])
+        value=self.state();arguments=dict(client=self.boundary.client,run=RUN,provider_instance=self.boundary.scene.instance,
+            role='primary',stage=0,binding=BINDING,artifact_root=self.root,image_policy=POLICY)
+        PhoneGraphicsSamples.archive(value,**arguments)
+        path=self.root/item['abandonedImages'][0]['image']['name'];path.write_bytes(b'foreign late file');path.chmod(0o600)
+        with self.assertRaises(NativeUIError):PhoneGraphicsSamples.archive(value,**arguments)
+        self.assertEqual(b'foreign late file',path.read_bytes())
+
+    def test_lost_saved_image_return_can_retire_verified_file_but_never_publish_old_facts(self):
+        with self.boundary.lock.held():
+            samples=self.boundary.factory();original=samples.images.intent
+            def lost(value):
+                original(value)
+                if value['phase']=='saved':raise NativeUIError('Synthetic lost saved intent return')
+            samples.images.intent=lost
+            with self.assertRaises(NativeUIError):samples.read(TICKET,20000)
+            self.boundary.change_phase();item=samples.retire_changed_ticket()
+            self.assertNotIn('state',item);self.assertEqual(1,len(samples.state['images']))
+            self.assertEqual('saved',samples.state['images'][0]['phase'])
+            result=self.boundary.factory().read('7'*32,20000)
+            self.assertNotEqual(samples.state['images'][0]['name'],Path(result['imagePath']).name)
+
+    def test_foreign_or_moving_fixture_phase_cannot_retire_the_pending_read(self):
+        for fault in ('run','area','moving'):
+            root=self.root/fault;root.mkdir(mode=0o700);boundary=Originals(root)
+            with boundary.lock.held():
+                samples=boundary.factory();boundary.scene.image(ticket='f'*32);boundary.storage.raw=boundary.scene.pixels
+                with self.assertRaises(AssertionError):samples.read(TICKET,20000)
+                boundary.change_phase()
+                if fault in ('run','area'):boundary.active['runId' if fault=='run' else 'area']='f'*32 if fault=='run' else 'scripts'
+                else:
+                    reads=[]
+                    def changed(path):
+                        reads.append(path);value=deepcopy(boundary.active)
+                        if len(reads)>1:value['ticket']='8'*32
+                        return value
+                    boundary.client.request=changed
+                with self.subTest(fault=fault),self.assertRaises(NativeUIError):samples.retire_changed_ticket()
+                self.assertEqual('reading',samples.state['phase'])
+
+    def test_accepted_nonterminal_memory_cursor_cannot_roll_back_during_cleanup_retry(self):
+        with self.boundary.lock.held():
+            samples=self.boundary.factory();self.boundary.storage.ignore_release=True
+            with self.assertRaises(NativeUIError):samples.read(TICKET,20000)
+            floor=samples.state['cursors']['storage']['sequence'];self.assertGreater(floor,2)
+            self.boundary.storage.ignore_release=False;self.boundary.storage.sequence=0;self.boundary.change_phase()
+            with self.assertRaises(NativeUIError):samples.retire_changed_ticket()
+            self.assertEqual(floor,samples.state['cursors']['storage']['sequence'])
+            self.assertTrue((self.root/'world-primary.json').exists());self.assertEqual('reading',samples.state['phase'])
+
+    def test_abandoned_intent_proof_survives_lost_phase_confirmation_without_new_capture(self):
+        with self.boundary.lock.held():
+            samples=self.boundary.factory();original=samples.images.intent
+            def lost(value):
+                original(value)
+                if value['phase']=='planned':raise NativeUIError('Synthetic lost planned return')
+            samples.images.intent=lost
+            with self.assertRaises(NativeUIError):samples.read(TICKET,20000)
+            self.boundary.change_phase();request=self.boundary.client.request;reads=[]
+            def interrupted(path):
+                reads.append(path)
+                if len(reads)>1:raise NativeUIError('Synthetic lost phase confirmation')
+                return request(path)
+            self.boundary.client.request=interrupted
+            with self.assertRaises(NativeUIError):samples.retire_changed_ticket()
+            retained=unpack(self.state()['payload'])[0]
+            self.assertEqual(1,len(retained['pending']['abandonedImages']));self.assertEqual([],retained['images'])
+            self.boundary.client.request=request;item=samples.retire_changed_ticket()
+            self.assertEqual(retained['pending']['abandonedImages'],item['abandonedImages'])
+            self.assertEqual(1,self.boundary.counters['capture'])
+
+    def test_v1_ledger_is_refused_without_implicit_upgrade_or_native_access(self):
+        self.read();store=PrivateFeatureState(self.root/'phone-graphics-primary-0-samples.json');value=store.read()
+        value['graphicsSamplesVersion']=1;store.write(value,store.read());before=len(self.boundary.calls)
+        with self.boundary.lock.held(),self.assertRaises(NativeUIError):self.boundary.factory()
+        self.assertEqual(value,store.read());self.assertEqual(before,len(self.boundary.calls))

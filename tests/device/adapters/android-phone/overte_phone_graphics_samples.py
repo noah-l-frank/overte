@@ -7,6 +7,8 @@ success by recreating the producer or relabelling an archived image.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import base64
+import hashlib
 from pathlib import Path
 import math
 import time
@@ -16,7 +18,8 @@ from adapters.native_graphics_subject import validate as subject_packet
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.owned_world_render import WorldRenderOwner
 from adapters.world_render_evidence import validate as capture_packet
-from feature_journeys.contract import identifier
+from feature_journeys.contract import arguments,identifier
+from feature_journeys.scenarios import VERSION as FEATURE_VERSION
 from feature_journeys.graphics_resources import validate_status
 from feature_journeys.witness import Client
 from overte_phone_graphics import validate as graphics_packet
@@ -26,9 +29,9 @@ from overte_phone_script_files import validate as tablet_packet
 from overte_phone_script_history import pack,unpack,same
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=1
-CURSORS={'native','subject','graphics','tablet','capture','storage','inventory'}
-FIELDS={'binding','phase','sequence','cursors','seenFrames','images','pending','frame'}
+VERSION=2
+CURSORS={'native','subject','graphics','tablet','capture','storage','inventory','provider'}
+FIELDS={'binding','phase','sequence','cursors','seenFrames','images','pending','frame','retirements'}
 
 
 def restore_native(reader,previous):
@@ -127,7 +130,7 @@ class PhoneGraphicsSamples:
         _ui,_service,binding,self.guard,_installed=adapter.normal_feature_runtime(selector,read_only=True)
         self.previous=self.store.read()
         self.state=dict(binding=deepcopy(context(binding)),phase='ready',sequence=0,cursors={key:None for key in CURSORS},
-            seenFrames=[],images=[],pending=None,frame=None)
+            seenFrames=[],images=[],pending=None,frame=None,retirements=[])
         if self.previous is not None:
             previous=self._decode(self.previous)
             need(same(previous['binding'],binding) and previous['phase']=='ready')
@@ -135,7 +138,8 @@ class PhoneGraphicsSamples:
         self.images=PhoneGraphicsImages(self.artifact_root,binding,run,role,stage,self.guard,self._image_intent,monotonic=monotonic)
         if self.state['frame'] is not None:
             self._historical(self.state['frame'])
-            previous=self.state['frame']['provider'];current=getattr(self.client,'graphics_previous',None)
+        if self.state['cursors']['provider'] is not None:
+            previous=self.state['cursors']['provider'];current=getattr(self.client,'graphics_previous',None)
             if current is None:self.client.graphics_previous=deepcopy(previous)
             elif not same(current,previous):validate_status(current,instance=self.provider_instance,run=self.run,url=self.client.url,
                 request=current['requestId'],previous=previous)
@@ -150,18 +154,12 @@ class PhoneGraphicsSamples:
         need(state['phase'] in ('ready','reading') and integer(state['sequence'],0,256)
              and type(state['seenFrames']) is list and len(state['seenFrames'])<=256
              and len(set(state['seenFrames']))==len(state['seenFrames'])
-             and type(state['images']) is list and len(state['images'])<=256)
+             and type(state['images']) is list and len(state['images'])<=256
+             and type(state['retirements']) is list and len(state['retirements'])<=32)
         for frame in state['seenFrames']:identifier(frame)
-        exact(state['cursors'],CURSORS)
         pid=int(state['binding']['processIdentity'].split(':')[0]);need(pid>0)
         cursors=state['cursors']
-        for key,validator,nonce in (('native',native_packet,'requestId'),('graphics',graphics_packet,'commandId'),
-                                    ('tablet',tablet_packet,'commandId'),('capture',capture_packet,'requestId')):
-            packet=cursors[key]
-            if packet is not None:validator(packet,identifier(packet.get(nonce)),pid,packet.get('capturedEpochMs'))
-        if cursors['subject'] is not None:
-            packet=cursors['subject'];subject_packet(packet,dict(schemaVersion=1,commandId=packet['requestId'],
-                action='feature-graphics-subject-observe',runId=self.run),pid,packet['capturedEpochMs'])
+        self._cursors(cursors,pid)
         names=set()
         for image in state['images']:
             image_record(image)
@@ -170,24 +168,67 @@ class PhoneGraphicsSamples:
                  and image['capture']['source']['renderTrace']['traceVersion']==2
                  and image['capture']['source']['renderTrace']['frameId'] in state['seenFrames'])
             names.add(image['name'])
+        last_sequence=0
+        for item in state['retirements']:
+            exact(item,{'sequence','ticket','active','provider','cursors','measurement','abandonedImages'})
+            need(integer(item['sequence'],last_sequence+1,state['sequence']));last_sequence=item['sequence']
+            identifier(item['ticket']);self._active(item['active']);need(item['ticket']!=item['active']['ticket'])
+            packet=item['provider'];validate_status(packet,instance=self.provider_instance,run=self.run,
+                url=self.client.url,request=packet['requestId'])
+            need(packet['active'] is True and packet['ticket']==item['active']['ticket'])
+            self._cursors(item['cursors'],pid);need(same(item['cursors']['provider'],packet))
+            if item['measurement'] is not None:
+                proof=item['measurement'];retirement(proof,proof['owner'],pid,state['binding'],self.role)
+                need(same(item['cursors']['storage'],proof['memory'])
+                     and same(item['cursors']['inventory'],proof['files']['absent']))
+            self._abandoned(item['abandonedImages'],state['binding'],item['ticket'])
         if state['phase']=='ready':
             need(state['pending'] is None and all(image['phase']=='saved' for image in state['images']))
             if state['sequence']==0:need(state['frame'] is None and not state['images'] and not state['seenFrames']
-                and all(packet is None for packet in cursors.values()))
+                and all(packet is None for packet in cursors.values()) and not state['retirements'])
             else:
-                frame=state['frame'];need(type(frame) is dict and same(frame['nativeAfter'],cursors['native'])
-                    and same(frame['subjectAfter'],cursors['subject']) and same(frame['graphics'],cursors['graphics'])
-                    and same(frame['tablet'],cursors['tablet']) and same(frame['capture'],cursors['capture'])
-                    and same(frame['image'],state['images'][-1]))
-                retirement(frame['retirement'],frame['retirement']['owner'],pid,state['binding'],self.role)
-                need(same(cursors['storage'],frame['retirement']['memory'])
-                     and same(cursors['inventory'],frame['retirement']['files']['absent']))
+                last_retired=last_sequence==state['sequence']
+                frame=state['frame'];need(type(frame) is dict or last_retired)
+                if frame is not None:
+                    need(any(same(frame['image'],image) for image in state['images']))
+                    retirement(frame['retirement'],frame['retirement']['owner'],pid,state['binding'],self.role)
+                    if not last_retired:
+                        need(same(frame['nativeAfter'],cursors['native']) and same(frame['subjectAfter'],cursors['subject'])
+                             and same(frame['graphics'],cursors['graphics']) and same(frame['tablet'],cursors['tablet'])
+                             and same(frame['capture'],cursors['capture']) and same(frame['provider'],cursors['provider'])
+                             and same(cursors['storage'],frame['retirement']['memory'])
+                             and same(cursors['inventory'],frame['retirement']['files']['absent']))
+                if last_retired:need(same(cursors,state['retirements'][-1]['cursors']))
         else:
-            pending=state['pending'];exact(pending,{'ticket','afterEpochMs','captureIntent','retirement'})
+            pending=state['pending'];exact(pending,{'ticket','afterEpochMs','captureIntent','retirement','abandonedImages'})
             identifier(pending['ticket']);need(integer(pending['afterEpochMs'],1))
             if pending['captureIntent'] is not None:WorldRenderOwner.acquisition(pending['captureIntent'])
             if pending['retirement'] is not None:retirement(pending['retirement'],pending['retirement']['owner'],pid,state['binding'],self.role)
+            self._abandoned(pending['abandonedImages'],state['binding'],pending['ticket'])
         return state
+
+    def _cursors(self,rows,pid):
+        exact(rows,CURSORS)
+        for key,validator,nonce in (('native',native_packet,'requestId'),('graphics',graphics_packet,'commandId'),
+                                    ('tablet',tablet_packet,'commandId'),('capture',capture_packet,'requestId')):
+            packet=rows[key]
+            if packet is not None:validator(packet,identifier(packet.get(nonce)),pid,packet.get('capturedEpochMs'))
+        if rows['subject'] is not None:
+            packet=rows['subject'];subject_packet(packet,dict(schemaVersion=1,commandId=packet['requestId'],
+                action='feature-graphics-subject-observe',runId=self.run),pid,packet['capturedEpochMs'])
+        if rows['provider'] is not None:
+            packet=rows['provider'];validate_status(packet,instance=self.provider_instance,run=self.run,
+                url=self.client.url,request=packet['requestId'])
+
+    def _abandoned(self,rows,binding,ticket):
+        need(type(rows) is list and len(rows)<=1)
+        for absence in rows:
+            exact(absence,{'image','absent','observedEpochMs'});image_record(absence['image'])
+            need(absence['absent'] is True and integer(absence['observedEpochMs'],1)
+                 and absence['image']['phase']=='planned' and absence['image']['ticket']==ticket
+                 and absence['image']['runId']==self.run and absence['image']['role']==self.role
+                 and type(absence['image']['stage']) is int and absence['image']['stage']==self.stage
+                 and same(absence['image']['binding'],binding))
 
     def save(self):
         self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
@@ -201,6 +242,102 @@ class PhoneGraphicsSamples:
         if found:need(len(found)==1);rows[found[0]]=deepcopy(value)
         else:need(len(rows)<256);rows.append(deepcopy(value))
         self.save()
+
+    def _active(self,value):
+        exact(value,{'schemaVersion','runId','area','ticket','stimulus'})
+        need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['runId']==self.run
+             and value['area']=='graphics');identifier(value['ticket']);exact(value['stimulus'],{'verb','inputs'})
+        if value['stimulus']['verb'] in ('baseline','cleanup'):need(value['stimulus']['inputs']=={})
+        else:arguments('feature.graphics.act',dict(contractVersion=FEATURE_VERSION,runId=self.run,
+            fixtureUrl=self.client.url+'/runs/'+self.run+'/',ticket=value['ticket'],**value['stimulus']))
+        return value
+
+    def _release_measurement(self,owned,pid,bound):
+        need(same(owned.owner.owned()['capture'],self.state['pending']['captureIntent']))
+        memory=owned.storage.release(owned.owner.owned()['capture']['commandId']);bound()
+        self.state['cursors']['storage']=deepcopy(memory);self.save();bound()
+        owner=deepcopy(owned.owner.owned())
+        original=owned.receipts.cleanup.request
+        def remember_inventory(operation):
+            packet=original(operation)
+            self.state['cursors']['inventory']=deepcopy(packet);self.save();bound()
+            return packet
+        owned.receipts.cleanup.request=remember_inventory
+        owned.receipts.retire();bound()
+        proof=dict(memory=memory,files=deepcopy(owned.receipts.proof),owner=owner)
+        retirement(proof,owner,pid,self.state['binding'],self.role)
+        need(owned.owner.owned()==owner);owned.owner.store.discard(owner)
+        self.state['pending']['retirement']=deepcopy(proof);self.save();bound()
+        return proof
+
+    def _track_storage(self,owned,bound):
+        original=owned.storage.request
+        def remember(operation,request,offset=None):
+            packet=original(operation,request,offset)
+            cursor=deepcopy(packet)
+            if 'data' in cursor:
+                cursor['chunkSha256']=hashlib.sha256(base64.b64decode(cursor.pop('data'),validate=True)).hexdigest()
+            self.state['cursors']['storage']=cursor;self.save();bound()
+            return packet
+        owned.storage.request=remember
+
+    def retire_changed_ticket(self):
+        """Retire this live interrupted acquisition, without publishing facts.
+
+        Recreation cannot enter this path: construction refuses reading journals.
+        A missing original capture, partial PNG or unchanged phase stays red.
+        """
+        self.lock.assert_held()
+        need(self.state['phase']=='reading' and self.state['pending'] is not None
+             and len(self.state['retirements'])<32 and self.state['sequence']<256)
+        started=previous=self.monotonic();need(number(started,0,1e15))
+        def bound():
+            nonlocal previous
+            self.lock.assert_held();need(self.guard() is not False)
+            current=self.monotonic();need(number(current,previous,1e15) and current-started<20);previous=current
+        active=deepcopy(self._active(self.client.request('/runs/'+self.run+'/active')));bound()
+        pending=self.state['pending'];need(active['ticket']!=pending['ticket'])
+        owned=self.adapter._world_render_capture(self.selector,read_only=True,role=self.role,require_frame_view=True)
+        capture=self.state['cursors']['capture']
+        if pending['captureIntent'] is not None:
+            need(capture is not None and capture['requestId']==pending['captureIntent']['commandId'])
+        if owned.owner.store.read() is not None:
+            need(pending['captureIntent'] is not None and same(owned.owner.owned()['capture'],pending['captureIntent']))
+            stored=self.state['cursors']['storage'];inventory=self.state['cursors']['inventory']
+            owned.storage.instance=capture['instance']
+            if stored is not None:
+                need(stored['instance']==capture['instance']);owned.storage.sequence=stored['sequence']
+            if inventory is not None:
+                need(inventory['instance']==capture['instance'])
+                owned.receipts.cleanup.sequence,owned.receipts.cleanup.captured=inventory['sequence'],inventory['capturedEpochMs']
+                owned.receipts.cleanup.histories[inventory['requestId']]={row['receiptId']:row['issued'] for row in inventory['source']['receipts']}
+            self._track_storage(owned,bound)
+            self._release_measurement(owned,int(self.state['binding']['processIdentity'].split(':')[0]),bound)
+        if pending['captureIntent'] is not None:
+            need(pending['retirement'] is not None and pending['retirement']['memory']['instance']==capture['instance'])
+        need(owned.owner.store.read() is None)
+        for absence in pending['abandonedImages']:need(self.images.absent(absence['image']) is True);bound()
+        for image in list(self.state['images']):
+            if image['ticket']!=pending['ticket']:continue
+            if image['phase']=='planned':
+                need(self.images.absent(image) is True);bound()
+                pending['abandonedImages'].append(dict(image=deepcopy(image),absent=True,observedEpochMs=self.epoch_ms()))
+                self.state['images'].remove(image);self.save();bound()
+            else:
+                self.images.read(image);bound()
+                if image['phase']=='opened':
+                    image=deepcopy(image);image['phase']='saved';self._image_intent(image);bound()
+        provider=self.client.graphics_status();bound()
+        validate_status(provider,instance=self.provider_instance,run=self.run,url=self.client.url,request=provider['requestId'],
+            previous=self.state['cursors']['provider'])
+        need(provider['active'] is True and provider['ticket']==active['ticket']);fresh(provider['capturedEpochMs'],self.epoch_ms())
+        self.state['cursors']['provider']=deepcopy(provider);self.save();bound()
+        confirmed=self._active(self.client.request('/runs/'+self.run+'/active'));need(same(confirmed,active));bound()
+        item=dict(sequence=self.state['sequence']+1,ticket=pending['ticket'],active=active,provider=deepcopy(provider),
+            cursors=deepcopy(self.state['cursors']),measurement=deepcopy(pending['retirement']),abandonedImages=deepcopy(pending['abandonedImages']))
+        self.state.update(phase='ready',sequence=item['sequence'],pending=None,retirements=self.state['retirements']+[item])
+        self.save();bound()
+        return deepcopy(item) # Scope/history retirement only; no measured feature state.
 
     def _historical(self,frame):
         exact(frame,{'ticket','afterEpochMs','nativeBefore','subjectBefore','graphics','tablet','capture',
@@ -223,13 +360,16 @@ class PhoneGraphicsSamples:
         scope.role,scope.stage,scope.artifact_root,scope.image_policy=role,stage,Path(artifact_root),deepcopy(image_policy)
         state=scope._decode(value);need(state['phase']=='ready' and same(state['binding'],context(binding)))
         for image in state['images']:PhoneGraphicsImages.archive(scope.artifact_root,image)
+        files=PhoneGraphicsImages(scope.artifact_root,binding,run,role,stage,lambda:True,lambda _:False)
+        for item in state['retirements']:
+            for absence in item['abandonedImages']:need(files.absent(absence['image']) is True)
         if state['frame'] is not None:scope._historical(state['frame'])
         return deepcopy(state)
 
     def read(self,ticket,after_epoch):
         identifier(ticket);need(integer(after_epoch,1));self.lock.assert_held()
         need(self.state['phase']=='ready' and self.state['sequence']<256 and len(self.state['seenFrames'])<256)
-        self.state.update(phase='reading',pending=dict(ticket=ticket,afterEpochMs=after_epoch,captureIntent=None,retirement=None));self.save()
+        self.state.update(phase='reading',pending=dict(ticket=ticket,afterEpochMs=after_epoch,captureIntent=None,retirement=None,abandonedImages=[]));self.save()
         started=previous=self.monotonic();need(number(started,0,1e15))
         def bound():
             nonlocal previous
@@ -264,6 +404,7 @@ class PhoneGraphicsSamples:
         stored=self.state['cursors']['storage'];inventory=self.state['cursors']['inventory']
         if stored is not None:owned.storage.instance,owned.storage.sequence=stored['instance'],stored['sequence']
         if inventory is not None:owned.receipts.cleanup.sequence,owned.receipts.cleanup.captured=inventory['sequence'],inventory['capturedEpochMs']
+        self._track_storage(owned,bound)
         bound()
         try:
             before=native.read(native.sequence);remember('native',before)
@@ -276,6 +417,9 @@ class PhoneGraphicsSamples:
             last=subject.read(self.run);remember('subject',last)
             after=native.read(native.sequence);remember('native',after)
             provider=self.client.graphics_status();bound()
+            validate_status(provider,instance=self.provider_instance,run=self.run,url=self.client.url,request=provider['requestId'],
+                previous=self.state['cursors']['provider'])
+            remember('provider',provider)
             sample_epoch=native.clock_ms();need(integer(sample_epoch,after['capturedEpochMs']))
             actual=compose(self.run,ticket,self.client.url+'/runs/'+self.run+'/',native.pid,provider,self.provider_instance,
                 provider['requestId'],before,first,graphics,tabs,capture,raw,last,after,sample_epoch,after_epoch,self.image_policy)
@@ -284,15 +428,7 @@ class PhoneGraphicsSamples:
             if owned.owner.store.read() is not None:
                 # Capture/storage ownership is separately durable before every
                 # dispatch, including a failed or undelivered acquisition.
-                need(same(owned.owner.owned()['capture'],self.state['pending']['captureIntent']))
-                memory=owned.storage.release(owned.owner.owned()['capture']['commandId']);bound()
-                owner=deepcopy(owned.owner.owned())
-                owned.receipts.retire();bound()
-                proof=dict(memory=memory,files=deepcopy(owned.receipts.proof),owner=owner)
-                retirement(proof,owner,native.pid,self.state['binding'],self.role)
-                need(owned.owner.owned()==owner);owned.owner.store.discard(owner)
-                remember('storage',memory);remember('inventory',proof['files']['absent'])
-                self.state['pending']['retirement']=deepcopy(proof);self.save();bound()
+                self._release_measurement(owned,native.pid,bound)
         need(self.state['pending']['retirement'] is not None and owned.owner.store.read() is None)
         current_epoch=native.clock_ms();need(integer(current_epoch,sample_epoch));fresh(actual['capturedEpochMs'],current_epoch);bound()
         frame=dict(ticket=ticket,afterEpochMs=after_epoch,nativeBefore=before,subjectBefore=first,graphics=graphics,tablet=tabs,

@@ -1,4 +1,4 @@
-# Durable Phone Graphics original samples v1
+# Durable Phone Graphics original samples v2
 
 `PhoneGraphicsSamples` joins the existing original sources with a private
 role/process ledger and original PNG artifacts. It performs no normal product
@@ -26,7 +26,11 @@ No desired setting or requested effect enters the source producer.
 Every accepted original is saved before acquiring another. Source-owned native
 lifecycle/account/voice/animation prefixes, UI generation/input/source counters,
 subject history, GPU acquisition/sequence/birth, all seen frame IDs and native
-storage/receipt cursors survive factory recreation. Cached originals restore
+storage/receipt cursors survive factory recreation. Every accepted memory query,
+including nonterminal callback-drain observations, is durable before the next
+request. Chunk cursors retain original metadata and an actual decoded-chunk hash
+without embedding base64 PNG payloads in the journal. Complete PNG byte/pixel
+hashes still require the original image. Cached originals restore
 validation floors only. Every `read(ticket,after_epoch)` must acquire a new frame.
 The whole source attempt is bounded at 20 seconds and retains each underlying
 source's existing deadline. Original clocks are never retimed. Final native
@@ -57,12 +61,37 @@ callbacks, ignored removal, incomplete rows or leftover files retain a red attem
 A pending attempt stays `reading`, including its original cursors, capture nonce,
 partial image intent and any measured native retirement. Constructing a new
 producer refuses that journal. It cannot reset provenance or return prior facts.
-At this packet, deliberate changed-ticket retirement remains to be composed;
-there is no broad reset/force-cleanup API.
+`retire_changed_ticket()` is available only on the live interrupted producer.
+Reconstruction still refuses a pending journal. A fresh original active phase
+must have another ticket, the right run/area and valid common arguments. The
+controlled provider independently confirms the same current phase, with its
+original append-only history; a second phase read must remain unchanged.
+
+The method may retry measurement retirement only for the durably correlated
+capture, original GPU birth, original process/role and retained source cursors.
+Ignored cleanup cannot reset a previously accepted nonterminal source cursor.
+It does not replay the GPU capture or any normal UI input. An unknown/missing
+original capture remains red, even when the current files look empty.
+
+A planned host PNG may retire only with actual scoped filesystem absence. That
+original negative artifact is durable before dropping it from the pending image
+list, including a lost phase-confirmation response. A known opened file must
+independently match its original full PNG and inode before being recorded as a
+saved historical artifact. Empty/partial/replaced files stay unresolved. Saved
+files remain original historical evidence, without being relabelled current.
+
+Successful changed-ticket retirement retains the original cursors, native
+memory/file proofs, abandoned-file absence and both phase/provider observations.
+It returns scope/history data, never measured feature state. The next `read`
+still requires entirely new original sources/frame/PNG. Retirements are bounded
+at 32 and the ledger/capture sequence at 256, with a 20-second total attempt
+budget. Version 1 journals are refused without implicit upgrade or provenance
+reset; `phone-graphics-samples` now reads only version 2.
 
 `archive(...)` validates historical originals and every retained original PNG
 without an adapter, SDK, native input, session repair or new current result.
-It preserves original clocks and rejects missing/replaced files and borrowed
+It preserves original clocks and rejects missing/replaced files, late files at
+an explicitly abandoned planned path, and borrowed
 native/context/role/owner/absence proofs. Restart handoff and final run retirement
 remain responsibilities of the future complete Graphics coordinator.
 
@@ -72,11 +101,13 @@ records; stopping the app cannot make unresolved source ownership green.
 
 ## Host verification
 
-Seventeen source cases, including loops over every source cursor and native/UI
+Twenty-seven source cases, including loops over every source cursor and native/UI
 birth, use real private host journals/PNG/receipt files with explicit synthetic
 native and fixture boundaries. They cover original joins, factory recreation,
 GPU-frame reuse, foreign/old pixels, lost dispatch and file-intent responses,
 ignored native/file cleanup, pre-existing foreign ownership, wrong binding/
-scope/policy, historical archives and bounded failure. A Phone wrapper case checks
+scope/policy, historical archives, unchanged/foreign/moving phases, original
+changed-ticket recovery, unissued planned-file absence, partial images, durable
+lost-confirmation recovery, v1 refusal and bounded failure. A Phone wrapper case checks
 general cleanup across both roles and both process stages. These tests qualify
 test logic only; they are not native compilation or physical acceptance.
