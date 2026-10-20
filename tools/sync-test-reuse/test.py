@@ -4199,20 +4199,27 @@ class RetainedSyncMetadataTests(unittest.TestCase):
         raw=out.getvalue();self.binary[self.prefix+'/actions/artifacts/401/zip']=raw
         self.item.update(size_in_bytes=len(raw),digest='sha256:'+hashlib.sha256(raw).hexdigest())
 
-    def verify(self, *, mutate=None, classification=None, source=PARENT):
+    def verify(self, *, mutate=None, classification=None, source=PARENT, real_tree=False):
         owner=self
         class API:
             def json(self,endpoint,**kwargs):
                 owner.calls.append(('GET',endpoint))
                 if kwargs.get('method','GET')!='GET':raise AssertionError('metadata attempted a mutation')
-                value=deepcopy(owner.docs[endpoint]);return mutate(endpoint,value)if mutate else value
+                if real_tree and endpoint.startswith(owner.prefix+'/git/commits/'):
+                    value={'sha':endpoint.rsplit('/',1)[1],'tree':{'sha':TREE},'parents':[]}
+                elif real_tree and endpoint==owner.prefix+'/git/trees/'+TREE+'?recursive=1':
+                    value={'sha':TREE,'truncated':False,'tree':[{'path':p,**v}for p,v in owner.tree.items()]}
+                else:value=deepcopy(owner.docs[endpoint])
+                return mutate(endpoint,value)if mutate else value
             def bytes(self,endpoint):
                 owner.calls.append(('BYTES',endpoint));return owner.binary[endpoint]
         real_load=gate.package_checks.load
         host=SimpleNamespace(select=mock.Mock(return_value=deepcopy(self.selected)))
         def load(name,path):
             return host if path=='tools/repository-checks/host_selection.py'else real_load(name,path)
-        def tree(api,repo,revision):return (TREE,deepcopy(self.tree))
+        actual_recursive_tree=gate.recursive_tree
+        def tree(api,repo,revision):
+            return actual_recursive_tree(api,repo,revision)if real_tree else (TREE,deepcopy(self.tree))
         with mock.patch.object(gate,'classify_event',side_effect=classification or [self.request,self.request]), \
                 mock.patch.object(gate,'_dispatch_checkout_source',return_value=source), \
                 mock.patch.object(gate,'_dispatch_source',return_value=self.prefix), \
@@ -4228,6 +4235,30 @@ class RetainedSyncMetadataTests(unittest.TestCase):
         self.assertIs(result['metadata_authenticated'],True);self.assertIs(result['new_execution'],False)
         self.assertIs(result['qualification'],False);self.assertEqual(result['new_dispatches'],0)
         self.assertEqual(len([c for c in self.calls if c[0]=='BYTES'and'/artifacts/'in c[1]]),1)
+
+    def test_real_recursive_tree_path_members_preserve_metadata_owner_and_reject_changed_source(self):
+        outer=self
+        class TreeAPI:
+            def json(self,endpoint):
+                if '/git/commits/'in endpoint:return {'sha':endpoint.rsplit('/',1)[1],'tree':{'sha':TREE},'parents':[]}
+                return {'sha':TREE,'truncated':False,'tree':[{'path':p,**v}for p,v in outer.tree.items()]}
+        _,raw=gate.recursive_tree(TreeAPI(),REPOSITORY,PARENT)
+        self.assertEqual(set(raw['tools/sync-test-reuse/gate.py']),{'path','mode','type','sha'})
+        try:result=self.verify(real_tree=True)
+        except gate.GateError as error:self.fail('real API tree shape rejected an authenticated metadata owner: '+str(error))
+        self.assertIs(result['metadata_authenticated'],True);self.assertIs(result['new_execution'],False)
+        self.assertIs(result['qualification'],False)
+        for shape in ('sha','mode','truncated','duplicate'):
+            def change(endpoint,value):
+                if '/git/trees/'in endpoint:
+                    if shape=='truncated':value['truncated']=True
+                    elif shape=='duplicate':value['tree'].append(deepcopy(value['tree'][0]))
+                    else:
+                        row=next(v for v in value['tree']if v['path']=='tools/sync-test-reuse/gate.py')
+                        row[shape]='a'*40 if shape=='sha'else'100755'
+                return value
+            with self.subTest(shape=shape),self.assertRaises((gate.GateError,gate.EvidenceError)):
+                self.verify(real_tree=True,mutate=change)
 
     def test_selected_36_is_derived_instead_of_hardcoded_37(self):
         self.names=self.names[:-1];self.selected['suites']=self.names;self.selection['suites']=self.names
@@ -4475,12 +4506,21 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         self.docs[f.prefix+'/commits/'+HEAD+'/check-runs?filter=all&per_page=100']={'total_count':len(checks),'check_runs':checks}
         f.pack()
 
-    def verify(self, *, mutate=None, pure=False):
+    def verify(self, *, mutate=None, pure=False, real_tree=False):
         owner=self; f=self.f
         class API:
             def json(self,path,**kwargs):
                 if kwargs.get('method','GET')!='GET':raise AssertionError('proof attempted a mutation')
-                f.calls.append(('GET',path));value=deepcopy(owner.docs[path])
+                f.calls.append(('GET',path))
+                before_tree='9'*40
+                if real_tree and path in {f.prefix+'/git/commits/'+BASE,f.prefix+'/git/commits/'+owner.child_base}:
+                    value={'sha':path.rsplit('/',1)[1],'tree':{'sha':before_tree},'parents':[]}
+                elif real_tree and path in {f.prefix+'/git/trees/'+TREE+'?recursive=1',
+                        f.prefix+'/git/trees/'+before_tree+'?recursive=1'}:
+                    entries=owner.before if '/'+before_tree+'?'in path else f.tree
+                    value={'sha':before_tree if entries is owner.before else TREE,'truncated':False,
+                        'tree':[{'path':p,**v}for p,v in entries.items()]}
+                else:value=deepcopy(owner.docs[path])
                 return mutate(path,value)if mutate else value
             def bytes(self,path):f.calls.append(('BYTES',path));return owner.binary[path]
         real_load=gate.package_checks.load
@@ -4490,8 +4530,10 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
             if path=='tools/repository-checks/host_selection.py':return host
             if path=='tools/native-tests/check.py':return native
             return real_load(name,path)
+        actual_recursive_tree=gate.recursive_tree
         def tree(api,repo,revision):
-            return (TREE,deepcopy(self.before if revision in (BASE,self.child_base)else f.tree))
+            return actual_recursive_tree(api,repo,revision)if real_tree else (
+                TREE,deepcopy(self.before if revision in (BASE,self.child_base)else f.tree))
         with mock.patch.dict(gate.os.environ,{'GITHUB_ACTIONS':'true'},clear=True), \
                 mock.patch.object(gate,'_dispatch_checkout_source',return_value=PARENT), \
                 mock.patch.object(gate,'_native_effective_role'), \
@@ -4517,6 +4559,22 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         self.assertNotIn('environment',proof);self.assertNotIn('results',proof)
         self.assertEqual(proof['original_proof']['run_id'],300)
         self.assertTrue(proof['expires_at'].startswith('2026-10-22T21:45:15.669186'))
+
+    def test_real_recursive_tree_preserves_exact_normal_inventory_and_rejects_changed_before(self):
+        proof=self.verify(pure=True,real_tree=True)
+        self.assertIsInstance(proof,gate.NativeExactTreeParentEvidence)
+        self.assertEqual(proof['candidate_inputs'],self.f.tree)
+        self.assertIs(proof['qualification'],False);self.assertIs(proof['reusable'],False)
+        for shape in ('profile-mode','profile-sha','truncated','duplicate'):
+            def change(endpoint,value):
+                if endpoint.endswith('/git/trees/'+'9'*40+'?recursive=1'):
+                    if shape=='truncated':value['truncated']=True
+                    elif shape=='duplicate':value['tree'].append(deepcopy(value['tree'][0]))
+                    else:
+                        row=next(v for v in value['tree']if v['path']=='tests/platform-profile.json')
+                        row['mode'if shape=='profile-mode'else'sha']='100755'if shape=='profile-mode'else'a'*40
+                return value
+            with self.subTest(shape=shape):self.assertIsNone(self.verify(pure=True,real_tree=True,mutate=change))
 
     def test_commit_association_number_only_uses_full_actual_normal_PR(self):
         self.docs[self.f.prefix+'/commits/'+self.normal+'/pulls?per_page=100']=[{'number':610}]
@@ -4806,6 +4864,22 @@ class RetainedStandaloneSyncMetadataTests(unittest.TestCase):
         self.assertTrue(all(c.kwargs['normal_parent']==parent.normal for c in native.call_args_list))
         recursive=deepcopy(proof['original_report']);recursive['mode']='native-exact-tree-parent'
         self.assertFalse(gate._original_ci_command_coverage(recursive,parent.f.names))
+
+    def test_real_recursive_tree_retains_mixed_metadata_and_exact_normal_coverage(self):
+        try:result=self.verify(real_tree=True)
+        except gate.GateError as error:self.fail('real API tree shape rejected mixed metadata coverage: '+str(error))
+        self.assertIs(result['metadata_authenticated'],True);self.assertIs(result['qualification'],False)
+        parent=ExactAndroidTreeParentTests();parent.setUp();self.addCleanup(parent.doCleanups)
+        self.mixed(parent.f)
+        real=gate.package_checks.load
+        with mock.patch.object(gate.package_checks,'load',side_effect=lambda n,p:self.validator if p=='tools/test-evidence/validate-sync.py'else real(n,p)), \
+                mock.patch.object(self.validator,'verify_standalone_ci_owners',return_value=deepcopy(self.proof))as native:
+            proof=parent.verify(pure=True,real_tree=True)
+        self.assertIsInstance(proof,gate.NativeExactTreeParentEvidence)
+        self.assertEqual(proof['original_report']['executed_suites'],self.remaining)
+        self.assertEqual(proof['original_report']['reused_suites'],self.four)
+        self.assertEqual(proof['candidate_inputs'],parent.f.tree)
+        self.assertGreaterEqual(native.call_count,2)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

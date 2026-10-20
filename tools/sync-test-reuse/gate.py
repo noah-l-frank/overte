@@ -2147,6 +2147,9 @@ def retain_metadata_owner(event, config, api, *, environment=None, now=None):
     tree, candidate = recursive_tree(api, request.repository, request.merge_sha)
     _, before = recursive_tree(api, request.repository, request.base_sha)
     _, trusted = recursive_tree(api, request.repository, source)
+    # Retain every validated path/mode/type/SHA; local immutable inventories
+    # represent the path as the dictionary key rather than a repeated member.
+    candidate, before, trusted = (input_tree(t) for t in (candidate, before, trusted))
     workflow_path = '.github/workflows/sync-test-reuse.yml'
     for relative in ('tools/sync-test-reuse/gate.py', workflow_path):
         raw_source = (ROOT / relative).read_bytes()
@@ -2341,6 +2344,7 @@ def verify_exact_tree_parent_evidence(api, config, request, *, protected_source,
         validate_sha(protected_tree, 'exact-tree protected source tree')
         prefix = _dispatch_source(api,config,request.repository,source)
         source_tree,trusted = recursive_tree(api,request.repository,source)
+        trusted = input_tree(trusted)
         if source_tree != protected_tree or suite_inputs.full_tree(ROOT,'HEAD') != trusted:
             raise EvidenceError('exact-tree actual reader is not the complete protected source tree')
         _native_parent_controller()  # Authenticate the existing physical import closure, not B/D reuse/E.
@@ -2389,6 +2393,8 @@ def verify_exact_tree_parent_evidence(api, config, request, *, protected_source,
         parent_tree,parent_inputs = recursive_tree(api,request.repository,request.parent_sha)
         _,before = recursive_tree(api,request.repository,bp)
         _,child_before = recursive_tree(api,request.repository,request.base_sha)
+        candidate,parent_inputs,before,child_before = (input_tree(t)
+            for t in (candidate,parent_inputs,before,child_before))
         profile = {'mode':'100644','type':'blob','sha':suite_inputs._AFFECTED_TARGET_PROFILES['android-main']}
         if tree != parent_tree or candidate != parent_inputs \
                 or any(t.get('tests/platform-profile.json') != profile for t in (candidate,before,child_before)) \

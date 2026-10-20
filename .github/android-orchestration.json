@@ -70,27 +70,27 @@
   "handoff_manifest": ".github/android-owner-transfer.json",
   "reviewed_lock_sources": {
     "android-main": {
-      "commit": "04de83f07f837d684e15b3a0ba58d64b82e71a19",
-      "tree": "361bbc0dada090361cfa16541f656c4465984a02",
-      "readers": "sha256:090aa8df57b302df09857b3ce27430b44401cc0aad71eef16ca8a21ed59e885a",
+      "commit": "4219f1c1bedca6aa27f391d7ef3b85f37e57901e",
+      "tree": "96b9a758c304e2d7f18598c5afeed16e8549eb28",
+      "readers": "sha256:76eec753cb5b73c269f8af2840733582f2179b0c7fb387c9ddfb1470e4befc99",
       "entries": 11746
     },
     "android-phone": {
-      "commit": "2355798612d43329081ae5f8293116ada6cc1929",
-      "tree": "c4148bed9fd5a10179ada61c73072a667add67ef",
-      "readers": "sha256:b06fbb64a34241a202407fa3adbec7e93bb539c98485397ed3dab0f013112f65",
+      "commit": "aabd4447b6cc5fc7a9edcc6b86b04cdc5d893b9e",
+      "tree": "1a0f2e6679c528c931b2bbe76e4aa925b44caa12",
+      "readers": "sha256:02fc3af9814c9ff55195dd110382f7d822f02e59acdf591f55a57b0f0b9e3372",
       "entries": 12006
     },
     "android-vr": {
-      "commit": "bfe0fc82a8e65eef3ed8e3d1bd60984c09fb76df",
-      "tree": "361bbc0dada090361cfa16541f656c4465984a02",
-      "readers": "sha256:090aa8df57b302df09857b3ce27430b44401cc0aad71eef16ca8a21ed59e885a",
+      "commit": "5f629cc01e85f0a09d8eff3cbe95beecda9fadf0",
+      "tree": "96b9a758c304e2d7f18598c5afeed16e8549eb28",
+      "readers": "sha256:76eec753cb5b73c269f8af2840733582f2179b0c7fb387c9ddfb1470e4befc99",
       "entries": 11746
     },
     "android-vr-pico": {
-      "commit": "cbcd854038934b316747ce69d75bc9c7c0e5809c",
-      "tree": "16ea6aafc6997951c9398e3bf1550b4d590e731a",
-      "readers": "sha256:36869d72d04df555b9aec2cfdf14bb8b01965aaff635eb844debad02c1593fc1",
+      "commit": "3fbd5e6dcbb99577a50af0fa0b5e28468cf6b6fb",
+      "tree": "055be8443c5d07dced59d0cbd60023ab3ba73163",
+      "readers": "sha256:fad6b3b954655cb724d1d4fdbe13695874acbf0056c51bf7299c10e77fe1a507",
       "entries": 11919
     }
   }
