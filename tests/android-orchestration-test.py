@@ -837,6 +837,106 @@ class RequiredAndroidTests(unittest.TestCase):
             del identity[name]
             with self.assertRaises(ValueError): owner.validate_environment(identity)
 
+    def test_pico_native_qt_prerequisites_follow_native_target_and_availability(self):
+        prepare = (ROOT / "tools/repository-checks/android-host-prepare.sh").read_text()
+        # Only execute the declaration prefix with package-query/apt recorders.
+        # No real apt, venv, compiler, Qt contract or receipt is executed.
+        prefix = prepare.split("python3 -m venv", 1)[0]
+        self.assertNotIn("curl ", prefix)
+        packages = {"qtbase5-dev", "qtbase5-dev-tools", "qtdeclarative5-dev", "libqt5webchannel5-dev",
+            "qt6-base-dev", "qt6-base-dev-tools", "qt6-declarative-dev", "qt6-declarative-dev-tools",
+            "qml6-module-qtqml", "qml6-module-qtqml-models", "qml6-module-qtqml-workerscript", "qml6-module-qtquick"}
+        harness = r"""
+pkg-config() {
+    case "$*" in
+      '--exists Qt5Core Qt5Quick Qt5WebChannel Qt5Network Qt6Widgets Qt6Qml Qt6Quick')
+        [[ "$QT_DECLARATION_READY" == yes ]] ;;
+      '--variable=host_bins Qt5Core') printf '%s\n' "$QT_DECLARATION_ROOT/qt5/bin" ;;
+      '--variable=includedir Qt5WebChannel') printf '%s\n' "$QT_DECLARATION_ROOT/qt5/include" ;;
+      '--variable=libexecdir Qt6Core') printf '%s\n' "$QT_DECLARATION_ROOT/qt6/libexec" ;;
+      '--variable=libdir Qt6Core') printf '%s\n' "$QT_DECLARATION_ROOT/lib" ;;
+      *) return 99 ;;
+    esac
+}
+sudo() {
+    printf '%s\t' "$@"; printf '\n'
+    [[ "$QT_DECLARATION_APT_FAIL" == no ]] || return 17
+    if [[ " $* " == *' install '* && "$QT_DECLARATION_REPAIR" == yes ]]; then
+        QT_DECLARATION_READY=yes
+    fi
+}
+""" + prefix
+        contexts = (("pico-pr", "android-vr-pico", "refs/pull/1/merge", "1/merge", "", True),
+            ("pico-push", "", "refs/heads/android-vr-pico", "android-vr-pico", "branch", True),
+            ("pico-dispatch", "", "refs/heads/android-vr-pico", "android-vr-pico", "branch", True),
+            ("pico-native-ref-name", "", "", "android-vr-pico", "branch", True),
+            ("pico-head-ref-fallback", "", "refs/heads/android-vr-pico", "", "", True),
+            ("main-pr", "android-main", "refs/pull/1/merge", "1/merge", "", False),
+            ("phone-pr", "android-phone", "refs/pull/1/merge", "1/merge", "", False),
+            ("vr-push", "", "refs/heads/android-vr", "android-vr", "branch", False),
+            ("ios-push", "", "refs/heads/apple-ios", "apple-ios", "branch", False),
+            ("unknown", "", "", "", "", False),
+            ("tag", "", "refs/tags/android-vr-pico", "android-vr-pico", "tag", False),
+            ("untyped-ref-name", "", "", "android-vr-pico", "", False),
+            ("base-wins", "android-phone", "refs/heads/android-vr-pico", "android-vr-pico", "branch", False))
+        with tempfile.TemporaryDirectory(prefix="pico-qt-declarations-") as temporary:
+            root = Path(temporary)
+            files = ("qt5/bin/moc", "qt5/bin/rcc", "qt6/libexec/moc", "qt5/include/QtWebChannel/QWebChannel",
+                "lib/qt6/qml/QtQml/libqmlplugin.so", "lib/qt6/qml/QtQml/Models/libmodelsplugin.so",
+                "lib/qt6/qml/QtQml/WorkerScript/libworkerscriptplugin.so", "lib/qt6/qml/QtQuick/libqtquick2plugin.so")
+            for name in files:
+                path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.touch()
+                if name.endswith(("/moc", "/rcc")): path.chmod(0o755)
+                if name.endswith(".so"): (path.parent / "qmldir").touch()
+            def run(context, ready="no", repair="yes", apt_fail="no"):
+                label, base, ref, ref_name, ref_type, required = context
+                environment = {"PATH": "/usr/bin:/bin", "GITHUB_BASE_REF": base, "GITHUB_REF": ref,
+                    "GITHUB_REF_NAME": ref_name, "GITHUB_REF_TYPE": ref_type, "QT_DECLARATION_ROOT": str(root),
+                    "QT_DECLARATION_READY": ready, "QT_DECLARATION_REPAIR": repair, "QT_DECLARATION_APT_FAIL": apt_fail}
+                completed = subprocess.run(["bash", "-c", harness, "prerequisite-declaration", "/unused/venv"],
+                    env=environment, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                calls = [line.rstrip("\t").split("\t") for line in completed.stdout.splitlines()]
+                return completed, calls
+            def assert_install(calls):
+                self.assertEqual(len(calls), 2)
+                self.assertEqual(calls[0], ["-n", "/usr/bin/apt-get", "-o", "Acquire::Retries=4", "update"])
+                self.assertEqual(calls[1][:7], ["-n", "/usr/bin/apt-get", "-o", "Acquire::Retries=4",
+                    "install", "-y", "--no-install-recommends"])
+                self.assertEqual(set(calls[1][7:]), packages)
+                self.assertEqual(len(calls[1][7:]), len(packages))
+            for context in contexts:
+                for ready in ("no", "yes"):
+                    with self.subTest(context=context[0], ready=ready):
+                        completed, calls = run(context, ready=ready)
+                        self.assertEqual(completed.returncode, 0, completed.stderr)
+                        if context[-1] and ready == "no": assert_install(calls)
+                        else: self.assertEqual(calls, [])
+            for name in files:
+                with self.subTest(missing=name):
+                    path = root / name; path.unlink()
+                    completed, calls = run(contexts[0], ready="yes")
+                    self.assertNotEqual(completed.returncode, 0)
+                    self.assertIn("Selected Pico Qt host prerequisites remain unavailable", completed.stderr)
+                    assert_install(calls)
+                    path.touch()
+                    if name.endswith(("/moc", "/rcc")): path.chmod(0o755)
+            for module in ("QtQml", "QtQml/Models", "QtQml/WorkerScript", "QtQuick"):
+                with self.subTest(missing_qmldir=module):
+                    path = root / "lib/qt6/qml" / module / "qmldir"; path.unlink()
+                    completed, calls = run(contexts[0], ready="yes")
+                    self.assertNotEqual(completed.returncode, 0)
+                    assert_install(calls)
+                    path.touch()
+            with self.subTest(incomplete_install=True):
+                completed, calls = run(contexts[0], repair="no")
+                self.assertNotEqual(completed.returncode, 0)
+                self.assertIn("Selected Pico Qt host prerequisites remain unavailable", completed.stderr)
+                assert_install(calls)
+            with self.subTest(apt_failure=True):
+                completed, calls = run(contexts[0], apt_fail="yes")
+                self.assertEqual(completed.returncode, 17)
+                self.assertEqual(len(calls), 1)
+
     def test_canonical_workflow_routes_before_setup_and_runs_only_trusted_full_union(self):
         template = (ROOT / gate.CALLEE).read_text()
         value = yaml.safe_load(template)
@@ -1340,6 +1440,10 @@ assert Path(sys.modules['producer_workflow'].__file__).resolve()==root/'tools/te
         with tempfile.TemporaryDirectory(prefix='android-current-dispatch-') as directory:
             root=Path(directory)
             gate._bootstrap_git(root,'init','--quiet')
+            # A fixture commit must not leave Git's detached automatic
+            # maintenance writing into .git during TemporaryDirectory cleanup.
+            gate._bootstrap_git(root,'config','gc.auto','0')
+            gate._bootstrap_git(root,'config','maintenance.auto','false')
             names=('project-tests','parent-qualification','sync-validation','repository-checks','browser-client','pr-metadata-context')
             paths=['.github/workflows/'+name+'.yml' for name in names]
             old={path:gate._blob(('old '+path+'\n').encode()) for path in paths[:5]}

@@ -76,6 +76,8 @@ REVIEWED_CI_HOST_BOUNDARY = "90da341e226f56b8dfb8b925af7c0273ecc41772ca424e3426b
 # may use this additional negative dependency certificate; it is no test/E.
 REVIEWED_COMPILER_PR_CI_HOST_BOUNDARY = "c5c7e6b868df7b10b4f5b713b7f7640600e1aa7b67760987a274c2b6961ac3a4"
 CI_HOST_INDEPENDENT_PATHS = frozenset({
+    # Standalone fake-API producer lifecycle; no application or device readers.
+    'tests/producer-owner-lifecycle-test.py',
     # Linux-only shared Device launcher; its required Device owner is unchanged.
     "tests/device/run_artifact_identity.py",
     "tools/repository-health/check.py",
