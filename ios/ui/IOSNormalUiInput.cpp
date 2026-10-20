@@ -54,6 +54,8 @@ QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
     }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (fileAllowed) {
+        const auto chat=overte::e2e::chatControlId(item);
+        if (!chat.isEmpty()) { return chat; }
         const auto create=overte::e2e::createControlId(item);
         if (!create.isEmpty()) { return create; }
         const auto graphics = overte::e2e::graphicsControlId(item);
@@ -170,7 +172,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 auto source = overte::e2e::scriptFileControlSource(node);
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                if (id.startsWith("create.")) {
+                if (id.startsWith("chat.")) {
+                    source=overte::e2e::chatControlSource(node,id);
+                    if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("create.")) {
                     source=overte::e2e::createControlSource(node,id);
                 } else if (id.startsWith("login.")) {
                     if (!loginContext.valid) { return; }
@@ -215,7 +220,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         for (const auto& id : controls.keys()) {
             if (id.startsWith(QStringLiteral("tablet.")) || id.startsWith(QStringLiteral("places."))
                     || id.startsWith(QStringLiteral("snapshot.")) || id.startsWith(QStringLiteral("scripts."))
-                    || id.startsWith(QStringLiteral("script-file.")) || id.startsWith("create.") || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
+                    || id.startsWith(QStringLiteral("script-file.")) || id.startsWith("chat.") || id.startsWith("create.") || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
                 controls.remove(id);
             }
         }
@@ -252,7 +257,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        if (id.startsWith("create.")) {
+        if (id.startsWith("chat.")) {
+            overte::e2e::appendChatControlObservation(row,control.item,id);
+        } else if (id.startsWith("create.")) {
             overte::e2e::appendCreateControlObservation(row,control.item,id);
         } else if (id.startsWith("login.")) {
             overte::e2e::appendLoginControlObservation(row,control.item,id,loginContext);
@@ -274,6 +281,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
     result["createControlsVersion"]=1;result["createGeneration"]=_loginGeneration;
+    result["chatControlsVersion"]=1;result["chatGeneration"]=_loginGeneration;
     result["fileControlsVersion"] = 1;
     if (audioContext.valid) { result["audioControlsVersion"] = 1; }
     if (graphicsContext.valid) { result["graphicsControlsVersion"] = 1; }
@@ -313,7 +321,13 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     if (!control || !enabled(control)) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     const auto graphicsContext = _graphicsReader ? _graphicsReader() : overte::e2e::GraphicsUiContext();
-    if (controlId.startsWith("login.")) {
+    if (controlId.startsWith("chat.")) {
+        QJsonObject row;overte::e2e::appendChatControlObservation(row,control,controlId);
+        const auto point=control->mapToScene(QPointF(control->width()/2,control->height()/2));
+        if (controlId=="chat.page" || !row.value("inputReady").toBool()
+                || overte::e2e::chatControlSource(control,controlId)!=_controls.value(controlId).source
+                || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),point)) { return false; }
+    } else if (controlId.startsWith("login.")) {
         const auto context=_loginReader ? _loginReader() : overte::e2e::LoginUiContext();
         QJsonObject row;overte::e2e::appendLoginControlObservation(row,control,controlId,context);
         const auto point=control->mapToScene(QPointF(control->width()/2,control->height()/2));
@@ -380,9 +394,33 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
     _sequence = sequence;
     const auto fieldToken = command.value("fieldToken").toString();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    // One native sequence covers normal Create pointer/key/IME input. The
+    // One native sequence covers normal Create/Chat pointer/key/IME input. The
     // original token resolves the item; no desired entity state is accepted.
     observe(_hud,_tablet,_tabletShown);
+    QString chatId;
+    for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
+        if (it.value().token==fieldToken && it.key().startsWith("chat.")) {
+            if (!chatId.isEmpty()) { return result; } chatId=it.key();
+        }
+    }
+    if (!chatId.isEmpty()) {
+        auto target=item(chatId,fieldToken);
+        if (!target || !enabled(target)) { return result; }
+        QJsonObject row;overte::e2e::appendChatControlObservation(row,target,chatId);
+        if (!row.value("inputReady").toBool() || chatId=="chat.page"
+                || overte::e2e::chatControlSource(target,chatId)!=_controls.value(chatId).source) { return result; }
+        const auto point=target->mapToScene(QPointF(target->width()/2,target->height()/2));
+        if (action=="activate" && overte::e2e::NormalControlUi::ownsPoint(target,target->window(),point)) {
+            result["performed"]=press(chatId,fieldToken);
+        } else if (chatId=="chat.input" && action=="replace" && command.value("text").isString()
+                && overte::e2e::chatText(command.value("text").toString())
+                && overte::e2e::NormalControlUi::ownsPoint(target,target->window(),point)) {
+            result["performed"]=overte::ui::replaceFocusedField(target,target->window(),command.value("text").toString());
+        } else if (chatId=="chat.input" && action=="submit") {
+            result["performed"]=overte::ui::submitFocusedField(target,target->window());
+        }
+        return result;
+    }
     QString createId;
     for (auto it=_controls.cbegin();it!=_controls.cend();++it) {
         if (it.value().token==fieldToken && (it.key().startsWith("create.") || it.key()=="tablet.home" || it.key().startsWith("tablet.page."))) {
@@ -422,7 +460,7 @@ QJsonObject NormalUiInput::edit(const QJsonObject& command) {
         }
         return result;
     }
-    if (action=="activate") { return result; } // No non-Create pointer shortcut.
+    if (action=="activate") { return result; } // No non-Create/Chat pointer shortcut.
     if (action == "scroll" || action == "set-value") {
         QQuickItem* target {nullptr}; QPointF point;
         if (action == "scroll") {

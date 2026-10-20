@@ -20,6 +20,7 @@ from adapters.normal_ui import NativeUIError
 from ios.adapters.appium_adapter import AppiumAdapter
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
 from adapters.token_graphics_ui import graphics_control,metadata_fields as graphics_metadata_fields,validate_metadata as validate_graphics_metadata,on_grid
+from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_control,text as chat_text,same_reference as chat_same_reference
 from adapters.token_create_ui import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,ascii_text,same_reference
 from adapters.token_login_ui import IDS as LOGIN_IDS, VERSION as LOGIN_VERSION,metadata_fields as login_metadata_fields,validate_metadata as validate_login_metadata
 from adapters.native_account_origin import origin_text
@@ -73,6 +74,10 @@ def observation(value, pid, now_ms=None):
         if type(value['graphicsControlsVersion']) is not int or value['graphicsControlsVersion']!=1:
             raise NativeUIError('Native iOS Graphics control version is invalid')
         fields.add('graphicsControlsVersion')
+    if type(value) is dict and 'chatControlsVersion' in value:
+        if type(value['chatControlsVersion']) is not int or value['chatControlsVersion']!=1 or not _uuid(value.get('chatGeneration')):
+            raise NativeUIError('Native iOS Chat control version/context is invalid')
+        fields |= {'chatControlsVersion','chatGeneration'}
     if type(value) is dict and 'createControlsVersion' in value:
         if type(value['createControlsVersion']) is not int or value['createControlsVersion']!=1 or not _uuid(value.get('createGeneration')):
             raise NativeUIError('Native iOS Create control version/context is invalid')
@@ -97,7 +102,11 @@ def observation(value, pid, now_ms=None):
         if type(control) is dict and type(control.get('id')) is str and control['id'].startswith('graphics.') and not is_graphics:
             raise NativeUIError('Native iOS Graphics controls lack their source extension')
         is_create=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('create.')
-        if is_create:
+        is_chat=type(control) is dict and type(control.get('id')) is str and control['id'].startswith('chat.')
+        if is_chat:
+            if value.get('chatControlsVersion')!=1:raise NativeUIError('Native iOS Chat controls lack their source extension')
+            original=dict(control);original.pop('frame',None);chat_metadata(original);fields=set(control)
+        elif is_create:
             if value.get('createControlsVersion')!=1:raise NativeUIError('Native iOS Create controls lack their source extension')
             original=dict(control);original.pop('frame',None);create_metadata(original);fields=set(control)
         elif type(control) is dict and type(control.get('id')) is str and control['id'] in LOGIN_IDS:
@@ -121,7 +130,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or is_create and create_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
@@ -274,6 +283,23 @@ class NativeInput:
             command['text'] = text
         if operation == 'select-index':
             command['index'] = index
+        return self.deliver(command)
+
+    def chat_input(self,identifier,action,*,reference,value=None):
+        from ios.adapters.chat_controls import project
+        if not chat_control(identifier) or identifier=='chat.page' or action not in ('activate','replace','submit'):
+            raise NativeUIError('Native iOS Chat input is invalid')
+        observed=project(self.capture());row=chat_same_reference(reference,observed,identifier)
+        if not observed['open'] or not observed['ready'] or not row['enabled'] or not row.get('inputReady',True):
+            raise NativeUIError('Native iOS Chat control is unavailable')
+        if action in ('replace','submit') and (identifier!='chat.input' or not row['focused']):
+            raise NativeUIError('Native iOS Chat field lacks actual focus')
+        if action=='replace':chat_text(value)
+        elif value is not None:raise NativeUIError('Native iOS Chat input has an unexpected value')
+        original=reference['scope']
+        command=dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=original['instance'],
+            sequence=original['sequence']+1,observedElapsedMs=original['elapsedMs'],fieldToken=row['token'],operation=action)
+        if action=='replace':command['text']=value
         return self.deliver(command)
 
     def create_input(self,identifier,action,*,reference,value=None):

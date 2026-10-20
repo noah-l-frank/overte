@@ -196,6 +196,12 @@ class IOSAdapter(AppiumAdapter):
         manager=self._scripts(selector) # Canonical installed-code gate remains unchanged.
         return TokenCreateUI(IOSCreateIO(manager.ui.io),intent)
 
+    def _chat_controls(self,selector,intent,run):
+        from adapters.token_chat_ui import TokenChatUI
+        from ios.adapters.chat_controls import IOSChatIO
+        manager=self._scripts(selector) # Explicit component scope; canonical gate is unchanged.
+        return TokenChatUI(IOSChatIO(manager.ui.io),intent,run)
+
     def _login_controls(self,selector,intent,run,origin):
         from adapters.token_login_ui import TokenLoginUI
         from ios.adapters.normal_login import IOSLoginIO
