@@ -203,9 +203,22 @@ def reviewed_package_generation():
             'protected-producer-original-default-required-context-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
             'protected-producer-optional-parent-source-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
             'protected-producer-optional-leaf-common-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c'}[name]
+        actual=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+        if actual=='b29e0558dc69bc9dd6fc6b47bd6024382be4079d':
+            # The eighth security recipe changes neither the independently
+            # validated Repository generation nor any historical pairing.
+            caller=WORKFLOW_DIRECTORY/'repository-checks.yml'
+            caller_raw=caller.read_bytes()
+            if (name not in {'protected-producer-original-default-required-context-v1',
+                    'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}
+                    or caller.is_symlink() or caller.stat().st_mode & 0o777 not in {0o444,0o644}
+                    or hashlib.sha1(b'blob '+str(len(caller_raw)).encode()+b'\0'+caller_raw).hexdigest()
+                        !='22fe0d6d39d120f800099136d7d1ab5280d80b41'):
+                raise AssertionError('native upload CodeQL requires its exact current Repository tuple')
+            expected=actual
         if (CODEQL_WORKFLOW.is_symlink() or CODEQL_WORKFLOW.stat().st_mode & 0o777 not in {0o444,0o644}
-                or hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()!=expected):
-            raise AssertionError('deployed Repository and CodeQL must be the same exact old or Boolean variant')
+                or actual!=expected):
+            raise AssertionError('deployed Repository and CodeQL must be the same exact reviewed pair')
     return name
 
 
@@ -1771,6 +1784,18 @@ class ProjectWorkflowContracts(unittest.TestCase):
         source = (ROOT / 'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml').read_text()
         with self.assertRaises(AssertionError):
             codeql_generation(self, source + '\n# foreign reusable recipe\n')
+        installed=reviewed_package_generation()
+        with tempfile.TemporaryDirectory(prefix='workflow-upload-pair-') as folder:
+            path=Path(folder)/'codeql.yml'
+            path.write_bytes((ROOT/'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml').read_bytes())
+            with mock.patch.object(sys.modules[__name__],'CODEQL_WORKFLOW',path):
+                if installed in {'protected-producer-original-default-required-context-v1',
+                        'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}:
+                    self.assertEqual(reviewed_package_generation(),installed)
+                else:
+                    with self.assertRaises(AssertionError): reviewed_package_generation()
+                path.write_bytes(path.read_bytes()+b'\n# unknown upload recipe\n')
+                with self.assertRaises(AssertionError): reviewed_package_generation()
 
     def test_tool_dependency_lane_is_bounded_and_selected_by_the_trusted_router(self):
         jobs = workflow_data(WORKFLOW.read_text())['jobs']
