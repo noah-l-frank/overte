@@ -1376,6 +1376,17 @@ class AndroidDefaultBootstrapTests(unittest.TestCase):
         self.assertFalse((self.root/'tools/test-evidence/__pycache__').exists())
         self.assertNotIn('trusted_android_default_bootstrap',__import__('sys').modules)
 
+    def test_ordinary_immutable_unknown_guard_cannot_choose_its_own_bootstrap(self):
+        path=self.root/'tools/test-evidence/source_admission.py'
+        path.write_bytes(path.read_bytes()+b'\nraise AssertionError("unknown guard must never execute")\n')
+        for command in (('add','--','tools/test-evidence/source_admission.py'),
+                ('-c','user.name=Fixture','-c','user.email=fixture@example.invalid',
+                 'commit','--quiet','-m','Unknown immutable bootstrap remains unreviewed')):
+            gate._bootstrap_git(self.root,*command)
+        with patch.object(self.api,'get',side_effect=AssertionError('no API before reviewed bootstrap')), \
+             self.assertRaisesRegex(ValueError,'no reviewed bootstrap identity'):
+            gate._protected_default(self.root,api=self.api)
+
     def test_alias_mode_changed_guard_and_untracked_import_never_execute(self):
         path=self.root/'tools/test-evidence/source_admission.py';raw=path.read_bytes()
         profile=self.root/'tests/platform-profile.json';profile_raw=profile.read_bytes()
