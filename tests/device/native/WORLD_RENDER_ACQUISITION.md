@@ -1,11 +1,56 @@
-# World render acquisition, version 1: partial instrumentation
+# World render acquisition, versions 1/2: partial instrumentation
 
 This source packet supplies E2E-only GL readback, a main-mono frame hook,
 original-memory/chunk readers and the closed existing probe/fixture dispatch.
 Persistent acquisition/receipt ownership and closed Android receipt IO now
-exist; **concrete platform factories are not connected yet**. No world image can be obtained through a
+exist; the Phone internal factory is connected. No world image can be obtained through a
 complete feature adapter at this stage. Full capabilities remain unadvertised.
 Native C++ is uncompiled and all devices unqualified.
+
+## Same-view execution provenance, capture version 2
+
+An E2E `--testScript` primary mono forward view now creates its own native
+`FeatureRenderTrace`, retained with that view's original GPU command closures.
+A Present-thread marker before `PrepareForward` records execution start. Separate
+markers after each complete root opaque/transparent batch and root mirror
+composite inspect the original finalized batch's draw commands. Named/instanced
+calls have already been expanded by `Frame::finish`; recording-time item counts
+and input ACKs do not advance these counters. A discarded frame publishes no
+trace. No global last-frame trace is read. Nested mirror and secondary views do
+not start or replace the main trace. Deferred capture uses legacy version 1.
+
+The same original tone-map readback carries `captureVersion:2` and `renderTrace`:
+`traceVersion:1`, random native `frameId`, original `recordedEpochMs`,
+`begunEpochMs`, `completedEpochMs`, `renderer:"forward"`, `view:"main-mono"`,
+and integer `forwardBatches/forwardDrawCommands`, `hazeBatches/hazeDrawCommands`,
+`mirrorBatches/mirrorDrawCommands`. Haze counts identify draw-containing original
+forward batches with actual bound active Zone haze and enabled bound lighting
+model. Mirror counts identify the root mirror composite batches with actual
+draw commands. Empty batches contribute zero. All callbacks require the same
+actual executing backend, and the image and trace travel in the same acquisition
+packet. Missing execution cannot downgrade a declared trace to legacy version 1.
+
+These facts prove execution of draw-containing batches with those bindings.
+They do not identify visible fragments, prove shader arithmetic or prove an
+actual haze/reflection pixel effect. Complete Graphics must additionally require
+the controlled subject/view inventory, current challenge pixels and independently
+classified original image effects. No feature verdict or preference value is
+returned as a pass measurement. No full Graphics capability is advertised yet.
+
+The reader accepts closed v1 and v2 packets; `require_trace=True` refuses v1.
+It requires native trace recording before its capture ticket, ordered execution
+before original readback, a trace no older than the existing freshness bound,
+integer subset/zero/count consistency, at most two root forward draw batches,
+and a previously unseen native frame ID. The 256-frame inventory fails closed
+without forgetting used IDs. The existing native acquisition/memory/receipt
+ownership, deadlines and cleanup remain unchanged. Reader recreation by a full
+feature must restore original frame/cursor provenance from its durable ledger.
+
+Fourteen new device-free reader cases cover fresh same-view originals, refused
+legacy fallback, missing/unknown traces, reused frames with fresh control/image
+cursors, stale/out-of-order clocks, foreign views, injected verdicts, malformed
+or impossible draw counts and bounded history. They simulate original source
+boundaries only. This native source has not been compiled or exercised on GL.
 
 ## Implemented GPU primitive
 

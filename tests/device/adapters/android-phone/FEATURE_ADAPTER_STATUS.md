@@ -13,6 +13,13 @@ The remaining twelve complete Android feature adapters are still missing.
 Pico and iOS are paused until all fourteen Android areas are complete. Historical
 component notes below do not supersede this current status.
 
+Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)
+alongside original world-target pixels. Fourteen new reader counterexamples
+reject missing/legacy, stale, foreign, reused or inconsistent frame evidence.
+Controlled subject ownership, independent pixel-effect classification and the
+complete Graphics coordinator remain pending. This prerequisite enables no
+full feature capability and makes no native/device qualification claim.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

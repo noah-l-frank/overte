@@ -216,5 +216,102 @@ if(files[2].v.available!==false)throw Error("missing hook green");
         self.assertEqual(0,reader.sequence)
 
 
+class RenderTraceTests(unittest.TestCase):
+    def boundary(self):
+        source=Boundary()
+        def trace(packet):
+            packet['source'].update(captureVersion=2,renderTrace=dict(traceVersion=1,
+                frameId=format(source.acquisition,'032x'),recordedEpochMs=20000,begunEpochMs=20000,
+                completedEpochMs=20000,renderer='forward',view='main-mono',forwardBatches=2,
+                forwardDrawCommands=8,hazeBatches=2,hazeDrawCommands=8,mirrorBatches=1,mirrorDrawCommands=1))
+        source.mutate=trace
+        return source
+
+    def rejects(self,change):
+        source=self.boundary();original=source.mutate
+        def fault(packet):original(packet);packet['source']['renderTrace'].update(change)
+        source.mutate=fault
+        with self.assertRaises(NativeUIError):source.reader(require_trace=True).read(0)
+        self.assertEqual([],source.reads)
+
+    def test_same_view_trace_preserves_original_facts_and_pixels(self):
+        source=self.boundary();reader=source.reader(require_trace=True);value,raw=reader.read(0)
+        self.assertEqual(source.raw,raw);self.assertEqual(2,value['source']['captureVersion'])
+        self.assertEqual(8,value['source']['renderTrace']['hazeDrawCommands'])
+        self.assertNotIn('hazePass',value['source']);self.assertNotIn('passed',value['source']['renderTrace'])
+        second,_=reader.read(value['sequence'])
+        self.assertNotEqual(value['source']['renderTrace']['frameId'],second['source']['renderTrace']['frameId'])
+
+    def test_legacy_acquisition_is_readable_but_cannot_supply_required_trace(self):
+        source=Boundary();source.reader().read(0)
+        source=Boundary()
+        with self.assertRaises(NativeUIError):source.reader(require_trace=True).read(0)
+        self.assertEqual([],source.reads)
+
+    def test_missing_trace_or_version_downgrade_does_not_fall_back(self):
+        for fault in ('missing','downgrade','unknown'):
+            source=self.boundary();original=source.mutate
+            def change(packet):
+                original(packet)
+                if fault=='missing':packet['source'].pop('renderTrace')
+                elif fault=='downgrade':packet['source']['captureVersion']=1
+                else:packet['source']['captureVersion']=3
+            source.mutate=change
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.reader().read(0)
+            self.assertEqual([],source.reads)
+
+    def test_new_capture_nonce_and_cursor_cannot_reuse_a_previous_frame(self):
+        source=self.boundary();reader=source.reader(require_trace=True);first,_=reader.read(0);original=source.mutate
+        def old(packet):original(packet);packet['source']['renderTrace']['frameId']=first['source']['renderTrace']['frameId']
+        source.mutate=old
+        with self.assertRaises(NativeUIError):reader.read(first['sequence'])
+        self.assertEqual(1,len(source.reads));self.assertEqual(first['sequence'],reader.sequence)
+
+    def test_stale_trace_cannot_hide_behind_a_fresh_image(self):
+        self.rejects(dict(recordedEpochMs=18000))
+
+    def test_trace_recording_must_precede_its_capture_ticket(self):
+        self.rejects(dict(recordedEpochMs=20001,begunEpochMs=20001,completedEpochMs=20001))
+
+    def test_execution_must_begin_before_completion_and_end_before_readback(self):
+        for change in (dict(begunEpochMs=20001),dict(completedEpochMs=20001),dict(begunEpochMs=19999)):
+            with self.subTest(change=change):self.rejects(change)
+
+    def test_foreign_renderer_view_or_frame_identity_is_not_a_primary_trace(self):
+        for change in (dict(renderer='deferred'),dict(view='mirror'),dict(frameId=''),dict(frameId='user-frame')):
+            with self.subTest(change=change):self.rejects(change)
+
+    def test_trace_contract_is_closed_and_does_not_accept_feature_verdicts(self):
+        for change in (dict(traceVersion=True),dict(traceVersion=2),dict(hazePass=True),dict(expectedMirror=True)):
+            with self.subTest(change=change):self.rejects(change)
+
+    def test_draw_counts_are_actual_integers_not_flags_or_unbounded_claims(self):
+        for change in (dict(hazeDrawCommands=True),dict(mirrorBatches=-1),dict(forwardDrawCommands=1000001),
+                dict(mirrorBatches=65537,mirrorDrawCommands=65537),dict(hazeDrawCommands='8')):
+            with self.subTest(change=change):self.rejects(change)
+
+    def test_haze_batch_counts_cannot_exceed_the_actual_forward_subset(self):
+        for change in (dict(hazeBatches=3),dict(hazeDrawCommands=9),dict(forwardBatches=3,forwardDrawCommands=9)):
+            with self.subTest(change=change):self.rejects(change)
+
+    def test_acknowledged_empty_batches_cannot_claim_draws_or_hide_missing_batches(self):
+        for change in (dict(mirrorBatches=0),dict(mirrorDrawCommands=0),dict(mirrorBatches=2)):
+            with self.subTest(change=change):self.rejects(change)
+
+    def test_no_haze_or_mirror_draws_remain_valid_zero_facts_not_inferred_success(self):
+        source=self.boundary();original=source.mutate
+        def empty(packet):
+            original(packet)
+            packet['source']['renderTrace'].update(hazeBatches=0,hazeDrawCommands=0,mirrorBatches=0,mirrorDrawCommands=0)
+        source.mutate=empty;value,_=source.reader(require_trace=True).read(0)
+        self.assertEqual(0,value['source']['renderTrace']['hazeDrawCommands'])
+        self.assertEqual(0,value['source']['renderTrace']['mirrorDrawCommands'])
+
+    def test_unique_frame_inventory_is_bounded_without_forgetting_old_frames(self):
+        source=self.boundary();reader=source.reader(require_trace=True);reader.frames={format(i+100,'032x') for i in range(256)}
+        with self.assertRaises(NativeUIError):reader.read(0)
+        self.assertEqual(256,len(reader.frames));self.assertEqual([],source.reads)
+
+
 
 if __name__=='__main__':unittest.main()

@@ -1,6 +1,7 @@
 """Original world-target acquisition reader; no rendered-feature verdict.
 
-Version 1 deliberately refuses stereo and unimplemented Vulkan readback.
+Versions 1/2 deliberately refuse stereo and unimplemented Vulkan readback.
+Version 2 adds same-view GPU batch provenance, not a pixel-effect verdict.
 The GPU/backend hook and platform original-file transport must be implemented
 before this internal reader can acquire anything on a target.
 """
@@ -34,6 +35,25 @@ def extent(value):
     return type(value) is list and len(value)==2 and all(integer(v,1,4096) for v in value) and value[0]*value[1]<=PIXELS
 
 
+def render_trace(value,source,epoch):
+    exact(value,{'traceVersion','frameId','recordedEpochMs','begunEpochMs','completedEpochMs','renderer','view',
+        'forwardBatches','forwardDrawCommands','hazeBatches','hazeDrawCommands','mirrorBatches','mirrorDrawCommands'})
+    need(type(value['traceVersion']) is int and value['traceVersion']==1
+         and type(value['frameId']) is str and re.fullmatch('[0-9a-f]{32}',value['frameId']) is not None
+         and value['renderer']=='forward' and value['view']=='main-mono')
+    stamps=[value[k] for k in ('recordedEpochMs','begunEpochMs','completedEpochMs')]
+    need(all(integer(v,1) for v in stamps) and stamps==sorted(stamps)
+         and stamps[0]<=source['recordedEpochMs'] and stamps[-1]<=source['startedEpochMs'])
+    fresh(stamps[0],epoch)
+    for kind in ('forward','haze','mirror'):
+        batches,draws=value[kind+'Batches'],value[kind+'DrawCommands']
+        need(integer(batches,0,65536) and integer(draws,0,1000000)
+             and batches<=draws and (batches==0)==(draws==0))
+    need(value['hazeBatches']<=value['forwardBatches'] and value['hazeDrawCommands']<=value['forwardDrawCommands']
+         and value['forwardBatches']<=2)
+    return value
+
+
 def validate(value,request,pid,epoch):
     exact(value,{'schemaVersion','requestId','instance','sequence','requestedEpochMs','capturedEpochMs','processId','source'})
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['requestId']==request
@@ -43,15 +63,18 @@ def validate(value,request,pid,epoch):
          and 0<=value['capturedEpochMs']-value['requestedEpochMs']<5000)
     fresh(value['capturedEpochMs'],epoch)
     source=value['source']
-    exact(source,{'captureVersion','available','acquisitionSequence','recordedEpochMs','startedEpochMs','capturedEpochMs',
-        'backend','stage','view','sourceExtent','sourceViewport','targetExtent','pixelFormat','image'})
-    need(type(source['captureVersion']) is int and source['captureVersion']==1 and source['available'] is True
+    need(type(source) is dict and type(source.get('captureVersion')) is int and source['captureVersion'] in (1,2))
+    fields={'captureVersion','available','acquisitionSequence','recordedEpochMs','startedEpochMs','capturedEpochMs',
+        'backend','stage','view','sourceExtent','sourceViewport','targetExtent','pixelFormat','image'}
+    exact(source,fields|({'renderTrace'} if source['captureVersion']==2 else set()))
+    need(source['available'] is True
          and integer(source['acquisitionSequence'],1) and source['backend']=='opengl'
          and source['stage']=='tone-map-before-hud' and source['view']=='main-mono'
          and source['pixelFormat']=='rgba8-top-left' and extent(source['sourceExtent']) and extent(source['targetExtent']))
     stamps=[value['requestedEpochMs'],source['recordedEpochMs'],source['startedEpochMs'],source['capturedEpochMs'],value['capturedEpochMs']]
     need(all(integer(v,1) for v in stamps) and stamps==sorted(stamps))
     fresh(source['capturedEpochMs'],epoch)
+    if source['captureVersion']==2:render_trace(source['renderTrace'],source,epoch)
     viewport=source['sourceViewport']
     need(type(viewport) is list and len(viewport)==4 and all(integer(v,0,4096) for v in viewport)
          and viewport[2]>0 and viewport[3]>0 and viewport[0]+viewport[2]<=source['sourceExtent'][0]
@@ -83,12 +106,14 @@ def measured_scale(value):
 
 
 class NativeWorldRenderCapture:
-    def __init__(self,send,read,files,clock_ms,guard,pid,*,intent,ios=False,monotonic=time.monotonic,sleep=time.sleep):
-        need(all(callable(v) for v in (send,read,clock_ms,guard,intent,monotonic,sleep)) and integer(pid,1) and type(ios) is bool
+    def __init__(self,send,read,files,clock_ms,guard,pid,*,intent,ios=False,require_trace=False,monotonic=time.monotonic,sleep=time.sleep):
+        need(all(callable(v) for v in (send,read,clock_ms,guard,intent,monotonic,sleep)) and integer(pid,1)
+             and type(ios) is bool and type(require_trace) is bool
              and callable(getattr(files,'read',None)))
         self.send,self.original,self.files,self.clock_ms,self.guard,self.pid=send,read,files,clock_ms,guard,pid
         self.ios,self.monotonic,self.sleep,self.intent=ios,monotonic,sleep,intent
         self.instance,self.sequence,self.acquisition,self.captured=None,0,0,0
+        self.require_trace,self.frames=require_trace,set()
 
     def read(self,after_sequence):
         try:
@@ -113,6 +138,9 @@ class NativeWorldRenderCapture:
                     epoch=value.get('capturedEpochMs') if self.ios else self.clock_ms()
                     validate(value,request,self.pid,epoch)
                     source=value['source']
+                    need(not self.require_trace or source['captureVersion']==2)
+                    frame=source.get('renderTrace',{}).get('frameId')
+                    need(frame is None or (frame not in self.frames and len(self.frames)<256))
                     need(self.instance in (None,value['instance']) and value['sequence']>after_sequence
                          and source['acquisitionSequence']>self.acquisition and source['capturedEpochMs']>=self.captured
                          and (self.ios or value['requestedEpochMs']>=requested))
@@ -127,6 +155,7 @@ class NativeWorldRenderCapture:
                     now=self.monotonic();need(number(now,0,1e15) and now>=previous and now-started<timeout)
                     if not self.ios:fresh(source['capturedEpochMs'],self.clock_ms())
                     self.instance,self.sequence,self.acquisition,self.captured=value['instance'],value['sequence'],source['acquisitionSequence'],source['capturedEpochMs']
+                    if frame is not None:self.frames.add(frame)
                     return value,png
                 if attempt<50:self.sleep(0.1)
         except Exception:

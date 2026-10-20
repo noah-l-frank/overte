@@ -22,6 +22,9 @@
 #include <render/ShapePipeline.h>
 
 #include <render/FilterTask.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QCoreApplication>
+#endif
 
 #include "DeferredLightingEffect.h"
 #include "RenderHifi.h"
@@ -299,6 +302,20 @@ void PreparePrimaryFramebufferMSAA::run(const RenderContextPointer& renderContex
 void PrepareForward::run(const RenderContextPointer& renderContext, const Inputs& inputs) {
     RenderArgs* args = renderContext->args;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (args->_mirrorDepth == 0) {
+        args->_featureRenderTrace.reset();
+        if (QCoreApplication::arguments().contains("--testScript") &&
+                args->_renderMode == RenderArgs::DEFAULT_RENDER_MODE && !args->isStereo()) {
+            const auto trace = std::make_shared<gpu::FeatureRenderTrace>();
+            args->_featureRenderTrace = trace;
+            gpu::doInBatch("FeatureForwardViewBegin", args->_context, [trace](gpu::Batch& batch) {
+                batch.runLambda([trace] { trace->begin(gpu::Backend::featureExecutingBackend()); });
+            });
+        }
+    }
+#endif
+
     auto primaryFramebuffer = inputs.get0();
     auto lightStageFrame = inputs.get1();
 
@@ -360,7 +377,14 @@ void DrawForward::run(const RenderContextPointer& renderContext, const Inputs& i
         haze = hazeStage->getElement(hazeFrame->_elements.front());
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const gpu::Batch* originalBatch {nullptr};
+#endif
+
     gpu::doInBatch("DrawForward::run", args->_context, [&](gpu::Batch& batch) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        originalBatch = &batch;
+#endif
         args->_batch = &batch;
 
         // Setup projection
@@ -402,4 +426,17 @@ void DrawForward::run(const RenderContextPointer& renderContext, const Inputs& i
         deferredLightingEffect->unsetLocalLightsBatch(batch);
         deferredLightingEffect->unsetKeyLightBatch(batch);
     });
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (args->_featureRenderTrace && args->_mirrorDepth == 0) {
+        const auto trace = args->_featureRenderTrace;
+        const bool hazeBound = haze && haze->isActive() && lightingModel->isHazeEnabled();
+        // A separate batch follows the complete original batch, including named
+        // calls expanded at Frame::finish. The frame retains both until execution.
+        gpu::doInBatch("FeatureForwardBatchComplete", args->_context, [trace,originalBatch,hazeBound](gpu::Batch& batch) {
+            batch.runLambda([trace,originalBatch,hazeBound] {
+                trace->batch(gpu::Backend::featureExecutingBackend(),originalBatch,false,hazeBound);
+            });
+        });
+    }
+#endif
 }

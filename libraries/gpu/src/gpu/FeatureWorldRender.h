@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "Backend.h"
+#include "FeatureRenderTrace.h"
 #include <QBuffer>
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -30,8 +31,9 @@ public:
         qint64 recorded {0};
         ~Ticket() { if (auto state = owner.lock()) { state->drained(id); } }
         void execute(Backend* backend, const TexturePointer& source,
-                const FramebufferPointer& destination, const Vec4i& viewport) {
-            if (auto state = owner.lock()) { state->acquire(id,recorded,backend,source,destination,viewport); }
+                const FramebufferPointer& destination, const Vec4i& viewport,
+                const std::shared_ptr<FeatureRenderTrace>& trace = {}) {
+            if (auto state = owner.lock()) { state->acquire(id,recorded,backend,source,destination,viewport,trace); }
         }
     };
 
@@ -129,7 +131,8 @@ private:
         if (_callback == id) { _callback.clear(); }
     }
     void acquire(const QString& id, qint64 recorded, Backend* backend,
-            const TexturePointer& source, const FramebufferPointer& destination, const Vec4i& viewport) {
+            const TexturePointer& source, const FramebufferPointer& destination, const Vec4i& viewport,
+            const std::shared_ptr<FeatureRenderTrace>& trace) {
         qint64 requested {0};
         {
             QMutexLocker lock(&_mutex);
@@ -165,13 +168,18 @@ private:
         const auto normalized = id.startsWith("ios-") ? id.mid(4) : id;
         const QVariantMap image {{"name","world-render-image-"+normalized+".png"},{"bytes",png.size()},
             {"sha256",sha(png)},{"pixelSha256",QString::fromLatin1(pixelHash)},{"width",width},{"height",height}};
-        const QVariantMap observation {{"captureVersion",1},{"available",true},
+        const auto execution = trace ? trace->snapshot(backend) : QVariantMap();
+        // A declared forward trace must have actually reached the GPU. Do not
+        // downgrade a missing/discarded begin marker to the legacy protocol.
+        if (trace && execution.isEmpty()) { fail(id); return; }
+        QVariantMap observation {{"captureVersion",trace ? 2 : 1},{"available",true},
             {"acquisitionSequence",static_cast<qulonglong>(++_acquisitions)}, {"recordedEpochMs",recorded},
             {"startedEpochMs",started},{"capturedEpochMs",captured},{"backend","opengl"},
             {"stage","tone-map-before-hud"},{"view","main-mono"},
             {"sourceExtent",QVariantList{actualExtent.x,actualExtent.y}},
             {"sourceViewport",QVariantList{viewport.x,viewport.y,viewport.z,viewport.w}},
             {"targetExtent",QVariantList{width,height}},{"pixelFormat","rgba8-top-left"},{"image",image}};
+        if (trace) { observation.insert("renderTrace",execution); }
         _png = std::move(png);
         _result = {{"schemaVersion",1},{"requestId",id},{"instance",_instance},
             {"sequence",static_cast<qulonglong>(++_sequence)}, {"requestedEpochMs",requested},
