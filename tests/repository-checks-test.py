@@ -2543,7 +2543,8 @@ class PackageChecksTests(unittest.TestCase):
                'protected-producer-seven-target-ci-v1','protected-producer-original-default-v1',
                'protected-producer-original-default-boolean-v1',
                'protected-producer-original-default-required-context-v1',
-               'protected-producer-optional-parent-source-v1'}
+               'protected-producer-optional-parent-source-v1',
+               'protected-producer-optional-leaf-common-v1'}
         self.assertEqual(PACKAGES._PROTECTED_ROUTE_GENERATIONS,names)
         for name in (*sorted(names),'postmerge-original-e-v1','npm-consumers-v1'):
             root,_,_=self.protected_workflow_fixture(name)

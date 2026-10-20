@@ -92,7 +92,7 @@ CONTROLLERS = (
     'tools/repository-checks/workflows/producers/project-tests.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
-    OPTIONAL_LEAF_TEMPLATE,
+    'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
     'tools/repository-checks/workflows/shared-sandbox-host-diagnostic.yml',
     'tools/sbom/requirements-validation.txt',
     'tools/sync-test-reuse/differential.py',
