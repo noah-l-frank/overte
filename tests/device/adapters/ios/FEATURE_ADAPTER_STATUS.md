@@ -1,5 +1,16 @@
 # iOS feature adapter implementation status
 
+Internal `_script_missing_manager` now connects [missing-load v1](../../native/SCRIPT_MISSING_LOAD.md)
+to ordinary token-bound UIKit/Qt From URL input, actual HTTP/AFC callback history
+and independent current service rows. The native edit allowlist admits only the
+closed owned missing-resource path. The same private manager store refuses
+implicit adoption of URL/file scopes; component-only scope and selected physical
+candidate guards remain intact. Legacy unbound entrypoints refuse before I/O.
+All **416** permitted no-build iOS host cases and ten additional binding checks
+pass. Visible-error/actor/effect/quiet-cleanup joins and complete feature triples
+remain missing. Native code is uncompiled, source plugin uninstalled/inactive
+and devices untested.
+
 Common journey contract is **v16**. The internal `_script_restart` now joins
 [one-send restart intent](../../native/RESTART_INPUTS.md), ordinary SDK stop/launch,
 independent current OS absence, original native lifecycle counters and the

@@ -264,6 +264,9 @@ class NativeInput:
                 from create_observation import owned_url
                 if '/script-management/' in text:
                     script_url(text, missing=text.endswith('/missing.js'))
+                elif '/feature-fixture/' in text:
+                    from adapters.normal_script_manager import missing_script_url
+                    missing_script_url(text)
                 else:
                     owned_url(text, {'observer.js'})
         observed = self.capture()

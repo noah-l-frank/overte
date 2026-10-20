@@ -151,6 +151,13 @@ class IOSNativeMixin:
         return normal_scripts.manager(ui, observe, binding, self.script_store(selector),
             file_owner=files, file_picker=TokenScriptFilePicker(ui.io, directory))
 
+    def _script_missing_manager(self, selector):
+        ui, observe, binding = self._script_runtime(selector)
+        result = normal_scripts.NormalScriptManager(ui, observe, self.script_store(selector), binding,
+            source_kind='feature-script-missing', component_only=True)
+        result.sample()
+        return result
+
     def script_restart_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('normal-script-restart.json'))
 

@@ -45,6 +45,7 @@ from self_tests.test_native_account_probe import Boundary as AccountProbeBoundar
 from self_tests.test_native_account_origin import Boundary as AccountOriginBoundary, ORIGIN as ACCOUNT_ORIGIN
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
 from self_tests.test_native_account_observation import account_source
+from self_tests.test_native_script_loads import history as load_history, event as load_event
 
 
 class Native:
@@ -226,6 +227,80 @@ class Native:
 
 
 class IOSNormalScriptsTests(unittest.TestCase):
+    def missing_load(self, *, ignored=False):
+        source, clock, events = ScriptBoundary(), NativeFeatureBoundary(), []
+        url = 'http://fixture.test/feature-fixture/v1/runs/' + 'a' * 32 + '/tickets/' + 'b' * 32 + '/missing.js'
+        def metadata(packet):
+            epoch = self.native.epoch()
+            packet.update(processId=self.native.pid, requestedEpochMs=epoch, capturedEpochMs=epoch)
+        def observed(packet):
+            metadata(packet); packet['source']['engines'] = []; load_history(packet, events)
+        source.mutate = observed
+        def measured_clock(packet):
+            metadata(packet); packet['animationFence']['requestedEpochMs'] = packet['requestedEpochMs']
+        clock.mutate = measured_clock
+        original_post, original_execute, original_activate = self.native.post, self.native.execute, self.native.qt.activate
+        def post(request, timeout):
+            command = json.loads(request.data)
+            producer = {'feature-native-observe': clock, 'feature-script-observe': source}.get(command['action'])
+            if producer is None: return original_post(request, timeout)
+            producer.send(command); self.native.fixture.set_client_command(command)
+            self.native.echo = json.dumps(command).encode(); return self.native
+        def execute(session, operation, values):
+            if operation == 'mobile: pullFile':
+                name = values['remotePath'].rsplit('/', 1)[-1]
+                producer = {'feature-native-observation.json': clock, 'feature-script-observation.json': source}.get(name)
+                if producer is not None: return base64.b64encode(producer.original().encode()).decode()
+            return original_execute(session, operation, values)
+        def activate(identifier, **kwargs):
+            original_activate(identifier, **kwargs)
+            if identifier == 'scripts.url.submit' and not ignored:
+                events.append(load_event(url=self.native.qt.text, callbackEpochMs=self.native.epoch()))
+        for boundary in (patch.object(feature_observation, 'post_request', side_effect=post),
+                         patch.object(self.native, 'execute', side_effect=execute),
+                         patch.object(self.native.qt, 'activate', side_effect=activate)):
+            boundary.start(); self.addCleanup(boundary.stop)
+        def reader():
+            return self.adapter._script_execution_observer('test-only-selector', self.native,
+                'native-session', self.state, self.native.target)
+        return source, url, reader
+
+    def test_ios_missing_script_normal_qt_input_and_original_afc_failure_retire_explicitly(self):
+        source, url, reader = self.missing_load()
+        manager = self.adapter._script_missing_manager('test-only-selector'); manager.open()
+        manager.load_missing(url, reader())
+        manager = self.adapter._script_missing_manager('test-only-selector')
+        actual = manager.settle_missing(reader())
+        self.assertEqual(source.sample['source']['loads']['events'][0], actual)
+        self.assertEqual('NotFound', actual['status']); manager.close()
+        self.assertIsNone(self.adapter.script_store('test-only-selector').read())
+        self.assertEqual(1, self.native.qt.inputs.count('scripts.url.submit'))
+        self.assertFalse(any(cap.startswith('feature.') for cap in self.adapter.advertised_capabilities(self.native.target)))
+
+    def test_ios_missing_script_ignored_submit_cannot_retire_or_replay(self):
+        _source, url, reader = self.missing_load(ignored=True)
+        manager = self.adapter._script_missing_manager('test-only-selector'); manager.open()
+        manager.load_missing(url, reader())
+        with self.assertRaises(RuntimeError): manager.settle_missing(reader())
+        with self.assertRaises(RuntimeError): manager.load_missing(url, reader())
+        self.assertTrue(self.adapter.script_store('test-only-selector').read()['loadAttempted'])
+        self.assertEqual(1, self.native.qt.inputs.count('scripts.url.submit'))
+
+    def test_ios_missing_script_process_loss_preserves_intent_and_prevents_new_source_or_input(self):
+        source, url, reader = self.missing_load()
+        manager = self.adapter._script_missing_manager('test-only-selector'); manager.open()
+        manager.load_missing(url, reader())
+        before = (len(source.commands), list(self.native.qt.inputs)); self.native.pid = 99
+        with self.assertRaises(RuntimeError): self.adapter._script_missing_manager('test-only-selector')
+        self.assertEqual(before, (len(source.commands), self.native.qt.inputs))
+        self.assertTrue(self.adapter.script_store('test-only-selector').read()['loadAttempted'])
+
+    def test_ios_missing_script_cannot_adopt_existing_public_manager_owner(self):
+        self.adapter._scripts('test-only-selector').open()
+        before = list(self.native.qt.inputs)
+        with self.assertRaises(RuntimeError): self.adapter._script_missing_manager('test-only-selector')
+        self.assertEqual(before, self.native.qt.inputs)
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup); os.chmod(directory.name, 0o700)
@@ -716,7 +791,7 @@ class IOSNormalScriptsTests(unittest.TestCase):
         with patch.object(component.AppiumAdapter, 'load_targets', return_value={}):
             adapter = binding.create_adapter(SimpleNamespace(platform='ios', action='cleanup'), component.AppiumAdapter)
         for method, arguments in (('_script_runtime', ('private-selector',)),
-                ('_script_file_manager', ('private-selector',)), ('_bound_script_files', ('private-selector', None, None)),
+                ('_script_file_manager', ('private-selector',)), ('_script_missing_manager', ('private-selector',)), ('_bound_script_files', ('private-selector', None, None)),
                 ('_script_restart_prepare', ('private-selector',)), ('_script_restart_adopt', ('private-selector',)),
                 ('_script_restart_handoff', ('private-selector',)), ('_script_restart', ('private-selector',)),
                 ('_script_restart_inputs', ('private-selector',)), ('_script_restart_source', ('private-selector',)),

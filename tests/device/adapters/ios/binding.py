@@ -140,6 +140,9 @@ def create_adapter(args, base_class):
         def _script_file_manager(self, *args, **kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
+        def _script_missing_manager(self, *args, **kwargs):
+            raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
+
         def _bound_script_files(self, *args, **kwargs):
             raise ValueError("OVT_IOS_INSTALLED_CODE_BINDING_UNAVAILABLE")
 
