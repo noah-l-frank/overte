@@ -1,0 +1,9 @@
+{
+  "name": "overte-ios-process-source",
+  "version": "1.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "main": "index.cjs",
+  "appium": {"pluginName": "overte-process-source", "mainClass": "OverteProcessPlugin"},
+  "peerDependencies": {"appium": "3.7.0", "appium-xcuitest-driver": "12.8.0", "appium-ios-remotexpc": "5.15.3"}
+}

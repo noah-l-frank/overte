@@ -13,6 +13,7 @@ REQUIRED = {
     "native-ios-bundle-observation": 1,
     "ios-bundle-byte-identity": 1,
     "ios-physical-candidate-consumer": 1,
+    "ios-process-observer": 1,
     "native-chat-observation": 1,
     "native-chat-view": 1,
     "native-chat-actor-files": 1,
