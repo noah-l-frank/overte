@@ -61,6 +61,32 @@ def code_source(value, source="var actual = 'ä Ω 東京';", submitted=15000):
 
 
 class NativeScriptObservationTests(unittest.TestCase):
+    def test_ios_current_nonce_cannot_make_old_or_preaction_engine_receipt_fresh(self):
+        for requested,captured in ((18000,18000),(19999,20000)):
+            source=Boundary();source.mutate=lambda value:value.update(requestedEpochMs=requested,capturedEpochMs=captured)
+            reader=source.reader(ios=True)
+            with self.subTest(requested=requested,captured=captured),self.assertRaises(NativeUIError):reader.read(0)
+            self.assertEqual(1,len(source.commands));self.assertEqual(0,reader.sequence)
+
+    def test_ios_engine_clock_is_independent_monotonic_and_part_of_the_existing_deadline(self):
+        for fault in ('clock-regressed','late-clock','rewound-clock','late-initial','lost-initial-owner'):
+            source=Boundary();reader=source.reader(ios=True);calls=[0]
+            def clock():
+                calls[0]+=1
+                if calls[0]==1:
+                    if fault=='late-initial':source.clock=6
+                    elif fault=='lost-initial-owner':source.okay=False
+                if calls[0]>1:
+                    if fault=='late-clock':source.clock=6
+                    elif fault=='rewound-clock':source.clock=-1
+                    else:return 19800
+                return 20000
+            reader.clock_ms=clock
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):reader.read(0)
+            initial=fault in ('late-initial','lost-initial-owner')
+            self.assertEqual(1 if initial else 2,calls[0])
+            self.assertEqual(0 if initial else 1,len(source.commands));self.assertEqual(0,reader.sequence)
+
     def test_actual_submitted_code_identity_preserves_original_time_and_does_not_prove_initialization(self):
         from adapters.native_script_observation import submitted_source
         source=Boundary();source.mutate=code_source;reader=source.reader()
@@ -313,11 +339,14 @@ class NativeScriptObservationTests(unittest.TestCase):
         with self.assertRaises(NativeUIError): reader.read(0)
         self.assertEqual(0, reader.sequence)
 
-    def test_ios_native_module_times_remain_original_across_host_clock_skew(self):
-        source = Boundary(); reader = source.reader(ios=True); reader.clock_ms = lambda: 9000000
+    def test_ios_requires_native_clock_and_preserves_original_module_times(self):
+        source = Boundary(); reader = source.reader(ios=True)
         actual = reader.read(0)
         self.assertEqual(17000, actual['source']['engines'][0]['required']['modules'][0]['capturedEpochMs'])
         self.assertTrue(source.commands[0]['commandId'].startswith('ios-'))
+        reader.clock_ms = lambda: 9000000
+        with self.assertRaises(NativeUIError): reader.read(actual['sequence'])
+        self.assertEqual(actual['sequence'], reader.sequence)
 
     def test_actual_probe_and_fixture_accept_only_closed_read_only_script_commands(self):
         fixture = FixtureState()

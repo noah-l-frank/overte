@@ -68,6 +68,10 @@ class NativeScriptFiles:
             need(self.guard() is not False)
             started = previous = self.monotonic(); need(number(started, 0, 1e15))
             requested = self.clock_ms(); need(integer(requested, 1))
+            need(self.guard() is not False)
+            now = self.monotonic()
+            need(number(now, 0, 1e15) and now >= previous and now - started < 5)
+            previous = now
             self.send(request)  # Mutations are never replayed after an uncertain receipt.
             for attempt in range(51):
                 need(self.guard() is not False)
@@ -88,10 +92,14 @@ class NativeScriptFiles:
                          and value['runId'] == run and value['operation'] == operation
                          and integer(value['requestedEpochMs'], 1) and integer(value['capturedEpochMs'], 1)
                          and 0 <= value['capturedEpochMs'] - value['requestedEpochMs'] < 5000
-                         and (self.ios or value['requestedEpochMs'] >= requested))
-                    fresh(value['capturedEpochMs'], value['capturedEpochMs'] if self.ios else self.clock_ms())
+                         and value['requestedEpochMs'] >= requested)
+                    epoch = self.clock_ms()
+                    need(integer(epoch, 1) and epoch >= requested)
+                    fresh(value['capturedEpochMs'], epoch)
                     self.validate_source(value['source'], operation, run)
                     need(self.guard() is not False)
+                    now = self.monotonic()
+                    need(number(now, 0, 1e15) and now >= previous and now - started < 5)
                     self.instance, self.sequence = value['instance'], value['sequence']
                     return deepcopy(value['source'])
                 if attempt < 50: self.sleep(0.1)
