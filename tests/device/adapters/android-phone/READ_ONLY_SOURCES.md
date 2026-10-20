@@ -37,7 +37,10 @@ and bounded response. Native acquisitions retain their existing five-second/
 guards; the enclosing runner's module/process deadline still applies. This
 adds no retry, unbounded wait or timeout exemption. No SDK query failure is a
 reason to create a new session. No cleanup mutation is performed by a reader.
-Primary input factories retain their existing ordinary session behavior.
+Primary input factories retain their existing ordinary bootstrap admission
+outside the explicit [existing-session input scope](EXISTING_INPUT_SESSION.md).
+The full coordinator can pin their nested calls without session repair; this
+does not relax the read-only native-command allowlist.
 
 Eight joined device-free cases exercise existing-session original Script
 reads, missing/foreign/unsafe state, dead SDK sessions, candidate replacement,

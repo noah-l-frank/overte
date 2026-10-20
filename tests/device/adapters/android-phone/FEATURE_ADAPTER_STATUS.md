@@ -3,6 +3,16 @@
 Active implementation scope is **Android Phone only** until all fourteen areas
 are complete. Pico and iOS work is paused and preserved on their own branches.
 
+[Existing-session input admission](EXISTING_INPUT_SESSION.md) now pins the
+ordinary Phone input helpers to the original SDK/session/candidate. Twelve new
+host cases cover normal picker input, explicit restart with original kernel/
+native proof, lost acknowledgment, dead or replaced SDK/target/candidate and
+nested/direct read-only admission. All 173 Phone adapter and 43 installed-identity
+cases pass. The input scope permits no session repair or
+input replay. Full run/file-cursor ownership, role-history restart handoff,
+independent publisher and complete cleanup still need composition; no full
+feature capability or device result is promoted.
+
 [Original fixture location](../../native/SCRIPT_FIXTURE_LOCATION.md) now supports
 actual baseline reads before staging and after release, with the original
 private scope and no guessed path, restaging or source-history reset. The

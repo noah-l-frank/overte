@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 import uuid
 from copy import deepcopy
+from contextlib import contextmanager
 from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -637,18 +638,81 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(self.installed_identity(selector) == installed, 'PHONE_NORMAL_CREATE_INSTALL_CHANGED')
         return result
 
+    def _check_existing_input_pin(self, selector, pin, state):
+        require(getattr(self,'_existing_input_scope',None) is pin and type(pin) is dict
+                and set(pin)=={'selector','sessionId','generation','fingerprint','installed'}
+                and type(pin['generation']) is int and pin['generation']>=0
+                and selector==pin['selector'],'PHONE_EXISTING_INPUT_SCOPE_CHANGED')
+        # Reject a changed target/session locally before querying another SDK
+        # endpoint. No fallback calls the repairing parent implementation.
+        require(self.snapshot_fingerprint(self.target(selector))==pin['fingerprint']
+                and type(state) is dict and state.get('sessionId')==pin['sessionId']
+                and type(state.get('generation')) is int and state['generation']==pin['generation']
+                and state.get('targetFingerprint')==pin['fingerprint'],
+                'PHONE_EXISTING_INPUT_SESSION_CHANGED')
+
+    def _guarded_existing_session(self, selector, pin):
+        # Keep foreign selector rejection ahead of state-path lookup.
+        require(type(pin) is dict and selector==pin.get('selector'),'PHONE_EXISTING_INPUT_SCOPE_CHANGED')
+        self._check_existing_input_pin(selector,pin,self.read_session(selector))
+        client,session,current=self.existing_session(selector)
+        require(session==pin['sessionId'] and type(current.get('generation')) is int
+                and current['generation']==pin['generation']
+                and current.get('targetFingerprint')==pin['fingerprint']
+                and json.dumps(self.installed_identity(selector),sort_keys=True,allow_nan=False)
+                    ==json.dumps(pin['installed'],sort_keys=True,allow_nan=False),
+                'PHONE_EXISTING_INPUT_CANDIDATE_OR_SESSION_CHANGED')
+        return client,session,current
+
+    @contextmanager
+    def existing_input_session(self, selector):
+        """Pin one existing SDK session for normal input, without session repair.
+
+        This admits input only; it never proves its function or a restart. The
+        same SDK session may survive explicit app stop/launch; separate native
+        lifecycle/kernel/Script proof remains mandatory for a new process.
+        """
+        outer=getattr(self,'_existing_input_scope',None)
+        if outer is not None:
+            self._guarded_existing_session(selector,outer)
+            yield
+            self._guarded_existing_session(selector,outer)
+            return
+        before=deepcopy(self.read_session(selector))
+        require(type(before) is dict and type(before.get('generation')) is int
+                and before['generation']>=0,'PHONE_EXISTING_INPUT_GENERATION_REQUIRED')
+        _client,session,state=self.existing_session(selector)
+        require(state==before,'PHONE_EXISTING_INPUT_SESSION_CHANGED')
+        pin=dict(selector=selector,sessionId=session,generation=state['generation'],
+                 fingerprint=state['targetFingerprint'],installed=deepcopy(self.installed_identity(selector)))
+        self._existing_input_scope=pin
+        try:
+            self._guarded_existing_session(selector,pin)
+            yield
+            self._guarded_existing_session(selector,pin)
+        finally:
+            self._existing_input_scope=None
+
     def existing_session(self, selector):
         # Independent observations must never inherit ensure_session's repair,
         # deletion, installation or new-session/automatic-launch behavior.
+        pin=getattr(self,'_existing_input_scope',None)
+        require(pin is None or type(pin) is dict and selector==pin.get('selector'),
+                'PHONE_EXISTING_INPUT_SCOPE_CHANGED')
         require(self.candidate is not None, 'PHONE_READ_ONLY_CANDIDATE_REQUIRED')
         target = self.target(selector)
         before = deepcopy(self.read_session(selector))
+        if pin is not None:self._check_existing_input_pin(selector,pin,before)
         fingerprint = self.snapshot_fingerprint(target)
         require(before is not None and before.get('targetFingerprint') == fingerprint
                 and type(before.get('sessionId')) is str
                 and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}', before['sessionId']) is not None,
                 'PHONE_READ_ONLY_EXISTING_SESSION_REQUIRED')
         installed = self.installed_identity(selector)
+        if pin is not None:
+            require(json.dumps(installed,sort_keys=True,allow_nan=False)
+                    ==json.dumps(pin['installed'],sort_keys=True,allow_nan=False),
+                    'PHONE_EXISTING_INPUT_CANDIDATE_OR_SESSION_CHANGED')
         client = WebDriver(target['serverUrl'])
         try:
             client.call('GET', '/session/' + before['sessionId'])
@@ -851,6 +915,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def ensure_session(self, selector):
+        pin=getattr(self,'_existing_input_scope',None)
+        if pin is not None:
+            return self._guarded_existing_session(selector,pin)
         if self.candidate is not None:
             self.installed_identity(selector)
         result = super().ensure_session(selector)

@@ -1185,7 +1185,7 @@ class FeatureAdapterTests(unittest.TestCase):
         self.assertEqual(['companion.js'], loaded_relative_modules(running_owned_engine(value, source.engine['url'])))
         self.assertEqual([], self.native.inputs)
 
-    def read_only_boundaries(self):
+    def read_only_boundaries(self, *, forbid_normal_session=True):
         original = self.native.call
         calls = []
         def get(method, path, body=None):
@@ -1194,10 +1194,146 @@ class FeatureAdapterTests(unittest.TestCase):
             return original(method, path, body)
         for boundary in (
             patch.object(appium, 'WebDriver', return_value=self.native),
-            patch.object(self.native, 'call', side_effect=get),
-            patch.object(self.adapter, 'ensure_session', side_effect=AssertionError('Read-only source tried session repair'))):
+            patch.object(self.native, 'call', side_effect=get)):
             boundary.start(); self.addCleanup(boundary.stop)
+        if forbid_normal_session:
+            boundary=patch.object(self.adapter,'ensure_session',side_effect=AssertionError('Read-only source tried session repair'))
+            boundary.start();self.addCleanup(boundary.stop)
         return calls
+
+    def test_existing_input_scope_admits_normal_file_input_without_parent_session_repair(self):
+        storage,file_ui,_files,_manager=self.file_manager_boundaries()
+        self.read_only_boundaries(forbid_normal_session=False)
+        with patch.object(AppiumAdapter,'ensure_session',side_effect=AssertionError('unexpected repairing path')):
+            with self.adapter.existing_input_session(SELECTOR):
+                manager=self.adapter._script_file_manager(SELECTOR)
+                manager.open();manager.file_picker_open();manager.file_picker_cancel();manager.close()
+        self.assertTrue(file_ui.input_requests);self.assertEqual([],self.native.lifecycle_inputs)
+        self.assertTrue(storage.root.exists());self.assertIsNone(self.adapter.script_store(SELECTOR).read())
+        self.assertIsNone(self.adapter._existing_input_scope)
+
+    def test_existing_input_scope_allows_one_explicit_restart_on_the_same_sdk_with_original_native_proof(self):
+        storage,_file_ui,_source,_presence,_state=self.restart_boundaries(staged_restart=False)
+        calls=self.read_only_boundaries(forbid_normal_session=False)
+        with patch.object(AppiumAdapter,'ensure_session',side_effect=AssertionError('unexpected repairing path')):
+            with self.adapter.existing_input_session(SELECTOR):
+                result=self.adapter._script_restart(SELECTOR)
+        self.assertEqual(['stop','launch'],self.native.lifecycle_inputs)
+        self.assertEqual('ESRCH',result['handoff']['exit']['errorSymbol'])
+        self.assertEqual(2,result['native']['lifecycle']['launches'])
+        self.assertEqual('native-session',self.adapter.read_session(SELECTOR)['sessionId'])
+        self.assertFalse(any(method=='POST' and path=='/session' for method,path,_body in calls))
+        self.assertEqual(1,sum(command['operation']=='stage' for command in storage.commands))
+
+    def test_existing_input_scope_lost_stop_ack_resumes_only_with_new_original_proof_without_repair(self):
+        storage,_file_ui,_source,_presence,_state=self.restart_boundaries(staged_restart=False)
+        self.read_only_boundaries(forbid_normal_session=False);self.native.lose_stop_ack=True
+        with patch.object(AppiumAdapter,'ensure_session',side_effect=AssertionError('unexpected repairing path')):
+            with self.assertRaises(RuntimeError):
+                with self.adapter.existing_input_session(SELECTOR):self.adapter._script_restart(SELECTOR)
+            self.assertEqual(['stop'],self.native.lifecycle_inputs)
+            self.assertEqual('stop-issued',self.adapter.script_restart_inputs_store(SELECTOR).read()['phase'])
+            with self.adapter.existing_input_session(SELECTOR):result=self.adapter._script_restart(SELECTOR)
+        self.assertEqual(['stop','launch'],self.native.lifecycle_inputs)
+        self.assertEqual('ESRCH',result['handoff']['exit']['errorSymbol'])
+        self.assertEqual(1,sum(command['operation']=='stage' for command in storage.commands))
+
+    def test_existing_input_scope_dead_sdk_session_never_creates_or_deletes_state(self):
+        self.read_only_boundaries(forbid_normal_session=False)
+        state=deepcopy(self.adapter.read_session(SELECTOR))
+        with patch.object(self.native,'call',side_effect=RuntimeError('synthetic SDK lost')):
+            with patch.object(AppiumAdapter,'ensure_session',side_effect=AssertionError('unexpected repair')):
+                with self.assertRaisesRegex(RuntimeError,'PHONE_READ_ONLY_SESSION_UNAVAILABLE'):
+                    with self.adapter.existing_input_session(SELECTOR):self.fail('dead session admitted')
+        self.assertEqual(state,self.adapter.read_session(SELECTOR));self.assertEqual([],self.native.inputs)
+        self.assertEqual([],self.native.lifecycle_inputs)
+
+    def test_existing_input_scope_rejects_changed_target_generation_or_sdk_before_another_input(self):
+        calls=self.read_only_boundaries(forbid_normal_session=False)
+        original=deepcopy(self.adapter.read_session(SELECTOR))
+        with patch.object(AppiumAdapter,'ensure_session',side_effect=AssertionError('unexpected repair')):
+            for changes in ({'sessionId':'replacement-session'},{'generation':True},{'generation':2},
+                            {'targetFingerprint':'f'*64}):
+                with self.subTest(changes=changes),self.assertRaises((ValueError,RuntimeError)):
+                    with self.adapter.existing_input_session(SELECTOR):
+                        before=len(calls)
+                        with patch.object(self.adapter,'read_session',return_value=original|changes):
+                            self.adapter.ensure_session(SELECTOR)
+                self.assertEqual(before,len(calls))
+        self.assertEqual(original,self.adapter.read_session(SELECTOR));self.assertEqual([],self.native.inputs)
+
+    def test_existing_input_scope_direct_read_only_admission_cannot_switch_the_pinned_sdk(self):
+        calls=self.read_only_boundaries(forbid_normal_session=False)
+        original=deepcopy(self.adapter.read_session(SELECTOR))
+        with self.assertRaises((ValueError,RuntimeError)):
+            with self.adapter.existing_input_session(SELECTOR):
+                before=len(calls)
+                with patch.object(self.adapter,'read_session',return_value=original|{'sessionId':'foreign-session'}):
+                    self.adapter.existing_session(SELECTOR)
+        self.assertEqual(before,len(calls));self.assertEqual([],self.native.inputs)
+
+    def test_existing_input_scope_changed_sdk_endpoint_is_rejected_before_another_query(self):
+        calls=self.read_only_boundaries(forbid_normal_session=False)
+        with self.assertRaises((ValueError,RuntimeError)):
+            with self.adapter.existing_input_session(SELECTOR):
+                before=len(calls)
+                with patch.dict(self.target,{'serverUrl':'http://127.0.0.1:99'}):
+                    self.adapter.ensure_session(SELECTOR)
+        self.assertEqual(before,len(calls));self.assertEqual([],self.native.inputs)
+
+    def test_existing_input_scope_corrupted_boolean_pin_cannot_match_an_integer_generation(self):
+        calls=self.read_only_boundaries(forbid_normal_session=False)
+        with self.assertRaises((ValueError,RuntimeError)):
+            with self.adapter.existing_input_session(SELECTOR):
+                before=len(calls);self.adapter._existing_input_scope['generation']=True
+                self.adapter.ensure_session(SELECTOR)
+        self.assertEqual(before,len(calls));self.assertIsNone(self.adapter._existing_input_scope)
+
+    def test_existing_input_scope_candidate_replacement_blocks_native_stage_and_preserves_file_intent(self):
+        storage,_ui,files,_manager=self.file_manager_boundaries()
+        self.read_only_boundaries(forbid_normal_session=False)
+        before=deepcopy(files.store.read());commands=len(storage.commands)
+        with self.assertRaises((ValueError,RuntimeError)):
+            with self.adapter.existing_input_session(SELECTOR):
+                self.fixture.adb.digest='f'*64
+                self.adapter._script_files(SELECTOR).locate()
+        self.assertEqual(commands,len(storage.commands));self.assertEqual(before,files.store.read())
+        self.assertEqual([],self.native.lifecycle_inputs)
+
+    def test_existing_input_scope_nesting_cannot_switch_targets_or_unpin_the_outer_scope(self):
+        self.read_only_boundaries(forbid_normal_session=False)
+        with patch.object(AppiumAdapter,'ensure_session',side_effect=AssertionError('unexpected repair')):
+            with self.adapter.existing_input_session(SELECTOR):
+                pin=self.adapter._existing_input_scope
+                with self.adapter.existing_input_session(SELECTOR):
+                    self.assertIs(pin,self.adapter._existing_input_scope)
+                with self.assertRaises((ValueError,RuntimeError)):
+                    with self.adapter.existing_input_session('foreign-selector'):self.fail('foreign scope admitted')
+                self.assertIs(pin,self.adapter._existing_input_scope)
+                self.adapter.ensure_session(SELECTOR)
+        self.assertIsNone(self.adapter._existing_input_scope)
+
+    def test_existing_input_scope_lost_input_return_retains_manager_intent_without_replay(self):
+        _storage,_ui,_files,_manager=self.file_manager_boundaries()
+        self.read_only_boundaries(forbid_normal_session=False)
+        with self.assertRaisesRegex(RuntimeError,'simulated normal input return lost'):
+            with self.adapter.existing_input_session(SELECTOR):
+                manager=self.adapter._script_file_manager(SELECTOR);manager.open()
+                raise RuntimeError('simulated normal input return lost')
+        self.assertIsNotNone(self.adapter.script_store(SELECTOR).read())
+        self.assertIsNone(self.adapter._existing_input_scope)
+        self.assertEqual([],self.native.lifecycle_inputs)
+
+    def test_existing_input_scope_exit_rechecks_the_session_and_restores_ordinary_admission(self):
+        self.read_only_boundaries(forbid_normal_session=False)
+        state=self.adapter.read_session(SELECTOR)
+        with self.assertRaises((ValueError,RuntimeError)):
+            with self.adapter.existing_input_session(SELECTOR):state['generation']=True
+        self.assertIsNone(self.adapter._existing_input_scope);state['generation']=1
+        # No class/global SDK behavior is permanently changed by the scope.
+        with patch.object(AppiumAdapter,'ensure_session',return_value=(self.native,'native-session',state)) as ordinary:
+            self.adapter.ensure_session(SELECTOR)
+        ordinary.assert_called_once_with(SELECTOR)
 
     def test_phone_read_only_script_source_reads_existing_session_without_repair_or_input(self):
         source = self.preview_boundaries(ScriptBoundary(), 'feature-script-observation.json')
