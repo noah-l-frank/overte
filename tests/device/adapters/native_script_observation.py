@@ -190,6 +190,10 @@ class NativeScriptObservation:
             need(number(started, 0, 1e15))
             requested = self.clock_ms()
             need(integer(requested, 1))
+            need(self.guard() is not False)
+            now = self.monotonic()
+            need(number(now, 0, 1e15) and now >= previous and now - started < 5)
+            previous = now
             request = ('ios-' if self.ios else '') + uuid.uuid4().hex
             self.send(dict(schemaVersion=1, commandId=request, action='feature-script-observe'))
             for attempt in range(51):
@@ -204,10 +208,11 @@ class NativeScriptObservation:
                 need(number(now, 0, 1e15) and now >= previous and now - started < 5)
                 previous = now
                 if type(value) is dict and value.get('requestId') == request:
-                    epoch = value.get('capturedEpochMs') if self.ios else self.clock_ms()
+                    epoch = self.clock_ms()
+                    need(integer(epoch, 1) and epoch >= requested)
                     validate(value, request, self.pid, epoch)
                     need(self.instance in (None, value['instance']) and value['sequence'] > after_sequence
-                         and (self.ios or value['requestedEpochMs'] >= requested))
+                         and value['requestedEpochMs'] >= requested)
                     source = value['source']
                     need(not (require_effects or self.effects_required) or source.get('effectSourceVersion') == 1)
                     identified = source.get('sourceIdentityVersion') == 1
@@ -251,6 +256,8 @@ class NativeScriptObservation:
                         if identified: engines[instance]['code']=deepcopy(engine['code'])
                     need(self.guard() is not False)
                     need(len(set(self.engines) | set(engines)) <= 4096)
+                    now = self.monotonic()
+                    need(number(now, 0, 1e15) and now >= previous and now - started < 5)
                     self.retired |= self.active - set(engines)
                     self.active = set(engines)
                     self.engines.update(engines)

@@ -44,8 +44,14 @@ the extension; full effect consumers require it explicitly. Each engine is exact
 and an empty modules list. An event is timestamped only when that require
 actually completes or reuses a module; its original time may predate this
 observation legitimately. Request/capture clocks remain native clocks on iOS;
-the bounded local monotonic acquisition and unique correlated request establish
-the fresh join without relabelling historical module timestamps.
+the reader requires a separate original native-clock acquisition before the
+command and after the receipt. The request cannot predate the first clock;
+the second clock cannot regress, and the capture must be fresh against it.
+An iOS host clock or the receipt's own capture time is not a substitute.
+Both clock acquisitions, process guards and validation share the original
+five-second monotonic deadline. A late initial clock prevents sending; a late
+final clock prevents committing any history. These checks never relabel the
+original module, submitted-code or effect timestamps.
 
 Bounds: 128 engines, 256 distinct module URLs per engine, 4096 characters per
 URL, module cursor at most one billion, at most 262144 UTF-8 packet bytes, five
