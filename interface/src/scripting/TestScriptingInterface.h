@@ -158,6 +158,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureNativeObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureChatObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureChatViewObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);
