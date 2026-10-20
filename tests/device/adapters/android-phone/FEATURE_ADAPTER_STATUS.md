@@ -3,6 +3,14 @@
 Active implementation scope is **Android Phone only** until all fourteen areas
 are complete. Pico and iOS work is paused and preserved on their own branches.
 
+The existing shared fixture now provides [original missing-Script HTTP
+receipts](../../feature_journeys/SCRIPT_HTTP_SOURCE.md), including actual
+serialized status, accepted body bytes/digest, request origin/transport, nonce
+and challenge history. All **18** new local HTTP cases pass. Counterexamples
+preserve/reject an actual 200 or wrong body and detect ignored cleanup instead
+of reporting the intended 404. This closes the backend source prerequisite;
+joining it into the full Android coordinator/independent actor remains open.
+
 Internal `_script_measurements` now [joins all six original Script
 measurements](SCRIPT_MEASUREMENTS.md), including actual submitted code, loaded
 companions, owned local Box ticks, independent service rows, passive UI/error
