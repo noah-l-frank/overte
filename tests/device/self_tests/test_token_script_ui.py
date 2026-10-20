@@ -46,7 +46,7 @@ class NativeBoundary:
             row = dict(id=name, enabled=self.enabled, focused=self.focused, token='native-current-token')
             if name == 'scripts.url.field': row['text'] = self.text
             if name.startswith(('scripts.stop.', 'scripts.restart.')):
-                row['rowLabel'] = 'foreign.js' if self.foreign_label else 'client.js'
+                row['rowLabel'] = 'foreign.js' if self.foreign_label else self.rows[0]['url'].rsplit('/', 1)[-1]
                 row['sourceUrl'] = 'http://foreign.test/client.js' if self.foreign_source else self.rows[0]['url']
             controls.append(row)
         return dict(featureControlsVersion=self.version, open=self.opened, ready=self.opened, controls=controls)
