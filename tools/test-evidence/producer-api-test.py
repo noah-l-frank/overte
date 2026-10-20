@@ -4778,6 +4778,153 @@ class CurrentParentTransitionTests(unittest.TestCase):
         self.assertFalse(value['qualification']);self.assertIsNone(value['execution'])
         self.C.execution.execute.assert_not_called()
 
+    def lifecycle_transition(self, before=None, after=None):
+        """Actual reviewed definitions and authenticated bounded Git-blob bytes."""
+        if before is None:
+            before=deepcopy(self.registry)
+            del before['suites']['native-owner-lifecycle']
+        else:before=deepcopy(before)
+        after=deepcopy(self.registry) if after is None else deepcopy(after)
+        path='.github/test-suites.json'
+        previous=(json.dumps(before,indent=2)+'\n').encode()
+        current=(json.dumps(after,indent=2)+'\n').encode()
+        previous_sha=self.C.source_admission.blob_id(previous)
+        self.source.base[path]=self.C.source_admission.ordinary(previous_sha)
+        self.source.default[path]=self.C.source_admission.ordinary(self.C.source_admission.blob_id(current))
+        self.source.bodies[path]=current;(self.root/path).write_bytes(current)
+        self.registry_blobs={previous_sha:previous}
+        def request(endpoint,maximum,**_options):
+            self.assertEqual(maximum,100_000)
+            self.api.calls.append(endpoint)
+            identity=endpoint.removeprefix(A.PREFIX+'/git/blobs/')
+            self.assertIn(identity,self.registry_blobs)
+            raw=self.registry_blobs[identity]
+            return json.dumps({'sha':identity,'size':len(raw),'encoding':'base64',
+                'content':base64.b64encode(raw).decode()}).encode()
+        client=A.GitHubReadOnly();client._request=request
+        self.api.immutable_blob=client.immutable_blob
+        runner='tests/run-project-tests.py'
+        self.assertEqual(self.source.default[runner]['mode'],'100755')
+        self.source.base[runner]=self.C.source_admission.ordinary(
+            self.C.source_admission.blob_id(b'previous reviewed CI runner\n'),'100755')
+        # This actual source preparation script is ordinary 644 in both Git
+        # trees. Its workflow chmod does not grant a new executable exception.
+        preparation='tools/repository-checks/android-host-prepare.sh'
+        raw=(self.C.ROOT/preparation).read_bytes()
+        self.source.default[preparation]=self.C.source_admission.ordinary(self.C.source_admission.blob_id(raw))
+        self.source.base[preparation]=self.C.source_admission.ordinary(
+            self.C.source_admission.blob_id(b'previous reviewed Android host preparation\n'))
+        leaf=self.root/preparation;leaf.parent.mkdir(parents=True,exist_ok=True);leaf.write_bytes(raw)
+        return before,after
+
+    def test_monotonic_lifecycle_and_preserved_ci_runner_skip_optional_execution_and_final_parent_rederives(self):
+        before,after=self.lifecycle_transition()
+        self.assertEqual((len(before['suites']),len(after['suites'])),(60,61))
+        self.assertEqual({name:row for name,row in after['suites'].items()
+            if name!='native-owner-lifecycle'},before['suites'])
+        self.assertEqual(after['control_inputs'],before['control_inputs'])
+        value=self.schedule()
+        self.assertFalse(value['qualification'] or value['reusable'])
+        self.assertEqual(value['authority'],'none');self.assertIsNone(value['execution'])
+        self.assertEqual(value['executed_suites'],[]);self.assertEqual(value['reused_suites'],[])
+        self.assertEqual(value['selection'],self.selected)
+        with patch.object(self.C,'verify_main',side_effect=ValueError('original source has no reusable E')):
+            result=self.C.lookup(self.event,self.environment,self.adapter,root=self.root,clock=lambda:NOW)
+        self.assertFalse(result['reused']);self.assertEqual(result['optional_qualification'],value)
+        self.environment['GITHUB_JOB']='qualify-parent';self.source.job['name']='Qualify exact parent'
+        needs={'route':{'result':'skipped','outputs':{}},'common-parent':{'result':'success','outputs':{}},
+            'platform-tests':{'result':'skipped','outputs':{}}}
+        with patch.object(self.C.producer,'ROOT',self.root):
+            # Exercise the real aggregate fallback, including provisional
+            # controller rejection and independent current-parent bookends.
+            self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,needs)
+            for state in ('failure','skipped','cancelled',None):
+                changed=deepcopy(needs);changed['common-parent']['result']=state
+                with self.subTest(common=state),self.assertRaises(ValueError):
+                    self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,changed)
+            missing=deepcopy(needs);del missing['common-parent']
+            with self.assertRaises(ValueError):
+                self.C.producer.verify_platform_parent(self.root,self.event,self.environment,self.adapter,missing)
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_lifecycle_transition_rejects_changed_definitions_controls_owner_removal_and_unknown_owner(self):
+        original=deepcopy(self.registry)
+        for change in ('quick-command','quick-closure','host-command','controls','remove','remove-lifecycle','unknown',
+                       'new-command','new-context','new-scope','new-closure','new-layer','order'):
+            before=deepcopy(original);del before['suites']['native-owner-lifecycle']
+            after=deepcopy(original)
+            if change=='quick-command':after['suites']['producer-proof']['command'].append('--changed')
+            elif change=='quick-closure':after['suites']['producer-proof']['closure']['required'].append('unreviewed.py')
+            elif change=='host-command':after['suites']['safe-landing-lifecycle']['command'].append('--changed')
+            elif change=='controls':after['control_inputs'].append('unreviewed-control.json')
+            elif change=='remove':del after['suites']['safe-landing-lifecycle']
+            elif change=='remove-lifecycle':
+                before=deepcopy(original);del after['suites']['native-owner-lifecycle']
+            elif change=='unknown':
+                for registry in (before,after):
+                    registry['suites']['unknown-owner']=registry['suites'].pop('safe-landing-lifecycle')
+            elif change=='new-command':after['suites']['native-owner-lifecycle']['command'].append('--changed')
+            elif change=='new-context':after['suites']['native-owner-lifecycle']['environment']='unknown-host'
+            elif change=='new-scope':after['suites']['native-owner-lifecycle']['scope']='candidate'
+            elif change=='new-closure':after['suites']['native-owner-lifecycle']['closure']['required'].pop()
+            elif change=='new-layer':after['suites']['native-owner-lifecycle']['layer']='quick'
+            else:after['suites']={name:after['suites'][name] for name in reversed(after['suites'])}
+            self.lifecycle_transition(before,after)
+            with self.subTest(change=change),self.assertRaises(ValueError):self.schedule()
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_lifecycle_transition_rejects_registry_alias_missing_and_unauthenticated_old_blob(self):
+        self.lifecycle_transition()
+        path='.github/test-suites.json'
+        for side in (self.source.base,self.source.default):
+            original=deepcopy(side[path])
+            for mode in ('100755','120000','160000'):
+                side[path]={**original,'mode':mode,'type':'commit' if mode=='160000' else 'blob'}
+                with self.subTest(side='base' if side is self.source.base else 'current',mode=mode),self.assertRaises(ValueError):
+                    self.schedule()
+            side[path]=original
+        original=deepcopy(self.source.base[path]);del self.source.base[path]
+        with self.assertRaises(ValueError):self.schedule()
+        self.source.base[path]=original
+        self.registry_blobs[original['sha']]=b'not the immutable original registry'
+        with self.assertRaises(ValueError):self.schedule()
+        with patch.object(self.api,'immutable_blob',side_effect=A.ApiError('original Git blob unavailable')):
+            with self.assertRaises(ValueError):self.schedule()
+            with patch.object(self.C,'verify_main',side_effect=ValueError('no original proof')):
+                value=self.C.lookup(self.event,self.environment,self.adapter,root=self.root,clock=lambda:NOW)
+            self.assertFalse(value['reused']);self.assertNotIn('optional_qualification',value)
+
+    def test_lifecycle_transition_rejects_executable_mode_changes_aliases_unknown_executables_and_product(self):
+        self.lifecycle_transition()
+        base,current=deepcopy(self.source.base),deepcopy(self.source.default)
+        runner='tests/run-project-tests.py'
+        for change in ('mode-change','alias','missing','unknown-executable','product'):
+            self.source.base=deepcopy(base);self.source.default=deepcopy(current)
+            if change=='mode-change':self.source.base[runner]['mode']='100644'
+            elif change=='alias':self.source.default[runner]['mode']='120000'
+            elif change=='missing':del self.source.base[runner]
+            elif change=='unknown-executable':
+                path='tools/branch-cleanup/unknown-executable.py'
+                self.source.base[path]=self.C.source_admission.ordinary('a'*40,'100755')
+                self.source.default[path]=self.C.source_admission.ordinary('b'*40,'100755')
+            else:self.source.default['interface/src/unreviewed.cpp']=self.C.source_admission.ordinary('a'*40)
+            with self.subTest(change=change),self.assertRaises(ValueError):self.schedule()
+        self.source.base=base;self.source.default=current
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
+    def test_lifecycle_transition_retains_current_native_and_final_source_bookends(self):
+        self.lifecycle_transition()
+        self.schedule()
+        original=self.adapter._integrated_current;calls=[]
+        def changed(*args,**kwargs):
+            binding,refs=original(*args,**kwargs);calls.append(True)
+            return binding,({**refs,'default':'f'*40} if len(calls)>1 else refs)
+        with patch.object(self.adapter,'_integrated_current',side_effect=changed),self.assertRaises(ValueError):self.schedule()
+        self.assertEqual(len(calls),2)
+        for key,value in (('GITHUB_RUN_ATTEMPT','2'),('GITHUB_SHA','f'*40),('GITHUB_REPOSITORY','overte-org/overte')):
+            with self.subTest(key=key),patch.dict(self.environment,{key:value}),self.assertRaises(ValueError):self.schedule()
+        self.C.execution.execute.assert_not_called();self.C.execution.capture_execution_environment.assert_not_called()
+
     def partial_selection(self):
         omitted={'producer-proof','python-test-runner','release-bundle','project-coverage','native-registration'}
         names=[name for name in self.selected['suites'] if name not in omitted]
