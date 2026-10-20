@@ -142,6 +142,7 @@
         Test.saveObject(value, "world-render-observation.json");
     }
     var lastScriptSourceRequest = "";
+    var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
         var value = {schemaVersion: 1, requestId: requestId, available: false};
@@ -1230,6 +1231,26 @@
         }
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+                && command.action === "feature-process-presence"
+                && typeof command.queryProcessId === "number" && isFinite(command.queryProcessId)
+                && Math.floor(command.queryProcessId) === command.queryProcessId
+                && command.queryProcessId >= 1 && command.queryProcessId <= 2147483647
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "queryProcessId"])) {
+            if (command.commandId !== lastProcessPresenceRequest) {
+                lastProcessPresenceRequest = String(command.commandId);
+                var presence = {processPresenceVersion: 1, commandId: command.commandId, available: false};
+                try {
+                    if (typeof Test.featureProcessPresence === "function") {
+                        var originalPresence = Test.featureProcessPresence(command);
+                        if (originalPresence && originalPresence.commandId === command.commandId) { presence = originalPresence; }
+                    }
+                } catch (_processPresenceError) { /* Unknown never means absent. */ }
+                Test.saveObject(presence, "feature-process-presence.json");
+            }
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "feature-script-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
             if (command.commandId !== lastScriptSourceRequest) {
@@ -1522,6 +1543,7 @@
         if (command && (command.action === "normal-feature-observe" || command.action === "feature-native-observe"
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
+                || command.action === "feature-process-presence"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-world-render-observe"

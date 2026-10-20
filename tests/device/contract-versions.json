@@ -27,6 +27,7 @@
     "native-animation-history": {"current": 1, "reads": [1]},
     "native-script-code-identity": {"current": 1, "reads": [1]},
     "native-script-load-history": {"current": 1, "reads": [1]},
+    "native-process-presence": {"current": 1, "reads": [1]},
     "normal-script-file-ownership": {"current": 1, "reads": [1]},
     "emote-source-profile": {"current": 1, "reads": [1]},
     "graphics-subject": {"current": 1, "reads": [1]},
