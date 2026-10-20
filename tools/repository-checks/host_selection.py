@@ -45,6 +45,7 @@ CI_TESTS = frozenset({
     'tests/ios-input-selection-test.py', 'tests/codeql-selection-test.py',
     'tests/browser-cpu-selection-test.py', 'tests/host-selection-test.py', 'tests/android-owner-transfer-test.py',
     'tests/unittest-runner-test.py',
+    'tests/producer-owner-lifecycle-test.py',
 })
 CI_POLICY = frozenset({
     '.github/test-suite-dependencies.json',
@@ -121,6 +122,10 @@ PROGRAM_INPUTS = (
     'tools/test-evidence/attested.py', 'tools/test-evidence/execution.py',
     'tools/test-evidence/inputs.py', 'tools/test-evidence/producer.py',
     'tools/test-evidence/producer_api.py', 'tools/test-evidence/run.py',
+    # The lifecycle owner imports these fixture builders. Their bytes are real
+    # reader inputs even though the fixture file also has a CI unit-test owner.
+    'tests/producer-owner-lifecycle-test.py', 'tools/test-evidence/ci-integration-test.py',
+    'tools/test-evidence/producer-api-test.py', 'tools/test-evidence/producer-test.py',
     'tools/test-evidence/runtime.py', 'tools/test-evidence/validate-sync.py',
     '.github/shared-sandbox.json', 'tools/test-evidence/sandbox.py',
     'tools/test-evidence/sandbox_host.py', 'tools/test-evidence/sandbox_host_fixture.py',
@@ -150,27 +155,27 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = '92e1be4583606f26e30c6fde740bd3b3fa978a58d007ee2f35effe2aadd859ce'
+REVIEWED_PROGRAMS = 'c4b5512f6a9575657590e9cc2a27f6b710bec7e993f42b8688a9da197fd05d1b'
 REVIEWED_CHILD_PROGRAMS = {
-    'apple-main': '209f9028205e0c35b5c7e3bf9da6ba10905fde8056eedd06f80bf1932344d2d3',
-    'apple-ios': 'af5cfb8eccb1d6c956c04dc66f6337bec27693cec1ab62dfa97242d30d3c5309',
-    'android-main': '4a411e6032d134480882d2cd7baae7dbc80946eeea26793207550d4b877eba4d',
-    'android-phone': '68655c03a6a01d48405ac55fdf57ea62535a9e8cade6434657e8c906e43d69c3',
-    'android-vr': '4a411e6032d134480882d2cd7baae7dbc80946eeea26793207550d4b877eba4d',
-    'android-vr-pico': 'b096d164f670d63d43bbf27757352e5ed4a92c5dc2d5f88349e962ad91d9a162',
+    'apple-main': '12aa9097f69e7576b8694bfb783477a0c0db488640b69077e01fc3460e936eb7',
+    'apple-ios': 'acfc186e9e259949183b05d2cd8ae52389d3907a7603b27fb4c0101d3b7dadd7',
+    'android-main': 'b1574c849d34736f18465c5312f4d2275040cdb2d989c0c1eb8e69308a6bbb28',
+    'android-phone': '272b69e6009cf70d22b502a83b66ad25d2fa487c5df52f780cc5083e456e8b7d',
+    'android-vr': 'b1574c849d34736f18465c5312f4d2275040cdb2d989c0c1eb8e69308a6bbb28',
+    'android-vr-pico': '5454d1e2929545baa4f0c7b49734bf81b9cb7531696cec9996e96664d7fedea9',
 }
 # Separate exact installed family; None admits nothing until genuine enrollment.
 REVIEWED_INSTALLED_PROGRAMS = {
-    'apple-ios': 'd4b36690be63c82d3d3956585f72b3e718c3ebfad612ec1926ab6d23190082e2',
+    'apple-ios': '2230afa7a0da0051e9c3089a139403e01fd2a6d001e6b913d65099cd229a9764',
 }
 REVIEWED_PREDECESSORS = {
-    'main': '6c6064992d2e2e189e06af5957c147fd1ac0996b886b8d0b6f30dbf856ee9afe',
-    'apple-main': 'ad02726fc123ea762f37e077f6ad11bf54b568542c89ebba9ae6477d9225288a',
-    'apple-ios': '5cd6ed41804507a65889ceacbf54133cbcebb4e27bb0fa2b75f482bc75580204',
-    'android-main': 'd147bfc9379e072f4fa66629351c829170a20a28e17795dbe9a71414a2215758',
-    'android-phone': '350cdd5c2055b1c25eb5b12545bb0623b9fb1ada2e1b655961cd28d962f35c1a',
-    'android-vr': 'd147bfc9379e072f4fa66629351c829170a20a28e17795dbe9a71414a2215758',
-    'android-vr-pico': 'de10d4031bd12aa8ed13931f037fa8b5a34bd49f917f67411e1dcf2fb255df79',
+    'main': '282cb41841da7476b474d22935588ab10345e17f1ae9e18abfb696b503505d5a',
+    'apple-main': '0e81507b0a9218a3873934bf6c228531f2e0f866a380385121933d34369d24e8',
+    'apple-ios': 'a3a215d18c6a425115ec5f7365fb7a8070f83f149e4d889842bace145f373f03',
+    'android-main': 'e3b0f2eb724b5363fcfc95922b1a4d719d3b0b77cefca4bdd85f5b939a631cac',
+    'android-phone': '3db44f3104664b9852e8d8ce3393ce057e02cfda54aef95836aa865b8a352352',
+    'android-vr': '5fb11973cf6463d77f996b29518d6031df0e96dc96eecea059ad70bdff826179',
+    'android-vr-pico': 'f6ef4e1c6dc736cb614c4854cf352d0f7b821f6c579d121832008503df76bff9',
 }
 CONTROL_PLANE = 'tests/device/run_control_plane_tests.py'
 # These inputs are read by the full Device suite. They are CI-owned for
@@ -396,44 +401,53 @@ def regular_ci_inventory(plan, base_tree, candidate_tree):
 
 
 def _ios_routing_views(tree, base_tree, trusted_tree, trusted_root, target):
-    """Exact protected routing-data comparisons, never candidate code or E."""
+    """Finite source-bound routing data; no physical or candidate policy import."""
     if target not in {"apple-main", "apple-ios"} or not all(type(value) is dict
             for value in (tree, base_tree, trusted_tree)):
         return None
-    try:
-        path = Path(trusted_root) / "tools/ios-build-qualification/inputs.py"
-        if any(part.is_symlink() for part in (path, *path.parents)):
-            return None
-        raw = path.read_bytes()
-        entry = {"mode": "100644", "type": "blob", "sha": hashlib.sha1(
-            b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()}
-        if trusted_tree.get("tools/ios-build-qualification/inputs.py") != entry:
-            return None
-        spec = importlib.util.spec_from_file_location("host_protected_ios_routing", path)
-        policy = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = policy
-        spec.loader.exec_module(policy)
-        snapshots = []
-        for value in (base_tree, tree):
-            inputs._validate_tree(value)
-            if any(item["mode"] not in {"100644", "100755"} or item["type"] != "blob"
-                   for item in value.values()):
+    # This exact reviewed independent iOS policy defines the same two data
+    # stages. Its immutable identity is a family prerequisite, never executable
+    # input. Sparse trusted checkouts and protected projections need no new file.
+    policy = {"mode": "100644", "type": "blob", "sha": "5023a064f19232da2934362ac9f3278f7935cfd5"}
+    if trusted_tree.get("tools/ios-build-qualification/inputs.py") != policy:
+        return None
+    data = {
+        ".github/workflows/apple-branch-topology.yml": (
+            "9a8aa6f7a9fc28924b5212c9be703c213f3dd694", "455fdd13c7580f474e291f67595c4d97a0891f04"),
+        ".github/workflows/ios-bootstrap.yml": (
+            "e8df02954fc83cc1efefcf36adbaeb19fe21cdae", "787651befbf7a627633b80185d798d7567db2466"),
+    }
+    parent = target == "apple-main"
+    def stage(snapshot):
+        if parent:
+            bootstrap = snapshot.get(".github/workflows/ios-bootstrap.yml")
+            if bootstrap != {"mode": "100644", "type": "blob", "sha": "ea772c34abdee24a42babd94529bf1e753020fb3"}:
                 return None
-            snapshots.append(policy.Snapshot("", "", tuple(policy.Entry(
-                name, item["mode"], item["type"], item["sha"]) for name, item in sorted(value.items()))))
-        parent = target == "apple-main"
-        stages = [policy.routing_data_stage(snapshot, parent=parent) for snapshot in snapshots]
-        if None in stages or stages == [0, 0] or target == "apple-main" and 2 in stages:
+            variants = ((0,), (1,))
+        else:
+            variants = ((0, 0), (1, 0), (1, 1))
+        for index, values in enumerate(variants):
+            if all(snapshot.get(path) == {"mode": "100644", "type": "blob", "sha": identities[variant]}
+                   for (path, identities), variant in zip(data.items(), values)):
+                return index
+        return None
+    try:
+        for snapshot in (base_tree, tree):
+            inputs._validate_tree(snapshot)
+            if any(item["mode"] not in {"100644", "100755"} or item["type"] != "blob"
+                   for item in snapshot.values()):
+                return None
+        stages = [stage(snapshot) for snapshot in (base_tree, tree)]
+        if None in stages or stages == [0, 0] or parent and 2 in stages:
             return None
-        changed = policy.routing_data_changes(*snapshots, parent=parent)
-        if changed is None:
+        changed = {path for path in data if base_tree.get(path) != tree.get(path)}
+        if changed and not 0 <= stages[1] - stages[0] <= 1:
             return None
-        comparisons = [policy.routing_data_comparison(snapshot, parent=parent) for snapshot in snapshots]
-        return {"paths": changed, "base": {entry.path: {"mode": entry.mode,
-                    "type": entry.object_type, "sha": entry.oid} for entry in comparisons[0].entries},
-                "candidate": {entry.path: {"mode": entry.mode, "type": entry.object_type,
-                    "sha": entry.oid} for entry in comparisons[1].entries}}
-    except (ValueError, OSError, KeyError, TypeError, AttributeError, ImportError):
+        comparisons = [{path: {**item, "sha": data[path][0]}
+                        if path in data and (not parent or path == ".github/workflows/apple-branch-topology.yml")
+                        else dict(item) for path, item in snapshot.items()} for snapshot in (base_tree, tree)]
+        return {"paths": changed, "base": comparisons[0], "candidate": comparisons[1]}
+    except (ValueError, OSError, KeyError, TypeError, AttributeError):
         return None
 
 
