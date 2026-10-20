@@ -90,6 +90,18 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             self._candidate_guard()
             return super()._bound_script_files(*args, **kwargs)
 
+        def _script_restart_handoff(self, *args, **kwargs):
+            self._candidate_guard()
+            return super()._script_restart_handoff(*args, **kwargs)
+
+        def _script_restart_prepare(self, *args, **kwargs):
+            self._candidate_guard()
+            return super()._script_restart_prepare(*args, **kwargs)
+
+        def _script_restart_adopt(self, *args, **kwargs):
+            self._candidate_guard()
+            return super()._script_restart_adopt(*args, **kwargs)
+
         def _private_login_input(self, *args, **kwargs):
             self._candidate_guard()
             return super()._private_login_input(*args, **kwargs)

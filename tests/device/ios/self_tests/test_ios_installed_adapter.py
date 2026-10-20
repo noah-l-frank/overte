@@ -143,6 +143,14 @@ class InstalledAdapterTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):reader.read('a'*32)
         self.assertEqual(before,len(self.commands))
 
+    def test_restart_factories_preserve_candidate_gate_before_any_session_or_private_owner_io(self):
+        self.artifact.write_bytes(b'changed original artifact boundary')
+        for method in ('_script_restart_prepare', '_script_restart_adopt', '_script_restart_handoff'):
+            with self.subTest(method=method), self.assertRaises(ValueError):
+                getattr(self.adapter, method)('test-only')
+        self.assertEqual(0, self.sessions); self.assertEqual([], self.commands)
+        self.assertFalse((self.root / 'normal-script-restart.json').exists())
+
     def test_full_candidate_recheck_after_original_operation_blocks_changed_evidence(self):
         self.adapter.describe('test-only')
         self.after_operation=lambda:self.summary.update(changedEvidence=True)

@@ -26,6 +26,9 @@ from self_tests.test_token_script_file_ui import NativeBoundary as FileBoundary
 from adapters import token_script_file_ui as file_module
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
+from adapters.native_script_files import originals
+from self_tests.test_native_script_observation import Boundary as ScriptBoundary, code_source, effect_source
+from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from adapters.token_graphics_ui import TokenGraphicsUI
 from self_tests.test_token_graphics_ui import GraphicsBoundary
 from adapters.token_audio_ui import TokenAudioUI
@@ -87,7 +90,7 @@ class Native:
         return rows
 
     def observed(self):
-        value = dict(schemaVersion=1, instance=self.instance, frameSpace='qt-window-logical', processId=42,
+        value = dict(schemaVersion=1, instance=self.instance, frameSpace='qt-window-logical', processId=self.pid,
             sampleEpochMs=self.epoch(), elapsedMs=int(self.qt.clock * 1000), lastSequence=self.sequence,
             tabletShown=self.qt.opened, ready=True, controls=self.controls(), featureControlsVersion=self.version, fileControlsVersion=self.file_version)
         if self.audio_ui is not None: value['audioControlsVersion'] = self.audio_ui.capture()['audioControlsVersion']
@@ -685,9 +688,102 @@ class IOSNormalScriptsTests(unittest.TestCase):
         with patch.object(component.AppiumAdapter, 'load_targets', return_value={}):
             adapter = binding.create_adapter(SimpleNamespace(platform='ios', action='cleanup'), component.AppiumAdapter)
         for method, arguments in (('_script_runtime', ('private-selector',)),
-                ('_script_file_manager', ('private-selector',)), ('_bound_script_files', ('private-selector', None, None))):
+                ('_script_file_manager', ('private-selector',)), ('_bound_script_files', ('private-selector', None, None)),
+                ('_script_restart_prepare', ('private-selector',)), ('_script_restart_adopt', ('private-selector',)),
+                ('_script_restart_handoff', ('private-selector',))):
             with self.subTest(method=method), self.assertRaisesRegex(ValueError, 'INSTALLED_CODE_BINDING_UNAVAILABLE'):
                 getattr(adapter, method)(*arguments)
+
+    def restart_sources(self):
+        storage, files, manager = self.file_manager()
+        manager.open(); manager.file_picker_open(); manager.file_picker_choose('script-bundle/main.js')
+        source = ScriptBoundary(); source.engine['url'] = storage.root.as_uri() + '/script-bundle/main.js'
+        source.engine['required']['modules'][0]['url'] = storage.root.as_uri() + '/script-bundle/companion.js'
+        clock = NativeFeatureBoundary(); presence = PresenceBoundary(pid=43, epoch_ms=self.native.epoch)
+        presence.presence = 'absent'; state = {'restarted': False, 'replay': False}
+        def metadata(packet):
+            packet.update(processId=self.native.pid, instance=('a' if state['restarted'] else 'd') * 32,
+                requestedEpochMs=self.native.epoch(), capturedEpochMs=self.native.epoch())
+        storage.mutate = metadata
+        def clock_metadata(packet):
+            metadata(packet)
+            packet['animationFence']['requestedEpochMs'] = packet['requestedEpochMs']
+        clock.mutate = clock_metadata
+        def enrich(packet):
+            metadata(packet); code_source(packet, originals('a' * 32)['script-bundle/main.js'].decode())
+            effect_source(packet)
+            row = packet['source']['effects']['entities'][0]
+            row['name'] = 'e2e-' + 'a' * 32 + '-script'; row['userData'] = json.dumps(dict(runId='a' * 32, ticks=2))
+            packet['source'].update(loadSourceVersion=1,
+                loads=dict(complete=True, instance='7' * 32, sequence=0, events=[]))
+            if state['restarted'] and not state['replay']:
+                packet['source']['engines'] = []; packet['source']['effects'].update(scannedEntities=0, entities=[])
+        source.mutate = enrich
+        original_post, original_execute = self.native.post, self.native.execute
+        def post(request, timeout):
+            command = json.loads(request.data)
+            producer = {'feature-native-observe': clock, 'feature-script-observe': source,
+                        'feature-process-presence': presence}.get(command['action'])
+            if producer is None:
+                result = original_post(request, timeout)
+                if command['action'] == 'normal-feature-observe' and state['restarted']:
+                    self.native.diagnostic['instance'] = '9' * 32
+                return result
+            producer.send(command); self.native.fixture.set_client_command(command)
+            self.native.echo = json.dumps(command).encode(); return self.native
+        def execute(session, operation, values):
+            if operation == 'mobile: pullFile':
+                name = values['remotePath'].rsplit('/', 1)[-1]
+                producer = {'feature-native-observation.json': clock,
+                            'feature-script-observation.json': source,
+                            'feature-process-presence.json': presence}.get(name)
+                if producer is not None: return base64.b64encode(producer.original().encode()).decode()
+            return original_execute(session, operation, values)
+        for boundary in (patch.object(feature_observation, 'post_request', side_effect=post),
+                         patch.object(self.native, 'execute', side_effect=execute)):
+            boundary.start(); self.addCleanup(boundary.stop)
+        self.adapter._script_restart_prepare('test-only-selector')
+        state['restarted'] = True; self.native.pid = 43; self.native.instance = str(uuid.uuid4())
+        self.state.update(processIdentity='43', generation=2)
+        self.native.qt.opened = False; self.native.qt.page = 'home'; self.native.qt.rows = []
+        self.native.file_ui.opened = False
+        return storage, source, presence, state
+
+    def test_ios_restart_handoff_preserves_original_files_and_component_scope_using_http_afc_sources(self):
+        storage, source, presence, _state = self.restart_sources()
+        before = list(self.native.qt.inputs)
+        actual = self.adapter._script_restart_adopt('test-only-selector')
+        self.assertEqual('ESRCH', actual['exit']['errorSymbol']); self.assertEqual([], actual['execution']['source']['engines'])
+        self.assertEqual(before, self.native.qt.inputs)
+        current = self.adapter.script_files_store('test-only-selector').read()
+        self.assertEqual('43', current['binding']['processIdentity'])
+        self.assertEqual('NATIVE_UI_COMPONENT_ONLY', current['binding']['scope'])
+        self.assertNotIn('artifactSha256', current['binding'])
+        self.assertIsNone(self.adapter.script_restart_store('test-only-selector').read())
+        self.assertEqual(1, sum(command['operation'] == 'stage' for command in storage.commands))
+        self.assertTrue(presence.commands); self.assertGreater(len(source.commands), 2)
+
+    def test_ios_restart_handoff_unknown_exit_or_retained_execution_cannot_rebind_old_ownership(self):
+        _storage, _source, presence, state = self.restart_sources()
+        presence.presence = 'unknown'
+        with self.assertRaises(RuntimeError): self.adapter._script_restart_adopt('test-only-selector')
+        presence.presence = 'absent'; state['replay'] = True
+        with self.assertRaises(RuntimeError): self.adapter._script_restart_adopt('test-only-selector')
+        self.assertEqual('42', self.adapter.script_files_store('test-only-selector').read()['binding']['processIdentity'])
+        self.assertIsNotNone(self.adapter.script_restart_store('test-only-selector').read())
+
+    def test_ios_restart_handoff_target_replacement_fails_before_new_kernel_or_engine_reads(self):
+        _storage, source, presence, _state = self.restart_sources()
+        before = len(source.commands); self.native.target['appId'] = 'org.example.foreign'
+        with self.assertRaises(RuntimeError): self.adapter._script_restart_adopt('test-only-selector')
+        self.assertEqual(before, len(source.commands)); self.assertEqual([], presence.commands)
+        self.assertIsNotNone(self.adapter.script_restart_store('test-only-selector').read())
+
+    def test_ios_unresolved_restart_intent_prevents_green_cleanup_after_native_session_teardown(self):
+        self.adapter.script_restart_store('test-only-selector').write({'unresolved': True}, None)
+        with self.assertRaises(RuntimeError): self.adapter.cleanup('test-only-selector')
+        self.assertTrue(self.native.deleted)
+        self.assertIsNotNone(self.adapter.script_restart_store('test-only-selector').read())
 
     def test_ios_staged_originals_use_actual_http_afc_and_separate_native_absence(self):
         source, files = self.file_storage()

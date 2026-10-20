@@ -1,5 +1,17 @@
 # iOS feature adapter implementation status
 
+Common journey contract is **v16**. Internal `_script_restart_prepare/adopt`
+connect the [durable handoff v1](../../native/SCRIPT_RESTART_HANDOFF.md) to
+original HTTP/AFC execution/storage/process-presence and UIKit/Qt observations.
+No lifecycle/Script/UI input or restaging occurs. The explicit native component
+scope remains unchanged; physical entrypoints check the selected candidate
+before session/owner I/O and legacy unbound factories refuse before I/O.
+Host cases cover preserved originals/new empty process, unknown exit, retained
+execution, changed target, unresolved cleanup and changed candidate. Full native
+lifecycle orchestration, independent actor/error/cleanup joins and complete
+feature adapters remain missing. Native source is uncompiled, the physical
+source plugin is uninstalled/inactive and devices remain untested.
+
 Current restart-source packet: `_process_presence(selector)` uses the
 [original kernel presence source](../../native/PROCESS_PRESENCE.md), raw guarded
 native scope, exact HTTP/AFC paths and separate native clocks. All **400**

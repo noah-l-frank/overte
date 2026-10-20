@@ -29,6 +29,7 @@ from ios.adapters import native_ui, native_integration, native_primary, native_u
 from adapters.collaboration_observation import actor_receipt, portable_observation
 from adapters.normal_ui import NativeUI
 from adapters.token_script_file_ui import TokenScriptFilePicker
+from adapters.script_restart_handoff import ScriptRestartHandoff
 from ios.adapters.normal_input import NativeInput
 from ios.adapters import normal_navigation
 from ios.adapters import normal_snapshot
@@ -147,6 +148,31 @@ class IOSNativeMixin:
         directory = files.verify()
         return normal_scripts.manager(ui, observe, binding, self.script_store(selector),
             file_owner=files, file_picker=TokenScriptFilePicker(ui.io, directory))
+
+    def script_restart_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('normal-script-restart.json'))
+
+    def _script_restart_handoff(self, selector):
+        return ScriptRestartHandoff(self.script_restart_store(selector), self.script_files_store(selector),
+            self.script_store(selector), component_only=True)
+
+    def _script_restart_prepare(self, selector):
+        manager = self._script_file_manager(selector)
+        native = manager.ui.io.native
+        observer = FeatureObservation(native.client, native.session, native.target, native.observe_process)
+        return self._script_restart_handoff(selector).prepare(manager, observer.script_execution_observer())
+
+    def _script_restart_adopt(self, selector):
+        # Retain the explicit component scope and original installed-source
+        # guards. No manager is reconstructed until both ownership records have
+        # been transferred using actual current empty execution/UI observations.
+        ui, observe, binding = self._script_runtime(selector)
+        native = ui.io.native
+        observer = FeatureObservation(native.client, native.session, native.target, native.observe_process)
+        handoff = self._script_restart_handoff(selector)
+        return handoff.adopt(binding, observer.process_presence(), observer.script_execution_observer(),
+            self._bound_script_files(selector, ui, binding).native, ui, observe,
+            TokenScriptFilePicker(ui.io, handoff.directory()))
 
     def _graphics_controls(self, selector, intent):
         from adapters.token_graphics_ui import TokenGraphicsUI
@@ -307,6 +333,7 @@ class IOSNativeMixin:
         need(not chat_error and not script_error and not private_error and not probe_error and not origin_error and store.read() is None
              and self.chat_capture_store(selector).read() is None
              and self.private_login_input_store(selector).read() is None
+             and self.script_restart_store(selector).read() is None
              and self.script_files_store(selector).read() is None and self.account_probe_store(selector).read() is None
              and self.account_origin_store(selector).read() is None)
         return result
