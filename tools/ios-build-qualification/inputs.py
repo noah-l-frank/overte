@@ -162,6 +162,9 @@ INDEPENDENT_HOST_PATHS = frozenset({
     "tools/ios-build-qualification/fixtures/host-launcher-52f.sh",
     "tools/ios-build-qualification/host-workflow.yml",
     "tools/ios-build-qualification/host.py",
+    # Protected scheduling-only native result reader; application builders and
+    # product launchers neither import nor discover this exact hyphenated leaf.
+    "tools/ios-build-qualification/text-edits.py",
     "tools/repository-checks/android-build-inputs.py",
     "tools/repository-checks/android-host-prepare.sh",
     "tools/repository-checks/android_gate.py",

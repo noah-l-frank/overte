@@ -404,7 +404,9 @@ def main():
                             raise
                         verdict = str(error)
                 report["results"][row["branch"]] = verdict
-                if report["main_advanced"]:
+                # Every write consumes this run's single mutation and may make
+                # other discovered target snapshots stale. Reassess next run.
+                if wrote:
                     break
         report["negative"] = dict(list(report["negative"].items())[-128:])
         report["status"] = "assessed" if not args.apply or write else "app_not_configured_report_only"
