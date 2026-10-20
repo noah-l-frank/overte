@@ -21,7 +21,7 @@ from .scenarios import SCENARIOS
 WITNESS_KEYS = {
  'world-navigation': ['location', 'bookmark', 'bookmarkName', 'searchResults', 'error'],
  'authentication': ['principal', 'dialog', 'error', 'pending', 'protectedAccess', 'delayedGrantOutstanding'],
- 'avatar-people': ['avatar', 'scale', 'wearable', 'bookmarked', 'connection'],
+ 'avatar-people': ['avatar', 'requestedAvatar', 'modelLoaded', 'loadFailed', 'scale', 'wearable', 'bookmarked', 'connection', 'dialog'],
  'create': ['objects', 'editor', 'picker', 'error', 'canRez', 'selection', 'textured', 'voxelValue'],
  'emotes': ['animation', 'sit', 'override', 'poseProgress','restoredBeforeNominalEnd'],
  'world-web': ['surface','text','page','bridgeMessages','bridgeEchoes','attemptedMessages','documentLoads','httpStatus','origin','documentKind','inlineLeases','deferredMessages','error','focused','open'],

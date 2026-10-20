@@ -77,11 +77,6 @@ def payload(resource, run, ticket):
         output = io.BytesIO()
         image.save(output, format='PNG')
         return 'image/png', output.getvalue()
-    if resource == 'wearable.json':
-        return 'application/json', json.dumps(dict(DataVersion=3, Entities=[dict(
-            type='Shape', shape='Cube', name=context(run)['name'] + '-wearable',
-            dimensions=dict(x=0.2, y=0.2, z=0.2), color=dict(red=255, green=128, blue=0),
-            localPosition=dict(x=0, y=0.3, z=0), parentJointIndex=63)])).encode()
     if resource == 'avatar-a.fst' or resource.startswith('mannequin/'):
         try:
             return 'application/octet-stream', pinned_resource(resource)

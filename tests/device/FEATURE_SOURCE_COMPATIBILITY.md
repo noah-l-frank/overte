@@ -6,7 +6,7 @@ has now exposed assumptions in several draft workflows that do not describe the
 actual product UI. Host-model success does not resolve those mismatches. No
 complete area capability may be advertised as implemented on that basis.
 
-The current contract is version 11. Version 2 corrected Scripts to the ordinary
+The current contract is version 12. Version 2 corrected Scripts to the ordinary
 file-bundle picker and actual relative companion execution, with negative
 cases for execution after cancellation, missing companions and frozen ticks.
 Version 3 corrected Audio to its automatic memory-preview cycle.
@@ -31,6 +31,10 @@ versioned before any complete area producer is enabled.
 
 | Area | Actual reviewed source behavior | Draft v1 assumption requiring correction |
 | --- | --- | --- |
+| World/navigation | Places search filters actual directory records locally; named lookup emits not-found only for a real ContentNotFoundError. The draft inherits an open panel and old search results across a process restart. | **Correction pending.** Reopen the actual Places page normally before deleting the persisted bookmark; bind fresh page/search state and real owned place-name lookup failure. A missing serverless URL is not the named lookup 404. |
+| Avatar/people | Avatar app Add Wearable creates a Model from the supplied URL and resolves Hips from actual joint names. Model::setURL deletes old geometry; Avatar::setModelURLFinished may load the bundled fallback while retaining the advertised failed URL. Bookmark restoration waits for onLoadComplete and then restores saved scale/entities. | **Corrected in version 12.** Observe actual geometry, advertised request and current-request failure independently. Use a real glTF Model wearable, not entity JSON or joint 63. Missing-model loading must remove A or show the actual fallback; recover via the ordinary saved bookmark without inventing a dismissible error. Mutual HTTPS connection consent remains a separate real-backend prerequisite. |
+| Assets | AssetServer bakes FBX only, whereas the draft bakes glTF. Add to World requires a real extension, whereas the draft mapping loses it. The normal Delete control is disabled without write permission. | **Correction pending.** Preserve primary extensions and relative bundle paths; use a real bakeable FBX and actual server bake observations. Inspect a disabled control and unchanged mappings instead of inventing permission-error UI. A staging 404 is not a normal picker upload failure. |
+| Lifecycle/input | The draft carries Create text into subsequently opened Chat/Scripts editors and assumes common Back/keyboard outcomes without a reviewed active platform input profile. | **Correction pending.** Bind each actual editor and native keyboard/Back/lifecycle receipt separately before prescribing its text/focus outcome. Retain stale-context and world-input isolation requirements. |
 | Authentication | `PhoneLoginState.h` explicitly keeps the account request alive when its view closes. `LoginDialog` destruction/dismissal and the generic overlay/tablet `tryDestroy` paths remove the view, without cancelling AccountManager. That manager owns its native reply independently. | **Corrected in version 6.** Close/reopen the still-pending request through normal controls, close again, then actually restart before releasing the old valid grant. Require fresh anonymous state in the new process and real delayed issued authority. Independent observations also include actual dialog/error state. Native logout clears local authority; backend fixture cleanup separately revokes retained tokens. Do not inject a functional network-cancel implementation to satisfy the draft. |
 | Audio | `interface/resources/qml/hifi/audio/LoopbackAudio.qml` exposes one Record-and-Play button, automatic three-second in-memory capture/playback and cancellation. `AudioClient::startRecordedVoiceTest`, `finishRecordedVoiceTest` and its native timer own those real phases. | **Common flow corrected in version 3.** It checks automatic capture/play/drain/completion, native phase/history/frame relations, muted rejection and mute/background/cancel behavior, original input PCM and independent acoustic output. OS permission denial/recovery remains in the composed foundation. File recording is a different API; no Save/Preview/Discard control is invented. |
 | Graphics on Phone | `scripts/system/+android_phoneInterface/phoneGraphics.js` restores a safe 0.65 default and accepts resolution 0.5..0.7. Its native settings switches/slider apply and persist immediately. | **Common flow corrected in version 4.** Freeze actual original preferences through independent agreeing observations, use common supported 0.5/0.6 viewport scales and real Haze/Mirrors controls, retain changes across close/restart and restore measured originals. Render-target/pass sources and actual visible controlled fixture joins are still missing; native settings alone cannot satisfy them. |
@@ -44,7 +48,7 @@ Additional source checks remain open, particularly the platform-specific private
 Snapshot capture versus user export/share permission paths (corrected in v9). Create v8 corrects
 the reviewed JSON/model/export mismatch; its full native picker/storage/entity
 observer composition is still missing. Absence is not
-inferred from a single source search. The other seven area drafts still require
+inferred from a single source search. The remaining area drafts still require
 their own final source/input/observer joins and independent actor evidence.
 
 Implemented source packets remain useful and independently reviewable:
@@ -53,7 +57,7 @@ foundation; iOS's explicitly unbound native Script component; and the shared
 native lifecycle, evaluated animation/pose and memory-preview status sources.
 Snapshot v9 now records supported original Save backends, cancellation history,
 system sheets and original external files; see [its source contract](feature_journeys/SNAPSHOT_SOURCE.md).
-They do not complete the fourteen version 11 triples. Required capability gates stay
+They do not complete the fourteen version 12 triples. Required capability gates stay
 closed, original compiler-dependent tests remain excluded from no-build runs,
 and all physical qualification remains unperformed.
 
