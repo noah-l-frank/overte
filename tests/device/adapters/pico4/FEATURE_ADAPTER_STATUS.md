@@ -342,3 +342,13 @@ close. No complete `feature.chat.*` capability is enabled. Actual UI/storage/
 keyboard/peer/publisher/source-contract and whole-run cleanup joins remain
 required. Native source is uncompiled and Pico/device/build/Jenkins runs remain
 unperformed. See [NORMAL_CHAT_CONTROLS.md](../../native/NORMAL_CHAT_CONTROLS.md).
+## Latest passive Chat source continuation
+
+`_chat_view(target)` connects original Chat UI/model/live-settings source v1
+through existing candidate, installed APK, PID/start and session guards. Three
+new host wrapper counterexamples pass: original inventories remain separate,
+ignored/foreign replies fail, changed APK bytes prevent another query. Missing
+VR keyboard measurements explicitly prevent UI projection. Common journey is
+v10. Full Chat composition and complete feature triples remain missing; native
+code is uncompiled and devices untested. See
+[the source and handoff](../../native/CHAT_VIEW_OBSERVATION.md).

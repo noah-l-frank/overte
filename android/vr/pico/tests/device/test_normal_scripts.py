@@ -34,6 +34,8 @@ from self_tests.test_world_render_storage import Boundary as WorldStorageBoundar
 from self_tests.test_owned_world_render import LocalAdb
 from self_tests.test_native_chat_observation import Boundary as ChatBoundary, RUN as CHAT_RUN, SELF as CHAT_SELF, PEER as CHAT_PEER
 from adapters.native_chat_observation import NativeChatObservation, received_texts
+from adapters.native_chat_view import NativeChatView, measured_view
+from self_tests.test_native_chat_view import Boundary as ChatViewBoundary
 from self_tests.test_native_account_probe import Boundary as AccountProbeBoundary, RUN as ACCOUNT_RUN, TICKET as ACCOUNT_TICKET
 from self_tests.test_native_account_origin import Boundary as AccountOriginBoundary, ORIGIN as ACCOUNT_ORIGIN
 from self_tests.test_native_feature_observation import Boundary as NativeFeatureBoundary
@@ -225,6 +227,46 @@ class PicoNormalScriptsTests(unittest.TestCase):
         source,_native,origin=self.account_origin();origin.stage(ACCOUNT_RUN,ACCOUNT_ORIGIN);source.fault='keep-files'
         with self.assertRaises(ValueError):self.cleanup_instance().cleanup(self.native.target)
         self.assertFalse(self.native.running);self.assertTrue(source.path.exists());self.assertIsNotNone(self.instance._account_origin_store(self.native.target).read())
+
+    def chat_view(self):
+        source=ChatViewBoundary();source.source['keyboard']={'available':False}
+        source.mutate=lambda value:value.update(capturedEpochMs=self.native.epoch_milliseconds(self.native.target))
+        original_write=self.native.write_debug_app_file;original_read=self.native.read_debug_app_file
+        def write(target,package,path,raw):
+            request=json.loads(raw)
+            if request['action']!='feature-chat-view-observe':return original_write(target,package,path,raw)
+            self.assertEqual('org.overte.pico',package);self.assertEqual(adapter.ANDROID_CONTROL_COMMAND,path)
+            source.send(request)
+        def read(target,package,path,**kwargs):
+            if path.endswith('/feature-chat-view-observation.json'):
+                self.assertEqual({'attempts':1},kwargs);return source.read()
+            return original_read(target,package,path,**kwargs)
+        active=type(self.instance)._chat_view.__wrapped__.__globals__
+        for boundary in (patch.object(self.native,'write_debug_app_file',side_effect=write),
+                         patch.object(self.native,'read_debug_app_file',side_effect=read),
+                         patch.dict(active,NativeChatView=partial(NativeChatView,
+                             monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.instance._chat_view(self.native.target)
+
+    def test_pico_chat_view_preserves_original_rows_and_cannot_hide_missing_vr_keyboard(self):
+        source,reader=self.chat_view();value=reader.read(CHAT_RUN)
+        self.assertEqual(123,value['processId']);self.assertEqual(2,len(value['source']['ui']['visibleMessages']))
+        self.assertEqual(2,len(value['source']['storage']['events']))
+        with self.assertRaises(RuntimeError):measured_view(value)
+        self.assertEqual([],self.qt.inputs)
+
+    def test_pico_chat_view_ignored_or_foreign_native_source_fails(self):
+        source,reader=self.chat_view();source.ignored=True
+        with self.assertRaises(RuntimeError):reader.read(CHAT_RUN)
+        self.assertEqual(1,len(source.commands));self.assertLessEqual(source.clock,5)
+        source.ignored=False;source.mutate=lambda value:value.update(processId=124)
+        with self.assertRaises(RuntimeError):reader.read(CHAT_RUN)
+
+    def test_pico_chat_view_changed_apk_prevents_another_query(self):
+        source,reader=self.chat_view();reader.read(CHAT_RUN);before=len(source.commands);self.native.digest='f'*64
+        with self.assertRaises(RuntimeError):reader.read(CHAT_RUN)
+        self.assertEqual(before,len(source.commands))
 
     def chat_capture(self):
         source=ChatBoundary();source.store=self.instance._chat_capture_store(self.native.target)
