@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import sys
+import time
 
 
 # Native owner verification compares the complete trusted import inventory.
@@ -181,6 +182,25 @@ def _scheduled_metadata(event):
     helper = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(helper)
     return helper.schedule(event, os.environ, root=ROOT)
+
+
+def _metadata_event_cli(path, event_name):
+    """Retry authenticated scheduling progress only at the bounded CLI edge."""
+    if (os.environ.get('NATIVE_METADATA_INTENT') != 'true'
+            or os.environ.get('NATIVE_METADATA_SCHEDULING') != 'true'):
+        return classify_metadata_event(path, event_name)
+    deadline = time.monotonic() + 180
+    while True:
+        try:
+            result = classify_metadata_event(path, event_name)
+            if time.monotonic() > deadline:
+                raise ValueError('metadata scheduling admission exceeded its bound')
+            return result
+        except ValueError as error:
+            reader = sys.modules.get('producer_api')
+            if reader is None or not isinstance(error, reader.SchedulingPending) or time.monotonic() >= deadline:
+                raise
+            time.sleep(min(2, max(0, deadline - time.monotonic())))
 
 
 def configuration(root: Path = ROOT) -> tuple[dict, dict]:
@@ -936,7 +956,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command == "metadata-event":
-            result = classify_metadata_event(args.event, args.event_name)
+            result = _metadata_event_cli(args.event, args.event_name)
             with args.output.open("a") as output:
                 output.write("metadata_only=" + result["metadata_only"] + "\n")
             print(json.dumps(result, sort_keys=True))
