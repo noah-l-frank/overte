@@ -70,7 +70,13 @@ class ScriptRestartHandoff:
         self.component_only, self.monotonic, self.sleep = component_only, monotonic, sleep
 
     def _read(self):
-        value = self.store.read()
+        return self.validate_snapshot(self.store.read())
+
+    def snapshot(self):
+        return deepcopy(self._read()[0])
+
+    def validate_snapshot(self, value):
+        """Validate an original private transaction without adopting live state."""
         need(type(value) is dict and set(value) == {'handoffVersion', 'componentOnly', 'oldFiles',
              'oldManager', 'oldNative', 'next'} and type(value['handoffVersion']) is int
              and value['handoffVersion'] == VERSION and type(value['componentOnly']) is bool
@@ -111,6 +117,26 @@ class ScriptRestartHandoff:
     def directory(self):
         """Validated frozen input path for a new raw native picker reader."""
         return self._read()[1]
+
+    @staticmethod
+    def _target(value, binding, pid, instance):
+        return dict(binding=deepcopy(binding), nativeInstance=instance, pid=pid,
+            files=value['oldFiles'] | {'binding': deepcopy(binding)},
+            manager=value['oldManager'] | dict(binding=deepcopy(binding), tabletOwned=False,
+                managerOwned=False, dialogOwned=False, pickerOwned=False, source=None,
+                loadAttempted=False, observerInstance=None, afterSequence=0))
+
+    def recover_transferred(self, original, binding, pid, instance):
+        # Recover only a host transaction after its verified binding writes
+        # completed but the caller lost the final receipt. Product files/input
+        # are never recreated. adopt() must repeat all original native proof.
+        need(self.store.read() is None)
+        self.validate_snapshot(original); need(original['next'] is None)
+        target = self._target(original, binding, pid, instance)
+        pending = original | {'next': target}
+        self.validate_snapshot(pending)
+        need(_same(self.files_store.read(), target['files']) and _same(self.manager_store.read(), target['manager']))
+        self.store.write(pending, None)
 
     def prepare(self, manager, execution):
         """Freeze validated existing intent before any normal app-stop input."""
@@ -205,11 +231,7 @@ class ScriptRestartHandoff:
             need(current['capturedEpochMs'] >= first_epoch)
             if now - first >= 3 and current['capturedEpochMs'] - first_epoch >= 3000 and samples >= 2: break
             self.sleep(0.25)
-        target = dict(binding=deepcopy(binding), nativeInstance=current['instance'], pid=current['processId'],
-            files=value['oldFiles'] | {'binding': deepcopy(binding)},
-            manager=value['oldManager'] | dict(binding=deepcopy(binding), tabletOwned=False,
-                managerOwned=False, dialogOwned=False, pickerOwned=False, source=None,
-                loadAttempted=False, observerInstance=None, afterSequence=0))
+        target = self._target(value, binding, current['processId'], current['instance'])
         if value['next'] is None:
             pending = value | {'next': target}
             self.store.write(pending, value); value = pending

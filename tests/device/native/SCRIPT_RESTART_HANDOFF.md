@@ -70,6 +70,14 @@ intent unresolved. Lifecycle input must never be replayed during recovery.
 Ordinary live context equality is unchanged; only this explicit transaction can
 rewrite both bindings.
 
+The [one-send Script controller](RESTART_INPUTS.md) can retain the original
+validated prepared snapshot in its separate private input journal. If the final
+handoff return is lost after both records were transferred and this transaction
+was discarded, `recover_transferred` reconstructs only the host transaction,
+requiring the exact already transferred records and original same new binding,
+PID and birth. `adopt` then repeats all native proof and the full quiet window;
+no product input, fixture byte or native effect is recreated.
+
 After success, construct the ordinary current file owner/manager and perform
 the journey's separate `open`/picker cancel/reimport actions. Retained file
 ownership still needs independent final release/absence. The complete adapter
