@@ -46,6 +46,7 @@ class Journey:
         self.sit_variants = set()
         self.source_profile=None;self.not_applicable=[];self.system_ui=False
         self.snapshot_file_source=None;self.snapshot_digest=None
+        self.browser_transition=None
 
     def now(self):
         value = number(self.monotonic())
@@ -178,6 +179,10 @@ class Journey:
             value = self.observe(ticket, barrier)
             current = self.now()
             okay = matches(value['state'], expected)
+            if self.browser_transition is not None:
+                transition,before=self.browser_transition
+                loads=value['state']['documentLoads']
+                okay=okay and (loads>before if transition=='replace' else loads==before)
             progressing_script = self.area == 'scripts' and bool(expected['running'])
             if progressing_script and initial_effects is not None and value['state']['effects'] < initial_effects:
                 raise AssertionError('Active script effect counter regressed without a new engine')
@@ -198,7 +203,14 @@ class Journey:
                 else:okay=okay and value['lifecycle']==self.required_lifecycle
             witness = None
             if 'peer' in kinds:
-                peer_okay, witness = self.observed_witness(ticket, barrier, projection(self.area, expected))
+                peer_expected=projection(self.area,expected)
+                if self.area in {'world-web','tablet-web'}:
+                    # The range permits backend-internal nonce recovery loads,
+                    # but both independent reads must agree on the actual
+                    # committed-document counter. A forged primary increment
+                    # cannot pass with a still-old secondary document.
+                    peer_expected['documentLoads']=value['state']['documentLoads']
+                peer_okay, witness = self.observed_witness(ticket, barrier, peer_expected)
                 okay = okay and peer_okay
             details, subject = [], None
             if okay:
@@ -262,6 +274,8 @@ class Journey:
                     self.not_applicable.append(dict(index=index+1,verb=step['verb'],sourceProfile=self.source_profile))
                     continue
                 self.system_ui=step.get('systemUi',False)
+                if self.area in {'world-web','tablet-web'}:
+                    self.browser_transition=(step['documentTransition'],self.samples[-1]['state']['documentLoads'])
 
                 if self.area == 'emotes' and step['verb'] == 'sit':
                     # The shipped UI randomizes Sit1/2/3. Request only ordinary
@@ -317,7 +331,8 @@ class Journey:
                 # Negative/cancellation/quiet assertions must remain true for a
                 # full observation window; an early empty sample is insufficient.
                 negative = (any(word in step['verb'] for word in ('cancel', 'denied', 'reject', 'stale', 'foreign', 'stop', 'delete', 'discard'))
-                    or self.area=='chat' and step['verb'] in {'close','peer-send-distant','network-remove-mixer','network-restore-mixer','await-no-replay'})
+                    or self.area=='chat' and step['verb'] in {'close','peer-send-distant','network-remove-mixer','network-restore-mixer','await-no-replay'}
+                    or self.area in {'world-web','tablet-web'} and step['verb'] in {'restore-resource','deliver-retired-inline-message','close'})
                 self.wait(f'{index + 1:02d}-{step["verb"]}', ticket, barrier,
                     expected_step(step), step['evidence'], duration=3.0 if negative else 0.5)
         except BaseException as error:
@@ -330,7 +345,7 @@ class Journey:
                     ticket = secrets.token_hex(16)
                     self.activate(ticket, 'cleanup', {})
                     barrier = number(self.epoch_ms(), 1)
-                    self.required_lifecycle = None;self.system_ui=False
+                    self.required_lifecycle = None;self.system_ui=False;self.browser_transition=None
                     self.call('cleanup')
                     # Idempotence must be real. Two acknowledgments alone cannot
                     # establish removal or restoration of the initial state.

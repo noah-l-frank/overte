@@ -1,4 +1,4 @@
-"""Strict v10 action/read boundary for feature additions to the existing harness."""
+"""Strict v11 action/read boundary for feature additions to the existing harness."""
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 import math
@@ -118,6 +118,27 @@ def state(area, value, run=None):
                 allowed = {item for row in checkpoints for item in row[key]}
                 if any(item not in allowed for item in value[key]):
                     raise ValueError('Product list contains private or unowned values')
+    if area in {'world-web','tablet-web'}:
+        if (min(value[k] for k in ('documentLoads','bridgeMessages','bridgeEchoes','attemptedMessages'))<0
+                or value['inlineLeases'] not in (0,1) or value['deferredMessages'] not in (0,1)
+                or value['bridgeMessages']+value['deferredMessages']>value['attemptedMessages']
+                or value['bridgeEchoes']>value['bridgeMessages']):
+            raise ValueError('Browser original event/lease counters disagree')
+        if value['open']:
+            if value['documentLoads']<1 or value['page']=='none' or value['documentKind']=='none':
+                raise ValueError('Browser has no actual loaded document')
+        elif (value['page']!='none' or value['text'] or value['focused'] or value['documentKind']!='none'
+              or value['origin']!='none' or value['httpStatus'] or value['inlineLeases']):
+            raise ValueError('Closed browser retains an actual document/input/lease')
+        if value['documentKind']=='http':
+            if value['httpStatus'] not in (200,404) or value['origin'] not in ('primary','foreign') or value['inlineLeases']:
+                raise ValueError('Browser HTTP status, original origin and carrier disagree')
+        elif value['documentKind']=='inline':
+            if area!='tablet-web' or value['httpStatus'] or value['origin']!='inline' or value['inlineLeases']!=1:
+                raise ValueError('Inline app has no original native carrier')
+        elif value['documentKind']!='none':raise ValueError('Unknown original browser document kind')
+        if area=='world-web' and value['deferredMessages']:
+            raise ValueError('World browser has an unsupported deferred inline event')
     if area == 'chat':
         if value['open']:
             if value['channel'] not in {'local','domain'}:
