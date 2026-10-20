@@ -1,6 +1,7 @@
 // Copyright 2026 Overte contributors.
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+#include "ScriptManagerStatus.h"
 
 // E2E-only identities/observations for the existing Script file-bundle picker.
 // This helper never calls a file helper, sets a model/selection, loads a script
@@ -112,6 +113,10 @@ inline QString scriptFileControlSource(QQuickItem* item) {
 
 inline void appendScriptFileObservation(QJsonObject& row, QQuickItem* item, const QString& id) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (id == QStringLiteral("scripts.from-file")) {
+        row["manager"] = scriptManagerStatus(item);
+        return;
+    }
     auto root = scriptFileBrowser(item);
     if (!root) { return; }
     if (id.startsWith(QStringLiteral("script-file.row."))) {

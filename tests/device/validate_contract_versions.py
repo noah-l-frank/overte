@@ -41,6 +41,7 @@ REQUIRED = {
     "native-script-code-identity": 1,
     "native-script-load-history": 1,
     "native-process-presence": 1,
+    "native-script-manager-status": 1,
     "normal-script-missing-load": 1,
     "normal-script-file-ownership": 1,
     "script-restart-handoff": 1,
