@@ -1729,6 +1729,71 @@ class AdoptedHistoryTests(unittest.TestCase):
                 self.assertEqual(self.adoption.main(), 0)
                 self.assertEqual(reconcile.call_count, 2)
 
+    def test_child_history_write_stops_stale_rows_and_next_assessment_uses_fresh_target(self):
+        first = dict(self.row, base="apple-ios", pr=1469, branch="fix/ios/first-retained")
+        second = dict(self.row, base="apple-ios", pr=1460, branch="reconcile/ios/second-retained")
+        for verdict in ("integrated", "created_waiting_for_checks", "refreshed_waiting_for_checks"):
+            with self.subTest(verdict=verdict), tempfile.TemporaryDirectory() as directory:
+                report = Path(directory) / "report.json"
+                target = first["base_sha"]
+                next_target = "e" * 40 if verdict == "integrated" else target
+                fresh_second = dict(second, base_sha=next_target)
+                discoveries = [([first, second], {}, "b" * 40), ([fresh_second], {}, "b" * 40)]
+                writes = []
+                fetches = []
+                def fetch(refs):
+                    # Reproduce the real post-merge failure rather than silently
+                    # accepting a stale row from the first discovery snapshot.
+                    if refs["apple-ios"] != target:
+                        raise self.module.CleanupError("adoption_ref_changed_during_fetch")
+                    fetches.append(dict(refs))
+                def reconcile(row, tree, graph, policy):
+                    nonlocal target
+                    writes.append(dict(row))
+                    if len(writes) == 1:
+                        target = next_target
+                        return verdict, False, True  # Child writes never advance main.
+                    self.assertEqual(row, fresh_second)
+                    return "waiting_for_required_checks", False, False
+                with mock.patch.object(sys, "argv", ["adoption.py", "--report", str(report), "--apply"]), \
+                        mock.patch.dict(os.environ, {"ADOPTION_APP_TOKEN":"token", "ADOPTION_APP_SLUG":"overte-test"}, clear=True), \
+                        mock.patch.object(self.adoption, "discover", side_effect=discoveries) as discover, \
+                        mock.patch.object(self.adoption, "load_negative_cache", return_value={}), \
+                        mock.patch.object(self.adoption.Graph, "fetch", side_effect=fetch), \
+                        mock.patch.object(self.adoption.Graph, "proof", return_value=("adopted", "d" * 40)) as proof, \
+                        mock.patch.object(self.adoption.Writer, "reconcile", side_effect=reconcile):
+                    self.assertEqual(self.adoption.main(), 0)
+                    saved = json.loads(report.read_text())
+                    self.assertEqual(saved["status"], "assessed")
+                    self.assertEqual(saved["results"], {first["branch"]: verdict})
+                    self.assertFalse(saved["main_advanced"])
+                    self.assertEqual(fetches, [{first["branch"]:first["sha"], "apple-ios":first["base_sha"]}])
+                    self.assertEqual(proof.call_count, 1)
+                    self.assertEqual(writes, [first])
+                    self.assertEqual(self.adoption.main(), 0)
+                    self.assertEqual(discover.call_count, 2)
+                    self.assertEqual(fetches[-1], {fresh_second["branch"]:fresh_second["sha"], "apple-ios":next_target})
+                    self.assertEqual(json.loads(report.read_text())["results"],
+                                     {second["branch"]:"waiting_for_required_checks"})
+                    self.assertEqual(writes, [first, fresh_second])
+
+    def test_read_only_assessment_still_proves_every_same_target_row(self):
+        rows = [dict(self.row, base="apple-ios", branch=f"fix/ios/source-{number}", pr=number) for number in (1, 2)]
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "report.json"
+            with mock.patch.object(sys, "argv", ["adoption.py", "--report", str(report)]), \
+                    mock.patch.dict(os.environ, {}, clear=True), \
+                    mock.patch.object(self.adoption, "discover", return_value=(rows, {}, "b" * 40)), \
+                    mock.patch.object(self.adoption, "load_negative_cache", return_value={}), \
+                    mock.patch.object(self.adoption.Graph, "fetch") as fetch, \
+                    mock.patch.object(self.adoption.Graph, "proof", return_value=("adopted", "d" * 40)) as proof, \
+                    mock.patch.object(self.adoption.Writer, "reconcile") as reconcile:
+                self.assertEqual(self.adoption.main(), 0)
+                self.assertEqual(fetch.call_count, 2)
+                self.assertEqual(proof.call_count, 2)
+                reconcile.assert_not_called()
+            self.assertEqual(json.loads(report.read_text())["results"], {row["branch"]:"adopted" for row in rows})
+
     def test_independent_readiness_requires_the_latest_check_on_the_exact_head_and_app(self):
         writer = self.adoption.Writer(self.github, ROOT, "token", "overte-test")
         required = [{"context": "repository-checks", "integration_id": 15368}]
