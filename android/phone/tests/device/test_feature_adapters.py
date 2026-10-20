@@ -22,6 +22,7 @@ from self_tests.test_native_feature_observation import Boundary as NativeFeature
 from adapters.native_feature_observation import NativeFeatureObservation
 from self_tests.test_native_web_dom import Boundary as WebDOMBoundary, RUN as WEB_RUN, URL as WEB_URL
 from self_tests.test_pending_commit_owner import Boundary as PendingOwnerBoundary, RUN as INPUT_RUN
+from self_tests.test_native_navigation_replies import Boundary as NavigationReplyBoundary, RUN as LOOKUP_RUN
 from self_tests.test_recorded_preview_evidence import Boundary as PreviewBoundary
 from self_tests.test_recorded_preview_history import complete as completed_voice
 from adapters.recorded_preview_history import measured_state as measured_audio_state
@@ -441,6 +442,39 @@ class FeatureAdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'PHONE_ACCOUNT_ORIGIN_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
             base.assert_called_once()
         self.assertTrue(source.path.exists());self.assertIsNotNone(self.adapter.account_origin_store(SELECTOR).read())
+
+    def navigation_reply_boundaries(self):
+        source=self.preview_boundaries(NavigationReplyBoundary(),'feature-navigation-replies.json')
+        source.edit=lambda value:value.update(processId=31)
+        def read(_device,package,path,**options):
+            self.assertEqual(PACKAGE,package);self.assertEqual('files/overte-e2e/feature-navigation-replies.json',path)
+            self.assertEqual({'attempts':1},options);return source.original()
+        for boundary in (patch.object(self.fixture.adb,'read_debug_app_file',side_effect=read),
+            patch.object(self.fixture.adb,'epoch_milliseconds',side_effect=lambda _device:source.epoch()),
+            patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep))):
+            boundary.start();self.addCleanup(boundary.stop)
+        return source,self.adapter._navigation_replies(SELECTOR)
+
+    def test_phone_navigation_reply_joins_only_original_current_callback_and_fixture_id(self):
+        source,reader=self.navigation_reply_boundaries();self.assertEqual([],reader.read(LOOKUP_RUN)['events'])
+        source.error();joined=source.join(reader)
+        self.assertEqual(source.events[0],joined['native']);self.assertEqual(source.provider()['responses'][0],joined['http'])
+        self.assertFalse(any(c.startswith('feature.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_navigation_reply_ignored_hook_foreign_pid_and_retired_scope_fail(self):
+        source,reader=self.navigation_reply_boundaries();source.ignored=True
+        with self.assertRaises(RuntimeError):reader.read(LOOKUP_RUN)
+        self.assertEqual(1,len(source.commands));source.ignored=False;source.error();source.generation+=1
+        with self.assertRaises(RuntimeError):source.join(reader,barrier=source.epoch())
+        source.edit=lambda value:value.update(processId=32)
+        with self.assertRaises(RuntimeError):reader.read(LOOKUP_RUN)
+
+    def test_phone_navigation_reply_changed_installation_blocks_before_private_read_command(self):
+        source,reader=self.navigation_reply_boundaries();reader.read(LOOKUP_RUN);before=len(source.commands)
+        self.fixture.adb.digest='f'*64
+        with self.assertRaises(RuntimeError):reader.read(LOOKUP_RUN)
+        self.assertEqual(before,len(source.commands))
 
     def pending_owner_boundaries(self, intent=True):
         source=self.preview_boundaries(PendingOwnerBoundary(),'feature-pending-commit-owner.json')

@@ -35,6 +35,7 @@ from adapters.native_account_probe import (NativeAccountProbe, AccountProbeOwner
 from adapters.native_chat_observation import NativeChatObservation, ChatCaptureOwner, OwnedChatCapture, FILE as CHAT_FILE
 from adapters.native_chat_view import NativeChatView, FILE as CHAT_VIEW_FILE
 from adapters.native_web_dom import NativeWebDOMObservation, FILE as WEB_DOM_FILE
+from adapters.native_navigation_replies import NativeNavigationReplies, FILE as NAVIGATION_REPLIES_FILE
 from adapters.pending_commit_owner import NativePendingCommitOwner, FILE as PENDING_OWNER_FILE
 from adapters.native_account_origin import NativeAccountOrigin, OwnedAccountOrigin, FILE as ACCOUNT_ORIGIN_FILE
 from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, AndroidPreviewFiles,
@@ -181,6 +182,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
             lambda: binding.adb.epoch_milliseconds(device), guard,
             int(context['processIdentity'].split(':')[0]))
+
+    def _navigation_replies(self,selector):
+        native=self._native_feature_observer(selector)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativeNavigationReplies(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+NAVIGATION_REPLIES_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _pending_owner(self, selector, intent=None):
         _ui,_observe,context,check,installed=self.normal_feature_runtime(selector)
