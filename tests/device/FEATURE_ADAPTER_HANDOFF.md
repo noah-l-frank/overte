@@ -24,22 +24,27 @@ through its existing private observation. An actual failed load can emit a later
 loaded signal; the full error join must use the actual callback result rather
 than infer success/error from that signal or manager membership. File and
 execution receipt readers use separate native clocks, including the iOS
-HTTP/AFC factories. Full Scripts coordination and restart ownership remain open.
+HTTP/AFC factories. Full Scripts coordination remains open.
 
 The existing Script manager now also has a
 [controlled file-bundle ownership scope](native/SCRIPT_FILE_OWNERSHIP.md): it
 journals actual original file ownership and picker/load intent before normal
 selection, preserves failed cleanup for recovery, and keeps public URL
 foundation contracts unchanged. Internal factories are now connected in all
-three local platform branches; full execution/peer/cleanup coordination and
-verified restart adoption remain pending. No full feature capability is enabled.
+three local platform branches. The [durable restart handoff](native/SCRIPT_RESTART_HANDOFF.md)
+now verifies original old-PID death, a new empty process, unchanged staged bytes
+and closed UI for three seconds before transferring the exact file/manager
+records. Interrupted private writes require repeated original proof; no lifecycle
+or Script input is replayed. Internal prepare/adopt factories are connected on
+all three local branches. Full lifecycle input/execution/actor/error/cleanup
+coordination remains pending. No full feature capability is enabled.
 
 The [passive native process-presence source](native/PROCESS_PRESENCE.md) provides
 an original kernel result for a previously observed PID. Permission/unknown
 results cannot qualify old-process death; Stop ACKs and PID replacement remain
 insufficient. Its host logic and three internal platform factory bindings are
-checked. Native behavior and the complete ownership handoff still need
-implementation/qualification; no full feature capability is enabled.
+checked. Native behavior remains uncompiled/device-unqualified; no full feature
+capability is enabled.
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
