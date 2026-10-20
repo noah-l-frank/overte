@@ -495,6 +495,12 @@ class FixtureState:
             try:account_origin_command(command,ios=True)
             except (ValueError,RuntimeError):raise ValueError("invalid native account origin request") from None
             valid=True
+        elif action == "feature-chat-view-observe":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_chat_view import command as chat_view_command
+            try:chat_view_command(command,ios=True)
+            except (ValueError,RuntimeError):raise ValueError("invalid native Chat view request") from None
+            valid=True
         elif action == "feature-chat-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_chat_observation import command as chat_command

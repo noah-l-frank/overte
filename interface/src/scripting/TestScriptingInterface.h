@@ -19,6 +19,8 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <memory>
 #include <QSet>
+#include <memory>
+namespace overte::e2e { class ChatViewObservation; }
 #include <QUuid>
 namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; }
 #endif
@@ -155,6 +157,7 @@ public slots:
     // existing explicit --testScript/--testResultsLocation launch boundary.
     Q_INVOKABLE QVariantMap featureNativeObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureChatObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureChatViewObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountProbe(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAccountOrigin(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureRecordedVoiceEvidence(const QString& requestId);
@@ -220,6 +223,7 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::FeatureLifecycle* _featureLifecycle {nullptr};
     overte::e2e::AccountOriginLease* _featureAccountOriginLease {nullptr};
+    std::shared_ptr<overte::e2e::ChatViewObservation> _featureChatView;
     QString _featureObservationInstance;
     quint64 _featureObservationSequence {0};
     QString _featurePendingRequest;
