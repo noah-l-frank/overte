@@ -61,6 +61,7 @@
     "graphics-subject": {"current": 2, "reads": [2]},
     "feature-graphics-resources": {"current": 1, "reads": [1]},
     "native-graphics-subject": {"current": 1, "reads": [1]},
+    "phone-graphics-measurements": {"current": 1, "reads": [1]},
     "world-render-acquisition": {"current": 2, "reads": [1, 2]},
     "world-render-trace": {"current": 1, "reads": [1]},
     "world-render-storage": {"current": 1, "reads": [1]},

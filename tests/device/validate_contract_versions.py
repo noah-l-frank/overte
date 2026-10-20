@@ -41,6 +41,7 @@ REQUIRED = {
     "graphics-subject": 2,
     "feature-graphics-resources": 1,
     "native-graphics-subject": 1,
+    "phone-graphics-measurements": 1,
     "native-script-code-identity": 1,
     "native-script-load-history": 1,
     "native-process-presence": 1,
