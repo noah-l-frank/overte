@@ -4,8 +4,9 @@ The existing `NormalScriptManager` has an internal `script-file-bundle` scope.
 It composes the existing original-byte `OwnedScriptFiles`, normal token-bound
 `TokenScriptFilePicker`, service-row observer and ordinary manager/row inputs.
 It is an input/cleanup ownership component, not a second runner, functional
-execution verdict or complete feature capability. Platform factories and full
-Script/restart/peer joins remain to be implemented.
+execution verdict or complete feature capability. Internal factories now exist
+on the three separate local platform branches; full Script/restart/peer joins
+remain to be implemented.
 
 Construction requires the actual file owner and picker objects, already staged
 persistent file intent and exactly matching process/session/candidate or explicit
@@ -70,3 +71,20 @@ observed old process death, actual new process/source identity, current owned
 script/byte observations and durable adoption before cleanup input. The native
 `.owner.v1.json` already survives process death; host context equality must not
 be weakened to bypass the remaining handoff.
+
+Phone `_script_file_manager(selector)` uses original staged bytes plus normal
+Phone manager/file controls and rechecks installed identity on UI/service I/O.
+Pico `_script_file_manager(target)` and iOS `_script_file_manager(selector)`
+reuse the original UI runtime independently of the manager journal's URL/file
+mode, so reconstructing a file owner cannot accidentally construct/adopt a URL
+manager journal. The iOS factories keep separate original native clocks; the
+physical runtime/storage paths retain candidate/source guards and legacy/unbound
+entrypoints explicitly refuse these new factories before I/O. These are internal
+input/ownership components. General cleanup still rejects unresolved file
+intent, and no complete feature capability is enabled.
+
+Platform source checks pass on synthetic native/OS boundaries: Phone 107,
+Pico 55 normal-Scripts plus 21 native-feature cases, iOS 395 no-build cases plus
+ten binding checks. They preserve the selected actual primary path, require
+separate original file absence and retain both intents on process/candidate
+loss. These counts do not qualify product behavior or any device.
