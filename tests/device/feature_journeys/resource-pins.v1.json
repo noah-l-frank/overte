@@ -89,6 +89,10 @@
     "web-source/injected.js": {
       "source": "tests/device/fixture/parity/injected.js",
       "sha256": "8f8cf011d35feb56b4fab6b714413d3bcd8396e98b64923f8c73c2b2e0f4142b"
+    },
+    "asset-stand.fbx": {
+      "source": "interface/resources/serverless/Models/standAngle.fbx",
+      "sha256": "d96889e09f2b5b8c45c1e4a993a00c708d945e02c751b8dd23c3a44f28081001"
     }
   }
 }
