@@ -44,6 +44,7 @@ REQUIRED = {
     "world-render-receipt-cleanup": 1,
     "graphics-subject": 1,
     "native-script-code-identity": 1,
+    "native-script-load-history": 1,
     "emote-source-profile": 1,
     "native-script-file-controls": 1,
     "native-script-fixture-storage": 1,

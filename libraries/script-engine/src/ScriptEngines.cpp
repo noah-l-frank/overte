@@ -492,7 +492,10 @@ QVariantMap ScriptEngines::featureScriptObservation() {
         rows.append(QVariantMap{{"url", it.key().toString()}, {"running", manager->isRunning()},
             {"stopping", manager->isStopping()}, {"finished", manager->isFinished()}, {"required", required}, {"code", code}});
     }
-    return {{"complete", true}, {"engines", rows}, {"sourceIdentityVersion", 1}};
+    const auto loads = ScriptManager::featureLoadHistory();
+    if (loads.isEmpty()) { return {}; }
+    return {{"complete", true}, {"engines", rows}, {"sourceIdentityVersion", 1},
+        {"loadSourceVersion", 1}, {"loads", loads}};
 }
 #endif
 

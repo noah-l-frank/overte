@@ -13,8 +13,16 @@ actual HTTP inputs do not establish that a client consumed them.
 
 The [passive native navigation reply source](native/NAVIGATION_REPLIES.md)
 adds original current RequestTicket/HTTP response-ID provenance and a strict
-fixture-receipt join. Platform factory registration and independent actual
-modal/arrival/UI/storage observations are still missing; native code is uncompiled.
+fixture-receipt join. The three local platform branches now register guarded
+internal factories. Independent actual modal/arrival/UI/storage observations
+and complete Navigation coordination are still missing; native code is uncompiled.
+
+Scripts additionally exposes the [original load-result history](native/SCRIPT_LOAD_HISTORY.md)
+through its existing private observation. An actual failed load can emit a later
+loaded signal; the full error join must use the actual callback result rather
+than infer success/error from that signal or manager membership. File and
+execution receipt readers use separate native clocks, including the iOS
+HTTP/AFC factories. Full Scripts coordination and restart ownership remain open.
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
