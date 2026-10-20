@@ -324,6 +324,31 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_AUTHENTICATION_SOURCE_SCOPE_REQUIRED')
         return PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-'+role+'-'+str(stage)+'-samples.json'))
 
+    def authentication_actions_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-actions.json'))
+
+    def authentication_restart_store(self, selector, stage):
+        require(type(stage) is int and 1<=stage<=3,'PHONE_AUTHENTICATION_RESTART_SCOPE_REQUIRED')
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-restart-'+str(stage)+'.json'))
+
+    def _authentication_actions(self, selector, client, run):
+        from overte_phone_authentication_actions import PhoneAuthenticationActions
+        return PhoneAuthenticationActions(self,selector,client,run)
+
+    def _authentication_restart_stopped(self, selector, old_binding):
+        target=self.target(selector)
+        require(self.snapshot_fingerprint(target)==old_binding['targetFingerprint'],
+                'PHONE_AUTHENTICATION_RESTART_TARGET_CHANGED')
+        installed=self.installed_identity(selector)
+        require(all(installed[key]==old_binding[key] for key in ('sourceRevision','artifactSha256')),
+                'PHONE_AUTHENTICATION_RESTART_INSTALL_CHANGED')
+        client,session,state=self.existing_session(selector)
+        status=self.query_app_state(client,session,target)
+        require(status in (1,2,3,4),'PHONE_AUTHENTICATION_RESTART_OS_STATE_UNAVAILABLE')
+        process=self.process_state(selector,client,session,state,target)
+        running=status>=2 or process.get('running') is True
+        return dict(running=running,identity=process.get('identity') if running else None)
+
     def _account_probe(self, selector, *, read_only=False, role='primary'):
         # Internal observation only; actual private origin provisioning is mandatory.
         _ui, _observe, context, check, _installed = self.normal_feature_runtime(selector,read_only=read_only)
@@ -1023,6 +1048,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(all(self.authentication_samples_store(selector,role,stage).read() is None
                     for role in ('primary','actor') for stage in range(4)),
                 'PHONE_AUTHENTICATION_SOURCE_CLEANUP_INCOMPLETE')
+        require(self.authentication_actions_store(selector).read() is None
+                and all(self.authentication_restart_store(selector,stage).read() is None for stage in range(1,4)),
+                'PHONE_AUTHENTICATION_INPUT_CLEANUP_INCOMPLETE')
         return result
 
     def normal_navigation(self, selector, operation, values):

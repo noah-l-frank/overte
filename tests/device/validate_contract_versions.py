@@ -48,6 +48,8 @@ REQUIRED = {
     "phone-account-fixture-launch": 1,
     "phone-normal-account-menu": 1,
     "phone-authentication-samples": 1,
+    "phone-authentication-causality": 1,
+    "phone-authentication-actions": 1,
     "phone-script-source-lock": 1,
     "phone-script-actions": 1,
     "phone-script-causality": 1,

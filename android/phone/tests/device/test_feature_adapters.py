@@ -750,6 +750,25 @@ class FeatureAdapterTests(unittest.TestCase):
                     base.assert_called_once()
                 self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_authentication_normal_input_or_any_restart_journal(self):
+        stores=[self.adapter.authentication_actions_store(SELECTOR)]+[
+            self.adapter.authentication_restart_store(SELECTOR,stage) for stage in range(1,4)]
+        for store in stores:
+            store.write({'unresolved':True},None)
+            with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+                with self.assertRaisesRegex(ValueError,'PHONE_AUTHENTICATION_INPUT_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+                base.assert_called_once()
+            self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
+    def test_authentication_restart_requires_original_sdk_and_actual_os_absence_without_session_repair(self):
+        self.read_only_boundaries();_ui,_observe,binding,_guard,_installed=self.adapter.normal_feature_runtime(SELECTOR,read_only=True)
+        with patch.object(AppiumAdapter,'ensure_session',side_effect=AssertionError('Unexpected session repair')):
+            self.assertEqual({'running':True,'identity':'31:14'},self.adapter._authentication_restart_stopped(SELECTOR,binding))
+            self.native.running=False
+            self.assertEqual({'running':False,'identity':None},self.adapter._authentication_restart_stopped(SELECTOR,binding))
+        self.fixture.adb.digest='f'*64
+        with self.assertRaises(ValueError):self.adapter._authentication_restart_stopped(SELECTOR,binding)
+
     def test_general_cleanup_attempts_actor_retirement_even_if_primary_probe_retirement_fails(self):
         primary=self.adapter.account_probe_store(SELECTOR);actor=self.adapter.account_probe_store(SELECTOR,role='actor')
         primary.write({'unresolved':'primary'},None);actor.write({'unresolved':'actor'},None)

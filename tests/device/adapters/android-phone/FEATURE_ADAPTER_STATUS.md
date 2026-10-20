@@ -21,6 +21,14 @@ The complete Authentication coordinator, three-restart role histories,
 independent publisher and final run retirement remain in progress. This
 component does not advertise a full Authentication capability.
 
+[Normal Authentication inputs and causality](AUTHENTICATION_INPUTS.md) now
+compose the original Login controls and owned File-menu logout with durable
+one-send intent, fresh native terminal events and three explicit process
+boundaries. Eighteen input and fourteen causality host cases cover normal,
+ignored, uncertain and retained-ownership paths. Complete independent role
+restart histories, publisher and verified whole-run cleanup are still pending;
+this input owner is not a full Authentication capability.
+
 # Phone adapter implementation, local source only
 
 Active implementation scope is **Android Phone only** until all fourteen areas
