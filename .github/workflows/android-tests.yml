@@ -1,16 +1,6 @@
 name: Android tests
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
-    branches: [main, android-main, android-phone, android-vr, android-vr-pico]
-    paths:
-      - "android/**"
-      - "interface/**"
-      - "libraries/**"
-      - "scripts/**"
-      - ".github/workflows/android-tests.yml"
-      - "!**/*.md"
   push:
     branches:
       - android-phone

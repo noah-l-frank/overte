@@ -335,6 +335,9 @@ def load_controller_projection(root):
 
 RETAINED_SOURCE_KIND = 'original-protected-default-source-v1'
 RETAINED_SOURCE_GENERATION = 'protected-producer-original-default-v1'
+RETAINED_SOURCE_GENERATIONS = frozenset({RETAINED_SOURCE_GENERATION,
+    'protected-producer-original-default-boolean-v1',
+    'protected-producer-original-default-required-context-v1'})
 _RETAINED_FIELDS = frozenset({'schema','kind','default_commit','default_tree','commit_object',
     'admission','manifest_digest','projection_digest','binding'})
 _PROJECTION_BINDING = frozenset({'source','run_id','run_attempt','profile','snapshot','git_context',
@@ -691,9 +694,13 @@ def definition_digest(registry):
     expected = tuple(name for name, suite in suites.items()
                      if suite["layer"] == "quick" and name not in _PRODUCT_QUICK)
     _require(expected == SUITES, "trusted quick inventory is not the reviewed CI37 generation")
-    _require(suites.keys() == set(SUITES) | _PRODUCT_QUICK | _HOST_SUITES
+    legacy_inventory = set(SUITES) | _PRODUCT_QUICK | _HOST_SUITES
+    lifecycle_inventory = legacy_inventory | {'native-owner-lifecycle'}
+    _require(suites.keys() in (legacy_inventory, lifecycle_inventory)
              and all(suites[name]["layer"] == "quick" for name in _PRODUCT_QUICK)
-             and all(suites[name]["layer"] == "host" for name in _HOST_SUITES),
+             and all(suites[name]["layer"] == "host" for name in _HOST_SUITES)
+             and ('native-owner-lifecycle' not in suites
+                  or suites['native-owner-lifecycle']['layer'] == 'host'),
              "CI37 requires a complete registry with its separate product owners")
     return _digest({"suites": [{"name": name, "definition": suites[name]} for name in SUITES],
                     "registry_inventory": list(suites),

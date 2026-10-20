@@ -68,6 +68,30 @@ class ProfileFixture(unittest.TestCase):
 
 
 class CIProfileTests(ProfileFixture):
+    def test_lifecycle_host_owner_preserves_exact_legacy_registry_admission(self):
+        self.assertEqual(len(self.registry['suites']), 61)
+        self.assertEqual(self.registry['suites']['native-owner-lifecycle']['layer'], 'host')
+        legacy = deepcopy(self.registry)
+        del legacy['suites']['native-owner-lifecycle']
+        self.assertEqual(len(legacy['suites']), 60)
+        self.assertNotEqual(C.definition_digest(legacy), C.definition_digest(self.registry))
+        self.assertEqual(tuple(n for n, s in self.registry['suites'].items()
+                               if s['layer'] == 'quick' and n not in C._PRODUCT_QUICK), C.SUITES)
+
+    def test_lifecycle_owner_cannot_replace_an_existing_host_or_enter_ci37(self):
+        missing = deepcopy(self.registry)
+        del missing['suites']['safe-landing-lifecycle']
+        with self.assertRaises(C.CIProfileError):
+            C.definition_digest(missing)
+        renamed = deepcopy(self.registry)
+        renamed['suites']['unknown-owner'] = renamed['suites'].pop('native-owner-lifecycle')
+        with self.assertRaises(C.CIProfileError):
+            C.definition_digest(renamed)
+        quick = deepcopy(self.registry)
+        quick['suites']['native-owner-lifecycle']['layer'] = 'quick'
+        with self.assertRaises(C.CIProfileError):
+            C.definition_digest(quick)
+
     def test_exact_source_preparation_returns_only_reviewed_profile_bindings(self):
         result = self.admit()
         self.assertEqual(result, {
@@ -148,7 +172,8 @@ class CIProfileTests(ProfileFixture):
         registry = deepcopy(self.registry)
         definition = registry["suites"].pop("safe-landing-lifecycle")
         registry["suites"]["unknown-host-owner"] = definition
-        self.assertEqual(len(registry["suites"]), 60)
+        self.assertEqual(len(registry["suites"]), 61)
+        self.assertIn('native-owner-lifecycle',registry['suites'])
         with self.assertRaises(C.CIProfileError):
             self.admit(registry=registry)
         registry = deepcopy(self.registry)
@@ -903,7 +928,9 @@ class RetainedOriginalDefaultTests(unittest.TestCase):
         import producer_workflow as W
         from types import SimpleNamespace
         for generation, target, expected in (('protected-producer-seven-target-ci-v1','main',3),
-                (C.RETAINED_SOURCE_GENERATION,'apple-ios',4),(C.RETAINED_SOURCE_GENERATION,'main',4)):
+                (C.RETAINED_SOURCE_GENERATION,'apple-ios',4),(C.RETAINED_SOURCE_GENERATION,'main',4),
+                ('protected-producer-original-default-boolean-v1','apple-ios',4),
+                ('protected-producer-original-default-boolean-v1','main',4)):
             policy=SimpleNamespace(package_policy=lambda:SimpleNamespace(validate_tree_wiring=lambda tree:generation))
             self.assertEqual(W.execution_schema(policy,{},target),expected)
         for generation in ('protected-producer-seven-target-ci-v1','unknown'):
