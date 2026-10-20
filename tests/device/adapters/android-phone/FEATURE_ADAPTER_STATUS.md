@@ -1,5 +1,18 @@
 # Phone adapter implementation, local source only
 
+Active implementation scope is **Android Phone only** until all fourteen areas
+are complete. Pico and iOS work is paused and preserved on their own branches.
+
+Internal `_script_ui_state` now reads the [complete passive manager/picker
+inventory](SCRIPT_UI_INVENTORY.md), including modal carrier suppression, hidden
+retained roots, original tablet visibility and outstanding system requests.
+Unavailable/incomplete/ambiguous sources cannot prove closed UI. The source
+never creates a tablet or sends input. All **130** Phone feature-adapter host
+cases and **15** new shared-reader cases pass. Native source is uncompiled and
+devices remain untested. Full Scripts coordination, independent actor evidence
+and the remaining complete feature triples are still open; no capability is
+promoted by these component checks.
+
 Internal `_script_manager_status` now reads the [original manager display source](../../native/SCRIPT_MANAGER_STATUS.md)
 through the existing private native UI transport. The closed parser admits only
 optional manager metadata on the existing From File carrier, preserves distinct

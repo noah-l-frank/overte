@@ -9,6 +9,7 @@ import uuid
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
 from adapters.token_script_file_ui import file_control, metadata_fields, validate_metadata
+from adapters.script_ui_inventory import validate as validate_inventory
 
 FILE = 'phone-script-file-ui.json'
 
@@ -19,7 +20,8 @@ def nonce(value):
 
 def validate(value, command, pid, epoch):
     exact(value, {'schemaVersion', 'commandId', 'action', 'instance', 'generation', 'sourceSequence',
-        'lastCommandSequence', 'elapsedMs', 'capturedEpochMs', 'processId', 'fileControlsVersion', 'ready', 'controls'})
+        'lastCommandSequence', 'elapsedMs', 'capturedEpochMs', 'processId', 'fileControlsVersion', 'ready', 'controls'}
+        | ({'scriptInventory'} if type(value) is dict and 'scriptInventory' in value else set()))
     need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and value['commandId'] == command and value['action'] == 'observe'
          and nonce(value['instance']) and nonce(value['generation'])
@@ -28,6 +30,7 @@ def validate(value, command, pid, epoch):
          and type(value['fileControlsVersion']) is int and value['fileControlsVersion'] == 1
          and value['ready'] is True and type(value['controls']) is list and len(value['controls']) <= 384)
     fresh(value['capturedEpochMs'], epoch)
+    if 'scriptInventory' in value: validate_inventory(value['scriptInventory'])
     ids, tokens = set(), set()
     for row in value['controls']:
         need(type(row) is dict and file_control(row.get('id')))

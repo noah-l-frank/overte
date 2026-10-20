@@ -1202,6 +1202,45 @@ class FeatureAdapterTests(unittest.TestCase):
         actual['labelText'] = 'new actual label'
         self.assertEqual(actual, self.adapter._script_manager_status(SELECTOR))
 
+    def test_phone_script_inventory_reads_original_picker_and_manager_without_input_carrier(self):
+        from self_tests.test_script_ui_inventory import inventory, picker
+        from self_tests.test_script_manager_status import observed
+        source, _picker = self.file_picker_boundaries()
+        actual = inventory([observed(statusText='original root', labelText='separate display')], [picker()])
+        def measured(packet):
+            packet['controls'] = []
+            packet['scriptInventory'] = deepcopy(actual)
+        source.mutate = measured
+        value = self.adapter._script_ui_state(SELECTOR)
+        self.assertTrue(value['open']); self.assertTrue(value['picker'])
+        self.assertEqual(actual['managers'][0], value['manager'])
+        actual.update(managers=[], pickers=[])
+        self.assertFalse(self.adapter._script_ui_state(SELECTOR)['open'])
+        self.assertEqual([], source.input_requests); self.assertEqual([], self.native.inputs)
+
+    def test_phone_script_inventory_missing_incomplete_or_foreign_is_not_closed_success(self):
+        from self_tests.test_script_ui_inventory import inventory, picker
+        source, _picker = self.file_picker_boundaries()
+        with self.assertRaises(RuntimeError): self.adapter._script_ui_state(SELECTOR)
+        for value in (inventory(complete=False), inventory(pickers=[picker(componentSource='file:///foreign.qml')])):
+            source.mutate = lambda packet: packet.update(scriptInventory=deepcopy(value))
+            with self.subTest(value=value), self.assertRaises(RuntimeError): self.adapter._script_ui_state(SELECTOR)
+        self.assertEqual([], source.input_requests)
+
+    def test_phone_script_inventory_stale_foreign_pid_or_nonce_cannot_prove_closed(self):
+        from self_tests.test_script_ui_inventory import inventory
+        source, _picker = self.file_picker_boundaries()
+        for key, value in (('capturedEpochMs', 1), ('processId', 9999), ('commandId', 'f' * 32)):
+            source.mutate = lambda packet: packet.update(scriptInventory=inventory(), **{key: value})
+            with self.subTest(key=key), self.assertRaises(RuntimeError): self.adapter._script_ui_state(SELECTOR)
+        self.assertEqual([], source.input_requests)
+
+    def test_phone_script_inventory_candidate_replacement_blocks_query_before_send(self):
+        source, _picker = self.file_picker_boundaries(); self.fixture.adb.digest = 'f' * 64
+        with self.assertRaises((ValueError, RuntimeError)): self.adapter._script_ui_state(SELECTOR)
+        self.assertEqual([], source.commands)
+        self.assertEqual([], source.input_requests); self.assertEqual([], self.native.inputs)
+
     def test_phone_manager_status_missing_or_foreign_source_is_not_empty_success(self):
         from self_tests.test_script_manager_status import observed
         source, _picker = self.file_picker_boundaries()

@@ -430,6 +430,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
         from adapters.script_manager_status import manager_status
         return manager_status(self._script_file_io(selector).capture())
 
+    def _script_ui_state(self, selector):
+        from adapters.script_ui_inventory import ui_state
+        return ui_state(self._script_file_io(selector).capture())
+
     def _script_file_io(self, selector):
         native = self._native_feature_observer(selector)
         target = self.target(selector)

@@ -35,32 +35,34 @@ inline bool scriptManagerVisible(QQuickItem* item) {
 }
 // Passive original root and separately bound Label properties. No handler,
 // model mutation, text assignment, preferred error or requested URL is input.
-inline QJsonObject scriptManagerStatus(QQuickItem* item) {
+inline QJsonObject scriptManagerRootStatus(QQuickItem* root) {
     QJsonObject result{{"managerSourceVersion", 1}, {"available", false}};
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    if (!qApp || !item || QThread::currentThread() != qApp->thread() || item->thread() != qApp->thread()
-            || !QCoreApplication::arguments().contains("--testScript") || item->objectName() != "scriptFromFile") { return result; }
-    QQuickItem* root {nullptr}; QQmlContext* original {nullptr}; int depth {0};
-    for (auto parent=item; parent && ++depth<=128; parent=parent->parentItem()) {
-        if (parent->objectName() != "RunningScripts") { continue; }
-        int contexts {0};
-        for (auto context=qmlContext(parent); context && ++contexts<=128; context=context->parentContext()) {
-            const auto url=context->baseUrl();
-            if (context->thread()==item->thread() && context->nameForObject(parent)=="root"
-                    && (url.scheme()=="file" || url.scheme()=="qrc") && url.authority().isEmpty()
-                    && !url.hasQuery() && !url.hasFragment() && url.toString().size()<=4096
-                    && url==PathUtils::qmlUrl(QStringLiteral("hifi/dialogs/TabletRunningScripts.qml"))) {
-                root=parent; original=context; break;
-            }
+    if (!qApp || !root || QThread::currentThread() != qApp->thread() || root->thread() != qApp->thread()
+            || !QCoreApplication::arguments().contains("--testScript") || root->objectName() != "RunningScripts") { return result; }
+    QQmlContext* original {nullptr}; int contexts {0};
+    for (auto context=qmlContext(root); context && ++contexts<=128; context=context->parentContext()) {
+        const auto url=context->baseUrl();
+        if (context->thread()==root->thread() && context->nameForObject(root)=="root"
+                && (url.scheme()=="file" || url.scheme()=="qrc") && url.authority().isEmpty()
+                && !url.hasQuery() && !url.hasFragment() && url.toString().size()<=4096
+                && url==PathUtils::qmlUrl(QStringLiteral("hifi/dialogs/TabletRunningScripts.qml"))) {
+            original=context; break;
         }
-        break;
     }
-    if (!root || !original) { return result; }
+    if (!original) { return result; }
     // The original Label is a direct child of the original manager's layout,
     // not a delegate, popup or matching text elsewhere in the application.
-    auto flow=item->parentItem(); auto layout=flow ? flow->parentItem() : nullptr;
-    if (!layout || layout->parentItem()!=root) { return result; }
-    QQuickItem* label {nullptr}; int count {0};
+    QQuickItem* layout {nullptr}; int count {0};
+    for (auto child:root->childItems()) {
+        if (++count>128 || child->thread()!=root->thread()) { return result; }
+        if (original->nameForObject(child)=="scriptLayout") {
+            if (layout) { return result; }
+            layout=child;
+        }
+    }
+    if (!layout) { return result; }
+    QQuickItem* label {nullptr}; count=0;
     for (auto child:layout->childItems()) {
         if (++count>128 || child->thread()!=root->thread()) { return result; }
         if (original->nameForObject(child)=="scriptStatus") {
@@ -78,8 +80,26 @@ inline QJsonObject scriptManagerStatus(QQuickItem* item) {
     result["rootVisible"]=scriptManagerVisible(root);
     result["labelVisible"]=label->window()==root->window() && scriptManagerVisible(label);
 #else
-    Q_UNUSED(item)
+    Q_UNUSED(root)
 #endif
     return result;
+}
+
+inline QJsonObject scriptManagerStatus(QQuickItem* item) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (qApp && item && QThread::currentThread()==qApp->thread() && item->thread()==qApp->thread()
+            && QCoreApplication::arguments().contains("--testScript") && item->objectName()=="scriptFromFile") {
+        int depth {0};
+        for (auto parent=item->parentItem();parent && ++depth<=128;parent=parent->parentItem()) {
+            if (parent->objectName()!="RunningScripts") { continue; }
+            auto flow=item->parentItem();auto layout=flow ? flow->parentItem() : nullptr;
+            if (layout && layout->parentItem()==parent) { return scriptManagerRootStatus(parent); }
+            break;
+        }
+    }
+#else
+    Q_UNUSED(item)
+#endif
+    return {{"managerSourceVersion",1},{"available",false}};
 }
 } // namespace overte::e2e

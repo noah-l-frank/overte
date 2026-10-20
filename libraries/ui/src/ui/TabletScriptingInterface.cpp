@@ -13,6 +13,7 @@
 #include <algorithm>
 
 #include <QtCore/QThread>
+#include <QtCore/QCoreApplication>
 #include <QtQml/QQmlProperty>
 
 #include <shared/QtHelpers.h>
@@ -211,6 +212,20 @@ TabletProxy* TabletScriptingInterface::getTablet(const QString& tabletId) {
     tabletProxy->setToolbarMode(_toolbarMode);
     return tabletProxy;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap TabletScriptingInterface::featurePhoneTabletState() const {
+    if (!qApp || QThread::currentThread()!=qApp->thread() || thread()!=qApp->thread()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto iter=_tabletProxies.find("com.highfidelity.interface.tablet.system");
+    if (iter==_tabletProxies.end()) { return {{"present",false},{"shown",false}}; }
+    const auto proxy=iter->second;
+    if (!proxy || proxy->thread()!=qApp->thread()) { return {}; }
+    const auto shown=proxy->property("tabletShown");
+    if (shown.userType()!=QMetaType::Bool) { return {}; }
+    return {{"present",true},{"shown",shown.toBool()}};
+}
+#endif
 
 void TabletScriptingInterface::preloadSounds() {
     //preload audio events

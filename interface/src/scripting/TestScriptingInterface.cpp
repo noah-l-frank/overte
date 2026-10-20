@@ -654,6 +654,15 @@ QVariantMap TestScriptingInterface::phoneControlUi(const QVariantMap& command, i
         if (QSet<QString>(keys.begin(), keys.end()) != QSet<QString>{"schemaVersion", "commandId", "action"}) { return {}; }
         auto observed = controls->observe(root, window, audioContext, graphicsContext, loginContext);
         if (observed.isEmpty()) { return {}; }
+        if (surfaceKind==0) {
+            auto inventory=observed.value("scriptInventory").toObject();
+            if (inventory.isEmpty() || !DependencyManager::isSet<TabletScriptingInterface>()) { return {}; }
+            const auto tablet=DependencyManager::get<TabletScriptingInterface>()->featurePhoneTabletState();
+            if (tablet.isEmpty()) { return {}; }
+            inventory["tabletPresent"]=tablet.value("present").toBool();
+            inventory["tabletShown"]=tablet.value("shown").toBool();
+            observed["scriptInventory"]=inventory;
+        }
         if (surfaceKind==3) { observed["privateCommandReaderVersion"]=1; }
         observed["commandId"] = id;
         observed["action"] = action;

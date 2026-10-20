@@ -134,6 +134,10 @@ public:
 
     QObject* getFlags();
     QVariantMap getTouchUiRuntimeMetrics() const { return _touchUiRuntimeMetrics; }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    // Passive E2E lookup. Unlike getTablet(), this cannot create a proxy or UI.
+    QVariantMap featurePhoneTabletState() const;
+#endif
     // Platform-host input only. Keep this out of the scripting API so scripts
     // cannot spoof trusted safe-area or input-capability measurements.
     void setTouchUiRuntimeMetrics(const QVariantMap& metrics);

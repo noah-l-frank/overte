@@ -18,6 +18,9 @@ An observation inner request is exactly `{schemaVersion:1,commandId,action:"obse
 The original response has exactly `schemaVersion`, `commandId`, `action`,
 `instance`, `generation`, `sourceSequence`, `lastCommandSequence`, `elapsedMs`,
 `capturedEpochMs`, `processId`, `fileControlsVersion`, `ready`, `controls`.
+Phone builds may add the strictly versioned passive
+[`scriptInventory`](SCRIPT_UI_INVENTORY.md) extension. Existing picker input
+accepts its absence; complete UI observations require it.
 Instance/generation/control tokens are native 32-hex values; PID and all cursors
 are real native values. A generation changes with the actual Qt root/window.
 Rows have exactly `{id,token,enabled,focused}` plus the closed metadata in

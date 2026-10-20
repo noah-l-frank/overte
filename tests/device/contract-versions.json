@@ -29,6 +29,7 @@
     "native-script-load-history": {"current": 1, "reads": [1]},
     "native-process-presence": {"current": 1, "reads": [1]},
     "native-script-manager-status": {"current": 1, "reads": [1]},
+    "phone-script-ui-inventory": {"current": 1, "reads": [1]},
     "normal-script-missing-load": {"current": 1, "reads": [1]},
     "normal-script-file-ownership": {"current": 1, "reads": [1]},
     "script-restart-handoff": {"current": 1, "reads": [1]},
