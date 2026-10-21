@@ -19,6 +19,10 @@ from adapters.normal_feature_state import context
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _graphics_calibration(self,preferences,source):
+        from ios.adapters.graphics_calibration import IOSGraphicsCalibration
+        return IOSGraphicsCalibration(preferences,source)
+
     def _graphics_lifetime(self,selector,source,role,stage,lock):
         from ios.adapters.graphics_lifetime import IOSGraphicsLifetime
         return IOSGraphicsLifetime(self,selector,source,role,stage,lock)

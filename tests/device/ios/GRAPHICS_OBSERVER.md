@@ -73,7 +73,9 @@ resolution/background differences and strict process replacement. It is wired in
 without input or public samples. The parent must first perform ordinary private
 calibration, restore the original settings and then admit the public baseline.
 Lost captures remain durable and can retire only after a real phase change.
-The complete parent calibration handshake is still pending.
+The [durable calibration coordinator](GRAPHICS_CALIBRATION.md) now retains
+normal one-send calls, the two-role capture barrier and measured restoration.
+Its whole-owner/worker handshake is still pending.
 
 Version-1 archives remain readable without inventing historical current-effect
 proofs. Their accepted native floor is recovered from retained original frames

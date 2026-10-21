@@ -96,6 +96,7 @@ REQUIRED = {
     "ios-graphics-lifetime-record": 1,
     "ios-graphics-background": 1,
     "ios-graphics-restart": 1,
+    "ios-graphics-calibration": 1,
     "ios-graphics-observer": 2,
     "ios-graphics-observer-frame": 1,
     "ios-graphics-observer-phase-retirement": 1,
