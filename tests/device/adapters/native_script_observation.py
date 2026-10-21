@@ -17,6 +17,7 @@ from adapters.native_feature_observation import decode, exact, fresh, integer, n
 from adapters.normal_ui import NativeUIError
 from adapters.native_script_loads import validate as validate_loads
 from adapters.native_script_membership import validate as validate_membership, accept as accept_membership
+from adapters.native_script_compilations import validate as validate_compilations,accept as accept_compilations
 
 FILE = 'feature-script-observation.json'
 LIMIT = 262144
@@ -40,6 +41,7 @@ def validate(value, request, pid, epoch):
     identified = type(source) is dict and 'sourceIdentityVersion' in source
     loads = type(source) is dict and 'loadSourceVersion' in source
     membership = type(source) is dict and 'membershipSourceVersion' in source
+    compiled = type(source) is dict and 'compiledSourceVersion' in source
     fields = {'complete','engines'}
     if extended: fields |= {'effectSourceVersion','effects'}
     if identified:
@@ -53,12 +55,17 @@ def validate(value, request, pid, epoch):
         fields |= {'membershipSourceVersion','membership'}
         need(type(source['membershipSourceVersion']) is int and source['membershipSourceVersion']==1)
         validate_membership(source['membership'],value['capturedEpochMs'])
+    if compiled:
+        fields.add('compiledSourceVersion')
+        need(type(source['compiledSourceVersion']) is int and source['compiledSourceVersion']==1)
     exact(source, fields)
     need(source['complete'] is True and type(source['engines']) is list and len(source['engines']) <= 128)
     identities = set()
     for engine in source['engines']:
-        exact(engine, {'url', 'running', 'stopping', 'finished', 'required'} | ({'code'} if identified else set()))
+        exact(engine, {'url', 'running', 'stopping', 'finished', 'required'} | ({'code'} if identified else set())
+            | ({'compiled'} if compiled else set()))
         if identified: validate_code(engine['code'],value['capturedEpochMs'])
+        if compiled:validate_compilations(engine['compiled'],value['capturedEpochMs'])
         need(text(engine['url'])
              and all(type(engine[key]) is bool for key in ('running', 'stopping', 'finished')))
         required = engine['required']
@@ -195,6 +202,7 @@ class NativeScriptObservation:
         self.effect_rows, self.absent_effects = {}, set()
         self.effects_required = False
         self.code_required = False
+        self.compilations_required = False
         self.loads = None
         self.membership, self.retired_managers = None, set()
         self.captured_epoch = 0
@@ -203,6 +211,8 @@ class NativeScriptObservation:
                             require_load_history=False, require_membership=False):
         """Pure continuity check for an already validated original frame."""
         source = value['source']
+        compiled=source.get('compiledSourceVersion')==1
+        need(not self.compilations_required or compiled)
         member = source.get('membership') if source.get('membershipSourceVersion')==1 else None
         complete_member = member is not None and member['complete']
         need(not (require_membership or self.membership is not None) or complete_member)
@@ -240,6 +250,10 @@ class NativeScriptObservation:
             instance = source['instance']
             need(instance not in self.retired)
             old = self.engines.get(instance)
+            if old is not None and 'compiled' in old:need(compiled)
+            original_compiled=None
+            if compiled:
+                original_compiled=accept_compilations(old.get('compiled') if old else None,engine['compiled'],value['capturedEpochMs'])
             if old is not None:
                 need(old['url'] == engine['url'] and source['sequence'] >= old['sequence'])
                 if old.get('code',{}).get('submitted'):
@@ -257,9 +271,10 @@ class NativeScriptObservation:
                         need(module['sequence'] > old['sequence'])
             engines[instance] = dict(url=engine['url'], sequence=source['sequence'], modules=deepcopy(source['modules']))
             if identified: engines[instance]['code']=deepcopy(engine['code'])
+            if original_compiled is not None:engines[instance]['compiled']=original_compiled
         need(len(set(self.engines) | set(engines)) <= 4096)
         return dict(engines=engines,next_effects=next_effects,absent=absent,identified=identified,
-                    next_loads=next_loads,next_membership=next_membership,retired_managers=retired_managers)
+                    next_loads=next_loads,next_membership=next_membership,retired_managers=retired_managers,compiled=compiled)
 
     def _commit_history(self, value, next_history):
         engines=next_history['engines']
@@ -276,6 +291,7 @@ class NativeScriptObservation:
             self.effect_rows, self.absent_effects = deepcopy(next_effects), absent
             self.effects_required = True
         self.code_required = self.code_required or identified
+        self.compilations_required = self.compilations_required or next_history['compiled']
         if next_loads is not None: self.loads = deepcopy(next_loads)
         self.membership,self.retired_managers=next_membership,retired_managers
         self.instance, self.sequence = value['instance'], value['sequence']
@@ -291,7 +307,7 @@ class NativeScriptObservation:
         need(type(frames) is list and len(frames)<=512 and self.instance is None and self.sequence==0
              and not self.engines and not self.active and not self.retired and self.loads is None
              and self.membership is None and not self.effect_rows and not self.absent_effects
-             and not self.effects_required and not self.code_required and not self.retired_managers
+             and not self.effects_required and not self.code_required and not self.compilations_required and not self.retired_managers
              and self.captured_epoch==0)
         candidate=NativeScriptObservation(self.send,self.original,self.clock_ms,self.guard,self.pid,
             ios=self.ios,monotonic=self.monotonic,sleep=self.sleep)
@@ -305,7 +321,7 @@ class NativeScriptObservation:
                 require_load_history=True,require_membership=True)
             candidate._commit_history(value,next_history)
         for key in ('instance','sequence','engines','active','retired','effect_rows','absent_effects',
-                    'effects_required','code_required','loads','membership','retired_managers','captured_epoch'):
+                    'effects_required','code_required','compilations_required','loads','membership','retired_managers','captured_epoch'):
             setattr(self,key,deepcopy(getattr(candidate,key)))
 
     def read(self, after_sequence, *, require_effects=False, require_code_identity=False, require_load_history=False, require_membership=False):

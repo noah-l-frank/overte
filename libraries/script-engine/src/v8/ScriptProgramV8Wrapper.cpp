@@ -46,7 +46,11 @@ bool ScriptProgramV8Wrapper::compile() {
     v8::TryCatch tryCatch(isolate);
     v8::ScriptOrigin scriptOrigin(v8::String::NewFromUtf8(isolate, _url.toStdString().c_str()).ToLocalChecked());
     v8::Local<v8::Script> script;
-    if (v8::Script::Compile(context, v8::String::NewFromUtf8(isolate, _source.toStdString().c_str()).ToLocalChecked(), &scriptOrigin).ToLocal(&script)) {
+    const auto actualSource=v8::String::NewFromUtf8(isolate,_source.toStdString().c_str()).ToLocalChecked();
+    if (v8::Script::Compile(context, actualSource, &scriptOrigin).ToLocal(&script)) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _engine->featureRecordCompilation(script,actualSource);
+#endif
         qCDebug(scriptengine_v8) << "Script compilation successful: " << _url;
         _compileResult = ScriptSyntaxCheckResultV8Wrapper(ScriptSyntaxCheckResult::Valid);
         _value = V8ScriptProgram(_engine, script);

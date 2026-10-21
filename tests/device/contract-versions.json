@@ -32,6 +32,7 @@
     "native-script-roots": {"current": 1, "reads": [1]},
     "native-script-work": {"current": 1, "reads": [1]},
     "native-script-code-identity": {"current": 1, "reads": [1]},
+    "native-script-compilations": {"current": 1, "reads": [1]},
     "native-script-load-history": {"current": 1, "reads": [1]},
     "native-process-presence": {"current": 1, "reads": [1]},
     "native-script-manager-status": {"current": 1, "reads": [1]},

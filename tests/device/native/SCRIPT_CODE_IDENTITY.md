@@ -5,6 +5,11 @@ ScriptEngine, independently of requested URL, bundled filename or platform.
 It does not prove initialization succeeded, a timer fired, a module executed,
 a pose changed, an installed binary is associated, or a device passed.
 
+The later [original V8 compilation extension](SCRIPT_COMPILATIONS.md) separately
+records actual compiled source bytes and Script IDs, including files evaluated
+through `Script.include` within one shared manager. Top-level submission alone
+does not identify included Emote code or its caller/timer origin.
+
 Immediately before the real `_engine->evaluate(_scriptContents, _fileNameString)`
 call, ScriptManager records exactly that QString's UTF-16 code units in little
 endian order, including unpaired units and BOM/newlines. It hashes those original

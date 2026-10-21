@@ -23,6 +23,12 @@ Current source blocker: normal Phone startup evaluates `phoneEmote.js` through
 standalone-manager Emote selector cannot admit that real path. Original included
 source identity, call provenance and selected-work ownership need extension;
 loading a separate replacement Emote script would not qualify normal startup.
+The [V8 compilation extension](native/SCRIPT_COMPILATIONS.md) now records actual
+compiled bytes/resource names/Script IDs at both application compile boundaries,
+and the original Script reader retains immutable histories. This first part is
+source-implemented and host-tested; included Emote selection, native caller and
+selected-work joins remain open. Integrate its native and reader changes together;
+older readers do not understand the optional new wire fields.
 
 The [original avatar and executed model-draw contracts](native/AVATAR_RENDER_PROVENANCE.md)
 now join loaded SkeletonModel/Geometry identities and actual HFM source hashes to

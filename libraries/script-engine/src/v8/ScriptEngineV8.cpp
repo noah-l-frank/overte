@@ -695,6 +695,30 @@ ScriptValue ScriptEngineV8::evaluateInClosure(const ScriptValue& _closure,
     return result;
 }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void ScriptEngineV8::featureRecordCompilation(v8::Local<v8::Script> script, v8::Local<v8::String> actualCode) {
+    if (!_manager || !QCoreApplication::arguments().contains("--testScript")) { return; }
+    if (QThread::currentThread()!=_manager->thread() || script.IsEmpty() || actualCode.IsEmpty()) {
+        _manager->featureCompiledSource(0,QString(),QString());return;
+    }
+    const auto original=script->GetUnboundScript();
+    const auto resource=original->GetScriptName();
+    if (actualCode->Length()>4194304 || resource.IsEmpty() || !resource->IsString()
+            || resource.As<v8::String>()->Length()>4096) {
+        _manager->featureCompiledSource(0,QString(),QString());return;
+    }
+    // Hash the actual V8 UTF-16 string supplied to Compile, after the existing
+    // UTF-8 conversion. Disk text or a pre-conversion QString cannot stand in.
+    v8::String::Value codeUnits(getIsolate(),actualCode);
+    v8::String::Value nameUnits(getIsolate(),resource);
+    if ((*codeUnits==nullptr && codeUnits.length()!=0) || (*nameUnits==nullptr && nameUnits.length()!=0)) {
+        _manager->featureCompiledSource(0,QString(),QString());return;
+    }
+    _manager->featureCompiledSource(original->GetId(),QString::fromUtf16(*nameUnits,nameUnits.length()),
+        QString::fromUtf16(*codeUnits,codeUnits.length()));
+}
+#endif
+
 ScriptValue ScriptEngineV8::evaluate(const QString& sourceCode, const QString& fileName) {
     if (isEvaluationAborted()) { return ScriptValue(); }
 
@@ -721,9 +745,10 @@ ScriptValue ScriptEngineV8::evaluate(const QString& sourceCode, const QString& f
     v8::Context::Scope contextScope(context);
     v8::ScriptOrigin scriptOrigin(v8::String::NewFromUtf8(getIsolate(), fileName.toStdString().c_str()).ToLocalChecked());
     v8::Local<v8::Script> script;
+    const auto actualSource=v8::String::NewFromUtf8(getIsolate(),sourceCode.toStdString().c_str()).ToLocalChecked();
     {
         v8::TryCatch tryCatch(getIsolate());
-        if (!v8::Script::Compile(context, v8::String::NewFromUtf8(getIsolate(), sourceCode.toStdString().c_str()).ToLocalChecked(), &scriptOrigin).ToLocal(&script)) {
+        if (!v8::Script::Compile(context, actualSource, &scriptOrigin).ToLocal(&script)) {
             if (tryCatch.HasTerminated() || _v8Isolate->IsExecutionTerminating()) {
                 setUncaughtException(tryCatch, "script compilation terminated");
                 _evaluatingCounter--;
@@ -747,6 +772,9 @@ ScriptValue ScriptEngineV8::evaluate(const QString& sourceCode, const QString& f
         }
     }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    featureRecordCompilation(script,actualSource);
+#endif
     v8::Local<v8::Value> result;
     v8::TryCatch tryCatchRun(getIsolate());
     if (!script->Run(context).ToLocal(&result)) {
