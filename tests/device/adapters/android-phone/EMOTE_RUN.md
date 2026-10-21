@@ -1,4 +1,4 @@
-# Phone Emote setup and input run owner, version 1
+# Phone Emote setup and input run owner, version 2
 
 `PhoneEmoteRun` joins the existing View, Scene, per-role Source, normal Input,
 Background, Namespace and Cleanup Input components under the same source lock.
@@ -16,15 +16,16 @@ stored unchanged and cannot be replaced on reconstruction. The constructor does
 not open a foreground-only target source, so reconstructing the run while an
 owned background action is interrupted remains possible.
 
-The private control `phone-emote-run.json` contains exactly `emoteRunVersion:1`,
+The private control `phone-emote-run.json` contains exactly `emoteRunVersion:2`,
 `runId`, `fixtureUrl`, `artifactRoot`, `imageExtent`, `markerRoi`, `payload`. Its
 existing bounded packed payload holds one
 `{phase,binding,segment,baseline,call,cleanupTicket}` state. Binding is the actual
 existing candidate/process/session context. Baseline references an original
 primary frame by revision/hash. Call is an actual normal action or null. Current
 segment retains the existing 0..15 bound. Phases are `preparing`, `prepared`,
-`acting`, `active`, `switching`, `cleaning-inputs`, `inputs-restored`. The latter
-two contain the real cleanup ticket. No phase asserts product rendering or full
+`acting`, `active`, `switching`, `cleaning-inputs`, `inputs-restored`,
+`restoring-resources`, `resources-restored`. All cleanup phases contain the real
+cleanup ticket. No phase asserts product rendering or full
 resource retirement. General Phone cleanup fails while the run control remains.
 
 `prepare()` requires a real baseline. A new run refuses orphaned Emote component
@@ -87,3 +88,40 @@ remain covered separately. Counterexamples include ignored setup/native effects,
 orphaned ownership, wrong phases/configuration/candidate, lost input/parent
 commits, partial and committed namespace transitions and background cleanup
 ordering. They qualify orchestration/test logic only.
+
+
+## Resource cleanup and independent quiet windows, version 2
+
+Version 2 reads unchanged version 1 input-owner records; reconstruction alone
+never rewrites them. The next explicit transition writes version 2. New resource
+phases cannot masquerade as version 1 records.
+
+`cleanup_resources(call)` first runs the real owned input/foreground cleanup,
+then writes restoring-resources before invoking Scene cleanup followed by View
+cleanup. These real components verify Browser/entity drainage and exact original
+camera/zoom/preferences/touch restoration. Missing Scene release blocks View
+restoration; missing View restoration blocks resources-restored. The actual same
+cleanup ticket is checked between child operations. Failed/partial cleanup keeps
+parent and child ownership. Repeated cleanup reobserves actual child restoration
+through their existing idempotent paths. The returned private scene/view headers
+remain owned; they are not deleted or turned into a public success.
+
+`cleanup_quiet(role)` is allowed only after resource restoration and invokes that
+role's own real Lifetime reader. It independently obtains native/UI/configured
+source and actual Script-work originals until the existing three-second quiet
+window completes. Primary and actor keep separate source/work transcripts; one
+role's window cannot replace the other. An actual selected Emote timer, unknown
+work, live callback/evaluation, native override or visible UI blocks completion.
+Known unrelated default-manager work retains its existing scoped semantics.
+The method returns the original role lifetime header and retains its journal.
+Its final fixture and binding checks remain inside the original native/host/
+monotonic freshness window; a slow final check cannot redate a historical quiet
+proof as current. All original timestamps remain unchanged.
+It supplies no credentialed actor publication or whole-retirement acknowledgment.
+
+Parent validation and orchestration tests reuse the actual scoped timer source
+and independent OS/native/UI sources. Explicit setup/resource completion doubles
+still test only child ordering and parent ownership; they do not qualify native
+View/Scene product behavior. Original View/Scene/Lifetime counterexamples remain
+registered separately. All child and original-file metadata is deliberately
+retained until the remaining whole-run transfer/retirement protocol is complete.

@@ -18,7 +18,8 @@ early cancellation uses Crying. See [the motion contract](../../feature_journeys
 The Emote primitives remain unregistered as a complete feature triple.
 The [setup/input run owner](EMOTE_RUN.md) now composes real View/Scene setup,
 ordinary inputs, per-role sources, namespace switching and foreground-first
-input cleanup. The [cleanup input owner](EMOTE_CLEANUP_INPUTS.md) reconciles lost
+input cleanup, Scene/View restoration and independently measured per-role
+three-second native/work quiet windows. The [cleanup input owner](EMOTE_CLEANUP_INPUTS.md) reconciles lost
 Qt/SDK returns without replay and independently proves actual native/UI
 restoration. The [namespace lease v2](EMOTE_NAMESPACE_LEASE.md) retains aborted
 partial freezes and transfers original proof before metadata retirement.

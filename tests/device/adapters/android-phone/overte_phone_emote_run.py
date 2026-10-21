@@ -10,7 +10,7 @@ from copy import deepcopy
 from pathlib import Path
 import time
 
-from adapters.native_feature_observation import exact,integer,need
+from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.native_phone_emote_fixture import input_command
 from adapters.normal_feature_state import PrivateFeatureState,context
 from feature_journeys.contract import arguments
@@ -18,6 +18,7 @@ from feature_journeys.phase_fixture import PhaseFixtureReader
 from overte_phone_emote_background import PhoneEmoteBackground
 from overte_phone_emote_cleanup import PhoneEmoteCleanup
 from overte_phone_emote_inputs import PhoneEmoteInputs
+from overte_phone_emote_lifetime import PhoneEmoteLifetime
 from overte_phone_emote_namespaces import PhoneEmoteNamespaces
 from overte_phone_emote_scene import PhoneEmoteScene
 from overte_phone_emote_sources import PhoneEmoteSources,MAX_SEGMENTS
@@ -25,7 +26,7 @@ from overte_phone_emote_view import PhoneEmoteView
 from overte_phone_script_history import pack,unpack,same
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=1
+VERSION=2
 
 
 class PhoneEmoteRun:
@@ -50,13 +51,15 @@ class PhoneEmoteRun:
 
     def decode(self,value):
         exact(value,{'emoteRunVersion','runId','fixtureUrl','artifactRoot','imageExtent','markerRoi','payload'})
-        need(type(value['emoteRunVersion']) is int and value['emoteRunVersion']==VERSION
+        need(type(value['emoteRunVersion']) is int and value['emoteRunVersion'] in (1,VERSION)
             and value['runId']==self.run and value['fixtureUrl']==self.fixture_url and value['artifactRoot']==str(self.root)
             and same(value['imageExtent'],self.extent) and same(value['markerRoi'],self.marker))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
         exact(state,{'phase','binding','segment','baseline','call','cleanupTicket'})
         context(state['binding']);need(integer(state['segment'],0,MAX_SEGMENTS-1)
-            and state['phase'] in ('preparing','prepared','acting','active','switching','cleaning-inputs','inputs-restored'))
+            and state['phase'] in ('preparing','prepared','acting','active','switching','cleaning-inputs','inputs-restored',
+                'restoring-resources','resources-restored'))
+        if value['emoteRunVersion']==1:need(state['phase'] not in ('restoring-resources','resources-restored'))
         if state['baseline'] is not None:
             exact(state['baseline'],{'revision','sha256'});need(integer(state['baseline']['revision'],1,1024)
                 and type(state['baseline']['sha256']) is str and len(state['baseline']['sha256'])==64
@@ -70,7 +73,7 @@ class PhoneEmoteRun:
         if state['cleanupTicket'] is not None:
             need(type(state['cleanupTicket']) is str and len(state['cleanupTicket'])==32
                 and all(ch in '0123456789abcdef' for ch in state['cleanupTicket']))
-        need((state['cleanupTicket'] is not None)==(state['phase'] in ('cleaning-inputs','inputs-restored')))
+        need((state['cleanupTicket'] is not None)==(state['phase'] in ('cleaning-inputs','inputs-restored','restoring-resources','resources-restored')))
         return deepcopy(state)
 
     def save(self):
@@ -213,3 +216,46 @@ class PhoneEmoteRun:
             lease.begin_cleanup();lease.assert_acquiring()
             owner=PhoneEmoteInputs(source);clean=PhoneEmoteCleanup(owner);clean.cleanup(call,sleep=self.sleep)
             self.state['phase']='inputs-restored';self.save();return deepcopy(clean.previous)
+
+    def cleanup_resources(self,call):
+        """Restore real Scene/View resources after owned input restoration.
+
+        This retains every child journal. No public cleanup, native timer or
+        host-file retirement result is inferred from these input/resource ACKs.
+        """
+        call=deepcopy(arguments('feature.emotes.cleanup',call));need(call['runId']==self.run)
+        self.cleanup_inputs(call)
+        with self.lock.held():
+            self.load();need(self.state is not None and self.state['phase']=='inputs-restored')
+            need(self.active('cleanup')['ticket']==self.state['cleanupTicket'])
+            self.state['phase']='restoring-resources';self.save()
+            view=self.view();scene=self.scene(view)
+            scene.cleanup();need(scene.state['phase']=='released')
+            need(self.active('cleanup')['ticket']==self.state['cleanupTicket'])
+            view.cleanup();need(view.state['phase']=='restored')
+            need(self.active('cleanup')['ticket']==self.state['cleanupTicket'])
+            self.state['phase']='resources-restored';self.save()
+            return dict(scene=deepcopy(scene.previous),view=deepcopy(view.previous))
+
+    def cleanup_quiet(self,role):
+        """This role independently reads the original three-second quiet window.
+
+        Whole retirement must retain these exact records before removing their
+        metadata. Independent publishing still needs its authenticated client.
+        """
+        with self.lock.held():
+            self.load();need(self.state is not None and self.state['phase']=='resources-restored')
+            need(self.active('cleanup')['ticket']==self.state['cleanupTicket'])
+            source=self.source(role);PhoneEmoteNamespaces(source).assert_acquiring()
+            life=PhoneEmoteLifetime(source);life.wait(sleep=self.sleep);need(life.state['phase']=='complete')
+            need(self.active('cleanup')['ticket']==self.state['cleanupTicket'])
+            value=deepcopy(life.previous);last=life.state['records'][-1];frame=life.original(last['source'])
+            native=self.adapter._native_feature_observer(self.selector,read_only=True)
+            need(native.pid==source.pid and native.ios is False and native.guard() is not False and source.guard() is not False)
+            epoch,host,end=native.clock_ms(),self.phase.epoch_ms(),self.monotonic()
+            floor=frame['group']['rootsBefore']['requestedEpochMs'];provider=frame['phaseBefore']['capturedEpochMs']
+            fresh(floor,epoch);need(number(host,1,1e15) and number(end,last['monotonicMs']/1000,1e15))
+            elapsed=end*1000-last['monotonicMs']
+            need(-250<=host-provider<=1500 and max(epoch-floor,last['epochMs']-floor+elapsed)<=1500
+                and last['hostEpochMs']-provider+elapsed<=1500)
+            source.lock.assert_held();return value

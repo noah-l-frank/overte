@@ -23,8 +23,13 @@ from overte_phone_emote_inputs import PhoneEmoteInputs
 from overte_phone_emote_namespaces import PhoneEmoteNamespaces
 from overte_phone_emote_run import PhoneEmoteRun
 from overte_phone_script_history import pack,unpack
-from test_emote_background import Model
+from test_emote_background import Model as BackgroundModel
+from test_emote_lifetime import ScopedModel
 from test_emote_sources import RUN
+
+
+class Model(BackgroundModel,ScopedModel):
+    """Reuse actual independent OS and scoped timer boundary producers."""
 
 
 class EmoteRunTests(unittest.TestCase):
@@ -37,13 +42,21 @@ class EmoteRunTests(unittest.TestCase):
             def prepare():
                 self.assertTrue((m.root/'phone-emote-run.json').exists());self.setup_calls.append('view')
                 boundary.state['phase']='preparing' if self.setup_fault=='view' else 'active'
-            boundary.prepare=prepare;return boundary
+            def cleanup():
+                self.setup_calls.append('view-cleanup')
+                boundary.state['phase']='restoring' if self.setup_fault=='view-cleanup' else 'restored'
+                boundary.previous=dict(viewBoundaryOnly=True,phase=boundary.state['phase'])
+            boundary.prepare=prepare;boundary.cleanup=cleanup;return boundary
         def scene(*args,**kwargs):
             boundary=SimpleNamespace(state=dict(phase='reserved'))
             def prepare():
                 self.assertTrue((m.root/'phone-emote-run.json').exists());self.setup_calls.append('scene')
                 boundary.state['phase']='preparing' if self.setup_fault=='scene' else 'active'
-            boundary.prepare=prepare;return boundary
+            def cleanup():
+                self.setup_calls.append('scene-cleanup')
+                boundary.state['phase']='releasing' if self.setup_fault=='scene-cleanup' else 'released'
+                boundary.previous=dict(sceneBoundaryOnly=True,phase=boundary.state['phase'])
+            boundary.prepare=prepare;boundary.cleanup=cleanup;return boundary
         mocks=[patch('overte_phone_emote_run.PhoneEmoteView',side_effect=view),patch('overte_phone_emote_run.PhoneEmoteScene',side_effect=scene)]
         mocks += [patch(module+'.PhoneScriptUI',side_effect=m.tablet) for module in ('overte_phone_emote_inputs','overte_phone_emote_cleanup')]
         for mock in mocks:mock.start();self.addCleanup(mock.stop)
@@ -210,6 +223,66 @@ class EmoteRunTests(unittest.TestCase):
         m=self.model;m.journal.activate(RUN,'b'*32,'baseline',{});owner=self.owner()
         with self.assertRaises(NativeUIError):owner.prepare()
         self.assertEqual([],self.setup_calls);self.assertIsNone(owner.store.read())
+
+    def test_resource_cleanup_orders_scene_before_view_then_each_role_measures_its_own_quiet_window(self):
+        m=self.model;owner=self.prepared();owner.act(m.call('play',dict(name='Crying')));self.cleanup_phase()
+        proof=owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
+        self.assertEqual(['view','scene','scene-cleanup','view-cleanup'],self.setup_calls)
+        self.assertEqual('resources-restored',owner.state['phase']);self.assertEqual({'scene','view'},set(proof))
+        main=owner.cleanup_quiet('primary');actor=owner.cleanup_quiet('actor')
+        self.assertEqual('primary',main['role']);self.assertEqual('actor',actor['role'])
+        left,right=unpack(main['payload'])[0],unpack(actor['payload'])[0]
+        self.assertGreaterEqual(left['window']['elapsedMs'],3000);self.assertGreaterEqual(right['window']['elapsedMs'],3000)
+        self.assertGreater(right['records'][0]['work']['sequence'],left['records'][-1]['work']['sequence'])
+        self.assertTrue((m.root/'phone-emote-primary-lifetime.json').exists());self.assertTrue((m.root/'phone-emote-actor-lifetime.json').exists())
+        self.assertIsNotNone(owner.store.read());self.assertTrue((m.root/'phone-emote-cleanup-inputs.json').exists())
+
+    def test_scene_incomplete_cleanup_blocks_view_restoration_and_role_quietness(self):
+        m=self.model;owner=self.prepared();owner.act(m.call('open'));self.cleanup_phase();self.setup_fault='scene-cleanup'
+        with self.assertRaises(NativeUIError):owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
+        self.assertNotIn('view-cleanup',self.setup_calls);self.assertEqual('restoring-resources',unpack(owner.store.read()['payload'])[0]['phase'])
+        with self.assertRaises(NativeUIError):owner.cleanup_quiet('primary')
+        self.assertEqual([],m.work_commands)
+
+    def test_view_incomplete_cleanup_blocks_resource_completion_and_role_quietness(self):
+        m=self.model;owner=self.prepared();owner.act(m.call('open'));self.cleanup_phase();self.setup_fault='view-cleanup'
+        with self.assertRaises(NativeUIError):owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
+        with self.assertRaises(NativeUIError):owner.cleanup_quiet('actor')
+        self.assertEqual([],m.work_commands);self.assertIsNotNone(owner.store.read())
+
+    def test_actual_selected_timer_blocks_quiet_completion_after_resource_acknowledgments(self):
+        m=self.model;owner=self.prepared();owner.act(m.call('open'));self.cleanup_phase()
+        owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
+        m.worker.timers.append(dict(handle=8,active=True,singleShot=True,intervalMs=2000,remainingMs=1000,functionScriptId=23))
+        next(row for row in m.worker.activity if row['scriptId']==23)['timerRegistrations']+=1
+        with self.assertRaises(NativeUIError):owner.cleanup_quiet('primary')
+        store=PrivateFeatureState(m.root/'phone-emote-primary-lifetime.json');state=unpack(store.read()['payload'])[0]
+        self.assertEqual('ready',state['phase']);self.assertEqual(32,len(state['records']));self.assertIsNone(state['window'])
+        self.assertIsNotNone(owner.store.read());self.assertTrue(m.worker.timers)
+
+    def test_legacy_input_run_is_read_without_rewrite_and_upgraded_on_resource_cleanup(self):
+        owner=self.prepared();value=owner.store.read();value['emoteRunVersion']=1
+        owner.store.write(value,owner.previous);owner=self.owner();owner.prepare()
+        self.assertEqual(value,owner.store.read());self.cleanup_phase()
+        owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
+        self.assertEqual(2,owner.store.read()['emoteRunVersion']);self.assertEqual('resources-restored',owner.state['phase'])
+
+    def test_legacy_header_cannot_claim_a_new_resource_phase(self):
+        owner=self.prepared();self.cleanup_phase();owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
+        value=owner.store.read();value['emoteRunVersion']=1;owner.store.write(value,owner.previous)
+        with self.assertRaises(NativeUIError):self.owner().cleanup_quiet('primary')
+        self.assertIsNotNone(owner.store.read())
+
+    def test_slow_final_phase_read_cannot_redate_a_valid_quiet_window_as_current(self):
+        m=self.model;owner=self.prepared();self.cleanup_phase();owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
+        active=owner.active;calls=[0]
+        def slow(*args,**kwargs):
+            result=active(*args,**kwargs);calls[0]+=1
+            if calls[0]==2:m.clock+=2
+            return result
+        with patch.object(owner,'active',side_effect=slow),self.assertRaises(NativeUIError):owner.cleanup_quiet('primary')
+        self.assertEqual(2,calls[0]);state=unpack(PrivateFeatureState(m.root/'phone-emote-primary-lifetime.json').read()['payload'])[0]
+        self.assertEqual('complete',state['phase']);self.assertIsNotNone(owner.store.read())
 
 
 if __name__=='__main__':unittest.main()

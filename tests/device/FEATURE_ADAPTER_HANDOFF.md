@@ -16,9 +16,10 @@ here. Pico/iOS adapters are maintained in separate sessions/worktrees; this Phon
 checkout does not establish their current implementation status. No native build or device
 qualification has been performed here.
 
-The [Phone setup/input run owner v1](adapters/android-phone/EMOTE_RUN.md) now
+The [Phone setup/input run owner v2](adapters/android-phone/EMOTE_RUN.md) now
 composes actual setup, ordinary input, per-role sources, bounded namespace
-switches and foreground-first input cleanup. Its input acknowledgments do not
+switches and foreground-first input cleanup. It also orders real Scene/View restoration and obtains each
+role's own three-second native/work quiet window. Its input acknowledgments do not
 supply feature facts or complete cleanup; full admission, observations/actor and
 whole-run retirement still block complete Emote capability registration.
 
