@@ -12,7 +12,7 @@ from adapters.normal_ui import NativeUIError
 from adapters.script_feature.history import pack,unpack
 from feature_journeys.scenarios import VERSION
 from ios.adapters.graphics_preferences import IOSGraphicsPreferences
-from ios.adapters.graphics_restart import IOSGraphicsRestart
+from ios.adapters.graphics_restart import IOSGraphicsRestart,original_reference,original_state
 from ios.adapters.graphics_runtime import IOSGraphicsRuntime
 from ios.adapters.graphics_samples import IOSGraphicsSamples
 from ios.self_tests.test_ios_graphics_samples import SamplesHarness,POLICY
@@ -164,12 +164,46 @@ class RestartTests(RestartHarness,unittest.TestCase):
             restart=self.prepare()
             with patch.object(restart,'apply',side_effect=NativeUIError('Synthetic held CAS proposal')),self.assertRaises(NativeUIError):restart.act(self.call())
             value=deepcopy(restart.previous);state=unpack(value['payload'])[0]
-            proposed=state['proposedPreferences'];preferences=unpack(proposed['payload'])[0]
+            scope=dict(root=restart.root,run=RUN,url=self.client.url,instance=self.client.graphics_instance,key='proposedPreferences')
+            proposed=original_reference(state['proposedPreferences'],**scope);preferences=unpack(proposed['payload'])[0]
             preferences['native']['requestId']='ios-'+'f'*32;preferences['native']['sequence']+=1
             preferences['native']['graphics']['applicationResolutionScale']=.7
-            proposed['payload']=pack([preferences]);value['payload']=pack([state]);restart.store.write(value,restart.previous)
+            proposed['payload']=pack([preferences]);state['proposedPreferences']=original_reference(proposed,write=True,**scope)
+            value['payload']=pack([state]);restart.store.write(value,restart.previous)
             with self.assertRaises(NativeUIError):self.restart()
             self.assertEqual(['app.stop','app.launch'],self.inputs)
+
+
+class RestartOriginalArchiveTests(RestartHarness,unittest.TestCase):
+    def test_v2_header_references_exact_originals_without_raising_global_limits(self):
+        with self.lock.held():
+            controller=self.prepare();controller.prepare(self.call());wire=unpack(controller.previous['payload'])[0]
+            self.assertEqual(2,controller.previous['iosGraphicsRestartVersion'])
+            self.assertEqual(controller.state,original_state(controller.previous,controller.root))
+            self.assertEqual(1,wire['oldPreferences']['iosGraphicsRestartArchiveRefVersion'])
+            self.assertNotIn('payload',wire['oldScene']);self.assertEqual(2,len(wire['oldSamples']))
+            self.assertLess(controller.previous['payload']['bytes'],len(__import__('json').dumps(controller.state)))
+            self.assertEqual([],self.inputs)
+
+    def test_legacy_v1_actual_state_remains_readable_and_resumes_into_v2(self):
+        with self.lock.held():
+            controller=self.prepare();controller.prepare(self.call())
+            legacy={k:deepcopy(v) for k,v in controller.previous.items() if k!='artifactRoot'}
+            legacy.update(iosGraphicsRestartVersion=1,payload=pack([controller.state]))
+            controller.store.write(legacy,controller.previous);recovered=self.restart()
+            self.assertEqual(controller.state,recovered.state);recovered.act(self.call())
+            self.assertEqual(2,recovered.previous['iosGraphicsRestartVersion']);self.assertEqual(['app.stop','app.launch'],self.inputs)
+
+    def test_missing_or_changed_immutable_originals_cannot_authorize_stop(self):
+        with self.lock.held():
+            controller=self.prepare();controller.prepare(self.call());wire=unpack(controller.previous['payload'])[0]
+            ref=wire['oldScene'];path=controller.root/('graphics-restart-original-'+RUN+'-oldScene-'+ref['sha256']+'.json')
+            store=PrivateFeatureState(path);original=store.read();changed=deepcopy(original);changed['runId']='f'*32
+            store.write(changed,original)
+            with self.assertRaises(NativeUIError):self.restart()
+            store.discard(changed)
+            with self.assertRaises(NativeUIError):self.restart()
+            self.assertEqual([],self.inputs)
 
 
 def unpack_scene(value):

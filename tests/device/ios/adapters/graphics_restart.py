@@ -24,7 +24,47 @@ from adapters.script_feature.history import pack,unpack,same
 from adapters.script_feature.lock import ScriptSourceLock
 from ios.adapters.graphics_source import validate as graphics_packet
 
-VERSION=1
+VERSION=2
+READS=(1,2)
+ARCHIVE_VERSION=1
+ARCHIVE_FIELDS=('oldScene','oldPreferences','proposedScene','proposedPreferences','retirement')
+
+
+def original_reference(value,*,root,run,url,instance,key,write=False):
+    """Exact immutable originals outside the bounded mutable restart header."""
+    from adapters.native_clock_join import digest
+    need(key in set(ARCHIVE_FIELDS)|{'oldSamplesPrimary','oldSamplesActor'})
+    if write:
+        row=dict(iosGraphicsRestartArchiveVersion=ARCHIVE_VERSION,runId=run,fixtureUrl=url,providerInstance=instance,key=key,value=deepcopy(value))
+        reference=dict(iosGraphicsRestartArchiveRefVersion=ARCHIVE_VERSION,key=key,sha256=digest(row))
+    else:
+        reference=value;exact(reference,{'iosGraphicsRestartArchiveRefVersion','key','sha256'})
+        need(type(reference['iosGraphicsRestartArchiveRefVersion']) is int and reference['iosGraphicsRestartArchiveRefVersion']==ARCHIVE_VERSION
+             and reference['key']==key and type(reference['sha256']) is str and len(reference['sha256'])==64
+             and all(c in '0123456789abcdef' for c in reference['sha256']))
+    store=PrivateFeatureState(Path(root)/('graphics-restart-original-'+run+'-'+key+'-'+reference['sha256']+'.json'))
+    previous=store.read()
+    if write:
+        if previous is None:store.write(row,None)
+        else:need(same(previous,row))
+    original=store.read();need(original is not None and digest(original)==reference['sha256'])
+    exact(original,{'iosGraphicsRestartArchiveVersion','runId','fixtureUrl','providerInstance','key','value'})
+    need(type(original['iosGraphicsRestartArchiveVersion']) is int and original['iosGraphicsRestartArchiveVersion']==ARCHIVE_VERSION
+         and original['runId']==run and original['fixtureUrl']==url and original['providerInstance']==instance and original['key']==key)
+    return deepcopy(reference if write else original['value'])
+
+
+def original_state(value,root):
+    """Read compatible original state; no SDK, mutation or new observation."""
+    version=value['iosGraphicsRestartVersion'];need(type(version) is int and version in READS)
+    rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
+    if version==1:return state
+    need(value['artifactRoot']==str(root));base=dict(root=root,run=value['runId'],url=value['fixtureUrl'],instance=value['providerInstance'])
+    for key in ARCHIVE_FIELDS:
+        if state[key] is not None:state[key]=original_reference(state[key],key=key,**base)
+    need(type(state['oldSamples']) is list and len(state['oldSamples'])==2)
+    state['oldSamples']=[original_reference(item,key='oldSamples'+role,**base) for item,role in zip(state['oldSamples'],('Primary','Actor'))]
+    return state
 
 
 class IOSGraphicsRestart:
@@ -95,10 +135,10 @@ class IOSGraphicsRestart:
         return scene,preferences
 
     def decode(self,value):
-        exact(value,{'iosGraphicsRestartVersion','runId','fixtureUrl','providerInstance','payload'})
-        need(type(value['iosGraphicsRestartVersion']) is int and value['iosGraphicsRestartVersion']==VERSION and value['runId']==self.run
+        exact(value,{'iosGraphicsRestartVersion','runId','fixtureUrl','providerInstance','payload'}|({'artifactRoot'} if value.get('iosGraphicsRestartVersion')==2 else set()))
+        need(type(value['iosGraphicsRestartVersion']) is int and value['iosGraphicsRestartVersion'] in READS and value['runId']==self.run
             and value['fixtureUrl']==self.client.url and value['providerInstance']==self.client.graphics_instance)
-        rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
+        state=original_state(value,self.root)
         exact(state,{'arguments','phase','oldScene','oldPreferences','oldSamples','oldDrain','receipt','native','subject','loads','proposedScene','proposedPreferences','retirement'})
         call=arguments('feature.graphics.act',state['arguments'])
         need(call['verb']=='restart-app' and call['runId']==self.run and call['fixtureUrl']==self.client.url+'/runs/'+self.run+'/'
@@ -149,8 +189,13 @@ class IOSGraphicsRestart:
         self.last_clock=now
 
     def save(self):
-        self.bound();value=dict(iosGraphicsRestartVersion=VERSION,runId=self.run,fixtureUrl=self.client.url,
-            providerInstance=self.client.graphics_instance,payload=pack([self.state]))
+        self.bound();wire=deepcopy(self.state)
+        scope=dict(root=self.root,run=self.run,url=self.client.url,instance=self.client.graphics_instance,write=True)
+        for key in ARCHIVE_FIELDS:
+            if wire[key] is not None:wire[key]=original_reference(wire[key],key=key,**scope)
+        wire['oldSamples']=[original_reference(item,key='oldSamples'+role,**scope) for item,role in zip(wire['oldSamples'],('Primary','Actor'))]
+        value=dict(iosGraphicsRestartVersion=VERSION,runId=self.run,fixtureUrl=self.client.url,
+            providerInstance=self.client.graphics_instance,artifactRoot=str(self.root),payload=pack([wire]))
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def old_owners(self):

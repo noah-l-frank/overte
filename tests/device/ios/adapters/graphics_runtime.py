@@ -70,12 +70,14 @@ class IOSGraphicsRuntime(IOSScriptRuntime):
         return RestartInputs(self.graphics_restart_inputs_store(selector),self.graphics_restart_owners(selector))
 
     def _graphics_restart_input(self,selector,operation):
-        from ios.adapters.graphics_restart import VERSION
+        from ios.adapters.graphics_restart import READS,original_state
         from feature_journeys.contract import arguments
         need(operation in ('app.stop','app.launch'))
         value=PrivateFeatureState(self.state_path(selector).with_name('ios-graphics-restart.json')).read()
-        need(type(value) is dict and type(value.get('iosGraphicsRestartVersion')) is int and value['iosGraphicsRestartVersion']==VERSION)
-        rows=unpack(value['payload']);need(len(rows)==1);state=rows[0];call=arguments('feature.graphics.act',state['arguments'])
+        need(type(value) is dict and type(value.get('iosGraphicsRestartVersion')) is int and value['iosGraphicsRestartVersion'] in READS)
+        from pathlib import Path
+        root=Path(value['artifactRoot']) if value['iosGraphicsRestartVersion']==2 else self.state_path(selector).parent
+        state=original_state(value,root);call=arguments('feature.graphics.act',state['arguments'])
         need(call['verb']=='restart-app' and call['runId']==value['runId'] and call['fixtureUrl']==value['fixtureUrl']+'/runs/'+value['runId']+'/'
              and state['phase']=='prepared')
         plan=self._graphics_restart_inputs(selector).read()

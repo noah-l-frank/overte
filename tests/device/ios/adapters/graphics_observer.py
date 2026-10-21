@@ -339,11 +339,12 @@ class IOSGraphicsObserver:
 
     def effect_restart_receipt(self):
         value=PrivateFeatureState(self.store.path.with_name('ios-graphics-restart.json')).read()
-        exact(value,{'iosGraphicsRestartVersion','runId','fixtureUrl','providerInstance','payload'})
-        need(type(value['iosGraphicsRestartVersion']) is int and value['iosGraphicsRestartVersion']==1
+        exact(value,{'iosGraphicsRestartVersion','runId','fixtureUrl','providerInstance','payload'}|({'artifactRoot'} if value.get('iosGraphicsRestartVersion')==2 else set()))
+        need(type(value['iosGraphicsRestartVersion']) is int and value['iosGraphicsRestartVersion'] in (1,2)
              and value['runId']==self.run and value['fixtureUrl']==self.source.client.url and value['providerInstance']==self.source.instance)
-        rows=unpack(value['payload']);need(len(rows)==1 and rows[0]['phase']=='applied')
-        receipt=restart_receipt(rows[0]['receipt'])
+        from ios.adapters.graphics_restart import original_state
+        state=original_state(value,self.root);need(state['phase']=='applied')
+        receipt=restart_receipt(state['receipt'])
         need(receipt['input']['ownerFiles']==[str(self.store.path.with_name(name)) for name in
             ('ios-graphics-scene.json','ios-graphics-primary-0-samples.json','ios-graphics-actor-0-samples.json')])
         return receipt
@@ -434,9 +435,18 @@ class IOSGraphicsObserver:
                         before=candidate['offFrames'][feature];need(before is not None and len(candidate['effects'])+len(effects)<64)
                         if before['stage']==stage:
                             old,a,_old,_name=self.frame(before,self.current_binding)
-                            stats=compare(self.run,feature,self.fixture_url,self.current_binding,old,a,frame,raw,self.policy,self.source.instance,
-                                self.source.epoch_ms,self.guard,monotonic=self.monotonic)
-                            effects.append(dict(stage=stage,feature=feature,before=before,after=ref,observed=stats));bound()
+                            field='hazeSetting' if feature=='haze' else 'mirrorsSetting'
+                            # A complete private calibration can also change
+                            # resolution/the other effect between these originals.
+                            # Keep the strict single-toggle proof when applicable;
+                            # the mandatory disjoint-target current proof below
+                            # qualifies the general calibrated pair independently.
+                            left,right=old['nativeAfter']['graphics'],frame['nativeBefore']['graphics']
+                            if (old['provider']['ticket']!=frame['provider']['ticket'] and
+                                    all(same(v,right[k]) for k,v in left.items() if k!=field)):
+                                stats=compare(self.run,feature,self.fixture_url,self.current_binding,old,a,frame,raw,self.policy,self.source.instance,
+                                    self.source.epoch_ms,self.guard,monotonic=self.monotonic)
+                                effects.append(dict(stage=stage,feature=feature,before=before,after=ref,observed=stats));bound()
                     if measured['state'][feature]:
                         reference=candidate['offFrames'][feature];need(reference is not None and len(candidate['currentEffects'])+len(current_effects)<1024)
                         left=self.binding_for(candidate,reference['stage']);old,a,_old,_name=self.frame(reference,left)

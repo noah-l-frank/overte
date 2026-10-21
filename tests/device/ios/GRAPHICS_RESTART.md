@@ -59,3 +59,29 @@ Tests use real temporary ownership/image files and loopback scene responses,
 actual existing iOS HTTP/AFC UI framing and synthetic native/OS/kernel/candidate
 SDK boundaries. They do not establish native compilation, physical process
 behavior, GPU timing or device qualification. Graphics remains partial.
+
+
+## Bounded v2 restart header and exact original archives
+
+Whole-journey composition exposed a real header-size failure: the proposed
+scene/preferences nested several already compressed original snapshots, so
+recompressing the wrapper could exceed the existing 48-KiB packed limit. Version
+2 stores those exact originals in separate private immutable files beneath the
+original artifact root and retains typed SHA-256 references in the mutable header.
+Both old role sample indexes have separate original files. No source packet,
+clock, history, image or source binding is truncated or recreated.
+
+Reference readers verify the actual file hash, exact run/fixture/provider/key
+header and existing semantic restart/scene/preference/native proofs. The
+runtime resolves originals before authorizing ordinary stop/launch. Missing,
+changed or foreign copies fail before input. The original global packed/file
+limits remain unchanged. Version 1 actual headers remain readable; subsequent
+writes emit v2. Original archive files remain private diagnostic evidence after
+runtime metadata retirement.
+
+Fifteen existing selected restart/barrier cases passed with the v2 producer;
+four further focused cases pass for compact headers, v1 resume, missing/changed
+original files and a modified native proposal with a valid replacement archive
+hash. The unchanged full Graphics journey is still being integrated and has
+not yet passed end to end. These are host logic results over synthetic iOS
+boundaries; compilation and devices remain unverified.
