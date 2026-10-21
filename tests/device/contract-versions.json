@@ -59,6 +59,7 @@
     "native-script-membership": {"current": 1, "reads": [1]},
     "native-script-fixture-location": {"current": 1, "reads": [1]},
     "ios-login-ui-source": {"current": 1, "reads": [1]},
+    "ios-graphics-ui-source": {"current": 1, "reads": [1]},
     "native-account-preferences": {"current": 2, "reads": [1, 2]},
     "native-account-menu-controls": {"current": 1, "reads": [1]},
     "ios-script-ui-source": {"current": 1, "reads": [1]},

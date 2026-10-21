@@ -60,6 +60,7 @@ REQUIRED = {
     "native-script-membership": 1,
     "native-script-fixture-location": 1,
     "ios-login-ui-source": 1,
+    "ios-graphics-ui-source": 1,
     "native-account-preferences": 2,
     "native-account-preference-controls": 1,
     "native-ios-login-clear-input": 1,

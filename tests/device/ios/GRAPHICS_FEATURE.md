@@ -36,6 +36,17 @@ are unchanged. Fixture geometry is stimulus, never measured product evidence.
 The `graphics-subject` and `native-graphics-subject` registry entries describe
 these two distinct versioned contracts.
 
+`graphics_source.py` also projects the actual generic immediate Graphics
+controls from a new original iOS receipt. It retains actual native window and
+transport UUIDs, source/input/elapsed cursors, unmodified clocks and the complete
+original receipt. A projection cannot change metadata or claim a Phone source.
+`IOSGraphicsRuntime` constructs this reader and the subject query exclusively
+through the existing canonical candidate/session/native-clock factory. The
+existing `IOSGraphicsIO` and `TokenGraphicsUI` still deliver ordinary UIKit/Qt
+pointer, scrollbar and on-grid slider input. Read-only acquisition refuses all
+mutations. Actual window-generation changes remain in the original records;
+individual input recipes must pin the context after opening the tablet.
+
 ## Remaining whole-journey work
 
 The iOS Graphics coordinator must still compose normal generic Graphics/Go To/
@@ -64,3 +75,8 @@ queries and no command replay. Node runs the existing probe implementation;
 native/SDK packets are synthetic. No compiler, app, device or laboratory is
 executed. Further whole-journey and integration results belong here as the
 implementation progresses.
+
+Eighteen further source/input host tests cover original iOS Graphics receipt
+projection, generic-source admission, read-only input refusal, altered/stale/
+foreign originals, and the existing meaningful scroll/slider/ignored-input
+counterexamples. These do not yet exercise the full iOS Graphics journey.
