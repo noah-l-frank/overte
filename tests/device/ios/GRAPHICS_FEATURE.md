@@ -125,6 +125,32 @@ geometry, decode the current challenge, and compare meaningful haze/mirror
 pixels. Acquiring a well-formed PNG alone does not complete that proof or the
 whole Graphics journey.
 
+`graphics_measurements.py` now joins original native settings/subjects/UI,
+two separately fence-completed frames and their actual retained-consumer drain,
+unmodified screen bytes, actual UIKit safe-area/density geometry and a complete
+host/native clock fence. The screen is bound to a bounded observed frame
+interval; it is never falsely identified as one exact GPU image. Actual native
+allocation ratios supply render scale. The current 128-bit challenge must decode
+inside the marker entity's projected original geometry, separately from a
+nonuniform subject region. Provider/socket clocks are compared only to host
+acquisition clocks, never to skewed native epochs. Readiness uses the actual
+prior original scene response and seven owned native entity IDs.
+
+`graphics_effects.py` compares actual haze-board blue dominance and mirror orange
+reflection pixels in geometry-derived interior regions, excluding the entire
+challenge card. Original settings determine measured change direction. Changed
+challenge pixels, flags or issued draws alone cannot satisfy this proof. Pure
+subject alignment/projection helpers derive from the frozen Phone commit;
+iOS geometry, PNG ownership, source intervals and clocks are independent.
+
+These joins remain internal components. In particular, the source-level iOS
+tablet is an overlay on the native screen: screenshot qualification must not
+assume that a Graphics dialog leaves the challenge and subject visible. The
+whole open-dialog journey still needs a suitable original world-target pixel
+source for the actual Vulkan path, or independently established unobscured
+native-screen regions. A tablet-covered screenshot must fail; closing or hiding
+the panel inside a supposedly read-only observation would falsify its state.
+
 ## Local verification
 
 Fifty-eight selected no-build host tests passed for original subject parsing,
@@ -163,3 +189,10 @@ late or missing results, changed process, original SHA/inode preservation,
 foreign-file cleanup refusal, stale/rotating geometry, and real closed HTTP/AFC
 framing at a synthetic SDK boundary. Screen pixels and native receipts are
 synthetic; there is no physical rendering or device qualification.
+
+Ten further no-build measurement/effect cases pass. Native/SDK originals and
+their pixels are synthetic. Positives measure scale, host/native separation,
+blue haze, orange reflection and disabling direction. Counterexamples retain
+valid native frames while rejecting a changed marker alone, wrong subject color,
+stale/blank/foreign pixels, held consumers, one-frame substitutions, CPU draw
+opcodes, changed process/camera/geometry/lifecycle and elapsed acquisition.
