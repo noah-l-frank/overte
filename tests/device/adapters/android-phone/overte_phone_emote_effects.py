@@ -8,7 +8,7 @@ whole-feature cleanup verdict. It advertises no complete feature capability.
 from copy import deepcopy
 import hashlib
 
-from adapters.emote_rig_measurements import playback,restoration,continuation,source as source_group
+from adapters.emote_rig_measurements import playback,replacement,restoration,continuation,source as source_group
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.token_emote_ui import snapshot
 from feature_journeys.phase_fixture import validate as phase_packet
@@ -119,7 +119,8 @@ class PhoneEmoteEffects:
         intents=[item for item in row['intents'] if item['kind']=='qt' and item['input']['controlId'].startswith('emote.play.')]
         need(len(intents)==1);intent=intents[0]
         before=self.original(intent['barrier'])
-        proof=playback(frame['group'],before['group']['native'],pid=self.source.pid,epoch=frame['epochMs'])
+        reader=replacement if row['call']['verb']=='override' else playback
+        proof=reader(frame['group'],before['group']['native'],pid=self.source.pid,epoch=frame['epochMs'])
         measured=proof['state']['animation']
         # The normal input and the measured loaded resource must agree. The
         # returned name/variant/progress still comes solely from native effects.

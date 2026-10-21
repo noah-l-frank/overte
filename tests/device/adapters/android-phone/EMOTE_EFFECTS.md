@@ -52,11 +52,16 @@ changed-joint fraction and current active/idle state come from Rig measurement
 v2 and original VM caller provenance. Requested names only check causality;
 they never supply returned measurements. A completed short clip remains idle.
 
+`override` also requires the original barrier's actual loaded Sit and a selected
+early old restore before the new generation. A new play from idle or a missing
+old stop cannot substitute, even with a valid new moving clip and image.
+
 For `wait-complete`, no product input exists in the original row. Actual selected
 native restore and later evaluated idle pose must follow the latest owned play.
 Cancellation additionally joins the original active pre-input barrier to a new
 selected restore invocation and execution. Native range/rate/time determine the
-250 ms early-restoration condition; a delayed automatic restore after an ignored
+250 ms early-restoration condition on both original Script invocation and native
+execution intervals. A delayed automatic restore after an ignored
 cancel reports false and cannot satisfy the final common early-cancel assertion.
 
 An independently verified idle Sit-discovery reset has no new active-to-inactive

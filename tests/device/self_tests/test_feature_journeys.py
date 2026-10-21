@@ -216,6 +216,7 @@ class Boundary:
                 s.update(animation='Sit',override=True,sit='Sit1' if self.fault=='sit-variant-stuck' else 'Sit'+str((self.sit_count-1)%3+1),poseProgress=.5)
                 self.emote_started=self.clock;self.emote_restored=self.emote_due=None;self.emote_final=False
             elif verb == 'override':
+                self.emote_replaced=s['sit'] if s['animation']=='Sit' else s['animation']
                 s.update(animation=data['name'],override=True,sit='none')
                 self.emote_started=self.clock;self.emote_restored=None;self.emote_due=self.clock+2;self.emote_final=True
             elif verb == 'cancel' and not (self.fault=='late-natural-cancel' and self.emote_final):
@@ -476,16 +477,19 @@ class Boundary:
     def motion(self):
         """Independent synthetic native boundary; never read checkpoint values."""
         from feature_journeys.emote_motion import packet
-        from test_emote_rig_measurements import IncludedRigPackets
+        from test_emote_rig_measurements import IncludedRigPackets,ReplacementRigPackets
         name=self.state['sit'] if self.state['animation']=='Sit' else self.state['animation']
-        model=IncludedRigPackets(name)
-        before=model.group(model.native(18800,baseline=True))
-        after=model.group(model.native(20000,active=True))
+        if self.verb=='override':
+            model=ReplacementRigPackets(self.emote_replaced);before,after=model.replacing(name);start=20000
+        else:
+            model=IncludedRigPackets(name)
+            before=model.group(model.native(18800,baseline=True))
+            after=model.group(model.native(20000,active=True));start=18800
         # One changed and one unchanged native joint produce measured .5.
         unchanged=[0.,0.,0.,1.,0.,0.,0.]
         for group in (before,after):group['native']['animation']['joints'].append(unchanged.copy())
         import math
-        shift=math.ceil(self.emote_input_epoch)-18800
+        shift=math.ceil(self.emote_input_epoch)-start
         def rebase(value):
             if type(value) is dict:
                 return {key:item+shift if key.endswith('EpochMs') and type(item) in (int,float)
@@ -554,7 +558,7 @@ class Boundary:
                 out=io.BytesIO(); image.save(out, format='PNG'); content=out.getvalue()
             self.last_image = content
             values = {'image': content}
-            if self.area=='emotes' and self.verb in ('play','sit','override') and self.state['override']:
+            if self.area=='emotes' and self.verb in ('play','sit','override') and self.state['override'] and not self.ignored:
                 values['file']=self.motion()
             elif self.area == 'audio':
                 source = self.recorded_ticket if state['phase'] == 'completed' else self.ticket
@@ -1193,6 +1197,19 @@ class FeatureJourneys(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError,'expired during original evidence I/O'):boundary.execute()
         self.assertFalse(boundary.reports[0]['sequenceCompleted'])
         self.assertTrue(boundary.reports[0]['cleanupSucceeded'])
+
+    def test_emote_new_cue_without_actual_old_sit_restore_fails_despite_matching_state_image_and_peer(self):
+        boundary=Boundary('emotes');motion=boundary.motion
+        def omitted_restore():
+            raw=motion()
+            if boundary.verb=='override':
+                value=json.loads(raw);history=value['after']['group']['native']['animation']['history']
+                history['events'].pop(1);history['events'][-1]['eventSequence']=2;history['callSequence']=2
+                return json.dumps(value).encode()
+            return raw
+        boundary.motion=omitted_restore
+        with self.assertRaisesRegex(AssertionError,'Original native Emote motion evidence is invalid'):boundary.execute()
+        self.assertFalse(boundary.reports[0]['sequenceCompleted']);self.assertTrue(boundary.reports[0]['cleanupSucceeded'])
 
     def test_emote_forged_early_restore_disagrees_with_independent_actual_timing(self):
         boundary=Boundary('emotes','late-natural-cancel');boundary.forge_restore_timing=True

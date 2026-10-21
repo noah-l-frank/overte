@@ -9,7 +9,7 @@ from adapters.normal_ui import NativeUIError
 from feature_journeys import emote_motion as motion
 from feature_journeys.scenarios import VERSION
 from feature_journeys.witness import Journal
-from test_emote_rig_measurements import IncludedRigPackets, RigPackets
+from test_emote_rig_measurements import IncludedRigPackets, RigPackets, ReplacementRigPackets
 from test_native_animation_source import source_for_clip
 
 
@@ -77,6 +77,29 @@ class EmoteMotionTests(unittest.TestCase):
         original=deepcopy(value);result=self.measure(value)
         self.assertEqual(3,result['nativeSamples']);self.assertEqual(600,result['nativeSpanMs'])
         self.assertEqual(4,result['firstFrameSequence']);self.assertEqual(original,value)
+
+    def test_override_requires_actual_active_sit_history_and_genuine_old_stop(self):
+        before,after=ReplacementRigPackets('Sit2').replacing();self.host=18800
+        journal=Journal(lambda:self.host);run=journal.register('emotes');journal.activate(run,'1'*32,'sit',{})
+        self.host=20000;journal.activate(run,'2'*32,'override',dict(name='Crying'))
+        call=dict(contractVersion=VERSION,runId=run,verb='override',inputs=dict(name='Crying'),ticket='2'*32,
+            fixtureUrl='http://controlled.test/feature-fixture/v1/runs/'+run+'/')
+        def part(group,epoch,a,b):
+            self.host=epoch
+            return dict(group=group,epochMs=epoch,hostEpochMs=epoch,
+                phaseBefore=journal.phase(run,a*32),phaseAfter=journal.phase(run,b*32))
+        value=dict(emoteMotionVersion=1,role='primary',call=call,
+            before=part(before,20000,'3','4'),after=part(after,20800,'5','6'))
+        self.assertEqual('Crying',self.measure(value)['state']['animation'])
+        changed=deepcopy(value)
+        for frame in (changed['before'],changed['after']):
+            for key in ('phaseBefore','phaseAfter'):
+                frame[key]['activations'][0]['stimulus']=dict(verb='open',inputs={})
+        with self.assertRaises((ValueError,NativeUIError)):self.measure(changed)
+        ordinary=self.fixture(name='Crying');ordinary['call'].update(verb='override')
+        for frame in (ordinary['before'],ordinary['after']):
+            for key in ('phaseBefore','phaseAfter'):frame[key]['activations'][-1]['stimulus']['verb']='override'
+        with self.assertRaises((ValueError,NativeUIError)):self.measure(ordinary)
 
     def test_too_few_native_samples_or_insufficient_span_does_not_borrow_rpc_stability(self):
         for times in ((19075,19300),(19075,19150,19225)):

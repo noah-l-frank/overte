@@ -7,7 +7,7 @@ import sys
 import unittest
 import uuid
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from adapters.emote_rig_measurements import playback,restoration
+from adapters.emote_rig_measurements import playback,replacement,restoration
 from adapters.normal_ui import NativeUIError
 from test_native_feature_observation import Boundary as Features
 from test_native_script_roots import RootBoundary
@@ -17,7 +17,7 @@ from test_native_animation_source import source_for_clip
 
 class RigPackets:
     def __init__(self,name='Waving',*,root=None):
-        self.epoch=20000;self.sequence=0;self.name=name;self.frames=[];self.restored_at=None
+        self.epoch=20000;self.sequence=0;self.name=name;self.frames=[];self.restored_at=None;self.event_epoch=19000
         self.roots=RootBoundary()
         if root is not None:self.roots.root=root
         self.root_reader=self.roots.reader()
@@ -43,16 +43,17 @@ class RigPackets:
         value=dict(frameSequence=sequence,overrideSequence=1 if sequence>1 else 0,evaluationSequence=evaluation,
             capturedEpochMs=epoch,overrideActive=active,joints=[dict(index=0,pose=[0.,0.,0.,1.,position,.2,.3])])
         if active:
-            value['clip']=dict(self.request,requestedUrl=self.url,frame=(epoch-19000)*.06,loadedFrames=120,
+            value['clip']=dict(self.request,requestedUrl=self.url,frame=(epoch-self.event_epoch)*.06,loadedFrames=120,
                 evaluatedEpochMs=epoch,evaluationSequence=sequence)
         return value
     def native(self,epoch,*,active=False,baseline=False,restore_epoch=None):
         self.sequence+=1
         frames=[self.frame(1,18800,10,False,position=.1)];events=[]
         if not baseline:
-            events=[dict(eventSequence=1,kind='override',overrideSequence=1,capturedEpochMs=19000,request=deepcopy(self.request),caller=self.caller('override',19000))]
-            frames += [self.frame(2,19200,20,True,position=.2),self.frame(3,19500,30,True,position=.3),
-                self.frame(4,20000,50,True,position=.4)]
+            events=[dict(eventSequence=1,kind='override',overrideSequence=1,capturedEpochMs=self.event_epoch,
+                request=deepcopy(self.request),caller=self.caller('override',self.event_epoch))]
+            frames += [self.frame(2,self.event_epoch+200,20,True,position=.2),self.frame(3,self.event_epoch+500,30,True,position=.3),
+                self.frame(4,self.event_epoch+1000,50,True,position=.4)]
             # Continue the producer's original timeline, including frames from
             # a real earlier input-barrier acquisition. Never retime that prefix.
             if len(self.frames)>4:frames=deepcopy(self.frames)
@@ -100,6 +101,70 @@ class IncludedRigPackets(RigPackets):
         value=super().frame(*args,**kwargs)
         if 'clip' in value:value['clip'].update(animationSourceVersion=1,assetSource=source_for_clip(value['clip']))
         return value
+
+
+class ReplacementRigPackets(IncludedRigPackets):
+    """One synthetic two-generation boundary, not product playback or timing."""
+    def replacing(self,new_name='Crying'):
+        before=self.group(self.native(20000,active=True));current=self.native(20800,active=True)
+        old=deepcopy(before['native']['animation']['history']['events'][0])
+        url=self.roots.root+'/system/assets/animations/'+new_name+'.fbx'
+        request=dict(self.request,url=url)
+        restored=dict(eventSequence=2,kind='restore',overrideSequence=1,capturedEpochMs=20100,caller=self.caller('restore',20100))
+        caller=self.caller('override',20120);caller['sequence']=3
+        event=dict(eventSequence=3,kind='override',overrideSequence=2,capturedEpochMs=20120,request=request,caller=caller)
+        frames=deepcopy(before['native']['animation']['history']['frames'])
+        for index,epoch in enumerate((20200,20500,20800),5):
+            frame=dict(frameSequence=index,overrideSequence=2,evaluationSequence=(index+1)*10,capturedEpochMs=epoch,
+                overrideActive=True,joints=[dict(index=0,pose=[0.,0.,0.,1.,index/10,.2,.3])])
+            frame['clip']=dict(request,requestedUrl=url,frame=(epoch-20120)*.06,loadedFrames=120,
+                evaluatedEpochMs=epoch,evaluationSequence=index)
+            frame['clip'].update(animationSourceVersion=1,assetSource=source_for_clip(frame['clip'],consumed=20120))
+            frames.append(frame)
+        last=frames[-1];animation=current['animation']
+        animation.update(evaluationSequence=last['evaluationSequence'],joints=[row['pose'] for row in last['joints']],
+            clip=deepcopy(last['clip']))
+        animation['history'].update(callSequence=3,overrideSequence=2,frameSequence=7,events=[old,restored,event],frames=frames)
+        current['animationFence']['sequence']=last['evaluationSequence']-1
+        return before,self.group(current)
+
+
+class EmoteReplacementTests(unittest.TestCase):
+    def test_actual_active_sit_is_restored_early_before_new_loaded_moving_playback(self):
+        before,group=ReplacementRigPackets('Sit2').replacing();original=deepcopy((before,group))
+        value=replacement(group,before['native'],pid=31,epoch=20800)
+        self.assertEqual('Crying',value['state']['animation']);self.assertTrue(value['state']['override'])
+        self.assertEqual([5,6,7],value['frameSequences']);self.assertEqual(original,(before,group))
+
+    def test_a_new_play_from_idle_cannot_substitute_for_replacing_an_active_sit(self):
+        model=IncludedRigPackets('Crying');barrier,group,_played=model.playing()
+        with self.assertRaises(NativeUIError):replacement(group,barrier,pid=31,epoch=20000)
+
+    def test_replacing_another_emote_cannot_substitute_for_the_observed_sit_flow(self):
+        before,group=ReplacementRigPackets('Waving').replacing()
+        with self.assertRaises(NativeUIError):replacement(group,before['native'],pid=31,epoch=20800)
+
+    def test_missing_old_restore_is_rejected_even_when_new_playback_is_valid(self):
+        before,group=ReplacementRigPackets('Sit2').replacing();history=group['native']['animation']['history']
+        history['events'].pop(1);history['events'][-1]['eventSequence']=2;history['callSequence']=2
+        self.assertTrue(playback(group,before['native'],pid=31,epoch=20800)['state']['override'])
+        with self.assertRaises(NativeUIError):replacement(group,before['native'],pid=31,epoch=20800)
+
+    def test_natural_old_restore_with_queue_delay_is_not_a_genuine_early_override(self):
+        before,group=ReplacementRigPackets('Sit2').replacing()
+        before['native']['animation']['history']['events'][0]['caller']['invokedEpochMs']=18000
+        group['native']['animation']['history']['events'][0]['caller']['invokedEpochMs']=18000
+        group['native']['animation']['history']['events'][1]['caller']['invokedEpochMs']=20000
+        self.assertTrue(playback(group,before['native'],pid=31,epoch=20800)['state']['override'])
+        with self.assertRaises(NativeUIError):replacement(group,before['native'],pid=31,epoch=20800)
+
+    def test_foreign_old_restore_or_wrong_consumed_old_asset_cannot_borrow_new_success(self):
+        for fault in ('restore-caller','old-bytes','old-request','same-clip'):
+            before,group=ReplacementRigPackets('Sit2').replacing('Sit2' if fault=='same-clip' else 'Crying')
+            if fault=='restore-caller':group['native']['animation']['history']['events'][1]['caller']['compilation']['scriptId']+=1
+            elif fault=='old-bytes':before['native']['animation']['clip']['assetSource']['model']['sha256']='9'*64
+            elif fault=='old-request':before['native']['animation']['clip']['lastFrame']=119.
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):replacement(group,before['native'],pid=31,epoch=20800)
 
 
 class EmoteRigTests(unittest.TestCase):
@@ -232,6 +297,31 @@ class EmoteRigTests(unittest.TestCase):
     def test_delayed_natural_completion_never_becomes_early_restoration(self):
         model=RigPackets();_barrier,_group,played=model.playing()
         value=restoration(model.group(model.native(22010,restore_epoch=22000)),played,pid=31,epoch=22010)
+        self.assertFalse(value['state']['restoredBeforeNominalEnd'])
+
+    def test_queued_native_override_cannot_turn_a_natural_timer_into_an_early_cancel(self):
+        model=IncludedRigPackets();model.event_epoch=19600;caller=model.caller
+        def original(kind,epoch):
+            value=caller(kind,epoch);value['invokedEpochMs']=19000 if kind=='override' else 21000
+            return value
+        model.caller=original;barrier=model.native(18800,baseline=True)
+        group=model.group(model.native(20600,active=True));played=playback(group,barrier,pid=31,epoch=20600)
+        cancel_barrier=model.native(20900,active=True)
+        current=model.group(model.native(21020,restore_epoch=21010))
+        value=restoration(current,played,pid=31,epoch=21020,native_barrier=cancel_barrier)
+        self.assertLess(21010-19600,1750) # Native queue time alone would falsely qualify.
+        self.assertEqual(2000,value['restore']['caller']['invokedEpochMs']-played['event']['caller']['invokedEpochMs'])
+        self.assertFalse(value['state']['restoredBeforeNominalEnd'])
+
+    def test_early_script_call_with_late_actual_native_restoration_is_not_early_success(self):
+        model=IncludedRigPackets();caller=model.caller
+        def original(kind,epoch):
+            value=caller(kind,epoch)
+            if kind=='restore':value['invokedEpochMs']=20150
+            return value
+        model.caller=original;_barrier,_group,played=model.playing();cancel_barrier=model.native(20100,active=True)
+        value=restoration(model.group(model.native(21110,restore_epoch=21100)),played,
+            pid=31,epoch=21110,native_barrier=cancel_barrier)
         self.assertFalse(value['state']['restoredBeforeNominalEnd'])
     def test_a_completed_short_clip_can_prove_playback_without_pretending_it_is_still_active(self):
         model=RigPackets();barrier=model.native(18800,baseline=True)

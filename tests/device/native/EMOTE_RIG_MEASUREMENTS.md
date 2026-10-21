@@ -79,11 +79,27 @@ Unseen dropped calls cannot be silently adopted.
 An optional pre-input native barrier must itself observe that override active.
 The new restore must follow both its native time and call cursor. A restore that
 already happened before an attempted cancel cannot prove cancel. Early restore
-is derived only from original request range/rate and actual restore time, using
-the existing 250 ms margin. Natural completion cannot be relabeled as early.
+is derived only from original request range/rate and original invocation and
+execution times, using the existing 250 ms margin. Both the actual Script-call
+interval and native Rig-event interval must end before that margin. Queuing an
+override late must not make its natural timer appear to be an early user abort;
+an early Script call with late actual native restoration also cannot succeed.
+Natural completion cannot be relabeled as early.
 The returned exact restoration proof retains `emoteRigVersion`, `kind`, `group`,
 the recomputed `played` proof, the optional original `barrier`, measured `state`,
 original `restore` and original `inactiveFrameSequences`.
+
+`replacement(group, native_barrier, pid=..., epoch=...)` additionally verifies
+the ordinary final override flow. The native pre-input barrier must observe an
+actually loaded active Sit1/2/3 from the selected source. A new selected native
+restore must follow that barrier, precede the new override, and genuinely end
+the old Sit early under both original time intervals above. The new override
+must have a new generation, different actual loaded URL, advancing frames and
+moving poses. An instantaneous stop/start need not render an intermediate idle
+frame. The returned playback proof keeps its v2 wire shape; original groups
+retain every old/new event needed to recompute these checks. A play from idle,
+replacement of another gesture, missing/foreign old restore, natural delayed
+old restore or wrong consumed old data fails.
 
 ## Required owning adapter composition
 

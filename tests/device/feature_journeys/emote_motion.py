@@ -9,7 +9,7 @@ neither the required original image nor the independent observer's facts.
 from copy import deepcopy
 import json
 
-from adapters.emote_rig_measurements import playback, source
+from adapters.emote_rig_measurements import playback, replacement, source
 from adapters.native_animation_history import moving_pose
 from adapters.native_feature_observation import exact, integer, need, number
 from adapters.normal_ui import NativeUIError
@@ -92,7 +92,11 @@ def measure(value, *, call, role, epoch):
     need('compilation' in selected)
     prior, _native, _urls = source(before['group'], pid, before['epochMs'])
     need(typed_equal(prior, selected))
-    proof = playback(after['group'], before['group']['native'], pid=pid, epoch=after['epochMs'])
+    reader = replacement if call['verb'] == 'override' else playback
+    proof = reader(after['group'], before['group']['native'], pid=pid, epoch=after['epochMs'])
+    if call['verb'] == 'override':
+        activations = before['phaseBefore']['activations']
+        need(len(activations) >= 2 and activations[-2]['stimulus'] == dict(verb='sit', inputs={}))
     state = proof['state']; need(state['override'] is True)
     name = urls[proof['event']['request']['url']]
     chosen = 'Sit' if call['verb'] == 'sit' else call['inputs']['name']

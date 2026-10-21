@@ -42,6 +42,13 @@ current active playback, the measured selected clip matching the normal input,
 advancing capture/evaluation/clip cursors. At least two adjacent frame pairs must
 change real joint poses, treating antipodal quaternions as the same rotation.
 
+For `override`, the original fixture history must immediately follow the actual
+ordinary Sit phase. The old native barrier must observe a loaded active Sit,
+followed by a genuine early old restore before the new loaded moving override.
+The verifier checks the original Script invocation and native execution times;
+a late native override queue cannot turn natural completion into an early user
+stop. Matching new state, PNG and peer facts cannot replace the missing old stop.
+
 The required native span in milliseconds is
 `max(150, min(500, observedNominalDuration / 4))`. The duration is derived from
 the native override's actual range and FPS, joined to actual loaded data, never

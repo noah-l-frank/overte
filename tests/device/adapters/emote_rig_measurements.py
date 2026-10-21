@@ -70,6 +70,16 @@ def continuation(before,current,pid):
     need(current['animation']['history']['droppedEvents']<=before['animation']['history']['callSequence'])
 
 
+def early_restore(event,restored):
+    request=event['request']
+    need(request['loop'] is False and request['framesPerSecond']>0 and request['lastFrame']>request['firstFrame'])
+    duration=(request['lastFrame']-request['firstFrame'])/request['framesPerSecond']*1000
+    need(type(event.get('caller')) is dict and type(restored.get('caller')) is dict)
+    native_elapsed=restored['capturedEpochMs']-event['capturedEpochMs']
+    caller_elapsed=restored['caller']['invokedEpochMs']-event['caller']['invokedEpochMs']
+    return 0<=native_elapsed<duration-250 and 0<=caller_elapsed<duration-250
+
+
 def actual_state(current,event,urls,baseline):
     animation=current['animation'];history=animation['history'];request=event['request']
     need(event['request']['url'] in urls and history['overrideSequence']==event['overrideSequence'])
@@ -93,9 +103,10 @@ def actual_state(current,event,urls,baseline):
             restoredBeforeNominalEnd=False)
         return state,None,[]
     restored,frames=restored_after(current,event,after_epoch=event['capturedEpochMs'])
-    need(request['loop'] is False and request['framesPerSecond']>0 and request['lastFrame']>request['firstFrame'])
-    duration=(request['lastFrame']-request['firstFrame'])/request['framesPerSecond']*1000
-    early=0<=restored['capturedEpochMs']-event['capturedEpochMs']<duration-250
+    # Queued application-thread delivery can start the native override well
+    # after its actual Script call. A natural timer must not become a supposed
+    # early user abort merely because those two queues had different delays.
+    early=early_restore(event,restored)
     return dict(animation='idle',sit='none',override=False,poseProgress=0.,restoredBeforeNominalEnd=early),restored,frames
 
 
@@ -124,6 +135,32 @@ def playback(group,native_barrier,*,pid,epoch):
     return dict(emoteRigVersion=VERSION,kind='playback',group=deepcopy(group),barrier=deepcopy(native_barrier),
         state=state,event=event,frameSequences=[frame['frameSequence'] for frame in frames],restore=restore,
         inactiveFrameSequences=[frame['frameSequence'] for frame in inactive])
+
+
+def replacement(group,native_barrier,*,pid,epoch):
+    """Actual active Sit, genuine early old restore, then new loaded playback.
+
+    A fresh play from idle cannot stand in for overriding the preceding Sit.
+    An instantaneous restore/start need not render an intermediate idle pose.
+    """
+    proof=playback(group,native_barrier,pid=pid,epoch=epoch)
+    selected,current,urls=source(group,pid,epoch);before=native_barrier['animation']
+    need(before['overrideActive'] is True and 'clip' in before and proof['state']['override'] is True)
+    clip=before['clip'];need(clip['url'] in urls and urls[clip['url']] in ('Sit1','Sit2','Sit3'))
+    old=[row for row in before['history']['events'] if row['kind']=='override'
+         and row['overrideSequence']==before['history']['overrideSequence']]
+    need(len(old)==1);old=old[0]
+    actual_state(native_barrier,old,urls,native_barrier)
+    selected_caller(old,selected,after_epoch=selected['code']['submittedEpochMs'])
+    if 'compilation' in selected:controlled_animation(clip,urls[clip['url']],native_barrier['capturedEpochMs'])
+    floor=before['history']['callSequence'];event=proof['event']
+    restores=[row for row in current['animation']['history']['events'] if row['kind']=='restore'
+        and row['overrideSequence']==old['overrideSequence'] and floor<row['eventSequence']<event['eventSequence']]
+    need(len(restores)==1 and event['overrideSequence']>old['overrideSequence']
+        and event['request']['url']!=old['request']['url'])
+    restored=restores[0];need(restored['capturedEpochMs']>=native_barrier['capturedEpochMs'])
+    selected_caller(restored,selected,after_epoch=native_barrier['capturedEpochMs'])
+    need(early_restore(old,restored));return proof
 
 
 def restoration(group,played,*,pid,epoch,native_barrier=None):

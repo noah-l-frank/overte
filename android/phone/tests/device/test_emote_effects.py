@@ -29,7 +29,12 @@ class EffectsModel(Originals):
             if not identifier.startswith('emote.play.') or self.ignore_native:return
             name=identifier[len('emote.play.'):]
             if self.actual_name is not None and self.widgets.active=='':self.restore()
-            else:self.start('Sit2' if name=='Sit' else name)
+            else:
+                if self.actual_name is not None:
+                    # The actual script calls stopActive before a different
+                    # selection. Preserve the widget's newly selected name.
+                    active=self.widgets.active;self.restore();self.widgets.active=active
+                self.start('Sit2' if name=='Sit' else name)
         self.widgets.activate=activate
 
     def use_included_source(self):
@@ -99,6 +104,29 @@ class PhoneEmoteEffectTests(unittest.TestCase):
     def phase_effect(self):
         owner=PhoneEmoteInputs(self.model.source());owner.source.read()
         return owner,PhoneEmoteEffects(owner)
+
+    def test_override_proves_actual_old_sit_restoration_then_new_loaded_motion(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            owner,effect=self.act('sit');self.observe(owner,effect)
+            owner,effect=self.act('override',dict(name='Crying'));value=self.observe(owner,effect)
+            self.assertEqual('Crying',value['state']['animation']);self.assertTrue(value['state']['override'])
+            before=value['proof']['barrier']['animation'];self.assertTrue(before['overrideActive'])
+            self.assertTrue(before['clip']['url'].endswith('/Sit2.fbx'))
+            self.assertEqual(['override','restore','override'],[row['kind'] for row in m.events])
+
+    def test_override_from_idle_cannot_borrow_new_playback_success(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            owner,effect=self.act('override',dict(name='Crying'))
+            with self.assertRaises(NativeUIError):self.observe(owner,effect)
+
+    def test_new_cue_without_the_actual_prior_sit_stop_is_rejected(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            owner,effect=self.act('sit');self.observe(owner,effect)
+            with patch.object(m,'restore',return_value=None):owner,effect=self.act('override',dict(name='Crying'))
+            with self.assertRaises(NativeUIError):self.observe(owner,effect)
 
     def test_initial_idle_phase_observes_original_sources_without_an_input_journal_or_fake_ack(self):
         m=self.model
