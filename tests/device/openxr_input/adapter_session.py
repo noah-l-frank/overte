@@ -177,6 +177,17 @@ class PicoOpenXrAdapterSession:
                 raise AdapterSessionError("Pico E2E launcher session is already established")
             self._save(self._new_state(process_identity))
 
+    def is_unbound(self) -> bool:
+        """Read host binding absence; invalid/link state never means unbound."""
+        with self._lock():
+            try:
+                self.state_path.lstat()
+            except FileNotFoundError:
+                return True
+            if self._load() is None:
+                raise AdapterSessionError("Pico OpenXR session state is invalid")
+            return False
+
     def require_process_identity(self, process_identity: str) -> None:
         if not isinstance(process_identity, str) or not process_identity:
             raise AdapterSessionError("Pico application process identity is unavailable")

@@ -937,6 +937,7 @@ class PicoNormalScriptsTests(unittest.TestCase):
             for boundary in (patch.object(self.native, 'shell', side_effect=shell),
                 patch.object(self.native, 'discard_local_state', side_effect=discard),
                 patch.object(self.native, 'begin', side_effect=begin, create=True),
+                patch.object(self.native, 'is_unbound', side_effect=lambda: state['openxr_identity'] is None, create=True),
                 patch.object(self.native, 'require_process_identity', side_effect=require),
                 patch('adapters.android_process_query.subprocess.run', side_effect=query)):
                 boundary.start(); self.addCleanup(boundary.stop)
@@ -971,12 +972,54 @@ class PicoNormalScriptsTests(unittest.TestCase):
         actual = self.instance._script_restart(self.native.target)
         self.assertEqual(['stop', 'launch'], state['calls']); self.assertEqual(2, actual['native']['lifecycle']['launches'])
 
-    def test_pico_restart_uncertain_launch_cannot_fake_a_missing_new_openxr_binding_or_repeat_launch(self):
+    def test_pico_restart_uncertain_launch_recovers_only_original_host_binding_without_repeating_input(self):
         _storage, _source, _presence, state = self.restart_sources(staged_restart=False); state['lost_launch'] = True
-        for _ in range(2):
-            with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        self.assertIsNone(state['openxr_identity'])
+        actual = self.instance._script_restart(self.native.target)
+        self.assertEqual(['stop', 'launch'], state['calls']); self.assertEqual('124:new-start', state['openxr_identity'])
+        self.assertEqual(state['lifecycle'], actual['native']['lifecycle'])
+        self.assertEqual('observed', self.instance._script_restart_inputs_store(self.native.target).read()['phase'])
+
+    def test_pico_restart_unknown_original_exit_cannot_establish_a_missing_host_binding(self):
+        _storage, _source, presence, state = self.restart_sources(staged_restart=False); state['lost_launch'] = True
+        with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        presence.presence = 'unknown'
+        with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
         self.assertEqual(['stop', 'launch'], state['calls']); self.assertIsNone(state['openxr_identity'])
         self.assertEqual('launch-issued', self.instance._script_restart_inputs_store(self.native.target).read()['phase'])
+
+    def test_pico_restart_late_host_binding_recovery_cannot_query_or_bind_after_its_deadline(self):
+        _storage, source, _presence, state = self.restart_sources(staged_restart=False); state['lost_launch'] = True
+        with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        before = len(source.commands)
+        with patch.object(self.instance, 'controlled_debug_identity', side_effect=AssertionError('Expired recovery must not query probe')):
+            with self.assertRaises(ValueError):
+                self.instance._script_restart_recover_binding(self.native.target, monotonic=iter([0., 31.]).__next__)
+        self.assertEqual(before, len(source.commands)); self.assertIsNone(state['openxr_identity'])
+        self.assertEqual(['stop', 'launch'], state['calls'])
+
+    def test_pico_restart_old_native_birth_or_unchanged_launch_count_cannot_create_a_host_binding(self):
+        _storage, _source, _presence, state = self.restart_sources(staged_restart=False); state['lost_launch'] = True
+        with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        for fault in ('birth', 'launch-count'):
+            state['restarted'] = fault != 'birth'
+            state['lifecycle']['launches'] = 1 if fault == 'launch-count' else 2
+            with self.subTest(fault=fault), self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+            self.assertIsNone(state['openxr_identity'])
+        self.assertEqual(['stop', 'launch'], state['calls'])
+
+    def test_pico_restart_changed_candidate_precedes_unbound_probe_and_foreign_host_binding_is_never_overwritten(self):
+        _storage, source, _presence, state = self.restart_sources(staged_restart=False); state['lost_launch'] = True
+        with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        state['openxr_identity'] = '777:foreign'
+        with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        self.assertEqual('777:foreign', state['openxr_identity'])
+        state['openxr_identity'] = None; before = len(source.commands); self.native.digest = 'f' * 64
+        with patch.object(self.instance, 'controlled_debug_identity', side_effect=AssertionError('Probe must not precede candidate validation')):
+            with self.assertRaises(ValueError): self.instance._script_restart(self.native.target)
+        self.assertEqual(before, len(source.commands)); self.assertIsNone(state['openxr_identity'])
+        self.assertEqual(['stop', 'launch'], state['calls'])
 
     def test_pico_restart_input_journal_blocks_general_cleanup_after_other_owners_retire(self):
         self.instance._script_restart_inputs_store(self.native.target).write({'unresolved': True}, None)

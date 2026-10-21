@@ -29,7 +29,7 @@ from adapters.pico4 import normal_scripts
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from adapters.script_restart_handoff import ScriptRestartHandoff
-from adapters.restart_inputs import RestartInputs, run_script_restart
+from adapters.restart_inputs import RestartInputs, run_script_restart, validate_native_restart
 from adapters.android_process_query import AndroidProcessQuery
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.android_world_render import AndroidWorldRenderReceipts
@@ -275,10 +275,78 @@ def create_adapter(args, base_class):
                 [self._script_restart_store(target), self._script_files_store(target), PrivateFeatureState(state)])
 
         def _script_restart_source(self, target):
+            if self._script_restart_inputs_store(target).read() is not None:
+                value = self._script_restart_inputs(target).read()
+                if value['phase'] == 'launch-issued':
+                    self._script_restart_recover_binding(target)
             _ui, _observe, binding = self._script_runtime(target)
             native = self._native_feature_observer(target)
             native.guard(); _need(native.pid == int(binding['processIdentity'].split(':')[0]))
             return binding, native
+
+        @_private
+        def _script_restart_recover_binding(self, target, *, monotonic=None):
+            # This can create only the original host-side nonce journal. It
+            # cannot launch, activate, submit an OpenXR grant or deliver input.
+            import time
+            _need(monotonic is None or callable(monotonic))
+            clock = monotonic or time.monotonic
+            started = previous = clock()
+            def bound():
+                nonlocal previous
+                now = clock()
+                _need(now >= previous and now - started < 30)
+                previous = now
+            inputs = self._script_restart_inputs(target)
+            origin = inputs.read(); _need(origin['phase'] == 'launch-issued' and origin['scriptHandoff'] is not None)
+            session = self.pico_input_session(target)
+            unbound = session.is_unbound(); bound()
+            if not unbound: return
+            plan = self._script_restart_handoff(target).snapshot()
+            _need(plan == origin['scriptHandoff'] and plan['next'] is None)
+            old = origin['oldBinding']
+            _need(hashlib.sha256((target + '\0' + str(self.pico_configuration)).encode()).hexdigest()
+                  == old['targetFingerprint'])
+            installed = self._installation(target)
+            _need(all(installed[key] == old[key] for key in ('sourceRevision', 'artifactSha256')))
+            def guard():
+                bound()
+                _need(hashlib.sha256((target + '\0' + str(self.pico_configuration)).encode()).hexdigest()
+                      == old['targetFingerprint'])
+                installed = self._installation(target)
+                _need(all(installed[key] == old[key] for key in ('sourceRevision', 'artifactSha256')))
+                bound()
+                _need(self.controlled_debug_identity(target) == identity)
+                bound()
+            bound()
+            identity = self.controlled_debug_identity(target)
+            _need(type(identity) is str and identity != old['processIdentity']
+                  and identity.split(':')[0].isdigit() and int(identity.split(':')[0]) > 0)
+            pid = int(identity.split(':')[0]); guard()
+            def send(command):
+                guard(); self.write_control_command(target, identity, 'restart binding observations', command)
+            native = NativeFeatureObservation(send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + NATIVE_FEATURE_FILE, attempts=1),
+                lambda: self.adb.epoch_milliseconds(target), guard, pid)
+            def verify(packet):
+                validate_native_restart(origin['oldNative'], dict(pid=packet['processId'],
+                    instance=packet['instance'], lifecycle=packet['lifecycle']))
+            first = native.read(0); verify(first)
+            presence = NativeProcessPresence(send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + PROCESS_PRESENCE_FILE, attempts=1),
+                native.clock_ms, guard, pid)
+            exited = presence.require_absent(origin['oldNative']['pid'])
+            _need(exited['instance'] == first['instance'])
+            final = native.read(first['sequence']); verify(final)
+            _need(final['instance'] == first['instance'] and final['capturedEpochMs'] >= exited['capturedEpochMs'])
+            guard()
+            _need(inputs.read() == origin and self._script_restart_handoff(target).snapshot() == plan
+                  and session.is_unbound())
+            bound()
+            session.begin(identity)  # Original atomic/locked host binding, no SDK operation.
+            guard(); _need(self.require_pico_session_identity(target) == identity)
 
         def _script_restart_stopped(self, target):
             origin = self._script_restart_inputs(target).read()['oldBinding']

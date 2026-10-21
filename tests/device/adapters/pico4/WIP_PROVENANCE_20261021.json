@@ -1,0 +1,15 @@
+{
+  "sourceCommit": "de7587093406a49573189e626bd350a12cb3d31f",
+  "patchSha256": "629bd2cc72fb7808d4499b24eb78783922f1f17e983bddc2f7962565ea744de7",
+  "statusSha256": "8965a9224c867c7ffe5cae8e4f7a4cd8e3abcd47c48a79a86c0527dd384dbec8",
+  "files": {
+    "android/vr/pico/tests/device/test_normal_scripts.py": "1f18973c29170be8b392ba390a9a2fc9394d1a6553ff3b9c2a1bbac82b77164d",
+    "tests/device/adapters/pico4/SCRIPT_RESTART_BINDING.md": "f51853fba6e303b6c8f72a5ddbb974e179e3ae1beb5bca07fd915daaa20715b0",
+    "tests/device/adapters/pico4/binding.py": "6a1f56cb4803ea976a298c04776e77bd4b8a9a54904cb03a18e859015ee88d05",
+    "tests/device/contract-versions.json": "2e2a37109e29bd50c08fa1294584708486c175d53dfeffbf740bd88a1c26ea60",
+    "tests/device/openxr_input/adapter_session.py": "300cbac1d3099e4a5052ca3e2e8983ed55f76f4d7ed8d583f285517b3bbaa77c",
+    "tests/device/self_tests/test_pico_openxr_adapter_session.py": "7fc20b30c445d65af0c3611f1fe56cc0fee6db072f3a77f879038fe1664d789c",
+    "tests/device/validate_contract_versions.py": "7b7cec35ee42ef2b9024842ca63ad7afdfaa9699f9e667ca4a278aa013b402a0"
+  },
+  "consistentDoubleCapture": true
+}
