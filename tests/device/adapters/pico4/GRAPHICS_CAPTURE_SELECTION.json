@@ -1,0 +1,44 @@
+{
+  "sourceCommit": "fe4684bf46585088370b3a328a738f147e670b97",
+  "selection": "Role-scoped original capture ownership and complete native issuer/file receipt inventory only. GPU stereo v4 and all Pico rendering changes remain intact. The new native inventory entrypoint is Pico-gated; known undelivered receipt nonces are additionally retired locally to prevent late issuance.",
+  "files": [
+    {
+      "source": "tests/device/adapters/owned_world_render.py",
+      "sourceSha256": "17017bd92835f38a8372c2c9de5c4137b3c8fb67faeb7c784c3cbe6a77aa41aa"
+    },
+    {
+      "source": "tests/device/adapters/world_render_receipts.py",
+      "sourceSha256": "1a68fc0cfd572de0424e22d1a745eb7e9b849084f672a02ca1fcb1c42df59534"
+    },
+    {
+      "source": "tests/device/self_tests/test_world_render_receipts.py",
+      "sourceSha256": "a2afdb1ac6b7ea618ad971f8797123648fe1098eaca0875bea7d3fb4df0e4d1a"
+    },
+    {
+      "source": "tests/device/self_tests/test_world_render_receipt_inventory.py",
+      "sourceSha256": "4de6e81cca0d2f1a5f2c666f5dd58bac6dced422bef9d3d47a244678fc2e54b0"
+    },
+    {
+      "source": "tests/device/native/PrivateWorldRenderReceipts.h",
+      "sourceSha256": "d9030554590735146ac15c9e836a3ad9efd93bb75a49e3bae40280e2574c9725"
+    },
+    {
+      "source": "libraries/gpu/src/gpu/FeatureWorldRender.h",
+      "sourceSha256": "15a5424b75572048dd699721dc072ac2f3d2a958300e52c1a92930de143abfaf"
+    },
+    {
+      "source": "interface/src/scripting/TestScriptingInterface.cpp",
+      "sourceSha256": "d2d9368197796423a81c6c999f96ed219a883d6f12fc78848b5554e040dd79a4"
+    },
+    {
+      "source": "tests/device/probe/overte_e2e_probe.js",
+      "sourceSha256": "15d4a00f34dbb164090ff377e7ef2112b9e3391501a1ea409978091b4b672348"
+    },
+    {
+      "source": "tests/device/fixture/serve.py",
+      "sourceSha256": "b88bed63ca79165fda77f634848747ac0c82672e5bcfedae44af883fa4f6e3bf"
+    }
+  ],
+  "nativeCompilation": "unverified",
+  "deviceQualification": "untested"
+}

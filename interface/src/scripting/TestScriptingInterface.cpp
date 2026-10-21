@@ -34,6 +34,7 @@
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include "../../../tests/device/native/TabletHttpObservationBridge.h"
 #include <XMLHttpRequestClass.h>
+#include "../../../tests/device/native/PrivateWorldRenderReceipts.h"
 #include <PointerManager.h>
 #include <ui/Keyboard.h>
 #include "HMDScriptingInterface.h"
@@ -374,6 +375,92 @@ QVariantMap TestScriptingInterface::featureWorldRenderReceipt(const QVariantMap&
         {"operation",operation},{"instance",state->instance()}, {"sequence",static_cast<qulonglong>(++_featureWorldReceiptSequence)},
         {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()}, {"source",source}};
 }
+
+#if defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap TestScriptingInterface::featureWorldRenderReceipts(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result = featureWorldRenderReceipts(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json = QJsonObject::fromVariantMap(command);
+    QStringList fields {"schemaVersion","commandId","action","requestId","receiptIds","operation"}; fields.sort();
+    const auto id = command.value("commandId").toString(), capture = command.value("requestId").toString();
+    const auto operation = command.value("operation").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || command.keys() != fields || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble() != 1
+            || !json.value("commandId").isString() || !json.value("requestId").isString()
+            || json.value("action").toString() != "feature-world-render-receipts"
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch()
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(capture).hasMatch()
+            || (operation != "remove" && operation != "inspect") || !json.value("receiptIds").isArray()
+            || QJsonDocument(json).toJson(QJsonDocument::Compact).size() > 49152) { return {}; }
+    if (_featureWorldReceiptsRequests.contains(id) || _featureWorldReceiptsRequests.size()>=4096) { return {}; }
+    _featureWorldReceiptsRequests.insert(id);
+    const auto values = json.value("receiptIds").toArray();
+    if (values.isEmpty() || values.size() > 1024) { return {}; }
+    QStringList ids;
+    for (const auto& value : values) {
+        if (!value.isString()) { return {}; }
+        ids.append(value.toString());
+    }
+    const auto context = qApp->getGPUContext();
+    if (!context || !overte::e2e::previewDirectory(_testResultsLocation)) { return {}; }
+    const auto state = context->featureWorldRender();
+    const auto inventory = state->receiptInventory(capture,ids);
+    if (inventory.isEmpty()) { return {}; }
+    const auto root = _testResultsLocation.endsWith('/') ? _testResultsLocation : _testResultsLocation+'/';
+    const auto issued = inventory.value("receipts").toList();
+    // Verify the complete original set before deleting any file. Unissued
+    // selectors never authorize deletion of a present file. The native GPU
+    // ledger retires their undelivered nonces against late storage issuance;
+    // the existing GUI probe serializes original file writes.
+    for (const auto& value : issued) {
+        const auto row = value.toMap();
+        auto nonce = row.value("receiptId").toString();
+        if (nonce.startsWith("ios-")) { nonce.remove(0,4); }
+        const auto path = root+"world-render-storage-"+nonce+".json";
+        const QFileInfo info(path);
+        if (info.exists() && !row.value("issued").toBool()) { return {}; }
+        const auto digest = info.exists() ? row.value("digest").toString().toLatin1() : QByteArray();
+        if (!overte::e2e::ownWorldRenderReceipt(path,digest)) { return {}; }
+    }
+    bool performed {true};
+    if (operation == "remove") {
+        for (const auto& value : issued) {
+            const auto row = value.toMap();
+            if (!row.value("issued").toBool()) { continue; }
+            auto nonce = row.value("receiptId").toString();
+            if (nonce.startsWith("ios-")) { nonce.remove(0,4); }
+            const auto path = root+"world-render-storage-"+nonce+".json";
+            if (!overte::e2e::ownWorldRenderReceipt(path,QFileInfo::exists(path) ? row.value("digest").toString().toLatin1() : QByteArray())) { return {}; }
+            if (QFileInfo::exists(path) && !QFile::remove(path)) { performed=false; }
+        }
+    }
+    QVariantList observations;
+    for (const auto& value : issued) {
+        const auto row = value.toMap();
+        auto nonce = row.value("receiptId").toString();
+        if (nonce.startsWith("ios-")) { nonce.remove(0,4); }
+        const auto path = root+"world-render-storage-"+nonce+".json";
+        const QFileInfo current(path);
+        const bool exists = current.exists() || current.isSymLink();
+        const bool matches = row.value("issued").toBool() && exists
+            && overte::e2e::ownWorldRenderReceipt(path,row.value("digest").toString().toLatin1());
+        observations.append(QVariantMap{{"receiptId",row.value("receiptId")},{"issued",row.value("issued")},
+            {"exists",exists},{"originalMatches",matches}});
+    }
+    QVariantMap source {{"retired",inventory.value("retired")},{"present",inventory.value("present")},
+        {"callbacks",inventory.value("callbacks")},{"pngBytes",inventory.value("pngBytes")},{"complete",observations.size()==ids.size()},
+        {"receipts",observations}};
+    if (operation == "remove") { source.insert("performed",performed); }
+    return {{"receiptInventoryVersion",1},{"commandId",id},{"requestId",capture},{"operation",operation},
+        {"instance",inventory.value("instance")},{"sequence",static_cast<qulonglong>(++_featureWorldReceiptsSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureProcessPresence(const QVariantMap& command) {
     if (QThread::currentThread() != thread()) {
@@ -1061,7 +1148,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
-            || filename == "world-render-receipt-result.json"
+            || filename == "world-render-receipt-result.json" || filename == "world-render-receipts-result.json"
             || QRegularExpression("\\Aworld-render-storage-[0-9a-f]{32}\\.json\\z").match(filename).hasMatch()) {
         if (!QCoreApplication::arguments().contains("--testScript") || QFileInfo(filepath).isSymLink()) { return; }
         if (filename.startsWith("world-render-storage-")) {

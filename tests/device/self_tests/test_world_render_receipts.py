@@ -88,6 +88,30 @@ class WorldRenderReceiptTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):source.native.remove(source.name)
         self.assertEqual(1,len(source.commands))
 
+    def test_original_clock_read_cannot_hide_context_loss_or_native_clock_regression(self):
+        for fault in ('guard','owner','clock'):
+            calls=[]
+            def clock():
+                calls.append(1)
+                if len(calls)>1:
+                    if fault=='guard':self.source.okay=False
+                    elif fault=='owner':self.source.owner['capture']['commandId']='f'*32
+                    else:return 19999
+                return 20000
+            self.native.clock_ms=clock;self.source.okay=True;self.source.owner['capture']['commandId']='a'*32
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):self.native.remove(self.source.name)
+            self.assertEqual(0,self.native.sequence)
+
+    def test_final_guard_latency_cannot_publish_an_expired_original_existence_query(self):
+        count=[]
+        def guard():
+            count.append(1)
+            if len(count)==4:self.source.clock+=1.501
+            return True
+        self.native.guard=guard
+        with self.assertRaises(NativeUIError):self.native.absent(self.source.name)
+        self.assertEqual(0,self.native.sequence)
+
     def test_fixture_rejects_paths_expected_results_foreign_versions_and_extra_fields(self):
         request=dict(schemaVersion=1,commandId='ios-'+'a'*32,action='feature-world-render-receipt',
             requestId='ios-'+'b'*32,receiptId='ios-'+'c'*32,operation='inspect')

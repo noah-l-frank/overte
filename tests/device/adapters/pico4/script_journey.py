@@ -80,7 +80,7 @@ class PicoScriptJourney:
         need(self.original.pico_configuration is not None)
         parent = self.original.pico_configuration[1]
         key = hashlib.sha256(('org.overte.pico\0' + target).encode()).hexdigest()[:32]
-        need(self.state_area in ('scripts','authentication'))
+        need(self.state_area in ('scripts','authentication','graphics'))
         directory = parent / ('feature-' + self.state_area + '-' + key)
         # Only a host namespace; this does not establish a device/session owner.
         try: directory.mkdir(mode=0o700)

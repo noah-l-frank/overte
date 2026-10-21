@@ -1,0 +1,34 @@
+"""Internal Pico Graphics owner namespaces; no complete feature operation yet."""
+# Copyright 2026 Overte contributors.
+# SPDX-License-Identifier: Apache-2.0
+from adapters.native_feature_observation import need
+from adapters.pico4.script_journey import PicoScriptJourney
+from adapters.owned_world_render import OwnedWorldRenderCapture
+from adapters.script_journey.lock import ScriptSourceLock
+
+VERSION=1
+
+
+class PicoGraphicsBinding(PicoScriptJourney):
+    state_area='graphics'
+
+    def world_render_store(self,target,*,role):
+        need(type(role) is str and role in ('primary','actor'))
+        return self._store(target,'graphics-'+role+'-world-render-owner.json')
+
+    def _world_render_capture(self,target,*,read_only=True,role,require_frame_view=True,source_lock):
+        need(read_only is True and require_frame_view is True)
+        return self.original._world_render_capture(target,read_only=True,role=role,require_frame_view=True,source_lock=source_lock)
+
+
+class SerializedWorldCapture(OwnedWorldRenderCapture):
+    """Use the same explicit source-lock instance across role/native channels."""
+    def __init__(self,*args,source_lock,**options):
+        need(isinstance(source_lock,ScriptSourceLock));self.source_lock=source_lock
+        super().__init__(*args,**options)
+
+    def read(self,after_sequence):
+        with self.source_lock.held():return super().read(after_sequence)
+
+    def release(self):
+        with self.source_lock.held():return super().release()

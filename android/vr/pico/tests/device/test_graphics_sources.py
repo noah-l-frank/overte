@@ -13,5 +13,9 @@ from self_tests.test_native_web_runtime import WebRuntimeTests
 from self_tests.test_native_web_renderers import WebRendererTests
 from self_tests.test_pico_graphics_source import PicoGraphicsSourceTests
 from self_tests.test_pico_graphics_surface import PicoGraphicsSurfaceTests
+from self_tests.test_owned_world_render import OwnedWorldRenderTests
+from self_tests.test_world_render_receipts import WorldRenderReceiptTests
+from self_tests.test_world_render_receipt_inventory import WorldReceiptInventoryTests
+from test_graphics_capture import PicoGraphicsCaptureTests
 
 if __name__=='__main__':unittest.main()

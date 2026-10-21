@@ -298,3 +298,16 @@ before closing. The current camera mode must already be the required first-perso
 mode; the surface does not invent a View menu or set Camera. Full Graphics durable
 coordination, independent images/effects/actor/restart and verified backend/quiet
 retirement remain missing. Native compilation and all devices remain unverified.
+
+## Role-scoped capture and complete receipt retirement
+
+The [native complete receipt inventory](../../native/WORLD_RENDER_RECEIPT_INVENTORY.md)
+now joins role v2 owner files and actual stereo camera v4 acquisition. The private
+Pico role factory requires an explicit shared source lock, preserves primary/actor
+identity and blocks an unresolved other role or legacy capture before overwrite.
+Actual native issuer/file metadata replaces shell deletion for role v2. Known
+unissued storage nonces are additionally retired so late original commands cannot
+issue receipts after their absence was proved. Ignored unlink ACK, lost/foreign
+issuer history, candidate loss and incomplete file retirement keep ownership.
+This remains a host-verified source prerequisite for full Graphics coordination,
+without native compilation, device qualification or a new complete capability.

@@ -98,7 +98,7 @@ public:
         const auto id = command.value("requestId").toString();
         const auto nonce = command.value("commandId").toString();
         const auto json = QJsonObject::fromVariantMap(command);
-        if (!enabled() || keys != wanted || _receipts.size() >= 65536 || _receipts.contains(nonce)
+        if (!enabled() || keys != wanted || _receipts.size()+_declinedReceipts.size() >= 65536 || _receipts.contains(nonce) || _declinedReceipts.contains(nonce)
                 || !json.value("schemaVersion").isDouble()
                 || json.value("schemaVersion").toDouble() != 1 || !valid(id) || !valid(nonce)
                 || command.value("action").toString() != "feature-world-render-storage"
@@ -142,6 +142,42 @@ public:
         return found.value().second;
     }
     QString instance() const { return _instance; }
+
+    QVariantMap receiptInventory(const QString& capture, const QStringList& nonces) {
+        QMutexLocker lock(&_mutex);
+        const bool retired = _retired.contains(capture), present = _active == capture;
+        const int callbacks = _callback == capture ? 1 : 0;
+        if (!enabled() || !valid(capture) || !retired || present || callbacks || nonces.isEmpty() || nonces.size() > 1024) { return {}; }
+        QSet<QString> wanted;
+        for (const auto& nonce : nonces) {
+            if (!valid(nonce) || nonce.startsWith("ios-") != capture.startsWith("ios-") || wanted.contains(nonce)) { return {}; }
+            wanted.insert(nonce);
+        }
+        // The host supplies selectors, never an assertion that they were issued.
+        // Native history must account for every actually issued receipt of this
+        // capture. A missing host prefix cannot authorize partial cleanup.
+        for (auto i = _receipts.cbegin(); i != _receipts.cend(); ++i) {
+            if (i.value().first == capture && !wanted.contains(i.key())) { return {}; }
+        }
+        // Retire listed but undelivered storage intents before publishing their
+        // original absence. A late probe dispatch can never issue one afterward.
+        // Fresh later cleanup queries use new journaled nonces and remain valid.
+        QSet<QString> declined;
+        for (const auto& nonce:nonces) {
+            if (!_receipts.contains(nonce) && !_declinedReceipts.contains(nonce)) { declined.insert(nonce); }
+        }
+        if (_receipts.size()+_declinedReceipts.size()+declined.size()>65536) { return {}; }
+        _declinedReceipts.unite(declined);
+        QVariantList rows;
+        for (const auto& nonce : nonces) {
+            const auto found = _receipts.constFind(nonce);
+            if (found != _receipts.cend() && found.value().first != capture) { return {}; }
+            rows.append(QVariantMap{{"receiptId",nonce},{"issued",found != _receipts.cend()},
+                {"digest",found == _receipts.cend() ? QString() : QString::fromLatin1(found.value().second)}});
+        }
+        return {{"instance",_instance},{"retired",retired},{"present",present},{"callbacks",callbacks},
+            {"pngBytes",present ? _png.size() : 0},{"receipts",rows}};
+    }
 
 private:
     static qint64 now() { return QDateTime::currentMSecsSinceEpoch(); }
@@ -248,6 +284,7 @@ private:
     QMutex _mutex;
     const QString _instance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
     QString _active, _callback;
+    QSet<QString> _declinedReceipts; // Native retirement of known undelivered storage intents.
     QSet<QString> _retired; // Bounded; never forget retired nonces to enable replay.
     QElapsedTimer _age;
     qint64 _requested {0};

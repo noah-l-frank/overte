@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "world-render-receipt-inventory": {"current": 1, "reads": [1]},
+    "pico-graphics-capture-binding": {"current": 1, "reads": [1]},
     "pico-navigation-address-observation": {"current": 1, "reads": [1]},
     "pico-graphics-input-surface": {"current": 1, "reads": [1]},
     "vr-graphics-framework-ownership": {"current": 1, "reads": [1]},
@@ -49,7 +51,7 @@
     "world-render-acquisition": {"current": 4, "reads": [1, 2, 3, 4]},
     "native-stereo-render-trace": {"current": 4, "reads": [3, 4]},
     "world-render-storage": {"current": 1, "reads": [1]},
-    "world-render-ownership": {"current": 1, "reads": [1]},
+    "world-render-ownership": {"current": 2, "reads": [1, 2]},
     "world-render-receipt-cleanup": {"current": 1, "reads": [1]},
     "native-graphics-controls": {"current": 1, "reads": [1]},
     "native-private-login-input": {"current": 2, "reads": [2]},

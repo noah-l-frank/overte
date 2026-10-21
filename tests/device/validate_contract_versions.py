@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "world-render-receipt-inventory": 1,
+    "pico-graphics-capture-binding": 1,
     "pico-navigation-address-observation": 1,
     "pico-graphics-input-surface": 1,
     "vr-graphics-framework-ownership": 1,
@@ -80,7 +82,7 @@ REQUIRED = {
     "world-render-acquisition": 4,
     "native-stereo-render-trace": 4,
     "world-render-storage": 1,
-    "world-render-ownership": 1,
+    "world-render-ownership": 2,
     "world-render-receipt-cleanup": 1,
     "graphics-subject": 2,
     "native-script-code-identity": 1,

@@ -409,21 +409,51 @@ def create_adapter(args, base_class):
             return PrivateFeatureState(state.with_name(state.name.replace('normal-script-state-', 'world-render-owner-')))
 
         @_private
-        def _world_render_capture(self, target):
-            # Version 2 requires original same-frame stereo GPU pixels and a
-            # successful native OpenXR projection-layer submission.
-            manager = self._scripts(target)
+        def _world_render_capture(self, target, *, read_only=False, role=None, require_frame_view=False, source_lock=None):
+            _need(type(read_only) is bool and type(require_frame_view) is bool
+                and (role is None or type(role) is str and role in ('primary','actor'))
+                and (role is None or read_only is True and require_frame_view is True))
+            # Legacy component ownership remains explicit v1. Whole Graphics
+            # requires independent role v2, original used-camera v4 and native
+            # complete issuer/file retirement, including undelivered intents.
             native = self._native_feature_observer(target)
-            owner = WorldRenderOwner(self._world_render_store(target), manager.binding, native.guard)
-            receipts = AndroidWorldRenderReceipts(self.adb, target, 'org.overte.pico', native.guard)
-            options = dict(monotonic=native.monotonic, sleep=native.sleep)
-            storage = NativeWorldRenderStorage(native.send, receipts.read, native.clock_ms, native.guard,
-                native.pid, receipt_intent=owner.receipt_intent, **options)
+            from adapters.pico4.graphics_binding import PicoGraphicsBinding,SerializedWorldCapture
+            facade=PicoGraphicsBinding(self)
+            lock=facade._lock(target,source_lock)
+            if role is not None:
+                _need(source_lock is not None);lock.assert_held()
+            if role is None:
+                manager = self._scripts(target);binding=manager.binding
+                store=self._world_render_store(target)
+            else:
+                _ui,_observe,binding,guard,_installed=facade.normal_feature_runtime(target,read_only=True)
+                guard();_need(native.pid==int(binding['processIdentity'].split(':')[0]))
+                store=facade.world_render_store(target,role=role)
+            foreign=[facade.world_render_store(target,role=value) for value in ('primary','actor') if value!=role]
+            if role is not None:foreign.append(self._world_render_store(target))
+            def world_guard():
+                lock.assert_held();native.guard()
+                _need(all(value.read() is None for value in foreign))
+                lock.assert_held()
+                return True
+            owner = WorldRenderOwner(store,binding,world_guard,role=role)
+            files = AndroidWorldRenderReceipts(self.adb,target,'org.overte.pico',world_guard)
+            options = dict(monotonic=native.monotonic,sleep=native.sleep)
+            storage = NativeWorldRenderStorage(native.send,files.read,native.clock_ms,world_guard,
+                native.pid,receipt_intent=owner.receipt_intent,**options)
+            if role is None:receipts=files
+            else:
+                from adapters.world_render_receipts import NativeWorldReceiptInventory,NativeWorldReceiptBatchFiles,INVENTORY_FILE
+                cleanup=NativeWorldReceiptInventory(native.send,
+                    lambda:self.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
+                    native.clock_ms,world_guard,native.pid,owner.owned,lambda:storage.instance,**options)
+                receipts=NativeWorldReceiptBatchFiles(files,cleanup)
             capture = NativeWorldRenderCapture(native.send,
-                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
-                    'files/overte-e2e/' + WORLD_RENDER_FILE, attempts=1),
-                storage, native.clock_ms, native.guard, native.pid, intent=owner.intent, stereo=True, **options)
-            return OwnedWorldRenderCapture(capture, storage, owner, receipts)
+                lambda:self.adb.read_debug_app_file(target,'org.overte.pico',
+                    'files/overte-e2e/'+WORLD_RENDER_FILE,attempts=1),
+                storage,native.clock_ms,world_guard,native.pid,intent=owner.intent,stereo=True,
+                require_cameras=require_frame_view,**options)
+            return SerializedWorldCapture(capture,storage,owner,receipts,source_lock=lock)
 
         def _create_controls(self, target, intent):
             from adapters.token_create_ui import TokenCreateUI

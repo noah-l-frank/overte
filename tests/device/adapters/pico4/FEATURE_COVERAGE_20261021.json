@@ -502,7 +502,10 @@
         "libraries/pointers/src/PointerManager.cpp",
         "tests/device/adapters/pico4/graphics_surface.py",
         "tests/device/adapters/pico4/GRAPHICS_INPUT_SURFACE.md",
-        "tests/device/native/NormalNavigationAddress.h"
+        "tests/device/native/NormalNavigationAddress.h",
+        "tests/device/adapters/pico4/graphics_binding.py",
+        "tests/device/adapters/world_render_receipts.py",
+        "tests/device/native/WORLD_RENDER_RECEIPT_INVENTORY.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -538,7 +541,8 @@
         "Executing stereo Forward/Haze/Mirror batch trace v3 bound to original same-frame OpenXR submission",
         "Actual bound original camera UBO range/data and GL share-group identity after late pose correction/jitter, with Forward/Mirror roles",
         "Original QML/XHR callback and every reply retirement through native-tablet-http v1",
-        "Native subject v3 original HMD matrices and exact tablet/keyboard/pointer owner IDs, preserving the complete raw scan"
+        "Native subject v3 original HMD matrices and exact tablet/keyboard/pointer owner IDs, preserving the complete raw scan",
+        "Role v2 capture ownership plus original complete native issuer/file inventory, including retirement of known undelivered receipt nonces"
       ],
       "cleanupObligations": [
         "Normal restoration of captured original VR preferences",

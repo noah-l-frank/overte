@@ -50,7 +50,8 @@ class OwnedWorldRenderTests(unittest.TestCase):
             self.assertIn(command['commandId'],self.owner.owned()['receipts'])
             self.source.intents.append(deepcopy(command));original(command)
             name=receipt_file(command['commandId'])
-            (self.path/'files/overte-e2e'/name).write_text(self.source.files[name])
+            path=self.path/'files/overte-e2e'/name
+            path.write_text(self.source.files[name]);path.chmod(0o600)
         self.native.send=send
         self.owner.intent(dict(schemaVersion=1,commandId=CAPTURE,action='feature-world-render-observe'))
 
@@ -69,6 +70,56 @@ class OwnedWorldRenderTests(unittest.TestCase):
         foreign=WorldRenderOwner(self.store,BINDING|{'processIdentity':'32:foreign'},self.owner.guard)
         with self.assertRaises(NativeUIError):foreign.owned()
         self.assertEqual([],self.source.commands)
+
+    def test_roles_cannot_adopt_each_other_or_an_older_unqualified_owner(self):
+        primary=WorldRenderOwner(self.store,BINDING,self.owner.guard,role='primary')
+        with self.assertRaises(NativeUIError):primary.owned()
+        original=self.owner.owned();self.store.discard(original);primary.intent(original['capture'])
+        value=primary.owned();self.assertEqual(2,value['ownershipVersion']);self.assertEqual('primary',value['role'])
+        for role in (None,'actor'):
+            with self.subTest(role=role),self.assertRaises(NativeUIError):WorldRenderOwner(self.store,BINDING,self.owner.guard,role=role).owned()
+        self.assertEqual(value,primary.owned());self.assertEqual([],self.source.commands)
+
+    def test_role_scoped_owner_requires_complete_native_receipt_batch_transport(self):
+        primary=WorldRenderOwner(self.store,BINDING,self.owner.guard,role='primary')
+        self.capture.intent=primary.intent;self.native.receipt_intent=primary.receipt_intent
+        with self.assertRaises(NativeUIError):OwnedWorldRenderCapture(self.capture,self.native,primary,self.receipts)
+        self.assertEqual([],self.source.commands)
+
+    def test_role_owner_is_retired_only_after_concrete_native_complete_file_inventory(self):
+        import hashlib
+        from adapters.world_render_receipts import NativeWorldReceiptInventory,NativeWorldReceiptBatchFiles
+        from self_tests.test_world_render_receipt_inventory import Boundary as Issuer
+        root=self.path/'files/overte-e2e';issuer=Issuer(root)
+        for path in root.iterdir():path.unlink()
+        issuer.issued.clear()
+        self.store.discard(self.owner.owned());self.owner=WorldRenderOwner(self.store,BINDING,lambda:self.source.okay,role='primary')
+        self.owner.intent(dict(schemaVersion=1,commandId=CAPTURE,action='feature-world-render-observe'))
+        self.capture.intent=self.owner.intent;self.native.receipt_intent=self.owner.receipt_intent
+        old_send=self.native.send
+        def send(command):
+            old_send(command);path=root/receipt_file(command['commandId'])
+            issuer.issued[command['commandId']]=(CAPTURE,hashlib.sha256(path.read_bytes()).hexdigest())
+            issuer.owner=deepcopy(self.owner.owned())
+        self.native.send=send;issuer.mutate=lambda value:value.update(instance=self.native.instance)
+        inventory=NativeWorldReceiptInventory(issuer.send,issuer.original,lambda:20000,self.owner.guard,31,
+            self.owner.owned,lambda:self.native.instance,monotonic=lambda:self.source.clock,sleep=self.source.sleep)
+        files=NativeWorldReceiptBatchFiles(self.receipts,inventory)
+        owned=OwnedWorldRenderCapture(self.capture,self.native,self.owner,files)
+        issuer.ignore_remove=True
+        with self.assertRaises(NativeUIError):owned.release()
+        self.assertEqual('primary',self.owner.owned()['role']);self.assertTrue(list(root.iterdir()))
+        self.assertEqual([],self.adb.calls) # No shell deletion fallback for role v2.
+        issuer.ignore_remove=False;sample=owned.release()
+        self.assertFalse(sample['present']);self.assertIsNone(self.store.read());self.assertEqual([],list(root.iterdir()))
+        self.assertTrue(all(not row['exists'] for row in files.proof['absent']['source']['receipts']))
+        self.assertGreater(files.proof['absent']['sequence'],files.proof['removed']['sequence'])
+
+    def test_invalid_roles_are_not_coerced_or_persisted(self):
+        original=self.store.read()
+        for role in ('peer','',True,1,[]):
+            with self.subTest(role=role),self.assertRaises(NativeUIError):WorldRenderOwner(self.store,BINDING,self.owner.guard,role=role)
+        self.assertEqual(original,self.store.read())
 
     def test_failed_persistence_prevents_even_the_storage_command_and_native_artifact(self):
         self.store.discard(self.store.read())
