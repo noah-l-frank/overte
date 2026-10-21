@@ -3079,9 +3079,11 @@ def _dispatch_run(value, run_id, source, correlation, *, allow_pending=False, en
                                        "head_branch", "head_sha", "run_attempt", "display_title", "url", "html_url"))
 
 
-def _dispatch_native(api, prefix, run, source, correlation, identity, *, allow_pending=False, deadline=None):
-    terminal = run.get('status') == 'completed' and run.get('conclusion') == 'success' and _callback_sync_recipe()
-    terminal_deadline = min(time.monotonic() + 30, deadline) if terminal and deadline is not None else time.monotonic() + 30
+def _dispatch_native(api, prefix, run, source, correlation, identity, *, allow_pending=False,
+                     deadline=None, check_terminal=True):
+    terminal = (check_terminal and run.get('status') == 'completed'
+        and run.get('conclusion') == 'success' and _callback_sync_recipe())
+    terminal_deadline = deadline if deadline is not None else time.monotonic() + 300
     terminal_error = None
     while True:
         if terminal and time.monotonic() >= terminal_deadline:
@@ -3130,7 +3132,14 @@ def _dispatch_native(api, prefix, run, source, correlation, identity, *, allow_p
                 fields = ",".join(sorted(missing))
                 raise _DispatchRegistrationPending(f"validation registration incomplete (endpoint=check-suite; fields={fields})", run["check_suite_id"])
             if run["status"] == "completed" and (attempt.get("status"), attempt.get("conclusion")) != ("completed", "success"):
-                raise GateError("validation terminal native attempt did not succeed (endpoint=attempts/1; fields=status/conclusion)")
+                attempt_pending = (attempt.get("status") in ("queued", "in_progress", "waiting", "pending", "requested")
+                    and attempt.get("conclusion") is None)
+                if attempt_pending and terminal:
+                    raise _DispatchRegistrationPending(
+                        "validation terminal attempt metadata incomplete (endpoint=attempts/1; fields=status/conclusion)",
+                        run["check_suite_id"])
+                if not (attempt_pending and not check_terminal):
+                    raise GateError("validation terminal native attempt did not succeed (endpoint=attempts/1; fields=status/conclusion)")
             if terminal:
                 _dispatch_terminal_roles(api, prefix, run, source)
             if terminal and time.monotonic() >= terminal_deadline:
@@ -3195,7 +3204,6 @@ def dispatch_and_wait(args: argparse.Namespace) -> int:
             raise GateError("validation run did not reach a terminal success before timeout (endpoint=run; fields=deadline)")
         if identity is None and time.monotonic() >= registration_deadline:
             raise GateError("validation initial registration did not complete before timeout (endpoint=run; fields=registration_deadline)")
-        native_checked = False
         try:
             current = _dispatch_run(run, run_id, source, correlation, allow_pending=identity is None,
                                     endpoint="run", known_suite_id=known_suite_id)
@@ -3208,11 +3216,11 @@ def dispatch_and_wait(args: argparse.Namespace) -> int:
                 if run["status"] == "completed" and run.get("conclusion") != "success":
                     raise GateError(f"{args.mode} validation did not succeed")
                 _dispatch_native(api, prefix, run, source, correlation, current,
-                                 allow_pending=run["status"] != "completed", deadline=registration_deadline)
+                                 allow_pending=run["status"] != "completed", deadline=registration_deadline,
+                                 check_terminal=False)
                 if time.monotonic() >= registration_deadline or time.monotonic() >= deadline:
                     raise GateError("validation initial registration did not complete before timeout (endpoint=native; fields=registration_deadline)")
                 identity = current
-                native_checked = True
             elif current != identity:
                 raise GateError("validation run identity changed during monitoring (endpoint=run; fields=check_suite_id)")
         except _DispatchRegistrationPending as error:
@@ -3230,8 +3238,7 @@ def dispatch_and_wait(args: argparse.Namespace) -> int:
         if run["status"] == "completed":
             if run.get("conclusion") != "success":
                 raise GateError(f"{args.mode} validation did not succeed")
-            if not native_checked:
-                _dispatch_native(api, prefix, run, source, correlation, identity, deadline=deadline)
+            _dispatch_native(api, prefix, run, source, correlation, identity, deadline=deadline)
             if _dispatch_checkout_source() != source:
                 raise GateError("trusted dispatch checkout source changed")
             _dispatch_source(api, config, args.repository, source)

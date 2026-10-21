@@ -1977,7 +1977,7 @@ class CallbackTerminalObservationTests(unittest.TestCase):
         self.source = HEAD
         self.requests = []
 
-    def native(self, mutate=None, *, seconds=8):
+    def native(self, mutate=None, *, seconds=8, check_terminal=True):
         run = DispatchContracts().run_document("gate-701-attempt-1", run_id=700)
         run.update(head_sha=self.source, check_suite_id=1700)
         self.documents[self.prefix + "/actions/runs/700/attempts/1"] = run
@@ -1986,6 +1986,7 @@ class CallbackTerminalObservationTests(unittest.TestCase):
             "repository": {"id": REPOSITORY_ID, "full_name": REPOSITORY}, "app": {"id": 15368}}
         identity = gate._dispatch_run(run, 700, self.source, "gate-701-attempt-1")
         clock = [0]
+        self.clock = clock
         def request(endpoint, **kwargs):
             self.requests.append((endpoint, kwargs))
             value = deepcopy(self.documents[endpoint])
@@ -1999,7 +2000,8 @@ class CallbackTerminalObservationTests(unittest.TestCase):
                 mock.patch.object(gate.time, "sleep", side_effect=sleep) as self.sleep, \
                 mock.patch("sys.stdout", new_callable=io.StringIO) as self.output:
             result = gate._dispatch_native(api, self.prefix, run, self.source,
-                "gate-701-attempt-1", identity, deadline=seconds)
+                "gate-701-attempt-1", identity, **({} if seconds is None else {"deadline": seconds}),
+                **({} if check_terminal else {"check_terminal": False}))
         self.assertTrue(all(not kwargs for _, kwargs in self.requests), "metadata GETs only")
         return result
 
@@ -2090,6 +2092,138 @@ class CallbackTerminalObservationTests(unittest.TestCase):
             self.native(pending, seconds=5)
         self.assertEqual(sum(call.args[0] for call in self.sleep.call_args_list), 5)
         self.assertTrue(all(not kwargs for _, kwargs in self.requests))
+
+    def test_terminal_jobs_and_checks_can_converge_after30_within_caller_budget(self):
+        def lagging(endpoint, value):
+            if self.clock[0] < 122 and ("/actions/jobs/" in endpoint or "/check-runs/" in endpoint):
+                value.update(status="in_progress", conclusion=None, completed_at=None)
+            return value
+        try: self.native(lagging, seconds=180)
+        except gate.GateError as error: self.fail("matching terminal metadata must use remaining caller budget: " + str(error))
+        self.assertEqual(self.clock[0], 122)
+        self.assertTrue(all(not kwargs for _, kwargs in self.requests))
+
+    def test_without_caller_deadline_terminal_observation_is_bounded_at300(self):
+        def lagging(endpoint, value):
+            if self.clock[0] < 122 and endpoint.endswith("/actions/jobs/71"):
+                value.update(status="in_progress", conclusion=None, completed_at=None)
+            return value
+        try: self.native(lagging, seconds=None)
+        except gate.GateError as error: self.fail("retrospective observation needs its bounded300 budget: " + str(error))
+        self.assertEqual(self.clock[0], 122)
+        def pending(endpoint, value):
+            if endpoint.endswith("/actions/jobs/71"):
+                value.update(status="in_progress", conclusion=None, completed_at=None)
+            return value
+        with self.assertRaisesRegex(gate.GateError, "terminal.*timeout.*actions/jobs/71"):
+            self.native(pending, seconds=None)
+        self.assertEqual(self.clock[0], 300)
+
+    def test_expired_caller_budget_makes_no_terminal_resource_reads(self):
+        with self.assertRaisesRegex(gate.GateError, "terminal.*timeout"):
+            self.native(seconds=0)
+        self.assertEqual(self.requests, [])
+        self.sleep.assert_not_called()
+
+    def test_later_foreign_identity_fails_immediately_with_budget_remaining(self):
+        def lagging_then_foreign(endpoint, value):
+            if endpoint.endswith("/actions/jobs/71"):
+                value.update(status="in_progress", conclusion=None, completed_at=None)
+                if self.clock[0] >= 42: value["head_sha"] = BASE
+            return value
+        with self.assertRaisesRegex(gate.GateError, "head_sha"):
+            self.native(lagging_then_foreign, seconds=180)
+        self.assertEqual(self.clock[0], 42)
+        self.assertEqual(len(self.sleep.call_args_list), 21)
+
+    def test_matching_pending_attempt_joins_same_terminal_budget(self):
+        def lagging(endpoint, value):
+            if endpoint.endswith("/attempts/1") and self.clock[0] < 122:
+                value.update(status="in_progress", conclusion=None)
+            return value
+        try: self.native(lagging, seconds=180)
+        except gate.GateError as error: self.fail("matching terminal metadata must use remaining caller budget: " + str(error))
+        self.assertEqual(self.clock[0], 122)
+        for changes, field in (({"status":"completed","conclusion":"failure"}, "did not succeed"),
+                ({"status":"in_progress","conclusion":None,"run_attempt":2}, "run_attempt"),
+                ({"status":"foreign-state","conclusion":None}, "status/conclusion")):
+            def changed(endpoint, value):
+                if endpoint.endswith("/attempts/1"): value.update(changes)
+                return value
+            with self.subTest(changes=changes), self.assertRaisesRegex(gate.GateError, field):
+                self.native(changed, seconds=180)
+            self.sleep.assert_not_called()
+
+    def test_registration_only_check_authenticates_pending_attempt_without_terminal_outputs(self):
+        def pending(endpoint, value):
+            if endpoint.endswith("/attempts/1"): value.update(status="in_progress", conclusion=None)
+            return value
+        self.native(pending, check_terminal=False)
+        self.assertEqual(self.output.getvalue(), "")
+        self.assertEqual(len(self.requests), 2)
+        self.assertFalse(any("/actions/jobs/" in endpoint or "/check-runs/" in endpoint
+            for endpoint, _ in self.requests))
+        self.sleep.assert_not_called()
+        def foreign_suite(endpoint, value):
+            value=pending(endpoint,value)
+            if "/check-suites/" in endpoint: value["app"]["id"]=57789
+            return value
+        with self.assertRaisesRegex(gate.GateError,"app.id"):
+            self.native(foreign_suite, check_terminal=False)
+        self.sleep.assert_not_called()
+
+    def test_first_completed_run_registers_identity_then_uses_global_terminal_budget(self):
+        # Real completed-run/late-job response shape; controlled API only. The
+        # first run GET is already successful while both direct native roles
+        # and their checks remain in_progress for122 fake-clock seconds.
+        run = DispatchContracts().run_document("gate-701-attempt-1", run_id=700)
+        run.update(head_sha=self.source, check_suite_id=1700)
+        documents = deepcopy(self.documents)
+        documents[self.prefix + "/actions/runs/700"] = run
+        documents[self.prefix + "/actions/runs/700/attempts/1"] = run
+        documents[self.prefix + "/check-suites/1700"] = {
+            "id":1700,"head_sha":self.source,"repository":{"id":REPOSITORY_ID,
+                "full_name":REPOSITORY},"app":{"id":15368}}
+        documents[self.prefix] = {"id":REPOSITORY_ID,"full_name":REPOSITORY,"default_branch":"main"}
+        documents[self.prefix + "/branches/main"] = {
+            "name":"main","protected":True,"commit":{"sha":self.source}}
+        documents[self.prefix + "/actions/workflows/sync-validation.yml"] = {
+            "id":350930895,"path":".github/workflows/sync-validation.yml",
+            "name":"Sync validation","state":"active"}
+        args=SimpleNamespace(config=gate.DEFAULT_CONFIG,repository=REPOSITORY,pull_request=610,
+            mode="fallback",profile="android-family",base_sha=BASE,head_sha=HEAD,
+            merge_sha=MERGE,gate_run_id=701,gate_run_attempt=1,timeout=180,output=None)
+        clock=[0];calls=[]
+        def request(endpoint, **kwargs):
+            calls.append((endpoint,kwargs,clock[0]))
+            if endpoint.endswith("/dispatches"):
+                return {"workflow_run_id":700,"run_url":"https://api.github.com/"+self.prefix+"/actions/runs/700",
+                    "html_url":"https://github.com/"+REPOSITORY+"/actions/runs/700"}
+            value=deepcopy(documents[endpoint])
+            if clock[0] < 122 and ("/actions/jobs/" in endpoint or "/check-runs/" in endpoint):
+                value.update(status="in_progress",conclusion=None,completed_at=None)
+            return value
+        def sleep(seconds):clock[0]+=seconds
+        api=mock.Mock();api.json.side_effect=request
+        with mock.patch.object(gate,"GitHubApi",return_value=api), \
+                mock.patch.object(gate,"_dispatch_checkout_source",return_value=self.source), \
+                mock.patch.object(gate,"_callback_sync_recipe",return_value=True), \
+                mock.patch.object(gate.time,"monotonic",side_effect=lambda:clock[0]), \
+                mock.patch.object(gate.time,"sleep",side_effect=sleep), \
+                mock.patch.object(gate,"_dispatch_native",wraps=gate._dispatch_native)as native, \
+                mock.patch.object(gate,"write_outputs")as outputs, \
+                mock.patch("sys.stdout",new_callable=io.StringIO):
+            try: self.assertEqual(gate.dispatch_and_wait(args),0)
+            except gate.GateError as error: self.fail("initial completed run must separate registration from terminal observation: " + str(error))
+        self.assertEqual(clock[0],122)
+        self.assertEqual(len([c for c in calls if c[1].get("method")=="POST"]),1)
+        self.assertEqual(len(native.call_args_list),2)
+        self.assertIs(native.call_args_list[0].kwargs["check_terminal"],False)
+        self.assertEqual(native.call_args_list[0].kwargs["deadline"],30)
+        self.assertEqual(native.call_args_list[1].kwargs["deadline"],180)
+        self.assertTrue(all(not kwargs or kwargs.get("method")=="POST" for _,kwargs,_ in calls))
+        outputs.assert_called_once_with(None,{"validation_run_id":700,
+            "validation_url":"https://github.com/"+REPOSITORY+"/actions/runs/700"})
 
     def test_captured_1513_terminal_role_fields_use_direct_native_resources(self):
         # Actual retained terminal job fields. Check responses are controlled
