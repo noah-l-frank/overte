@@ -99,6 +99,63 @@ class GitHubApiDiagnosticsTests(unittest.TestCase):
         self.assertIn("command exit=1 http=404", str(caught.exception))
         self.assertNotIn("synthetic-private-body", str(caught.exception))
 
+    def test_owned_job_logs_preserve_raw_terminal_bytes_in_captured_pipes(self):
+        raw = b"prefix\r\n\x1b[31mcolored\x1b[0m\x00\xff\n"
+        for identifier in (1, 118649365857):
+            with self.subTest(identifier=identifier):
+                endpoint = f"repos/noah-l-frank/overte/actions/jobs/{identifier}/logs"
+
+                def fake_cli(command, **kwargs):
+                    self.assertEqual(command, ["gh", "api", "--allow-escape-sequences", endpoint])
+                    self.assertEqual(kwargs, {"check": True, "stdout": subprocess.PIPE,
+                                              "stderr": subprocess.PIPE})
+                    return SimpleNamespace(stdout=raw)
+
+                with mock.patch.object(gate.subprocess, "run", side_effect=fake_cli) as run:
+                    self.assertIs(gate.GitHubApi().bytes(endpoint), raw)
+                self.assertEqual(run.call_count, 1)
+
+    def test_other_binary_endpoints_keep_the_original_cli_transport(self):
+        endpoints = (
+            "repos/noah-l-frank/overte/actions/artifacts/123/zip",
+            "repos/overte-org/overte/actions/jobs/123/logs",
+            "repos/noah-l-frank/other/actions/jobs/123/logs",
+            "repos/Noah-l-frank/overte/actions/jobs/123/logs",
+            "repos/noah-l-frank/overte/actions/jobs/0/logs",
+            "repos/noah-l-frank/overte/actions/jobs/01/logs",
+            "repos/noah-l-frank/overte/actions/jobs/-1/logs",
+            "repos/noah-l-frank/overte/actions/jobs/123/logs/",
+            "repos/noah-l-frank/overte/actions/jobs/123/logs?per_page=100",
+            "repos/noah-l-frank/overte/actions/jobs/123/logs/extra",
+            "/repos/noah-l-frank/overte/actions/jobs/123/logs",
+            "https://api.github.com/repos/noah-l-frank/overte/actions/jobs/123/logs",
+        )
+        raw = b"unchanged-binary\x00\xff"
+        for endpoint in endpoints:
+            with self.subTest(endpoint=endpoint):
+                with mock.patch.object(gate.subprocess, "run", return_value=SimpleNamespace(stdout=raw)) as run:
+                    self.assertIs(gate.GitHubApi().bytes(endpoint), raw)
+                run.assert_called_once_with(["gh", "api", endpoint], check=True,
+                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def test_owned_job_log_errors_remain_fail_closed_without_raw_output(self):
+        endpoint = "repos/noah-l-frank/overte/actions/jobs/123/logs"
+        errors = (
+            subprocess.CalledProcessError(1, ["gh"], output=b"synthetic-private-stdout\x1b[31m",
+                                          stderr=b"synthetic-private-stderr (HTTP 403)"),
+            OSError(2, "synthetic-private-path"),
+        )
+        for error in errors:
+            with self.subTest(error=type(error).__name__):
+                with mock.patch.object(gate.subprocess, "run", side_effect=error) as run:
+                    with self.assertRaises(gate.EvidenceError) as caught:
+                        gate.GitHubApi().bytes(endpoint)
+                self.assertIs(caught.exception.__cause__, error)
+                self.assertNotIn("synthetic-private", str(caught.exception))
+                self.assertNotIn("\x1b", str(caught.exception))
+                run.assert_called_once_with(["gh", "api", "--allow-escape-sequences", endpoint],
+                                            check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
     def test_success_and_empty_success_preserve_existing_values(self):
         for stdout, expected in (("{\"ok\": true}", {"ok": True}), ("", {})):
             with mock.patch.object(gate.subprocess, "run", return_value=SimpleNamespace(stdout=stdout)):

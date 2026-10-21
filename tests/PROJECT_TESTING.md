@@ -1981,6 +1981,10 @@ App, original attempt, association and current base/head/merge checks remain
 required at both bookends. Manual validation still requires the exact current
 default caller; an older caller never replaces the current merge context.
 
+Sync captures job-log bytes unchanged with `gh api --allow-escape-sequences`
+only for the exact fork-owned job-log GET endpoint. Output remains in captured
+pipes; artifact downloads, other endpoints and failure handling are unchanged.
+
 The source-staged `codeql-upload-provenance.yml` successor records the pinned
 Analyze action's opaque `sarif-id` output in one small native artifact per selected
 language. The protected reader authenticates the original job/App, immutable

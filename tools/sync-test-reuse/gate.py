@@ -138,9 +138,13 @@ class GitHubApi:
             raise GateError(f"GitHub API request failed: {endpoint} ({safe_api_error(error)})") from error
 
     def bytes(self, endpoint: str) -> bytes:
+        command = ["gh", "api"]
+        if re.fullmatch(r"repos/noah-l-frank/overte/actions/jobs/[1-9][0-9]*/logs", endpoint):
+            command.append("--allow-escape-sequences")
+        command.append(endpoint)
         try:
             return subprocess.run(
-                ["gh", "api", endpoint], check=True, stdout=subprocess.PIPE,
+                command, check=True, stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             ).stdout
         except (OSError, subprocess.CalledProcessError) as error:
