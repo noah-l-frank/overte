@@ -153,7 +153,7 @@ inline QImage nativeBitmap(const QImage& image, const ContextPointer& context) {
             }, owner);
         // Native WK snapshot images have the fresh allocation's default metadata.
         // Do not transform pixels, dimensions, row stride, format or timestamps.
-        if (!carrier.isNull()) { return carrier; }
+        if (!carrier.isNull() && feature_images::sameMetadata(image, carrier)) { return carrier; }
     }
     // Handle a failed carrier constructor regardless of whether Qt invoked its
     // external-data cleanup. The failed QImage is already destroyed here.

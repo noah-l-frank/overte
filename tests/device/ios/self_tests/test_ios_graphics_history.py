@@ -4,7 +4,7 @@
 from copy import deepcopy
 import unittest
 from adapters.normal_ui import NativeUIError
-from ios.adapters.graphics_history import restore_native
+from ios.adapters.graphics_history import restore_native,follow_native
 from self_tests.test_native_feature_observation import Boundary
 from self_tests.test_native_account_observation import account_source
 from self_tests.test_native_animation_history import history_source
@@ -63,6 +63,25 @@ class GraphicsHistoryTests(unittest.TestCase):
         previous=boundary.reader(ios=True,native_clock_bound=True).read(0)
         reader=boundary.reader(ios=True,native_clock_bound=True);restore_native(reader,previous)
         self.assertEqual({},reader.read(reader.sequence)['animation']);self.assertIsNone(reader.account_history)
+
+
+class NativePrefixTests(unittest.TestCase):
+    def test_pure_original_prefix_check_retains_optional_histories_without_io_or_retiming(self):
+        b=Boundary();b.mutate=original;r=b.reader(ios=True,native_clock_bound=True)
+        a=r.read(0);c=r.read(r.sequence);saved=deepcopy((a,c));count=len(b.commands)
+        self.assertIsNone(follow_native(a,c));self.assertEqual(saved,(a,c));self.assertEqual(count,len(b.commands))
+
+    def test_missing_rewritten_or_regressing_original_histories_fail_pure_archive_validation(self):
+        for fault in ('account','voice','animation','rewrite','sequence','birth','nonce'):
+            b=Boundary();b.mutate=original;r=b.reader(ios=True,native_clock_bound=True);a=r.read(0);c=r.read(r.sequence)
+            if fault=='account':c['account'].pop('observation')
+            elif fault=='voice':c['audio'].pop('recordedVoice')
+            elif fault=='animation':c['animation']={}
+            elif fault=='rewrite':c['audio']['recordedVoice']['events'][0]['publishedEpochMs']-=1
+            elif fault=='sequence':c['sequence']=a['sequence']
+            elif fault=='birth':c['instance']='f'*32
+            else:c['requestId']=a['requestId']
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):follow_native(a,c)
 
 
 if __name__=='__main__':unittest.main()

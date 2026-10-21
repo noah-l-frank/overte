@@ -73,7 +73,7 @@ QImage image(const QImage& original, const Scopes& requested, const QString& kin
     {
         QImage carrier(original.constBits(), original.width(), original.height(), original.bytesPerLine(), original.format(),
             [](void* pointer) { auto* owner = static_cast<Owner*>(pointer); owner->cleaned->store(true); delete owner; }, owner);
-        if (!carrier.isNull()) {
+        if (!carrier.isNull() && sameMetadata(original, carrier)) {
             owner->key = carrier.cacheKey();
             auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex);
             if (data.images.size() < MAX_IMAGES && data.images.emplace(owner->key, Row { scopes, kind }).second) {

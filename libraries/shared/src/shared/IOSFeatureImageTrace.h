@@ -4,7 +4,9 @@
 #include <QtCore/qglobal.h>
 #if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QImage>
+#include <QColorSpace>
 #include <QString>
+#include <QStringList>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -19,6 +21,12 @@ struct Scope {
 };
 using Scopes = std::vector<Scope>;
 using Leases = std::vector<std::shared_ptr<void>>;
+inline bool sameMetadata(const QImage& original, const QImage& carrier) {
+    return original.devicePixelRatio() == carrier.devicePixelRatio()
+        && original.dotsPerMeterX() == carrier.dotsPerMeterX() && original.dotsPerMeterY() == carrier.dotsPerMeterY()
+        && original.offset() == carrier.offset() && original.colorSpace() == carrier.colorSpace()
+        && original.colorTable() == carrier.colorTable() && original.textKeys().isEmpty() && carrier.textKeys().isEmpty();
+}
 Scopes sources(const QImage& image);
 Leases retain(const Scopes& scopes, const QString& kind);
 QImage image(const QImage& original, const Scopes& scopes, const QString& kind);

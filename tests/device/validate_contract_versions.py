@@ -91,6 +91,8 @@ REQUIRED = {
     "ios-graphics-preferences": 1,
     "ios-graphics-source-floors": 1,
     "ios-graphics-samples": 2,
+    "ios-graphics-lifetime": 1,
+    "ios-graphics-lifetime-record": 1,
     "ios-graphics-background": 1,
     "ios-graphics-restart": 1,
     "ios-graphics-observer": 1,

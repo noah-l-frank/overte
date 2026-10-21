@@ -21,9 +21,11 @@ remain untouched inside the retained records. No native epoch is copied into a
 host timestamp field. Final byte/statistics processing and persistence remain
 inside the 1500 ms acquisition ceiling and its independent monotonic/UTC checks.
 
-Actual geometry-derived haze blue dominance and mirror orange reflection are
-compared outside the complete challenge card. Settings and issued draw counts
-without corresponding effect pixels never pass. A qualified original image
+Explicit enable phases compare actual geometry-derived haze blue dominance and
+mirror orange reflection outside the complete challenge card. Settings and issued
+draw counts without corresponding effect pixels cannot pass those enable phases.
+Baseline and later non-enable observations of already enabled effects still need
+fresh independent pixel qualification before whole-feature completion. A qualified original image
 without effect pixels can await another original frame under the existing
 20-second/81-attempt ceiling; malformed source/identity data cannot use this
 readiness path. Every attempted image and native retirement remains owned.
@@ -55,6 +57,8 @@ All UI/native/GPU/OS/kernel boundaries and rasterized pixels are synthetic.
 Actual host transports, private files and loopback scene responses are used.
 Native compilation and devices remain unverified.
 
-The full fifteen-step Graphics owner, independent worker lifecycle, native WK
-marker-view/callback/buffer lifetime and final original-world/quiet/metadata
-composition remain unfinished. No Graphics feature triple is advertised.
+The native WK/Qt/Vulkan sources and durable per-role/stage
+[resource lifetime owner](GRAPHICS_RESOURCE_LIFETIME.md) now provide original
+marker admission and restored-world/resource quiet windows. The full fifteen-step
+Graphics owner, independent worker lifecycle, enabled-effect baseline/restart/
+restoration pixel qualification and final metadata composition remain unfinished. No Graphics feature triple is advertised.

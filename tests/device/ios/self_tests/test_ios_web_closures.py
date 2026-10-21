@@ -268,6 +268,10 @@ class NativeResourceTests(unittest.TestCase):
         self.assertIn('QImage original; // Destroy the original reference before retiring its lease.',header)
         self.assertIn('owner->cleaned->store(true); delete owner;',header)
         self.assertNotIn('original.copy()',header)
+        shared=(ROOT/'libraries/shared/src/shared/IOSFeatureImageTrace.h').read_text()
+        self.assertIn('sameMetadata(image, carrier)',header)
+        for field in ('devicePixelRatio()', 'dotsPerMeterX()', 'dotsPerMeterY()', 'offset()', 'colorSpace()', 'colorTable()', 'textKeys()'):
+            self.assertIn(field,shared)
         self.assertIn('image.constBits(), image.width(), image.height(), image.bytesPerLine(), image.format()',header)
 
 
