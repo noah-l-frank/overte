@@ -113,7 +113,17 @@ class DockerCommandTests(unittest.TestCase):
         self.assertIn([str(self.tools), str(self.tools)], ro)
         self.assertNotIn([str(Path.home()), str(Path.home())], ro)
         self.assertIn(["--remount-ro", "/"], [argv[i:i + 2] for i in range(len(argv) - 1)])
-        fetch = R.namespace_command(self.candidate, ["npm", "ci"], network=True)
+        public = {}
+        for destination, name in (("/etc/resolv.conf", "resolver"), ("/etc/hosts", "hosts"),
+                                  ("/etc/ssl/certs/ca-certificates.crt", "ca"), ("/etc/ssl/cert.pem", "ca")):
+            fixture = self.root / name
+            fixture.write_text("public test configuration\n")
+            public[destination] = fixture
+        real_resolve = Path.resolve
+        def fixture_resolve(path, *args, **kwargs):
+            return real_resolve(public.get(str(path), path), *args, **kwargs)
+        with patch.object(Path, "resolve", fixture_resolve):
+            fetch = R.namespace_command(self.candidate, ["npm", "ci"], network=True)
         self.assertIn("--share-net", fetch)
         bindings = [fetch[index + 1:index + 3] for index, word in enumerate(fetch) if word == "--ro-bind"]
         self.assertTrue({"/etc/hosts", "/etc/resolv.conf", "/etc/ssl/certs/ca-certificates.crt"}
