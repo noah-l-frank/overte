@@ -157,6 +157,15 @@ wrong clocks/grants and missing sources. C++/Java remain uncompiled. The complet
 independent Graphics coordinator and final stable whole-fixture retirement remain
 pending; no full Graphics capability is enabled.
 
+The [original Graphics fixture/Web lifetime owner](GRAPHICS_LIFETIME.md) now
+pins read-only fixture phases and separate role/process source histories. Sixteen
+fixture-reader and nineteen lifetime cases require original active ownership,
+actual user-scene restoration, inactive provider, native scene drainage and
+native/Java Web release throughout an independent three-second quiet window.
+General cleanup refuses all four lifetime journals. Complete role/GPU/action and
+recoverable whole-run retirement composition remain pending; no full Graphics
+capability or physical acceptance is promoted.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

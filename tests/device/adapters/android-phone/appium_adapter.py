@@ -474,6 +474,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_GRAPHICS_SOURCE_SCOPE_REQUIRED')
         return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-'+role+'-'+str(stage)+'-samples.json'))
 
+    def graphics_lifetime_store(self, selector, role, stage):
+        require(role in ('primary','actor') and type(stage) is int and stage in (0,1),
+                'PHONE_GRAPHICS_LIFETIME_SCOPE_REQUIRED')
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-'+role+'-'+str(stage)+'-lifetime.json'))
+
     def _web_runtime_observer(self, selector, *, read_only=True):
         require(read_only is True,'PHONE_WEB_RUNTIME_REQUIRES_EXISTING_READ_ONLY_SESSION')
         native=self._native_feature_observer(selector,read_only=True)
@@ -1213,6 +1218,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(all(self.graphics_samples_store(selector,role,stage).read() is None
                     for role in ('primary','actor') for stage in (0,1)),
                 'PHONE_GRAPHICS_SOURCE_CLEANUP_INCOMPLETE')
+        require(all(self.graphics_lifetime_store(selector,role,stage).read() is None
+                    for role in ('primary','actor') for stage in (0,1)),
+                'PHONE_GRAPHICS_LIFETIME_CLEANUP_INCOMPLETE')
         require(not probe_error and all(self.account_probe_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_ACCOUNT_PROBE_CLEANUP_INCOMPLETE')
         require(not origin_error and self.account_origin_store(selector).read() is None,

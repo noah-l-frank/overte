@@ -42,6 +42,8 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_graphics_images.py",
     "android/phone/tests/device/test_graphics_samples.py",
     "android/phone/tests/device/test_graphics_readiness.py",
+    "android/phone/tests/device/test_graphics_fixture_reader.py",
+    "android/phone/tests/device/test_graphics_lifetime.py",
     "android/phone/tests/device/test_graphics_effects.py",
     "android/phone/tests/device/test_graphics_surface.py",
     "android/phone/tests/device/test_graphics_scene.py",

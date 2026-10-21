@@ -948,6 +948,16 @@ class FeatureAdapterTests(unittest.TestCase):
                 base.assert_called_once()
             self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_either_role_or_stage_graphics_lifetime(self):
+        for role in ('primary','actor'):
+            for stage in (0,1):
+                store=self.adapter.graphics_lifetime_store(SELECTOR,role,stage);store.write({'unresolved':True},None)
+                with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+                    with self.subTest(role=role,stage=stage),self.assertRaisesRegex(ValueError,'PHONE_GRAPHICS_LIFETIME_CLEANUP_INCOMPLETE'):
+                        self.adapter.cleanup(SELECTOR)
+                    base.assert_called_once()
+                self.assertIsNotNone(store.read());store.discard(store.read())
+
     def test_graphics_restart_stopped_observes_os_and_process_through_existing_session(self):
         self.read_only_boundaries();_ui,_observer,binding,_guard,_installed=self.adapter.normal_feature_runtime(SELECTOR,read_only=True)
         self.assertEqual(dict(running=True,identity='31:14'),self.adapter._graphics_restart_stopped(SELECTOR,binding))
