@@ -1741,6 +1741,33 @@ class HostGenerationTests(unittest.TestCase):
             self.assertEqual((self.route(event, source)["required"], self.route(event, source)["host_required"]),
                              ("true", "true"))
 
+    def test_exact_ios_metadata_reader_omits_host_but_neighboring_inputs_remain_required(self):
+        relative = "tools/ios-build-qualification/text-edits.py"
+        inputs = self.host.selector(self.trusted)
+        previous = inputs.read_snapshot(self.root, self.base)
+        boundary = self.host.ci_host_boundary(previous)
+        added = self.commit(self.base, {relative: "raise AssertionError('metadata reader must not execute')\n"})
+        with patch.object(self.host, "REVIEWED_CI_HOST_BOUNDARY", boundary):
+            for base, value in ((self.base, "raise AssertionError('added metadata reader must not execute')\n"),
+                                (added, "raise AssertionError('changed metadata reader must not execute')\n"),
+                                (added, None)):
+                event, source = self.candidate({relative: value}, base=base)
+                with self.subTest(base=base, deleted=value is None):
+                    output = self.route(event, source)
+                    self.assertEqual((output["required"], output["host_required"], output["reason"]),
+                                     ("false", "false", "reviewed-ci-only-host-inputs"))
+                    self.assertEqual(self.verify(output, event, source), output)
+            changes = ({"tools/ios-build-qualification/text-edits-extra.py": "# Unknown neighboring reader\n"},
+                       {"ios/tests/text-edits.py": "# Unknown product-host input\n"},
+                       {relative: ("100755", "# Wrong metadata mode\n")},
+                       {relative: ("120000", "other.py")},
+                       {relative: "# Mixed metadata edit\n", "ios/tests/dsym_fixture.py": "# Changed host reader\n"})
+            for change in changes:
+                with self.subTest(change=change):
+                    _, source = self.candidate(change)
+                    self.assertIsNone(self.host.ci_host_omission(previous,
+                        inputs.read_snapshot(self.root, source)))
+
     def test_exact_governance_document_omits_host_only_with_regular_reviewed_inputs(self):
         document = "docs/BRANCH_GOVERNANCE.md"
         base = self.commit(self.base, {document: "# Reviewed governance\n"})
