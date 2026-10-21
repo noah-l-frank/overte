@@ -159,6 +159,18 @@ class StereoGraphicsEvidenceTests(unittest.TestCase):
             raw,body,sample=Source().acquire();edit(body)
             with self.subTest(edit=edit),self.assertRaises((RuntimeError,ValueError,AssertionError)):verify(raw,body,sample)
 
+    def test_legacy_photometry_cannot_claim_world_effects_behind_a_visible_vr_tablet(self):
+        raw,body,sample=Source().acquire();ui=UiBoundary()
+        for row in ui.controls:
+            if row['id']=='graphics.resolution':row.update(value=.5,nativeValue=.5)
+            if row['id'] in ('graphics.haze','graphics.mirrors'):row.update(checked=True,nativeChecked=True)
+        body['graphics']=ui.source().capture();sample['state']['dialog']=True
+        # The existing actual Pico tablet is a world Model/Web entity and is
+        # drawn before ToneMapping. A current near-marker, geometric ROI and
+        # whole-frame pass count cannot establish that an open UI did not paint
+        # these effect pixels. Legacy profile has no per-surface identity proof.
+        with self.assertRaises(NativeUIError):verify(raw,body,sample)
+
     def test_current_marker_cannot_replace_actual_authored_geometry_or_original_http_delivery(self):
         for fault in ('no-response','foreign-color','moved-subject','wrong-haze','late-response'):
             raw,body,sample=Source().acquire()

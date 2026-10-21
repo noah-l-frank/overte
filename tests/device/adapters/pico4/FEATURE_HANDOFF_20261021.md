@@ -384,3 +384,14 @@ host verified. Archives remain historical; only fresh live samples can return
 current facts. The full observer/effects/actor/background/restart and actual
 UI/HTTP/Web-renderer quiet coordinator are still missing. Restart also needs an
 explicit new-process framework baseline after verified original PID death.
+
+
+## Actual world-layer tablet visibility boundary
+
+Source inspection confirms the real tablet Model/Web/Gizmo is drawn before
+ToneMapping; `before-hud` does not remove it from the original world PNG. The
+legacy v1 verifier now refuses a physically shown tablet, with a regression
+first observed red and then passing. Current v16 Graphics open-page images and
+effects therefore need a separately versioned per-surface original identity/
+visibility proof. This prerequisite remains open rather than treating UI colors
+as world pixels or declaring the helper a complete Graphics adapter.

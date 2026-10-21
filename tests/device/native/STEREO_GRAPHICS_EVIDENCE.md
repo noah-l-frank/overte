@@ -53,3 +53,20 @@ adapter still needs durable planned/opened/saved file identity for both original
 artifacts, scene/preferences/restoration, separate actor publication, actual
 callback/resource retirement and quiet cleanup. This packet adds no full Pico
 Graphics capability. Native source remains uncompiled; all devices are untested.
+
+
+## Legacy open-tablet limit
+
+The v1 photometry profile now refuses a physically shown tablet. Actual
+`WebTablet.js` creates local Model/Web/Gizmo entities in the world layer, and
+`RenderForwardTask.cpp` draws world/front items before ToneMapping. Therefore
+`before-hud` is not a claim that the 3D tablet was excluded. A near-marker,
+projected board ROI and whole-frame pass count cannot attribute colors under
+an open VR UI. A red-then-green host counterexample enforces this refusal.
+
+This closed-tablet prerequisite does not complete the common v16 Graphics
+journey, which explicitly requires original images/effect changes while its
+Graphics page is open. That flow needs a separately versioned original
+per-surface identity/visibility proof (including Haze and reflected content)
+before the complete Pico capability can be registered. Native compilation and
+devices remain unverified; old photometry is not silently promoted.

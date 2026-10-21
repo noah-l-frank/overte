@@ -864,5 +864,38 @@
       }
     ],
     "limits": "Synthetic native/renderer/OS boundaries. No full public Graphics/actor operation, background/restart, new-process framework restoration or UI/HTTP/Web/capture quiet retirement is supplied by this sampler. Source-level role transactions and independent common verifier interoperability do not qualify devices or native timing."
+  },
+  "graphicsVisibleTabletBoundary": {
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "sources": [
+      "scripts/system/libraries/WebTablet.js",
+      "libraries/render-utils/src/RenderForwardTask.cpp"
+    ],
+    "counterexample": "The actual world-layer UI was accepted by the former photometry profile; the new counterexample first failed, then passed after explicit shown-tablet refusal. No PNG is relabelled as UI-free.",
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_stereo_graphics_evidence self_tests.test_stereo_graphics_pixels self_tests.test_graphics_originals self_tests.test_pico_graphics_samples (from tests/device)",
+        "tests": 50,
+        "status": "passed",
+        "durationSeconds": 34.976
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test suite-runner --test coverage-matrix",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 28.2,
+        "junit": "graphics-visible-tablet-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.59,
+        "junit": "graphics-visible-tablet-project.xml"
+      }
+    ],
+    "remaining": "Implement separately versioned original Haze/reflection surface identity and UI visibility proof for open-page checkpoints; legacy photometry is a closed-tablet prerequisite only."
   }
 }

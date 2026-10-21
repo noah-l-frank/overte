@@ -55,6 +55,10 @@ def analyse(raw,metadata,run,ticket,fixture_url,*,role='primary',monotonic=time.
     first_person_head(first);first_person_head(last)
     scene=separate_inventory(first)['scene'];need(scene==separate_inventory(last)['scene'])
     ui_packet(ui,ui.get('commandId'),pid,epoch)
+    # Pico's actual tablet is world geometry drawn before ToneMapping. This
+    # legacy photometry profile has no original per-surface visibility proof;
+    # a near-marker and pass counts cannot attribute an open UI's colors.
+    need(not ui['tabletShown'])
     validate_status(provider,instance=provider.get('instance'),run=run,url=fixture_url.rsplit('/runs/',1)[0],request=provider.get('requestId'))
     need(provider['active'] and provider['ticket']==ticket and provider['sceneTicket']==body['sceneTicket']
         and any(row['status']==200 and row['completedEpochMs']<=first['requestedEpochMs'] for row in provider['responses']))

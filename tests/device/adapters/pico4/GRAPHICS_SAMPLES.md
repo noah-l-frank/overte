@@ -55,3 +55,10 @@ newly observed framework registrations for the new process; IDs from a dead
 process cannot be compared as if they still owned new UI entities. No full
 Graphics capability is advertised. Native compilation, real timing and all
 physical devices remain unverified.
+
+
+The legacy v1 photometry profile accepts only a physically closed tablet.
+Original open-tablet effect evidence remains a missing prerequisite, because the
+actual tablet is world geometry in the captured render stage. The complete
+common v16 journey cannot be registered using this legacy profile alone. See
+[the original evidence limit](../../native/STEREO_GRAPHICS_EVIDENCE.md#legacy-open-tablet-limit).
