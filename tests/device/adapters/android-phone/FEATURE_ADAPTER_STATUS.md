@@ -125,6 +125,14 @@ effects. Metadata may retire before the later explicit restart without resetting
 preferences. Restart ownership and the complete independent Graphics coordinator
 remain pending; no full capability or device acceptance is promoted.
 
+The [version-2 Graphics scene/preference transfer contract](GRAPHICS_RESTART_SCOPE.md)
+now preserves complete old-process originals and requires actual new native birth,
+unchanged preferences and independent old-PID ESRCH proof. Ten focused cases
+reject mixed/foreign archives, old-packet relabeling and missing lifecycle proof.
+These record builders do not yet deliver stop/launch or recover partial application;
+full restart ownership and the independent Graphics coordinator remain pending.
+No full capability is enabled.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

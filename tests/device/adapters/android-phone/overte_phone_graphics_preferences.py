@@ -12,8 +12,9 @@ from feature_journeys.contract import arguments,identifier
 from overte_phone_graphics_scene import PhoneGraphicsScene,operation
 from overte_phone_graphics_samples import restore_native
 from overte_phone_script_history import pack,unpack,same
+from overte_phone_graphics_restart_proof import validate as restart_proof
 
-VERSION=1
+VERSION=2
 VERBS=frozenset({'open','close','set-resolution','set-haze','set-mirrors','restore-original'})
 FIELDS=('requestedResolutionScale','hazeSetting','mirrorsSetting')
 
@@ -41,20 +42,33 @@ class PhoneGraphicsPreferences:
         self.previous=self.store.read();self.state=None
         if self.previous is not None:self.state=self.decode(self.previous)
 
-    def decode(self,value):
+    def decode(self,value,*,expected_binding=None,allow_restart=True,scene_handoff=None):
         exact(value,{'graphicsPreferencesVersion','runId','fixtureUrl','payload'})
         need(type(value['graphicsPreferencesVersion']) is int and value['graphicsPreferencesVersion']==VERSION
             and value['runId']==self.run and value['fixtureUrl']==self.fixture_url)
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'binding','original','native','phase','tickets','current','restoration'})
-        need(same(context(state['binding']),self.scene.binding) and state['phase'] in ('ready','issued','acknowledged','cleaned')
+        exact(state,{'binding','original','native','phase','tickets','current','restoration','handoff'})
+        need(same(context(state['binding']),expected_binding or self.scene.binding) and state['phase'] in ('ready','issued','acknowledged','cleaned')
             and type(state['tickets']) is list and len(state['tickets'])<=128
             and len({identifier(ticket) for ticket in state['tickets']})==len(state['tickets']))
         pid=int(state['binding']['processIdentity'].split(':')[0])
-        for packet in (state['original'],state['native']):native_packet(packet,packet['requestId'],pid,packet['capturedEpochMs'])
-        if not same(state['original'],state['native']):advance(state['original'],state['native'])
+        original_pid=pid;floor=state['original'];previous=None
+        if state['handoff'] is not None:
+            need(allow_restart);handoff=state['handoff'];exact(handoff,{'previous','receipt'})
+            receipt=restart_proof(handoff['receipt']);plan=receipt['input']
+            previous=self.decode(handoff['previous'],expected_binding=plan['oldBinding'],allow_restart=False)
+            need(same(state['binding'],plan['newBinding']) and same(previous['native'],receipt['oldNative'])
+                and same(state['original'],previous['original']) and previous['phase'] in ('ready','acknowledged')
+                and not previous['restoration'] and state['tickets'][:len(previous['tickets'])]==previous['tickets']
+                and (scene_handoff or self.scene.state['handoff']) is not None
+                and same((scene_handoff or self.scene.state['handoff'])['receipt'],receipt))
+            original_pid=int(plan['oldBinding']['processIdentity'].split(':')[0]);floor=receipt['native']
+        native_packet(state['original'],state['original']['requestId'],original_pid,state['original']['capturedEpochMs'])
+        native_packet(state['native'],state['native']['requestId'],pid,state['native']['capturedEpochMs'])
+        if not same(floor,state['native']):advance(floor,state['native'])
         current=state['current']
-        if current is None:need(state['phase'] in ('ready','cleaned') and not state['tickets'])
+        if current is None:need(state['phase'] in ('ready','cleaned') and
+            (not state['tickets'] if previous is None else state['tickets']==previous['tickets']))
         else:
             exact(current,{'arguments','barrier','steps','intents','proof'})
             call=arguments('feature.graphics.act',current['arguments'])
@@ -63,7 +77,7 @@ class PhoneGraphicsPreferences:
                 and type(current['steps']) is list and len(current['steps'])<=3
                 and type(current['intents']) is list and len(current['intents'])<=128)
             before=current['barrier'];native_packet(before,before['requestId'],pid,before['capturedEpochMs'])
-            need(before['instance']==state['original']['instance'])
+            need(before['instance']==state['native']['instance'])
             kinds=set()
             for step in current['steps']:
                 exact(step,{'kind','phase'});need(step['kind'] in self.steps(call) and step['kind'] not in kinds
@@ -81,7 +95,7 @@ class PhoneGraphicsPreferences:
         for row in state['restoration']:
             exact(row,{'field','phase','intents','proof'});need(row['field'] in ('open','resolution','haze','mirrors','close')
                 and row['phase'] in ('issued','observed') and type(row['intents']) is list and len(row['intents'])<=128)
-            before=state['original']
+            before=floor
             for item in row['intents']:
                 exact(item,{'step','stage','control','subject','graphics','native'})
                 need(item['step']==row['field'] and type(item['stage']) is str and type(item['control']) is str)
@@ -91,6 +105,24 @@ class PhoneGraphicsPreferences:
         if state['phase']=='cleaned':need(bool(state['restoration']) and state['restoration'][-1]['field']=='close'
             and all(row['phase']=='observed' for row in state['restoration']))
         return state
+
+    @classmethod
+    def restart_record(cls,previous,receipt):
+        receipt=restart_proof(receipt);state=unpack(previous['payload'])[0]
+        need(previous['graphicsPreferencesVersion']==VERSION and state['handoff'] is None
+            and state['phase'] in ('ready','acknowledged') and not state['restoration']
+            and same(state['binding'],receipt['input']['oldBinding']) and same(state['native'],receipt['oldNative']))
+        state.update(binding=deepcopy(receipt['input']['newBinding']),native=deepcopy(receipt['native']),phase='ready',current=None,
+            handoff=dict(previous=deepcopy(previous),receipt=receipt))
+        return deepcopy(previous)|dict(payload=pack([state]))
+
+    @classmethod
+    def archive(cls,value,*,scene,expected_binding=None,scene_handoff=None):
+        """Validate an immutable process archive without source/SDK admission."""
+        need(isinstance(scene,PhoneGraphicsScene))
+        scope=object.__new__(cls);scope.scene,scope.run=scene,scene.run
+        scope.fixture_url=scene.client.url+'/runs/'+scene.run+'/'
+        return deepcopy(scope.decode(value,expected_binding=expected_binding,scene_handoff=scene_handoff))
 
     def bound(self):
         self.lock.assert_held();need(self.scene.guard() is not False and same(self.scene.store.read(),self.scene.previous))
@@ -120,7 +152,7 @@ class PhoneGraphicsPreferences:
             need(first['graphics']==second['graphics'] and first['lifecycle']==second['lifecycle']
                 and not any(self.scene.state['leases'].values()))
             self.state=dict(binding=deepcopy(self.scene.binding),original=first,native=second,
-                phase='ready',tickets=[],current=None,restoration=[]);self.save()
+                phase='ready',tickets=[],current=None,restoration=[],handoff=None);self.save()
         else:self.source()
         return deepcopy(self.state)
 

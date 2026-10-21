@@ -22,8 +22,9 @@ from feature_journeys.witness import Client
 from overte_phone_graphics_measurements import aligned_entities,aligned_subject,near
 from overte_phone_script_history import pack,unpack,same
 from overte_phone_script_lock import PhoneScriptSourceLock
+from overte_phone_graphics_restart_proof import validate as restart_proof
 
-VERSION=1
+VERSION=2
 
 
 def operation(method):
@@ -89,35 +90,55 @@ class PhoneGraphicsScene:
         self.binding=deepcopy(context(binding));self.pid=int(binding['processIdentity'].split(':')[0])
         self.previous=self.store.read()
         self.state=dict(binding=self.binding,phase='reserved',original=None,subject=None,loads=None,provider=None,
-            sceneTicket=None,targetFeet=None,leases=dict(tablet=False,address=False,menu=False),actions=[],current=None,proof=None)
+            sceneTicket=None,targetFeet=None,leases=dict(tablet=False,address=False,menu=False),actions=[],current=None,proof=None,handoff=None)
         if self.previous is not None:
             self.state=self.decode(self.previous);need(same(self.state['binding'],self.binding))
         self.subject=adapter._graphics_subject_observer(selector,read_only=True)
         self.loads=adapter._scene_load_observer(selector,read_only=True)
         if self.previous is None:self.save()
 
-    def decode(self,value):
+    def decode(self,value,*,allow_restart=True):
         exact(value,{'graphicsSceneVersion','runId','fixtureUrl','providerInstance','payload'})
         need(type(value['graphicsSceneVersion']) is int and value['graphicsSceneVersion']==VERSION and value['runId']==self.run
             and value['fixtureUrl']==self.client.url and value['providerInstance']==self.client.graphics_instance)
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'binding','phase','original','subject','loads','provider','sceneTicket','targetFeet','leases','actions','current','proof'})
+        exact(state,{'binding','phase','original','subject','loads','provider','sceneTicket','targetFeet','leases','actions','current','proof','handoff'})
         context(state['binding']);pid=int(state['binding']['processIdentity'].split(':')[0])
+        original_pid=pid;floor=None
+        if state['handoff'] is not None:
+            need(allow_restart);handoff=state['handoff'];exact(handoff,{'previous','receipt','subject','loads'})
+            previous=self.decode(handoff['previous'],allow_restart=False);receipt=restart_proof(handoff['receipt']);plan=receipt['input']
+            need(same(previous['binding'],plan['oldBinding']) and same(state['binding'],plan['newBinding'])
+                and previous['phase']=='active' and previous['original'] is not None and not any(previous['leases'].values())
+                and same(state['original'],previous['original']) and state['sceneTicket']==previous['sceneTicket']
+                and receipt['oldNative']['instance']==previous['subject']['instance']
+                and receipt['oldNative']['capturedEpochMs']>=previous['subject']['capturedEpochMs'])
+            need(plan['ownerFiles']==[str(self.store.path),*[str(self.adapter.world_render_store(self.selector,role=role).path) for role in ('primary','actor')]])
+            original_pid=int(previous['binding']['processIdentity'].split(':')[0]);floor=handoff['subject']
+            self.validate_subject(floor,pid);self.validate_loads(handoff['loads'],pid)
+            need(floor['instance']==receipt['native']['instance'] and floor['requestedEpochMs']>=receipt['native']['capturedEpochMs']
+                and not floor['source']['entities'] and len(floor['source']['absentIds'])==7
+                and handoff['loads']['instance']!=previous['loads']['instance']
+                and handoff['loads']['capturedEpochMs']>=floor['capturedEpochMs'])
+            need(state['subject'] is not None and state['subject']['instance']==floor['instance']
+                and state['subject']['sequence']>=floor['sequence'] and state['subject']['capturedEpochMs']>=floor['capturedEpochMs'])
+            if not same(handoff['loads'],state['loads']):continuity(handoff['loads'],state['loads'],pid)
         need(state['phase'] in ('reserved','preparing','active','restoring','restored') and type(state['actions']) is list and len(state['actions'])<=16)
         exact(state['leases'],{'tablet','address','menu'});need(all(type(v) is bool for v in state['leases'].values()))
         if state['sceneTicket'] is not None:identifier(state['sceneTicket'])
         if state['targetFeet'] is not None:need(type(state['targetFeet']) is list and len(state['targetFeet'])==3 and all(number(v,-1e6,1e6) for v in state['targetFeet']))
-        for packet in (state['subject'],state['original']['subject'] if state['original'] else None):
-            if packet is not None:self.validate_subject(packet,pid)
+        if state['subject'] is not None:self.validate_subject(state['subject'],pid)
         if state['loads'] is not None:self.validate_loads(state['loads'],pid)
         if state['original'] is not None:
             exact(state['original'],{'subject','loads','restoreUrl'})
+            self.validate_subject(state['original']['subject'],original_pid)
             need(state['subject'] is not None and state['loads'] is not None)
             original,latest=state['original']['subject'],state['subject']
-            need(latest['instance']==original['instance'] and latest['sequence']>=original['sequence']
-                and latest['capturedEpochMs']>=original['capturedEpochMs'])
-            if not same(state['original']['loads'],state['loads']):continuity(state['original']['loads'],state['loads'],pid)
-            eligible(state['original']['subject']);self.validate_loads(state['original']['loads'],pid)
+            if state['handoff'] is None:
+                need(latest['instance']==original['instance'] and latest['sequence']>=original['sequence']
+                    and latest['capturedEpochMs']>=original['capturedEpochMs'])
+                if not same(state['original']['loads'],state['loads']):continuity(state['original']['loads'],state['loads'],pid)
+            eligible(state['original']['subject']);self.validate_loads(state['original']['loads'],original_pid)
             committed(state['original']['loads'],state['original']['subject']['source']['sceneUrl'])
             pose=state['original']['subject']['source']['avatarPose']
             need(state['original']['restoreUrl']==viewpoint(state['original']['subject']['source']['sceneUrl'],pose['feetPosition'],pose['orientation']))
@@ -125,19 +146,21 @@ class PhoneGraphicsScene:
         kinds=set()
         for action in state['actions']:
             exact(action,{'kind','url','phase','inputs'})
-            need(action['kind'] in ('enter','align','restore','restore-close') and action['kind'] not in kinds
+            need(action['kind'] in ('enter','align','restore','restore-close','camera') and action['kind'] not in kinds
                 and action['phase'] in ('issued','acknowledged','observed') and type(action['inputs']) is list and len(action['inputs'])<=128)
             need(state['original'] is not None and state['sceneTicket'] is not None)
             root=self.client.url+'/runs/'+self.run+'/tickets/'+state['sceneTicket']+'/'+RESOURCE
             expected={'enter':viewpoint(root,[0,0,0],[0,0,0,1]),'restore':state['original']['restoreUrl'],'restore-close':None}
+            if action['kind']=='camera':need(state['handoff'] is not None);expected['camera']=None
             if action['kind']=='align':
                 need(state['targetFeet'] is not None);expected['align']=viewpoint(root,state['targetFeet'],[0,0,0,1])
             need(action['url']==expected[action['kind']])
             for item in action['inputs']:
                 exact(item,{'stage','subject','graphics','control'});self.validate_subject(item['subject'],pid)
                 need(type(item['stage']) is str and len(item['stage'])<=80 and type(item['control']) is str and len(item['control'])<=256)
-                need(item['subject']['instance']==state['original']['subject']['instance']
-                    and state['original']['subject']['sequence']<item['subject']['sequence']<=state['subject']['sequence'])
+                baseline=floor or state['original']['subject']
+                need(item['subject']['instance']==baseline['instance']
+                    and baseline['sequence']<item['subject']['sequence']<=state['subject']['sequence'])
             kinds.add(action['kind'])
         need(state['current'] is None or integer(state['current'],0,len(state['actions'])-1))
         if state['phase'] in ('active','restoring','restored'):need(state['original'] is not None or not state['actions'])
@@ -150,6 +173,30 @@ class PhoneGraphicsScene:
                 need(same(state['subject'],state['proof']['subject']) and same(state['loads'],state['proof']['loads']))
             else:need(state['proof'] is None and not state['actions'])
         return state
+
+    @classmethod
+    def restart_record(cls,previous,receipt,subject,loads):
+        """Build a proposed CAS value from preserved originals, never measurements.
+
+        The restart controller must validate old/new sources, durably save this
+        proposal and apply it only after independently proving original PID death.
+        Normal construction fully revalidates the closed nested receipt/archive.
+        """
+        receipt=restart_proof(receipt);state=unpack(previous['payload'])[0]
+        need(previous['graphicsSceneVersion']==VERSION and state['handoff'] is None and state['phase']=='active'
+            and not any(state['leases'].values()) and same(state['binding'],receipt['input']['oldBinding']))
+        state.update(binding=deepcopy(receipt['input']['newBinding']),phase='preparing',subject=deepcopy(subject),loads=deepcopy(loads),
+            targetFeet=None,actions=[],current=None,proof=None,handoff=dict(previous=deepcopy(previous),receipt=receipt,
+                subject=deepcopy(subject),loads=deepcopy(loads)))
+        return deepcopy(previous)|dict(payload=pack([state]))
+
+    @classmethod
+    def archive(cls,value,*,adapter,selector,client,run):
+        """Pure historical validation; no SDK/read/repair or usable live owner."""
+        need(isinstance(client,Client) and client.run==run and client.area=='graphics');identifier(run)
+        scope=object.__new__(cls);scope.adapter,scope.selector,scope.client,scope.run=adapter,selector,client,run
+        scope.store=PrivateFeatureState(adapter.state_path(selector).with_name('phone-graphics-scene.json'))
+        return deepcopy(scope.decode(value))
 
     def validate_subject(self,packet,pid):
         subject_packet(packet,dict(schemaVersion=1,commandId=packet['requestId'],action='feature-graphics-subject-observe',runId=self.run),pid,packet['capturedEpochMs'],require_avatar=True)
@@ -229,6 +276,16 @@ class PhoneGraphicsScene:
         status=self.provider();need(status['sceneTicket'] is not None)
         if self.state['sceneTicket'] is None:self.state['sceneTicket']=status['sceneTicket'];self.save()
         root=self.client.url+'/runs/'+self.run+'/tickets/'+self.state['sceneTicket']+'/'+RESOURCE
+        if self.state['handoff'] is not None:
+            if not self.state['actions']:
+                surface=self.surface();need(not surface.tablet.tablet_visible()
+                    and not surface.ui.available(surface.tablet.resource('PhoneAddressField'),require_enabled=False))
+            current=self.read_subject()
+            if current['source']['view']['mode']!='first person look at':
+                index,new=self.action('camera')
+                if new:self.surface().select_camera('first person look at')
+                current=self.read_subject();need(current['source']['view']['mode']=='first person look at')
+                self.state['actions'][index]['phase']='observed';self.save()
         enter=self.navigate('enter',viewpoint(root,[0,0,0],[0,0,0,1]))
         def entered(packet,loads):
             aligned_entities(packet,self.run,self.state['sceneTicket'],self.client.url+'/runs/'+self.run+'/')

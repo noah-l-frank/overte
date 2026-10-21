@@ -1,3 +1,6 @@
+Current compatibility: [version-2 original process transfer](GRAPHICS_RESTART_SCOPE.md)
+preserves the original v1 behavior below and refuses incomplete v1 journals.
+
 # Durable ordinary Phone Graphics preferences v1
 
 `PhoneGraphicsPreferences` composes the existing original-token Graphics surface,

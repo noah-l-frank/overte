@@ -1,3 +1,6 @@
+Current compatibility: [version-2 original process transfer](GRAPHICS_RESTART_SCOPE.md)
+preserves the original v1 behavior below and refuses incomplete v1 journals.
+
 # Owned ordinary Phone Graphics scene v1
 
 `PhoneGraphicsScene` owns normal scene entry, measured viewpoint alignment and
