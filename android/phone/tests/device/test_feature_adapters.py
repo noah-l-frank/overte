@@ -928,6 +928,14 @@ class FeatureAdapterTests(unittest.TestCase):
         with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}):self.adapter.cleanup(SELECTOR)
         self.assertIsNone(self.adapter.account_probe_store(SELECTOR,role='actor').read())
 
+    def test_general_cleanup_cannot_forget_emote_scene_or_browser_ownership(self):
+        store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-scene.json'))
+        store.write({'unresolved':True},None)
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_EMOTE_SCENE_OWNERSHIP_REMAINS'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_general_cleanup_cannot_forget_emote_view_or_preference_ownership(self):
         store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-view.json'))
         store.write({'unresolved':True},None)

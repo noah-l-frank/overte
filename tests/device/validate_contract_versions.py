@@ -44,6 +44,7 @@ REQUIRED = {
     "native-phone-emote-fixture": 1,
     "native-phone-emote-fixture-input": 1,
     "native-phone-touch-state": 1,
+    "phone-emote-scene": 1,
     "phone-emote-view": 1,
     "native-phone-avatar-configuration": 1,
     "native-avatar-render": 1,

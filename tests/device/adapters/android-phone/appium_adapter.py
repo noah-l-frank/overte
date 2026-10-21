@@ -1393,6 +1393,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE')
         require(not world_error and all(self.world_render_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_WORLD_RENDER_CLEANUP_INCOMPLETE')
+        require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-scene.json')).read() is None,
+                'PHONE_EMOTE_SCENE_OWNERSHIP_REMAINS')
         require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-view.json')).read() is None,
                 'PHONE_EMOTE_VIEW_OWNERSHIP_REMAINS')
         require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-background.json')).read() is None,

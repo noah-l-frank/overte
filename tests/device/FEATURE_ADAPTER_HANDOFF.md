@@ -708,3 +708,11 @@ parent proof-retention callback. Native fixture run tombstones refuse delayed
 old-run resurrection after another run drains (bounded 256, no eviction). The
 49 focused host checks pass; native source remains uncompiled and does not
 qualify target behavior. Full Emote coordination remains open.
+
+The [Phone Emote scene v1](adapters/android-phone/EMOTE_SCENE.md) now joins
+normal view, actual domain scan and fixture node/Browser lifetime, with actual
+private original files and a contiguous three-second native/host cleanup window.
+Unknown/partial ownership, late work, changed phase/candidate and failed parent
+proof retention stay red. Existing source/input original kinds remain closed.
+Independent current input/Rig/image/actor and whole-feature coordination remain
+required; the complete Phone count stays 3/14 and native source is uncompiled.

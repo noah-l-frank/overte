@@ -99,6 +99,7 @@
     "native-phone-emote-fixture": {"current": 1, "reads": [1]},
     "native-phone-emote-fixture-input": {"current": 1, "reads": [1]},
     "native-phone-touch-state": {"current": 1, "reads": [1]},
+    "phone-emote-scene": {"current": 1, "reads": [1]},
     "phone-emote-view": {"current": 1, "reads": [1]},
     "native-phone-avatar-configuration": {"current": 1, "reads": [1]},
     "native-avatar-render": {"current": 1, "reads": [1]},

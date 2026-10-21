@@ -26,10 +26,11 @@ MAX_FRAMES=1024
 
 
 class PhoneEmoteOriginals:
+    KINDS=frozenset({'sources','inputs'})
     def __init__(self,root,binding,run,role,guard,intent,*,kind='sources',monotonic=time.monotonic):
         self.root=Path(root);self.binding=deepcopy(context(binding));self.run=identifier(run);self.role=role
         need(role in ('primary','actor') and all(callable(value) for value in (guard,intent,monotonic)))
-        need(kind in ('sources','inputs'));self.kind=kind
+        need(kind in self.KINDS);self.kind=kind
         self.guard,self.intent,self.monotonic=guard,intent,monotonic;self.clock=None
         PrivateFeatureState(self.root/'emote-evidence-boundary.json')._parent()
 

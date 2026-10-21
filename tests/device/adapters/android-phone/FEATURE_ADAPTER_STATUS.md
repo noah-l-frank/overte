@@ -144,6 +144,14 @@ parent retention IO. Native fixture admission retains bounded run tombstones so
 a delayed old prepare cannot revive after a later run drains. Forty-nine focused
 host checks pass; native tombstone behavior remains uncompiled/device-unqualified.
 
+The [owned Phone Emote domain scene](EMOTE_SCENE.md) now composes the normal
+view, actual marker/backdrop identities, independent domain scan and native/Java
+Browser lifetime. Original files retain interrupted responsibility; cleanup
+requires a contiguous three-second native/host window and a fresh retained
+parent proof before metadata removal. Complete current input/Rig/image/actor
+and whole-feature registration/retirement remain open. Full count stays 3/14;
+native instrumentation is uncompiled and all devices remain unqualified.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)
