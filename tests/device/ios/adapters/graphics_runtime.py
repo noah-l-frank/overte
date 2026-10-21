@@ -7,6 +7,8 @@ do not create a session, install a target or advertise a feature capability.
 # SPDX-License-Identifier: Apache-2.0
 from adapters.native_feature_observation import need
 from adapters.normal_ui import NativeUI
+from adapters.normal_feature_state import PrivateFeatureState
+from adapters.completed_frame_lease import CompletedFrameLease
 from adapters.token_graphics_ui import TokenGraphicsUI
 from ios.adapters.normal_scripts import IOSScriptIO
 from ios.adapters.graphics_source import IOSGraphicsSource
@@ -15,6 +17,13 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _completed_frame_lease(self,selector,run,role,stage,*,source_lock=None):
+        need(role in ('primary','actor') and type(stage) is int and stage in (0,1))
+        source=self._sources(selector)
+        store=PrivateFeatureState(self.state_path(selector).with_name('graphics-frame-lease-'+role+'-'+str(stage)+'.json'))
+        return CompletedFrameLease(store,source['binding'],run,role,
+            lambda intent:self._completed_frame_reader(selector,intent),source['check'],source_lock=source_lock)
+
     def _completed_frame_reader(self,selector,intent):
         need(callable(intent))
         return self._sources(selector)['observer'].completed_frame(intent)

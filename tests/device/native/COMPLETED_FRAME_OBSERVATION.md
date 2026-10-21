@@ -65,6 +65,24 @@ caller-owned intent callback before delivery and never resends a command ID.
 The full coordinator must supply durable ownership; this low-level component
 alone is not a feature owner or evidence publisher.
 
+`completed_frame_lease.py` now supplies that durable acquisition owner through
+the canonical iOS Graphics runtime. A private binding/run/role/stage transcript
+records each command before delivery, retains compressed immutable originals,
+and restores original instance/sequence/clock continuity across host objects.
+There is at most one active capture. A lost read cannot be acquired again;
+a lost release can only be followed by fresh inspection. File CAS failure,
+foreign bindings, reused frame IDs, retained groups and missing GPU completion
+leave ownership unresolved. Release is sent once, then at most 81 bounded
+inspections establish actual absence. This individual lease drain does not
+replace the whole feature's three-second cleanup quiet window. The transcript
+remains available for that owner; this component does not erase it or publish
+a feature verdict.
+
+Seven additional no-build lease tests pass for host reconstruction, missing
+fences, lost release responses, CAS changes, failed persistence, foreign scope
+and reused frame/cursor evidence. These synthetic originals qualify ownership
+logic only.
+
 `FeatureObservation.completed_frame` uses existing iOS HTTP/AFC and an independent
 native clock. `IOSGraphicsRuntime` constructs it through the canonical candidate/
 existing-session gate. Native frame times, host acquisition and later original
