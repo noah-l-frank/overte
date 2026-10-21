@@ -695,3 +695,10 @@ child removal. The [touch source](native/PHONE_TOUCH_STATE.md) has no release
 setter. Controlled marker/content and complete fresh effect/image/actor/run joins
 are still missing; complete Phone count remains 3/14, native uncompiled and all
 devices untested.
+
+The [Phone Emote fixture source/input v1](native/PHONE_EMOTE_FIXTURE.md) adds
+closed private local marker/backdrop construction, separately observed actual
+node IDs/properties and original weak-reference drainage. Same-UUID/foreign-child/
+clone deletion is refused under the actual tree lock. This is a prerequisite,
+not a complete scene/Browser/feature/actor owner; remaining full-run joins stay
+open and no feature capability is enabled. Native source is uncompiled.

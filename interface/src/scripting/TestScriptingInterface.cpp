@@ -56,6 +56,7 @@
 #if defined(ANDROID_APP_PHONE_INTERFACE)
 #include "../../../tests/device/native/ScriptFileUi.h"
 #include "../../../tests/device/native/PhoneAvatarConfiguration.h"
+#include "../../../tests/device/native/PhoneEmoteFixture.h"
 #include <SettingHandle.h>
 #include "../../../tests/device/adapters/android-phone/PendingCommitOwner.h"
 #include "../../../tests/device/native/PrivateFeatureCommand.h"
@@ -768,6 +769,54 @@ QVariantMap TestScriptingInterface::featureSceneLoadObservation(const QVariantMa
     value.insert("processId",QCoreApplication::applicationPid());
     value.insert("capturedEpochMs",QDateTime::currentMSecsSinceEpoch());
     return value;
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::phoneEmoteFixtureInput(const QVariantMap& command) {
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneEmoteFixtureInput(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if (!avatar) { return {}; }
+    if (!_phoneEmoteFixture) { _phoneEmoteFixture=std::make_shared<overte::e2e::PhoneEmoteFixture>(); }
+    ViewFrustum view;qApp->getCamera().loadViewFrustum(view);
+    return _phoneEmoteFixture->input(command,view,qApp->getCamera().getModeString(),
+        avatar->getWorldFeetPosition(),avatar->getModelScale(),avatar->getBoomLength());
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::phoneEmoteFixtureObservation(const QVariantMap& command) {
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    if (QThread::currentThread()!=thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneEmoteFixtureObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto id=json.value("commandId").toString(),run=json.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !_phoneEmoteFixture
+            || command.keys()!=QStringList{"action","commandId","runId","schemaVersion"}
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || json.value("action").toString()!="phone-emote-fixture-observe"
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    const auto source=_phoneEmoteFixture->observe(run);
+    if (source.isEmpty()) { return {}; }
+    return {{"schemaVersion",1},{"requestId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_phoneEmoteFixtureSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 #else
     Q_UNUSED(command);return {};
 #endif

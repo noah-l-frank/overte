@@ -248,6 +248,31 @@
     var lastPhoneEmoteRequest = "";
     var lastPhoneAvatarConfigurationRequest = "";
     var lastPhoneTouchStateRequest = "";
+    var lastPhoneEmoteFixtureRequest = "";
+    var lastPhoneEmoteFixtureInputRequest = "";
+    function validPhoneEmoteFixtureInput(c) {
+        if (!c || c.schemaVersion !== 1 || c.action !== "phone-emote-fixture-input"
+                || typeof c.commandId !== "string" || c.commandId.length !== 32 || !/^[0-9a-f]{32}$/.test(c.commandId)
+                || typeof c.runId !== "string" || c.runId.length !== 32 || !/^[0-9a-f]{32}$/.test(c.runId)) { return false; }
+        if (c.operation === "release") {
+            return objectKeysMatch(c,["schemaVersion","commandId","action","operation","runId","fixtureInstance"])
+                && typeof c.fixtureInstance === "string" && c.fixtureInstance.length === 32 && /^[0-9a-f]{32}$/.test(c.fixtureInstance);
+        }
+        if (c.operation !== "prepare" || !objectKeysMatch(c,["schemaVersion","commandId","action","operation","runId",
+                    "fixtureUrl","ticket","imageExtent","markerRoi"])
+                || typeof c.ticket !== "string" || c.ticket.length !== 32 || !/^[0-9a-f]{32}$/.test(c.ticket)
+                || typeof c.fixtureUrl !== "string" || c.fixtureUrl.length > 512
+                || !new RegExp("^https?://[^/?#@\\s]+/feature-fixture/v1/runs/"+c.runId+"/$").test(c.fixtureUrl)
+                || !Array.isArray(c.imageExtent) || c.imageExtent.length !== 2
+                || !Array.isArray(c.markerRoi) || c.markerRoi.length !== 4) { return false; }
+        function whole(v,low,high) { return typeof v === "number" && isFinite(v) && Math.floor(v) === v && v >= low && v <= high; }
+        if (!c.imageExtent.every(function(v){return whole(v,240,16384);})
+                || !c.markerRoi.every(function(v){return whole(v,0,16384);})) { return false; }
+        var r=c.markerRoi,e=c.imageExtent;
+        return r[2] <= e[0] && r[3] <= e[1] && r[2]-r[0] >= 160 && r[3]-r[1] >= 40
+            && (r[2]-r[0])*(r[3]-r[1]) <= .1*e[0]*e[1];
+    }
+
     function validPhoneEmoteRequest(request) {
         function nonce(value) { return typeof value === "string" && value.length === 32 && /^[0-9a-f]{32}$/.test(value); }
         if (!request || request.schemaVersion !== 1 || !nonce(request.commandId)) { return false; }
@@ -1565,6 +1590,36 @@
             Test.saveObject(stored, "world-render-storage-" + String(command.commandId).replace(/^ios-/, "") + ".json");
             return;
         }
+        if (command && command.action === "phone-emote-fixture-input") {
+            if (!validPhoneEmoteFixtureInput(command) || command.commandId === lastPhoneEmoteFixtureInputRequest) { return; }
+            lastPhoneEmoteFixtureInputRequest = command.commandId;
+            var emoteFixtureInput = {phoneEmoteFixtureInputVersion:1,commandId:command.commandId,recorded:false};
+            try {
+                if (typeof Test.phoneEmoteFixtureInput === "function") {
+                    var originalEmoteFixtureInput = Test.phoneEmoteFixtureInput(command);
+                    if (originalEmoteFixtureInput && originalEmoteFixtureInput.commandId === command.commandId) { emoteFixtureInput = originalEmoteFixtureInput; }
+                }
+            } catch (_emoteFixtureInputError) { /* Receipt never proves created pixels or resource retirement. */ }
+            Test.saveObject(emoteFixtureInput, "phone-emote-fixture-input.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
+                && /^[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 32
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId) && command.runId.length === 32
+                && command.action === "phone-emote-fixture-observe"
+                && objectKeysMatch(command,["schemaVersion","commandId","action","runId"])) {
+            if (command.commandId === lastPhoneEmoteFixtureRequest) { return; }
+            lastPhoneEmoteFixtureRequest = command.commandId;
+            var emoteFixture = {schemaVersion:1,requestId:command.commandId,available:false};
+            try {
+                if (typeof Test.phoneEmoteFixtureObservation === "function") {
+                    var originalEmoteFixture = Test.phoneEmoteFixtureObservation(command);
+                    if (originalEmoteFixture && originalEmoteFixture.requestId === command.commandId) { emoteFixture = originalEmoteFixture; }
+                }
+            } catch (_emoteFixtureError) { /* No empty or expected scene replaces an original inventory. */ }
+            Test.saveObject(emoteFixture, "phone-emote-fixture.json");
+            return;
+        }
         if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
                 && /^[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 32
                 && command.action === "phone-touch-state-observe"
@@ -2028,6 +2083,7 @@
                 || command.action === "feature-world-render-receipts"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
+                || command.action === "phone-emote-fixture-observe" || command.action === "phone-emote-fixture-input"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-script-files")) {

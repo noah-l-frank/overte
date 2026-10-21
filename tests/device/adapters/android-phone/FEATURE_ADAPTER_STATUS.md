@@ -131,6 +131,14 @@ independently rejects retained contacts, channels and pending pinch after SDK
 release. Whole marker/content/input/Rig/image/actor/run coordination remains
 open; full Emotes is still incomplete and no capability is advertised.
 
+The [Phone Emote fixture input/original inventory](../../native/PHONE_EMOTE_FIXTURE.md)
+now creates only owned local marker/backdrop resources inside the domain and
+separately observes actual UUID/object/property/reference lifetime. Closed input
+requires durable caller intent and current candidate/session admission; atomic
+removal refuses foreign replacements, parents/children and clone links. Full
+scene-owner/Browser/image/effect/actor/run joins remain open. No full capability
+is advertised; native code remains uncompiled and complete Phone count stays 3.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

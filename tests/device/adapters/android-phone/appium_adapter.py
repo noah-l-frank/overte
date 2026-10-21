@@ -65,6 +65,7 @@ from adapters.native_graphics_subject import NativeGraphicsSubject, FILE as GRAP
 from adapters.native_avatar_render import NativeAvatarRender, FILE as AVATAR_RENDER_FILE
 from adapters.native_phone_avatar_configuration import NativePhoneAvatarConfiguration, FILE as AVATAR_CONFIGURATION_FILE
 from adapters.native_phone_touch_state import NativePhoneTouchState, FILE as TOUCH_STATE_FILE
+from adapters.native_phone_emote_fixture import NativePhoneEmoteFixture, FILE as EMOTE_FIXTURE_FILE, input_command as emote_fixture_input_command
 from adapters.native_world_model_draws import NativeWorldModelDraws, FILE as WORLD_MODEL_DRAWS_FILE
 from adapters.native_phone_scene_loads import NativePhoneSceneLoads, FILE as SCENE_LOAD_FILE
 from adapters.native_phone_web_runtime import NativePhoneWebRuntime, FILE as WEB_RUNTIME_FILE
@@ -113,6 +114,9 @@ def readonly_feature_command(command):
     elif action=='feature-process-presence':
         from adapters.native_process_presence import command as validate_presence
         validate_presence(command)
+    elif action=='phone-emote-fixture-observe':
+        from adapters.native_phone_emote_fixture import command as validate_emote_fixture
+        validate_emote_fixture(command)
     elif action=='phone-touch-state-observe':
         from adapters.native_phone_touch_state import command as validate_touch_state
         validate_touch_state(command)
@@ -579,6 +583,30 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return NativePhoneWebRuntime(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+WEB_RUNTIME_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _emote_fixture_observer(self, selector, *, read_only=True):
+        require(read_only is True,'PHONE_EMOTE_FIXTURE_REQUIRES_EXISTING_READ_ONLY_SESSION')
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativePhoneEmoteFixture(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+EMOTE_FIXTURE_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _emote_fixture_input(self, selector, command, *, lock, intent):
+        require(self.candidate is not None and self.controlled_android_client(self.target(selector)),
+                'PHONE_EMOTE_FIXTURE_BOUND_DEBUG_TARGET_REQUIRED')
+        require(isinstance(lock,PhoneScriptSourceLock) and lock.path==self.state_path(selector).with_name('phone-script-sources.lock')
+                and callable(intent),'PHONE_EMOTE_FIXTURE_INPUT_REQUIRES_DURABLE_OWNER')
+        command=deepcopy(emote_fixture_input_command(command));lock.assert_held()
+        with self.existing_input_session(selector):
+            _ui,_service,binding,guard,_installed=self.normal_feature_runtime(selector,read_only=True)
+            client,session,_state=self.existing_session(selector);target=self.target(selector)
+            guard();self._guarded_existing_session(selector,self._existing_input_scope);lock.assert_held()
+            require(intent(deepcopy(command),deepcopy(binding)) is not False,'PHONE_EMOTE_FIXTURE_INTENT_NOT_RECORDED')
+            guard();self._guarded_existing_session(selector,self._existing_input_scope);lock.assert_held()
+            self.write_android_client_command(client,session,target,command,{'running':True,'identity':binding['processIdentity']})
+            guard();self._guarded_existing_session(selector,self._existing_input_scope);lock.assert_held()
+            return {'performed':True} # Never fixture readiness, pixels or cleanup.
 
     def _touch_state_observer(self, selector, *, read_only=True):
         require(read_only is True,'PHONE_TOUCH_STATE_REQUIRES_EXISTING_READ_ONLY_SESSION')

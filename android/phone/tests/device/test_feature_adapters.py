@@ -39,6 +39,7 @@ from self_tests.test_native_graphics_subject import Boundary as GraphicsSubjectB
 from self_tests.test_native_avatar_render import Boundary as AvatarRenderBoundary
 from self_tests.test_native_phone_avatar_configuration import Boundary as AvatarConfigurationBoundary
 from self_tests.test_native_phone_touch_state import Boundary as TouchStateBoundary
+from self_tests.test_native_phone_emote_fixture import Boundary as EmoteFixtureBoundary,prepare as emote_fixture_prepare
 from self_tests.test_native_phone_scene_loads import Boundary as SceneLoadBoundary, URL as SCENE_LOAD_URL
 from adapters.native_phone_scene_loads import committed as committed_scene
 from self_tests.test_native_phone_web_runtime import Boundary as WebRuntimeBoundary, ROOT as WEB_RUNTIME_ROOT, URL as WEB_RUNTIME_URL
@@ -1283,6 +1284,54 @@ class FeatureAdapterTests(unittest.TestCase):
         appium.readonly_feature_command(value)
         for change in (dict(released=True),dict(contacts=[]),dict(action='phone-touch-state-release'),dict(commandId='ios-'+'a'*32)):
             with self.subTest(change=change),self.assertRaises((RuntimeError,ValueError)):appium.readonly_feature_command(value|change)
+
+    def test_phone_emote_fixture_source_returns_original_dynamic_ids_without_session_start_or_capability(self):
+        self.read_only_boundaries()
+        source=self.preview_boundaries(EmoteFixtureBoundary(),'phone-emote-fixture.json')
+        with patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep)):
+            reader=self.adapter._emote_fixture_observer(SELECTOR);value=reader.read(source.fixture['runId'])
+            self.assertEqual(source.sample,value);self.assertEqual(2,len(value['source']['entities']))
+            before=len(source.commands);self.fixture.adb.digest='f'*64
+            with self.assertRaises(RuntimeError):reader.read(source.fixture['runId'])
+            self.assertEqual(before,len(source.commands))
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+        self.assertFalse(any(c.startswith('feature.emotes.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_emote_fixture_readonly_grammar_cannot_create_remove_or_supply_desired_entities(self):
+        with self.assertRaises(ValueError):self.adapter._emote_fixture_observer(SELECTOR,read_only=False)
+        value=dict(schemaVersion=1,commandId='a'*32,action='phone-emote-fixture-observe',runId='d'*32)
+        appium.readonly_feature_command(value)
+        for change in (dict(expectedAbsent=True),dict(entities=[]),dict(action='phone-emote-fixture-input'),dict(commandId='ios-'+'a'*32)):
+            with self.subTest(change=change),self.assertRaises((RuntimeError,ValueError)):appium.readonly_feature_command(value|change)
+        with self.assertRaises(ValueError):appium.readonly_feature_command(emote_fixture_prepare())
+
+    def test_phone_emote_fixture_input_requires_actual_held_lock_and_durable_intent_before_private_dispatch(self):
+        self.read_only_boundaries();command=emote_fixture_prepare();sent=[]
+        lock=appium.PhoneScriptSourceLock(self.adapter.state_path(SELECTOR).with_name('phone-script-sources.lock'))
+        store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('emote-fixture-input-test.json'))
+        def intent(request,binding):
+            lock.assert_held();store.write(dict(request=request,binding=binding),None)
+            # A caller cannot mutate actual dispatched input through its copy.
+            request['markerRoi'][0]=999
+        def send(client,session,target,request,process):
+            lock.assert_held();saved=store.read();self.assertEqual(command,saved['request']);self.assertEqual(command,request)
+            self.assertEqual('31:14',process['identity']);sent.append(deepcopy(request))
+        with patch.object(self.adapter,'write_android_client_command',side_effect=send):
+            with self.assertRaises(RuntimeError):self.adapter._emote_fixture_input(SELECTOR,command,lock=lock,intent=intent)
+            with lock.held():self.assertEqual({'performed':True},self.adapter._emote_fixture_input(SELECTOR,command,lock=lock,intent=intent))
+        self.assertEqual([command],sent);store.discard(store.read())
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+
+    def test_phone_emote_fixture_lost_intent_or_candidate_guard_blocks_actual_dispatch(self):
+        self.read_only_boundaries();command=emote_fixture_prepare()
+        lock=appium.PhoneScriptSourceLock(self.adapter.state_path(SELECTOR).with_name('phone-script-sources.lock'))
+        with lock.held(),patch.object(self.adapter,'write_android_client_command',side_effect=AssertionError('Unexpected fixture input')):
+            with self.assertRaises(ValueError):self.adapter._emote_fixture_input(SELECTOR,command,lock=lock,intent=lambda *_:False)
+            def fail(*_):raise OSError('Synthetic lost private intent')
+            with self.assertRaises(OSError):self.adapter._emote_fixture_input(SELECTOR,command,lock=lock,intent=fail)
+            def candidate(*_):self.fixture.adb.digest='f'*64
+            with self.assertRaises(ValueError):self.adapter._emote_fixture_input(SELECTOR,command,lock=lock,intent=candidate)
 
     def avatar_render_boundaries(self,*,models=False):
         source=self.preview_boundaries(AvatarRenderBoundary(),
