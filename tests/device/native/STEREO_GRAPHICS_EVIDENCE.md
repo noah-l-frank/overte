@@ -17,6 +17,10 @@ The exact schema and original names are enforced by
 [`stereo_graphics_evidence.py`](../feature_journeys/stereo_graphics_evidence.py).
 There are no adapter-supplied pixel statistics or requested-state fields.
 
+The common engine additionally requires the actual authored seven-entity scene,
+its native tracked head at the authored view and an original successful HTTP
+delivery completed before the first subject acquisition. A decodable marker
+cannot substitute for the delivered scene or unchanged authored colors/haze.
 The common engine independently validates original source order, a 1500 ms
 source interval, current public state/lifecycle and oldest source epoch. The
 existing journey applies its independent current clock/action barrier. Original

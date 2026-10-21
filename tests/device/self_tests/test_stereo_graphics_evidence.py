@@ -12,6 +12,8 @@ from adapters.normal_ui import NativeUIError
 from adapters.stereo_graphics_pixels import reduce_original,measure
 from feature_journeys.stereo_graphics_evidence import PROFILE,analyse,observation,original_name
 from feature_journeys.graphics_resources import GraphicsResources
+from feature_journeys.graphics_fixture import scene as authored_scene
+from feature_journeys.fixtures import marker_bytes
 from feature_journeys.engine import Journey
 from feature_journeys.scenarios import VERSION
 from feature_journeys.evidence import MarkerNotReady
@@ -21,23 +23,66 @@ from self_tests.test_pico_graphics_source import Boundary as UiBoundary
 from self_tests.test_owned_world_render import BINDING
 
 
+class JourneyPixels(PixelBoundary):
+    """Literal pixels independently derived for the actual authored geometry.
+
+    P has unit focal lengths; each target eye is 800x800. Original camera eyes
+    are x=+/-0.03 at world y=1.6. Near marker z=-.25 projects to literal 320x80
+    cards; the far haze board and final mirror rectangle have separate ROIs.
+    """
+    def __init__(self,*,haze=True,mirror=True,card_ticket=TICKET,duplicate_right=False):
+        super().__init__(card_ticket=card_ticket)
+        image=Image.new('RGBA',(1600,800),(100,100,100,255))
+        if haze:
+            image.paste((25,90,210,255),(320,365,400,425));image.paste((25,90,210,255),(1120,365,1200,425))
+        if mirror:
+            image.paste((255,90,0,255),(540,300,665,475));image.paste((255,90,0,255),(1335,300,1460,475))
+        with Image.open(io.BytesIO(marker_bytes(RUN,card_ticket))) as original:
+            card=original.resize((320,80),Image.Resampling.NEAREST).convert('RGBA')
+            image.paste(card,(288,248));image.paste(card,(992,248))
+        if duplicate_right:image.paste(image.crop((0,0,800,800)),(800,0))
+        output=io.BytesIO();image.save(output,format='PNG');self.raw=output.getvalue();self.pixels=hashlib.sha256(image.tobytes()).hexdigest()
+
+    def camera_source(self,packet):
+        super().camera_source(packet);source=packet['source']
+        projection=[1,0,0,0,0,1,0,0,0,0,-1.002,-1,0,0,-.2002,0]
+        source['stereo']['cameraView'][13]=-1.6
+        source['renderTrace']['recordedView'].update(position=[0,1.6,0],projection=[projection[c*4+r] for r in range(4) for c in range(4)])
+        for index,eye in enumerate(source['stereo']['eyes']):
+            eye['projection']=projection.copy();eye['viewOffset'][12]=-.03 if index==0 else .03
+        for batch in source['renderTrace']['cameraBatches']:
+            for camera in batch['cameras']:
+                camera['projection']=projection.copy();camera['view'][12]=.03 if camera['eye']=='left' else -.03
+                camera['view'][13]=-1.6
+
+
+def authored_subject():
+    first,last=subject()
+    for packet in (first,last):
+        source=packet['source'];source['view']['position']=[0,1.6,0];source['avatarPose']['feetPosition']=[0,0,0]
+        for document in authored_scene(RUN,SCENE,ROOT)['Entities']:
+            row=next(row for row in source['entities'] if row['id']==document['id'].strip('{}'))
+            row['type']=document['type']
+            for field,axes in (('position','xyz'),('dimensions','xyz'),('rotation','xyzw')):row[field]=[document[field][a] for a in axes]
+            row['mirrorMode']=document.get('mirrorMode','none');row['sourceUrl']=document.get('sourceUrl','')
+            if 'color' in document:row['color']=[document['color'][a] for a in ('red','green','blue')]
+            if document['type']=='Zone':
+                haze=document['haze'];row.update(hazeMode=2,haze=dict(range=haze['hazeRange'],
+                    color=[haze['hazeColor'][a] for a in ('red','green','blue')],altitudeEffect=haze['hazeAltitudeEffect'],
+                    glare=haze['hazeEnableGlare'],backgroundBlend=haze['hazeBackgroundBlend']))
+    return first,last
+
+
 class Source:
     def __init__(self):
         self.provider=GraphicsResources(ROOT.rsplit('/runs/',1)[0],clock_ms=lambda:20000)
         self.provider.provision(RUN);self.provider.activate(RUN,SCENE)
+        with self.provider.response(RUN,SCENE,request_authority='controlled.invalid',request_scheme='http') as response:
+            status,body,nonce,write=response;write(dict(responseId=nonce,status=status,bytes=len(body),sha256=hashlib.sha256(body).hexdigest()))
         self.tick=0
     def acquire(self,ticket=TICKET,*,haze=True,mirror=True,duplicate_right=False,role='primary'):
         self.tick+=10;self.provider.activate(RUN,ticket)
-        source=PixelBoundary(card_ticket=ticket,duplicate_right=duplicate_right)
-        if not haze or not mirror:
-            with Image.open(io.BytesIO(source.raw)) as original:
-                image=original.copy()
-                if not haze:image.paste((100,100,100,255),(0,450,1600,800))
-                if not mirror:
-                    image.paste((100,100,100,255),(350,260,490,330))
-                    image.paste((100,100,100,255),(1070,260,1230,330))
-                output=io.BytesIO();image.save(output,format='PNG');source.raw=output.getvalue()
-                source.pixels=hashlib.sha256(image.tobytes()).hexdigest()
+        source=JourneyPixels(card_ticket=ticket,duplicate_right=duplicate_right,haze=haze,mirror=mirror)
         source.frame+=self.tick;source.execution+=self.tick;source.submission+=self.tick
         capture,raw=source.reader(stereo=True,require_cameras=True).read(0)
         capture['sequence']+=self.tick;capture['source']['acquisitionSequence']+=self.tick
@@ -46,12 +91,12 @@ class Source:
         if not mirror:
             capture['source']['renderTrace'].update(mirrorBatches=0,mirrorDrawCommands=0)
             capture['source']['renderTrace']['cameraBatches']=[row for row in capture['source']['renderTrace']['cameraBatches'] if row['role']!='mirror']
-        first,last=subject()
+        first,last=authored_subject()
         for packet in (first,last):
             packet['sequence']+=self.tick
             packet['source'].update(subjectVersion=3,
                 hmd=dict(display='OpenXR',active=True,visible=True,mounted=True,sensorToWorld=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
-                    sensorPose=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],worldPosition=[0,0,0],worldRotation=[0,0,0,1]),
+                    sensorPose=[1,0,0,0,0,1,0,0,0,0,1,0,0,1.6,0,1],worldPosition=[0,1.6,0],worldRotation=[0,0,0,1]),
                 framework=dict(ownershipVersion=1,tablet=dict(frame=None,screen=None,home=None,highlight=None,miniFrame=None,miniScreen=None),
                     keyboard=dict(entityIds=[],anchor=None,textDisplay=None,backPlate=None,raised=False,use3D=True),pointers=[],entities=[]))
         native=NativeBoundary();native.sequence=self.tick
@@ -114,6 +159,28 @@ class StereoGraphicsEvidenceTests(unittest.TestCase):
             raw,body,sample=Source().acquire();edit(body)
             with self.subTest(edit=edit),self.assertRaises((RuntimeError,ValueError,AssertionError)):verify(raw,body,sample)
 
+    def test_current_marker_cannot_replace_actual_authored_geometry_or_original_http_delivery(self):
+        for fault in ('no-response','foreign-color','moved-subject','wrong-haze','late-response'):
+            raw,body,sample=Source().acquire()
+            if fault=='no-response':body['provider']['responses']=[]
+            elif fault=='late-response':
+                body['provider']['capturedEpochMs']+=1;body['provider']['responses'][0]['completedEpochMs']+=1
+            else:
+                for key in ('subjectBefore','subjectAfter'):
+                    source=body[key]['source']
+                    row=next(row for row in source['entities'] if row['name'].endswith('-fog-board'))
+                    if fault=='foreign-color':row['color'][0]-=1
+                    elif fault=='moved-subject':row['position'][0]+=.1
+                    else:next(row for row in source['entities'] if row['type']=='Zone')['haze']['range']+=1
+            with self.subTest(fault=fault),self.assertRaises((RuntimeError,ValueError,AssertionError)):verify(raw,body,sample)
+
+    def test_actual_tracked_head_must_be_at_the_scene_view_independently_of_a_decodable_card(self):
+        raw,body,sample=Source().acquire()
+        for key in ('subjectBefore','subjectAfter'):
+            body[key]['source']['hmd']['sensorPose'][13]+=.1
+            body[key]['source']['hmd']['worldPosition'][1]+=.1;body[key]['source']['view']['position'][1]+=.1
+        with self.assertRaises((RuntimeError,ValueError,AssertionError)):verify(raw,body,sample)
+
     def test_adapter_state_retimed_artifact_or_wrong_native_file_cannot_replace_original_facts(self):
         for edit in (lambda v:v['state'].update(haze=False),lambda v:v.update(capturedEpochMs=20001),
             lambda v:v['artifacts'][0].update(capturedEpochMs=20001),lambda v:v['artifacts'][1].update(name='foreign.native.json'),
@@ -130,7 +197,7 @@ class StereoGraphicsEvidenceTests(unittest.TestCase):
         for value in evidence['change']['eyes'].values():
             self.assertGreater(value['blueDominanceDelta'],10);self.assertGreaterEqual(value['histogramChangeLowerBound'],.05)
         with Image.open(io.BytesIO(raw)) as original:
-            image=original.copy();image.paste((100,100,100,255),(800,450,1600,800))
+            image=original.copy();image.paste((100,100,100,255),(1120,365,1200,425))
             output=io.BytesIO();image.save(output,format='PNG');bad=output.getvalue()
         body['capture']['source']['image'].update(bytes=len(bad),sha256=hashlib.sha256(bad).hexdigest(),
             pixelSha256=hashlib.sha256(image.tobytes()).hexdigest())
@@ -216,7 +283,7 @@ class StereoGraphicsEvidenceTests(unittest.TestCase):
         self.assertEqual('mirror',evidence['change']['feature'])
         for row in evidence['change']['eyes'].values():self.assertGreater(row['orangeFractionDelta'],.005)
         with Image.open(io.BytesIO(raw)) as original:
-            image=original.copy();image.paste((100,100,100,255),(1070,260,1230,330))
+            image=original.copy();image.paste((100,100,100,255),(1335,300,1460,475))
             output=io.BytesIO();image.save(output,format='PNG');bad=output.getvalue()
         body['capture']['source']['image'].update(bytes=len(bad),sha256=hashlib.sha256(bad).hexdigest(),
             pixelSha256=hashlib.sha256(image.tobytes()).hexdigest())

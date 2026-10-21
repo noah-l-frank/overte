@@ -788,5 +788,39 @@
       "A storage test originally demanded that PNG inode/hash validation alone detect a ticket relabel. Storage deliberately does not decode headset challenges: the counterexample now separately requires immutable owner transitions, while original pixel challenge validation remains mandatory in the common evidence verifier. Metadata files directly bind their original ticket."
     ],
     "limits": "Storage identity and historical original bytes only. The complete sampler must apply immutable transition checks under its source lock/CAS, join both files to actual native/fixture/candidate/process sources and retain unresolved writes. No currentness or complete Graphics capability follows from an original file alone."
+  },
+  "graphicsAuthoredEvidencePacket": {
+    "contracts": [
+      "stereo-graphics-evidence v1; unchanged envelope and explicit profile"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_stereo_graphics_evidence self_tests.test_stereo_graphics_pixels self_tests.test_graphics_originals (from tests/device)",
+        "tests": 38,
+        "status": "passed",
+        "durationSeconds": 14.727
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test suite-runner --test coverage-matrix",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 16.35,
+        "junit": "graphics-authored-evidence-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.34,
+        "junit": "graphics-authored-evidence-project.xml"
+      }
+    ],
+    "correctedFailures": [
+      "The updated analytical full-journey camera fixture initially retained its former recording pose while moving its original camera view to authored world y=1.6. The existing native-source validation rejected it; the fixture now retains the consistent original recording pose/projection as well. No validation or deadline was relaxed."
+    ],
+    "limits": "Authored-scene/HTTP/head binding and literal host pixels only; not native compilation, VR/device qualification or a complete Graphics producer/coordinator."
   }
 }

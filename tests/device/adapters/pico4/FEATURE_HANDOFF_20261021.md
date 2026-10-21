@@ -362,3 +362,12 @@ deadline counterexamples are host verified. Historical storage is distinct from
 actual currentness and independently decoded per-eye ticket/effect facts. The
 full role/process sampler and complete Graphics/actor/restart/quiet owner still
 need to join these sources; no complete feature capability is added.
+
+
+The independent stereo verifier now additionally requires the authored seven
+entity properties and original successful scene delivery before the first
+subject acquisition, plus actual HMD alignment. Both-eye challenge bytes alone
+cannot qualify a differently colored/moved scene, wrong Zone haze or absent/late
+HTTP delivery. Its analytical full-journey image fixture now uses the actual
+authored scene and independently derived literal eye rectangles; the lower-level
+projection reducer retains its separate general-geometry counterexamples.

@@ -17,6 +17,7 @@ from adapters.pico4.graphics_source import validate as ui_packet
 from adapters.script_journey.measurements import fixture_scope
 from adapters.stereo_graphics_pixels import reduce_original,cameras
 from adapters.vr_graphics_subject import first_person_head,separate_inventory
+from adapters.pico4.graphics_scene import PicoGraphicsScenePolicy
 from adapters.world_render_evidence import measured_scale
 from .contract import identifier,json_document,result,typed_equal
 from .graphics_resources import validate_status
@@ -55,7 +56,9 @@ def analyse(raw,metadata,run,ticket,fixture_url,*,role='primary',monotonic=time.
     scene=separate_inventory(first)['scene'];need(scene==separate_inventory(last)['scene'])
     ui_packet(ui,ui.get('commandId'),pid,epoch)
     validate_status(provider,instance=provider.get('instance'),run=run,url=fixture_url.rsplit('/runs/',1)[0],request=provider.get('requestId'))
-    need(provider['active'] and provider['ticket']==ticket and provider['sceneTicket']==body['sceneTicket'])
+    need(provider['active'] and provider['ticket']==ticket and provider['sceneTicket']==body['sceneTicket']
+        and any(row['status']==200 and row['completedEpochMs']<=first['requestedEpochMs'] for row in provider['responses']))
+    for packet in (first,last):PicoGraphicsScenePolicy.aligned_subject(packet,run,body['sceneTicket'],fixture_url)
     ordered=[before.get('requestedEpochMs'),before['capturedEpochMs'],first['requestedEpochMs'],first['capturedEpochMs'],ui['capturedEpochMs'],
         capture.get('requestedEpochMs'),capture.get('capturedEpochMs'),last['requestedEpochMs'],last['capturedEpochMs'],after.get('requestedEpochMs'),after['capturedEpochMs']]
     need(all(integer(value,1) for value in ordered) and ordered==sorted(ordered))
