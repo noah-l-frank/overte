@@ -1954,6 +1954,94 @@ class HostGenerationTests(unittest.TestCase):
             consumer_generation=Mock(return_value=generation), has_staged_caller=Mock(return_value=mandatory),
             activated=Mock(return_value=activated), candidate_plan=Mock(return_value=owner))
 
+    def installed_compiler_npm_fixture(self):
+        base, v3, protected_pr = self.compiler_pr_input_fixture()
+        self.base = base
+        self.npm_fixture()
+        return {"v3": self.commit(self.base, v3),
+                "protected-pr": self.commit(self.base, protected_pr)}
+
+    def test_installed_compiler_npm_continuations_use_actual_PR_owner_without_app_or_host_work(self):
+        profiles = self.installed_compiler_npm_fixture()
+        for profile, installed in profiles.items():
+            for scenario, changes in (("both", self.npm_changes()), ("s3", {
+                    path: body for path, body in self.npm_changes().items() if path.startswith("script-archive/")}),
+                    ("browser", {path: body for path, body in self.npm_changes().items()
+                                 if path.startswith("browser-client/")})):
+                event, source = self.candidate(changes, base=installed)
+                owner = self.npm_owner(event, source)
+                inputs = self.host.selector(self.trusted)
+                snapshots = [inputs.read_snapshot(self.root, revision) for revision in
+                    (installed, source, event["pull_request"]["head"]["sha"])]
+                raw = [self.host.entries(snapshot) for snapshot in snapshots]
+                self.assertTrue(inputs.candidate_plan(self.root, installed, source,
+                    package_owner=owner)["requires_application_build"], "raw installed cache inputs stay conservative")
+                with self.subTest(profile=profile, scenario=scenario), \
+                        patch.object(self.host, "package_controller", return_value=self.npm_controller(owner)), \
+                        patch.object(self.host, "REVIEWED_CI_HOST_BOUNDARY", self.npm_host_boundary):
+                    output = self.route(event, source)
+                    self.assertEqual((output["required"], output["host_required"], output["reason"]),
+                        ("false", "false", "reviewed-ci-and-required-npm-host-inputs"))
+                    self.assertEqual(self.verify(output, event, source), output)
+                    self.assertEqual([self.host.entries(snapshot) for snapshot in snapshots], raw)
+                    for name in ("host", "qt", "client"):
+                        required = self.needs(output); required[name]["result"] = "success"
+                        with self.assertRaises(ValueError):
+                            self.verify(output, event, source, required=required)
+
+    def test_installed_compiler_npm_continuation_rejects_missing_malformed_and_foreign_owner(self):
+        installed = self.installed_compiler_npm_fixture()["protected-pr"]
+        event, source = self.candidate(self.npm_changes(), base=installed)
+        owner = self.npm_owner(event, source)
+        inputs = self.host.selector(self.trusted)
+        cases = [("missing", None), ("digest", {**owner, "plan": "0" * 64})]
+        for key, value in (("base", "f" * 40), ("candidate", "f" * 40), ("tree", "f" * 40),
+                ("consumer_generation", False), ("policy", {}), ("package_set", []),
+                ("dependency_profiles", {})):
+            changed = copy.deepcopy(owner); changed[key] = value; changed.pop("plan")
+            changed["plan"] = inputs._digest(changed).removeprefix("sha256:")
+            cases.append((key, changed))
+        for label, value in cases:
+            with self.subTest(owner=label), \
+                    patch.object(self.host, "package_controller", return_value=self.npm_controller(value)), \
+                    patch.object(self.host, "REVIEWED_CI_HOST_BOUNDARY", self.npm_host_boundary):
+                output = self.route(event, source)
+                self.assertEqual((output["required"], output["host_required"]), ("true", "true"))
+
+    def test_installed_compiler_npm_continuation_retains_product_cache_and_head_guards(self):
+        installed = self.installed_compiler_npm_fixture()["protected-pr"]
+        cases = [("product", installed, {"interface/src/npm-boundary.cpp": "// Product change\n"})]
+        historical = self.commit(installed, {"CMakeLists.txt": "# Historical product reader drift\n"})
+        cases.append(("historical-boundary", historical, {}))
+        cases += [(path, installed, {path: (mode, "# Unreviewed compiler cache input\n")})
+                  for path, (mode, _) in self.host.COMPILER_PR_DATA_UPDATED.items()]
+        for label, previous, extra in cases:
+            event, source = self.candidate({**self.npm_changes(), **extra}, base=previous)
+            owner = self.npm_owner(event, source)
+            with self.subTest(delta=label), \
+                    patch.object(self.host, "package_controller", return_value=self.npm_controller(owner)), \
+                    patch.object(self.host, "REVIEWED_CI_HOST_BOUNDARY", self.npm_host_boundary):
+                if label == ".github/workflows/ios-integrated.yml":
+                    with self.assertRaisesRegex(ValueError, "complete reviewed generation"):
+                        self.route(event, source)
+                else:
+                    output = self.route(event, source)
+                    expected = ("false", "true") if label == "docs/ios/SIGNING_AND_DEVICE_TESTS.md" else ("true", "true")
+                    self.assertEqual((output["required"], output["host_required"]), expected)
+        # The actual M has an admitted update, but H retains the old lock. An
+        # M-bound owner cannot grant independence to different head lock bytes.
+        head = self.commit(installed, {"docs/offline-head.md": "# Exact head fixture\n"})
+        source = self.commit(head, self.npm_changes(), parents=[installed, head])
+        repository = {"full_name": CHECK.REPOSITORY, "id": CHECK.REPOSITORY_ID}
+        event = {"repository": repository, "pull_request": {
+            "base": {"ref": "apple-ios", "sha": installed, "repo": repository},
+            "head": {"ref": "fix/ios/offline", "sha": head, "repo": repository}}}
+        owner = self.npm_owner(event, source)
+        with patch.object(self.host, "package_controller", return_value=self.npm_controller(owner)), \
+                patch.object(self.host, "REVIEWED_CI_HOST_BOUNDARY", self.npm_host_boundary):
+            output = self.route(event, source)
+            self.assertEqual((output["required"], output["host_required"]), ("true", "true"))
+
     def test_required_five_workflow_npm_owner_omits_only_unchanged_ios_readers(self):
         self.npm_fixture()
         event, source = self.candidate({**self.npm_changes(),

@@ -1219,6 +1219,14 @@ both outer verifiers; candidate JSON and caller flags cannot enable it. Legacy
 four-file callers retain their behavior. Once the protected base contains the
 new generation, a candidate cannot revert to the legacy owner or opt out.
 
+An already installed, exact iOS compiler-cache profile can also retain its
+application and own-host omission for these independently owned npm changes.
+The trusted PR route recomputes the package plan, verifies the original B/M
+lock admission and identical H/M lock bytes, and retains the complete compiler
+profile and reader-boundary checks on B/H/M. Missing or mismatched ownership,
+changed cache inputs and unrelated product changes keep the full iOS gate.
+Compiler-cache installation itself still requires its independent iOS host.
+
 The paired Browser workflow preserves every existing Browser/native journey
 step and manual input. Its metadata route omits both existing jobs only for an
 exact focused package owner or reviewed formatting-only lock change. Unsupported
