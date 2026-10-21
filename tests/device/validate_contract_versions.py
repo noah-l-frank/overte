@@ -46,6 +46,8 @@ REQUIRED = {
     "graphics-subject": 2,
     "native-graphics-subject": 2,
     "native-scene-loads": 1,
+    "feature-graphics-resources": 1,
+    "feature-phase-fixture": 1,
     "native-script-code-identity": 1,
     "native-script-load-history": 1,
     "native-process-presence": 1,

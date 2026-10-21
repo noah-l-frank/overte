@@ -26,6 +26,7 @@ from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PR
 from feature_journeys.browser_fixture import BrowserResources
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
 from feature_journeys.script_fixture import ScriptResources
+from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE
 
 PREFIX = '/feature-fixture/v1'
 
@@ -81,6 +82,19 @@ class Handler(BaseHTTPRequestHandler):
             observe_write(dict(status=actual_status,responseId=actual_id,bytes=written,sha256=hashlib.sha256(body).hexdigest()))
 
     def resource(self,run,ticket,name):
+        if name==GRAPHICS_SCENE:
+            provider=self.server.graphics_resources
+            if provider is None:return self.send(503,{'error':'graphics-provider-unavailable'})
+            with self.server.journal.lock:
+                if run not in self.server.journal.runs or not self.server.journal.has_ticket(run,ticket):
+                    return self.send(404,{'error':'not-found'})
+            self.connection.settimeout(2)
+            authorities=self.headers.get_all('Host',[])
+            if len(authorities)!=1:raise ValueError('One original Graphics request authority is required')
+            with provider.response(run,ticket,request_authority=authorities[0],
+                    request_scheme='https' if isinstance(self.connection,ssl.SSLSocket) else 'http') as response:
+                if response is None:return self.send(404,{'error':'not-found'})
+                return self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
         if name=='missing.js' and self.server.script_resources is not None and self.server.script_resources.has_run(run):
             self.connection.settimeout(2)
             authorities=self.headers.get_all('Host',[])
@@ -168,6 +182,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(404,{'error':'not-found'})
             adapter_token=getattr(self.server,'adapter_token',None)
             adapter_reader=(adapter_token is not None and hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+adapter_token))
+            # This includes native account/resource routes handled below. The
+            # adapter credential cannot issue grants, publish peers or control
+            # fixture state through an earlier route.
             adapter_markers=self.headers.get_all('X-Overte-Fixture-Adapter-Read',[])
             if adapter_markers and (adapter_markers!=['1'] or not adapter_reader):return self.send(403,{'error':'forbidden'})
             if adapter_reader and self.command!='GET':return self.send(403,{'error':'forbidden'})
@@ -192,6 +209,7 @@ class Handler(BaseHTTPRequestHandler):
             # Flat resource paths have exactly five components.
             if self.command == 'GET' and len(parts) == 5 and parts[0] == 'runs' and parts[2] == 'tickets':
                 run, ticket = identifier(parts[1]), identifier(parts[3])
+                if parts[4]==GRAPHICS_SCENE:return self.resource(run,ticket,parts[4])
                 if parts[4]=='missing.js' and self.server.script_resources is not None and self.server.script_resources.has_run(run):
                     return self.resource(run,ticket,parts[4])
                 if not self.server.journal.has_ticket(run, ticket):
@@ -219,6 +237,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.command=='GET' and parts==['script-provider']:
                 if self.server.script_resources is None:return self.send(503,{'error':'script-provider-unavailable'})
                 return self.send(200,dict(self.server.script_resources.ready(),internalErrors=self.server.internal_errors))
+            if self.command=='GET' and parts==['graphics-provider']:
+                if self.server.graphics_resources is None:return self.send(503,{'error':'graphics-provider-unavailable'})
+                return self.send(200,dict(self.server.graphics_resources.ready(),internalErrors=self.server.internal_errors))
             body = None
             if self.command == 'POST':
                 size = int(self.headers.get('Content-Length', '0'))
@@ -234,6 +255,11 @@ class Handler(BaseHTTPRequestHandler):
                 if body['area']=='scripts' and self.server.script_resources is None:
                     return self.send(503,{'error':'script-provider-unavailable'})
                 run=self.server.journal.register(body['area'])
+                if body['area']=='graphics' and self.server.graphics_resources is not None:
+                    try:self.server.graphics_resources.provision(run)
+                    except Exception:
+                        self.server.journal.close(run)
+                        raise
                 if body['area']=='world-navigation':
                     try:self.server.navigation_resources.provision(run)
                     except Exception:
@@ -254,6 +280,22 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) < 2 or parts[0] != 'runs':
                 return self.send(404, {'error': 'not-found'})
             run = identifier(parts[1])
+            if parts[2:]==['phase']:
+                if self.command!='GET':return self.send(403,{'error':'forbidden'})
+                requests=self.headers.get_all('X-Overte-Phase-Read',[])
+                if len(requests)!=1:raise ValueError('Original phase snapshot nonce is required')
+                return self.send(200,self.server.journal.phase(run,identifier(requests[0])))
+            if parts[2:]==['graphics']:
+                if self.command=='GET' and self.server.graphics_resources is not None:
+                    requests=self.headers.get_all('X-Overte-Graphics-Read',[])
+                    if len(requests)!=1:raise ValueError('Original Graphics snapshot nonce is required')
+                    nonce=identifier(requests[0])
+                    with self.server.journal.lock:
+                        source=self.server.graphics_resources.snapshot(run,nonce)
+                        if source['active'] and (run not in self.server.journal.runs or source['ticket']!=self.server.journal.runs[run]['ticket']):
+                            return self.send(503,{'error':'graphics-provider-ownership-inconsistent'})
+                    return self.send(200,source)
+                return self.send(503,{'error':'graphics-provider-unavailable'})
             if parts[2:]==['scripts']:
                 if self.command=='GET' and self.server.script_resources is not None:
                     requests=self.headers.get_all('X-Overte-Script-Read',[])
@@ -294,7 +336,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(403,{'error':'forbidden'})
             if self.command == 'POST' and parts[2:] == ['active'] and reader:
                 exact(body, {'ticket', 'verb', 'inputs'}, 'fixture challenge')
-                if self.server.journal.runs[run]['area']=='scripts':
+                if (self.server.journal.runs[run]['area']=='graphics' and self.server.graphics_resources is not None):
+                    with self.server.journal.lock:
+                        self.server.journal.activate(run,body['ticket'],body['verb'],body['inputs'])
+                        self.server.graphics_resources.activate(run,body['ticket'])
+                elif self.server.journal.runs[run]['area']=='scripts':
                     with self.server.journal.lock:
                         self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
                         self.server.script_resources.activate(run,body['ticket'])
@@ -320,9 +366,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {})
             if self.command == 'GET' and len(parts) == 2:
                 original=self.server.journal.snapshot(run)
-                if adapter_reader:original['entries']=[]
+                if adapter_reader:original['entries']=[] # Only the original phase/read clock, never independent peer facts.
                 return self.send(200,original)
             if self.command == 'DELETE' and len(parts) == 2 and reader:
+                if self.server.graphics_resources is not None and self.server.graphics_resources.has_run(run):
+                    with self.server.journal.lock:
+                        self.server.graphics_resources.retire(run)
+                        if run in self.server.journal.runs:self.server.journal.close(run)
+                    return self.send(200,{})
                 if self.server.script_resources is not None and self.server.script_resources.has_run(run):
                     with self.server.journal.lock:
                         self.server.script_resources.retire(run)
@@ -366,7 +417,7 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,adapter_token=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None):
     if adapter_token is not None and (type(adapter_token) is not str or not 32<=len(adapter_token)<=256
             or not adapter_token.isascii() or any(not 33<=ord(c)<=126 for c in adapter_token)
             or adapter_token in (reader_token,actor_token)):
@@ -387,9 +438,12 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
     if navigation_resources is not None and (not isinstance(navigation_resources,NavigationResources) or browser_peer_of is not None):
         raise ValueError('Navigation provider requires its original primary owner')
     if account_provider is not None:account_provider._attach(reader_token,actor_token)
+    if graphics_resources is not None and (not isinstance(graphics_resources,GraphicsResources) or browser_peer_of is not None):
+        raise ValueError('Graphics provider requires its original primary owner')
     server = FixtureServer(address, Handler)
     server.account_provider,server.tls_context=account_provider,tls_context
     server.navigation_resources=navigation_resources
+    server.graphics_resources=graphics_resources
     server.script_resources=ScriptResources() if browser_peer_of is None else browser_peer_of.script_resources
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token
@@ -414,7 +468,7 @@ def main():
         parser.error('--private-config is required to serve')
     from adapters.normal_feature_state import PrivateFeatureState
     config=PrivateFeatureState(args.private_config.absolute()).read()
-    fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())
+    fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())|({'graphicsProvider'} if 'graphicsProvider' in config else set())
     exact(config,fields,'private fixture configuration')
     tls=None;provider=None
     if 'tls' in config:
@@ -431,9 +485,13 @@ def main():
         if config['accountProvider'] is not True:raise ValueError('Explicit account provider opt-in is required')
         provider=AccountProvider()
     navigation=NavigationResources(config['navigationProvider']) if 'navigationProvider' in config else None
+    graphics=None
+    if 'graphicsProvider' in config:
+        exact(config['graphicsProvider'],{'fixtureUrl'},'actual Graphics fixture input')
+        graphics=GraphicsResources(config['graphicsProvider']['fixtureUrl'])
     with ExitStack() as owned:
         server=owned.enter_context(make_server(config['readerToken'],config['actorToken'],(config['host'],config['port']),
-            account_provider=provider,tls_context=tls,navigation_resources=navigation,adapter_token=config.get('adapterToken')))
+            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken')))
         peer=None;worker=None
         if 'browserPeer' in config:
             exact(config['browserPeer'],{'host','port'},'private second browser listener')

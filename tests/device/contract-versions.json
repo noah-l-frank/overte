@@ -44,6 +44,8 @@
     "graphics-subject": {"current": 2, "reads": [2]},
     "native-graphics-subject": {"current": 2, "reads": [1, 2]},
     "native-scene-loads": {"current": 1, "reads": [1]},
+    "feature-graphics-resources": {"current": 1, "reads": [1]},
+    "feature-phase-fixture": {"current": 1, "reads": [1]},
     "world-render-acquisition": {"current": 1, "reads": [1]},
     "world-render-storage": {"current": 1, "reads": [1]},
     "world-render-ownership": {"current": 1, "reads": [1]},

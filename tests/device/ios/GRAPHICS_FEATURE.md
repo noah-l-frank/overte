@@ -54,6 +54,17 @@ source factory reads this separate immutable original ledger. A current commit
 requires all traced leases to drain, including older replaced loads. Native
 input, scene, camera, provider and rendered evidence remain separate joins.
 
+The selected shared `graphics_resources.py` backend binds actual socket writes
+to its configured original origin, stable owned scene UUIDs and immutable
+response/status/body histories. Read/activation/retirement remain separately
+authorized. `phase_fixture.py` exposes only original activation input metadata,
+with immutable prefixes retained through retirement, never actor/product facts.
+These sources and their dependencies are selected from the same frozen Phone
+commit. The shared fixture server, Client and quick-test inventory are extended;
+existing adapter-reader masking and mutation refusal remain enforced. A private
+fixture server configuration explicitly opts in with
+`graphicsProvider: {fixtureUrl: <actual canonical fixture URL>}`.
+
 ## Remaining whole-journey work
 
 The iOS Graphics coordinator must still compose normal generic Graphics/Go To/
@@ -87,3 +98,11 @@ Eighteen further source/input host tests cover original iOS Graphics receipt
 projection, generic-source admission, read-only input refusal, altered/stale/
 foreign originals, and the existing meaningful scroll/slider/ignored-input
 counterexamples. These do not yet exercise the full iOS Graphics journey.
+
+The Graphics provider/phase/fixture packet passed 150 shared host tests,
+including all existing journey logic, closed role access and actual loopback
+socket response histories. The deterministic shared journey SDK now uses the
+real Journal registration constructor; it no longer fabricates an incomplete
+internal record. All six iOS Script/Authentication journey regression cases
+also passed after the shared server/Client extension. These are host-only
+regressions, with the same explicit compiler/device exclusions as before.
