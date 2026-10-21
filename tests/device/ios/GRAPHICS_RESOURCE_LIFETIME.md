@@ -168,3 +168,11 @@ The archived local RemoteXPC 5.15.3 API was read only as a source reference:
 `Services.startDVTService` exposes `deviceInfo.isRunningPid`. No service, server,
 device connection, installation or retired workstation laboratory was started.
 Live Proxmox installation and device behavior remain unverified.
+
+
+`observe_restored` now supplies one durable role-owned pre-stop group, preserving
+actual retained cache holders. It never claims a completed native quiet window.
+The separate [process-retirement owner](PROCESS_RETIREMENT.md) supplies new
+numeric-PID/OS reads and independent four-clock quiet windows after stop. Their
+whole-run finalizer and actor handoff remain pending; neither API advertises a
+complete Graphics capability.

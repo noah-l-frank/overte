@@ -38,6 +38,14 @@ class IOSGraphicsRuntime(IOSScriptRuntime):
         return IOSRetiredProcess(lambda query:client.execute(session,'mobile: overteRetiredProcessInfo',query),
                                  guard,target['appId'],int(expected['processIdentity']),source)
 
+    def _graphics_process_retirement(self,selector,binding,source,run,role,stage,lock):
+        from ios.adapters.process_retirement import IOSProcessRetirement
+        need(role in ('primary','actor') and type(stage) is int and stage in (0,1))
+        reader=self._retired_process_observer(selector,binding,source)
+        store=PrivateFeatureState(self.state_path(selector).with_name(
+            'ios-graphics-'+role+'-'+str(stage)+'-process-retirement.json'))
+        return IOSProcessRetirement(store,reader,binding,run,role,stage,lock)
+
     def _graphics_calibration(self,preferences,source):
         from ios.adapters.graphics_calibration import IOSGraphicsCalibration
         return IOSGraphicsCalibration(preferences,source)

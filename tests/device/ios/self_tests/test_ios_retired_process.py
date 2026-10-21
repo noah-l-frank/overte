@@ -129,6 +129,19 @@ class RetiredRuntimeTests(unittest.TestCase):
         self.assertEqual(sessions,self.f.sessions);self.assertEqual(1,self.f.launches)
         self.assertIn('mobile: overteRetiredProcessInfo',self.calls)
 
+    def test_final_window_factory_keeps_explicit_run_role_stage_and_existing_stopped_session(self):
+        from adapters.script_feature.lock import ScriptSourceLock
+        self.f.adapter.invoke('test-only','app.stop',{})
+        lock=ScriptSourceLock(self.runtime.state_path('test-only').with_name('script-feature-sources.lock'))
+        with lock.held():
+            owner=self.runtime._graphics_process_retirement('test-only',self.binding,self.source,'a'*32,'actor',0,lock)
+            owner.reader.epoch_ms=self.boundary.epoch;owner.reader.monotonic=lambda:self.boundary.clock
+            before=len(self.f.native.commands);self.assertFalse(owner.advance())
+            self.assertEqual(before,len(self.f.native.commands));self.assertEqual('actor',owner.previous['role'])
+            self.assertEqual('a'*32,owner.previous['runId']);self.assertEqual(0,owner.previous['stage'])
+            self.assertTrue(absent(owner.current()['original']));self.assertEqual(1,self.f.launches)
+            self.assertEqual('ios-graphics-actor-0-process-retirement.json',owner.store.path.name)
+
     def test_bound_foreign_pid_or_changed_source_cannot_query_a_retired_scope(self):
         with self.assertRaises((ValueError,RuntimeError)):self.runtime._retired_process_observer('test-only',self.binding,self.source)
         self.f.adapter.invoke('test-only','app.stop',{})

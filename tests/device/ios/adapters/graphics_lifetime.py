@@ -369,6 +369,26 @@ class IOSGraphicsLifetime:
             need(self.state['phase']=='ready');ref,_row=self.read_group('abort');return deepcopy(ref)
         finally:self.deadline=None
 
+    def observe_restored(self, original, *, restart=None):
+        """One original restored-world snapshot, including actual retained holders.
+
+        This does not wait for a cache to disappear or attest a quiet window.
+        Both roles must retain their own snapshot before a separate owned stop.
+        Native counters and original process identity stay unchanged afterward.
+        """
+        self.bound();need((self.state['activeProofs'] and self.state['abortProof'] is None)
+                          or (not self.state['activeProofs'] and self.state['abortProof'] is not None))
+        need(len(self.state['windows']) < 8)
+        expected=self.original(dict(subject=deepcopy(original),restart=deepcopy(restart)))
+        if self.state['original'] is not None:need(same(expected,self.state['original']))
+        started=self.bound();self.deadline=started+20
+        try:
+            self.recover();self.state.update(phase='releasing',original=expected)
+            self.state['windows'].append(dict(samples=[],start=None,elapsedMs=0,complete=False));self.save()
+            ref,_row=self.read_group('release',len(self.state['windows'])-1)
+            self.decode(self.previous);self.bound();return deepcopy(ref)
+        finally:self.deadline=None
+
     @staticmethod
     def quiet(rows):
         need(len(rows) >= 3 and all(row['mode'] == 'released' for row in rows) and len({activity(row) for row in rows}) == 1)
