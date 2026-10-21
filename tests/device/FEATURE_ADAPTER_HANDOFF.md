@@ -19,12 +19,20 @@ and complete Navigation coordination are still missing; native code is uncompile
 
 Scripts v16 follows the [actual mobile default-only startup and explicit reimport contract](feature_journeys/SCRIPTS_SOURCE.md).
 
+The isolated iOS implementation now supplies complete source-level
+[Scripts](ios/SCRIPT_FEATURE.md) and
+[Authentication](ios/AUTHENTICATION_FEATURE_SOURCES.md) coordinators over the
+existing canonical candidate runtime. Their full shared host journeys pass at
+synthetic SDK/native boundaries; native compilation and all devices remain
+unqualified. The component notes below describe prerequisite contracts, not
+the current iOS whole-area status. See the [current iOS matrix](ios/FEATURE_ADAPTER_COVERAGE_20261021.md).
+
 Scripts additionally exposes the [original load-result history](native/SCRIPT_LOAD_HISTORY.md)
 through its existing private observation. An actual failed load can emit a later
 loaded signal; the full error join must use the actual callback result rather
 than infer success/error from that signal or manager membership. File and
 execution receipt readers use separate native clocks, including the iOS
-HTTP/AFC factories. Full Scripts coordination remains open.
+HTTP/AFC factories. Full platform composition is tracked in each platform handoff.
 
 The existing Script manager now also has a
 [controlled file-bundle ownership scope](native/SCRIPT_FILE_OWNERSHIP.md): it
@@ -37,14 +45,14 @@ and closed UI for three seconds before transferring the exact file/manager
 records. Interrupted private writes require repeated original proof; no lifecycle
 or Script input is replayed. Internal prepare/adopt factories are connected on
 all three local branches. Full lifecycle input/execution/actor/error/cleanup
-coordination remains pending. No full feature capability is enabled.
+coordination is platform-owned; the iOS full coordinator is linked above.
 
 The [one-send normal restart controller](native/RESTART_INPUTS.md) is now
 connected internally on all three local platform branches. Ordinary stop/launch
 inputs retain their original SDK/OS/native gates and persisted lifecycle counts;
 uncertain input is never replayed. Physical iOS launch binding and Pico OpenXR
 session recovery after a lost launch receipt remain unqualified. Full Scripts
-coordination is still incomplete.
+coordination is tracked by the platform handoffs.
 
 The [owned missing Script load scope](native/SCRIPT_MISSING_LOAD.md) adds a
 closed normal From URL input with durable one-send ownership and original

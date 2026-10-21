@@ -1,17 +1,15 @@
 # iOS source coverage and executable adapter handoff, 2026-10-21
 
-**Scripts is source-complete and host-tested; thirteen feature areas remain partial.**
-All fourteen shared v16 journeys exist. Scripts now has its complete iOS
-input/observation/cleanup coordinator. The other ordinary iOS components below remain partial implementations. Native
-compilation is unverified and devices are untested. No product acceptance,
-installation, build or laboratory execution is represented by the host results.
+**Scripts and Authentication are source-complete and host-tested; twelve areas remain partial.**
+All fourteen shared v16 journeys exist. These two areas have complete iOS
+input/observation/cleanup coordinators. Native compilation is unverified and
+devices are untested. Host results do not represent product acceptance,
+installation, build or laboratory execution.
 
-This is the current iOS audit. Older statements that the installed-code gate is
-entirely unavailable describe historical checkpoints: canonical physical source
-binding and explicit lost-launch recovery now have host-tested implementations.
-The actual plugin and native byte observer remain uninstalled/uncompiled and
-unqualified here. The [Script coordinator](SCRIPT_FEATURE.md) is present; the
-other full-area ownership/observer coordinators remain absent.
+The canonical physical source binding and explicit lost-launch recovery have
+host-tested implementations. The native byte observer and SDK plugin remain
+uninstalled/uncompiled and unqualified here. See the [Script handoff](SCRIPT_FEATURE.md)
+and [Authentication handoff](AUTHENTICATION_FEATURE_SOURCES.md).
 
 ## Source and integration boundaries
 
@@ -65,15 +63,16 @@ native/server/OS/receiver endpoints, not fixture delivery or requested filenames
 
 ## Fourteen-area matrix
 
-Every row remains **compilation unverified; devices untested**. Scripts is
-source-complete with the full shared nineteen-step host regression. All other
-rows remain **logic present; iOS adapter partial**; their complete triples are
-still missing. “Partial” credits only the specifically listed components.
+Every row remains **compilation unverified; devices untested**. Scripts and
+Authentication are source-complete with their unchanged full shared journeys
+and independent actor regressions. The other twelve rows remain **logic present;
+iOS adapter partial**; their complete triples are still missing. “Partial”
+credits only the specifically listed components.
 
 | Area | Existing iOS components and actual product sources | Concrete missing interface/evidence and next implementation packet |
 | --- | --- | --- |
 | Worlds/navigation | `adapters/normal_navigation.py` drives native Go To/Places history; `adapters/adapter.py::_navigation_replies` reads actual reply IDs. Product: `scripts/system/places/places.js`, `interface/resources/qml/hifi/tablet/TabletAddressDialog.qml`. | No original-token bookmark CRUD/search/modal reader or durable whole-journey owner. Add original Places model/bookmark/settings and modal identities to the gated native survey, then join the current HTTP response-ID reader to actual arrival and independent directory/arrival observations. |
-| Authentication | Original generic Login reader, ordinary File/logout tokens, native Directory Server preference/environment hashes, private AFC credential lease, protected probe and controlled HTTPS provider. See [source packet](AUTHENTICATION_FEATURE_SOURCES.md). | Whole-run primary/actor/provider/restart composition is in progress. Add actual Remember/saved-username preference sources and secret-free field-clear/checkbox input; restore those ordinary form side effects under durable intent. Require the preconfigured dedicated Directory Server origin rather than overwrite an unowned or absent setting. |
+| Authentication | **Source-complete, host-tested.** Canonical full-candidate runtime, original Login/Menu tokens, private AFC credentials, measured preference restoration, separate actor/server proof, delayed reply consumer retirement, three restarts and durable cleanup/finalization. | See [operation/evidence/integration handoff](AUTHENTICATION_FEATURE_SOURCES.md). The unchanged seventeen-step journey passes with a real local HTTPS provider and synthetic iOS SDK/native sources. Requires the explicit dedicated HTTPS origin and existing typed/empty account preferences. Compilation and device qualification remain unexecuted. |
 | Avatar/contacts | Existing collaboration/replication foundation and original avatar-entity reads. Product: `scripts/system/avatarapp.js`, avatar model/Rig and account connections. | No normal avatar URL/bookmark/scale/wearable/contact-consent control survey or complete remote contact actor. Instrument actual loaded/requested model generations and failure events plus original controls; implement owned Hips attachment IDs, bookmark preservation and mutual peer consent/cancel/reject/removal. |
 | Create | `create_controls.py`, `TokenCreateUI` and native original selection/property input; original avatar-entity observations. Product: `scripts/system/create/qml/NativeCreate.qml` and native entity/file services. | No complete Model/texture/JSON-picker/PolyVox/export coordinator, source-owned export bytes or rez-permission actor. Bind existing native file browser for entity JSON and actual export completion, add actual settled voxel/model/texture observations and an independently controlled permission/remote entity actor. |
 | Emotes | `FeatureObservation.native_observer()` can read original evaluated Rig/clip/pose/history. Product: `scripts/system/emote.js`, chooser QML and Rig. | No iOS ordinary chooser/reset survey, submitted-code/caller/root join or independent pose/image actor. Inspect and version the iOS Emote source profile first, add normal source-token input, then join actual native override/completion/early restoration and all real Sit variants. Phone's new root/caller/Rig packet requires its full dependency closure; it is not imported as an iOS adapter. |
@@ -184,11 +183,18 @@ The following are required next packets, not new fictional product behavior:
    serialization, locks, source restart and independently credentialed workers.
    They are references for decomposition, not iOS drop-ins. Importing just the
    top-level class or copying Android process/storage/input bindings is invalid.
-5. Later Emote root/member/work/caller/Rig sources and original Graphics frame,
+5. Authentication selects pure decomposition from the same frozen Phone commit,
+   with separate iOS environment/UUID/input/AFC/process/clock semantics. Native
+   preference observation v2 and secret-free normal clear/Remember controls
+   preserve and restore original ordinary form side effects. The shared journey
+   remains unchanged. The canonical adapter and independent worker are connected;
+   host tests cover all seventeen steps, three restarts, both roles, authority
+   retirement and uncertain input without resend.
+6. Later Emote root/member/work/caller/Rig sources and original Graphics frame,
    file and callback-lifetime packets form dependency chains. Review their full
    native sampler/probe/parser/registry/self-test closure before selecting them.
    This branch makes no claim that importing a helper completes an area.
-6. No Pico commit is selected. Resolve only reviewed pinned shared changes during
+7. No Pico commit is selected. Resolve only reviewed pinned shared changes during
    later reconciliation; never read/copy its active WIP into this branch.
 
 No main/protected/sibling integration, remote write or device execution is

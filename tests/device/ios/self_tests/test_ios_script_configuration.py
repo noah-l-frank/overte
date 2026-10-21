@@ -13,6 +13,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from ios.adapters.feature_configuration import configuration,capabilities,OPERATIONS
 from ios.script_observer import configuration as observer_configuration
+from ios.authentication_observer import configuration as authentication_observer_configuration
 from ios.adapters.normal_scripts import PROFILE
 
 
@@ -32,7 +33,7 @@ class IOSScriptConfigurationTests(unittest.TestCase):
         self.store.write(self.value,None)
         with patch.dict(os.environ,{'OVERTE_IOS_FEATURE_ADAPTER_CONFIG':str(self.store.path)},clear=True):
             self.assertEqual(self.value,configuration());self.assertEqual(self.value,configuration(self.store.path))
-            self.assertEqual(sorted(OPERATIONS),capabilities(self.target))
+            self.assertEqual(sorted(op for op in OPERATIONS if op.startswith('feature.scripts.')),capabilities(self.target))
             for change in (dict(physical=False),dict(probe={}),dict(normalScripts=None)):
                 with self.assertRaises(NativeUIError):capabilities(self.target|change)
 
@@ -46,6 +47,15 @@ class IOSScriptConfigurationTests(unittest.TestCase):
         self.store.write(self.value,None);self.store.path.chmod(0o644)
         with self.assertRaises(NativeUIError):configuration(str(self.store.path))
 
+    def test_authentication_requires_canonical_explicit_https_process_origin(self):
+        self.store.write(self.value|dict(areas=['authentication','scripts']),None)
+        with patch.dict(os.environ,{'OVERTE_IOS_FEATURE_ADAPTER_CONFIG':str(self.store.path)},clear=True):
+            with self.assertRaises(NativeUIError):capabilities(self.target)
+            target=self.target|dict(testBuild={'launchEnvironment':{'HIFI_METAVERSE_URL':'https://owned.invalid'}})
+            self.assertEqual(sorted(OPERATIONS),capabilities(target))
+            self.store.write(self.value|dict(areas=['authentication']),self.store.read())
+            self.assertEqual(sorted(op for op in OPERATIONS if '.authentication.' in op),capabilities(target))
+
     def test_actor_config_has_its_own_credential_and_requires_closed_source_fields(self):
         value=dict(iosScriptObserverVersion=1,target='owned-target',candidateArguments=['--artifact-root','/private/artifacts'],
             fixtureUrl='http://127.0.0.1:12345/feature-fixture/v1',actorToken='a'*64,durationSeconds=600)
@@ -53,6 +63,15 @@ class IOSScriptConfigurationTests(unittest.TestCase):
         for fields in (dict(iosScriptObserverVersion=True),dict(durationSeconds=0),dict(readerToken='b'*64),dict(candidateArguments=[])):
             self.store.write(value|fields,self.store.read())
             with self.assertRaises((RuntimeError,ValueError)):observer_configuration(self.store.path)
+
+    def test_authentication_actor_has_separate_closed_private_https_configuration(self):
+        value=dict(iosAuthenticationObserverVersion=1,target='owned-target',candidateArguments=['--artifact-root','/private/artifacts'],
+            fixtureUrl='https://owned.invalid/feature-fixture/v1',actorToken='a'*64,durationSeconds=600)
+        self.store.write(value,None);self.assertEqual(value,authentication_observer_configuration(self.store.path))
+        for fields in (dict(iosAuthenticationObserverVersion=True),dict(fixtureUrl='http://owned.invalid/feature-fixture/v1'),
+                       dict(durationSeconds=0),dict(readerToken='b'*64),dict(candidateArguments=[])):
+            self.store.write(value|fields,self.store.read())
+            with self.assertRaises((RuntimeError,ValueError)):authentication_observer_configuration(self.store.path)
 
 
 if __name__=='__main__':unittest.main()

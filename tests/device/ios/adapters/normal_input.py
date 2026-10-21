@@ -26,6 +26,7 @@ from adapters.token_create_ui import metadata as create_metadata,control_id as c
 from adapters.token_login_ui import IDS as LOGIN_IDS, VERSION as LOGIN_VERSION,metadata_fields as login_metadata_fields,validate_metadata as validate_login_metadata
 from adapters.native_account_origin import origin_text
 from ios.adapters.account_menu import IDS as ACCOUNT_IDS,FIELDS as ACCOUNT_FIELDS,metadata as account_metadata
+from ios.adapters.account_preferences import CONTROL_ID as REMEMBER_ID,CONTROL_FIELDS as REMEMBER_FIELDS,control_metadata as remember_metadata
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
@@ -73,6 +74,10 @@ def observation(value, pid, now_ms=None):
         if value['scriptInventory']['tabletShown'] != value.get('tabletShown'):
             raise NativeUIError('Original Script inventory and tablet visibility disagree')
         fields |= {'scriptObservationVersion', 'scriptSourceSequence', 'scriptInventory'}
+    if type(value) is dict and 'loginClearInputVersion' in value:
+        if type(value['loginClearInputVersion']) is not int or value['loginClearInputVersion']!=1:
+            raise NativeUIError('Native iOS login clear input source version is invalid')
+        fields.add('loginClearInputVersion')
     if type(value) is dict and 'accountPreferences' in value:
         from ios.adapters.account_preferences import validate as validate_account_preferences
         validate_account_preferences(value['accountPreferences']);fields.add('accountPreferences')
@@ -127,6 +132,10 @@ def observation(value, pid, now_ms=None):
         elif is_create:
             if value.get('createControlsVersion')!=1:raise NativeUIError('Native iOS Create controls lack their source extension')
             original=dict(control);original.pop('frame',None);create_metadata(original);fields=set(control)
+        elif type(control) is dict and control.get('id')==REMEMBER_ID:
+            if value.get('accountPreferences',{}).get('accountPreferenceVersion')!=2:
+                raise NativeUIError('Native iOS Remember control lacks its preference source')
+            remember_metadata(control);fields |= REMEMBER_FIELDS
         elif type(control) is dict and control.get('id') in ACCOUNT_IDS:
             if value.get('accountMenuControlsVersion')!=1:raise NativeUIError('Native iOS account menu lacks its source extension')
             account_metadata(control);fields |= ACCOUNT_FIELDS
@@ -151,7 +160,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
@@ -265,6 +274,17 @@ class NativeInput:
             raise NativeUIError('Native iOS input instance changed')
         self.instance = value['instance']
         return value
+
+    def clear_login_username(self,*,token):
+        observed=self.capture()
+        rows=[row for row in observed['controls'] if row['id']=='login.username']
+        if (observed.get('loginControlsVersion')!=LOGIN_VERSION or observed.get('loginClearInputVersion')!=1
+                or len(rows)!=1 or not rows[0]['enabled'] or not rows[0]['focused'] or not rows[0]['inputReady']
+                or rows[0]['token']!=token):
+            raise NativeUIError('Native iOS username clear requires the actual focused current source')
+        return self.deliver(dict(schemaVersion=1,commandId=str(uuid.uuid4()),instance=observed['instance'],
+            sequence=observed['lastSequence']+1,observedElapsedMs=observed['elapsedMs'],fieldToken=token,
+            operation='clear-login-username'))
 
     def edit(self, operation, text=None, *, field='address.field', index=None):
         if (field not in {'address.field', 'snapshot.name', 'scripts.url.field', 'script-file.folder', 'script-file.primary','login.server'}

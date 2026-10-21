@@ -1,5 +1,10 @@
 # iOS adapter implementation, 2026-10-21
 
+The initial checkpoint below is historical. For current completion and remaining
+work, use the [fourteen-area matrix](FEATURE_ADAPTER_COVERAGE_20261021.md),
+[Script handoff](SCRIPT_FEATURE.md) and
+[Authentication handoff](AUTHENTICATION_FEATURE_SOURCES.md).
+
 ## Captured source provenance
 
 The read-only iOS reference was captured consistently with two reads.
@@ -30,7 +35,8 @@ No untracked files existed in the source capture. Both shared foundations
 - The final handoff adds the source-based fourteen-area matrix and checks that
   every incomplete iOS suite fails its existing mandatory gate before target IO.
 
-The whole requested implementation is **not complete**. Zero of fourteen full
+At this initial checkpoint the requested implementation was **not complete**.
+Zero of fourteen full
 v16 iOS area triples is implemented or advertised. The new work completes an
 installed-code/restart recovery boundary and a shared privacy prerequisite.
 The remaining per-area input/observation/independent-actor/cleanup interfaces and

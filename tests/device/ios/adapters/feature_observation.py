@@ -6,6 +6,7 @@ before exposing these components; direct component use remains unbound.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
 import base64
 import json
 import re
@@ -231,14 +232,16 @@ class FeatureObservation:
             self.epoch_ms,self.guard,self.process['pid'],ios=True,monotonic=self.monotonic,sleep=self.sleep)
         return OwnedChatCapture(reader,owner,run)
 
-    def account_origin(self,store,binding):
+    def account_origin(self,store,binding,*,component_only=True):
         self.guard()
         native=self.native_observer();actual=native.read(0,require_account=True)
         remote=self.remote.rsplit('/',1)[0]+'/'+ACCOUNT_ORIGIN_FILE
         source=NativeAccountOrigin(self.send,lambda:self.original(remote=remote,limit=NATIVE_FEATURE_LIMIT),
             self.epoch_ms,self.guard,self.process['pid'],actual['instance'],ios=True,
             monotonic=self.monotonic,sleep=self.sleep)
-        return OwnedAccountOrigin(source,store,binding,component_only=True)
+        result=OwnedAccountOrigin(source,store,binding,component_only=component_only)
+        result.native_admission=deepcopy(actual)
+        return result
 
     def account_probe(self,owner):
         self.guard()

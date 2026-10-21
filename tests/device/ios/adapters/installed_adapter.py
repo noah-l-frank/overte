@@ -298,15 +298,20 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             validate_operation_arguments(operation,values)
             need(operation not in ('app.install','app.upgrade'))
             if operation.startswith('feature.'):
-                from ios.adapters.feature_configuration import OPERATIONS,configuration,capabilities
+                from ios.adapters.feature_configuration import OPERATIONS,configuration,capabilities,reader
                 from ios.adapters.script_runtime import IOSScriptRuntime
                 need(operation in OPERATIONS and configuration() is not None and self._operation is None)
                 self._candidate_guard(complete=True)
                 need(operation in capabilities(self._target(selector)))
                 self._operation=operation
                 try:
-                    runtime=IOSScriptRuntime(self)
-                    flow=runtime._script_feature(selector,values['runId'])
+                    if operation.split('.')[1]=='authentication':
+                        from ios.adapters.authentication_runtime import IOSAuthenticationRuntime
+                        runtime=IOSAuthenticationRuntime(self,reader(configuration()),values['runId'])
+                        flow=runtime._authentication_feature(selector,values['runId'])
+                    else:
+                        runtime=IOSScriptRuntime(self)
+                        flow=runtime._script_feature(selector,values['runId'])
                     result=getattr(flow,operation.rsplit('.',1)[1])(values)
                     client,session,state,target,_scope=runtime._existing(selector)
                     self._binding(selector,client,session,state,target).verify()
@@ -344,6 +349,16 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             store = self._binding_store(selector)
             previous = store.read()
             feature_error=False
+            from ios.adapters.authentication_runtime import IOSAuthenticationRuntime
+            from ios.adapters.feature_configuration import configuration,reader
+            authentication=PrivateFeatureState(self.state_path(selector).with_name('ios-authentication-feature.json')).read()
+            authentication_retirement=PrivateFeatureState(self.state_path(selector).with_name('ios-authentication-retirement.json')).read()
+            if authentication is not None or authentication_retirement is not None:
+                try:
+                    original=authentication if authentication is not None else authentication_retirement
+                    runtime=IOSAuthenticationRuntime(self,reader(configuration()),original['runId'])
+                    runtime._authentication_feature(selector,original['runId']).finalize()
+                except Exception:feature_error=True
             from ios.adapters.script_runtime import IOSScriptRuntime
             runtime=IOSScriptRuntime(self)
             owner=runtime.script_feature_store(selector).read()

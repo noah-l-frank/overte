@@ -13,6 +13,7 @@ from ios.adapters import appium_adapter
 from ios.adapters.normal_scripts import PROFILE
 from ios.adapters.script_runtime import IOSScriptRuntime
 from adapters.normal_ui import NativeUIError
+from feature_journeys.scenarios import VERSION
 
 
 class IOSScriptRuntimeTests(unittest.TestCase):
@@ -73,6 +74,23 @@ class IOSScriptRuntimeTests(unittest.TestCase):
             with self.assertRaises((RuntimeError,ValueError,TypeError)):
                 self.runtime._lifecycle('test-only',operation)
         self.assertEqual(1,self.f.launches)
+
+    def test_canonical_authentication_dispatch_still_checks_actual_candidate_and_existing_session(self):
+        from ios.adapters import authentication_runtime,feature_configuration
+        calls=[];run='a'*32
+        def flow(selector,requested):
+            calls.append((selector,requested));return SimpleNamespace(observe=lambda values:{'routing-test':values['runId']})
+        runtime=SimpleNamespace(_authentication_feature=flow,_existing=self.runtime._existing)
+        with patch.object(feature_configuration,'configuration',return_value={'test':'explicit'}), \
+             patch.object(feature_configuration,'reader',return_value=object()), \
+             patch.object(feature_configuration,'capabilities',return_value=['feature.authentication.observe']), \
+             patch.object(authentication_runtime,'IOSAuthenticationRuntime',return_value=runtime):
+            values=dict(contractVersion=VERSION,runId=run,afterSequence=0)
+            self.assertEqual({'routing-test':run},self.f.adapter.invoke('test-only','feature.authentication.observe',values))
+            self.assertEqual([('test-only',run)],calls)
+            self.f.artifact.write_bytes(b'foreign candidate bytes')
+            with self.assertRaises(ValueError):self.f.adapter.invoke('test-only','feature.authentication.observe',values)
+            self.assertEqual(1,len(calls))
 
 
 if __name__=='__main__':unittest.main()

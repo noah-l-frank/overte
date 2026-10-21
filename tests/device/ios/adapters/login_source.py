@@ -50,10 +50,10 @@ def validate(value,command,pid,epoch):
 
 
 class IOSLoginSource:
-    def __init__(self,original,clock_ms,guard,pid,*,private_input=None,read_only=False,origin=None,monotonic=time.monotonic):
+    def __init__(self,original,clock_ms,guard,pid,*,private_input=None,read_only=False,origin=None,run=None,monotonic=time.monotonic):
         need(all(callable(fn) for fn in (clock_ms,guard,monotonic)) and integer(pid,1) and type(read_only) is bool)
         self.original,self.clock_ms,self.guard,self.pid=original,clock_ms,guard,pid
-        self.input_io=IOSLoginIO(original,private_input);self.read_only=read_only;self.origin=origin
+        self.input_io=IOSLoginIO(original,private_input);self.read_only=read_only;self.origin=origin;self.run=run
         self.monotonic=monotonic;self.ios=True
         self.instance=self.generation=None
         self.sequence=self.elapsed=self.last_command=self.epoch_floor=0
@@ -65,7 +65,7 @@ class IOSLoginSource:
         raw=self.original.native.capture(native_epoch_ms=self.clock_ms)
         need(raw.get('loginControlsVersion')==LOGIN_VERSION and identity(raw.get('generation'))
              and raw.get('scriptObservationVersion')==1)
-        if self.origin is not None:require_owned(raw.get('accountPreferences'),self.origin)
+        if self.origin is not None:require_owned(raw.get('accountPreferences'),self.origin,run=self.run)
         receipt=deepcopy(self.original.native.last_receipt)
         need(type(receipt) is dict and receipt.get('observation')==raw)
         value=dict(schemaVersion=VERSION,commandId=receipt['commandId'],action='observe',

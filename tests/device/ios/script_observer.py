@@ -39,25 +39,33 @@ def configuration(path):
 
 def run(runtime,config,*,monotonic=time.monotonic,sleep=time.sleep):
     need(isinstance(runtime,IOSScriptRuntime))
+    client=Client(config['fixtureUrl'],config['actorToken'])
+    return run_flow(config,runtime.script_feature_store,runtime.script_retirement_store,
+        lambda run:runtime._script_feature(config['target'],run,role='actor',client=client),
+        ScriptPhasePending,ScriptRunRetired,monotonic=monotonic,sleep=sleep)
+
+
+def run_flow(config,owner_store,retirement_store,factory,pending,retired,*,monotonic=time.monotonic,sleep=time.sleep):
+    """Only publish a bound existing run; share lifecycle without source sharing."""
     started=previous=monotonic();need(number(started,0,1e15))
-    client=Client(config['fixtureUrl'],config['actorToken']);flow=None
+    flow=None
     while True:
         now=monotonic();need(number(now,0,1e15) and previous<=now and now-started<config['durationSeconds']);previous=now
-        owner=runtime.script_feature_store(config['target']).read()
+        owner=owner_store(config['target']).read()
         if flow is None and owner is not None:
             need(owner.get('fixtureUrl')==config['fixtureUrl']+'/runs/'+owner['runId']+'/')
-            flow=runtime._script_feature(config['target'],owner['runId'],role='actor',client=client)
+            flow=factory(owner['runId'])
         if flow is not None:
             if owner is None and flow.role_store.read() is None:return 0
             need(owner is not None and owner.get('runId')==flow.run)
-            retirement=runtime.script_retirement_store(config['target']).read()
+            retirement=retirement_store(config['target']).read()
             if retirement is not None:
                 need(retirement.get('kind')=='retirement' and retirement.get('runId')==flow.run
                      and retirement.get('fixtureUrl')==flow.fixture_url)
                 return 0 # Both real cleanup samples precede retirement intent.
             try:flow.publish()
-            except ScriptRunRetired:return 0
-            except (ScriptPhasePending,ScriptSourceBusy):pass
+            except retired:return 0
+            except (pending,ScriptSourceBusy):pass
         sleep(.25)
 
 

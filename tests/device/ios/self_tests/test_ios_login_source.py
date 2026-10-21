@@ -74,6 +74,14 @@ class IOSLoginSourceTests(unittest.TestCase):
             reader=b.reader();reader.capture()
             with self.assertRaises(NativeUIError):reader.capture()
 
+    def test_read_only_original_reader_refuses_all_login_input_methods(self):
+        b=Boundary()
+        with patch.object(normal_input,'urlopen',b.post):
+            reader=b.reader();reader.read_only=True
+            with self.assertRaises(NativeUIError):reader.input('login.entry','activate',token='e'*32)
+            with self.assertRaises(NativeUIError):reader.close_view()
+        self.assertEqual([],b.requests)
+
     def test_account_menu_metadata_requires_actual_original_version_and_closed_types(self):
         import hashlib
         b=Boundary()

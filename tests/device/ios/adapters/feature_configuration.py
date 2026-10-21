@@ -9,7 +9,8 @@ from adapters.feature_fixture_access import client as fixture_client
 from ios.adapters.normal_scripts import configuration as scripts_configuration
 
 VERSION=1
-OPERATIONS=frozenset('feature.scripts.'+kind for kind in ('act','observe','cleanup'))
+AREAS=frozenset(('scripts','authentication'))
+OPERATIONS=frozenset('feature.'+area+'.'+kind for area in AREAS for kind in ('act','observe','cleanup'))
 
 
 def configuration(path=None):
@@ -19,7 +20,9 @@ def configuration(path=None):
     value=PrivateFeatureState(Path(path)).read()
     exact(value,{'iosFeatureAdapterVersion','areas','fixtureConfig'})
     need(type(value['iosFeatureAdapterVersion']) is int and value['iosFeatureAdapterVersion']==VERSION
-         and value['areas']==['scripts'] and type(value['fixtureConfig']) is str
+         and type(value['areas']) is list and 1<=len(value['areas'])<=len(AREAS)
+         and all(type(area) is str and area in AREAS for area in value['areas'])
+         and len(set(value['areas']))==len(value['areas']) and type(value['fixtureConfig']) is str
          and Path(value['fixtureConfig']).is_absolute())
     return value
 
@@ -28,7 +31,11 @@ def capabilities(target):
     config=configuration()
     if config is None:return []
     need(scripts_configuration(target) is not None)
-    return sorted(OPERATIONS)
+    if 'authentication' in config['areas']:
+        from ios.adapters.authentication_origin import origin
+        value=target.get('testBuild',{}).get('launchEnvironment',{}).get('HIFI_METAVERSE_URL')
+        need(type(value) is str and origin(value+'/feature-fixture/v1')==value)
+    return sorted(operation for operation in OPERATIONS if operation.split('.')[1] in config['areas'])
 
 
 def reader(config):

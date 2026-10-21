@@ -385,3 +385,10 @@ iOS utility directory to Python's search path. Native imports use the explicit
 The [source-level Script adapter](SCRIPT_FEATURE.md) supplies the complete shared
 nineteen-step journey, separate native/host clocks and independent actor cleanup.
 Its SDK-bound host regression does not qualify an installed native client.
+
+The [source-level Authentication adapter](AUTHENTICATION_FEATURE_SOURCES.md)
+supplies the full seventeen-step shared journey, private credential lifetime,
+original account preference restoration, three process replacements and
+independent native/server evidence. Both full features require explicit private
+admission through the canonical installed-candidate adapter. Their sources are
+host-tested; native compilation and all device qualification remain unverified.
