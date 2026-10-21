@@ -594,6 +594,9 @@ def optional_leaf_current(event, environment, adapter, *, root=ROOT):
     """
     class ReadSource:
         def get(self, endpoint):
+            tree = re.fullmatch(r'git/trees/([0-9a-f]{40})[?]recursive=1', endpoint)
+            if tree is not None:
+                return adapter.api.immutable_tree(tree.group(1))
             return adapter._object(endpoint)
     source_api = ReadSource()
     admitted = source_admission.optional_leaf_import(event, environment, source_api, root)
@@ -621,7 +624,7 @@ def optional_leaf_current(event, environment, adapter, *, root=ROOT):
     identity = {'schema':1, 'kind':'optional-leaf-common-source-decision-v1',
         'binding':binding, 'references':refs, 'controller_digest':admitted['controller_digest'],
         'lookup_digest':admitted['lookup_digest'], 'target_profile':admitted['target_profile'],
-        'original_base_inventory':protocol.digest(previous), 'qualification_unavailable':unavailable}
+        'original_base_inventory':source_admission.digest(previous), 'qualification_unavailable':unavailable}
     host.require(adapter._integrated_current(run_id, 15368, datetime.now(timezone.utc)) == (binding, refs),
         'optional leaf normal integration changed')
     return {'identity':identity, 'digest':protocol.digest(identity), 'run_id':run_id,

@@ -230,6 +230,7 @@ class OptionalLeafImportTests(SourceFixture, unittest.TestCase):
         refs={'target':self.merge_id,'default':self.default_id,'default_ref':'main',
             'integration':{'workflow_id':330551824,'workflow_path':'.github/workflows/project-tests.yml'}}
         adapter=SimpleNamespace(_object=self.source_api.get,
+            api=SimpleNamespace(immutable_tree=lambda tree:self.source_api.get('git/trees/'+tree+'?recursive=1')),
             _integrated_current=lambda *args:(deepcopy(binding),deepcopy(refs)))
         with patch.object(S.subprocess,'run',return_value=SimpleNamespace(stdout=(self.default_id+'\n').encode())):
             cold=P.optional_leaf_current(self.event,self.env,adapter,root=self.root)
@@ -253,6 +254,7 @@ class OptionalLeafImportTests(SourceFixture, unittest.TestCase):
             if endpoint=='git/commits/'+self.base_id:raise S.SourceUnavailable('original B API unavailable')
             return value
         adapter=SimpleNamespace(_object=self.source_api.get,
+            api=SimpleNamespace(immutable_tree=lambda tree:self.source_api.get('git/trees/'+tree+'?recursive=1')),
             _integrated_current=lambda *args:(deepcopy(binding),deepcopy(refs)))
         with patch.object(S.subprocess,'run',return_value=SimpleNamespace(stdout=(self.default_id+'\n').encode())):
             self.mutate=failure
