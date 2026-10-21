@@ -131,6 +131,12 @@ class PicoGraphicsSurfaceTests(unittest.TestCase):
             lambda field:native.leases[field],native.lease,native.allowed_url)
         return native,surface
 
+    def test_absent_unowned_address_is_noop_before_ordinary_graphics_home_and_close(self):
+        native,surface=self.surface();surface.open();before=list(native.events)
+        surface.close_address();self.assertEqual(before,native.events);self.assertEqual('graphics',native.page)
+        surface.close_tablet();self.assertEqual('home',native.page);self.assertFalse(native.opened)
+        self.assertIn('tablet.home-ray',native.events)
+
     def test_generic_settings_native_readback_and_home_before_physical_close(self):
         native,surface=self.surface();surface.open();surface.set_resolution(.5);surface.toggle('graphics.haze',True)
         surface.toggle('graphics.mirrors',True);surface.set_resolution(.6);surface.toggle('graphics.haze',False)

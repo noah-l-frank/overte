@@ -510,7 +510,10 @@
         "tests/device/native/STEREO_GRAPHICS_EVIDENCE.md",
         "tests/device/adapters/graphics_journey/scene.py",
         "tests/device/adapters/pico4/graphics_scene.py",
-        "tests/device/adapters/pico4/GRAPHICS_SCENE_OWNER.md"
+        "tests/device/adapters/pico4/GRAPHICS_SCENE_OWNER.md",
+        "tests/device/adapters/graphics_journey/preferences.py",
+        "tests/device/adapters/graphics_journey/source_history.py",
+        "tests/device/adapters/pico4/GRAPHICS_PREFERENCES_OWNER.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -533,10 +536,10 @@
         "dialog"
       ],
       "missingOperationsOrEvidence": [
-        "Whole durable VR input/restoration coordinator; the ordinary generic Settings/Go To/Home surface, actual field-hash/authority checks and passive lifetime sources are source-implemented and host verified. A required different camera mode still needs a normal native View-menu operation; retain the separate restart-only Pico swapchain setting.",
-        "Whole coordinator joining original per-eye challenge/photometry to source-bound native preference transitions and common original image/actor receipts; actual per-eye geometry and pixel reducer is now source implemented and host verified",
-        "Complete Pico source-specific Graphics/scene/Web lifetime, persistence/background/restart/restoration coordinator",
-        "Whole original scene/framework restoration policy and quiet-window composition; native HTTP callback/reply lifetime and actual HMD/framework source are now source-implemented and host verified, without a feature verdict."
+        "Whole feature coordinator joining the source-implemented normal VR surface, durable scene owner v3 and durable native preference owner v3; a different camera mode needs actual View-menu input, and the separate restart-only Pico swapchain setting is outside this generic path.",
+        "Durable whole original PNG plus native JSON file owner and role/process sample producer, joining the independent both-eye challenge/effect verifier to native setting transitions and actual resource inventories.",
+        "Independent Graphics actor/publication and source-specific persistence/background/restart adoption with original old-PID ESRCH and retained ownership.",
+        "Complete actual UI/QML/XHR/reply/scene/Web-renderer/capture retirement and three-second quiet restoration across both roles; original scene/avatar/framework restoration policy is now source-implemented and host verified."
       ],
       "requiredOriginalEvidence": [
         "Actual native stereo source/target extents and per-eye viewport/projection",
@@ -549,7 +552,8 @@
         "Native subject v3 original HMD matrices and exact tablet/keyboard/pointer owner IDs, preserving the complete raw scan",
         "Role v2 capture ownership plus original complete native issuer/file inventory, including retirement of known undelivered receipt nonces",
         "Whole original PNG plus original native JSON, independently recomputed in both eyes; strict source query/cursor continuity and actual effect direction",
-        "Durable normal-Go-To scene owner v3 with recomputed original HMD alignment, original avatar restoration, original request/deferred loader groups and exact framework ownership/appearance"
+        "Durable normal-Go-To scene owner v3 with recomputed original HMD alignment, original avatar restoration, original request/deferred loader groups and exact framework ownership/appearance",
+        "Durable generic preference owner v3: original independent native and current widget barriers, off-grid refusal and per-step restoration without resending uncertain inputs"
       ],
       "cleanupObligations": [
         "Normal restoration of captured original VR preferences",
@@ -557,7 +561,7 @@
         "Restore original scene/view and independently observe complete owned UUID absence",
         "Restore original avatar feet/orientation/scale and framework configuration while checking the current physical HMD/camera relation; never demand a fixed Phone head pose or ignore arbitrary local/custom-pointer entities"
       ],
-      "nextExecutableStep": "Compose the per-eye original pixel reducer with the frozen full Graphics ownership coordinator, actual generic VR settings, per-role capture leases and source-specific scene/UI restoration. Require Web runtime v2 and actual renderer/callback quiet retirement.",
+      "nextExecutableStep": "Join the durable scene/preference owners to original PNG+native JSON ownership, role/process sampling and both-eye effect observations; then compose the independent actor, normal background/restart and actual UI/HTTP/Web-renderer/capture quiet retirement before registering the full Graphics triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

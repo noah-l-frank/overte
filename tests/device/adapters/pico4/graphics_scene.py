@@ -11,6 +11,7 @@ from adapters.native_feature_observation import need
 from adapters.native_scene_loads import resource_hash
 from adapters.vr_graphics_subject import first_person_head,separate_inventory,rotation_columns,affine
 from adapters.graphics_journey.geometry import near,aligned_entities
+from adapters.token_graphics_ui import on_grid
 from feature_journeys.graphics_fixture import VIEW
 
 VERSION=1
@@ -41,6 +42,14 @@ class PicoGraphicsScenePolicy:
     profile='pico-stereo-v1'
     require_framework=True
     camera_mode='first person'
+    graphics_profile='generic-immediate-v1'
+
+    @staticmethod
+    def validate_original_settings(packet):
+        # Current generic Qt slider source has this range/step. A native .65
+        # preference cannot be restored through it, so reject before any
+        # preference action. Each later actual row is independently checked.
+        need(on_grid(packet['graphics']['requestedResolutionScale'],dict(minimum=.1,maximum=2.,step=.1)))
 
     @staticmethod
     def eligible(packet):

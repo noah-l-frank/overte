@@ -695,5 +695,60 @@
       "A synthetic pending-load release mutated previously terminal historical records; only the original still-pending record is now released, preserving immutable history."
     ],
     "limits": "Only the source-level scene transaction is verified. No compiled native or real tracking evidence; whole preferences/artifacts/effects/actor/restart/UI-HTTP-Web lifetimes and quiet cleanup remain required."
+  },
+  "graphicsPreferencesPacket": {
+    "contracts": [
+      "graphics-journey-preferences v3",
+      "graphics-journey-source-history v1"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_preferences self_tests.test_pico_graphics_surface self_tests.test_pico_graphics_source (from tests/device)",
+        "tests": 36,
+        "status": "passed",
+        "durationSeconds": 13.439
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test stereo-world-render --test suite-runner --test coverage-matrix",
+        "groups": 4,
+        "status": "3 passed; graphics-sources reached 120-second harness timeout",
+        "durationSeconds": 131.62,
+        "junit": "graphics-preferences-owning.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/device/test_graphics_sources.py -v",
+        "tests": 193,
+        "status": "passed",
+        "durationSeconds": 127.527,
+        "note": "No assertion failure. The grouped host test exceeded only the original external 120-second subprocess budget; original operation deadlines and checks remain unchanged."
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.54,
+        "junit": "graphics-preferences-project.xml"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --timeout 240",
+        "groups": 1,
+        "status": "passed",
+        "durationSeconds": 117.593,
+        "junit": "graphics-preferences-owning-source-retry.xml",
+        "note": "Explicit external host subprocess budget only; no product/input/readiness deadline or assertion changed. Other three owning groups passed in graphics-preferences-owning.xml."
+      }
+    ],
+    "correctedFailures": [
+      "Joining whole ordinary close exposed an adapter precondition that required Home even when no address or address lease existed. Absent address dismissal now returns without input, preserving normal subsequent Graphics Home and physical close.",
+      "The Phone open-page status wrapper cannot read a closed Pico tablet. Closed status now uses the validated actual navigation snapshot; an open page still requires actual ready generic controls."
+    ],
+    "limits": "Native/window/widget and OS boundaries remain synthetic. Actual rendering effects, original files, independent actor, background/restart and native UI/HTTP/Web/capture quiet retirement are not completed by this preference owner."
   }
 }

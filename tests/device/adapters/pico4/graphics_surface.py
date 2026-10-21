@@ -157,6 +157,9 @@ class PicoGraphicsSurface:
 
     def close_address(self):
         with self.operation():
+            # A different owned page is closed by close_tablet's ordinary Home
+            # ray. No address lease means this method has nothing to retire.
+            if not self.address_visible() and not self.owned('address'):return
             if not self.tablet_visible():
                 if not self.owned('address'):return
                 need(self.owned('tablet'));self.open_tablet()

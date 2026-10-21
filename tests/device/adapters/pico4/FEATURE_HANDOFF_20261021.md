@@ -338,3 +338,15 @@ Host counterexamples cover ignored/lost inputs, retained loads, changed source
 birth, competing journals, entity/framework leaks and false journal deletion.
 Whole preferences, original artifacts, effects, actor/restart and actual lifetime/
 quiet retirement remain open; no complete Graphics capability is enabled.
+
+
+## Durable ordinary generic preference inputs
+
+The [preference owner](GRAPHICS_PREFERENCES_OWNER.md) now joins normal Pico
+controls with original independent native settings barriers, one-send durable
+substeps, original-value restoration and separately verified journal absence.
+Off-grid originals fail before preference changes. Closed-tablet observation
+uses the actual closed source, and absent address dismissal no longer blocks
+normal Graphics Home/close. Lost scalar/partial restoration returns recover
+through new sources without input replay. Original stereo effects/files, actor,
+background/restart and complete resource/quiet retirement remain open.
