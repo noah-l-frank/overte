@@ -1633,6 +1633,26 @@ uses the existing differential-only path with no consumer setup. Original and
 requested rosters, their intersection, the full original report, native owners
 and expiry remain explicit; none of these reports qualifies a runtime or E.
 
+The preregistered `protected-producer-exact-parent-command-owners-v1` recipe
+also lets the current Repository aggregate consume those same four parent
+commands. Its early `parent-owners` job uses the complete trusted default
+checkout and authenticates the actual original Repository caller, App, attempt
+and current B/H/M. It reads only completed parent evidence: it never waits for
+the current Sync validator or Repository aggregate. Unsupported or unavailable
+coverage immediately keeps the standalone commands selected. Partial coverage
+cannot claim a missing command.
+
+The two boolean outputs and the parent-proof digest are scheduling hints. Before
+accepting omitted commands, the required aggregate independently derives the
+same existing typed parent proof, checks the digest, and requires the claimed
+standalone jobs to be actually skipped. Failed jobs, stale context, changed
+proofs and forged hints block the merge. This creates no receipt, test pass,
+environment or E. The exact reviewed28-to29 caller transition preserves the
+parent's actual old base and independently authenticates its new native recipe;
+unknown or mixed workflow tuples remain unusable. The active caller remains28
+during preregistration;29 requires a separate normal activation after the trusted
+default owns this verifier.
+
 Android routing may omit its independent union for the closed set of canonical
 CI/controller/test and guide changes in `REVIEWED_CI_INPUTS`. Every changed entry
 must be regular and exactly equal the protected default's entry. The complete
