@@ -192,3 +192,23 @@ preparing recovery still needs the persisted launch-issued intent and all
 original OS/native byte/death/readiness sources; it upgrades only that recovered
 owner to v4. Lost SDK sessions remain owned and cannot be deleted, recreated,
 reinstalled or automatically launched to repair an input channel.
+
+## Finalization cursor and exact cleanup ownership
+
+Canonical feature finalization legitimately obtains new installed-byte
+observations, and may complete an already owned normal stop. The outer cleanup
+now reads the final binding after original SDK teardown and validates it against
+the binding captured before feature finalization. The original full scope,
+source, PID, bundle bytes, native birth, prepared epoch and recovery provenance
+must remain unchanged. Only a strictly advancing nonce/sequence/epoch observation
+and forward retirement phases are admitted. JSON types remain significant;
+a Boolean cannot stand in for an integer generation. The final exact record is
+then removed with the original private-store compare-and-swap.
+
+This is pure historical metadata validation, not a new measurement or permission
+to adopt another process. A changed source, generation, PID, byte identity,
+reused cursor or malformed update leaves ownership present after SDK teardown.
+Existing unchanged cleanup and lost-candidate teardown paths remain covered.
+Eight new canonical regressions reproduce the two legitimate-cleanup failures
+before the fix; the combined installed-code/adapter/runtime/cleanup selection
+passes 48 no-build cases. All native byte and SDK boundaries are synthetic.

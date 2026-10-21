@@ -15,6 +15,7 @@ from ios.adapters.bundle_observation import validate
 from adapters.restart_inputs import RestartInputs, validate_native_restart, native as validate_restart_native
 from adapters.native_feature_observation import NativeFeatureObservation, number, validate as validate_native
 from adapters.native_process_presence import NativeProcessPresence, validate as validate_presence
+from adapters.native_clock_join import digest
 
 VERSION = 4
 READS = (1, 2, 3, 4)
@@ -276,4 +277,33 @@ class InstalledCodeBinding:
         need(source(self.process_source()) == previous['source'])
         need(self.original_process(foreground=False) is None)
         need(source(self.process_source()) == previous['source'])
+
+
+def cleanup_record(previous,current):
+    """Validate legitimate finalization reads before exact post-teardown CAS.
+
+    This is historical metadata validation only. It cannot query a device,
+    associate another process or authorize input. Original ownership remains
+    unchanged except for an advancing byte observation and retirement phase.
+    """
+    if digest(previous)==digest(current):return deepcopy(current)
+    need(type(previous) is dict and type(current) is dict and set(previous)==set(current)
+         and all(digest(value)==digest(current[key]) for key,value in previous.items() if key not in ('phase','observation'))
+         and previous['phase'] in ('bound','retiring','retired'))
+    phases={'bound':{'bound','retiring','retired'},'retiring':{'retiring','retired'},'retired':{'retired'}}
+    need(current['phase'] in phases[previous['phase']])
+    old,new=previous['observation'],current['observation']
+    need(type(old) is dict and type(new) is dict and type(previous['scope']) is dict and type(old.get('bundle')) is dict)
+    class Original:
+        value=None
+        def read(self):return deepcopy(self.value)
+    store=Original()
+    def unavailable():need(False)
+    decoder=InstalledCodeBinding(store,previous['scope'],old['bundle'],unavailable,unavailable,unavailable)
+    for value in (previous,current):store.value=value;decoder.record()
+    need(new['instance']==old['instance'] and new['preparedEpochMs']==old['preparedEpochMs'])
+    if new!=old:
+        need(new['sequence']>old['sequence'] and new['capturedEpochMs']>=old['capturedEpochMs']
+             and new['commandId']!=old['commandId'])
+    return deepcopy(current)
 

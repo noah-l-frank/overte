@@ -11,7 +11,7 @@ from contracts import validate_operation_arguments
 from adapters.normal_feature_state import PrivateFeatureState
 from ios.adapters.adapter import IOSNativeMixin
 from ios.adapters.feature_observation import FeatureObservation
-from ios.adapters.installed_code import InstalledCodeBinding, need, source
+from ios.adapters.installed_code import InstalledCodeBinding, cleanup_record, need, source
 
 
 class ArtifactLease:
@@ -371,7 +371,8 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             result = super().cleanup(selector)
             need(not feature_error)
             need(type(result) is dict and result == {'cleaned':True} and self.read_session(selector) is None)
-            if previous is not None:store.discard(previous)
+            current=cleanup_record(previous,store.read())
+            if current is not None:store.discard(current)
             return result
 
     return IOSInstalledAdapter()
