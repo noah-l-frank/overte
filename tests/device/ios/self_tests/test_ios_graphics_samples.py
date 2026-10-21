@@ -20,7 +20,7 @@ from ios.adapters import normal_input
 from feature_journeys.witness import Client
 from ios.adapters.graphics_fixture import GraphicsFixtureReader,GraphicsPhasePending
 from ios.adapters.graphics_preferences import IOSGraphicsPreferences
-from ios.adapters.graphics_samples import IOSGraphicsSamples,GraphicsMarkerPending
+from ios.adapters.graphics_samples import IOSGraphicsSamples,GraphicsMarkerPending,VERSION as SAMPLES_VERSION
 from ios.adapters.graphics_source import IOSGraphicsSource
 from ios.adapters.script_ui_source import IOSScriptUISource
 from ios.self_tests.test_ios_graphics_scene import SceneHarness,RUN,TICKET
@@ -245,7 +245,7 @@ class SamplesTests(SamplesHarness,unittest.TestCase):
             samples.store.write(old_index,samples.previous)
             current=self.samples();archived=current.archive(current.state['owners'][0])[0]
             self.assertEqual(unpack(old_sample['payload'])[0],archived)
-            current.read(TICKET,self.sdk.host_epoch());self.assertEqual(2,current.previous['iosGraphicsSamplesVersion'])
+            current.read(TICKET,self.sdk.host_epoch());self.assertEqual(SAMPLES_VERSION,current.previous['iosGraphicsSamplesVersion'])
             self.assertEqual(old_sample,store.read())
 
     def test_old_process_archive_validates_original_bytes_without_any_sdk_or_native_factory(self):

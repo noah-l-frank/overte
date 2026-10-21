@@ -28,8 +28,8 @@ from ios.adapters.graphics_source import validate as graphics_packet
 from ios.adapters.graphics_world_measurements import compose,originals
 from ios.adapters.login_source import nonce
 
-VERSION=2
-READS=(1,2)
+VERSION=3
+READS=(1,2,3)
 CURSORS={'native','subject','graphics','tablet','capture','retirement','provider'}
 
 
@@ -274,15 +274,19 @@ class IOSGraphicsSamples:
              and value['ticket']==row['ticket'] and digest(value)==row['sampleSha256'])
         frames=unpack(value['payload']);need(len(frames)==1)
         if row['phase']=='abandoned':
-            need(value['iosGraphicsSamplesVersion']>=2);self.validate_abandonment(row,frames[0])
+            need(value['iosGraphicsSamplesVersion']>=2 and (frames[0].get('phase') is not None or value['iosGraphicsSamplesVersion']>=3));self.validate_abandonment(row,frames[0])
         return value,frames[0]
 
     def validate_abandonment(self,row,proof):
         from feature_journeys.graphics_resources import validate_status
-        exact(proof,{'native','retirement','capture','clockJoin','phase','provider','cursors'})
-        self.fixture.active(proof['phase']);need(proof['phase']['ticket']!=row['ticket'])
+        exact(proof,{'native','retirement','capture','clockJoin','phase','provider','cursors'}|({'runRetirement'} if proof.get('phase') is None else set()))
+        if proof['phase'] is None:
+            from ios.adapters.graphics_run_retirement import validate as retired
+            retired(proof['runRetirement'],run=self.run,url=self.client.url,instance=self.instance)
+            need(same(proof['runRetirement']['provider'],proof['provider']))
+        else:self.fixture.active(proof['phase']);need(proof['phase']['ticket']!=row['ticket'])
         provider=proof['provider'];validate_status(provider,instance=self.instance,run=self.run,url=self.client.url,request=provider['requestId'])
-        need(provider['active'] and provider['ticket']==proof['phase']['ticket'])
+        need((not provider['active']) if proof['phase'] is None else (provider['active'] and provider['ticket']==proof['phase']['ticket']))
         packets={'native':proof['native']}
         native_packet(proof['native'],nonce(proof['native']['requestId']),self.pid,proof['native']['capturedEpochMs'])
         if proof['retirement'] is not None:
@@ -294,6 +298,10 @@ class IOSGraphicsSamples:
                 commandId=capture['commandId'],requestId=row['requestId']),self.pid,capture['capturedEpochMs'])
             need(proof['retirement'] is not None and capture['instance']==proof['retirement']['instance'])
         clock=validate_join(proof['clockJoin'],packets);self.validate_cursors(proof['cursors'])
+        if proof['phase'] is None:
+            interval=proof['runRetirement']['acquisition']
+            need(all(clock['hostBefore'+unit]<=interval['hostBefore'+unit]<=interval['hostAfter'+unit]<=clock['hostAfter'+unit]
+                     for unit in ('EpochMs','Monotonic')))
         need(clock['nativeBefore']['processId']==self.pid
              and clock['nativeBefore']['instance']==proof['native']['instance']
              and clock['nativeBefore']['sequence']<proof['native']['sequence']<clock['nativeAfter']['sequence']
@@ -404,6 +412,52 @@ class IOSGraphicsSamples:
         row.update(phase='abandoned',sampleSha256=digest(value));self.state['phase']='ready';self.save();self.bound()
         self.finish_window(clock)
         return deepcopy(proof) # Retirement originals only, never a feature observation.
+
+    def retire_inactive_run(self):
+        """Retain original release after fixture/journal authority has retired.
+
+        No new capture, later active phase, feature fact or POST is produced.
+        The original immutable retired phase source must still be available.
+        """
+        from ios.adapters.graphics_run_retirement import IOSGraphicsRunRetirement
+        self.bound();need(not self.historical and self.state['phase']=='reading' and self.state['owners'][-1]['phase']=='reserved')
+        row=self.state['owners'][-1];authority=IOSGraphicsRunRetirement(self.fixture,monotonic=self.monotonic)
+        current=authority.read() # Prove actual authority retirement before releasing the owned acquisition.
+        existing=self.sample_store(row).read()
+        if existing is not None:
+            # The exact original file may have committed before its return was
+            # lost. Adopt that history without another native release/capture.
+            adopted=dict(row,phase='abandoned',sampleSha256=digest(existing));_value,proof=self.record(adopted)
+            need(proof['phase'] is None and same(proof['cursors'],self.state['cursors']))
+            from feature_journeys.phase_fixture import validate as phase_packet
+            phase_packet(current['authorityAfter'],run=self.run,area='graphics',request=current['authorityAfter']['requestId'],
+                epoch=current['acquisition']['hostAfterEpochMs'],previous=proof['runRetirement']['authorityAfter'])
+            if proof['capture'] is not None:
+                identity=proof['capture']['source']['renderTrace']['frameId']
+                if identity not in self.state['seenFrames']:self.state['seenFrames'].append(identity)
+            row.update(adopted);self.state['phase']='ready';self.save();return deepcopy(proof)
+        reader=self.adapter._native_feature_observer(self.selector,read_only=True);restore_native(reader,self.state['cursors']['native'])
+        window=NativeClockAcquisition(reader,epoch_ms=self.epoch_ms,monotonic=self.monotonic);window.begin(self.epoch_ms())
+        native=reader.read(reader.sequence);self.remember('native',native)
+        owner=self.owner(row);retirement=capture=None
+        if owner.store.read() is not None:
+            retirement=owner.release();self.remember('retirement',retirement);capture=deepcopy(owner.state['frame'])
+        else:self.absent_artifact(owner)
+        closure=authority.read();provider=closure['provider'];self.remember('provider',provider)
+        packets={'native':native}
+        if retirement is not None:packets['retirement']=retirement
+        clock=window.finish(packets,[(key,'capturedEpochMs') for key in packets]);self.remember('native',clock['nativeAfter'])
+        proof=dict(native=native,retirement=retirement,capture=capture,clockJoin=clock,phase=None,provider=provider,
+            runRetirement=closure,cursors=deepcopy(self.state['cursors']))
+        self.validate_abandonment(row,proof)
+        if capture is not None:
+            identity=capture['source']['renderTrace']['frameId']
+            if identity not in self.state['seenFrames']:self.state['seenFrames'].append(identity)
+        value=dict(iosGraphicsSamplesVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,stage=self.stage,
+            requestId=row['requestId'],ticket=row['ticket'],afterEpochMs=clock['hostBeforeEpochMs'],payload=pack([proof]))
+        self.sample_store(row).write(value,None);need(same(self.sample_store(row).read(),value))
+        row.update(phase='abandoned',sampleSha256=digest(value));self.state['phase']='ready';self.save();self.bound()
+        self.finish_window(clock);return deepcopy(proof)
 
     def drain(self):
         """Fresh actual native absence; does not retire metadata or prove quiet."""

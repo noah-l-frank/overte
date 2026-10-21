@@ -90,3 +90,40 @@ The additional archive/partial-file/foreign-artifact packet passes 26 selected
 sampler and shared Vulkan-owner no-build cases. The [restart controller](GRAPHICS_RESTART.md)
 now independently drains live owners before stop and proves original PID death,
 new native birth/counters and unchanged candidate before adopting sources.
+
+## Retired fixture authority and sample writer version 3
+
+`retire_inactive_run` can release an uncertain acquisition after the fixture has
+actually closed, including when its last ticket is unchanged. A new read of the
+existing immutable phase-authority source brackets the actual inactive Graphics
+provider. Both sources must be retired with the same complete activation-ticket
+history, and the controller acquisition remains bounded to 1500 ms. A missing
+retired journal record or a merely inactive resource provider is insufficient.
+This version-1 original is implemented in `graphics_run_retirement.py`; it grants
+no product fact, published entry or native resource absence.
+
+The sample still requires separately acquired actual native clocks and original
+release receipts. No capture is replayed. Version-3 abandoned records use
+`phase: null` plus the exact `runRetirement` original, keeping the original
+capture ticket, retained partial file, native floors and history. A committed
+record with a lost return is adopted unchanged after a fresh original authority
+check; the native release/capture is not repeated. Such adoption is historical
+ownership, not a new native absence sample. Whole cleanup still needs fresh
+release/process and quiet-window proof.
+
+Writers now emit sample/index version 3; versions 1 and 2 remain readable without
+retiming or rewriting their original files. Older versions cannot contain the
+new retired-authority abandonment form. The observer frame reader accepts all
+three nested sample versions. Pure owned archives preserve abandonment as
+abandonment after metadata removal. Whole observer/publication finalization and
+paired final Stop/process retirement remain separate unfinished integration.
+
+The combined retired-sample, existing sample, owned archive and independent
+observer selection passes 54 no-build host cases in 186.795 seconds. The coupled
+two-role whole-owner restart also passes separately with v3 samples. All five
+selected project suites, registry and whitespace checks pass. Sources, pixels,
+SDK/native and OS boundaries remain synthetic; no compilation/device result is
+implied. A prior failed selection retained an obsolete migration assertion, and
+another used the wrong expected exception type for the deliberately unavailable
+journal transport. Both test expectations were corrected; neither failed run is
+reported as a passing aggregate.

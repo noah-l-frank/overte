@@ -92,13 +92,14 @@ stage-1 old-world/new-process ownership. All five selected no-build repository
 suites, the contract registry and whitespace checks pass. These results remain
 separate from the earlier broad aggregate; no new aggregate pass is claimed.
 
-The added shared reconciliation surface is the five version-1 registry entries
+The added shared reconciliation surface includes the five version-1 registry entries
 `ios-graphics-feature`, `ios-graphics-restart-barrier-record`,
 `ios-graphics-restart-rejoined`, `ios-graphics-restored-frame` and
 `ios-graphics-restored-record`. The common feature contract remains version 16;
 no Phone/Pico input or ownership is imported. Sample archive validation is an
-additive API with the existing v1/v2 wire readers. All changes remain solely in
-the isolated local iOS branch.
+additive API; sample/index writers now emit v3 with v1/v2/v3 readers. The additional `ios-graphics-run-retirement` v1 entry describes the separate
+original closed-authority acquisition. All changes remain solely in the
+isolated local iOS branch.
 
 Final integration must compose both original-world image/lifetime snapshots,
 durable one-send final Stop, independent original numeric-PID/OS quiet windows,
@@ -108,10 +109,12 @@ packet, fixture retirement alone or bundle lookup can replace that proof. The
 worker must remain available until its role's responsibility has actually
 retired. Only then may configuration/dispatch advertise the whole capability.
 
-One concrete remaining recovery boundary is a fixture closed while a sample or
-actor POST is still uncertain. Current crossed-phase retirement requires an
-active later ticket and publication resolution reads a live journal. Fixture
-closure removes that journal, while its immutable phase-retirement source remains
-available. The finalizer must join that original retired authority to retained
-native release/POST responsibility without publishing an outcome, replaying a
-capture/POST or requiring a nonexistent later active phase.
+The sample owner now supports actual inactive-run retirement using the original
+retired journal authority plus original native release, preserving uncertain
+acquisitions as abandoned history. See [the v3 sample handoff](GRAPHICS_SAMPLES.md).
+The remaining whole recovery boundary includes an actor POST still uncertain
+after fixture closure. Current publication resolution reads a live journal that
+closure removes. Its immutable phase-retirement source remains available. The
+finalizer must join that original retired authority to retained POST
+responsibility without publishing an outcome, replaying the POST or requiring
+a nonexistent later active phase.

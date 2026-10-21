@@ -26,7 +26,7 @@ from feature_journeys.scenarios import VERSION as CONTRACT_VERSION
 from feature_journeys.witness import projection
 from feature_journeys.graphics_resources import validate_status
 from ios.adapters.graphics_fixture import GraphicsFixtureReader,GraphicsPhasePending
-from ios.adapters.graphics_samples import IOSGraphicsSamples,GraphicsMarkerPending
+from ios.adapters.graphics_samples import IOSGraphicsSamples,GraphicsMarkerPending,READS as SAMPLE_READS
 from ios.adapters.graphics_world_measurements import compose
 from ios.adapters.graphics_world_effects import compare,GraphicsWorldEffectPending
 from ios.adapters.graphics_current_effects import compare as compare_current,compare_disabled
@@ -123,7 +123,7 @@ class IOSGraphicsObserver:
              and same(value['imagePolicy'],self.policy))
         rows=unpack(value['payload']);need(len(rows)==1);original=rows[0];exact(original,{'sample','owner'})
         sample=original['sample'];exact(sample,{'iosGraphicsSamplesVersion','binding','runId','role','stage','requestId','ticket','afterEpochMs','payload'})
-        need(type(sample['iosGraphicsSamplesVersion']) is int and sample['iosGraphicsSamplesVersion'] in (1,2)
+        need(type(sample['iosGraphicsSamplesVersion']) is int and sample['iosGraphicsSamplesVersion'] in SAMPLE_READS
              and same(sample['binding'],binding) and sample['runId']==self.run and sample['role']==self.role
              and type(sample['stage']) is int and sample['stage']==stage and sample['requestId']==request)
         frames=unpack(sample['payload']);need(len(frames)==1);frame=frames[0]
