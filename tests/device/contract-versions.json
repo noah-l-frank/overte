@@ -63,6 +63,7 @@
     "native-graphics-subject": {"current": 2, "reads": [1, 2]},
     "native-phone-scene-loads": {"current": 1, "reads": [1]},
     "phone-graphics-fixture-reader": {"current": 1, "reads": [1]},
+    "phone-graphics-observer": {"current": 1, "reads": [1]},
     "phone-graphics-lifetime": {"current": 1, "reads": [1]},
     "native-phone-web-runtime": {"current": 1, "reads": [1]},
     "phone-graphics-measurements": {"current": 2, "reads": [2]},

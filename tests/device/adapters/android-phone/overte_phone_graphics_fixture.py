@@ -69,8 +69,18 @@ class GraphicsFixtureReader:
             validate_status(previous,instance=self.instance,run=self.run,url=self.client.url,request=previous['requestId'])
             if self.previous is None:self.previous=deepcopy(previous)
             elif not same(self.previous,previous):
-                validate_status(self.previous,instance=self.instance,run=self.run,url=self.client.url,
-                    request=self.previous['requestId'],previous=previous)
+                # Independent samplers on this Client can advance the provider
+                # between our reads. Adopt only a qualified prefix extension;
+                # an older caller floor must instead be a prefix of ours.
+                advances=(previous['capturedEpochMs']>=self.previous['capturedEpochMs'] and all(
+                    len(previous[key])>=len(self.previous[key]) for key in ('activations','responses')))
+                if advances:
+                    validate_status(previous,instance=self.instance,run=self.run,url=self.client.url,
+                        request=previous['requestId'],previous=self.previous)
+                    self.previous=deepcopy(previous)
+                else:
+                    validate_status(self.previous,instance=self.instance,run=self.run,url=self.client.url,
+                        request=self.previous['requestId'],previous=previous)
             current=getattr(self.client,'graphics_previous',None)
             if current is None:self.client.graphics_previous=deepcopy(self.previous)
             elif not same(current,self.previous):validate_status(current,instance=self.instance,run=self.run,

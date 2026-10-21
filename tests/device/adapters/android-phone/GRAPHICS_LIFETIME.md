@@ -23,7 +23,9 @@ journal must agree on the actual ticket; the original journal epoch cannot
 precede its activation or follow the final provider capture. The returned
 `afterEpochMs` is that journal read barrier, not an activation time or measured
 native state. Later product acquisition must obtain new originals after it.
-The closed common Graphics action grammar validates actual stimuli.
+The closed common Graphics action grammar validates actual stimuli. An independent
+sampler may supply a newer provider floor only through validated original history
+prefix continuity; a stale caller floor cannot shorten the retained history.
 
 `GraphicsPhasePending` reports a real ticket race without relabelling anything.
 `GraphicsRunRetired` carries the original inactive provider packet and does not
@@ -111,7 +113,7 @@ role/stage lifetime journal, even a `released` journal.
 
 ## Host verification and remaining work
 
-Sixteen fixture-reader and nineteen lifetime cases use the actual shared
+Seventeen fixture-reader and nineteen lifetime cases use the actual shared
 fixture/journal reducers, original source-reader implementations and private host
 journals behind explicit synthetic HTTP/native boundaries. They cover original
 ownership/release, all independent source floors, live Java/callback/scene

@@ -132,5 +132,10 @@ class GraphicsFixtureReaderTests(unittest.TestCase):
         with self.assertRaises(ValueError):reader.status(other)
         self.assertEqual(current,reader.previous)
 
+    def test_an_independent_sampler_can_advance_the_actual_client_provider_floor(self):
+        f=self.f;reader=f.reader();reader.read();f.graphics.activate(RUN,'d'*32);f.journal.activate(RUN,'d'*32,'close',{})
+        newer=f.client.graphics_status();value=reader.read(newer)
+        self.assertEqual('d'*32,value['ticket']);self.assertEqual(newer['activations'],value['status']['activations'])
+
 
 if __name__=='__main__':unittest.main()

@@ -158,13 +158,21 @@ independent Graphics coordinator and final stable whole-fixture retirement remai
 pending; no full Graphics capability is enabled.
 
 The [original Graphics fixture/Web lifetime owner](GRAPHICS_LIFETIME.md) now
-pins read-only fixture phases and separate role/process source histories. Sixteen
+pins read-only fixture phases and separate role/process source histories. Seventeen
 fixture-reader and nineteen lifetime cases require original active ownership,
 actual user-scene restoration, inactive provider, native scene drainage and
 native/Java Web release throughout an independent three-second quiet window.
 General cleanup refuses all four lifetime journals. Complete role/GPU/action and
 recoverable whole-run retirement composition remain pending; no full Graphics
 capability or physical acceptance is promoted.
+
+The [independent Graphics observation owner](GRAPHICS_OBSERVER.md) now joins
+separate role GPU/native/UI/PNG histories, each role's own Haze/Mirror target-pixel
+comparisons and independent old/new process plus kernel ESRCH proof. Twenty-four
+observer and seventeen fixture-reader cases cover ignored inputs, missing actual
+pixel effects, source/file loss, process/candidate changes and ticket races.
+Ordinary full-run coordination and recoverable final retirement still need
+composition; no full Graphics capability or physical acceptance is promoted.
 
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
