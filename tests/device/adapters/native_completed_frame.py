@@ -53,15 +53,19 @@ def trace(value):
 
 def validate(value,request,pid,epoch):
     command(request);need(request['operation']=='read')
-    exact(value,{'completedFrameVersion','commandId','requestId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','source'})
-    need(type(value['completedFrameVersion']) is int and value['completedFrameVersion']==VERSION
+    return _validate_frame(value,request,pid,epoch,'completedFrameVersion')
+
+
+def _validate_frame(value,request,pid,epoch,version_key,extra_fields=()):
+    exact(value,{version_key,'commandId','requestId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','source'})
+    need(type(value[version_key]) is int and value[version_key]==VERSION
          and value['commandId']==request['commandId'] and value['requestId']==request['requestId']
          and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}',value['instance'])
          and integer(value['sequence'],1,1000000000) and integer(value['processId'],1) and value['processId']==pid
          and integer(value['requestedEpochMs'],1) and integer(value['capturedEpochMs'],value['requestedEpochMs']))
     fresh(value['capturedEpochMs'],epoch)
     source=value['source'];exact(source,{'backend','stage','view','sourceExtent','targetExtent','renderTrace','frameIndex',
-        'submittedEpochMs','fenceObservedEpochMs'})
+        'submittedEpochMs','fenceObservedEpochMs'}|set(extra_fields))
     need(source['backend']=='vulkan' and source['stage']=='tone-map-before-hud' and source['view']=='main-mono'
          and integer(source['frameIndex'],0,2**32-1))
     extent(source['sourceExtent']);extent(source['targetExtent']);trace(source['renderTrace'])
@@ -69,16 +73,20 @@ def validate(value,request,pid,epoch):
     ordered=[value['requestedEpochMs'],original['recordedEpochMs'],original['begunEpochMs'],original['completedEpochMs'],
         source['submittedEpochMs'],source['fenceObservedEpochMs'],value['capturedEpochMs']]
     need(all(integer(stamp,1) for stamp in ordered) and ordered==sorted(ordered)
-         and source['fenceObservedEpochMs']==value['capturedEpochMs'] and ordered[-1]-ordered[0]<1500)
+         and (bool(extra_fields) or source['fenceObservedEpochMs']==value['capturedEpochMs']) and ordered[-1]-ordered[0]<1500)
     fresh(ordered[0],epoch)
     return value
 
 
 def storage(value,request,pid,epoch):
     command(request);need(request['operation'] in ('release','inspect'))
-    exact(value,{'frameStorageVersion','commandId','requestId','operation','instance','sequence','processId',
+    return _validate_storage(value,request,pid,epoch,'frameStorageVersion')
+
+
+def _validate_storage(value,request,pid,epoch,version_key,extra_fields=()):
+    exact(value,{version_key,'commandId','requestId','operation','instance','sequence','processId',
         'requestedEpochMs','capturedEpochMs','source'})
-    need(type(value['frameStorageVersion']) is int and value['frameStorageVersion']==STORAGE_VERSION
+    need(type(value[version_key]) is int and value[version_key]==STORAGE_VERSION
          and all(value[key]==request[key] for key in ('commandId','requestId','operation'))
          and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}',value['instance'])
          and integer(value['sequence'],1,1000000000) and integer(value['processId'],1) and value['processId']==pid
@@ -86,7 +94,7 @@ def storage(value,request,pid,epoch):
          and value['capturedEpochMs']-value['requestedEpochMs']<1500)
     fresh(value['capturedEpochMs'],epoch)
     source=value['source'];exact(source,{'retired','present','callbacks','gpuPending','metadataBytes'}
-        |({'performed'} if request['operation']=='release' else set()))
+        |({'performed'} if request['operation']=='release' else set())|set(extra_fields))
     need(all(type(source[key]) is bool for key in ('retired','present','gpuPending'))
          and integer(source['callbacks'],0,1) and integer(source['metadataBytes'],0,LIMIT)
          and (not source['retired'] or not source['present']) and (source['present'] or source['metadataBytes']==0)
@@ -105,6 +113,10 @@ def absent(value):
 
 
 class NativeCompletedFrame:
+    command_validator=staticmethod(command)
+    frame_validator=staticmethod(validate)
+    storage_validator=staticmethod(storage)
+    limit=LIMIT
     def __init__(self,send,original,clock_ms,guard,pid,intent,*,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(value) for value in (send,original,clock_ms,guard,intent,monotonic,sleep)) and integer(pid,1))
         self.send,self.original,self.clock_ms,self.guard,self.pid,self.intent=send,original,clock_ms,guard,pid,intent
@@ -112,7 +124,7 @@ class NativeCompletedFrame:
 
     def perform(self,request):
         try:
-            request=deepcopy(command(request));need(request['commandId'] not in self.seen and len(self.seen)<2048)
+            request=deepcopy(self.command_validator(request));need(request['commandId'] not in self.seen and len(self.seen)<2048)
             need(self.guard() is not False)
             started=previous=self.monotonic();need(number(started,0,1e15))
             requested=self.clock_ms();need(integer(requested,1))
@@ -122,13 +134,13 @@ class NativeCompletedFrame:
             need(self.guard() is not False);self.send(request)
             for attempt in range(61):
                 need(self.guard() is not False)
-                raw=self.original();need(type(raw) is str and len(raw.encode())<=LIMIT)
+                raw=self.original();need(type(raw) is str and len(raw.encode())<=self.limit)
                 try:value=decode(raw) if raw else None
                 except json.JSONDecodeError:value=None
                 current=self.monotonic();need(number(current,previous,1e15) and current-started<1.5);previous=current
                 if type(value) is dict and value.get('commandId')==request['commandId'] and value.get('pending') is not True:
                     epoch=self.clock_ms();need(integer(epoch,requested))
-                    validator=validate if request['operation']=='read' else storage
+                    validator=self.frame_validator if request['operation']=='read' else self.storage_validator
                     validator(value,request,self.pid,epoch)
                     need(value['requestedEpochMs']>=requested and value['capturedEpochMs']>=self.epoch
                          and self.instance in (None,value['instance']) and value['sequence']>self.sequence

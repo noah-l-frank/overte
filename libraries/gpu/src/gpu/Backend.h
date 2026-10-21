@@ -20,6 +20,7 @@
 #include "Framebuffer.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QtGlobal>
+#include "FeatureFramebufferReadback.h"
 #endif
 
 class QImage;
@@ -112,6 +113,7 @@ public:
     virtual bool featureTextureExtent(const TexturePointer&, Vec2i&);
     virtual bool featureFramebufferExtent(const FramebufferPointer&, Vec2i&,bool current=false);
     virtual bool featureIssuedDraws(quint64&);
+    virtual std::shared_ptr<FeatureFramebufferReadback> featureCopyFramebuffer(const FramebufferPointer&);
     // Only actual backend lambda execution establishes this thread-local
     // identity. Recording a batch or retaining a Context backend is insufficient.
     static Backend* featureExecutingBackend() { return _featureExecutingBackend; }

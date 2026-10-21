@@ -23,6 +23,7 @@
 #include <QtCore/QProcessEnvironment>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QCoreApplication>
+#include "VKFeatureFramebufferReadback.h"
 #endif
 #include <QtCore/QSettings>
 #include <QtCore/QStringList>
@@ -4063,6 +4064,52 @@ bool VKBackend::featureFramebufferExtent(const FramebufferPointer& framebuffer,V
             || _featureIssuedViewport.y!=0.0f || _featureIssuedViewport.width!=static_cast<float>(actual.x)
             || _featureIssuedViewport.height!=static_cast<float>(actual.y))) { return false; }
     extent=actual;return true;
+}
+std::shared_ptr<gpu::FeatureFramebufferReadback> VKBackend::featureCopyFramebuffer(const FramebufferPointer& framebuffer) {
+#if defined(Q_OS_IOS)
+    Vec2i extent(0);
+    if (!featureFramebufferExtent(framebuffer,extent,true) || !_currentVkRenderPass) { return {}; }
+    const auto object=Backend::getGPUObject<VKFramebuffer>(*framebuffer);
+    if (!object || object->attachments.empty()) { return {}; }
+    auto attachment=object->attachments.front();
+    if (attachment.isDepthStencil() || attachment.image==VK_NULL_HANDLE || attachment.subresourceRange.levelCount!=1
+            || attachment.subresourceRange.layerCount!=1 || attachment.subresourceRange.baseMipLevel!=0
+            || attachment.subresourceRange.aspectMask!=VK_IMAGE_ASPECT_COLOR_BIT) { return {}; }
+    const auto& colors=framebuffer->getRenderBuffers();
+    if (colors.empty() || !colors.front()._texture) { return {}; }
+    const auto texture=dynamic_cast<VKAttachmentTexture*>(Backend::getGPUObject<VKTexture>(*colors.front()._texture));
+    if (!texture || texture->_vkImage!=attachment.image) { return {}; }
+    const auto readback=std::make_shared<gpu::vk::FeatureFramebufferReadback>(_context.device,extent.x,extent.y,attachment.format);
+    if (!readback->allocate()) { return {}; }
+    // This is the last tone-map batch operation. Its original render pass also
+    // ends at this batch boundary. Preserve the existing image layout for HUD.
+    resetRenderPass();
+    if (texture->getVkImageLayout()!=VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) { return {}; }
+    VkImageMemoryBarrier image {};image.sType=VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    image.srcAccessMask=VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;image.dstAccessMask=VK_ACCESS_TRANSFER_READ_BIT;
+    image.oldLayout=VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;image.newLayout=VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    image.srcQueueFamilyIndex=image.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;
+    image.image=attachment.image;image.subresourceRange=attachment.subresourceRange;
+    vkCmdPipelineBarrier(_currentCommandBuffer,VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,0,nullptr,0,nullptr,1,&image);
+    VkBufferImageCopy copy {};copy.imageSubresource.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.imageSubresource.mipLevel=0;copy.imageSubresource.baseArrayLayer=attachment.subresourceRange.baseArrayLayer;
+    copy.imageSubresource.layerCount=1;copy.imageExtent={static_cast<uint32_t>(extent.x),static_cast<uint32_t>(extent.y),1};
+    vkCmdCopyImageToBuffer(_currentCommandBuffer,attachment.image,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,readback->buffer(),1,&copy);
+    VkBufferMemoryBarrier host {};host.sType=VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    host.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;host.dstAccessMask=VK_ACCESS_HOST_READ_BIT;
+    host.srcQueueFamilyIndex=host.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;
+    host.buffer=readback->buffer();host.offset=0;host.size=VK_WHOLE_SIZE;
+    vkCmdPipelineBarrier(_currentCommandBuffer,VK_PIPELINE_STAGE_TRANSFER_BIT,VK_PIPELINE_STAGE_HOST_BIT,
+        0,0,nullptr,1,&host,0,nullptr);
+    image.srcAccessMask=VK_ACCESS_TRANSFER_READ_BIT;image.dstAccessMask=VK_ACCESS_COLOR_ATTACHMENT_READ_BIT|VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    image.oldLayout=VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;image.newLayout=VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    vkCmdPipelineBarrier(_currentCommandBuffer,VK_PIPELINE_STAGE_TRANSFER_BIT,VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        0,0,nullptr,0,nullptr,1,&image);
+    return readback;
+#else
+    Q_UNUSED(framebuffer);return {};
+#endif
 }
 #endif
 

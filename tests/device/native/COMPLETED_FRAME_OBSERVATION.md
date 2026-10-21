@@ -3,6 +3,9 @@
 These version-1 sources provide original frame/allocation/draw/lifetime metadata.
 They provide neither pixels nor a Graphics verdict. Native C++/Objective-C++ is
 uncompiled; devices remain untested. Full iOS Graphics is still in progress.
+The separate [Vulkan world-frame action](VULKAN_WORLD_FRAME.md) now uses the same
+original ticket/fence with its own versioned PNG/storage contracts. The existing
+metadata-only action and its closed packets remain unchanged.
 
 ## Original producer
 

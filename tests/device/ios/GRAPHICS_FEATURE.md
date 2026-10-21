@@ -125,6 +125,14 @@ geometry, decode the current challenge, and compare meaningful haze/mirror
 pixels. Acquiring a well-formed PNG alone does not complete that proof or the
 whole Graphics journey.
 
+The [test-only Vulkan world-frame source](../native/VULKAN_WORLD_FRAME.md) now
+provides original pre-HUD PNG/pixel hashes through the existing frame fence and
+private HTTP/AFC channel. It avoids the opened tablet's screenshot occlusion and
+preserves the product readback TODO. Native layout/copy/barrier code remains
+uncompiled; device pixels remain unverified. The next full-owner packet must
+persist image/file/chunk responsibility, join these originals to actual scene/
+settings, independently credential the actor and prove complete quiet cleanup.
+
 `graphics_measurements.py` now joins original native settings/subjects/UI,
 two separately fence-completed frames and their actual retained-consumer drain,
 unmodified screen bytes, actual UIKit safe-area/density geometry and a complete
@@ -146,9 +154,8 @@ iOS geometry, PNG ownership, source intervals and clocks are independent.
 These joins remain internal components. In particular, the source-level iOS
 tablet is an overlay on the native screen: screenshot qualification must not
 assume that a Graphics dialog leaves the challenge and subject visible. The
-whole open-dialog journey still needs a suitable original world-target pixel
-source for the actual Vulkan path, or independently established unobscured
-native-screen regions. A tablet-covered screenshot must fail; closing or hiding
+whole open-dialog journey therefore uses the separate new Vulkan target source
+once its complete durable owner is integrated. A tablet-covered screenshot must fail; closing or hiding
 the panel inside a supposedly read-only observation would falsify its state.
 
 ## Local verification

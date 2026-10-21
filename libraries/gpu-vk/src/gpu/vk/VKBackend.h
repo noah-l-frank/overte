@@ -407,6 +407,7 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     bool featureFramebufferExtent(const FramebufferPointer&,Vec2i&,bool current=false) override;
     bool featureIssuedDraws(quint64&) override;
+    std::shared_ptr<FeatureFramebufferReadback> featureCopyFramebuffer(const FramebufferPointer&) override;
     void featureRecordIssuedDraw() {
         if (_featureDrawSequence<9007199254740991ULL) { ++_featureDrawSequence; }
         else { _featureDrawSequenceValid=false; }

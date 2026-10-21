@@ -50,6 +50,8 @@ REQUIRED = {
     "native-completed-draw-trace": 1,
     "native-completed-frame-storage": 1,
     "completed-frame-lease": 1,
+    "native-vulkan-world-frame": 1,
+    "native-vulkan-world-storage": 1,
     "recorded-render-view": 1,
     "feature-graphics-resources": 1,
     "feature-phase-fixture": 1,

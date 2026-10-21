@@ -145,5 +145,6 @@ bool Backend::featureTextureExtent(const TexturePointer&, Vec2i& extent) {
 bool Backend::featureFramebufferExtent(const FramebufferPointer&, Vec2i& extent,bool) {
     extent=Vec2i(0);return false;
 }
+std::shared_ptr<FeatureFramebufferReadback> Backend::featureCopyFramebuffer(const FramebufferPointer&) { return {}; }
 bool Backend::featureIssuedDraws(quint64& sequence) { sequence=0;return false; }
 #endif

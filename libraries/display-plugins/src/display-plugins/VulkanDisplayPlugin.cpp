@@ -1281,13 +1281,15 @@ void VulkanDisplayPlugin::present(const std::shared_ptr<RefreshRateController>& 
 #endif
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
             const auto featureSubmitResult=vkQueueSubmit(vkBackend->getContext().graphicsQueue,1,&submitInfo,frameFence);
-            VK_CHECK_RESULT(featureSubmitResult);
-            if (featureSubmitResult==VK_SUCCESS && _currentFrame->featureCompletedTicket) {
+            if (_currentFrame->featureCompletedTicket) {
                 const auto ticket=_currentFrame->featureCompletedTicket;
-                if (ticket->submit(_currentFrame->frameIndex) && !_vkWindow->_featureFrameCompletion) {
+                // A failed/unknown submit cannot release actual copy buffers or
+                // become cleanup proof. Only the successful matching fence can.
+                if (ticket->submit(_currentFrame->frameIndex) && featureSubmitResult==VK_SUCCESS && !_vkWindow->_featureFrameCompletion) {
                     _vkWindow->_featureFrameCompletion=[ticket](bool completed) { ticket->finish(completed); };
                 }
             }
+            VK_CHECK_RESULT(featureSubmitResult);
 #else
             VK_CHECK_RESULT(vkQueueSubmit(vkBackend->getContext().graphicsQueue, 1, &submitInfo, frameFence));
 #endif

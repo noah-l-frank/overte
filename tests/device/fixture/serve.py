@@ -507,6 +507,12 @@ class FixtureState:
             try:completed_frame_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid original completed frame request") from None
             valid=True
+        elif action == "feature-vulkan-world-frame":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_vulkan_world_frame import command as vulkan_world_command
+            try:vulkan_world_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid original Vulkan world frame request") from None
+            valid=True
         elif action == "feature-scene-load-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_scene_loads import command as scene_load_command

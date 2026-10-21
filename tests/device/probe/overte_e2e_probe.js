@@ -138,7 +138,8 @@
                 }
             }
         } catch (_completedFrameError) { /* Recording or an ACK is never GPU completion. */ }
-        Test.saveObject(result, "feature-completed-frame.json");
+        Test.saveObject(result, command.action === "feature-vulkan-world-frame"
+            ? "feature-vulkan-world-frame.json" : "feature-completed-frame.json");
     }
     var lastWorldRenderRequest = "";
     var lastGraphicsSubjectRequest = "";
@@ -1200,11 +1201,17 @@
             }
             return;
         }
-        if (command && command.schemaVersion === 1 && command.action === "feature-completed-frame"
+        if (command && command.schemaVersion === 1
+                && (command.action === "feature-completed-frame" || command.action === "feature-vulkan-world-frame")
                 && typeof command.commandId === "string" && /^ios-[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.requestId === "string" && /^ios-[0-9a-f]{32}$/.test(command.requestId)
-                && /^(read|release|inspect)$/.test(String(command.operation))
-                && objectKeysMatch(command,["schemaVersion","commandId","action","requestId","operation"])) {
+                && (/^(read|release|inspect)$/.test(String(command.operation))
+                    || command.action === "feature-vulkan-world-frame" && command.operation === "read-bytes")
+                && objectKeysMatch(command,command.operation === "read-bytes"
+                    ? ["schemaVersion","commandId","action","requestId","operation","offset"]
+                    : ["schemaVersion","commandId","action","requestId","operation"])
+                && (command.operation !== "read-bytes" || typeof command.offset === "number"
+                    && command.offset >= 0 && command.offset < 33554432 && Math.floor(command.offset) === command.offset)) {
             if (command.commandId === lastCompletedFrameCommand) { return; }
             lastCompletedFrameCommand = command.commandId;
             if (command.operation === "read") {
@@ -1220,7 +1227,8 @@
                 try {
                     if (typeof Test.featureCompletedFrameObservation === "function") { storage = Test.featureCompletedFrameObservation(command); }
                 } catch (_completedFrameStorageError) { /* Missing source is not cleanup. */ }
-                Test.saveObject(storage,"feature-completed-frame.json");
+                Test.saveObject(storage,command.action === "feature-vulkan-world-frame"
+                    ? "feature-vulkan-world-frame.json" : "feature-completed-frame.json");
             }
             return;
         }
