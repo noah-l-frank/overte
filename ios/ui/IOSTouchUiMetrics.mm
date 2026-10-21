@@ -420,7 +420,8 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         OverteIOSE2EAccessibilityButton* control = tabletE2EAccessibilityButton(window, identifier);
         control.sourceControlToken = sourceToken;
         if (id.startsWith(QStringLiteral("scripts.")) || id.startsWith(QStringLiteral("script-file."))
-                || id.startsWith("login.") || id.startsWith("audio.") || id.startsWith("graphics.") || id == "settings.entry") {
+                || id.startsWith("login.") || id.startsWith("account.") || id.startsWith("audio.")
+                || id.startsWith("graphics.") || id == "settings.entry") {
             // The adapter checks this original token on the resolved UIKit
             // object. Replacing a row also retires that UIKit object above.
             control.accessibilityValue = sourceToken;
@@ -431,6 +432,8 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
             { "login.entry", "Log in" }, { "login.username", "Login username" },
             { "login.password", "Login password" }, { "login.server", "Directory server" },
             { "login.submit", "Submit login" }, { "login.cancel", "Close login" },
+            { "account.menu-file", "File menu" }, { "account.logout", "Log out" },
+            { "account.remember", "Keep me logged in" },
             { "hud.goto", "Go to destination" }, { "address.field", "Destination address" },
             { "address.go", "Go" }, { "address.cancel", "Cancel" }, { "address.back", "Back" },
             { "places.back", "Back" }, { "places.forward", "Forward" },

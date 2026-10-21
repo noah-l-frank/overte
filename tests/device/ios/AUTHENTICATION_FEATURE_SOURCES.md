@@ -42,6 +42,14 @@ before input. This explicit environment prerequisite avoids modifying an
 unrelated preference or inventing restoration. Native/actor cleanup must
 independently re-read the same original facts before retiring ownership.
 
+The native UIKit E2E mirror exposes the original token as `accessibilityValue`
+for every `account.*` control, just as it does for Login/Script/Graphics
+controls. A replaced Qt token retires the old UIKit proxy. Ordinary WebDriver
+token checks therefore reach the original File/logout/Remember control, with
+native source/hit checks repeated before pointer delivery. This Objective-C++
+bridge remains uncompiled and untested on devices, like the other native
+additions; synthetic SDK token reads cannot qualify the actual UIKit bridge.
+
 The full owner also preserves the original `keepMeLoggedIn` boolean and
 `keepMeLoggedIn/savedUsername` string. Both must already exist; the saved
 username must initially be empty. During the run only empty or the owned
