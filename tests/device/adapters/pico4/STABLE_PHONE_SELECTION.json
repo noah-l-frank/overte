@@ -1,0 +1,221 @@
+{
+  "sourceCommit": "fe4684bf46585088370b3a328a738f147e670b97",
+  "selection": "Reviewed shared source prerequisites only; no Phone worktree WIP or product/UI/CI integration.",
+  "files": [
+    {
+      "sourcePath": "tests/device/adapters/native_script_files.py",
+      "targetPath": "tests/device/adapters/native_script_files.py",
+      "sha256": "cb7fc043060703ad71c5691eb3cae2135a0702bb347d2431ced1c23f74dd4acb"
+    },
+    {
+      "sourcePath": "tests/device/adapters/native_script_membership.py",
+      "targetPath": "tests/device/adapters/native_script_membership.py",
+      "sha256": "399d8028442d733fdb200521f3edf15bc030ee2cbfb7a11eb1a4827e1f598c81"
+    },
+    {
+      "sourcePath": "tests/device/adapters/native_script_observation.py",
+      "targetPath": "tests/device/adapters/native_script_observation.py",
+      "sha256": "c442a3a9ef4e3adf6eab0e0f26cf3c2602b4d55aba5d39b2b508112b0e74a7f8"
+    },
+    {
+      "sourcePath": "tests/device/adapters/normal_script_manager.py",
+      "targetPath": "tests/device/adapters/normal_script_manager.py",
+      "sha256": "6122c490959b5b905cd6f28a39aa9a3b41b0aa6d06d45b58fdc3f2bc0cfdf463"
+    },
+    {
+      "sourcePath": "tests/device/adapters/script_restart_handoff.py",
+      "targetPath": "tests/device/adapters/script_restart_handoff.py",
+      "sha256": "0df98379b653513882ca47ca0419a087f7ffae904dd520752d2597509e061c81"
+    },
+    {
+      "sourcePath": "tests/device/adapters/script_ui_inventory.py",
+      "targetPath": "tests/device/adapters/script_ui_inventory.py",
+      "sha256": "220f83a69e41e32af0b78c0a814e1de0ac60d16925ed603921d74f6e1382c540"
+    },
+    {
+      "sourcePath": "tests/device/adapters/feature_fixture_access.py",
+      "targetPath": "tests/device/adapters/feature_fixture_access.py",
+      "sha256": "0f1eb20fdaf12b048c8c86bce13abc0a482c4adc343c8f8eb43d19c35c5f8f8b"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/script_fixture.py",
+      "targetPath": "tests/device/feature_journeys/script_fixture.py",
+      "sha256": "7cb8bf9d188cac6954e827c5f9afdf6baf7965df74b918db0d3704fec0f09bfd"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/phase_fixture.py",
+      "targetPath": "tests/device/feature_journeys/phase_fixture.py",
+      "sha256": "2cda2a01e9a5889bf9b40347e273ff42de0863055d19d9bf2e3f5fbf00678eb1"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/graphics_resources.py",
+      "targetPath": "tests/device/feature_journeys/graphics_resources.py",
+      "sha256": "2dcda27665aa722ddcbf23254dc1a6f90b8eb00dfb9bc61797785a0fb5bdce97"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/graphics_fixture.py",
+      "targetPath": "tests/device/feature_journeys/graphics_fixture.py",
+      "sha256": "1c6fd79073fb1418a78afd88b509f12fe82454500b95c072186eac596ad58911"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/server.py",
+      "targetPath": "tests/device/feature_journeys/server.py",
+      "sha256": "cd59242a160be969faf31074d78767f4c21d8c70ad79ff73287a4efab2b6ad08"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/witness.py",
+      "targetPath": "tests/device/feature_journeys/witness.py",
+      "sha256": "74dac821991a690e80ae15d53460453d2ad002419d15b2f687ac4cfc59d31b91"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/engine.py",
+      "targetPath": "tests/device/feature_journeys/engine.py",
+      "sha256": "871780f4beca339196a66a73cc165a662072cac910976527565f99c19fe5f004"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/evidence.py",
+      "targetPath": "tests/device/feature_journeys/evidence.py",
+      "sha256": "357c64299eec18d608b95850bad074ef0f8f949786b2300fb74978bf740ca5a6"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/SCRIPT_HTTP_SOURCE.md",
+      "targetPath": "tests/device/feature_journeys/SCRIPT_HTTP_SOURCE.md",
+      "sha256": "2cd543939366975d7e05bba5c0e9cdab353d6b319c0aabb5954276eb5b15c989"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/PHASE_FIXTURE.md",
+      "targetPath": "tests/device/feature_journeys/PHASE_FIXTURE.md",
+      "sha256": "b0e62fa5efea84a7663b5b01e290274058ddff7e8c444966af58ba0aabf0a241"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/ADAPTER_FIXTURE_ACCESS.md",
+      "targetPath": "tests/device/feature_journeys/ADAPTER_FIXTURE_ACCESS.md",
+      "sha256": "a16c553b0285d595fb91f80e2a10e44e75f97846855504e7eeda890bb0828bce"
+    },
+    {
+      "sourcePath": "tests/device/feature_journeys/GRAPHICS_SUBJECT.md",
+      "targetPath": "tests/device/feature_journeys/GRAPHICS_SUBJECT.md",
+      "sha256": "59d059fff3495d9a1b597890124ab9e65e0d1b4339d7cc38453afedcf2df160a"
+    },
+    {
+      "sourcePath": "tests/device/native/PrivateScriptFiles.h",
+      "targetPath": "tests/device/native/PrivateScriptFiles.h",
+      "sha256": "09a30a09fd8608c61666c3c02213cf981388b25d871ec413c46c3f10f5e256ec"
+    },
+    {
+      "sourcePath": "tests/device/native/ScriptManagerStatus.h",
+      "targetPath": "tests/device/native/ScriptManagerStatus.h",
+      "sha256": "5df5376028f2a18ebc9b9a835743ef11e1925c2e81a5bfc281121565feace8e7"
+    },
+    {
+      "sourcePath": "tests/device/native/ScriptUiInventory.h",
+      "targetPath": "tests/device/native/ScriptUiInventory.h",
+      "sha256": "a89853281ae91332a69886c234c5aa8a5102f6a31bffd4c758cc307fcc658df4"
+    },
+    {
+      "sourcePath": "tests/device/native/SCRIPT_FIXTURE_LOCATION.md",
+      "targetPath": "tests/device/native/SCRIPT_FIXTURE_LOCATION.md",
+      "sha256": "5b764a344ecbdf80b96c92076f99a5508414eee4368aa570c83cd47a0ff15edb"
+    },
+    {
+      "sourcePath": "tests/device/native/SCRIPT_MEMBERSHIP.md",
+      "targetPath": "tests/device/native/SCRIPT_MEMBERSHIP.md",
+      "sha256": "ef8393a9e6793853d8617501008c01082bc93bb48c78c82bae05bb8f93c14b79"
+    },
+    {
+      "sourcePath": "tests/device/native/SCRIPT_RESTART_HANDOFF.md",
+      "targetPath": "tests/device/native/SCRIPT_RESTART_HANDOFF.md",
+      "sha256": "8de3f7133fb132afb8a9cfad6220b94d59a7b45b9a1333371e655591ebd7bee0"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/RequiredModuleObservation.h",
+      "targetPath": "libraries/script-engine/src/RequiredModuleObservation.h",
+      "sha256": "a362938bc5b078b8d53f0393303bc135d73a459fe77d6216c13d2a54308b9a3f",
+      "sourceCommit": "0c2cecbc3fcee6fc9f0b908dda7f7a2cbd6d2299"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/ScriptEngines.cpp",
+      "targetPath": "libraries/script-engine/src/ScriptEngines.cpp",
+      "sha256": "8f14a215e8db339bbd87abcdd02509f49e5dd55cb5f2edcbd4fe122bed01df33",
+      "sourceCommit": "0c2cecbc3fcee6fc9f0b908dda7f7a2cbd6d2299"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/ScriptEngines.h",
+      "targetPath": "libraries/script-engine/src/ScriptEngines.h",
+      "sha256": "03dd4414369e0da0f96f220249bbc30f634f4ea4502e403bd9152f043037e5be",
+      "sourceCommit": "0c2cecbc3fcee6fc9f0b908dda7f7a2cbd6d2299"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/ScriptManager.cpp",
+      "targetPath": "libraries/script-engine/src/ScriptManager.cpp",
+      "sha256": "e109e9e84fe06aa631abd9aa7a929cc4d6233d98081805e2423d64dd97e88c3c",
+      "sourceCommit": "0c2cecbc3fcee6fc9f0b908dda7f7a2cbd6d2299"
+    },
+    {
+      "sourcePath": "libraries/script-engine/src/ScriptManager.h",
+      "targetPath": "libraries/script-engine/src/ScriptManager.h",
+      "sha256": "7656378bc9baf7147a50f4568ea335efc691da74418abb6033698560c783d6e0",
+      "sourceCommit": "0c2cecbc3fcee6fc9f0b908dda7f7a2cbd6d2299"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_native_script_files.py",
+      "targetPath": "tests/device/self_tests/test_native_script_files.py",
+      "sha256": "c88367a323b6b4f98c9b65afe512dae7e51a2b39914ff7ad4b83de1aa5353489"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_native_script_membership.py",
+      "targetPath": "tests/device/self_tests/test_native_script_membership.py",
+      "sha256": "cf6f3080dcee4c8840c9f613335451632b0aa8deec3b6b5c9cda702c9788745e"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_script_restart_handoff.py",
+      "targetPath": "tests/device/self_tests/test_script_restart_handoff.py",
+      "sha256": "b1abb8ee0f751feae5088cdb8fbab8ffea874dcd7738695949930fe2863e6cea"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_script_ui_inventory.py",
+      "targetPath": "tests/device/self_tests/test_script_ui_inventory.py",
+      "sha256": "9e94dbd725f381e1d7ca181160a18d665cb58e0f2ae31d748d3326ec9d9ccc90"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_script_resources.py",
+      "targetPath": "tests/device/self_tests/test_script_resources.py",
+      "sha256": "131fa706f973326650333516a5e6d7d60dce8de2fbd5a14650a6177c55b4ba67"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_feature_fixture_access.py",
+      "targetPath": "tests/device/self_tests/test_feature_fixture_access.py",
+      "sha256": "f1386e314f4b6025f0b8b1a76961ab3d7a67f85778646bdb17ba54f131aec809"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_feature_phase_fixture.py",
+      "targetPath": "tests/device/self_tests/test_feature_phase_fixture.py",
+      "sha256": "955a40e01a1480340757c9fda5e24f3487496abf5e913e2cecacd8223ad08d1e"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_graphics_resources.py",
+      "targetPath": "tests/device/self_tests/test_graphics_resources.py",
+      "sha256": "8d86f7e93270842d40fd4d33fa9d8c96591fb8dd1a1894c4be740880f2b1f7da"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_graphics_fixture.py",
+      "targetPath": "tests/device/self_tests/test_graphics_fixture.py",
+      "sha256": "d9a4d0a4fb73c89e6b2f356474d3cc76af8080ae0f8787457eeff749cacdc8eb"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_feature_journeys.py",
+      "targetPath": "tests/device/self_tests/test_feature_journeys.py",
+      "sha256": "c8355bf5b67f2758db13f0439227af44ca48afb95fb6b743357284c0086947af"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_native_script_observation.py",
+      "targetPath": "tests/device/self_tests/test_native_script_observation.py",
+      "sha256": "b7ca627584a574d26edee6912f797d536d8647623e92844328c3fbe8c88a8327"
+    },
+    {
+      "sourcePath": "tests/device/self_tests/test_normal_script_file_manager.py",
+      "targetPath": "tests/device/self_tests/test_normal_script_file_manager.py",
+      "sha256": "6fe46db65e690b95ed042d9756df93312d926a5917510c19d54bdc874b1f1294"
+    }
+  ]
+}

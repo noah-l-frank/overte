@@ -37,7 +37,7 @@ public:
         const auto action = command.value("operation").toString();
         if (!QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()
                 || !QRegularExpression("\\A[0-9a-f]{64}\\z").match(owner).hasMatch()
-                || (action != "stage" && action != "observe" && action != "release")) { return {}; }
+                || (action != "stage" && action != "observe" && action != "release" && action != "locate")) { return {}; }
         const auto basePath = QDir(directory).absolutePath();
         const QFileInfo info(basePath);
         if (!info.isAbsolute() || info.canonicalFilePath() != info.absoluteFilePath()) { return {}; }
@@ -80,6 +80,11 @@ public:
         Handle root(::openat(base.fd, leaf.constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
         if (root.fd < 0) {
             if (errno != ENOENT) { return {}; }
+            if (action == "locate") {
+                if (!samePath(base.fd, QFile::encodeName(basePath))) { return {}; }
+                return {{"locationVersion", 1}, {"exists", false},
+                    {"directory", QUrl::fromLocalFile(QDir(basePath).filePath(QString::fromLatin1(leaf))).toString()}};
+            }
             return action == "observe" ? QVariantMap{{"exists", false}, {"files", QVariantList{}}}
                                        : QVariantMap{{"performed", true}};
         }
@@ -96,6 +101,16 @@ public:
         const auto hashes = manifest.value("hashes").toObject();
         auto keys = hashes.keys(); auto wanted = names(); keys.sort(); wanted.sort();
         if (keys != wanted || !entries(root.fd, {".owner.v1.json", "script.js", "companion.js", "script-bundle"})) { return {}; }
+        if (action == "locate") {
+            for (const auto& name : names()) {
+                if (!QRegularExpression("\\A[0-9a-f]{64}\\z").match(hashes.value(name).toString()).hasMatch()) { return {}; }
+            }
+            if (!samePath(base.fd, QFile::encodeName(basePath)) || !sameChild(base.fd, leaf, root.fd)) { return {}; }
+            // Original sandbox-derived location and authenticated root presence
+            // only. No stage, load, byte mutation, release or directory creation.
+            return {{"locationVersion", 1}, {"exists", true},
+                {"directory", QUrl::fromLocalFile(QDir(basePath).filePath(QString::fromLatin1(leaf))).toString()}};
+        }
         Handle bundle(::openat(root.fd, "script-bundle", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
         const bool bundleMissing = bundle.fd < 0 && errno == ENOENT;
         if (!bundleMissing && (!privateNode(bundle.fd, true) || !entries(bundle.fd, {"main.js", "companion.js"}))) { return {}; }

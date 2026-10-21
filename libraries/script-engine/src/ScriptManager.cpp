@@ -618,6 +618,9 @@ void ScriptManager::loadURL(const QUrl& scriptURL, bool reload) {
         return;
     }
     _fileNameString = url.toString();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eRequiredModules.assignedLoadURL(url,loadRequest.featureGeneration());
+#endif
     _isReloading = reload;
 
     // Check that script has a supported file extension

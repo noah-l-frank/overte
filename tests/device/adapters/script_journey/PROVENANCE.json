@@ -1,0 +1,56 @@
+{
+  "sourceCommit": "fe4684bf46585088370b3a328a738f147e670b97",
+  "changes": "Extract source coordination into a shared package; use target-private Script journals and a concrete Pico native transport. Phone QML, Appium, coordinates, package identity and monoscopic capture are not imported. Additional review retains hidden native panels as resources and rejects reused original source-query identities across transcripts; no existing Phone journals are migrated.",
+  "files": [
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_script_actions.py",
+      "sourceSha256": "6c49a1762126c0bba89f3639834af9bd3f980e16388c59c4acc059ad3d0da9e5",
+      "target": "tests/device/adapters/script_journey/actions.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_script_causality.py",
+      "sourceSha256": "c7aa10698e2bd086e20fedfae908473dce1331e9641f8a589ba3534ee1303b04",
+      "target": "tests/device/adapters/script_journey/causality.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_script_feature.py",
+      "sourceSha256": "bed573945c9d1956d0d5da9c1849f357a69edae8317c4568d150d4fe6004df24",
+      "target": "tests/device/adapters/script_journey/feature.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_script_file_scope.py",
+      "sourceSha256": "c14b5806d5f692fbe965f90162afc89e113ae3eac540de947f02a6e0eff29210",
+      "target": "tests/device/adapters/script_journey/file_scope.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_script_history.py",
+      "sourceSha256": "b85db075bae88f0a6d03b73923e0caf71977f4277d74f9f3ac9d0d43dfb31b73",
+      "target": "tests/device/adapters/script_journey/history.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_script_lock.py",
+      "sourceSha256": "fff9c19c78e0370ec8a46d971d1f4b3f4bab00ba6ba0dd4b084e835aae2a0fb4",
+      "target": "tests/device/adapters/script_journey/lock.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_script_measurements.py",
+      "sourceSha256": "e066d1a9e663c56261a610d61202db663ff037f7c88f092c57ae96e024ce586b",
+      "target": "tests/device/adapters/script_journey/measurements.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_script_observation.py",
+      "sourceSha256": "9f3094098d99a1fd68e6d3042dad0f57c6ce2abeb5100bd906d3fce82d40f175",
+      "target": "tests/device/adapters/script_journey/observation.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_script_scope.py",
+      "sourceSha256": "0731e6ee84e7de2f2e86d4769b5e39571e18fee87db27fb7b33c05121cef4cd2",
+      "target": "tests/device/adapters/script_journey/scope.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_script_files.py",
+      "sourceSha256": "92fe739fb608ba01fc29803de63a2a824cd38a7cd8983f9d1e6fe80a3db3abf2",
+      "target": "tests/device/adapters/script_journey/files.py"
+    }
+  ]
+}

@@ -134,6 +134,7 @@ class NormalScriptManager:
         else:
             need(file_owner is None and file_picker is None)
         self.previous = store.read()
+        self.retired=False
         initial = dict(schemaVersion=4 if missing else 3 if bundled else 2, sourceKind=source_kind, binding=self.binding,
             tabletOwned=False, managerOwned=False, dialogOwned=False, source=None,
             loadAttempted=False, observerInstance=None, afterSequence=0)
@@ -189,6 +190,7 @@ class NormalScriptManager:
         return current
 
     def file_picker_open(self):
+        self.require_current()
         need(self.source_kind == 'script-file-bundle' and self.state['managerOwned']
              and not self.state['pickerOwned'])
         current = self.check_file_owner(self.state['fileOwner'])
@@ -203,6 +205,7 @@ class NormalScriptManager:
         self.file_picker.open()
 
     def file_picker_choose(self, resource):
+        self.require_current()
         need(self.source_kind == 'script-file-bundle' and self.state['pickerOwned']
              and not self.state['loadAttempted'] and resource in ('script.js', 'script-bundle/main.js'))
         self.check_file_owner(self.state['fileOwner'])
@@ -217,6 +220,7 @@ class NormalScriptManager:
         self.mark(pickerOwned=False)
 
     def file_picker_cancel(self):
+        self.require_current()
         need(self.source_kind == 'script-file-bundle' and self.state['pickerOwned'])
         self.check_file_owner(self.state['fileOwner'])
         self.close_dialog()
@@ -225,6 +229,12 @@ class NormalScriptManager:
         value = self.state | changes
         self.store.write(value, self.previous)
         self.state = self.previous = value
+
+    def require_current(self):
+        # A retained object cannot send input after an explicit ownership
+        # transfer or another invocation changed its original private record.
+        need(not self.retired and json.dumps(self.store.read(),sort_keys=True,allow_nan=False)
+             == json.dumps(self.previous,sort_keys=True,allow_nan=False))
 
     def sample(self):
         return self.sample_full()['scripts']
@@ -254,16 +264,20 @@ class NormalScriptManager:
         raise NativeUIError('Normal script manager did not observe its owned native row transition')
 
     def open(self):
+        self.require_current()
         if not self.state['tabletOwned']:
             need(not self.ui.tablet_visible() and not self.ui.manager_visible())
             self.mark(tabletOwned=True)
             self.ui.open_tablet()
         if not self.state['managerOwned']:
+            if self.source_kind in {'script-file-bundle','feature-script-missing'}:
+                need(self.ui.tablet_visible())
             need(not self.ui.manager_visible())
             self.mark(managerOwned=True)
             self.ui.open_manager()
         elif not self.ui.manager_visible():
-            self.ui.open_manager()
+            if self.source_kind not in {'script-file-bundle','feature-script-missing'}:
+                self.ui.open_manager()
         self.ui.wait_manager()
 
     def source(self, url):
@@ -290,6 +304,7 @@ class NormalScriptManager:
         return (found[0], filename(url)) if found else None
 
     def owned_row_action(self, url, action):
+        self.require_current()
         need(self.source_kind != 'feature-script-missing')
         need(self.state['source'] == url)
         rows = self.sample()
@@ -311,6 +326,10 @@ class NormalScriptManager:
             self.wait_rows(lambda current: not any(item['url'] == url for item in current))
 
     def close(self):
+        if self.retired:
+            need(self.store.read() is None)
+            return
+        self.require_current()
         errors = []
         for function in (self.close_dialog, self.close_tablet, self.ui.release):
             try:
@@ -322,8 +341,10 @@ class NormalScriptManager:
         need(not self.state['loadAttempted'])
         self.store.discard(self.previous)
         self.previous = None
+        self.retired=True
 
     def close_dialog(self):
+        self.require_current()
         if self.source_kind == 'script-file-bundle':
             if self.state['pickerOwned']:
                 self.check_file_owner(self.state['fileOwner'])
@@ -339,6 +360,7 @@ class NormalScriptManager:
             self.mark(dialogOwned=False)
 
     def close_tablet(self):
+        self.require_current()
         need(not self.state['dialogOwned']
              and (self.source_kind != 'script-file-bundle' or not self.state['pickerOwned']))
         if self.state['tabletOwned']:
@@ -367,6 +389,7 @@ class NormalScriptManager:
         return {'performed': True}
 
     def load_source(self, url):
+        self.require_current()
         need(self.source_kind not in {'script-file-bundle', 'feature-script-missing'})
         source = self.source(url)
         self.close_dialog()
@@ -419,6 +442,7 @@ class NormalScriptManager:
         return execution
 
     def load_missing(self, url, execution):
+        self.require_current()
         execution = self.missing_reader(execution)
         need(self.state['managerOwned'] and self.state['missingLoad'] is None)
         self.ui.wait_manager()

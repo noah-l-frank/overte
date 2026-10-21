@@ -3,6 +3,7 @@
 #pragma once
 
 #include "NormalScriptFileControls.h"
+#include "ScriptUiInventory.h"
 #include "NormalAudioControls.h"
 #include "NormalGraphicsControls.h"
 #include "NormalLoginControls.h"
@@ -44,9 +45,11 @@ public:
         QHash<QString, Control> controls;
         int visited {0};
         bool ambiguous {false};
+        ScriptUiInventory scriptInventory;
         std::function<void(QQuickItem*, int)> walk = [&](QQuickItem* item, int depth) {
             if (!item || ambiguous) { return; }
             if (++visited > 4096 || depth > 128 || item->thread() != qApp->thread()) { ambiguous = true; return; }
+            if (_surface==Surface::ScriptFiles) { scriptInventory.visit(item); }
             if (_surface == Surface::Graphics ? graphicsObservable(item) : !visibleRect(item, window).isEmpty()) {
                 const auto id = _surface == Surface::Audio ? audioControlId(item)
                     : _surface == Surface::Graphics ? graphicsControlId(item)
@@ -105,6 +108,7 @@ public:
             : _surface == Surface::Login ? "loginControlsVersion"
             : _surface == Surface::Create ? "createControlsVersion"
             : _surface == Surface::Chat ? "chatControlsVersion" : "fileControlsVersion"] = _surface==Surface::Login ? 2 : 1;
+        if (_surface==Surface::ScriptFiles) { result["scriptInventory"]=scriptInventory.observation(ready); }
         return result;
     }
 

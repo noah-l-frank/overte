@@ -146,7 +146,13 @@ QObject* scriptsModel();
 void ScriptEngines::addScriptEngine(ScriptManagerPointer manager) {
     if (!_isStopped) {
         QMutexLocker locker(&_allScriptsMutex);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        const auto before=_allKnownScriptManagers.size();
+#endif
         _allKnownScriptManagers.insert(manager);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (_allKnownScriptManagers.size()!=before && QCoreApplication::arguments().contains("--testScript")) { ++_featureKnownScriptRevision; }
+#endif
     }
 }
 
@@ -156,7 +162,13 @@ void ScriptEngines::removeScriptEngine(ScriptManagerPointer manager) {
     // because that method removes scripts from its list as it iterates them
     if (!_isStopped) {
         QMutexLocker locker(&_allScriptsMutex);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        const auto before=_allKnownScriptManagers.size();
+#endif
         _allKnownScriptManagers.remove(manager);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (_allKnownScriptManagers.size()!=before && QCoreApplication::arguments().contains("--testScript")) { ++_featureKnownScriptRevision; }
+#endif
     }
     std::lock_guard<std::mutex> lock(_subscriptionsToEntityScriptMessagesMutex);
     _managersSubscribedToEntityScriptMessages.remove(manager.get());
@@ -476,6 +488,13 @@ QStringList ScriptEngines::getRunningScripts() {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 QVariantMap ScriptEngines::featureScriptObservation() {
     if (!QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    QSet<ScriptManagerPointer> known;
+    quint64 knownRevision {0};bool knownComplete {true};
+    {
+        QMutexLocker lock(&_allScriptsMutex);
+        knownComplete=_allKnownScriptManagers.size()<=128 && _featureKnownScriptRevision<=9007199254740991ULL;
+        if (knownComplete) { known=_allKnownScriptManagers;knownRevision=_featureKnownScriptRevision; }
+    }
     QMultiHash<QUrl, ScriptManagerPointer> managers;
     {
         QReadLocker lock(&_scriptManagersHashLock);
@@ -494,8 +513,21 @@ QVariantMap ScriptEngines::featureScriptObservation() {
     }
     const auto loads = ScriptManager::featureLoadHistory();
     if (loads.isEmpty()) { return {}; }
+    QVariantList knownRows;
+    for (const auto& manager:known) {
+        const auto membership=manager ? manager->featureLoadMembership() : QVariantMap();
+        if (membership.isEmpty()) { knownComplete=false;break; }
+        knownRows.append(membership);
+    }
+    {
+        QMutexLocker lock(&_allScriptsMutex);
+        if (_featureKnownScriptRevision!=knownRevision) { knownComplete=false; }
+    }
+    const QVariantMap memberships=knownComplete
+        ? QVariantMap{{"complete",true},{"revision",static_cast<qulonglong>(knownRevision)},{"managers",knownRows}}
+        : QVariantMap{{"complete",false}};
     return {{"complete", true}, {"engines", rows}, {"sourceIdentityVersion", 1},
-        {"loadSourceVersion", 1}, {"loads", loads}};
+        {"loadSourceVersion", 1}, {"loads", loads},{"membershipSourceVersion",1},{"membership",memberships}};
 }
 #endif
 

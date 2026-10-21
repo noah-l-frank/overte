@@ -35,7 +35,9 @@ class Boundary:
         self.okay, self.partial = True, 0
 
     def send(self, value):
-        command(value); self.commands.append(deepcopy(value)); self.sequence += 1
+        command(value); self.commands.append(deepcopy(value))
+        if self.fault=='ignored-locate' and value['operation']=='locate':return
+        self.sequence += 1
         source = {}
         operation = value['operation']
         if operation == 'stage':
@@ -47,6 +49,9 @@ class Boundary:
             source = dict(performed=True)
         elif self.owner not in (None, value['ownerToken']):
             source = {}
+        elif operation == 'locate':
+            if self.root.exists() and self.owner is None:source={}
+            else:source=dict(locationVersion=1,exists=self.root.exists(),directory=self.root.as_uri())
         elif operation == 'release':
             if self.fault != 'ignored-release':
                 for name in reversed(NAMES): (self.root / name).unlink(missing_ok=True)
@@ -84,6 +89,78 @@ class ScriptFilesTests(unittest.TestCase):
         self.boundary = Boundary(self.path)
         self.store = PrivateFeatureState(self.path / 'intent.json')
         self.files = OwnedScriptFiles(self.boundary.native(), self.store, BINDING)
+
+    def test_reserve_records_private_responsibility_without_creating_or_querying_native_files(self):
+        actual=self.files.reserve(RUN)
+        self.assertEqual(actual,self.store.read());self.assertEqual([],self.boundary.commands)
+        self.assertFalse(self.boundary.root.exists())
+        with self.assertRaises(NativeUIError):self.files.reserve(RUN)
+
+    def test_actual_native_location_is_available_before_staging_and_after_release(self):
+        owner=self.files.reserve(RUN)
+        absent=self.files.locate()
+        self.assertEqual(dict(locationVersion=1,exists=False,directory=self.boundary.root.as_uri()),absent)
+        packet=deepcopy(self.files.native.last_packet)
+        self.assertEqual(20000,packet['capturedEpochMs']);self.assertEqual('locate',packet['operation'])
+        self.assertEqual('d'*32,packet['instance']);self.assertEqual(1,packet['sequence'])
+        self.assertEqual(self.boundary.root.as_uri(),self.files.stage_reserved())
+        self.assertTrue(self.files.locate()['exists'])
+        self.assertEqual(owner,self.store.read())
+        self.files.release()
+        self.assertFalse(self.files.native.request('locate',RUN,owner['ownerToken'])['exists'])
+        self.assertIsNone(self.store.read());self.assertFalse(self.boundary.root.exists())
+        self.assertEqual(1,sum(row['operation']=='stage' for row in self.boundary.commands))
+
+    def test_reserved_absent_owner_can_release_only_after_separate_original_absence(self):
+        self.files.reserve(RUN);self.files.release()
+        self.assertIsNone(self.store.read());self.assertFalse(self.boundary.root.exists())
+        self.assertEqual(['release','observe'],[row['operation'] for row in self.boundary.commands])
+
+    def test_missing_or_foreign_original_location_never_uses_a_guessed_sandbox_path(self):
+        self.files.reserve(RUN)
+        for source in ({'locationVersion':1,'exists':False},
+                       {'locationVersion':True,'exists':False,'directory':self.boundary.root.as_uri()},
+                       {'locationVersion':1,'exists':0,'directory':self.boundary.root.as_uri()},
+                       {'locationVersion':1,'exists':False,'directory':'file:///foreign/feature-script-'+('f'*32)},
+                       {'locationVersion':1,'exists':False,'directory':self.boundary.root.as_uri(),'expected':False}):
+            self.boundary.mutate=lambda packet:packet.update(source=source)
+            with self.subTest(fields=list(source)),self.assertRaises(NativeUIError):self.files.locate()
+            self.assertIsNone(self.files.native.last_packet)
+        self.assertFalse(self.boundary.root.exists());self.assertIsNotNone(self.store.read())
+
+    def test_original_file_capture_clock_cannot_regress_behind_a_prior_accepted_query(self):
+        self.files.reserve(RUN);self.files.locate();self.files.native.clock_ms=lambda:19999
+        self.boundary.mutate=lambda packet:packet.update(requestedEpochMs=19999,capturedEpochMs=19999)
+        with self.assertRaises(NativeUIError):self.files.locate()
+        self.assertEqual(20000,self.files.native.captured_epoch);self.assertIsNone(self.files.native.last_packet)
+        self.assertIsNotNone(self.store.read())
+
+    def test_ignored_new_location_query_cannot_reuse_previous_original_envelope(self):
+        self.files.reserve(RUN);self.files.locate();before=len(self.boundary.commands)
+        self.boundary.fault='ignored-locate'
+        with self.assertRaises(NativeUIError):self.files.locate()
+        self.assertEqual(before+1,len(self.boundary.commands));self.assertIsNone(self.files.native.last_packet)
+        self.assertIsNotNone(self.store.read())
+
+    def test_foreign_owned_or_unowned_existing_root_cannot_be_adopted_by_location(self):
+        self.files.reserve(RUN);self.files.stage_reserved();self.boundary.owner='f'*64
+        with self.assertRaises(NativeUIError):self.files.locate()
+        self.assertTrue(self.boundary.root.exists());self.assertIsNotNone(self.store.read())
+        self.boundary.owner=None
+        with self.assertRaises(NativeUIError):self.files.locate()
+
+    def test_second_reserved_stage_cannot_overwrite_original_bytes_or_replace_the_token(self):
+        owner=self.files.reserve(RUN);self.files.stage_reserved()
+        actual={name:(self.boundary.root/name).read_bytes() for name in NAMES}
+        with self.assertRaises(NativeUIError):self.files.stage_reserved()
+        self.assertEqual(owner,self.store.read())
+        self.assertEqual(actual,{name:(self.boundary.root/name).read_bytes() for name in NAMES})
+
+    def test_failed_reserved_stage_keeps_the_same_token_and_never_restages_on_observation(self):
+        owner=self.files.reserve(RUN);self.boundary.fault='ack-only'
+        with self.assertRaises(NativeUIError):self.files.stage_reserved()
+        self.assertEqual(owner,self.store.read());self.assertFalse(self.files.locate()['exists'])
+        self.assertEqual(1,sum(row['operation']=='stage' for row in self.boundary.commands))
 
     def test_ios_current_nonce_cannot_make_old_or_preaction_file_receipt_fresh(self):
         for requested,captured in ((18000,18000),(19999,20000)):
@@ -214,6 +291,12 @@ assert.equal(calls.length,1);assert.equal(saved[0].n,'feature-script-files.json'
 assert.deepEqual(saved[0].v,{requestId:c.commandId,source:{performed:true}});
 applyAndroidControlCommand({...c,commandId:'d'.repeat(32),expected:'loaded'});
 assert.equal(calls.length,1);
+Test.featureScriptFiles=c=>{calls.push(c);return {requestId:c.commandId,source:{locationVersion:1,
+ exists:false,directory:'file:///actual/native/feature-script-'+c.runId}};};
+const locate={...c,commandId:'e'.repeat(32),operation:'locate'};
+applyAndroidControlCommand(locate);applyAndroidControlCommand(locate);
+assert.equal(calls.length,2);assert.equal(calls[1].operation,'locate');
+assert.deepEqual(saved[1].v.source,{locationVersion:1,exists:false,directory:'file:///actual/native/feature-script-'+c.runId});
 '''
         result = subprocess.run(['node', '-e', javascript], capture_output=True, text=True, timeout=10)
         self.assertEqual(0, result.returncode, result.stderr)
