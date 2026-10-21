@@ -30,6 +30,13 @@ legacy inline records remain unavailable for fresh results. Full native effect,
 avatar image, independent actor, background/lifetime and cleanup composition
 remain required; native compilation and device qualification are still open.
 
+The [Phone Emote work/quiet-window owner](adapters/android-phone/EMOTE_LIFETIME.md)
+now joins each role's original selected manager/code/membership to actual timer,
+callback, Rig and closed-UI observations. Three seconds in native and host clocks
+and a new retirement read prevent cached cleanup success. Retained/late work
+and unresolved journals stay red. This remains a subresource proof; whole image/
+fixture/UI-lifetime/actor/run retirement is still required before registration.
+
 The [owned Phone Emote background cycle](adapters/android-phone/EMOTE_BACKGROUND.md)
 now joins one-send ordinary Home/activation to actual OS foreground and new
 native lifecycle/idle proof. Lost returns reconstruct without duplicate inputs

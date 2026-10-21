@@ -81,6 +81,13 @@ or foreground native access while backgrounded. Historical source replay has
 no transport; incomplete ownership blocks general teardown. Whole-feature
 phase-change cleanup recovery, images, actor and quiet retirement remain open.
 
+The [Phone Emote work/quiet-window owner](EMOTE_LIFETIME.md)
+now joins each role's original selected manager/code/membership to actual timer,
+callback, Rig and closed-UI observations. Three seconds in native and host clocks
+and a new retirement read prevent cached cleanup success. Retained/late work
+and unresolved journals stay red. This remains a subresource proof; whole image/
+fixture/UI-lifetime/actor/run retirement is still required before registration.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

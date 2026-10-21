@@ -940,6 +940,16 @@ class FeatureAdapterTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.adapter._emote_lifecycle_status(SELECTOR,binding|dict(artifactSha256='f'*64))
         self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
 
+    def test_general_cleanup_cannot_forget_either_emote_quiet_window_owner(self):
+        for role in ('primary','actor'):
+            store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-'+role+'-lifetime.json'))
+            store.write({'unresolved':True},None)
+            with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+                with self.subTest(role=role),self.assertRaisesRegex(ValueError,'PHONE_EMOTE_LIFETIME_CLEANUP_INCOMPLETE'):
+                    self.adapter.cleanup(SELECTOR)
+                base.assert_called_once()
+            self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_general_cleanup_cannot_forget_either_emote_source_owner(self):
         for role in ('primary','actor'):
             store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-'+role+'-sources.json'))
