@@ -2930,13 +2930,19 @@ class NativeUploadResultsTests(unittest.TestCase):
         spec=importlib.util.spec_from_file_location('upload_project28_packages',ROOT / 'tools/repository-checks/package_checks.py')
         packages=importlib.util.module_from_spec(spec);spec.loader.exec_module(packages)
         rows=packages.workflow_generations()
-        self.assertEqual(len(rows),28)
+        self.assertEqual(len(rows),29)
         tree=CODEQL.inputs.full_tree(ROOT,'HEAD')
         tree.update(deepcopy(rows[27]['workflows']))
         tree[RESULTS.WORKFLOW]={'mode':'100644','type':'blob','sha':CODEQL._UPLOAD_RESULTS_WORKFLOW}
         self.assertEqual(packages.validate_tree_wiring(tree),rows[27]['name'])
         self.assertEqual(self.git('rev-parse',self.base+':.github/workflows/project-tests.yml'),
             rows[27]['workflows']['.github/workflows/project-tests.yml']['sha'])
+        self.assertEqual(rows[28]['name'],'protected-producer-exact-parent-command-owners-v1')
+        self.assertEqual([path for path in rows[27]['workflows']
+            if rows[27]['workflows'][path]!=rows[28]['workflows'][path]],
+            ['.github/workflows/repository-checks.yml'])
+        tree.update(deepcopy(rows[28]['workflows']))
+        self.assertEqual(packages.validate_tree_wiring(tree),rows[28]['name'])
         self.assertEqual(self.verify()['languages'],['python'])
         tree['.github/workflows/project-tests.yml']['sha']='f'*40
         with self.assertRaises(ValueError): packages.validate_tree_wiring(tree)

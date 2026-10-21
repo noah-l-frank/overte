@@ -145,14 +145,10 @@ def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=
             or any(snapshot.get('.github/test-suites.json') != trusted['.github/test-suites.json']
                    for snapshot in (before, candidate)):
         raise ValidationError('standalone command registry is not the exact protected inventory')
-    recipes = {
-        '.github/workflows/repository-checks.yml': '22fe0d6d39d120f800099136d7d1ab5280d80b41',
-        '.github/workflows/documentation-checks.yml': 'a86e36287a315eed7bbadf366f923966a04bd806',
-    }
-    for path, sha in recipes.items():
-        expected = {'mode': '100644', 'type': 'blob', 'sha': sha}
-        if any(snapshot.get(path) != expected for snapshot in (before, candidate, trusted)):
-            raise ValidationError('standalone command recipe is not the exact protected recipe')
+    if not gate.repository_command_sources(before, candidate, trusted) or any(snapshot.get(
+            '.github/workflows/documentation-checks.yml') != {'mode': '100644', 'type': 'blob',
+                'sha': 'a86e36287a315eed7bbadf366f923966a04bd806'} for snapshot in (before, candidate, trusted)):
+        raise ValidationError('standalone command recipe is not the exact protected recipe')
     if gate.commit_parents(gate.commit(git_objects, request.repository, request.merge_sha)) != (
             request.base_sha, request.head_sha):
         raise ValidationError('standalone native candidate does not have exact B/H parents')
@@ -261,6 +257,11 @@ def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=
                 raise ValidationError('standalone native reusable source inventory is malformed')
             if len({r.get('path') for r in refs}) != len(refs):
                 raise ValidationError('standalone native reusable source inventory is ambiguous')
+            if not progressing and trusted.get('.github/workflows/repository-checks.yml') != gate._REPOSITORY_PREVIOUS \
+                    and {r.get('path') for r in refs} != {request.repository + '/.github/workflows/' + n
+                        + '.yml@' + request.merge_sha for n in ('pr-metadata-context', 'native-tests', 'project-tests',
+                            'android-required', 'documentation-checks', 'workflow-security')}:
+                raise ValidationError('standalone successor lacks its complete native reusable source chain')
             for ref in refs:
                 start, end = request.repository + '/', '@' + request.merge_sha
                 path = ref.get('path', '')
@@ -443,12 +444,23 @@ def _standalone_ci_schedule(candidate, event, request, plan, *, base_tree, candi
     """Scheduling only: unsupported sources/owners keep the prior CI37 route."""
     if plan.get('package_set') or plan.get('host_mode') != 'delegated-sync':
         return False
-    for path, sha in {
-            '.github/workflows/repository-checks.yml': '22fe0d6d39d120f800099136d7d1ab5280d80b41',
-            '.github/workflows/documentation-checks.yml': 'a86e36287a315eed7bbadf366f923966a04bd806'}.items():
-        expected = {'mode': '100644', 'type': 'blob', 'sha': sha}
-        if any(tree.get(path) != expected for tree in (base_tree, candidate_tree, trusted_tree)):
+    caller = '.github/workflows/repository-checks.yml'
+    previous = {'mode': '100644', 'type': 'blob', 'sha': '22fe0d6d39d120f800099136d7d1ab5280d80b41'}
+    if candidate_tree.get(caller) != trusted_tree.get(caller):
+        return False
+    if trusted_tree.get(caller) == previous:
+        if base_tree.get(caller) != previous:
             return False
+    else:
+        successor = trusted_tree.get(caller)
+        if type(successor) is not dict or successor.get('mode') != '100644' or successor.get('type') != 'blob' \
+                or successor != trusted_tree.get('tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml') \
+                or not _gate().repository_command_sources(base_tree, candidate_tree, trusted_tree):
+            return False
+    if any(tree.get(
+            '.github/workflows/documentation-checks.yml') != {'mode': '100644', 'type': 'blob',
+                'sha': 'a86e36287a315eed7bbadf366f923966a04bd806'} for tree in (base_tree, candidate_tree, trusted_tree)):
+        return False
     registry = trusted_tree.get('.github/test-suites.json')
     if registry is None or registry.get('mode') != '100644' or registry.get('type') != 'blob' \
             or any(tree.get('.github/test-suites.json') != registry for tree in (base_tree, candidate_tree)):

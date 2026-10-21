@@ -144,6 +144,7 @@ PROGRAM_INPUTS = (
     'tools/repository-checks/workflows/producers/parent-qualification.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
+    'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
     'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml',
     # Actual assertions consume these documents; the generic Markdown rule does
     # not exempt them. Their membership, modes and bytes remain immutable inputs.
@@ -156,21 +157,21 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = '4db57d072bc9beb02ff877dc8066f08e9c7fa6477b3c3c36d485d640a889ee11'
+REVIEWED_PROGRAMS = 'de9fc9d3cb73189941dd9f34028d0afbdb979a1d7c73587b63b7dc812246ed77'
 REVIEWED_CHILD_PROGRAMS = {
-    'apple-main': '9427dc322ed9092d8fbd5813f8da800020ce1aa8aa3d62b2003ef1333250b15b',
-    'apple-ios': '0e197f6ae2bc5fff28f707f62a5eaf4e5dd6c8c35574b8f66e366804532fb7c2',
-    'android-main': '72beba466a6c386d8c8dff4f978c5973a0d7443181366b1b67e0dc46f8bf60b8',
-    'android-phone': '48d52c5f4eb77acf2ff6a808043ca8711c53873ebc7c7502de75c6306aa59a03',
-    'android-vr': '72beba466a6c386d8c8dff4f978c5973a0d7443181366b1b67e0dc46f8bf60b8',
-    'android-vr-pico': '40c17bd998dbd0e34bb6736d0293c6f37c22c18ab16084bef3a0583647391352',
+    'apple-main': 'e0ce51ce9bfaaf61c161e991c4410f37c83be7a7cb405c5f023d8d558698c7fe',
+    'apple-ios': '0680efd486a5307be72299662bdbf88218a2af0091cc0cc1ac369acdab423af1',
+    'android-main': '4af58b4eca31cb70c9ed5549cb74b868d3056df4d910f0c57e462bc9373eee6f',
+    'android-phone': '86b9aaba60550b2574da65ee88171fe221d660d0a11fa85a132f6cc016314567',
+    'android-vr': '4af58b4eca31cb70c9ed5549cb74b868d3056df4d910f0c57e462bc9373eee6f',
+    'android-vr-pico': '5bfaa2424b7d6beac766424c3b635dfafdc5d99cbf796d9f06bef8fc706fb56c',
 }
 # Separate exact installed family; None admits nothing until genuine enrollment.
 REVIEWED_INSTALLED_PROGRAMS = {
-    'apple-ios': '0e197f6ae2bc5fff28f707f62a5eaf4e5dd6c8c35574b8f66e366804532fb7c2',
+    'apple-ios': '0680efd486a5307be72299662bdbf88218a2af0091cc0cc1ac369acdab423af1',
 }
 REVIEWED_PREDECESSORS = {
-    'main': '3b26e19fb09fa6973aa7ac7943f08b41e3f9939b23ce9c6006d699b3d547289e',
+    'main': '4db57d072bc9beb02ff877dc8066f08e9c7fa6477b3c3c36d485d640a889ee11',
     'apple-main': 'a6a685ddbe97da1652a226397c26f9a9f02b24a97b23c3312304115f93bffb58',
     'apple-ios': '8f6e2c431b583220f5fb52a361048470588075136a042993aade08b01589a841',
     'android-main': 'd88a2f8fad5feaf6baaaef3556da1918e8238e49bae403656514c85ea52517b4',
@@ -409,7 +410,7 @@ def _ios_routing_views(tree, base_tree, trusted_tree, trusted_root, target):
     # This exact reviewed independent iOS policy defines the same two data
     # stages. Its immutable identity is a family prerequisite, never executable
     # input. Sparse trusted checkouts and protected projections need no new file.
-    policy = {"mode": "100644", "type": "blob", "sha": "5a25de7985760e8b56c2d94bb869e909404cf06a"}
+    policy = {"mode": "100644", "type": "blob", "sha": "97e39758a08092d8bc5361c8c3f91cc55c019057"}
     if trusted_tree.get("tools/ios-build-qualification/inputs.py") != policy:
         return None
     data = {
