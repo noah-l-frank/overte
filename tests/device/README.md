@@ -35,6 +35,10 @@ The fourteen-area [feature journeys](FEATURE_JOURNEYS.md) compose the existing
 modules with missing feature workflows. See the [coverage matrix](FEATURE_COVERAGE.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md): shared logic is implemented;
 new product adapter capabilities and physical-device qualification are pending.
+The local [Pico continuation](adapters/pico4/FEATURE_HANDOFF_20261021.md) records
+one complete source-level Script adapter and thirteen incomplete areas; all
+native compilation and device qualification remain pending.
+
 The optional [controlled HTTPS account provider](feature_journeys/ACCOUNT_PROVIDER.md)
 supplies real password/refresh grants and protected profile requests for owned
 test accounts. It is a backend fixture; native Authentication integration is

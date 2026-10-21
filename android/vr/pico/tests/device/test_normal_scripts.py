@@ -891,6 +891,9 @@ class PicoNormalScriptsTests(unittest.TestCase):
         for boundary in (patch.object(self.native, 'write_debug_app_file', side_effect=write),
             patch.object(self.native, 'read_debug_app_file', side_effect=read),
             patch.object(self.native, 'epoch_milliseconds', side_effect=lambda *_: epoch[0]),
+            # Keep the synthetic host/native epoch domains aligned while fake
+            # quiet-window sleeps advance; real tool speed must not decide age.
+            patch('adapters.common.time.time', side_effect=lambda: epoch[0] / 1000),
             patch.object(self.native, 'require_process_identity', side_effect=lambda identity: self.assertEqual(self.native.identity, identity)),
             patch.object(self.qt, 'observe', side_effect=observe),
             patch.dict(active, ScriptRestartHandoff=partial(ScriptRestartHandoff, monotonic=lambda: self.qt.clock, sleep=sleep),
@@ -953,6 +956,23 @@ class PicoNormalScriptsTests(unittest.TestCase):
         self.instance._script_restart(self.native.target)
         self.assertEqual(['stop', 'launch'], state['calls'])
         self.assertEqual(1, sum(command['operation'] == 'stage' for command in storage.commands))
+
+    def test_pico_restart_aligned_synthetic_clocks_still_reject_stale_native_lifecycle_before_input(self):
+        _storage, _source, _presence, state = self.restart_sources(staged_restart=False)
+        original = self.native.read_debug_app_file.side_effect
+        def stale(target, package, path, **kwargs):
+            raw = original(target, package, path, **kwargs)
+            if path.endswith('/feature-native-observation.json'):
+                packet = json.loads(raw)
+                packet['capturedEpochMs'] -= 2000
+                packet['requestedEpochMs'] -= 2000
+                return json.dumps(packet)
+            return raw
+        with patch.object(self.native, 'read_debug_app_file', side_effect=stale):
+            with self.assertRaises((RuntimeError,ValueError)):
+                self.instance._script_restart(self.native.target)
+        self.assertEqual([],state['calls'])
+        self.assertIsNotNone(self.instance._script_files_store(self.native.target).read())
 
     def test_pico_restart_ignored_stop_cannot_be_hidden_by_legacy_empty_pidof_or_replayed(self):
         _storage, _source, _presence, state = self.restart_sources(staged_restart=False); state['ignore_stop'] = True

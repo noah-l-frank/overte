@@ -1,5 +1,17 @@
 # Pico feature adapter implementation status
 
+Current isolated continuation: [2026-10-21 coverage and handoff](FEATURE_HANDOFF_20261021.md).
+Scripts now has a complete source-level, host-verified v16 triple on that local
+branch, using the real Pico VR input composition. The other thirteen complete
+areas remain unavailable; native source is uncompiled and every device is
+untested. See the [Scripts contract](SCRIPT_FEATURE.md) and
+[machine matrix](FEATURE_COVERAGE_20261021.json).
+
+## Historical component checkpoints
+
+The entries below describe the earlier reference branch and do not override
+the current continuation status or qualify any device.
+
 Internal `_script_manager_status` now reads the [original manager display source](../../native/SCRIPT_MANAGER_STATUS.md)
 through the existing private Pico Qt/OpenXR observation. The closed parser admits
 optional manager metadata only on the From File carrier, preserves distinct

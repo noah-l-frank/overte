@@ -62,6 +62,8 @@ TESTS = (
     test("tablet-e2e-adapter", "interaction", PYTHON, "pico-tablet-e2e-adapter-test.py"),
     test("feature-observation", "interaction", PYTHON, "device/test_feature_observation.py"),
     test("normal-scripts", "interaction", PYTHON, "device/test_normal_scripts.py"),
+    test("script-feature-journey", "interaction", PYTHON, "device/test_script_journey.py", "PicoScriptJourneyTests"),
+    test("script-feature-engine", "interaction", PYTHON, "device/test_script_journey.py", "PicoSharedScriptJourneyTests"),
     test("normal-create", "interaction", PYTHON, "device/test_normal_create.py"),
     test("normal-chat", "interaction", PYTHON, "device/test_normal_chat.py"),
     test("normal-login", "interaction", PYTHON, "device/test_normal_login.py"),

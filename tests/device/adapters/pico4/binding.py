@@ -26,6 +26,7 @@ from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, Android
     FILE as RECORDED_PREVIEW_FILE)
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from adapters.pico4 import normal_scripts
+from adapters.pico4 import script_journey
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from adapters.script_restart_handoff import ScriptRestartHandoff
@@ -179,7 +180,13 @@ def create_adapter(args, base_class):
                 _need((not cleanup_only or cleanup_candidate) and self.pico_configuration is not None
                       and candidate['e2e_input_layer'] is True)
                 values.extend(SCRIPT_OPERATIONS)
+            if script_journey.configured(os.environ):
+                _need(not cleanup_only and self.pico_configuration is not None and candidate['e2e_input_layer'] is True)
+                values.extend(script_journey.OPERATIONS)
             return sorted(set(values))
+
+        def _script_journey(self):
+            return script_journey.PicoScriptJourney(self)
 
         def _script_paths(self, target):
             _need(self.pico_configuration is not None)
@@ -249,7 +256,8 @@ def create_adapter(args, base_class):
         def _script_restart_handoff(self, target):
             state, _ui = self._script_paths(target)
             return ScriptRestartHandoff(self._script_restart_store(target),
-                self._script_files_store(target), PrivateFeatureState(state))
+                self._script_files_store(target), PrivateFeatureState(state),
+                require_membership=script_journey.configured(os.environ))
 
         @_private
         def _script_restart_prepare(self, target):
@@ -613,7 +621,13 @@ def create_adapter(args, base_class):
             # turn a foreign installation into an accepted initial describe.
             self._installation(target)
             try:
-                if operation in NAVIGATION_OPERATIONS:
+                if operation in script_journey.OPERATIONS:
+                    _need(script_journey.configured(os.environ))
+                    from feature_journeys.contract import arguments
+                    arguments(operation, values)
+                    flow = self._script_journey()._script_feature(target, values['runId'])
+                    result = getattr(flow, operation.rsplit('.', 1)[1])(values)
+                elif operation in NAVIGATION_OPERATIONS:
                     result = self._navigation(target).invoke(operation, values)
                 elif operation in SNAPSHOT_OPERATIONS:
                     result = self._snapshot(target).invoke(operation, values)
@@ -627,6 +641,29 @@ def create_adapter(args, base_class):
 
         @_private
         def cleanup(self, target):
+            feature_error = False
+            try:
+                if self.pico_configuration is not None:
+                    journey = self._script_journey()
+                    owner = journey.script_feature_store(target).read()
+                    retirement = journey.script_retirement_store(target).read()
+                    if owner is not None or retirement is not None:
+                        if cleanup_only: self._recover_cleanup_candidate()
+                        record = owner if owner is not None else retirement
+                        # Internal cleanup has no fixture/actor credential and
+                        # cannot advance a run. Finalization independently proves
+                        # both roles' originals and actual resource absence.
+                        from adapters.script_journey.feature import ScriptFeature, ScriptRetirementSource
+                        flow = ScriptFeature(journey, target,
+                            ScriptRetirementSource(record['runId'], record['fixtureUrl']))
+                        flow.finalize()
+                    else:
+                        # An interrupted reservation without its owner cannot
+                        # disappear behind ordinary application teardown.
+                        path = journey.state_path(target).parent
+                        _need(not any(p.name != 'script-sources.lock' for p in path.iterdir()))
+            except Exception:
+                feature_error = True
             chat_error=False
             try:
                 if self.pico_configuration is not None:
@@ -675,13 +712,13 @@ def create_adapter(args, base_class):
                     discard_stopped_state(path)
                 state, ui = self._script_paths(target)
                 discard_stopped_state(ui)
-                _need(not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
+                _need(not feature_error and not script_error and not probe_error and not origin_error and not chat_error and PrivateFeatureState(state).read() is None
                       and self._script_restart_inputs_store(target).read() is None
                       and self._script_restart_store(target).read() is None
                       and self._script_files_store(target).read() is None and self._account_probe_store(target).read() is None
                       and self._account_origin_store(target).read() is None and self._chat_capture_store(target).read() is None)
             else:
-                _need(not script_error and not probe_error and not origin_error and not chat_error)
+                _need(not feature_error and not script_error and not probe_error and not origin_error and not chat_error)
             return result
 
     return PicoBoundAdapter(args.kind)

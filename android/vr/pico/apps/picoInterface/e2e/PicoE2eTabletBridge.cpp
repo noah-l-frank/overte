@@ -20,6 +20,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QRectF>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QSet>
 #include <QTimer>
@@ -350,7 +351,49 @@ private:
         });
         applyCommand(observation);
         navigationTick();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        scriptObservationTick();
+#endif
     }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Passive source on the actual VR TabletRoot and offscreen surface. Input
+    // remains in NavigationUi with its existing native VR pointer/controller path.
+    void scriptObservationTick() {
+        const QString path=BRIDGE_DIRECTORY+"/script-file-ui-command.json";
+        QFile input(path);
+        if (QFileInfo(path).isSymLink() || !input.open(QIODevice::ReadOnly) || input.size()>4096) { return; }
+        QJsonParseError error;
+        const auto document=QJsonDocument::fromJson(input.readAll(),&error);
+        if (error.error!=QJsonParseError::NoError || !document.isObject()) { return; }
+        const auto command=document.object();
+        const auto id=command.value("commandId").toString();
+        if (!exactKeys(command,{"schemaVersion","commandId","action"})
+                || command.value("schemaVersion")!=QJsonValue(1)
+                || command.value("action")!=QJsonValue(QStringLiteral("observe"))
+                || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+                || id==_lastScriptObservationId || _scriptObservationNonces.contains(id)
+                || _scriptObservationNonces.size()>=4096) { return; }
+        // Never recapture a prior original nonce after another role's read.
+        // A failed write also retains its nonce; no later query can retime it.
+        _scriptObservationNonces.insert(id);
+        _lastScriptObservationId=id;
+        auto tablets=DependencyManager::get<TabletScriptingInterface>();
+        auto tablet=tablets ? tablets->getTablet(SYSTEM_TABLET) : nullptr;
+        auto root=tablet ? tablet->getTabletRoot() : nullptr;
+        auto surface=tablet ? tablet->getTabletSurface() : nullptr;
+        auto window=surface ? surface->getWindow() : nullptr;
+        auto packet=_scriptObservation.observe(root,window);
+        if (packet.isEmpty()) { return; }
+        auto inventory=packet.value("scriptInventory").toObject();
+        if (inventory.isEmpty()) { return; }
+        inventory["tabletPresent"]=bool(tablet);
+        inventory["tabletShown"]=tablet && tablet->property("tabletShown").toBool();
+        packet["scriptInventory"]=inventory;
+        packet["commandId"]=id;packet["action"]=QStringLiteral("observe");
+        writeJson(BRIDGE_DIRECTORY+"/script-file-ui.json",packet);
+    }
+#endif
 
     void navigationTick() {
         auto tabletInterface = DependencyManager::get<TabletScriptingInterface>();
@@ -425,6 +468,11 @@ private:
     QString _lastCommandId;
     QString _lastNavigationCommandId;
     NavigationUi _navigation;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::e2e::ScriptFileUi _scriptObservation;
+    QString _lastScriptObservationId;
+    QSet<QString> _scriptObservationNonces;
+#endif
 };
 
 }  // namespace

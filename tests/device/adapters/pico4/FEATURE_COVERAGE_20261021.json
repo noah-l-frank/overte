@@ -1,0 +1,871 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": 16,
+  "branch": "test/android-pico/feature-adapters-parallel-20261021",
+  "sourceBase": "de7587093406a49573189e626bd350a12cb3d31f",
+  "sharedFoundationsVerified": [
+    "7636452f2124029798948aafae70ecff5c5fa7d0",
+    "0a52254c0580a1fd28626d23bead55015500c0a7"
+  ],
+  "frozenPhoneReference": "fe4684bf46585088370b3a328a738f147e670b97",
+  "full14AdaptersComplete": false,
+  "sourceCompleteAreas": [
+    "scripts"
+  ],
+  "deviceQualifiedAreas": [],
+  "physicalRuns": 0,
+  "historicalOverviewUsedAsAuthority": false,
+  "qualification": "Host simulations and uncompiled source only. Thirteen complete Pico areas remain unavailable; missing required capabilities must fail the full run.",
+  "rows": [
+    {
+      "area": "world-navigation",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [
+        "domain-enter",
+        "domain-roundtrip",
+        "places-navigation",
+        "look",
+        "move",
+        "input-neutral",
+        "collision",
+        "jump",
+        "fly",
+        "scene-reload"
+      ],
+      "sources": [
+        "tests/device/adapters/pico4/navigation.py",
+        "tests/device/adapters/pico4/binding.py",
+        "tests/device/feature_journeys/NAVIGATION_SOURCE.md"
+      ],
+      "declaredCheckpoints": 15,
+      "inputVerbs": [
+        "open",
+        "bookmark-add-cancel",
+        "bookmark-add",
+        "bookmark-rename-cancel",
+        "bookmark-rename",
+        "directory-search",
+        "directory-select",
+        "navigate-missing",
+        "dismiss-error",
+        "bookmark-visit",
+        "restart-app",
+        "bookmark-delete",
+        "close"
+      ],
+      "observationFields": [
+        "location",
+        "bookmark",
+        "bookmarkName",
+        "searchQuery",
+        "searchResults",
+        "error",
+        "panel",
+        "addressDialog"
+      ],
+      "missingOperationsOrEvidence": [
+        "Bookmark cancel/create/rename/delete and persistent original bookmark storage",
+        "Actual Places query/model and directory selection",
+        "Whole-area arrival/error/modal/restart coordination and independent publisher"
+      ],
+      "requiredOriginalEvidence": [
+        "Original directory response and native consumed response ID",
+        "Original named-lookup 404 and visible current modal",
+        "Current avatar location/position and original stereo scene images",
+        "Separately acquired Places/UI/storage witness"
+      ],
+      "cleanupObligations": [
+        "Remove only the owned bookmark",
+        "Restore original location and closed owned dialogs",
+        "Prove pending reply/callback retirement and a three-second quiet baseline"
+      ],
+      "nextExecutableStep": "Extend Pico NavigationUi on actual Places/bookmark controls with passive current QML/model and native bookmark storage reads; join the existing navigation-reply source before registering a whole-area triple.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "authentication",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [],
+      "sources": [
+        "tests/device/adapters/pico4/normal_login.py",
+        "tests/device/adapters/pico4/NORMAL_LOGIN.md",
+        "interface/src/Application_UI.cpp",
+        "tests/device/adapters/pico4/binding.py"
+      ],
+      "declaredCheckpoints": 17,
+      "inputVerbs": [
+        "login-open",
+        "login-submit",
+        "login-cancel",
+        "restart-app",
+        "release-stale-response",
+        "logout"
+      ],
+      "observationFields": [
+        "principal",
+        "dialog",
+        "error",
+        "pending",
+        "protectedAccess",
+        "delayedGrantOutstanding"
+      ],
+      "missingOperationsOrEvidence": [
+        "Normal anonymous dismissal and observation of the separate LoginDialogEntity/VR keyboard",
+        "Pico test-launch origin/TLS authority provisioning and ordinary current logout",
+        "Whole protected-profile/provider/delayed-grant/restart and independent UI witness coordination"
+      ],
+      "requiredOriginalEvidence": [
+        "Current native account flags and protected HTTPS response",
+        "Original provider authority/delayed-handler state",
+        "Actual generic login and startup WebEntity visibility/focus",
+        "Per-role native process birth, old PID ESRCH and lifecycle"
+      ],
+      "cleanupObligations": [
+        "Normal logout and owned view dismissal",
+        "Provider grants blocked, delayed handlers drained and authority revoked",
+        "Original probe/origin/private-input leases released and independently absent"
+      ],
+      "nextExecutableStep": "Bind the real LoginDialogEntity source and ordinary VR pointer dismissal, then port the frozen Authentication coordinator through Pico-specific startup/origin/logout/restart factories; a tablet Home ACK cannot prove the entity disappeared.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "avatar-people",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "missing",
+      "completeOperations": [],
+      "existingModules": [
+        "multi-user"
+      ],
+      "sources": [
+        "scripts/system/avatarapp.js",
+        "tests/device/feature_journeys/AVATAR_SOURCE.md",
+        "tests/device/adapters/pico4/feature_observation.py"
+      ],
+      "declaredCheckpoints": 15,
+      "inputVerbs": [
+        "avatar-url",
+        "avatar-bookmark-save",
+        "avatar-scale",
+        "wearable-add",
+        "avatar-bookmark-choose",
+        "connection-request",
+        "connection-cancel",
+        "peer-reject",
+        "peer-accept",
+        "connection-remove",
+        "avatar-restore",
+        "avatar-bookmark-delete"
+      ],
+      "observationFields": [
+        "avatar",
+        "requestedAvatar",
+        "modelLoaded",
+        "loadFailed",
+        "scale",
+        "wearable",
+        "bookmarked",
+        "connection",
+        "dialog"
+      ],
+      "missingOperationsOrEvidence": [
+        "All complete Avatar URL/bookmark/scale/wearable and mutual People-consent input recipes",
+        "Original bookmark/model-load/wearable and both-party contact journals",
+        "Independent consent actor and original avatar images"
+      ],
+      "requiredOriginalEvidence": [
+        "Current requested avatar URL and separately loaded model identity/error",
+        "Original Hips-attached wearable and scale",
+        "Actual bookmark storage",
+        "Both participants own contact/request/accept/reject observations"
+      ],
+      "cleanupObligations": [
+        "Restore original avatar and scale",
+        "Delete only owned wearable/bookmark/connection",
+        "Confirm both participants have no pending request and observe quiet restoration"
+      ],
+      "nextExecutableStep": "Add source-bound Avatar and People native controls on the actual VR tablet, starting with URL -> independently loaded model -> failure/recovery -> exact original restoration; extend the existing multi-user fixture with real contact observations.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "create",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [
+        "create-management",
+        "entity-sync",
+        "world-interaction"
+      ],
+      "sources": [
+        "tests/device/adapters/pico4/normal_create.py",
+        "tests/device/adapters/token_create_ui.py",
+        "tests/device/feature_journeys/CREATE_SOURCE.md"
+      ],
+      "declaredCheckpoints": 21,
+      "inputVerbs": [
+        "open",
+        "import-picker-open",
+        "import-picker-cancel",
+        "model-create",
+        "apply-texture",
+        "export-selection",
+        "delete-owned",
+        "import-picker-accept",
+        "voxel-create",
+        "voxel-edit",
+        "set-rez-permission",
+        "create-denied",
+        "create-retry",
+        "close"
+      ],
+      "observationFields": [
+        "objects",
+        "editor",
+        "picker",
+        "error",
+        "canRez",
+        "selection",
+        "textured",
+        "voxelValue"
+      ],
+      "missingOperationsOrEvidence": [
+        "Whole model/texture creation and actual local JSON picker/export ownership",
+        "PolyVox editing and actual domain rez-denial/recovery actor",
+        "Independent entity/history, original export, resource and stereo image joins"
+      ],
+      "requiredOriginalEvidence": [
+        "Original entity UUID/properties/history and rez authority",
+        "Actual Model URL resource and texture slot",
+        "Original exported JSON from the product file endpoint",
+        "Actual PolyVox voxel plus independent domain entity witness"
+      ],
+      "cleanupObligations": [
+        "Normal deletion only of captured owned UUIDs",
+        "Drain original model/texture/picker/export callbacks and files",
+        "Restore rez permission, view and actual unowned scene inventory"
+      ],
+      "nextExecutableStep": "Extend the existing TokenCreateUI and Pico navigation controls for the actual JSON picker and export, then join the existing entity observer to original file/texture and domain permission sources before enabling the area.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "emotes",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [],
+      "sources": [
+        "scripts/system/+android_phoneInterface/phoneEmote.js",
+        "scripts/system/emote.js",
+        "tests/device/adapters/pico4/binding.py",
+        "tests/device/adapters/emote_source_profile.py"
+      ],
+      "declaredCheckpoints": 28,
+      "inputVerbs": [
+        "open",
+        "play",
+        "wait-complete",
+        "cancel",
+        "sit",
+        "override",
+        "background-resume",
+        "close"
+      ],
+      "observationFields": [
+        "animation",
+        "sit",
+        "override",
+        "poseProgress",
+        "panel",
+        "restoredBeforeNominalEnd"
+      ],
+      "missingOperationsOrEvidence": [
+        "Current actual submitted Emote entrypoint/profile qualification and full normal input recipe",
+        "Durable Rig/pose/native caller/timer restoration joins",
+        "Original stereo avatar images and independent actor publication"
+      ],
+      "requiredOriginalEvidence": [
+        "Actual configured Script roots and submitted UTF16 code",
+        "Original Rig override/load/pose progression and restoration time",
+        "Source-specific Sit variant and actual native arguments",
+        "Fresh original avatar pixels from the correct headset view"
+      ],
+      "cleanupObligations": [
+        "Cancel owned override through ordinary input",
+        "Observe original pose/mapping/timer/resource retirement",
+        "Restore captured prior override and closed panel"
+      ],
+      "nextExecutableStep": "Reuse frozen Phone source-profile/Rig/caller components only after binding actual Pico roots/submitted code; implement Pico VR token input and stereo avatar acquisition. Do not assume the legacy Web Emote and normal QML app have identical Sit behavior.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "world-web",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [
+        "world-web-video"
+      ],
+      "sources": [
+        "tests/device/adapters/pico4/WEB_DOM_OBSERVATION.md",
+        "tests/device/adapters/pico4/binding.py",
+        "tests/device/feature_journeys/WEB_SOURCE.md"
+      ],
+      "declaredCheckpoints": 19,
+      "inputVerbs": [
+        "open",
+        "focus-type",
+        "submit",
+        "clear-text",
+        "navigate",
+        "back",
+        "navigate-foreign",
+        "foreign-origin-message",
+        "reload",
+        "restore-resource",
+        "background-resume",
+        "close"
+      ],
+      "observationFields": [
+        "surface",
+        "text",
+        "page",
+        "bridgeMessages",
+        "bridgeEchoes",
+        "attemptedMessages",
+        "documentLoads",
+        "httpStatus",
+        "origin",
+        "documentKind",
+        "inlineLeases",
+        "deferredMessages",
+        "error",
+        "focused",
+        "open"
+      ],
+      "missingOperationsOrEvidence": [
+        "Normal trusted DOM input from an actual controller ray/world-surface hit",
+        "Cumulative original document/admission/native script echo journals",
+        "Original HTTP/document receipt, stereo pixels and independent publisher composition"
+      ],
+      "requiredOriginalEvidence": [
+        "Original native Web view/document/main-frame URL/response ID",
+        "Actual trusted input and accepted/rejected bridge/echo history",
+        "Owned server original response/body provenance",
+        "Current DOM text/focus and original rendered world pixels"
+      ],
+      "cleanupObligations": [
+        "Normal owned world Web entity removal",
+        "Revoke actual view/grant/nonce authority",
+        "Drain original retained callbacks and prove absent owned entities/view resources"
+      ],
+      "nextExecutableStep": "Bind actual world entity dimensions/pose and controller-ray hit projection to normal browser input, then join existing native DOM observations with native script echo and original server receipts; Phone touch coordinates are not a Pico route.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "tablet-web",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [
+        "tablet-web-video",
+        "tablet"
+      ],
+      "sources": [
+        "tests/device/adapters/pico4/WEB_DOM_OBSERVATION.md",
+        "tests/device/adapters/pico4/binding.py",
+        "tests/device/feature_journeys/WEB_SOURCE.md"
+      ],
+      "declaredCheckpoints": 26,
+      "inputVerbs": [
+        "open",
+        "focus-type",
+        "submit",
+        "clear-text",
+        "navigate",
+        "back",
+        "navigate-foreign",
+        "foreign-origin-message",
+        "reload",
+        "restore-resource",
+        "background-resume",
+        "open-inline-app",
+        "hold-inline-message",
+        "return-from-inline",
+        "deliver-retired-inline-message",
+        "close"
+      ],
+      "observationFields": [
+        "surface",
+        "text",
+        "page",
+        "bridgeMessages",
+        "bridgeEchoes",
+        "attemptedMessages",
+        "documentLoads",
+        "httpStatus",
+        "origin",
+        "documentKind",
+        "inlineLeases",
+        "deferredMessages",
+        "error",
+        "focused",
+        "open"
+      ],
+      "missingOperationsOrEvidence": [
+        "Normal actual VR Web DOM input and all document transitions",
+        "Original inline data-HTML lease and retained old callback delivery (v1 source rejects inline)",
+        "Independent original DOM/bridge/image/publisher and cleanup coordination"
+      ],
+      "requiredOriginalEvidence": [
+        "Original VR tablet Web view and current document admission",
+        "Actual main-frame HTTP response and DOM challenge",
+        "Original inline bytes/lease and old callback rejection",
+        "Separately acquired DOM/input/echo and stereo image evidence"
+      ],
+      "cleanupObligations": [
+        "Normal return/close of owned browser and inline app",
+        "Revoke leases and retire callback/grant authority",
+        "Observe actual source destruction and closed quiet baseline"
+      ],
+      "nextExecutableStep": "Extend the existing native Web DOM source with a versioned original inline carrier/retained dispatch owner, then route ordinary pointer input through the bound VR surface and compose the existing shared browser journey.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "graphics",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [
+        "render-health"
+      ],
+      "sources": [
+        "tests/device/adapters/pico4/normal_graphics.py",
+        "tests/device/adapters/pico4/binding.py",
+        "libraries/render-utils/src/ToneMapAndResampleTask.cpp",
+        "libraries/gpu/src/gpu/FeatureWorldRender.h",
+        "tests/device/feature_journeys/GRAPHICS_SUBJECT.md"
+      ],
+      "declaredCheckpoints": 15,
+      "inputVerbs": [
+        "open",
+        "set-resolution",
+        "close",
+        "set-haze",
+        "set-mirrors",
+        "background-resume",
+        "restart-app",
+        "restore-original"
+      ],
+      "observationFields": [
+        "resolution",
+        "renderScale",
+        "haze",
+        "hazePass",
+        "mirror",
+        "mirrorPass",
+        "dialog"
+      ],
+      "missingOperationsOrEvidence": [
+        "Actual VR resolution control/confirmation and runtime-eye semantics",
+        "Original per-eye capture, projection/view/frame identity and actual pass execution",
+        "Complete Pico source-specific Graphics/persistence/background/restart/restoration coordinator"
+      ],
+      "requiredOriginalEvidence": [
+        "Actual native stereo source/target extents and per-eye viewport/projection",
+        "Same original executed frame and actual Haze/Mirror passes",
+        "Original PNG bytes and current challenge in both eyes",
+        "Current preferences separately from measured render scale"
+      ],
+      "cleanupObligations": [
+        "Normal restoration of captured original VR preferences",
+        "Actual render callbacks, buffers, receipts and Web subject resources released",
+        "Restore original scene/view and independently observe complete owned UUID absence"
+      ],
+      "nextExecutableStep": "Version the native acquisition and evidence contract for actual stereo frames: the current ToneMapAndResampleTask explicitly requires !args->isStereo(), and capture v1 admits main-mono only. Bind real VR resolution confirmation before adapting the Phone coordinator; never relabel mono images.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "audio",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [
+        "audio-controls",
+        "permission-recovery",
+        "sound-playback",
+        "voice-roundtrip"
+      ],
+      "sources": [
+        "tests/device/adapters/pico4/normal_audio.py",
+        "tests/device/adapters/pico4/binding.py",
+        "tests/device/native/RECORDED_PREVIEW_EVIDENCE.md",
+        "tests/device/feature_journeys/scenarios.py"
+      ],
+      "declaredCheckpoints": 14,
+      "inputVerbs": [
+        "open",
+        "mute",
+        "record-start",
+        "record-cancel",
+        "await-completion",
+        "background-resume",
+        "close"
+      ],
+      "observationFields": [
+        "recording",
+        "preview",
+        "muted",
+        "recordedFrames",
+        "playedFrames",
+        "bufferedFrames",
+        "phase",
+        "history",
+        "error",
+        "open"
+      ],
+      "missingOperationsOrEvidence": [
+        "Complete normal preview cycle/one-send input and ownership coordinator",
+        "Controlled microphone stimulus and independent actual acoustic capture/publisher binding",
+        "Original capture/sink/history artifact, lifecycle interruption and cleanup joins"
+      ],
+      "requiredOriginalEvidence": [
+        "Actual native cycle/phase/frame counts, original immutable history",
+        "Original capture-before-normalization PCM",
+        "Actual accepted sink writes separately from independent acoustic recording",
+        "Fresh challenge/silence and independent UI/mute/terminal witness"
+      ],
+      "cleanupObligations": [
+        "Ordinary Cancel and actual zero live buffers/playback",
+        "Release native E2E PCM/history files after product quiet state",
+        "Independently inspect actual memory/files and restore original mute/echo/permission"
+      ],
+      "nextExecutableStep": "Compose existing Pico TokenAudioUI, native cycle/history and PCM readers with a separately owned fixture stimulus/acoustic recorder and role journals; native sink-write success alone is not acoustic playback evidence.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "chat",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [
+        "text-input"
+      ],
+      "sources": [
+        "tests/device/adapters/pico4/normal_chat.py",
+        "tests/device/adapters/pico4/binding.py",
+        "tests/device/fixture/chat_actor_process.py",
+        "tests/device/feature_journeys/CHAT_SOURCE.md"
+      ],
+      "declaredCheckpoints": 25,
+      "inputVerbs": [
+        "open",
+        "type",
+        "close",
+        "select-channel",
+        "send",
+        "peer-send",
+        "peer-send-distant",
+        "background-resume",
+        "network-remove-mixer",
+        "network-restore-mixer",
+        "await-no-replay"
+      ],
+      "observationFields": [
+        "draft",
+        "messages",
+        "localMessages",
+        "domainMessages",
+        "peerMessages",
+        "channel",
+        "mixerConnected",
+        "focused",
+        "keyboard",
+        "open"
+      ],
+      "missingOperationsOrEvidence": [
+        "Whole ordinary Chat UI/storage/context/actual VR keyboard coordinator",
+        "Peer normal send/local-distance and owned mixer outage/recovery actuation",
+        "Independent per-role native/UI/storage/message ledger and resource retirement"
+      ],
+      "requiredOriginalEvidence": [
+        "Current actual native received caches and mixer/session pairing",
+        "Original primary and peer UI/storage observations",
+        "Actual remote arrival order/multiplicity and peer location",
+        "Actual keyboard/focus/lifecycle and no-replay quiet window"
+      ],
+      "cleanupObligations": [
+        "Restore original draft/history/channel/storage without erasing unowned content",
+        "Restore peer position and owned mixer service",
+        "Close view and observe keyboard, peer work and capture ownership fully retired"
+      ],
+      "nextExecutableStep": "Join PicoChatIO and passive Chat sources with the existing owned peer IPC/mixer fixture, adding actual VR keyboard and separately acquired UI/storage observations; the default peer heartbeat proves no Chat delivery.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "snapshots",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [
+        "snapshot-output-parity"
+      ],
+      "sources": [
+        "tests/device/adapters/pico4/snapshot.py",
+        "tests/device/adapters/android_snapshot_files.py",
+        "tests/device/feature_journeys/SNAPSHOT_SOURCE.md"
+      ],
+      "declaredCheckpoints": 18,
+      "inputVerbs": [
+        "open",
+        "capture-cancel",
+        "set-save-permission",
+        "capture",
+        "save-denied",
+        "save-picker-open",
+        "save-picker-cancel",
+        "save",
+        "share-open",
+        "share-cancel",
+        "share-select-owned",
+        "upload-fail",
+        "upload",
+        "background-resume",
+        "close"
+      ],
+      "observationFields": [
+        "open",
+        "pending",
+        "captureHistory",
+        "files",
+        "saved",
+        "uploads",
+        "shares",
+        "saveBackend",
+        "savePermission",
+        "saveSheet",
+        "shareSheet",
+        "error"
+      ],
+      "missingOperationsOrEvidence": [
+        "Actual selected Save backend/authorization and real OS chooser driver",
+        "Independent receiver-original/save-original/upload-original acquisition and actor",
+        "Whole queued cancel/history/interruption/cleanup composition"
+      ],
+      "requiredOriginalEvidence": [
+        "Original native queued-capture history and private PNG",
+        "Actual selected backend and current OS authorization",
+        "Original saved file and real granted-byte receiver output",
+        "Original failed/retried upload body and native callback/resource inventory"
+      ],
+      "cleanupObligations": [
+        "Cancel/drain owned captures, pickers, share/upload callbacks",
+        "Delete only actual owned private/saved/received/uploaded originals",
+        "Restore permissions/preferences and observe quiet absent leases"
+      ],
+      "nextExecutableStep": "Expose actual Pico SnapshotStorage backend/lease state and bind its real OS Save/Share routes; provide independently owned receiving/upload endpoints. Existing private snapshot.files and a chooser ACK cannot stand in for external original deliveries.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "scripts",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "complete-source-host-verified",
+      "completeOperations": [
+        "feature.scripts.act",
+        "feature.scripts.observe",
+        "feature.scripts.cleanup"
+      ],
+      "existingModules": [
+        "scripts-management",
+        "scripted-entity"
+      ],
+      "sources": [
+        "tests/device/adapters/pico4/script_journey.py",
+        "tests/device/adapters/pico4/script_observer.py",
+        "tests/device/adapters/script_journey/feature.py",
+        "android/vr/pico/apps/picoInterface/e2e/PicoE2eTabletBridge.cpp",
+        "android/vr/pico/tests/device/test_script_journey.py"
+      ],
+      "declaredCheckpoints": 19,
+      "inputVerbs": [
+        "open",
+        "picker-open",
+        "picker-cancel",
+        "picker-accept",
+        "stop-owned",
+        "restart-app",
+        "load-url",
+        "close"
+      ],
+      "observationFields": [
+        "running",
+        "picker",
+        "error",
+        "effects",
+        "open",
+        "companions"
+      ],
+      "missingOperationsOrEvidence": [],
+      "requiredOriginalEvidence": [
+        "Original staged files/location plus actual native byte hashes",
+        "Actual engine/code/CommonJS/effects/load/membership history",
+        "Passive original VR manager/picker inventory and separate Script service",
+        "Native lifecycle/PID ESRCH, original HTTP404 and each role own durable originals"
+      ],
+      "cleanupObligations": [
+        "Normal Stop/Cancel/Close and three seconds actual engine/module/effect/UI quiet",
+        "Release original fixture files and separately prove absence",
+        "Retain both role histories through final baseline then hash-bound journal retirement before app teardown"
+      ],
+      "nextExecutableStep": "Review and compile the test-gated native additions only in a separately authorized build; later qualify the exact installed Pico candidate and independent observer through Proxmox. No source or host result qualifies a device.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "assets",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "missing",
+      "completeOperations": [],
+      "existingModules": [
+        "asset-load"
+      ],
+      "sources": [
+        "tests/device/feature_journeys/ASSETS_SOURCE.md",
+        "interface/src/Application_Assets.cpp",
+        "scripts/system/create/qml/NativeCreate.qml"
+      ],
+      "declaredCheckpoints": 29,
+      "inputVerbs": [
+        "open",
+        "upload-picker-open",
+        "upload-picker-cancel",
+        "upload",
+        "browse",
+        "rename-folder",
+        "inspect-baking-unavailable",
+        "import-selected",
+        "remove-owned-model",
+        "set-write-permission",
+        "delete-denied",
+        "delete-owned",
+        "set-baking",
+        "upload-picker-select",
+        "retire-staged-primary",
+        "upload-picker-accept-unavailable",
+        "close"
+      ],
+      "observationFields": [
+        "mappings",
+        "selected",
+        "baking",
+        "bakeState",
+        "bakeAvailable",
+        "canWrite",
+        "deleteEnabled",
+        "error",
+        "open",
+        "sceneModel",
+        "companions",
+        "picker",
+        "pickerFile",
+        "stagedAvailable"
+      ],
+      "missingOperationsOrEvidence": [
+        "All actual VR Assets browser/upload/bundle/destination/rename/import/delete/bake input recipes",
+        "Owned original staging/selected-missing-file picker and server mapping/oven actor",
+        "Whole original mapping/hash/worker/model/stereo evidence and independent publisher"
+      ],
+      "requiredOriginalEvidence": [
+        "Original glTF/OBJ/FBX and full relative companion bytes",
+        "Actual server mapping/source hashes separately from baked derivative",
+        "Actual versioned oven worker/completion/status and disabled control",
+        "Real loaded/drawn owned model and independent permission/server witness"
+      ],
+      "cleanupObligations": [
+        "Delete only owned model and entire owned mapping namespace",
+        "Drain oven/upload/picker workers and release actual staged originals",
+        "Restore original server permission and prove complete namespace/resource absence"
+      ],
+      "nextExecutableStep": "Bind actual Assets VR controls and original asset-server mapping/oven sources; begin with one upload -> companion validation -> ordinary import -> actual rendered model -> exact owned deletion flow using existing bundle fixtures.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    },
+    {
+      "area": "lifecycle-input",
+      "sharedTestLogic": "present-v16",
+      "picoAdapter": "partial",
+      "completeOperations": [],
+      "existingModules": [
+        "lifecycle-under-load",
+        "tablet-input-isolation",
+        "text-input"
+      ],
+      "sources": [
+        "tests/device/adapters/pico4/PENDING_COMMIT_OWNER.md",
+        "tests/device/adapters/pico4/binding.py",
+        "tests/device/feature_journeys/LIFECYCLE_INPUT_SOURCE.md",
+        "interface/resources/qml/hifi/tablet/TabletRoot.qml"
+      ],
+      "declaredCheckpoints": 16,
+      "inputVerbs": [
+        "open-editor",
+        "type",
+        "world-input",
+        "back",
+        "background-resume",
+        "hold-editor-input",
+        "replace-context",
+        "deliver-stale-input",
+        "close-editor",
+        "release-input",
+        "restore"
+      ],
+      "observationFields": [
+        "editor",
+        "text",
+        "keyboard",
+        "focused",
+        "heldInputs",
+        "worldDisplacement",
+        "positionDelta",
+        "generation",
+        "deferredInputs",
+        "worldAttempts",
+        "staleAttempts"
+      ],
+      "missingOperationsOrEvidence": [
+        "Demonstrated normal Create Back route on real 3D TabletRoot",
+        "Actual VR keyboard/tracking/focus and original page/editor context generation",
+        "Whole pending commit/world-input/interruption/stale rejection/cleanup coordinator"
+      ],
+      "requiredOriginalEvidence": [
+        "Actual current Qt page/editor/window weak identities and lifecycle",
+        "Original retained IME event/context/hash and actual attempted rejection",
+        "Current VR keyboard/focus/tracking and neutral controller channels",
+        "Independent avatar displacement after actual world input attempts"
+      ],
+      "cleanupObligations": [
+        "Release original held input/pending event once through original owner",
+        "Observe real old context retirement and new empty editor",
+        "Restore original position/focus and sustain zero deferred/held input for three seconds"
+      ],
+      "nextExecutableStep": "Establish a source-backed ordinary Create Back route on TabletRoot before enabling this recipe: the bridge allowlist entry nav.back is not proof a control exists. Bind VR keyboard/tracking/context observation and the existing pending dispatch owner; do not substitute Home or invoke returnToPreviousApp directly.",
+      "nativeCompilation": "unverified",
+      "deviceQualification": "untested"
+    }
+  ]
+}

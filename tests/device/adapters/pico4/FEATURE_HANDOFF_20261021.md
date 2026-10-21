@@ -1,0 +1,132 @@
+# Pico adapter handoff: 2026-10-21
+
+This branch completes one source-level Pico feature area, Scripts. It does not
+complete all fourteen adapters. The other thirteen remain partial or missing
+with concrete missing operations, original evidence, cleanup obligations and
+next executable source steps in the
+[machine coverage matrix](FEATURE_COVERAGE_20261021.json). Every row separately
+records shared v16 test logic, adapter implementation, native compilation and
+device qualification. Native code is uncompiled; no device is tested.
+
+| Area | Current Pico implementation | Concrete next boundary |
+| --- | --- | --- |
+| Worlds/navigation | Partial Go To/history and original reply reader | Actual bookmark/Places storage/model, failure modal, arrival/image and independent observer join |
+| Authentication | Partial generic login/probe/origin components | Separate VR LoginDialogEntity dismissal, test-launch authority, logout and full protected/provider/restart observer |
+| Avatar/contacts | Complete adapter missing | Source-bound Avatar/People inputs and independent model/bookmark/wearable/consent observations |
+| Create | Partial token controls and entity foundations | Actual JSON picker/export, model/texture/PolyVox, permission actor and original file/image/peer joins |
+| Emotes | Partial submitted-code/Rig observations | Actual running source/profile, VR normal controls, timer/caller/pose and stereo avatar evidence |
+| Web in world | Partial native DOM source | Actual controller-ray hit/DOM input, original document/echo journals, response receipt and stereo image join |
+| Web in tablet | Partial native DOM source | VR DOM input plus original inline carrier/retained callback and complete document/cleanup owner |
+| Graphics | Partial normal settings and mono acquisition component | Stereo acquisition/view/pass contract and actual VR resolution semantics; mono cannot qualify Pico |
+| Audio | Partial normal controls/cycle/history/PCM sources | Whole cycle owner, microphone stimulus, independent acoustic capture/publisher and lifecycle/cleanup join |
+| Chat | Partial normal controls, current native view/cache and peer IPC prerequisites | Independent primary/peer UI/storage/keyboard/delivery ledger and owned mixer/distance/recovery coordinator |
+| Snapshots | Partial private original-output foundation | Actual OS Save backend/authorization, independently acquired receiver/save/upload originals and callback cleanup |
+| Scripts | Complete source; host verified | Review/compile test-gated native source and later qualify the exact installed candidate through Proxmox |
+| Assets | Complete adapter missing | Actual Assets UI/bundle picker, original server mapping/oven/permission/model sources and independent actor |
+| Lifecycle/input | Partial current token/pending-event owner | A demonstrated normal Create Back route on 3D TabletRoot, actual VR keyboard/tracking/context and full stale-input join |
+
+These are implementation gaps, not successful skips. `--require-complete` must
+continue rejecting a full selected run when required capabilities are missing.
+No acceptance policy, workflow, safeguard, evidence registry or platform label
+was changed to hide them. A normal input ACK never proves its effect.
+
+The exact [Scripts handoff](SCRIPT_FEATURE.md) specifies every implemented
+operation, original inputs/observations, provider/actor configuration, error and
+recovery paths, time limits and cleanup. The matrix lists corresponding
+obligations for every incomplete area; shared `*_SOURCE.md` contracts remain
+normative. No backend, permission, ordinary Back route or independent actor
+result is inferred from Phone defaults or historical coverage.
+
+## Isolation and provenance
+
+The new isolated branch is
+`test/android-pico/feature-adapters-parallel-20261021`, based on the actual
+committed Pico state `de7587093406a49573189e626bd350a12cb3d31f`. Both shared
+foundations `7636452f2124029798948aafae70ecff5c5fa7d0` and
+`0a52254c0580a1fd28626d23bead55015500c0a7` were verified as ancestors.
+The original reference worktree was inspected read-only. Its seven task-related
+WIP files were captured twice with matching commit/status/patch/content,
+applied only here, reviewed, host-tested and committed with
+[original hashes](WIP_PROVENANCE_20261021.json). The private original patch and
+file snapshot remain outside the checkout. No original reference, Phone, iOS,
+frozen worktree or another session's evidence/progress was edited.
+
+Only the frozen Phone reference
+`fe4684bf46585088370b3a328a738f147e670b97` was used. Its status confirms three
+complete source adapters (Scripts, Authentication, Graphics); Emote is component
+work. Its historical instruction to pause Pico does not override this task's
+explicit parallel authorization. No moving Phone branch or uncommitted Phone
+file was imported. The historical 2026-10-18 overview was read as context only;
+actual sources determine this matrix. The frozen main reference lacks these
+later complete adapters and was not used to fabricate integration.
+
+## Shared changes for later Phone reconciliation
+
+The [selected-source manifest](STABLE_PHONE_SELECTION.json) records original
+paths/hashes and narrower dependency commits. The
+[shared extraction manifest](../script_journey/PROVENANCE.json) records the
+frozen coordinator sources. There was no Phone sibling merge or protected
+integration.
+
+- Shared Script coordination now lives in `adapters/script_journey/`. Phone's
+  existing named modules were not modified. A later integration should switch
+  those imports to this shared package through an explicit Phone migration,
+  preserving existing Phone journals rather than interpreting the new neutral
+  `script-*` schemas as old `phone-script-*` ownership. No automatic migration
+  or duplicate Phone feature registration is introduced here.
+- Original query identities are checked across complete source transcripts,
+  and the Pico native UI source retains a bounded no-recapture nonce set. A
+  changed cursor cannot make a reused original query fresh.
+- The extracted resource join retains hidden native manager/picker objects as
+  actual owned panel resources. Hiding the tablet cannot qualify release or
+  cleanup; this stricter behavior needs later Phone reconciliation.
+- Native all-known manager membership and assigned-load identity come from
+  dependency commit `0c2cecbc3f`. Unneeded later Script work/timer/native-caller
+  instrumentation was excluded. All new native observations are test gated.
+- Native fixture location, original Script HTTP404 receipts, phase history and
+  adapter-only read authority are shared prerequisites. The existing fixture
+  server also depends on its frozen Graphics resource generator; those source
+  files are selected without activating a Pico Graphics adapter.
+- Whole-tree Script manager/picker inventory is now available to the actual
+  Pico tablet. The shared inventory walker remains usable by Phone; concrete
+  callers still supply their own actual tablet-presence/showing observations.
+  The Pico fixed nonce-only channel is independent of Phone private transport.
+- Restart handoff v2 optionally requires all-known membership and retains v1
+  readers. The Pico complete feature opts into the strict requirement; older
+  foundation operations retain their existing compatibility.
+- The common engine's restart comparison preserves exactly one new native
+  launch while allowing actual nonregressing mobile visibility transitions and
+  requiring a settled window. It does not manufacture requested counters.
+- Shared source/extraction/binding/worker contracts are explicitly registered.
+  `feature-journey` remains v16. Original native render acquisition remains v1
+  and refuses stereo; this branch makes no headset graphics claim.
+
+Review the shared server/witness/fixture and native header dependencies together
+when integrating later. The common regression selection and the owning Pico
+checks are required; no Phone/iOS product compatibility or native compilation is
+inferred from host-only checks.
+
+## Verification and next qualification
+
+The [verification record](VERIFICATION_20261021.json) records exact permitted
+commands, counts, exclusions and limitations. Native/compiler suites, QML build
+harnesses, builds, installs, devices and Jenkins were intentionally excluded.
+The ordinary quick project profile was not run wholesale because its
+`native-smoke` and device voice/native cases invoke compilers. Dependency-light
+documentation, contract, inventory, whitespace and selected host checks were run
+explicitly. No dependencies were installed.
+
+A future separately authorized owner must review the final source, compile its
+existing dedicated test configuration and bind the exact installed APK/source
+identity. Then provision the fixture and separate observer through the Proxmox
+laboratory, exercise error/restart/cleanup on real Pico input/render/lifecycle
+paths and retain original evidence through the existing acceptance pipeline.
+Use the official `overte-jenkins` wrapper; never start the retired workstation
+laboratory as a fallback. Host simulations cannot promote acceptance.
+
+The historical 77-case normal-Scripts group was selected with an explicit
+600-second **host group** allowance (about 397 seconds measured). Its existing
+runner default was not changed, and default whole-catalog timing is unqualified.
+The new nine-case adapter group and one-case shared-engine group both pass
+within their unchanged 120-second per-group budget. Native getter, input,
+readiness, common journey and quiet-window deadlines were not widened.
