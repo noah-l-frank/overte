@@ -1754,7 +1754,7 @@ class PreregisteredCallerCliTests(unittest.TestCase):
         self.git(root, 'config', 'user.name', 'Offline caller fixture')
         self.git(root, 'config', 'user.email', 'fixture@example.invalid')
 
-    def fixture(self):
+    def fixture(self, inherited_platform=None):
         directory = tempfile.TemporaryDirectory(prefix='android-preregistered-cli-')
         self.addCleanup(directory.cleanup)
         folder = Path(directory.name)
@@ -1762,6 +1762,20 @@ class PreregisteredCallerCliTests(unittest.TestCase):
         current = self.git(ROOT, 'rev-parse', 'HEAD')
         self.clone(trusted, ROOT, current, ['.github', 'tools/repository-checks',
             'tools/test-evidence', 'tools/native-tests', 'tools/ios-build-qualification'])
+        profile = trusted / 'tests/platform-profile.json'
+        profile.parent.mkdir(parents=True, exist_ok=True)
+        if inherited_platform is not None:
+            marker = trusted / 'android/inherited-owner.txt'
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text('Inherited platform ownership must not become main.\n')
+            profile.write_text(json.dumps({'schema': 1, 'platform': inherited_platform, 'suites': []}) + '\n')
+            self.git(trusted, 'add', '--sparse', '--', 'android/inherited-owner.txt', 'tests/platform-profile.json')
+            self.git(trusted, 'commit', '-qm', 'Retain inherited platform fixture input')
+        # Sparse checkout retains the complete index. This fixture models main,
+        # independent of the Android/iOS branch on which the suite executes.
+        self.git(trusted, 'rm', '-r', '--sparse', '--ignore-unmatch', '--', 'android',
+            '.github/workflows/android-tests.yml', '.github/workflows/android-vr-tests.yml')
+        profile.write_text(json.dumps({'schema': 1, 'platform': 'shared', 'suites': []}, indent=2) + '\n')
         caller = '.github/workflows/repository-checks.yml'
         historical = ROOT / 'tools/repository-checks/workflows/producers/repository-checks.yml'
         self.assertEqual(gate._blob(historical.read_bytes())['sha'], '22fe0d6d39d120f800099136d7d1ab5280d80b41')
@@ -1770,7 +1784,7 @@ class PreregisteredCallerCliTests(unittest.TestCase):
         # suite itself runs on an uncommitted source correction or active29.
         subject = 'tools/repository-checks/android_gate.py'
         (trusted / subject).write_bytes((ROOT / subject).read_bytes())
-        self.git(trusted, 'add', '--', caller, subject)
+        self.git(trusted, 'add', '--sparse', '--', caller, subject, 'tests/platform-profile.json')
         self.git(trusted, 'commit', '-qm', 'Freeze trusted default28 caller fixture', '--allow-empty')
         base = self.git(trusted, 'rev-parse', 'HEAD')
         self.clone(candidate, trusted, base, ['.github'])
@@ -1843,6 +1857,24 @@ runpy.run_path(sys.argv[0],run_name='__main__')
             self.assertFalse(gate.has_staged_caller(candidate))
         self.assertNotIn('tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
                          gate.OWNED_PROJECTS)
+
+    def test_inherited_Android_and_IOS_ownership_cannot_contaminate_main_fixture(self):
+        for platform in ('android', 'ios'):
+            with self.subTest(inherited_platform=platform):
+                folder, trusted, candidate, base, head, merge, _, event_path, controller = self.fixture(platform)
+                for root, revision in ((trusted, base), (candidate, head), (candidate, merge)):
+                    paths = self.git(root, 'ls-tree', '-r', '--name-only', revision).splitlines()
+                    self.assertFalse(any(path.startswith('android/') for path in paths))
+                    self.assertNotIn('.github/workflows/android-tests.yml', paths)
+                    self.assertNotIn('.github/workflows/android-vr-tests.yml', paths)
+                    profile = json.loads(self.git(root, 'show', revision + ':tests/platform-profile.json'))
+                    self.assertEqual(profile, {'schema': 1, 'platform': 'shared', 'suites': []})
+                code, printed, error = self.cli(controller, 'plan', '--event', str(event_path),
+                    '--candidate', str(candidate), '--sha', merge, '--output', str(folder / 'ownership.outputs'))
+                self.assertEqual((code, error), (0, ''))
+                actual = json.loads(printed)
+                self.assertEqual(actual['android_required'], 'false')
+                self.assertEqual(actual['android_candidate'], merge)
 
     def test_default28_to_candidate29_real_plan_and_aggregate_keep_exact_Android_contract(self):
         folder, trusted, candidate, base, head, merge, event, event_path, controller = self.fixture()
