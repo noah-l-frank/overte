@@ -507,7 +507,10 @@
         "tests/device/adapters/world_render_receipts.py",
         "tests/device/native/WORLD_RENDER_RECEIPT_INVENTORY.md",
         "tests/device/feature_journeys/stereo_graphics_evidence.py",
-        "tests/device/native/STEREO_GRAPHICS_EVIDENCE.md"
+        "tests/device/native/STEREO_GRAPHICS_EVIDENCE.md",
+        "tests/device/adapters/graphics_journey/scene.py",
+        "tests/device/adapters/pico4/graphics_scene.py",
+        "tests/device/adapters/pico4/GRAPHICS_SCENE_OWNER.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -545,7 +548,8 @@
         "Original QML/XHR callback and every reply retirement through native-tablet-http v1",
         "Native subject v3 original HMD matrices and exact tablet/keyboard/pointer owner IDs, preserving the complete raw scan",
         "Role v2 capture ownership plus original complete native issuer/file inventory, including retirement of known undelivered receipt nonces",
-        "Whole original PNG plus original native JSON, independently recomputed in both eyes; strict source query/cursor continuity and actual effect direction"
+        "Whole original PNG plus original native JSON, independently recomputed in both eyes; strict source query/cursor continuity and actual effect direction",
+        "Durable normal-Go-To scene owner v3 with recomputed original HMD alignment, original avatar restoration, original request/deferred loader groups and exact framework ownership/appearance"
       ],
       "cleanupObligations": [
         "Normal restoration of captured original VR preferences",

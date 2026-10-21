@@ -1,6 +1,11 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "graphics-journey-scene": {"current": 3, "reads": [3]},
+    "graphics-journey-fixture": {"current": 1, "reads": [1]},
+    "graphics-journey-geometry": {"current": 1, "reads": [1]},
+    "graphics-journey-restart-proof": {"current": 1, "reads": [1]},
+    "pico-graphics-scene-policy": {"current": 1, "reads": [1]},
     "stereo-graphics-archive": {"current": 1, "reads": [1]},
     "stereo-graphics-evidence": {"current": 1, "reads": [1]},
     "world-render-receipt-inventory": {"current": 1, "reads": [1]},

@@ -9,6 +9,11 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "graphics-journey-scene": 3,
+    "graphics-journey-fixture": 1,
+    "graphics-journey-geometry": 1,
+    "graphics-journey-restart-proof": 1,
+    "pico-graphics-scene-policy": 1,
     "stereo-graphics-archive": 1,
     "stereo-graphics-evidence": 1,
     "world-render-receipt-inventory": 1,

@@ -650,5 +650,50 @@
       }
     ],
     "limits": "Synthetic original-source and image fixtures prove verifier/adapter logic only. Whole durable scene/preferences/PNG+metadata/actor/restart/lifetime owner remains required. Native source and devices remain unverified."
+  },
+  "graphicsScenePacket": {
+    "contracts": [
+      "graphics-journey-scene v3",
+      "graphics-journey-fixture v1",
+      "graphics-journey-geometry v1",
+      "graphics-journey-restart-proof v1",
+      "pico-graphics-scene-policy v1"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_scene self_tests.test_vr_graphics_subject (from tests/device)",
+        "tests": 26,
+        "status": "passed",
+        "durationSeconds": 19.831,
+        "note": "Before final bounded scan-region comparison; final owning selection rechecks that change."
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test stereo-world-render --test suite-runner --test coverage-matrix",
+        "groups": 4,
+        "status": "passed",
+        "durationSeconds": 32.99,
+        "junit": "graphics-scene-owning.xml"
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.55,
+        "junit": "graphics-scene-project.xml"
+      }
+    ],
+    "correctedFailures": [
+      "Initial synthetic navigation configuration used a noncanonical original scene filename; the model now uses the unchanged actual configured scene while the explicit per-instance URL authority admits only journaled destinations.",
+      "A test incorrectly required a Home ray even when the normal Go To had already returned Home. It now checks actual ordinary controller/tablet and Enter inputs.",
+      "A synthetic pending-load release mutated previously terminal historical records; only the original still-pending record is now released, preserving immutable history."
+    ],
+    "limits": "Only the source-level scene transaction is verified. No compiled native or real tracking evidence; whole preferences/artifacts/effects/actor/restart/UI-HTTP-Web lifetimes and quiet cleanup remain required."
   }
 }

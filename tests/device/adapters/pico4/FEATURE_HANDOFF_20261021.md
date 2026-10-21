@@ -324,3 +324,17 @@ state or artifact ownership. Pure historical reduction retains original epochs;
 it does not fabricate current freshness. The frozen Phone mono profile remains
 an explicit separate reader. The full Pico scene/preferences/artifact/actor/
 restart/lifetime owner is still missing; no complete capability is added.
+
+
+## Durable ordinary VR scene setup and restoration
+
+The [scene owner](GRAPHICS_SCENE_OWNER.md) now reuses the frozen transaction
+architecture through an explicit Pico v3 policy. Normal Go To aligns actual
+scaled/rotated HMD offset through avatar feet/yaw and later restores original
+scene/avatar/scale. Original load groups, exact registered framework owners,
+raw scene inventory, typed pre-input intent and issued-action recovery are
+verified. Physical head motion is not a Camera setter or avatar restoration.
+Host counterexamples cover ignored/lost inputs, retained loads, changed source
+birth, competing journals, entity/framework leaks and false journal deletion.
+Whole preferences, original artifacts, effects, actor/restart and actual lifetime/
+quiet retirement remain open; no complete Graphics capability is enabled.

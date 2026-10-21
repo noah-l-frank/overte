@@ -12,6 +12,23 @@ VERSION=1
 class PicoGraphicsBinding(PicoScriptJourney):
     state_area='graphics'
 
+    @property
+    def graphics_scene_policy(self):
+        from adapters.pico4.graphics_scene import PicoGraphicsScenePolicy
+        return PicoGraphicsScenePolicy()
+
+    def _graphics_subject_observer(self,target,*,read_only=False):
+        need(type(read_only) is bool);self._guard(target)
+        return self.original._graphics_subject_observer(target)
+
+    def _scene_load_observer(self,target,*,read_only=False):
+        need(type(read_only) is bool);self._guard(target)
+        return self.original._scene_load_observer(target)
+
+    def _graphics_surface(self,target,run,intent,owns,lease,allow_url,*,lock):
+        self._lock(target,lock).assert_held();self._guard(target)
+        return self.original._graphics_surface(target,run,intent,owns,lease,allow_url)
+
     def world_render_store(self,target,*,role):
         need(type(role) is str and role in ('primary','actor'))
         return self._store(target,'graphics-'+role+'-world-render-owner.json')
