@@ -57,3 +57,24 @@ and metadata file ownership, role captures, independent actor, restart and
 three-second quiet retirement must still be joined by the complete coordinator.
 Native compilation and all device/VR behavior are unverified. Host source models
 exercise the real Pico navigation/token surface with synthetic native boundaries.
+
+## Qualified restart framework baseline
+
+Scene owner v4 retains the v3 journal reader. Pico restoration policy v3 keeps
+the old scene/avatar/unowned inventory originals intact, while a separately
+qualified restart handoff supplies the original framework registrations from
+the new process. The exact handoff still requires the original old-PID ESRCH
+receipt, native birth/lifecycle and owner-file binding. New framework IDs are
+compared with that process's baseline; they are never relabelled as old IDs.
+A foreign/future/old-process baseline, changed current framework appearance or
+changed original world/avatar/unowned scene remains unavailable. An archive
+counterexample exercises the actual scene decoder, original RestartInputs
+protocol and independent presence/load packets; unknown old-process presence
+cannot qualify restoration.
+
+The restoration check now compares the complete original sensor-to-world
+matrix. Its affine validator returns a scale, which alone cannot detect an
+unchanged-scale world-origin shift. Actual physical sensor/head movement remains
+permitted when the restored world transform and independent camera/head relation
+remain valid. This source policy does not supply normal restart input/recovery,
+the feature coordinator or device qualification. Native source is uncompiled.

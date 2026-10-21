@@ -147,7 +147,10 @@ class PicoGraphicsSceneTests(unittest.TestCase):
     def test_recreated_owner_uses_actual_new_sources_without_resending_original_go(self):
         m=self.model
         with m.lock.held():
-            m.factory().prepare();owner=m.factory();owner.prepare();self.assertEqual(2,len(m.destinations))
+            first=m.factory();first.prepare();old=deepcopy(first.previous);old['graphicsSceneVersion']=3
+            first.store.write(old,first.previous)
+            owner=m.factory();self.assertEqual(3,owner.previous['graphicsSceneVersion'])
+            owner.prepare();self.assertEqual(4,owner.previous['graphicsSceneVersion']);self.assertEqual(2,len(m.destinations))
             owner.restore();m.factory().retire();self.assertEqual(3,len(m.destinations))
     def test_ignored_navigation_is_not_a_scene_and_uncertain_action_is_not_replayed(self):
         m=self.model;m.fault='ignored-world'

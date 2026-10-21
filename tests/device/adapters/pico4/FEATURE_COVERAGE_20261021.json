@@ -529,7 +529,8 @@
         "tests/device/adapters/graphics_journey/readiness.py",
         "tests/device/adapters/graphics_journey/effects.py",
         "tests/device/adapters/pico4/GRAPHICS_OBSERVER.md",
-        "tests/device/self_tests/test_pico_graphics_observer.py"
+        "tests/device/self_tests/test_pico_graphics_observer.py",
+        "tests/device/self_tests/test_pico_graphics_restart_framework.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -552,9 +553,9 @@
         "dialog"
       ],
       "missingOperationsOrEvidence": [
-        "Whole feature coordinator joining the source-implemented normal VR surface, durable scene owner v3 and durable native preference owner v3; a different camera mode needs actual View-menu input, and the separate restart-only Pico swapchain setting is outside this generic path.",
+        "Whole feature coordinator joining the source-implemented normal VR surface, durable scene owner v4 and durable native preference owner v3; a different camera mode needs actual View-menu input, and the separate restart-only Pico swapchain setting is outside this generic path.",
         "Whole feature coordinator and actor dispatcher around the source-implemented role observer/readiness/effects, role/process sampler v5, paired originals and complete native receipt retirement; no full Graphics public or actor operation is registered.",
-        "Independent Graphics actor/publication and source-specific persistence/background/restart adoption with original old-PID ESRCH; native framework IDs must use the separately observed new-process baseline after restart rather than equating IDs from the dead process.",
+        "Independent Graphics actor/publication and source-specific persistence/background/restart adoption with original old-PID ESRCH; the source-implemented restoration policy uses a qualified new-process framework baseline, while full normal restart/recovery and role adoption remain required.",
         "Complete actual UI/QML/XHR/reply/scene/Web-renderer/capture retirement and three-second quiet restoration across both roles; original scene/avatar/framework restoration policy is now source-implemented and host verified."
       ],
       "requiredOriginalEvidence": [

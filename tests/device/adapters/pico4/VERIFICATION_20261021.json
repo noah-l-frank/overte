@@ -1006,5 +1006,38 @@
       }
     ],
     "limits": "Internal role observer, not full public/actor dispatch. Synthetic native/UI/GPU/OS boundaries with actual paired-file/source-owner/fixture-journal logic. Complete feature, normal lifecycle/restart/new-process framework and all quiet cleanup remain open."
+  },
+  "graphicsRestartFrameworkPacket": {
+    "contracts": [
+      "graphics-journey-scene v4 (reads v3/v4)",
+      "pico-graphics-scene-policy v3 (reads v1/v2/v3)"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_restart_framework (from tests/device)",
+        "tests": 7,
+        "status": "passed",
+        "durationSeconds": 0.528
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 113.57,
+        "junit": "graphics-restart-framework-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 3.25,
+        "junit": "graphics-restart-framework-project.xml"
+      }
+    ],
+    "details": "Qualified original RestartInputs/presence/load packets and the actual scene archive decoder preserve old originals, validate independent new-process framework IDs and reject unknown old-process presence. Complete original sensor-to-world matrices are compared, while actual physical head motion remains permitted. Explicit v3 journal reconstruction sends no extra navigation.",
+    "limits": "Synthetic process/UI/source boundaries. Normal Graphics restart/background inputs, full feature/actor coordination and complete quiet retirement remain missing; no physical restart or device qualification."
   }
 }

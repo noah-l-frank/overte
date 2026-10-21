@@ -430,3 +430,14 @@ actor dispatcher. Next join normal lifecycle input, qualified restart ownership
 and all actual quiet resource retirement in the full feature coordinator.
 Native code remains uncompiled, all devices untested, and the complete-area
 count remains two of fourteen.
+
+## Qualified new-process framework restoration
+
+The scene owner now retains original v3 journals and writes v4. Its Pico policy
+compares new-process framework IDs with the independently captured baseline in
+the qualified restart receipt, while preserving original old scene/avatar and
+unowned inventory facts. Unknown process absence, foreign baselines and changed
+current framework appearance remain failures. The complete sensor-to-world
+matrix is checked; physical head motion is still allowed. See the
+[scene handoff](GRAPHICS_SCENE_OWNER.md). This does not yet provide the normal
+restart controller, full Graphics coordination or device qualification.

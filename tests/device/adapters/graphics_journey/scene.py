@@ -24,7 +24,7 @@ from adapters.script_journey.history import pack,unpack,same
 from adapters.script_journey.lock import ScriptSourceLock
 from adapters.graphics_journey.restart_proof import validate as restart_proof
 
-VERSION=3
+VERSION=4
 
 
 def operation(method):
@@ -77,7 +77,7 @@ class GraphicsScene:
 
     def decode(self,value,*,allow_restart=True):
         exact(value,{'graphicsSceneVersion','scenePolicy','runId','fixtureUrl','providerInstance','payload'})
-        need(type(value['graphicsSceneVersion']) is int and value['graphicsSceneVersion']==VERSION and value['runId']==self.run
+        need(type(value['graphicsSceneVersion']) is int and value['graphicsSceneVersion'] in (3,4) and value['runId']==self.run
             and value['fixtureUrl']==self.client.url and value['providerInstance']==self.client.graphics_instance
             and value['scenePolicy']==self.policy.profile)
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
@@ -156,7 +156,7 @@ class GraphicsScene:
             if state['original'] is not None:
                 exact(state['proof'],{'subject','loads'})
                 self.validate_subject(state['proof']['subject'],pid);self.validate_loads(state['proof']['loads'],pid)
-                self.policy.restored(state['original']['subject'],state['proof']['subject']);committed(state['proof']['loads'],state['proof']['subject']['source']['sceneUrl'])
+                self.restored(state['original']['subject'],state['proof']['subject'],state['handoff']);committed(state['proof']['loads'],state['proof']['subject']['source']['sceneUrl'])
                 need(same(state['subject'],state['proof']['subject']) and same(state['loads'],state['proof']['loads']))
             else:need(state['proof'] is None and not state['actions'])
         return state
@@ -170,12 +170,19 @@ class GraphicsScene:
         Normal construction fully revalidates the closed nested receipt/archive.
         """
         receipt=restart_proof(receipt);state=unpack(previous['payload'])[0]
-        need(previous['graphicsSceneVersion']==VERSION and state['handoff'] is None and state['phase']=='active'
+        need(type(previous['graphicsSceneVersion']) is int and previous['graphicsSceneVersion'] in (3,4)
+            and state['handoff'] is None and state['phase']=='active'
             and not any(state['leases'].values()) and same(state['binding'],receipt['input']['oldBinding']))
         state.update(binding=deepcopy(receipt['input']['newBinding']),phase='preparing',subject=deepcopy(subject),loads=deepcopy(loads),
             targetFeet=None,targetOrientation=None,alignmentSubject=None,actions=[],current=None,proof=None,handoff=dict(previous=deepcopy(previous),receipt=receipt,
                 subject=deepcopy(subject),loads=deepcopy(loads)))
-        return deepcopy(previous)|dict(payload=pack([state]))
+        return deepcopy(previous)|dict(graphicsSceneVersion=VERSION,payload=pack([state]))
+
+    def restored(self,original,current,handoff=None):
+        if handoff is None:return self.policy.restored(original,current)
+        # Only a decoded, qualified restart handoff may select the independent
+        # new-process framework baseline. No current ID is relabelled as old.
+        return self.policy.restored(original,current,framework_original=handoff['subject'])
 
     @classmethod
     def archive(cls,value,*,adapter,selector,client,run):
@@ -310,10 +317,10 @@ class GraphicsScene:
         need(self.state['phase'] in ('preparing','active','restoring','restored'))
         if self.state['sceneTicket'] is None and not self.state['actions']:
             need(not any(self.state['leases'].values()))
-            packet=self.read_subject();loads=self.read_loads();self.policy.restored(self.state['original']['subject'],packet);committed(loads,packet['source']['sceneUrl'])
+            packet=self.read_subject();loads=self.read_loads();self.restored(self.state['original']['subject'],packet,self.state['handoff']);committed(loads,packet['source']['sceneUrl'])
             self.state.update(phase='restored',proof=dict(subject=packet,loads=loads));self.save();return deepcopy(self.state['proof'])
         if self.state['phase']=='restored':
-            packet=self.read_subject();loads=self.read_loads();self.policy.restored(self.state['original']['subject'],packet);committed(loads,packet['source']['sceneUrl'])
+            packet=self.read_subject();loads=self.read_loads();self.restored(self.state['original']['subject'],packet,self.state['handoff']);committed(loads,packet['source']['sceneUrl'])
             self.state['proof']=dict(subject=packet,loads=loads);self.save();return deepcopy(self.state['proof'])
         self.state['phase']='restoring';self.save();index,new=self.action('restore-close')
         if new:
@@ -324,7 +331,7 @@ class GraphicsScene:
             if self.state['leases']['address'] and not surface.address_visible():surface.close_address()
             if self.state['leases']['tablet'] and not surface.tablet_visible():surface.close_tablet()
         index=self.navigate('restore',self.state['original']['restoreUrl'])
-        def complete(packet,loads):self.policy.restored(self.state['original']['subject'],packet);committed(loads,packet['source']['sceneUrl'])
+        def complete(packet,loads):self.restored(self.state['original']['subject'],packet,self.state['handoff']);committed(loads,packet['source']['sceneUrl'])
         packet,loads=self.wait(complete)
         need(not any(self.state['leases'].values()))
         self.state['actions'][index]['phase']='observed';self.state.update(phase='restored',proof=dict(subject=packet,loads=loads));self.save();self.bound()

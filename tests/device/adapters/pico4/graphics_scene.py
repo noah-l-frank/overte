@@ -9,12 +9,12 @@ from copy import deepcopy
 import math
 from adapters.native_feature_observation import need
 from adapters.native_scene_loads import resource_hash
-from adapters.vr_graphics_subject import first_person_head,separate_inventory,rotation_columns,affine
+from adapters.vr_graphics_subject import first_person_head,separate_inventory,rotation_columns
 from adapters.graphics_journey.geometry import near,aligned_entities
 from adapters.token_graphics_ui import on_grid
 from feature_journeys.graphics_fixture import VIEW,LEGACY_PROFILE,PICO_PROFILE,PICO_RESOURCE
 
-VERSION=2
+VERSION=3
 
 
 def rotation_equal(a,b,tolerance=.001):return near(a,b,tolerance) or near(a,[-v for v in b],tolerance)
@@ -93,7 +93,7 @@ class PicoGraphicsScenePolicy:
         need(all(abs(columns[c][r]-(1 if c==r else 0))<=.04 for c in range(3) for r in range(3)))
 
     @classmethod
-    def restored(cls,original,current):
+    def restored(cls,original,current,*,framework_original=None):
         cls.eligible(original);cls.eligible(current)
         old,new=original['source'],current['source'];a,b=separate_inventory(original),separate_inventory(current)
         need(resource_hash(old['sceneUrl'])==resource_hash(new['sceneUrl'])
@@ -104,12 +104,25 @@ class PicoGraphicsScenePolicy:
         before,after=old['avatarPose'],new['avatarPose']
         need(near(before['feetPosition'],after['feetPosition'],.01)
             and rotation_equal(before['orientation'],after['orientation']) and near(before['modelScale'],after['modelScale'],.0001)
-            and near(affine(old['hmd']['sensorToWorld']),affine(new['hmd']['sensorToWorld']),.0001))
+            and near(old['hmd']['sensorToWorld'],new['hmd']['sensorToWorld'],.0001))
         # Head/camera relation is checked independently on each original; normal
         # physical tracking is not confused with moving the restored avatar.
         for field,tolerance in (('fieldOfViewDegrees',.001),('aspectRatio',.001)):
             need(near(old['view'][field],new['view'][field],tolerance))
-        stable_framework(a['ownership'],b['ownership'])
+        if framework_original is None:
+            need(original['processId']==current['processId'] and original['instance']==current['instance'])
+            ownership=a['ownership']
+        else:
+            # The scene owner separately validates the qualified old-PID exit
+            # and exact restart receipt before supplying this new-process
+            # original. The old scene/avatar/property originals stay intact.
+            cls.eligible(framework_original)
+            need(original['instance']!=current['instance'] and original['processId']!=current['processId']
+                and framework_original['instance']==current['instance'] and framework_original['processId']==current['processId']
+                and framework_original['sequence']<=current['sequence']
+                and framework_original['capturedEpochMs']<=current['capturedEpochMs'])
+            ownership=separate_inventory(framework_original)['ownership']
+        stable_framework(ownership,b['ownership'])
 
 
 class PicoGraphicsSurfaceScenePolicy(PicoGraphicsScenePolicy):
