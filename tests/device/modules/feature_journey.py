@@ -22,15 +22,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--area', choices=sorted(SCENARIOS), required=True)
     args = parser.parse_args()
+    policy = json.loads(Path(os.environ['OVERTE_E2E_FEATURE_IMAGE_POLICY']).read_text())[args.area]
+    fixture_options={}
+    if args.area=='graphics' and type(policy) is dict and type(policy.get('screen')) is dict and 'profile' in policy['screen']:
+        from feature_journeys.stereo_graphics_evidence import policy as stereo_policy,SURFACE_PROFILE
+        from feature_journeys.graphics_fixture import PICO_PROFILE
+        stereo_policy(policy['screen'])
+        if policy['screen']==SURFACE_PROFILE:fixture_options['graphics_profile']=PICO_PROFILE
     client = Client(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL', ''),
                     os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN', ''))
-    run, url = client.register(args.area)
+    run, url = client.register(args.area,**fixture_options)
     session = OverteSession()
     identity = old_identity = None
     try:
         prepare(session, args.area)
         identity = process_identity()
-        policy = json.loads(Path(os.environ['OVERTE_E2E_FEATURE_IMAGE_POLICY']).read_text())[args.area]
 
         def continuity(phase, verb):
             nonlocal identity, old_identity

@@ -16,14 +16,14 @@ from adapters.native_feature_observation import exact,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.world_render_evidence import validate as capture_packet,original_pixels,LIMIT
 from feature_journeys.contract import identifier,json_document,typed_equal
-from feature_journeys.stereo_graphics_evidence import FIELDS,LIMIT as METADATA_LIMIT
+from feature_journeys.stereo_graphics_evidence import FIELDS,SURFACE_FIELDS,LIMIT as METADATA_LIMIT
 
-VERSION=1
+VERSION=2
 
 
 def record(value):
     exact(value,{'graphicsOriginalVersion','binding','runId','role','stage','ticket','kind','capture','name','sha256','bytes','phase','file'})
-    need(type(value['graphicsOriginalVersion']) is int and value['graphicsOriginalVersion']==VERSION
+    need(type(value['graphicsOriginalVersion']) is int and value['graphicsOriginalVersion'] in (1,2)
         and type(value['role']) is str and value['role'] in ('primary','actor')
         and type(value['stage']) is int and value['stage'] in (0,1)
         and type(value['kind']) is str and value['kind'] in ('image','file')
@@ -61,8 +61,9 @@ def content(value,raw):
     need(type(raw) is bytes and len(raw)==value['bytes'] and hashlib.sha256(raw).hexdigest()==value['sha256'])
     if value['kind']=='image':original_pixels(value['capture'],raw)
     else:
-        body=json_document(raw);exact(body,FIELDS)
-        need(type(body['stereoGraphicsEvidenceVersion']) is int and body['stereoGraphicsEvidenceVersion']==1
+        body=json_document(raw);version=body.get('stereoGraphicsEvidenceVersion') if type(body) is dict else None
+        exact(body,SURFACE_FIELDS if version==2 else FIELDS)
+        need(type(body['stereoGraphicsEvidenceVersion']) is int and version in (1,2)
             and all(typed_equal(body[key],value[key]) for key in ('binding','runId','role','stage','ticket','capture')))
     return raw
 

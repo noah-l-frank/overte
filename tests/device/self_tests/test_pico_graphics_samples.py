@@ -79,7 +79,7 @@ class Model:
             self.tablet=dict(schemaVersion=1,commandId=request['commandId'],action='observe',instance='e'*32,generation='f'*32,
                 sourceSequence=self.tablet_sequence,lastCommandSequence=0,elapsedMs=0,capturedEpochMs=20000,processId=31,
                 fileControlsVersion=1,ready=True,controls=[],scriptInventory=dict(inventoryVersion=1,complete=True,
-                    managers=[],pickers=[],tabletPresent=True,tabletShown=False))
+                    managers=[],pickers=[],tabletPresent=True,tabletShown=self.ui.shown))
         return ScriptFileIO(send,lambda:json.dumps(self.tablet),lambda:20000,self.guard,31,monotonic=lambda:self.clock,sleep=self.sleep)
     def owner_store(self,role):return PrivateFeatureState(self.root/('capture-'+role+'.json'))
     def _world_render_capture(self,_target,*,read_only,role,require_frame_view,source_lock):
@@ -141,6 +141,23 @@ class PicoGraphicsSampleTests(unittest.TestCase):
             before=len(m.gpu.commands)
             with self.assertRaises(NativeUIError):old.read(TICKET,20000)
             self.assertEqual(before,len(m.gpu.commands));self.assertEqual('ready',m.samples().state['phase'])
+
+    def test_explicit_v4_legacy_journal_and_v1_original_records_remain_readable_before_upgrade(self):
+        m=self.model
+        with m.lock.held():
+            owner=m.samples();owner.read(TICKET,20000)
+            from adapters.script_journey.history import pack,unpack
+            previous=deepcopy(owner.previous);old=deepcopy(previous);state=unpack(old['payload'])[0]
+            def legacy(value):
+                if type(value) is dict:
+                    if 'graphicsOriginalVersion' in value:value['graphicsOriginalVersion']=1
+                    for child in value.values():legacy(child)
+                elif type(value) is list:
+                    for child in value:legacy(child)
+            legacy(state);old['graphicsSamplesVersion']=4;old['payload']=pack([state]);owner.store.write(old,previous)
+            restored=m.samples();self.assertEqual(4,restored.previous['graphicsSamplesVersion'])
+            self.assertEqual(1,len(m.gpu.commands));restored.read(TICKET,20000)
+            self.assertEqual(5,restored.previous['graphicsSamplesVersion']);self.assertEqual(2,len(m.gpu.commands))
 
     def test_original_producer_pair_passes_the_external_independent_stereo_verifier(self):
         m=self.model

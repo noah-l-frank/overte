@@ -122,8 +122,8 @@ def statistics(image,row,marker_row,source,views,marker_views,eye,budget):
         polygons=polygons,excludedMarkerPolygons=excluded)
 
 
-def _original(capture,raw,before,after,*,run,ticket,scene_ticket,fixture_url,pid,epoch,budget):
-    from PIL import Image
+def original_context(capture,raw,before,after,*,run,ticket,scene_ticket,fixture_url,pid,epoch,resource):
+    """Validate original acquisition/subject brackets for an explicit stimulus."""
     need(all(type(value) is dict for value in (capture,before,after)) and integer(pid,1) and integer(epoch,1))
     identifier(run);identifier(ticket);identifier(scene_ticket)
     capture_packet(capture,capture.get('requestId'),pid,epoch,stereo=True,require_cameras=True)
@@ -136,16 +136,23 @@ def _original(capture,raw,before,after,*,run,ticket,scene_ticket,fixture_url,pid
         and after['capturedEpochMs']-before['requestedEpochMs']<=1500
         and before['source']['entities']==after['source']['entities']
         and not before['source']['absentIds'] and not after['source']['absentIds'])
-    expected=fixture_url+'tickets/'+scene_ticket+'/graphics-scene.v1.json'
+    expected=fixture_url+'tickets/'+scene_ticket+'/'+resource
     need(resource_hash(before['source']['sceneUrl'])==resource_hash(after['source']['sceneUrl'])==resource_hash(expected))
     wanted=subject_ids(run);rows={row['id']:row for row in after['source']['entities']}
     for name,key in wanted.items():need(rows[key]['name']=='e2e-'+run+'-graphics-'+name)
     carrier=rows[wanted['marker']]
     need(carrier['type']=='Web' and carrier['visible'] and carrier['sourceUrl']==fixture_url+'tickets/'+scene_ticket+'/graphics-marker.v1.html')
+    return capture['source'],rows,wanted,carrier
+
+
+def _original(capture,raw,before,after,*,run,ticket,scene_ticket,fixture_url,pid,epoch,budget):
+    from PIL import Image
+    source,rows,wanted,carrier=original_context(capture,raw,before,after,run=run,ticket=ticket,
+        scene_ticket=scene_ticket,fixture_url=fixture_url,pid=pid,epoch=epoch,resource='graphics-scene.v1.json')
     for name in ('fog-board','reflector'):
         need(rows[wanted[name]]['type']=='Box' and rows[wanted[name]]['visible'])
     need(rows[wanted['reflector']]['mirrorMode']=='mirror')
-    source=capture['source'];forward=cameras(source,'forward')
+    forward=cameras(source,'forward')
     mirror_role='mirror' if source['renderTrace']['mirrorDrawCommands']>0 else 'forward'
     reflection=cameras(source,mirror_role)
     with Image.open(io.BytesIO(raw)) as image:

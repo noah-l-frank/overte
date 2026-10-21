@@ -62,3 +62,15 @@ Original open-tablet effect evidence remains a missing prerequisite, because the
 actual tablet is world geometry in the captured render stage. The complete
 common v16 journey cannot be registered using this legacy profile alone. See
 [the original evidence limit](../../native/STEREO_GRAPHICS_EVIDENCE.md#legacy-open-tablet-limit).
+
+## Surface-profile sampler v5
+
+The sampler now also supports the explicit
+[original surface evidence v2](../../native/STEREO_GRAPHICS_SURFACES.md).
+Its extra original `graphicsAfter` acquisition brackets the capture, is included
+in the paired metadata file and becomes the restored Graphics UI source floor.
+The v4 legacy journal reader and v1 original-file records remain supported;
+uncertain reading journals still cannot become fresh samples by recreation.
+New original-file v2 records preserve the same immutable inode/hash/write-intent
+rules. All native memory/callback/receipt retirement remains mandatory for both
+profiles. This supplies no whole-area capability or device qualification.

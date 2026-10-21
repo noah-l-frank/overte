@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 from urllib.parse import urlsplit,parse_qs
 from adapters.native_feature_observation import need,number
-from feature_journeys.graphics_fixture import scene
+from feature_journeys.graphics_fixture import scene,pico_scene,LEGACY_PROFILE,PICO_PROFILE,PICO_RESOURCE
 from feature_journeys.graphics_resources import RESOURCE
 
-VERSION=1
+VERSION=2
 
 
 def near(actual,wanted,tolerance=1e-4):
@@ -15,21 +15,24 @@ def near(actual,wanted,tolerance=1e-4):
     return type(actual) is type(wanted) and actual==wanted
 
 
-def aligned_entities(packet,run,scene_ticket,fixture_url,*,scene_inventory=None):
+def aligned_entities(packet,run,scene_ticket,fixture_url,*,scene_inventory=None,profile=LEGACY_PROFILE):
     """Readiness checks compare stimulus with originals; return no feature facts."""
-    source=packet['source'];expected=scene(run,scene_ticket,fixture_url)
+    need(profile in (LEGACY_PROFILE,PICO_PROFILE))
+    source=packet['source'];expected=(pico_scene if profile==PICO_PROFILE else scene)(run,scene_ticket,fixture_url)
+    resource=PICO_RESOURCE if profile==PICO_PROFILE else RESOURCE
     need(not source['absentIds'] and len(source['entities'])==7 and not (source['scan']['unowned'] if scene_inventory is None else scene_inventory))
     root=urlsplit(fixture_url);actual=urlsplit(source['sceneUrl']);query=parse_qs(actual.query,strict_parsing=True)
     need(actual.scheme==root.scheme and actual.netloc==root.netloc and actual.username is None
          and actual.password is None and not actual.fragment and set(query)<={'location'}
          and all(len(values)==1 and len(values[0])<=256 for values in query.values())
-         and actual.path==root.path+'tickets/'+scene_ticket+'/'+RESOURCE)
+         and actual.path==root.path+'tickets/'+scene_ticket+'/'+resource)
     for document in expected['Entities']:
         rows=[row for row in source['entities'] if row['id']==document['id'].strip('{}')];need(len(rows)==1)
         row=rows[0]
         need(row['name']==document['name'] and row['type']==document['type'] and row['hostType'] in ('local','domain') and row['visible'])
         for field,axes in (('position','xyz'),('dimensions','xyz'),('rotation','xyzw')):
-            need(near(row[field],[document[field][axis] for axis in axes]))
+            wanted=[document[field][axis] for axis in axes]
+            need(near(row[field],wanted) or (field=='rotation' and near(row[field],[-v for v in wanted])))
         if 'color' in document:need(row['color']==[document['color'][axis] for axis in ('red','green','blue')])
         if 'mirrorMode' in document:need(row['mirrorMode']==document['mirrorMode'])
         if 'sourceUrl' in document:need(row['sourceUrl']==document['sourceUrl'])

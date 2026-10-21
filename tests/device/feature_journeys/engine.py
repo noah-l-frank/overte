@@ -214,13 +214,13 @@ class Journey:
                         advance(previous[1],cached_subject)
                     queries=[]
                     for kind,nonce in cached_subject['requests'].items():
-                        family='native' if kind.startswith('native') else 'subject' if kind.startswith('subject') else kind
+                        family='native' if kind.startswith('native') else 'subject' if kind.startswith('subject') else 'ui' if kind.startswith('ui') else kind
                         instance=cached_subject['nativeInstance'] if family in ('native','subject') else (
                             cached_subject['captureInstance'] if family=='capture' else cached_subject['providerInstance'] if family=='provider' else cached_subject['uiInstance'])
                         query=(family,instance,nonce);queries.append(query)
                         if query in self.stereo_queries_seen and self.stereo_queries_seen[query]!=pin:
                             raise AssertionError('Original stereo source query was reused under a new sample')
-                    if len(set(queries)-self.stereo_queries_seen.keys())+len(self.stereo_queries_seen)>28672:
+                    if len(set(queries)-self.stereo_queries_seen.keys())+len(self.stereo_queries_seen)>32768:
                         raise ValueError('Original stereo source-query history is exhausted')
                     self.stereo_contexts[scope]=original;self.stereo_evidence_seen[request]=pin;self.stereo_frames_seen[frame]=pin
                     self.stereo_cursors[scope]=(pin,deepcopy(cached_subject))

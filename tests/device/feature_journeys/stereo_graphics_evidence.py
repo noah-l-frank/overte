@@ -18,18 +18,21 @@ from adapters.script_journey.measurements import fixture_scope
 from adapters.stereo_graphics_pixels import reduce_original,cameras
 from adapters.vr_graphics_subject import first_person_head,separate_inventory
 from adapters.pico4.graphics_scene import PicoGraphicsScenePolicy
+from adapters.pico4.graphics_composition import admit as admit_composition
 from adapters.world_render_evidence import measured_scale
 from .contract import identifier,json_document,result,typed_equal
 from .graphics_resources import validate_status
 
-VERSION=1
+VERSION=2
 PROFILE={'source':'world-render-target','profile':'pico-stereo-graphics-v1'}
+SURFACE_PROFILE={'source':'world-render-target','profile':'pico-stereo-graphics-v2'}
 LIMIT=2*1024*1024
 FIELDS={'stereoGraphicsEvidenceVersion','runId','ticket','sceneTicket','fixtureUrl','binding','role','stage',
     'nativeBefore','nativeAfter','subjectBefore','subjectAfter','graphics','capture','provider'}
+SURFACE_FIELDS=FIELDS|{'graphicsAfter'}
 
 
-def policy(value):exact(value,PROFILE);need(value==PROFILE);return value
+def policy(value):exact(value,PROFILE);need(value in (PROFILE,SURFACE_PROFILE));return value
 
 
 def analyse(raw,metadata,run,ticket,fixture_url,*,role='primary',monotonic=time.monotonic):
@@ -37,15 +40,18 @@ def analyse(raw,metadata,run,ticket,fixture_url,*,role='primary',monotonic=time.
     need(type(metadata) is bytes and 0<len(metadata)<=LIMIT and callable(monotonic) and role in ('primary','actor'))
     started=monotonic();need(type(started) in (int,float) and math.isfinite(started) and started>=0)
     identifier(run);identifier(ticket);fixture_scope(run,fixture_url)
-    body=json_document(metadata);exact(body,FIELDS)
-    need(type(body['stereoGraphicsEvidenceVersion']) is int and body['stereoGraphicsEvidenceVersion']==VERSION
+    body=json_document(metadata);version=body.get('stereoGraphicsEvidenceVersion') if type(body) is dict else None
+    exact(body,SURFACE_FIELDS if version==2 else FIELDS)
+    need(type(body['stereoGraphicsEvidenceVersion']) is int and version in (1,2)
         and body['runId']==run and body['ticket']==ticket and body['fixtureUrl']==fixture_url and body['role']==role
         and type(body['stage']) is int and body['stage'] in (0,1))
     identifier(body['sceneTicket']);context(body['binding']);pid=int(body['binding']['processIdentity'].split(':')[0])
     before,after=body['nativeBefore'],body['nativeAfter'];first,last=body['subjectBefore'],body['subjectAfter']
     ui,capture,provider=body['graphics'],body['capture'],body['provider']
     need(all(type(value) is dict for value in (before,after,first,last,ui,capture,provider)))
-    epochs=[value.get('capturedEpochMs') for value in (after,last,ui,capture,provider)]
+    ui_after=body['graphicsAfter'] if version==2 else ui
+    need(type(ui_after) is dict)
+    epochs=[value.get('capturedEpochMs') for value in (after,last,ui,ui_after,capture,provider)]
     need(all(integer(value,1) for value in epochs));epoch=max(epochs)
     for packet in (before,after,first,last,capture):identifier(packet.get('requestId'))
     identifier(ui.get('commandId'))
@@ -58,17 +64,44 @@ def analyse(raw,metadata,run,ticket,fixture_url,*,role='primary',monotonic=time.
     # Pico's actual tablet is world geometry drawn before ToneMapping. This
     # legacy photometry profile has no original per-surface visibility proof;
     # a near-marker and pass counts cannot attribute an open UI's colors.
-    need(not ui['tabletShown'])
+    if version==1:need(not ui['tabletShown'])
+    else:
+        ui_packet(ui_after,ui_after.get('commandId'),pid,epoch)
+        need(ui_after['instance']==ui['instance'] and ui_after['generation']==ui['generation']
+            and ui_after['commandId']!=ui['commandId'] and ui_after['sourceSequence']>ui['sourceSequence']
+            and ui_after['elapsedMs']>=ui['elapsedMs'] and ui_after['tabletShown']==ui['tabletShown']
+            and typed_equal(admit_composition(ui,first),admit_composition(ui_after,last)))
     validate_status(provider,instance=provider.get('instance'),run=run,url=fixture_url.rsplit('/runs/',1)[0],request=provider.get('requestId'))
+    from .graphics_fixture import LEGACY_PROFILE,PICO_PROFILE,PICO_RESOURCE
+    from .graphics_resources import RESOURCE
+    resource=PICO_RESOURCE if version==2 else RESOURCE
     need(provider['active'] and provider['ticket']==ticket and provider['sceneTicket']==body['sceneTicket']
-        and any(row['status']==200 and row['completedEpochMs']<=first['requestedEpochMs'] for row in provider['responses']))
-    for packet in (first,last):PicoGraphicsScenePolicy.aligned_subject(packet,run,body['sceneTicket'],fixture_url)
+        and provider.get('profile',LEGACY_PROFILE)==(PICO_PROFILE if version==2 else LEGACY_PROFILE)
+        and any(row['resource']==resource and row['status']==200 and row['completedEpochMs']<=first['requestedEpochMs'] for row in provider['responses']))
+    from adapters.pico4.graphics_scene import PicoGraphicsSurfaceScenePolicy
+    scene_policy=PicoGraphicsSurfaceScenePolicy if version==2 else PicoGraphicsScenePolicy
+    for packet in (first,last):scene_policy.aligned_subject(packet,run,body['sceneTicket'],fixture_url)
     ordered=[before.get('requestedEpochMs'),before['capturedEpochMs'],first['requestedEpochMs'],first['capturedEpochMs'],ui['capturedEpochMs'],
-        capture.get('requestedEpochMs'),capture.get('capturedEpochMs'),last['requestedEpochMs'],last['capturedEpochMs'],after.get('requestedEpochMs'),after['capturedEpochMs']]
+        capture.get('requestedEpochMs'),capture.get('capturedEpochMs'),*([ui_after['capturedEpochMs']] if version==2 else []),
+        last['requestedEpochMs'],last['capturedEpochMs'],after.get('requestedEpochMs'),after['capturedEpochMs']]
     need(all(integer(value,1) for value in ordered) and ordered==sorted(ordered))
     recorded=capture.get('source',{}).get('recordedEpochMs');need(integer(recorded,1))
+    if version==2:
+        from .graphics_surface_cues import RESOURCES
+        for surface,stem in RESOURCES.items():
+            resources=[(stem+'.html',body['sceneTicket'],first['requestedEpochMs'])]
+            # Mirror-off needs absence of any valid reflected code, rather
+            # than assuming that a current reflected PNG was consumed.
+            if surface=='haze' or capture['source']['renderTrace']['mirrorDrawCommands']>0:
+                resources.append((stem+'.png',ticket,recorded))
+            for name,original_ticket,deadline in resources:
+                need(any(row['resource']==name and row['ticket']==original_ticket and row['status']==200
+                    and row['completedEpochMs']<=deadline for row in provider['responses']))
     clocks=ordered+[recorded,provider['capturedEpochMs']];need(max(clocks)-min(clocks)<=1500)
-    pixels=reduce_original(capture,raw,first,last,run=run,ticket=ticket,scene_ticket=body['sceneTicket'],
+    if version==2:
+        from adapters.stereo_graphics_surfaces import reduce_original as reducer
+    else:reducer=reduce_original
+    pixels=reducer(capture,raw,first,last,run=run,ticket=ticket,scene_ticket=body['sceneTicket'],
         fixture_url=fixture_url,pid=pid,monotonic=monotonic)
     scale=measured_scale(capture);need(abs(scale['x']-scale['y'])<=.01)
     pages=[row for row in ui['controls'] if row['id']=='graphics.page'];need(len(pages)<=1)
@@ -82,6 +115,11 @@ def analyse(raw,metadata,run,ticket,fixture_url,*,role='primary',monotonic=time.
             rows=[row for row in ui['controls'] if row['id']==control];need(len(rows)==1 and rows[0]['nativeChecked']==fields[field])
         rows=[row for row in ui['controls'] if row['id']=='graphics.resolution'];need(len(rows)==1
             and abs(rows[0]['nativeValue']-fields['requestedResolutionScale'])<1e-4)
+    if version==2:
+        def actual_controls(packet):
+            return [{k:v for k,v in row.items() if k not in ('token','focused','enabled','inputReady','viewport')}
+                for row in packet['controls']]
+        need(typed_equal(actual_controls(ui),actual_controls(ui_after)))
     finished=monotonic();need(type(finished) in (int,float) and math.isfinite(finished) and started<=finished and finished-started<5)
     return dict(body=body,pixels=pixels,state=actual,earliestEpochMs=min(clocks),latestEpochMs=max(clocks),
         nativeGraphics=deepcopy(fields),lifecycle=deepcopy(after['lifecycle']),
@@ -95,7 +133,8 @@ def original_name(body):
 
 def _subject(value):
     body=value['body'];source=body['capture']['source']
-    return dict(stereoGraphicsSubjectVersion=1,runId=body['runId'],ticket=body['ticket'],sceneTicket=body['sceneTicket'],
+    value_version=body['stereoGraphicsEvidenceVersion']
+    subject=dict(stereoGraphicsSubjectVersion=value_version,runId=body['runId'],ticket=body['ticket'],sceneTicket=body['sceneTicket'],
         binding=deepcopy(body['binding']),role=body['role'],stage=body['stage'],nativeGraphics=deepcopy(value['nativeGraphics']),
         lifecycle=deepcopy(value['lifecycle']),earliestEpochMs=value['earliestEpochMs'],latestEpochMs=value['latestEpochMs'],
         sceneSha256=value['sceneSha256'],dialog=value['state']['dialog'],
@@ -115,17 +154,22 @@ def _subject(value):
             ui=body['graphics']['commandId'],capture=body['capture']['requestId'],provider=body['provider']['requestId']),
         uiInstance=body['graphics']['instance'],
         cameras=cameras(source,'forward'),extent=deepcopy(source['targetExtent']),eyes=deepcopy(value['pixels']['eyes']))
+    if value_version==2:
+        subject['cursors']['uiAfter']=body['graphicsAfter']['sourceSequence']
+        subject['requests']['uiAfter']=body['graphicsAfter']['commandId']
+    return subject
 
 
 def advance(previous,current):
     """Original per-source cursors and births, without sampling or retiming."""
     need(all(previous[key]==current[key] for key in
-        ('runId','binding','role','stage','captureInstance','nativeInstance','providerInstance','uiInstance'))
+        ('stereoGraphicsSubjectVersion','runId','binding','role','stage','captureInstance','nativeInstance','providerInstance','uiInstance'))
         and current['earliestEpochMs']>=previous['earliestEpochMs'] and current['latestEpochMs']>=previous['latestEpochMs']
         and current['executionSequence']>previous['executionSequence'])
     a,b=previous['cursors'],current['cursors']
     need(all(b[key]>a[key] for key in ('capture','acquisition','submission','ui'))
         and b['cameraFirst']>a['cameraLast'] and b['nativeBefore']>a['nativeAfter'] and b['subjectBefore']>a['subjectAfter'])
+    if current['stereoGraphicsSubjectVersion']==2:need(b['ui']>a['uiAfter'])
 
 
 def _same_cameras(left,right):
@@ -145,7 +189,7 @@ def changes(previous,current):
     original used Forward cameras must stay near the same physical pose, while
     original jitter/projection noise is explicitly bounded.
     """
-    need(type(previous) is dict and previous.get('stereoGraphicsSubjectVersion')==1
+    need(type(previous) is dict and previous.get('stereoGraphicsSubjectVersion')==current['stereoGraphicsSubjectVersion'] in (1,2)
         and all(previous[key]==current[key] for key in ('runId','sceneTicket','binding','role','stage','entitiesSha256','sceneSha256','dialog','sourceExtent','sourceViewport','captureInstance','extent','lifecycle'))
         and previous['ticket']!=current['ticket'] and current['earliestEpochMs']>=previous['latestEpochMs']
         and current['latestEpochMs']-previous['earliestEpochMs']<=45000
@@ -157,6 +201,13 @@ def changes(previous,current):
     _same_cameras(previous['cameras'],current['cameras']);measured={}
     for eye in ('left','right'):
         old,new=(packet['eyes'][eye][feature] for packet in (previous,current))
+        if current['stereoGraphicsSubjectVersion']==2:
+            if feature=='mirror':
+                need(old['current']==previous['nativeGraphics'][field] and new['current']==current['nativeGraphics'][field])
+                measured[eye]=dict(reflectedCodeBefore=old['current'],reflectedCodeAfter=new['current']);continue
+            deltas=[b['blueDominance']-a['blueDominance'] for a,b in zip(old['calibrationRows'],new['calibrationRows'])]
+            need(len(deltas)==8 and all(direction*delta>10 for delta in deltas))
+            measured[eye]=dict(calibrationBlueDominanceDeltas=deltas);continue
         distance=sum(abs(a/old['pixels']-b/new['pixels']) for a,b in zip(old['histogram'],new['histogram']))/2
         delta=(new['blueDominance']-old['blueDominance']) if feature=='haze' else (new['orangeFraction']-old['orangeFraction'])
         need(distance>=.05 and direction*delta>(10 if feature=='haze' else .005))
@@ -170,6 +221,7 @@ def observation(raw,metadata,run,ticket,fixture_url,external_policy,sample,*,pre
     need(sample['runId']==run and type(changed) is bool)
     started=monotonic();need(type(started) in (int,float) and math.isfinite(started) and started>=0)
     value=analyse(raw,metadata,run,ticket,fixture_url,role=role,monotonic=monotonic);body=value['body']
+    need(body['stereoGraphicsEvidenceVersion']==(2 if external_policy==SURFACE_PROFILE else 1))
     artifacts={item['kind']:item for item in sample['artifacts']};need('image' in artifacts and 'file' in artifacts)
     name=original_name(body)
     for kind,suffix in (('image','.png'),('file','.native.json')):
@@ -179,7 +231,7 @@ def observation(raw,metadata,run,ticket,fixture_url,external_policy,sample,*,pre
         and sample['capturedEpochMs']==value['earliestEpochMs'])
     subject=_subject(value);difference=changes(previous,subject) if changed else None
     finished=monotonic();need(type(finished) in (int,float) and math.isfinite(finished) and started<=finished and finished-started<5)
-    return dict(stereoGraphicsEvidenceVersion=VERSION,sha256=value['pixels']['sha256'],
+    return dict(stereoGraphicsEvidenceVersion=body['stereoGraphicsEvidenceVersion'],sha256=value['pixels']['sha256'],
         metadataSha256=hashlib.sha256(metadata).hexdigest(),subjectChangedFraction=None,
         change=difference,eyes=deepcopy(value['pixels']['eyes']),frameIndex=subject['frameIndex'],
         executionSequence=subject['executionSequence']),subject

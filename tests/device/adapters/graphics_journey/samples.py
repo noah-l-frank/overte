@@ -26,14 +26,14 @@ from feature_journeys.witness import Client
 from feature_journeys.evidence import MarkerNotReady
 from adapters.pico4.graphics_source import validate as graphics_packet
 from adapters.graphics_journey.originals import GraphicsOriginals,record as image_record,transition as image_transition
-from adapters.graphics_journey.measurements import compose,metadata_bytes,FRAME
+from adapters.graphics_journey.measurements import compose,metadata_bytes,frame_fields
 from adapters.graphics_journey.source_history import restore_native,restore_ui
-from feature_journeys.stereo_graphics_evidence import policy as stereo_policy
+from feature_journeys.stereo_graphics_evidence import policy as stereo_policy,SURFACE_PROFILE,PROFILE
 from adapters.script_journey.files import validate as tablet_packet
 from adapters.script_journey.history import pack,unpack,same
 from adapters.script_journey.lock import ScriptSourceLock
 
-VERSION=4
+VERSION=5
 CURSORS={'native','subject','graphics','tablet','capture','storage','inventory','provider'}
 FIELDS={'binding','phase','sequence','cursors','seenFrames','images','pending','frame','retirements','readiness'}
 
@@ -128,7 +128,8 @@ class GraphicsSamples:
 
     def _decode(self,value):
         exact(value,{'graphicsSamplesVersion','runId','role','stage','providerInstance','fixtureUrl','artifactRoot','imagePolicy','payload'})
-        need(type(value['graphicsSamplesVersion']) is int and value['graphicsSamplesVersion']==VERSION
+        need(type(value['graphicsSamplesVersion']) is int and value['graphicsSamplesVersion'] in (4,5)
+             and (value['graphicsSamplesVersion']!=4 or self.image_policy==PROFILE)
              and value['runId']==self.run and value['role']==self.role and type(value['stage']) is int and value['stage']==self.stage
              and value['providerInstance']==self.provider_instance and value['fixtureUrl']==self.client.url
              and value['artifactRoot']==str(self.artifact_root) and same(value['imagePolicy'],self.image_policy))
@@ -211,7 +212,7 @@ class GraphicsSamples:
     @staticmethod
     def _frame_cursors(frame,cursors,*,include_provider=True):
         need(same(frame['nativeAfter'],cursors['native']) and same(frame['subjectAfter'],cursors['subject'])
-             and same(frame['graphics'],cursors['graphics']) and same(frame['tablet'],cursors['tablet'])
+             and same(frame.get('graphicsAfter',frame['graphics']),cursors['graphics']) and same(frame['tablet'],cursors['tablet'])
              and same(frame['capture'],cursors['capture']) and (not include_provider or same(frame['provider'],cursors['provider']))
              and same(cursors['storage'],frame['retirement']['memory']) and same(cursors['inventory'],frame['retirement']['files']['absent']))
 
@@ -393,7 +394,7 @@ class GraphicsSamples:
         return deepcopy(item) # Scope/history retirement only; no measured feature state.
 
     def _historical(self,frame):
-        exact(frame,FRAME)
+        exact(frame,frame_fields(frame))
         raw=GraphicsOriginals.archive(self.artifact_root,frame['image'])
         need(same(frame['capture'],frame['image']['capture']) and frame['ticket']==frame['image']['ticket'])
         metadata=GraphicsOriginals.archive(self.artifact_root,frame['metadata'])
@@ -471,6 +472,9 @@ class GraphicsSamples:
             graphics=ui.capture();remember('graphics',graphics)
             tabs=tablet.capture();remember('tablet',tabs)
             capture,raw=owned.read(owned.capture.sequence);remember('capture',capture)
+            graphics_after=None
+            if self.image_policy==SURFACE_PROFILE:
+                graphics_after=ui.capture();remember('graphics',graphics_after)
             frame_id=capture['source']['renderTrace']['frameId'];need(frame_id not in self.state['seenFrames'])
             self.state['seenFrames'].append(frame_id);self.save();bound()
             last=subject.read(self.run);remember('subject',last)
@@ -482,14 +486,14 @@ class GraphicsSamples:
             sample_epoch=native.clock_ms();need(integer(sample_epoch,after['capturedEpochMs']))
             facts=dict(ticket=ticket,afterEpochMs=after_epoch,nativeBefore=before,subjectBefore=first,graphics=graphics,tablet=tabs,
                 capture=capture,subjectAfter=last,nativeAfter=after,provider=provider)
+            if graphics_after is not None:facts['graphicsAfter']=graphics_after
             try:actual=compose(self.run,facts,raw,self.state['binding'],self.role,self.stage,self.client.url+'/runs/'+self.run+'/',self.image_policy)
             except MarkerNotReady as error:marker_error=deepcopy(error.observation)
             image=self.images.write(ticket,capture,raw);bound()
             metadata=self.images.write(ticket,capture,metadata_bytes(facts,self.state['binding'],self.run,self.role,self.stage,
                 self.client.url+'/runs/'+self.run+'/'),kind='file');bound()
             if marker_error is not None:
-                self.state['pending']['markerFrame']=dict(ticket=ticket,afterEpochMs=after_epoch,nativeBefore=before,subjectBefore=first,
-                    graphics=graphics,tablet=tabs,capture=capture,subjectAfter=last,nativeAfter=after,provider=provider,image=image,metadata=metadata,retirement=None)
+                self.state['pending']['markerFrame']=dict(facts,image=image,metadata=metadata,retirement=None)
                 self.save();bound()
         finally:
             if owned.owner.store.read() is not None:
@@ -499,8 +503,7 @@ class GraphicsSamples:
         need(self.state['pending']['retirement'] is not None and owned.owner.store.read() is None)
         captured=actual['capturedEpochMs'] if marker_error is None else min(before['capturedEpochMs'],provider['capturedEpochMs'])
         current_epoch=native.clock_ms();need(integer(current_epoch,sample_epoch));fresh(captured,current_epoch);bound()
-        frame=dict(ticket=ticket,afterEpochMs=after_epoch,nativeBefore=before,subjectBefore=first,graphics=graphics,tablet=tabs,
-            capture=capture,subjectAfter=last,nativeAfter=after,provider=provider,image=image,metadata=metadata,retirement=self.state['pending']['retirement'])
+        frame=dict(facts,image=image,metadata=metadata,retirement=self.state['pending']['retirement'])
         if marker_error is not None:
             self.state['pending']['markerFrame']=deepcopy(frame);self.save();bound()
             need(same(marker_error,self._marker_history(frame)))

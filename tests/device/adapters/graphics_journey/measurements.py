@@ -10,19 +10,26 @@ from adapters.pico4.graphics_source import resources as graphics_resources
 from adapters.script_journey.files import validate as tablet_packet
 from adapters.script_ui_inventory import validate as tablet_inventory
 from adapters.world_render_evidence import measured_scale
-from feature_journeys.stereo_graphics_evidence import analyse,policy
+from feature_journeys.stereo_graphics_evidence import analyse,policy,SURFACE_PROFILE
 
-VERSION=1
+VERSION=2
 FACTS={'ticket','afterEpochMs','nativeBefore','subjectBefore','graphics','tablet','capture','subjectAfter','nativeAfter','provider'}
 FRAME=FACTS|{'image','metadata','retirement'}
+SURFACE_FACTS=FACTS|{'graphicsAfter'}
+SURFACE_FRAME=FRAME|{'graphicsAfter'}
+
+
+def frame_fields(frame):return SURFACE_FRAME if 'graphicsAfter' in frame else FRAME
 
 
 def native_metadata(frame,binding,run,role,stage,fixture_url):
-    need(type(frame) is dict and set(frame) in (FACTS,FRAME));context(binding)
-    policy_value=dict(stereoGraphicsEvidenceVersion=1,runId=run,ticket=frame['ticket'],sceneTicket=frame['provider']['sceneTicket'],
+    need(type(frame) is dict and set(frame) in (FACTS,FRAME,SURFACE_FACTS,SURFACE_FRAME));context(binding)
+    version=2 if 'graphicsAfter' in frame else 1
+    policy_value=dict(stereoGraphicsEvidenceVersion=version,runId=run,ticket=frame['ticket'],sceneTicket=frame['provider']['sceneTicket'],
         fixtureUrl=fixture_url,binding=deepcopy(binding),role=role,stage=stage)
     for field in ('nativeBefore','nativeAfter','subjectBefore','subjectAfter','graphics','capture','provider'):
         policy_value[field]=deepcopy(frame[field])
+    if version==2:policy_value['graphicsAfter']=deepcopy(frame['graphicsAfter'])
     return policy_value
 
 
@@ -36,7 +43,8 @@ def compose(run,frame,raw,binding,role,stage,fixture_url,image_policy):
     This is also used during live acquisition, before the owner separately
     checks its actual final clock, guard and original elapsed acquisition age.
     """
-    policy(image_policy);need(type(frame) is dict and set(frame) in (FACTS,FRAME)
+    policy(image_policy);need(type(frame) is dict and set(frame) in (FACTS,FRAME,SURFACE_FACTS,SURFACE_FRAME)
+        and ('graphicsAfter' in frame)==(image_policy==SURFACE_PROFILE)
         and integer(frame['afterEpochMs'],1))
     metadata=metadata_bytes(frame,binding,run,role,stage,fixture_url)
     value=analyse(raw,metadata,run,frame['ticket'],fixture_url,role=role)

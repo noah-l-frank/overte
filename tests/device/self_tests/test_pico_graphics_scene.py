@@ -21,7 +21,7 @@ from adapters.script_journey.history import pack,unpack
 from adapters.script_journey.lock import ScriptSourceLock
 from adapters.token_script_ui import TokenScriptUI
 from feature_journeys.graphics_fixture import scene as scene_document,subject_ids
-from feature_journeys.graphics_resources import GraphicsResources
+from feature_journeys.graphics_resources import GraphicsResources,RESOURCE
 from feature_journeys.witness import Client
 from self_tests import test_pico_graphics_surface as surface_fixture
 from self_tests.test_pico_graphics_surface import HomeSource,IDENTITY,RUN
@@ -125,7 +125,8 @@ class Model:
             startedEpochMs=self.native.epoch,updatedEpochMs=self.native.epoch,releasedEpochMs=self.native.epoch))
         if self.fault=='pending':self.loads.rows[-1].update(pending=True,releasedEpochMs=None)
         if controlled:
-            with self.provider.response(RUN,TICKET,request_authority='controlled.invalid',request_scheme='http') as response:
+            with self.provider.response(RUN,TICKET,request_authority='controlled.invalid',request_scheme='http',
+                    resource=getattr(self.graphics_scene_policy,'fixture_resource',RESOURCE)) as response:
                 status,body,nonce,write=response;write(dict(responseId=nonce,status=status,bytes=len(body),sha256=hashlib.sha256(body).hexdigest()))
 
 

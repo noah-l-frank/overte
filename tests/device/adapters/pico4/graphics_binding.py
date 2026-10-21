@@ -12,10 +12,17 @@ VERSION=1
 class PicoGraphicsBinding(PicoScriptJourney):
     state_area='graphics'
 
+    def __init__(self,adapter,*,fixture_profile=None):
+        from feature_journeys.graphics_fixture import LEGACY_PROFILE
+        from feature_journeys.graphics_resources import profile_name
+        self.fixture_profile=profile_name(LEGACY_PROFILE if fixture_profile is None else fixture_profile)
+        super().__init__(adapter)
+
     @property
     def graphics_scene_policy(self):
-        from adapters.pico4.graphics_scene import PicoGraphicsScenePolicy
-        return PicoGraphicsScenePolicy()
+        from adapters.pico4.graphics_scene import PicoGraphicsScenePolicy,PicoGraphicsSurfaceScenePolicy
+        from feature_journeys.graphics_fixture import PICO_PROFILE
+        return (PicoGraphicsSurfaceScenePolicy if self.fixture_profile==PICO_PROFILE else PicoGraphicsScenePolicy)()
 
     def _graphics_subject_observer(self,target,*,read_only=False):
         need(type(read_only) is bool);self._guard(target)

@@ -933,5 +933,45 @@
       "New flat resources initially reached the general retired-run lookup and returned 400; routing now uses the existing Graphics ownership handler and returns 404 after retirement."
     ],
     "remaining": "This is stimulus only. Original per-eye surface decoding and open-tablet composition proof remain required before profile activation or a full Graphics capability."
+  },
+  "graphicsSurfaceEvidencePacket": {
+    "contracts": [
+      "stereo-graphics-evidence/archive v2 (reads v1/v2)",
+      "stereo-graphics-surface-pixels v1",
+      "pico-graphics-ui-observation v2 (reads v1/v2)",
+      "pico-graphics-composition v1",
+      "graphics-journey-samples v5 (reads v4/v5)",
+      "graphics-journey-originals/measurements/geometry v2 (reads v1/v2)"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test graphics-sources --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 4,
+        "status": "passed",
+        "durationSeconds": 116.27,
+        "junit": "graphics-surface-v2-owning.xml",
+        "details": "Both current and legacy readers, per-eye surface identity/effects, original UI composition, role-scoped paired files/native retirement, normal Go To/Home setup/restoration and v4/v1 journal compatibility; only the outer host group allowance is 240 seconds."
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 3.03,
+        "junit": "graphics-surface-v2-project.xml"
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      }
+    ],
+    "repairedFailures": [
+      "A synthetic pixel fixture initially shadowed its original-file callback; preserve that callback and generate a coherent same-frame camera/submission source before reduction.",
+      "The stale-pixel fixture initially omitted current PNG delivery, correctly failing provenance before readiness; it now models delivered-but-not-yet-painted bytes while preserving the old GPU pixels.",
+      "Original composition IDs now use the same canonical UUID representation as the independent native framework source."
+    ],
+    "limits": "Host simulations establish adapter/test logic only. Original open-tablet proof does not supply whole public/actor orchestration, normal background/restart, new-process framework adoption or combined UI/HTTP/Web/scene/capture quiet retirement. Scripts and Authentication remain the only two complete source-level areas."
   }
 }

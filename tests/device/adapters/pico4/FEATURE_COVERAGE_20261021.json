@@ -518,7 +518,13 @@
         "tests/device/adapters/pico4/GRAPHICS_ORIGINALS.md",
         "tests/device/adapters/graphics_journey/samples.py",
         "tests/device/adapters/graphics_journey/measurements.py",
-        "tests/device/adapters/pico4/GRAPHICS_SAMPLES.md"
+        "tests/device/adapters/pico4/GRAPHICS_SAMPLES.md",
+        "tests/device/feature_journeys/GRAPHICS_SURFACE_CUES.md",
+        "tests/device/adapters/stereo_graphics_surfaces.py",
+        "tests/device/native/STEREO_GRAPHICS_SURFACES.md",
+        "tests/device/adapters/pico4/graphics_composition.py",
+        "android/vr/pico/apps/picoInterface/e2e/PicoGraphicsComposition.h",
+        "tests/device/self_tests/test_pico_graphics_surface_samples.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -542,10 +548,9 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole feature coordinator joining the source-implemented normal VR surface, durable scene owner v3 and durable native preference owner v3; a different camera mode needs actual View-menu input, and the separate restart-only Pico swapchain setting is outside this generic path.",
-        "Whole observer/coordinator composition of the source-implemented role/process sample producer v4, paired original files, native receipt retirement and independent both-eye effects; no full Graphics public or actor operation is registered.",
+        "Whole observer/coordinator composition of the source-implemented role/process sample producer v5, paired original files, native receipt retirement and independent both-eye effects; no full Graphics public or actor operation is registered.",
         "Independent Graphics actor/publication and source-specific persistence/background/restart adoption with original old-PID ESRCH; native framework IDs must use the separately observed new-process baseline after restart rather than equating IDs from the dead process.",
-        "Complete actual UI/QML/XHR/reply/scene/Web-renderer/capture retirement and three-second quiet restoration across both roles; original scene/avatar/framework restoration policy is now source-implemented and host verified.",
-        "Original per-surface identity/visibility while Graphics UI is physically shown: WebTablet world entities are drawn before ToneMapping. Legacy v1 photometry now refuses shown tablets, so it cannot qualify v16 open-page image/effect checkpoints. Implement a separately versioned original Haze/reflection cue or actual draw/coverage proof before registering a complete capability."
+        "Complete actual UI/QML/XHR/reply/scene/Web-renderer/capture retirement and three-second quiet restoration across both roles; original scene/avatar/framework restoration policy is now source-implemented and host verified."
       ],
       "requiredOriginalEvidence": [
         "Actual native stereo source/target extents and per-eye viewport/projection",
@@ -567,7 +572,7 @@
         "Restore original scene/view and independently observe complete owned UUID absence",
         "Restore original avatar feet/orientation/scale and framework configuration while checking the current physical HMD/camera relation; never demand a fixed Phone head pose or ignore arbitrary local/custom-pointer entities"
       ],
-      "nextExecutableStep": "Implement a separately versioned world-surface identity/visibility source for actual open-tablet Haze and reflected pixels; the legacy profile is closed-tablet only. Then compose the observer/effects/actor with normal background/restart, original PID death/new-process framework baseline and actual UI/HTTP/Web/capture quiet retirement.",
+      "nextExecutableStep": "Compose the frozen complete Graphics observer/readiness/effect owner using surface evidence v2 and role/process samples v5, then join independent actor, normal background/restart/new-process framework adoption and complete quiet resource retirement.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

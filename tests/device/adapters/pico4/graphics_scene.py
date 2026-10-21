@@ -12,9 +12,9 @@ from adapters.native_scene_loads import resource_hash
 from adapters.vr_graphics_subject import first_person_head,separate_inventory,rotation_columns,affine
 from adapters.graphics_journey.geometry import near,aligned_entities
 from adapters.token_graphics_ui import on_grid
-from feature_journeys.graphics_fixture import VIEW
+from feature_journeys.graphics_fixture import VIEW,LEGACY_PROFILE,PICO_PROFILE,PICO_RESOURCE
 
-VERSION=1
+VERSION=2
 
 
 def rotation_equal(a,b,tolerance=.001):return near(a,b,tolerance) or near(a,[-v for v in b],tolerance)
@@ -40,6 +40,7 @@ def stable_framework(original,current):
 
 class PicoGraphicsScenePolicy:
     profile='pico-stereo-v1'
+    fixture_profile=LEGACY_PROFILE
     require_framework=True
     camera_mode='first person'
     graphics_profile='generic-immediate-v1'
@@ -59,10 +60,10 @@ class PicoGraphicsScenePolicy:
             and not source['framework']['keyboard']['raised'])
         resource_hash(source['sceneUrl'])
 
-    @staticmethod
-    def aligned_entities(packet,run,scene_ticket,fixture_url):
+    @classmethod
+    def aligned_entities(cls,packet,run,scene_ticket,fixture_url):
         inventory=separate_inventory(packet)
-        aligned_entities(packet,run,scene_ticket,fixture_url,scene_inventory=inventory['scene'])
+        aligned_entities(packet,run,scene_ticket,fixture_url,scene_inventory=inventory['scene'],profile=cls.fixture_profile)
 
     @staticmethod
     def alignment(packet):
@@ -109,3 +110,9 @@ class PicoGraphicsScenePolicy:
         for field,tolerance in (('fieldOfViewDegrees',.001),('aspectRatio',.001)):
             need(near(old['view'][field],new['view'][field],tolerance))
         stable_framework(a['ownership'],b['ownership'])
+
+
+class PicoGraphicsSurfaceScenePolicy(PicoGraphicsScenePolicy):
+    profile=PICO_PROFILE
+    fixture_profile=PICO_PROFILE
+    fixture_resource=PICO_RESOURCE

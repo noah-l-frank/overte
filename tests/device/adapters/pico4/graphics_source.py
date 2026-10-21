@@ -7,26 +7,29 @@ from adapters.authentication_journey.login_source import inventory,accept_invent
 from adapters.native_feature_observation import exact,fresh,integer,need
 from adapters.script_journey.files import ScriptFileIO,nonce
 from adapters.token_graphics_ui import graphics_control,metadata_fields,validate_metadata
+from adapters.pico4.graphics_composition import validate as composition_packet
 
-VERSION=1
+VERSION=2
 FILE='graphics-ui.json'
 COMMAND='files/overte-e2e/graphics-ui-command.json'
 PROFILES=frozenset({'graphics-generic-v1','tablet-menu-v1'})
 
 
 def validate(value,command,pid,epoch):
+    version=value.get('graphicsObservationVersion') if type(value) is dict else None
     exact(value,{'schemaVersion','commandId','action','instance','generation','sourceSequence',
         'lastCommandSequence','elapsedMs','capturedEpochMs','processId','graphicsControlsVersion',
-        'graphicsObservationVersion','graphicsInventory','tabletShown','editorFocused','ready','controls'})
+        'graphicsObservationVersion','graphicsInventory','tabletShown','editorFocused','ready','controls'}|({'composition'} if version==2 else set()))
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['commandId']==command
         and value['action']=='observe' and nonce(value['instance']) and nonce(value['generation'])
         and integer(value['sourceSequence'],1) and integer(value['lastCommandSequence']) and integer(value['elapsedMs'])
         and integer(value['processId'],1) and value['processId']==pid
         and type(value['graphicsControlsVersion']) is int and value['graphicsControlsVersion']==1
-        and type(value['graphicsObservationVersion']) is int and value['graphicsObservationVersion']==VERSION
+        and type(value['graphicsObservationVersion']) is int and value['graphicsObservationVersion'] in (1,2)
         and value['ready'] is True and all(type(value[key]) is bool for key in ('tabletShown','editorFocused'))
         and type(value['controls']) is list and len(value['controls'])<=384)
     fresh(value['capturedEpochMs'],epoch);inventory(value['graphicsInventory'],profiles=PROFILES)
+    if version==2:composition_packet(value['composition'])
     ids=set();tokens=set()
     for row in value['controls']:
         need(type(row) is dict and graphics_control(row.get('id')))
@@ -59,20 +62,22 @@ class PicoGraphicsSource(ScriptFileIO):
 
     def capture(self):
         started=self.monotonic();need(type(started) in (int,float) and math.isfinite(started) and started>=0)
-        value=super().capture();need(value['capturedEpochMs']>=getattr(self,'epoch_floor',0))
+        value=super().capture();need(value['capturedEpochMs']>=getattr(self,'epoch_floor',0)
+            and value['graphicsObservationVersion']>=getattr(self,'observation_version',1))
         current=accept_inventory(getattr(self,'inventory',None),value['graphicsInventory'],profiles=PROFILES)
         need(self.guard() is not False);queried=self.monotonic();need(type(queried) in (int,float) and math.isfinite(queried) and queried>=started)
         epoch=self.clock_ms();fresh(value['capturedEpochMs'],epoch);need(self.guard() is not False)
         finished=self.monotonic();need(type(finished) in (int,float) and math.isfinite(finished)
             and queried<=finished and finished-started<5
             and epoch-value['capturedEpochMs']+math.ceil((finished-queried)*1000)<=1500)
-        self.inventory=current;self.epoch_floor=value['capturedEpochMs'];return value
+        self.inventory=current;self.epoch_floor=value['capturedEpochMs'];self.observation_version=value['graphicsObservationVersion'];return value
 
     def restore_inventory(self,previous):
         # History pins the next original acquisition; it is never a current UI
         # fact and never sends a read, input, repair or hidden page creation.
         need(self.guard() is not False)
         validate(previous,previous['commandId'],self.pid,previous['capturedEpochMs'])
+        need(previous['graphicsObservationVersion']>=getattr(self,'observation_version',1))
         current=accept_inventory(getattr(self,'inventory',None),previous['graphicsInventory'],profiles=PROFILES)
         need(self.instance in (None,previous['instance']) and self.generation in (None,previous['generation'])
             and self.sequence<=previous['sourceSequence'] and self.elapsed<=previous['elapsedMs']
@@ -80,7 +85,7 @@ class PicoGraphicsSource(ScriptFileIO):
             and previous['capturedEpochMs']>=getattr(self,'epoch_floor',0) and self.guard() is not False)
         self.instance,self.generation=previous['instance'],previous['generation']
         self.sequence,self.elapsed,self.last_command=previous['sourceSequence'],previous['elapsedMs'],previous['lastCommandSequence']
-        self.inventory=current;self.epoch_floor=previous['capturedEpochMs']
+        self.inventory=current;self.epoch_floor=previous['capturedEpochMs'];self.observation_version=previous['graphicsObservationVersion']
 
     def input(self,*_args,**_kwargs):need(False)
 

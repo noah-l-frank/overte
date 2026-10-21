@@ -2,6 +2,7 @@
 
 #include "PicoE2eTabletBridge.h"
 #include "PicoE2eNavigationUi.h"
+#include "PicoGraphicsComposition.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/PendingFieldCommitOwner.h"
 #include "../../../../../../tests/device/native/PrivatePreviewFiles.h"
@@ -450,7 +451,10 @@ private:
         const auto keyboard=DependencyManager::get<Keyboard>();
         inventory["keyboard3D"]=QJsonObject{{"raised",keyboard->isRaised()},{"enabled",keyboard->getUse3DKeyboard()}};
         packet["commandId"]=id;packet["action"]=QStringLiteral("observe");
-        packet["graphicsObservationVersion"]=1;packet["graphicsInventory"]=inventory;
+        packet["graphicsObservationVersion"]=2;packet["graphicsInventory"]=inventory;
+        packet["composition"]=_graphicsComposition.observe(root,window,
+            DependencyManager::isSet<EntityScriptingInterface>() ? DependencyManager::get<EntityScriptingInterface>().data() : nullptr,
+            DependencyManager::isSet<HMDScriptingInterface>() ? DependencyManager::get<HMDScriptingInterface>().data() : nullptr);
         packet["tabletShown"]=tablet && tablet->property("tabletShown").toBool();
         auto focused=window ? window->activeFocusItem() : nullptr;
         packet["editorFocused"]=focused && (focused->inherits("QQuickTextInput") || focused->inherits("QQuickTextEdit"))
@@ -615,6 +619,7 @@ private:
     overte::e2e::ScriptFileUi _scriptObservation;
     overte::e2e::LoginUi _loginObservation;
     overte::e2e::GraphicsUi _graphicsObservation;
+    PicoGraphicsComposition _graphicsComposition;
     overte::e2e::FeatureUiInventory& _graphicsInventory {overte::e2e::graphicsUiInventory()};
     QSet<QString> _graphicsObservationNonces;
     overte::e2e::LoginUiInventory _loginInventory;

@@ -50,3 +50,13 @@ components/menu callbacks, focus/keyboard resources, one-send/no-input transport
 private candidate guards and historical continuity. Authentication host regressions
 remain passing after the shared weak-tracker extraction. Native C++/QML code has
 not been compiled, and no target/device was used.
+
+## Original composition v2
+
+The passive source now emits v2 with an original `composition` observation.
+Both v1 and v2 readers remain explicit. The separately selected
+[stereo surface profile](../../native/STEREO_GRAPHICS_SURFACES.md) requires v2
+on both sides of the original capture and independently checks opacity, coverage
+and registered native screen/frame identity. An incomplete property observation
+still permits resource inventory but cannot admit a shown tablet for this new
+profile. Native source is uncompiled and devices are untested.

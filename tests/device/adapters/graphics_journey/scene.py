@@ -17,6 +17,7 @@ from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from feature_journeys.contract import identifier
 from feature_journeys.graphics_resources import RESOURCE,validate_status
+from feature_journeys.graphics_fixture import LEGACY_PROFILE
 from feature_journeys.witness import Client
 from adapters.graphics_journey.geometry import near
 from adapters.script_journey.history import pack,unpack,same
@@ -135,7 +136,7 @@ class GraphicsScene:
             need(action['kind'] in ('enter','align','restore','restore-close','camera') and action['kind'] not in kinds
                 and action['phase'] in ('issued','acknowledged','observed') and type(action['inputs']) is list and len(action['inputs'])<=128)
             need(state['original'] is not None and state['sceneTicket'] is not None)
-            root=self.client.url+'/runs/'+self.run+'/tickets/'+state['sceneTicket']+'/'+RESOURCE
+            root=self.client.url+'/runs/'+self.run+'/tickets/'+state['sceneTicket']+'/'+getattr(self.policy,'fixture_resource',RESOURCE)
             expected={'enter':viewpoint(root,[0,0,0],[0,0,0,1]),'restore':state['original']['restoreUrl'],'restore-close':None}
             if action['kind']=='camera':need(state['handoff'] is not None);expected['camera']=None
             if action['kind']=='align':
@@ -218,6 +219,7 @@ class GraphicsScene:
         packet=self.client.graphics_status()
         validate_status(packet,instance=self.client.graphics_instance,run=self.run,url=self.client.url,request=packet['requestId'],previous=self.state['provider'])
         need(packet['active'] is True)
+        need(packet.get('profile',LEGACY_PROFILE)==getattr(self.policy,'fixture_profile',LEGACY_PROFILE))
         if self.state['sceneTicket'] is not None:need(packet['sceneTicket']==self.state['sceneTicket'])
         self.state['provider']=deepcopy(packet);self.save();return packet
     def intent(self,stage,subject,graphics,control):
@@ -269,7 +271,7 @@ class GraphicsScene:
             self.state['phase']='preparing';self.save()
         status=self.provider();need(status['sceneTicket'] is not None)
         if self.state['sceneTicket'] is None:self.state['sceneTicket']=status['sceneTicket'];self.save()
-        root=self.client.url+'/runs/'+self.run+'/tickets/'+self.state['sceneTicket']+'/'+RESOURCE
+        root=self.client.url+'/runs/'+self.run+'/tickets/'+self.state['sceneTicket']+'/'+getattr(self.policy,'fixture_resource',RESOURCE)
         if self.state['handoff'] is not None:
             if not self.state['actions']:
                 surface=self.surface();need(not surface.tablet_visible() and not surface.address_visible())

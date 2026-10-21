@@ -395,3 +395,22 @@ first observed red and then passing. Current v16 Graphics open-page images and
 effects therefore need a separately versioned per-surface original identity/
 visibility proof. This prerequisite remains open rather than treating UI colors
 as world pixels or declaring the helper a complete Graphics adapter.
+
+## Original open-tablet Graphics surface continuation
+
+[Surface evidence v2](../../native/STEREO_GRAPHICS_SURFACES.md) now joins the
+explicit owned Pico scene variant, full per-eye Haze/reflection codes, actual
+executing cameras, original HTTP deliveries and original tablet composition
+before/after capture. Native passive UI v2, durable sample producer v5 and
+original-file v2 preserve explicit legacy readers, role/process ownership and
+all native receipt retirement. Counterexamples cover translucent/unknown UI,
+wrong camera/geometry, old or copied eyes/codes, ignored effects, reused UI,
+missing delivery and interrupted/recreated ownership. Host tests do not qualify
+native code, physical rendering, input, timing or devices.
+
+Graphics remains partial with no public/actor operation or complete capability.
+Next compose the frozen observer and readiness/effect owner around these actual
+Pico sources, then join independent actor publication, normal background/restart,
+a separately observed new-process framework baseline and all original
+UI/QML/XHR/HTTP/Web-renderer/scene/capture quiet cleanup. Scripts and
+Authentication remain the only two complete source-level areas.
