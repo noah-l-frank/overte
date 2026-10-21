@@ -2,9 +2,10 @@
 
 `IOSGraphicsRuntime._graphics_samples` composes the existing canonical iOS
 sources into `IOSGraphicsSamples`. This internal producer supplies no feature
-capability or actor publication. The whole Graphics journey remains partial.
+capability or actor publication itself. The outer [Graphics owner and worker](GRAPHICS_FINALIZATION.md)
+now implement the complete source-level journey and teardown.
 
-Each run/role/process stage has its own version-2 private index, independently
+Each run/role/process stage has its own version-3 private index (readers 1/2/3), independently
 acquired native settings/scene/UI histories, fresh image nonce, image ownership
 file, original PNG and immutable sample record. The index records responsibility
 before the image owner can issue a native capture. Original source floors and

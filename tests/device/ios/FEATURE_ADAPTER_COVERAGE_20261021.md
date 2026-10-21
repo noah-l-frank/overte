@@ -1,7 +1,7 @@
 # iOS source coverage and executable adapter handoff, 2026-10-21
 
-**Scripts and Authentication are source-complete and host-tested; twelve areas remain partial.**
-All fourteen shared v16 journeys exist. These two areas have complete iOS
+**Scripts, Authentication and Graphics are source-complete and host-tested; eleven areas remain partial.**
+All fourteen shared v16 journeys exist. These three areas have complete iOS
 input/observation/cleanup coordinators. Native compilation is unverified and
 devices are untested. Host results do not represent product acceptance,
 installation, build or laboratory execution.
@@ -63,10 +63,10 @@ native/server/OS/receiver endpoints, not fixture delivery or requested filenames
 
 ## Fourteen-area matrix
 
-Every row remains **compilation unverified; devices untested**. Scripts and
-Authentication are source-complete with their unchanged full shared journeys
-and independent actor regressions. The other twelve rows remain **logic present;
-iOS adapter partial**; their complete triples are still missing. “Partial”
+Every row remains **compilation unverified; devices untested**. Scripts,
+Authentication and Graphics are source-complete with their unchanged full shared
+journeys and independent actor regressions. The other eleven rows remain
+**logic present; iOS adapter partial**; their complete triples are still missing. “Partial”
 credits only the specifically listed components.
 
 | Area | Existing iOS components and actual product sources | Concrete missing interface/evidence and next implementation packet |
@@ -78,7 +78,7 @@ credits only the specifically listed components.
 | Emotes | `FeatureObservation.native_observer()` can read original evaluated Rig/clip/pose/history. Product: `scripts/system/emote.js`, chooser QML and Rig. | No iOS ordinary chooser/reset survey, submitted-code/caller/root join or independent pose/image actor. Inspect and version the iOS Emote source profile first, add normal source-token input, then join actual native override/completion/early restoration and all real Sit variants. Phone's new root/caller/Rig packet requires its full dependency closure; it is not imported as an iOS adapter. |
 | Web in the world | Existing world video input/screenshot foundation, `_web_dom`, native `ios/web/IOSWebView.mm`, `IOSWebChannel.cpp` and document epochs. | No source-bound world-surface focus/key recipe or complete native response/document/bridge lifetime ledger. Bind original WK response ID/status, DOM source and actual input focus to independent message receipts; implement normal navigation/Back/404 restoration/resume, foreign attempt and deferred callback retirement. A host GET cannot fill status or document loads. |
 | Web in the tablet | Existing tablet/native Web/video components and the same original DOM reader. | In addition to the Web ledger above, the actual tablet browser/inline route, native inline grant/carrier and reconstructed blank resume need input/lifetime ownership. Bind the actual inline source and original revoked callbacks. An HTTP page named inline is not that source. |
-| Graphics | Original settings with independent native clocks, iOS native subject v3 with actual orbit/boom, scene-load ledger, ordinary scene/camera and durable preference restoration, generic Graphics/View-menu tokens, completed-frame and Vulkan PNG/chunk/file owners, durable role samples/crossed-phase retirement, background/activation recovery, restart with old-PID death and original ownership transfer, independent role observation/publication, original world/native-screen joins and actual effect-pixel comparators. | The [whole-run coordinator](GRAPHICS_COORDINATION.md) passes all fifteen unchanged shared steps and double cleanup. The [paired finalizer](GRAPHICS_FINALIZATION.md) now has source/host-verified primary and actor world/image/lifetime restoration, one-send final Stop, independent four-clock OS windows and exact archive/CAS metadata retirement, including strict old/new PID histories. Cached pre-exit native holders remain nonzero originals; no native query or fictional zero packet occurs after death. The independent worker now stays through paired finalization, retains hard failure across restart and passes coupled lost-Stop/receipt tests. Version-2 primary configuration, canonical dispatch and durable SDK-only teardown are now present with lost/ignored DELETE, exact candidate/target scope and historical-repeat host tests. The full fifteen-step journey using the actual worker followed by the SDK transaction still requires verification before a complete capability. See [Graphics sources](GRAPHICS_FEATURE.md), [original samples](GRAPHICS_SAMPLES.md), [publication](GRAPHICS_PUBLICATION.md), [restart](GRAPHICS_RESTART.md), [calibration](GRAPHICS_CALIBRATION.md), [resource lifetimes](GRAPHICS_RESOURCE_LIFETIME.md) and [native callback closures](WEB_CLOSURES.md). Native compilation is unverified and devices are untested. |
+| Graphics | **Source-complete, host-tested.** Canonical three-operation dispatch, ordinary Graphics/View/scene inputs, original Vulkan images and effect pixels, independent actor/publication, calibration, background/restart, original-world restoration and paired lifetime/process retirement. | The unchanged fifteen-step journey passes with the actual worker, repeated observable cleanup, paired finalization, one normal final Stop, one SDK DELETE and historical repeat (770.187 seconds of host wall time). Exact original images, clocks, role/stage/PID histories and unresolved delivery remain preserved. Explicit version-2 private configuration admits the complete triple; version-1 Scripts/Authentication configuration remains readable. See [Graphics sources](GRAPHICS_FEATURE.md), [coordination](GRAPHICS_COORDINATION.md) and [finalization/SDK handoff](GRAPHICS_FINALIZATION.md). Native code is uncompiled and devices are untested; synthetic SDK clocks do not qualify physical deadlines. |
 | Audio | `normal_audio.py`, original recorded-preview history/input/sink PCM and existing microphone-permission/voice components. Product: automatic native recorded-preview cycle. | No full owner joining microphone authorization, ordinary cycle/mute/background cancellation, independent acoustic output/peer and verified idle restoration. Add an iOS OS-authorization observer/normal prompt recipe to this owner and retain actual pre-normalization input separately from acoustic output. Accepted sink-write bytes are not audible-output evidence. |
 | Chat | `chat_controls.py`, `_chat_view`, `_chat_capture`, original local/network distinction and shared independent receiver/mixer-control components. Product: armored-chat QML and MessagesClient. | No complete original rendered and persisted Local/Domain history projection, actual UIKit keyboard measurement, remote stimulus/publisher or whole-run mixer/receiver ownership. Join the actual remote source pair to owned original rows and OS focus/keyboard; exercise distant Local rejection and observed no-mixer local echo, then prove no deferred replay for three seconds before explicit retype/resend. |
 | Snapshots | `normal_snapshot.py`, `snapshot_files.py`, original SNAP capture/file foundation; `ios/snapshot/IOSSnapshotAdapter.mm` implements real Photos Save and system Share. | No full pending/cancel history acquisition, ordinary 350-ms cancel recipe, Photos saved-original read/remove, actual system-share receiver or authenticated upload/body sink. Add passive owned callbacks/Photos local identifiers and separate receiver originals; bind normal authorization/sheets to exact capture bytes and original completion. Private file presence cannot prove Save or delivery. |
@@ -203,3 +203,20 @@ The added iOS admission regression checks every area's existing mandatory gate
 against the actual iOS capability producer and requires infrastructure failure
 for the missing triples, even when the runner's optional completeness flag is
 absent.
+
+## Integrated Graphics source completion, 2026-10-22
+
+The full fifteen-step integrated host selection now joins the actual independent
+worker, both source barriers, double observable cleanup, paired finalization and
+SDK-only deletion. Source capability admission is enabled only for explicit
+version-2 Graphics configuration. Entry lock contention shares the existing
+60-second retirement deadline; a body that already started is never replayed.
+Other component owners prevent the historical-cleanup shortcut without creating
+any source or session. Separate original archives and local historical receipts
+retain completed ownership without reporting new product observations.
+
+Reconcile the iOS-only configuration writer 2 (readers 1/2), observer-worker and
+worker-failure v1, finalization/reference/receipt v1 and SDK-retirement v1 registry
+entries with the Phone/Pico registry union. The shared journey remains v16.
+No protected or parallel branch is integrated here. The remaining eleven areas
+retain their concrete source gaps above; Worlds/navigation is next.

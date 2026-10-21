@@ -63,7 +63,8 @@ validate the same originals after runtime metadata removal and app death.
 `resolve` selects this path when the original provider is inactive. A close that
 races an earlier active-provider lookup may still interrupt live journal lookup;
 its exact pending intent remains owned and the finalizer can call `retire_run`
-explicitly. The whole worker/finalizer integration remains unfinished. These
+explicitly. The [complete worker/finalizer](GRAPHICS_FINALIZATION.md) now uses this
+path in the integrated fifteen-step host case. These
 methods do not stop an app, remove runtime metadata, prove complete quiet or
 advertise a whole Graphics capability.
 

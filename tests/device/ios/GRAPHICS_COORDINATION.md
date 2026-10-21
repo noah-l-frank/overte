@@ -1,12 +1,14 @@
-# Whole-run iOS Graphics coordination and remaining integration
+# Whole-run iOS Graphics coordination and integration
 
 `graphics_feature.py` composes the existing scene, preference, calibration,
 background, restart, original observer, independent publisher and resource
-lifetime owners. It supplies the three shared Graphics operations internally.
+lifetime owners. It supplies all three shared Graphics operations through the
+canonical installed adapter under explicit private version-2 configuration.
 The [paired finalizer](GRAPHICS_FINALIZATION.md) now composes Stop, independent
-process quiet windows and recoverable metadata retirement. Worker, private
-configuration and canonical dispatch integration remain required before a
-complete capability. Scripts and Authentication remain the two complete areas.
+process quiet windows and recoverable metadata retirement. The actual separate
+worker, canonical dispatch and SDK-only retirement are integrated and host-tested
+with the full journey. Graphics, Scripts and Authentication are source-complete;
+native compilation and device qualification remain unexecuted.
 
 ## Inputs, roles and recovery
 
@@ -60,8 +62,8 @@ An immutable record committed before a lost return is adopted unchanged.
 Historical archive validation requires the original PNG/inode and all exact
 records, works after runtime metadata removal, and supplies no current fact.
 Missing originals, changed pixels, stale fixture-camera images and foreign
-scope fail closed. The whole finalizer still has to call this component for
-both roles before its owned stop.
+scope fail closed. The whole finalizer calls this component for both roles
+before its owned stop.
 
 `IOSGraphicsSamples.archive_owned` additionally validates an exact retained
 request-to-original-sample/owner mapping after runtime metadata removal. It
@@ -102,7 +104,7 @@ additive API; sample/index writers now emit v3 with v1/v2/v3 readers. The additi
 original closed-authority acquisition. All changes remain solely in the
 isolated local iOS branch.
 
-Final integration must compose both original-world image/lifetime snapshots,
+Final integration composes both original-world image/lifetime snapshots,
 durable one-send final Stop, independent original numeric-PID/OS quiet windows,
 all role/stage immutable archives and recoverable CAS metadata retirement.
 Retained pre-exit cache counters must remain unchanged. No post-death zero native
@@ -115,10 +117,10 @@ retired journal authority plus original native release, preserving uncertain
 acquisitions as abandoned history. See [the v3 sample handoff](GRAPHICS_SAMPLES.md).
 Uncertain actor POSTs now have the separate original-authority retirement path
 described in [the publication handoff](GRAPHICS_PUBLICATION.md). It records no
-publication outcome after journal deletion. The remaining finalizer/worker must
-call these paths before stopping the process, preserve their exact originals,
-and then compose both role image/lifetime snapshots, one-send Stop, independent
-process quiet windows and complete paired archive/metadata retirement.
+publication outcome after journal deletion. The integrated finalizer/worker
+calls these paths before stopping the process, preserves their exact originals
+and joins both role image/lifetime snapshots, one-send Stop, independent process
+quiet windows and complete paired archive/metadata retirement.
 
 ## Finalization integration update, 2026-10-22
 
@@ -127,5 +129,8 @@ restored-world image/lifetime records, one normal Stop, independent OS quiet
 windows and exact recoverable archive/CAS metadata retirement. It preserves
 nonzero cached pre-exit images and old/new PID histories without querying native
 state after death. The private worker/configuration/dispatch and full shared
-journey followed by finalization still need integration; Graphics remains
-partial and unadvertised.
+journey followed by finalization and SDK-only retirement now pass together.
+The integrated host case takes 770.187 seconds and finishes with worker status 0,
+exactly one final Stop and one SDK DELETE. Pure historical repeat also passes.
+Graphics is source-complete and admitted by explicit version-2 configuration;
+physical deadlines, native compilation and device behavior remain unqualified.

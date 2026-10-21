@@ -6,8 +6,9 @@ retirement. It runs **after** the shared journey's observable cleanup and actual
 fixture retirement. It is separate from `feature.graphics.cleanup`, which must
 remain observable and repeatable while the controlled scene and process exist.
 The finalizer does not mark the journey successful or advertise a capability.
-Graphics remains partial until the integrated worker, canonical operation path
-and SDK teardown are verified with the full shared journey.
+The worker, canonical operation path and SDK teardown now pass with the full
+shared journey. Graphics is source-complete under explicit private configuration;
+native compilation and physical device qualification remain unexecuted.
 
 ## Operation and original evidence
 
@@ -154,8 +155,8 @@ Twelve worker lifecycle/configuration counterexamples and two coupled actual
 worker/finalizer host tests pass. These use original host fixture/files and
 synthetic SDK sources; no device or compiler is invoked. The full fifteen-step
 journey with this worker, primary configuration, canonical dispatch and session
-deletion without repeated termination remains the next integration packet.
-No complete Graphics capability is enabled by this file. Registry additions
+deletion without repeated termination now passes as one integrated host test.
+Capability admission is handled by the explicit configuration. Registry additions
 `ios-graphics-observer-worker` and `ios-graphics-worker-failure` are version 1.
 
 ## Canonical dispatch and SDK retirement
@@ -163,8 +164,13 @@ No complete Graphics capability is enabled by this file. Registry additions
 Private primary configuration version 2 adds the exact `graphics` field with
 `artifactRoot` and `imagePolicy`; version-1 Scripts/Authentication files remain
 readable. Version 2 without Graphics requires `graphics: null`. Graphics
-configuration is parsed but capability admission still fails while the full
-integrated journey is unverified. No incomplete capability can make a green run.
+configuration now admits the complete Graphics triple after full integration
+verification. Other incomplete areas remain excluded from capability admission.
+The configured `artifactRoot` must be the runner's `OVERTE_E2E_ARTIFACT_DIR`, and
+`imagePolicy` must match its Graphics `screen` policy in
+`OVERTE_E2E_FEATURE_IMAGE_POLICY`. The independent worker uses the same directory
+and fixed policy with its own actor credential. Actor execution is reserved for
+the Proxmox laboratory; these source tests never start a device worker.
 
 The canonical installed adapter dispatches all three Graphics operations through
 `IOSGraphicsRuntime`. Observable `feature.graphics.cleanup` remains foreground
@@ -191,11 +197,19 @@ removed. An immutable `graphics-session-retired-<run>.json` receipt and local
 `ios-feature-session-retired.json` pointer retain historical completion. Repeated
 cleanup validates those originals with an unusable HTTP client and needs no
 fixture credential, source factory, current product measurement or second Stop.
-Another live SDK or installed binding prevents this historical shortcut.
+Another live SDK, installed binding or original component owner prevents this
+historical shortcut. The component check only reads private ownership and cannot
+create a source or session. Entry lock contention retries within the same total
+60-second deadline. Once a body has started, an inner busy/error cannot replay it.
 
 Four coupled host tests cover complete retirement, lost DELETE recovery,
-foreign SDK ownership and ignored DELETE ACKs. Forty-four focused canonical,
+foreign SDK ownership and ignored DELETE ACKs. Forty-six focused canonical,
 configuration, source-binding and cleanup tests pass. The new session contract
 is `ios-graphics-session-retirement` version 1. The fifteen-step journey with
-the actual worker followed by this SDK transaction is still pending; no native
-compilation, device or laboratory qualification is claimed.
+the actual worker followed by this SDK transaction passes in 770.187 seconds,
+including independent worker exit 0, one final Stop, one SDK deletion and pure
+historical repeat. The host harness waits the existing 60-second finalizer-step
+budget for worker completion; no product deadline or evidence window is extended.
+Three focused contention counterexamples verify entry retries, the whole deadline
+and no body replay. Native compilation, device and laboratory qualification
+remain unexecuted; synthetic SDK clocks do not qualify physical timing.

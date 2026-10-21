@@ -1,13 +1,13 @@
 # iOS Graphics implementation and original source handoff
 
-Graphics is in progress and advertises no full feature capability. Scripts and
-Authentication remain the two complete source-level iOS areas. All new native
-code remains uncompiled and all devices remain untested.
+Graphics, Scripts and Authentication are complete source-level iOS adapters.
+Graphics advertises its full triple only under explicit private version-2
+configuration. All new native code remains uncompiled and devices are untested.
 
-The [whole-run coordinator and exact remaining finalization boundary](GRAPHICS_COORDINATION.md)
-now have a passing unchanged fifteen-step host journey, including both role
-restart barriers and repeated fresh cleanup windows. The complete worker, final
-stop, paired process retirement and metadata integration remain unfinished.
+The [whole-run coordinator](GRAPHICS_COORDINATION.md) has a passing unchanged
+fifteen-step host journey with the actual independent worker, both restart
+barriers, repeated fresh cleanup windows, paired finalization, one SDK deletion
+and historical repeat. See [the complete teardown contract](GRAPHICS_FINALIZATION.md).
 
 ## Original subject source
 
@@ -136,15 +136,16 @@ without requiring native UI. Restart transfer, actor and final lifetime remain.
 The [ordinary restart/transfer owner](GRAPHICS_RESTART.md) now drains both role
 captures before stop, requires original old-PID death and strict new birth/
 counter/candidate joins, preserves original preferences and recovers partial
-scene/preference CAS transfer without repeating lifecycle input. Full actor,
-WK lifetime, finalization and the unchanged fifteen-step composition remain.
+scene/preference CAS transfer without repeating lifecycle input. Actor, WK
+lifetime, finalization and the unchanged fifteen-step composition are now joined
+by the complete coordinator and independent worker.
 
 The [independent role observer](GRAPHICS_OBSERVER.md) now joins fresh original
 frames, retained source/file history, meaningful effect pixels and each role's
 own post-restart kernel proof. Host image timestamps retain their measured
 acquisition interval rather than relabeling native epochs. Explicit phase
-retirement preserves failed originals and does not publish old facts. Whole-run
-worker, WK lifetime and finalization composition remain unfinished.
+retirement preserves failed originals and does not publish old facts. The
+whole-run worker, lifetime and finalization composition is integrated.
 
 The existing world-target PNG sampler only reads actual main-mono OpenGL
 framebuffers; Vulkan's product `downloadFramebuffer` remains unimplemented.
@@ -173,19 +174,18 @@ using the canonical closed HTTP/AFC transport, separately guarded process and
 actual native clock. The unchanged legacy component API remains compatible.
 Its original geometry receipt contains no PID; that binding is independently
 guarded rather than inserted into the native receipt. This reader and original
-PNG acquisition are constructed through `IOSGraphicsRuntime`. The next packet
-must join both to bracketing completed Vulkan frames and actual viewport/subject
-geometry, decode the current challenge, and compare meaningful haze/mirror
-pixels. Acquiring a well-formed PNG alone does not complete that proof or the
-whole Graphics journey.
+PNG acquisition are constructed through `IOSGraphicsRuntime`. The complete owner
+joins bracketing completed Vulkan frames and actual viewport/subject geometry,
+decodes the current challenge and compares meaningful haze/mirror pixels. A
+well-formed PNG alone cannot complete that proof or the Graphics journey.
 
 The [test-only Vulkan world-frame source](../native/VULKAN_WORLD_FRAME.md) now
 provides original pre-HUD PNG/pixel hashes through the existing frame fence and
 private HTTP/AFC channel. It avoids the opened tablet's screenshot occlusion and
 preserves the product readback TODO. Native layout/copy/barrier code remains
-uncompiled; device pixels remain unverified. The next full-owner packet must
-join these originals to actual scene/
-settings, independently credential the actor and prove complete quiet cleanup.
+uncompiled; device pixels remain unverified. The full owner joins these originals
+to actual scene/settings, independently credentials the actor and verifies quiet
+cleanup before final process retirement.
 The durable per-image owner now persists file/chunk responsibility and pins the
 original GPU source before requesting its frame. It preserves host evidence
 through native release and keeps unresolved ownership after lost responses.
@@ -205,9 +205,9 @@ effect regressions pass. New positives cover a visible full-screen Graphics
 dialog, independently differing requested/allocated scale, blue haze and orange
 reflection. Retained copy resources, wrong source/format/PID/pixel hashes, stale
 or uniform pixels, changed challenge alone and incorrect effect colors fail.
-All native/UI/GPU boundaries and pixels are synthetic. The full scene/preference/
-lifecycle/sample/actor coordinator remains unfinished; no Graphics capability is
-advertised by these internal joins.
+All native/UI/GPU boundaries and pixels in these host regressions are synthetic.
+The full scene/preference/lifecycle/sample/actor coordinator and paired teardown
+are now integrated; capability admission requires explicit version-2 configuration.
 
 `graphics_measurements.py` now joins original native settings/subjects/UI,
 two separately fence-completed frames and their actual retained-consumer drain,

@@ -58,7 +58,8 @@ proposal check and its additional case then passed the twelve-case selection.
 Tests use real temporary ownership/image files and loopback scene responses,
 actual existing iOS HTTP/AFC UI framing and synthetic native/OS/kernel/candidate
 SDK boundaries. They do not establish native compilation, physical process
-behavior, GPU timing or device qualification. Graphics remains partial.
+behavior, GPU timing or device qualification. The complete outer Graphics owner
+is now integrated; see [the current handoff](GRAPHICS_FINALIZATION.md).
 
 
 ## Bounded v2 restart header and exact original archives

@@ -11,7 +11,7 @@ from ios.adapters.normal_scripts import configuration as scripts_configuration
 VERSION=2
 READS=(1,2)
 AREAS=frozenset(('scripts','authentication','graphics'))
-COMPLETE_AREAS=frozenset(('scripts','authentication'))
+COMPLETE_AREAS=frozenset(('scripts','authentication','graphics'))
 OPERATIONS=frozenset('feature.'+area+'.'+kind for area in AREAS for kind in ('act','observe','cleanup'))
 
 

@@ -11,7 +11,7 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
-from ios.adapters.feature_configuration import configuration,capabilities,OPERATIONS,COMPLETE_AREAS
+from ios.adapters.feature_configuration import configuration,capabilities,OPERATIONS
 from ios.script_observer import configuration as observer_configuration
 from ios.authentication_observer import configuration as authentication_observer_configuration
 from ios.adapters.normal_scripts import PROFILE
@@ -52,7 +52,7 @@ class IOSScriptConfigurationTests(unittest.TestCase):
         with patch.dict(os.environ,{'OVERTE_IOS_FEATURE_ADAPTER_CONFIG':str(self.store.path)},clear=True):
             with self.assertRaises(NativeUIError):capabilities(self.target)
             target=self.target|dict(testBuild={'launchEnvironment':{'HIFI_METAVERSE_URL':'https://owned.invalid'}})
-            self.assertEqual(sorted(op for op in OPERATIONS if op.split('.')[1] in COMPLETE_AREAS),capabilities(target))
+            self.assertEqual(sorted(op for op in OPERATIONS if op.split('.')[1] in ('scripts','authentication')),capabilities(target))
             self.store.write(self.value|dict(areas=['authentication']),self.store.read())
             self.assertEqual(sorted(op for op in OPERATIONS if '.authentication.' in op),capabilities(target))
 
@@ -73,12 +73,16 @@ class IOSScriptConfigurationTests(unittest.TestCase):
             self.store.write(value|fields,self.store.read())
             with self.assertRaises((RuntimeError,ValueError)):authentication_observer_configuration(self.store.path)
 
-    def test_graphics_v2_is_explicit_but_not_advertised_before_complete_integration(self):
+    def test_graphics_v2_requires_fixed_policy_and_admits_only_explicit_area(self):
         selected=dict(artifactRoot=str(self.root),imagePolicy=dict(source='world-render-target',marker=[0,0,64,32],subject=[0,32,640,400]))
         value=self.value|dict(iosFeatureAdapterVersion=2,areas=['graphics'],graphics=selected)
         self.store.write(value,None);self.assertEqual(value,configuration(self.store.path))
         with patch.dict(os.environ,{'OVERTE_IOS_FEATURE_ADAPTER_CONFIG':str(self.store.path)},clear=True):
-            with self.assertRaises(NativeUIError):capabilities(self.target)
+            self.assertEqual(sorted(op for op in OPERATIONS if '.graphics.' in op),capabilities(self.target))
+        for fields in (dict(graphics=None),dict(graphics=selected|dict(imagePolicy=selected['imagePolicy']|dict(source='native-screen'))),
+                       dict(areas=['scripts'])):
+            self.store.write(value|fields,self.store.read())
+            with self.assertRaises((RuntimeError,ValueError)):configuration(self.store.path)
         self.store.write(self.value|dict(iosFeatureAdapterVersion=2,graphics=None),self.store.read())
         self.assertEqual(2,configuration(self.store.path)['iosFeatureAdapterVersion'])
 

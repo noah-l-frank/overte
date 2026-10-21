@@ -376,11 +376,12 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 need(state('ios-authentication-feature.json') is None and state('ios-authentication-retirement.json') is None
                      and state('script-feature-owner.json') is None and state('script-feature-retirement.json') is None)
                 if historical:
+                    need(self.component_owners_absent(selector))
                     transaction=IOSGraphicsSessionRetirement.from_receipt(IOSGraphicsRuntime(self),selector,graphics_receipt)
                     return transaction.historical(graphics_receipt)
                 config=configuration();need(config is not None and config['iosFeatureAdapterVersion']==2 and 'graphics' in config['areas'])
                 transaction=IOSGraphicsSessionRetirement(IOSGraphicsRuntime(self),selector,reader(config),config['graphics'],original)
-                need(self.cleanup_components(selector))
+                need(self.cleanup_components(selector) and self.component_owners_absent(selector))
                 return transaction.finalize()
             # Preserve the original component cleanup and independent native
             # process/session teardown even if all candidate inputs are lost.

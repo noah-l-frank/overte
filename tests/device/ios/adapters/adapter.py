@@ -352,6 +352,15 @@ class IOSNativeMixin:
         ui, _observe, _binding = self._script_runtime(selector)
         return TokenScriptFilePicker(ui.io, directory)
 
+    def component_owners_absent(self,selector):
+        """Pure ownership checks; historical cleanup must not create sources."""
+        stores=(self.script_store,self.chat_capture_store,self.private_login_input_store,self.script_restart_store,
+                self.script_restart_inputs_store,self.script_files_store,self.account_probe_store,self.account_origin_store,
+                self.world_render_store)
+        if any(store(selector).read() is not None for store in stores):return False
+        state=self.read_session(selector)
+        return state is None or all(key not in state for key in ('iosNormalNavigation','iosNormalSnapshot'))
+
     def cleanup_components(self, selector):
         chat_error=False
         try:

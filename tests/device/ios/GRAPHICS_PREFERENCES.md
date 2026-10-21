@@ -42,4 +42,5 @@ They cover nondefault original restoration, real temporary ownership files and
 loopback scene responses, ignored/lost input, stale clocks, changed source birth,
 failed intent persistence, altered receipts/history and unresolved restoration.
 Native settings, UIKit/Qt and GPU boundaries remain synthetic; native sources
-remain uncompiled and devices untested. Graphics remains partial.
+remain uncompiled and devices untested. The complete outer Graphics owner is
+now integrated; see [the current handoff](GRAPHICS_FINALIZATION.md).

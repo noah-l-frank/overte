@@ -63,8 +63,9 @@ Native compilation and devices remain unverified.
 The native WK/Qt/Vulkan sources and durable per-role/stage
 [resource lifetime owner](GRAPHICS_RESOURCE_LIFETIME.md) now provide original
 marker admission and restored-world/resource quiet windows. The full fifteen-step
-Graphics owner, independent worker lifecycle, ordinary calibration coordination and final metadata composition
-remain unfinished. No Graphics feature triple is advertised.
+Graphics owner, independent worker lifecycle, ordinary calibration coordination
+and final metadata composition now pass together. Explicit private configuration
+admits the full triple; see [the finalization handoff](GRAPHICS_FINALIZATION.md).
 
 The separate [current-effect comparison](GRAPHICS_CURRENT_EFFECTS.md) now has
 source/host logic for current enabled pixels, recent original off frames,
@@ -75,7 +76,7 @@ calibration, restore the original settings and then admit the public baseline.
 Lost captures remain durable and can retire only after a real phase change.
 The [durable calibration coordinator](GRAPHICS_CALIBRATION.md) now retains
 normal one-send calls, the two-role capture barrier and measured restoration.
-Its whole-owner/worker handshake is still pending.
+Its whole-owner/worker handshake is integrated and exercised by the full host journey.
 
 Version-1 archives remain readable without inventing historical current-effect
 proofs. Their accepted native floor is recovered from retained original frames

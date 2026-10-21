@@ -138,7 +138,8 @@ Owner/record v1 remains readable; no abort proof is invented during migration.
 Original packets retain their actual PID, birth, nonce, clocks and contents.
 Fourteen new no-build cancellation cases and the 26 existing resource cases pass,
 including strict old-PID death and new-source evidence for failed stage-1 setup.
-The full whole-owner failure/finalization composition remains in progress.
+The whole-owner failure/finalization composition is now integrated with the
+actual independent worker; see [the finalization handoff](GRAPHICS_FINALIZATION.md).
 Native compilation and real devices remain unexecuted.
 
 ## Actual cached software-image boundary
@@ -161,8 +162,8 @@ window before retiring its ownership. Original resource counters must retain
 their pre-exit values; no fictional post-death zero packet is allowed. This is
 adapter work, not authorization to change or clear product caches. The read-only DVT process source now has a v1 original numeric-PID observation
 after stop (`process_plugin/README.md`); bundle absence alone remains
-insufficient. Paired finalizer integration and fresh quiet-window ownership
-remain unfinished.
+insufficient. Paired finalizer integration and fresh quiet-window ownership now
+pass with the complete fifteen-step host journey.
 
 The archived local RemoteXPC 5.15.3 API was read only as a source reference:
 `Services.startDVTService` exposes `deviceInfo.isRunningPid`. No service, server,
@@ -174,5 +175,5 @@ Live Proxmox installation and device behavior remain unverified.
 actual retained cache holders. It never claims a completed native quiet window.
 The separate [process-retirement owner](PROCESS_RETIREMENT.md) supplies new
 numeric-PID/OS reads and independent four-clock quiet windows after stop. Their
-whole-run finalizer and actor handoff remain pending; neither API advertises a
-complete Graphics capability.
+whole-run finalizer and actor handoff are now integrated. These component APIs
+do not advertise capabilities themselves; explicit full-owner configuration does.

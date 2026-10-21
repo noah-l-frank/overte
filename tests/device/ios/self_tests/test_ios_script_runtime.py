@@ -140,5 +140,18 @@ class IOSScriptRuntimeTests(unittest.TestCase):
         self.assertIsNone(self.f.process);self.assertIsNone(self.f.adapter._state)
         self.assertIsNotNone(self.f.adapter._binding_store('test-only').read())
 
+    def test_historical_graphics_cleanup_cannot_hide_another_component_owner(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        from ios.adapters import graphics_session_retirement
+        path=self.f.adapter.state_path('test-only')
+        PrivateFeatureState(path.with_name('ios-feature-session-retired.json')).write({'runId':'a'*32},None)
+        owner=self.f.adapter.chat_capture_store('test-only');owner.write({'unrelated':'owned'},None)
+        store=self.f.adapter._binding_store('test-only');store.discard(store.read());self.f.adapter._state=None
+        process=deepcopy(self.f.process)
+        with patch.object(graphics_session_retirement.IOSGraphicsSessionRetirement,'from_receipt') as factory:
+            with self.assertRaises(ValueError):self.f.adapter.cleanup('test-only')
+            factory.assert_not_called()
+        self.assertEqual(process,self.f.process);self.assertEqual({'unrelated':'owned'},owner.read())
+
 
 if __name__=='__main__':unittest.main()

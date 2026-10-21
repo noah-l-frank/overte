@@ -171,19 +171,34 @@ class IOSGraphicsSessionRetirement:
     def finalize(self):
         started=self.flow.clock();outer=self.flow.deadline;self.flow.deadline=started+60 if outer is None else min(outer,started+60)
         try:
-            with self.lock.held():
+            def start():
                 if self.state is None:
                     state=self.base.read_session(self.selector);need(state is not None)
                     self.save(self.envelope('finalizing',self.local_scope(state),None))
+            self.with_lock(start)
             while self.state['phase']=='finalizing':
                 self.flow.clock();done=False
                 try:done=self.finalizer.step()
                 except (ScriptSourceBusy,GraphicsPhasePending):pass
                 if done:
-                    with self.lock.held():self.prepare_delete()
+                    self.with_lock(self.prepare_delete)
                 else:self.sleep(.25)
-            with self.lock.held():return self.delete()
+            return self.with_lock(self.delete)
         finally:self.flow.deadline=outer
+
+    def with_lock(self,function):
+        """Retry only actual entry contention under the existing whole budget."""
+        for attempt in range(241):
+            self.flow.clock();entered=False
+            try:
+                with self.lock.held():
+                    entered=True;result=function();self.flow.clock();return result
+            except ScriptSourceBusy:
+                # A body may already own input responsibility. Never replay it
+                # merely because an inner source reports unavailable/busy.
+                if entered:raise
+                self.flow.clock();need(attempt<240);self.sleep(.025)
+        need(False)
 
     def historical(self,value):
         """Only an absent SDK/binding may reuse an original completed receipt."""

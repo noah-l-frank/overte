@@ -16,7 +16,7 @@ from ios.self_tests.test_ios_retired_process import SOURCE
 from self_tests.test_completed_frame_lease import BINDING
 
 
-class GraphicsSessionRetirementTests(FinalizationHarness,unittest.TestCase):
+class GraphicsSessionHarness(FinalizationHarness):
     def setUp(self):
         super().setUp();self.sdk_deleted=False;self.sdk_calls=[];self.delete_fault='';self.actor_done=False
         self.sdk.target['serverUrl']='http://127.0.0.1:12345'
@@ -28,16 +28,24 @@ class GraphicsSessionRetirementTests(FinalizationHarness,unittest.TestCase):
             need(same(scope,{k:v for k,v in BINDING.items() if k!='processIdentity'}));return self.sdk.target
         self.base._retired_candidate_scope=retired_scope
         store=PrivateFeatureState(self.root/'installed-code-binding.json');self.base._binding_store=lambda _:store
-        original_gate=self.base._binding;case=self;native=BundleBoundary()
-        native.bundle['bundleId']=self.sdk.target['appId'];bundle=native.reader().read()
+        original_gate=self.base._binding;case=self;bundles={}
         def factory(*args):
             gate=original_gate(*args)
             class Gate:
                 def __getattr__(self,name):return getattr(gate,name)
                 def record(self):
-                    value=gate.record();document=dict(bindingVersion=BINDING_VERSION,phase=value['phase'],scope=value['scope'],
+                    value=gate.record();pid=value['process']['pid']
+                    if pid not in bundles:
+                        # A distinct model byte source produces a new original
+                        # for each actual process life, never retimes PID 42.
+                        import json
+                        native=BundleBoundary();native.bundle['bundleId']=case.sdk.target['appId']
+                        native.mutate=lambda packet:packet.update(processId=case.sdk.pid,instance=format(case.sdk.pid+9000,'032x'))
+                        native.send(dict(schemaVersion=1,commandId='ios-'+format(pid+7000,'032x'),action='ios-bundle-observe'))
+                        bundles[pid]=json.loads(native.original())
+                    document=dict(bindingVersion=BINDING_VERSION,phase=value['phase'],scope=value['scope'],
                         source=value['source'],process=dict(bundleId=case.sdk.target['appId'],pid=value['process']['pid'],foreground=True),
-                        observation=deepcopy(bundle),previousInstance=None,recovery=None)
+                        observation=deepcopy(bundles[pid]),previousInstance=None,recovery=None)
                     previous=store.read()
                     if not same(previous,document):store.write(document,previous)
                     return document
@@ -69,6 +77,8 @@ class GraphicsSessionRetirementTests(FinalizationHarness,unittest.TestCase):
 
     def start(self):self.baseline();self.client.close()
 
+
+class GraphicsSessionRetirementTests(GraphicsSessionHarness,unittest.TestCase):
     def test_paired_finalizer_deletes_only_original_sdk_then_repeats_from_historical_receipt(self):
         self.start();transaction=self.transaction();self.assertEqual({'cleaned':True},transaction.finalize())
         self.assertEqual(['app.stop'],self.inputs);self.assertTrue(self.sdk_deleted)
