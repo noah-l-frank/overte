@@ -464,3 +464,21 @@ qualified new PID/start. The role observer accepts that actual bridge replacemen
 while retaining original old frames. The legacy preserved-session reader remains
 separate. This corrects a frozen Phone assumption; full normal Graphics restart
 and feature/quiet coordination remain pending.
+
+
+## Normal Graphics restart continuation
+
+The [normal restart owner](GRAPHICS_RESTART.md) now joins original one-send
+stop/launch intent, actual own-UID process state, the Pico Qt bridge policy,
+old-PID ESRCH and exact durable scene/preference proposals. Lost replies and
+partial transfer resume original ownership without another restart. Private
+hash-referenced component archives preserve full originals within unchanged
+journal bounds and remain evidence after final ownership retirement.
+
+Fifteen host cases cover ordinary restart/restoration, both lost replies,
+ignored stop/launch, unknown process/exit evidence, actual setting loss,
+interrupted transfer, retained UI and missing/changed/escaping archives. These
+are synthetic source/SDK boundaries. No native code is compiled and no device
+is qualified. Next join combined original resource quiet ownership and the full
+feature/actor coordinator; Graphics remains partial and the complete count is
+two of fourteen.

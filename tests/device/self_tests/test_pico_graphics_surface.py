@@ -23,6 +23,7 @@ IDENTITY=dict(schemaVersion=1,sourceRevision='a'*40,artifactSha256='b'*64,instal
 
 class Boundary:
     def __init__(self):
+        self.pid=31
         self.clock=0.;self.opened=False;self.page='home';self.page_number=1;self.focused=False;self.text='original'
         self.sequence=0;self.revision=0;self.inputs=[];self.events=[];self.intents=[];self.entered=[]
         self.bridge='11111111-1111-4111-8111-111111111111';self.generation='22222222-2222-4222-8222-222222222222'
@@ -49,7 +50,7 @@ class Boundary:
         for row in rows:
             row.setdefault('enabled',True);row['focused']=row['id']=='navigation.address' and self.focused
             row['token']=str(uuid.uuid5(uuid.NAMESPACE_URL,str(self.revision)+json.dumps(row,sort_keys=True)))
-        return dict(schemaVersion=1,bridgeId=self.bridge,generation=self.generation,processId=31,elapsedMs=round(self.clock*1000),
+        return dict(schemaVersion=1,bridgeId=self.bridge,generation=self.generation,processId=self.pid,elapsedMs=round(self.clock*1000),
             updatedEpochMs=self.epoch,lastCommandSequence=self.sequence,open=self.opened,ready=self.opened,
             featureControlsVersion=1,graphicsControlsVersion=1,navigationAddressVersion=1,controls=rows)
     def read(self):return self.snapshot(),self.epoch
@@ -83,7 +84,7 @@ class Boundary:
         else:raise AssertionError(control)
         self.revision+=1
         return dict(schemaVersion=1,bridgeId=self.bridge,commandId=command['commandId'],sequence=command['sequence'],
-            performed=True,error='',processId=31,updatedEpochMs=self.epoch),self.epoch
+            performed=True,error='',processId=self.pid,updatedEpochMs=self.epoch),self.epoch
     def intent(self,stage,subject,source,control):
         if self.fault=='intent':raise NavigationError()
         if self.fault=='candidate-intent':self.okay=False
@@ -100,14 +101,14 @@ class Boundary:
 
 class HomeSource:
     pid=31
-    def __init__(self,native):self.native=native;self.sequence=0
+    def __init__(self,native):self.native=native;self.sequence=0;self.pid=native.pid
     def guard(self):return self.native.guard()
     def clock_ms(self):return self.native.epoch
     def monotonic(self):return self.native.clock
     def sleep(self,value):self.native.sleep(value)
     def capture(self):
         self.sequence+=1;value=home_original()
-        value.update(processId=31,capturedEpochMs=self.native.epoch,sourceSequence=self.sequence,
+        value.update(processId=self.pid,capturedEpochMs=self.native.epoch,sourceSequence=self.sequence,
             tabletShown=self.native.opened,onHomeScreen=self.native.page=='home')
         return value
     def stage(self,pose):

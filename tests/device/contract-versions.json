@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "graphics-journey-restart": {"current": 1, "reads": [1]},
+    "graphics-restart-archive": {"current": 1, "reads": [1]},
     "graphics-journey-background": {"current": 1, "reads": [1]},
     "pico-graphics-lifecycle-binding": {"current": 1, "reads": [1]},
     "graphics-journey-observer": {"current": 2, "reads": [1, 2]},

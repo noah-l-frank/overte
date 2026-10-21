@@ -87,6 +87,46 @@ class PicoGraphicsBinding(PicoScriptJourney):
         need(operation in ('app.launch','app.stop') and values=={})
         return self.original.invoke(target,operation,values)
 
+    def _graphics_restart_stopped(self,target,old):
+        from adapters.android_process_query import AndroidProcessQuery
+        context(old)
+        def guard():
+            need(hashlib.sha256((target+'\0'+str(self.original.pico_configuration)).encode()).hexdigest()==old['targetFingerprint'])
+            installed=self.original._installation(target)
+            need(all(installed[key]==old[key] for key in ('sourceRevision','artifactSha256')))
+        packet=AndroidProcessQuery(self.original.adb,'org.overte.pico',guard).read(target,int(old['processIdentity'].split(':')[0]))
+        return dict(running=bool(packet['processIds']),identity=old['processIdentity'] if packet['processIds'] else None)
+
+    def _graphics_restart_source(self,target,inputs,restart):
+        from adapters.graphics_journey.restart import GraphicsRestart
+        from adapters.script_journey.history import same
+        need(isinstance(restart,GraphicsRestart) and restart.adapter is self and restart.selector==target
+            and restart.inputs is inputs)
+        def owner_check():
+            restart.lock.assert_held();value=restart.store.read()
+            need(same(value,restart.previous) and restart.state['phase']=='prepared'
+                and inputs.store.path==self._store(target,'graphics-restart-inputs.json').path
+                and same(restart.scene_store.read(),restart.state['oldScene'])
+                and same(restart.preferences_store.read(),restart.state['oldPreferences'])
+                and all(store.read() is None for store in restart.world_stores))
+            return dict(restart=value,scene=restart.state['oldScene'],preferences=restart.state['oldPreferences'])
+        owner_check()
+        if inputs.read()['phase']=='launch-issued':
+            self.original._script_restart_recover_binding(target,restart_inputs=inputs,owner_check=owner_check,monotonic=restart.monotonic)
+        _ui,_observe,binding,guard,_installed=self.normal_feature_runtime(target,read_only=True)
+        return binding,self._native_feature_observer(target,read_only=True),guard
+
+    def _graphics_restart_quiet_ui(self,target,run):
+        from adapters.pico4.graphics_source import resources
+        from adapters.script_ui_inventory import validate as inventory
+        ui,_observe,_binding,guard,_installed=self.normal_feature_runtime(target,read_only=True)
+        value=self._graphics_ui_observer(target,read_only=True).capture()
+        need(value['graphicsObservationVersion']==2 and resources(value)==[])
+        tablet=self._script_file_io(target,read_only=True).capture();actual=inventory(tablet['scriptInventory'])
+        need(actual['complete'] and not actual['tabletShown'] and not actual['managers'] and not actual['pickers']
+            and not ui.tablet_visible() and not ui.available('navigation.address',enabled=False) and guard() is not False)
+        return deepcopy(dict(graphics=value,tablet=tablet))
+
     def _world_render_capture(self,target,*,read_only=True,role,require_frame_view=True,source_lock):
         need(read_only is True and require_frame_view is True)
         return self.original._world_render_capture(target,read_only=True,role=role,require_frame_view=True,source_lock=source_lock)

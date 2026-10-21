@@ -44,5 +44,6 @@ process replacement during a foreground query, old archive validation and
 changed owner records. They exercise actual durable owners at synthetic native,
 UI and OS boundaries. Native compilation and all physical input/rendering/timing
 and device qualification remain unverified. No complete Graphics capability or
-public operation is registered; full restart, independent actor dispatch and
-combined resource quiet retirement remain required.
+public operation is registered; the [normal restart owner](GRAPHICS_RESTART.md) is now source-implemented;
+independent actor/full feature dispatch and combined resource quiet retirement
+remain required.

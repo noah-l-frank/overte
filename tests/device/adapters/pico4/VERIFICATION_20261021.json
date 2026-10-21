@@ -1105,5 +1105,39 @@
       }
     ],
     "limits": "Synthetic source/UI/process boundaries. The actual Pico binding policy retains old originals and does not itself provide normal restart dispatch/recovery, whole feature/actor coordination or quiet cleanup."
+  },
+  "graphicsNormalRestartPacket": {
+    "contracts": [
+      "graphics-journey-restart v1",
+      "graphics-restart-archive v1",
+      "graphics-journey-restart-proof v2"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_restart (from tests/device)",
+        "tests": 15,
+        "status": "passed",
+        "durationSeconds": 23.533
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 86.13,
+        "junit": "graphics-normal-restart-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 3.11,
+        "junit": "graphics-normal-restart-project.xml"
+      }
+    ],
+    "details": "Original one-send normal stop/launch, own-UID process decoding, actual Pico bridge replacement, original old-PID ESRCH and durable exact scene/preference transfer. Private immutable component references preserve full original records within unchanged history bounds. Counterexamples include lost replies, ignored inputs, uncertain process/exit, setting loss, interrupted transfer, retained UI and missing/changed/escaping archive references. Final actual restoration and owner-file absence precede restart/input journal retirement.",
+    "limits": "Synthetic native/UI/SDK/process boundaries. Full Graphics/actor coordination and combined quiet lifetime retirement remain required; no native compilation or physical qualification."
   }
 }
