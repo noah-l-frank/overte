@@ -134,5 +134,11 @@ class IOSScriptRuntimeTests(unittest.TestCase):
             with self.assertRaises(ValueError):self.f.adapter._retired_candidate_scope('test-only',scope|fields)
         self.assertEqual(calls,len(self.calls))
 
+    def test_normal_cleanup_still_reaches_original_teardown_if_component_inspection_raises(self):
+        with patch.object(self.f.adapter,'cleanup_components',side_effect=RuntimeError('Unreadable original component')):
+            with self.assertRaises(RuntimeError):self.f.adapter.cleanup('test-only')
+        self.assertIsNone(self.f.process);self.assertIsNone(self.f.adapter._state)
+        self.assertIsNotNone(self.f.adapter._binding_store('test-only').read())
+
 
 if __name__=='__main__':unittest.main()

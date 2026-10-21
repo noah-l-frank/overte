@@ -390,7 +390,8 @@ class IOSNativeMixin:
              and self.script_files_store(selector).read() is None and self.account_probe_store(selector).read() is None
              and self.account_origin_store(selector).read() is None)
     def cleanup(self, selector):
-        components=self.cleanup_components(selector)
+        try:components=self.cleanup_components(selector)
+        except Exception:components=False
         # Preserve the normal fallback when component cleanup fails. A paired
         # Graphics retirement separately requires these components drained
         # before its own one-send Stop and verified SDK-only teardown.
