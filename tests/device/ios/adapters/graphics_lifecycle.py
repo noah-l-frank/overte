@@ -51,6 +51,14 @@ class IOSGraphicsBackground:
         self.previous=self.store.read();self.state=None
         if self.previous is not None:self.state=self.decode(self.previous)
 
+    @classmethod
+    def archive(cls,value,*,scene):
+        """Historical source validation without foreground admission."""
+        from types import SimpleNamespace
+        scope=object.__new__(cls);scope.scene,scope.run=scene,scene.run
+        scope.preferences=SimpleNamespace(fixture_url=scene.client.url+'/runs/'+scene.run+'/')
+        return deepcopy(scope.decode(value))
+
     def decode(self,value):
         exact(value,{'iosGraphicsBackgroundVersion','runId','fixtureUrl','payload'})
         need(type(value['iosGraphicsBackgroundVersion']) is int and value['iosGraphicsBackgroundVersion']==VERSION

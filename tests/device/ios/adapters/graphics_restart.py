@@ -134,6 +134,17 @@ class IOSGraphicsRestart:
             and preferences['phase'] in ('ready','acknowledged') and preferences['handoff'] is None and not preferences['restoration'])
         return scene,preferences
 
+    @classmethod
+    def archive(cls,value,*,adapter,selector,client,run,lock,artifact_root,image_policy):
+        """Pure original restart/proposal validation after process retirement."""
+        from types import SimpleNamespace
+        lock.assert_held();scope=object.__new__(cls)
+        scope.adapter,scope.selector,scope.client,scope.run=adapter,selector,client,run
+        scope.root,scope.policy,scope.lock=Path(artifact_root),deepcopy(image_policy),lock
+        names=('ios-graphics-scene.json','ios-graphics-primary-0-samples.json','ios-graphics-actor-0-samples.json')
+        scope.inputs=SimpleNamespace(owner_files=[str(lock.path.with_name(name)) for name in names])
+        return deepcopy(scope.decode(value))
+
     def decode(self,value):
         exact(value,{'iosGraphicsRestartVersion','runId','fixtureUrl','providerInstance','payload'}|({'artifactRoot'} if value.get('iosGraphicsRestartVersion')==2 else set()))
         need(type(value['iosGraphicsRestartVersion']) is int and value['iosGraphicsRestartVersion'] in READS and value['runId']==self.run

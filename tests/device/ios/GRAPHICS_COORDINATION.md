@@ -1,11 +1,12 @@
-# Whole-run iOS Graphics coordination and remaining finalization
+# Whole-run iOS Graphics coordination and remaining integration
 
 `graphics_feature.py` composes the existing scene, preference, calibration,
 background, restart, original observer, independent publisher and resource
 lifetime owners. It supplies the three shared Graphics operations internally.
-It is not yet registered as a complete capability: worker/dispatch configuration,
-final stop, paired process quiet windows and recoverable metadata retirement
-remain required. Scripts and Authentication remain the two complete areas.
+The [paired finalizer](GRAPHICS_FINALIZATION.md) now composes Stop, independent
+process quiet windows and recoverable metadata retirement. Worker, private
+configuration and canonical dispatch integration remain required before a
+complete capability. Scripts and Authentication remain the two complete areas.
 
 ## Inputs, roles and recovery
 
@@ -118,3 +119,13 @@ publication outcome after journal deletion. The remaining finalizer/worker must
 call these paths before stopping the process, preserve their exact originals,
 and then compose both role image/lifetime snapshots, one-send Stop, independent
 process quiet windows and complete paired archive/metadata retirement.
+
+## Finalization integration update, 2026-10-22
+
+The [paired finalization owner](GRAPHICS_FINALIZATION.md) now joins both original
+restored-world image/lifetime records, one normal Stop, independent OS quiet
+windows and exact recoverable archive/CAS metadata retirement. It preserves
+nonzero cached pre-exit images and old/new PID histories without querying native
+state after death. The private worker/configuration/dispatch and full shared
+journey followed by finalization still need integration; Graphics remains
+partial and unadvertised.

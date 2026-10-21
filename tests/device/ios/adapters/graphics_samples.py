@@ -467,7 +467,11 @@ class IOSGraphicsSamples:
             owner=self.owner(row)
             if owner.store.read() is not None:
                 proof=owner.release();need(absent(proof));proofs.append(proof)
-            else:need(row['phase']=='reserved');self.absent_artifact(owner)
+            else:
+                if row['phase']=='abandoned':
+                    _value,original=self.record(row);need(original['capture'] is None and original['retirement'] is None)
+                else:need(row['phase']=='reserved')
+                self.absent_artifact(owner) # No owner intent committed; no native capture could be sent.
             self.bound()
             now=self.monotonic();need(number(now,previous,1e15) and now-started<20);previous=now
         return deepcopy(proofs)

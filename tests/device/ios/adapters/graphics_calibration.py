@@ -38,6 +38,13 @@ class IOSGraphicsCalibration:
         self.lock.assert_held();self.previous=self.store.read();self.state=None
         if self.previous is not None:self.state=self.decode(self.previous)
 
+    @classmethod
+    def archive(cls,value,*,scene,source):
+        """Original decoding only; no source factory, input or clock exists."""
+        scope=object.__new__(cls);scope.scene,scope.source=scene,source
+        scope.run,scope.binding=scene.run,deepcopy(scene.binding)
+        return deepcopy(scope.decode(value))
+
     def decode(self,value):
         exact(value,{'iosGraphicsCalibrationVersion','runId','fixtureUrl','providerInstance','payload'})
         need(type(value['iosGraphicsCalibrationVersion']) is int and value['iosGraphicsCalibrationVersion'] in READS

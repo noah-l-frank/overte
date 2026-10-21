@@ -39,6 +39,7 @@ def bounded(seconds):
     def decorate(method):
         @wraps(method)
         def invoke(self,*args,**kwargs):
+            need(self.retirement_store.read() is None)
             started=self.clock();outer=self.deadline
             self.deadline=started+seconds if outer is None else min(outer,started+seconds)
             try:
@@ -127,6 +128,7 @@ class IOSGraphicsFeature:
         return state
 
     def control(self):
+        need(self.retirement_store.read() is None)
         value=self.store.read();self.previous=deepcopy(value)
         if value is None:return None
         exact(value,{'iosGraphicsFeatureVersion','runId','fixtureUrl','providerInstance','artifactRoot','imagePolicy','payload'})
