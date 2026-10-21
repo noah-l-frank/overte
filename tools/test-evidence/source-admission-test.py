@@ -81,6 +81,261 @@ class SourceFixture:
                 return deepcopy(value)
         return Api()
 
+class OptionalLeafImportTests(SourceFixture, unittest.TestCase):
+    """Current controller imports do not assert cold B compatibility or E."""
+    def setUp(self):
+        super().setUp()
+        self.env.update(GITHUB_EVENT_NAME='push', GITHUB_REF='refs/heads/apple-ios', GITHUB_RUN_ID='500',
+            GITHUB_JOB='project-tests', GITHUB_WORKFLOW_REF=S.REPOSITORY+'/.github/workflows/project-tests.yml@refs/heads/apple-ios')
+        self.event={'repository':{'full_name':S.REPOSITORY,'id':S.REPOSITORY_ID}, 'ref':'refs/heads/apple-ios',
+            'before':self.base_id,'after':self.merge_id,'forced':False,'deleted':False}
+        catalog=json.loads((ROOT/'.github/package-workflow-generations.json').read_bytes())
+        catalog['generations']=catalog['generations'][:28]
+        for relative in (S.OPTIONAL_LEAF_TEMPLATE,S.EXACT_PARENT_TEMPLATE):
+            self.put(relative,(ROOT/relative).read_bytes())
+        for path,entry in catalog['generations'][-1]['workflows'].items():
+            # This historical28 fixture remains actual old bytes after activation29.
+            relative='tools/repository-checks/workflows/producers/repository-checks.yml' if path=='.github/workflows/repository-checks.yml' else path
+            raw=(ROOT/relative).read_bytes()
+            self.assertEqual(S.ordinary(S.blob_id(raw)),entry)
+            self.put(path,raw)
+        self.put('.github/package-workflow-generations.json',json.dumps(catalog).encode())
+        self.current=deepcopy(self.default)
+        self.base['tools/test-evidence/execution.py']=S.ordinary('a'*40)
+        self.run={'id':500,'run_attempt':1,'workflow_id':330551824,'check_suite_id':1500,
+            'path':'.github/workflows/project-tests.yml','event':'push','head_sha':self.merge_id,
+            'head_branch':self.target,'status':'in_progress','conclusion':None,
+            **{key:{'id':S.REPOSITORY_ID,'full_name':S.REPOSITORY} for key in ('repository','head_repository')}}
+        self.job={'id':5500,'run_id':500,'run_attempt':1,'head_sha':self.merge_id,
+            'name':'Shared tests','status':'in_progress','conclusion':None,
+            'started_at':'2026-10-20T12:00:00Z','completed_at':None,
+            'check_run_url':'https://api.github.com/repos/'+S.REPOSITORY+'/check-runs/5500'}
+        self.mutate=lambda endpoint,value:value
+        case=self
+        class Api:
+            def get(self, endpoint):
+                if endpoint=='': value={'full_name':S.REPOSITORY,'id':S.REPOSITORY_ID,'default_branch':'main'}
+                elif endpoint=='git/ref/heads/main':value={'ref':'refs/heads/main','object':{'type':'commit','sha':case.default_id}}
+                elif endpoint.startswith('branches/'):
+                    target=endpoint.removeprefix('branches/')
+                    value={'name':target,'protected':True,'commit':{'sha':case.default_id if target=='main' else case.merge_id}}
+                elif endpoint.startswith('git/commits/'):
+                    oid=endpoint.removeprefix('git/commits/')
+                    value={'sha':oid,'tree':{'sha':'3'*40 if oid==case.merge_id else '1'*40 if oid==case.base_id else '2'*40},
+                        'parents':[{'sha':case.base_id},{'sha':case.head_id}]}
+                elif endpoint.startswith('git/trees/'):
+                    tree=case.current if '3'*40 in endpoint else case.base if '1'*40 in endpoint else case.default
+                    value={'sha':'3'*40 if tree is case.current else '1'*40 if tree is case.base else '2'*40,'truncated':False,
+                        'tree':[{'path':path,**entry} for path,entry in tree.items()]}
+                elif endpoint in {'actions/runs/500','actions/runs/500/attempts/1'}: value=case.run
+                elif endpoint=='actions/workflows/330551824':value={'id':330551824,'path':case.run['path']}
+                elif endpoint=='check-suites/1500':value={'id':1500,'head_sha':case.merge_id,'repository':{'id':S.REPOSITORY_ID},'app':{'id':15368}}
+                elif endpoint=='actions/runs/500/attempts/1/jobs?per_page=100&page=1':value={'total_count':1,'jobs':[case.job]}
+                elif endpoint=='check-runs/5500':value={**case.job,'app':{'id':15368},'check_suite':{'id':1500}}
+                else:raise AssertionError('unexpected optional leaf endpoint '+endpoint)
+                return case.mutate(endpoint,deepcopy(value))
+        self.source_api=Api()
+        self.directory=tempfile.TemporaryDirectory();self.addCleanup(self.directory.cleanup)
+        self.root=Path(self.directory.name)
+        for name,raw in self.bodies.items():
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
+            path.chmod(0o755 if self.default[name]['mode']=='100755' else 0o644)
+
+    def admit_leaf(self):
+        with patch.object(S.subprocess,'run',return_value=SimpleNamespace(stdout=(self.default_id+'\n').encode())):
+            return S.optional_leaf_import(self.event,self.env,self.source_api,self.root)
+
+    def test_fixed_source_transport_admits_only_the_two_reviewed_native_workflow_ids(self):
+        class Response:
+            status=200
+            def __init__(self,url):self.url=url
+            def geturl(self):return self.url
+            def read(self,maximum):return b'{}'
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+        calls=[]
+        def opened(request,timeout):
+            calls.append(request.full_url)
+            return Response(request.full_url)
+        with patch.dict(os.environ,{'GH_TOKEN':'offline-fixture'},clear=True), \
+                patch.object(S.urllib.request,'build_opener',return_value=SimpleNamespace(open=opened)):
+            for workflow in ('330551824','350930890'):
+                self.assertEqual(S.GitHubSource().get('actions/workflows/'+workflow),{})
+            for workflow in ('330551823','330551825','350930891','project-tests.yml'):
+                with self.assertRaises(S.SourceUnavailable):S.GitHubSource().get('actions/workflows/'+workflow)
+        self.assertEqual(calls,['https://api.github.com/repos/'+S.REPOSITORY+'/actions/workflows/'+workflow
+            for workflow in ('330551824','350930890')])
+
+    def test_future_recipe_bootstrap_reads_actual_D_SELF_without_asserting_cold_B_compatibility(self):
+        import contextlib, shutil, yaml
+        future=yaml.safe_load((ROOT/S.OPTIONAL_LEAF_TEMPLATE).read_bytes())
+        guard=next(step['run'] for step in future['jobs']['project-tests']['steps'] if step.get('id')=='protected-source')
+        body=guard.split("<<'SOURCE_GUARD'\n",1)[1].rsplit('SOURCE_GUARD',1)[0]
+        class Response:
+            status=200
+            def __init__(self,request,api):self.url=request.full_url;self.api=api
+            def geturl(self):return self.url
+            def read(self,maximum):
+                prefix='https://api.github.com/repos/'+S.REPOSITORY
+                self_case.assertTrue(self.url==prefix or self.url.startswith(prefix+'/'))
+                return json.dumps(self.api.get(self.url[len(prefix):].removeprefix('/'))).encode()
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+        self_case=self
+        self.base[S.SELF]=S.ordinary('f'*40)
+        with self.assertRaises(S.SourceUnavailable):
+            S.authenticate(self.event,self.env,self.source_api,self.root)
+        with tempfile.TemporaryDirectory(prefix='optional-bootstrap-') as temporary:
+            temporary=Path(temporary);shutil.copytree(self.root,temporary/'trusted')
+            event=temporary/'event.json';event.write_text(json.dumps(self.event));output=temporary/'output'
+            environment={**self.env,'GH_TOKEN':'offline-fixture','GITHUB_EVENT_PATH':str(event),'GITHUB_OUTPUT':str(output)}
+            previous=Path.cwd()
+            try:
+                os.chdir(temporary)
+                with patch.dict(os.environ,environment,clear=True),contextlib.redirect_stdout(io.StringIO()), \
+                        patch.object(S.urllib.request,'build_opener',return_value=SimpleNamespace(
+                            open=lambda request,timeout:Response(request,self.source_api))), \
+                        patch.object(S.subprocess,'run',return_value=SimpleNamespace(stdout=(self.default_id+'\n').encode())):
+                    exec(compile(body,'future-leaf-bootstrap','exec'),{'__name__':'offline_bootstrap'})
+                self.assertEqual(output.read_text(),'admitted=true\n')
+                (temporary/'trusted'/S.SELF).write_bytes(b'raise AssertionError("unbound module executed")\n')
+                with patch.dict(os.environ,environment,clear=True),contextlib.redirect_stdout(io.StringIO()), \
+                        patch.object(S.urllib.request,'build_opener',return_value=SimpleNamespace(
+                            open=lambda request,timeout:Response(request,self.source_api))):
+                    exec(compile(body,'future-leaf-bootstrap','exec'),{'__name__':'offline_bootstrap'})
+                self.assertEqual(output.read_text(),'admitted=true\nadmitted=false\n')
+            finally:os.chdir(previous)
+
+    def test_three_leaf_profiles_and_all_four_current_roles_admit_only_imports_without_old_B(self):
+        for target in sorted(S.OPTIONAL_LEAF_TARGETS):
+            self.target=target;self.run['head_branch']=target
+            self.env.update(GITHUB_REF='refs/heads/'+target,
+                GITHUB_WORKFLOW_REF=S.REPOSITORY+'/.github/workflows/project-tests.yml@refs/heads/'+target)
+            self.event['ref']='refs/heads/'+target
+            self.current[S.PROFILE]=S.ordinary(S.TARGET_PROFILES[target])
+            for role,name in {'route':'Publish producer descriptor','project-tests':'Shared tests',
+                    'platform-tests':'Android platform tests','project-results':'project-results'}.items():
+                self.env['GITHUB_JOB']=role;self.job['name']=name
+                value=self.admit_leaf()
+                self.assertEqual(value['kind'],'current-protected-leaf-imports-v1')
+                self.assertEqual(value['authority'],'current-imports-only')
+                self.assertEqual(value['base'],self.base_id)
+                self.assertNotEqual(self.base['tools/test-evidence/execution.py'],self.default['tools/test-evidence/execution.py'])
+                for key in ('receipt','environment','qualification','reusable','results','executed_suites'):
+                    self.assertNotIn(key,value)
+        with self.assertRaises(S.SourceUnavailable):self.admit()
+
+    def test_exact_catalog29_supports_prereg28_and_active29_but_not_mixed_or_unknown(self):
+        path='.github/package-workflow-generations.json'
+        catalog=json.loads((ROOT/path).read_bytes())
+        self.assertEqual(len(catalog['generations']),29)
+        self.assertEqual(catalog['generations'][-1]['name'],S.EXACT_PARENT_GENERATION)
+        def install(value, active):
+            self.put(path,json.dumps(value).encode())
+            caller='.github/workflows/repository-checks.yml'
+            self.put(caller,self.bodies[S.EXACT_PARENT_TEMPLATE] if active else
+                (ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml').read_bytes())
+            for relative in (path,caller):(self.root/relative).write_bytes(self.bodies[relative])
+            self.current=deepcopy(self.default)
+        for active in (False,True):
+            install(catalog,active)
+            self.assertEqual(self.admit_leaf()['authority'],'current-imports-only')
+        for change in ('prefix','other-workflow','unknown30','recipe-alias'):
+            changed=deepcopy(catalog)
+            if change=='prefix':changed['generations'][0]['name']='unreviewed-history'
+            elif change=='other-workflow':changed['generations'][-1]['workflows']['.github/workflows/project-tests.yml']['sha']='f'*40
+            elif change=='unknown30':changed['generations'].append(deepcopy(changed['generations'][-1]))
+            else:changed['generations'][-1]['workflows']['.github/workflows/repository-checks.yml']=deepcopy(changed['generations'][-2]['workflows']['.github/workflows/repository-checks.yml'])
+            install(changed,True)
+            with self.subTest(change=change),self.assertRaises(S.SourceUnavailable):self.admit_leaf()
+        self.assertNotIn(S.EXACT_PARENT_GENERATION,S.CURRENT_PARENT_GENERATIONS)
+
+    def test_catalog29_modified_Repository_even_matching_current_D_template_is_not_enrolled(self):
+        path='.github/package-workflow-generations.json'
+        caller='.github/workflows/repository-checks.yml'
+        catalog=json.loads((ROOT/path).read_bytes())
+        raw=b'name: unreviewed exact-name successor\n'
+        for relative in (S.EXACT_PARENT_TEMPLATE,caller):
+            self.put(relative,raw);(self.root/relative).write_bytes(raw)
+        catalog['generations'][28]['workflows'][caller]=deepcopy(self.default[caller])
+        self.put(path,json.dumps(catalog).encode());(self.root/path).write_bytes(self.bodies[path])
+        self.current=deepcopy(self.default)
+        with self.assertRaisesRegex(S.SourceUnavailable,'exact enrolled successor'):self.admit_leaf()
+
+    def test_real_current_imports_and_complete_B_inventory_decline_only_cold_source(self):
+        import producer_workflow as P
+        binding={'base_ref':self.target,'base_sha':self.base_id,'merge_sha':self.merge_id}
+        refs={'target':self.merge_id,'default':self.default_id,'default_ref':'main',
+            'integration':{'workflow_id':330551824,'workflow_path':'.github/workflows/project-tests.yml'}}
+        adapter=SimpleNamespace(_object=self.source_api.get,
+            api=SimpleNamespace(immutable_tree=lambda tree:self.source_api.get('git/trees/'+tree+'?recursive=1')),
+            _integrated_current=lambda *args:(deepcopy(binding),deepcopy(refs)))
+        with patch.object(S.subprocess,'run',return_value=SimpleNamespace(stdout=(self.default_id+'\n').encode())):
+            cold=P.optional_leaf_current(self.event,self.env,adapter,root=self.root)
+            self.assertTrue(cold['qualification_unavailable'])
+            self.assertEqual(P.optional_leaf_outputs(cold)['common_unavailable'],'true')
+            self.base=deepcopy(self.default)
+            aligned=P.optional_leaf_current(self.event,self.env,adapter,root=self.root)
+            self.assertFalse(aligned['qualification_unavailable'])
+            self.assertEqual(P.optional_leaf_outputs(aligned),{'common_unavailable':'false','common_binding':''})
+            self.assertNotEqual(cold['digest'],aligned['digest'])
+            self.base['tools/test-evidence/execution.py']=S.ordinary('f'*40)
+            (self.root/'tools/test-evidence/execution.py').write_bytes(b'changed CURRENT default\n')
+            with self.assertRaises(S.SourceUnavailable):P.optional_leaf_current(self.event,self.env,adapter,root=self.root)
+
+    def test_original_API_failure_and_closing_current_drift_cannot_become_unavailable(self):
+        import producer_workflow as P
+        binding={'base_ref':self.target,'base_sha':self.base_id,'merge_sha':self.merge_id}
+        refs={'target':self.merge_id,'default':self.default_id,'default_ref':'main',
+            'integration':{'workflow_id':330551824,'workflow_path':'.github/workflows/project-tests.yml'}}
+        def failure(endpoint,value):
+            if endpoint=='git/commits/'+self.base_id:raise S.SourceUnavailable('original B API unavailable')
+            return value
+        adapter=SimpleNamespace(_object=self.source_api.get,
+            api=SimpleNamespace(immutable_tree=lambda tree:self.source_api.get('git/trees/'+tree+'?recursive=1')),
+            _integrated_current=lambda *args:(deepcopy(binding),deepcopy(refs)))
+        with patch.object(S.subprocess,'run',return_value=SimpleNamespace(stdout=(self.default_id+'\n').encode())):
+            self.mutate=failure
+            with self.assertRaisesRegex(S.SourceUnavailable,'original B API unavailable'):
+                P.optional_leaf_current(self.event,self.env,adapter,root=self.root)
+            self.mutate=lambda endpoint,value:value
+            count=0
+            def normal(*args):
+                nonlocal count
+                count+=1
+                if count==2:refs['target']='f'*40
+                return deepcopy(binding),deepcopy(refs)
+            adapter._integrated_current=normal
+            with self.assertRaisesRegex(ValueError,'normal integration changed'):
+                P.optional_leaf_current(self.event,self.env,adapter,root=self.root)
+
+    def test_PR_manual_unknown_recipe_profile_controller_mode_and_shadow_never_decline(self):
+        for key,value in [('GITHUB_EVENT_NAME','pull_request'),('GITHUB_EVENT_NAME','workflow_dispatch'),
+                ('GITHUB_RUN_ATTEMPT','2'),('GITHUB_JOB','qualify-parent'),('GITHUB_REPOSITORY','foreign/repo')]:
+            with self.subTest(key=key,value=value),patch.dict(self.env,{key:value}),self.assertRaises(S.SourceUnavailable):self.admit_leaf()
+        original=deepcopy(self.current)
+        for path,entry in [('.github/workflows/project-tests.yml',S.ordinary('f'*40)),
+                (S.PROFILE,S.ordinary('f'*40)),('tools/test-evidence/execution.py',S.ordinary('f'*40)),
+                (S.OPTIONAL_LEAF_TEMPLATE,S.ordinary(self.default[S.OPTIONAL_LEAF_TEMPLATE]['sha'],'100755')),
+                ('tools/test-evidence/new_shadow.py',S.ordinary('f'*40))]:
+            self.current=deepcopy(original);self.current[path]=entry
+            with self.subTest(path=path),self.assertRaises(S.SourceUnavailable):self.admit_leaf()
+        self.current=original
+        (self.root/'tools/test-evidence/execution.py').write_bytes(b'changed protected controller\n')
+        with self.assertRaises(S.SourceUnavailable):self.admit_leaf()
+
+    def test_moved_refs_wrong_native_App_attempt_failed_run_and_truncated_jobs_reject(self):
+        for endpoint,key,value in [('branches/apple-ios','commit',{'sha':'f'*40}),
+                ('git/ref/heads/main','object',{'type':'commit','sha':'f'*40}),
+                ('actions/runs/500','run_attempt',2),('actions/runs/500/attempts/1','head_sha','f'*40),
+                ('actions/runs/500','status','completed'),('check-suites/1500','app',{'id':1}),
+                ('check-runs/5500','app',{'id':1}),('actions/workflows/330551824','path','wrong.yml'),
+                ('actions/runs/500/attempts/1/jobs?per_page=100&page=1','total_count',2),
+                ('git/commits/'+self.merge_id,'parents',[{'sha':self.head_id}])]:
+            self.mutate=lambda actual,row,endpoint=endpoint,key=key,value=value:({**row,key:value} if actual==endpoint else row)
+            with self.subTest(endpoint=endpoint,key=key),self.assertRaises(S.SourceUnavailable):self.admit_leaf()
+
+
 class CurrentParentImportTests(SourceFixture,unittest.TestCase):
     def setUp(self):
         super().setUp()
@@ -154,6 +409,17 @@ class CurrentParentImportTests(SourceFixture,unittest.TestCase):
             with self.assertRaises(S.SourceUnavailable):self.admit(target='main')
             with self.assertRaises(S.SourceUnavailable):
                 S.reuse_compatibility(self.base,self.default,'main',read_actual=self.read,actual_imports=self.imports())
+
+    def test_successor28_does_not_broaden_the_main_original_source_import_capability(self):
+        catalog_path='.github/package-workflow-generations.json'
+        catalog=json.loads(self.bodies[catalog_path])
+        catalog['generations'][0]['name']=S.OPTIONAL_LEAF_GENERATION
+        self.put(catalog_path,json.dumps(catalog).encode())
+        (self.root/catalog_path).write_bytes(self.bodies[catalog_path])
+        self.assertNotIn(S.OPTIONAL_LEAF_GENERATION,S.CURRENT_PARENT_GENERATIONS)
+        with self.assertRaises(S.SourceUnavailable):self.authenticate()
+        with self.assertRaises(S.SourceUnavailable):
+            S.optional_leaf_import(self.event,self.env,self.source_api,self.root)
 
     def test_pre_enrolled_boolean_tuple_uses_the_actual_complete_current_generation(self):
         catalog_path='.github/package-workflow-generations.json'
@@ -396,8 +662,9 @@ class SourceAdmissionTests(SourceFixture,unittest.TestCase):
         projected = set(P.shared.sources())
         import_only = set(S.IMPORT_MEMBERS) - reviewed
         policy = P._host_policy()
-        self.assertEqual(len(reviewed), 71)
-        self.assertEqual(len(projected), 88)
+        self.assertEqual(len(reviewed), 73)
+        self.assertEqual(len(projected), 90)
+        self.assertIn(S.OPTIONAL_LEAF_TEMPLATE, reviewed)
         self.assertEqual(len(import_only), 17)
         self.assertEqual(projected - reviewed, import_only)
         self.assertEqual(set(P.controller_sources(policy)), reviewed)
@@ -901,6 +1168,7 @@ class EffectiveBaseResolutionTests(SourceFixture,unittest.TestCase):
 
 if __name__=='__main__':
     suite=unittest.defaultTestLoader.loadTestsFromTestCase(SourceAdmissionTests)
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(OptionalLeafImportTests))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(CurrentParentImportTests))
     suite.addTests(BootstrapTests(name) for name in (
         'test_bootstrap_validates_all_source_without_importing_any_controller',

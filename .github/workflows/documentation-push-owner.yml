@@ -3,7 +3,7 @@
 name: Documentation checks
 on:
   push:
-    branches: [main, android-phone, android-vr-pico, apple-ios]
+    branches: [android-phone, android-vr-pico, apple-ios]
 permissions:
   contents: read
 concurrency:

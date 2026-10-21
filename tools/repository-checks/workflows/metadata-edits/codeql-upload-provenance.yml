@@ -1,0 +1,254 @@
+# Dormant metadata successor; preserve exact pinned analyzer and source admission.
+name: CodeQL
+run-name: ${{ (github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics'))) && 'Overte native metadata nonproducer v2' || 'Overte native ordinary qualification v2' }}
+
+on:
+  push:
+    branches: [main, apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
+    paths-ignore:
+      - "**/*.md"
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches: [main, apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
+  schedule:
+    - cron: "17 3 * * 4"
+
+permissions:
+  contents: read
+
+concurrency:
+  # A text edit must never cancel current qualification or replace its result.
+  group: codeql-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')) && github.run_id || 'qualification' }}
+  cancel-in-progress: true
+
+jobs:
+  metadata-source:
+    name: Authenticate PR text edit
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+      pull-requests: read
+    uses: ./.github/workflows/pr-metadata-context.yml
+    with:
+      nonproducer_intent: ${{ !(!(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))) }}
+
+  select:
+    needs: metadata-source
+    if: always() && (needs.metadata-source.result == 'success' || needs.metadata-source.result == 'skipped')
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+      pull-requests: read
+      security-events: read
+    name: Select affected CodeQL languages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      metadata_only: ${{ steps.event.outputs.metadata_only }}
+      languages: ${{ steps.plan.outputs.languages }}
+      scan: ${{ steps.plan.outputs.scan }}
+    steps:
+      - name: Check out trusted analysis policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: trusted
+          persist-credentials: false
+          sparse-checkout: |
+            tools/repository-checks
+            tools/test-evidence
+
+      - name: Recognize only complete title or body edit events
+        id: event
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NATIVE_METADATA_INTENT: ${{ needs.metadata-source.outputs.metadata_intent }}
+          NATIVE_METADATA_SCHEDULING: ${{ needs.metadata-source.outputs.metadata_scheduling }}
+        run: >-
+          python3 -I -S -B trusted/tools/repository-checks/check.py metadata-event
+          --event "$GITHUB_EVENT_PATH" --event-name "$GITHUB_EVENT_NAME" --output "$GITHUB_OUTPUT"
+
+      - name: Read the exact candidate inventory
+        if: steps.event.outputs.metadata_only != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+          sparse-checkout: .github
+
+      - name: Select complete affected language analyses
+        if: steps.event.outputs.metadata_only != 'true'
+        id: plan
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+          CANDIDATE_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          python3 trusted/tools/repository-checks/codeql.py \
+            --root candidate --base-sha "$BASE_SHA" --candidate-sha "$CANDIDATE_SHA" \
+            --event "$EVENT_NAME" > codeql-plan.json
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          plan = json.loads(Path('codeql-plan.json').read_text())
+          languages = plan['languages']
+          assert plan['schema'] == 1 and isinstance(languages, list)
+          assert languages == [value for value in ('javascript-typescript', 'python') if value in languages]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('languages=' + json.dumps(languages) + '\n')
+              output.write('scan=' + str(bool(languages)).lower() + '\n')
+          print(json.dumps(plan, sort_keys=True))
+          PY
+
+  analyze:
+    name: ${{ needs.select.result == 'success' && needs.select.outputs.metadata_only == 'true' && 'CodeQL (metadata unchanged)' || format('CodeQL ({0})', matrix.language) }}
+    needs: select
+    if: always() && !cancelled() && needs.select.result == 'success' && needs.select.outputs.metadata_only != 'true' && needs.select.outputs.scan == 'true' && !(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(needs.select.outputs.languages) }}
+    steps:
+      - name: Check out source without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        id: init
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          tools: https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.2/codeql-bundle-linux64.tar.zst
+          languages: ${{ matrix.language }}
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Require reviewed CodeQL extractor version
+        env:
+          CODEQL_VERSION: ${{ steps.init.outputs.codeql-version }}
+        run: |
+          set -euo pipefail
+          test "$CODEQL_VERSION" = 2.27.2
+
+      - name: Analyze
+        id: analyze
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          category: "/language:${{ matrix.language }}"
+          wait-for-processing: false
+
+      - name: Record the native CodeQL upload identity
+        env:
+          CODEQL_LANGUAGE: ${{ matrix.language }}
+          CODEQL_SARIF_ID: ${{ steps.analyze.outputs['sarif-id'] }}
+        run: |
+          python3 -I -S -B - <<'PYUPLOAD'
+          import json, os, re, uuid
+          from pathlib import Path
+          language=os.environ['CODEQL_LANGUAGE']
+          upload=os.environ['CODEQL_SARIF_ID']
+          assert language in ('javascript-typescript','python') and str(uuid.UUID(upload))==upload
+          assert os.environ['GITHUB_REPOSITORY']=='noah-l-frank/overte'
+          assert os.environ['GITHUB_REPOSITORY_ID']=='1319052603'
+          source=os.environ['GITHUB_SHA']
+          assert re.fullmatch('[0-9a-f]{40}',source) and source!='0'*40
+          run=int(os.environ['GITHUB_RUN_ID']); attempt=int(os.environ['GITHUB_RUN_ATTEMPT'])
+          assert run>0 and attempt>0
+          value={'schema':1,'kind':'native-codeql-upload-id','repository':'noah-l-frank/overte',
+              'repository_id':1319052603,'run_id':run,'run_attempt':attempt,'language':language,
+              'source_commit':source,'ref':os.environ['GITHUB_REF'],'workflow':'.github/workflows/codeql.yml',
+              'workflow_sha':os.environ['GITHUB_WORKFLOW_SHA'],'sarif_id':upload}
+          assert value['workflow_sha']==source
+          directory=Path(os.environ['RUNNER_TEMP'])/('codeql-upload-'+language)
+          directory.mkdir(mode=0o700)
+          with (directory/'upload.json').open('x') as output:
+              output.write(json.dumps(value,sort_keys=True,separators=(',',':'))+'\n')
+          PYUPLOAD
+
+      - name: Publish the native CodeQL upload identity
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: codeql-upload-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.language }}
+          path: ${{ runner.temp }}/codeql-upload-${{ matrix.language }}/upload.json
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: false
+
+  codeql-checks:
+    name: codeql-security-results
+    if: always()
+    needs: [select, analyze]
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ needs.select.outputs.metadata_only == 'true' && 100 || 25 }}
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+      security-events: read
+      checks: read
+    steps:
+      - name: Require a successful independent selector
+        env:
+          SELECT_RESULT: ${{ needs.select.result }}
+        run: test "$SELECT_RESULT" = success
+
+      - name: Require every selected analysis
+        if: needs.select.outputs.metadata_only != 'true'
+        env:
+          SELECT_RESULT: ${{ needs.select.result }}
+          SCAN: ${{ needs.select.outputs.scan }}
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+        run: |
+          set -euo pipefail
+          test "$SELECT_RESULT" = success
+          case "$SCAN:$ANALYZE_RESULT" in
+            true:success|false:skipped) ;;
+            *) echo 'Selected CodeQL analysis did not succeed' >&2; exit 1 ;;
+          esac
+
+      - name: Check out trusted selected-result policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: trusted
+          persist-credentials: false
+          sparse-checkout: |
+            tools/repository-checks
+            tools/test-evidence
+
+      - name: Mirror the freshly authenticated original mandatory result
+        if: needs.select.result == 'success' && needs.select.outputs.metadata_only == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 -I -S -B trusted/tools/repository-checks/metadata_context.py --result
+          --event "$GITHUB_EVENT_PATH" --event-name "$GITHUB_EVENT_NAME" --output "$GITHUB_OUTPUT"
+
+      - name: Read the exact candidate for independent result selection
+        if: needs.select.outputs.metadata_only != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+          sparse-checkout: .github
+
+      - name: Require current selected-language security results
+        if: needs.select.outputs.metadata_only != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODEQL_EXPECTED_LANGUAGES: ${{ needs.select.outputs.languages }}
+        run: >-
+          python3 trusted/tools/repository-checks/codeql_results.py
+          --root candidate --event-file "$GITHUB_EVENT_PATH"

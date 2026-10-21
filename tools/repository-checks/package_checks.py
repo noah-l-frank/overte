@@ -47,6 +47,8 @@ _PROTECTED_ROUTE_GENERATIONS = frozenset({
     'protected-producer-original-default-boolean-v1',
     'protected-producer-original-default-required-context-v1',
     'protected-producer-optional-parent-source-v1',
+    'protected-producer-optional-leaf-common-v1',
+    'protected-producer-exact-parent-command-owners-v1',
 })
 
 
@@ -145,7 +147,7 @@ def workflow_generations():
             or type(document["repository"].get("id")) is not int:
         raise ValueError("invalid trusted package workflow-generation policy")
     generations = document["generations"]
-    if not isinstance(generations, list) or not 1 <= len(generations) <= 27:
+    if not isinstance(generations, list) or not 1 <= len(generations) <= 29:
         raise ValueError("invalid trusted package workflow-generation inventory")
     names, tuples = set(), set()
     for generation in generations:
@@ -174,7 +176,9 @@ def _policy_inputs():
     """Bind actual templates, generation policy, controller and requirement graph."""
     workflow_generations()
     relatives = ["tools/repository-checks/workflows/packages/" + name for name in TEMPLATE_NAMES]
-    relatives += [GENERATION_MANIFEST, PRODUCER_TEMPLATE, ".github/test-suites.json",
+    relatives += [GENERATION_MANIFEST, PRODUCER_TEMPLATE,
+                  'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml', ".github/test-suites.json",
+                  'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
                   ".github/repository-checks.json", ".github/branch-policy.json",
                   "tests/run-project-tests.py", "tests/platform-profile.json",
                   "tools/sync-test-reuse/qualification.py"]

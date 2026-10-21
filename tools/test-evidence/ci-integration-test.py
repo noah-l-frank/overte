@@ -1607,10 +1607,141 @@ class AndroidPlatformPartitionTests(unittest.TestCase):
                 'partition':partition['digest'].removeprefix('sha256:')}}}
         return policy,needs,{'platform_partition':partition},plan
 
-    def verify_aggregate(self,policy,needs,context):
+    def verify_aggregate(self,policy,needs,context,*,event=None,environment=None):
         with patch.object(P,'_host_policy',return_value=policy),patch.object(P,'current_platform_context',return_value=context), \
              patch.object(P,'_platform_bookend'),patch.object(P,'completed_platform_job'):
-            return P.verify_platform_project(Path('/unexecuted'),{}, {'GITHUB_SHA':'a'*40},object(),needs)
+            return P.verify_platform_project(Path('/unexecuted'),event or {},
+                environment or {'GITHUB_SHA':'a'*40,'GITHUB_EVENT_NAME':'pull_request'},object(),needs)
+
+    def test_native_leaf_push_uses_actual_descriptor_free_route_and_preserves_platform_owner(self):
+        import yaml
+        route=yaml.safe_load((P.ROOT/'.github/workflows/project-tests.yml').read_bytes())['jobs']['route']
+        descriptor=next(step for step in route['steps'] if step.get('id')=='producer')
+        self.assertEqual(descriptor['if'],"github.event_name == 'pull_request' && steps.protected-source.outputs.admitted == 'true'")
+        self.assertEqual(route['outputs']['protected_full'],'${{ steps.producer.outputs.protected_full }}')
+        for target in ('apple-ios','android-phone','android-vr-pico'):
+            self.select_target('android-main' if target=='apple-ios' else target)
+            policy,needs,context,plan=self.aggregate_fixture()
+            del needs['route']['outputs']['protected_full']
+            needs['project-tests']['outputs']={}
+            if target=='apple-ios':
+                context=None
+                needs['route']['outputs']['platform_required']='false'
+                needs['platform-tests']={'result':'skipped','outputs':{}}
+            event={'ref':'refs/heads/'+target}
+            environment={'GITHUB_SHA':'a'*40,'GITHUB_EVENT_NAME':'push','GITHUB_REF':event['ref']}
+            with self.subTest(target=target):
+                self.assertEqual(self.verify_aggregate(policy,needs,context,event=event,
+                    environment=environment),self.package.receipt(plan))
+            for mutation in ('forged-producer','empty-producer','missing-platform','malformed-platform',
+                             'extra','failed-common','missing-common','failed-platform','missing-platform-job'):
+                changed=deepcopy(needs)
+                outputs=changed['route']['outputs']
+                if mutation=='forged-producer':outputs['protected_full']='true'
+                elif mutation=='empty-producer':outputs['protected_full']=''
+                elif mutation=='missing-platform':del outputs['platform_required']
+                elif mutation=='malformed-platform':outputs['platform_required']='yes'
+                elif mutation=='extra':outputs['unknown']='true'
+                elif mutation=='failed-common':changed['project-tests']['result']='failure'
+                elif mutation=='missing-common':del changed['project-tests']
+                elif mutation=='failed-platform':changed['platform-tests']['result']='failure'
+                else:del changed['platform-tests']
+                with self.subTest(target=target,mutation=mutation),self.assertRaises((H.Unavailable,ValueError)):
+                    self.verify_aggregate(policy,changed,context,event=event,environment=environment)
+        policy,needs,context,_=self.aggregate_fixture()
+        for mutation in ('missing-producer','empty-producer','malformed-producer','missing-platform'):
+            changed=deepcopy(needs)
+            if mutation=='missing-producer':del changed['route']['outputs']['protected_full']
+            elif mutation=='empty-producer':changed['route']['outputs']['protected_full']=''
+            elif mutation=='malformed-producer':changed['route']['outputs']['protected_full']='yes'
+            else:del changed['route']['outputs']['platform_required']
+            with self.subTest(pr_mutation=mutation),self.assertRaises(H.Unavailable):
+                self.verify_aggregate(policy,changed,context)
+        for event_name,ref,event_ref in (('edited','refs/heads/apple-ios','refs/heads/apple-ios'),
+                ('push','refs/heads/unknown','refs/heads/unknown'),
+                ('push','refs/heads/apple-ios','refs/heads/android-phone')):
+            changed=deepcopy(needs);del changed['route']['outputs']['protected_full']
+            with self.subTest(event_name=event_name,ref=ref,event_ref=event_ref),self.assertRaises(H.Unavailable):
+                self.verify_aggregate(policy,changed,context,event={'ref':event_ref},environment={
+                    'GITHUB_SHA':'a'*40,'GITHUB_EVENT_NAME':event_name,'GITHUB_REF':ref})
+
+    def test_optional_leaf_common_decline_cannot_hide_package_platform_or_failed_common_owners(self):
+        policy,needs,context,plan=self.aggregate_fixture()
+        package=policy.package_policy()
+        package.validate_wiring.return_value=P.source_admission.OPTIONAL_LEAF_GENERATION
+        plan['package_set']=['script-archive/marketplace/S3Server']
+        needs['route']['outputs']={**self.package.outputs(plan),'platform_required':'true'}
+        common={'digest':'sha256:'+'c'*64,'identity':{'kind':'optional-current-normal'},'run_id':500,
+            'binding':{'merge_sha':'a'*40},'qualification_unavailable':True}
+        needs['project-tests']['outputs']=P.optional_leaf_outputs(common)
+        needs['package-checks']={'result':'success','outputs':self.package.receipt(plan,'package-checks')}
+        native={'id':500,'run_attempt':1,'head_sha':'a'*40,'workflow_id':330551824,'event':'push',
+            'path':'.github/workflows/project-tests.yml','status':'in_progress','conclusion':None}
+        skipped=('Check out the exact candidate without credentials','Independently select affected host contracts',
+            'Execute the selected protected shared owner','Run independently selected host contracts',
+            'Preserve only the finished protected receipt','Upload test report')
+        row={'name':'Shared tests','status':'completed','conclusion':'success','steps':[
+            {'name':'Authenticate optional leaf common unavailability','status':'completed','conclusion':'success'},
+            *[{'name':name,'status':'completed','conclusion':'skipped'} for name in skipped]]}
+        adapter=SimpleNamespace(_object=lambda endpoint:deepcopy(native),_pages=lambda *args:[deepcopy(row)],
+            _job=lambda job,*args,**kwargs:SimpleNamespace(status=job['status'],conclusion=job['conclusion']))
+        environment={'GITHUB_SHA':'a'*40,'GITHUB_EVENT_NAME':'push','GITHUB_REF':'refs/heads/android-phone'}
+        event={'ref':environment['GITHUB_REF']}
+        def verify(changed):
+            with patch.object(P,'_host_policy',return_value=policy), \
+                    patch.object(P,'current_platform_context',return_value=context), \
+                    patch.object(P,'optional_leaf_current',return_value=deepcopy(common)), \
+                    patch.object(P,'_platform_bookend'),patch.object(P,'completed_platform_job') as platform:
+                value=P.verify_platform_project(Path('/unexecuted'),event,environment,adapter,changed)
+                platform.assert_called_once()
+                return value
+        value=verify(needs)
+        self.assertEqual(value,{'common_status':'unavailable','qualification':'false','reusable':'false','executed_suites':'[]'})
+        self.assertNotIn('package_verified',value)
+        for owner in ('platform-tests','package-checks','project-tests'):
+            for status in ('skipped','failure','cancelled'):
+                changed=deepcopy(needs);changed[owner]['result']=status
+                with self.subTest(owner=owner,status=status),self.assertRaises(ValueError):verify(changed)
+        changed=deepcopy(needs);changed['tool-dependencies']['result']='success'
+        with self.assertRaises(ValueError):verify(changed)
+        changed=deepcopy(needs);changed['package-checks']['outputs']['package_plan']='f'*64
+        with self.assertRaises(ValueError):verify(changed)
+
+    def test_optional_leaf_planning_still_requires_original_B_for_any_actual_platform(self):
+        import postmerge
+        self.select_target('android-phone')
+        source='a'*40;default='d'*40;base='b'*40
+        current=deepcopy(self.tree);previous=deepcopy(current)
+        previous['interface/source.cpp']=P.source_admission.ordinary('1'*40)
+        current['interface/source.cpp']=P.source_admission.ordinary('2'*40)
+        local=deepcopy(current)
+        local[P.OPTIONAL_LEAF_TEMPLATE]=current['.github/workflows/project-tests.yml']
+        local[P.source_admission.PROFILE]=P.source_admission.ordinary(P.source_admission.SHARED_PROFILE)
+        binding={'base_ref':'android-phone','base_sha':base,'merge_sha':source,'merge_tree':'3'*40,'pull_request':17}
+        refs={'target':source,'default':default,'default_ref':'main',
+            'integration':{'workflow_path':'.github/workflows/project-tests.yml','workflow_id':330551824}}
+        event,environment=self.push_event('android-phone','route')
+        plan={'candidate':source,'tree':binding['merge_tree'],'base':base,'head':source,
+            'unknown':False,'paths':['interface/source.cpp'],'regular':True,'host_mode':'full'}
+        selected={'suites':['repository-checks'],'full_host':False,'include_platform':False,'reason':'fixture-selection'}
+        package=SimpleNamespace(validate_tree_wiring=lambda tree:P.source_admission.OPTIONAL_LEAF_GENERATION,
+            candidate_plan=lambda *args:deepcopy(plan))
+        policy=SimpleNamespace(package_policy=lambda:package,select=lambda *args,**kwargs:deepcopy(selected))
+        candidate=Path('/unexecuted-candidate')
+        adapter=SimpleNamespace(_integrated_current=lambda *args:(deepcopy(binding),deepcopy(refs)))
+        def tree(api,revision):return ('3'*40,deepcopy(current if revision==source else previous if revision==base else local))
+        with patch.object(P,'_host_policy',return_value=policy),patch.object(postmerge,'full_tree',side_effect=tree), \
+                patch.object(P.execution,'checkout_identity',side_effect=lambda root:(default,'4'*40) if root==P.ROOT else (source,binding['merge_tree'])), \
+                patch.object(P.inputs,'full_tree',side_effect=lambda root,revision:deepcopy(local if root==P.ROOT else current)), \
+                patch.object(P,'optional_leaf_current',return_value={'identity':{'kind':'current-imports-only'},'qualification_unavailable':True}), \
+                patch.object(postmerge,'integrated_controller_for_reuse',side_effect=AssertionError('no original-B reuse assertion')), \
+                patch.object(postmerge,'integrated_controller',side_effect=P.host.Unavailable('required platform oldB mismatch')) as strict:
+            value=P.current_platform_context(candidate,event,environment,adapter)
+            self.assertIsNone(value['platform_partition']);strict.assert_not_called()
+            selected['include_platform']=True
+            with self.assertRaisesRegex(ValueError,'required platform oldB mismatch'):
+                P.current_platform_context(candidate,event,environment,adapter)
+            strict.assert_called_once()
 
     def test_final_aggregate_requires_real_platform_job_and_keeps_generic_verifier_strict(self):
         policy,needs,context,plan=self.aggregate_fixture()

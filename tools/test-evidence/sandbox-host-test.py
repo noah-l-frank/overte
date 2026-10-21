@@ -8,6 +8,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import stat
 import subprocess
@@ -127,6 +128,34 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(report['error'],'fixed public fixture refusal')
         self.assertEqual(report['failure']['chain'][0]['exception_class'],'Unavailable')
         self.assertEqual(report['status'],'unavailable');self.assertFalse(report['production_qualified'])
+
+    def test_manual_entrypoint_preserves_import_inventory_with_isolated_bytecode_off(self):
+        template = (H.ROOT / 'tools/repository-checks/workflows/shared-sandbox-host-diagnostic.yml').read_text()
+        launch = next(line.strip().rstrip('\\').rstrip() for line in template.splitlines()
+                      if '/usr/bin/python3 -I' in line and '--profile' in line)
+        command = shlex.split(launch)
+        self.assertEqual(command[:3], ['/usr/bin/python3', '-I', '-B'])
+        self.assertEqual(command[3:], ['$GITHUB_WORKSPACE/tools/test-evidence/sandbox_host.py',
+                                      '--profile', '$DIAGNOSTIC_PROFILE'])
+        for bytecode_off in (True, False):
+            with self.subTest(bytecode_off=bytecode_off), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                modules = root / 'tools/test-evidence'
+                shutil.copytree(H.ROOT / 'tools/test-evidence', modules,
+                                ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+                flags = command[1:3] if bytecode_off else ['-I']
+                # This is the real entrypoint/import closure. Missing native
+                # context refuses before provisioning, probes or any suite.
+                result = subprocess.run([command[0], *flags, str(modules / 'sandbox_host.py'),
+                                         '--profile', 'ci37'], capture_output=True, text=True, timeout=15,
+                                        env={'PATH': '/usr/bin:/bin', 'HOME': temporary,
+                                             'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8'})
+                self.assertEqual(result.returncode, 1, result.stderr)
+                report = json.loads(result.stdout)
+                self.assertEqual(report['status'], 'unavailable')
+                self.assertEqual(report['authority'], 'none')
+                self.assertIs(report['production_qualified'], False)
+                self.assertEqual(bool(list(modules.rglob('__pycache__'))), not bytecode_off)
 
     def test_foreign_loaded_controller_is_not_replaced_or_executed(self):
         foreign=SimpleNamespace(private='untrusted module fixture')
@@ -1571,6 +1600,47 @@ class ProtectedSelectedProducerTests(unittest.TestCase):
     def setUp(self):
         import producer_workflow
         self.producer = producer_workflow
+
+    def test_shared_preexecution_refusal_emits_only_closed_facts_without_a_receipt(self):
+        producer = self.producer
+        secret = 'PRIVATE-fixture-::error::-command-env-output'
+        refused = producer.PreExecutionUnavailable(secret)
+        refused.__cause__ = PermissionError(13, secret, '/private/' + secret)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate = root / 'candidate'; candidate.mkdir()
+            event = root / 'event.json'; event.write_text('{}')
+            with (patch.dict(os.environ, {'GITHUB_WORKSPACE': str(root), 'GITHUB_EVENT_PATH': str(event)}),
+                  patch.object(producer, 'protected_admission'),
+                  patch.object(producer.producer_api, 'Adapter'),
+                  patch.object(producer, 'shared_execution', side_effect=refused),
+                  patch.object(producer, '_output') as output,
+                  patch.object(producer, '_directory') as directory,
+                  patch.object(producer.execution, '_write_receipt') as receipt,
+                  patch.object(producer.sys, 'stdout', new_callable=io.StringIO) as stdout):
+                self.assertEqual(producer.main(['shared', '--candidate', str(candidate)]), 0)
+            output.assert_called_once_with({'protected_executed': 'false'}, protected=True)
+            directory.assert_not_called(); receipt.assert_not_called()
+            raw = stdout.getvalue()
+            prefix = 'Protected shared producer preexecution unavailable: '
+            self.assertTrue(raw.startswith(prefix))
+            summary = json.loads(raw.removeprefix(prefix))
+            self.assertEqual([entry['exception_class'] for entry in summary['chain']],
+                             ['Unavailable', 'PermissionError'])
+            self.assertEqual(summary['chain'][1]['errno'], 13)
+            self.assertNotIn(secret, raw); self.assertNotIn('/private/', raw)
+            self.assertLess(len(raw), 5000)
+            # A required failure after admission cannot select another owner
+            # or become a successful preexecution diagnostic.
+            with (patch.dict(os.environ, {'GITHUB_WORKSPACE': str(root), 'GITHUB_EVENT_PATH': str(event)}),
+                  patch.object(producer, 'protected_admission'),
+                  patch.object(producer.producer_api, 'Adapter'),
+                  patch.object(producer, 'shared_execution', side_effect=H.Unavailable(secret)),
+                  patch.object(producer, '_output') as output,
+                  patch.object(producer.sys, 'stdout', new_callable=io.StringIO) as stdout):
+                with self.assertRaises(H.Unavailable):
+                    producer.main(['shared', '--candidate', str(candidate)])
+            output.assert_not_called(); self.assertEqual(stdout.getvalue(), '')
 
     def test_producer_cli_failure_remains_fatal_and_reports_only_closed_source_facts(self):
         source = H.ROOT / 'tools/test-evidence/producer_workflow.py'

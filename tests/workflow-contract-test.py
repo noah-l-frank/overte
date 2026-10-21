@@ -56,12 +56,16 @@ PROTECTED_GENERATIONS = (
     'protected-producer-original-default-boolean-v1',
     'protected-producer-original-default-required-context-v1',
     'protected-producer-optional-parent-source-v1',
+    'protected-producer-optional-leaf-common-v1',
+    'protected-producer-exact-parent-command-owners-v1',
 )
 METADATA_PRODUCER_GENERATIONS = PROTECTED_GENERATIONS[3:]
 ORIGINAL_DEFAULT_GENERATIONS = (
     'protected-producer-original-default-v1', 'protected-producer-original-default-boolean-v1',
     'protected-producer-original-default-required-context-v1',
     'protected-producer-optional-parent-source-v1',
+    'protected-producer-optional-leaf-common-v1',
+    'protected-producer-exact-parent-command-owners-v1',
 )
 SELECTED_SYNC_GENERATIONS = (
     'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1', 'npm-consumers-metadata-edits-v1',
@@ -144,6 +148,8 @@ def codeql_generation(case, source):
     case.assertEqual(blob(original_default_workflow('codeql').decode()), policy._SCHEDULING_RESULTS_WORKFLOW)
     case.assertEqual(blob(boolean_workflow('codeql').decode()), policy._BOOLEAN_RESULTS_WORKFLOW)
     case.assertEqual(blob(metadata.read_text()), policy._REQUIRED_CONTEXT_RESULTS_WORKFLOW)
+    upload = metadata.with_name('codeql-upload-provenance.yml')
+    case.assertEqual(blob(upload.read_text()), policy._UPLOAD_RESULTS_WORKFLOW)
     helper = metadata.with_name('pr-metadata-context.yml')
     case.assertEqual(blob(helper.read_text()), policy._SCHEDULING_SOURCE_WORKFLOW)
     case.assertIn((blob(metadata.read_text()), blob(helper.read_text())), policy.result_workflow_sources())
@@ -153,7 +159,8 @@ def codeql_generation(case, source):
              policy._METADATA_RESULTS_WORKFLOW: 'metadata-pinned-results',
              policy._SCHEDULING_RESULTS_WORKFLOW: 'scheduling-pinned-results',
              policy._BOOLEAN_RESULTS_WORKFLOW: 'boolean-scheduling-pinned-results',
-             policy._REQUIRED_CONTEXT_RESULTS_WORKFLOW: 'required-context-pinned-results'}
+             policy._REQUIRED_CONTEXT_RESULTS_WORKFLOW: 'required-context-pinned-results',
+             policy._UPLOAD_RESULTS_WORKFLOW: 'native-upload-pinned-results'}
     identity = blob(source)
     case.assertIn(identity, known, 'unreviewed CodeQL workflow cannot inherit omission contracts')
     return known[identity]
@@ -162,9 +169,9 @@ def codeql_generation(case, source):
 def codeql_analyze_condition(case, source):
     generation = codeql_generation(case, source)
     condition = ("needs.select.outputs.metadata_only != 'true' && needs.select.outputs.scan == 'true'"
-                 if generation in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}
+                 if generation in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'}
                  else "needs.select.outputs.scan == 'true'")
-    if generation in {'scheduling-pinned-results','boolean-scheduling-pinned-results', 'required-context-pinned-results'}:
+    if generation in {'scheduling-pinned-results','boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'}:
         intent = "github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics'))"
         condition = "always() && !cancelled() && needs.select.result == 'success' && " + condition + ' && !(' + intent + ')'
     return condition
@@ -196,10 +203,27 @@ def reviewed_package_generation():
         expected={'protected-producer-original-default-v1':'e9aaaed9693efc5ffb4701697ac2a4d51f5f5ba1',
             'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
             'protected-producer-original-default-required-context-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
-            'protected-producer-optional-parent-source-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c'}[name]
+            'protected-producer-optional-parent-source-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
+            'protected-producer-optional-leaf-common-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
+            'protected-producer-exact-parent-command-owners-v1':'b29e0558dc69bc9dd6fc6b47bd6024382be4079d'}[name]
+        actual=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+        if actual=='b29e0558dc69bc9dd6fc6b47bd6024382be4079d':
+            # The eighth security recipe changes neither the independently
+            # validated Repository generation nor any historical pairing.
+            caller=WORKFLOW_DIRECTORY/'repository-checks.yml'
+            caller_raw=caller.read_bytes()
+            if (name not in {'protected-producer-original-default-required-context-v1',
+                    'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}
+                    or caller.is_symlink() or caller.stat().st_mode & 0o777 not in {0o444,0o644}
+                    or hashlib.sha1(b'blob '+str(len(caller_raw)).encode()+b'\0'+caller_raw).hexdigest()
+                        != ('5ab9ff4592635ad67cd7f542de9676702180592d'
+                            if name == 'protected-producer-exact-parent-command-owners-v1'
+                            else '22fe0d6d39d120f800099136d7d1ab5280d80b41')):
+                raise AssertionError('native upload CodeQL requires its exact current Repository tuple')
+            expected=actual
         if (CODEQL_WORKFLOW.is_symlink() or CODEQL_WORKFLOW.stat().st_mode & 0o777 not in {0o444,0o644}
-                or hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()!=expected):
-            raise AssertionError('deployed Repository and CodeQL must be the same exact old or Boolean variant')
+                or actual!=expected):
+            raise AssertionError('deployed Repository and CodeQL must be the same exact reviewed pair')
     return name
 
 
@@ -360,6 +384,8 @@ def assert_project_caller_routing(case, source):
         ('tools/repository-checks/workflows/producers/repository-checks.yml',
          ('protected-producer-original-default-required-context-v1',
           'protected-producer-optional-parent-source-v1'), True),
+        ('tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
+         ('protected-producer-exact-parent-command-owners-v1',), True),
     )
     for relative, generations, metadata in templates:
         expected=(original_default_workflow('repository-checks').decode() if relative is None else
@@ -497,7 +523,7 @@ class LightweightWorkflowContracts(unittest.TestCase):
             source = path.read_text(encoding="utf-8")
             self.assertEqual(workflow_events(source)['push']['paths-ignore'], ['**/*.md'])
         source = CODEQL_WORKFLOW.read_text(encoding="utf-8")
-        if codeql_generation(self, source) in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}:
+        if codeql_generation(self, source) in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'}:
             # Required context is published for docs; the immutable selector
             # omits both analyzer jobs, rather than omitting the entire check.
             self.assertNotIn('paths-ignore', workflow_events(source)['pull_request'])
@@ -614,8 +640,8 @@ class CodeQLWorkflowContracts(unittest.TestCase):
         generation=codeql_generation(self,self.source)
         local=[action for action in actions if action.startswith('./')]
         self.assertEqual(local,['./.github/workflows/pr-metadata-context.yml']
-                         if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'} else [])
-        self.assertEqual(len(actions),8 if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'} else
+                         if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'} else [])
+        self.assertEqual(len(actions),9 if generation == 'native-upload-pinned-results' else 8 if generation in {'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'} else
             7 if generation in {'results','retarget-results','pinned-results'} else 5)
         self.assertEqual([action for action in actions if action not in local and not FULL_SHA_ACTION.fullmatch(action)], [])
         codeql = [action for action in actions if action.startswith("github/codeql-action/")]
@@ -649,9 +675,9 @@ class CodeQLWorkflowContracts(unittest.TestCase):
         aggregate = self.source.split('  codeql-checks:', 1)[1]
         self.assertIn('if: always()', aggregate)
         self.assertIn('needs: [select, analyze]', aggregate)
-        selected = codeql_generation(self, self.source) in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}
+        selected = codeql_generation(self, self.source) in {'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'}
         job = workflow_data(self.source)['jobs']['codeql-checks']
-        canonical = codeql_generation(self,self.source)=='required-context-pinned-results'
+        canonical = codeql_generation(self,self.source) in {'required-context-pinned-results','native-upload-pinned-results'}
         self.assertEqual(job['if'], "always() && (needs.select.result != 'success' || needs.select.outputs.metadata_only != 'true')"
                          if selected and not canonical else 'always()')
         self.assertEqual(job['name'], "${{ needs.select.result == 'success' && needs.select.outputs.metadata_only == 'true' && "
@@ -670,12 +696,12 @@ class CodeQLWorkflowContracts(unittest.TestCase):
 
 
     def test_selected_results_are_independent_and_cannot_bypass_the_truth_table(self):
-        if codeql_generation(self, self.source) not in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results'}:
+        if codeql_generation(self, self.source) not in {'results', 'retarget-results', 'pinned-results', 'metadata-pinned-results', 'scheduling-pinned-results', 'boolean-scheduling-pinned-results', 'required-context-pinned-results', 'native-upload-pinned-results'}:
             self.skipTest("Selected-result generation is covered by its staged workflow contracts")
         workflow = workflow_data(self.source)
         job = workflow['jobs']['codeql-checks']
         permissions={'contents':'read','actions':'read','pull-requests':'read','security-events':'read'}
-        canonical=codeql_generation(self,self.source)=='required-context-pinned-results'
+        canonical=codeql_generation(self,self.source) in {'required-context-pinned-results','native-upload-pinned-results'}
         if canonical:permissions['checks']='read'
         self.assertEqual(job['permissions'],permissions)
         steps = job['steps']
@@ -793,6 +819,12 @@ class BooleanSchedulingCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
     @classmethod
     def setUpClass(cls):
         cls.source = boolean_workflow('codeql').decode()
+
+
+class NativeUploadCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
+    @classmethod
+    def setUpClass(cls):
+        cls.source = (ROOT / 'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml').read_text()
 
 
 class RequiredContextCodeQLResultWorkflowContracts(CodeQLWorkflowContracts):
@@ -1063,6 +1095,21 @@ class BranchGovernanceWorkflowContracts(unittest.TestCase):
         setup = "steps.select.outputs.full_host == 'true'"
         if generation in ORIGINAL_DEFAULT_GENERATIONS:
             expected={path:dict(entry) for path,entry in future.items()}
+            if generation in {'protected-producer-optional-leaf-common-v1',
+                    'protected-producer-exact-parent-command-owners-v1'}:
+                project=ROOT/'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml'
+                self.assertTrue(project.is_file() and not project.is_symlink())
+                self.assertIn(project.stat().st_mode & 0o777,(0o444,0o644))
+                raw=project.read_bytes()
+                expected['.github/workflows/project-tests.yml']={'mode':'100644','type':'blob',
+                    'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+            if generation=='protected-producer-exact-parent-command-owners-v1':
+                repository=ROOT/'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml'
+                self.assertTrue(repository.is_file() and not repository.is_symlink())
+                self.assertIn(repository.stat().st_mode & 0o777,(0o444,0o644))
+                raw=repository.read_bytes()
+                expected['.github/workflows/repository-checks.yml']={'mode':'100644','type':'blob',
+                    'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
             if generation=='protected-producer-original-default-v1':
                 expected['.github/workflows/repository-checks.yml']={'mode':'100644','type':'blob',
                     'sha':'81bcf1933edc435826e2de411a777cccd4dec7c7'}
@@ -1355,12 +1402,76 @@ def source13_budget_recipe():
     return source13_budget_recipes()['.github/workflows/project-tests.yml']
 
 
+def assert_optional_leaf_recipe(case, source):
+    """Successor28 retains every mandatory owner and original execution body."""
+    directory=ROOT/'tools/repository-checks/workflows/producers'
+    raw=source.encode();future=workflow_data(source)
+    old=workflow_data((directory/'protected-project-tests-android-platform.yml').read_text())
+    catalog=json.loads((ROOT/'.github/package-workflow-generations.json').read_bytes())['generations']
+    case.assertEqual(len(catalog),29)
+    case.assertEqual(hashlib.sha256(json.dumps(catalog[:27],sort_keys=True,separators=(',',':')).encode()).hexdigest(),
+        'cf4fe21e917c3b1d52b5ad34b9974d37b1f8bcc30b31a0a5f6e15d1d7c33eb5b')
+    previous,row=catalog[26:28]
+    case.assertEqual(row['name'],'protected-producer-optional-leaf-common-v1')
+    case.assertEqual([path for path in row['workflows'] if row['workflows'][path]!=previous['workflows'][path]],
+        ['.github/workflows/project-tests.yml'])
+    case.assertEqual(row['workflows']['.github/workflows/project-tests.yml'],
+        {'mode':'100644','type':'blob','sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()})
+    case.assertEqual({key:value for key,value in future.items() if key!='jobs'},
+        {key:value for key,value in old.items() if key!='jobs'})
+    case.assertEqual(set(future['jobs']),set(old['jobs']))
+    for name in ('tool-dependencies','package-checks','producer-publication'):
+        case.assertEqual(future['jobs'][name],old['jobs'][name])
+    for name in ('route','platform-tests','project-results'):
+        before=old['jobs'][name];after=future['jobs'][name]
+        case.assertEqual({key:value for key,value in before.items() if key!='steps'},
+            {key:value for key,value in after.items() if key!='steps'})
+        case.assertEqual(len(before['steps']),len(after['steps']))
+        for a,b in zip(before['steps'],after['steps']):
+            if a.get('id')=='protected-source':
+                case.assertEqual({key:value for key,value in a.items() if key!='run'},
+                    {key:value for key,value in b.items() if key!='run'})
+                case.assertIn("scope['optional_leaf_import' if optional_leaf else 'authenticate']",b['run'])
+            else:case.assertEqual(a,b)
+    before=old['jobs']['project-tests'];after=future['jobs']['project-tests']
+    case.assertEqual({key:value for key,value in before.items() if key not in {'steps','outputs'}},
+        {key:value for key,value in after.items() if key not in {'steps','outputs'}})
+    case.assertEqual(after['outputs'],{**before['outputs'],
+        'common_unavailable':'${{ steps.optional.outputs.common_unavailable }}',
+        'common_binding':'${{ steps.optional.outputs.common_binding }}'})
+    steps=after['steps'];by_name={step['name']:step for step in steps}
+    case.assertEqual(len(steps),len(before['steps'])+1)
+    case.assertEqual([step.get('id') for step in steps[:4]],[None,'protected-source','optional',None])
+    case.assertEqual(steps[3]['name'],'Check out the exact candidate without credentials')
+    optional=steps[2]
+    case.assertEqual(optional['if'],"github.event_name == 'push' && (github.ref == 'refs/heads/apple-ios' || github.ref == 'refs/heads/android-phone' || github.ref == 'refs/heads/android-vr-pico')")
+    case.assertIn('test "$ADMITTED" = true',optional['run'])
+    case.assertIn('producer_workflow.py optional-leaf-common',optional['run'])
+    case.assertNotIn('--candidate',optional['run'])
+    for original in before['steps']:
+        changed=by_name[original['name']]
+        if original.get('id')=='protected-source':continue
+        case.assertEqual({key:value for key,value in original.items() if key!='if'},
+            {key:value for key,value in changed.items() if key!='if'})
+        if original is before['steps'][0]:case.assertNotIn('if',changed);continue
+        expected="steps.optional.outputs.common_unavailable != 'true'"
+        if 'if' in original:expected+=' && ('+original['if']+')'
+        case.assertEqual(changed['if'],expected)
+
+
 def assert_reviewed_host_selection(case, source):
     """Accept the exact reviewed successor while retaining execution authority."""
     template = ROOT / 'tools/repository-checks/workflows/host/project-tests.yml'
     owned = ROOT / 'tools/repository-checks/workflows/android-owned/project-tests.yml'
     protected = ROOT / 'tools/repository-checks/workflows/producers/protected-project-tests.yml'
     platform = protected.with_name('protected-project-tests-android-platform.yml')
+    optional = protected.with_name('protected-project-tests-optional-leaf.yml')
+    if source == optional.read_text(encoding='utf-8'):
+        assert_optional_leaf_recipe(case,source)
+        if source == WORKFLOW.read_text(encoding='utf-8'):
+            case.assertIn(reviewed_package_generation(), ('protected-producer-optional-leaf-common-v1',
+                'protected-producer-exact-parent-command-owners-v1'))
+        return
     android_owned = source == owned.read_text(encoding='utf-8')
     platform_owner = source == platform.read_text(encoding='utf-8')
     protected_owner = source == protected.read_text(encoding='utf-8') or platform_owner
@@ -1466,6 +1577,51 @@ def assert_reviewed_host_selection(case, source):
         case.assertEqual(execution['env']['PLATFORM_REQUIRED'], '${{ needs.route.outputs.platform_required }}')
     else:
         case.assertIn('trusted/tools/repository-checks/package_checks.py verify', verify['run'])
+
+
+class OptionalLeafCommonWorkflowContracts(unittest.TestCase):
+    def test_exact_successor_preserves_all_original_owners_and_precedes_common_candidate_setup(self):
+        source=(ROOT/'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml').read_text()
+        assert_optional_leaf_recipe(self,source)
+
+    def test_catalog_enrollment_alone_keeps_active27_and_unknown_or_mixed_tuple_rejected(self):
+        from copy import deepcopy
+        packages,_=prospective_package_tree()
+        rows=packages.workflow_generations()
+        self.assertIn(packages.validate_wiring(ROOT),{'protected-producer-optional-parent-source-v1',
+            'protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'})
+        self.assertEqual(packages.validate_tree_wiring(rows[27]['workflows']),'protected-producer-optional-leaf-common-v1')
+        for change in ('missing','mode','unknown','mixed-parent'):
+            tree=deepcopy(rows[27]['workflows'])
+            path='.github/workflows/project-tests.yml'
+            if change=='missing':del tree[path]
+            elif change=='mode':tree[path]['mode']='100755'
+            elif change=='unknown':tree[path]['sha']='f'*40
+            else:tree['.github/workflows/parent-qualification.yml']=deepcopy(rows[25]['workflows']['.github/workflows/parent-qualification.yml'])
+            with self.subTest(change=change),self.assertRaises(ValueError):packages.validate_tree_wiring(tree)
+        extra=deepcopy(rows[-1]);extra['name']='unreviewed-successor30'
+        extra['workflows']['.github/workflows/project-tests.yml']['sha']='f'*40
+        raw=json.dumps({'schema':1,'repository':{'full_name':packages.REPOSITORY,'id':packages.REPOSITORY_ID},
+            'generations':[*rows,extra]}).encode()
+        with mock.patch.object(packages,'_trusted_bytes',return_value=raw),self.assertRaises(ValueError):packages.workflow_generations()
+
+    def test_successor28_keeps_the_existing_parent_source_denied_zero_setup_path(self):
+        packages,_=prospective_package_tree()
+        rows=packages.workflow_generations()
+        path='.github/workflows/parent-qualification.yml'
+        self.assertEqual(rows[27]['workflows'][path],rows[26]['workflows'][path])
+        raw=PARENT_QUALIFICATION_WORKFLOW.read_bytes()
+        self.assertEqual(rows[27]['workflows'][path],{'mode':'100644','type':'blob',
+            'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()})
+        old=OptionalParentSourceDeclineContracts();old.setUp()
+        needs=old.needs();needs['common-parent']['outputs']['source_admitted']='false'
+        result,values=old.decision(needs,'false')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(values,{'available':'false'})
+        report=json.loads(result.stdout)
+        self.assertEqual(report['executed_suites'],[])
+        self.assertFalse(report['qualification'] or report['reusable'] or report['new_E'])
+        old.test_every_candidate_and_execution_step_requires_its_admitted_source()
 
 
 class ProjectWorkflowContracts(unittest.TestCase):
@@ -1625,7 +1781,8 @@ class ProjectWorkflowContracts(unittest.TestCase):
     def test_reviewed_host_selection_rejects_foreign_workflow_bytes(self):
         for relative in ('host/project-tests.yml', 'android-owned/project-tests.yml',
                          'producers/protected-project-tests.yml',
-                         'producers/protected-project-tests-android-platform.yml'):
+                         'producers/protected-project-tests-android-platform.yml',
+                         'producers/protected-project-tests-optional-leaf.yml'):
             source = (ROOT / 'tools/repository-checks/workflows' / relative).read_text()
             with self.subTest(relative=relative), self.assertRaises(AssertionError):
                 assert_reviewed_host_selection(self, source + '\n# foreign workflow bytes\n')
@@ -1643,6 +1800,18 @@ class ProjectWorkflowContracts(unittest.TestCase):
         source = (ROOT / 'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml').read_text()
         with self.assertRaises(AssertionError):
             codeql_generation(self, source + '\n# foreign reusable recipe\n')
+        installed=reviewed_package_generation()
+        with tempfile.TemporaryDirectory(prefix='workflow-upload-pair-') as folder:
+            path=Path(folder)/'codeql.yml'
+            path.write_bytes((ROOT/'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml').read_bytes())
+            with mock.patch.object(sys.modules[__name__],'CODEQL_WORKFLOW',path):
+                if installed in {'protected-producer-original-default-required-context-v1',
+                        'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}:
+                    self.assertEqual(reviewed_package_generation(),installed)
+                else:
+                    with self.assertRaises(AssertionError): reviewed_package_generation()
+                path.write_bytes(path.read_bytes()+b'\n# unknown upload recipe\n')
+                with self.assertRaises(AssertionError): reviewed_package_generation()
 
     def test_tool_dependency_lane_is_bounded_and_selected_by_the_trusted_router(self):
         jobs = workflow_data(WORKFLOW.read_text())['jobs']
@@ -1819,11 +1988,23 @@ class OptionalParentGenerationFixtureContracts(unittest.TestCase):
         original=Path.read_bytes
         parent=ROOT/'.github/workflows/parent-qualification.yml'
         template=ROOT/'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'
+        # These are complete historical tuples. A future installed project28
+        # must not accidentally turn a Parent26/27 fixture into a mixed tuple.
+        project=original(ROOT/'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml')
+        caller_path=ROOT/'.github/workflows/repository-checks.yml'
+        caller_raw=original(ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml')
+        catalog=json.loads(original(ROOT/'.github/package-workflow-generations.json'))['generations']
+        self.assertEqual(catalog[25]['workflows']['.github/workflows/repository-checks.yml'],
+            {'mode':'100644','type':'blob',
+             'sha':hashlib.sha1(b'blob '+str(len(caller_raw)).encode()+b'\0'+caller_raw).hexdigest()})
+        def historical_read(path, parent_raw, template_raw):
+            return (project if path==WORKFLOW else caller_raw if path==caller_path else
+                    parent_raw if path==parent else template_raw if path==template else original(path))
         variants=(('protected-producer-original-default-required-context-v1','parent-qualification'),
                   ('protected-producer-optional-parent-source-v1','optional-parent-qualification'))
         for expected,fixture in variants:
             raw=original_default_workflow(fixture)
-            def read(path):return raw if path in (parent,template) else original(path)
+            def read(path):return historical_read(path,raw,raw)
             with self.subTest(generation=expected),mock.patch.object(Path,'read_bytes',read):
                 self.assertEqual(reviewed_package_generation(),expected)
                 packages,tree=prospective_package_tree()
@@ -1831,12 +2012,12 @@ class OptionalParentGenerationFixtureContracts(unittest.TestCase):
                 caller=(ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml').read_text()
                 self.assertEqual(assert_project_caller_routing(self,caller),'package_host_mode')
         for bad in (b'foreign Parent bytes\n',original_default_workflow('optional-parent-qualification')+b'\n# unknown\n'):
-            def read(path):return bad if path in (parent,template) else original(path)
+            def read(path):return historical_read(path,bad,bad)
             with self.subTest(invalid=bad[:20]),mock.patch.object(Path,'read_bytes',read),self.assertRaises((AssertionError,ValueError)):
                 prospective_package_tree()
         raw=original_default_workflow('optional-parent-qualification')
         old=original_default_workflow('parent-qualification')
-        def read(path):return raw if path==parent else old if path==template else original(path)
+        def read(path):return historical_read(path,raw,old)
         with mock.patch.object(Path,'read_bytes',read):
             self.assertEqual(reviewed_package_generation(),'protected-producer-optional-parent-source-v1')
             self.assertEqual(prospective_package_tree()[0].validate_tree_wiring(prospective_package_tree()[1]),
@@ -2085,7 +2266,7 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
             self.assertEqual(set(jobs['qualify-parent']['needs']), {'route', 'common-parent', 'platform-tests'})
             final_steps=jobs['qualify-parent']['steps']
             verify=final_steps[-1]
-            if reviewed_package_generation()=='protected-producer-optional-parent-source-v1':
+            if reviewed_package_generation() in {'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}:
                 self.assertEqual(final_steps[-1],{'name':'Reject late cancellation of parent qualification',
                     'if':'cancelled()','run':'exit 1'})
                 verify=next(step for step in final_steps if step['name']=='Require both actual parent owners')
@@ -2113,7 +2294,7 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
             self.assertLess(steps.index(route), steps.index(qt))
             qt_expected=("steps.reuse.outputs.shared_reused != 'true' && (steps.host.outputs.full_host == 'true')"
                          if protected_owner else "steps.host.outputs.full_host == 'true'")
-            if platform_owner and reviewed_package_generation()=='protected-producer-optional-parent-source-v1':
+            if platform_owner and reviewed_package_generation() in {'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}:
                 qt_expected="steps.protected-source.outputs.admitted == 'true' && ("+qt_expected+")"
             self.assertEqual(qt['if'],qt_expected)
             partial = next(step for step in steps if step['name'] == 'Run independently selected parent host contracts')
@@ -2124,7 +2305,7 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
         else:
             self.assertEqual(source, (ROOT / 'tools/repository-checks/workflows/packages/parent-qualification.yml').read_text())
             expected = "steps.route.outputs.package_host_mode == 'full'"
-        if platform_owner and reviewed_package_generation()=='protected-producer-optional-parent-source-v1':
+        if platform_owner and reviewed_package_generation() in {'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}:
             expected="steps.protected-source.outputs.admitted == 'true' && ("+expected+")"
         for step in (create, upload):
             self.assertEqual(step['if'], expected)
@@ -2361,6 +2542,71 @@ class SharedReleaseBundleWorkflowContracts(unittest.TestCase):
         self.assertNotIn("gh release upload", publish)
 
 
+
+
+class ParentCommandWorkflowTests(unittest.TestCase):
+    def test_only_the_reviewed_complete_successor_adds_parent_command_ownership(self):
+        directory = ROOT / 'tools/repository-checks/workflows/producers'
+        old = workflow_data((directory / 'repository-checks.yml').read_text())
+        path = directory / 'repository-checks-parent-owners.yml'
+        raw = path.read_bytes()
+        future = workflow_data(raw.decode())
+        rows = json.loads((ROOT / '.github/package-workflow-generations.json').read_text())['generations']
+        self.assertEqual(len(rows), 29)
+        self.assertEqual(hashlib.sha256(json.dumps(rows[:28], sort_keys=True,
+            separators=(',', ':')).encode()).hexdigest(),
+            '153e36b07fadbb45ca6fc449b03437627c661d51cfae23a923e7ffa9d33f7194')
+        before, after = rows[27:29]
+        self.assertEqual(after['name'], 'protected-producer-exact-parent-command-owners-v1')
+        caller = '.github/workflows/repository-checks.yml'
+        self.assertEqual([p for p in before['workflows'] if before['workflows'][p] != after['workflows'][p]], [caller])
+        self.assertEqual(after['workflows'][caller], {'mode': '100644', 'type': 'blob',
+            'sha': hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()})
+        self.assertEqual({k: v for k, v in future.items() if k != 'jobs'},
+                         {k: v for k, v in old.items() if k != 'jobs'})
+        self.assertEqual(set(future['jobs']), set(old['jobs']) | {'parent-owners'})
+        for job in set(old['jobs']) - {'documentation', 'workflow-contracts', 'repository-checks'}:
+            self.assertEqual(future['jobs'][job], old['jobs'][job], job)
+        for job, flag in (('documentation', 'documentation_verified'),
+                          ('workflow-contracts', 'workflow_contracts_verified')):
+            previous, current = old['jobs'][job], future['jobs'][job]
+            self.assertEqual(current['needs'], [*previous['needs'], 'parent-owners'])
+            self.assertEqual({k: v for k, v in current.items() if k not in {'needs', 'if'}},
+                             {k: v for k, v in previous.items() if k not in {'needs', 'if'}})
+            self.assertIn("needs.parent-owners.outputs." + flag + " != 'true'", current['if'])
+            self.assertIn("(needs.parent-owners.result == 'success' || needs.parent-owners.result == 'skipped')", current['if'])
+        aggregate = future['jobs']['repository-checks']
+        self.assertEqual({k: v for k, v in aggregate.items() if k != 'needs'},
+                         {k: v for k, v in old['jobs']['repository-checks'].items() if k != 'needs'})
+        self.assertEqual(set(aggregate['needs']), set(old['jobs']['repository-checks']['needs']) | {'parent-owners'})
+
+    def test_parent_lookup_has_no_dependency_cycle_or_candidate_execution(self):
+        path = ROOT / 'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml'
+        jobs = workflow_data(path.read_text())['jobs']
+        owner = jobs['parent-owners']
+        self.assertEqual(owner['name'], 'parent-owners')
+        self.assertEqual(owner['needs'], 'route')
+        self.assertEqual(owner['permissions'], dict.fromkeys(('contents', 'actions', 'checks', 'pull-requests'), 'read'))
+        self.assertEqual(owner['runs-on'], 'ubuntu-24.04')
+        self.assertEqual(owner['timeout-minutes'], 5)
+        for predicate in ("github.event_name == 'pull_request'", "github.base_ref == 'android-vr'",
+                          "needs.route.outputs.metadata_only != 'true'", "needs.route.outputs.mode == 'delegated-sync'"):
+            self.assertIn(predicate, owner['if'])
+        self.assertEqual(len(owner['steps']), 2)
+        checkout, lookup = owner['steps']
+        self.assertEqual(checkout['with'], {'ref': '${{ github.event.repository.default_branch }}',
+            'path': 'trusted', 'persist-credentials': False})
+        self.assertNotIn('candidate', lookup['run'])
+        self.assertIn('check.py parent-owners', lookup['run'])
+        self.assertEqual(lookup['env'], {'GH_TOKEN': '${{ github.token }}'})
+        self.assertEqual(set(owner['outputs']), {'documentation_verified', 'workflow_contracts_verified', 'parent_proof'})
+        def visit(name, trail):
+            self.assertNotIn(name, trail)
+            needs = jobs[name].get('needs', [])
+            for dependency in ([needs] if isinstance(needs, str) else needs):
+                visit(dependency, trail | {name})
+        for name in jobs:
+            visit(name, set())
 
 
 if __name__ == "__main__":

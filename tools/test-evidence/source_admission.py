@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Finite protected-base commitment for the actual default-branch controller.
 
-This module uses only the standard library. The native recipe verifies its own
-ordinary immutable B blob before executing it. It imports no repository code,
-installs nothing and confers no runtime or suite qualification.
+This module uses only the standard library. Original proof recipes verify its
+ordinary immutable B blob. The separate optional-leaf recipe pins CURRENT D
+for imports only; it never asserts original B authority. Neither loader imports
+repository code, installs anything or confers runtime or suite qualification.
 """
 from __future__ import annotations
 import hashlib
@@ -25,6 +26,11 @@ SELF = 'tools/test-evidence/source_admission.py'
 CURRENT_PARENT_GENERATIONS = frozenset({'protected-producer-original-default-v1',
     'protected-producer-original-default-boolean-v1',
     'protected-producer-original-default-required-context-v1'})
+OPTIONAL_LEAF_GENERATION = 'protected-producer-optional-leaf-common-v1'
+OPTIONAL_LEAF_TEMPLATE = 'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml'
+EXACT_PARENT_GENERATION = 'protected-producer-exact-parent-command-owners-v1'
+EXACT_PARENT_TEMPLATE = 'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml'
+OPTIONAL_LEAF_TARGETS = frozenset({'apple-ios', 'android-phone', 'android-vr-pico'})
 PROFILE = 'tests/platform-profile.json'
 DOCUMENTATION_WORKFLOW = '.github/workflows/documentation-push-owner.yml'
 DOCUMENTATION_TARGETS = frozenset({'main','android-phone','android-vr-pico','apple-ios'})
@@ -88,6 +94,8 @@ CONTROLLERS = (
     'tools/repository-checks/workflows/producers/project-tests.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
+    'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
+    'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
     'tools/repository-checks/workflows/shared-sandbox-host-diagnostic.yml',
     'tools/sbom/requirements-validation.txt',
     'tools/sync-test-reuse/differential.py',
@@ -415,7 +423,7 @@ class GitHubSource:
         current=time.monotonic()
         self.deadline=current+45 if deadline is None else min(current+45,deadline)
     def get(self, endpoint):
-        require(type(endpoint) is str and re.fullmatch(r'(?:|pulls/[1-9][0-9]*|branches/(?:'+ '|'.join(TARGET_PROFILES)+r')|git/ref/heads/(?:[A-Za-z0-9._~-]|%[0-9A-F]{2})+|compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40}\?per_page=1|git/commits/[0-9a-f]{40}|git/trees/[0-9a-f]{40}\?recursive=1|commits/refs/pull/[1-9][0-9]*/merge|actions/runs/[1-9][0-9]*(?:/attempts/1(?:/jobs\?per_page=100&page=1)?)?|actions/workflows/350930890|check-suites/[1-9][0-9]*|check-runs/[1-9][0-9]*)',endpoint), 'unsupported protected source endpoint')
+        require(type(endpoint) is str and re.fullmatch(r'(?:|pulls/[1-9][0-9]*|branches/(?:'+ '|'.join(TARGET_PROFILES)+r')|git/ref/heads/(?:[A-Za-z0-9._~-]|%[0-9A-F]{2})+|compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40}\?per_page=1|git/commits/[0-9a-f]{40}|git/trees/[0-9a-f]{40}\?recursive=1|commits/refs/pull/[1-9][0-9]*/merge|actions/runs/[1-9][0-9]*(?:/attempts/1(?:/jobs\?per_page=100&page=1)?)?|actions/workflows/(?:350930890|330551824)|check-suites/[1-9][0-9]*|check-runs/[1-9][0-9]*)',endpoint), 'unsupported protected source endpoint')
         self.calls += 1
         if endpoint.startswith(('actions/', 'check-suites/', 'check-runs/')):
             self.native_calls += 1
@@ -583,6 +591,114 @@ def current_parent_import(context, environment, api, base, default, root):
         'current parent complete installed generation changed')
     return {**value, 'kind':'current-protected-parent-imports-v1', 'authority':'current-imports-only',
         'native_job':{'id':job_id,'run_id':int(run_id),'attempt':1,'name':name}}
+
+
+def optional_leaf_import(event, environment, api, root):
+    """CURRENT imports for an optional normal-push common diagnostic only.
+
+    Recipes28/29 authenticate this module from actual protected D before calling
+    it. B is retained as normal-merge geometry, never asserted compatible with
+    D. This capability cannot admit execution, an original receipt or E.
+    """
+    context = native(event, environment, api)
+    role = environment.get('GITHUB_JOB')
+    names = {'route':'Publish producer descriptor', 'project-tests':'Shared tests',
+        'platform-tests':'Android platform tests', 'project-results':'project-results'}
+    require(environment.get('GITHUB_EVENT_NAME') == 'push'
+        and context['target'] in OPTIONAL_LEAF_TARGETS and role in names,
+        'optional leaf current-import role unavailable')
+    default = api_tree(api, context['default'])
+    current = api_tree(api, context['source'])
+    reader = lambda name: actual_bytes(root, name)
+    imports = actual_import_inventory(root)
+    result = compatibility(current, default, context['target'], read_actual=reader, actual_imports=imports)
+    manifest, entry = reader('.github/package-workflow-generations.json')
+    require(entry == default.get('.github/package-workflow-generations.json'), 'optional leaf catalog differs from D')
+    catalog = json.loads(manifest, object_pairs_hook=unique)
+    require(type(catalog) is dict and set(catalog) == {'schema','repository','generations'}
+        and type(catalog.get('schema')) is int and catalog['schema'] == 1
+        and catalog.get('repository') == {'full_name':REPOSITORY,'id':REPOSITORY_ID}
+        and type(catalog.get('generations')) is list and len(catalog['generations']) in {28,29}
+        and digest({**catalog,'generations':catalog['generations'][:28]}) ==
+            'sha256:8bbe59673086377fee6bd9c7f91d3beb619f3c62cd35a261a3234123cc00b430'
+        and (len(catalog['generations']) == 28 or digest(catalog) ==
+            'sha256:7181167df881f3937124d703d18e19d32bc117f1018ad2272bb04ee923b5363d'),
+        'optional leaf catalog is not the exact enrolled successor')
+    prior = catalog['generations'][27]
+    rows = [prior]
+    if len(catalog['generations']) == 29:
+        row = catalog['generations'][28]
+        require(type(row) is dict and set(row) == {'name','workflows'}
+            and row['name'] == EXACT_PARENT_GENERATION and type(row['workflows']) is dict
+            and set(row['workflows']) == set(prior['workflows'])
+            and all(row['workflows'][path] == expected for path,expected in prior['workflows'].items()
+                if path != '.github/workflows/repository-checks.yml')
+            and row['workflows']['.github/workflows/repository-checks.yml'] == default.get(EXACT_PARENT_TEMPLATE)
+            and row['workflows']['.github/workflows/repository-checks.yml'] != prior['workflows']['.github/workflows/repository-checks.yml'],
+            'optional leaf exact-parent successor differs outside its Repository recipe')
+        rows.append(row)
+    installed = [row for row in rows if all(current.get(path) == default.get(path) == expected
+        for path,expected in row['workflows'].items())]
+    require(prior['name'] == OPTIONAL_LEAF_GENERATION and len(installed) == 1
+        and all(type(expected) is dict and expected == ordinary(expected.get('sha'))
+            for expected in installed[0]['workflows'].values())
+        and default.get(OPTIONAL_LEAF_TEMPLATE) == prior['workflows']['.github/workflows/project-tests.yml'],
+        'optional leaf complete installed successor or recipe changed')
+    clean_env = {'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_NOSYSTEM':'1',
+        'GIT_CONFIG_GLOBAL':'/dev/null','GIT_TERMINAL_PROMPT':'0'}
+    actual = subprocess.run(['/usr/bin/git','--no-replace-objects','-c','safe.directory='+str(root),
+        '-c','core.hooksPath=/dev/null','rev-parse','--verify','HEAD'], cwd=root, env=clean_env,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=10).stdout.decode().strip()
+    require(actual == context['default'], 'optional leaf controller is not current protected D')
+    run_id = environment.get('GITHUB_RUN_ID', '')
+    require(type(run_id) is str and re.fullmatch('[1-9][0-9]*', run_id), 'optional leaf run unavailable')
+    def observation():
+        latest = api.get('actions/runs/'+run_id)
+        attempt = api.get('actions/runs/'+run_id+'/attempts/1')
+        keys = ('id','run_attempt','workflow_id','check_suite_id','event','path','head_sha','head_branch','status','conclusion')
+        require(all(latest.get(key) == attempt.get(key) for key in keys)
+            and attempt.get('id') == int(run_id) and attempt.get('run_attempt') == 1
+            and attempt.get('workflow_id') == 330551824 and attempt.get('event') == 'push'
+            and attempt.get('path') == '.github/workflows/project-tests.yml'
+            and attempt.get('head_sha') == context['source'] and attempt.get('head_branch') == context['target']
+            and (attempt.get('status'),attempt.get('conclusion')) == ('in_progress',None)
+            and all(attempt.get(key,{}).get('id') == REPOSITORY_ID
+                and attempt[key].get('full_name') == REPOSITORY for key in ('repository','head_repository')),
+            'optional leaf native original run changed')
+        registered = api.get('actions/workflows/330551824')
+        require(registered.get('id') == 330551824 and registered.get('path') == attempt['path'],
+            'optional leaf native workflow registration changed')
+        suite_id = attempt.get('check_suite_id')
+        require(type(suite_id) is int and suite_id > 0, 'optional leaf native suite unavailable')
+        suite = api.get('check-suites/'+str(suite_id))
+        require(suite.get('id') == suite_id and suite.get('head_sha') == context['source']
+            and suite.get('repository',{}).get('id') == REPOSITORY_ID and suite.get('app',{}).get('id') == 15368,
+            'optional leaf native App changed')
+        jobs = api.get('actions/runs/'+run_id+'/attempts/1/jobs?per_page=100&page=1')
+        rows = jobs.get('jobs')
+        require(type(rows) is list and type(jobs.get('total_count')) is int
+            and 0 < len(rows) == jobs['total_count'] <= 100 and all(type(job) is dict for job in rows),
+            'optional leaf complete native jobs unavailable')
+        matches = [job for job in rows if job.get('name') == names[role]]
+        require(len(matches) == 1, 'optional leaf native role missing or ambiguous')
+        job = matches[0]; job_id = job.get('id')
+        require(type(job_id) is int and job_id > 0 and job.get('run_id') == int(run_id)
+            and job.get('run_attempt') == 1 and job.get('head_sha') == context['source']
+            and (job.get('status'),job.get('conclusion')) == ('in_progress',None)
+            and type(job.get('started_at')) is str and job.get('completed_at') is None
+            and job.get('check_run_url') == 'https://api.github.com/repos/'+REPOSITORY+'/check-runs/'+str(job_id),
+            'optional leaf current native job changed')
+        check = api.get('check-runs/'+str(job_id))
+        require(check.get('id') == job_id and check.get('head_sha') == context['source']
+            and check.get('check_suite',{}).get('id') == suite_id and check.get('app',{}).get('id') == 15368
+            and all(check.get(key) == job.get(key) for key in ('name','status','conclusion','started_at','completed_at')),
+            'optional leaf native job/check changed')
+        return {'id':job_id,'run_id':int(run_id),'attempt':1,'name':names[role]}
+    job = observation()
+    require(native(event, environment, api) == context and observation() == job,
+        'optional leaf current import authority changed')
+    return {**result, **context, 'kind':'current-protected-leaf-imports-v1',
+        'authority':'current-imports-only', 'native_job':job}
 
 
 def authenticate(event, environment, api, root):

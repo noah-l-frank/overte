@@ -1,45 +1,9 @@
 name: Automatic branch cleanup
 
-# Only trusted main supplies executable code. Closed PRs assess current work;
-# finite push/manual completions cheaply retry current closed-PR heads after CI holds.
+# Automatic history adoption waits for the selective-CI target rollout.
+# Explicit report/apply operations retain their complete existing safeguards.
 # Candidate trees and downloaded artifacts are never executed.
-on: # zizmor: ignore[dangerous-triggers] PR and finite completion notifications run only trusted main cleanup code.
-  pull_request_target:
-    types: [closed]
-  workflow_run:
-    workflows:
-      - Android tests
-      - Android VR integration tests
-      - Branch synchronization
-      - Owned atomic settings diagnostic
-      - Direct browser client
-      - CodeQL
-      - Dependency release policy
-      - Documentation checks
-      - iOS bootstrap
-      - Parent qualification
-      - Shared project CI
-      - Workflow security
-      - Shared sandbox host diagnostic
-      - Android Phone trusted build
-      - Android Phone emulator acceptance
-      - Android Phone release candidate
-      - Browser client
-      - Issue intake
-      - Prepare native baseline
-      - Pico 4 trusted build
-      - Pico 4 device acceptance
-      - Pico 4 release candidate
-      - Repository checks
-      - Repository Health Doctor
-      - Sync test reuse
-      - Sync validation
-      - Sync validation gate-*-attempt-*
-    types: [completed]
-    branches: [main, android-main, android-phone, android-vr, android-vr-pico, apple-main, apple-ios]
-  schedule:
-    # Offset from the documented top-of-hour scheduler load; still four per hour.
-    - cron: "7,22,37,52 * * * *"
+on:
   workflow_dispatch:
     inputs:
       mode:
