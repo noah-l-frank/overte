@@ -71,6 +71,14 @@ class AvatarConfigurationTests(unittest.TestCase):
             config,avatar=b.pair()
             with self.subTest(kind=kind),self.assertRaises(NativeUIError):controlled(config,avatar)
 
+    def test_loaded_url_aliases_keep_raw_hash_and_cannot_borrow_canonical_render_identity(self):
+        raw='qrc:////meshes/mannequin/mannequin.fbx';normalized='qrc:/meshes/mannequin/mannequin.fbx'
+        b=Boundary();digest=hashlib.sha256(raw.encode()).hexdigest()
+        b.configuration['loadedGeometry']['source']['urlSha256']=digest;b.avatar['geometry']['sourceSha256']=digest
+        pair=b.pair();self.assertEqual(digest,controlled(*pair)['loadedGeometry']['source']['urlSha256'])
+        pair[0]['source']['loadedGeometry']['source']['urlSha256']=hashlib.sha256(normalized.encode()).hexdigest()
+        with self.assertRaises(NativeUIError):controlled(*pair)
+
     def test_requested_values_legacy_versions_platform_aliases_and_mutations_are_refused(self):
         valid=dict(schemaVersion=1,commandId='a'*32,action='phone-avatar-configuration-observe')
         self.assertEqual(valid,command(valid))

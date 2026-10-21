@@ -876,7 +876,7 @@ QVariantMap TestScriptingInterface::phoneAvatarConfigurationObservation(const QV
     QVariant loaded;
     if (geometry && geometry->isHFMModelLoaded()) {
         loaded = QVariantMap{{"instance",geometry->e2eGeometryInstance()},
-            {"source",overte::e2e::phoneAvatarUrlSource(QUrl(geometry->getHFMModel().originalURL),"meshes/mannequin/mannequin.fbx")}};
+            {"source",overte::e2e::phoneAvatarUrlSource(geometry->getHFMModel().originalURL,"meshes/mannequin/mannequin.fbx")}};
     }
     const QVariantMap source{{"phoneAvatarConfigurationVersion",1},{"modelInstance",model->e2eModelInstance()},
         {"rigId",model->getRig().e2eRigId()},

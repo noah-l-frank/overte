@@ -14,7 +14,7 @@ namespace overte { namespace e2e {
 // Only immutable, known APK resources may be opened. A configured URL or a
 // loaded HFM URL is not a claim about delivered bytes. Never fetch URLs here.
 inline QVariant phoneAvatarBundledResource(const QUrl& actual, const QString& allowed) {
-    if (actual.scheme() != "qrc" || !actual.authority().isEmpty()
+    if (!actual.isValid() || actual.scheme() != "qrc" || !actual.authority().isEmpty()
             || actual.hasQuery() || actual.hasFragment()
             || QDir::cleanPath(actual.path()) != "/" + allowed) { return {}; }
     QFile file(":" + QDir::cleanPath(actual.path()));
@@ -27,11 +27,16 @@ inline QVariant phoneAvatarBundledResource(const QUrl& actual, const QString& al
         {"sha256",QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex())}};
 }
 
-inline QVariantMap phoneAvatarUrlSource(const QUrl& actual, const QString& allowed) {
-    const auto text = actual.toString().toUtf8();
+inline QVariantMap phoneAvatarUrlSource(const QString& actual, const QString& allowed) {
+    // Preserve the exact loaded HFM string before parsing for resource lookup.
+    const auto text = actual.toUtf8();
     return {{"present",!text.isEmpty()},
         {"urlSha256",QString::fromLatin1(QCryptographicHash::hash(text,QCryptographicHash::Sha256).toHex())},
-        {"bundledResource",phoneAvatarBundledResource(actual,allowed)}};
+        {"bundledResource",phoneAvatarBundledResource(QUrl(actual),allowed)}};
+}
+inline QVariantMap phoneAvatarUrlSource(const QUrl& actual, const QString& allowed) {
+    // Configured skeleton URL is itself a QUrl; measure that API representation.
+    return phoneAvatarUrlSource(actual.toString(),allowed);
 }
 } }
 #endif

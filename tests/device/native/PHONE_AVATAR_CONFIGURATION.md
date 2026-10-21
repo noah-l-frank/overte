@@ -20,7 +20,9 @@ The exact response is `schemaVersion:1`, `requestId`, shared native process-birt
 * actual `boomLength` in [0.5,25] and saved `pinchZoomEnabled` boolean.
 
 Each URL source is exactly `{present,urlSha256,bundledResource}`. SHA-256 hashes
-original unnormalized URL UTF-8 bytes, including empty URLs. The optional resource
+the exact original loaded HFM QString UTF-8 bytes before any QUrl parsing,
+including empty or invalid strings. The configured value is already a native
+QUrl, so its actual API serialization is measured. The optional resource
 is exactly `{resourcePath,bytes,sha256}`, measured by opening actual APK bytes,
 never echoing repository expectations. Only a `qrc` URL without authority/query/
 fragment whose cleaned path is `meshes/defaultAvatar_full.fst` (configured) or
@@ -45,7 +47,7 @@ material bytes, unobstructed pixels, ordinary input effects or cleanup; the full
 owner must bracket and verify those. External/custom/unloaded avatars fail the
 controlled-content prerequisite.
 
-Thirteen registered common host tests plus two Phone factory/grammar tests use
+Fourteen registered common host tests plus two Phone factory/grammar tests use
 real Python/probe code with synthetic native boundaries. Ignored/foreign/missing/
 stale/late results, failed delivery, changed bytes, mixed identities, replay and
 missing native hooks fail. These prove test logic only; devices remain untested.
