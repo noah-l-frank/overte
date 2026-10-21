@@ -11,7 +11,7 @@ from adapters.native_feature_observation import decode,exact,fresh,integer,need,
 from adapters.normal_ui import NativeUIError
 from feature_journeys.graphics_fixture import subject_ids
 
-VERSION=2
+VERSION=3
 FILE='feature-graphics-subject.json'
 LIMIT=262144
 
@@ -41,8 +41,8 @@ def entity_id(value):
     return type(value) is str and re.fullmatch('[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is not None
 
 
-def validate(value,request,pid,epoch,*,require_avatar=False):
-    need(type(require_avatar) is bool)
+def validate(value,request,pid,epoch,*,require_avatar=False,require_camera=False):
+    need(type(require_avatar) is bool and type(require_camera) is bool)
     command(request,ios=request['commandId'].startswith('ios-'))
     exact(value,{'schemaVersion','requestId','runId','instance','sequence','processId','requestedEpochMs','capturedEpochMs','source'})
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['requestId']==request['commandId']
@@ -52,15 +52,23 @@ def validate(value,request,pid,epoch,*,require_avatar=False):
          and 0<=value['capturedEpochMs']-value['requestedEpochMs']<1500)
     fresh(value['capturedEpochMs'],epoch)
     source=value['source'];need(type(source) is dict and type(source.get('subjectVersion')) is int
-        and source['subjectVersion'] in (1,2) and (not require_avatar or source['subjectVersion']==2))
-    exact(source,{'subjectVersion','sceneUrl','view','entities','absentIds','scan'}|({'avatarPose'} if source['subjectVersion']==2 else set()))
+        and source['subjectVersion'] in (1,2,3) and (not require_avatar or source['subjectVersion']>=2)
+        and (not require_camera or source['subjectVersion']==3))
+    exact(source,{'subjectVersion','sceneUrl','view','entities','absentIds','scan'}|({'avatarPose'} if source['subjectVersion']>=2 else set())
+          |({'cameraOrbit'} if source['subjectVersion']==3 else set()))
     need(text(source['sceneUrl'],2048)
          and type(source['entities']) is list and len(source['entities'])<=7 and type(source['absentIds']) is list
          and len(source['absentIds'])<=7)
-    if source['subjectVersion']==2:
+    if source['subjectVersion']>=2:
         pose=source['avatarPose'];exact(pose,{'feetPosition','orientation','modelScale'})
         vector(pose['feetPosition'],3,-1000000,1000000);rotation(pose['orientation'])
         need(number(pose['modelScale'],.0001,1000))
+    if source['subjectVersion']==3:
+        orbit=source['cameraOrbit'];exact(orbit,{'lookAtRotation','boomLength','minimumBoomLength','defaultBoomLength'})
+        rotation(orbit['lookAtRotation'])
+        need(number(orbit['boomLength'],0,1000) and number(orbit['minimumBoomLength'],0,1000)
+             and number(orbit['defaultBoomLength'],orbit['minimumBoomLength'],1000)
+             and orbit['defaultBoomLength']>orbit['minimumBoomLength'])
     view=source['view'];exact(view,{'position','rotation','mode','fieldOfViewDegrees','aspectRatio','perspective'})
     vector(view['position'],3,-1000000,1000000);rotation(view['rotation'])
     need(text(view['mode'],64) and number(view['fieldOfViewDegrees'],1,179) and number(view['aspectRatio'],.1,10)
@@ -107,9 +115,9 @@ class NativeGraphicsSubject:
         self.clock_bound=not ios or native_clock_bound
         self.last=None
 
-    def read(self,run,*,require_avatar=False):
+    def read(self,run,*,require_avatar=False,require_camera=False):
         try:
-            need(type(require_avatar) is bool)
+            need(type(require_avatar) is bool and type(require_camera) is bool)
             request=command(dict(schemaVersion=1,commandId=('ios-' if self.ios else '')+uuid.uuid4().hex,
                 action='feature-graphics-subject-observe',runId=run),ios=self.ios)
             need(self.guard() is not False)
@@ -127,7 +135,7 @@ class NativeGraphicsSubject:
                 if type(value) is dict and value.get('requestId')==request['commandId']:
                     epoch=self.clock_ms() if self.clock_bound else value.get('capturedEpochMs')
                     need(integer(epoch,1) and (not self.clock_bound or epoch>=requested))
-                    validate(value,request,self.pid,epoch,require_avatar=require_avatar)
+                    validate(value,request,self.pid,epoch,require_avatar=require_avatar,require_camera=require_camera)
                     need(not self.clock_bound or value['requestedEpochMs']>=requested)
                     if self.last is not None:
                         need(value['instance']==self.last['instance'] and value['sequence']>self.last['sequence']

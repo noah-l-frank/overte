@@ -581,6 +581,11 @@ QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVar
         {"entities",present},{"absentIds",absent},
         {"scan",QVariantMap{{"center",QVariantList{0,0,0}},{"radiusMeters",128},{"propertyScope","graphics-spatial-v1"},
             {"scannedEntities",ids.size()},{"unowned",unowned}}}};
+#if defined(Q_OS_IOS)
+    source.insert("subjectVersion",3);
+    source.insert("cameraOrbit",QVariantMap{{"lookAtRotation",quat(avatar->getLookAtRotation())},
+        {"boomLength",avatar->getBoomLength()},{"minimumBoomLength",MyAvatar::ZOOM_MIN},{"defaultBoomLength",MyAvatar::ZOOM_DEFAULT}});
+#endif
     if (QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size() > 200000) { return {}; }
     return {{"schemaVersion",1},{"requestId",request},{"runId",run},{"instance",_featureObservationInstance},
         {"sequence",static_cast<qulonglong>(++_featureGraphicsSubjectSequence)},

@@ -5,17 +5,40 @@ from contextlib import contextmanager
 from copy import deepcopy
 import hashlib
 import json
+import math
+import re
 import secrets
 import threading
 import time
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl,urlsplit
 
 from .contract import exact,identifier,typed_equal
 from .graphics_fixture import scene
 from .script_fixture import authority
 
 VERSION=1
+VIEWPOINT_VERSION=1
 RESOURCE='graphics-scene.v1.json'
+
+
+def viewpoint_query(query):
+    """Only the real bounded AddressManager feet/orientation query is input.
+
+    The scene body and its native/entity/image proof are unchanged. No requested
+    graphics setting, desired output or alternate fixture resource is selected.
+    """
+    if type(query) is not str or not 0<len(query)<=1024:return False
+    try:
+        pairs=parse_qsl(query,keep_blank_values=True,strict_parsing=True)
+        if len(pairs)!=1 or pairs[0][0]!='location':return False
+        location=pairs[0][1]
+        scalar=r'[-+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?'
+        pattern='/'+','.join([scalar]*3)+'/'+','.join([scalar]*4)
+        if not re.fullmatch(pattern,location) or len(location)>256:return False
+        position,rotation=[tuple(float(v) for v in field.split(',')) for field in location[1:].split('/')]
+        return all(math.isfinite(v) and abs(v)<=1e6 for v in position) and all(math.isfinite(v) and abs(v)<=1.01 for v in rotation) \
+            and abs(sum(v*v for v in rotation)-1)<.02
+    except (ValueError,OverflowError):return False
 
 
 def fixture_url(value):

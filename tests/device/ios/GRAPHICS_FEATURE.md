@@ -19,8 +19,10 @@ The native source is derived from frozen Phone
 instrumentation and private channels. The iOS HTTP command validator, probe
 dispatcher, original atomic AFC file and `FeatureObservation.graphics_subject`
 factory are connected. The query is inactive outside the dedicated E2E build
-and `--testScript`. Original version 2 adds avatar pose, with version 1 reader
-compatibility. Native source sequence is bounded before overflow.
+and `--testScript`. Version 2 adds avatar pose. The iOS producer now emits version
+3 with original look-at rotation, boom length and ordinary menu reset limits;
+readers retain versions 1/2/3 and other platform producers stay version 2. Native
+source sequence is bounded before overflow. No camera setter is introduced.
 
 The full iOS source reader requires an independently measured native clock,
 original nonce/PID/birth/source sequence and bounded original acquisition.
@@ -91,6 +93,13 @@ owned scene/camera restoration, background/restart provenance, independent
 role images and verified lifetime cleanup. Preserve the shared v16 fifteen-step
 journey and actual initially measured baseline. Do not expose the full triple
 until that composition and meaningful counterexamples pass.
+
+The [ordinary scene/camera owner](GRAPHICS_SCENE.md) now supplies the controlled
+entry/alignment/original restoration portion. It uses actual iOS menu modes and
+feet-viewpoint behavior, requires an independently measured reproducible original
+orbit/zoom, persists one-send input and rejects held scene callbacks. The private
+fixture reader and iOS restart-proof validator are present; whole-run preferences,
+lifecycle, samples, actor and final lifetime composition remain in progress.
 
 The existing world-target PNG sampler only reads actual main-mono OpenGL
 framebuffers; Vulkan's product `downloadFramebuffer` remains unimplemented.

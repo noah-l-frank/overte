@@ -17,6 +17,18 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _native_feature_observer(self,selector,*,read_only=False):
+        need(type(read_only) is bool)
+        return self._sources(selector)['observer'].native_observer()
+
+    def graphics_samples_store(self,selector,role,stage):
+        need(role in ('primary','actor') and type(stage) is int and stage in (0,1))
+        return PrivateFeatureState(self.state_path(selector).with_name('ios-graphics-'+role+'-'+str(stage)+'-samples.json'))
+
+    def graphics_restart_owners(self,selector):
+        return [PrivateFeatureState(self.state_path(selector).with_name('ios-graphics-scene.json'))]+[
+            self.graphics_samples_store(selector,role,0) for role in ('primary','actor')]
+
     def _vulkan_world_frame_owner(self,selector,run,role,stage,request_id,root,*,source_lock=None):
         from adapters.owned_vulkan_world_frame import VulkanWorldFrameOwner
         from adapters.native_completed_frame import nonce
@@ -69,7 +81,11 @@ class IOSGraphicsRuntime(IOSScriptRuntime):
         need(callable(intent))
         return TokenGraphicsUI(self._graphics_ui_source(selector,read_only=False),intent)
 
-    def _graphics_surface(self,selector,run,intent,owns,lease,allow_url):
+    def _graphics_surface(self,selector,run,intent,owns,lease,allow_url,*,lock=None):
+        if lock is not None:
+            from adapters.script_feature.lock import ScriptSourceLock
+            need(isinstance(lock,ScriptSourceLock) and lock.path==self.state_path(selector).with_name('script-feature-sources.lock'))
+            lock.assert_held()
         source=self._sources(selector)
         original=IOSScriptIO(NativeUI(source['client'],source['session'],source['check']),source['native'])
         reader=IOSGraphicsSource(original,source['native_clock'],source['check'],int(source['binding']['processIdentity']))

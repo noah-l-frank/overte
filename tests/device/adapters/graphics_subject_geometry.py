@@ -59,10 +59,15 @@ def steady_subject(before,after):
     need(a['mode']==b['mode'] and a['perspective']==b['perspective'] and near(a['position'],b['position'],.001)
          and near(a['fieldOfViewDegrees'],b['fieldOfViewDegrees'],.001) and near(a['aspectRatio'],b['aspectRatio'],.0001))
     need(near(a['rotation'],b['rotation'],.0001) or near(a['rotation'],[-v for v in b['rotation']],.0001))
-    if left['subjectVersion']==2:
+    if left['subjectVersion']>=2:
         a,b=left['avatarPose'],right['avatarPose']
         need(near(a['feetPosition'],b['feetPosition'],.001) and near(a['modelScale'],b['modelScale'],.0001)
              and (near(a['orientation'],b['orientation'],.0001) or near(a['orientation'],[-v for v in b['orientation']],.0001)))
+    if left['subjectVersion']==3:
+        a,b=left['cameraOrbit'],right['cameraOrbit']
+        need(all(near(a[key],b[key],.0001) for key in ('boomLength','minimumBoomLength','defaultBoomLength'))
+             and (near(a['lookAtRotation'],b['lookAtRotation'],.0001)
+                  or near(a['lookAtRotation'],[-v for v in b['lookAtRotation']],.0001)))
 
 
 

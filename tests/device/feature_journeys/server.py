@@ -26,7 +26,7 @@ from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PR
 from feature_journeys.browser_fixture import BrowserResources
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
 from feature_journeys.script_fixture import ScriptResources
-from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE
+from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE,viewpoint_query
 
 PREFIX = '/feature-fixture/v1'
 
@@ -190,6 +190,11 @@ class Handler(BaseHTTPRequestHandler):
             if adapter_reader and self.command!='GET':return self.send(403,{'error':'forbidden'})
             if self.account_request(parsed):return
             if self.navigation_request(parsed):return
+            if parsed.query and not parsed.fragment and self.command=='GET' and parsed.path.startswith(PREFIX+'/'):
+                pieces=parsed.path[len(PREFIX)+1:].split('/')
+                if (len(pieces)==5 and pieces[0]=='runs' and pieces[2]=='tickets' and pieces[4]==GRAPHICS_SCENE
+                        and viewpoint_query(parsed.query)):
+                    return self.resource(identifier(pieces[1]),identifier(pieces[3]),GRAPHICS_SCENE)
             if parsed.query or parsed.fragment or not parsed.path.startswith(PREFIX + '/'):
                 return self.send(404, {'error': 'not-found'})
             parts = parsed.path[len(PREFIX) + 1:].split('/')
