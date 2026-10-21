@@ -614,5 +614,41 @@
     ],
     "sharedReferenceCorrection": "Frozen receipt retirement assumed no late storage issuance. Original code still admitted later release/inspect nonces; native debug receiptInventory now declines each known unissued selector against later issuance before publishing absence. Product rendering/scheduling behavior is unchanged.",
     "limits": "Native C++/POSIX helpers, real GPU lifetime and original Qt file serialization remain uncompiled/untested. Whole scene/preferences/per-eye effect/actor/restart/quiet cleanup coordinator remains required."
+  },
+  "stereoEvidencePacket": {
+    "contracts": [
+      "stereo-graphics-evidence v1",
+      "stereo-graphics-archive v1"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_stereo_graphics_evidence self_tests.test_stereo_graphics_pixels self_tests.test_feature_journeys (from tests/device)",
+        "tests": 122,
+        "status": "passed",
+        "durationSeconds": 86.63
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test stereo-world-render --test suite-runner --test coverage-matrix",
+        "groups": 4,
+        "status": "passed",
+        "durationSeconds": 16.63,
+        "junit": "stereo-evidence-owning.xml"
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 3.28,
+        "junit": "stereo-evidence-project.xml"
+      }
+    ],
+    "limits": "Synthetic original-source and image fixtures prove verifier/adapter logic only. Whole durable scene/preferences/PNG+metadata/actor/restart/lifetime owner remains required. Native source and devices remain unverified."
   }
 }

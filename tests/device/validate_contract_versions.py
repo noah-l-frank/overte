@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "stereo-graphics-archive": 1,
+    "stereo-graphics-evidence": 1,
     "world-render-receipt-inventory": 1,
     "pico-graphics-capture-binding": 1,
     "pico-navigation-address-observation": 1,

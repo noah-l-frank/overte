@@ -63,3 +63,7 @@ undersized/offscreen cards, late guard/clock loss and slow processing. These are
 synthetic source/pixel checks. Native compilation, actual Web texture orientation,
 real geometry visibility and physical HMD output remain unqualified; no compiler
 or device was used.
+
+The explicit [independent stereo evidence profile](STEREO_GRAPHICS_EVIDENCE.md)
+recomputes these original facts in the common engine and distinguishes pure
+historical archive reduction from a live guarded measurement.

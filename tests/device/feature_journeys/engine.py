@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import hashlib
+import json
 import math
 import secrets
 from . import evidence as bytes_evidence
@@ -43,6 +44,12 @@ class Journey:
         self.phases, self.samples = [], []
         self.recorded_ticket = self.capture_ticket = self.model_ticket = self.texture_ticket = None
         self.evidence_cache = {}
+        self.stereo_evidence_seen,self.stereo_frames_seen,self.stereo_contexts={},{},{}
+        self.stereo_cursors,self.stereo_queries_seen={},{}
+        self.stereo_graphics=False
+        if area=='graphics' and type(self.policy) is dict and type(self.policy.get('screen')) is dict and 'profile' in self.policy['screen']:
+            from .stereo_graphics_evidence import policy as stereo_policy
+            stereo_policy(self.policy['screen']);self.stereo_graphics=True
         self.lifecycle = None
         self.required_lifecycle = None
         self.sit_variants = set()
@@ -168,12 +175,59 @@ class Journey:
                     raise AssertionError('Snapshot destination bytes differ from the original capture')
             source_ticket = (self.recorded_ticket if self.area == 'audio' and (kind == 'file' or value['state']['phase'] == 'completed' and requested == 'audio')
                              else self.capture_ticket if self.area == 'snapshots' and kind == 'file' else ticket)
+            metadata=None;metadata_digest=None
+            if kind=='image' and self.stereo_graphics:
+                original=by_kind.get('file')
+                if original is None or original['ticket']!=ticket:
+                    raise AssertionError('Original stereo Graphics metadata artifact is missing or foreign')
+                metadata=self.read_artifact(original['name'])
+                from .stereo_graphics_evidence import LIMIT
+                if type(metadata) is not bytes or not 0<len(metadata)<=LIMIT:
+                    raise ValueError('Invalid bounded original stereo metadata bytes')
+                metadata_digest=hashlib.sha256(metadata).hexdigest()
             key = (requested, digest, source_ticket, self.model_ticket)
+            if metadata is not None:
+                key+=(metadata_digest,hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest())
             if key in self.evidence_cache:
                 observed, cached_subject = self.evidence_cache[key]
             elif kind == 'image':
-                observed, cached_subject = bytes_evidence.image_observation(content, self.run, ticket,
-                    self.policy['screen'], self.previous_subject, requested == 'changed')
+                if self.stereo_graphics:
+                    from .stereo_graphics_evidence import observation as stereo_observation
+                    observed,cached_subject=stereo_observation(content,metadata,self.run,ticket,self.url,self.policy['screen'],value,
+                        previous=self.previous_subject,changed=requested=='changed',monotonic=self.monotonic)
+                    pin=(value['sequence'],digest,metadata_digest)
+                    request=(cached_subject['captureInstance'],cached_subject['requestId'])
+                    frame=(cached_subject['captureInstance'],cached_subject['frameIndex'],cached_subject['executionSequence'])
+                    binding=hashlib.sha256(json.dumps(cached_subject['binding'],sort_keys=True).encode()).hexdigest()
+                    scope=(binding,cached_subject['role'],cached_subject['stage'])
+                    original=(cached_subject['captureInstance'],cached_subject['nativeInstance'],cached_subject['providerInstance'],cached_subject['uiInstance'])
+                    if (scope in self.stereo_contexts and self.stereo_contexts[scope]!=original
+                            or request in self.stereo_evidence_seen and self.stereo_evidence_seen[request]!=pin
+                            or frame in self.stereo_frames_seen and self.stereo_frames_seen[frame]!=pin):
+                        raise AssertionError('Original stereo acquisition, frame or context was reused or replaced')
+                    if any(key not in store and len(store)>=4096 for key,store in
+                            ((scope,self.stereo_contexts),(request,self.stereo_evidence_seen),(frame,self.stereo_frames_seen))):
+                        raise ValueError('Original stereo evidence history is exhausted')
+                    previous=self.stereo_cursors.get(scope)
+                    if previous is not None and previous[0]!=pin:
+                        from .stereo_graphics_evidence import advance
+                        advance(previous[1],cached_subject)
+                    queries=[]
+                    for kind,nonce in cached_subject['requests'].items():
+                        family='native' if kind.startswith('native') else 'subject' if kind.startswith('subject') else kind
+                        instance=cached_subject['nativeInstance'] if family in ('native','subject') else (
+                            cached_subject['captureInstance'] if family=='capture' else cached_subject['providerInstance'] if family=='provider' else cached_subject['uiInstance'])
+                        query=(family,instance,nonce);queries.append(query)
+                        if query in self.stereo_queries_seen and self.stereo_queries_seen[query]!=pin:
+                            raise AssertionError('Original stereo source query was reused under a new sample')
+                    if len(set(queries)-self.stereo_queries_seen.keys())+len(self.stereo_queries_seen)>28672:
+                        raise ValueError('Original stereo source-query history is exhausted')
+                    self.stereo_contexts[scope]=original;self.stereo_evidence_seen[request]=pin;self.stereo_frames_seen[frame]=pin
+                    self.stereo_cursors[scope]=(pin,deepcopy(cached_subject))
+                    for query in queries:self.stereo_queries_seen[query]=pin
+                else:
+                    observed, cached_subject = bytes_evidence.image_observation(content, self.run, ticket,
+                        self.policy['screen'], self.previous_subject, requested == 'changed')
                 self.evidence_cache[key] = (observed, cached_subject)
             elif kind == 'audio':
                 observed = bytes_evidence.audio_observation(content, self.run, source_ticket, requested == 'silence',

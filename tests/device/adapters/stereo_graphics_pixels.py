@@ -122,23 +122,16 @@ def statistics(image,row,marker_row,source,views,marker_views,eye,budget):
         polygons=polygons,excludedMarkerPolygons=excluded)
 
 
-def measure(capture,raw,before,after,*,run,ticket,scene_ticket,fixture_url,pid,epoch,
-            guard,clock_ms,monotonic=time.monotonic):
+def _original(capture,raw,before,after,*,run,ticket,scene_ticket,fixture_url,pid,epoch,budget):
     from PIL import Image
-    need(all(callable(v) for v in (guard,clock_ms,monotonic)) and integer(epoch,1))
-    started=previous=monotonic();need(type(started) in (int,float) and math.isfinite(started) and started>=0)
-    def budget():
-        nonlocal previous
-        current=monotonic();need(type(current) in (int,float) and math.isfinite(current)
-            and previous<=current and current-started<5);previous=current
-    need(guard() is not False);budget()
+    need(all(type(value) is dict for value in (capture,before,after)) and integer(pid,1) and integer(epoch,1))
     identifier(run);identifier(ticket);identifier(scene_ticket)
     capture_packet(capture,capture.get('requestId'),pid,epoch,stereo=True,require_cameras=True)
     original_pixels(capture,raw)
     for packet in (before,after):
         subject_packet(packet,dict(schemaVersion=1,commandId=packet.get('requestId'),
             action='feature-graphics-subject-observe',runId=run),pid,epoch,require_avatar=True)
-    need(before['instance']==after['instance'] and after['sequence']>before['sequence']
+    need(before['instance']==after['instance'] and before['requestId']!=after['requestId'] and after['sequence']>before['sequence']
         and before['capturedEpochMs']<=capture['requestedEpochMs']<=capture['capturedEpochMs']<=after['requestedEpochMs']
         and after['capturedEpochMs']-before['requestedEpochMs']<=1500
         and before['source']['entities']==after['source']['entities']
@@ -161,13 +154,48 @@ def measure(capture,raw,before,after,*,run,ticket,scene_ticket,fixture_url,pid,e
             eyes[eye]=dict(marker=marker(image,carrier,source,forward[eye],eye,run,ticket),
                 haze=statistics(image,rows[wanted['fog-board']],carrier,source,forward[eye],forward[eye],eye,budget),
                 mirror=statistics(image,rows[wanted['reflector']],carrier,source,reflection[eye],forward[eye],eye,budget))
-    need(guard() is not False);budget();freshness_started=previous
-    final=clock_ms();need(integer(final,epoch));budget();need(guard() is not False);budget()
+    budget()
     oldest=min(before['requestedEpochMs'],capture['source']['recordedEpochMs'])
-    need(max(final-oldest+math.ceil((previous-freshness_started)*1000),
-        epoch-oldest+math.ceil((previous-started)*1000))<=1500)
     return dict(stereoGraphicsPixelsVersion=VERSION,requestId=capture['requestId'],sha256=hashlib.sha256(raw).hexdigest(),
         pixelSha256=source['image']['pixelSha256'],frameIndex=source['stereo']['frameIndex'],
         executionSequence=source['stereo']['executionSequence'],mirrorCameraRole=mirror_role,eyes=eyes,
         subjects=dict(instance=before['instance'],beforeRequest=before['requestId'],beforeSequence=before['sequence'],
             afterRequest=after['requestId'],afterSequence=after['sequence']),capturedEpochMs=oldest)
+
+
+def measure(capture,raw,before,after,*,run,ticket,scene_ticket,fixture_url,pid,epoch,
+            guard,clock_ms,monotonic=time.monotonic):
+    need(all(callable(v) for v in (guard,clock_ms,monotonic)) and integer(epoch,1))
+    started=previous=monotonic();need(type(started) in (int,float) and math.isfinite(started) and started>=0)
+    def budget():
+        nonlocal previous
+        current=monotonic();need(type(current) in (int,float) and math.isfinite(current)
+            and previous<=current and current-started<5);previous=current
+    need(guard() is not False);budget()
+    value=_original(capture,raw,before,after,run=run,ticket=ticket,scene_ticket=scene_ticket,
+        fixture_url=fixture_url,pid=pid,epoch=epoch,budget=budget)
+    need(guard() is not False);budget();freshness_started=previous
+    final=clock_ms();need(integer(final,epoch));budget();need(guard() is not False);budget()
+    oldest=value['capturedEpochMs']
+    need(max(final-oldest+math.ceil((previous-freshness_started)*1000),
+        epoch-oldest+math.ceil((previous-started)*1000))<=1500)
+    return value
+
+
+def reduce_original(capture,raw,before,after,*,run,ticket,scene_ticket,fixture_url,pid,monotonic=time.monotonic):
+    """Pure bounded archive recomputation at the original source interval.
+
+    No current clock/guard is accepted or fabricated. The caller must bind this
+    historical fact to its independently acquired current artifact/sample before
+    using it in a live journey. Original capture timestamps are never changed.
+    """
+    need(callable(monotonic) and type(after) is dict and integer(after.get('capturedEpochMs'),1))
+    started=previous=monotonic();need(type(started) in (int,float) and math.isfinite(started) and started>=0)
+    def budget():
+        nonlocal previous
+        current=monotonic();need(type(current) in (int,float) and math.isfinite(current)
+            and previous<=current and current-started<5);previous=current
+    value=_original(capture,raw,before,after,run=run,ticket=ticket,scene_ticket=scene_ticket,
+        fixture_url=fixture_url,pid=pid,epoch=after['capturedEpochMs'],budget=budget)
+    need(after['capturedEpochMs']-value['capturedEpochMs']<=1500);budget()
+    return value

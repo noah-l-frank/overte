@@ -9,5 +9,6 @@ from self_tests.test_stereo_world_render import StereoWorldRenderTests
 from self_tests.test_stereo_render_trace import StereoRenderTraceTests
 from self_tests.test_stereo_camera_uniforms import StereoCameraUniformTests
 from self_tests.test_stereo_graphics_pixels import StereoGraphicsPixelTests
+from self_tests.test_stereo_graphics_evidence import StereoGraphicsEvidenceTests
 
 if __name__=='__main__':unittest.main()

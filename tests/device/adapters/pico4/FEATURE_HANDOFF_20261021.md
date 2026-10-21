@@ -311,3 +311,16 @@ issue receipts after their absence was proved. Ignored unlink ACK, lost/foreign
 issuer history, candidate loss and incomplete file retirement keep ownership.
 This remains a host-verified source prerequisite for full Graphics coordination,
 without native compilation, device qualification or a new complete capability.
+
+
+## Independent original two-eye evidence profile
+
+The [common stereo evidence profile](../../native/STEREO_GRAPHICS_EVIDENCE.md)
+now validates whole original PNG plus native JSON bytes independently of the
+adapter. Both-eye Haze/Mirror effect direction, actual native execution/settings,
+physical camera comparability, original scene facts and strict per-source
+cursor/query continuity are required. Cache hits cannot hide altered public
+state or artifact ownership. Pure historical reduction retains original epochs;
+it does not fabricate current freshness. The frozen Phone mono profile remains
+an explicit separate reader. The full Pico scene/preferences/artifact/actor/
+restart/lifetime owner is still missing; no complete capability is added.

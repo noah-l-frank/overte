@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "stereo-graphics-archive": {"current": 1, "reads": [1]},
+    "stereo-graphics-evidence": {"current": 1, "reads": [1]},
     "world-render-receipt-inventory": {"current": 1, "reads": [1]},
     "pico-graphics-capture-binding": {"current": 1, "reads": [1]},
     "pico-navigation-address-observation": {"current": 1, "reads": [1]},

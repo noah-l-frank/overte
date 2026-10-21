@@ -505,7 +505,9 @@
         "tests/device/native/NormalNavigationAddress.h",
         "tests/device/adapters/pico4/graphics_binding.py",
         "tests/device/adapters/world_render_receipts.py",
-        "tests/device/native/WORLD_RENDER_RECEIPT_INVENTORY.md"
+        "tests/device/native/WORLD_RENDER_RECEIPT_INVENTORY.md",
+        "tests/device/feature_journeys/stereo_graphics_evidence.py",
+        "tests/device/native/STEREO_GRAPHICS_EVIDENCE.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -542,7 +544,8 @@
         "Actual bound original camera UBO range/data and GL share-group identity after late pose correction/jitter, with Forward/Mirror roles",
         "Original QML/XHR callback and every reply retirement through native-tablet-http v1",
         "Native subject v3 original HMD matrices and exact tablet/keyboard/pointer owner IDs, preserving the complete raw scan",
-        "Role v2 capture ownership plus original complete native issuer/file inventory, including retirement of known undelivered receipt nonces"
+        "Role v2 capture ownership plus original complete native issuer/file inventory, including retirement of known undelivered receipt nonces",
+        "Whole original PNG plus original native JSON, independently recomputed in both eyes; strict source query/cursor continuity and actual effect direction"
       ],
       "cleanupObligations": [
         "Normal restoration of captured original VR preferences",
