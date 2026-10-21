@@ -117,6 +117,12 @@ and a new retirement read prevent cached cleanup success. Retained/late work
 and unresolved journals stay red. This remains a subresource proof; whole image/
 fixture/UI-lifetime/actor/run retirement is still required before registration.
 
+The [passive Phone avatar configuration source](../../native/PHONE_AVATAR_CONFIGURATION.md)
+now measures original APK avatar bytes, loaded geometry provenance and actual
+perspective boom/pinch preference. Its original resource/render join rejects
+external, replaced or missing content. Normal view setup and full Emote
+coordination remain open; this additive source promotes no feature capability.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

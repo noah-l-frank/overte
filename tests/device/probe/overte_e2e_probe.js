@@ -246,6 +246,7 @@
                 && request.controlId !== "create.entity.00000000-0000-0000-0000-000000000000");
     }
     var lastPhoneEmoteRequest = "";
+    var lastPhoneAvatarConfigurationRequest = "";
     function validPhoneEmoteRequest(request) {
         function nonce(value) { return typeof value === "string" && value.length === 32 && /^[0-9a-f]{32}$/.test(value); }
         if (!request || request.schemaVersion !== 1 || !nonce(request.commandId)) { return false; }
@@ -1563,6 +1564,24 @@
             Test.saveObject(stored, "world-render-storage-" + String(command.commandId).replace(/^ios-/, "") + ".json");
             return;
         }
+        if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
+                && /^[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 32
+                && command.action === "phone-avatar-configuration-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId === lastPhoneAvatarConfigurationRequest) { return; }
+            lastPhoneAvatarConfigurationRequest = command.commandId;
+            var phoneAvatarConfiguration = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.phoneAvatarConfigurationObservation === "function") {
+                    var originalPhoneAvatarConfiguration = Test.phoneAvatarConfigurationObservation(command);
+                    if (originalPhoneAvatarConfiguration && originalPhoneAvatarConfiguration.requestId === command.commandId) {
+                        phoneAvatarConfiguration = originalPhoneAvatarConfiguration;
+                    }
+                }
+            } catch (_phoneAvatarConfigurationError) { /* No defaults replace original resource or perspective facts. */ }
+            Test.saveObject(phoneAvatarConfiguration, "phone-avatar-configuration.json");
+            return;
+        }
         if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
                 && command.action === "feature-avatar-render-observe"
@@ -1989,6 +2008,7 @@
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
                 || command.action === "feature-graphics-subject-observe"
+                || command.action === "phone-avatar-configuration-observe"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-script-files")) {

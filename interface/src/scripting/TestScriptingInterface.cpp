@@ -55,6 +55,8 @@
 #include <ScriptEngines.h>
 #if defined(ANDROID_APP_PHONE_INTERFACE)
 #include "../../../tests/device/native/ScriptFileUi.h"
+#include "../../../tests/device/native/PhoneAvatarConfiguration.h"
+#include <SettingHandle.h>
 #include "../../../tests/device/adapters/android-phone/PendingCommitOwner.h"
 #include "../../../tests/device/native/PrivateFeatureCommand.h"
 #include <QMouseEvent>
@@ -768,6 +770,47 @@ QVariantMap TestScriptingInterface::featureSceneLoadObservation(const QVariantMa
     return value;
 #else
     Q_UNUSED(command);return {};
+#endif
+}
+
+QVariantMap TestScriptingInterface::phoneAvatarConfigurationObservation(const QVariantMap& command) {
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result = phoneAvatarConfigurationObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json = QJsonObject::fromVariantMap(command);
+    const auto request = command.value("commandId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || command.keys() != QStringList{"action","commandId","schemaVersion"}
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble() != 1
+            || command.value("action").toString() != "phone-avatar-configuration-observe"
+            || !json.value("commandId").isString()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request).hasMatch()) { return {}; }
+    const auto requested = QDateTime::currentMSecsSinceEpoch();
+    const auto avatar = DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if (!avatar) { return {}; }
+    const auto model = avatar->getSkeletonModel();
+    if (!model) { return {}; }
+    const auto geometry = model->getGeometry();
+    QVariant loaded;
+    if (geometry && geometry->isHFMModelLoaded()) {
+        loaded = QVariantMap{{"instance",geometry->e2eGeometryInstance()},
+            {"source",overte::e2e::phoneAvatarUrlSource(QUrl(geometry->getHFMModel().originalURL),"meshes/mannequin/mannequin.fbx")}};
+    }
+    const QVariantMap source{{"phoneAvatarConfigurationVersion",1},{"modelInstance",model->e2eModelInstance()},
+        {"rigId",model->getRig().e2eRigId()},
+        {"configured",overte::e2e::phoneAvatarUrlSource(avatar->getSkeletonModelURL(),"meshes/defaultAvatar_full.fst")},
+        {"loadedGeometry",loaded},{"boomLength",avatar->getBoomLength()},
+        {"pinchZoomEnabled",Setting::Handle<bool>{"android/phone/pinchZoomEnabled",false}.get()}};
+    return {{"schemaVersion",1},{"requestId",request},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_phoneAvatarConfigurationSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+#else
+    Q_UNUSED(command); return {};
 #endif
 }
 

@@ -63,6 +63,7 @@ from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
 from adapters.native_graphics_subject import NativeGraphicsSubject, FILE as GRAPHICS_SUBJECT_FILE
 from adapters.native_avatar_render import NativeAvatarRender, FILE as AVATAR_RENDER_FILE
+from adapters.native_phone_avatar_configuration import NativePhoneAvatarConfiguration, FILE as AVATAR_CONFIGURATION_FILE
 from adapters.native_world_model_draws import NativeWorldModelDraws, FILE as WORLD_MODEL_DRAWS_FILE
 from adapters.native_phone_scene_loads import NativePhoneSceneLoads, FILE as SCENE_LOAD_FILE
 from adapters.native_phone_web_runtime import NativePhoneWebRuntime, FILE as WEB_RUNTIME_FILE
@@ -111,6 +112,9 @@ def readonly_feature_command(command):
     elif action=='feature-process-presence':
         from adapters.native_process_presence import command as validate_presence
         validate_presence(command)
+    elif action=='phone-avatar-configuration-observe':
+        from adapters.native_phone_avatar_configuration import command as validate_avatar_configuration
+        validate_avatar_configuration(command)
     elif action=='feature-avatar-render-observe':
         from adapters.native_avatar_render import command as validate_avatar_render
         validate_avatar_render(command)
@@ -570,6 +574,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         return NativePhoneWebRuntime(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+WEB_RUNTIME_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _avatar_configuration_observer(self, selector, *, read_only=True):
+        require(read_only is True,'PHONE_AVATAR_CONFIGURATION_REQUIRES_EXISTING_READ_ONLY_SESSION')
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativePhoneAvatarConfiguration(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+AVATAR_CONFIGURATION_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _avatar_render_observer(self, selector, *, read_only=True):

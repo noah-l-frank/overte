@@ -37,6 +37,7 @@ from self_tests.test_native_script_membership import membership_source
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_graphics_subject import Boundary as GraphicsSubjectBoundary, RUN as GRAPHICS_RUN
 from self_tests.test_native_avatar_render import Boundary as AvatarRenderBoundary
+from self_tests.test_native_phone_avatar_configuration import Boundary as AvatarConfigurationBoundary
 from self_tests.test_native_phone_scene_loads import Boundary as SceneLoadBoundary, URL as SCENE_LOAD_URL
 from adapters.native_phone_scene_loads import committed as committed_scene
 from self_tests.test_native_phone_web_runtime import Boundary as WebRuntimeBoundary, ROOT as WEB_RUNTIME_ROOT, URL as WEB_RUNTIME_URL
@@ -1232,6 +1233,27 @@ class FeatureAdapterTests(unittest.TestCase):
             monotonic=lambda:source.clock,sleep=source.sleep))
         boundary.start();self.addCleanup(boundary.stop)
         return source,self.adapter._graphics_subject_observer(SELECTOR)
+
+    def test_phone_avatar_configuration_factory_requires_existing_session_and_preserves_original_bytes(self):
+        self.read_only_boundaries()
+        source=self.preview_boundaries(AvatarConfigurationBoundary(),'phone-avatar-configuration.json')
+        with patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep)):
+            reader=self.adapter._avatar_configuration_observer(SELECTOR);value=reader.read()
+            self.assertEqual(source.sample,value);self.assertFalse(value['source']['pinchZoomEnabled'])
+            before=len(source.commands);self.fixture.adb.digest='f'*64
+            with self.assertRaises(RuntimeError):reader.read()
+            self.assertEqual(before,len(source.commands))
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+        self.assertFalse(any(c.startswith('feature.emotes.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_avatar_configuration_grammar_refuses_input_expected_results_and_session_start(self):
+        with self.assertRaises(ValueError):self.adapter._avatar_configuration_observer(SELECTOR,read_only=False)
+        value=dict(schemaVersion=1,commandId='a'*32,action='phone-avatar-configuration-observe')
+        appium.readonly_feature_command(value)
+        for change in (dict(expectedResource='fixture'),dict(boomLength=3),dict(action='phone-avatar-configuration-set'),
+                dict(commandId='ios-'+'a'*32)):
+            with self.subTest(change=change),self.assertRaises((RuntimeError,ValueError)):appium.readonly_feature_command(value|change)
 
     def avatar_render_boundaries(self,*,models=False):
         source=self.preview_boundaries(AvatarRenderBoundary(),

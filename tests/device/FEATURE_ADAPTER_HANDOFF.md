@@ -679,3 +679,10 @@ expected profile arguments, stale
 reads and recognized foreign filenames cannot substitute for original identity.
 This remains source association, with native compilation and the full Emote
 Rig/pose/image/actor/cleanup join still open.
+
+The passive [Phone avatar configuration v1](native/PHONE_AVATAR_CONFIGURATION.md)
+adds guarded original APK avatar resource/loaded-model joins and actual perspective
+boom/pinch setting observations. It exposes no setter. Thirteen common and two
+Phone host counterexamples pass; full normal Emote view/fixture/run composition
+remains open. Native instrumentation is uncompiled; complete Phone count stays
+three, and all device acceptance remains open.

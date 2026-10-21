@@ -185,6 +185,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureWorldRenderCapture(const QString& requestId);
     Q_INVOKABLE QVariantMap featureWorldRenderStorage(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldModelDrawsObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneAvatarConfigurationObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureAvatarRenderObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderReceipt(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderReceipts(const QVariantMap& command);
@@ -270,6 +271,7 @@ private:
     quint64 _featureWorldReceiptsSequence {0};
     quint64 _featureGraphicsSubjectSequence {0};
     quint64 _featureAvatarRenderSequence {0};
+    quint64 _phoneAvatarConfigurationSequence {0};
     quint64 _featureProcessPresenceSequence {0};
     QVariantMap _featureScriptFilesCommand, _featureScriptFilesResult;
 #endif

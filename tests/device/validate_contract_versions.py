@@ -41,6 +41,7 @@ REQUIRED = {
     "normal-emote-input": 1,
     "world-render-acquisition": 2,
     "world-render-trace": 2,
+    "native-phone-avatar-configuration": 1,
     "native-avatar-render": 1,
     "native-world-model-draws": 1,
     "world-render-storage": 1,
