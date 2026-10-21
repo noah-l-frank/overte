@@ -138,9 +138,13 @@ class GitHubApi:
             raise GateError(f"GitHub API request failed: {endpoint} ({safe_api_error(error)})") from error
 
     def bytes(self, endpoint: str) -> bytes:
+        command = ["gh", "api"]
+        if re.fullmatch(r"repos/noah-l-frank/overte/actions/jobs/[1-9][0-9]*/logs", endpoint):
+            command.append("--allow-escape-sequences")
+        command.append(endpoint)
         try:
             return subprocess.run(
-                ["gh", "api", endpoint], check=True, stdout=subprocess.PIPE,
+                command, check=True, stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             ).stdout
         except (OSError, subprocess.CalledProcessError) as error:
@@ -1853,10 +1857,10 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
     standalone = report.get('mode') == 'native-standalone-ci'
     if inherited and normal_parent is not None:
         raise GateError('an inherited Sync report cannot become a recursive normal-parent proof')
-    expected_members = {xml_path, report_path} if inherited else allowed
-    if set(payload) != expected_members:
+    if not inherited and set(payload) != allowed:
         raise GateError('metadata original artifact form is incomplete or mixed')
-    observed = None if inherited else decode(payload[report_path + '.ci-execution.json'])
+    sidecar = report_path + '.ci-execution.json'
+    observed = decode(payload[sidecar]) if sidecar in payload else None
     requested_mode = 'reuse' if inherited else 'fallback'
     expected_mode = 'native-exact-tree-parent' if inherited else 'native-standalone-ci' if standalone else 'affected-ci'
     if normal_parent is not None:
@@ -1893,7 +1897,7 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
             'parent_evidence','conclusion','started_at','completed_at','reusable','qualification',
             'ci_selection','not_selected_suites','receipt_digest'}
         if set(report) != expected_fields or report.get('qualification') is not False or report.get('reusable') is not False \
-                or report['executed_suites'] != [] or report['reused_suites'] != names or report['bounded_projects'] != []:
+                or report['bounded_projects'] != []:
             raise GateError('metadata inherited report claims unknown or new execution authority')
     elif standalone:
         expected_fields = {'schema','producer','repository','repository_id','pull_request','candidate',
@@ -1902,11 +1906,11 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
             'ci_selection','not_selected_suites','receipt_digest','standalone_owner_evidence'}
         reused = validator._standalone_ci_names(selection, registry)
         remaining = [name for name in names if name not in reused]
-        if set(report) != expected_fields or len(reused) != 4 or len(remaining) != 33 \
+        if set(report) != expected_fields or (len(names),len(reused),len(remaining)) not in {(37,4,33),(32,3,29)} \
                 or report.get('qualification') is not False or report.get('reusable') is not False \
                 or report['reused_suites'] != reused or report['executed_suites'] != remaining \
                 or report['parent_evidence'] is not None or report['bounded_projects'] != []:
-            raise GateError('metadata standalone report lacks exact disjoint four-plus33 coverage')
+            raise GateError('metadata standalone report lacks exact disjoint native/current command coverage')
         _metadata_standalone_owners(api, request, source, validator, registry, report, now,
             normal_parent=normal_parent)
     elif report['executed_suites'] != names or report['reused_suites'] != [] or report['parent_evidence'] is not None:
@@ -1924,8 +1928,15 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
             or selection['registry'] != validator.execution.digest(registry) or selection['dependency_selection'] != selected:
         raise GateError('metadata original selected commands/source differ')
     if inherited:
-        _metadata_inherited_parent(api, config=load_config(), request=request, source=source,
+        proof = _metadata_inherited_parent(api, config=load_config(), request=request, source=source,
             validator=validator, names=names, tree=tree, report=report, now=now)
+        remaining = [name for name in names if name not in exact_tree_covered_suites(proof, names)]
+        expected_members = allowed if remaining else {xml_path, report_path}
+        if set(payload) != expected_members:
+            raise GateError('metadata inherited artifact does not match authenticated command coverage')
+        if remaining:
+            validator._verify_ci_execution(observed, selection, registry, (request.merge_sha, tree),
+                suite_names=remaining)
     else:
         validator._verify_ci_execution(observed, selection, registry, (request.merge_sha, tree),
             suite_names=report['executed_suites'] if standalone else None)
@@ -1933,7 +1944,7 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
     if b'<!DOCTYPE' in xml_raw.upper() or b'<!ENTITY' in xml_raw.upper():
         raise GateError('metadata original XML entities forbidden')
     xml = ET.fromstring(xml_raw); cases = list(xml.iter('testcase'))
-    junit_names = ['sync-differential'] if inherited else report['executed_suites'] if standalone else names
+    junit_names = (remaining or ['sync-differential']) if inherited else report['executed_suites'] if standalone else names
     if [c.get('name') for c in cases] != junit_names or int(xml.get('tests')) != len(junit_names) \
             or any(int(xml.get(k, '0')) for k in ('failures', 'errors', 'skipped')) \
             or any(c.find(k) is not None for c in cases for k in ('failure', 'error', 'skipped')):
@@ -1956,22 +1967,60 @@ def _metadata_standalone_owners(api, request, source, validator, registry, repor
 
 def _metadata_inherited_parent(api, *, config, request, source, validator, names, tree, report, now):
     """Reauthenticate the finite current VR parent proof, never a JSON claim."""
-    if (request.base,request.parent,request.profile) != ('android-vr','android-main','android-vr') \
-            or len(names) != 37 or len(set(names)) != 37:
-        raise GateError('metadata inherited report is outside the exact Android CI37 edge')
+    if (request.base,request.parent,request.profile) != ('android-vr','android-main','android-vr'):
+        raise GateError('metadata inherited report is outside the exact Android CI edge')
     protected_tree = commit_tree(commit(api,request.repository,source))
     proof = verify_exact_tree_parent_evidence(api,config,request,protected_source=source,
         protected_tree=protected_tree,now=now)
+    covered = exact_tree_covered_suites(proof, names)
+    original = proof.get('original_suites', names)
+    remaining = [name for name in names if name not in covered]
     if not isinstance(proof,NativeExactTreeParentEvidence) or proof.get('qualification') is not False \
             or proof.get('reusable') is not False or proof.get('source') != source \
             or proof.get('parent_branch') != request.parent or proof.get('parent_commit') != request.parent_sha \
             or proof.get('parent_tree') != tree or proof.get('requested_suites') != names \
-            or not _original_ci_command_coverage(proof.get('original_report', {}), names) \
+            or not _original_ci_command_coverage(proof.get('original_report', {}), original) \
+            or report.get('reused_suites') != covered or report.get('executed_suites') != remaining \
             or parse_time(proof['expires_at'],'original inherited expiry') <= now \
             or parse_time(proof['qualified_at'],'original inherited completion') > parse_time(report['started_at'],'inheriting report start') \
-            or validator._parent_provenance(proof,names,sys.modules[__name__]) != report['parent_evidence']:
+            or validator._parent_provenance(proof,covered,sys.modules[__name__]) != report['parent_evidence']:
         raise GateError('metadata inherited parent execution/provenance is unavailable or changed')
     return proof
+
+
+def _exact_tree_ci_intersection(names, original, requested):
+    """Only the actual ordered CI37 or its reviewed five-command complement."""
+    excluded = {'producer-proof', 'python-test-runner', 'release-bundle',
+                'project-coverage', 'native-registration'}
+    if type(names) is not list or len(names) != 37 or len(set(names)) != 37 or not excluded <= set(names):
+        raise EvidenceError('exact-tree protected CI37 roster differs')
+    partial = [name for name in names if name not in excluded]
+    if type(original) is not list or type(requested) is not list \
+            or original not in (names, partial) or requested not in (names, partial):
+        raise EvidenceError('exact-tree coverage is outside the finite ordered CI32/37 rosters')
+    return [name for name in requested if name in original]
+
+
+def exact_tree_covered_suites(proof, requested):
+    """Read only authenticated typed coverage; never infer it from a report claim."""
+    if not isinstance(proof, NativeExactTreeParentEvidence) or proof.get('requested_suites') != requested:
+        raise GateError('exact-tree typed proof differs from current requested commands')
+    names = json.loads((ROOT / '.github/ci37-runtime.json').read_bytes())['suites']
+    if proof.get('kind') == 'original-sync-identical-android-tree-v1' \
+            and not {'original_suites', 'covered_suites'} & set(proof):
+        if requested != names or _exact_tree_ci_intersection(names, names, requested) != names:
+            raise GateError('legacy exact-tree proof requires the full protected CI37 roster')
+        return list(requested)
+    if proof.get('kind') != 'original-sync-identical-android-ci-subset-v1':
+        raise GateError('exact-tree command coverage kind differs')
+    try:
+        covered = _exact_tree_ci_intersection(names, proof.get('original_suites'), requested)
+    except EvidenceError as error:
+        raise GateError('exact-tree subset rosters are not reviewed') from error
+    if proof.get('original_suites') == names and requested == names \
+            or proof.get('covered_suites') != covered:
+        raise GateError('exact-tree subset coverage differs from the finite intersection')
+    return covered
 
 
 def _original_ci_command_coverage(report, names):
@@ -1982,11 +2031,18 @@ def _original_ci_command_coverage(report, names):
         return report.get('executed_suites') == names and report.get('reused_suites') == []
     if report.get('mode') != 'native-standalone-ci':
         return False
-    four = {'documentation-contracts', 'documentation', 'policy-consistency', 'workflow-contracts'}
-    reused = [name for name in names if name in four]
-    return (len(names) == len(set(names)) == 37 and len(reused) == 4
+    full = json.loads((ROOT / '.github/ci37-runtime.json').read_bytes())['suites']
+    try:
+        _exact_tree_ci_intersection(full, names, names)
+    except EvidenceError:
+        return False
+    native = {'documentation-contracts', 'documentation', 'policy-consistency'}
+    if names == full:
+        native.add('workflow-contracts')
+    reused = [name for name in names if name in native]
+    return ((len(names),len(reused)) in {(37,4),(32,3)}
         and report.get('reused_suites') == reused
-        and report.get('executed_suites') == [name for name in names if name not in four]
+        and report.get('executed_suites') == [name for name in names if name not in native]
         and report.get('parent_evidence') is None and report.get('qualification') is False
         and report.get('reusable') is False
         and report.get('standalone_owner_evidence', {}).get('kind') == 'same-pr-native-standalone-ci-commands-v1')
@@ -2329,7 +2385,7 @@ def native_exact_tree_parent_evidence(api, config, request, now=None):
 
 
 def verify_exact_tree_parent_evidence(api, config, request, *, protected_source, protected_tree, now=None):
-    """Only AndroidMain -> VR may inherit actual CI37 on the identical whole T.
+    """Only AndroidMain -> VR may inherit actual CI32/37 on the identical whole T.
 
     This independently executed schema1 report remains nonreusable data. No
     consumer environment, fingerprints, receipt/E or successful push is made.
@@ -2410,11 +2466,15 @@ def verify_exact_tree_parent_evidence(api, config, request, *, protected_source,
         original_request = SyncRequest(request.repository,request.repository_id,parent_pr['number'],'android-main',bp,
             parent_pr['head']['ref'],hp,request.head_repository_id,request.parent_sha,'reconciliation','main',source,
             'android-family',parent_paths,parent_paths)
+        selections = []
         for target,base,paths in (('android-main',before,parent_paths),('android-vr',child_before,request.changed_paths)):
             selected = host.select(candidate,list(paths),True,base_tree=base,trusted_tree=trusted,
                 candidate_root=ROOT,trusted_root=ROOT,target=target)
-            if selected.get('suites') != names or selected.get('full_host') is not False or selected.get('include_platform') is not False:
-                raise EvidenceError('exact-tree current and original commands are not independent CI37')
+            if selected.get('full_host') is not False or selected.get('include_platform') is not False:
+                raise EvidenceError('exact-tree current and original commands are not independent CI')
+            selections.append(selected.get('suites'))
+        original_names, requested_names = selections
+        covered = _exact_tree_ci_intersection(names, original_names, requested_names)
         packages = package_checks.select(list(request.changed_paths),True,include_browser=True)
         if packages['package_set'] or packages['tool_projects']:
             raise EvidenceError('exact-tree package/product owner is not covered')
@@ -2429,6 +2489,8 @@ def verify_exact_tree_parent_evidence(api, config, request, *, protected_source,
         proof = _completed_sync_report(api,prefix,original,native_owner['check'],original_request,source,
             before,candidate,trusted,tree,now,normal_parent=request.parent_sha)
         report = proof['report']; completed = parse_time(report['completed_at'],'original CI completion')
+        if proof['selected']['suites'] != original_names or not _original_ci_command_coverage(report, original_names):
+            raise EvidenceError('exact-tree original authenticated report omits selected parent commands')
         expires = min(parse_time(proof['item']['expires_at'],'original artifact expiry'),
             completed + timedelta(hours=int(config['evidence_max_age_hours'])))
         if not completed < now < expires or completed >= parse_time(parent_pr['merged_at'],'normal integration') + timedelta(seconds=1):
@@ -2450,15 +2512,19 @@ def verify_exact_tree_parent_evidence(api, config, request, *, protected_source,
             _metadata_standalone_owners(api, replace(original_request,
                 merge_sha=report['candidate']['merge_commit']), source, proof['validator'], registry,
                 report, now, normal_parent=request.parent_sha)
-        return NativeExactTreeParentEvidence({'kind':'original-sync-identical-android-tree-v1',
+        result = NativeExactTreeParentEvidence({'kind':'original-sync-identical-android-tree-v1',
             'qualification':False,'reusable':False,'source':source,'parent_branch':request.parent,
             'parent_commit':request.parent_sha,'parent_tree':tree,'candidate_inputs':candidate,
-            'requested_suites':names,'original_commit':report['candidate']['merge_commit'],
+            'requested_suites':requested_names,'original_commit':report['candidate']['merge_commit'],
             'qualified_at':report['completed_at'],'expires_at':expires.isoformat().replace('+00:00','Z'),
             'original_proof':{'parent_pr':parent_pr['number'],'gate_run_id':original['id'],
                 'run_id':proof['child'],'attempt':1,'artifact_id':proof['item']['id'],
                 'artifact_digest':proof['item']['digest'],'receipt_digest':report['receipt_digest']},
             'original_report':report})
+        if original_names != names or requested_names != names:
+            result.update(kind='original-sync-identical-android-ci-subset-v1',
+                original_suites=list(original_names), covered_suites=covered)
+        return result
     except (EvidenceError,GateError,ValueError,OSError,KeyError,TypeError,AttributeError,ImportError,
             subprocess.SubprocessError,zipfile.BadZipFile,ET.ParseError):
         return None
@@ -2492,7 +2558,9 @@ def inspect(args: argparse.Namespace) -> int:
         identical = native_exact_tree_parent_evidence(api, config, request)
         current = native_pr_evidence(api, config, request) if identical is None else None
         if identical is not None:
-            mode, reason, evidence_run = 'reuse', 'original native CI37 on the identical Android parent tree; differential remains required', str(identical['original_proof']['run_id'])
+            covered = exact_tree_covered_suites(identical, identical['requested_suites'])
+            mode, reason, evidence_run = 'reuse', (f'original native CI on the identical Android parent tree covers {len(covered)} commands; '
+                f'{len(identical["requested_suites"])-len(covered)} require candidate execution; differential remains required'), str(identical['original_proof']['run_id'])
         elif current is not None:
             mode, reason, evidence_run = 'reuse', 'completed original PR owner accepted; Sync keeps its differential checks', str(current['original_proof']['run_id'])
         else:
