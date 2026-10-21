@@ -43,6 +43,13 @@ and `restoredBeforeNominalEnd`. An already completed clip may establish past
 playback, but its current state is idle. Panel visibility needs independent
 original widget/visibility observations and is not supplied by this join.
 
+`poseProgress` is the fraction of the nonempty original pre-input joint set
+whose actual current final pose changed. Joint counts must agree in the same
+Rig. The existing antipodal-quaternion-aware pose comparison supplies the
+movement threshold. Clip position establishes advancing playback separately;
+it never supplies this fraction. For example, one changed joint out of four
+reports 0.25 even when the actual clip is halfway through its frame range.
+
 ## Restoration and continuity
 
 `restoration(group,played,pid,epoch,native_barrier=None)` first recomputes the

@@ -876,7 +876,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+SCRIPT_ROOTS_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
-    def _emote_controls(self,selector,intent,*,read_only=False):
+    def _emote_controls(self,selector,intent,*,receipt=None,read_only=False):
         native=self._native_feature_observer(selector,read_only=read_only)
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         ui,_observe,_context,check,_installed=self.normal_feature_runtime(selector,read_only=read_only)
@@ -885,7 +885,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+EMOTE_UI_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,tablet_shown=tablet.tablet_visible,
             monotonic=native.monotonic,sleep=native.sleep)
-        return TokenEmoteUI(io,intent,monotonic=native.monotonic,sleep=native.sleep)
+        return TokenEmoteUI(io,intent,receipt=receipt,monotonic=native.monotonic,sleep=native.sleep)
 
     def _graphics_controls(self, selector, intent, *, read_only=False):
         # Internal ordinary-input component. Original render/pass/image and

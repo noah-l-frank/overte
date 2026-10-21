@@ -90,7 +90,7 @@ class PhoneEmoteControlsTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):io.activate('emote.play.Crying',reference=original)
         self.assertEqual(1,len(source.input_requests));self.assertEqual('Crying',widgets.active)
 
-    def factory(self,*,read_only=False):
+    def factory(self,*,read_only=False,receipt=None):
         import test_feature_adapters as bound
         setup=bound.FeatureAdapterTests();setup.setUp();self.addCleanup(setup.doCleanups)
         setup.native.screen='home';widgets=RawWidgets();source=ControlNativeBoundary(widgets,'phone-emote-ui')
@@ -104,7 +104,15 @@ class PhoneEmoteControlsTests(unittest.TestCase):
             patch.object(setup.fixture.adb,'epoch_milliseconds',return_value=20000,create=True)):
             boundary.start();self.addCleanup(boundary.stop)
         if read_only:setup.read_only_boundaries()
-        return setup,widgets,source,setup.adapter._emote_controls(bound.SELECTOR,widgets.intent,read_only=read_only)
+        return setup,widgets,source,setup.adapter._emote_controls(bound.SELECTOR,widgets.intent,receipt=receipt,read_only=read_only)
+
+    def test_actual_factory_passes_the_original_consumption_receipt_to_its_owner(self):
+        receipts=[];_setup,widgets,source,ui=self.factory(receipt=receipts.append)
+        ui.open();ui.play('Crying')
+        self.assertEqual(2,len(receipts));self.assertEqual(2,len(source.input_requests))
+        self.assertEqual('emote.play.Crying',receipts[-1]['intent']['controlId'])
+        self.assertEqual(receipts[-1]['intent']['sequence'],receipts[-1]['after']['scope']['sequence'])
+        self.assertNotIn('animation',receipts[-1]['after'])
 
     def test_actual_candidate_bound_phone_factory_routes_original_input_and_refuses_changed_apk(self):
         setup,widgets,source,ui=self.factory();ui.open();ui.play('Crying')

@@ -15,6 +15,13 @@ widgets and fixture phase, with fresh independent reads and guarded historical
 replay. The complete normal-input/image/actor/lifetime/cleanup coordinator is
 still missing; this does not promote the feature's capability or device status.
 
+The [Phone ordinary Emote input owner](adapters/android-phone/EMOTE_INPUTS.md)
+now persists original SDK/Qt input intent, pre-input Rig barriers and independent
+consumption receipts. Missing native effects still fail the separate Rig join;
+lost writes/results cannot be repaired by redelivering an uncertain input.
+Complete Emote effect/image/actor/background/lifetime/cleanup composition remains
+required before capability registration.
+
 The [prepared native IME event](native/PREPARED_FIELD_COMMIT.md) and
 [native owner/private transport](native/PENDING_COMMIT_OWNER.md) retain original
 Qt event/context identity and verify fresh effects and actual pending inventory.

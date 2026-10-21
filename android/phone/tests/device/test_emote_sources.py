@@ -77,8 +77,9 @@ class Originals(RigPackets):
             lambda:self.okay,31,**self.options())
     def widget_original(self,value):
         # Producer clock at native capture, before the original is serialized.
-        value['capturedEpochMs']=self.epoch
-        if self.fault=='old-ui':value['sourceSequence']=1
+        if value['action']=='observe':
+            value['capturedEpochMs']=self.epoch
+            if self.fault=='old-ui':value['sourceSequence']=1
     def _emote_controls(self,_selector,intent,*,read_only):
         assert read_only;self.calls.append('ui-factory')
         io=PhoneEmoteIO(self.controls.send,lambda:json.dumps(self.controls.value),lambda:self.epoch,
@@ -203,6 +204,18 @@ class PhoneEmoteSourcesTests(unittest.TestCase):
             reconstructed=m.source()
         self.assertEqual(1,reconstructed.state['revision']);self.assertEqual('ready',reconstructed.state['phase'])
         self.assertEqual(20100,reconstructed.frames[0]['epochMs'])
+    def test_failed_final_write_cannot_reset_pending_state_on_the_same_live_object(self):
+        m=self.model
+        with m.lock.held():
+            source=m.source();write=source.store.write
+            def fail(value,previous):
+                if unpack(value['payload'])[0]['phase']=='ready':raise NativeUIError('Synthetic final source write failure')
+                write(value,previous)
+            source.store.write=fail
+            with self.assertRaises(NativeUIError):source.read()
+            before=len(m.calls)
+            with self.assertRaises(NativeUIError):source.read()
+        self.assertEqual(before,len(m.calls));self.assertEqual('reading',source.state['phase']);self.assertEqual([],source.frames)
     def test_retirement_crossing_acquisition_returns_no_active_facts(self):
         m=self.model;request=m.client.request
         def retire(path,**kwargs):

@@ -36,6 +36,13 @@ loaded playback and restoration without requested pose/name inputs. Full normal
 input causality, controlled avatar images, actor publication and whole-resource
 cleanup remain required. The complete Phone count remains three of fourteen.
 
+The [ordinary Emote input owner](EMOTE_INPUTS.md) now connects normal SDK/Qt
+delivery to durable intent, original pre-input Rig barriers and fresh consumed
+input receipts. Interrupted inputs and failed final journal writes cannot be
+replayed by reconstructing or reusing the same object. This remains an internal
+component: background-resume, complete effect/image/actor/lifetime/cleanup
+coordination and the full capability are still pending.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

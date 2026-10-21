@@ -10,7 +10,7 @@ import re
 from posixpath import dirname,join,normpath
 from urllib.parse import urlsplit,urlunsplit
 from adapters.native_feature_observation import exact,fresh,integer,need,validate as native_packet
-from adapters.native_animation_history import accept,clip_run,restored_after
+from adapters.native_animation_history import accept,clip_run,restored_after,moving_pose
 from adapters.emote_source_profile import select_from_roots
 from feature_journeys.contract import typed_equal
 
@@ -64,7 +64,7 @@ def continuation(before,current,pid):
     need(current['animation']['history']['droppedEvents']<=before['animation']['history']['callSequence'])
 
 
-def actual_state(current,event,urls):
+def actual_state(current,event,urls,baseline):
     animation=current['animation'];history=animation['history'];request=event['request']
     need(event['request']['url'] in urls and history['overrideSequence']==event['overrideSequence'])
     restores=[row for row in history['events'] if row['kind']=='restore' and row['overrideSequence']==event['overrideSequence']
@@ -78,8 +78,12 @@ def actual_state(current,event,urls):
             and clip['lastFrame']>clip['firstFrame'])
         fresh(clip['evaluatedEpochMs'],current['capturedEpochMs'])
         name=urls[clip['url']]
+        before,after=baseline['animation']['joints'],animation['joints']
+        need(bool(before) and len(before)==len(after))
+        changed=sum(moving_pose(dict(joints=[dict(index=index,pose=left)]),
+            dict(joints=[dict(index=index,pose=right)])) for index,(left,right) in enumerate(zip(before,after)))
         state=dict(animation='Sit' if name.startswith('Sit') else name,sit=name if name.startswith('Sit') else 'none',
-            override=True,poseProgress=(clip['frame']-clip['firstFrame'])/(clip['lastFrame']-clip['firstFrame']),
+            override=True,poseProgress=changed/len(before),
             restoredBeforeNominalEnd=False)
         return state,None,[]
     restored,frames=restored_after(current,event,after_epoch=event['capturedEpochMs'])
@@ -99,7 +103,7 @@ def playback(group,native_barrier,*,pid,epoch):
         and selected['code']['submittedEpochMs']<=event['capturedEpochMs'])
     original,frames=clip_run(current,event['request']['url'],after_event=floor,after_epoch=native_barrier['capturedEpochMs'])
     need(original==event)
-    state,restore,inactive=actual_state(current,event,urls)
+    state,restore,inactive=actual_state(current,event,urls,native_barrier)
     return dict(emoteRigVersion=VERSION,kind='playback',group=deepcopy(group),barrier=deepcopy(native_barrier),
         state=state,event=event,frameSequences=[frame['frameSequence'] for frame in frames],restore=restore,
         inactiveFrameSequences=[frame['frameSequence'] for frame in inactive])
@@ -120,7 +124,7 @@ def restoration(group,played,*,pid,epoch,native_barrier=None):
         pid=pid,epoch=played['group']['rootsAfter']['capturedEpochMs'])
     need(typed_equal(selected,prior));continuation(played['group']['native'],current,pid)
     need(current['animation']['overrideActive'] is False)
-    event=played['event'];state,restored,frames=actual_state(current,event,urls)
+    event=played['event'];state,restored,frames=actual_state(current,event,urls,played['barrier'])
     if native_barrier is not None:
         continuation(native_barrier,current,pid)
         need(native_barrier['animation']['overrideActive'] is True

@@ -102,11 +102,17 @@ class PhoneEmoteSources:
         return activation['ticket']==after['activations'][-1]['ticket']
 
     def save(self):
-        self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
-        self.state['revision']=len(self.frames);self.state['transcript']=pack(self.frames)
-        value=dict(emoteSourcesVersion=VERSION,runId=self.run,fixtureUrl=self.phase.fixture_url,role=self.role,
-            binding=self.binding,payload=pack([self.state]))
-        self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
+        try:
+            self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
+            self.state['revision']=len(self.frames);self.state['transcript']=pack(self.frames)
+            value=dict(emoteSourcesVersion=VERSION,runId=self.run,fixtureUrl=self.phase.fixture_url,role=self.role,
+                binding=self.binding,payload=pack([self.state]))
+            self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
+        except Exception:
+            if same(self.store.read(),self.previous):
+                if self.previous is not None:self.state,self.frames=self.decode(self.previous)
+                else:self.state,self.frames=dict(phase='ready',revision=0,transcript=pack([]),pending=None),[]
+            raise
 
     def read(self):
         self.lock.assert_held();need(self.state['phase']=='ready' and len(self.frames)<LIMIT and self.guard() is not False)

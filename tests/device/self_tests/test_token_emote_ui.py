@@ -84,6 +84,29 @@ class EmoteUiTests(unittest.TestCase):
         model,ui=self.ui();ui.open();self.assertIsNone(ui.play('Waving'))
         self.assertEqual('Waving',ui.row(ui.capture(),'emote.page')['activeName'])
         self.assertNotIn('animation',ui.capture());self.assertNotIn('poseProgress',ui.capture())
+    def test_receipt_contains_original_intent_and_new_consumption_without_effect_fields(self):
+        model=EmoteBoundary();receipts=[]
+        ui=TokenEmoteUI(EmoteIO(model),model.intent,receipt=receipts.append,monotonic=lambda:model.clock,sleep=model.sleep)
+        ui.open();ui.play('Crying')
+        self.assertEqual(2,len(receipts))
+        for item in receipts:
+            self.assertEqual({'intent','after'},set(item))
+            self.assertEqual(item['intent']['sequence'],item['after']['scope']['sequence'])
+            self.assertGreater(item['after']['scope']['sourceSequence'],item['intent']['original']['scope']['sourceSequence'])
+            self.assertNotIn('animation',item['after'])
+    def test_receipt_failure_is_reported_after_the_single_actual_input(self):
+        model=EmoteBoundary()
+        def failed(_value):raise NativeUIError('Synthetic receipt journal unavailable')
+        ui=TokenEmoteUI(EmoteIO(model),model.intent,receipt=failed,monotonic=lambda:model.clock,sleep=model.sleep)
+        with self.assertRaises(NativeUIError):ui.open()
+        self.assertEqual(['emote.entry'],model.actions);self.assertTrue(model.page)
+    def test_receipt_consumer_receives_copies_and_cannot_rewrite_original_admission(self):
+        model=EmoteBoundary()
+        def mutate(value):
+            value['intent']['original']['scope']['instance']='foreign';value['after']['scope']['instance']='foreign'
+        ui=TokenEmoteUI(EmoteIO(model),model.intent,receipt=mutate,monotonic=lambda:model.clock,sleep=model.sleep)
+        ui.open();self.assertEqual(model.instance,ui.previous['scope']['instance'])
+        self.assertEqual(model.instance,model.intents[0]['original']['scope']['instance'])
     def test_ignored_play_can_consume_input_without_fabricating_actual_rig_success(self):
         model,ui=self.ui();ui.open();model.fault='ignored';ui.play('Crying')
         self.assertEqual('',model.active);self.assertEqual('emote.play.Crying',model.actions[-1])

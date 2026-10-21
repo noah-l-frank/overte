@@ -48,7 +48,7 @@ buttons must be reached through real grid progress, not synthesized metadata.
 
 ## Python recipe and private transport
 
-`TokenEmoteUI(io,intent)` owns only input delivery. Its mandatory intent callback
+`TokenEmoteUI(io,intent,receipt=None)` owns only input delivery. Its mandatory intent callback
 must durably retain the complete original widget snapshot and exact pending
 control/action/sequence/instance/generation before any input. The caller owns the
 existing input session, held source lock, tablet UI leases, original Script/code/
@@ -64,6 +64,13 @@ consumed Play input may still have no functional effect; no animation/pose state
 is returned. Complete native Rig history and original rendered pixels remain
 mandatory before a feature checkpoint can pass.
 
+The optional receipt callback receives copies of exactly `intent` and a newly
+captured `after` snapshot once the original command counter advances by one.
+Callback failure is reported after that single input; it does not trigger
+redelivery. No effect fields enter this receipt. The
+[Phone input owner](../adapters/android-phone/EMOTE_INPUTS.md) persists it alongside
+original pre-input Rig and phase barriers, with guarded recovery semantics.
+
 `PhoneEmoteIO` uses the existing private command file with outer action
 `phone-emote-ui` and original result `phone-emote-ui.json`. Observe contains only
 schemaVersion 1, 32hex commandId and action. Input additionally contains the
@@ -73,7 +80,7 @@ wrong types/nonces, control characters and direct variant/setter requests fail.
 The actual probe deduplicates commands and records available:false for a missing
 native hook. Its ACK is only a consumed ordinary input, never an effect verdict.
 
-The candidate-bound `_emote_controls(selector,intent,read_only=False)` factory
+The candidate-bound `_emote_controls(selector,intent,receipt=None,read_only=False)` factory
 preserves actual APK/process/session/generation and target checks. It reads actual
 SDK tablet visibility separately. `read_only=True` requires an existing session,
 never repairs it and permits only exact native Observe requests; input fails

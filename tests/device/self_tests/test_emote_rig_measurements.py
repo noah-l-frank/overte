@@ -83,7 +83,7 @@ class EmoteRigTests(unittest.TestCase):
     def test_current_playback_comes_from_actual_clip_frame_and_loaded_moving_poses(self):
         model=RigPackets();barrier,group,value=model.playing();original=deepcopy((barrier,group))
         self.assertEqual('Waving',value['state']['animation']);self.assertTrue(value['state']['override'])
-        self.assertEqual(.5,value['state']['poseProgress']);self.assertEqual([2,3,4],value['frameSequences'])
+        self.assertEqual(1.,value['state']['poseProgress']);self.assertEqual([2,3,4],value['frameSequences'])
         self.assertEqual(original,(barrier,group));self.assertEqual(model.url,value['event']['request']['url'])
     def test_all_three_sit_variants_are_derived_from_actual_loaded_urls_without_a_requested_variant(self):
         for name in ('Sit1','Sit2','Sit3'):
@@ -98,6 +98,17 @@ class EmoteRigTests(unittest.TestCase):
                 self.assertEqual('Sit' if name.startswith('Sit') else name,value['state']['animation'])
                 self.assertEqual(name if name.startswith('Sit') else 'none',value['state']['sit'])
                 self.assertNotIn('panel',value['state'])
+    def test_pose_progress_counts_changed_original_joints_independently_of_clip_position(self):
+        model=RigPackets();barrier,group,_played=model.playing()
+        unchanged=[0.,0.,0.,1.,.5,.2,.3]
+        barrier['animation']['joints'] += [deepcopy(unchanged) for _ in range(3)]
+        group['native']['animation']['joints'] += [deepcopy(unchanged) for _ in range(3)]
+        value=playback(group,barrier,pid=31,epoch=20000)
+        self.assertEqual(.25,value['state']['poseProgress'])
+        self.assertEqual(60.,group['native']['animation']['clip']['frame'])
+        self.assertEqual(120.,group['native']['animation']['clip']['lastFrame'])
+        group['native']['animation']['joints'].pop()
+        with self.assertRaises(NativeUIError):playback(group,barrier,pid=31,epoch=20000)
     def test_qt_qrc_and_file_resource_urls_are_both_resolved_from_the_original_assignment(self):
         for root in ('qrc:/scripts','qrc:/actual/packaged/scripts','file:///actual/configured/cache/scripts'):
             with self.subTest(root=root):

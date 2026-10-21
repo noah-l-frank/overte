@@ -90,9 +90,10 @@ def bounded(method):
 
 
 class TokenEmoteUI:
-    def __init__(self,io,intent,*,monotonic=time.monotonic,sleep=time.sleep):
-        need(callable(intent) and callable(monotonic) and callable(sleep))
+    def __init__(self,io,intent,*,receipt=None,monotonic=time.monotonic,sleep=time.sleep):
+        need(callable(intent) and (receipt is None or callable(receipt)) and callable(monotonic) and callable(sleep))
         self.io,self.intent,self.monotonic,self.sleep=io,intent,monotonic,sleep
+        self.receipt=receipt
         self.previous=None;self.clock=None;self.started=None
 
     def now(self):
@@ -127,11 +128,13 @@ class TokenEmoteUI:
         original=self.capture();row=self.row(original,identifier)
         need(original['open'] and original['ready'] and row is not None and row['enabled'] and row['inputReady'])
         action='scroll' if direction is not None else 'activate';scope=original['scope']
-        need(self.intent(dict(controlId=identifier,action=action,sequence=scope['sequence']+1,
-            instance=scope['instance'],generation=scope['generation'],direction=direction,original=deepcopy(original))) is not False)
+        intent=dict(controlId=identifier,action=action,sequence=scope['sequence']+1,
+            instance=scope['instance'],generation=scope['generation'],direction=direction,original=deepcopy(original))
+        need(self.intent(deepcopy(intent)) is not False)
         if direction is None:self.io.activate(identifier,reference=original)
         else:self.io.scroll(identifier,direction,reference=original)
-        current=self.capture()['scope'];need(current['sequence']==scope['sequence']+1)
+        after=self.capture();current=after['scope'];need(current['sequence']==scope['sequence']+1)
+        if self.receipt is not None:need(self.receipt(dict(intent=deepcopy(intent),after=deepcopy(after))) is not False)
         return original
 
     @bounded

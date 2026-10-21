@@ -100,6 +100,7 @@ REQUIRED = {
     "emote-source-profile": 1,
     "emote-rig-measurement": 1,
     "phone-emote-sources": 1,
+    "phone-emote-inputs": 1,
     "native-script-file-controls": 1,
     "native-script-fixture-location": 1,
     "native-script-fixture-storage": 1,
