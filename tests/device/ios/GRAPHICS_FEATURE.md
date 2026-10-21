@@ -93,14 +93,15 @@ journey and actual initially measured baseline. Do not expose the full triple
 until that composition and meaningful counterexamples pass.
 
 The existing world-target PNG sampler only reads actual main-mono OpenGL
-framebuffers; Vulkan's product `downloadFramebuffer` is unimplemented. iOS
-uses Vulkan/MoltenVK. A Vulkan capture must either add a separately gated,
-actually completed GPU readback with original allocation/pass/retained-callback
-provenance, or join original native-screen pixels to independently completed
-Vulkan frame/target/pass measurements. Requested texture sizes, CPU command
-recording, a generic presentation counter or an old periodic file cannot prove
-the current image or render scale. Do not label Vulkan pixels as OpenGL or
-import Phone's backend assumptions.
+framebuffers; Vulkan's product `downloadFramebuffer` remains unimplemented.
+The [completed Vulkan frame source](../native/COMPLETED_FRAME_OBSERVATION.md)
+now records successful original allocations, issued Vulkan API draws, camera
+geometry, actual fence observation and retained capture groups. It is metadata,
+not pixels or an effect verdict. The remaining image/feature owner must join
+independently acquired original native-screen bytes to those actual completed
+frame measurements and retain meaningful subject/marker comparisons. Requested
+texture sizes, CPU command recording, generic presentation counters and periodic
+files cannot replace this evidence. No Vulkan pixels are labelled OpenGL.
 
 ## Local verification
 

@@ -44,6 +44,7 @@ from adapters.native_account_origin import (NativeAccountOrigin, OwnedAccountOri
 from adapters.native_graphics_subject import (NativeGraphicsSubject, FILE as GRAPHICS_SUBJECT_FILE,
     LIMIT as GRAPHICS_SUBJECT_LIMIT, command as graphics_subject_command)
 from adapters.native_scene_loads import NativeSceneLoads, FILE as SCENE_LOAD_FILE, command as scene_load_command
+from adapters.native_completed_frame import NativeCompletedFrame, FILE as COMPLETED_FRAME_FILE, command as completed_frame_command
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -122,6 +123,7 @@ class FeatureObservation:
         elif command.get('action')=='feature-process-presence':process_presence_command(command,ios=True)
         elif command.get('action')=='feature-graphics-subject-observe':graphics_subject_command(command,ios=True)
         elif command.get('action')=='feature-scene-load-observe':scene_load_command(command,ios=True)
+        elif command.get('action')=='feature-completed-frame':completed_frame_command(command)
         elif command.get('action')=='ios-bundle-observe':bundle_command(command)
         elif command.get('action') == 'feature-account-probe':account_probe_command(command,ios=True)
         elif command.get('action') == 'feature-account-origin':account_origin_command(command,ios=True)
@@ -255,6 +257,11 @@ class FeatureObservation:
             self.epoch_ms,self.guard,self.process['pid'],intent=owner.intent,ios=True,
             monotonic=self.monotonic,sleep=self.sleep)
         return OwnedAccountProbe(probe,owner)
+
+    def completed_frame(self,intent):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+COMPLETED_FRAME_FILE
+        return NativeCompletedFrame(self.send,lambda:self.original(remote=remote,limit=65536),
+            self.epoch_ms,self.guard,self.process['pid'],intent,monotonic=self.monotonic,sleep=self.sleep)
 
     def scene_loads(self):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+SCENE_LOAD_FILE

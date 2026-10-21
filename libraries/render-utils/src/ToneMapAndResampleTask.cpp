@@ -149,6 +149,19 @@ void ToneMapAndResample::run(const RenderContextPointer& renderContext, const In
         batch.setResourceTexture(render_utils::slot::texture::ToneMappingColor, lightingBuffer);
         batch.draw(gpu::TRIANGLE_STRIP, 4);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (args->_renderMode==RenderArgs::DEFAULT_RENDER_MODE && args->_mirrorDepth==0 && !args->isStereo()
+                && args->_featureCompletedTrace) {
+            const auto ticket=args->_context->featureCompletedTicket();
+            if (ticket) {
+                const auto trace=args->_featureCompletedTrace;const auto source=input.get0();
+                const auto viewport=args->_viewport;
+                batch.runLambda([ticket,trace,source,destinationFramebuffer,viewport] {
+                    ticket->record(gpu::Backend::featureExecutingBackend(),source,destinationFramebuffer,viewport,trace);
+                });
+            }
+        }
+#endif
+#if defined(OVERTE_E2E_FEATURE_TESTS)
         if (args->_renderMode == RenderArgs::DEFAULT_RENDER_MODE && args->_mirrorDepth == 0 && !args->isStereo()) {
             const auto state = args->_context->featureWorldRender();
             if (auto ticket = state->reserve()) {

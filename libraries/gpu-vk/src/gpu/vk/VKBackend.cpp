@@ -21,6 +21,9 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <QtCore/QProcessEnvironment>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QCoreApplication>
+#endif
 #include <QtCore/QSettings>
 #include <QtCore/QStringList>
 
@@ -1982,6 +1985,9 @@ void VKBackend::renderPassDraw(const Batch& batch) {
             viewport.minDepth = 0.0f;
             viewport.maxDepth = 1.0f;
             vkCmdSetViewport(_currentCommandBuffer, 0, 1, &viewport);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            _featureIssuedViewport=viewport;_featureViewportCommandBuffer=_currentCommandBuffer;
+#endif
             // Vulkan always clips rasterization to a scissor rectangle, whereas the
             // shared GPU state follows OpenGL semantics and can disable the scissor
             // test.  In that case an old (or the initial empty) scissor rectangle
@@ -2310,6 +2316,9 @@ void VKBackend::draw(VkPrimitiveTopology mode, uint32 numVertices, uint32 startV
         // VKTODO: how to set mode, in VkPipelineInputAssemblyStateCreateInfo, part of VkGraphicsPipelineCreateInfo?
         // That would require pipelines generated for all cases
         vkCmdDraw(_currentCommandBuffer, numVertices, 2, startVertex, 0);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        featureRecordIssuedDraw();
+#endif
 #else
         //VKTODO:
         setupStereoSide(0);
@@ -2325,6 +2334,9 @@ void VKBackend::draw(VkPrimitiveTopology mode, uint32 numVertices, uint32 startV
         // VKTODO: how to set mode, in VkPipelineInputAssemblyStateCreateInfo, part of VkGraphicsPipelineCreateInfo?
         // That would require pipelines generated for all cases
         vkCmdDraw(_currentCommandBuffer, numVertices, 1, startVertex, 0);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        featureRecordIssuedDraw();
+#endif
         _stats._DSNumTriangles += numVertices / 3;
         _stats._DSNumDrawcalls++;
     }
@@ -2344,6 +2356,9 @@ void VKBackend::setupStereoSide(int side) {
     viewport.maxDepth = 1.0f;
     //VKTODO: there can be multiple viewports
     vkCmdSetViewport(_currentCommandBuffer, 0, 1, &viewport);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            _featureIssuedViewport=viewport;_featureViewportCommandBuffer=_currentCommandBuffer;
+#endif
 
     _transform.bindCurrentCamera(side);
 }
@@ -4026,6 +4041,31 @@ void VKBackend::transferTransformState(const Batch& batch) {
 }
 
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+bool VKBackend::featureIssuedDraws(quint64& sequence) {
+    sequence=0;
+    if (Backend::featureExecutingBackend()!=this || _inRenderTransferPass || !_featureDrawSequenceValid
+            || _currentCommandBuffer==VK_NULL_HANDLE || !QCoreApplication::arguments().contains("--testScript")) { return false; }
+    sequence=_featureDrawSequence;return true;
+}
+bool VKBackend::featureFramebufferExtent(const FramebufferPointer& framebuffer,Vec2i& extent,bool current) {
+    extent=Vec2i(0);
+    if (Backend::featureExecutingBackend()!=this || _inRenderTransferPass || !framebuffer
+            || _currentCommandBuffer==VK_NULL_HANDLE || !QCoreApplication::arguments().contains("--testScript")) { return false; }
+    const auto object=Backend::getGPUObject<VKFramebuffer>(*framebuffer);
+    if (!object || !object->featureAllocationOwned(this) || object->vkFramebuffer==VK_NULL_HANDLE
+            || object->featureAllocationHandle!=object->vkFramebuffer) { return false; }
+    const auto actual=object->featureAllocationExtent;
+    if (actual.x<1 || actual.y<1 || actual.x>4096 || actual.y>4096
+            || static_cast<quint64>(actual.x)*actual.y>8388608ULL) { return false; }
+    if (current && (gpu::acquire(_currentFramebuffer)!=framebuffer.get() || _currentVkFramebuffer!=object->vkFramebuffer
+            || _featureViewportCommandBuffer!=_currentCommandBuffer || _featureIssuedViewport.x!=0.0f
+            || _featureIssuedViewport.y!=0.0f || _featureIssuedViewport.width!=static_cast<float>(actual.x)
+            || _featureIssuedViewport.height!=static_cast<float>(actual.y))) { return false; }
+    extent=actual;return true;
+}
+#endif
+
 void VKBackend::downloadFramebuffer(const FramebufferPointer& srcFramebuffer, const Vec4i& region, QImage& destImage) {
     // VKTODO
 }
@@ -4077,6 +4117,9 @@ void VKBackend::do_drawIndexed(const Batch& batch, size_t paramOffset) {
     if (isStereo()) {
 #ifdef GPU_STEREO_DRAWCALL_INSTANCED
         vkCmdDrawIndexed(_currentCommandBuffer, numIndices, 2, startIndex, 0, 0);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        featureRecordIssuedDraw();
+#endif
 #else
         // VKTODO:
         setupStereoSide(0);
@@ -4090,6 +4133,9 @@ void VKBackend::do_drawIndexed(const Batch& batch, size_t paramOffset) {
         // VKTODO: what should vertexOffset be?
         // VKTODO: mode needs to be in the pipeline
         vkCmdDrawIndexed(_currentCommandBuffer, numIndices, 1, startIndex, 0, 0);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        featureRecordIssuedDraw();
+#endif
         _stats._DSNumTriangles += numIndices / 3;
         _stats._DSNumDrawcalls++;
     }
@@ -4115,6 +4161,9 @@ void VKBackend::do_drawInstanced(const Batch& batch, size_t paramOffset) {
 
 #ifdef GPU_STEREO_DRAWCALL_INSTANCED
         vkCmdDraw(_currentCommandBuffer, numVertices, trueNumInstances, startVertex, startInstance);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        featureRecordIssuedDraw();
+#endif
 #else
         // VKTODO:
         setupStereoSide(0);
@@ -4128,6 +4177,9 @@ void VKBackend::do_drawInstanced(const Batch& batch, size_t paramOffset) {
         _stats._DSNumDrawcalls += trueNumInstances;
     } else {
         vkCmdDraw(_currentCommandBuffer, numVertices, numInstances, startVertex, startInstance);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        featureRecordIssuedDraw();
+#endif
         _stats._DSNumTriangles += (numInstances * numVertices) / 3;
         // VKTODO: should that count as 1 draw call for whole set of instances?
         _stats._DSNumDrawcalls += numInstances;
@@ -4153,6 +4205,9 @@ void VKBackend::do_drawIndexedInstanced(const Batch& batch, size_t paramOffset) 
 #ifdef GPU_STEREO_DRAWCALL_INSTANCED
         // VKTODO: Shouldn't it be startInstance * 2? Although on OpenGL it's just startInstance.
         vkCmdDrawIndexed(_currentCommandBuffer, numIndices, trueNumInstances, startIndex, 0, startInstance);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        featureRecordIssuedDraw();
+#endif
 #else
         // VKTODO
         setupStereoSide(0);
@@ -4164,6 +4219,9 @@ void VKBackend::do_drawIndexedInstanced(const Batch& batch, size_t paramOffset) 
         _stats._DSNumDrawcalls += trueNumInstances;
     } else {
         vkCmdDrawIndexed(_currentCommandBuffer, numIndices, numInstances, startIndex, 0, startInstance);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        featureRecordIssuedDraw();
+#endif
         _stats._DSNumTriangles += (numInstances * numIndices) / 3;
         _stats._DSNumDrawcalls += numInstances;
     }

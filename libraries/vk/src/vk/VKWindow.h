@@ -14,6 +14,10 @@
 #include <QtGui/qevent.h>
 #include <QtCore/QTimer>
 #include <QtCore/QDebug>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include <functional>
+#include <utility>
+#endif
 
 #include "Allocation.h"
 #include "Config.h"
@@ -69,6 +73,9 @@ public:
     std::atomic<bool> _isVulkanCleanupComplete{ false };
     std::atomic<bool> _needsResizing{ true };
     VkFence _previousFrameFence{ VK_NULL_HANDLE };
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    std::function<void(bool)> _featureFrameCompletion;
+#endif
     VkCommandBuffer _previousCommandBuffer{ VK_NULL_HANDLE };
     VkSemaphore _previousAcquireCompleteSemaphore{ VK_NULL_HANDLE };
     VkSemaphore _previousRenderCompleteSemaphore{ VK_NULL_HANDLE };

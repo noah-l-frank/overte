@@ -74,6 +74,9 @@ void Context::beginFrame(const glm::mat4& renderView, const glm::mat4& renderPos
     assert(!_frameActive);
     _frameActive = true;
     _currentFrame = std::make_shared<Frame>();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _currentFrame->featureCompletedTicket=_featureCompletedFrames->reserve();
+#endif
     _currentFrame->pose = renderPose;
     _currentFrame->view = renderView;
 

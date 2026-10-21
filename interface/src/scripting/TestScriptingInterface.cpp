@@ -438,6 +438,29 @@ QVariantMap TestScriptingInterface::featureAccountProbe(const QVariantMap& comma
     return result;
 }
 
+QVariantMap TestScriptingInterface::featureCompletedFrameObservation(const QVariantMap& command) {
+#if defined(Q_OS_IOS)
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&] { result=featureCompletedFrameObservation(command); },Qt::BlockingQueuedConnection);
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    QStringList fields {"schemaVersion","commandId","action","requestId","operation"};fields.sort();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue("feature-completed-frame")
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(command.value("commandId").toString()).hasMatch()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(command.value("requestId").toString()).hasMatch()
+            || !QStringList{"read","release","inspect"}.contains(command.value("operation").toString())) { return {}; }
+    const auto context=qApp->getGPUContext();
+    return context ? context->featureCompletedFrames()->request(command) : QVariantMap();
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
 QVariantMap TestScriptingInterface::featureSceneLoadObservation(const QVariantMap& command) {
 #if defined(Q_OS_IOS)
     if (QThread::currentThread() != thread()) {
@@ -1429,7 +1452,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
-            || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
+            || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"

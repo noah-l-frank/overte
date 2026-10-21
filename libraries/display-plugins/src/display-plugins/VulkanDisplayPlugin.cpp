@@ -877,9 +877,18 @@ void VulkanDisplayPlugin::present(const std::shared_ptr<RefreshRateController>& 
         Q_ASSERT((_vkWindow->_previousFrameFence == VK_NULL_HANDLE) ==
                  (_vkWindow->_previousCommandBuffer == VK_NULL_HANDLE));
         if (_vkWindow->_previousFrameFence != VK_NULL_HANDLE) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+            const auto featureFenceResult=vkWaitForFences(vkDevice,1,&_vkWindow->_previousFrameFence,VK_TRUE,DEFAULT_FENCE_TIMEOUT);
+            VK_CHECK_RESULT(featureFenceResult);
+            if (_vkWindow->_featureFrameCompletion) {
+                auto completion=std::move(_vkWindow->_featureFrameCompletion);_vkWindow->_featureFrameCompletion={};
+                completion(featureFenceResult==VK_SUCCESS);
+            }
+#else
             VK_CHECK_RESULT(vkWaitForFences(vkDevice, 1,
                                              &_vkWindow->_previousFrameFence,
                                              VK_TRUE, DEFAULT_FENCE_TIMEOUT));
+#endif
 #if defined(Q_OS_IOS)
             vkBackend->retireIOSDiagnosticSubmit();
 #endif
@@ -1270,7 +1279,18 @@ void VulkanDisplayPlugin::present(const std::shared_ptr<RefreshRateController>& 
                 os_log_info(OS_LOG_DEFAULT, "OVERTE_IOS_VULKAN_PRESENT queue_submit_begin");
             }
 #endif
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+            const auto featureSubmitResult=vkQueueSubmit(vkBackend->getContext().graphicsQueue,1,&submitInfo,frameFence);
+            VK_CHECK_RESULT(featureSubmitResult);
+            if (featureSubmitResult==VK_SUCCESS && _currentFrame->featureCompletedTicket) {
+                const auto ticket=_currentFrame->featureCompletedTicket;
+                if (ticket->submit(_currentFrame->frameIndex) && !_vkWindow->_featureFrameCompletion) {
+                    _vkWindow->_featureFrameCompletion=[ticket](bool completed) { ticket->finish(completed); };
+                }
+            }
+#else
             VK_CHECK_RESULT(vkQueueSubmit(vkBackend->getContext().graphicsQueue, 1, &submitInfo, frameFence));
+#endif
 #if defined(Q_OS_IOS)
             if (!_iosPresentSubmitReported) {
                 os_log_info(OS_LOG_DEFAULT,

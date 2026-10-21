@@ -15,6 +15,10 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _completed_frame_reader(self,selector,intent):
+        need(callable(intent))
+        return self._sources(selector)['observer'].completed_frame(intent)
+
     def _scene_load_observer(self,selector,*,read_only=True):
         need(read_only is True)
         return self._sources(selector)['observer'].scene_loads()

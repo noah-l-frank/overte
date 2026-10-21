@@ -117,6 +117,29 @@
     var lastAccountOriginCommand = "";
     var accountProbeTimer = null;
     var lastRecordedPreviewRequest = "";
+    var completedFrameCommand = null;
+    var completedFrameTimer = null;
+    var lastCompletedFrameCommand = "";
+    function saveCompletedFrame(command, remaining) {
+        if (completedFrameCommand !== command) { return; }
+        var result = {completedFrameVersion: 1, commandId: command.commandId, requestId: command.requestId, available: false};
+        try {
+            if (typeof Test.featureCompletedFrameObservation === "function") {
+                var original = Test.featureCompletedFrameObservation(command);
+                if (original && original.commandId === command.commandId && original.requestId === command.requestId) {
+                    if (original.pending === true && remaining > 0) {
+                        completedFrameTimer = Script.setTimeout(function () {
+                            if (completedFrameCommand !== command) { return; }
+                            completedFrameTimer = null; saveCompletedFrame(command, remaining - 1);
+                        }, 25);
+                        return;
+                    }
+                    result = original;
+                }
+            }
+        } catch (_completedFrameError) { /* Recording or an ACK is never GPU completion. */ }
+        Test.saveObject(result, "feature-completed-frame.json");
+    }
     var lastWorldRenderRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
@@ -1174,6 +1197,30 @@
             if (command.commandId !== lastAccountProbeCommand) {
                 if (accountProbeTimer !== null) { Script.clearTimeout(accountProbeTimer); accountProbeTimer = null; }
                 lastAccountProbeCommand = String(command.commandId); saveAccountProbe(command);
+            }
+            return;
+        }
+        if (command && command.schemaVersion === 1 && command.action === "feature-completed-frame"
+                && typeof command.commandId === "string" && /^ios-[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.requestId === "string" && /^ios-[0-9a-f]{32}$/.test(command.requestId)
+                && /^(read|release|inspect)$/.test(String(command.operation))
+                && objectKeysMatch(command,["schemaVersion","commandId","action","requestId","operation"])) {
+            if (command.commandId === lastCompletedFrameCommand) { return; }
+            lastCompletedFrameCommand = command.commandId;
+            if (command.operation === "read") {
+                if (completedFrameTimer !== null) { Script.clearTimeout(completedFrameTimer); completedFrameTimer = null; }
+                completedFrameCommand = command;saveCompletedFrame(command,50);
+            } else {
+                if (command.operation === "release" && completedFrameCommand !== null
+                        && completedFrameCommand.requestId === command.requestId) {
+                    completedFrameCommand = null;
+                    if (completedFrameTimer !== null) { Script.clearTimeout(completedFrameTimer); completedFrameTimer = null; }
+                }
+                var storage = {};
+                try {
+                    if (typeof Test.featureCompletedFrameObservation === "function") { storage = Test.featureCompletedFrameObservation(command); }
+                } catch (_completedFrameStorageError) { /* Missing source is not cleanup. */ }
+                Test.saveObject(storage,"feature-completed-frame.json");
             }
             return;
         }
@@ -2303,6 +2350,8 @@
 
     Script.update.connect(updateProbe);
     Script.scriptEnding.connect(function () {
+        completedFrameCommand = null;
+        if (completedFrameTimer !== null) { Script.clearTimeout(completedFrameTimer); completedFrameTimer = null; }
         lastAccountProbeCommand = "";
         if (accountProbeTimer !== null) { Script.clearTimeout(accountProbeTimer); accountProbeTimer = null; }
         if (worldRenderTimer !== null) { Script.clearTimeout(worldRenderTimer); worldRenderTimer = null; }

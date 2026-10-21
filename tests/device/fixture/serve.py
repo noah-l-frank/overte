@@ -501,6 +501,12 @@ class FixtureState:
             try:bundle_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid original iOS bundle read request") from None
             valid=True
+        elif action == "feature-completed-frame":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_completed_frame import command as completed_frame_command
+            try:completed_frame_command(command)
+            except (ValueError,RuntimeError):raise ValueError("invalid original completed frame request") from None
+            valid=True
         elif action == "feature-scene-load-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_scene_loads import command as scene_load_command

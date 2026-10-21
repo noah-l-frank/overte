@@ -112,6 +112,12 @@ void VKWindow::recreateDrawCommandBuffers() {
         // resizeFramebuffer() waits for the whole device before reaching this
         // point, so the fence paired with the old command-buffer set can be
         // retired synchronously.
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (_featureFrameCompletion) {
+            const auto observed=vkGetFenceStatus(_context.device->logicalDevice,_previousFrameFence);
+            auto completion=std::move(_featureFrameCompletion);_featureFrameCompletion={};completion(observed==VK_SUCCESS);
+        }
+#endif
         vkDestroyFence(_context.device->logicalDevice, _previousFrameFence, nullptr);
         _previousFrameFence = VK_NULL_HANDLE;
         _previousCommandBuffer = VK_NULL_HANDLE;
@@ -142,6 +148,12 @@ void VKWindow::vulkanCleanup() {
     _isVulkanCleanupComplete = true;
 
     if (_previousFrameFence) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+        if (_featureFrameCompletion) {
+            const auto observed=vkGetFenceStatus(_context.device->logicalDevice,_previousFrameFence);
+            auto completion=std::move(_featureFrameCompletion);_featureFrameCompletion={};completion(observed==VK_SUCCESS);
+        }
+#endif
         _context.recycler.trashVkFence(_previousFrameFence);
         _previousFrameFence = VK_NULL_HANDLE;
     }

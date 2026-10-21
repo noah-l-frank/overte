@@ -404,6 +404,17 @@ public:
     bool supportedTextureFormat(const gpu::Element& format) const override;
     const std::string& getVersion() const override;
     void downloadFramebuffer(const FramebufferPointer& srcFramebuffer, const Vec4i& region, QImage& destImage) final;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    bool featureFramebufferExtent(const FramebufferPointer&,Vec2i&,bool current=false) override;
+    bool featureIssuedDraws(quint64&) override;
+    void featureRecordIssuedDraw() {
+        if (_featureDrawSequence<9007199254740991ULL) { ++_featureDrawSequence; }
+        else { _featureDrawSequenceValid=false; }
+    }
+    quint64 _featureDrawSequence {0};bool _featureDrawSequenceValid {true};
+    VkViewport _featureIssuedViewport {};
+    VkCommandBuffer _featureViewportCommandBuffer {VK_NULL_HANDLE};
+#endif
     void setDrawCommandBuffer(VkCommandBuffer commandBuffer);
     // Finish the final renderer pass before the platform swapchain transfer.
     void finishPresentRendering();

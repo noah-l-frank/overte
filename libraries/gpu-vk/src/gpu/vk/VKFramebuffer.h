@@ -22,6 +22,12 @@ class VKFramebuffer : public vk::VKObject<Framebuffer> {
 public:
     VkRenderPass vkRenderPass {VK_NULL_HANDLE};
     VkFramebuffer vkFramebuffer {VK_NULL_HANDLE};
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Set only after the original vkCreateFramebuffer returns VK_SUCCESS.
+    Vec2i featureAllocationExtent {0};
+    VkFramebuffer featureAllocationHandle {VK_NULL_HANDLE};
+    bool featureAllocationOwned(const VKBackend* backend) const { return _backend.lock().get()==backend; }
+#endif
 
     static VKFramebuffer* sync(vk::VKBackend& backend, const Framebuffer& framebuffer) {
         VKFramebuffer* object = Backend::getGPUObject<VKFramebuffer>(framebuffer);

@@ -15,6 +15,9 @@
 #include "VKShared.h"
 
 void gpu::vk::VKFramebuffer::update() {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    featureAllocationExtent=Vec2i(0);featureAllocationHandle=VK_NULL_HANDLE;
+#endif
     auto backend = _backend.lock();
     auto& recycler = backend->getContext().recycler;
     // Earlier commands in this frame can still reference the old framebuffer
@@ -197,7 +200,15 @@ VkResult gpu::vk::VKFramebuffer::createFramebuffer()
     framebufferInfo.width = _gpuObject.getWidth();
     framebufferInfo.height = _gpuObject.getHeight();
     framebufferInfo.layers = maxLayers;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto allocationResult=vkCreateFramebuffer(_backend.lock()->_context.device->logicalDevice, &framebufferInfo, nullptr, &vkFramebuffer);
+    VK_CHECK_RESULT(allocationResult);
+    if (allocationResult==VK_SUCCESS && vkFramebuffer!=VK_NULL_HANDLE) {
+        featureAllocationExtent=Vec2i(framebufferInfo.width,framebufferInfo.height);featureAllocationHandle=vkFramebuffer;
+    }
+#else
     VK_CHECK_RESULT(vkCreateFramebuffer(_backend.lock()->_context.device->logicalDevice, &framebufferInfo, nullptr, &vkFramebuffer));
+#endif
 
     return VK_SUCCESS;
 }

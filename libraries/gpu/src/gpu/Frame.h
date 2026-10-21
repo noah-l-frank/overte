@@ -15,6 +15,9 @@
 #include "Forward.h"
 #include "Batch.h"
 #include "Resource.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "FeatureCompletedFrame.h"
+#endif
 
 namespace gpu {
 
@@ -34,6 +37,9 @@ namespace gpu {
         // Optional observation stamp, set on the recording thread. Zero means
         // unavailable; retained with the actual frame through display queues.
         uint64_t worldObservationGeneration { 0 };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        std::shared_ptr<FeatureCompletedFrames::Ticket> featureCompletedTicket;
+#endif
         // TODO: view doesn't seem to be used anywhere?
         /// The view matrix used for rendering the frame, only applicable for HMDs.
         Mat4 view;

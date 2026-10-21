@@ -142,4 +142,8 @@ bool Backend::featureTextureExtent(const TexturePointer&, Vec2i& extent) {
     extent = Vec2i(0);
     return false;
 }
+bool Backend::featureFramebufferExtent(const FramebufferPointer&, Vec2i& extent,bool) {
+    extent=Vec2i(0);return false;
+}
+bool Backend::featureIssuedDraws(quint64& sequence) { sequence=0;return false; }
 #endif
