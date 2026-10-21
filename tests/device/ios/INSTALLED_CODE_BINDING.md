@@ -1,4 +1,4 @@
-# Physical iOS installed-code binding v3
+# Physical iOS installed-code binding v4
 
 `--native-binding --physical-candidate-metadata ...` now composes the original
 physical candidate consumer, original Appium physical/WDA attestation, native
@@ -53,8 +53,8 @@ changed. Source-info alone is neither code identity nor device acceptance.
 `installed-code-binding.json` uses the existing private ownership store, with
 closed legacy fields `bindingVersion,phase,scope,source,process,observation,previousInstance`;
 version 3 adds `recovery`.
-The current host journal writer is version 3; readers explicitly support
-versions 1, 2 and 3. Starting with v2, a `preparing` record freezes the original
+The current host journal writer is version 4; readers explicitly support
+versions 1, 2, 3 and 4. Starting with v2, a `preparing` record freezes the original
 validated SDK process-source metadata before any launch. Its process/byte observation remain
 null until actual binding. Ordinary `bind()` still requires the original
 in-memory launch owner and now requires that exact persisted SDK source before
@@ -179,3 +179,16 @@ It must not erase those journals to manufacture successful cleanup.
 
 The recovery and canonical-wrapper counterexamples run without compilers or
 devices. Native instrumentation and real driver behavior remain unqualified.
+
+## Full candidate restart recovery (journal v4)
+
+Journal v4 retains every v3 field and its component recovery reader. Recovery
+proof v2 adds `componentOnly:false` and the full source/archive/session binding.
+It requires those immutable fields, target and generation to agree with the
+original prelaunch owner before acquiring native evidence. V1 proofs retain
+their explicit component scope; they cannot be promoted to a full feature owner.
+Legacy v3 bound owners are verified without implicit migration. Explicit v3
+preparing recovery still needs the persisted launch-issued intent and all
+original OS/native byte/death/readiness sources; it upgrades only that recovered
+owner to v4. Lost SDK sessions remain owned and cannot be deleted, recreated,
+reinstalled or automatically launched to repair an input channel.

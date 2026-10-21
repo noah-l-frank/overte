@@ -168,9 +168,9 @@ def observation(value, pid, now_ms=None):
 
 class NativeInput:
     def __init__(self, client, session, target, observe_process, *,
-                 monotonic=time.monotonic, sleep=time.sleep):
+                 monotonic=time.monotonic, sleep=time.sleep, native_epoch_ms=None):
         if (not isinstance(session, str) or re.fullmatch(r'[A-Za-z0-9_.:-]{1,160}', session) is None
-                or not callable(observe_process)
+                or not callable(observe_process) or native_epoch_ms is not None and not callable(native_epoch_ms)
                 or target.get('nativeUiObservation') != {'kind': 'uikit-documents', 'version': 1}
                 or type(target['nativeUiObservation']['version']) is not int):
             raise NativeUIError('Native iOS input requires an explicit native observation session')
@@ -179,6 +179,7 @@ class NativeInput:
         self.process, self.instance = None, None
         self.last_clock = None
         self.last_receipt = None
+        self.native_epoch_ms = native_epoch_ms
 
     def _check(self):
         process = self.observe_process()
@@ -243,6 +244,7 @@ class NativeInput:
         raise NativeUIError('Native iOS input did not produce this request receipt')
 
     def capture(self, *, native_epoch_ms=None):
+        native_epoch_ms = native_epoch_ms or getattr(self, 'native_epoch_ms', None)
         value = self._request('observe')
         if native_epoch_ms is not None and not callable(native_epoch_ms):
             raise NativeUIError('An independent original native clock reader is required')
@@ -373,12 +375,18 @@ class NativeInput:
 
     def deliver(self, command):
         value = self._request('edit', command)
+        clock = getattr(self, 'native_epoch_ms', None)
+        epoch = clock() if clock is not None else time.time() * 1000
+        def receipt_fresh(captured):
+            if clock is None:return _fresh(captured,epoch)
+            return (type(captured) in (int,float) and math.isfinite(captured)
+                    and type(epoch) in (int,float) and math.isfinite(epoch) and -250<=epoch-captured<=1500)
         if (not isinstance(value, dict) or set(value) != {'schemaVersion', 'commandId', 'instance', 'sequence',
                 'performed', 'processId', 'sampleEpochMs'}
                 or type(value['schemaVersion']) is not int or value['schemaVersion'] != 1
                 or value['commandId'] != command['commandId'] or value['instance'] != self.instance
                 or not _integer(value['sequence'], 1) or value['sequence'] != command['sequence']
                 or not _integer(value['processId'], 1) or value['processId'] != self.process['pid']
-                or value['performed'] is not True or not _fresh(value['sampleEpochMs'], time.time() * 1000)):
+                or value['performed'] is not True or not receipt_fresh(value['sampleEpochMs'])):
             raise NativeUIError('Native iOS field input was not freshly delivered')
         return {'performed': True}

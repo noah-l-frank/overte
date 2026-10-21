@@ -5,6 +5,7 @@
 import argparse
 from contextlib import ExitStack
 import hmac
+import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -24,6 +25,7 @@ from feature_journeys.witness import Journal
 from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PROFILE_PATH,REQUEST_HEADER,RUN_HEADER,TICKET_HEADER
 from feature_journeys.browser_fixture import BrowserResources
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
+from feature_journeys.script_fixture import ScriptResources
 
 PREFIX = '/feature-fixture/v1'
 
@@ -54,7 +56,7 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass  # No private URLs, tokens, account aliases or request bodies in logs.
 
-    def send(self, status, value, content_type='application/json', *, response_id=None):
+    def send(self, status, value, content_type='application/json', *, response_id=None, observe_write=None):
         body = value if isinstance(value, bytes) else json.dumps(value).encode()
         self.send_response(status)
         self.send_header('Content-Type', content_type)
@@ -62,10 +64,31 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
         if response_id is not None:self.send_header('X-Overte-Fixture-Response',identifier(response_id))
+        # Preserve the actual serialized header bytes before the original
+        # end_headers flush. The requested status is not a measured response.
+        if observe_write is not None:
+            headers=b''.join(self._headers_buffer).split(b'\r\n')
+            status_fields=headers[0].split(b' ',2)
+            identities=[line.split(b':',1)[1].strip().decode('ascii') for line in headers
+                if line.lower().startswith(b'x-overte-fixture-response:')]
+            if len(status_fields)!=3 or not status_fields[1].isdigit() or len(identities)!=1:
+                raise ValueError('Original Script response headers are unavailable')
+            actual_status,actual_id=int(status_fields[1]),identifier(identities[0])
         self.end_headers()
-        self.wfile.write(body)
+        written=self.wfile.write(body)
+        if observe_write is not None:
+            if type(written) is not int or written!=len(body):raise ValueError('Original Script response write is incomplete')
+            observe_write(dict(status=actual_status,responseId=actual_id,bytes=written,sha256=hashlib.sha256(body).hexdigest()))
 
     def resource(self,run,ticket,name):
+        if name=='missing.js' and self.server.script_resources is not None and self.server.script_resources.has_run(run):
+            self.connection.settimeout(2)
+            authorities=self.headers.get_all('Host',[])
+            if len(authorities)!=1:raise ValueError('One original Script request authority is required')
+            with self.server.script_resources.response(run,ticket,request_authority=authorities[0],
+                    request_scheme='https' if isinstance(self.connection,ssl.SSLSocket) else 'http') as response:
+                if response is None:return self.send(404,{'error':'not-found'})
+                return self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
         if name=='reference.mp4' and self.server.browser_resources.has_run(run):
             from fixture.parity_http import load_reference,send_reference
             if not hasattr(self.server,'parity_payload'):
@@ -169,6 +192,8 @@ class Handler(BaseHTTPRequestHandler):
             # Flat resource paths have exactly five components.
             if self.command == 'GET' and len(parts) == 5 and parts[0] == 'runs' and parts[2] == 'tickets':
                 run, ticket = identifier(parts[1]), identifier(parts[3])
+                if parts[4]=='missing.js' and self.server.script_resources is not None and self.server.script_resources.has_run(run):
+                    return self.resource(run,ticket,parts[4])
                 if not self.server.journal.has_ticket(run, ticket):
                     return self.send(404, {'error': 'not-found'})
                 return self.resource(run,ticket,parts[4])
@@ -191,6 +216,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.command=='GET' and parts==['navigation-provider']:
                 if self.server.navigation_resources is None:return self.send(503,{'error':'navigation-provider-unavailable'})
                 return self.send(200,dict(self.server.navigation_resources.ready(),internalErrors=self.server.internal_errors))
+            if self.command=='GET' and parts==['script-provider']:
+                if self.server.script_resources is None:return self.send(503,{'error':'script-provider-unavailable'})
+                return self.send(200,dict(self.server.script_resources.ready(),internalErrors=self.server.internal_errors))
             body = None
             if self.command == 'POST':
                 size = int(self.headers.get('Content-Length', '0'))
@@ -203,6 +231,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(503,{'error':'account-provider-unavailable'})
                 if body['area']=='world-navigation' and self.server.navigation_resources is None:
                     return self.send(503,{'error':'navigation-provider-unavailable'})
+                if body['area']=='scripts' and self.server.script_resources is None:
+                    return self.send(503,{'error':'script-provider-unavailable'})
                 run=self.server.journal.register(body['area'])
                 if body['area']=='world-navigation':
                     try:self.server.navigation_resources.provision(run)
@@ -210,6 +240,11 @@ class Handler(BaseHTTPRequestHandler):
                         self.server.journal.close(run)
                         raise
                 if body['area'] in ('world-web','tablet-web'):self.server.browser_resources.open(run)
+                if body['area']=='scripts':
+                    try:self.server.script_resources.provision(run)
+                    except Exception:
+                        self.server.journal.close(run)
+                        raise
                 if body['area']=='authentication' and self.server.account_provider is not None:
                     try:self.server.account_provider.provision(run)
                     except Exception:
@@ -219,6 +254,17 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) < 2 or parts[0] != 'runs':
                 return self.send(404, {'error': 'not-found'})
             run = identifier(parts[1])
+            if parts[2:]==['scripts']:
+                if self.command=='GET' and self.server.script_resources is not None:
+                    requests=self.headers.get_all('X-Overte-Script-Read',[])
+                    if len(requests)!=1:raise ValueError('Original Script snapshot nonce is required')
+                    nonce=identifier(requests[0])
+                    with self.server.journal.lock:
+                        source=self.server.script_resources.snapshot(run,nonce)
+                        if source['active'] and (run not in self.server.journal.runs or source['ticket']!=self.server.journal.runs[run]['ticket']):
+                            return self.send(503,{'error':'script-provider-ownership-inconsistent'})
+                    return self.send(200,source)
+                return self.send(503,{'error':'script-provider-unavailable'})
             if parts[2:]==['navigation']:
                 if self.command=='GET' and self.server.navigation_resources is not None:
                     return self.send(200,self.server.navigation_resources.snapshot(run))
@@ -248,7 +294,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(403,{'error':'forbidden'})
             if self.command == 'POST' and parts[2:] == ['active'] and reader:
                 exact(body, {'ticket', 'verb', 'inputs'}, 'fixture challenge')
-                self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
+                if self.server.journal.runs[run]['area']=='scripts':
+                    with self.server.journal.lock:
+                        self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
+                        self.server.script_resources.activate(run,body['ticket'])
+                else:self.server.journal.activate(run, body['ticket'], body['verb'], body['inputs'])
                 if self.server.journal.runs[run]['area']=='world-navigation':
                     self.server.navigation_resources.activate(run,body['ticket'])
                 if body['verb']=='restore-resource' and self.server.browser_resources.has_run(run):
@@ -273,6 +323,11 @@ class Handler(BaseHTTPRequestHandler):
                 if adapter_reader:original['entries']=[]
                 return self.send(200,original)
             if self.command == 'DELETE' and len(parts) == 2 and reader:
+                if self.server.script_resources is not None and self.server.script_resources.has_run(run):
+                    with self.server.journal.lock:
+                        self.server.script_resources.retire(run)
+                        if run in self.server.journal.runs:self.server.journal.close(run)
+                    return self.send(200,{})
                 if self.server.navigation_resources is not None and run in self.server.navigation_resources.runs:
                     self.server.navigation_resources.retire(run)
                 if self.server.account_provider is not None and run in self.server.account_provider.runs:
@@ -335,6 +390,7 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
     server = FixtureServer(address, Handler)
     server.account_provider,server.tls_context=account_provider,tls_context
     server.navigation_resources=navigation_resources
+    server.script_resources=ScriptResources() if browser_peer_of is None else browser_peer_of.script_resources
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token
     server.adapter_token=adapter_token

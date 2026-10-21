@@ -55,16 +55,26 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
         lease.guard()
         need(candidate.get('physicalHandoffVersion') == 1)
 
+    if cleanup_only and getattr(args,'physical_candidate_metadata',None) and getattr(args,'artifact_root',None):
+        try:
+            lease=ArtifactLease(args.artifact_root);candidate=preflight(args);lease.guard()
+            need(candidate.get('physicalHandoffVersion')==1)
+        except (OSError,RuntimeError,ValueError,TypeError,KeyError):
+            lease=candidate=None
+
     class IOSInstalledAdapter(IOSNativeMixin, base_class):
         def __init__(self):
             self._operation = None
+            self._session_recreation_forbidden = False
             self._preparing = self._retiring = self._recovering = None
             super().__init__()
 
         @classmethod
         def advertised_capabilities(cls, target):
             # One selected candidate cannot authorize a signed upgrade pair.
-            return sorted(set(super().advertised_capabilities(target)) - {'app.install','app.upgrade'})
+            from ios.adapters.feature_configuration import capabilities
+            features=capabilities(target) if candidate is not None else []
+            return sorted((set(super().advertised_capabilities(target)) | set(features)) - {'app.install','app.upgrade'})
 
         def _candidate_guard(self, *, complete=False):
             if candidate is None or lease is None:
@@ -121,13 +131,16 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 self._recover_script_restart_launch(selector)
             return super()._script_restart_source(selector)
 
-        def _recover_script_restart_launch(self, selector):
+        def _recover_script_restart_launch(self, selector, *, inputs=None):
             # Only the explicit restart coordinator may enter this read-only
             # recovery path. Ordinary ensure_session/describe/launch still fail
             # on abandoned launch intent, without delivering another SDK input.
             self._candidate_guard(complete=True)
             need(self._recovering is None)
-            client, state, target = self._script_restart_session(selector)
+            inputs = self._script_restart_inputs(selector) if inputs is None else inputs
+            from adapters.restart_inputs import RestartInputs
+            need(isinstance(inputs, RestartInputs))
+            client, state, target = self._script_restart_session(selector, inputs=inputs)
             session = state['sessionId']
             gate = self._binding(selector, client, session, state, target)
             actual = gate.original_process()
@@ -138,7 +151,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             observer = FeatureObservation(client, session, target, process)
             def ready(measured, native_after):
                 need(measured == actual and state.get('processIdentity') in
-                     (None, str(self._script_restart_inputs(selector).read()['oldNative']['pid']), str(pid)))
+                     (None, str(inputs.read()['oldNative']['pid']), str(pid)))
                 state['processIdentity'] = str(pid)
                 # Compare original device probe time to an original native
                 # fence; neither AFC metadata nor host UTC supplies freshness.
@@ -148,7 +161,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 self.save_session(selector, state)
             self._recovering = (selector, session, pid)
             try:
-                gate.recover_prepared(self._script_restart_inputs(selector), observer.native_observer(),
+                gate.recover_prepared(inputs, observer.native_observer(),
                     observer.process_presence(), ready)
                 self._candidate_guard(complete=True)
             finally:
@@ -225,7 +238,12 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 need(owned.get('scope') == self._scope(selector,persisted['sessionId'],persisted,target))
                 if owned.get('phase') in ('preparing','retiring'):
                     need(self._retiring == (selector,persisted['sessionId']))
-            client, session, state = super().ensure_session(selector)
+            existing_only = self._session_recreation_forbidden
+            self._session_recreation_forbidden = existing_only or owned is not None
+            try:
+                client, session, state = super().ensure_session(selector)
+            finally:
+                self._session_recreation_forbidden = existing_only
             gate = self._binding(selector,client,session,state,target)
             record = gate.record()
             if self._retiring == (selector,session):
@@ -279,6 +297,22 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
         def invoke(self, selector, operation, values):
             validate_operation_arguments(operation,values)
             need(operation not in ('app.install','app.upgrade'))
+            if operation.startswith('feature.'):
+                from ios.adapters.feature_configuration import OPERATIONS,configuration,capabilities
+                from ios.adapters.script_runtime import IOSScriptRuntime
+                need(operation in OPERATIONS and configuration() is not None and self._operation is None)
+                self._candidate_guard(complete=True)
+                need(operation in capabilities(self._target(selector)))
+                self._operation=operation
+                try:
+                    runtime=IOSScriptRuntime(self)
+                    flow=runtime._script_feature(selector,values['runId'])
+                    result=getattr(flow,operation.rsplit('.',1)[1])(values)
+                    client,session,state,target,_scope=runtime._existing(selector)
+                    self._binding(selector,client,session,state,target).verify()
+                    self._candidate_guard(complete=True)
+                    return result
+                finally:self._operation=None
             if self._operation is not None:
                 need(self._operation in ('permission.snapshot','permission.set') and operation == 'voice.exchange')
                 return super().invoke(selector,operation,values)
@@ -309,7 +343,18 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             # process/session teardown even if all candidate inputs are lost.
             store = self._binding_store(selector)
             previous = store.read()
+            feature_error=False
+            from ios.adapters.script_runtime import IOSScriptRuntime
+            runtime=IOSScriptRuntime(self)
+            owner=runtime.script_feature_store(selector).read()
+            retirement=runtime.script_retirement_store(selector).read()
+            if owner is not None or retirement is not None:
+                try:
+                    original=owner if owner is not None else retirement
+                    runtime._script_feature(selector,original['runId']).finalize()
+                except Exception:feature_error=True
             result = super().cleanup(selector)
+            need(not feature_error)
             need(type(result) is dict and result == {'cleaned':True} and self.read_session(selector) is None)
             if previous is not None:store.discard(previous)
             return result

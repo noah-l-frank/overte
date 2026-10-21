@@ -65,7 +65,7 @@ class LaunchRecoveryTests(unittest.TestCase):
         intent = self.inputs.read(); before = self.store.read()
         self.assertTrue(self.recover()['installedCandidateVerified'])
         actual = self.store.read(); proof = actual['recovery']
-        self.assertEqual(3, actual['bindingVersion']); self.assertEqual('bound', actual['phase'])
+        self.assertEqual(4, actual['bindingVersion']); self.assertEqual('bound', actual['phase'])
         self.assertEqual(before['source'], actual['source']); self.assertEqual(intent, self.inputs.read())
         self.assertEqual(42, proof['oldNative']['pid']); self.assertEqual('absent', proof['oldProcessAbsent']['presence'])
         self.assertEqual(self.native.value, proof['bundleObservation'])
@@ -171,11 +171,42 @@ class LaunchRecoveryTests(unittest.TestCase):
             with self.assertRaises((ValueError, RuntimeError)): self.make().record()
         self.store.write(original, self.store.read())
 
+    def full_inputs(self):
+        previous=self.inputs.read()
+        binding=dict(self.scope,processIdentity='42')
+        self.inputs.store.write(dict(previous,componentOnly=False,oldBinding=binding),previous)
+        self.inputs=RestartInputs(self.inputs.store,list(self.inputs.owners))
+
+    def test_full_candidate_restart_recovery_preserves_candidate_session_and_original_sources(self):
+        self.full_inputs();self.recover()
+        proof=self.store.read()['recovery']
+        self.assertEqual(2,proof['launchRecoveryVersion']);self.assertIs(proof['componentOnly'],False)
+        self.assertEqual(dict(self.scope,processIdentity='42'),proof['oldBinding'])
+        self.assertTrue(self.make().verify()['installedCandidateVerified'])
+
+    def test_full_candidate_recovery_cannot_be_relabelled_as_legacy_v3(self):
+        self.full_inputs();self.recover();original=self.store.read()
+        self.store.write(dict(original,bindingVersion=3),original)
+        with self.assertRaises(ValueError):self.make().record()
+
+    def test_full_restart_foreign_archive_revision_or_session_cannot_query_or_bind(self):
+        self.full_inputs();original=self.inputs.read()
+        for field,value in (('sourceRevision','e'*40),('artifactSha256','f'*64),('sessionId','foreign-session')):
+            self.inputs.store.write(dict(original,oldBinding=dict(original['oldBinding'],**{field:value})),self.inputs.store.read())
+            self.assert_rejected();self.assertEqual([],self.current.commands)
+        self.inputs.store.write(original,self.inputs.store.read())
+
+    def test_legacy_v3_preparing_uses_explicit_full_scope_recovery_without_input_replay(self):
+        self.full_inputs();current=self.store.read()
+        self.store.write(dict(current,bindingVersion=3),current)
+        self.recover();self.assertEqual(4,self.store.read()['bindingVersion'])
+        self.assertEqual(2,self.store.read()['recovery']['launchRecoveryVersion'])
+
     def test_legacy_v2_preparing_can_recover_only_with_original_source_and_explicit_intent(self):
         current = self.store.read()
         self.store.write({k: v for k, v in dict(current, bindingVersion=2).items() if k != 'recovery'}, current)
         self.assertTrue(self.recover()['installedCandidateVerified'])
-        self.assertEqual(3, self.store.read()['bindingVersion'])
+        self.assertEqual(4, self.store.read()['bindingVersion'])
 
 
 if __name__ == '__main__': unittest.main()

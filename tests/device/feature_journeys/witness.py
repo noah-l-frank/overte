@@ -138,11 +138,12 @@ class Client:
         self.url, self.token = url, reader_token
         self.monotonic,self.sleep=monotonic,sleep
 
-    def request(self, path, value=None, method=None, *, adapter_access=False):
+    def request(self, path, value=None, method=None, *, adapter_access=False, script_nonce=None):
         raw = None if value is None else json.dumps(value).encode()
         headers = {'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'}
         if type(adapter_access) is not bool:raise ValueError('Invalid adapter fixture access marker')
         if adapter_access:headers['X-Overte-Fixture-Adapter-Read']='1'
+        if script_nonce is not None:headers['X-Overte-Script-Read']=identifier(script_nonce)
         request = Request(self.url + path, data=raw, method=method, headers=headers)
         try:
             with build_opener(NoRedirect).open(request, timeout=5) as response:
@@ -159,6 +160,16 @@ class Client:
     def register(self, area):
         if getattr(self,'run',None) is not None and not getattr(self,'closed',False):
             raise ValueError('An existing owned fixture run must close first')
+        if area=='scripts':
+            provider=self.request('/script-provider')
+            exact(provider,{'scriptProviderVersion','instance','capturedEpochMs','ready','activeRuns','failedResponses','internalErrors'},'Script provider readiness')
+            if (type(provider['scriptProviderVersion']) is not int or provider['scriptProviderVersion']!=1
+                    or provider['ready'] is not True or type(provider['activeRuns']) is not int or provider['activeRuns']!=0
+                    or type(provider['failedResponses']) is not int or provider['failedResponses']!=0
+                    or type(provider['internalErrors']) is not int or provider['internalErrors']!=0
+                    or type(provider['capturedEpochMs']) is not int or provider['capturedEpochMs']<=0):
+                raise ValueError('Required original Script provider is unavailable')
+            self.script_instance=identifier(provider['instance']);self.script_previous=None
         if area=='world-navigation':
             from .navigation_fixture import configuration
             provider=self.request('/navigation-provider')
@@ -214,7 +225,20 @@ class Client:
             if now<previous or now-started>=5:raise ValueError('Account fixture cleanup exceeded its bound')
         if self.area=='world-navigation':
             if self.navigation_status()['active']:raise ValueError('Navigation fixture cleanup is incomplete')
+        if self.area=='scripts':
+            if self.script_status()['active']:raise ValueError('Script fixture cleanup is incomplete')
         self.closed=True
+
+    def script_status(self):
+        if self.area!='scripts':raise ValueError('No owned Script provider')
+        from .script_fixture import validate_status
+        nonce=secrets.token_hex(16)
+        value=self.request('/runs/'+self.run+'/scripts',script_nonce=nonce)
+        validate_status(value,instance=self.script_instance,run=self.run,previous=self.script_previous,request_id=nonce)
+        epoch=time.time()*1000
+        if not -250<=epoch-value['capturedEpochMs']<=1500:raise ValueError('Original Script provider snapshot is stale')
+        self.script_previous=copy.deepcopy(value)
+        return value
 
     def navigation_status(self):
         if self.area!='world-navigation':raise ValueError('No owned navigation provider')

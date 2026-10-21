@@ -227,7 +227,7 @@ class InstalledAdapterTests(unittest.TestCase):
         self.assertEqual('43', state['processIdentity']); self.assertTrue(state['iosE2ELaunchCompleted'])
         self.assertEqual(self.target['testBuild']['fixtureOrigin']+'/scene.json', state['iosE2ESceneUrl'])
         owned = self.adapter._binding_store('test-only').read()
-        self.assertEqual('bound', owned['phase']); self.assertEqual(3, owned['bindingVersion'])
+        self.assertEqual('bound', owned['phase']); self.assertEqual(4, owned['bindingVersion'])
         self.assertEqual('absent', owned['recovery']['oldProcessAbsent']['presence'])
         self.assertEqual('launch-issued', inputs.read()['phase'])
         self.assertEqual(before, self.sessions); self.assertEqual(launches, self.launches)

@@ -381,3 +381,7 @@ The native adapters form a namespace package. A package marker here would
 shadow the shared `adapters` namespace when legacy signing helpers add the
 iOS utility directory to Python's search path. Native imports use the explicit
 `ios.adapters` package and shared imports retain their original modules.
+
+The [source-level Script adapter](SCRIPT_FEATURE.md) supplies the complete shared
+nineteen-step journey, separate native/host clocks and independent actor cleanup.
+Its SDK-bound host regression does not qualify an installed native client.

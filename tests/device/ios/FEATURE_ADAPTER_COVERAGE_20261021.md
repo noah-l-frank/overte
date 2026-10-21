@@ -1,8 +1,8 @@
 # iOS source coverage and executable adapter handoff, 2026-10-21
 
-**Implementation remains partial: zero of fourteen complete iOS feature triples.**
-All fourteen shared v16 journeys exist. Their ordinary iOS input/observation
-components below are partial implementations, not full adapters. Native
+**Scripts is source-complete and host-tested; thirteen feature areas remain partial.**
+All fourteen shared v16 journeys exist. Scripts now has its complete iOS
+input/observation/cleanup coordinator. The other ordinary iOS components below remain partial implementations. Native
 compilation is unverified and devices are untested. No product acceptance,
 installation, build or laboratory execution is represented by the host results.
 
@@ -10,7 +10,8 @@ This is the current iOS audit. Older statements that the installed-code gate is
 entirely unavailable describe historical checkpoints: canonical physical source
 binding and explicit lost-launch recovery now have host-tested implementations.
 The actual plugin and native byte observer remain uninstalled/uncompiled and
-unqualified here. The full-area ownership/observer coordinators are still absent.
+unqualified here. The [Script coordinator](SCRIPT_FEATURE.md) is present; the
+other full-area ownership/observer coordinators remain absent.
 
 ## Source and integration boundaries
 
@@ -64,9 +65,10 @@ native/server/OS/receiver endpoints, not fixture delivery or requested filenames
 
 ## Fourteen-area matrix
 
-Every row is **logic present; iOS adapter partial; compilation unverified;
-devices untested**. “Partial” credits only the specifically listed components.
-The complete `feature.<area>.*` triple remains missing for every row.
+Every row remains **compilation unverified; devices untested**. Scripts is
+source-complete with the full shared nineteen-step host regression. All other
+rows remain **logic present; iOS adapter partial**; their complete triples are
+still missing. “Partial” credits only the specifically listed components.
 
 | Area | Existing iOS components and actual product sources | Concrete missing interface/evidence and next implementation packet |
 | --- | --- | --- |
@@ -81,7 +83,7 @@ The complete `feature.<area>.*` triple remains missing for every row.
 | Audio | `normal_audio.py`, original recorded-preview history/input/sink PCM and existing microphone-permission/voice components. Product: automatic native recorded-preview cycle. | No full owner joining microphone authorization, ordinary cycle/mute/background cancellation, independent acoustic output/peer and verified idle restoration. Add an iOS OS-authorization observer/normal prompt recipe to this owner and retain actual pre-normalization input separately from acoustic output. Accepted sink-write bytes are not audible-output evidence. |
 | Chat | `chat_controls.py`, `_chat_view`, `_chat_capture`, original local/network distinction and shared independent receiver/mixer-control components. Product: armored-chat QML and MessagesClient. | No complete original rendered and persisted Local/Domain history projection, actual UIKit keyboard measurement, remote stimulus/publisher or whole-run mixer/receiver ownership. Join the actual remote source pair to owned original rows and OS focus/keyboard; exercise distant Local rejection and observed no-mixer local echo, then prove no deferred replay for three seconds before explicit retype/resend. |
 | Snapshots | `normal_snapshot.py`, `snapshot_files.py`, original SNAP capture/file foundation; `ios/snapshot/IOSSnapshotAdapter.mm` implements real Photos Save and system Share. | No full pending/cancel history acquisition, ordinary 350-ms cancel recipe, Photos saved-original read/remove, actual system-share receiver or authenticated upload/body sink. Add passive owned callbacks/Photos local identifiers and separate receiver originals; bind normal authorization/sheets to exact capture bytes and original completion. Private file presence cannot prove Save or delivery. |
-| Scripts | `normal_scripts.py`, original native file-bundle staging/picker/execution/load-result/display, one-send restart and three-second restart handoff. This branch completes explicit canonical lost-launch recovery from original process/bytes. | No complete run/role/source history coordinator joining actual submitted engine code, consumed companion modules, advancing entity ticks, manager display and independent actor through the full picker/restart/reimport/missing-URL flow. Select the shared membership/root/work/location dependencies from frozen Phone sources before adapting its coordinator to actual iOS sources. Cleanup must separately drain real engines/entities/files/callbacks; installed-code recovery alone cannot do that. |
+| Scripts | **Source-complete, host-tested.** Canonical full candidate runtime; ordinary picker/cancel/stop/restart/reimport/missing-URL input; five original sources; role-separated durable history and actor publisher; host/native clock join; three-second cleanup and finalization. | See [Script operation/evidence/integration handoff](SCRIPT_FEATURE.md). The unchanged nineteen-step shared journey passes on synthetic iOS SDK boundaries with real temporary files and loopback HTTP. Native compilation and Proxmox device qualification remain unexecuted. |
 | Assets | Existing `asset.load`/asset foundation; actual native asset browser/file importer and AssetServer/oven product sources. | No iOS normal Assets/picker token recipe, durable complete bundle staging-retirement or actual mapping/worker/output/permission actor. Add those gated original row/control/selection identities, then join independent server source hashes, companion paths, actual FBX worker and oven outputs, world model and vanished-file picker error. No server/oven is started in this local phase. |
 | Lifecycle/input | Existing native lifecycle/normal UIKit-Qt input, `_pending_owner`, original pending Qt callback owner and OS PID continuity. | No complete Create/Chat/Script-filter context generations, normal semantic Back, actual UIKit keyboard and world-input/displacement observer join. Bind actual distinct editor QObject/loader/focus/window and OS keyboard notifications, then bracket the retained stale callback and held-input release with independent actor/position/image observations. Home is not a substitute for Back. |
 
@@ -164,14 +166,19 @@ The following are required next packets, not new fictional product behavior:
    `36534359c189f872c475dc85c177af0521c8e20b`. Exact shared paths: fixture reader,
    server, witness Client, registry/validator, existing quick-test inventory,
    two self-test files and the access handoff. All used dependencies are present
-   here. Later Phone Script/Graphics provider/nonces are deliberately outside
-   this port and need reconciliation if those providers are selected later.
+   here. The Script provider is now selected with its dependencies, as recorded
+   in [the current Script handoff](SCRIPT_FEATURE.md); Graphics remains outside
+   this port.
 3. Local `011568ead3` changes iOS ownership writer to v3 with v1/v2 readers and
    connects read-only restart recovery. Shared changes are only the installed-
    code registry entry and validator minimum; preserve their union with Phone/
    Pico additions. Common feature journey stays v16; restart inputs/handoff,
    native byte/process packets and input scopes keep their own versions.
-4. Phone complete coordinators are in `overte_phone_script_*`,
+4. The current Script packet extends the installed writer to v4, preserves all
+   legacy readers, and adds full candidate restart proof v2. It selects the
+   shared Script provider and pure source joins with independent iOS input and
+   clocks. The host regression covers all nineteen Script steps and both roles.
+   Phone complete coordinators are in `overte_phone_script_*`,
    `overte_phone_authentication*` and `overte_phone_graphics*`. They depend on
    Phone candidate/process/ADB, normal UI/native scene sources, original history
    serialization, locks, source restart and independently credentialed workers.

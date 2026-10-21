@@ -45,6 +45,7 @@ class Journey:
         self.evidence_cache = {}
         self.lifecycle = None
         self.required_lifecycle = None
+        self.restart_backgrounds = None
         self.sit_variants = set()
         self.source_profile=None;self.not_applicable=[];self.system_ui=False
         self.snapshot_file_source=None;self.snapshot_digest=None
@@ -230,6 +231,20 @@ class Journey:
                     if actual_lifecycle is not None and value['lifecycle']!=actual_lifecycle:
                         stable_since=None;stable_count=0
                     actual_lifecycle=value['lifecycle'].copy()
+                elif self.restart_backgrounds is not None:
+                    # A real terminating process may persist its final Hidden
+                    # notification. Keep the original count: allow exactly
+                    # that one transition, still require one new launch and
+                    # activation, and restart stability if the source changes.
+                    current_lifecycle=value['lifecycle']
+                    okay=okay and current_lifecycle['backgrounds'] in self.restart_backgrounds
+                    okay=okay and all(current_lifecycle[key]==self.required_lifecycle[key]
+                                      for key in ('launches','activations'))
+                    if actual_lifecycle is not None:
+                        if any(current_lifecycle[key]<actual_lifecycle[key] for key in actual_lifecycle):
+                            raise AssertionError('Original restart lifecycle counters regressed')
+                        if current_lifecycle!=actual_lifecycle:stable_since=None;stable_count=0
+                    actual_lifecycle=current_lifecycle.copy()
                 else:okay=okay and value['lifecycle']==self.required_lifecycle
             witness = None
             if 'peer' in kinds:
@@ -343,7 +358,9 @@ class Journey:
                 # ever sent to the adapter or independent observer process.
                 barrier = number(self.epoch_ms(), 1)
                 self.required_lifecycle = self.lifecycle.copy()
+                self.restart_backgrounds=None
                 if step['verb'] == 'restart-app':
+                    self.restart_backgrounds=(self.lifecycle['backgrounds'],self.lifecycle['backgrounds']+1)
                     self.required_lifecycle['launches'] += 1
                     self.required_lifecycle['activations'] += 1
                 elif step['verb'] == 'background-resume':
@@ -384,7 +401,7 @@ class Journey:
                     ticket = secrets.token_hex(16)
                     self.activate(ticket, 'cleanup', {})
                     barrier = number(self.epoch_ms(), 1)
-                    self.required_lifecycle = None;self.system_ui=False;self.browser_transition=None;self.navigation_required=None
+                    self.required_lifecycle = None;self.restart_backgrounds=None;self.system_ui=False;self.browser_transition=None;self.navigation_required=None
                     self.call('cleanup')
                     # Idempotence must be real. Two acknowledgments alone cannot
                     # establish removal or restoration of the initial state.

@@ -596,6 +596,28 @@ class Boundary:
 
 
 class FeatureJourneys(unittest.TestCase):
+    def test_restart_retains_actual_final_hidden_notification_and_requires_one_launch_activation(self):
+        boundary=Boundary('scripts');original=boundary.reduce
+        def reduce(verb,data):
+            result=original(verb,data)
+            if verb=='restart-app':boundary.lifecycle['backgrounds']+=1
+            return result
+        boundary.reduce=reduce;boundary.execute()
+        samples=[row for row in boundary.reports[0]['samples'] if row['phase'].endswith('-restart-app')]
+        self.assertTrue(samples);self.assertTrue(all(row['lifecycle']['backgrounds']==1 for row in samples))
+        self.assertTrue(boundary.reports[0]['sequenceCompleted'])
+
+    def test_restart_extra_background_launch_or_activation_does_not_pass_common_stability(self):
+        for field,delta in (('backgrounds',2),('launches',1),('activations',1),('activations',-1)):
+            boundary=Boundary('scripts');original=boundary.reduce
+            def reduce(verb,data):
+                result=original(verb,data)
+                if verb=='restart-app':boundary.lifecycle[field]+=delta
+                return result
+            boundary.reduce=reduce
+            with self.subTest(field=field,delta=delta),self.assertRaises(AssertionError):boundary.execute()
+
+
     def test_navigation_actual_empty_query_filtering_cancellation_and_reopen_have_independent_reads(self):
         boundary=Boundary('world-navigation');boundary.execute();samples=boundary.reports[0]['samples']
         query=[s['state'] for s in samples if s['phase'].endswith('-directory-search')]

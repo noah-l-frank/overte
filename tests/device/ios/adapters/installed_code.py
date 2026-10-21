@@ -16,8 +16,8 @@ from adapters.restart_inputs import RestartInputs, validate_native_restart, nati
 from adapters.native_feature_observation import NativeFeatureObservation, number, validate as validate_native
 from adapters.native_process_presence import NativeProcessPresence, validate as validate_presence
 
-VERSION = 3
-READS = (1, 2, 3)
+VERSION = 4
+READS = (1, 2, 3, 4)
 SCOPE = {'sourceRevision', 'artifactSha256', 'sessionId', 'generation', 'targetFingerprint'}
 SDK = {'appium': '3.7.0', 'xcuitest': '12.8.0', 'remoteXpc': '5.15.3'}
 
@@ -64,14 +64,17 @@ class InstalledCodeBinding:
             return None
         fields = {'bindingVersion', 'phase', 'scope', 'source', 'process', 'observation', 'previousInstance'}
         need(type(value) is dict)
-        if value.get('bindingVersion') == 3: fields.add('recovery')
+        if value.get('bindingVersion') in (3, 4): fields.add('recovery')
         need(set(value) == fields
              and type(value['bindingVersion']) is int and value['bindingVersion'] in READS
              and value['scope'] == self.scope and value['phase'] in
              ('preparing', 'bound', 'retiring', 'retired'))
-        if value['bindingVersion'] == 3:
+        if value['bindingVersion'] in (3, 4):
             need(value['recovery'] is None or value['phase'] in ('bound', 'retiring', 'retired'))
-            if value['recovery'] is not None: self._recovery_proof(value)
+            if value['recovery'] is not None:
+                need(type(value['recovery']) is dict)
+                need(value['bindingVersion']!=3 or value['recovery'].get('launchRecoveryVersion')==1)
+                self._recovery_proof(value)
         previous = value['previousInstance']
         need(previous is None or type(previous) is str and re.fullmatch('[0-9a-f]{32}', previous))
         context(dict(value['scope'], processIdentity='1'))
@@ -112,7 +115,7 @@ class InstalledCodeBinding:
     def bind(self):
         previous = self.record()
         need(self.started and previous is not None and previous['phase'] == 'preparing'
-             and previous['bindingVersion'] in (2, VERSION))
+             and previous['bindingVersion'] in (2, 3, VERSION))
         provenance = deepcopy(source(self.process_source()))
         need(provenance == previous['source'])
         process = self.original_process()
@@ -128,7 +131,7 @@ class InstalledCodeBinding:
     def preparing_continuity(self, pid):
         """Read-only continuity for a separately proven recovery readiness read."""
         previous = self.record()
-        need(previous is not None and previous['bindingVersion'] in (2, VERSION) and previous['phase'] == 'preparing'
+        need(previous is not None and previous['bindingVersion'] in (2, 3, VERSION) and previous['phase'] == 'preparing'
              and type(pid) is int and pid > 0 and source(self.process_source()) == previous['source'])
         actual = self.original_process()
         need(actual is not None and actual['pid'] == pid and source(self.process_source()) == previous['source'])
@@ -143,7 +146,7 @@ class InstalledCodeBinding:
     def _recover_prepared(self, inputs, native, presence, ready, monotonic):
         # Explicit restart recovery only; ordinary new-CLI bind still refuses.
         # No SDK input or session creation occurs in this transaction.
-        need(isinstance(inputs, RestartInputs) and inputs.component_only
+        need(isinstance(inputs, RestartInputs)
              and isinstance(native, NativeFeatureObservation) and isinstance(presence, NativeProcessPresence)
              and native.ios and presence.ios and callable(ready) and callable(monotonic))
         started = previous_clock = monotonic(); need(number(started, 0, 1e15))
@@ -152,12 +155,14 @@ class InstalledCodeBinding:
             now = monotonic(); need(number(now, 0, 1e15) and now >= previous_clock and now - started < 30)
             previous_clock = now
         previous = self.record(); intent = inputs.read()
-        need(previous is not None and previous['bindingVersion'] in (2, VERSION) and previous['phase'] == 'preparing'
+        need(previous is not None and previous['bindingVersion'] in (2, 3, VERSION) and previous['phase'] == 'preparing'
              and previous['previousInstance'] is not None
              and intent['phase'] == 'launch-issued' and inputs.store.path.parent == self.store.path.parent
              and intent['oldBinding']['targetFingerprint'] == self.scope['targetFingerprint']
              and intent['oldBinding']['generation'] == self.scope['generation']
              and native.pid == presence.pid and native.pid != intent['oldNative']['pid'])
+        if not inputs.component_only:
+            need(all(intent['oldBinding'][key] == self.scope[key] for key in ('sourceRevision', 'artifactSha256', 'sessionId')))
         bound()
         process = self.preparing_continuity(native.pid); bound()
         def verify(packet):
@@ -178,9 +183,10 @@ class InstalledCodeBinding:
         need(final['instance'] == first['instance'] and final['capturedEpochMs'] >= max(exited['capturedEpochMs'], observed['capturedEpochMs'])
              and self.preparing_continuity(native.pid) == process and inputs.read() == intent
              and self.record() == previous); bound()
-        recovery = dict(launchRecoveryVersion=1, oldBinding=deepcopy(intent['oldBinding']),
+        recovery = dict(launchRecoveryVersion=1 if inputs.component_only else 2, oldBinding=deepcopy(intent['oldBinding']),
             oldNative=deepcopy(intent['oldNative']), firstNative=first, oldProcessAbsent=exited,
             bundleObservation=deepcopy(observed), finalNative=final)
+        if not inputs.component_only: recovery['componentOnly'] = False
         current = dict(previous, bindingVersion=VERSION, phase='bound', process=process, observation=observed, recovery=recovery)
         self._recovery_proof(current)
         self.store.write(current, previous)
@@ -189,11 +195,15 @@ class InstalledCodeBinding:
 
     def _recovery_proof(self, record):
         proof = record['recovery']
-        need(type(proof) is dict and set(proof) == {'launchRecoveryVersion', 'oldBinding',
-            'oldNative', 'firstNative', 'oldProcessAbsent', 'bundleObservation', 'finalNative'}
-            and type(proof['launchRecoveryVersion']) is int and proof['launchRecoveryVersion'] == 1)
+        need(type(proof) is dict and type(proof.get('launchRecoveryVersion')) is int and proof['launchRecoveryVersion'] in (1, 2))
+        component = proof['launchRecoveryVersion'] == 1
+        need(set(proof) == {'launchRecoveryVersion', 'oldBinding',
+            'oldNative', 'firstNative', 'oldProcessAbsent', 'bundleObservation', 'finalNative'} | (set() if component else {'componentOnly'})
+            and (component or proof['componentOnly'] is False))
         old = validate_restart_native(proof['oldNative'])
-        binding = context(proof['oldBinding'], component_only=True)
+        binding = context(proof['oldBinding'], component_only=component)
+        if not component:
+            need(all(binding[key] == self.scope[key] for key in ('sourceRevision', 'artifactSha256', 'sessionId')))
         need(binding['targetFingerprint'] == self.scope['targetFingerprint']
              and binding['generation'] == self.scope['generation']
              and binding['processIdentity'] == str(old['pid']))

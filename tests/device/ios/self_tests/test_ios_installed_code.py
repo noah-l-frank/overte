@@ -38,7 +38,7 @@ class InstalledCodeTests(unittest.TestCase):
 
     def test_preparing_records_original_source_before_launch_and_rejects_replacement_before_bind(self):
         self.binding.begin(); original = self.store.read()
-        self.assertEqual(3, original['bindingVersion']); self.assertEqual(self.source, original['source'])
+        self.assertEqual(4, original['bindingVersion']); self.assertEqual(self.source, original['source'])
         self.source['instance'] = 'e' * 32
         with self.assertRaises(ValueError): self.binding.bind()
         self.assertEqual(original, self.store.read())
@@ -60,6 +60,12 @@ class InstalledCodeTests(unittest.TestCase):
         for action in (self.binding.bind, self.make().bind, self.make().begin, self.make().verify):
             with self.assertRaises(ValueError): action()
         self.assertEqual(1, self.store.read()['bindingVersion']); self.assertIsNone(self.store.read()['source'])
+
+    def test_legacy_v3_bound_proof_remains_readable_without_migration_or_new_launch(self):
+        self.active();current=self.store.read()
+        self.store.write(dict(current,bindingVersion=3),current)
+        self.make().verify();self.assertEqual(3,self.store.read()['bindingVersion'])
+        self.assertIsNone(self.store.read()['recovery'])
 
     def test_retired_source_change_cannot_overwrite_original_owner_with_new_preparing_intent(self):
         self.active(); self.binding.begin_retirement(); self.process = None; self.binding.finish_retirement()

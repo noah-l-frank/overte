@@ -1093,6 +1093,9 @@ class AppiumAdapter:
         fingerprint = hashlib.sha256(json.dumps(target, sort_keys=True,
                                                  separators=(",", ":")).encode()).hexdigest()
         previous_generation = int((state or {}).get("generation", 0))
+        existing_only = getattr(self, '_session_recreation_forbidden', False)
+        if existing_only and (state is None or state.get('targetFingerprint') != fingerprint):
+            fail('Existing iOS session ownership is unavailable; recreation is forbidden')
         if state and state.get("targetFingerprint") != fingerprint:
             try:
                 client.call("DELETE", f"/session/{state['sessionId']}")
@@ -1109,11 +1112,15 @@ class AppiumAdapter:
                     self.save_session(selector, state)
                 return client, state["sessionId"], state
             except RuntimeError:
+                if existing_only:
+                    fail('Existing iOS session was lost; recreation is forbidden')
                 try:
                     client.call("DELETE", f"/session/{state['sessionId']}")
                 except (OSError, RuntimeError, ValueError):
                     pass
                 self.state_path(selector).unlink(missing_ok=True)
+        if existing_only:
+            fail('Existing iOS session cannot be replaced')
         if self.platform == "ios":
             self.validate_ios_artifact_receipt(target, hash_files=True)
             self.install_receipt_bound_ios_apps(target)

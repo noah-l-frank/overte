@@ -202,10 +202,12 @@ class IOSNativeMixin:
         observer = FeatureObservation(native.client, native.session, native.target, native.observe_process)
         return binding, observer.native_observer()
 
-    def _script_restart_session(self, selector):
+    def _script_restart_session(self, selector, *, inputs=None):
         # An existing session only: do not create/launch/install while checking
         # the stopped side of the restart boundary.
-        origin = self._script_restart_inputs(selector).read()['oldBinding']
+        inputs = self._script_restart_inputs(selector) if inputs is None else inputs
+        need(isinstance(inputs, RestartInputs))
+        origin = inputs.read()['oldBinding']
         target = self.target(selector); state = self.read_session(selector)
         need(state is not None and type(state.get('sessionId')) is str
              and state.get('generation') == origin['generation']
