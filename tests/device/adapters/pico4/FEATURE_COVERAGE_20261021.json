@@ -515,7 +515,10 @@
         "tests/device/adapters/graphics_journey/source_history.py",
         "tests/device/adapters/pico4/GRAPHICS_PREFERENCES_OWNER.md",
         "tests/device/adapters/graphics_journey/originals.py",
-        "tests/device/adapters/pico4/GRAPHICS_ORIGINALS.md"
+        "tests/device/adapters/pico4/GRAPHICS_ORIGINALS.md",
+        "tests/device/adapters/graphics_journey/samples.py",
+        "tests/device/adapters/graphics_journey/measurements.py",
+        "tests/device/adapters/pico4/GRAPHICS_SAMPLES.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -539,8 +542,8 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole feature coordinator joining the source-implemented normal VR surface, durable scene owner v3 and durable native preference owner v3; a different camera mode needs actual View-menu input, and the separate restart-only Pico swapchain setting is outside this generic path.",
-        "Role/process sample producer joining the source-implemented durable original PNG/native JSON owner and independent both-eye challenge/effect verifier to original native transitions, complete resource inventories and every immutable file-intent history.",
-        "Independent Graphics actor/publication and source-specific persistence/background/restart adoption with original old-PID ESRCH and retained ownership.",
+        "Whole observer/coordinator composition of the source-implemented role/process sample producer v4, paired original files, native receipt retirement and independent both-eye effects; no full Graphics public or actor operation is registered.",
+        "Independent Graphics actor/publication and source-specific persistence/background/restart adoption with original old-PID ESRCH; native framework IDs must use the separately observed new-process baseline after restart rather than equating IDs from the dead process.",
         "Complete actual UI/QML/XHR/reply/scene/Web-renderer/capture retirement and three-second quiet restoration across both roles; original scene/avatar/framework restoration policy is now source-implemented and host verified."
       ],
       "requiredOriginalEvidence": [
@@ -563,7 +566,7 @@
         "Restore original scene/view and independently observe complete owned UUID absence",
         "Restore original avatar feet/orientation/scale and framework configuration while checking the current physical HMD/camera relation; never demand a fixed Phone head pose or ignore arbitrary local/custom-pointer entities"
       ],
-      "nextExecutableStep": "Join the durable scene/preference owners to original PNG+native JSON ownership, role/process sampling and both-eye effect observations; then compose the independent actor, normal background/restart and actual UI/HTTP/Web-renderer/capture quiet retirement before registering the full Graphics triple.",
+      "nextExecutableStep": "Compose the existing scene/preferences and role/process sampler into the complete Graphics observer/effect/actor transaction. Add normal background/restart with original exit proof and a separately pinned new-process native framework baseline, then join actual UI/HTTP/Web-renderer/capture quiet retirement before registering the full triple.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

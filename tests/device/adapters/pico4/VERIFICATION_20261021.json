@@ -822,5 +822,47 @@
       "The updated analytical full-journey camera fixture initially retained its former recording pose while moving its original camera view to authored world y=1.6. The existing native-source validation rejected it; the fixture now retains the consistent original recording pose/projection as well. No validation or deadline was relaxed."
     ],
     "limits": "Authored-scene/HTTP/head binding and literal host pixels only; not native compilation, VR/device qualification or a complete Graphics producer/coordinator."
+  },
+  "graphicsSamplesPacket": {
+    "contracts": [
+      "graphics-journey-samples v4",
+      "graphics-journey-measurements v1"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_samples (from tests/device)",
+        "tests": 11,
+        "status": "passed",
+        "durationSeconds": 9.671
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test suite-runner --test coverage-matrix",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 26.3,
+        "junit": "graphics-samples-owning.xml"
+      },
+      {
+        "command": "python3 -m unittest test_graphics_capture (from android/vr/pico/tests/device)",
+        "tests": 4,
+        "status": "passed",
+        "durationSeconds": 2.65
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.53,
+        "junit": "graphics-samples-project.xml"
+      }
+    ],
+    "limits": "Synthetic native/renderer/OS boundaries. No full public Graphics/actor operation, background/restart, new-process framework restoration or UI/HTTP/Web/capture quiet retirement is supplied by this sampler. Source-level role transactions and independent common verifier interoperability do not qualify devices or native timing."
   }
 }

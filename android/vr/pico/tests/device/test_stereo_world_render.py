@@ -11,5 +11,6 @@ from self_tests.test_stereo_camera_uniforms import StereoCameraUniformTests
 from self_tests.test_stereo_graphics_pixels import StereoGraphicsPixelTests
 from self_tests.test_stereo_graphics_evidence import StereoGraphicsEvidenceTests
 from self_tests.test_graphics_originals import GraphicsOriginalTests
+from self_tests.test_pico_graphics_samples import PicoGraphicsSampleTests
 
 if __name__=='__main__':unittest.main()

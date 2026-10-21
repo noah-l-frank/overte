@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "graphics-journey-samples": {"current": 4, "reads": [4]},
+    "graphics-journey-measurements": {"current": 1, "reads": [1]},
     "graphics-journey-originals": {"current": 1, "reads": [1]},
     "graphics-journey-preferences": {"current": 3, "reads": [3]},
     "graphics-journey-source-history": {"current": 1, "reads": [1]},

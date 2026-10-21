@@ -25,6 +25,14 @@ class PicoGraphicsBinding(PicoScriptJourney):
         need(type(read_only) is bool);self._guard(target)
         return self.original._scene_load_observer(target)
 
+    def _graphics_ui_observer(self,target,*,read_only=False):
+        need(type(read_only) is bool);self._guard(target)
+        return self.original._graphics_ui_observer(target)
+
+    def _script_file_io(self,target,*,read_only=False):
+        need(type(read_only) is bool)
+        return super()._script_file_io(target)
+
     def _graphics_surface(self,target,run,intent,owns,lease,allow_url,*,lock):
         self._lock(target,lock).assert_held();self._guard(target)
         return self.original._graphics_surface(target,run,intent,owns,lease,allow_url)

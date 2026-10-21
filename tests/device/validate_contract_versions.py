@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "graphics-journey-samples": 4,
+    "graphics-journey-measurements": 1,
     "graphics-journey-originals": 1,
     "graphics-journey-preferences": 3,
     "graphics-journey-source-history": 1,

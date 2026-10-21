@@ -371,3 +371,16 @@ cannot qualify a differently colored/moved scene, wrong Zone haze or absent/late
 HTTP delivery. Its analytical full-journey image fixture now uses the actual
 authored scene and independently derived literal eye rectangles; the lower-level
 projection reducer retains its separate general-geometry counterexamples.
+
+
+## Complete role/process sample transaction
+
+The [stereo sample producer](GRAPHICS_SAMPLES.md) now joins actual native/UI/
+subject/GPU sources, both original files and complete native memory/receipt
+retirement under one durable role transaction. Source-floor recreation, separate
+actor files, external common-verifier interoperability, stale-marker rejection,
+lost metadata commit, unknown candidate and ignored cleanup counterexamples are
+host verified. Archives remain historical; only fresh live samples can return
+current facts. The full observer/effects/actor/background/restart and actual
+UI/HTTP/Web-renderer quiet coordinator are still missing. Restart also needs an
+explicit new-process framework baseline after verified original PID death.
