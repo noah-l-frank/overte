@@ -1,9 +1,9 @@
-# Phone Emote primary/actor namespace lease, version 1
+# Phone Emote primary/actor namespace lease, version 2
 
 `PhoneEmoteNamespaces` coordinates bounded source/input journal rollover through
 the existing held source lock. It does not dispatch input, read target native
 sources, publish facts or establish whole-run cleanup. The enclosing complete
-Emote coordinator and lease retirement remain pending. No full feature
+Emote coordinator and whole-run retirement remain pending. No full feature
 capability is advertised. Native source remains uncompiled; devices are untested.
 
 Construct with a real current `PhoneEmoteSources` for either role. Its actual
@@ -12,9 +12,9 @@ bind the lease. The actual path is `phone-emote-namespaces.json` beside the
 existing source control files. General Phone cleanup refuses success while it
 remains, even after a successful base cleanup ACK.
 
-The closed outer record contains `emoteNamespacesVersion:1`, `runId`,
+The closed outer record contains `emoteNamespacesVersion:2`, `runId`,
 `fixtureUrl`, `artifactRoot`, `binding`, `payload`. The existing bounded packed
-payload contains exactly one `{current,closed,pending}` state. `current` is
+payload contains exactly one `{current,closed,pending,cleanup}` state. `current` is
 0..15; `closed` has exactly that many records, in segment order. Each closed
 record has `{segment,call,roles}`. `pending` is null or
 `{call,inputsSha256,roles}`; roles are exactly `primary` and `actor`. Pending
@@ -73,8 +73,9 @@ new input control journal before use; this is no synthetic input ACK. New active
 inputs obtain new role-local playback references. Original closed namespaces
 and checkpoint artifacts stay owned until verified full retirement. This lease
 does not prove browser/GPU/native timer absence or authorize deleting evidence.
-Incomplete handshakes remain errors, not successful empty cleanup. The owner
-must integrate cleanup-phase recovery and exact retained retirement before
+Incomplete handshakes are retained as aborted handshakes by cleanup version 2;
+they never become successful namespace advances. The owner must integrate the
+cleanup input, timer, scene, image, actor and whole-run retirement checks before
 enabling complete Emote capabilities.
 
 Each request/acknowledgment/advance has a five-second monotonic bound, in addition
@@ -82,3 +83,53 @@ to the existing source lock, private-file and fixture limits. Host counterexampl
 exercise independent originals, stale/foreign phases, cached fake inactivity,
 saved fake native statistics, open scopes, missing files, closed-header changes,
 ignored/lost commits and slow guards. They qualify test logic only.
+
+
+## Cleanup and retained metadata retirement
+
+Version 2 reads original version 1 headers without rewriting them. Its next
+explicit state write upgrades the header and adds `cleanup:null`. It neither
+truncates unresolved version 1 work nor changes source/input wire formats.
+
+`begin_cleanup()` is primary-only in the lease's actual current namespace and
+requires the real fixture `cleanup` activation with empty inputs. It atomically
+moves the exact original partial handshake into
+`cleanup:{ticket,pending,headers,inputsSha256}` and clears the active `pending`.
+`headers` contains each role's actual original current control header or null;
+inputsSha256 hashes the actual current normal-input header, including absence.
+Frozen acknowledgments must match those actual original headers exactly. An
+unacknowledged/missing actor remains explicitly unacknowledged; current never
+advances as part of abort. A lost committed return is recovered by reconstruction
+and the same actual cleanup ticket, not a second transition.
+
+Every later lease guard reopens the retained frozen header's original manifests
+and frames. Saved acknowledgment statistics are recomputed from those originals;
+current role transcripts must retain their exact immutable frame prefixes. The
+original current input digest and all earlier closed source/input headers stay
+unchanged. Content-addressed manifests allow new cleanup frames while the old
+prefix manifests remain intact. Deleted/replaced originals, changed inputs or
+truncated/current foreign transcripts fail without dropping lease responsibility.
+`assert_acquiring()` permits current role acquisitions after the abort only while
+the actual same cleanup activation remains current. Normal inputs, advance and
+late ordinary publication cannot reopen cleanup mode.
+
+`retire(retain)` removes only this lease's metadata after transferring its exact
+original proof. The callback must persist the complete packet before returning;
+a false/failed callback retains the lease. The packet is
+`{emoteNamespaceRetirementVersion:1,header,headers,roles}` with original lease and
+both current role source headers plus independently recomputed native statistics.
+Both current streams must exist, be ready, independently observe the same actual
+cleanup ticket, and be no older than 1.5 seconds. Native override must be inactive;
+the tablet and chooser controls must actually be absent. Native/source identity,
+call cursors, lifecycle and input digest must agree across roles. Open observation
+or GPU scopes block retirement. The callback cannot replace those measurements.
+
+After transfer, the module reopens/verifies all originals and repeats the current
+retirement calculation before discarding exactly its own control file. Slow
+callbacks, changed originals, ignored deletion or a late source acquisition
+prevent success. The five-second monotonic bound remains in force. This is a
+metadata handoff, not proof of timer/browser/view or whole-run file cleanup.
+Source and normal-input headers, originals and all other ownership remain intact.
+The enclosing run owner must retain the proof and remove those resources through
+its own verified retirement plan; it must also retain the run tombstone needed
+to distinguish a committed lost retirement return from a new run.

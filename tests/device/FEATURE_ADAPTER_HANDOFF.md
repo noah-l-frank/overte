@@ -16,6 +16,11 @@ here. Pico/iOS adapters are maintained in separate sessions/worktrees; this Phon
 checkout does not establish their current implementation status. No native build or device
 qualification has been performed here.
 
+The [Phone namespace lease v2](adapters/android-phone/EMOTE_NAMESPACE_LEASE.md)
+now preserves aborted partial freezes and both roles' original headers under the
+actual cleanup ticket. Verified metadata retirement transfers the original proof
+before removing the lease; whole-run resource/file retirement remains separate.
+
 The [Phone cleanup input owner v1](adapters/android-phone/EMOTE_CLEANUP_INPUTS.md)
 now uses actual cleanup activations and the same ordinary Qt/SDK transport as
 normal inputs. It observes lost delivery returns without replay, verifies the

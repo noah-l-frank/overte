@@ -165,5 +165,148 @@ class EmoteNamespacesTests(unittest.TestCase):
                 with self.subTest(verb=verb),self.assertRaises(NativeUIError):lease.request(call)
                 self.assertIsNone(lease.store.read())
 
+    def cleanup_phase(self):self.model.journal.activate(self.model.source().run,'a'*32,'cleanup',{})
+
+    def cleanup_frames(self):
+        m=self.model;m.widgets.tablet=False;m.widgets.page=False;m.widgets.active=''
+        primary=m.source();PhoneEmoteNamespaces(primary).assert_acquiring();primary.read()
+        actor=m.source('actor');PhoneEmoteNamespaces(actor).assert_acquiring();actor.read()
+        return m.source()
+
+    def test_partial_freeze_cleanup_preserves_actual_one_role_originals_without_advancing(self):
+        m=self.model
+        with m.lock.held():
+            primary,_call=self.requested();lease=PhoneEmoteNamespaces(primary);lease.acknowledge()
+            frozen=deepcopy(primary.previous);pending=deepcopy(lease.state['pending']);self.cleanup_phase()
+            lease.begin_cleanup();self.assertEqual(0,lease.state['current']);self.assertIsNone(lease.state['pending'])
+            self.assertEqual(pending,lease.state['cleanup']['pending'])
+            self.assertEqual(frozen,lease.state['cleanup']['headers']['primary'])
+            self.assertIsNone(lease.state['cleanup']['pending']['roles']['actor'])
+            lease.assert_acquiring();primary.read();restored=PhoneEmoteNamespaces(primary);restored.assert_acquiring()
+            self.assertEqual(frozen,restored.state['cleanup']['headers']['primary']);self.assertEqual(0,restored.state['current'])
+            with self.assertRaises(NativeUIError):restored.advance()
+
+    def test_cleanup_requires_real_cleanup_phase_and_exact_original_pending_headers(self):
+        m=self.model
+        with m.lock.held():
+            primary,_call=self.requested();lease=PhoneEmoteNamespaces(primary);lease.acknowledge()
+            with self.assertRaises(NativeUIError):lease.begin_cleanup()
+            primary.read();self.cleanup_phase();lease=PhoneEmoteNamespaces(primary)
+            with self.assertRaises(NativeUIError):lease.begin_cleanup()
+            self.assertIsNone(lease.state['cleanup']);self.assertIsNotNone(lease.store.read())
+
+    def test_cleanup_lease_retirement_retains_originals_before_discarding_only_lease_metadata(self):
+        m=self.model
+        with m.lock.held():
+            primary,_actor,_call=self.frozen();self.cleanup_phase();lease=PhoneEmoteNamespaces(primary);lease.begin_cleanup()
+            primary=self.cleanup_frames();lease=PhoneEmoteNamespaces(primary);retained=[]
+            result=lease.retire(lambda value:retained.append(value))
+            self.assertEqual([result],retained);self.assertIsNone(lease.store.read())
+            self.assertIsNotNone(primary.store.read());self.assertTrue((m.root/'phone-emote-inputs.json').exists())
+            self.assertEqual(0,unpack(result['header']['payload'])[0]['current'])
+            self.assertEqual({'primary','actor'},set(result['roles']))
+
+    def test_absent_actor_or_open_ui_cannot_be_retired_after_partial_cleanup(self):
+        m=self.model
+        with m.lock.held():
+            primary,_call=self.requested();self.cleanup_phase();lease=PhoneEmoteNamespaces(primary);lease.begin_cleanup()
+            primary.read();retained=[]
+            with self.assertRaises(NativeUIError):lease.retire(lambda value:retained.append(value))
+            actor=m.source('actor');actor.read();lease=PhoneEmoteNamespaces(primary)
+            with self.assertRaises(NativeUIError):lease.retire(lambda value:retained.append(value))
+            self.assertEqual([],retained);self.assertIsNotNone(lease.store.read())
+
+    def test_rejected_or_ignored_retirement_transfer_keeps_lease_and_all_originals(self):
+        m=self.model
+        with m.lock.held():
+            primary,_actor,_call=self.frozen();self.cleanup_phase();PhoneEmoteNamespaces(primary).begin_cleanup()
+            primary=self.cleanup_frames();lease=PhoneEmoteNamespaces(primary)
+            with self.assertRaises(NativeUIError):lease.retire(lambda _:False)
+            self.assertIsNotNone(lease.store.read())
+            with patch.object(lease.store,'discard',return_value=None),self.assertRaises(NativeUIError):lease.retire(lambda _:True)
+            self.assertIsNotNone(lease.store.read());self.assertIsNotNone(primary.store.read())
+
+    def test_deleted_frozen_original_or_truncated_current_prefix_cannot_be_hidden_after_cleanup(self):
+        m=self.model
+        with m.lock.held():
+            primary,_actor,_call=self.frozen();self.cleanup_phase();lease=PhoneEmoteNamespaces(primary);lease.begin_cleanup()
+            primary=self.cleanup_frames();lease=PhoneEmoteNamespaces(primary)
+            frozen=lease.state['cleanup']['headers']['primary'];state=unpack(frozen['payload'])[0]
+            reference=primary.originals.manifest(state['manifests'][0])[0]
+            primary.originals.path(primary.originals.expand(reference)).unlink()
+            with self.assertRaises(FileNotFoundError):PhoneEmoteNamespaces(primary)
+            self.assertIsNotNone(lease.store.read())
+
+    def test_actor_cannot_begin_cleanup_or_retire_the_run_wide_lease(self):
+        m=self.model
+        with m.lock.held():
+            primary,actor,_call=self.frozen();self.cleanup_phase()
+            with self.assertRaises(NativeUIError):PhoneEmoteNamespaces(actor).begin_cleanup()
+            PhoneEmoteNamespaces(primary).begin_cleanup();self.cleanup_frames();actor=m.source('actor')
+            with self.assertRaises(NativeUIError):PhoneEmoteNamespaces(actor).retire(lambda _:True)
+
+    def test_normal_acquisition_and_new_action_cannot_reopen_cleanup_mode(self):
+        m=self.model
+        with m.lock.held():
+            primary,call=self.requested();self.cleanup_phase();lease=PhoneEmoteNamespaces(primary);lease.begin_cleanup()
+            m.call('play',dict(name='Crying'))
+            with self.assertRaises(NativeUIError):lease.assert_acquiring()
+            with self.assertRaises(NativeUIError):lease.request(call)
+            self.assertIsNotNone(lease.store.read())
+
+    def test_legacy_v1_freeze_is_read_without_rewrite_and_upgraded_on_explicit_cleanup(self):
+        m=self.model
+        with m.lock.held():
+            primary,_call=self.requested();lease=PhoneEmoteNamespaces(primary);value=lease.store.read()
+            state=unpack(value['payload'])[0];state.pop('cleanup');value.update(emoteNamespacesVersion=1,payload=pack([state]))
+            lease.store.write(value,lease.previous);restored=PhoneEmoteNamespaces(primary)
+            self.assertEqual(value,restored.store.read());self.assertIsNone(restored.state['cleanup'])
+            self.cleanup_phase();restored.begin_cleanup();self.assertEqual(2,restored.store.read()['emoteNamespacesVersion'])
+
+    def test_slow_retention_or_modified_sources_after_retention_cannot_lose_the_lease(self):
+        m=self.model
+        with m.lock.held():
+            primary,_actor,_call=self.frozen();self.cleanup_phase();PhoneEmoteNamespaces(primary).begin_cleanup()
+            primary=self.cleanup_frames();lease=PhoneEmoteNamespaces(primary)
+            def late(_):m.clock+=6
+            with self.assertRaises(NativeUIError):lease.retire(late)
+            self.assertIsNotNone(lease.store.read());lease=PhoneEmoteNamespaces(primary)
+            with self.assertRaises(NativeUIError):lease.retire(lambda _:primary.read())
+            self.assertIsNotNone(lease.store.read())
+
+    def test_cleanup_after_completed_rollover_keeps_closed_headers_and_uses_current_segment(self):
+        m=self.model
+        with m.lock.held():
+            primary,actor,_call=self.frozen();PhoneEmoteNamespaces(primary).advance();old=deepcopy((primary.previous,actor.previous))
+            current=m.source(segment=1);self.cleanup_phase();lease=PhoneEmoteNamespaces(current);lease.begin_cleanup()
+            m.widgets.tablet=False;m.widgets.page=False
+            PhoneEmoteNamespaces(current).assert_acquiring();current.read()
+            actor=m.source('actor',segment=1);PhoneEmoteNamespaces(actor).assert_acquiring();actor.read()
+            lease=PhoneEmoteNamespaces(current);retained=[];lease.retire(lambda value:retained.append(value))
+            self.assertEqual(1,len(unpack(retained[0]['header']['payload'])[0]['closed']))
+            self.assertEqual(old,(m.source().previous,m.source('actor').previous))
+
+    def test_stale_cleanup_frames_and_changed_inputs_prevent_lease_retirement(self):
+        m=self.model
+        with m.lock.held():
+            primary,_actor,_call=self.frozen();self.cleanup_phase();PhoneEmoteNamespaces(primary).begin_cleanup()
+            primary=self.cleanup_frames();lease=PhoneEmoteNamespaces(primary);m.epoch+=1600
+            with self.assertRaises(NativeUIError):lease.retire(lambda _:True)
+            self.assertIsNotNone(lease.store.read())
+            store=PhoneEmoteInputs(primary).store;old=store.read();changed=deepcopy(old);changed['runId']='f'*32;store.write(changed,old)
+            with self.assertRaises(NativeUIError):PhoneEmoteNamespaces(primary)
+
+    def test_lost_committed_cleanup_release_is_reconstructed_without_a_namespace_advance(self):
+        m=self.model
+        with m.lock.held():
+            primary,_call=self.requested();lease=PhoneEmoteNamespaces(primary);lease.acknowledge();self.cleanup_phase()
+            write=lease.store.write
+            def lost(value,previous):write(value,previous);raise RuntimeError('Synthetic committed cleanup return lost')
+            with patch.object(lease.store,'write',side_effect=lost),self.assertRaises(RuntimeError):lease.begin_cleanup()
+            restored=PhoneEmoteNamespaces(primary);restored.begin_cleanup();restored.assert_acquiring()
+            self.assertEqual(0,restored.state['current']);self.assertIsNone(restored.state['pending'])
+            self.assertIsNotNone(restored.state['cleanup']['pending']['roles']['primary'])
+            self.assertIsNone(restored.state['cleanup']['pending']['roles']['actor'])
+
 
 if __name__=='__main__':unittest.main()

@@ -17,7 +17,7 @@ from overte_phone_emote_sources import PhoneEmoteSources,source_name,MAX_SEGMENT
 from overte_phone_emote_inputs import PhoneEmoteInputs,input_name
 from overte_phone_script_history import canonical,pack,unpack,same
 
-VERSION=1
+VERSION=2
 ROLES=('primary','actor')
 PROOF={'sourcesSha256','inputsSha256','sourceIdentitySha256','frame','nativeInstance','rigId','historyInstance',
        'callSequence','overrideSequence','lifecycle'}
@@ -44,7 +44,7 @@ class PhoneEmoteNamespaces:
         source.lock.assert_held();self.source=source;self.run=source.run;self.binding=deepcopy(context(source.binding))
         self.store=PrivateFeatureState(source.store.path.with_name('phone-emote-namespaces.json'))
         self.previous=self.store.read();self.failed=False;self.started=self.clock=None
-        self.state=dict(current=0,closed=[],pending=None)
+        self.state=dict(current=0,closed=[],pending=None,cleanup=None)
         if self.previous is not None:self.state=self.decode(self.previous)
         self.bound();self.verify_closed();self.bound()
 
@@ -73,11 +73,13 @@ class PhoneEmoteNamespaces:
 
     def decode(self,value):
         exact(value,{'emoteNamespacesVersion','runId','fixtureUrl','artifactRoot','binding','payload'})
-        need(type(value['emoteNamespacesVersion']) is int and value['emoteNamespacesVersion']==VERSION
+        need(type(value['emoteNamespacesVersion']) is int and value['emoteNamespacesVersion'] in (1,VERSION)
             and value['runId']==self.run and value['fixtureUrl']==self.source.phase.fixture_url
             and value['artifactRoot']==str(self.source.artifact_root) and same(value['binding'],self.binding))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'current','closed','pending'})
+        exact(state,{'current','closed','pending'}|({'cleanup'} if value['emoteNamespacesVersion']==VERSION else set()))
+        state=deepcopy(state)
+        if value['emoteNamespacesVersion']==1:state['cleanup']=None
         need(integer(state['current'],0,MAX_SEGMENTS-1) and type(state['closed']) is list
             and len(state['closed'])==state['current'])
         for index,row in enumerate(state['closed']):
@@ -93,6 +95,18 @@ class PhoneEmoteNamespaces:
             for role in ROLES:
                 if pending['roles'][role] is not None:
                     self.proof(pending['roles'][role]);need(pending['roles'][role]['inputsSha256']==pending['inputsSha256'])
+        cleanup=state['cleanup']
+        if cleanup is not None:
+            exact(cleanup,{'ticket','pending','headers','inputsSha256'})
+            need(pending is None and type(cleanup['ticket']) is str and len(cleanup['ticket'])==32
+                and all(ch in '0123456789abcdef' for ch in cleanup['ticket']) and sha(cleanup['inputsSha256']))
+            exact(cleanup['headers'],ROLES)
+            if cleanup['pending'] is not None:
+                # Reuse the unchanged v1 handshake validator. An aborted
+                # one-role freeze never becomes a completed two-role advance.
+                normal=deepcopy(value);copy=deepcopy(state);copy.update(pending=deepcopy(cleanup['pending']),cleanup=None)
+                normal['emoteNamespacesVersion']=VERSION;normal['payload']=pack([copy]);self.decode(normal)
+                need(cleanup['pending']['inputsSha256']==cleanup['inputsSha256'])
         return deepcopy(state)
 
     @staticmethod
@@ -127,8 +141,9 @@ class PhoneEmoteNamespaces:
             and not list(root.glob('phone-emote-'+role+'-observation-*.json')))
 
     def assert_acquiring(self):
-        self.bound();self.verify_closed();need(self.source.segment==self.state['current']
-            and (self.state['pending'] is None or self.state['pending']['roles'][self.source.role] is None))
+        self.bound();self.verify_closed();need(self.source.segment==self.state['current'])
+        if self.state['cleanup'] is not None:self.cleanup_status(self.state['cleanup']['ticket'])
+        else:need(self.state['pending'] is None or self.state['pending']['roles'][self.source.role] is None)
 
     def verify_closed(self):
         """Closed control headers remain frozen until enclosing retirement."""
@@ -139,6 +154,30 @@ class PhoneEmoteNamespaces:
                 header=PrivateFeatureState(self.store.path.with_name(source_name(role,row['segment']))).read()
                 need(header is not None and digest(header)==row['roles'][role]['sourcesSha256']
                     and digest(inputs)==row['roles'][role]['inputsSha256'])
+        self.verify_cleanup()
+
+    def archive(self,header):
+        return PhoneEmoteSources.archive(header,phase=self.source.phase,artifact_root=self.source.artifact_root,
+            binding=self.binding,guard=self.bound,monotonic=self.source.monotonic)
+
+    def verify_cleanup(self):
+        cleanup=self.state['cleanup']
+        if cleanup is None:return
+        inputs=PrivateFeatureState(self.store.path.with_name(input_name(self.state['current']))).read()
+        need(digest(inputs)==cleanup['inputsSha256'])
+        for role in ROLES:
+            header=cleanup['headers'][role]
+            proof=cleanup['pending']['roles'][role] if cleanup['pending'] is not None else None
+            current=PrivateFeatureState(self.store.path.with_name(source_name(role,self.state['current']))).read()
+            if header is None:need(proof is None);continue
+            need(header.get('role')==role)
+            state,frames=self.archive(header)
+            if proof is not None:
+                need(state['phase']=='ready' and state['pending'] is None and bool(frames)
+                    and same(self.measured(header,frames,cleanup['inputsSha256']),proof))
+            need(current is not None and current.get('role')==role)
+            _state,continued=self.archive(current)
+            need(len(continued)>=len(frames) and same(continued[:len(frames)],frames))
 
     def originals(self):
         source=self.source;need(not source.failed and source.state['phase']=='ready' and source.state['pending'] is None)
@@ -158,7 +197,8 @@ class PhoneEmoteNamespaces:
     def request(self,call):
         """Reserve a switch before an ordinary new play/Sit, never before abort."""
         self.bound();call=deepcopy(self.call(call));source=self.source
-        need(source.role=='primary' and source.segment==self.state['current'] and self.state['current']<MAX_SEGMENTS-1)
+        need(self.state['cleanup'] is None and source.role=='primary'
+            and source.segment==self.state['current'] and self.state['current']<MAX_SEGMENTS-1)
         self.active(call)
         owner=PhoneEmoteInputs(source);need(owner.previous is not None and owner.history_state['pendingArchive'] is None
             and (owner.state['current'] is None or owner.state['current']['phase']=='acknowledged'))
@@ -213,3 +253,66 @@ class PhoneEmoteNamespaces:
         self.state['closed'].append(dict(segment=self.state['current'],call=deepcopy(pending['call']),roles=deepcopy(pending['roles'])))
         self.state['current']+=1;self.state['pending']=None;self.save()
         return self.state['current']
+
+    def cleanup_status(self,ticket=None):
+        status=self.source.phase.status();need(status['active'] and status['activations'])
+        row=status['activations'][-1]
+        need(row['stimulus']==dict(verb='cleanup',inputs={}) and (ticket is None or row['ticket']==ticket))
+        return row['ticket']
+
+    @bounded
+    def begin_cleanup(self):
+        """Release only this incomplete freeze under the real cleanup ticket.
+
+        Original frozen headers and the actual partial handshake stay owned;
+        current sources may append new cleanup originals without redating them.
+        """
+        need(self.source.role=='primary' and self.source.segment==self.state['current'])
+        ticket=self.cleanup_status()
+        if self.state['cleanup'] is not None:
+            need(self.state['cleanup']['ticket']==ticket);return
+        headers={role:PrivateFeatureState(self.store.path.with_name(source_name(role,self.state['current']))).read() for role in ROLES}
+        inputs=PrivateFeatureState(self.store.path.with_name(input_name(self.state['current']))).read()
+        pending=self.state['pending']
+        if pending is not None:
+            need(digest(inputs)==pending['inputsSha256'])
+            for role in ROLES:
+                if pending['roles'][role] is not None:
+                    need(headers[role] is not None and digest(headers[role])==pending['roles'][role]['sourcesSha256'])
+        self.state['cleanup']=dict(ticket=ticket,pending=deepcopy(pending),headers=deepcopy(headers),inputsSha256=digest(inputs))
+        self.state['pending']=None;self.save();self.verify_cleanup()
+
+    def retirement(self):
+        need(self.state['cleanup'] is not None)
+        ticket=self.cleanup_status(self.state['cleanup']['ticket']);headers={};roles={}
+        inputs=PrivateFeatureState(self.store.path.with_name(input_name(self.state['current']))).read()
+        for role in ROLES:
+            self.no_scopes(role)
+            header=PrivateFeatureState(self.store.path.with_name(source_name(role,self.state['current']))).read()
+            need(header is not None and header.get('role')==role);state,frames=self.archive(header)
+            need(state['phase']=='ready' and state['pending'] is None and frames)
+            frame=frames[-1]
+            need(frame['ui']['open'] is False and not frame['ui']['controls'])
+            for key in ('phaseBefore','phaseAfter'):
+                phase=frame[key]['activations'][-1]
+                need(phase['ticket']==ticket and phase['stimulus']==dict(verb='cleanup',inputs={}))
+            now=self.source.phase.epoch_ms();need(number(now,1,1e15) and -250<=now-frame['hostEpochMs']<=1500)
+            roles[role]=self.measured(header,frames,digest(inputs));headers[role]=header
+        self.same_native(roles)
+        return dict(emoteNamespaceRetirementVersion=1,header=deepcopy(self.previous),headers=headers,roles=roles)
+
+    def retire(self,retain):
+        """Transfer original lease proof before removing only its metadata.
+
+        This is not whole-run resource or file retirement. Source originals and
+        input ownership deliberately remain for the enclosing cleanup owner.
+        """
+        need(callable(retain) and self.source.role=='primary' and self.source.segment==self.state['current'] and self.previous is not None)
+        need(self.started is None);self.started=self.source.monotonic()
+        try:
+            self.bound();self.verify_closed();original=self.retirement()
+            need(retain(deepcopy(original)) is not False);self.bound();self.verify_closed()
+            need(same(self.retirement(),original));self.bound()
+            self.store.discard(self.previous);need(self.store.read() is None);self.previous=None;self.bound()
+            return deepcopy(original)
+        finally:self.started=None
