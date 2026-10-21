@@ -1,4 +1,4 @@
-# Android Phone Authentication feature v1, shared contract v16
+# Android Phone Authentication feature v1, shared contract v17
 
 The existing Phone Appium entrypoint implements
 `feature.authentication.act/observe/cleanup`. Normal inputs, causal native

@@ -12,6 +12,7 @@ import json
 from adapters.emote_rig_measurements import playback, source
 from adapters.native_animation_history import moving_pose
 from adapters.native_feature_observation import exact, integer, need, number
+from adapters.normal_ui import NativeUIError
 from .contract import arguments, identifier, typed_equal, json_document
 from .phase_fixture import validate as phase_packet
 
@@ -37,10 +38,18 @@ def packet(call, before, after, *, role):
     return raw
 
 
-def read(raw, *, call, role, epoch, state):
+def read(raw, *, call, role, epoch, captured, state):
+    try:
+        return _read(raw, call=call, role=role, epoch=epoch, captured=captured, state=state)
+    except (ValueError, NativeUIError, KeyError, TypeError) as error:
+        raise AssertionError('Original native Emote motion evidence is invalid') from error
+
+
+def _read(raw, *, call, role, epoch, captured, state):
     need(type(raw) is bytes and 0 < len(raw) <= LIMIT)
     value = json_document(raw)
     result = measure(value, call=call, role=role, epoch=epoch)
+    need(type(captured) in (int, float) and captured == value['after']['hostEpochMs'])
     need(type(state) is dict and FACTS <= state.keys()
          and typed_equal({key: state[key] for key in FACTS}, result['state']))
     return {key: item for key, item in result.items() if key != 'state'}
@@ -92,8 +101,12 @@ def measure(value, *, call, role, epoch):
     need(request['loop'] is False and request['framesPerSecond'] == 60.)
     nominal = 1000 * (request['lastFrame'] - request['firstFrame']) / request['framesPerSecond']
     required = max(150., min(500., nominal / 4))
+    # A longer clip may retain an older valid prefix in the bounded history.
+    # Retain/validate it above, but qualify the window from fresh originals only.
+    age = max(0., epoch - after['hostEpochMs'])
     frames = [row for row in current['animation']['history']['frames']
-              if row['frameSequence'] in proof['frameSequences']]
+              if row['frameSequence'] in proof['frameSequences']
+              and 0 <= after['epochMs'] - row['capturedEpochMs'] <= 1500 - age]
     need(len(frames) >= 3)
     pairs = list(zip(frames, frames[1:]))
     need(all(right['capturedEpochMs'] > left['capturedEpochMs']
@@ -103,9 +116,6 @@ def measure(value, *, call, role, epoch):
          and sum(bool(moving_pose(left, right)) for left, right in pairs) >= 2)
     span = frames[-1]['capturedEpochMs'] - frames[0]['capturedEpochMs']
     need(span >= required)
-    # All frames used for the window remain fresh on the original clock pair.
-    age = max(0., epoch - after['hostEpochMs'])
-    need(all(0 <= after['epochMs'] - row['capturedEpochMs'] <= 1500 - age for row in frames))
     return dict(emoteMotionVersion=VERSION, nativeSamples=len(frames), nativeSpanMs=span,
                 requiredSpanMs=required, nominalDurationMs=nominal,
                 firstFrameSequence=frames[0]['frameSequence'], lastFrameSequence=frames[-1]['frameSequence'],

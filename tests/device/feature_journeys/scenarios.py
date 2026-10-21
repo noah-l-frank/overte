@@ -7,14 +7,14 @@ owned fixture context. Each checkpoint is a complete state, not an adapter verdi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 
-VERSION = 16
+VERSION = 17
 
 
 def emote_rows():
     for index,name in enumerate(('Crying','Surprised','Dancing','Cheering','Waving','Fall','Pointing','Clapping','Sit','Love')):
         yield ('play',dict(name=name),dict(animation=name,override=True,
             sit={'oneOf':['Sit1','Sit2','Sit3']} if name=='Sit' else 'none',poseProgress={'min':.15,'max':1.},
-            restoredBeforeNominalEnd=False,panel={'oneOf':[False,True]}),['image' if index==0 else 'changed','peer'])
+            restoredBeforeNominalEnd=False,panel={'oneOf':[False,True]}),['image' if index==0 else 'changed','file','peer'])
         # Ordinary non-Sit clips restore on their own timer. Tablet Sit holds
         # its final pose; cancel is only a reset here, not the timed abort proof.
         yield ('cancel' if name=='Sit' else 'wait-complete',{},dict(animation='idle',sit='none',override=False,poseProgress=0.,
@@ -134,9 +134,9 @@ SCENARIOS = {
     ('open', {}, dict(panel=True), []),
     *emote_rows(),
     *[( 'sit', {}, dict(animation='Sit',override=True,restoredBeforeNominalEnd=False,
-                       poseProgress={'min':.15,'max':1.},sit={'oneOf': ['Sit1', 'Sit2', 'Sit3']}), ['image', 'peer'])
+                       poseProgress={'min':.15,'max':1.},sit={'oneOf': ['Sit1', 'Sit2', 'Sit3']}), ['image', 'file', 'peer'])
       for _ in range(3)],
-    ('override', dict(name='Waving'), dict(animation='Waving', override=True, sit='none',restoredBeforeNominalEnd=False), ['changed', 'peer']),
+    ('override', dict(name='Crying'), dict(animation='Crying', override=True, sit='none',restoredBeforeNominalEnd=False), ['changed', 'file', 'peer']),
     ('cancel', {}, dict(animation='idle', sit='none',override=False, poseProgress=0.0,restoredBeforeNominalEnd=True), ['changed', 'peer']),
     ('background-resume', {}, {}, ['peer']),
     ('close', {}, dict(panel=False), []),

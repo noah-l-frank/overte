@@ -62,7 +62,7 @@ class EmoteMotionTests(unittest.TestCase):
         self.assertEqual(original,value)
         raw=motion.packet(value['call'],value['before'],value['after'],role='primary')
         state=result.pop('state')|dict(panel=False)
-        self.assertEqual(result,motion.read(raw,call=value['call'],role='primary',epoch=19300,state=state))
+        self.assertEqual(result,motion.read(raw,call=value['call'],role='primary',epoch=19300,captured=19300,state=state))
         self.assertNotIn('url',str(result));self.assertNotIn('processId',str(result))
 
     def test_long_motion_keeps_half_second_window_and_all_three_sit_variants(self):
@@ -71,6 +71,12 @@ class EmoteMotionTests(unittest.TestCase):
                 result=self.measure(self.fixture(name=name,frames=401,times=(19075,19250,19500,19650)))
                 self.assertEqual(500,result['requiredSpanMs'])
                 self.assertEqual('Sit' if name.startswith('Sit') else name,result['state']['animation'])
+
+    def test_long_clip_qualifies_only_fresh_suffix_without_redating_old_valid_prefix(self):
+        value=self.fixture(name='Crying',frames=401,times=(19075,19250,20800,21100,21400))
+        original=deepcopy(value);result=self.measure(value)
+        self.assertEqual(3,result['nativeSamples']);self.assertEqual(600,result['nativeSpanMs'])
+        self.assertEqual(4,result['firstFrameSequence']);self.assertEqual(original,value)
 
     def test_too_few_native_samples_or_insufficient_span_does_not_borrow_rpc_stability(self):
         for times in ((19075,19300),(19075,19150,19225)):
@@ -119,12 +125,12 @@ class EmoteMotionTests(unittest.TestCase):
 
     def test_public_fact_mismatch_missing_or_expectation_bearing_file_is_rejected(self):
         value=self.fixture();result=self.measure(value);raw=motion.packet(value['call'],value['before'],value['after'],role='primary')
-        kwargs=dict(call=value['call'],role='primary',epoch=19300,state=result['state'])
+        kwargs=dict(call=value['call'],role='primary',epoch=19300,captured=19300,state=result['state'])
         for content in (b'',b'null',b'{}',b'NaN',b'x'*(motion.LIMIT+1),
                         json.dumps(value|dict(expectedSpanMs=200)).encode(),raw.replace(b'"role":"primary"',b'"role":"primary","role":"primary"')):
-            with self.subTest(length=len(content)),self.assertRaises((ValueError, NativeUIError)):motion.read(content,**kwargs)
+            with self.subTest(length=len(content)),self.assertRaises(AssertionError):motion.read(content,**kwargs)
         for key,wrong in (('animation','Cheering'),('override',False),('poseProgress',0.),('restoredBeforeNominalEnd',True)):
-            with self.subTest(key=key),self.assertRaises((ValueError, NativeUIError)):motion.read(raw,**(kwargs|dict(state=kwargs['state']|{key:wrong})))
+            with self.subTest(key=key),self.assertRaises(AssertionError):motion.read(raw,**(kwargs|dict(state=kwargs['state']|{key:wrong})))
 
     def test_completed_original_motion_never_claims_current_active_playback(self):
         value=self.fixture();model=self.model;after=value['after']

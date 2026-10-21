@@ -5,7 +5,7 @@
     "adapter-manifest": {"current": 1, "reads": [1]},
     "artifact-manifest": {"current": 1, "reads": [1]},
     "capability-registry": {"current": 1, "reads": [1]},
-    "feature-journey": {"current": 16, "reads": [16]},
+    "feature-journey": {"current": 17, "reads": [17]},
     "feature-navigation-provider": {"current": 1, "reads": [1]},
     "feature-script-resources": {"current": 1, "reads": [1]},
     "asset-input-bundle": {"current": 1, "reads": [1]},

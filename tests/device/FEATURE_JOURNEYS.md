@@ -24,10 +24,16 @@ The source of truth for actions and checkpoints is
 is in [`contract.py`](feature_journeys/contract.py), execution in
 [`engine.py`](feature_journeys/engine.py), and byte inspection in
 [`evidence.py`](feature_journeys/evidence.py). The checked
-[adapter inventory](feature_journeys/adapter-contract.v16.json) contains input
-vocabularies, observation field types and independent witness fields. Its v16
+[adapter inventory](feature_journeys/adapter-contract.v17.json) contains input
+vocabularies, observation field types and independent witness fields. Its v17
 contract is registered in `contract-versions.json`; breaking changes require a
 new version and explicit compatibility policy for still-supported producers.
+
+In v17 active Emotes additionally require an original
+[native motion file](feature_journeys/EMOTE_MOTION.md). Three real moving native
+frames over the measured-duration-based window qualify brief one-shot clips;
+reports distinguish this from repeated public RPC sampling. Images, independent
+facts, freshness and complete cleanup remain mandatory.
 
 ## Device-free verification
 

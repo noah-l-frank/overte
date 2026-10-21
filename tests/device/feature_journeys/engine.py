@@ -6,6 +6,7 @@ import hashlib
 import math
 import secrets
 from . import evidence as bytes_evidence
+from . import emote_motion
 from .contract import arguments, exact, identifier, number, result, state as validate_state, typed_equal
 from .fixtures import context
 from .scenarios import SCENARIOS, VERSION, expand, snapshot_profile
@@ -47,6 +48,7 @@ class Journey:
         self.required_lifecycle = None
         self.sit_variants = set()
         self.source_profile=None;self.not_applicable=[];self.system_ui=False
+        self.last_action = None
         self.snapshot_file_source=None;self.snapshot_digest=None
         self.browser_transition=None
         if area=='world-navigation' and not callable(navigation_source):raise ValueError('Original navigation HTTP source is required')
@@ -64,7 +66,9 @@ class Journey:
         operation = 'feature.' + self.area + '.' + kind
         request = dict(contractVersion=VERSION, runId=self.run, **(fields or {}))
         arguments(operation, request)
-        return result(operation, self.invoke(operation, request))
+        value = result(operation, self.invoke(operation, request))
+        if kind == 'act': self.last_action = deepcopy(request)
+        return value
 
     def observe(self, ticket, barrier):
         self.continuity('observe', None)
@@ -169,7 +173,13 @@ class Journey:
             source_ticket = (self.recorded_ticket if self.area == 'audio' and (kind == 'file' or value['state']['phase'] == 'completed' and requested == 'audio')
                              else self.capture_ticket if self.area == 'snapshots' and kind == 'file' else ticket)
             key = (requested, digest, source_ticket, self.model_ticket)
-            if key in self.evidence_cache:
+            if self.area == 'emotes' and kind == 'file':
+                if self.last_action is None or self.last_action['ticket'] != ticket:
+                    raise AssertionError('Native Emote motion has no current owned ordinary input')
+                observed = emote_motion.read(content, call=self.last_action, role='primary',
+                    epoch=number(self.epoch_ms(), 1), captured=item['capturedEpochMs'], state=value['state'])
+                cached_subject = None
+            elif key in self.evidence_cache:
                 observed, cached_subject = self.evidence_cache[key]
             elif kind == 'image':
                 observed, cached_subject = bytes_evidence.image_observation(content, self.run, ticket,
@@ -197,6 +207,9 @@ class Journey:
         initial_effects = None
         actual_lifecycle=None
         release_position=None
+        native_motion = self.area == 'emotes' and expected['override'] is True
+        if native_motion and not {'file', 'peer'} <= set(kinds):
+            raise AssertionError('Active Emote requires original native motion and independent facts')
         for _attempt in range(81):
             value = self.observe(ticket, barrier)
             current = self.now()
@@ -265,6 +278,14 @@ class Journey:
                     details, subject = self.artifacts(value, ticket, kinds)
                 except (AssertionError, OSError, EOFError, SyntaxError) as error:
                     okay, last_problem = False, str(error)
+            if okay and native_motion:
+                # A single native window replaces later RPC samples only after
+                # all original evidence I/O. Primary and actor must still be
+                # fresh here; earlier successful reads cannot expire in transit.
+                epoch = number(self.epoch_ms(), 1)
+                okay = all(-250 <= epoch - captured <= 1500 for captured in
+                    (value['capturedEpochMs'], witness['capturedEpochMs']))
+                if not okay: last_problem = 'Emote primary or actor expired during original evidence I/O'
             # Fixture, peer and artifact I/O also consume the existing checkpoint
             # budget. A late final source read cannot turn an old sample green.
             current=self.now()
@@ -277,13 +298,19 @@ class Journey:
                 if stable_since is None:
                     stable_since = current
                 stable_count += 1
-                if (stable_count >= 3 and current - stable_since >= duration
+                if (native_motion or stable_count >= 3 and current - stable_since >= duration
                         and (not progressing_script or value['state']['effects'] >= initial_effects + 2)):
                     if subject is not None:
                         self.previous_subject = subject
                     self.lifecycle = value['lifecycle'].copy()
-                    self.phases.append(dict(phase=label, advancingSamples=stable_count,
-                        stableSeconds=current - stable_since, lastSequence=value['sequence'], evidence=details))
+                    phase = dict(phase=label, advancingSamples=stable_count,
+                        stableSeconds=current - stable_since, lastSequence=value['sequence'], evidence=details)
+                    if native_motion:
+                        motion = next(row['observed'] for row in details if row['kind'] == 'file')
+                        phase.update(stabilitySource='original-native-motion-v1',
+                            nativeSamples=motion['nativeSamples'], nativeSpanMs=motion['nativeSpanMs'],
+                            requiredNativeSpanMs=motion['requiredSpanMs'])
+                    self.phases.append(phase)
                     return value
             else:
                 stable_since, stable_count, initial_effects = None, 0, None

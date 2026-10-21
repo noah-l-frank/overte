@@ -1,6 +1,27 @@
+# Version 17: original native motion windows for short one-shot Emotes
+
+Current producers/readers use v17 exclusively. The v16 inventory/matrix remain
+historical and are not accepted as current input/evidence. The public envelope,
+native packets and fixture HTTP versions are unchanged. Existing Phone Script,
+Authentication and Graphics producers use the shared current version; their
+feature semantics are unchanged. Native instrumentation remains uncompiled and
+all clients remain untested on devices.
+
+Every active Emote play/Sit/override checkpoint now requires an original
+`kind: file` [native motion proof](EMOTE_MOTION.md), in addition to its original
+PNG and independent actor facts. Source-audited brief clips cannot accommodate
+three sequential full RPC/image observations. The proof instead requires at
+least three actual advancing native motion frames over a native-duration-based
+window, with compiled caller and consumed original FBX provenance. Missing,
+stale, foreign or contradictory proofs cannot fall back to generic sampling.
+Idle, natural completion, negative and cleanup windows retain their previous
+public sample/stability requirements. The final override changes from Waving
+to Crying so a genuine early cancellation has sufficient nominal headroom.
+No input replay, slowed animation or fabricated observation is permitted.
+
 # Version 16: mobile Script restart absence and explicit normal reimport
 
-Current readers/producers use v16 exclusively; v15 inventory/matrix are retained
+Version 16 readers/producers used v16 exclusively; v15 inventory/matrix were retained
 as historical source assumptions, not product acceptance. There is no qualified
 complete v15 product producer to migrate. Native/public foundation versions and
 `/feature-fixture/v1` transport remain independently versioned and unchanged.

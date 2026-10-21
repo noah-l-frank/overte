@@ -6,7 +6,9 @@ has now exposed assumptions in several draft workflows that do not describe the
 actual product UI. Host-model success does not resolve those mismatches. No
 complete area capability may be advertised as implemented on that basis.
 
-The current contract is version 16. The mobile startup review found that all
+The current contract is version 17. Active Emotes require original native motion
+windows for brief one-shot clips, PNG evidence and independent facts; the final
+early-cancel override uses Crying. See [the motion contract](feature_journeys/EMOTE_MOTION.md). The mobile startup review found that all
 three product branches deliberately load system defaults rather than replaying
 saved user sources. Version 16 therefore requires stopped execution after actual
 restart and separate normal reopen/cancel/reimport; all six Script fields need

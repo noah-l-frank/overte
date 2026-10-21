@@ -1,6 +1,6 @@
 # Current Android Phone adapter status
 
-The full v16 Script, Authentication and Graphics triples are now implemented through the
+The full v17 Script, Authentication and Graphics triples are now implemented through the
 existing adapter entrypoint, each under its explicit default-off configuration.
 All three join ordinary inputs, original independent observations, each role's own
 restart histories, the separately credentialed publisher and verified cleanup/
@@ -10,6 +10,12 @@ host-journal retirement. See [Script](SCRIPT_FEATURE.md),
 This is source implementation and host verification only. Native instrumentation
 has not been compiled; no device, installation, build or Jenkins run was performed.
 The remaining eleven complete Android feature adapters are still missing.
+
+Common journey v17 now requires an original native motion file for active
+Emotes, alongside original PNG and independent facts. This handles brief
+non-looping clips without input replay or fabricated public stability; final
+early cancellation uses Crying. See [the motion contract](../../feature_journeys/EMOTE_MOTION.md).
+The Emote primitives remain unregistered as a complete feature triple.
 The [consumed animation data source](../../native/ANIMATION_SOURCE.md) now joins
 actual parser bytes and original retargeted model/resource identity to compiled
 Emote effects and image brackets. Wrong file content at the correct URL remains
@@ -504,7 +510,7 @@ separate full Script/effect/file cleanup. This completes the internal restart
 seam, not the nineteen-step Scripts feature coordinator or any full feature
 capability. Native source remains uncompiled and devices untested.
 
-The current common journey contract is **v16**. The internal
+At this earlier packet stage, the common journey contract was **v16**. The internal
 `_script_restart_prepare/adopt` methods now connect the
 [durable restart handoff v1](../../native/SCRIPT_RESTART_HANDOFF.md) to original
 APK/PID-start/session-bound storage, process exit, execution, service and UI

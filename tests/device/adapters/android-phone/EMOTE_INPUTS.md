@@ -22,7 +22,7 @@ Existing private-file
 permissions, path ownership, symlink, byte limits, atomic writes and compression
 digest validation apply. Each row has exactly `call`, `phase`, `before`, `intents`,
 `idleReset` (a source reference or null).
-Call is the existing closed v16 `feature.emotes.act` input; no expected state is
+Call is the existing closed v17 `feature.emotes.act` input; no expected state is
 accepted. Phase is `acting`, `issuing` or `acknowledged`. `issuing` has exactly one
 unfinished last intent. Acknowledgment requires complete input receipts.
 

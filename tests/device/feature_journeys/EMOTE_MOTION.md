@@ -1,7 +1,8 @@
 # Original native Emote motion evidence, version 1
 
-This private evidence format is implemented and host-tested. Its common journey
-integration and complete Phone Emote facade remain pending. It registers no
+This private evidence format is implemented and host-tested, and mandatory for
+active Emote checkpoints in common journey v17. The complete Phone Emote facade
+remains pending. This format by itself registers no
 feature capability. Native instrumentation remains uncompiled and all clients
 remain untested on devices.
 
@@ -14,7 +15,7 @@ problem; they are never substituted for measured native duration or success.
 
 `emote_motion.packet(call, before, after, role=...)` copies existing original
 source frames. It does not send input, acquire a new observation, replay an
-animation or redate packets. `read(bytes, call=..., role=..., epoch=..., state=...)`
+animation or redate packets. `read(bytes, call=..., role=..., epoch=..., captured=..., state=...)`
 recomputes the original proof and checks its five native Emote facts against the
 current public state. Both functions reject invalid proofs. The caller must own
 and reopen the actual native pre-input barrier and its role's current source
@@ -26,7 +27,8 @@ The closed UTF-8 JSON file is bounded to 2 MiB and contains exactly
 part contains exactly `group`, `phaseBefore`, `phaseAfter`, `epochMs`,
 `hostEpochMs`. These are unchanged originals from source acquisition; platform
 UI data, target selectors, ownership bindings, computed statistics and expected
-states are excluded. Original fixture packets must retain the same run, birth,
+states are excluded. `captured` must exactly match the original after-frame host
+epoch; a descriptor cannot redate an old proof. Original fixture packets must retain the same run, birth,
 activation history, input/ticket and active phase throughout. Original native
 root requests must follow the actual fixture activation.
 
@@ -56,6 +58,15 @@ metadata. Store the original file with the existing private artifact policy and
 delete it during verified cleanup. A public descriptor uses existing `kind:
 file` fields, the current public sample sequence/time and owned action ticket.
 The descriptor's acquisition time must come from the original source frame.
+
+The common engine validates this file without caching its freshness. A verified
+native window allows one public active observation, explicitly reported as
+`stabilitySource: original-native-motion-v1`, with actual native sample count/span
+and required span. It never reports three public RPCs or a half-second public
+stable window when only one was obtained. Primary and actor observations must
+remain fresh after all evidence I/O. The final override uses the longer Crying
+clip before the separate early-cancel input; Waving stays covered as a normal
+one-shot play and natural-completion flow.
 
 The native proof supplies only motion provenance. Actual required PNG bytes,
 image source/marker/body-pixel checks, independent actor facts, public source

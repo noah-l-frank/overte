@@ -1,4 +1,11 @@
-# Feature adapter handoff, contract v16
+# Feature adapter handoff, contract v17
+
+Active Emote checkpoints require a private original `kind: file`
+[native motion proof](feature_journeys/EMOTE_MOTION.md), plus PNG and independent
+facts. Brief one-shot clips use verified native motion windows; all idle,
+negative and cleanup windows retain their previous stable public observations.
+The final ordinary override selects Crying before the separate early cancel.
+Readers/producers use v17 only; v16 inventory/matrix remain historical.
 
 Current implementation: the complete Phone [Script](adapters/android-phone/SCRIPT_FEATURE.md)
 [Authentication](adapters/android-phone/AUTHENTICATION_FEATURE.md) and
@@ -209,17 +216,17 @@ capability is enabled.
 
 The original shared-test packet defined the seams below without iOS, Phone or
 Pico product adapter implementations or device results. Subsequent local adapter
-packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v16.json) and
+packets are tracked separately below. The [machine inventory](feature_journeys/adapter-contract.v17.json) and
 [ordered checkpoint source](feature_journeys/scenarios.py) are normative. The
 [coverage matrix](FEATURE_COVERAGE.md) identifies the existing module owners.
 The separate [adapter implementation audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 tracks subsequent local platform packets and prerequisites. These do not change
-the complete v16 contract or grant device acceptance.
+the complete v17 contract or grant device acceptance.
 
 ## Action and read boundary
 
 For each closed area, advertise all three operations only after implementing
-and qualifying their complete v16 contract:
+and qualifying their complete v17 contract:
 
 - `feature.<area>.act` accepts exactly `{contractVersion: 16, runId, ticket,
   fixtureUrl, verb, inputs}`. `runId` and `ticket` are fresh 32-character lowercase

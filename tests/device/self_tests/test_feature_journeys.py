@@ -447,10 +447,17 @@ class Boundary:
             self.resources = ['entity:leaked'] if self.fault == 'cleanup-resource-leak' else []
         else:
             self.verb, self.inputs = fields['verb'], fields['inputs']
+            if self.area=='emotes' and self.verb in ('play','sit','override'):
+                self.emote_call=copy.deepcopy(fields);self.emote_input_epoch=self.epoch()
+                self.emote_input_phases=[self.journal.phase(RUN,secrets.token_hex(16)) for _ in range(2)]
             if self.fault == 'input-ignored' and (self.target is None or self.target == self.verb):
                 self.ignored = True
             else:
                 self.reduce(self.verb, self.inputs)
+                if self.area=='emotes' and self.verb in ('play','sit','override'):
+                    # Simulated native input/acquisition latency, not a device
+                    # claim. Original motion takes place before the returned ACK.
+                    self.clock+=1.2
         if self.fault == 'ack-verdict': return {'performed': True, 'passed': True}
         return {'performed': True}
 
@@ -465,6 +472,32 @@ class Boundary:
             draw.rectangle((i % 4 * 40, 48 + i // 4 * 24, i % 4 * 40 + 39, 71 + i // 4 * 24), fill=color)
         out = io.BytesIO(); image.save(out, format='PNG')
         return out.getvalue()
+
+    def motion(self):
+        """Independent synthetic native boundary; never read checkpoint values."""
+        from feature_journeys.emote_motion import packet
+        from test_emote_rig_measurements import IncludedRigPackets
+        name=self.state['sit'] if self.state['animation']=='Sit' else self.state['animation']
+        model=IncludedRigPackets(name)
+        before=model.group(model.native(18800,baseline=True))
+        after=model.group(model.native(20000,active=True))
+        # One changed and one unchanged native joint produce measured .5.
+        unchanged=[0.,0.,0.,1.,0.,0.,0.]
+        for group in (before,after):group['native']['animation']['joints'].append(unchanged.copy())
+        import math
+        shift=math.ceil(self.emote_input_epoch)-18800
+        def rebase(value):
+            if type(value) is dict:
+                return {key:item+shift if key.endswith('EpochMs') and type(item) in (int,float)
+                        else rebase(item) for key,item in value.items()}
+            if type(value) is list:return [rebase(item) for item in value]
+            return value
+        before,after=rebase(before),rebase(after)
+        def part(group,phases,epoch):
+            return dict(group=group,phaseBefore=phases[0],phaseAfter=phases[1],
+                        epochMs=group['rootsAfter']['capturedEpochMs'],hostEpochMs=epoch)
+        return packet(self.emote_call,part(before,self.emote_input_phases,self.emote_input_epoch),
+            part(after,[self.journal.phase(RUN,secrets.token_hex(16)) for _ in range(2)],self.epoch()),role='primary')
 
     def observe(self, fields):
         self.sequence += 1
@@ -521,7 +554,9 @@ class Boundary:
                 out=io.BytesIO(); image.save(out, format='PNG'); content=out.getvalue()
             self.last_image = content
             values = {'image': content}
-            if self.area == 'audio':
+            if self.area=='emotes' and self.verb in ('play','sit','override') and self.state['override']:
+                values['file']=self.motion()
+            elif self.area == 'audio':
                 source = self.recorded_ticket if state['phase'] == 'completed' else self.ticket
                 audible = state['phase'] == 'completed'
                 audio = wav_bytes(RUN, source or self.ticket, profile='recorded-preview-v1')
@@ -1096,6 +1131,69 @@ class FeatureJourneys(unittest.TestCase):
             if fault:self.assertTrue(any(s['state']['panel'] is False for s in active))
             self.assertTrue(any(s['state']['restoredBeforeNominalEnd'] for s in samples))
 
+    def test_emote_active_uses_actual_native_window_and_idle_keeps_rpc_stability(self):
+        boundary=Boundary('emotes');phases=boundary.execute()
+        active=[phase for phase in phases if phase.get('stabilitySource')=='original-native-motion-v1']
+        self.assertEqual(14,len(active))
+        self.assertTrue(all(phase['advancingSamples']==1 and phase['stableSeconds']==0
+                            and phase['nativeSamples']>=3 and phase['nativeSpanMs']>=500 for phase in active))
+        cleanup=next(phase for phase in phases if phase['phase']=='cleanup-restored-baseline')
+        self.assertGreaterEqual(cleanup['stableSeconds'],3)
+        inputs=[request for operation,request in boundary.actions if operation.endswith('.act') and request['verb']=='override']
+        self.assertEqual([dict(name='Crying')],[request['inputs'] for request in inputs])
+
+    def test_emote_native_motion_cannot_replace_image_actor_or_original_file_provenance(self):
+        for fault in ('missing','wrong-ticket','wrong-descriptor-time','pose','wrong-bytes','no-image','delayed-read'):
+            with self.subTest(fault=fault):
+                boundary=Boundary('emotes');observe=boundary.observe
+                def corrupted(fields):
+                    value=observe(fields)
+                    if boundary.verb not in ('play','sit','override'):return value
+                    artifacts=value['artifacts'];files=[row for row in artifacts if row['kind']=='file']
+                    if fault=='missing':value['artifacts']=[row for row in artifacts if row['kind']!='file']
+                    elif fault=='no-image':value['artifacts']=[row for row in artifacts if row['kind']!='image']
+                    elif files and fault!='delayed-read':
+                        item=files[0];raw=json.loads(boundary.files[item['name']])
+                        if fault=='wrong-ticket':raw['call']['ticket']='9'*32
+                        elif fault=='wrong-descriptor-time':item['capturedEpochMs']+=1
+                        elif fault=='pose':
+                            history=raw['after']['group']['native']['animation']['history']
+                            active=[row for row in history['frames'] if row['overrideActive']]
+                            for row in active:row['joints']=copy.deepcopy(active[0]['joints'])
+                        elif fault=='wrong-bytes':raw['after']['group']['native']['animation']['clip']['assetSource']['model']['sha256']='9'*64
+                        boundary.files[item['name']]=json.dumps(raw).encode()
+                    return value
+                boundary.observe=corrupted
+                if fault=='delayed-read':
+                    class SlowFiles(dict):
+                        def __getitem__(self,key):
+                            value=super().__getitem__(key)
+                            if '-file.' in key:boundary.clock+=2
+                            return value
+                    boundary.files=SlowFiles()
+                with self.assertRaises(AssertionError):boundary.execute()
+                self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+                self.assertTrue(boundary.reports[0]['cleanupSucceeded'])
+
+    def test_emote_actor_must_remain_fresh_after_valid_native_file_io(self):
+        boundary=Boundary('emotes');witness=boundary.witness
+        def earlier_actor():
+            value=witness()
+            if boundary.verb in ('play','sit','override'):
+                for entry in value['entries']:
+                    if entry['ticket']==boundary.ticket:entry['capturedEpochMs']-=1000
+            return value
+        boundary.witness=earlier_actor
+        class SlowFiles(dict):
+            def __getitem__(self,key):
+                value=super().__getitem__(key)
+                if '-file.' in key:boundary.clock+=.6
+                return value
+        boundary.files=SlowFiles()
+        with self.assertRaisesRegex(AssertionError,'expired during original evidence I/O'):boundary.execute()
+        self.assertFalse(boundary.reports[0]['sequenceCompleted'])
+        self.assertTrue(boundary.reports[0]['cleanupSucceeded'])
+
     def test_emote_forged_early_restore_disagrees_with_independent_actual_timing(self):
         boundary=Boundary('emotes','late-natural-cancel');boundary.forge_restore_timing=True
         with self.assertRaises(AssertionError):boundary.execute()
@@ -1577,9 +1675,9 @@ class FeatureRegistrationAndTransport(unittest.TestCase):
     def test_inventory_coverage_and_existing_module_composition_remain_synchronized(self):
         from feature_journeys.inventory import inventory
         from feature_journeys.scenarios import FOUNDATIONS
-        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v16.json').read_text())
+        saved=json.loads((DEVICE/'feature_journeys/adapter-contract.v17.json').read_text())
         self.assertEqual(inventory(),saved)
-        matrix=json.loads((DEVICE/'feature_journeys/coverage.v16.json').read_text())
+        matrix=json.loads((DEVICE/'feature_journeys/coverage.v17.json').read_text())
         self.assertEqual(set(SCENARIOS),{row['area'] for row in matrix['rows']})
         catalog=json.loads((DEVICE/'catalog.json').read_text())
         for area,foundations in FOUNDATIONS.items():

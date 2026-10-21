@@ -1,4 +1,4 @@
-# Android Phone Graphics feature v1, shared contract v16
+# Android Phone Graphics feature v1, shared contract v17
 
 The existing Phone Appium entrypoint implements `feature.graphics.act`,
 `feature.graphics.observe` and `feature.graphics.cleanup`. This composes normal

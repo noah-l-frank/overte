@@ -200,7 +200,7 @@ class Composite(Inputs):
 
 class GraphicsFeatureTests(unittest.TestCase):
     def setUp(self):self.m=Composite();self.addCleanup(self.m.close)
-    def observe_call(self):return dict(contractVersion=16,runId=RUN,afterSequence=0)
+    def observe_call(self):return dict(contractVersion=17,runId=RUN,afterSequence=0)
     def registered_adapter(self):
         from test_account_fixture_launch import AccountFixtureLaunchTests
         setup=AccountFixtureLaunchTests();setup.setUp();self.addCleanup(setup.doCleanups);return setup.f
@@ -213,11 +213,11 @@ class GraphicsFeatureTests(unittest.TestCase):
             OVERTE_PHONE_FEATURE_FIXTURE_CONFIG=str(access),OVERTE_PHONE_GRAPHICS_IMAGE_POLICY=str(policy),OVERTE_DEVICE_ARTIFACT_DIR=str(self.m.root))
     def retirement_ready(self):
         m=self.m;flow=m.flow();flow.observe(self.observe_call());m.flow('actor').publish()
-        m.phase('cleanup');flow.cleanup(dict(contractVersion=16,runId=RUN));m.flow('actor').publish()
+        m.phase('cleanup');flow.cleanup(dict(contractVersion=17,runId=RUN));m.flow('actor').publish()
         m.resources.retire(RUN);m.journal.close(RUN);m.client.closed=True;m.actor_enabled=True
         return flow
     def call(self,verb,**inputs):
-        return dict(contractVersion=16,runId=RUN,fixtureUrl=FIXTURE,ticket=self.m.phase(verb,inputs),verb=verb,inputs=inputs)
+        return dict(contractVersion=17,runId=RUN,fixtureUrl=FIXTURE,ticket=self.m.phase(verb,inputs),verb=verb,inputs=inputs)
     def test_normal_scene_preparation_then_distinct_primary_and_actor_originals(self):
         m=self.m;flow=m.flow();state=flow.prepare();self.assertEqual('baseline',state['phase'])
         value=flow.observe(self.observe_call());self.assertEqual(.65,value['state']['resolution']);self.assertFalse(value['state']['dialog'])
@@ -245,7 +245,7 @@ class GraphicsFeatureTests(unittest.TestCase):
 
     def test_whole_fixture_retirement_restores_original_world_and_waits_for_both_independent_quiet_windows(self):
         m=self.m;flow=m.flow();flow.observe(self.observe_call());m.flow('actor').publish()
-        m.phase('cleanup');self.assertEqual({'performed':True},flow.cleanup(dict(contractVersion=16,runId=RUN)))
+        m.phase('cleanup');self.assertEqual({'performed':True},flow.cleanup(dict(contractVersion=17,runId=RUN)))
         m.flow('actor').publish();m.resources.retire(RUN);m.journal.close(RUN);m.client.closed=True;m.actor_enabled=True
         self.assertEqual({'performed':True},flow.finalize());self.assertTrue(m.actor_exited);self.assertIsNone(m.actor_error)
         self.assertFalse(flow.store.path.exists());self.assertFalse(flow.retirement_store.path.exists())
@@ -281,7 +281,7 @@ class GraphicsFeatureTests(unittest.TestCase):
         with self.assertRaises(NativeUIError):flow.finalize()
         self.assertEqual([],m.native.source['entities']);self.assertTrue(flow.store.path.exists());self.assertTrue(flow.retirement_store.path.exists())
     def test_missing_independent_actor_cannot_complete_whole_fixture_cleanup(self):
-        m=self.m;flow=m.flow();flow.observe(self.observe_call());m.phase('cleanup');flow.cleanup(dict(contractVersion=16,runId=RUN))
+        m=self.m;flow=m.flow();flow.observe(self.observe_call());m.phase('cleanup');flow.cleanup(dict(contractVersion=17,runId=RUN))
         m.resources.retire(RUN);m.journal.close(RUN);m.client.closed=True
         with self.assertRaises(NativeUIError):flow.finalize()
         self.assertEqual([],m.native.source['entities']);self.assertTrue(flow.store.path.exists())
@@ -447,7 +447,7 @@ class GraphicsFeatureTests(unittest.TestCase):
         m.native_fault='cursor'
         with self.assertRaises(NativeUIError):flow.observe(self.observe_call())
         m.native_fault=None;m.phase('cleanup')
-        with self.assertRaises(NativeUIError):flow.cleanup(dict(contractVersion=16,runId=RUN))
+        with self.assertRaises(NativeUIError):flow.cleanup(dict(contractVersion=17,runId=RUN))
         m.resources.retire(RUN);m.journal.close(RUN);m.client.closed=True
         with self.assertRaises(NativeUIError):flow.finalize()
         self.assertEqual([],m.native.source['entities']);self.assertEqual(m.original['avatarPose'],m.native.source['avatarPose'])

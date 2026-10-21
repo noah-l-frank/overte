@@ -6,6 +6,11 @@ them. The original common packet changed only its own test worktree. The later
 authorized continuation adds E2E-only instrumentation to native sources; other
 sessions, frozen builds, global workflows and acceptance evidence stay unchanged.
 
+Emotes v17 adds mandatory [original native motion windows](feature_journeys/EMOTE_MOTION.md)
+for brief active clips, alongside original PNG and independent actor evidence.
+The final override uses Crying for a real early-cancel margin. Other checkpoint
+and cleanup stability requirements are unchanged.
+
 Scripts v16 corrects mobile default-only startup: restart must stop owned execution,
 then normal reopen/cancel/reimport must establish actual new execution. All six
 Script fields need independent facts. See [the source contract](feature_journeys/SCRIPTS_SOURCE.md).
@@ -70,7 +75,7 @@ also requires changed feature-subject pixels; `audio`/`silence` inspect PCM;
 `file` inspects original bytes; `peer` reads the independent actor journal.
 Existing modules retain their additional image, PCM, process and file checks.
 
-The [machine matrix](feature_journeys/coverage.v16.json), [journey guide](FEATURE_JOURNEYS.md)
+The [machine matrix](feature_journeys/coverage.v17.json), [journey guide](FEATURE_JOURNEYS.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md) record the exact contracts.
 All rows currently depend on real product transports and independently measuring
 target observers. Adapter implementation is now in progress on the separate local platform

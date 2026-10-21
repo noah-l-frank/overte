@@ -99,11 +99,11 @@
     },
     "feature.assets.act": {
       "operation": "feature.assets.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.assets.cleanup": {
       "operation": "feature.assets.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.assets.observe": {
       "operation": "feature.assets.observe",
@@ -111,11 +111,11 @@
     },
     "feature.audio.act": {
       "operation": "feature.audio.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.audio.cleanup": {
       "operation": "feature.audio.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.audio.observe": {
       "operation": "feature.audio.observe",
@@ -123,11 +123,11 @@
     },
     "feature.authentication.act": {
       "operation": "feature.authentication.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.authentication.cleanup": {
       "operation": "feature.authentication.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.authentication.observe": {
       "operation": "feature.authentication.observe",
@@ -135,11 +135,11 @@
     },
     "feature.avatar-people.act": {
       "operation": "feature.avatar-people.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.avatar-people.cleanup": {
       "operation": "feature.avatar-people.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.avatar-people.observe": {
       "operation": "feature.avatar-people.observe",
@@ -147,11 +147,11 @@
     },
     "feature.chat.act": {
       "operation": "feature.chat.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.chat.cleanup": {
       "operation": "feature.chat.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.chat.observe": {
       "operation": "feature.chat.observe",
@@ -159,11 +159,11 @@
     },
     "feature.create.act": {
       "operation": "feature.create.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.create.cleanup": {
       "operation": "feature.create.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.create.observe": {
       "operation": "feature.create.observe",
@@ -171,11 +171,11 @@
     },
     "feature.emotes.act": {
       "operation": "feature.emotes.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.emotes.cleanup": {
       "operation": "feature.emotes.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.emotes.observe": {
       "operation": "feature.emotes.observe",
@@ -183,11 +183,11 @@
     },
     "feature.graphics.act": {
       "operation": "feature.graphics.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.graphics.cleanup": {
       "operation": "feature.graphics.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.graphics.observe": {
       "operation": "feature.graphics.observe",
@@ -195,11 +195,11 @@
     },
     "feature.lifecycle-input.act": {
       "operation": "feature.lifecycle-input.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.lifecycle-input.cleanup": {
       "operation": "feature.lifecycle-input.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.lifecycle-input.observe": {
       "operation": "feature.lifecycle-input.observe",
@@ -207,11 +207,11 @@
     },
     "feature.scripts.act": {
       "operation": "feature.scripts.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.scripts.cleanup": {
       "operation": "feature.scripts.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.scripts.observe": {
       "operation": "feature.scripts.observe",
@@ -219,11 +219,11 @@
     },
     "feature.snapshots.act": {
       "operation": "feature.snapshots.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.snapshots.cleanup": {
       "operation": "feature.snapshots.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.snapshots.observe": {
       "operation": "feature.snapshots.observe",
@@ -231,11 +231,11 @@
     },
     "feature.tablet-web.act": {
       "operation": "feature.tablet-web.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.tablet-web.cleanup": {
       "operation": "feature.tablet-web.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.tablet-web.observe": {
       "operation": "feature.tablet-web.observe",
@@ -243,11 +243,11 @@
     },
     "feature.world-navigation.act": {
       "operation": "feature.world-navigation.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.world-navigation.cleanup": {
       "operation": "feature.world-navigation.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.world-navigation.observe": {
       "operation": "feature.world-navigation.observe",
@@ -255,11 +255,11 @@
     },
     "feature.world-web.act": {
       "operation": "feature.world-web.act",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.world-web.cleanup": {
       "operation": "feature.world-web.cleanup",
-      "result": "Closed feature journey v9; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
+      "result": "Closed feature journey v17; see feature_journeys/contract.py and FEATURE_JOURNEYS.md. Input acknowledgments prove no product effect."
     },
     "feature.world-web.observe": {
       "operation": "feature.world-web.observe",

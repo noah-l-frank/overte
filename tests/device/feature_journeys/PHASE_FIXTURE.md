@@ -4,7 +4,7 @@
 closed stimuli. This is input metadata for associating independently observed
 native events with the current phase. It contains no product/peer state, effect
 verdicts, resource delivery, process lifetime or successful cleanup assertion.
-It neither introduces another runner nor changes common journey contract v16.
+It neither introduces another runner nor changes common journey contract v17.
 
 ## Read contract
 
@@ -33,7 +33,7 @@ The exact response fields are:
 Each activation has exactly `sequence`, `ticket`, `activatedEpochMs` and
 `stimulus`. Its sequence is one-based, ticket is unique, original epoch is
 nondecreasing and stimulus contains exactly the existing `verb` and `inputs`.
-The same closed v16 input grammar applies for all fourteen areas; baseline and
+The same closed v17 input grammar applies for all fourteen areas; baseline and
 cleanup accept only empty inputs. Mutable caller inputs and response copies
 cannot change retained originals. Existing 256-ticket/32-active-run bounds remain.
 Known registered or retired run identities cannot be reused.

@@ -1,6 +1,6 @@
 # Android Phone Script feature, owner and observer version 1
 
-The existing Phone Appium entrypoint now implements all three v16 operations:
+The existing Phone Appium entrypoint now implements all three v17 operations:
 `feature.scripts.act`, `feature.scripts.observe`, `feature.scripts.cleanup`.
 Enable them explicitly with `OVERTE_PHONE_FEATURE_SCRIPTS=1`, the existing
 `OVERTE_PHONE_NORMAL_SCRIPTS=1`, a verified debug candidate and the existing

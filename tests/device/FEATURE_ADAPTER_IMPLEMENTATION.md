@@ -1,13 +1,13 @@
 # Local adapter implementation and remaining native prerequisites
 
 The fourteen-area **common test logic exists**. This adapter phase is **partially
-implemented**: Phone has new ordinary Create/script foundation bindings; Pico
-has a candidate-bound original-observation backend; iOS has original-read
-components and a separate physical installed-code source gate. Its source-only
-process plugin remains uninstalled/unqualified. **No complete new
-`feature.<area>.act/observe/cleanup` triple is advertised by these three platform bindings.**
-All fourteen complete version 16 adapters remain missing, and all device qualification
-remains unperformed. An ignored input, an input ACK or a host simulation must
+implemented**. Phone registers the complete Script, Authentication and Graphics
+`feature.<area>.act/observe/cleanup` source triples under explicit default-off
+configuration. Emote and other area primitives are not complete adapters.
+Android Phone implements the complete Script, Authentication and Graphics source
+triples; the remaining eleven Phone triples are missing. Current common contract
+v17 adds mandatory original Emote motion evidence. Other platform work proceeds
+in separate worktrees; no physical qualification is recorded here. An ignored input, an input ACK or a host simulation must
 not be reported as feature success.
 
 Continuation authorization: the user explicitly approved E2E-only native
