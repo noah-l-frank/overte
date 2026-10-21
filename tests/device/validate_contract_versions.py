@@ -9,10 +9,11 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "vr-graphics-framework-ownership": 1,
     "native-tablet-http": 1,
     "pico-graphics-ui-observation": 1,
     "stereo-graphics-pixels": 1,
-    "native-graphics-subject": 2,
+    "native-graphics-subject": 3,
     "native-scene-loads": 1,
     "native-web-runtime": 2,
     'native-qml-load-inventory': 1,

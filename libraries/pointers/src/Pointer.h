@@ -54,6 +54,10 @@ public:
     virtual void editRenderState(const std::string& state, const QVariant& startProps, const QVariant& pathProps, const QVariant& endProps) = 0;
     
     virtual QVariantMap toVariantMap() const;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    // Unknown concrete pointer owners remain unavailable rather than empty.
+    virtual QVariantMap featureEntityOwnership() const { return {}; }
+#endif
     virtual void setScriptParameters(const QVariantMap& scriptParameters);
     virtual QVariantMap getScriptParameters() const;
 

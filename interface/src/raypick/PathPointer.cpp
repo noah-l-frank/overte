@@ -8,6 +8,11 @@
 //  SPDX-License-Identifier: Apache-2.0
 //
 #include "PathPointer.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QCryptographicHash>
+#include <QJsonDocument>
+#include <QMap>
+#endif
 
 #include "Application.h"
 #include "avatar/AvatarManager.h"
@@ -400,3 +405,40 @@ glm::vec2 PathPointer::findPos2D(const PickedObject& pickedObject, const glm::ve
         return glm::vec2(NAN);
     }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap StartEndRenderState::featureEntityRoles() const {
+    auto id=[](const QUuid& value) { return value.isNull() ? QVariant() : QVariant(value.toString(QUuid::WithoutBraces)); };
+    return {{"start",id(_startID)},{"end",id(_endID)}};
+}
+QVariantMap PathPointer::featureEntityOwnership() const {
+    QTryReadLocker observationLock(&getLock());
+    if (!observationLock.isLocked()) { return {}; }
+    return [&]() -> QVariantMap {
+        if ((getType()!=PickQuery::PickType::Ray && getType()!=PickQuery::PickType::Parabola)
+                || _renderStates.size()>64 || _defaultRenderStates.size()>64 || _currentRenderState.size()>128) { return QVariantMap(); }
+        QMap<QString,QVariantMap> states,defaults;
+        for (const auto& pair:_renderStates) {
+            if (!pair.second || pair.first.size()>128) { return QVariantMap(); }
+            states.insert(QString::fromStdString(pair.first),pair.second->featureEntityRoles());
+        }
+        for (const auto& pair:_defaultRenderStates) {
+            if (!pair.second.second || pair.first.size()>128) { return QVariantMap(); }
+            defaults.insert(QString::fromStdString(pair.first),pair.second.second->featureEntityRoles());
+        }
+        QVariantList rows;
+        for (auto item=states.cbegin();item!=states.cend();++item) {
+            rows.append(QVariantMap{{"scope","normal"},{"name",item.key()},{"entities",item.value()}});
+        }
+        for (auto item=defaults.cbegin();item!=defaults.cend();++item) {
+            rows.append(QVariantMap{{"scope","default"},{"name",item.key()},{"entities",item.value()}});
+        }
+        const auto serialized=QJsonDocument::fromVariant(_scriptParameters).toJson(QJsonDocument::Compact);
+        if (serialized.size()>65536) { return QVariantMap(); }
+        return QVariantMap{{"kind",getType()==PickQuery::PickType::Ray ? "laser" : "parabola"},
+            {"pickId",_pickUID},{"enabled",_enabled},{"renderState",QString::fromStdString(_currentRenderState)},
+            {"scriptParametersSha256",QString::fromLatin1(QCryptographicHash::hash(serialized,QCryptographicHash::Sha256).toHex())},
+            {"hasScriptParameters",!_scriptParameters.isEmpty()},{"states",rows}};
+    }();
+}
+#endif

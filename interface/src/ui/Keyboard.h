@@ -17,6 +17,9 @@
 #include <vector>
 
 #include <QtCore/QObject>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QVariantMap>
+#endif
 #include <QTimer>
 #include <QHash>
 #include <QUuid>
@@ -124,6 +127,9 @@ public:
 
     void loadKeyboardFile(const QString& keyboardFile);
     QSet<QUuid> getKeyIDs();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    QVariantMap featureEntityOwnership() const;
+#endif
     QUuid getAnchorID();
 
     void emitKeyEvent(const KeyEvent& event, bool pressed) const;

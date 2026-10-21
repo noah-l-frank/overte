@@ -23,6 +23,9 @@ public:
         RenderState() {}
         RenderState(const QUuid& startID, const QUuid& pathID, const QUuid& endID);
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        QVariantMap featureEntityRoles() const override;
+#endif
         const QUuid& getPathID() const { return _pathID; }
 
         void setLineWidth(float width) { _lineWidth = width; }

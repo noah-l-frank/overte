@@ -6,6 +6,10 @@
 //  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 //
 #include "StylusPointer.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QCryptographicHash>
+#include <QJsonDocument>
+#endif
 
 #include "RayPick.h"
 
@@ -263,3 +267,23 @@ glm::vec2 StylusPointer::findPos2D(const PickedObject& pickedObject, const glm::
             return glm::vec2(NAN);
     }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap StylusPointer::featureEntityOwnership() const {
+    QTryReadLocker observationLock(&getLock());
+    if (!observationLock.isLocked()) { return {}; }
+    return [&]() -> QVariantMap {
+        // The original stylus entity and script parameters are initialized
+        // before manager publication and do not change afterward. The mutable
+        // legacy stylus render-state setter has no lock; do not invent an
+        // atomic current render-state claim for it in an observer.
+        const auto serialized=QJsonDocument::fromVariant(_scriptParameters).toJson(QJsonDocument::Compact);
+        if (serialized.size()>65536) { return QVariantMap(); }
+        QVariantMap entities {{"stylus",_stylus.isNull() ? QVariant() : QVariant(_stylus.toString(QUuid::WithoutBraces))}};
+        return {{"kind","stylus"},{"pickId",_pickUID},{"enabled",_enabled},{"renderState",QVariant()},
+            {"scriptParametersSha256",QString::fromLatin1(QCryptographicHash::hash(serialized,QCryptographicHash::Sha256).toHex())},
+            {"hasScriptParameters",!_scriptParameters.isEmpty()},
+            {"states",QVariantList{QVariantMap{{"scope","normal"},{"name","stylus"},{"entities",entities}}}}};
+    }();
+}
+#endif

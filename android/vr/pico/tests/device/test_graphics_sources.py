@@ -6,6 +6,7 @@ import sys
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 from self_tests.test_native_graphics_subject import GraphicsSubjectTests
+from self_tests.test_vr_graphics_subject import VrGraphicsSubjectTests
 from self_tests.test_native_scene_loads import SceneLoadTests
 from self_tests.test_native_tablet_http import TabletHttpTests
 from self_tests.test_native_web_runtime import WebRuntimeTests

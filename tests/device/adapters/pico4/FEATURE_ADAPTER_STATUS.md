@@ -454,3 +454,8 @@ Current HTTP lifetime prerequisite: the
 [original tablet HTTP source](../../native/TABLET_HTTP_OBSERVATION.md) traces
 actual QML, request-service, native XHR/callback/timer and reply retirement on
 Pico. It does not complete Graphics or navigation, and remains uncompiled.
+
+Current VR subject prerequisite: [native subject v3](../../native/VR_GRAPHICS_SUBJECT.md)
+requires actual OpenXR HMD transforms and exact native tablet/keyboard/pointer
+owner IDs for Pico, retaining legacy readers elsewhere. It preserves the raw
+entity scan and cannot itself qualify original scene/framework restoration.

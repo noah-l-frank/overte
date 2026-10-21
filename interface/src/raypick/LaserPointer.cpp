@@ -335,3 +335,11 @@ glm::vec3 LaserPointer::findIntersection(const PickedObject& pickedObject, const
             return glm::vec3(NAN);
     }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap LaserPointer::RenderState::featureEntityRoles() const {
+    auto result=StartEndRenderState::featureEntityRoles();
+    result.insert("path",_pathID.isNull() ? QVariant() : QVariant(_pathID.toString(QUuid::WithoutBraces)));
+    return result;
+}
+#endif

@@ -488,5 +488,37 @@
       }
     ],
     "limits": "Original fact/lifetime prerequisite only. Native code uncompiled; synthetic Qt/XHR state and Node source execution do not qualify real Qt networking or VR. Whole feature coordinator/independent actor/restart/quiet cleanup remains required."
+  },
+  "vrFrameworkPacket": {
+    "contract": "native-graphics-subject v3 plus vr-graphics-framework-ownership v1; legacy v1/v2 readers explicit",
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_vr_graphics_subject self_tests.test_native_graphics_subject (from tests/device)",
+        "tests": 37,
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test feature-observation --test stereo-world-render --test suite-runner --test coverage-matrix",
+        "groups": 5,
+        "status": "passed",
+        "durationSeconds": 26.38,
+        "junit": "vr-framework-owning.xml"
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 8.45,
+        "junit": "vr-framework-project.xml"
+      }
+    ],
+    "limits": "Actual native data-source implementation remains uncompiled. Synthetic source/matrix/owner tests do not exercise real Qt locks or OpenXR tracking. Original owner and appearance facts alone do not complete Graphics restoration or restart adoption."
   }
 }

@@ -271,3 +271,16 @@ reply destruction and stale/foreign history. No full Graphics or navigation
 capability is added. Whole ordinary input/actor/restart restoration, HMD/framework
 entity ownership and quiet-window composition remain required. Native source
 is uncompiled and all devices remain untested.
+
+## Actual HMD and framework entity source
+
+The [VR subject/owner source](../../native/VR_GRAPHICS_SUBJECT.md) extends the
+neutral native reader to v3 while preserving explicit v1/v2 compatibility.
+Pico requires the original active OpenXR head transform, actual tablet/keyboard
+owner slots and all known Laser/Parabola/Stylus entity registrations. The complete
+raw entity scan is preserved; a separate exact-ID partition never uses names or
+local host type as ownership. Independent native owner, appearance and physical
+head/camera facts are not a whole restoration verdict. Unknown pointer types or
+contended nonblocking observation locks stay unavailable. Actual full ordinary
+Graphics input, scene/preferences/effect/actor/restart restoration and quiet
+cleanup coordination remain open. Native compilation and devices are unverified.

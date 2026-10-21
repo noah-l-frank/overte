@@ -9,6 +9,9 @@
 #include "PointerManager.h"
 
 #include "PickManager.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QMap>
+#endif
 
 std::shared_ptr<Pointer> PointerManager::find(unsigned int uid) const {
     return resultWithReadLock<std::shared_ptr<Pointer>>([&] {
@@ -189,3 +192,25 @@ bool PointerManager::isMouse(unsigned int uid) {
     }
     return false;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap PointerManager::featureEntityOwnership() const {
+    // Hold the original manager lock across the inventory. No find()/toVariantMap
+    // calls after unlocking, and no retained shared ownership in the evidence.
+    // Every observation lock is a nonblocking try-lock; contention is unavailable.
+    QTryReadLocker observationLock(&getLock());
+    if (!observationLock.isLocked()) { return {}; }
+    return [&]() -> QVariantMap {
+        if (_pointers.size()>128) { return QVariantMap(); }
+        QMap<unsigned int,QVariantMap> ordered;
+        for (const auto& entry:_pointers) {
+            if (!entry.second) { return QVariantMap(); }
+            auto row=entry.second->featureEntityOwnership();
+            if (row.isEmpty()) { return QVariantMap(); }
+            row.insert("id",entry.first);ordered.insert(entry.first,row);
+        }
+        QVariantList rows;for (const auto& row:ordered) { rows.append(row); }
+        return QVariantMap{{"pointerOwnershipVersion",1},{"pointers",rows}};
+    }();
+}
+#endif

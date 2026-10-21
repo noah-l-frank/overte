@@ -35,6 +35,9 @@ public:
     void editRenderState(const std::string& state, const QVariant& startProps, const QVariant& pathProps, const QVariant& endProps) override {}
 
     QVariantMap toVariantMap() const override;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    QVariantMap featureEntityOwnership() const override;
+#endif
 
     static QUuid buildStylus(const QVariantMap& properties);
 

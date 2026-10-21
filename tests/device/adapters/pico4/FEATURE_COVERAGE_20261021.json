@@ -496,7 +496,10 @@
         "tests/device/adapters/pico4/GRAPHICS_UI_SOURCE.md",
         "tests/device/native/FeatureUiInventory.h",
         "tests/device/adapters/native_tablet_http.py",
-        "tests/device/native/TabletHttpObservation.h"
+        "tests/device/native/TabletHttpObservation.h",
+        "tests/device/adapters/vr_graphics_subject.py",
+        "tests/device/native/VR_GRAPHICS_SUBJECT.md",
+        "libraries/pointers/src/PointerManager.cpp"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -522,7 +525,7 @@
         "Whole ordinary VR Settings input/restoration owner; passive generic controls, original weak roots/timer/QML component and keyboard/focus observations are now implemented. Preserve the separate restart-only Pico swapchain setting.",
         "Whole coordinator joining original per-eye challenge/photometry to source-bound native preference transitions and common original image/actor receipts; actual per-eye geometry and pixel reducer is now source implemented and host verified",
         "Complete Pico source-specific Graphics/scene/Web lifetime, persistence/background/restart/restoration coordinator",
-        "Original Go To/request-service HTTP callback ownership and actual HMD/framework entity source for scene restoration; hiding or deleting a page alone cannot prove backend callback retirement."
+        "Whole original scene/framework restoration policy and quiet-window composition; native HTTP callback/reply lifetime and actual HMD/framework source are now source-implemented and host verified, without a feature verdict."
       ],
       "requiredOriginalEvidence": [
         "Actual native stereo source/target extents and per-eye viewport/projection",
@@ -531,12 +534,14 @@
         "Current preferences separately from measured render scale",
         "Executing stereo Forward/Haze/Mirror batch trace v3 bound to original same-frame OpenXR submission",
         "Actual bound original camera UBO range/data and GL share-group identity after late pose correction/jitter, with Forward/Mirror roles",
-        "Original QML/XHR callback and every reply retirement through native-tablet-http v1"
+        "Original QML/XHR callback and every reply retirement through native-tablet-http v1",
+        "Native subject v3 original HMD matrices and exact tablet/keyboard/pointer owner IDs, preserving the complete raw scan"
       ],
       "cleanupObligations": [
         "Normal restoration of captured original VR preferences",
         "Actual render callbacks, buffers, receipts and Web subject resources released",
-        "Restore original scene/view and independently observe complete owned UUID absence"
+        "Restore original scene/view and independently observe complete owned UUID absence",
+        "Restore original avatar feet/orientation/scale and framework configuration while checking the current physical HMD/camera relation; never demand a fixed Phone head pose or ignore arbitrary local/custom-pointer entities"
       ],
       "nextExecutableStep": "Compose the per-eye original pixel reducer with the frozen full Graphics ownership coordinator, actual generic VR settings, per-role capture leases and source-specific scene/UI restoration. Require Web runtime v2 and actual renderer/callback quiet retirement.",
       "nativeCompilation": "unverified",

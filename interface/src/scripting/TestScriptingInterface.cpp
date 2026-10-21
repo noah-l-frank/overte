@@ -34,6 +34,10 @@
 #if defined(ANDROID_APP_PICO_INTERFACE)
 #include "../../../tests/device/native/TabletHttpObservationBridge.h"
 #include <XMLHttpRequestClass.h>
+#include <PointerManager.h>
+#include <ui/Keyboard.h>
+#include "HMDScriptingInterface.h"
+#include <display-plugins/DisplayPlugin.h>
 #endif
 #include "../../../tests/device/native/PendingFieldCommitBridge.h"
 #include "../../../tests/device/native/ProcessPresence.h"
@@ -207,6 +211,72 @@ QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVar
         {"entities",present},{"absentIds",absent},
         {"scan",QVariantMap{{"center",QVariantList{0,0,0}},{"radiusMeters",128},{"propertyScope","graphics-spatial-v1"},
             {"scannedEntities",ids.size()},{"unowned",unowned}}}};
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    // Keep the complete original raw scan. Exclusions can only be derived from
+    // actual framework owner slots, with separate independent restoration checks.
+    const auto hmd=DependencyManager::get<HMDScriptingInterface>();
+    const auto keyboard=DependencyManager::get<Keyboard>();
+    const auto pointerManager=DependencyManager::get<PointerManager>();
+    const auto display=qApp->getActiveDisplayPlugin();
+    if (!hmd || !keyboard || !pointerManager || !display || keyboard->thread()!=thread()) { return {}; }
+    const auto keyboardOwners=keyboard->featureEntityOwnership();
+    const auto pointerOwners=pointerManager->featureEntityOwnership();
+    if (keyboardOwners.isEmpty() || pointerOwners.isEmpty()) { return {}; }
+    auto matrix=[](const glm::mat4& value) {
+        QVariantList result;
+        for (int column=0;column<4;++column) { for (int row=0;row<4;++row) { result.append(value[column][row]); } }
+        return result;
+    };
+    const auto sensorToWorld=avatar->getSensorToWorldMatrix();
+    const auto hmdSensor=avatar->getHMDSensorMatrix();
+    const auto worldHead=sensorToWorld*hmdSensor;
+    QVariantMap tablet;
+    const QMap<QString,QUuid> tabletOwners {
+        {"frame",hmd->getCurrentTabletFrameID()},{"screen",hmd->getCurrentTabletScreenID()},
+        {"home",hmd->getCurrentHomeButtonID()},{"highlight",hmd->getCurrentHomeButtonHighlightID()},
+        {"miniFrame",hmd->getCurrentMiniTabletID()},{"miniScreen",hmd->getCurrentMiniTabletScreenID()}};
+    QSet<QUuid> frameworkIds;
+    auto collect=[&](const QVariant& raw) {
+        if (raw.isNull()) { return; }
+        const auto id=QUuid(raw.toString());if (!id.isNull()) { frameworkIds.insert(id); }
+    };
+    for (auto item=tabletOwners.cbegin();item!=tabletOwners.cend();++item) {
+        const auto id=item.value().isNull() ? QVariant() : QVariant(item.value().toString(QUuid::WithoutBraces));
+        tablet.insert(item.key(),id);collect(id);
+    }
+    for (const auto& id:keyboardOwners.value("entityIds").toStringList()) { collect(id); }
+    for (const auto& value:pointerOwners.value("pointers").toList()) {
+        for (const auto& state:value.toMap().value("states").toList()) {
+            for (const auto& id:state.toMap().value("entities").toMap()) { collect(id); }
+        }
+    }
+    if (frameworkIds.size()>2048 || !(frameworkIds & owned).isEmpty()) { return {}; }
+    QStringList ordered;for (const auto& id:frameworkIds) { ordered.append(id.toString(QUuid::WithoutBraces)); }ordered.sort();
+    QVariantList frameworkEntities;
+    for (const auto& identifier:ordered) {
+        const auto actual=entities->getEntityProperties(QUuid(identifier));
+        const bool exists=actual.getType()!=EntityTypes::Unknown;
+        if (exists && (actual.getEntityHostType()!=entity::HostType::LOCAL || actual.getName().size()>256 || actual.getSourceUrl().size()>2048)) { return {}; }
+        auto original=exists ? properties(actual) : QVariantMap();
+        auto appearance=original;
+        for (const auto& key:{"position","rotation","dimensions","visible"}) { appearance.remove(key); }
+        auto hash=[](const QVariantMap& value) {
+            return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument::fromVariant(value).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex());
+        };
+        frameworkEntities.append(QVariantMap{{"id",identifier},{"present",exists},
+            {"type",exists ? original.value("type") : QVariant()},{"hostType",exists ? QVariant("local") : QVariant()},
+            {"parentId",exists && !actual.getParentID().isNull() ? QVariant(actual.getParentID().toString(QUuid::WithoutBraces)) : QVariant()},
+            {"propertySha256",exists ? QVariant(hash(original)) : QVariant()},
+            {"appearanceSha256",exists ? QVariant(hash(appearance)) : QVariant()}});
+    }
+    source.insert("subjectVersion",3);
+    source.insert("framework",QVariantMap{{"ownershipVersion",1},{"tablet",tablet},{"keyboard",keyboardOwners},
+        {"pointers",pointerOwners.value("pointers")},{"entities",frameworkEntities}});
+    source.insert("hmd",QVariantMap{{"display",display->getName()},{"active",display->isHmd()},
+        {"visible",display->isDisplayVisible()},{"mounted",hmd->isMounted()},
+        {"sensorToWorld",matrix(sensorToWorld)},{"sensorPose",matrix(hmdSensor)},
+        {"worldPosition",vec(extractTranslation(worldHead))},{"worldRotation",quat(glmExtractRotation(worldHead))}});
+#endif
     if (QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size() > 200000) { return {}; }
     return {{"schemaVersion",1},{"requestId",request},{"runId",run},{"instance",_featureObservationInstance},
         {"sequence",static_cast<qulonglong>(++_featureGraphicsSubjectSequence)},

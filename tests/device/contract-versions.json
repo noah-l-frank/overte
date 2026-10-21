@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "vr-graphics-framework-ownership": {"current": 1, "reads": [1]},
     "native-tablet-http": {"current": 1, "reads": [1]},
     "acceptance-policy": {"current": 1, "reads": [1]},
     "adapter-manifest": {"current": 1, "reads": [1]},
@@ -17,7 +18,7 @@
     "web-dom-observation": {"current": 1, "reads": [1]},
     "feature-browser-resources": {"current": 1, "reads": [1]},
     "native-feature-observation": {"current": 1, "reads": [1]},
-    "native-graphics-subject": {"current": 2, "reads": [1, 2]},
+    "native-graphics-subject": {"current": 3, "reads": [1, 2, 3]},
     "native-scene-loads": {"current": 1, "reads": [1]},
     "native-web-runtime": {"current": 2, "reads": [1, 2]},
     "stereo-graphics-pixels": {"current": 1, "reads": [1]},

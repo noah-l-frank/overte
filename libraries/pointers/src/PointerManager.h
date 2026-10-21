@@ -29,6 +29,9 @@ public:
     void disablePointer(unsigned int uid) const;
     bool isPointerEnabled(unsigned int uid) const;
     QVector<unsigned int> getPointers() const;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    QVariantMap featureEntityOwnership() const;
+#endif
 
     void setRenderState(unsigned int uid, const std::string& renderState) const;
     void editRenderState(unsigned int uid, const std::string& state, const QVariant& startProps, const QVariant& pathProps, const QVariant& endProps) const;

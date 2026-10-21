@@ -200,9 +200,8 @@ class FeatureObservationTests(unittest.TestCase):
             self.assertEqual(2,len(source.commands))
 
     def test_pico_graphics_subject_keeps_original_inventory_without_input(self):
-        from self_tests.test_native_graphics_subject import Boundary, RUN
+        from self_tests.test_vr_graphics_subject import Boundary, RUN
         source=Boundary();source.epoch=self.native.epoch_milliseconds(self.native.target)
-        source.source.update(subjectVersion=2,avatarPose=dict(feetPosition=[0,-.2,0],orientation=[0,0,0,1],modelScale=1.25))
         old_send=source.send
         def send(command):
             source.epoch=self.native.epoch_milliseconds(self.native.target)
@@ -215,6 +214,7 @@ class FeatureObservationTests(unittest.TestCase):
         with patch.object(native,'send',side_effect=send),patch.object(self.adapter,'_native_feature_observer',return_value=native), \
                 patch.object(self.native,'read_debug_app_file',side_effect=read):
             reader=self.adapter._graphics_subject_observer(self.native.target)
+            self.assertTrue(reader.require_framework)
             value=reader.read(RUN,require_avatar=True)
             self.assertEqual(source.source,value['source']);self.assertEqual(1,len(source.commands))
             self.assertEqual([],self.native.inputs)

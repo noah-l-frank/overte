@@ -27,6 +27,9 @@ public:
     StartEndRenderState(const QUuid& startID, const QUuid& endID);
     virtual ~StartEndRenderState() = default;
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    virtual QVariantMap featureEntityRoles() const;
+#endif
     const QUuid& getStartID() const { return _startID; }
     const QUuid& getEndID() const { return _endID; }
     const bool& doesStartIgnorePicks() const { return _startIgnorePicks; }
@@ -76,6 +79,9 @@ public:
                 bool distanceScaleEnd, bool scaleWithParent, bool enabled);
     virtual ~PathPointer();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    QVariantMap featureEntityOwnership() const override;
+#endif
     void setRenderState(const std::string& state) override;
     // You cannot use editRenderState to change the type of any part of the pointer.  You can only edit the properties of the existing parts.
     void editRenderState(const std::string& state, const QVariant& startProps, const QVariant& pathProps, const QVariant& endProps) override;

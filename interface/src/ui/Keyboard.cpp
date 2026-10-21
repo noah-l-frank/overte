@@ -12,6 +12,9 @@
 #include "Keyboard.h"
 
 #include <utility>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include <QThread>
+#endif
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -1244,3 +1247,19 @@ void Keyboard::emitKeyEvent(const KeyEvent& event, bool pressed) const {
         QCoreApplication::postEvent(QCoreApplication::instance(), qEvent);
     }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+QVariantMap Keyboard::featureEntityOwnership() const {
+    if (QThread::currentThread()!=thread()) { return {}; }
+    // Keyboard construction/resource callbacks and UI updates belong to this
+    // original QObject thread. Include the back plate omitted by getKeyIDs().
+    auto identifiers=_ignoreItemsLock.resultWithReadLock<QSet<QUuid>>([&] { return _itemsToIgnore; });
+    identifiers.insert(_anchor.entityID);identifiers.insert(_textDisplay.entityID);identifiers.insert(_backPlate.entityID);
+    identifiers.remove(QUuid());if (identifiers.size()>1024) { return {}; }
+    QStringList ordered;
+    for (const auto& id:identifiers) { ordered.append(id.toString(QUuid::WithoutBraces)); }ordered.sort();
+    auto id=[](const QUuid& value) { return value.isNull() ? QVariant() : QVariant(value.toString(QUuid::WithoutBraces)); };
+    return {{"entityIds",ordered},{"anchor",id(_anchor.entityID)},{"textDisplay",id(_textDisplay.entityID)},
+        {"backPlate",id(_backPlate.entityID)},{"raised",isRaised()},{"use3D",getUse3DKeyboard()}};
+}
+#endif
