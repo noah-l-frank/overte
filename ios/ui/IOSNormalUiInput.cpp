@@ -21,6 +21,8 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../tests/device/native/ScriptFileUi.h"
 #include "../../tests/device/native/ScriptUiInventory.h"
+#include "../../tests/device/native/NormalAccountMenuControls.h"
+#include "../../tests/device/native/AccountPreferenceObservation.h"
 #endif
 
 namespace overte::ios {
@@ -63,6 +65,8 @@ QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
         if (!graphics.isEmpty()) { return graphics; }
         const auto audio = overte::e2e::audioControlId(item);
         if (!audio.isEmpty()) { return audio; }
+        const auto accountMenu=overte::e2e::accountMenuControlId(item);
+        if (!accountMenu.isEmpty()) { return accountMenu; }
         const auto login=overte::e2e::loginControlId(item);
         if (!login.isEmpty()) { return login; }
     }
@@ -210,7 +214,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 auto source = overte::e2e::scriptFileControlSource(node);
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                if (id.startsWith("chat.")) {
+                if (id.startsWith("account.")) {
+                    source=overte::e2e::accountMenuControlSource(node);
+                    if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("chat.")) {
                     source=overte::e2e::chatControlSource(node,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("create.")) {
@@ -295,7 +302,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        if (id.startsWith("chat.")) {
+        if (id.startsWith("account.")) {
+            overte::e2e::appendAccountMenuObservation(row,control.item);
+        } else if (id.startsWith("chat.")) {
             overte::e2e::appendChatControlObservation(row,control.item,id);
         } else if (id.startsWith("create.")) {
             overte::e2e::appendCreateControlObservation(row,control.item,id);
@@ -318,6 +327,8 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         { "tabletShown", tabletShown }, { "ready", !ambiguous && hud && hud->window() }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
+    result["accountMenuControlsVersion"]=1;
+    result["accountPreferences"]=overte::e2e::accountPreferenceObservation();
     result["scriptObservationVersion"]=1;
     result["scriptSourceSequence"]=++_scriptObservationSequence;
     result["scriptInventory"]=scriptState;
@@ -362,7 +373,11 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     if (!control || !enabled(control)) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     const auto graphicsContext = _graphicsReader ? _graphicsReader() : overte::e2e::GraphicsUiContext();
-    if (controlId.startsWith("chat.")) {
+    if (controlId.startsWith("account.")) {
+        const auto point=control->mapToScene(QPointF(control->width()/2,control->height()/2));
+        if (overte::e2e::accountMenuControlSource(control)!=_controls.value(controlId).source
+                || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),point)) { return false; }
+    } else if (controlId.startsWith("chat.")) {
         QJsonObject row;overte::e2e::appendChatControlObservation(row,control,controlId);
         const auto point=control->mapToScene(QPointF(control->width()/2,control->height()/2));
         if (controlId=="chat.page" || !row.value("inputReady").toBool()

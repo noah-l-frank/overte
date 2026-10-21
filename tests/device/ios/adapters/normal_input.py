@@ -25,6 +25,7 @@ from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_
 from adapters.token_create_ui import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,ascii_text,same_reference
 from adapters.token_login_ui import IDS as LOGIN_IDS, VERSION as LOGIN_VERSION,metadata_fields as login_metadata_fields,validate_metadata as validate_login_metadata
 from adapters.native_account_origin import origin_text
+from ios.adapters.account_menu import IDS as ACCOUNT_IDS,FIELDS as ACCOUNT_FIELDS,metadata as account_metadata
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
@@ -72,6 +73,13 @@ def observation(value, pid, now_ms=None):
         if value['scriptInventory']['tabletShown'] != value.get('tabletShown'):
             raise NativeUIError('Original Script inventory and tablet visibility disagree')
         fields |= {'scriptObservationVersion', 'scriptSourceSequence', 'scriptInventory'}
+    if type(value) is dict and 'accountPreferences' in value:
+        from ios.adapters.account_preferences import validate as validate_account_preferences
+        validate_account_preferences(value['accountPreferences']);fields.add('accountPreferences')
+    if type(value) is dict and 'accountMenuControlsVersion' in value:
+        if type(value['accountMenuControlsVersion']) is not int or value['accountMenuControlsVersion']!=1:
+            raise NativeUIError('Native iOS account menu control version is invalid')
+        fields.add('accountMenuControlsVersion')
     if type(value) is dict and 'fileControlsVersion' in value:
         if type(value['fileControlsVersion']) is not int or value['fileControlsVersion'] != 1:
             raise NativeUIError('Native iOS file control version is invalid')
@@ -119,6 +127,9 @@ def observation(value, pid, now_ms=None):
         elif is_create:
             if value.get('createControlsVersion')!=1:raise NativeUIError('Native iOS Create controls lack their source extension')
             original=dict(control);original.pop('frame',None);create_metadata(original);fields=set(control)
+        elif type(control) is dict and control.get('id') in ACCOUNT_IDS:
+            if value.get('accountMenuControlsVersion')!=1:raise NativeUIError('Native iOS account menu lacks its source extension')
+            account_metadata(control);fields |= ACCOUNT_FIELDS
         elif type(control) is dict and type(control.get('id')) is str and control['id'] in LOGIN_IDS:
             if value.get('loginControlsVersion')!=LOGIN_VERSION:raise NativeUIError('Native iOS login controls lack their source extension')
             fields |= login_metadata_fields(control['id'])
@@ -140,7 +151,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')
