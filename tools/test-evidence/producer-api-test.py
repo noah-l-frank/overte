@@ -1343,6 +1343,18 @@ class MetadataSchedulingTests(unittest.TestCase):
         c.labels = [{'id': 7, 'name': 'bug'}]
         self.assertEqual(self.schedule()['original_run_id'], 100)
 
+    def test_exact_parent_successor_preserves_optional_leaf_project_recipe(self):
+        import producer_workflow as W
+        import source_admission as source
+        from types import SimpleNamespace
+        root=Path(__file__).resolve().parents[2]
+        catalog=json.loads((root/'.github/package-workflow-generations.json').read_bytes())
+        for row in catalog['generations'][-2:]:
+            self.assertIn(row['name'],{source.OPTIONAL_LEAF_GENERATION,source.EXACT_PARENT_GENERATION})
+            candidate={**row['workflows'],W.PLATFORM_TEMPLATE:{'sha':'f'*40}}
+            policy=SimpleNamespace(package_policy=lambda:SimpleNamespace(validate_tree_wiring=lambda tree:row['name']))
+            self.assertEqual(W.project_template(policy,candidate),source.OPTIONAL_LEAF_TEMPLATE)
+
     def test_installed_repository_recipe_accepts_later_label_without_new_execution(self):
         root=Path(__file__).resolve().parents[2]
         spec=importlib.util.spec_from_file_location('installed_metadata_fixture_packages',
@@ -1360,6 +1372,8 @@ class MetadataSchedulingTests(unittest.TestCase):
                 ('22fe0d6d39d120f800099136d7d1ab5280d80b41','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
             'protected-producer-optional-leaf-common-v1':
                 ('22fe0d6d39d120f800099136d7d1ab5280d80b41','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
+            'protected-producer-exact-parent-command-owners-v1':
+                ('5ab9ff4592635ad67cd7f542de9676702180592d','7b0703d88d404f38c1b3dec92f77f03586c9144c'),
         }
         self.assertIn(installed,variants)
         caller=self.case.policy.caller_path
@@ -1374,8 +1388,8 @@ class MetadataSchedulingTests(unittest.TestCase):
         raw=codeql.read_bytes()
         allowed_codeql={variants[installed][1]}
         if installed in {'protected-producer-original-default-required-context-v1',
-                         'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}:
-            self.assertEqual(current,'22fe0d6d39d120f800099136d7d1ab5280d80b41')
+                         'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}:
+            self.assertEqual(current,variants[installed][0])
             upload=root/'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml'
             self.assertFalse(upload.is_symlink())
             self.assertIn(upload.stat().st_mode & 0o777,(0o444,0o644))
@@ -1389,7 +1403,8 @@ class MetadataSchedulingTests(unittest.TestCase):
         # they supply no CodeQL analysis, upload or result proof.
         # The authentic current tuple and original22 recipe are independent
         # variants. Neither a label nor canonical staging supplies a new run.
-        for recipe in dict.fromkeys((current,variants['protected-producer-original-default-v1'][0])):
+        for recipe in dict.fromkeys((current,variants['protected-producer-exact-parent-command-owners-v1'][0],
+                                    variants['protected-producer-original-default-v1'][0])):
             self.setUp();c=self.case
             c.generation[caller]['sha']=recipe
             c.policy=replace(c.policy,metadata_generations={'metadata-v2':deepcopy(c.generation)})
@@ -3406,7 +3421,7 @@ class MetadataRetentionConsumerTests(unittest.TestCase):
         real_host = C.producer._host_policy()
         real_package = real_host.package_policy()
         generations = real_package.workflow_generations()
-        self.assertEqual(len(generations), 28)
+        self.assertEqual(len(generations), 29)
         prior_generations=generations[:25]
         self.assertEqual(len(prior_generations), 25)
         self.assertEqual(len([row for row in prior_generations if row['name']!='protected-producer-original-default-boolean-v1']),24)

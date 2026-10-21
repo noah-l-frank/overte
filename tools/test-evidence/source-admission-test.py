@@ -89,16 +89,17 @@ class OptionalLeafImportTests(SourceFixture, unittest.TestCase):
             GITHUB_JOB='project-tests', GITHUB_WORKFLOW_REF=S.REPOSITORY+'/.github/workflows/project-tests.yml@refs/heads/apple-ios')
         self.event={'repository':{'full_name':S.REPOSITORY,'id':S.REPOSITORY_ID}, 'ref':'refs/heads/apple-ios',
             'before':self.base_id,'after':self.merge_id,'forced':False,'deleted':False}
-        self.put(S.OPTIONAL_LEAF_TEMPLATE,b'name: finite future project fixture\n')
-        workflows={}
-        for name in ('repository-checks','project-tests','parent-qualification','sync-validation','browser-client','pr-metadata-context'):
-            path='.github/workflows/'+name+'.yml'
-            self.put(path,self.bodies[S.OPTIONAL_LEAF_TEMPLATE] if name=='project-tests' else (name+' fixture\n').encode())
-            workflows[path]=self.default[path]
-        self.put('.github/package-workflow-generations.json', json.dumps({'schema':1,
-            'repository':{'full_name':S.REPOSITORY,'id':S.REPOSITORY_ID},
-            'generations':[{'name':'historical-'+str(n),'workflows':{}} for n in range(27)]+[
-                {'name':S.OPTIONAL_LEAF_GENERATION,'workflows':workflows}]}).encode())
+        catalog=json.loads((ROOT/'.github/package-workflow-generations.json').read_bytes())
+        catalog['generations']=catalog['generations'][:28]
+        for relative in (S.OPTIONAL_LEAF_TEMPLATE,S.EXACT_PARENT_TEMPLATE):
+            self.put(relative,(ROOT/relative).read_bytes())
+        for path,entry in catalog['generations'][-1]['workflows'].items():
+            # This historical28 fixture remains actual old bytes after activation29.
+            relative='tools/repository-checks/workflows/producers/repository-checks.yml' if path=='.github/workflows/repository-checks.yml' else path
+            raw=(ROOT/relative).read_bytes()
+            self.assertEqual(S.ordinary(S.blob_id(raw)),entry)
+            self.put(path,raw)
+        self.put('.github/package-workflow-generations.json',json.dumps(catalog).encode())
         self.current=deepcopy(self.default)
         self.base['tools/test-evidence/execution.py']=S.ordinary('a'*40)
         self.run={'id':500,'run_attempt':1,'workflow_id':330551824,'check_suite_id':1500,
@@ -223,6 +224,43 @@ class OptionalLeafImportTests(SourceFixture, unittest.TestCase):
                 for key in ('receipt','environment','qualification','reusable','results','executed_suites'):
                     self.assertNotIn(key,value)
         with self.assertRaises(S.SourceUnavailable):self.admit()
+
+    def test_exact_catalog29_supports_prereg28_and_active29_but_not_mixed_or_unknown(self):
+        path='.github/package-workflow-generations.json'
+        catalog=json.loads((ROOT/path).read_bytes())
+        self.assertEqual(len(catalog['generations']),29)
+        self.assertEqual(catalog['generations'][-1]['name'],S.EXACT_PARENT_GENERATION)
+        def install(value, active):
+            self.put(path,json.dumps(value).encode())
+            caller='.github/workflows/repository-checks.yml'
+            self.put(caller,self.bodies[S.EXACT_PARENT_TEMPLATE] if active else
+                (ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml').read_bytes())
+            for relative in (path,caller):(self.root/relative).write_bytes(self.bodies[relative])
+            self.current=deepcopy(self.default)
+        for active in (False,True):
+            install(catalog,active)
+            self.assertEqual(self.admit_leaf()['authority'],'current-imports-only')
+        for change in ('prefix','other-workflow','unknown30','recipe-alias'):
+            changed=deepcopy(catalog)
+            if change=='prefix':changed['generations'][0]['name']='unreviewed-history'
+            elif change=='other-workflow':changed['generations'][-1]['workflows']['.github/workflows/project-tests.yml']['sha']='f'*40
+            elif change=='unknown30':changed['generations'].append(deepcopy(changed['generations'][-1]))
+            else:changed['generations'][-1]['workflows']['.github/workflows/repository-checks.yml']=deepcopy(changed['generations'][-2]['workflows']['.github/workflows/repository-checks.yml'])
+            install(changed,True)
+            with self.subTest(change=change),self.assertRaises(S.SourceUnavailable):self.admit_leaf()
+        self.assertNotIn(S.EXACT_PARENT_GENERATION,S.CURRENT_PARENT_GENERATIONS)
+
+    def test_catalog29_modified_Repository_even_matching_current_D_template_is_not_enrolled(self):
+        path='.github/package-workflow-generations.json'
+        caller='.github/workflows/repository-checks.yml'
+        catalog=json.loads((ROOT/path).read_bytes())
+        raw=b'name: unreviewed exact-name successor\n'
+        for relative in (S.EXACT_PARENT_TEMPLATE,caller):
+            self.put(relative,raw);(self.root/relative).write_bytes(raw)
+        catalog['generations'][28]['workflows'][caller]=deepcopy(self.default[caller])
+        self.put(path,json.dumps(catalog).encode());(self.root/path).write_bytes(self.bodies[path])
+        self.current=deepcopy(self.default)
+        with self.assertRaisesRegex(S.SourceUnavailable,'exact enrolled successor'):self.admit_leaf()
 
     def test_real_current_imports_and_complete_B_inventory_decline_only_cold_source(self):
         import producer_workflow as P
@@ -624,8 +662,8 @@ class SourceAdmissionTests(SourceFixture,unittest.TestCase):
         projected = set(P.shared.sources())
         import_only = set(S.IMPORT_MEMBERS) - reviewed
         policy = P._host_policy()
-        self.assertEqual(len(reviewed), 72)
-        self.assertEqual(len(projected), 89)
+        self.assertEqual(len(reviewed), 73)
+        self.assertEqual(len(projected), 90)
         self.assertIn(S.OPTIONAL_LEAF_TEMPLATE, reviewed)
         self.assertEqual(len(import_only), 17)
         self.assertEqual(projected - reviewed, import_only)

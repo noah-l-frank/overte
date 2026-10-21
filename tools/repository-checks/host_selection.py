@@ -144,6 +144,7 @@ PROGRAM_INPUTS = (
     'tools/repository-checks/workflows/producers/parent-qualification.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
+    'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
     'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml',
     # Actual assertions consume these documents; the generic Markdown rule does
     # not exempt them. Their membership, modes and bytes remain immutable inputs.
@@ -409,7 +410,7 @@ def _ios_routing_views(tree, base_tree, trusted_tree, trusted_root, target):
     # This exact reviewed independent iOS policy defines the same two data
     # stages. Its immutable identity is a family prerequisite, never executable
     # input. Sparse trusted checkouts and protected projections need no new file.
-    policy = {"mode": "100644", "type": "blob", "sha": "5a25de7985760e8b56c2d94bb869e909404cf06a"}
+    policy = {"mode": "100644", "type": "blob", "sha": "97e39758a08092d8bc5361c8c3f91cc55c019057"}
     if trusted_tree.get("tools/ios-build-qualification/inputs.py") != policy:
         return None
     data = {

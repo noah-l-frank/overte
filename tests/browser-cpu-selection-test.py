@@ -590,6 +590,7 @@ class CanonicalTemplateTests(unittest.TestCase):
                 'protected-producer-original-default-required-context-v1': 'producers/repository-checks.yml',
                 'protected-producer-optional-parent-source-v1': 'producers/repository-checks.yml',
                 'protected-producer-optional-leaf-common-v1': 'producers/repository-checks.yml',
+                'protected-producer-exact-parent-command-owners-v1': 'producers/repository-checks-parent-owners.yml',
             }
             self.assertIn(generation, callers)
             if generation=='protected-producer-original-default-v1':

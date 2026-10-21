@@ -2347,7 +2347,51 @@ def metadata_owner(args):
     return 0
 
 
-def _exact_tree_required_owners(api, prefix, parent_pr, before, trusted):
+REPOSITORY_PARENT_GENERATION = 'protected-producer-exact-parent-command-owners-v1'
+REPOSITORY_PARENT_TEMPLATE = 'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml'
+REPOSITORY_PARENT_RECIPE = '5ab9ff4592635ad67cd7f542de9676702180592d'
+_REPOSITORY_CALLER = '.github/workflows/repository-checks.yml'
+_REPOSITORY_PREVIOUS = {'mode': '100644', 'type': 'blob',
+    'sha': '22fe0d6d39d120f800099136d7d1ab5280d80b41'}
+
+
+def repository_command_sources(before, candidate, trusted):
+    """Admit only unchanged28 or the exact enrolled28->29 command source.
+
+    This is source eligibility, never a result or a replacement B inventory.
+    Original native commands still need their actual M/App/job proof.
+    """
+    if candidate.get(_REPOSITORY_CALLER) != trusted.get(_REPOSITORY_CALLER):
+        return False
+    if trusted.get(_REPOSITORY_CALLER) == _REPOSITORY_PREVIOUS:
+        return before.get(_REPOSITORY_CALLER) == _REPOSITORY_PREVIOUS
+    try:
+        rows = package_checks.workflow_generations()
+        historical = {'schema': 1, 'repository': {'full_name': 'noah-l-frank/overte', 'id': 1319052603},
+            'generations': rows[:28]}
+        if len(rows) != 29 or rows[-1]['name'] != REPOSITORY_PARENT_GENERATION \
+                or hashlib.sha256(json.dumps(historical, sort_keys=True, separators=(',', ':')).encode()).hexdigest() \
+                    != '733fffb359a27302cde36f2aa9f13cafc209b30c0fcbcc8fe8f6449619de16e5':
+            return False
+        old, new = rows[-2], rows[-1]
+        if old['name'] != 'protected-producer-optional-leaf-common-v1' \
+                or old['workflows'].get(_REPOSITORY_CALLER) != _REPOSITORY_PREVIOUS \
+                or set(old['workflows']) != set(new['workflows']) \
+                or len(new['workflows']) != 6 \
+                or {p: e for p, e in old['workflows'].items() if p != _REPOSITORY_CALLER} != {
+                    p: e for p, e in new['workflows'].items() if p != _REPOSITORY_CALLER}:
+            return False
+        expected = trusted.get(REPOSITORY_PARENT_TEMPLATE)
+        if expected != {'mode': '100644', 'type': 'blob', 'sha': REPOSITORY_PARENT_RECIPE} \
+                or expected != new['workflows'].get(_REPOSITORY_CALLER):
+            return False
+        return (all(candidate.get(p) == trusted.get(p) == e for p, e in new['workflows'].items())
+            and any(all(before.get(p) == e for p, e in row['workflows'].items()) for row in (old, new)))
+    except (ValueError, OSError, KeyError, TypeError):
+        return False
+
+
+def _exact_tree_required_owners(api, prefix, parent_pr, before, trusted, candidate=None):
     """Read every current required native owner on the real introducing H."""
     rules = api.json(prefix + '/rules/branches/android-main')
     if type(rules) is not list or len(rules) > 100 or any(type(r) is not dict for r in rules):
@@ -2399,14 +2443,182 @@ def _exact_tree_required_owners(api, prefix, parent_pr, before, trusted):
             raise EvidenceError('exact-tree parent native recipe registration differs')
         expected = trusted.get(path)
         legacy = {'mode':'100644','type':'blob','sha':'6229491872ac60ce2149b68eb53b3e67055c354c'}
-        if expected is None or before.get(path) != expected and not (name == 'sync-test-reuse' and before.get(path) == legacy):
+        successor = (name == 'repository-checks' and candidate is not None
+            and repository_command_sources(before, candidate, trusted))
+        if expected is None or before.get(path) != expected and not (
+                name == 'sync-test-reuse' and before.get(path) == legacy or successor):
             raise EvidenceError('exact-tree parent native recipe was not reviewed')
+        if name == 'repository-checks' and expected != _REPOSITORY_PREVIOUS:
+            refs = run.get('referenced_workflows')
+            if not successor or run.get('event') != 'pull_request' or type(refs) is not list or len(refs) != 6 \
+                    or any(type(r) is not dict for r in refs):
+                raise EvidenceError('exact-tree parent successor native source unavailable')
+            revisions = {r.get('sha') for r in refs}
+            if len(revisions) != 1:
+                raise EvidenceError('exact-tree parent successor native sources are mixed')
+            revision = validate_sha(next(iter(revisions)), 'original Repository merge')
+            expected_paths = {'.github/workflows/' + n + '.yml' for n in (
+                'pr-metadata-context', 'native-tests', 'project-tests', 'android-required',
+                'documentation-checks', 'workflow-security')}
+            if {r.get('path') for r in refs} != {parent_pr['head']['repo']['full_name'] + '/' + p + '@' + revision
+                    for p in expected_paths} or any(r.get('ref') != 'refs/pull/' + str(parent_pr['number']) + '/merge'
+                    for r in refs) or attempt.get('referenced_workflows') != refs:
+                raise EvidenceError('exact-tree parent successor reusable source differs')
+            original = commit(api, parent_pr['head']['repo']['full_name'], revision)
+            _, original_inputs = recursive_tree(api, parent_pr['head']['repo']['full_name'], revision)
+            original_inputs = input_tree(original_inputs)
+            if commit_parents(original) != (commit_parents(commit(api,
+                    parent_pr['head']['repo']['full_name'], parent_pr['merge_commit_sha']))[0], head) \
+                    or original_inputs != candidate or not repository_command_sources(before, original_inputs, trusted) \
+                    or any(original_inputs.get(p) != trusted.get(p) for p in expected_paths):
+                raise EvidenceError('exact-tree parent successor actual M/caller differs')
         jobs = _metadata_list(api, prefix + '/actions/runs/' + str(identifier) + '/attempts/1/jobs?per_page=100', 'jobs')
         found_jobs = [j for j in jobs if j.get('id') == job_id and j.get('name') == name]
         if len(found_jobs) != 1 or _metadata_check(api,prefix,run,found_jobs[0],head) != check:
             raise EvidenceError('exact-tree parent native job/App differs')
         owners[name] = {'run':run,'attempt':attempt,'jobs':jobs,'check':check,'registration':registration}
     return {'rules':rules,'checks':checks,'owners':owners}
+
+
+def native_repository_parent_evidence(api, config, event, *, now=None):
+    """Authenticate two ordinary Repository roles, then reuse the pure collector.
+
+    An unavailable completed parent returns None immediately. Invalid current
+    native identity is an error; it cannot turn into a trusted negative claim.
+    No current Sync/Repository completion is awaited and no runtime E is made.
+    """
+    pr = event.get('pull_request', {}) if type(event) is dict else {}
+    if pr.get('base', {}).get('ref') != 'android-vr':
+        return None
+    repo = 'noah-l-frank/overte'; prefix = 'repos/' + repo; env = os.environ
+    role = env.get('GITHUB_JOB')
+    expected = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': repo,
+        'GITHUB_REPOSITORY_ID': '1319052603', 'GITHUB_RUN_ATTEMPT': '1',
+        'GITHUB_EVENT_NAME': 'pull_request', 'RUNNER_ENVIRONMENT': 'github-hosted', 'ImageOS': 'ubuntu24'}
+    if role not in {'parent-owners', 'repository-checks'} or any(env.get(k) != v for k, v in expected.items()):
+        raise GateError('unsupported native Repository parent-owner role')
+    try:
+        number = event['number']; identifier = env.get('GITHUB_RUN_ID', '')
+        if type(number) is not int or number <= 0 or pr.get('number') != number \
+                or not re.fullmatch('[1-9][0-9]*', identifier):
+            raise GateError('native Repository PR/run identity unavailable')
+        for identity in (event['repository'], pr['base']['repo'], pr['head']['repo']):
+            if (identity.get('id'), identity.get('full_name')) != (1319052603, repo):
+                raise GateError('native Repository event is foreign')
+        reference = 'refs/pull/' + str(number) + '/merge'
+        caller = validate_sha(env.get('GITHUB_SHA'), 'native Repository caller')
+        if env.get('GITHUB_WORKFLOW_SHA') != caller or env.get('GITHUB_REF') != reference \
+                or env.get('GITHUB_WORKFLOW_REF') != repo + '/' + _REPOSITORY_CALLER + '@' + reference \
+                or env.get('GITHUB_BASE_REF') != pr['base']['ref'] or env.get('GITHUB_HEAD_REF') != pr['head']['ref']:
+            raise GateError('native Repository caller/source refs differ')
+        source = _dispatch_checkout_source()
+        _dispatch_source(api, config, repo, source)
+        source_tree, trusted = recursive_tree(api, repo, source); trusted = input_tree(trusted)
+        if suite_inputs.full_tree(ROOT, 'HEAD') != trusted:
+            raise GateError('native Repository reader differs from actual default')
+        tree, current_inputs = recursive_tree(api, repo, caller); current_inputs = input_tree(current_inputs)
+        if trusted.get(_REPOSITORY_CALLER) == _REPOSITORY_PREVIOUS \
+                or not repository_command_sources(current_inputs, current_inputs, trusted):
+            raise GateError('native Repository parent-owner recipe is not exact generation29')
+        resolver = _base_source(); reader = _base_reader(api, repo)
+        def current():
+            current_pr = api.json(prefix + '/pulls/' + str(number))
+            merge = api.json(prefix + '/commits/' + reference)
+            if merge.get('sha') != caller:
+                raise GateError('native Repository current M changed')
+            resolved = resolver.resolve_pr_base(reader, current_pr, merge, event_pr=pr)
+            return current_pr, resolved
+        current_pr, resolved = current()
+        registration = api.json(prefix + '/actions/workflows/repository-checks.yml')
+        if type(registration.get('id')) is not int or registration['id'] <= 0 \
+                or (registration.get('path'), registration.get('state')) != (_REPOSITORY_CALLER, 'active'):
+            raise GateError('native Repository registration unavailable')
+        def native():
+            run = api.json(prefix + '/actions/runs/' + identifier)
+            attempt = api.json(prefix + '/actions/runs/' + identifier + '/attempts/1')
+            fields = {'id': int(identifier), 'workflow_id': registration['id'], 'path': _REPOSITORY_CALLER,
+                'event': 'pull_request', 'head_sha': pr['head']['sha'], 'head_branch': pr['head']['ref'],
+                'run_attempt': 1, 'display_title': 'Overte native ordinary qualification v2'}
+            for value in (run, attempt):
+                if any(type(value.get(k)) is not type(v) or value[k] != v for k, v in fields.items()) \
+                        or value.get('status') != 'in_progress' or value.get('conclusion') is not None \
+                        or type(value.get('check_suite_id')) is not int or value['check_suite_id'] <= 0 \
+                        or any((value.get(k, {}).get('id'), value.get(k, {}).get('full_name')) != (1319052603, repo)
+                               for k in ('repository', 'head_repository')):
+                    raise GateError('native Repository original run/attempt unavailable')
+                associations = value.get('pull_requests')
+                if type(associations) is not list or len(associations) != 1:
+                    raise GateError('native Repository original PR association unavailable')
+                association = associations[0]
+                if association.get('number') != number or association.get('head', {}).get('sha') != pr['head']['sha']:
+                    raise GateError('native Repository original PR association differs')
+                resolver.validate_base_snapshot(reader, association.get('base', {}).get('sha'), resolved['base'])
+                refs = value.get('referenced_workflows')
+                if type(refs) is not list or len(refs) != 6 or any(type(r) is not dict for r in refs):
+                    raise GateError('native Repository reusable inventory unavailable')
+                paths = {'.github/workflows/' + n + '.yml' for n in ('pr-metadata-context', 'native-tests',
+                    'project-tests', 'android-required', 'documentation-checks', 'workflow-security')}
+                if {r.get('path') for r in refs} != {repo + '/' + p + '@' + caller for p in paths} \
+                        or any(r.get('sha') != caller or r.get('ref') != reference for r in refs) \
+                        or any(current_inputs.get(p) != trusted.get(p) or trusted.get(p, {}).get('mode') != '100644'
+                               or trusted[p].get('type') != 'blob' for p in paths):
+                    raise GateError('native Repository reusable source is mixed or foreign')
+                if parse_time(value.get('run_started_at'), 'native Repository start') > (now or datetime.now(timezone.utc)):
+                    raise GateError('native Repository starts in the future')
+            if any(run.get(k) != attempt.get(k) for k in ('check_suite_id', 'pull_requests', 'referenced_workflows', 'run_started_at')):
+                raise GateError('native Repository endpoint identities differ')
+            suite = api.json(prefix + '/check-suites/' + str(run['check_suite_id']))
+            if (suite.get('id'), suite.get('head_sha'), suite.get('head_branch'), suite.get('app', {}).get('id'),
+                    suite.get('repository', {}).get('id'), suite.get('repository', {}).get('full_name')) != (
+                    run['check_suite_id'], pr['head']['sha'], pr['head']['ref'], 15368, 1319052603, repo):
+                raise GateError('native Repository suite/App differs')
+            associations = suite.get('pull_requests')
+            if type(associations) is not list or len(associations) > 1 or any(
+                    type(a) is not dict or a.get('number') != number
+                    or a.get('head', {}).get('sha') != pr['head']['sha'] for a in associations):
+                raise GateError('native Repository suite PR association differs')
+            for association in associations:
+                resolver.validate_base_snapshot(reader, association.get('base', {}).get('sha'), resolved['base'])
+            jobs = _metadata_list(api, prefix + '/actions/runs/' + identifier + '/attempts/1/jobs?per_page=100', 'jobs')
+            if any(j.get('run_id') != int(identifier) or j.get('run_attempt') != 1
+                    or j.get('head_sha') != pr['head']['sha'] for j in jobs):
+                raise GateError('native Repository job inventory is mixed')
+            selected = [j for j in jobs if j.get('name') == role]
+            if len(selected) != 1 or selected[0].get('status') != 'in_progress' or selected[0].get('conclusion') is not None:
+                raise GateError('native Repository exact active role unavailable')
+            if selected[0].get('completed_at') is not None or not parse_time(run['run_started_at'], 'native Repository start') \
+                    <= parse_time(selected[0].get('started_at'), 'native Repository role start') <= (now or datetime.now(timezone.utc)):
+                raise GateError('native Repository role chronology differs')
+            check = _metadata_check(api, prefix, run, selected[0], pr['head']['sha'])
+            if check.get('details_url') != 'https://github.com/' + repo + '/actions/runs/' + identifier + '/job/' + str(selected[0]['id']):
+                raise GateError('native Repository job link differs')
+            return run, attempt, suite, selected[0], check
+        opening = native()
+        fresh_event = {'repository': event['repository'], 'number': number, 'pull_request': current_pr}
+        request = classify_event(fresh_event, config, api)
+        proof = (None if request is None else verify_exact_tree_parent_evidence(api, config, request,
+            protected_source=source, protected_tree=source_tree, now=now))
+        closing = native()
+        for first, last in zip(opening[:2], closing[:2]):
+            if any(first.get(k) != last.get(k) for k in ('id', 'workflow_id', 'check_suite_id', 'event', 'path',
+                    'head_sha', 'head_branch', 'run_attempt', 'run_started_at', 'pull_requests', 'referenced_workflows',
+                    'display_title', 'status', 'conclusion')):
+                raise GateError('native Repository run source bookend changed')
+        if any(opening[2].get(k) != closing[2].get(k) for k in ('id', 'head_sha', 'head_branch', 'pull_requests')) \
+                or any(opening[3].get(k) != closing[3].get(k) for k in ('id', 'run_id', 'run_attempt', 'head_sha',
+                    'name', 'check_run_url', 'status', 'conclusion', 'started_at', 'completed_at')) \
+                or any(opening[4].get(k) != closing[4].get(k) for k in ('id', 'name', 'head_sha', 'status',
+                    'conclusion', 'details_url')) or current() != (current_pr, resolved) \
+                or api.json(prefix + '/actions/workflows/repository-checks.yml') != registration \
+                or suite_inputs.full_tree(ROOT, 'HEAD') != trusted:
+            raise GateError('native Repository parent-owner current/source bookend changed')
+        _dispatch_source(api, config, repo, source)
+        return proof
+    except GateError:
+        raise
+    except (EvidenceError, ValueError, OSError, KeyError, TypeError, AttributeError, ImportError,
+            subprocess.SubprocessError) as error:
+        raise GateError('native Repository parent-owner context unavailable') from error
 
 
 def native_exact_tree_parent_evidence(api, config, request, now=None):
@@ -2523,7 +2735,7 @@ def verify_exact_tree_parent_evidence(api, config, request, *, protected_source,
         native = package_checks.load('sync_identical_tree_native','tools/native-tests/check.py')
         if native.plan(list(request.changed_paths),True)['mode'] != 'skip':
             raise EvidenceError('exact-tree native product owner is not covered')
-        owners = _exact_tree_required_owners(api,prefix,parent_pr,before,trusted)
+        owners = _exact_tree_required_owners(api,prefix,parent_pr,before,trusted,candidate)
         native_owner = owners['owners']['sync-test-reuse']
         original,attempt = _metadata_gate_run(api,prefix,native_owner['run']['id'],original_request,normal_parent=request.parent_sha)
         if original != native_owner['run'] or attempt != native_owner['attempt']:
@@ -2538,7 +2750,7 @@ def verify_exact_tree_parent_evidence(api, config, request, *, protected_source,
         if not completed < now < expires or completed >= parse_time(parent_pr['merged_at'],'normal integration') + timedelta(seconds=1):
             raise EvidenceError('exact-tree original execution is expired or was not premerge')
         _dispatch_native(api,prefix,proof['run'],source,proof['correlation'],proof['identity'])
-        if _exact_tree_required_owners(api,prefix,parent_pr,before,trusted) != owners \
+        if _exact_tree_required_owners(api,prefix,parent_pr,before,trusted,candidate) != owners \
                 or _metadata_gate_run(api,prefix,original['id'],original_request,normal_parent=request.parent_sha) != (original,attempt) \
                 or _metadata_list(api,prefix+'/actions/runs/'+str(proof['child'])+'/artifacts?per_page=100','artifacts') != proof['artifacts'] \
                 or api.json(prefix+'/check-runs/'+str(proof['validator_check']['id'])) != proof['validator_check'] \

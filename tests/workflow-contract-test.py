@@ -57,6 +57,7 @@ PROTECTED_GENERATIONS = (
     'protected-producer-original-default-required-context-v1',
     'protected-producer-optional-parent-source-v1',
     'protected-producer-optional-leaf-common-v1',
+    'protected-producer-exact-parent-command-owners-v1',
 )
 METADATA_PRODUCER_GENERATIONS = PROTECTED_GENERATIONS[3:]
 ORIGINAL_DEFAULT_GENERATIONS = (
@@ -64,6 +65,7 @@ ORIGINAL_DEFAULT_GENERATIONS = (
     'protected-producer-original-default-required-context-v1',
     'protected-producer-optional-parent-source-v1',
     'protected-producer-optional-leaf-common-v1',
+    'protected-producer-exact-parent-command-owners-v1',
 )
 SELECTED_SYNC_GENERATIONS = (
     'npm-consumers-sync-ci-v1', 'npm-consumers-sync-ci-budget-v1', 'npm-consumers-sync-ci-budget-cleanup-v1', 'npm-consumers-metadata-edits-v1',
@@ -202,7 +204,8 @@ def reviewed_package_generation():
             'protected-producer-original-default-boolean-v1':'3b7a88765b7181a1bc7dd6f48b9b459e590055d3',
             'protected-producer-original-default-required-context-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
             'protected-producer-optional-parent-source-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
-            'protected-producer-optional-leaf-common-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c'}[name]
+            'protected-producer-optional-leaf-common-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
+            'protected-producer-exact-parent-command-owners-v1':'b29e0558dc69bc9dd6fc6b47bd6024382be4079d'}[name]
         actual=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
         if actual=='b29e0558dc69bc9dd6fc6b47bd6024382be4079d':
             # The eighth security recipe changes neither the independently
@@ -210,10 +213,12 @@ def reviewed_package_generation():
             caller=WORKFLOW_DIRECTORY/'repository-checks.yml'
             caller_raw=caller.read_bytes()
             if (name not in {'protected-producer-original-default-required-context-v1',
-                    'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}
+                    'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}
                     or caller.is_symlink() or caller.stat().st_mode & 0o777 not in {0o444,0o644}
                     or hashlib.sha1(b'blob '+str(len(caller_raw)).encode()+b'\0'+caller_raw).hexdigest()
-                        !='22fe0d6d39d120f800099136d7d1ab5280d80b41'):
+                        != ('5ab9ff4592635ad67cd7f542de9676702180592d'
+                            if name == 'protected-producer-exact-parent-command-owners-v1'
+                            else '22fe0d6d39d120f800099136d7d1ab5280d80b41')):
                 raise AssertionError('native upload CodeQL requires its exact current Repository tuple')
             expected=actual
         if (CODEQL_WORKFLOW.is_symlink() or CODEQL_WORKFLOW.stat().st_mode & 0o777 not in {0o444,0o644}
@@ -1088,12 +1093,20 @@ class BranchGovernanceWorkflowContracts(unittest.TestCase):
         setup = "steps.select.outputs.full_host == 'true'"
         if generation in ORIGINAL_DEFAULT_GENERATIONS:
             expected={path:dict(entry) for path,entry in future.items()}
-            if generation=='protected-producer-optional-leaf-common-v1':
+            if generation in {'protected-producer-optional-leaf-common-v1',
+                    'protected-producer-exact-parent-command-owners-v1'}:
                 project=ROOT/'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml'
                 self.assertTrue(project.is_file() and not project.is_symlink())
                 self.assertIn(project.stat().st_mode & 0o777,(0o444,0o644))
                 raw=project.read_bytes()
                 expected['.github/workflows/project-tests.yml']={'mode':'100644','type':'blob',
+                    'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+            if generation=='protected-producer-exact-parent-command-owners-v1':
+                repository=ROOT/'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml'
+                self.assertTrue(repository.is_file() and not repository.is_symlink())
+                self.assertIn(repository.stat().st_mode & 0o777,(0o444,0o644))
+                raw=repository.read_bytes()
+                expected['.github/workflows/repository-checks.yml']={'mode':'100644','type':'blob',
                     'sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
             if generation=='protected-producer-original-default-v1':
                 expected['.github/workflows/repository-checks.yml']={'mode':'100644','type':'blob',
@@ -1393,10 +1406,10 @@ def assert_optional_leaf_recipe(case, source):
     raw=source.encode();future=workflow_data(source)
     old=workflow_data((directory/'protected-project-tests-android-platform.yml').read_text())
     catalog=json.loads((ROOT/'.github/package-workflow-generations.json').read_bytes())['generations']
-    case.assertEqual(len(catalog),28)
+    case.assertEqual(len(catalog),29)
     case.assertEqual(hashlib.sha256(json.dumps(catalog[:27],sort_keys=True,separators=(',',':')).encode()).hexdigest(),
         'cf4fe21e917c3b1d52b5ad34b9974d37b1f8bcc30b31a0a5f6e15d1d7c33eb5b')
-    previous,row=catalog[26:]
+    previous,row=catalog[26:28]
     case.assertEqual(row['name'],'protected-producer-optional-leaf-common-v1')
     case.assertEqual([path for path in row['workflows'] if row['workflows'][path]!=previous['workflows'][path]],
         ['.github/workflows/project-tests.yml'])
@@ -1454,7 +1467,8 @@ def assert_reviewed_host_selection(case, source):
     if source == optional.read_text(encoding='utf-8'):
         assert_optional_leaf_recipe(case,source)
         if source == WORKFLOW.read_text(encoding='utf-8'):
-            case.assertEqual(reviewed_package_generation(),'protected-producer-optional-leaf-common-v1')
+            case.assertIn(reviewed_package_generation(), ('protected-producer-optional-leaf-common-v1',
+                'protected-producer-exact-parent-command-owners-v1'))
         return
     android_owned = source == owned.read_text(encoding='utf-8')
     platform_owner = source == platform.read_text(encoding='utf-8')
@@ -1573,7 +1587,7 @@ class OptionalLeafCommonWorkflowContracts(unittest.TestCase):
         packages,_=prospective_package_tree()
         rows=packages.workflow_generations()
         self.assertIn(packages.validate_wiring(ROOT),{'protected-producer-optional-parent-source-v1',
-            'protected-producer-optional-leaf-common-v1'})
+            'protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'})
         self.assertEqual(packages.validate_tree_wiring(rows[27]['workflows']),'protected-producer-optional-leaf-common-v1')
         for change in ('missing','mode','unknown','mixed-parent'):
             tree=deepcopy(rows[27]['workflows'])
@@ -1583,7 +1597,7 @@ class OptionalLeafCommonWorkflowContracts(unittest.TestCase):
             elif change=='unknown':tree[path]['sha']='f'*40
             else:tree['.github/workflows/parent-qualification.yml']=deepcopy(rows[25]['workflows']['.github/workflows/parent-qualification.yml'])
             with self.subTest(change=change),self.assertRaises(ValueError):packages.validate_tree_wiring(tree)
-        extra=deepcopy(rows[-1]);extra['name']='unreviewed-successor29'
+        extra=deepcopy(rows[-1]);extra['name']='unreviewed-successor30'
         extra['workflows']['.github/workflows/project-tests.yml']['sha']='f'*40
         raw=json.dumps({'schema':1,'repository':{'full_name':packages.REPOSITORY,'id':packages.REPOSITORY_ID},
             'generations':[*rows,extra]}).encode()
@@ -1790,7 +1804,7 @@ class ProjectWorkflowContracts(unittest.TestCase):
             path.write_bytes((ROOT/'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml').read_bytes())
             with mock.patch.object(sys.modules[__name__],'CODEQL_WORKFLOW',path):
                 if installed in {'protected-producer-original-default-required-context-v1',
-                        'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}:
+                        'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}:
                     self.assertEqual(reviewed_package_generation(),installed)
                 else:
                     with self.assertRaises(AssertionError): reviewed_package_generation()
@@ -2241,7 +2255,7 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
             self.assertEqual(set(jobs['qualify-parent']['needs']), {'route', 'common-parent', 'platform-tests'})
             final_steps=jobs['qualify-parent']['steps']
             verify=final_steps[-1]
-            if reviewed_package_generation() in {'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}:
+            if reviewed_package_generation() in {'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}:
                 self.assertEqual(final_steps[-1],{'name':'Reject late cancellation of parent qualification',
                     'if':'cancelled()','run':'exit 1'})
                 verify=next(step for step in final_steps if step['name']=='Require both actual parent owners')
@@ -2269,7 +2283,7 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
             self.assertLess(steps.index(route), steps.index(qt))
             qt_expected=("steps.reuse.outputs.shared_reused != 'true' && (steps.host.outputs.full_host == 'true')"
                          if protected_owner else "steps.host.outputs.full_host == 'true'")
-            if platform_owner and reviewed_package_generation() in {'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}:
+            if platform_owner and reviewed_package_generation() in {'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}:
                 qt_expected="steps.protected-source.outputs.admitted == 'true' && ("+qt_expected+")"
             self.assertEqual(qt['if'],qt_expected)
             partial = next(step for step in steps if step['name'] == 'Run independently selected parent host contracts')
@@ -2280,7 +2294,7 @@ class HostWorkflowRoutingContracts(unittest.TestCase):
         else:
             self.assertEqual(source, (ROOT / 'tools/repository-checks/workflows/packages/parent-qualification.yml').read_text())
             expected = "steps.route.outputs.package_host_mode == 'full'"
-        if platform_owner and reviewed_package_generation() in {'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}:
+        if platform_owner and reviewed_package_generation() in {'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}:
             expected="steps.protected-source.outputs.admitted == 'true' && ("+expected+")"
         for step in (create, upload):
             self.assertEqual(step['if'], expected)
@@ -2517,6 +2531,71 @@ class SharedReleaseBundleWorkflowContracts(unittest.TestCase):
         self.assertNotIn("gh release upload", publish)
 
 
+
+
+class ParentCommandWorkflowTests(unittest.TestCase):
+    def test_only_the_reviewed_complete_successor_adds_parent_command_ownership(self):
+        directory = ROOT / 'tools/repository-checks/workflows/producers'
+        old = workflow_data((directory / 'repository-checks.yml').read_text())
+        path = directory / 'repository-checks-parent-owners.yml'
+        raw = path.read_bytes()
+        future = workflow_data(raw.decode())
+        rows = json.loads((ROOT / '.github/package-workflow-generations.json').read_text())['generations']
+        self.assertEqual(len(rows), 29)
+        self.assertEqual(hashlib.sha256(json.dumps(rows[:28], sort_keys=True,
+            separators=(',', ':')).encode()).hexdigest(),
+            '153e36b07fadbb45ca6fc449b03437627c661d51cfae23a923e7ffa9d33f7194')
+        before, after = rows[27:29]
+        self.assertEqual(after['name'], 'protected-producer-exact-parent-command-owners-v1')
+        caller = '.github/workflows/repository-checks.yml'
+        self.assertEqual([p for p in before['workflows'] if before['workflows'][p] != after['workflows'][p]], [caller])
+        self.assertEqual(after['workflows'][caller], {'mode': '100644', 'type': 'blob',
+            'sha': hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()})
+        self.assertEqual({k: v for k, v in future.items() if k != 'jobs'},
+                         {k: v for k, v in old.items() if k != 'jobs'})
+        self.assertEqual(set(future['jobs']), set(old['jobs']) | {'parent-owners'})
+        for job in set(old['jobs']) - {'documentation', 'workflow-contracts', 'repository-checks'}:
+            self.assertEqual(future['jobs'][job], old['jobs'][job], job)
+        for job, flag in (('documentation', 'documentation_verified'),
+                          ('workflow-contracts', 'workflow_contracts_verified')):
+            previous, current = old['jobs'][job], future['jobs'][job]
+            self.assertEqual(current['needs'], [*previous['needs'], 'parent-owners'])
+            self.assertEqual({k: v for k, v in current.items() if k not in {'needs', 'if'}},
+                             {k: v for k, v in previous.items() if k not in {'needs', 'if'}})
+            self.assertIn("needs.parent-owners.outputs." + flag + " != 'true'", current['if'])
+            self.assertIn("(needs.parent-owners.result == 'success' || needs.parent-owners.result == 'skipped')", current['if'])
+        aggregate = future['jobs']['repository-checks']
+        self.assertEqual({k: v for k, v in aggregate.items() if k != 'needs'},
+                         {k: v for k, v in old['jobs']['repository-checks'].items() if k != 'needs'})
+        self.assertEqual(set(aggregate['needs']), set(old['jobs']['repository-checks']['needs']) | {'parent-owners'})
+
+    def test_parent_lookup_has_no_dependency_cycle_or_candidate_execution(self):
+        path = ROOT / 'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml'
+        jobs = workflow_data(path.read_text())['jobs']
+        owner = jobs['parent-owners']
+        self.assertEqual(owner['name'], 'parent-owners')
+        self.assertEqual(owner['needs'], 'route')
+        self.assertEqual(owner['permissions'], dict.fromkeys(('contents', 'actions', 'checks', 'pull-requests'), 'read'))
+        self.assertEqual(owner['runs-on'], 'ubuntu-24.04')
+        self.assertEqual(owner['timeout-minutes'], 5)
+        for predicate in ("github.event_name == 'pull_request'", "github.base_ref == 'android-vr'",
+                          "needs.route.outputs.metadata_only != 'true'", "needs.route.outputs.mode == 'delegated-sync'"):
+            self.assertIn(predicate, owner['if'])
+        self.assertEqual(len(owner['steps']), 2)
+        checkout, lookup = owner['steps']
+        self.assertEqual(checkout['with'], {'ref': '${{ github.event.repository.default_branch }}',
+            'path': 'trusted', 'persist-credentials': False})
+        self.assertNotIn('candidate', lookup['run'])
+        self.assertIn('check.py parent-owners', lookup['run'])
+        self.assertEqual(lookup['env'], {'GH_TOKEN': '${{ github.token }}'})
+        self.assertEqual(set(owner['outputs']), {'documentation_verified', 'workflow_contracts_verified', 'parent_proof'})
+        def visit(name, trail):
+            self.assertNotIn(name, trail)
+            needs = jobs[name].get('needs', [])
+            for dependency in ([needs] if isinstance(needs, str) else needs):
+                visit(dependency, trail | {name})
+        for name in jobs:
+            visit(name, set())
 
 
 if __name__ == "__main__":

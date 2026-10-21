@@ -912,7 +912,7 @@ except (ValueError,OSError):
 class RequiredContextGenerationTests(unittest.TestCase):
     def test_complete_source26_preserves_every_prior_tuple_and_requires_exact_pre_enrollment(self):
         rows=PACKAGES.workflow_generations()
-        self.assertEqual(len(rows),28)
+        self.assertEqual(len(rows),29)
         self.assertEqual(hashlib.sha256(json.dumps(rows[:25],sort_keys=True,
             separators=(',',':')).encode()).hexdigest(),'35a79aca341baae04e6840ad670ad3a7e1848085687ed66cc14201ae89b80659')
         previous,following=rows[24],rows[25]
@@ -947,7 +947,7 @@ class OptionalParentGenerationTests(unittest.TestCase):
 
     def test_preregistration_preserves_every_old_tuple_and_the_actual_deployed_recipe(self):
         rows = PACKAGES.workflow_generations()
-        self.assertEqual(len(rows), 28)
+        self.assertEqual(len(rows), 29)
         self.assertEqual(hashlib.sha256(json.dumps(rows[:26], sort_keys=True,
             separators=(',', ':')).encode()).hexdigest(),
             '92e641b712f88bcb66808c51d8fe4b95b4cfb8834c0d39b3869adc4587fa7ec8')
@@ -966,7 +966,7 @@ class OptionalParentGenerationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 PACKAGES.validate_tree_wiring(following['workflows'])
         deployed = PACKAGES.validate_wiring(ROOT)
-        self.assertIn(deployed, {previous['name'], following['name'], 'protected-producer-optional-leaf-common-v1'})
+        self.assertIn(deployed, {previous['name'], following['name'], 'protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'})
         installed = next(row for row in rows if row['name'] == deployed)
         for relative in (self.parent,
                 'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'):
@@ -1520,6 +1520,7 @@ class AggregateTests(unittest.TestCase):
             'protected-producer-original-default-required-context-v1': 'producers/repository-checks.yml',
             'protected-producer-optional-parent-source-v1': 'producers/repository-checks.yml',
             'protected-producer-optional-leaf-common-v1': 'producers/repository-checks.yml',
+            'protected-producer-exact-parent-command-owners-v1': 'producers/repository-checks-parent-owners.yml',
         }
         metadata = generation in metadata_callers
         if metadata:
@@ -1534,7 +1535,7 @@ class AggregateTests(unittest.TestCase):
                                    'protected-producer-original-default-boolean-v1',
                                    'protected-producer-original-default-required-context-v1',
                                    'protected-producer-optional-parent-source-v1',
-                                   'protected-producer-optional-leaf-common-v1')
+                                   'protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1')
         if generation == 'android-owned-npm5-sync-ci-v1' or protected:
             spec = importlib.util.spec_from_file_location('aggregate_android_generation',
                 ROOT / 'tools/repository-checks/android_gate.py')
@@ -1550,8 +1551,9 @@ class AggregateTests(unittest.TestCase):
                               'protected-producer-original-default-boolean-v1',
                               'protected-producer-original-default-required-context-v1',
                               'protected-producer-optional-parent-source-v1',
-                              'protected-producer-optional-leaf-common-v1'):
-                self.assertEqual(dependencies, required_jobs | {'native', 'android', 'workflow-contracts'})
+                              'protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'):
+                self.assertEqual(dependencies, required_jobs | {'native', 'android', 'workflow-contracts'}
+                    | ({'parent-owners'} if generation == 'protected-producer-exact-parent-command-owners-v1' else set()))
             else:
                 self.assertEqual(dependencies, required_jobs | {'native', 'android'})
         else:
@@ -1565,12 +1567,12 @@ class AggregateTests(unittest.TestCase):
         if metadata:
             canonical = generation in {'protected-producer-original-default-required-context-v1',
                 'protected-producer-optional-parent-source-v1',
-                'protected-producer-optional-leaf-common-v1'}
+                'protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}
             self.assertEqual(jobs['repository-checks']['if'], 'always()' if canonical else
                 "always() && (needs.route.result != 'success' || needs.route.outputs.metadata_only != 'true')")
             self.assertEqual(jobs['repository-checks']['name'], 'repository-checks' if canonical else
                 "${{ needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true' && 'repository-checks (metadata unchanged)' || 'repository-checks' }}")
-            renamed = dependencies - {'route', 'workflow-contracts'}
+            renamed = dependencies - {'route', 'workflow-contracts', 'parent-owners'}
             if not canonical:
                 renamed |= {'repository-checks'}
             for name in renamed:
@@ -2551,7 +2553,7 @@ class PackageChecksTests(unittest.TestCase):
                'protected-producer-original-default-boolean-v1',
                'protected-producer-original-default-required-context-v1',
                'protected-producer-optional-parent-source-v1',
-               'protected-producer-optional-leaf-common-v1'}
+               'protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}
         self.assertEqual(PACKAGES._PROTECTED_ROUTE_GENERATIONS,names)
         for name in (*sorted(names),'postmerge-original-e-v1','npm-consumers-v1'):
             root,_,_=self.protected_workflow_fixture(name)
@@ -2886,7 +2888,7 @@ class PackageChecksTests(unittest.TestCase):
     def test_budget_source23_is_atomic_trusted_only_and_keeps_original22_immutable(self):
         all_rows = PACKAGES.workflow_generations()
         self.assertEqual(len(all_rows[:25]), 25)
-        self.assertEqual(len(all_rows), 28)
+        self.assertEqual(len(all_rows), 29)
         rows = all_rows[:24]
         self.assertEqual(len([row for row in rows
                               if row['name'] != 'npm-consumers-sync-ci-budget-cleanup-v1']), 23)
@@ -2966,7 +2968,7 @@ class PackageChecksTests(unittest.TestCase):
     def test_callback_source24_is_one_exact_five_endpoint_successor_without_native_authority(self):
         all_rows = PACKAGES.workflow_generations()
         self.assertEqual(len(all_rows[:25]), 25)
-        self.assertEqual(len(all_rows), 28)
+        self.assertEqual(len(all_rows), 29)
         rows = all_rows[:24]
         self.assertEqual(rows[-1]['name'], 'npm-consumers-sync-ci-budget-cleanup-v1')
         previous = next(row for row in rows if row['name']=='npm-consumers-sync-ci-budget-v1')
@@ -3784,6 +3786,149 @@ class VerifiedEmptyCandidateTests(unittest.TestCase):
                     broken=deepcopy(outer);broken[name]['outputs']=outputs
                     with self.subTest(name=name,outputs=outputs),self.assertRaises(ValueError):
                         CHECKS.verify(broken,package_plan=plan,require_packages=True,candidate=root,event=payload)
+
+
+class ParentCommandOwnerTests(unittest.TestCase):
+    """A scheduling hint cannot hide failed or unauthenticated commands."""
+
+    def setUp(self):
+        self.enterContext(patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'pull_request'}))
+        self.event = event('android-vr', 'reconcile/android-vr/parent-owner-fixture')
+        self.event['action'] = 'opened'
+        self.needs = results('delegated-sync')
+        self.needs['route']['outputs']['native'] = 'skip'
+        self.needs['native']['result'] = 'skipped'
+        self.needs['project']['outputs'] = {}
+        self.needs['workflow-contracts'] = {'result': 'success', 'outputs': {}}
+        self.needs['parent-owners'] = {'result': 'success', 'outputs': {
+            'documentation_verified': 'false', 'workflow_contracts_verified': 'false', 'parent_proof': ''}}
+        self.policy = SimpleNamespace(validate_wiring=lambda _: CHECKS._PARENT_OWNER_GENERATION)
+        self.enterContext(patch.object(CHECKS, 'package_policy', return_value=self.policy))
+        self.proof = {'kind': 'original-sync-identical-android-tree-v1',
+            'qualification': False, 'reusable': False,
+            'requested_suites': sorted(CHECKS._NATIVE_DOCUMENTATION | {'workflow-contracts'}),
+            'original_proof': {'run_id': 101}, 'candidate_inputs': {'fixture': {'sha': 'a' * 40}}}
+        self.covered = set(self.proof['requested_suites'])
+        self.calls = []
+        def native(api, config, payload):
+            self.calls.append(payload)
+            return deepcopy(self.proof)
+        self.gate = SimpleNamespace(GitHubApi=lambda: object(), DEFAULT_CONFIG=Path('/fixed/config'),
+            load_config=lambda _: {}, native_repository_parent_evidence=native,
+            exact_tree_covered_suites=lambda proof, requested: sorted(self.covered),
+            canonical_json=lambda value: json.dumps(value, sort_keys=True, separators=(',', ':')).encode())
+        self.enterContext(patch.object(CHECKS, 'parent_owner_policy', return_value=self.gate))
+
+    def bound(self, needs=None):
+        return CHECKS.bound_parent_owners(self.needs if needs is None else needs,
+                                         ROOT, self.event, 'a' * 40)
+
+    def positive(self):
+        hints, _ = CHECKS.parent_owner_outputs(self.event)
+        self.needs['parent-owners']['outputs'] = hints
+        self.needs['documentation'] = {'result': 'skipped', 'outputs': {}}
+        self.needs['workflow-contracts']['result'] = 'skipped'
+        self.calls.clear()
+
+    def test_whole_current_proof_is_rederived_and_raw_native_skips_are_preserved(self):
+        self.positive()
+        original = deepcopy(self.needs)
+        represented, proof = self.bound()
+        self.assertEqual(self.calls, [self.event])
+        self.assertEqual(self.needs, original)
+        self.assertNotIn('parent-owners', represented)
+        represented, own_proof = CHECKS.bound_project_owners(represented, ROOT, self.event, 'a' * 40)
+        self.assertIsNone(own_proof)
+        self.assertEqual(CHECKS.verify(represented)['status'], 'PASS')
+        self.assertEqual(proof, self.proof)
+        self.assertEqual(self.needs['documentation']['result'], 'skipped')
+
+    def test_unavailable_parent_keeps_the_actual_four_command_fallback(self):
+        represented, proof = self.bound()
+        self.assertIsNone(proof)
+        self.assertFalse(self.calls)
+        represented, _ = CHECKS.bound_project_owners(represented, ROOT, self.event, 'a' * 40)
+        self.assertEqual(CHECKS.verify(represented)['status'], 'PASS')
+        self.needs['documentation']['result'] = 'skipped'
+        represented, _ = self.bound()
+        represented, _ = CHECKS.bound_project_owners(represented, ROOT, self.event, 'a' * 40)
+        with self.assertRaises(ValueError): CHECKS.verify(represented)
+
+    def test_missing_proof_does_not_poll_current_sync_or_create_a_receipt(self):
+        self.proof = None
+        hints, proof = CHECKS.parent_owner_outputs(self.event)
+        self.assertEqual(hints, self.needs['parent-owners']['outputs'])
+        self.assertIsNone(proof)
+        self.assertEqual(self.calls, [self.event])
+        self.assertEqual(set(hints), CHECKS._PARENT_OWNER_OUTPUTS)
+
+    def test_partial_coverage_never_claims_the_missing_command(self):
+        self.covered.remove('workflow-contracts')
+        hints, _ = CHECKS.parent_owner_outputs(self.event)
+        self.assertEqual(hints['documentation_verified'], 'true')
+        self.assertEqual(hints['workflow_contracts_verified'], 'false')
+        self.needs['parent-owners']['outputs'] = hints
+        self.needs['documentation']['result'] = 'skipped'
+        represented, _ = self.bound()
+        self.assertEqual(represented['documentation']['result'], 'success')
+        self.assertEqual(represented['workflow-contracts']['result'], 'success')
+        self.covered.remove('documentation')
+        hints, proof = CHECKS.parent_owner_outputs(self.event)
+        self.assertEqual(hints['parent_proof'], '')
+        self.assertIsNone(proof)
+
+    def test_failed_missing_forged_or_malformed_owner_hints_are_rejected(self):
+        self.positive()
+        mutations = [lambda n: n.pop('parent-owners')]
+        for state in ('failure', 'cancelled', 'skipped', None):
+            mutations.append(lambda n, value=state: n['parent-owners'].update(result=value))
+        for value in ('TRUE', True, None, '1', ''):
+            mutations.append(lambda n, value=value: n['parent-owners']['outputs'].update(documentation_verified=value))
+        for value in ('a' * 64, '', None, 'SHA256:' + 'a' * 64):
+            mutations.append(lambda n, value=value: n['parent-owners']['outputs'].update(parent_proof=value))
+        mutations.extend((lambda n: n['parent-owners']['outputs'].pop('parent_proof'),
+                          lambda n: n['parent-owners']['outputs'].update(unknown='false')))
+        for i, mutate in enumerate(mutations):
+            broken = deepcopy(self.needs); mutate(broken)
+            with self.subTest(case=i), self.assertRaises(ValueError): self.bound(broken)
+
+    def test_changed_expired_or_missing_closing_proof_cannot_accept_omitted_commands(self):
+        self.positive()
+        self.proof['candidate_inputs']['fixture']['sha'] = 'b' * 40
+        with self.assertRaises(ValueError): self.bound()
+        self.proof = None
+        with self.assertRaises(ValueError): self.bound()
+        self.gate.native_repository_parent_evidence = lambda *a: (_ for _ in ()).throw(ValueError('stale native context'))
+        with self.assertRaises(ValueError): self.bound()
+
+    def test_actual_success_failure_or_cancelled_command_is_never_hidden_as_skip(self):
+        self.positive()
+        for job in ('documentation', 'workflow-contracts'):
+            for state in ('success', 'failure', 'cancelled', None):
+                broken = deepcopy(self.needs); broken[job]['result'] = state
+                with self.subTest(job=job, state=state), self.assertRaises(ValueError): self.bound(broken)
+        for state in ('success', 'failure', 'cancelled'):
+            broken = deepcopy(self.needs); broken['project']['result'] = state
+            with self.subTest(project=state), self.assertRaises(ValueError): self.bound(broken)
+
+    def test_unknown_caller_cannot_supply_owner_job_or_hide_missing_job(self):
+        for generation in ('protected-producer-optional-leaf-common-v1', 'unknown', None):
+            self.policy.validate_wiring = lambda _, value=generation: value
+            with self.subTest(generation=generation), self.assertRaises(ValueError): self.bound()
+            old = deepcopy(self.needs); old.pop('parent-owners')
+            self.assertEqual(self.bound(old), (old, None))
+
+    def test_metadata_manual_and_non_vr_owners_remain_skipped_without_proof(self):
+        self.needs['parent-owners'] = {'result': 'skipped', 'outputs': {}}
+        for event_name, target, action in (('workflow_dispatch', 'android-vr', None),
+                ('pull_request', 'android-phone', 'opened'), ('pull_request', 'android-vr', 'labeled')):
+            self.event['pull_request']['base']['ref'] = target
+            self.event['action'] = action
+            with patch.dict(os.environ, {'GITHUB_EVENT_NAME': event_name}), self.subTest(event_name=event_name, target=target):
+                represented, proof = self.bound()
+                self.assertNotIn('parent-owners', represented)
+                self.assertIsNone(proof)
+        self.assertFalse(self.calls)
 
 
 class SyncProducerRoutingTests(unittest.TestCase):

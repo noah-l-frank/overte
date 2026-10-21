@@ -55,6 +55,8 @@ CODEQL_UPLOAD_TEMPLATE = 'tools/repository-checks/workflows/metadata-edits/codeq
 # recipes. Their nonproducer intent structurally excludes every heavy job even
 # when recognition is missing/failed. Historical recipes require their marker.
 _NATIVE_INTENT_RECIPES = frozenset({
+    ('.github/workflows/repository-checks.yml', '5ab9ff4592635ad67cd7f542de9676702180592d',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/codeql.yml', CODEQL_UPLOAD_WORKFLOW,
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/repository-checks.yml', '22fe0d6d39d120f800099136d7d1ab5280d80b41',
@@ -76,7 +78,8 @@ RETAINED_OWNER_GENERATIONS = frozenset({'protected-producer-original-default-v1'
     'protected-producer-original-default-boolean-v1',
     'protected-producer-original-default-required-context-v1',
     'protected-producer-optional-parent-source-v1',
-    'protected-producer-optional-leaf-common-v1'})
+    'protected-producer-optional-leaf-common-v1',
+    'protected-producer-exact-parent-command-owners-v1'})
 
 
 def retain_native_metadata_sources(generations, sources):

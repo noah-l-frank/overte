@@ -719,7 +719,8 @@ class IsolatedConsumerTests(unittest.TestCase):
                 for path in sources}
             candidates=[row for row in catalog if row['name'] in {
                 'protected-producer-original-default-required-context-v1',
-                'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'} and row['workflows']==actual]
+                'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1',
+                'protected-producer-exact-parent-command-owners-v1'} and row['workflows']==actual]
             self.assertLessEqual(len(candidates),1)
             future=candidates[0] if candidates else None
             if future is None:
@@ -1267,7 +1268,8 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         self.assertIn(generation,{'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-v1',
             'protected-producer-original-default-boolean-v1',
             'protected-producer-original-default-required-context-v1',
-            'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'})
+            'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1',
+            'protected-producer-exact-parent-command-owners-v1'})
         return packages,generation
 
     def setUp(self):
@@ -1393,7 +1395,8 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         if generation in {'protected-producer-original-default-v1',
                 'protected-producer-original-default-boolean-v1',
                 'protected-producer-original-default-required-context-v1',
-                'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'}:
+                'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1',
+                'protected-producer-exact-parent-command-owners-v1'}:
             self.assertEqual(active,path.read_text())
             self.assertIn('expected-empty-setup',active)
             # Bind every independently stored canonical endpoint as well as the
@@ -1404,8 +1407,11 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
                 '.github/workflows/sync-validation.yml':'sync-ci-selection.yml',
                 '.github/workflows/browser-client.yml':'npm-consumers/browser-client.yml',
                 '.github/workflows/pr-metadata-context.yml':'metadata-edits/pr-metadata-context.yml'}
-            if generation=='protected-producer-optional-leaf-common-v1':
+            if generation in {'protected-producer-optional-leaf-common-v1',
+                    'protected-producer-exact-parent-command-owners-v1'}:
                 sources['.github/workflows/project-tests.yml']='producers/protected-project-tests-optional-leaf.yml'
+            if generation=='protected-producer-exact-parent-command-owners-v1':
+                sources['.github/workflows/repository-checks.yml']='producers/repository-checks-parent-owners.yml'
             self.assertEqual(set(sources),set(packages.METADATA_WORKFLOW_PATHS))
             for target,relative in sources.items():
                 actual=(VALIDATION.ROOT/target).read_bytes()
@@ -1957,6 +1963,65 @@ class StandaloneNativeOwnersTests(unittest.TestCase):
         self.assertEqual(self.calls.count(self.prefix+'/git/trees/'+self.t+'?recursive=1'),1)
         self.assertEqual(self.calls.count(self.prefix+'/check-runs/910'),0,'unrelated skipped jobs grant no command coverage')
         self.assertLessEqual(len(self.calls),50)
+
+    def successor(self):
+        rows=self.gate.package_checks.workflow_generations()[:28]
+        self.assertEqual(rows[-1]['name'],'protected-producer-optional-leaf-common-v1')
+        new=deepcopy(rows[-1]);new['name']=self.gate.REPOSITORY_PARENT_GENERATION
+        new['workflows'][self.gate._REPOSITORY_CALLER]={'mode':'100644','type':'blob',
+            'sha':self.gate.REPOSITORY_PARENT_RECIPE}
+        self.rows=[*rows,new]
+        self.tree.update(deepcopy(new['workflows']))
+        self.tree[self.gate.REPOSITORY_PARENT_TEMPLATE]=deepcopy(new['workflows'][self.gate._REPOSITORY_CALLER])
+        names=('pr-metadata-context','native-tests','project-tests','android-required','documentation-checks','workflow-security')
+        for name in names:
+            path='.github/workflows/'+name+'.yml';raw=(VALIDATION.ROOT/path).read_bytes()
+            self.tree[path]={'mode':'100644','type':'blob','sha':__import__('hashlib').sha1(
+                b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+        before=deepcopy(self.tree);before.update(deepcopy(rows[-1]['workflows']))
+        bt='9'*40;self.docs[self.prefix+'/git/commits/'+self.b]['tree']['sha']=bt
+        self.docs[self.prefix+'/git/trees/'+bt+'?recursive=1']={'sha':bt,'truncated':False,
+            'tree':[{'path':p,**v}for p,v in before.items()]}
+        for run in (self.run,self.docs[self.prefix+'/actions/runs/901'],self.docs[self.prefix+'/actions/runs/901/attempts/1'],
+                self.docs[self.prefix+'/actions/workflows/900/runs?head_sha='+self.h+'&per_page=100']['workflow_runs'][0]):
+            run['referenced_workflows']=[{'path':self.repo['full_name']+'/.github/workflows/'+name+'.yml@'+self.m,
+                'sha':self.m,'ref':'refs/pull/42/merge'}for name in names]
+
+    def test_first_successor_Android_native_four_uses_actual_new_M_and_preserves_old_B(self):
+        self.android_owners();self.successor()
+        native=SimpleNamespace(plan=lambda *a,**k:{'mode':'skip'})
+        android=SimpleNamespace(activated=lambda *a:False,has_staged_caller=lambda *a:False)
+        bt=self.docs[self.prefix+'/git/trees/'+'9'*40+'?recursive=1']['tree']
+        before={row['path']:{k:row[k]for k in ('mode','type','sha')}for row in bt}
+        plan={'host_mode':'delegated-sync','package_set':[],'paths':['tools/sync-test-reuse/gate.py'],'regular':True}
+        with patch.object(self.gate.package_checks,'workflow_generations',return_value=self.rows), \
+                patch.object(VALIDATION,'_gate',return_value=self.gate), \
+                patch.object(VALIDATION,'_trusted_module',side_effect=lambda name,path:
+                    native if str(path).endswith('native-tests/check.py')else android):
+            self.assertTrue(VALIDATION._standalone_ci_schedule(VALIDATION.ROOT,{},self.request,plan,
+                base_tree=before,candidate_tree=self.tree,trusted_tree=self.tree,suite_names=self.names))
+            proof=self.verify()
+        self.assertIsInstance(proof,VALIDATION.NativeStandaloneCIProof)
+        self.assertEqual(len(proof['suites']),4)
+        self.assertEqual(proof['candidate'],self.m)
+        self.assertIs(proof['qualification'],False);self.assertIs(proof['reusable'],False)
+        self.assertEqual(self.docs[self.prefix+'/git/commits/'+self.b]['tree']['sha'],'9'*40)
+        self.assertEqual(self.rows[-2]['workflows'][self.gate._REPOSITORY_CALLER],self.gate._REPOSITORY_PREVIOUS)
+
+    def test_successor_native_mixed_ref_or_missing_complete_source_never_grants_four(self):
+        self.successor()
+        for field,value in (('sha','8'*40),('path','noah-l-frank/overte/.github/workflows/unknown.yml@'+self.m)):
+            def wrong(endpoint,row,field=field,value=value):
+                if endpoint.endswith('/actions/runs/901'):row['referenced_workflows'][0][field]=value
+                return row
+            with patch.object(self.gate.package_checks,'workflow_generations',return_value=self.rows), \
+                    self.subTest(field=field),self.assertRaises(VALIDATION.ValidationError):
+                self.verify(mutate=wrong)
+        def missing(endpoint,row):
+            if endpoint.endswith('/actions/runs/901'):row['referenced_workflows'].pop()
+            return row
+        with patch.object(self.gate.package_checks,'workflow_generations',return_value=self.rows), \
+                self.assertRaises(VALIDATION.ValidationError):self.verify(mutate=missing)
 
     def documentation_three(self):
         self.selection['suites']=[n for n in self.names if n not in {'producer-proof','python-test-runner',

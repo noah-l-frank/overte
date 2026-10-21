@@ -58,6 +58,7 @@ REVIEWED_CI_INPUTS = frozenset({
     "tools/repository-checks/metadata_context.py", "tools/repository-checks/package_checks.py",
     "tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml",
     "tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml",
+    "tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml",
     "tools/repository-checks/workflows/shared-sandbox-host-diagnostic.yml",
     "tools/test-evidence/ci-integration-test.py", "tools/test-evidence/ci_profile.py",
     "tools/test-evidence/inputs.py", "tools/test-evidence/producer-api-test.py",
@@ -67,6 +68,8 @@ REVIEWED_CI_INPUTS = frozenset({
     "tools/test-evidence/validate-sync-test.py", "tools/test-evidence/validate-sync.py",
 })
 REVIEWED_CI_ADDITIONS = {
+    "tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml":
+        {"mode": "100644", "type": "blob", "sha": "5ab9ff4592635ad67cd7f542de9676702180592d"},
     "tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml":
         {"mode": "100644", "type": "blob", "sha": "b29e0558dc69bc9dd6fc6b47bd6024382be4079d"},
     "tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml":
@@ -89,12 +92,14 @@ CURRENT_PARENT_IMPORT_GUARD_BLOB = '3b97657d8874a842c74a0cbf5a8032e06b941e65'
 BOOLEAN_SOURCE_GUARD_BLOB = 'a89e1d51be5039214def84d8f6f5a06f3dfaea29'
 REQUIRED_CONTEXT_SOURCE_GUARD_BLOB = 'aed06c587034f2762552eeb666bda1f4b6efff23'
 OPTIONAL_LEAF_SOURCE_GUARD_BLOB = '9c2897b7971daea2a3460a0d8146a0cbe2ac86aa'
+EXACT_PARENT_SOURCE_GUARD_BLOB = '503c9ce2281718498560cdc27f08a8ecd763b35c'
 CURRENT_SOURCE_GENERATION = "protected-producer-original-default-v1"
 CURRENT_SOURCE_GENERATIONS = frozenset({CURRENT_SOURCE_GENERATION,
     "protected-producer-original-default-boolean-v1",
     "protected-producer-original-default-required-context-v1",
     "protected-producer-optional-parent-source-v1",
-    "protected-producer-optional-leaf-common-v1"})
+    "protected-producer-optional-leaf-common-v1",
+    "protected-producer-exact-parent-command-owners-v1"})
 CURRENT_SOURCE_TARGETS = frozenset({"android-main", "android-vr", "android-vr-pico", "android-phone"})
 CURRENT_JOBS = {
     "android / route": "Independently select the complete Android union",
@@ -290,10 +295,15 @@ def _reviewed_ci_data(before, source, trusted, paths, owner):
             return False
     if CATALOG in paths:
         old, new = before.json(CATALOG), source.json(CATALOG)
-        if digest(old) != "sha256:b33b94ac8f683f5fd62cbfffdb66b44112f5f009c5b548adbe9c8e2b831debb9" \
-                or digest(new) != "sha256:733fffb359a27302cde36f2aa9f13cafc209b30c0fcbcc8fe8f6449619de16e5" \
-                or len(old["generations"]) != 27 or len(new["generations"]) != 28 \
-                or old["generations"] != new["generations"][:27]:
+        historical = (digest(old) == "sha256:b33b94ac8f683f5fd62cbfffdb66b44112f5f009c5b548adbe9c8e2b831debb9"
+            and digest(new) == "sha256:733fffb359a27302cde36f2aa9f13cafc209b30c0fcbcc8fe8f6449619de16e5"
+            and len(old["generations"]) == 27 and len(new["generations"]) == 28)
+        successor = (digest(old) in {
+            "sha256:b33b94ac8f683f5fd62cbfffdb66b44112f5f009c5b548adbe9c8e2b831debb9",
+            "sha256:733fffb359a27302cde36f2aa9f13cafc209b30c0fcbcc8fe8f6449619de16e5"}
+            and digest(new) == "sha256:6c03de1a885b0c4d321946dae2b4cab2a9d771ac39345cfeb29e84c1756bd20a"
+            and len(old["generations"]) in {27, 28} and len(new["generations"]) == 29)
+        if not (historical or successor) or old["generations"] != new["generations"][:len(old["generations"])]:
             return False
     return True
 
@@ -637,7 +647,7 @@ def _protected_default(policy_root, *, api=None):
         if path.is_symlink():raise ValueError('Android stdlib guard has an aliased source')
     raw=_bootstrap_git(root,'show','HEAD:'+relative)
     if not path.is_file() or path.stat().st_size>128_000 or path.stat().st_mode&0o111 \
-            or path.read_bytes()!=raw or _blob(raw)['sha'] not in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB, REQUIRED_CONTEXT_SOURCE_GUARD_BLOB, OPTIONAL_LEAF_SOURCE_GUARD_BLOB):
+            or path.read_bytes()!=raw or _blob(raw)['sha'] not in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB, REQUIRED_CONTEXT_SOURCE_GUARD_BLOB, OPTIONAL_LEAF_SOURCE_GUARD_BLOB, EXACT_PARENT_SOURCE_GUARD_BLOB):
         raise ValueError('Android stdlib guard has no reviewed bootstrap identity')
     search=list(sys.path);bytecode=sys.dont_write_bytecode;standard=Path(os.__file__).resolve().parent
     sys.path[:]=[str(standard),str(standard/'lib-dynload')]
@@ -924,7 +934,7 @@ def _source_generation(candidate,sha,policy_root):
     if type(value) is not dict or set(value)!={'schema','repository','generations'} or type(value['schema']) is not int \
             or value['schema']!=1 or value['repository']!={'full_name':REPOSITORY,'id':REPOSITORY_ID} \
             or type(value['repository'].get('id')) is not int \
-            or type(value['generations']) is not list or not 1<=len(value['generations'])<=28:
+            or type(value['generations']) is not list or not 1<=len(value['generations'])<=29:
         raise ValueError('Android source catalog is not the finite protected schema')
     four={'.github/workflows/'+name+'.yml' for name in ('project-tests','parent-qualification','sync-validation','repository-checks')}
     five=four|{'.github/workflows/browser-client.yml'};six=five|{'.github/workflows/pr-metadata-context.yml'}

@@ -1639,6 +1639,25 @@ class AndroidCurrentDispatchTests(unittest.TestCase):
             self.assertIn('untrusted actualD',output.getvalue())
             packages.assert_not_called();browser.assert_not_called()
 
+    def test_new_parent_lane_authenticates_Android_D_before_parent_and_standalone_imports(self):
+        with tempfile.TemporaryDirectory(prefix='android-parent-current-cli-') as directory:
+            event=Path(directory)/'event.json'
+            event.write_text(json.dumps({'pull_request':{'base':{'ref':'android-vr'}}}))
+            with patch.object(checks,'configuration',return_value=({},{})), \
+                 patch.object(checks,'bound_project_owners',side_effect=AssertionError('standalone imported before D')) as standalone, \
+                 patch.object(checks,'bound_parent_owners',side_effect=AssertionError('parent proof imported before D')) as parent, \
+                 patch.object(checks,'android_policy',return_value=SimpleNamespace(
+                     current_source_owner=lambda *args:(_ for _ in ()).throw(ValueError('untrusted actualD')))), \
+                 patch.object(checks,'package_policy',side_effect=AssertionError('router imported before D')) as packages, \
+                 patch.object(checks,'browser_policy',side_effect=AssertionError('router imported before D')) as browser, \
+                 patch.object(__import__('sys'),'argv',['check.py','verify','--needs-json',
+                     json.dumps({'parent-owners':{'result':'skipped','outputs':{}}}),'--candidate',directory,
+                     '--sha','3'*40,'--event',str(event)]),redirect_stderr(io.StringIO()) as output:
+                self.assertEqual(checks.main(),1)
+            self.assertIn('untrusted actualD',output.getvalue())
+            parent.assert_not_called();standalone.assert_not_called()
+            packages.assert_not_called();browser.assert_not_called()
+
     def test_fresh_isolated_metadata_policy_import_uses_only_fixed_controller_directory(self):
         script='''import importlib.util,sys
 from pathlib import Path
