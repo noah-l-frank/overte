@@ -1739,5 +1739,167 @@ assert Path(sys.modules['producer_workflow'].__file__).resolve()==root/'tools/te
                     with self.subTest(change=change),self.assertRaises(ValueError):gate._source_generation(root,current,root)
 
 
+class PreregisteredCallerCliTests(unittest.TestCase):
+    """Real sparse plan/aggregate entrypoints must agree before activation."""
+
+    def git(self, root, *args):
+        return subprocess.check_output(['git', '--no-optional-locks', '--no-replace-objects', *args],
+            cwd=root, stderr=subprocess.PIPE, text=True).strip()
+
+    def clone(self, root, source, revision, paths):
+        subprocess.run(['git', 'clone', '-q', '--shared', '--no-checkout', str(source), str(root)],
+            check=True, capture_output=True)
+        self.git(root, 'sparse-checkout', 'set', '--cone', *paths)
+        self.git(root, 'checkout', '-q', '--detach', revision)
+        self.git(root, 'config', 'user.name', 'Offline caller fixture')
+        self.git(root, 'config', 'user.email', 'fixture@example.invalid')
+
+    def fixture(self):
+        directory = tempfile.TemporaryDirectory(prefix='android-preregistered-cli-')
+        self.addCleanup(directory.cleanup)
+        folder = Path(directory.name)
+        trusted, candidate = folder / 'trusted', folder / 'candidate'
+        current = self.git(ROOT, 'rev-parse', 'HEAD')
+        self.clone(trusted, ROOT, current, ['.github', 'tools/repository-checks',
+            'tools/test-evidence', 'tools/native-tests', 'tools/ios-build-qualification'])
+        caller = '.github/workflows/repository-checks.yml'
+        historical = ROOT / 'tools/repository-checks/workflows/producers/repository-checks.yml'
+        self.assertEqual(gate._blob(historical.read_bytes())['sha'], '22fe0d6d39d120f800099136d7d1ab5280d80b41')
+        (trusted / caller).write_bytes(historical.read_bytes())
+        # The default source includes the subject under test, even when this
+        # suite itself runs on an uncommitted source correction or active29.
+        subject = 'tools/repository-checks/android_gate.py'
+        (trusted / subject).write_bytes((ROOT / subject).read_bytes())
+        self.git(trusted, 'add', '--', caller, subject)
+        self.git(trusted, 'commit', '-qm', 'Freeze trusted default28 caller fixture', '--allow-empty')
+        base = self.git(trusted, 'rev-parse', 'HEAD')
+        self.clone(candidate, trusted, base, ['.github'])
+        passive = ROOT / 'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml'
+        self.assertEqual(gate._blob(passive.read_bytes())['sha'], '5ab9ff4592635ad67cd7f542de9676702180592d')
+        (candidate / caller).write_bytes(passive.read_bytes())
+        self.git(candidate, 'add', '--', caller)
+        self.git(candidate, 'commit', '-qm', 'Prospective exact registered caller29')
+        head = self.git(candidate, 'rev-parse', 'HEAD')
+        merge = self.git(candidate, 'commit-tree', self.git(candidate, 'rev-parse', 'HEAD^{tree}'),
+            '-p', base, '-p', head, '-m', 'Private exact merge input; no native qualification')
+        self.git(candidate, 'checkout', '-q', '--detach', merge)
+        controller = trusted / 'tools/repository-checks/check.py'
+        repo = {'full_name': 'noah-l-frank/overte', 'id': 1319052603, 'default_branch': 'main'}
+        event = {'action': 'opened', 'number': 17, 'repository': repo, 'pull_request': {
+            'number': 17, 'state': 'open', 'merged': False, 'draft': False, 'labels': [],
+            'base': {'ref': 'main', 'sha': base, 'repo': repo},
+            'head': {'ref': 'fix/main/preregistered-caller-fixture', 'sha': head, 'repo': repo},
+            'merge_commit_sha': merge}}
+        event_path = folder / 'event.json'
+        event_path.write_text(json.dumps(event))
+        return folder, trusted, candidate, base, head, merge, event, event_path, controller
+
+    def cli(self, controller, command, *args):
+        # A fresh process preserves the production fixed-source import guard;
+        # earlier fixture imports must not impersonate this trusted checkout.
+        script = """import runpy,sys,urllib.request
+
+def deny(*args,**kwargs):
+    raise AssertionError('offline API forbidden')
+
+urllib.request.urlopen=deny
+sys.argv=sys.argv[1:]
+runpy.run_path(sys.argv[0],run_name='__main__')
+"""
+        environment = dict(os.environ, GITHUB_EVENT_NAME='pull_request', PYTHONDONTWRITEBYTECODE='1')
+        result = subprocess.run([__import__('sys').executable, '-B', '-c', script,
+            str(controller), command, *args], env=environment, text=True, capture_output=True)
+        return result.returncode, result.stdout, result.stderr
+
+    def test_registered_current_callers_are_discovered_without_legacy_policy_expansion(self):
+        rows = gate.packages().workflow_generations()
+        current = rows[25:]
+        self.assertGreaterEqual(len(current), 4)
+        self.assertEqual(current[0]['name'], 'protected-producer-original-default-required-context-v1')
+        paths = list((ROOT / 'tools/repository-checks/workflows').rglob('*.yml'))
+        content = {gate._blob(path.read_bytes())['sha']: path.read_bytes() for path in paths}
+        with tempfile.TemporaryDirectory(prefix='android-staged-caller-inventory-') as name:
+            candidate = Path(name)
+            self.git(candidate, 'init', '-q')
+            self.git(candidate, 'config', 'user.name', 'Staged caller fixture')
+            self.git(candidate, 'config', 'user.email', 'fixture@example.invalid')
+            caller = candidate / '.github/workflows/repository-checks.yml'
+            caller.parent.mkdir(parents=True)
+            for row in current:
+                caller.write_bytes(content[row['workflows']['.github/workflows/repository-checks.yml']['sha']])
+                self.git(candidate, 'add', '--all')
+                self.git(candidate, 'commit', '-qm', 'Exact registered caller input', '--allow-empty')
+                with self.subTest(generation=row['name']):
+                    self.assertTrue(gate.has_staged_caller(candidate))
+            for raw in (b'# unknown caller\n', protected21_workflow_fixtures()[
+                    'd9fefd275d9e3c6977cf9350a1945a6bbe5051b4']):
+                caller.write_bytes(raw)
+                self.git(candidate, 'add', '--all')
+                self.git(candidate, 'commit', '-qm', 'Historical or unknown inactive caller')
+                self.assertFalse(gate.has_staged_caller(candidate))
+            caller.unlink(); caller.symlink_to('unreviewed.yml')
+            self.git(candidate, 'add', '--all')
+            self.git(candidate, 'commit', '-qm', 'Aliased caller is not ordinary')
+            self.assertFalse(gate.has_staged_caller(candidate))
+        self.assertNotIn('tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
+                         gate.OWNED_PROJECTS)
+
+    def test_default28_to_candidate29_real_plan_and_aggregate_keep_exact_Android_contract(self):
+        folder, trusted, candidate, base, head, merge, event, event_path, controller = self.fixture()
+        output = folder / 'route.outputs'
+        with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'pull_request'}):
+            code, printed, error = self.cli(controller, 'plan', '--event', str(event_path),
+                '--candidate', str(candidate), '--sha', merge, '--output', str(output))
+            self.assertEqual((code, error), (0, ''))
+            route = json.loads(printed)
+            expected = {'android_required', 'android_candidate', 'android_plan', 'android_inventory'}
+            self.assertEqual({key for key in route if key.startswith('android_')}, expected)
+            for key in ('android_plan', 'android_inventory'):
+                self.assertRegex(route[key], r'^sha256:[0-9a-f]{64}$')
+            self.assertEqual(route['android_required'], 'false')
+            self.assertEqual(route['android_candidate'], merge)
+            route.update(native='skip', metadata_only='false')
+            needs = {'route': {'result': 'success', 'outputs': route},
+                'parent-owners': {'result': 'skipped', 'outputs': {}},
+                'project': {'result': 'success', 'outputs': {'package_verified': 'true',
+                    'package_candidate': route['package_candidate'], 'package_plan': route['package_plan'],
+                    'package_lane': 'project', 'documentation_verified': 'false', 'workflow_contracts_verified': 'false'}},
+                **{name: {'result': 'success', 'outputs': {}}
+                   for name in ('documentation', 'workflow-contracts', 'workflow-security')},
+                **{name: {'result': 'skipped', 'outputs': {}} for name in ('native', 'android')}}
+            def verify(value, sha=merge):
+                return self.cli(controller, 'verify', '--event', str(event_path),
+                    '--candidate', str(candidate), '--sha', sha, '--needs-json', json.dumps(value))
+            code, printed, error = verify(needs)
+            self.assertEqual((code, error), (0, ''))
+            self.assertEqual(json.loads(printed)['status'], 'PASS')
+            for key in expected:
+                broken = deepcopy(needs); broken['route']['outputs'].pop(key)
+                with self.subTest(missing=key):
+                    code, _, error = verify(broken)
+                    self.assertEqual(code, 1)
+                    self.assertIn('aggregate Android routing/candidate/inventory mismatch', error)
+            broken = deepcopy(needs); broken['route']['outputs']['android_candidate'] = head
+            self.assertEqual(verify(broken)[0], 1)
+            # Keep actual immutable merge geometry, but break the complete
+            # registered tuple. Discovery alone must never admit this caller.
+            self.git(candidate, 'checkout', '-q', '--detach', head)
+            wrong = ROOT / 'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml'
+            (candidate / '.github/workflows/project-tests.yml').write_bytes(wrong.read_bytes())
+            self.git(candidate, 'add', '--all')
+            self.git(candidate, 'commit', '-qm', 'Mixed unapproved project tuple')
+            mixed_head = self.git(candidate, 'rev-parse', 'HEAD')
+            mixed = self.git(candidate, 'commit-tree', self.git(candidate, 'rev-parse', 'HEAD^{tree}'),
+                '-p', base, '-p', mixed_head, '-m', 'Mixed tuple input')
+            self.git(candidate, 'checkout', '-q', '--detach', mixed)
+            event['pull_request']['head']['sha'] = mixed_head
+            event['pull_request']['merge_commit_sha'] = mixed
+            event_path.write_text(json.dumps(event))
+            code, _, _ = self.cli(controller, 'plan', '--event', str(event_path),
+                '--candidate', str(candidate), '--sha', mixed, '--output', str(folder / 'mixed.outputs'))
+            self.assertEqual(code, 1)
+            self.assertEqual(verify(needs, sha=mixed)[0], 1)
+
+
 if __name__ == "__main__":
     unittest.main()
