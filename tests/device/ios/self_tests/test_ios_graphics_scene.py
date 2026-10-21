@@ -6,6 +6,7 @@ No build, real app, device or simulator is invoked.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import base64
 import json
 from pathlib import Path
 import secrets
@@ -29,6 +30,7 @@ from feature_journeys.server import make_server
 from feature_journeys.graphics_resources import GraphicsResources
 from feature_journeys.graphics_fixture import subject_ids
 from ios.adapters import normal_input
+from ios.adapters import feature_observation
 from ios.adapters.graphics_scene import IOSGraphicsScene
 from ios.adapters.graphics_fixture import GraphicsFixtureReader,GraphicsPhasePending,GraphicsRunRetired
 from ios.adapters.graphics_source import IOSGraphicsSource
@@ -37,6 +39,7 @@ from ios.adapters.normal_scripts import IOSScriptIO
 from ios.self_tests.test_ios_graphics_surface import Boundary as InputSDK
 from self_tests.test_completed_frame_lease import BINDING
 from self_tests.test_native_scene_loads import Boundary as LoadsSDK,row as load_row
+from self_tests.test_native_feature_observation import Boundary as CoreSDK
 
 RUN='b'*32
 TICKET='c'*32
@@ -63,6 +66,8 @@ class SDK(InputSDK):
         super().__init__();self.feet=[4.,0.,2.];self.orientation=[0,0,0,1];self.scale=1.25;self.boom=3.25
         self.scene_rows=[];self.fetched=[];self.loads=LoadsSDK();self.loads.rows=[]
         self.subject.source.update(subjectVersion=3,avatarPose={},cameraOrbit={})
+        self.core=CoreSDK();self.core.mutate=self.core_packet;self.core_fault=''
+        self.target.update(platform='ios',physical=True,probe=dict(kind='ios-documents'))
     def host_epoch(self):return 1700000000000+round(self.clock*1000)
     def epoch(self):return self.host_epoch()+86400000
     def initial(self,url):
@@ -106,6 +111,23 @@ class SDK(InputSDK):
             self.loads.epoch=self.epoch();self.loads.send(query);self.loads.sample['processId']=42
         value=self.loads.reader(ios=True);value.pid=42;value.send=send;value.clock_ms=self.epoch
         value.monotonic=lambda:self.clock;value.sleep=self.sleep;return value
+    def core_packet(self,value):
+        epoch=self.epoch()-(2000 if self.core_fault=='stale' else 0)
+        value.update(processId=42,requestedEpochMs=epoch,capturedEpochMs=epoch,animation={},animationFence={})
+        value['graphics'].update(requestedResolutionScale=self.model.resolution,applicationResolutionScale=self.model.resolution,
+            hazeSetting=self.model.haze,mirrorsSetting=self.model.mirrors)
+        if self.core_fault=='foreign':value['instance']='f'*32
+    def core_post(self,request,timeout):
+        command=json.loads(request.data);need(command['action']=='feature-native-observe')
+        self.core.send(command);self.response=json.dumps(command).encode();return self
+    def execute(self,session,operation,values):
+        if operation=='mobile: pullFile' and values['remotePath'].endswith('/feature-native-observation.json'):
+            return base64.b64encode(self.core.original().encode()).decode()
+        return super().execute(session,operation,values)
+    def core_reader(self):
+        observer=feature_observation.FeatureObservation(self,'owned-session',self.target,self.process,
+            epoch_ms=self.host_epoch,monotonic=lambda:self.clock,sleep=self.sleep)
+        return observer.bound_native_observer()
     def surface(self,run,intent,owns,lease,allow_url):
         native=normal_input.NativeInput(self,'owned-session',self.target,self.process,native_epoch_ms=self.epoch,
             monotonic=lambda:self.clock,sleep=self.sleep)
@@ -115,7 +137,7 @@ class SDK(InputSDK):
         return IOSGraphicsSurface(original,self.subject_reader(),controls,run,intent,owns,lease,allow_url)
 
 
-class SceneTests(unittest.TestCase):
+class SceneHarness:
     def setUp(self):
         self.temporary=tempfile.TemporaryDirectory();self.addCleanup(self.temporary.cleanup);self.root=Path(self.temporary.name)
         self.sdk=SDK();self.server=make_server(secrets.token_hex(32),secrets.token_hex(32),adapter_token=secrets.token_hex(32))
@@ -131,6 +153,7 @@ class SceneTests(unittest.TestCase):
         self.server.RequestHandlerClass=Handler;self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
         self.addCleanup(self.close_server);self.sdk.initial(self.origin+'/baseline.json')
         self.patch=patch.object(normal_input,'urlopen',self.sdk.post);self.patch.start();self.addCleanup(self.patch.stop)
+        core_patch=patch.object(feature_observation,'post_request',self.sdk.core_post);core_patch.start();self.addCleanup(core_patch.stop)
         self.time_patch=patch.object(witness.time,'time',lambda:self.sdk.host_epoch()/1000);self.time_patch.start();self.addCleanup(self.time_patch.stop)
         self.client=witness.Client(self.origin+'/feature-fixture/v1',self.server.reader_token)
         with patch.object(witness.secrets,'token_hex',return_value=RUN):self.client.register('graphics')
@@ -141,11 +164,14 @@ class SceneTests(unittest.TestCase):
         self.adapter=SimpleNamespace(state_path=lambda _:self.root/'session.json',
             normal_feature_runtime=lambda *_,**__: (None,None,deepcopy(BINDING),lambda:True,dict(installedCandidateVerified=True)),
             _graphics_subject_observer=lambda *_,**__:self.sdk.subject_reader(),_scene_load_observer=lambda *_,**__:self.sdk.loads_reader(),
+            _native_feature_observer=lambda *_,**__:self.sdk.core_reader(),
             _graphics_surface=surface)
     def close_server(self):self.server.shutdown();self.thread.join(3);self.server.server_close()
     def scene(self):return IOSGraphicsScene(self.adapter,'owned',self.client,RUN,self.lock,
         monotonic=lambda:self.sdk.clock,sleep=self.sdk.sleep)
 
+
+class SceneTests(SceneHarness,unittest.TestCase):
     def test_ordinary_third_person_preparation_alignment_and_original_camera_world_restoration(self):
         with self.lock.held():
             scene=self.scene();scene.prepare();self.assertEqual('active',scene.state['phase'])

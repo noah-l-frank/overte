@@ -86,6 +86,8 @@ REQUIRED = {
     "ios-graphics-world-effects": 1,
     "ios-graphics-fixture-reader": 1,
     "ios-graphics-scene": 1,
+    "ios-graphics-preferences": 1,
+    "ios-graphics-source-floors": 1,
     "ios-graphics-restart-proof": 1,
     "feature-graphics-viewpoint-query": 1,
     "native-view-menu-controls": 1,

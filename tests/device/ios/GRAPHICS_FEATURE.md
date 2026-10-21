@@ -112,6 +112,11 @@ orbit/zoom, persists one-send input and rejects held scene callbacks. The privat
 fixture reader and iOS restart-proof validator are present; whole-run preferences,
 lifecycle, samples, actor and final lifetime composition remain in progress.
 
+The [ordinary preference owner](GRAPHICS_PREFERENCES.md) now persists measured
+original settings, normal one-send input, independent source/UI outcomes and
+normal restoration. Whole-run lifecycle/sample/actor/final-lifetime composition
+is still required before exposing the Graphics feature triple.
+
 The existing world-target PNG sampler only reads actual main-mono OpenGL
 framebuffers; Vulkan's product `downloadFramebuffer` remains unimplemented.
 The [completed Vulkan frame source](../native/COMPLETED_FRAME_OBSERVATION.md)
