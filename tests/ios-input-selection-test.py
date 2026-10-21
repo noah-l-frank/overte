@@ -55,6 +55,7 @@ REVIEWED_SANDBOX_CI_PATHS = (
     "tools/repository-checks/workflows/producers/repository-checks.yml",
     "tools/repository-checks/workflows/producers/parent-qualification.yml",
     "tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml",
+    "tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml",
     "tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml",
 )
 
