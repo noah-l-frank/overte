@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import argparse
 import hashlib
@@ -15,6 +15,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 
@@ -28,6 +29,12 @@ import runtime
 ROOT = Path(__file__).resolve().parents[2]
 PRODUCER = "overte-trusted-sync-validation-v1"
 CI_EXECUTION_PRODUCER = "overte-trusted-sync-ci-execution-v1"
+STANDALONE_CI_COMMANDS = {
+    'documentation-contracts': ['python', 'tests/documentation-test.py'],
+    'documentation': ['python', 'tests/check-documentation.py', '--all'],
+    'policy-consistency': ['python', 'tools/repository-policy/check.py'],
+    'workflow-contracts': ['python', 'tests/workflow-contract-test.py'],
+}
 _CANDIDATE_PRIVATE_ENVIRONMENT = (
     "GH_TOKEN", "GITHUB_TOKEN", "GITHUB_ENV", "GITHUB_OUTPUT", "GITHUB_PATH", "GITHUB_STATE",
     "GITHUB_STEP_SUMMARY", "ACTIONS_RUNTIME_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
@@ -37,6 +44,403 @@ _CANDIDATE_PRIVATE_ENVIRONMENT = (
 
 class ValidationError(ValueError):
     """The isolated candidate does not establish a complete current result."""
+
+
+class NativeStandaloneCIProof(dict):
+    """Same-PR command coverage from native jobs, never runtime/E authority."""
+
+
+class StandalonePending(ValidationError):
+    """A pending original owner has no completed command coverage yet."""
+
+
+def _standalone_ci_names(selection, registry):
+    names = json.loads((ROOT / '.github/ci37-runtime.json').read_bytes())['suites']
+    if selection.get('lane') != 'affected-ci' or selection.get('requested_mode') != 'fallback' \
+            or selection.get('standalone_ci_schedule') is not True \
+            or selection.get('suites') != names or len(names) != len(set(names)) \
+            or len(names) != 37 or selection.get('full_host') is not False \
+            or selection.get('external_package_set') != [] \
+            or any(registry['suites'].get(name, {}).get('command') != command
+                   for name, command in STANDALONE_CI_COMMANDS.items()):
+        return []
+    return [name for name in names if name in STANDALONE_CI_COMMANDS]
+
+
+def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=None, normal_parent=None,
+                                protected_source=None, protected_tree=None, observation_clock=None):
+    """Verify four completed original commands without qualifying an environment.
+
+    Only an independently selected CI37 fallback may use this finite form.
+    Missing, pending or invalid native facts raise before any candidate command;
+    callers must not catch those errors and execute these four commands again.
+    """
+    names = _standalone_ci_names(selection, registry)
+    if len(names) != 4 or request.repair_paths:
+        raise ValidationError('standalone native commands require the exact CI37 fallback')
+    now = datetime.now(timezone.utc) if now is None else now
+    if observation_clock is None:
+        observation_clock = lambda: datetime.now(timezone.utc)
+    config = gate.load_config()
+    if request.base not in config['edges'] or config['edges'][request.base]['parent'] != request.parent:
+        raise ValidationError('standalone commands are outside the protected synchronization edges')
+    source = gate._dispatch_checkout_source() if protected_source is None else gate.validate_sha(
+        protected_source, 'standalone protected source')
+    prefix = gate._dispatch_source(api, config, request.repository, source)
+    # Only these content-addressed Git objects are immutable. Mutable native,
+    # registration, PR, branch and check endpoints always bypass this local memo.
+    immutable, trees = {}, set()
+    commits = {prefix + '/git/commits/' + revision
+        for revision in (source, request.base_sha, request.merge_sha, normal_parent) if revision is not None}
+    class GitObjects:
+        def json(self, endpoint):
+            cached = endpoint in commits or endpoint in trees
+            if not cached:
+                raise ValidationError('standalone immutable reader received a mutable endpoint')
+            if endpoint not in immutable:
+                immutable[endpoint] = api.json(endpoint)
+                if endpoint in commits:
+                    sha = gate.validate_sha(immutable[endpoint]['tree']['sha'], 'standalone immutable tree')
+                    trees.add(prefix + '/git/trees/' + sha + '?recursive=1')
+            return json.loads(json.dumps(immutable[endpoint]))
+    git_objects = GitObjects()
+    def inventory(revision):
+        tree_sha, entries = gate.recursive_tree(git_objects, request.repository, revision)
+        # The API reader retains the validated redundant path member; the local
+        # immutable Git inventory uses the path only as its dictionary key.
+        return tree_sha, {path: {key: entry[key] for key in ('mode', 'type', 'sha')}
+                          for path, entry in entries.items()}
+    source_tree, trusted = inventory(source)
+    if inputs.full_tree(ROOT, 'HEAD') != trusted or protected_tree is not None and source_tree != protected_tree:
+        raise ValidationError('standalone reader differs from the actual protected default')
+    for path in ('tools/test-evidence/validate-sync.py', 'tools/sync-test-reuse/gate.py',
+                 '.github/test-suites.json', '.github/ci37-runtime.json'):
+        local = ROOT / path
+        if not local.is_file() or local.resolve(strict=True) != local or local.stat().st_mode & 0o111 \
+                or local.stat().st_size > 1_000_000:
+            raise ValidationError('standalone physical controller/registry is not ordinary')
+        raw = local.read_bytes()
+        entry = {'mode': '100644', 'type': 'blob',
+            'sha': hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()}
+        if trusted.get(path) != entry:
+            raise ValidationError('standalone physical controller/registry differs from protected source')
+    controller = gate._native_parent_controller()  # Physical imports; no B/D reuse admission.
+    _, before = inventory(request.base_sha)
+    tree, candidate = inventory(request.merge_sha)
+    if (selection.get('candidate'), selection.get('tree')) != (request.merge_sha, tree):
+        raise ValidationError('standalone command coverage differs from the selected actual M/tree')
+    if registry != json.loads((ROOT / '.github/test-suites.json').read_bytes()) \
+            or any(snapshot.get('.github/test-suites.json') != trusted['.github/test-suites.json']
+                   for snapshot in (before, candidate)):
+        raise ValidationError('standalone command registry is not the exact protected inventory')
+    recipes = {
+        '.github/workflows/repository-checks.yml': '22fe0d6d39d120f800099136d7d1ab5280d80b41',
+        '.github/workflows/documentation-checks.yml': 'a86e36287a315eed7bbadf366f923966a04bd806',
+    }
+    for path, sha in recipes.items():
+        expected = {'mode': '100644', 'type': 'blob', 'sha': sha}
+        if any(snapshot.get(path) != expected for snapshot in (before, candidate, trusted)):
+            raise ValidationError('standalone command recipe is not the exact protected recipe')
+    if gate.commit_parents(gate.commit(git_objects, request.repository, request.merge_sha)) != (
+            request.base_sha, request.head_sha):
+        raise ValidationError('standalone native candidate does not have exact B/H parents')
+
+    def snapshot(*, closing=False):
+        if closing:
+            gate._dispatch_source(api, config, request.repository, source)
+        pr = api.json(prefix + '/pulls/' + str(request.number))
+        branch = api.json(prefix + '/branches/' + gate.quote(request.base, safe=''))
+        if pr.get('number') != request.number or pr.get('head', {}).get('ref') != request.head \
+                or branch.get('name') != request.base or branch.get('protected') is not True \
+                or branch.get('commit', {}).get('sha') != (request.base_sha if normal_parent is None else normal_parent):
+            raise ValidationError('standalone original protected target/PR identity differs')
+        if normal_parent is None:
+            _recheck(api, gate, request)
+        else:
+            normal = gate.commit(git_objects, request.repository, normal_parent)
+            if pr.get('state') != 'closed' or pr.get('merged') is not True \
+                    or pr.get('merge_commit_sha') != normal_parent \
+                    or pr.get('head', {}).get('sha') != request.head_sha \
+                    or pr.get('base', {}).get('ref') != request.base \
+                    or gate.commit_parents(normal) != (request.base_sha, request.head_sha) \
+                    or gate.commit_tree(normal) != tree \
+                    or gate.branch_sha(api, request.repository, request.base) != normal_parent:
+                raise ValidationError('standalone closed owner lacks the exact current normal geometry')
+        if any((pr.get(side, {}).get('repo', {}).get('id'),
+                pr.get(side, {}).get('repo', {}).get('full_name')) != (1319052603, 'noah-l-frank/overte')
+               for side in ('base', 'head')):
+            raise ValidationError('standalone original PR repository differs')
+        registration = api.json(prefix + '/actions/workflows/repository-checks.yml')
+        if type(registration.get('id')) is not int or registration['id'] <= 0 \
+                or (registration.get('path'), registration.get('state')) != (
+                    '.github/workflows/repository-checks.yml', 'active'):
+            raise ValidationError('standalone original caller registration differs')
+        runs = gate._metadata_list(api, prefix + '/actions/workflows/' + str(registration['id'])
+            + '/runs?head_sha=' + request.head_sha + '&per_page=100', 'workflow_runs')
+        # Metadata nonproducers have a different immutable run-name expression.
+        # Authenticate them with the unchanged existing classifier, never title alone.
+        ordinary, metadata = [], []
+        for row in runs:
+            if row.get('display_title') == 'Overte native metadata nonproducer v2':
+                adapter = controller.A.Adapter(api.native_producer_api(controller))
+                workflows, helpers = controller.producer.metadata_generations(
+                    controller.producer._host_policy(), root=ROOT)
+                policy = controller.A.MetadataPolicy(registration['id'], registration['path'], workflows, helpers)
+                binding = {'repository': request.repository, 'repository_id': request.repository_id,
+                    'pull_request': request.number, 'head_repository_id': request.head_repository_id,
+                    'base_ref': request.base, 'base_sha': request.base_sha, 'head_ref': request.head,
+                    'head_sha': request.head_sha, 'merge_sha': request.merge_sha, 'merge_tree': tree,
+                    'merge_parents': [request.base_sha, request.head_sha]}
+                intent = adapter._native_metadata_intent(row, binding, policy, now=now,
+                    integrated=normal_parent is not None, observation_clock=observation_clock)
+                if intent is None:
+                    raise ValidationError('standalone owner has an unauthenticated metadata competitor')
+                metadata.append(intent)
+            else:
+                ordinary.append(row)
+        if not ordinary:
+            raise StandalonePending('original standalone ordinary run has not registered yet')
+        if len(ordinary) != 1:
+            raise ValidationError('standalone original ordinary run is ambiguous')
+        listed = ordinary[0]
+        identifier = listed['id']
+        latest = api.json(prefix + '/actions/runs/' + str(identifier))
+        attempt = api.json(prefix + '/actions/runs/' + str(identifier) + '/attempts/1')
+        expected = {'id': identifier, 'workflow_id': registration['id'], 'run_attempt': 1,
+            'path': '.github/workflows/repository-checks.yml', 'event': 'pull_request',
+            'head_sha': request.head_sha, 'head_branch': request.head,
+            'display_title': 'Overte native ordinary qualification v2',
+            'status': 'completed', 'conclusion': 'success'}
+        pending = False
+        for run in (listed, latest, attempt):
+            progressing = run.get('status') in {'queued', 'in_progress', 'waiting', 'pending', 'requested'} \
+                and run.get('conclusion') is None
+            if any(type(run.get(k)) is not type(v) or run[k] != v
+                   for k, v in expected.items() if k not in {'status', 'conclusion'}) \
+                    or type(run.get('check_suite_id')) is not int or run['check_suite_id'] <= 0 \
+                    or any((run.get(k, {}).get('id'), run.get(k, {}).get('full_name')) != (
+                        1319052603, 'noah-l-frank/overte') for k in ('repository', 'head_repository')):
+                raise ValidationError('standalone original run is not uniquely completed attempt1')
+            associations = run.get('pull_requests')
+            if not (progressing and associations in (None, [])) and (type(associations) is not list or not (
+                    normal_parent is not None and associations == []
+                    or len(associations) == 1 and associations[0].get('number') == request.number
+                    and associations[0].get('base', {}).get('sha') == request.base_sha
+                    and associations[0].get('head', {}).get('sha') == request.head_sha)):
+                raise ValidationError('standalone original PR association differs')
+            refs = run.get('referenced_workflows')
+            doc = [r for r in refs if type(r) is dict and r.get('path') == request.repository
+                + '/.github/workflows/documentation-checks.yml@' + request.merge_sha] \
+                if type(refs) is list else []
+            if not progressing and (len(doc) != 1 or doc[0].get('sha') != request.merge_sha
+                    or doc[0].get('ref') != 'refs/pull/' + str(request.number) + '/merge'):
+                raise ValidationError('standalone original reusable workflow is not the exact current M')
+            if progressing and refs is None:
+                refs = []
+            if type(refs) is not list or any(type(ref) is not dict for ref in refs):
+                raise ValidationError('standalone native reusable source inventory is malformed')
+            if len({r.get('path') for r in refs}) != len(refs):
+                raise ValidationError('standalone native reusable source inventory is ambiguous')
+            for ref in refs:
+                start, end = request.repository + '/', '@' + request.merge_sha
+                path = ref.get('path', '')
+                relative = path[len(start):-len(end)]
+                entry = trusted.get(relative)
+                if not path.startswith(start + '.github/workflows/') or not path.endswith(end) \
+                        or ref.get('sha') != request.merge_sha \
+                        or ref.get('ref') != 'refs/pull/' + str(request.number) + '/merge' \
+                        or entry is None or entry.get('mode') != '100644' or entry.get('type') != 'blob' \
+                        or candidate.get(relative) != entry:
+                    raise ValidationError('standalone native reusable source chain is foreign or mixed')
+            start, update = run.get('run_started_at'), run.get('updated_at')
+            if start is not None or not progressing:
+                if not gate.parse_time(start, 'standalone run start') \
+                        <= gate.parse_time(update, 'standalone run update') <= now:
+                    raise ValidationError('standalone original run chronology differs')
+            elif update is not None and gate.parse_time(update, 'standalone run update') > now:
+                raise ValidationError('standalone pending run update is in the future')
+            if progressing:
+                pending = True
+            elif (run.get('status'), run.get('conclusion')) != ('completed', 'success'):
+                raise ValidationError('standalone original native owner failed or has unknown status')
+        if any(any(run.get(k) != latest.get(k) for k in ('check_suite_id',))
+               for run in (listed, attempt)):
+            raise ValidationError('standalone native endpoint identities differ')
+        if pending:
+            raise StandalonePending('original standalone commands are still pending')
+        if any(any(run.get(k) != latest.get(k) for k in ('run_started_at', 'referenced_workflows'))
+               for run in (listed, attempt)):
+            raise ValidationError('standalone completed endpoint source/start identities differ')
+        suite = api.json(prefix + '/check-suites/' + str(latest['check_suite_id']))
+        if (suite.get('id'), suite.get('head_sha'), suite.get('app', {}).get('id'),
+                suite.get('repository', {}).get('id'), suite.get('repository', {}).get('full_name')) != (
+                latest['check_suite_id'], request.head_sha, 15368, 1319052603, request.repository):
+            raise ValidationError('standalone original native check-suite/App differs')
+        jobs = gate._metadata_list(api, prefix + '/actions/runs/' + str(identifier)
+            + '/attempts/1/jobs?per_page=100', 'jobs')
+        if any(j.get('run_id') != identifier or j.get('run_attempt') != 1
+                or j.get('head_sha') != request.head_sha or j.get('status') != 'completed'
+                or j.get('conclusion') not in {'success', 'skipped'} for j in jobs):
+            raise ValidationError('standalone original job inventory is pending, failed or mixed')
+        for name in ('project', 'native'):
+            rows = [j for j in jobs if j.get('name') == name]
+            if len(rows) != 1 or rows[0].get('conclusion') != 'skipped':
+                raise ValidationError('standalone CI proof requires the actual delegated no-product route')
+        android_steps = {
+            'android / route': 'Independently select the complete Android union',
+            'android / execute': 'Execute and verify the independently selected Android owners once',
+            'android / verify': 'Recompute candidate union and require complete successful ownership',
+        }
+        android = [j for j in jobs if j.get('name') == 'android']
+        expanded = [j for j in jobs if type(j.get('name')) is str and j['name'].startswith('android / ')]
+        if android:
+            if len(android) != 1 or android[0].get('conclusion') != 'skipped' or expanded:
+                raise ValidationError('standalone independent Android layout is mixed or unavailable')
+            android_steps = {}
+        elif request.base not in {'android-main', 'android-phone', 'android-vr', 'android-vr-pico'} \
+                or len(expanded) != 3 or {j['name'] for j in expanded} != set(android_steps) \
+                or any(j.get('conclusion') != 'success' for j in expanded):
+            raise ValidationError('standalone independent Android owners did not all succeed')
+        elif not any(ref.get('path') == request.repository + '/.github/workflows/android-required.yml@'
+                + request.merge_sha for ref in latest['referenced_workflows']):
+            raise ValidationError('standalone independent Android native recipe is unavailable')
+        for name in ('repository-checks', 'Select required repository checks'):
+            rows = [j for j in jobs if j.get('name') == name]
+            if len(rows) != 1 or rows[0].get('conclusion') != 'success':
+                raise ValidationError('standalone original canonical aggregate/route is unavailable')
+        commands = {
+            'documentation / documentation': (
+                'Verify documentation checker behavior', 'Check every workspace document and incoming link',
+                'Verify policy-derived branch and suite displays'),
+            'workflow-contracts': ('Verify remaining workflow contracts',),
+        }
+        if len({j.get('name') for j in jobs}) != len(jobs):
+            raise ValidationError('standalone native job names are ambiguous')
+        relevant = [job for job in jobs if job['name'] in {
+            *commands, *android_steps, 'repository-checks', 'Select required repository checks'}]
+        checks = {job['name']: gate._metadata_check(api, prefix, latest, job, request.head_sha) for job in relevant}
+        if any(checks[job['name']].get('details_url') != 'https://github.com/' + request.repository
+                + '/actions/runs/' + str(identifier) + '/job/' + str(job['id']) for job in relevant):
+            raise ValidationError('standalone native job/check/run links differ')
+        selected_jobs = {}
+        for name, steps in {**commands, **{name: (step,) for name, step in android_steps.items()}}.items():
+            rows = [j for j in jobs if j.get('name') == name]
+            if len(rows) != 1 or rows[0].get('conclusion') != 'success':
+                raise ValidationError('standalone original successful command owner is unavailable')
+            job = rows[0]
+            for step in steps:
+                gate._metadata_step(job, step)
+            if not gate.parse_time(latest['run_started_at'], 'standalone run start') \
+                    <= gate.parse_time(job['started_at'], 'standalone job start') \
+                    <= gate.parse_time(job['completed_at'], 'standalone job completion') \
+                    <= gate.parse_time(latest['updated_at'], 'standalone run completion'):
+                raise ValidationError('standalone job is outside its original native run')
+            if name in commands:
+                selected_jobs[name] = job
+        if android_steps:
+            ordered = {job['name']: job for job in expanded}
+            if not gate.parse_time(ordered['android / route']['completed_at'], 'Android route completion') \
+                    <= gate.parse_time(ordered['android / execute']['started_at'], 'Android execution start') \
+                    <= gate.parse_time(ordered['android / execute']['completed_at'], 'Android execution completion') \
+                    <= gate.parse_time(ordered['android / verify']['started_at'], 'Android verification start'):
+                raise ValidationError('standalone independent Android owner ordering differs')
+        return {'listed': listed, 'run': latest, 'attempt': attempt, 'jobs': jobs,
+            'checks': checks, 'selected_jobs': selected_jobs, 'registration': registration, 'check_suite': suite}
+
+    opening = snapshot()
+    # Completed whole inventories and relevant checks are reread. Live default,
+    # current PR/M, target/parent refs and registration bind the unchanged SHAs;
+    # refetching the same immutable Git objects would add no new bookend.
+    if snapshot(closing=True) != opening:
+        raise ValidationError('standalone native source/current PR closing bookend changed')
+    completed = max(gate.parse_time(job['completed_at'], 'standalone completion')
+        for job in opening['selected_jobs'].values())
+    expires = completed + timedelta(hours=int(config['evidence_max_age_hours']))
+    if not completed <= now < expires:
+        raise ValidationError('standalone command coverage is stale')
+    return NativeStandaloneCIProof({'kind': 'same-pr-native-standalone-ci-commands-v1',
+        'qualification': False, 'reusable': False, 'source': source, 'source_tree': source_tree,
+        'base': request.base_sha, 'head': request.head_sha, 'candidate': request.merge_sha, 'tree': tree,
+        'suites': names, 'commands': {name: registry['suites'][name]['command'] for name in names},
+        'native': opening, 'coverage_expires_at': expires.isoformat().replace('+00:00', 'Z')})
+
+
+def verify_standalone_ci_provenance(reported, actual, request, *, normal_parent=None):
+    """Permit only cleared associations after an independently checked normal N."""
+    if not isinstance(actual, NativeStandaloneCIProof) or type(reported) is not dict:
+        raise ValidationError('standalone command coverage is not a native proof')
+    expected = json.loads(json.dumps(reported))
+    if normal_parent is not None:
+        records = [(expected['native'][name], actual['native'][name])
+                   for name in ('listed', 'run', 'attempt', 'check_suite')]
+        records += [(check, actual['native']['checks'][name])
+                    for name, check in expected['native']['checks'].items()]
+        for retained, current in records:
+            associations = retained.get('pull_requests')
+            if current.get('pull_requests') == [] and associations != []:
+                if type(associations) is not list or len(associations) != 1 \
+                        or associations[0].get('number') != request.number \
+                        or associations[0].get('base', {}).get('sha') != request.base_sha \
+                        or associations[0].get('head', {}).get('sha') != request.head_sha:
+                    raise ValidationError('retained standalone closed PR association differs')
+                retained['pull_requests'] = []
+    if expected != actual:
+        raise ValidationError('standalone native provenance changed')
+
+
+def _native_standalone_ci_owners(api, gate, request, registry, selection):
+    """Wait before reporting coverage; pending is never successful proof."""
+    deadline = time.monotonic() + 900
+    while True:
+        try:
+            return verify_standalone_ci_owners(api, gate, request, registry, selection)
+        except StandalonePending:
+            if time.monotonic() >= deadline:
+                raise ValidationError('original standalone owners did not finish before the wait bound') from None
+            time.sleep(min(5, max(0, deadline - time.monotonic())))
+
+
+def _standalone_ci_schedule(candidate, event, request, plan, *, base_tree, candidate_tree,
+                            trusted_tree, pr_context=None):
+    """Scheduling only: unsupported sources/owners keep the prior CI37 route."""
+    if plan.get('package_set') or plan.get('host_mode') != 'delegated-sync':
+        return False
+    for path, sha in {
+            '.github/workflows/repository-checks.yml': '22fe0d6d39d120f800099136d7d1ab5280d80b41',
+            '.github/workflows/documentation-checks.yml': 'a86e36287a315eed7bbadf366f923966a04bd806'}.items():
+        expected = {'mode': '100644', 'type': 'blob', 'sha': sha}
+        if any(tree.get(path) != expected for tree in (base_tree, candidate_tree, trusted_tree)):
+            return False
+    registry = trusted_tree.get('.github/test-suites.json')
+    if registry is None or registry.get('mode') != '100644' or registry.get('type') != 'blob' \
+            or any(tree.get('.github/test-suites.json') != registry for tree in (base_tree, candidate_tree)):
+        return False
+    # The fixed caller's six reusable sources must also match the protected
+    # candidate. Their older B versions need not match; they grant no coverage.
+    for name in ('pr-metadata-context', 'native-tests', 'project-tests', 'android-required',
+                 'documentation-checks', 'workflow-security'):
+        path = '.github/workflows/' + name + '.yml'
+        entry = trusted_tree.get(path)
+        if entry is None or entry.get('mode') != '100644' or entry.get('type') != 'blob' \
+                or candidate_tree.get(path) != entry:
+            return False
+    native = _trusted_module('sync_standalone_native_schedule', ROOT / 'tools/native-tests/check.py')
+    mode = native.plan(plan['paths'], plan['regular']).get('mode')
+    if mode not in {'skip', 'core', 'full'}:
+        raise ValidationError('standalone native scheduling route is malformed')
+    if mode != 'skip':
+        return False
+    android = _trusted_module('sync_standalone_android_schedule', ROOT / 'tools/repository-checks/android_gate.py')
+    if not (android.activated(event) or android.has_staged_caller(candidate)):
+        return True
+    android.validate_execution_generation(candidate, event, pr_context=pr_context)
+    selected = android.candidate_plan(candidate, event, request.merge_sha,
+        event_name='pull_request', policy_root=ROOT, pr_context=pr_context)
+    if selected.get('candidate') != request.merge_sha or type(selected.get('required')) is not bool:
+        raise ValidationError('standalone Android scheduling route is malformed')
+    # Android remains independently required and verified. This proof covers
+    # only the four standalone CI commands, including when Android also ran.
+    return True
 
 
 def _trusted_module(name: str, path: Path):
@@ -189,7 +593,7 @@ def _ci_policy():
              "tools/repository-checks/npm_consumers.py", "tests/run-project-tests.py",
              ".github/test-suites.json", ".github/package-workflow-generations.json",
              ".github/repository-checks.json", "tools/repository-checks/android_handoff.py",
-             "tools/repository-checks/android_gate.py")
+             "tools/repository-checks/android_gate.py", "tools/native-tests/check.py")
     result = {}
     for relative in paths:
         path = ROOT / relative
@@ -271,6 +675,7 @@ def _ci_selection(args, request, candidate, initial, registry, api):
                     or "repository-checks" not in owner_config["required_contexts"] \
                     or not (packages.activated(event) or packages.has_staged_caller(candidate)):
                 raise ValidationError("the exact package owner has no mandatory repository aggregate")
+            context = None
             if getattr(request, 'event_base_sha', None) is not None:
                 gate = _gate()
                 context = gate.recheck_effective_request(api, request, event_pr=event['pull_request'])
@@ -286,8 +691,9 @@ def _ci_selection(args, request, candidate, initial, registry, api):
             # required repository aggregate, including external npm receipts.
             tree = inputs.full_tree(candidate, initial[0])
             base_tree = inputs.full_tree(candidate, request.base_sha)
+            trusted_tree = inputs.full_tree(ROOT, "HEAD")
             selected = host.select(tree, plan["paths"], host.regular_ci_inventory(plan, base_tree, tree),
-                unknown=plan["unknown"], trusted_tree=inputs.full_tree(ROOT, "HEAD"), candidate_root=candidate,
+                unknown=plan["unknown"], trusted_tree=trusted_tree, candidate_root=candidate,
                 trusted_root=ROOT, target=request.base, base_tree=base_tree,
                 package_paths=host.package_owned_paths(plan))
             if plan.get('host_mode') == 'full' and args.mode != 'reuse':
@@ -324,6 +730,12 @@ def _ci_selection(args, request, candidate, initial, registry, api):
         result["pending_platform_owners"] = pending
         owner = _trusted_module("sync_android_policy_identity", ROOT / "tools/repository-checks/android_gate.py")
         result["platform_owner_policy"] = owner._policy_identity(ROOT)
+    if _standalone_ci_names({**result, 'standalone_ci_schedule': True}, registry):
+        # This never authorizes coverage. A positive unrelated product/Android
+        # owner preserves the existing37 before the native proof is selected.
+        result['standalone_ci_schedule'] = _standalone_ci_schedule(candidate, event, request, plan,
+            base_tree=base_tree, candidate_tree=tree, trusted_tree=trusted_tree,
+            pr_context=context.planning() if context is not None else None)
     result["selection"] = execution.digest(result)
     return result
 
@@ -596,6 +1008,7 @@ def validate_sync(args, *, api=None):
     registry = inputs.load_registry(ROOT / ".github/test-suites.json")
     started = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     evidence, observed, reused, executed, projects = None, None, [], [], []
+    standalone = None
     native_parent = False
     ci_required = None
     prepared_native = None
@@ -674,6 +1087,20 @@ def validate_sync(args, *, api=None):
             native_evidence=prepared_native)
         if no_setup and (evidence is None or ci_required):
             raise ValidationError('unprepared selected CI commands cannot run after native proof changed')
+        standalone_names = []
+        if evidence is None and not reused and ci_required == selection['suites'] \
+                and _standalone_ci_names(selection, registry):
+            # Reserve only the statically selected commands. Pending native
+            # work grants no coverage, but need not serialize the other33.
+            standalone_names = _standalone_ci_names(selection, registry)
+            try:
+                standalone = verify_standalone_ci_owners(api, gate, request, registry, selection)
+            except StandalonePending:
+                pass
+            else:
+                if not isinstance(standalone, NativeStandaloneCIProof) or standalone.get('suites') != standalone_names:
+                    raise ValidationError('standalone owner is not exact native command coverage')
+            ci_required = [name for name in selection['suites'] if name not in standalone_names]
         if ci_required:
             execution_path = Path(args.receipt).with_name(Path(args.receipt).name + ".ci-execution.json")
             status, returned = _execute_ci(candidate, initial, selection, registry, args.junit, execution_path,
@@ -687,12 +1114,18 @@ def validate_sync(args, *, api=None):
             # Differential validation actually ran above. There is no unused
             # consumer environment or execution receipt to manufacture.
             _bounded_junit(args.junit, [])
-        if reused:
+        if standalone_names:
+            if standalone is None:
+                standalone = _native_standalone_ci_owners(api, gate, request, registry, selection)
+            if not isinstance(standalone, NativeStandaloneCIProof) or standalone.get('suites') != standalone_names:
+                raise ValidationError('standalone owner is not exact completed native command coverage')
+            reused = list(standalone['suites'])
+        if reused and standalone is None:
             _recheck_native_ci(gate, api, config, request, evidence, registry, local_tree, reused)
         if set(reused) & set(executed) or set(reused) | set(executed) != set(selection["suites"]):
             raise ValidationError('selected CI proof and execution do not provide exact disjoint coverage')
         external_packages = list(selection["external_package_set"])
-        mode = "affected-ci"
+        mode = 'native-standalone-ci' if standalone is not None else "affected-ci"
     elif bounded:
         with candidate_environment():
             if request.profile == "tool-dependencies":
@@ -821,6 +1254,9 @@ def validate_sync(args, *, api=None):
     if final_pending != pending:
         raise ValidationError("Android sync ownership or source PR labels changed during execution")
     _recheck(api, gate, request)
+    if standalone is not None:
+        verify_standalone_ci_provenance(dict(standalone),
+            verify_standalone_ci_owners(api, gate, request, registry, selection), request)
     identical = isinstance(evidence, getattr(gate, 'NativeExactTreeParentEvidence', ()))
     if identical:
         mode = 'native-exact-tree-parent'
@@ -841,6 +1277,8 @@ def validate_sync(args, *, api=None):
         result.update(pending_platform_owners=pending, reusable=False, qualification=False)
     if identical:
         result.update(reusable=False, qualification=False)
+    if standalone is not None:
+        result.update(reusable=False, qualification=False, standalone_owner_evidence=dict(standalone))
     if external_packages:
         # The required project aggregate owns these checks. This consumer does
         # not claim their execution or fabricate a successful JUnit case.

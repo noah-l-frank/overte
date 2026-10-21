@@ -1850,6 +1850,7 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
         return json.loads(data, object_pairs_hook=suite_inputs._unique_object, parse_constant=bad)
     report = decode(payload[report_path])
     inherited = report.get('mode') == 'native-exact-tree-parent'
+    standalone = report.get('mode') == 'native-standalone-ci'
     if inherited and normal_parent is not None:
         raise GateError('an inherited Sync report cannot become a recursive normal-parent proof')
     expected_members = {xml_path, report_path} if inherited else allowed
@@ -1857,7 +1858,7 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
         raise GateError('metadata original artifact form is incomplete or mixed')
     observed = None if inherited else decode(payload[report_path + '.ci-execution.json'])
     requested_mode = 'reuse' if inherited else 'fallback'
-    expected_mode = 'native-exact-tree-parent' if inherited else 'affected-ci'
+    expected_mode = 'native-exact-tree-parent' if inherited else 'native-standalone-ci' if standalone else 'affected-ci'
     if normal_parent is not None:
         # Keep the original temporary M in its report. The current normal N is
         # a separate immutable commit with precisely the same tree and parents.
@@ -1894,6 +1895,20 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
         if set(report) != expected_fields or report.get('qualification') is not False or report.get('reusable') is not False \
                 or report['executed_suites'] != [] or report['reused_suites'] != names or report['bounded_projects'] != []:
             raise GateError('metadata inherited report claims unknown or new execution authority')
+    elif standalone:
+        expected_fields = {'schema','producer','repository','repository_id','pull_request','candidate',
+            'requested_mode','mode','reused_suites','executed_suites','bounded_projects','execution',
+            'parent_evidence','conclusion','started_at','completed_at','reusable','qualification',
+            'ci_selection','not_selected_suites','receipt_digest','standalone_owner_evidence'}
+        reused = validator._standalone_ci_names(selection, registry)
+        remaining = [name for name in names if name not in reused]
+        if set(report) != expected_fields or len(reused) != 4 or len(remaining) != 33 \
+                or report.get('qualification') is not False or report.get('reusable') is not False \
+                or report['reused_suites'] != reused or report['executed_suites'] != remaining \
+                or report['parent_evidence'] is not None or report['bounded_projects'] != []:
+            raise GateError('metadata standalone report lacks exact disjoint four-plus33 coverage')
+        _metadata_standalone_owners(api, request, source, validator, registry, report, now,
+            normal_parent=normal_parent)
     elif report['executed_suites'] != names or report['reused_suites'] != [] or report['parent_evidence'] is not None:
         raise GateError('metadata original independent execution coverage differs')
     if type(selection.get('schema')) is not int or selection['schema'] != 1 or selection.get('kind') != 'sync-ci-selection' \
@@ -1912,17 +1927,31 @@ def _metadata_report(api, prefix, run, item, request, source, validator, registr
         _metadata_inherited_parent(api, config=load_config(), request=request, source=source,
             validator=validator, names=names, tree=tree, report=report, now=now)
     else:
-        validator._verify_ci_execution(observed, selection, registry, (request.merge_sha, tree))
+        validator._verify_ci_execution(observed, selection, registry, (request.merge_sha, tree),
+            suite_names=report['executed_suites'] if standalone else None)
     xml_raw = payload[xml_path]
     if b'<!DOCTYPE' in xml_raw.upper() or b'<!ENTITY' in xml_raw.upper():
         raise GateError('metadata original XML entities forbidden')
     xml = ET.fromstring(xml_raw); cases = list(xml.iter('testcase'))
-    junit_names = ['sync-differential'] if inherited else names
+    junit_names = ['sync-differential'] if inherited else report['executed_suites'] if standalone else names
     if [c.get('name') for c in cases] != junit_names or int(xml.get('tests')) != len(junit_names) \
             or any(int(xml.get(k, '0')) for k in ('failures', 'errors', 'skipped')) \
             or any(c.find(k) is not None for c in cases for k in ('failure', 'error', 'skipped')):
         raise GateError('metadata original ordered JUnit incomplete/failed/skipped')
     return report, observed
+
+
+def _metadata_standalone_owners(api, request, source, validator, registry, report, now, *, normal_parent=None):
+    proof = validator.verify_standalone_ci_owners(api, sys.modules[__name__], request, registry,
+        report['ci_selection'], now=now, normal_parent=normal_parent, protected_source=source,
+        protected_tree=commit_tree(commit(api, request.repository, source)))
+    validator.verify_standalone_ci_provenance(report['standalone_owner_evidence'], proof,
+        request, normal_parent=normal_parent)
+    if max(parse_time(job['completed_at'], 'standalone native completion')
+            for job in proof['native']['jobs'] if job['name'] in proof['native']['checks']) > parse_time(
+                report['completed_at'], 'mixed report completion'):
+        raise GateError('standalone native owners were not completed before the mixed report')
+    return proof
 
 
 def _metadata_inherited_parent(api, *, config, request, source, validator, names, tree, report, now):
@@ -1937,15 +1966,30 @@ def _metadata_inherited_parent(api, *, config, request, source, validator, names
             or proof.get('reusable') is not False or proof.get('source') != source \
             or proof.get('parent_branch') != request.parent or proof.get('parent_commit') != request.parent_sha \
             or proof.get('parent_tree') != tree or proof.get('requested_suites') != names \
-            or proof.get('original_report',{}).get('mode') != 'affected-ci' \
-            or proof['original_report'].get('requested_mode') != 'fallback' \
-            or proof['original_report'].get('executed_suites') != names \
-            or proof['original_report'].get('reused_suites') != [] \
+            or not _original_ci_command_coverage(proof.get('original_report', {}), names) \
             or parse_time(proof['expires_at'],'original inherited expiry') <= now \
             or parse_time(proof['qualified_at'],'original inherited completion') > parse_time(report['started_at'],'inheriting report start') \
             or validator._parent_provenance(proof,names,sys.modules[__name__]) != report['parent_evidence']:
         raise GateError('metadata inherited parent execution/provenance is unavailable or changed')
     return proof
+
+
+def _original_ci_command_coverage(report, names):
+    """Only after native/report verification: original execution, never recursion."""
+    if report.get('requested_mode') != 'fallback':
+        return False
+    if report.get('mode') == 'affected-ci':
+        return report.get('executed_suites') == names and report.get('reused_suites') == []
+    if report.get('mode') != 'native-standalone-ci':
+        return False
+    four = {'documentation-contracts', 'documentation', 'policy-consistency', 'workflow-contracts'}
+    reused = [name for name in names if name in four]
+    return (len(names) == len(set(names)) == 37 and len(reused) == 4
+        and report.get('reused_suites') == reused
+        and report.get('executed_suites') == [name for name in names if name not in four]
+        and report.get('parent_evidence') is None and report.get('qualification') is False
+        and report.get('reusable') is False
+        and report.get('standalone_owner_evidence', {}).get('kind') == 'same-pr-native-standalone-ci-commands-v1')
 
 
 def _completed_sync_report(api, prefix, original, check, request, source,
@@ -2079,12 +2123,12 @@ def retain_metadata_owner(event, config, api, *, environment=None, now=None):
     request = classify_event(event, config, api)
     if request is None or request.repair_paths or request.profile in {'documentation', 'tool-dependencies'}:
         raise GateError('metadata retention requires the exact independently selected Sync context')
-    if any(env.get(k) != v for k, v in {'GITHUB_REF': 'refs/heads/' + request.base,
-            'GITHUB_SHA': request.base_sha, 'GITHUB_WORKFLOW_SHA': request.base_sha,
-            'GITHUB_WORKFLOW_REF': request.repository + '/.github/workflows/sync-test-reuse.yml@refs/heads/' + request.base}.items()):
-        raise GateError('metadata current native caller recipe/base differs')
-    prefix = 'repos/' + request.repository
     source = _dispatch_checkout_source()
+    if any(env.get(k) != v for k, v in {'GITHUB_REF': 'refs/heads/main',
+            'GITHUB_SHA': source, 'GITHUB_WORKFLOW_SHA': source,
+            'GITHUB_WORKFLOW_REF': request.repository + '/.github/workflows/sync-test-reuse.yml@refs/heads/main'}.items()):
+        raise GateError('metadata current native caller recipe/default differs')
+    prefix = 'repos/' + request.repository
     _dispatch_source(api, config, request.repository, source)
     registration = api.json(prefix + '/actions/workflows/350930894')
     if (registration.get('id'), registration.get('path'), registration.get('state')) != (
@@ -2103,6 +2147,9 @@ def retain_metadata_owner(event, config, api, *, environment=None, now=None):
     tree, candidate = recursive_tree(api, request.repository, request.merge_sha)
     _, before = recursive_tree(api, request.repository, request.base_sha)
     _, trusted = recursive_tree(api, request.repository, source)
+    # Retain every validated path/mode/type/SHA; local immutable inventories
+    # represent the path as the dictionary key rather than a repeated member.
+    candidate, before, trusted = (input_tree(t) for t in (candidate, before, trusted))
     workflow_path = '.github/workflows/sync-test-reuse.yml'
     for relative in ('tools/sync-test-reuse/gate.py', workflow_path):
         raw_source = (ROOT / relative).read_bytes()
@@ -2180,6 +2227,9 @@ def retain_metadata_owner(event, config, api, *, environment=None, now=None):
     if proof['report']['mode'] == 'native-exact-tree-parent':
         _metadata_inherited_parent(api, config=config, request=request, source=source,
             validator=proof['validator'], names=proof['selected']['suites'], tree=tree, report=proof['report'], now=now)
+    elif proof['report']['mode'] == 'native-standalone-ci':
+        _metadata_standalone_owners(api, request, source, proof['validator'],
+            suite_inputs.load_registry(ROOT / '.github/test-suites.json'), proof['report'], now)
     return {'metadata_authenticated': True, 'original_gate_run': original['id'], 'validation_run': child,
             'original_state': 'success', 'new_dispatches': 0, 'new_execution': False, 'qualification': False}
 
@@ -2294,6 +2344,7 @@ def verify_exact_tree_parent_evidence(api, config, request, *, protected_source,
         validate_sha(protected_tree, 'exact-tree protected source tree')
         prefix = _dispatch_source(api,config,request.repository,source)
         source_tree,trusted = recursive_tree(api,request.repository,source)
+        trusted = input_tree(trusted)
         if source_tree != protected_tree or suite_inputs.full_tree(ROOT,'HEAD') != trusted:
             raise EvidenceError('exact-tree actual reader is not the complete protected source tree')
         _native_parent_controller()  # Authenticate the existing physical import closure, not B/D reuse/E.
@@ -2342,6 +2393,8 @@ def verify_exact_tree_parent_evidence(api, config, request, *, protected_source,
         parent_tree,parent_inputs = recursive_tree(api,request.repository,request.parent_sha)
         _,before = recursive_tree(api,request.repository,bp)
         _,child_before = recursive_tree(api,request.repository,request.base_sha)
+        candidate,parent_inputs,before,child_before = (input_tree(t)
+            for t in (candidate,parent_inputs,before,child_before))
         profile = {'mode':'100644','type':'blob','sha':suite_inputs._AFFECTED_TARGET_PROFILES['android-main']}
         if tree != parent_tree or candidate != parent_inputs \
                 or any(t.get('tests/platform-profile.json') != profile for t in (candidate,before,child_before)) \
@@ -2393,6 +2446,10 @@ def verify_exact_tree_parent_evidence(api, config, request, *, protected_source,
                 or suite_inputs.full_tree(ROOT,'HEAD') != trusted:
             raise EvidenceError('exact-tree native/source/normal closing bookend changed')
         _dispatch_source(api,config,request.repository,source)
+        if report['mode'] == 'native-standalone-ci':
+            _metadata_standalone_owners(api, replace(original_request,
+                merge_sha=report['candidate']['merge_commit']), source, proof['validator'], registry,
+                report, now, normal_parent=request.parent_sha)
         return NativeExactTreeParentEvidence({'kind':'original-sync-identical-android-tree-v1',
             'qualification':False,'reusable':False,'source':source,'parent_branch':request.parent,
             'parent_commit':request.parent_sha,'parent_tree':tree,'candidate_inputs':candidate,

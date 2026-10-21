@@ -156,24 +156,24 @@ PROGRAM_INPUTS = (
 # legacy-retirement/contract handoff files. Only the two separately owned foreign
 # locks are outside this complement; changed locks need mandatory package coverage.
 # These identities are not execution receipts or application-build evidence.
-REVIEWED_PROGRAMS = 'c53ab5fd0d7edc39929c6272ad34af1fd5d09ffdfa8376d0aafa60249a46f160'
+REVIEWED_PROGRAMS = 'a0fc6b6acf42355a4b9dfdda6ab4da2abd3482064b917bc67056f2b2a8614271'
 REVIEWED_CHILD_PROGRAMS = {
-    'apple-main': '74a77e4f28699a54ec29a55dd345961951a061f840868c74e7c3fab7f5d2c757',
-    'apple-ios': 'afa95077ca96b2610fd5636450409319d2d71de0a7492016f5927fc9bdca8fdf',
-    'android-main': '59ec0b467f3e439f014f5ccd0a6285b94fc1a66bf76a02439b66d358c50d2d8f',
-    'android-phone': '8e1c591f438ac45762ea77d3fceab70af1b588518801565da82ebe4e5646ebc6',
-    'android-vr': '59ec0b467f3e439f014f5ccd0a6285b94fc1a66bf76a02439b66d358c50d2d8f',
-    'android-vr-pico': 'bd0075ad3f16d386bfdeb4813fbd2fc984ae06e5a68a83a24b858a11ab46071c',
+    'apple-main': 'e922675802dd5a327f062e291782f3b990e3226632c04cd3ce5f324147e01028',
+    'apple-ios': '900f59d1befc9af7ff82bf94068cf6fd372051402e910baecaed7f5f1fc52598',
+    'android-main': '2256b08ed6545dc985ab6aee17a385a63532a512c708e02dcb5c4909ce9f7fea',
+    'android-phone': '69b346670ea7caa53357b8f715a447fb470909c6722894be506320c0fdd7a8c0',
+    'android-vr': '2256b08ed6545dc985ab6aee17a385a63532a512c708e02dcb5c4909ce9f7fea',
+    'android-vr-pico': 'f767a3f1188f39cf45252564da851bc2dc3b5334d3db0db54389c6f71f895d6d',
 }
 # Separate exact installed family; None admits nothing until genuine enrollment.
 REVIEWED_INSTALLED_PROGRAMS = {
-    'apple-ios': 'afa95077ca96b2610fd5636450409319d2d71de0a7492016f5927fc9bdca8fdf',
+    'apple-ios': '900f59d1befc9af7ff82bf94068cf6fd372051402e910baecaed7f5f1fc52598',
 }
 REVIEWED_PREDECESSORS = {
-    'main': 'ca908382ffc331b3f097718c2c4c3bed7674075704038c9605b7178b21d310d4',
-    'apple-main': '4b5ba4774eb7fd60c324111934f7a5c009c359872b971419e0627f0aa61e5aa4',
+    'main': 'cd718484b9dfb53487e84139a9e1bc8d23f60f2355f13b29eaea5d94186e752f',
+    'apple-main': '74a77e4f28699a54ec29a55dd345961951a061f840868c74e7c3fab7f5d2c757',
     'apple-ios': '8f6e2c431b583220f5fb52a361048470588075136a042993aade08b01589a841',
-    'android-main': '5922f787a6506c4516f6ee36b4310ef59c5ed81abe64e021f9860f3abe2da33d',
+    'android-main': '59ec0b467f3e439f014f5ccd0a6285b94fc1a66bf76a02439b66d358c50d2d8f',
     'android-phone': '917996fd83789b524655804b70aeb363b33d5d280c47110a14a91dd8c1c351b6',
     'android-vr': '5922f787a6506c4516f6ee36b4310ef59c5ed81abe64e021f9860f3abe2da33d',
     'android-vr-pico': 'e0f53763c000539d722f7e84ed275d8eb38f69b3799527308403e2ef39f1b19d',
