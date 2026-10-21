@@ -129,6 +129,7 @@ class ScriptCompilationsTests(unittest.TestCase):
         engine=(root/'libraries/script-engine/src/v8/ScriptEngineV8.cpp').read_text()
         evaluated=engine[engine.index('ScriptValue ScriptEngineV8::evaluate(const QString&'):]
         self.assertLess(evaluated.index('featureRecordCompilation(script,actualSource)'),evaluated.index('script->Run(context)'))
+        self.assertLess(evaluated.index('v8::TryCatch tryCatch(getIsolate())'),evaluated.index('actualSource=v8::String::NewFromUtf8'))
         native=engine[engine.index('void ScriptEngineV8::featureRecordCompilation'):engine.index('ScriptValue ScriptEngineV8::evaluate(const QString&')]
         self.assertIn('original->GetId()',native);self.assertIn('String::Value codeUnits(getIsolate(),actualCode)',native)
         self.assertIn('QCoreApplication::arguments().contains("--testScript")',native)

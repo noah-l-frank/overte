@@ -9,7 +9,7 @@ import sys
 import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from adapters.native_script_work import NativeScriptWork,command,validate
+from adapters.native_script_work import NativeScriptWork,command,validate,scope
 from adapters.normal_ui import NativeUIError
 
 MANAGER='c'*32
@@ -42,7 +42,115 @@ class WorkBoundary:
             monotonic=lambda:self.clock,sleep=self.sleep,**kwargs)
 
 
+def activity(script_id,*,signals=0,timers=0,signal_calls=0,timer_calls=0,registrations=0):
+    return dict(scriptId=script_id,signalCallbacks=signals,timerCallbacks=timers,signalInvocations=signal_calls,
+        timerInvocations=timer_calls,timerRegistrations=registrations)
+
+
+class ScopedWorkBoundary(WorkBoundary):
+    def __init__(self):
+        super().__init__();self.activity=[activity(23,signal_calls=1)];self.edit=None
+        from self_tests.test_emote_source_profile import manager_pins,pins
+        manager=manager_pins()[0];emote=pins()[0];self.member['url']='file:///actual/scripts/defaultScripts.js'
+        self.code.update({key:manager[key] for key in ('encoding','codeUnits','sha256')})
+        def compiled(identifier,path,pin,epoch):
+            return dict(scriptId=identifier,resourceName=path,compiledEpochMs=epoch,**{key:pin[key] for key in ('encoding','codeUnits','sha256')})
+        foreign=b'function foreignPoll() {}';foreign_units=foreign.decode().encode('utf-16-le')
+        foreign_pin=dict(encoding='utf-16le-code-units',codeUnits=len(foreign_units)//2,sha256=hashlib.sha256(foreign_units).hexdigest())
+        self.compiled=dict(compiledSourcesVersion=1,complete=True,compilations=[
+            compiled(11,self.member['url'],manager,15001),
+            compiled(23,'file:///actual/scripts/system/+android_phoneInterface/phoneEmote.js',emote,15002),
+            compiled(31,'file:///actual/scripts/foreign-poll.js',foreign_pin,15003)])
+        def observed(value):
+            source=value['source'];source['compiled']=deepcopy(self.compiled);work=source['work']
+            work.update(scriptWorkVersion=2,activity=deepcopy(self.activity),timerEntries=len(work['timers']),activityEntries=len(self.activity))
+            if self.edit:self.edit(value)
+        self.mutate=observed
+
+    def selected(self):return deepcopy(self.compiled['compilations'][1])
+
+
 class NativeScriptWorkTests(unittest.TestCase):
+    def test_v2_preserves_foreign_default_timers_and_measures_only_original_selected_function_work(self):
+        source=ScopedWorkBoundary();source.timers=[dict(handle=7,active=True,singleShot=False,intervalMs=1000,remainingMs=950,functionScriptId=31)]
+        source.activity.append(activity(31,registrations=1));actual=source.reader().read(MANAGER);measured=scope(actual,source.selected())
+        self.assertEqual([],measured['timers']);self.assertEqual([],measured['unknownTimers'])
+        self.assertEqual(1,measured['signalInvocations']);self.assertEqual(0,measured['signalCallbacks'])
+        self.assertEqual(1,len(actual['source']['work']['timers']));self.assertEqual(1,len(source.timers))
+        self.assertEqual({'schemaVersion','commandId','action','managerInstance'},set(source.commands[0]))
+
+    def test_v2_inactive_owned_timer_and_running_owned_callback_remain_present(self):
+        source=ScopedWorkBoundary();source.timers=[dict(handle=7,active=False,singleShot=True,intervalMs=1000,remainingMs=-1,functionScriptId=23)]
+        source.activity=[activity(23,timers=1,signal_calls=1,timer_calls=1,registrations=1)];source.timer_callbacks=1
+        actual=scope(source.reader().read(MANAGER),source.selected())
+        self.assertEqual(1,len(actual['timers']));self.assertFalse(actual['timers'][0]['active']);self.assertEqual(1,actual['timerCallbacks'])
+
+    def test_v2_native_or_unobserved_function_origins_are_unknown_not_foreign_empty_success(self):
+        for identifier in (0,17):
+            source=ScopedWorkBoundary();source.timers=[dict(handle=7,active=True,singleShot=True,intervalMs=1000,remainingMs=950,functionScriptId=identifier)]
+            source.activity.insert(0,activity(identifier,signals=1,signal_calls=1,registrations=1));source.signal_callbacks=1
+            with self.subTest(identifier=identifier):
+                actual=scope(source.reader().read(MANAGER),source.selected())
+                self.assertEqual(1,len(actual['unknownTimers']));self.assertEqual(1,actual['unknownSignalCallbacks'])
+                self.assertEqual(identifier,actual['unknownActivity'][0]['scriptId'])
+
+    def test_v2_completed_callback_and_timer_creation_activity_cannot_disappear_or_rewind(self):
+        for fault in ('missing','signal','timer','registration'):
+            source=ScopedWorkBoundary();source.activity=[activity(23,signal_calls=2,timer_calls=2,registrations=2)]
+            reader=source.reader();first=reader.read(MANAGER)
+            if fault=='missing':source.activity=[]
+            else:source.activity[0][{'signal':'signalInvocations','timer':'timerInvocations','registration':'timerRegistrations'}[fault]]=1
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):reader.read(MANAGER,first['sequence'])
+            self.assertEqual(first,reader.last)
+
+    def test_v2_loss_of_timer_or_activity_rows_cannot_hide_behind_complete_flag(self):
+        for fault in ('missing-timer','missing-activity','active-total','empty-activity','unknown-version','invented-field','negative-id','missing-registration','unregistered-callback'):
+            source=ScopedWorkBoundary();source.timers=[dict(handle=7,active=True,singleShot=True,intervalMs=1000,remainingMs=950,functionScriptId=23)]
+            source.activity[0]['timerRegistrations']=1
+            def invalid(value):
+                work=value['source']['work']
+                if fault=='missing-timer':work['timers']=[]
+                elif fault=='missing-activity':work['activity']=[]
+                elif fault=='active-total':work['signalCallbacks']=1
+                elif fault=='empty-activity':work['activity'][0]['signalInvocations']=0;work['activity'][0]['timerRegistrations']=0
+                elif fault=='unknown-version':work['scriptWorkVersion']=3
+                elif fault=='invented-field':work['expectedSelectedTimers']=0
+                elif fault=='negative-id':work['timers'][0]['functionScriptId']=-1
+                elif fault=='unregistered-callback':work['activity'][0].update(timerInvocations=1,timerRegistrations=0)
+                else:work['activity'][0]['timerRegistrations']=0
+            source.edit=invalid
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):source.reader().read(MANAGER)
+
+    def test_v2_actual_selected_compilation_must_match_and_cannot_be_supplied_by_legacy_work(self):
+        source=ScopedWorkBoundary();value=source.reader().read(MANAGER)
+        for edit in (dict(scriptId=24),dict(sha256='f'*64),dict(compiledEpochMs=15000)):
+            with self.subTest(edit=edit),self.assertRaises(NativeUIError):scope(value,source.selected()|edit)
+        legacy=WorkBoundary().reader().read(MANAGER)
+        with self.assertRaises(NativeUIError):scope(legacy,source.selected())
+
+    def test_v2_cannot_downgrade_or_lose_compilation_after_readonly_replay(self):
+        source=ScopedWorkBoundary();first=source.reader().read(MANAGER);reader=source.reader();reader.restore([first])
+        source.compiled['compilations'][1]['sha256']='f'*64
+        with self.assertRaises(NativeUIError):reader.read(MANAGER,first['sequence'])
+        source=ScopedWorkBoundary();first=source.reader().read(MANAGER);reader=source.reader();reader.restore([first]);source.mutate=None
+        with self.assertRaises(NativeUIError):reader.read(MANAGER,first['sequence'])
+
+    def test_v2_guarded_native_hooks_read_real_function_and_bound_target_ids_without_function_stringification(self):
+        root=Path(__file__).resolve().parents[3]
+        engine=(root/'libraries/script-engine/src/v8/ScriptEngineV8.cpp').read_text()
+        native=engine[engine.index('int ScriptEngineV8::featureFunctionScriptId('):engine.index('int ScriptEngineV8::featureCurrentScriptId()')]
+        self.assertIn('function->GetBoundFunction()',native);self.assertIn('function->ScriptId()',native)
+        self.assertIn('original->getV8Engine()!=this',native);self.assertNotIn('toString',native.replace('Function.toString',''))
+        manager=(root/'libraries/script-engine/src/ScriptManager.cpp').read_text()
+        self.assertIn('data.featureFunctionScriptId',manager);self.assertIn('featureTimerRegistered(timerData.featureFunctionScriptId)',manager)
+        self.assertIn('{"scriptWorkVersion",2}',manager);self.assertIn('{"activityEntries",_featureWorkActivity.size()}',manager)
+
+    def test_valid_oversized_json_cannot_bypass_the_original_work_transport_bound(self):
+        source=ScopedWorkBoundary();reader=source.reader()
+        reader.original=lambda:json.dumps(source.value)+' '*262144
+        with self.assertRaises(NativeUIError):reader.read(MANAGER)
+        self.assertIsNone(reader.last)
+
     def test_actual_original_inventory_and_callback_counts_are_not_requested_results(self):
         source=WorkBoundary();source.timers=[dict(handle=7,active=True,singleShot=True,intervalMs=2000,remainingMs=950)]
         source.signal_callbacks=2;source.timer_callbacks=1;source.evaluating=True

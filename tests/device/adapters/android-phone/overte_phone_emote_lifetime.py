@@ -11,14 +11,15 @@ import time
 
 from adapters.emote_rig_measurements import source as source_group
 from adapters.native_feature_observation import exact,fresh,integer,need,number
-from adapters.native_script_work import NativeScriptWork,validate as work_packet,members
+from adapters.native_script_work import NativeScriptWork,validate as work_packet,members,scope as work_scope
+from adapters.native_script_compilations import accept as compiled_accept
 from adapters.normal_feature_state import PrivateFeatureState,context
 from feature_journeys.phase_fixture import validate as phase_packet
 from overte_phone_emote_sources import PhoneEmoteSources
 from overte_phone_emote_originals import BLOCK,PhoneEmoteOriginals
 from overte_phone_script_history import canonical,pack,unpack,same
 
-VERSION=1
+VERSION=2
 LIMIT=40
 
 
@@ -61,6 +62,11 @@ class PhoneEmoteLifetime:
         need(value['instance']==native['instance'] and value['requestedEpochMs']>=frame['widgets']['capturedEpochMs']
             and manager['url']==selected['assignedUrl'] and manager['loadGeneration']==selected['loadGeneration']
             and manager['assignedEpochMs']==selected['assignedEpochMs'] and same(actual['code'],selected['code']))
+        if 'compilation' in selected:
+            need(actual['work']['scriptWorkVersion']==2)
+            engine=next(row for row in frame['group']['script']['source']['engines'] if row['required']['instance']==selected['engineInstance'])
+            compiled_accept(engine['compiled'],actual['compiled'],row['epochMs']);work_scope(value,selected['compilation'])
+        else:need(actual['work']['scriptWorkVersion']==1)
         # Match independently observed all-known membership without imposing an
         # array order absent from the native contract. No expected member IDs.
         before=frame['group']['script']['source']['membership'];after=members(actual)
@@ -80,9 +86,24 @@ class PhoneEmoteLifetime:
 
     def quiet(self,row):
         frame=self.original(row['source']);work=row['work']['source']['work']
+        selected,_native,_urls=source_group(frame['group'],self.source.pid,frame['epochMs'])
+        if 'compilation' in selected:
+            actual=work_scope(row['work'],selected['compilation'])
+            return (frame['group']['native']['animation']['overrideActive'] is False
+                and frame['ui']['open'] is False and not frame['ui']['controls']
+                and not actual['timers'] and not actual['unknownTimers'] and actual['evaluating'] is False
+                and actual['signalCallbacks']==actual['timerCallbacks']==actual['unknownSignalCallbacks']==actual['unknownTimerCallbacks']==0)
         return (frame['group']['native']['animation']['overrideActive'] is False
             and frame['ui']['open'] is False and not frame['ui']['controls']
             and not work['timers'] and work['signalCallbacks']==work['timerCallbacks']==0 and work['evaluating'] is False)
+
+    def activity(self,row):
+        frame=self.original(row['source']);selected,_native,_urls=source_group(frame['group'],self.source.pid,frame['epochMs'])
+        if 'compilation' not in selected:return None
+        actual=work_scope(row['work'],selected['compilation'])
+        return dict(selected=[actual[key] for key in ('signalInvocations','timerInvocations','timerRegistrations')],
+            unknown=[[item['scriptId']]+[item[key] for key in ('signalInvocations','timerInvocations','timerRegistrations')]
+                for item in actual['unknownActivity']])
 
     def window(self,records):
         start=None;floor=None
@@ -90,7 +111,7 @@ class PhoneEmoteLifetime:
             frame=self.original(row['source']);native=frame['group']['native']
             scope=dict(rig=native['animation']['rigId'],history=native['animation']['history']['instance'],
                 calls=native['animation']['history']['callSequence'],override=native['animation']['history']['overrideSequence'],
-                lifecycle=native['lifecycle'],input=frame['ui']['scope']['sequence'])
+                lifecycle=native['lifecycle'],input=frame['ui']['scope']['sequence'],activity=self.activity(row))
             if not self.quiet(row):start=floor=None;continue
             if start is None or not same(scope,floor):start=index;floor=scope
         if start is None:return None
@@ -103,7 +124,7 @@ class PhoneEmoteLifetime:
     def decode(self,value):
         exact(value,{'emoteLifetimeVersion','runId','fixtureUrl','role','binding','artifactRoot','payload'})
         source=self.source
-        need(type(value['emoteLifetimeVersion']) is int and value['emoteLifetimeVersion']==VERSION
+        need(type(value['emoteLifetimeVersion']) is int and value['emoteLifetimeVersion'] in (1,2)
             and value['runId']==source.run and value['fixtureUrl']==source.phase.fixture_url and value['role']==source.role
             and same(context(value['binding']),source.binding) and value['artifactRoot']==str(source.artifact_root))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]

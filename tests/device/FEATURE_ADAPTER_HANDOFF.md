@@ -30,10 +30,14 @@ compiled bytes/resource names/Script IDs at both application compile boundaries,
 and the original Script reader retains immutable histories. The [version 2 native
 caller](native/ANIMATION_CALLER.md) now correlates the actual nearest VM frame ID
 with that manager's original compilation. Both parts are source-implemented and
-host-tested. The remaining native source blocker is selected-function timer/
-callback ownership inside that shared VM; manager-wide timer absence would
-incorrectly include unrelated normal default-script timers. Whole Emote
-admission/action/failure/background/actor/run composition also remains incomplete.
+host-tested. [Native work v2](native/SCRIPT_WORK_OBSERVATION.md) and the
+[quiet-window owner v2](adapters/android-phone/EMOTE_LIFETIME.md) now classify actual
+callback-function Script IDs and preserve unrelated default-script timers.
+Selected or unclassified work completed between observations restarts the clean
+suffix. Whole Emote admission/action/failure/background/actor/run composition
+remains incomplete. Loaded animation resource readiness/content binding still
+needs source audit before full Emote registration; current Rig facts expose
+loaded URLs/frame counts, not original animation-byte digests.
 Integrate the native and reader changes together;
 older readers do not understand the optional new wire fields.
 

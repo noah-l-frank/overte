@@ -10,11 +10,13 @@ import uuid
 from adapters.native_feature_observation import decode,exact,fresh,integer,need,number
 from adapters.native_script_membership import validate as membership,accept as accept_membership
 from adapters.native_script_observation import validate_code
+from adapters.native_script_compilations import validate as compiled_packet,accept as compiled_accept,compilation as compiled_row
 from adapters.normal_ui import NativeUIError
 from feature_journeys.contract import typed_equal
 
-VERSION=1
+VERSION=2
 FILE='feature-script-work.json'
+LIMIT=262144
 
 
 def command(value,*,ios=False):
@@ -40,7 +42,9 @@ def validate(value,request,pid,epoch,*,previous=None):
         and integer(value['requestedEpochMs'],1) and integer(value['capturedEpochMs'],value['requestedEpochMs'])
         and value['capturedEpochMs']-value['requestedEpochMs']<5000)
     fresh(value['capturedEpochMs'],epoch)
-    source=value['source'];exact(source,{'complete','revision','manager','code','work','workers'})
+    source=value['source'];need(type(source) is dict and type(source.get('work')) is dict)
+    work=source['work'];need(type(work.get('scriptWorkVersion')) is int and work['scriptWorkVersion'] in (1,2));version=work['scriptWorkVersion']
+    exact(source,{'complete','revision','manager','code','work','workers'}|({'compiled'} if version==2 else set()))
     need(source['complete'] is True and integer(source['revision']) and type(source['workers']) is list and len(source['workers'])<=128)
     for row in source['workers']:
         exact(row,{'membership','running','stopping','finished','done'})
@@ -53,10 +57,9 @@ def validate(value,request,pid,epoch,*,previous=None):
     need(len(own)==1 and typed_equal(own[0]['membership'],selected) and own[0]['running']
         and not any(own[0][key] for key in ('stopping','finished','done')))
     validate_code(source['code'],value['capturedEpochMs']);need(source['code']['submitted'])
-    work=source['work']
     exact(work,{'scriptWorkVersion','requestId','sequence','requestedEpochMs','capturedEpochMs',
-        'signalCallbacks','timerCallbacks','evaluating','timers'})
-    need(type(work['scriptWorkVersion']) is int and work['scriptWorkVersion']==VERSION and work['requestId']==request['commandId']
+        'signalCallbacks','timerCallbacks','evaluating','timers'}|({'activity','timerEntries','activityEntries'} if version==2 else set()))
+    need(work['requestId']==request['commandId']
         and integer(work['sequence'],1,1_000_000_000) and integer(work['requestedEpochMs'],1)
         and integer(work['capturedEpochMs'],1) and work['requestedEpochMs']==value['requestedEpochMs']
         and selected['assignedEpochMs']<=source['code']['submittedEpochMs']<=work['requestedEpochMs']
@@ -66,12 +69,29 @@ def validate(value,request,pid,epoch,*,previous=None):
     fresh(work['capturedEpochMs'],epoch)
     handles=[]
     for timer in work['timers']:
-        exact(timer,{'handle','active','singleShot','intervalMs','remainingMs'})
+        exact(timer,{'handle','active','singleShot','intervalMs','remainingMs'}|({'functionScriptId'} if version==2 else set()))
         need(integer(timer['handle'],1,2**31-1) and type(timer['active']) is bool and type(timer['singleShot']) is bool
             and integer(timer['intervalMs'],-2**31,2**31-1) and integer(timer['remainingMs'],-1,2**31-1)
             and (timer['remainingMs']>=0 if timer['active'] else timer['remainingMs']==-1))
         handles.append(timer['handle'])
+        if version==2:need(integer(timer['functionScriptId'],0,2147483647))
     need(handles==sorted(set(handles)))
+    if version==2:
+        compiled_packet(source['compiled'],value['capturedEpochMs']);need(source['compiled']['complete'])
+        need(integer(work['timerEntries'],0,256) and work['timerEntries']==len(work['timers'])
+            and type(work['activity']) is list and len(work['activity'])<=1024
+            and integer(work['activityEntries'],0,1024) and work['activityEntries']==len(work['activity']))
+        ids=[];active_signals=active_timers=0
+        for row in work['activity']:
+            exact(row,{'scriptId','signalCallbacks','timerCallbacks','signalInvocations','timerInvocations','timerRegistrations'})
+            need(integer(row['scriptId'],0,2147483647) and all(integer(row[key],0,1_000_000_000) for key in row if key!='scriptId')
+                and row['signalInvocations']>=row['signalCallbacks'] and row['timerInvocations']>=row['timerCallbacks']
+                and (row['timerInvocations']==0 or row['timerRegistrations']>0)
+                and row['signalInvocations']+row['timerInvocations']+row['timerRegistrations']>0
+                and row['timerRegistrations']>=sum(timer['functionScriptId']==row['scriptId'] for timer in work['timers']))
+            ids.append(row['scriptId']);active_signals+=row['signalCallbacks'];active_timers+=row['timerCallbacks']
+        need(ids==sorted(set(ids)) and active_signals==work['signalCallbacks'] and active_timers==work['timerCallbacks']
+            and all(timer['functionScriptId'] in ids for timer in work['timers']))
     if previous is not None:
         old_request=dict(schemaVersion=1,commandId=previous['requestId'],action='feature-script-work-observe',
             managerInstance=previous['source']['manager']['instance'])
@@ -80,8 +100,41 @@ def validate(value,request,pid,epoch,*,previous=None):
             and work['sequence']>previous['source']['work']['sequence'] and value['requestId']!=previous['requestId']
             and value['requestedEpochMs']>=previous['capturedEpochMs']
             and typed_equal(selected,previous['source']['manager']) and typed_equal(source['code'],previous['source']['code']))
+        old=previous['source']['work'];need(version==old['scriptWorkVersion'])
+        if version==2:
+            compiled_accept(previous['source']['compiled'],source['compiled'],value['capturedEpochMs'])
+            current={row['scriptId']:row for row in work['activity']}
+            for row in old['activity']:
+                need(row['scriptId'] in current and all(current[row['scriptId']][key]>=row[key]
+                    for key in ('signalInvocations','timerInvocations','timerRegistrations')))
         accept_membership(members(previous['source']),members(source),set(),value['capturedEpochMs'])
     return value
+
+
+def scope(value,compilation):
+    """Classify actual selected/unknown work, never clear a foreign timer.
+
+    compilation must come from the independently observed source selector.
+    Absent activity rows mean zero only in the actual complete native inventory.
+    """
+    need(type(value) is dict and type(value.get('source')) is dict)
+    selected=value['source']['manager']
+    request=dict(schemaVersion=1,commandId=value.get('requestId'),action='feature-script-work-observe',managerInstance=selected['instance'])
+    validate(value,request,value.get('processId'),value.get('capturedEpochMs'))
+    work=value['source']['work'];need(work['scriptWorkVersion']==2);compiled_row(compilation,value['capturedEpochMs'])
+    originals={row['scriptId']:row for row in value['source']['compiled']['compilations']}
+    identifier=compilation['scriptId'];need(identifier in originals and typed_equal(originals[identifier],compilation))
+    own=[row for row in work['activity'] if row['scriptId']==identifier];need(len(own)<=1)
+    unknown=[row for row in work['activity'] if row['scriptId'] not in originals]
+    result=dict(compilation=deepcopy(originals[identifier]),
+        timers=[deepcopy(row) for row in work['timers'] if row['functionScriptId']==identifier],
+        unknownTimers=[deepcopy(row) for row in work['timers'] if row['functionScriptId'] not in originals],
+        unknownActivity=deepcopy(unknown),evaluating=work['evaluating'])
+    for key in ('signalCallbacks','timerCallbacks','signalInvocations','timerInvocations','timerRegistrations'):
+        result[key]=own[0][key] if own else 0
+    result['unknownSignalCallbacks']=sum(row['signalCallbacks'] for row in unknown)
+    result['unknownTimerCallbacks']=sum(row['timerCallbacks'] for row in unknown)
+    return result
 
 
 class NativeScriptWork:
@@ -109,7 +162,7 @@ class NativeScriptWork:
                 action='feature-script-work-observe',managerInstance=manager_instance)
             command(request,ios=self.ios);self.send(deepcopy(request))
             for attempt in range(51):
-                need(self.guard() is not False);raw=self.original()
+                need(self.guard() is not False);raw=self.original();need(type(raw) is str and len(raw.encode('utf-8'))<=LIMIT)
                 try:value=decode(raw) if raw else None
                 except json.JSONDecodeError:value=None
                 now=self.monotonic();need(number(now,previous,1e15) and now-started<5 and self.guard() is not False);previous=now

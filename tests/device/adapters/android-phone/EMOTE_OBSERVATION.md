@@ -9,8 +9,9 @@ scene/view ownership, background recovery, authenticated actor publication and
 whole-run cleanup remain the enclosing feature owner's responsibilities.
 The [v2 source selector](../../native/EMOTE_SOURCE_PROFILE.md) now admits normal
 Phone Emote inclusion inside the default-script manager using original compiled
-source and caller identities. Scoped timer/callback lifetime in that shared VM
-still needs selected-work instrumentation before complete feature registration.
+source and caller identities. [Lifetime v2](EMOTE_LIFETIME.md) now joins scoped
+timer/callback work in that shared VM. Whole admission, recovery, actor publication
+and run retirement remain open before complete feature registration.
 
 ## Authority and operations
 

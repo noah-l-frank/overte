@@ -1,4 +1,4 @@
-# Phone original Emote work and quiet-window owner, version 1
+# Phone original Emote work and quiet-window owner, version 2
 
 `PhoneEmoteLifetime` joins each role's durable source v3 frames to actual
 manager-thread timer/callback observations. It implements no cleanup input and
@@ -9,7 +9,7 @@ Native instrumentation remains uncompiled and devices untested.
 ## Closed original records
 
 Construct with a real `PhoneEmoteSources` under its existing held source lock.
-The exact private header is `emoteLifetimeVersion:1`, `runId`, `fixtureUrl`, `role`,
+The exact private header is `emoteLifetimeVersion:2`, `runId`, `fixtureUrl`, `role`,
 actual `binding`, `artifactRoot`, `payload`. Primary and actor have separate
 `phone-emote-<role>-lifetime.json` files and independent original query histories.
 Existing 64 KiB atomic/private metadata limits remain unchanged; overflowing
@@ -49,10 +49,21 @@ an unspecified array order. A requested subject or zero counts cannot stand in
 for an actual selected worker. No expected counts, pose or source is sent.
 
 A qualifying observation requires actual inactive Rig override, actual closed
-SDK tablet and empty current controls, empty actual timer map, zero active
-signal and timer callbacks, and an engine not currently evaluating. An inactive
-retained timer is still a retained map entry and fails quiescence. Normal default
-Script signal connections are not declared absent or removed by this observer.
+SDK tablet and empty current controls, and an engine not currently evaluating.
+For an independently selected compiled source, native work v2 must prove the same
+actual compilation and contain the earlier Script compilation prefix unchanged.
+Its actual selected-function timers and active callbacks must be absent. An
+inactive selected timer is still a retained map entry and fails. Unclassified
+pending timers or active callbacks also prevent selected absence. Known foreign
+default-script timers are preserved and never declared absent or cleared.
+
+Legacy standalone originals with native work v1 remain readable and still require
+the whole actual timer map and active callbacks to be empty. A compiled shared
+source cannot downgrade to a legacy manager-wide empty result. Legacy compiled
+source/work-v1 records remain insufficient and cannot be relabelled as success.
+Normal default Script signal connections are not declared globally absent or removed.
+Version 1 standalone lifetime headers remain readable after full original
+validation; subsequent writes use version 2 without replacing any raw fact.
 
 The quiet window requires at least three observations, at least three seconds
 of actual host monotonic time AND at least three seconds between original native
@@ -62,6 +73,11 @@ are retained; only a later actual clean suffix may start a new window. A new
 native call during an otherwise idle window restarts that window. Advancing a
 host clock alone, a frozen monotonic clock or fresh envelopes over old work
 cannot complete it.
+Version 2 also pins actual selected-function cumulative signal/timer invocation
+and timer-registration counters, plus all unclassified activity rows. A callback
+or short timer that completed between reads restarts the clean suffix even if
+current active counts are zero. Changes in independently identified foreign
+default-script activity do not erase a valid selected-function quiet window.
 
 `wait(sleep=...)` obtains new original observations, up to 32 iterations at 250 ms,
 under a 30-second total monotonic limit. Each acquisition retains a five-second
@@ -76,7 +92,7 @@ activity invalidates a prior green window and preserves ownership. Source files
 and native history remain intact. General Phone teardown attempts base cleanup
 but refuses success while either lifetime role remains.
 
-This proves only the documented selected-manager/Rig/current-UI subresources.
+This proves only the documented selected-function/Rig/current-UI subresources.
 The full feature owner must still join actual ordinary restore/close input
 causality, fixture/marker and capture/browser resource release, relevant UI
 lifetime, independent actor evidence and final run/host-journal retirement.

@@ -204,6 +204,8 @@ public: // not for public use, but I don't like how Qt strings this along with p
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     void featureRecordCompilation(v8::Local<v8::Script> script, v8::Local<v8::String> actualCode);
     int featureCurrentScriptId() const;
+    int featureFunctionScriptId(v8::Local<v8::Function> function) const;
+    int featureFunctionScriptId(const ScriptValue& function) const;
 #endif
     const v8::Local<v8::Context> getConstContext() const;
     QString formatErrorMessageFromTryCatch(v8::TryCatch &tryCatch);

@@ -82,12 +82,13 @@ descriptors cannot use caller v1. Missing new facts have no fallback to a file
 reread, platform name or expected animation.
 
 This pure selector owns no product input, timer or UI lease and provides no full
-feature result. Actual approved scene/all-manager admission, selected-function
-timer/callback lifetime, background/failure recovery, authenticated independent
-publication and whole-run retirement remain required. In particular, the current
-manager-wide timer-absence helper cannot prove shared-VM Emote retirement while
-other normal default scripts keep their own timers; selected work needs original
-function/registration provenance. No foreign timer may be cleared to satisfy it.
+feature result. Actual approved scene/all-manager admission, loaded animation
+resource readiness/content binding, background/failure recovery, authenticated
+independent publication and whole-run retirement remain required. The later
+[native work v2](SCRIPT_WORK_OBSERVATION.md) and [Phone lifetime v2](../adapters/android-phone/EMOTE_LIFETIME.md)
+now join selected original function IDs and cumulative callback/timer activity
+while preserving other normal default-script timers. No foreign timer is cleared
+to satisfy selected absence.
 
 Host tests compose real root/source/selection, native Rig playback/restore,
 ordinary Phone inputs, independent actor effects and original image logic over

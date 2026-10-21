@@ -15,6 +15,8 @@ from adapters.normal_ui import NativeUIError
 from overte_phone_emote_lifetime import PhoneEmoteLifetime
 from test_emote_effects import EffectsModel
 from test_emote_sources import RUN
+from test_emote_source_profile import included_source,included_caller
+from self_tests.test_native_script_work import ScopedWorkBoundary,activity
 
 
 class Model(EffectsModel):
@@ -53,6 +55,30 @@ class Model(EffectsModel):
         elif self.work_fault=='lost':raise NativeUIError('Synthetic lost selected worker read')
         elif self.work_fault=='guard':self.okay=False
         self.work_value=value
+
+
+class ScopedModel(Model):
+    def __init__(self,root):
+        super().__init__(root);self.worker=ScopedWorkBoundary();self.foreign_tick=False
+        self.worker.member.update(instance=self.code.engine['required']['instance'],url=self.roots.root+'/defaultScripts.js')
+        self.worker.compiled['compilations'][0]['resourceName']='file:///~//defaultScripts.js'
+        self.worker.compiled['compilations'][1]['resourceName']=self.roots.root+'/system/+android_phoneInterface/phoneEmote.js'
+        self.worker.compiled['compilations'][2]['resourceName']=self.roots.root+'/foreign-poll.js'
+        self.foreign_compilation=deepcopy(self.worker.compiled['compilations'][2]);observe=self.code.mutate;caller=self.caller
+        def included(value):
+            observe(value);included_source(value,self.roots.root)
+            value['source']['engines'][0]['compiled']['compilations'].append(deepcopy(self.foreign_compilation))
+        self.code.mutate=included;self.caller=lambda kind,epoch:included_caller(caller(kind,epoch),self.roots.root)
+        self.worker.timers=[dict(handle=7,active=True,singleShot=False,intervalMs=1000,remainingMs=950,functionScriptId=31)]
+        self.worker.activity.append(activity(31,registrations=1))
+
+    def sleep(self,seconds):
+        super().sleep(seconds)
+        if self.foreign_tick:self.worker.activity[-1]['timerInvocations']+=1
+
+    def work_send(self,request):
+        self.work_commands.append(deepcopy(request));self.worker.epoch=self.epoch
+        self.worker.send(request);self.work_sequence=self.worker.sequence;self.work_value=deepcopy(self.worker.value)
 
 
 class PhoneEmoteLifetimeTests(unittest.TestCase):
@@ -240,6 +266,83 @@ class PhoneEmoteLifetimeTests(unittest.TestCase):
             owner=self.owner();owner.wait(sleep=m.sleep);m.busy=3
             with self.assertRaises(NativeUIError):owner.retire()
             self.assertIsNotNone(owner.store.read());self.assertEqual('ready',owner.state['phase'])
+
+    def scoped_model(self):
+        temporary=tempfile.TemporaryDirectory(prefix='overte-emote-scoped-work-');self.addCleanup(temporary.cleanup)
+        self.model=ScopedModel(Path(temporary.name));return self.model
+
+    def test_shared_default_vm_preserves_unrelated_active_timers_and_their_completed_callbacks(self):
+        m=self.scoped_model();m.foreign_tick=True
+        with m.lock.held():
+            owner=self.owner();window=owner.wait(sleep=m.sleep)
+            self.assertGreaterEqual(window['elapsedMs'],3000);self.assertTrue(owner.quiet(owner.state['records'][-1]))
+            self.assertEqual(1,len(owner.state['records'][-1]['work']['source']['work']['timers']))
+            self.assertGreater(m.worker.activity[-1]['timerInvocations'],0)
+            current=PhoneEmoteLifetime(m.source());current.retire();self.assertIsNone(current.store.read())
+            self.assertEqual(1,len(m.worker.timers));self.assertEqual(31,m.worker.timers[0]['functionScriptId'])
+            self.assertEqual([],m.controls.input_requests)
+
+    def test_inactive_selected_function_timer_is_not_confused_with_foreign_default_work(self):
+        m=self.scoped_model();m.worker.timers.append(dict(handle=8,active=False,singleShot=True,intervalMs=0,remainingMs=-1,functionScriptId=23))
+        m.worker.activity[0]['timerRegistrations']=1
+        with m.lock.held():
+            owner=self.owner();owner.read();self.assertFalse(owner.quiet(owner.state['records'][-1]))
+            m.worker.timers.pop();m.sleep(.25);window=owner.wait(sleep=m.sleep)
+            self.assertEqual(2,window['first']);self.assertEqual(1,len(m.worker.timers))
+
+    def test_selected_or_unknown_callback_completed_between_reads_restarts_the_quiet_window(self):
+        for identifier in (23,0):
+            m=self.scoped_model()
+            if identifier==0:m.worker.activity.insert(0,activity(0,signal_calls=1))
+            with self.subTest(identifier=identifier),m.lock.held():
+                owner=self.owner();owner.read();m.sleep(1.5);owner.read();m.sleep(1.6)
+                row=next(row for row in m.worker.activity if row['scriptId']==identifier);row['signalInvocations']+=1
+                owner.read();self.assertEqual('ready',owner.state['phase']);self.assertIsNone(owner.state['window'])
+                self.assertTrue(owner.quiet(owner.state['records'][-1])) # No active callback remains.
+                window=owner.wait(sleep=m.sleep);self.assertGreaterEqual(window['first'],3)
+
+    def test_unclassified_pending_function_timer_prevents_selected_absence(self):
+        m=self.scoped_model();m.worker.timers.append(dict(handle=8,active=True,singleShot=True,intervalMs=1000,remainingMs=950,functionScriptId=24))
+        m.worker.activity.insert(1,activity(24,registrations=1))
+        with m.lock.held():
+            owner=self.owner();owner.read();self.assertFalse(owner.quiet(owner.state['records'][-1]))
+            self.assertIsNone(owner.state['window']);self.assertEqual('ready',owner.state['phase'])
+
+    def test_shared_compiled_source_requires_v2_work_even_when_legacy_packet_claims_no_timers(self):
+        m=self.scoped_model()
+        def old(value):
+            source=value['source'];source.pop('compiled');work=source['work'];work['scriptWorkVersion']=1;work['timers']=[]
+            for key in ('activity','timerEntries','activityEntries'):work.pop(key)
+        m.worker.edit=old
+        with m.lock.held():
+            owner=self.owner()
+            with self.assertRaises(NativeUIError):owner.read()
+            self.assertEqual('reading',owner.state['phase']);self.assertIsNotNone(owner.store.read())
+
+    def test_source_and_work_cannot_borrow_different_compilation_bytes_for_same_selected_id(self):
+        m=self.scoped_model();m.worker.compiled['compilations'][1]['sha256']='f'*64
+        with m.lock.held():
+            owner=self.owner()
+            with self.assertRaises(NativeUIError):owner.read()
+            self.assertIsNotNone(owner.store.read());self.assertIsNone(owner.state['window'])
+
+    def test_late_selected_work_at_retirement_invalidates_a_historical_shared_vm_window(self):
+        m=self.scoped_model()
+        with m.lock.held():
+            owner=self.owner();owner.wait(sleep=m.sleep);m.worker.activity[0]['signalInvocations']+=1
+            with self.assertRaises(NativeUIError):owner.retire()
+            self.assertIsNotNone(owner.store.read());self.assertEqual('ready',owner.state['phase'])
+
+    def test_version_one_standalone_originals_replay_without_retiming_and_next_write_uses_v2(self):
+        m=self.model
+        with m.lock.held():
+            owner=self.owner();owner.wait(sleep=m.sleep);legacy=deepcopy(owner.previous);legacy['emoteLifetimeVersion']=1
+            owner.store.write(legacy,owner.previous);before=len(m.work_commands)
+            current=PhoneEmoteLifetime(m.source())
+            self.assertEqual(before,len(m.work_commands));self.assertEqual(owner.state,current.state)
+            originals=deepcopy(current.state['records']);current.read()
+            self.assertEqual(originals,current.state['records'][:len(originals)])
+            self.assertEqual(2,current.previous['emoteLifetimeVersion'])
 
 
 if __name__=='__main__':unittest.main()

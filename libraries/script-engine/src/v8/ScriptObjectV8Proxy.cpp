@@ -1360,7 +1360,7 @@ int ScriptSignalV8Proxy::qt_metacall(QMetaObject::Call call, int id, void** argu
                 v8::TryCatch tryCatch(isolate);
                 auto invoke = [&] {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                    ScriptManager::FeatureCallbackScope featureCallback(_engine->manager(),false);
+                    ScriptManager::FeatureCallbackScope featureCallback(_engine->manager(),false,_engine->featureFunctionScriptId(callback));
 #endif
                     auto maybeResult = callback->Call(functionContext, v8This, numArgs, args);
                     Q_UNUSED(maybeResult); // Signals don't have return values
