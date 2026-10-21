@@ -56,28 +56,40 @@ class StandalonePending(ValidationError):
 
 def _standalone_ci_names(selection, registry):
     names = json.loads((ROOT / '.github/ci37-runtime.json').read_bytes())['suites']
+    partial = [name for name in names if name not in {'producer-proof', 'python-test-runner',
+        'release-bundle', 'project-coverage', 'native-registration'}]
+    selected = selection.get('suites')
     if selection.get('lane') != 'affected-ci' or selection.get('requested_mode') != 'fallback' \
             or selection.get('standalone_ci_schedule') is not True \
-            or selection.get('suites') != names or len(names) != len(set(names)) \
+            or selected not in (names, partial) or len(names) != len(set(names)) \
             or len(names) != 37 or selection.get('full_host') is not False \
+            or len(partial) != 32 \
             or selection.get('external_package_set') != [] \
             or any(registry['suites'].get(name, {}).get('command') != command
                    for name, command in STANDALONE_CI_COMMANDS.items()):
         return []
-    return [name for name in names if name in STANDALONE_CI_COMMANDS]
+    return [name for name in selected if name in STANDALONE_CI_COMMANDS
+        and (selected == names or name != 'workflow-contracts')]
+
+
+def _standalone_documentation_route(event, paths, regular):
+    """Recompute the original protected Repository route, never a schedule tag."""
+    checks = _trusted_module('sync_standalone_repository_route', ROOT / 'tools/repository-checks/check.py')
+    config, branches = checks.configuration()
+    return checks.plan(event, paths, config, branches, documentation_safe=regular)
 
 
 def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=None, normal_parent=None,
                                 protected_source=None, protected_tree=None, observation_clock=None):
-    """Verify four completed original commands without qualifying an environment.
+    """Verify finite completed original commands without qualifying an environment.
 
-    Only an independently selected CI37 fallback may use this finite form.
+    Only independently selected CI37/native4 or CI32/native3 may use this form.
     Missing, pending or invalid native facts raise before any candidate command;
     callers must not catch those errors and execute these four commands again.
     """
     names = _standalone_ci_names(selection, registry)
-    if len(names) != 4 or request.repair_paths:
-        raise ValidationError('standalone native commands require the exact CI37 fallback')
+    if len(names) not in {3, 4} or request.repair_paths:
+        raise ValidationError('standalone native commands require the exact CI32/37 fallback')
     now = datetime.now(timezone.utc) if now is None else now
     if observation_clock is None:
         observation_clock = lambda: datetime.now(timezone.utc)
@@ -144,6 +156,9 @@ def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=
     if gate.commit_parents(gate.commit(git_objects, request.repository, request.merge_sha)) != (
             request.base_sha, request.head_sha):
         raise ValidationError('standalone native candidate does not have exact B/H parents')
+    paths = sorted(path for path in before.keys() | candidate.keys() if before.get(path) != candidate.get(path))
+    regular = all(entry is None or entry['type'] == 'blob' and entry['mode'] in {'100644', '100755'}
+        for path in paths for entry in (before.get(path), candidate.get(path)))
 
     def snapshot(*, closing=False):
         if closing:
@@ -170,6 +185,11 @@ def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=
                 pr.get(side, {}).get('repo', {}).get('full_name')) != (1319052603, 'noah-l-frank/overte')
                for side in ('base', 'head')):
             raise ValidationError('standalone original PR repository differs')
+        route = None
+        if len(names) == 3:
+            route = _standalone_documentation_route({'repository': api.json(prefix), 'pull_request': pr}, paths, regular)
+            if route != {'mode': 'delegated-sync', 'security': 'false'}:
+                raise ValidationError('CI32 native documentation coverage requires the actual security-false delegated route')
         registration = api.json(prefix + '/actions/workflows/repository-checks.yml')
         if type(registration.get('id')) is not int or registration['id'] <= 0 \
                 or (registration.get('path'), registration.get('state')) != (
@@ -314,6 +334,18 @@ def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=
                 'Verify policy-derived branch and suite displays'),
             'workflow-contracts': ('Verify remaining workflow contracts',),
         }
+        skipped_workflow = None
+        if len(names) == 3:
+            rows = [job for job in jobs if job.get('name') == 'workflow-contracts']
+            if len(rows) != 1 or rows[0].get('conclusion') != 'skipped':
+                raise ValidationError('CI32 native documentation requires the unique skipped workflow-contract owner')
+            job = rows[0]
+            check = gate._metadata_check(api, prefix, latest, job, request.head_sha)
+            if check.get('details_url') != 'https://github.com/' + request.repository \
+                    + '/actions/runs/' + str(identifier) + '/job/' + str(job['id']):
+                raise ValidationError('CI32 skipped workflow-contract native link differs')
+            skipped_workflow = {'job': job, 'check': check}
+            commands.pop('workflow-contracts')
         if len({j.get('name') for j in jobs}) != len(jobs):
             raise ValidationError('standalone native job names are ambiguous')
         relevant = [job for job in jobs if job['name'] in {
@@ -344,8 +376,11 @@ def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=
                     <= gate.parse_time(ordered['android / execute']['completed_at'], 'Android execution completion') \
                     <= gate.parse_time(ordered['android / verify']['started_at'], 'Android verification start'):
                 raise ValidationError('standalone independent Android owner ordering differs')
-        return {'listed': listed, 'run': latest, 'attempt': attempt, 'jobs': jobs,
+        result = {'listed': listed, 'run': latest, 'attempt': attempt, 'jobs': jobs,
             'checks': checks, 'selected_jobs': selected_jobs, 'registration': registration, 'check_suite': suite}
+        if skipped_workflow is not None:
+            result.update(repository_route=route, skipped_workflow_contracts=skipped_workflow)
+        return result
 
     opening = snapshot()
     # Completed whole inventories and relevant checks are reread. Live default,
@@ -375,6 +410,9 @@ def verify_standalone_ci_provenance(reported, actual, request, *, normal_parent=
                    for name in ('listed', 'run', 'attempt', 'check_suite')]
         records += [(check, actual['native']['checks'][name])
                     for name, check in expected['native']['checks'].items()]
+        if 'skipped_workflow_contracts' in actual['native']:
+            records.append((expected['native']['skipped_workflow_contracts']['check'],
+                actual['native']['skipped_workflow_contracts']['check']))
         for retained, current in records:
             associations = retained.get('pull_requests')
             if current.get('pull_requests') == [] and associations != []:
@@ -401,7 +439,7 @@ def _native_standalone_ci_owners(api, gate, request, registry, selection):
 
 
 def _standalone_ci_schedule(candidate, event, request, plan, *, base_tree, candidate_tree,
-                            trusted_tree, pr_context=None):
+                            trusted_tree, pr_context=None, suite_names=None):
     """Scheduling only: unsupported sources/owners keep the prior CI37 route."""
     if plan.get('package_set') or plan.get('host_mode') != 'delegated-sync':
         return False
@@ -424,6 +462,10 @@ def _standalone_ci_schedule(candidate, event, request, plan, *, base_tree, candi
         if entry is None or entry.get('mode') != '100644' or entry.get('type') != 'blob' \
                 or candidate_tree.get(path) != entry:
             return False
+    if suite_names is not None and len(suite_names) == 32 \
+            and _standalone_documentation_route(event, plan['paths'], plan['regular']) != {
+                'mode': 'delegated-sync', 'security': 'false'}:
+        return False
     native = _trusted_module('sync_standalone_native_schedule', ROOT / 'tools/native-tests/check.py')
     mode = native.plan(plan['paths'], plan['regular']).get('mode')
     if mode not in {'skip', 'core', 'full'}:
@@ -571,9 +613,12 @@ def _parent_provenance(evidence, reused, gate):
     if isinstance(evidence, getattr(gate, 'NativePrEvidence', ())):
         return None  # This PR's execution must never be described as parent proof.
     if isinstance(evidence, getattr(gate, 'NativeExactTreeParentEvidence', ())):
-        return {key: evidence[key] for key in ('kind', 'source', 'parent_branch', 'parent_commit',
+        value = {key: evidence[key] for key in ('kind', 'source', 'parent_branch', 'parent_commit',
             'parent_tree', 'original_commit', 'qualified_at', 'expires_at', 'original_proof', 'original_report')} | {
             'qualification': False, 'reusable': False, 'inherited_suites': list(reused)}
+        if evidence['kind'] == 'original-sync-identical-android-ci-subset-v1':
+            value.update({key: evidence[key] for key in ('original_suites', 'requested_suites', 'covered_suites')})
+        return value
     if isinstance(evidence, getattr(gate, 'NativeParentEvidence', ())):
         return {key: evidence[key] for key in ('kind', 'parent_branch', 'parent_commit', 'parent_tree',
             'original_commit', 'original_git_context', 'qualified_at', 'expires_at', 'original_proof')} | {
@@ -735,7 +780,7 @@ def _ci_selection(args, request, candidate, initial, registry, api):
         # owner preserves the existing37 before the native proof is selected.
         result['standalone_ci_schedule'] = _standalone_ci_schedule(candidate, event, request, plan,
             base_tree=base_tree, candidate_tree=tree, trusted_tree=trusted_tree,
-            pr_context=context.planning() if context is not None else None)
+            pr_context=context.planning() if context is not None else None, suite_names=result['suites'])
     result["selection"] = execution.digest(result)
     return result
 
@@ -870,7 +915,11 @@ def _native_ci_reuse(args, gate, api, config, request, registry, local_tree, sel
                 or evidence.get('reusable') is not False or evidence.get('qualification') is not False \
                 or selection.get('native_current_owner_required'):
             raise ValidationError('identical-tree original CI proof differs from selected current inputs')
-        return evidence, list(selected), []
+        try:
+            covered = gate.exact_tree_covered_suites(evidence, selected)
+        except (gate.EvidenceError, gate.GateError, KeyError, TypeError) as error:
+            raise ValidationError('identical-tree original CI command coverage is invalid') from error
+        return evidence, covered, [name for name in selected if name not in covered]
     original_pr = isinstance(evidence, getattr(gate, 'NativePrEvidence', ()))
     if selection.get('native_current_owner_required') and not original_pr:
         raise ValidationError('selected current PR cannot be replaced with parent evidence')
@@ -967,9 +1016,14 @@ def _recheck_native_ci(gate, api, config, request, evidence, registry, local_tre
     if isinstance(evidence, getattr(gate, 'NativeExactTreeParentEvidence', ())):
         final = gate.native_exact_tree_parent_evidence(api, config, request)
         if not isinstance(final, gate.NativeExactTreeParentEvidence) or final != evidence \
-                or final.get('candidate_inputs') != local_tree or final.get('requested_suites') != reused \
+                or final.get('candidate_inputs') != local_tree \
                 or gate.parse_time(final['expires_at'], 'expires_at') <= datetime.now(timezone.utc):
             raise ValidationError('identical-tree original CI proof changed after differential validation')
+        try:
+            if gate.exact_tree_covered_suites(final, final['requested_suites']) != reused:
+                raise ValidationError('identical-tree original CI coverage changed after differential validation')
+        except (gate.EvidenceError, gate.GateError, KeyError, TypeError) as error:
+            raise ValidationError('identical-tree final CI command coverage is invalid') from error
         return
     original_pr = isinstance(evidence, getattr(gate, 'NativePrEvidence', ()))
     try:
