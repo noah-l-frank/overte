@@ -5,6 +5,15 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/PendingFieldCommitOwner.h"
 #include "../../../../../../tests/device/native/PrivatePreviewFiles.h"
+#include "../../../../../../tests/device/native/LoginUiInventory.h"
+#include <AccountManager.h>
+#include <Application.h>
+#include <ui/Keyboard.h>
+#include <EntityScriptingInterface.h>
+#include <avatar/AvatarManager.h>
+#include <scripting/HMDScriptingInterface.h>
+#include <QElapsedTimer>
+#include <QUuid>
 #endif
 
 #include <algorithm>
@@ -332,6 +341,9 @@ public:
     explicit TabletBridge(QObject* owner) : QObject(owner) {
         connect(&_timer, &QTimer::timeout, this, [this] { tick(); });
         _timer.start(100);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _homeClock.start();
+#endif
     }
 
 private:
@@ -353,10 +365,101 @@ private:
         navigationTick();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         scriptObservationTick();
+        loginObservationTick();
+        homeObservationTick();
 #endif
     }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Passive actual world geometry. The command accepts only a fresh nonce;
+    // no entity, pose, Home message, tablet mutation or click is supplied here.
+    void homeObservationTick() {
+        const QString path=BRIDGE_DIRECTORY+"/tablet-home-observation-command.json";
+        QFile input(path);
+        if (QFileInfo(path).isSymLink() || !input.open(QIODevice::ReadOnly) || input.size()>4096) { return; }
+        QJsonParseError error;const auto document=QJsonDocument::fromJson(input.readAll(),&error);
+        if (error.error!=QJsonParseError::NoError || !document.isObject()) { return; }
+        const auto command=document.object();const auto id=command.value("commandId").toString();
+        if (!exactKeys(command,{"schemaVersion","commandId","action"})
+                || command.value("schemaVersion")!=QJsonValue(1) || command.value("action")!=QJsonValue(QStringLiteral("observe"))
+                || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+                || _homeNonces.contains(id) || _homeNonces.size()>=4096) { return; }
+        _homeNonces.insert(id);
+        if (QThread::currentThread()!=qApp->thread()
+                || !DependencyManager::isSet<HMDScriptingInterface>()
+                || !DependencyManager::isSet<EntityScriptingInterface>()
+                || !DependencyManager::isSet<AvatarManager>()) { return; }
+        const auto hmd=DependencyManager::get<HMDScriptingInterface>();
+        const auto entities=DependencyManager::get<EntityScriptingInterface>();
+        const auto avatar=DependencyManager::get<AvatarManager>()->getMyAvatar();
+        const auto tablet=DependencyManager::get<TabletScriptingInterface>()->getTablet(SYSTEM_TABLET);
+        const auto homeId=hmd->getCurrentHomeButtonID();const auto tabletId=hmd->getCurrentTabletFrameID();
+        if (!hmd->isHMDMode() || !tablet || !avatar || homeId.isNull() || tabletId.isNull()) { return; }
+        const auto original=entities->getEntityProperties(homeId);
+        if (original.getType()!=EntityTypes::Gizmo || original.getName()!=QStringLiteral("homeButton")
+                || original.getParentID()!=tabletId || original.getEntityHostType()!=entity::HostType::LOCAL) { return; }
+        const auto vector=[](const glm::vec3& value) { return QJsonArray{value.x,value.y,value.z}; };
+        const auto uuid=[](const QUuid& value) { return value.toString(QUuid::WithoutBraces).remove('-'); };
+        QJsonArray matrix;const auto sensor=avatar->getSensorToWorldMatrix();
+        for (int column=0;column<4;++column) { for (int row=0;row<4;++row) { matrix.append(sensor[column][row]); } }
+        writeJson(BRIDGE_DIRECTORY+"/tablet-home-observation.json",{
+            {"schemaVersion",1},{"commandId",id},{"action",QStringLiteral("observe")},
+            {"instance",_homeInstance},{"generation",_homeInstance},
+            {"sourceSequence",static_cast<double>(++_homeSequence)},{"lastCommandSequence",0},
+            {"elapsedMs",static_cast<double>(_homeClock.elapsed())},
+            {"processId",QCoreApplication::applicationPid()},
+            {"capturedEpochMs",static_cast<double>(QDateTime::currentMSecsSinceEpoch())},
+            {"homeObservationVersion",1},{"tabletShown",tablet->property("tabletShown").toBool()},
+            {"onHomeScreen",tablet->onHomeScreen()},{"tabletId",uuid(tabletId)},
+            {"homeId",uuid(homeId)},{"parentId",uuid(original.getParentID())},
+            {"entityType",QStringLiteral("Gizmo")},{"entityName",original.getName()},
+            {"hostType",QStringLiteral("local")},{"visible",original.getVisible()},
+            {"ignorePickIntersection",original.getIgnorePickIntersection()},
+            {"sensorToWorld",matrix},{"headPosition",vector(hmd->getPosition())},{"position",vector(original.getPosition())}
+        });
+    }
+
+    // Separate passive source for both publisher roles. No input command,
+    // credentials, AccountManager mutation or tablet-open fallback is accepted.
+    void loginObservationTick() {
+        const QString path=BRIDGE_DIRECTORY+"/login-ui-command.json";
+        QFile input(path);
+        if (QFileInfo(path).isSymLink() || !input.open(QIODevice::ReadOnly) || input.size()>4096) { return; }
+        QJsonParseError error;
+        const auto document=QJsonDocument::fromJson(input.readAll(),&error);
+        if (error.error!=QJsonParseError::NoError || !document.isObject()) { return; }
+        const auto command=document.object();const auto id=command.value("commandId").toString();
+        if (!exactKeys(command,{"schemaVersion","commandId","action"})
+                || command.value("schemaVersion")!=QJsonValue(1) || command.value("action")!=QJsonValue(QStringLiteral("observe"))
+                || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+                || _loginObservationNonces.contains(id) || _loginObservationNonces.size()>=4096) { return; }
+        _loginObservationNonces.insert(id); // Retain uncertainty; never recapture/retime a nonce.
+        overte::e2e::LoginUiContext context;
+        if (DependencyManager::isSet<AccountManager>()) {
+            const auto account=DependencyManager::get<AccountManager>();QVariantMap original;
+            const auto read=[&] { original=account->featureAccountObservation(); };
+            const bool okay=QThread::currentThread()==account->thread()
+                ? (read(),true) : QMetaObject::invokeMethod(account.data(),read,Qt::BlockingQueuedConnection);
+            if (okay) { context=overte::e2e::LoginUiContext::fromNative(original); }
+        }
+        auto tablets=DependencyManager::get<TabletScriptingInterface>();
+        auto tablet=tablets ? tablets->getTablet(SYSTEM_TABLET) : nullptr;
+        auto root=tablet ? tablet->getTabletRoot() : nullptr;
+        auto surface=tablet ? tablet->getTabletSurface() : nullptr;
+        auto packet=_loginObservation.observe(root,surface ? surface->getWindow() : nullptr,{},{},context);
+        if (packet.isEmpty()) { return; }
+        packet["commandId"]=id;packet["action"]=QStringLiteral("observe");
+        packet["loginObservationVersion"]=1;packet["startupDialogPresent"]=qApp->getLoginDialogPoppedUp();
+        auto inventory=_loginInventory.observe(root,surface ? surface->getWindow() : nullptr);
+        inventory["qmlLoads"]=surface ? QJsonObject::fromVariantMap(surface->featureQmlLoadObservation()) : QJsonObject();
+        if (!DependencyManager::isSet<Keyboard>()) { return; }
+        const auto keyboard=DependencyManager::get<Keyboard>();
+        inventory["keyboard3D"]=QJsonObject{{"raised",keyboard->isRaised()},{"enabled",keyboard->getUse3DKeyboard()}};
+        packet["loginInventory"]=inventory;
+        packet["capturedEpochMs"]=static_cast<double>(QDateTime::currentMSecsSinceEpoch());
+        writeJson(BRIDGE_DIRECTORY+"/login-ui.json",packet);
+    }
+
     // Passive source on the actual VR TabletRoot and offscreen surface. Input
     // remains in NavigationUi with its existing native VR pointer/controller path.
     void scriptObservationTick() {
@@ -470,6 +573,13 @@ private:
     NavigationUi _navigation;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::ScriptFileUi _scriptObservation;
+    overte::e2e::LoginUi _loginObservation;
+    overte::e2e::LoginUiInventory _loginInventory;
+    QSet<QString> _loginObservationNonces;
+    QSet<QString> _homeNonces;
+    const QString _homeInstance { QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-') };
+    quint64 _homeSequence { 0 };
+    QElapsedTimer _homeClock;
     QString _lastScriptObservationId;
     QSet<QString> _scriptObservationNonces;
 #endif

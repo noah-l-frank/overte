@@ -1,7 +1,7 @@
 # Pico adapter handoff: 2026-10-21
 
-This branch completes one source-level Pico feature area, Scripts. It does not
-complete all fourteen adapters. The other thirteen remain partial or missing
+This branch completes two source-level Pico feature areas, Scripts and
+Authentication. The other twelve remain partial or missing
 with concrete missing operations, original evidence, cleanup obligations and
 next executable source steps in the
 [machine coverage matrix](FEATURE_COVERAGE_20261021.json). Every row separately
@@ -11,7 +11,7 @@ device qualification. Native code is uncompiled; no device is tested.
 | Area | Current Pico implementation | Concrete next boundary |
 | --- | --- | --- |
 | Worlds/navigation | Partial Go To/history and original reply reader | Actual bookmark/Places storage/model, failure modal, arrival/image and independent observer join |
-| Authentication | Partial generic login/probe/origin components | Separate VR LoginDialogEntity dismissal, test-launch authority, logout and full protected/provider/restart observer |
+| Authentication | Complete source; 17-step shared flow and counterexamples host verified | Compile and qualify actual VR Home ray, IME, HTTPS provider and account lifetime on Proxmox |
 | Avatar/contacts | Complete adapter missing | Source-bound Avatar/People inputs and independent model/bookmark/wearable/consent observations |
 | Create | Partial token controls and entity foundations | Actual JSON picker/export, model/texture/PolyVox, permission actor and original file/image/peer joins |
 | Emotes | Partial submitted-code/Rig observations | Actual running source/profile, VR normal controls, timer/caller/pose and stereo avatar evidence |
@@ -30,7 +30,8 @@ continue rejecting a full selected run when required capabilities are missing.
 No acceptance policy, workflow, safeguard, evidence registry or platform label
 was changed to hide them. A normal input ACK never proves its effect.
 
-The exact [Scripts handoff](SCRIPT_FEATURE.md) specifies every implemented
+The exact [Scripts handoff](SCRIPT_FEATURE.md) and
+[Authentication handoff](AUTHENTICATION_FEATURE.md) specify every implemented
 operation, original inputs/observations, provider/actor configuration, error and
 recovery paths, time limits and cleanup. The matrix lists corresponding
 obligations for every incomplete area; shared `*_SOURCE.md` contracts remain
@@ -109,6 +110,18 @@ Review the shared server/witness/fixture and native header dependencies together
 when integrating later. The common regression selection and the owning Pico
 checks are required; no Phone/iOS product compatibility or native compilation is
 inferred from host-only checks.
+
+The shared [Authentication extraction](../authentication_journey/PROVENANCE.json)
+adds neutral account sampling, causality, durable inputs and full cleanup. Its
+new journals are not old Phone ownership. Concrete login/UI, native process,
+origin launch and Home ray inputs remain Pico factories. The shared Android
+launcher hook defaults to no extra arguments; only an explicitly configured
+Pico account fixture supplies the validated process-only HTTPS origin. No saved
+preference or certificate trust is changed. The gated native QML component/callback inventory observes original loads and
+weak destruction, alongside actual locked VR keyboard state; it never cancels
+a callback or changes a keyboard. The common independent observer
+loop is also reused by the existing Script publisher without adding input
+privileges. A later Phone integration must reconcile these sources explicitly.
 
 ## Verification and next qualification
 

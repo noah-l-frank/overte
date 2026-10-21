@@ -2,8 +2,8 @@
 
 `_login_controls(target,intent,run,origin)` composes the existing verified Pico
 candidate/OpenXR/normal-Scripts context with the common TokenLoginUI recipe.
-It is an internal input prerequisite. No full feature.authentication triple,
-trusted-device login or fourteen-area acceptance is advertised.
+It is composed by the explicit [complete Authentication source adapter](AUTHENTICATION_FEATURE.md).
+The internal component alone provides no feature verdict or device acceptance.
 
 The actual NavigationUi source collects original generic Qt login roots,
 component IDs, visible error label, spinner stage and server field. It reads
@@ -23,21 +23,21 @@ principal, error, pending flag or desired target from input arguments.
 Actual NativeFieldInput and the existing VR surface pointer path deliver normal
 focus, IME replacement and Return. Before credentials, both original native
 endpoint and actual generic server-field target must match the controlled HTTPS
-origin. The recipe can edit that field through normal input and focus loss;
-ignored/foreign target effects refuse credentials. Existing caller-owned baseline
-preferences must be restored by the eventual full run owner. No direct QML login
+origin. The full Pico recipe refuses a foreign target before credentials and does not
+edit a saved server preference; the process-only fixture origin must already
+supply the normal generic page target. No direct QML login
 handler, AccountManager mutation, preference setter or TLS override is a test
 input. The private fixture username is e2e-<run>, with its actual private password.
 
 The ordinary tablet pending body has no cancel control. The component persists
-login-close intent then uses the separately source/token-bound normal Home
-control. Actual page absence must remain stable for 300ms. It does not cancel
-the still-running native account request. Reopening must be observed through
-normal tablet login input; no second request is submitted as a substitute.
-The startup LoginDialogEntity is a separate native WebEntity surface. Its actual
-anonymous-dismiss/input binding and process-restart ownership remain separate
-unimplemented prerequisites; inspecting the tablet cannot prove that surface's
-absence. Missing startup binding must fail the complete feature.
+login-close intent, then the full Pico recipe observes the actual HMD Home
+entity and sends one ordinary OpenXR trigger ray through the existing controller
+dispatcher. Home has no assumed generic QML row. Actual page absence remains
+stable for 300ms; the native account request continues. Reopening uses ordinary
+login input without another submit. The preexisting E2eLauncherActivityBase
+supplies --no-login-suggestion, honored by Application_Setup.cpp. The separate
+passive startupDialogPresent source must nevertheless read false; an actual
+startup LoginDialogEntity causes refusal rather than an invented dismissal.
 
 ## Private command cleanup and ownership
 
@@ -51,19 +51,9 @@ with retained text therefore fails. Source/candidate/process loss prevents
 foreign file cleanup and retains caller intent. No raw text is saved in status
 or ordinary ownership observations; public errors are closed codes.
 
-The mandatory callback records original metadata and closed input/control intent
-before every input; credentials are never passed to it. This component does not
-create/retire the complete Authentication run journal. Full cleanup still needs
-owned view close, current native anonymous protected profile, separate backend
-revocation/handler drain, original native probe/origin release and all owned file
-absence before journal deletion. Ordinary native logout and real process restart,
-independent UI/backend actor composition and native trusted-fixture setup remain
-unimplemented for the full area. Canonical installation/OpenXR guards remain
-mandatory; the existing explicit normal-Scripts fixture profile is required.
-
-Nine new device-free wrapper cases exercise original synthetic widget state,
-normal pending close/reopen, ignored server/Home input, foreign endpoint,
-changed candidate, legacy source, lost input receipt and false private-file
-cleanup ACK. They validate the adapter/test logic only. Generic QML discovery,
-actual VR/IME, private parser and native AccountManager source are uncompiled
-and unexecuted; every physical Pico remains untested.
+The mandatory callback records original metadata and input intent before every
+input; credentials never enter it. The full owner adds native/provider/protected
+proof, normal menu logout, old-PID exit, separate publisher and release/quiet
+obligations described in the Authentication handoff. Canonical installation and
+OpenXR guards remain mandatory. No native source or VR input has been compiled
+or exercised on a device in this session.

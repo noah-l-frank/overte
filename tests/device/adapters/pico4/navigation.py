@@ -15,6 +15,7 @@ from navigation_observation import OPERATIONS, viewpoint_urls
 from adapters.token_chat_ui import metadata as chat_metadata,control_id as chat_control,text as chat_text,same_reference as chat_same_reference
 from adapters.token_create_ui import metadata as create_metadata,control_id as create_control,field as create_field,choice as create_choice,ascii_text,same_reference
 from adapters.token_login_ui import IDS as LOGIN_IDS,VERSION as LOGIN_VERSION,metadata_fields as login_metadata_fields,validate_metadata as validate_login_metadata
+from adapters.token_account_menu_ui import IDS as ACCOUNT_MENU_IDS,FIELDS as ACCOUNT_MENU_FIELDS,validate_metadata as validate_account_menu_metadata
 from adapters.token_script_ui import script_control, metadata_fields, validate_metadata
 from adapters.token_graphics_ui import graphics_control,metadata_fields as graphics_metadata_fields,validate_metadata as validate_graphics_metadata,on_grid
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
@@ -90,6 +91,9 @@ def validate_snapshot(value, process_id, epoch_ms):
     if type(value) is dict and 'loginControlsVersion' in value:
         fields.add('loginControlsVersion')
         need(type(value['loginControlsVersion']) is int and value['loginControlsVersion']==LOGIN_VERSION)
+    if type(value) is dict and 'accountMenuControlsVersion' in value:
+        fields.add('accountMenuControlsVersion')
+        need(type(value['accountMenuControlsVersion']) is int and value['accountMenuControlsVersion']==1)
     need(type(value) is dict and set(value) == fields
          and type(value['schemaVersion']) is int and value['schemaVersion'] == 1
          and identifier(value['bridgeId']) and identifier(value['generation'])
@@ -112,6 +116,8 @@ def validate_snapshot(value, process_id, epoch_ms):
             need(value.get('chatControlsVersion')==1);chat_metadata(control);fields=set(control)
         elif is_create:
             need(value.get('createControlsVersion')==1);create_metadata(control);fields=set(control)
+        elif control['id'] in ACCOUNT_MENU_IDS:
+            need(value.get('accountMenuControlsVersion')==1);fields |= ACCOUNT_MENU_FIELDS
         elif control['id'] in LOGIN_IDS:
             need(value.get('loginControlsVersion')==LOGIN_VERSION);fields |= login_metadata_fields(control['id'])
         elif is_graphics:
@@ -128,7 +134,7 @@ def validate_snapshot(value, process_id, epoch_ms):
         if control['id'] in SNAPSHOT_CHOICES:
             fields.add('checked')
         need(set(control) == fields
-             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or is_create and create_control(control['id']) or is_chat and chat_control(control['id']))
+             and isinstance(control['id'], str) and (control['id'] in CONTROL_IDS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_MENU_IDS or is_create and create_control(control['id']) or is_chat and chat_control(control['id']))
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
@@ -136,6 +142,7 @@ def validate_snapshot(value, process_id, epoch_ms):
             need(type(control['checked']) is bool)
         if is_chat:chat_metadata(control)
         elif is_create:create_metadata(control)
+        elif control['id'] in ACCOUNT_MENU_IDS:validate_account_menu_metadata(control)
         elif control['id'] in LOGIN_IDS:validate_login_metadata(control)
         elif is_graphics:validate_graphics_metadata(control)
         elif audio_control(control['id']): validate_audio_metadata(control)
@@ -263,7 +270,10 @@ class PicoNavigation:
                 from adapters.pico4.normal_create import project
                 original=same_reference(reference,project(snapshot),control_id)
             need(original['token']==control['token'])
-        if is_chat:
+        if control_id in ACCOUNT_MENU_IDS:
+            need(snapshot.get('accountMenuControlsVersion')==1 and control['inputReady'] and token is not None
+                 and action=='activate' and all(v is None for v in (text,source,index,direction,value,reference)))
+        elif is_chat:
             need(reference is not None and snapshot.get('chatControlsVersion')==1 and control['inputReady']
                  and control_id!='chat.page' and value is None and direction is None and index is None and source is None
                  and action in ('activate','replace','submit'))

@@ -1,0 +1,68 @@
+{
+  "sourceCommit": "fe4684bf46585088370b3a328a738f147e670b97",
+  "changes": "Extract source/causality/ownership coordination only. Private journal namespace and source lock are neutral. Concrete input, launch, passive login and tablet-close factories are platform owned. No Phone QML, Appium or touch routing is copied. Existing Phone journals are not adopted.",
+  "files": [
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_authentication.py",
+      "sourceSha256": "7e1dbee3b8da26128ac7a85e2a3dfc05023fed86f031b2631eb94e4274258d69",
+      "target": "tests/device/adapters/authentication_journey/samples.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_authentication_actions.py",
+      "sourceSha256": "46755aaa5643c679fe941aa7e2eb30e3f8711a8fefb224b9a8c76d5f0b7509ba",
+      "target": "tests/device/adapters/authentication_journey/actions.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_authentication_causality.py",
+      "sourceSha256": "aee4766bf415476c6a107c098d43dc2ea53cba90b82e09e654bb1cdaa726aeb8",
+      "target": "tests/device/adapters/authentication_journey/causality.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_authentication_feature.py",
+      "sourceSha256": "0506409512564abfbe1a382dcb3a41d06836f083a6452bf6882ebbf21be59c93",
+      "target": "tests/device/adapters/authentication_journey/feature.py"
+    },
+    {
+      "source": "tests/device/adapters/android-phone/overte_phone_account_fixture.py",
+      "sourceSha256": "71e1f6ecf9593510dcd5c4975e6633c18324039f61f76c98dda8e801f38e6548",
+      "target": "tests/device/adapters/authentication_journey/fixture.py"
+    }
+  ],
+  "hostChecks": [
+    {
+      "source": "android/phone/tests/device/test_authentication_samples.py",
+      "sourceSha256": "7867c193487ffa3bec108021cd69d2fa4bc6dd9c419087814420e028795ebee1",
+      "target": "tests/device/self_tests/test_authentication_journey_samples.py",
+      "selection": "full no-build source"
+    },
+    {
+      "source": "android/phone/tests/device/test_authentication_causality.py",
+      "sourceSha256": "f2e3476050a18d38674e8c721555a8a648f8713d56e1bbee565dcbb153038b7e",
+      "target": "tests/device/self_tests/test_authentication_journey_causality.py",
+      "selection": "full no-build source"
+    },
+    {
+      "source": "android/phone/tests/device/test_authentication_feature.py",
+      "sourceSha256": "9fdfbb8fb8cc65d219fa70968dd2b2d500ecef7dcc87c2df29817ef97c06f30c",
+      "target": "tests/device/self_tests/test_authentication_journey_fixture.py",
+      "selection": "fixture-only prefix"
+    },
+    {
+      "source": "android/phone/tests/device/script_file_native_boundary.py",
+      "sourceSha256": "12e1c90ec2cb04c01f0bf2b71b0e706d5014ed84b3a42ec106d1d2c480af55ce",
+      "target": "tests/device/self_tests/authentication_file_boundary.py",
+      "selection": "full no-build source"
+    },
+    {
+      "source": "android/phone/tests/device/login_native_boundary.py",
+      "sourceSha256": "8a96b1b9fca6bfbd0525dff64d37f072c8edbe562ba20fa11027bfe619c51468",
+      "target": "tests/device/self_tests/authentication_login_boundary.py",
+      "selection": "full no-build source"
+    }
+  ],
+  "launchOriginSelection": {
+    "source": "android/phone/apps/phoneInterface/src/debug/java/org/overte/phone/E2eLauncherActivity.java",
+    "sourceSha256": "b188cb3e221b7295ec6ffb5664d50fb918b25acb8dd8fee107cb2fc86aa8517c",
+    "selection": "Strict HTTPS process-origin validator and existing origin extra; adapted to the Pico debug launcher without Phone launch-state calls. No product preference or TLS mutation."
+  }
+}

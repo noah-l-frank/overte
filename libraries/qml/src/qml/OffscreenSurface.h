@@ -13,6 +13,10 @@
 #include <queue>
 #include <map>
 #include <functional>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <memory>
+#include <QVariantMap>
+#endif
 
 #include <QtCore/QUrl>
 #include <QtCore/QSize>
@@ -32,6 +36,10 @@ class OffscreenQmlSharedObject;
 class QQmlFileSelector;
 
 namespace hifi { namespace qml {
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+class FeatureQmlLoads;
+#endif
 
 namespace impl {
 class SharedObject;
@@ -59,6 +67,9 @@ public:
     OffscreenSurface();
     virtual ~OffscreenSurface();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureQmlLoadObservation();
+#endif
     QSize size() const;
     virtual void resize(const QSize& size);
     void clearCache();
@@ -135,6 +146,9 @@ protected:
     virtual QQmlContext* contextForUrl(const QUrl& qmlSource, QQuickItem* parent, bool forceNewContext);
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    std::shared_ptr<FeatureQmlLoads> _featureQmlLoads;
+#endif
     MouseTranslator _mouseTranslator{ [](const QPointF& p) { return p.toPoint(); } };
     friend class hifi::qml::impl::SharedObject;
     impl::SharedObject* const _sharedObject;

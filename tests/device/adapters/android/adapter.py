@@ -486,7 +486,11 @@ class AndroidAdapter:
             time.sleep(0.25)
         fail("Android E2E launcher process did not stop")
 
+    def debug_launcher_arguments(self, target: str) -> tuple[str, ...]:
+        return ()
+
     def launch_debug_app(self, target: str) -> str | None:
+        launcher_arguments = self.debug_launcher_arguments(target)
         package = self.profile["package"]
         running = self.adb.process_state(target, package)["running"] is True
         isolated_pico = self.kind == "pico" and pico_openxr_opted_in()
@@ -505,7 +509,8 @@ class AndroidAdapter:
         elif running:
             self.adb.shell(target, "am", "force-stop", package)
         self.adb.shell(target, "am", "start", "-W", "-n",
-                       self.profile.get("e2e_activity", f"{package}/.E2eLauncherActivity"))
+                       self.profile.get("e2e_activity", f"{package}/.E2eLauncherActivity"),
+                       *launcher_arguments)
         if not isolated_pico:
             return None
         identity = self.wait_for_process_identity(target)

@@ -6,6 +6,9 @@
 //  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 //
 #include "OffscreenSurface.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "FeatureQmlLoads.h"
+#endif
 
 #include <unordered_set>
 #include <unordered_map>
@@ -107,7 +110,17 @@ std::function<void(uint32_t, void*)> OffscreenSurface::getDiscardLambda() {
 
 OffscreenSurface::OffscreenSurface()
     : _sharedObject(new impl::SharedObject()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _featureQmlLoads=std::make_shared<FeatureQmlLoads>();
+#endif
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap OffscreenSurface::featureQmlLoadObservation() {
+    if (QThread::currentThread()!=thread()) { return {}; }
+    return _featureQmlLoads->snapshot();
+}
+#endif
 
 OffscreenSurface::~OffscreenSurface() {
     _sharedObject->deleteLater();
@@ -381,9 +394,15 @@ void OffscreenSurface::loadInternal(const QUrl& qmlSource,
         qmlComponent = new QQmlComponent(getSurfaceContext()->engine(), finalQmlSource, QQmlComponent::PreferSynchronous);
     }
     qmlComponent->setProperty("overteLoadGeneration", parent ? parent->property("qmlLoadGeneration").toInt() : 0);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _featureQmlLoads->begin(qmlComponent,parent);
+#endif
     if (qmlComponent->isLoading()) {
         connect(qmlComponent, &QQmlComponent::statusChanged, this,
                 [=, this](QQmlComponent::Status) { finishQmlLoad(qmlComponent, targetContext, parent, callback); });
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _featureQmlLoads->waiting(qmlComponent);
+#endif
         return;
     }
 
@@ -395,6 +414,9 @@ void OffscreenSurface::finishQmlLoad(QQmlComponent* qmlComponent,
                                      QQuickItem* parent,
                                      const QmlContextObjectCallback& callback) {
     PROFILE_RANGE(app, "finishQmlLoad");
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    FeatureQmlLoads::Finishing featureLoadScope(*_featureQmlLoads,qmlComponent);
+#endif
     disconnect(qmlComponent, &QQmlComponent::statusChanged, this, 0);
 #if defined(Q_OS_ANDROID)
     // Keep component-load errors private in the explicitly launched Pico test

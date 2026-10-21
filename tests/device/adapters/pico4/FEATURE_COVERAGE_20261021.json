@@ -10,12 +10,13 @@
   "frozenPhoneReference": "fe4684bf46585088370b3a328a738f147e670b97",
   "full14AdaptersComplete": false,
   "sourceCompleteAreas": [
-    "scripts"
+    "scripts",
+    "authentication"
   ],
   "deviceQualifiedAreas": [],
   "physicalRuns": 0,
   "historicalOverviewUsedAsAuthority": false,
-  "qualification": "Host simulations and uncompiled source only. Thirteen complete Pico areas remain unavailable; missing required capabilities must fail the full run.",
+  "qualification": "Host simulations and uncompiled source only. Twelve complete Pico areas remain unavailable; missing required capabilities must fail the full run.",
   "rows": [
     {
       "area": "world-navigation",
@@ -88,14 +89,25 @@
     {
       "area": "authentication",
       "sharedTestLogic": "present-v16",
-      "picoAdapter": "partial",
-      "completeOperations": [],
-      "existingModules": [],
+      "picoAdapter": "complete-source-host-verified",
+      "completeOperations": [
+        "feature.authentication.act",
+        "feature.authentication.observe",
+        "feature.authentication.cleanup"
+      ],
+      "existingModules": [
+        "authentication-feature-journey",
+        "authentication-feature-engine",
+        "tablet-home-ray"
+      ],
       "sources": [
-        "tests/device/adapters/pico4/normal_login.py",
-        "tests/device/adapters/pico4/NORMAL_LOGIN.md",
-        "interface/src/Application_UI.cpp",
-        "tests/device/adapters/pico4/binding.py"
+        "tests/device/adapters/pico4/authentication_journey.py",
+        "tests/device/adapters/pico4/AUTHENTICATION_FEATURE.md",
+        "tests/device/adapters/authentication_journey/",
+        "tests/device/native/LoginUiInventory.h",
+        "tests/device/adapters/pico4/tablet_home.py",
+        "tests/device/adapters/pico4/feature_observer.py",
+        "libraries/qml/src/qml/FeatureQmlLoads.h"
       ],
       "declaredCheckpoints": 17,
       "inputVerbs": [
@@ -114,23 +126,21 @@
         "protectedAccess",
         "delayedGrantOutstanding"
       ],
-      "missingOperationsOrEvidence": [
-        "Normal anonymous dismissal and observation of the separate LoginDialogEntity/VR keyboard",
-        "Pico test-launch origin/TLS authority provisioning and ordinary current logout",
-        "Whole protected-profile/provider/delayed-grant/restart and independent UI witness coordination"
-      ],
+      "missingOperationsOrEvidence": [],
       "requiredOriginalEvidence": [
-        "Current native account flags and protected HTTPS response",
-        "Original provider authority/delayed-handler state",
-        "Actual generic login and startup WebEntity visibility/focus",
-        "Per-role native process birth, old PID ESRCH and lifecycle"
+        "Nonce-bound native account events and original protected HTTPS reply per role",
+        "Provider authority, actual delayed request ticket and post-restart stale grant",
+        "Passive current login roots, retained menu callback and actual startup-dialog flag",
+        "Actual HMD Home entity geometry and separate native/UI effects after ordinary controller ray input",
+        "Per-role native process birth, original old-PID ESRCH, lifecycle and original released file absence",
+        "Original weak QQmlComponent/statusChanged lifetime and locked native VR keyboard state"
       ],
       "cleanupObligations": [
         "Normal logout and owned view dismissal",
         "Provider grants blocked, delayed handlers drained and authority revoked",
         "Original probe/origin/private-input leases released and independently absent"
       ],
-      "nextExecutableStep": "Bind the real LoginDialogEntity source and ordinary VR pointer dismissal, then port the frozen Authentication coordinator through Pico-specific startup/origin/logout/restart factories; a tablet Home ACK cannot prove the entity disappeared.",
+      "nextExecutableStep": "Review and compile the dedicated test configuration, then qualify the exact candidate on Proxmox with the owned trusted HTTPS provider and separate actor. Host simulations do not establish native or VR acceptance.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

@@ -72,6 +72,7 @@ class PicoScriptFileSource(ScriptFileIO):
 
 
 class PicoScriptJourney:
+    state_area = 'scripts'
     def __init__(self, adapter):
         self.original = adapter
 
@@ -79,7 +80,8 @@ class PicoScriptJourney:
         need(self.original.pico_configuration is not None)
         parent = self.original.pico_configuration[1]
         key = hashlib.sha256(('org.overte.pico\0' + target).encode()).hexdigest()[:32]
-        directory = parent / ('feature-scripts-' + key)
+        need(self.state_area in ('scripts','authentication'))
+        directory = parent / ('feature-' + self.state_area + '-' + key)
         # Only a host namespace; this does not establish a device/session owner.
         try: directory.mkdir(mode=0o700)
         except FileExistsError: pass

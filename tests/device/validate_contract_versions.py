@@ -9,6 +9,21 @@ from pathlib import Path
 
 
 REQUIRED = {
+    'native-qml-load-inventory': 1,
+    'authentication-journey-actions': 1,
+    'authentication-journey-causality': 1,
+    'authentication-journey-samples': 2,
+    'authentication-journey-feature': 1,
+    'authentication-fixture-reader': 1,
+    'authentication-fixture-origin': 1,
+    'native-login-observation': 1,
+    'native-login-ui-inventory': 1,
+    'native-account-menu-controls': 1,
+    'pico-authentication-feature-binding': 1,
+    'pico-tablet-home-observation': 1,
+    'pico-feature-observer': 1,
+    'owned-feature-observer': 1,
+
     'script-journey-actions': 1,
     'script-journey-causality': 1,
     'script-journey-feature': 1,

@@ -34,6 +34,16 @@ def primary_grip_pose(observation, process_id, now_ms):
             or not all(type(v) in (int, float) and math.isfinite(v)
                        for v in matrix + list(avatar.values()))):
         raise ValueError('Native input geometry is malformed')
+    return observed_grip_pose(matrix, [avatar['x'], 1.6, avatar['z']-.35], [0, 1.6, 2.5])
+
+
+def observed_grip_pose(matrix, world_origin, world_target):
+    """Pure calibrated aim at a separately validated original world target."""
+    if (not isinstance(matrix,list) or len(matrix)!=16
+            or any(not isinstance(point,list) or len(point)!=3 for point in (world_origin,world_target))
+            or not all(type(value) in (int,float) and math.isfinite(value)
+                for value in matrix+world_origin+world_target)):
+        raise ValueError('Observed input geometry is malformed')
     # A tracking transform is affine with a positive uniform scale and an
     # orthonormal basis. Reject shear/reflections rather than guessing an aim.
     columns = [matrix[index:index+3] for index in (0, 4, 8)]
@@ -58,10 +68,8 @@ def primary_grip_pose(observation, process_id, now_ms):
         return [sum(a*b for a, b in zip(column, relative)) / (scale*scale)
                 for column in columns]
 
-    # The catalog owns this fixed target. Aim from a comfortable point in
-    # front of the actual avatar; never teleport or alter the target entity.
-    origin = stage([avatar['x'], 1.6, avatar['z']-.35])
-    target = stage([0, 1.6, 2.5])
+    origin=stage(world_origin)
+    target=stage(world_target)
     direction = [a-b for a, b in zip(target, origin)]
     length = math.sqrt(sum(v*v for v in direction))
     if length < .2 or any(abs(v) > 3 for v in origin):

@@ -1,9 +1,10 @@
 {
   "schemaVersion": 1,
-  "status": "completed-local-verification",
-  "qualification": "Source implementation and selected device-free host checks only; not a complete 47-group catalog run or product/device qualification.",
+  "status": "local-packets-verified-scope-in-progress",
+  "qualification": "Source implementation and selected device-free host checks only; not a complete 51-group catalog run or product/device qualification.",
   "sourceCompleteAreas": [
-    "scripts"
+    "scripts",
+    "authentication"
   ],
   "full14AdaptersComplete": false,
   "picoOwningChecks": [
@@ -35,19 +36,19 @@
       "group": "normal-scripts",
       "status": "passed",
       "tests": 77,
-      "durationSeconds": 396.634
+      "durationSeconds": 377.256
     },
     {
       "group": "script-feature-journey",
       "status": "passed",
       "tests": 9,
-      "durationSeconds": 38.497
+      "durationSeconds": 39.998
     },
     {
       "group": "script-feature-engine",
       "status": "passed",
       "tests": 1,
-      "durationSeconds": 71.793
+      "durationSeconds": 74.913
     }
   ],
   "additionalPassed": [
@@ -118,6 +119,11 @@
       "check": "Selected reference documentation links",
       "cause": "Two copied guides linked to Phone-only sources not selected into Pico.",
       "resolution": "Link the actual shared file-source package and describe the actual unavailable Pico Graphics source instead."
+    },
+    {
+      "check": "Script recovery after shared Authentication extension",
+      "cause": "The established Script host seam replaces the RestartInputs factory with functools.partial; checking isinstance against that factory raised TypeError.",
+      "resolution": "Use the immutable original RestartInputs owner type for validation, preserving factory injection. All 77 existing cases and both Script feature groups pass after the fix. Failed original JUnit records are retained privately."
     }
   ],
   "exclusions": [
@@ -149,5 +155,79 @@
       }
     ],
     "completeFeatureCapabilityAdded": false
+  },
+  "authenticationPacket": {
+    "wholeArea": "17 common checkpoints and three process restarts; source implementation only",
+    "catalogCases": 51,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "PYTHONPATH=tests/device:android/vr/pico/tests/device python3 -m unittest self_tests.test_authentication_journey_samples self_tests.test_authentication_journey_causality self_tests.test_authentication_journey_fixture self_tests.test_login_ui_inventory test_authentication_journey.PicoAuthenticationTests -q",
+        "tests": 80,
+        "durationSeconds": 18.499,
+        "status": "passed"
+      },
+      {
+        "command": "PYTHONPATH=tests/device:android/vr/pico/tests/device python3 -m unittest test_authentication_journey.PicoAuthenticationEngineTests -q",
+        "tests": 1,
+        "durationSeconds": 38.798,
+        "status": "passed"
+      },
+      {
+        "command": "PYTHONPATH=tests/device python3 -m unittest self_tests.test_script_journey_measurements self_tests.test_script_journey_history self_tests.test_script_journey_causality self_tests.test_pico_script_observer self_tests.test_pico_feature_observer self_tests.test_pico_openxr_adapter_session -q",
+        "tests": 113,
+        "status": "passed"
+      },
+      {
+        "command": "PYTHONPATH=tests/device python3 -m unittest self_tests.test_pico_tablet_home self_tests.test_pico_input_geometry -q",
+        "tests": 8,
+        "status": "passed"
+      },
+      {
+        "command": "Five explicit AndroidAdapterTest mock-launch methods: controlled Phone preserve, Pico orphan, WLAN reconnect, foreground reactivate, explicit stop/launch",
+        "tests": 5,
+        "durationSeconds": 7.92,
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test normal-scripts --timeout 600 --junit PRIVATE/authentication-normal-scripts-regression-fixed.xml",
+        "tests": 77,
+        "durationSeconds": 377.256,
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test script-feature-journey --test script-feature-engine --junit PRIVATE/authentication-script-regressions-fixed.xml",
+        "tests": 10,
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test authentication-feature-journey --test authentication-feature-engine --test tablet-home-ray --test suite-runner --test coverage-matrix --junit PRIVATE/authentication-qml-final-owning.xml",
+        "groups": 5,
+        "tests": 40,
+        "durationSeconds": 52.333,
+        "status": "passed",
+        "details": "16 adapter, 1 complete common engine, 5 Home geometry, 12 runner and 6 coverage tests; unchanged 120-second per-group budget."
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage --junit PRIVATE/authentication-qml-final-project.xml",
+        "suites": 4,
+        "status": "passed"
+      },
+      {
+        "command": "Frozen source/host/launch provenance hashes, all fourteen coverage source paths, exact source-complete operation triples, contract version registry, probe Node syntax and git diff --check",
+        "status": "passed"
+      }
+    ],
+    "counterexamples": [
+      "ignored grant and input ACK without native effect",
+      "foreign origin and installed candidate replacement before input/source dispatch",
+      "uncertain submit/Home/logout without resending",
+      "observation-only recovery after lost launch",
+      "hidden/detached roots, retained menu callback, pending/finished QML component and raised VR keyboard",
+      "stale/foreign/nonpickable Home geometry and actual calibrated ray rotation"
+    ],
+    "limits": "Synthetic Qt/native/OS/HTTPS/OpenXR seams only. New native QML/GPU/account/UI/Java sources remain uncompiled. No test service or device access.",
+    "additionalSourceReview": "The inherited no-login-suggestion launch path is already implemented. Ordinary login uses TabletLoginDialog when no startup dialog is present. Generic Home QML rows are not assumed: the actual HMD Gizmo receives a normal trigger ray. Native component, timer and keyboard lifetimes remain separate from visible page absence."
   }
 }

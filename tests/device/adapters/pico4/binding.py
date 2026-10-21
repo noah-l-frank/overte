@@ -27,6 +27,7 @@ from adapters.recorded_preview_evidence import (RecordedPreviewEvidence, Android
 from adapters.native_script_observation import NativeScriptObservation, FILE as SCRIPT_EXECUTION_FILE
 from adapters.pico4 import normal_scripts
 from adapters.pico4 import script_journey
+from adapters.pico4 import authentication_journey
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from adapters.script_restart_handoff import ScriptRestartHandoff
@@ -108,6 +109,14 @@ def create_adapter(args, base_class):
 
     class PicoBoundAdapter(base_class):
         @_private
+        def debug_launcher_arguments(self,target):
+            values=authentication_journey.launcher_arguments(os.environ)
+            if values:
+                _need(self.pico_configuration is not None and self._candidate()['e2e_input_layer'] is True)
+                self._installation(target)
+            return values
+
+        @_private
         def _candidate(self):
             _need(not cleanup_only or cleanup_candidate)
             _need(_inputs(args) == frozen)
@@ -183,10 +192,16 @@ def create_adapter(args, base_class):
             if script_journey.configured(os.environ):
                 _need(not cleanup_only and self.pico_configuration is not None and candidate['e2e_input_layer'] is True)
                 values.extend(script_journey.OPERATIONS)
+            if authentication_journey.configured(os.environ):
+                _need(not cleanup_only and self.pico_configuration is not None and candidate['e2e_input_layer'] is True)
+                values.extend(authentication_journey.OPERATIONS)
             return sorted(set(values))
 
         def _script_journey(self):
             return script_journey.PicoScriptJourney(self)
+
+        def _authentication_journey(self):
+            return authentication_journey.PicoAuthenticationJourney(self)
 
         def _script_paths(self, target):
             _need(self.pico_configuration is not None)
@@ -293,7 +308,7 @@ def create_adapter(args, base_class):
             return binding, native
 
         @_private
-        def _script_restart_recover_binding(self, target, *, monotonic=None):
+        def _script_restart_recover_binding(self, target, *, monotonic=None, restart_inputs=None, owner_check=None):
             # This can create only the original host-side nonce journal. It
             # cannot launch, activate, submit an OpenXR grant or deliver input.
             import time
@@ -305,13 +320,21 @@ def create_adapter(args, base_class):
                 now = clock()
                 _need(now >= previous and now - started < 30)
                 previous = now
-            inputs = self._script_restart_inputs(target)
-            origin = inputs.read(); _need(origin['phase'] == 'launch-issued' and origin['scriptHandoff'] is not None)
+            _need((restart_inputs is None)==(owner_check is None))
+            inputs = self._script_restart_inputs(target) if restart_inputs is None else restart_inputs
+            from adapters.restart_inputs import RestartInputs as RestartInputOwner
+            _need(isinstance(inputs,RestartInputOwner))
+            origin = inputs.read(); _need(origin['phase'] == 'launch-issued')
+            if restart_inputs is None:
+                _need(origin['scriptHandoff'] is not None)
+                check_owner=lambda:self._script_restart_handoff(target).snapshot()
+                plan=check_owner();_need(plan==origin['scriptHandoff'] and plan['next'] is None)
+            else:
+                _need(callable(owner_check) and origin['scriptHandoff'] is None)
+                check_owner=owner_check;plan=check_owner();_need(plan is not None)
             session = self.pico_input_session(target)
             unbound = session.is_unbound(); bound()
             if not unbound: return
-            plan = self._script_restart_handoff(target).snapshot()
-            _need(plan == origin['scriptHandoff'] and plan['next'] is None)
             old = origin['oldBinding']
             _need(hashlib.sha256((target + '\0' + str(self.pico_configuration)).encode()).hexdigest()
                   == old['targetFingerprint'])
@@ -350,7 +373,7 @@ def create_adapter(args, base_class):
             final = native.read(first['sequence']); verify(final)
             _need(final['instance'] == first['instance'] and final['capturedEpochMs'] >= exited['capturedEpochMs'])
             guard()
-            _need(inputs.read() == origin and self._script_restart_handoff(target).snapshot() == plan
+            _need(inputs.read() == origin and check_owner() == plan
                   and session.is_unbound())
             bound()
             session.begin(identity)  # Original atomic/locked host binding, no SDK operation.
@@ -621,7 +644,13 @@ def create_adapter(args, base_class):
             # turn a foreign installation into an accepted initial describe.
             self._installation(target)
             try:
-                if operation in script_journey.OPERATIONS:
+                if operation in authentication_journey.OPERATIONS:
+                    _need(authentication_journey.configured(os.environ))
+                    from feature_journeys.contract import arguments
+                    arguments(operation,values)
+                    flow=self._authentication_journey()._authentication_feature(target,values['runId'])
+                    result=getattr(flow,operation.rsplit('.',1)[1])(values)
+                elif operation in script_journey.OPERATIONS:
                     _need(script_journey.configured(os.environ))
                     from feature_journeys.contract import arguments
                     arguments(operation, values)
@@ -664,6 +693,38 @@ def create_adapter(args, base_class):
                         _need(not any(p.name != 'script-sources.lock' for p in path.iterdir()))
             except Exception:
                 feature_error = True
+            try:
+                if self.pico_configuration is not None:
+                    journey=self._authentication_journey()
+                    owner=journey.authentication_feature_store(target).read()
+                    retirement=journey.authentication_retirement_store(target).read()
+                    if owner is not None or retirement is not None:
+                        if cleanup_only:self._recover_cleanup_candidate()
+                        record=owner if owner is not None else retirement
+                        # The existing adapter-only credential authorizes fresh
+                        # retired-provider reads; it cannot register/activate runs.
+                        journey._authentication_feature(target,record['runId']).finalize()
+                    else:
+                        path=journey.state_path(target).parent
+                        _need(not any(p.name!='authentication-sources.lock' for p in path.iterdir()))
+            except Exception:
+                feature_error=True
+            # Release only known E2E source leases before base force-stop, even
+            # when full independent retirement could not complete. The feature
+            # error and its original journals remain unresolved in that case.
+            if self.pico_configuration is not None:
+                journey=self._authentication_journey()
+                for role in ('primary','actor'):
+                    try:
+                        if journey.account_probe_store(target,role=role).read() is not None:
+                            if cleanup_only:self._recover_cleanup_candidate()
+                            journey._account_probe(target,read_only=True,role=role).release()
+                    except Exception:feature_error=True
+                try:
+                    if journey.account_origin_store(target).read() is not None:
+                        if cleanup_only:self._recover_cleanup_candidate()
+                        journey._account_origin(target,read_only=True).release()
+                except Exception:feature_error=True
             chat_error=False
             try:
                 if self.pico_configuration is not None:

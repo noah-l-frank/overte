@@ -7,8 +7,8 @@ from adapters.token_login_ui import IDS,VERSION
 
 
 class PicoLoginIO:
-    def __init__(self,original):
-        self.original=original;self.epoch_floor=0
+    def __init__(self,original,home=None):
+        self.original=original;self.epoch_floor=0;self.home=home
 
     def capture(self):
         value=self.original.capture()
@@ -30,6 +30,7 @@ class PicoLoginIO:
     def close_view(self):
         # Generic tablet pending pages have no cancel. This normal Home input
         # closes the actual page, while the AccountManager request stays alive.
+        if self.home is not None:return self.home()
         value=self.original.capture()
         rows=[r for r in value['controls'] if r['id']=='tablet.home']
         need(len(rows)==1 and rows[0]['enabled'])

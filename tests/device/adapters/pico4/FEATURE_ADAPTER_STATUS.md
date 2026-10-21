@@ -1,3 +1,9 @@
+> Current continuation: [Authentication](AUTHENTICATION_FEATURE.md) now has a
+> complete source-level feature triple and host-verified shared 17-step flow.
+> Its actual VR Home ray, passive weak login/menu inventory, process-only HTTPS
+> origin, logout, independent actor and restart sources supersede the historical
+> Authentication gaps below. Native compilation and all devices are unverified.
+
 Stereo source follow-up: world-render acquisition v2 now joins original two-eye GPU pixels and executing Frame matrices with a successful same-frame Pico OpenXR submission. The Pico factory requires v2; mono callers retain v1. This is an uncompiled source/host prerequisite, not complete Graphics coverage. See `FEATURE_HANDOFF_20261021.md`.
 
 # Pico feature adapter implementation status

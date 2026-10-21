@@ -39,7 +39,7 @@ from self_tests.test_pending_commit_owner import Boundary as PendingOwnerBoundar
 from self_tests.test_native_navigation_replies import Boundary as NavigationReplyBoundary, RUN as LOOKUP_RUN
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_storage import receipt_file
-from self_tests.test_world_render_evidence import Boundary as WorldBoundary
+from self_tests.test_stereo_world_render import StereoBoundary as WorldBoundary
 from self_tests.test_world_render_storage import Boundary as WorldStorageBoundary
 from self_tests.test_owned_world_render import LocalAdb
 from self_tests.test_native_chat_observation import Boundary as ChatBoundary, RUN as CHAT_RUN, SELF as CHAT_SELF, PEER as CHAT_PEER
@@ -632,9 +632,11 @@ class PicoNormalScriptsTests(unittest.TestCase):
     def world_capture(self):
         source=WorldBoundary()
         def captured(sample):
+            source.stereo_packet(sample)
             epoch=self.native.epoch_milliseconds(self.native.target)
             sample.update(processId=123,requestedEpochMs=epoch,capturedEpochMs=epoch)
             sample['source'].update(recordedEpochMs=epoch,startedEpochMs=epoch,capturedEpochMs=epoch)
+            sample['source']['presentation']['submittedEpochMs']=epoch
         source.mutate=captured
         storage=WorldStorageBoundary();storage.raw=source.raw
         storage.mutate=lambda sample:sample.update(instance='a'*32,processId=123,
@@ -675,11 +677,13 @@ class PicoNormalScriptsTests(unittest.TestCase):
         self.assertEqual([],list((local.path/'files/overte-e2e').iterdir()))
         self.assertEqual([],self.native.inputs)
 
-    def test_pico_world_stereo_source_is_explicitly_unsupported_and_retains_cleanup_intent(self):
+    def test_pico_world_monoscopic_source_is_rejected_and_retains_cleanup_intent(self):
         source,local,capture=self.world_capture()
         original=source.mutate
-        def stereo(sample):original(sample);sample['source'].update(view='main-stereo')
-        source.mutate=stereo
+        def mono(sample):
+            original(sample);sample['source'].update(view='main-mono',captureVersion=1)
+            sample['source'].pop('stereo');sample['source'].pop('presentation')
+        source.mutate=mono
         with self.assertRaises(RuntimeError):capture.read(0)
         self.assertIsNotNone(self.instance._world_render_store(self.native.target).read())
         capture.release();self.assertIsNone(self.instance._world_render_store(self.native.target).read())

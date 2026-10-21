@@ -9,6 +9,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Locale;
+import android.system.Os;
+import android.system.ErrnoException;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -59,6 +64,40 @@ public final class E2eLauncherActivity extends E2eLauncherActivityBase {
 
     @Override
     protected Class<? extends Activity> interfaceActivity() {
+        // Debug/shell-only process setup before Qt/AccountManager construction.
+        // Uses ordinary HTTPS trust and does not change saved account settings.
+        String origin = getIntent().getStringExtra("org.overte.e2e.ACCOUNT_ORIGIN");
+        if (origin != null) {
+            if (!validAccountOrigin(origin)) {
+                throw new IllegalArgumentException("Invalid owned account fixture origin");
+            }
+            try {
+                Os.setenv("HIFI_METAVERSE_URL", origin, true);
+            } catch (ErrnoException exception) {
+                throw new IllegalStateException("Owned account fixture environment is unavailable");
+            }
+        }
         return PicoInterfaceActivity.class;
+    }
+
+    static boolean validAccountOrigin(String value) {
+        if (value == null || value.isEmpty() || value.length() > 1024) { return false; }
+        for (int index = 0; index < value.length(); ++index) {
+            char character = value.charAt(index);
+            if (character < 0x21 || character > 0x7e || character == '%') { return false; }
+        }
+        try {
+            URI uri = new URI(value);
+            String authority = uri.getRawAuthority();
+            String path = uri.getRawPath();
+            return "https".equals(uri.getScheme()) && uri.getHost() != null && !uri.getHost().isEmpty()
+                    && uri.getRawUserInfo() == null && authority != null && !authority.contains("@")
+                    && authority.equals(authority.toLowerCase(Locale.ROOT)) && !authority.endsWith(":")
+                    && (uri.getPort() == -1 || uri.getPort() > 0 && uri.getPort() <= 65535)
+                    && (path == null || path.isEmpty()) && uri.getRawQuery() == null
+                    && uri.getRawFragment() == null && value.equals(uri.toASCIIString());
+        } catch (URISyntaxException exception) {
+            return false;
+        }
     }
 }

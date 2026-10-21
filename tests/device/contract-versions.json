@@ -79,7 +79,21 @@
     "script-journey-file-source": {"current": 1, "reads": [1]},
     "native-script-ui-inventory": {"current": 1, "reads": [1]},
     "pico-script-feature-binding": {"current": 1, "reads": [1]},
-    "pico-script-observer": {"current": 1, "reads": [1]}
+    "pico-script-observer": {"current": 1, "reads": [1]},
+    "authentication-journey-actions": {"current": 1, "reads": [1]},
+    "authentication-journey-causality": {"current": 1, "reads": [1]},
+    "authentication-journey-samples": {"current": 2, "reads": [2]},
+    "authentication-journey-feature": {"current": 1, "reads": [1]},
+    "authentication-fixture-reader": {"current": 1, "reads": [1]},
+    "authentication-fixture-origin": {"current": 1, "reads": [1]},
+    "native-login-observation": {"current": 1, "reads": [1]},
+    "native-login-ui-inventory": {"current": 1, "reads": [1]},
+    "native-account-menu-controls": {"current": 1, "reads": [1]},
+    "pico-authentication-feature-binding": {"current": 1, "reads": [1]},
+    "pico-tablet-home-observation": {"current": 1, "reads": [1]},
+    "pico-feature-observer": {"current": 1, "reads": [1]},
+    "native-qml-load-inventory": {"current": 1, "reads": [1]},
+    "owned-feature-observer": {"current": 1, "reads": [1]}
   },
   "migrationRules": {
     "breakingChange": "increment current and retain an explicit reader or migration for every still-supported producer",
