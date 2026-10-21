@@ -8,6 +8,7 @@ This scope advertises no complete feature capability.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import math
+import uuid
 
 from adapters.emote_rig_measurements import continuation
 from adapters.native_feature_observation import exact,fresh,integer,need,number
@@ -18,10 +19,12 @@ from feature_journeys.contract import identifier
 from overte_phone_emote_capture import PhoneEmoteCapture
 from overte_phone_emote_effects import PhoneEmoteEffects
 from overte_phone_emote_originals import PhoneEmoteOriginals
+from overte_phone_emote_sources import PhoneEmoteSources
 from overte_phone_emote_pixels import measure as pixels
 from overte_phone_script_history import pack,unpack,same
 
 VERSION=1
+HEADER_VERSION=2
 
 
 class ObservationOriginals(PhoneEmoteOriginals):
@@ -36,6 +39,7 @@ class PhoneEmoteObservation:
         source=self.source;source.lock.assert_held()
         self.store=PrivateFeatureState(source.store.path.with_name('phone-emote-'+source.role+'-observation-'+str(index)+'.json'))
         self.previous=self.store.read();self.failed=False;self.started=self.clock=None
+        self.scope_id=self.previous.get('scopeId') if self.previous is not None else uuid.uuid4().hex
         self.historical=False
         self.state=dict(phase='reserved',ticket=None,capture=None,outcome=None,pending=None,retirement=None)
         self.originals=ObservationOriginals(source.artifact_root,source.binding,source.run,source.role,self.bound,
@@ -54,14 +58,19 @@ class PhoneEmoteObservation:
 
     def decode(self,value):
         source=self.source
-        exact(value,{'emoteObservationVersion','runId','fixtureUrl','role','index','binding','artifactRoot','imagePolicy','payload'})
-        need(type(value['emoteObservationVersion']) is int and value['emoteObservationVersion']==VERSION
+        need(type(value) is dict and type(value.get('emoteObservationVersion')) is int and value['emoteObservationVersion'] in (1,2))
+        version=value['emoteObservationVersion']
+        exact(value,{'emoteObservationVersion','runId','fixtureUrl','role','index','binding','artifactRoot','imagePolicy','payload'}
+            |({'scopeId'} if version==2 else set()))
+        if version==2:identifier(value['scopeId'])
+        need(value.get('scopeId')==self.scope_id
             and value['runId']==source.run and value['fixtureUrl']==source.phase.fixture_url and value['role']==source.role
             and type(value['index']) is int and value['index']==self.index and same(value['binding'],source.binding)
             and value['artifactRoot']==str(source.artifact_root) and same(value['imagePolicy'],self.policy))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
         exact(state,{'phase','ticket','capture','outcome','pending','retirement'})
-        need(state['phase'] in ('reserved','capturing','captured','measuring','complete'))
+        need(state['phase'] in ('reserved','capturing','captured','measuring','complete')
+            or version==2 and state['phase']=='preparing')
         if state['ticket'] is not None:identifier(state['ticket'])
         else:need(state['phase']=='reserved')
         for key,offset in (('capture',1),('outcome',2)):
@@ -73,6 +82,7 @@ class PhoneEmoteObservation:
             if pending['original'] is not None:
                 self.originals.original(pending['original']);need(pending['original']['index']==(self.index-1)*2+(1 if pending['kind']=='capture' else 2))
         if state['phase']=='reserved':need(all(state[key] is None for key in state if key!='phase'))
+        if state['phase']=='preparing':need(all(state[key] is None for key in ('capture','outcome','pending','retirement')))
         if state['phase'] in ('captured','measuring','complete'):need(state['capture'] is not None)
         if state['retirement'] is not None:
             need(state['capture'] is not None)
@@ -88,6 +98,7 @@ class PhoneEmoteObservation:
         if kind=='capture':
             exact(row,{'emoteObservationFrameVersion','kind','ticket','before','header','played','previous'})
             frame,_raw,_state=PhoneEmoteCapture.archive(row['header'],self.source,self.index,self.policy)
+            need(row['header'].get('parentScope')==self.scope_id)
             need(frame['ticket']==ticket)
             self.effects.current_original(row['before'])
             if row['played'] is not None:exact(row['played'],{'inputTicket','frame'});identifier(row['played']['inputTicket'])
@@ -111,9 +122,10 @@ class PhoneEmoteObservation:
     def save(self):
         need(self.historical is False)
         self.bound()
-        value=dict(emoteObservationVersion=VERSION,runId=self.source.run,fixtureUrl=self.source.phase.fixture_url,
+        value=dict(emoteObservationVersion=HEADER_VERSION if self.scope_id is not None else 1,runId=self.source.run,fixtureUrl=self.source.phase.fixture_url,
             role=self.source.role,index=self.index,binding=deepcopy(self.source.binding),artifactRoot=str(self.source.artifact_root),
             imagePolicy=deepcopy(self.policy),payload=pack([self.state]))
+        if self.scope_id is not None:value['scopeId']=self.scope_id
         try:
             self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value);self.bound()
         except Exception:self.failed=True;raise
@@ -178,7 +190,7 @@ class PhoneEmoteObservation:
         self.started=self.bound();epoch_reader=self.source.adapter._native_feature_observer(self.source.selector,read_only=True)
         epoch=epoch_reader.clock_ms();host=self.source.phase.epoch_ms();need(integer(epoch,1) and number(host,1,1e15))
         try:
-            self.effects.bound();self.state.update(phase='capturing',ticket=ticket);self.save()
+            self.effects.bound();self.state.update(phase='preparing',ticket=ticket);self.save()
             self.source.read();before=self.effects.reference()
             row=self.effects.inputs.state['current'];need(row is not None and row['call']['ticket']==ticket)
             self.effects.after(row,before)
@@ -194,7 +206,8 @@ class PhoneEmoteObservation:
                     index=previous['header'].get('index');need(integer(index,1,self.index-1))
                     original=self.archive(previous,self.effects,index,self.policy)
                     previous_ref=dict(index=index,capture=deepcopy(original['capture']))
-            capture=PhoneEmoteCapture(self.source,self.index,self.policy,monotonic=self.source.monotonic)
+            self.state['phase']='capturing';self.save()
+            capture=PhoneEmoteCapture(self.source,self.index,self.policy,monotonic=self.source.monotonic,parent_scope=self.scope_id)
             capture.read(ticket);capture.original()
             captured=dict(emoteObservationFrameVersion=VERSION,kind='capture',ticket=ticket,before=before,
                 header=deepcopy(capture.previous),played=deepcopy(played),previous=previous_ref)
@@ -285,6 +298,7 @@ class PhoneEmoteObservation:
         exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
         scope.historical=True;scope.failed=False;scope.started=started;scope.clock=None
         scope.previous=deepcopy(value['header']);scope.archive_header=deepcopy(scope.previous)
+        scope.scope_id=scope.previous.get('scopeId')
         scope.originals=ObservationOriginals(source.artifact_root,source.binding,source.run,source.role,scope.bound,
             lambda *_:need(False),kind='observations',monotonic=source.monotonic)
         scope.bound();scope.state=scope.decode(scope.previous);result=scope.original();need(same(result,value['result']))
@@ -321,6 +335,7 @@ class PhoneEmoteObservation:
         exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
         scope.historical=True;scope.failed=False;scope.started=started;scope.clock=None
         scope.previous=deepcopy(value['header']);scope.archive_header=deepcopy(scope.previous)
+        scope.scope_id=scope.previous.get('scopeId')
         scope.originals=ObservationOriginals(source.artifact_root,source.binding,source.run,source.role,scope.bound,
             lambda *_:need(False),kind='observations',monotonic=source.monotonic)
         scope.bound();scope.state=scope.decode(scope.previous)
@@ -355,7 +370,7 @@ class PhoneEmoteObservation:
             child=PrivateFeatureState(source.store.path.with_name('phone-emote-'+source.role+'-capture-'+str(self.index)+'.json'))
             if child.read() is not None:
                 need(same(child.read(),captured['header']))
-                capture=PhoneEmoteCapture(source,self.index,self.policy,monotonic=source.monotonic)
+                capture=PhoneEmoteCapture(source,self.index,self.policy,monotonic=source.monotonic,parent_scope=self.scope_id)
                 need(same(capture.cleanup(),expected))
             need(child.read() is None and owned.owner.store.read() is None);self.bound()
             if self.state['retirement'] is None:
@@ -371,6 +386,105 @@ class PhoneEmoteObservation:
             need(same(source.store.read(),source.previous) and same(source.previous,value['sourceHeader'])
                 and same(inputs.previous,value['inputHeader']) and same(inputs.source.previous,value['inputSourceHeader']))
             self.incomplete_archive(value,self.effects,self.index,self.policy);self.bound();inputs.bound()
+            need(child.read() is None and owned.owner.store.read() is None)
+            returned=deepcopy(value);self.bound();self.store.discard(self.previous);need(self.store.read() is None)
+            source.lock.assert_held();need(source.guard() is not False)
+            end=source.monotonic();need(number(end,self.started,1e15) and end-self.started<5);return returned
+        finally:self.started=None
+
+    def pending_diagnostic(self):
+        pending=self.state['pending']
+        if pending is None or pending['original'] is None:return None
+        value=pending['original'];result=self.originals.diagnostic(value)
+        if value['phase']=='saved':self.row(self.originals.read(value),pending['kind'],self.state['ticket'])
+        return result
+
+    @classmethod
+    def failure_archive(cls,value,effects,index,policy):
+        """Original failed child and partial-parent evidence, never a result."""
+        need(isinstance(effects,PhoneEmoteEffects) and integer(index,1,256));source=effects.source
+        started=source.monotonic();need(number(started,0,1e15));source.lock.assert_held();need(source.guard() is not False)
+        exact(value,{'emoteObservationFailureArchiveVersion','header','inputHeader','inputSourceHeader','sourceHeader',
+            'childRetirement','pendingDiagnostic'})
+        need(type(value['emoteObservationFailureArchiveVersion']) is int and value['emoteObservationFailureArchiveVersion']==1)
+        context=effects._archive_context(value['inputHeader'],value['inputSourceHeader'],value['sourceHeader'],ready=False)
+        scope=object.__new__(cls);scope.effects,scope.source,scope.index,scope.policy=context,context.source,index,deepcopy(policy)
+        exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
+        scope.historical=True;scope.failed=False;scope.started=started;scope.clock=None
+        scope.previous=deepcopy(value['header']);scope.archive_header=deepcopy(scope.previous)
+        scope.scope_id=scope.previous.get('scopeId')
+        scope.originals=ObservationOriginals(source.artifact_root,source.binding,source.run,source.role,scope.bound,
+            lambda *_:need(False),kind='observations',monotonic=source.monotonic)
+        scope.bound();scope.state=scope.decode(scope.previous);need(scope.state['phase'] in ('preparing','capturing','captured','measuring'))
+        need(scope.scope_id is not None);child=value['childRetirement']
+        if scope.state['phase']=='preparing':
+            need(child is None and scope.effects.inputs.state['current'] is not None
+                and scope.effects.inputs.state['current']['call']['ticket']==scope.state['ticket'])
+        else:
+            PhoneEmoteCapture.retirement_archive(child,scope.source,index,scope.policy)
+            need(child['header'].get('parentScope')==scope.scope_id)
+            if scope.state['phase']=='capturing':need(same(child['sourceHeader'],value['sourceHeader']))
+            child_state=unpack(child['header']['payload'])[0]
+            if child_state['providerBefore'] is not None:
+                need(child_state['providerBefore']['activations'][-1]['ticket']==scope.state['ticket'])
+            _state,frames=PhoneEmoteSources.archive(child['sourceHeader'],phase=source.phase,artifact_root=source.artifact_root,
+                binding=source.binding,guard=source.guard,monotonic=source.monotonic)
+            need(same(scope.source.frames[:len(frames)],frames))
+            if scope.state['capture'] is not None:need(same(scope.load('capture')['header'],child['header']))
+            if scope.state['retirement'] is not None:need(same(scope.state['retirement'],child['cleanup']))
+            if scope.state['outcome'] is not None:scope._facts()
+        need(same(scope.pending_diagnostic(),value['pendingDiagnostic']))
+        returned=deepcopy(value);scope.bound();return returned
+
+    def failure_context(self,value):
+        """The callback cannot replace or advance any live parent authority."""
+        exact(value,{'emoteObservationFailureArchiveVersion','header','inputHeader','inputSourceHeader','sourceHeader',
+            'childRetirement','pendingDiagnostic'})
+        self.bound();inputs=self.effects.inputs;inputs.bound();source=self.source
+        need(same(self.previous,value['header']) and same(inputs.previous,value['inputHeader'])
+            and same(inputs.source.previous,value['inputSourceHeader']) and same(source.previous,value['sourceHeader'])
+            and same(source.store.read(),source.previous));self.bound()
+
+    def transfer_failed(self,retain,*,retained=None):
+        """Transfer failed child/partial originals before either metadata deletion.
+
+        A retained packet from the full owner's durable callback is required
+        after a lost child deletion return. Missing child metadata is never
+        adopted as proof of an early/not-dispatched acquisition.
+        """
+        need(self.historical is False and callable(retain) and self.started is None)
+        self.started=self.source.monotonic();need(number(self.started,0,1e15))
+        try:
+            self.bound();need(self.previous is not None and same(self.decode(self.previous),self.state)
+                and self.state['phase'] in ('preparing','capturing','captured','measuring'))
+            source=self.source;inputs=self.effects.inputs;inputs.bound()
+            need(source.guard() is not False and same(source.store.read(),source.previous))
+            child=PrivateFeatureState(source.store.path.with_name('phone-emote-'+source.role+'-capture-'+str(self.index)+'.json'))
+            owned=source.adapter._world_render_capture(source.selector,read_only=True,role=source.role,require_frame_view=True)
+            need(isinstance(owned,OwnedWorldRenderCapture) and same(owned.owner.binding,source.binding) and owned.owner.role==source.role)
+            if retained is not None:
+                self.failure_context(retained);self.failure_archive(retained,self.effects,self.index,self.policy)
+                need(owned.owner.store.read() is None)
+            packets=[]
+            def hold(proof):
+                self.bound();inputs.bound()
+                value=dict(emoteObservationFailureArchiveVersion=1,header=deepcopy(self.previous),inputHeader=deepcopy(inputs.previous),
+                    inputSourceHeader=deepcopy(inputs.source.previous),sourceHeader=deepcopy(source.previous),
+                    childRetirement=deepcopy(proof),pendingDiagnostic=self.pending_diagnostic())
+                if retained is not None:need(same(retained,value))
+                self.failure_context(value);self.failure_archive(value,self.effects,self.index,self.policy)
+                need(retain(deepcopy(value)) is not False);self.failure_context(value)
+                self.failure_archive(value,self.effects,self.index,self.policy);self.bound();packets.append(value)
+            if self.state['phase']=='preparing':
+                need(child.read() is None and owned.owner.store.read() is None);hold(None)
+            elif child.read() is not None:
+                if retained is not None:need(same(child.read(),retained['childRetirement']['header']))
+                capture=PhoneEmoteCapture(source,self.index,self.policy,monotonic=source.monotonic,parent_scope=self.scope_id)
+                capture.cleanup(retain=hold)
+            else:
+                need(retained is not None);hold(retained['childRetirement'])
+            need(len(packets)==1 and child.read() is None and owned.owner.store.read() is None)
+            value=packets[0];self.failure_context(value);self.failure_archive(value,self.effects,self.index,self.policy)
             need(child.read() is None and owned.owner.store.read() is None)
             returned=deepcopy(value);self.bound();self.store.discard(self.previous);need(self.store.read() is None)
             source.lock.assert_held();need(source.guard() is not False)

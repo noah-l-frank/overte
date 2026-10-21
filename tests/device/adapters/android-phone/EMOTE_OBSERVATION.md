@@ -1,4 +1,4 @@
-# Phone current Emote input, Rig and image observation, version 1
+# Phone current Emote input, Rig and image observation, header version 2
 
 `PhoneEmoteObservation` composes real source/input/effect readers, the existing
 owned GPU capture and original PNG/body-pixel verifier. Each role acquires its
@@ -89,13 +89,21 @@ remains unavailable even when the loaded animation is correct.
 ## Exact private records
 
 Each scope uses `phone-emote-<role>-observation-<index>.json`. Its outer fields are
-exactly `emoteObservationVersion:1`, `runId`, `fixtureUrl`, `role`, `index`, actual
-`binding`, `artifactRoot`, `imagePolicy`, and the existing packed `payload`.
+exactly `emoteObservationVersion:2`, `runId`, `fixtureUrl`, `role`, `index`, actual
+`binding`, `artifactRoot`, `imagePolicy`, random 32-hex `scopeId`, and the existing packed `payload`.
+The new identity is durably stored before acquisition and passed to the actual
+child capture header as `parentScope`. A reused phase index/ticket therefore
+does not let an old child's cleanup authorize another attempt. Version 1
+parents remain readable with null identity; no new identity is invented for
+their past actions. Saved complete legacy image originals can still transfer
+through their immutable references. Earlier legacy partial captures cannot use
+the stronger parent-identity failure path. Frame/result, image and archive
+schemas remain version 1.
 Decoded state has exactly:
 
 | Field | Meaning |
 | --- | --- |
-| `phase` | `reserved`, `capturing`, `captured`, `measuring` or `complete` |
+| `phase` | `reserved`, `preparing`, `capturing`, `captured`, `measuring` or `complete` |
 | `ticket` | Actual current ticket, initially null |
 | `capture`, `outcome` | Saved compact immutable-original references or null |
 | `pending` | Null or exact `{kind,original}` planned/opened/saved responsibility |
@@ -201,7 +209,67 @@ the whole failed run or prove current global native/resource absence. The final
 owner still needs fresh native quiet/absence, actual fixture/UI/scene/view/actor
 cleanup and all host-journal retirement. A parent without a saved complete image,
 or with an opened/planned/pending parent original, remains red and cannot use
-this narrower recovery path. Complete feature registration remains disabled.
+this narrower recovery path. The failed-child transfer below handles owned
+partial files separately. Complete feature registration remains disabled.
+
+## Failed child and partial-parent transfer, version 1
+
+`transfer_failed(retain,retained=None)` handles a new version 2 parent in
+`preparing`, `capturing`, `captured` or `measuring`, including a
+failed GPU request, undrained image, partial child PNG or interrupted parent
+original write. `preparing` is persisted before source/previous-image checks;
+`capturing` must be durably committed before constructing the child. A failed
+preparation therefore transfers with null `childRetirement` only when the child
+and world owner are actually absent and the exact owned input ticket matches.
+An interrupted source journal remains unresolved. Ordinary verified child cleanup must first produce its real
+retirement proof. Its exact `parentScope` must match this parent's `scopeId`.
+The child's original source history must be this role's actual prefix; while
+the parent is still `capturing`, its source header must match exactly. Existing
+provider/avatar records must follow the original input phase and pre-image
+source. Old/foreign child proofs cannot borrow a reused index or new parent ID.
+
+The required callback receives exactly
+`{emoteObservationFailureArchiveVersion:1,header,inputHeader,inputSourceHeader,sourceHeader,childRetirement,pendingDiagnostic}`.
+`childRetirement` is the existing exact original failed/complete child cleanup
+archive, including any actual partial PNG. Callback retention/revalidation
+occurs **before** child metadata deletion. Parent metadata is removed only
+after the child is actually absent, the world owner is absent, the whole packet
+has been independently reopened again and all original context/guards agree.
+No product input or image acquisition is repeated. Child cleanup can perform
+the existing real native release/receipt-absence observations for its known
+owned nonce; ACKs alone cannot satisfy them.
+
+The original parent phase, pending write and compact references are preserved
+without promotion. `pendingDiagnostic` is null for no/planned/saved pending file,
+or the existing file engine's exact measured opened-file diagnostic:
+`{originalDiagnosticVersion:1,name,bytes,sha256,file:{device,inode,modifiedNs,changedNs}}`.
+A planned path must actually be absent. Saved bytes must independently decode
+and match the recorded parent row. Opened bytes are read from the original
+private inode with stable size/mtime/ctime before/after the read; their actual
+length/hash/times are retained, including zero bytes. They are never replaced
+with planned byte counts/digests or adopted as a saved observation. Even a fully
+written opened file stays pending. Changed bytes, equal bytes with changed file
+metadata, a foreign planned-path file or a replaced/missing inode prevents
+retirement. This reuses the existing one-MiB file engine and adds no file type,
+metadata limit, native operation or public feature capability.
+
+After a child deletion return is lost, a retry requires the exact packet already
+retained by the full owner's durable callback as `retained`. Both scope/context
+headers, originals, partial diagnostics and original child proof are reopened
+before any deletion; the world owner must remain absent. Missing child metadata
+without that retained authority cannot prove that acquisition never happened.
+A rejected callback leaves both metadata owners; a lost write requires ordinary
+reconstruction. `failure_archive(packet,effects,index,policy)` replays historical
+failed contexts/files without refreshing observations or producing a result.
+The existing five-second whole transfer budget includes initial guards, native
+child retirement, partial-file IO, retention, repeated replay and final copies.
+
+All original files, failed status and separate source/input/run ownership remain.
+Ambiguous `capturing` state with no child or retained child proof, corrupt or
+missing ownership, legacy partial parents without an attempt identity, and
+unproven native cleanup stay red. Full foreground
+recovery, fresh native quiet/absence, authenticated actor and whole fixture/UI/
+scene/view/journal retirement are still required before complete registration.
 
 ## Complete original archive transfer, version 1
 

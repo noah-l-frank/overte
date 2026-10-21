@@ -24,16 +24,19 @@ from overte_phone_graphics_scene import operation
 from overte_phone_script_history import pack,unpack,same
 
 VERSION=1
+HEADER_VERSION=2
 FIELDS={'phase','providerBefore','providerAfter','avatarBefore','avatarAfter','capture','draws','image',
     'captureIntent','retirement','storage','inventory'}
 
 
 class PhoneEmoteCapture:
-    def __init__(self,source,index,policy,*,monotonic=time.monotonic):
+    def __init__(self,source,index,policy,*,monotonic=time.monotonic,parent_scope=None):
         need(isinstance(source,PhoneEmoteSources) and getattr(source,'historical',False) is False and integer(index,1,256) and callable(monotonic))
         source.lock.assert_held();need(source.state['phase'] in ('ready','reading') and source.frames and not source.failed)
         exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
         self.source,self.index,self.policy,self.monotonic=source,index,deepcopy(policy),monotonic
+        if parent_scope is not None:identifier(parent_scope)
+        self.parent_scope=parent_scope
         self.run,self.role,self.binding,self.pid=source.run,source.role,deepcopy(source.binding),source.pid
         self.guard,self.root,self.lock=source.guard,source.artifact_root,source.lock
         self.source_header=deepcopy(source.previous)
@@ -60,8 +63,13 @@ class PhoneEmoteCapture:
         return value['activations'][-1]['ticket']
 
     def decode(self,value):
-        exact(value,{'emoteCaptureVersion','runId','fixtureUrl','role','index','binding','artifactRoot','imagePolicy','payload'})
-        need(type(value['emoteCaptureVersion']) is int and value['emoteCaptureVersion']==VERSION
+        need(type(value) is dict and type(value.get('emoteCaptureVersion')) is int and value['emoteCaptureVersion'] in (1,2))
+        version=value['emoteCaptureVersion']
+        exact(value,{'emoteCaptureVersion','runId','fixtureUrl','role','index','binding','artifactRoot','imagePolicy','payload'}
+            |({'parentScope'} if version==2 else set()))
+        parent=value.get('parentScope')
+        if parent is not None:identifier(parent)
+        need(parent==self.parent_scope
             and value['runId']==self.run and value['fixtureUrl']==self.source.phase.fixture_url and value['role']==self.role
             and type(value['index']) is int and value['index']==self.index and same(value['binding'],self.binding)
             and value['artifactRoot']==str(self.root) and same(value['imagePolicy'],self.policy))
@@ -97,8 +105,8 @@ class PhoneEmoteCapture:
 
     def save(self):
         self._bound();need(not self.failed and same(self.store.read(),self.previous))
-        value=dict(emoteCaptureVersion=VERSION,runId=self.run,fixtureUrl=self.source.phase.fixture_url,role=self.role,index=self.index,
-            binding=deepcopy(self.binding),artifactRoot=str(self.root),imagePolicy=deepcopy(self.policy),payload=pack([self.state]))
+        value=dict(emoteCaptureVersion=HEADER_VERSION,runId=self.run,fixtureUrl=self.source.phase.fixture_url,role=self.role,index=self.index,
+            binding=deepcopy(self.binding),artifactRoot=str(self.root),imagePolicy=deepcopy(self.policy),parentScope=self.parent_scope,payload=pack([self.state]))
         try:
             self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value);self._bound()
         except Exception:
@@ -223,6 +231,7 @@ class PhoneEmoteCapture:
         scope=object.__new__(cls);scope.source=source;scope.index=index;scope.policy=deepcopy(policy)
         scope.run,scope.role,scope.binding,scope.pid=source.run,source.role,deepcopy(source.binding),source.pid
         scope.guard,scope.root,scope.monotonic=source.guard,source.artifact_root,source.monotonic
+        scope.parent_scope=value.get('parentScope')
         exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
         scope.state=scope.decode(value);need(scope.state['phase']=='complete')
         frame=scope.frame();raw=scope.images().read(scope.state['image'])
@@ -258,6 +267,7 @@ class PhoneEmoteCapture:
         scope=object.__new__(cls);scope.source,scope.index,scope.policy=source,index,deepcopy(policy)
         scope.run,scope.role,scope.binding,scope.pid=source.run,source.role,deepcopy(source.binding),source.pid
         scope.guard,scope.root,scope.monotonic=source.guard,source.artifact_root,source.monotonic
+        scope.parent_scope=value['header'].get('parentScope')
         exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
         scope.state=scope.decode(value['header']);state=scope.state
         if state['captureIntent'] is not None:need(state['retirement'] is not None)
@@ -265,6 +275,8 @@ class PhoneEmoteCapture:
             need(scope._phase(state['providerBefore'])==frames[-1]['phaseAfter']['activations'][-1]['ticket'])
         for key in ('avatarBefore','avatarAfter','capture'):
             if state[key] is not None:need(state[key]['instance']==frames[-1]['group']['native']['instance'])
+        if state['avatarBefore'] is not None:
+            need(state['avatarBefore']['requestedEpochMs']>=frames[-1]['group']['native']['capturedEpochMs'])
         diagnostic=scope.diagnostic();need(same(diagnostic,value['partialFile']))
         expected=dict(emoteCaptureCleanupVersion=VERSION,completeImageRecord=state['phase']=='complete',
             retirement=state['retirement'],retainedPartialImage=diagnostic is not None)

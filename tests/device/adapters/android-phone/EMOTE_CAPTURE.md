@@ -1,4 +1,4 @@
-# Phone owned original Emote image acquisition, version 1
+# Phone owned original Emote image acquisition, header version 2
 
 `PhoneEmoteCapture` connects actual guarded Phone avatar/model/world-render
 factories, original PNG files and verified render-memory/receipt retirement.
@@ -19,8 +19,14 @@ queries. Index is caller-owned bookkeeping; the full coordinator must persist
 allocation and prevent reuse. Actual GPU acquisition/query sequences remain
 independent measured fields. The native owner retains its global capture bound.
 
-The exact private header is `emoteCaptureVersion:1`, `runId`, `fixtureUrl`, `role`,
-`index`, actual `binding`, `artifactRoot`, `imagePolicy`, compressed `payload`.
+The exact private header is `emoteCaptureVersion:2`, `runId`, `fixtureUrl`, `role`,
+`index`, actual `binding`, `artifactRoot`, `imagePolicy`, `parentScope`, compressed `payload`.
+`parent_scope` is null for standalone captures, or the existing observation
+owner's random 32-hex `scopeId`. The constructor validates and persists that
+exact parent identity before acquisition. Historical readers preserve it; they
+cannot join another attempt that happens to reuse the same phase/index/ticket.
+Version 1 headers remain readable with null parent identity. The existing image,
+cleanup and retirement archive schemas remain version 1.
 The file is `phone-emote-<role>-capture-<index>.json`. Existing 64 KiB atomic/private
 metadata limits remain unchanged; the maximum 128-model native table is covered
 by a real host-file test. Primary/actor and different indices have separate

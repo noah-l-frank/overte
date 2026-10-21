@@ -62,6 +62,16 @@ and retire only those hash-scoped active metadata records. Immutable evidence
 must remain available for historical verification. This storage component has
 no API for deleting foreign files or claiming successful product cleanup.
 
+The later observation failure-transfer path reuses `diagnostic(original)` for
+pending evidence. A planned path must actually be absent; a saved original must
+fully reopen/decode. An opened original returns actual bytes/hash and stable
+device/inode/size/mtime/ctime observations, including zero bytes, without
+adopting a saved frame or echoing the planned digest/length. The retained private
+diagnostic records measured modification/change nanoseconds; even an equal-byte
+rewrite cannot silently replace that record. A future replay must reproduce
+the exact diagnostic before metadata retirement. These are host-file facts,
+not native image, feature-success or whole-run resource-absence evidence.
+
 The affected 139-case host selection passes. It covers all 1,024 stored records,
 the 169-input maximum shared Sit-discovery storage path, reconstruction beyond
 512 Script originals, original file replacement/corruption, interrupted writes,

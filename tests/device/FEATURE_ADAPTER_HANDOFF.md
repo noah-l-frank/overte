@@ -112,8 +112,10 @@ action. Required retirement callbacks preserve original old/recovery contexts;
 pending source/image/input journals remain unresolved. The existing observation
 owner now transfers incomplete parents with saved complete child originals,
 including lost child cleanup returns, without a feature result or a completed
-phase. Earlier/partial parent acquisitions remain unresolved. Whole-feature admission,
-remaining image-failure recovery, actor publication and quiet/run retirement remain
+phase. Header version 2 binds each attempt to its exact child and transfers owned
+partial parent/child files or failed preparation with actual original cleanup
+proof and byte diagnostics. Missing/ambiguous ownership still stays red.
+Whole-feature admission, actor publication and quiet/run retirement remain
 open. This component still advertises no complete Emote capability.
 
 The [Phone ordinary-input/effect join](adapters/android-phone/EMOTE_EFFECTS.md)
