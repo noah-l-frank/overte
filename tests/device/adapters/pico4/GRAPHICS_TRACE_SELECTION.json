@@ -1,0 +1,32 @@
+{
+  "sourceCommit": "fe4684bf46585088370b3a328a738f147e670b97",
+  "files": [
+    {
+      "source": "libraries/render/src/render/Args.h",
+      "sourceSha256": "64bd544d26b90d3d6f9206f3b914dc22c0d8c11837cf5aa67ea2f4359c1a3a41",
+      "selection": "Only existing default-off E2E observation hunks; no product render behavior changes."
+    },
+    {
+      "source": "libraries/render-utils/src/RenderForwardTask.cpp",
+      "sourceSha256": "7e6e986b8bd1cfa7255b5b2ede0c98e5c7ed7b2780ba67151a0bd832b0721c4f",
+      "selection": "Only existing default-off E2E observation hunks; no product render behavior changes."
+    },
+    {
+      "source": "libraries/render-utils/src/RenderCommonTask.cpp",
+      "sourceSha256": "dd51140c38926ba6c1cdc6f273b748ac559d125ac2437d87efbbf364be11102c",
+      "selection": "Only existing default-off E2E observation hunks; no product render behavior changes."
+    },
+    {
+      "source": "libraries/gpu/src/gpu/FeatureRenderTrace.h",
+      "sourceSha256": "e658f85a56b8daf496f9be27c44bc3f61ce7b519b129227adde3df614fa6f9b5",
+      "selection": "Original executing-batch count mechanism, adapted to actual stereo Frame scope and source version 3."
+    }
+  ],
+  "excluded": [
+    "Phone-only material/shader changes",
+    "GeometryCache startup diagnostics",
+    "Phone UI and launch state",
+    "Moving or uncommitted Phone work"
+  ],
+  "qualification": "Uncompiled E2E observation sources; no whole Graphics capability enabled."
+}

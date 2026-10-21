@@ -229,5 +229,35 @@
     ],
     "limits": "Synthetic Qt/native/OS/HTTPS/OpenXR seams only. New native QML/GPU/account/UI/Java sources remain uncompiled. No test service or device access.",
     "additionalSourceReview": "The inherited no-login-suggestion launch path is already implemented. Ordinary login uses TabletLoginDialog when no startup dialog is present. Generic Home QML rows are not assumed: the actual HMD Gizmo receives a normal trigger ray. Native component, timer and keyboard lifetimes remain separate from visible page absence."
+  },
+  "stereoTracePacket": {
+    "contract": "world-render-acquisition v3 with original v1 mono/v2 stereo readers; native-stereo-render-trace v3",
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "PYTHONPATH=tests/device python3 -m unittest self_tests.test_stereo_render_trace self_tests.test_stereo_world_render self_tests.test_world_render_evidence self_tests.test_world_render_storage self_tests.test_world_render_receipts -q",
+        "tests": 53,
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test suite-runner --test coverage-matrix --junit PRIVATE/stereo-trace-owning.xml",
+        "groups": 3,
+        "tests": 33,
+        "status": "passed"
+      },
+      {
+        "command": "Three exact Pico world original/mono-refusal/candidate-loss cases plus self_tests.test_owned_world_render",
+        "tests": 13,
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage --junit PRIVATE/stereo-trace-project.xml",
+        "suites": 4,
+        "status": "passed"
+      }
+    ],
+    "remaining": "Final GPU camera uniforms after late HMD correction/jitter, per-eye effect pixels, owned scene/Web lifetimes and the full Graphics feature coordinator remain unavailable. Original batch counts are not visible shader-effect proof. No product render/material/shader changes were imported."
   }
 }

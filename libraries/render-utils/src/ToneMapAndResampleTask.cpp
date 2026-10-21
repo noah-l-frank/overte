@@ -125,15 +125,16 @@ void ToneMapAndResample::run(const RenderContextPointer& renderContext, const In
         if (args->_renderMode == RenderArgs::DEFAULT_RENDER_MODE && args->_mirrorDepth == 0
                 && (!args->isStereo() || !shouldMirror)) {
             const auto state = args->_context->featureWorldRender();
-            if (auto ticket = state->reserve()) {
+            const auto trace=args->isStereo() && args->_renderMethod==render::Args::FORWARD ? args->_featureRenderTrace : nullptr;
+            if (auto ticket = state->reserve(trace)) {
                 const auto sourceViewport = args->_viewport;
                 const auto stereo = args->isStereo();
                 const auto cameraView = args->getViewFrustum().getView();
                 // A later Present-thread batch command, immediately after the
                 // original tone-map draw and before HUD jobs. Recording alone
                 // cannot advance an acquisition cursor or publish image bytes.
-                batch.runLambda([ticket,lightingBuffer,destinationFramebuffer,sourceViewport,stereo,cameraView] {
-                    ticket->execute(gpu::Backend::featureExecutingBackend(),lightingBuffer,destinationFramebuffer,sourceViewport,stereo,cameraView);
+                batch.runLambda([ticket,lightingBuffer,destinationFramebuffer,sourceViewport,stereo,cameraView,trace] {
+                    ticket->execute(gpu::Backend::featureExecutingBackend(),lightingBuffer,destinationFramebuffer,sourceViewport,stereo,cameraView,trace);
                 });
             }
         }

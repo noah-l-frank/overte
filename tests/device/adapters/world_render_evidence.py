@@ -1,6 +1,6 @@
 """Original world-target acquisition reader; no rendered-feature verdict.
 
-Mono version 1 and opt-in stereo version 2 refuse unimplemented Vulkan readback.
+Mono version 1 and opt-in stereo versions 2/3 refuse unimplemented Vulkan readback.
 The GPU/backend hook and platform original-file transport must be implemented
 before this internal reader can acquire anything on a target.
 """
@@ -86,8 +86,58 @@ def stereo_source(source,published):
              and 0<rect[2]<=4096 and 0<rect[3]<=4096)
 
 
-def validate(value,request,pid,epoch,*,stereo=False):
-    need(type(stereo) is bool)
+def recorded_view(value):
+    """Original primary recording view; projection uses explicit row-major order.
+
+    Stereo effects must use the retained per-eye matrices, not this central
+    recording frustum as a replacement for either headset eye.
+    """
+    exact(value,{'position','rotation','projection','fieldOfViewDegrees','aspectRatio','nearClip','farClip','perspective'})
+    for field,size,limit in (('position',3,1e9),('rotation',4,1.01)):
+        need(type(value[field]) is list and len(value[field])==size and all(number(v,-limit,limit) for v in value[field]))
+    need(abs(sum(v*v for v in value['rotation'])-1)<.02 and value['perspective'] is True
+         and number(value['fieldOfViewDegrees'],1,179) and number(value['aspectRatio'],.1,10)
+         and number(value['nearClip'],.000001,1e8) and number(value['farClip'],value['nearClip']+.000001,1e9))
+    matrix(value['projection'])
+    need(abs(value['projection'][14])>1e-8 and abs(value['projection'][15])<1e-8)
+    return value
+
+
+def render_trace(source,requested):
+    trace=source['renderTrace'];frame=source['stereo']
+    exact(trace,{'traceVersion','frameId','frameIndex','executionSequence','recordedEpochMs','recordedView',
+        'begunEpochMs','completedEpochMs','renderer','view','forwardBatches','forwardDrawCommands',
+        'hazeBatches','hazeDrawCommands','mirrorBatches','mirrorDrawCommands'})
+    need(type(trace['traceVersion']) is int and trace['traceVersion']==3
+         and type(trace['frameId']) is str and re.fullmatch('[0-9a-f]{32}',trace['frameId'])
+         and integer(trace['frameIndex'],0,2**32-1) and trace['frameIndex']==frame['frameIndex']
+         and integer(trace['executionSequence'],1) and trace['executionSequence']==frame['executionSequence']
+         and trace['renderer']=='forward' and trace['view']=='main-stereo')
+    recorded_view(trace['recordedView'])
+    pose=trace['recordedView'];x,y,z,w=pose['rotation']
+    norm=math.sqrt(x*x+y*y+z*z+w*w);x,y,z,w=(v/norm for v in (x,y,z,w))
+    rotation=[[1-2*y*y-2*z*z,2*x*y-2*z*w,2*x*z+2*y*w],
+        [2*x*y+2*z*w,1-2*x*x-2*z*z,2*y*z-2*x*w],
+        [2*x*z-2*y*w,2*y*z+2*x*w,1-2*x*x-2*y*y]]
+    expected=[rotation[column][row] if column<3 and row<3 else
+        -sum(rotation[index][row]*pose['position'][index] for index in range(3)) if column==3 and row<3
+        else 1 if row==column else 0 for column in range(4) for row in range(4)]
+    need(all(abs(actual-wanted)<=.0002*max(1,abs(wanted))
+        for actual,wanted in zip(frame['cameraView'],expected)))
+    need(integer(trace['recordedEpochMs'],requested,source['recordedEpochMs'])
+         and integer(trace['begunEpochMs'],source['recordedEpochMs'],source['startedEpochMs'])
+         and integer(trace['completedEpochMs'],trace['begunEpochMs'],source['startedEpochMs']))
+    for prefix in ('forward','haze','mirror'):
+        batches,draws=trace[prefix+'Batches'],trace[prefix+'DrawCommands']
+        need(integer(batches,0,1000000000) and integer(draws,batches,1000000000)
+             and (batches>0)==(draws>0))
+    need(trace['forwardDrawCommands']>0 and trace['hazeBatches']<=trace['forwardBatches']
+         and trace['hazeDrawCommands']<=trace['forwardDrawCommands'])
+    return trace
+
+
+def validate(value,request,pid,epoch,*,stereo=False,require_trace=False):
+    need(type(stereo) is bool and type(require_trace) is bool and (not require_trace or stereo))
     exact(value,{'schemaVersion','requestId','instance','sequence','requestedEpochMs','capturedEpochMs','processId','source'})
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['requestId']==request
          and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}',value['instance']) is not None
@@ -99,8 +149,11 @@ def validate(value,request,pid,epoch,*,stereo=False):
     fields={'captureVersion','available','acquisitionSequence','recordedEpochMs','startedEpochMs','capturedEpochMs',
         'backend','stage','view','sourceExtent','sourceViewport','targetExtent','pixelFormat','image'}
     if stereo:fields.update(('stereo','presentation'))
+    traced=type(source) is dict and source.get('captureVersion')==3
+    if traced:fields.add('renderTrace')
     exact(source,fields)
-    need(type(source['captureVersion']) is int and source['captureVersion']==(2 if stereo else 1) and source['available'] is True
+    need(type(source['captureVersion']) is int and source['captureVersion'] in ((2,3) if stereo else (1,))
+         and (not require_trace or traced) and source['available'] is True
          and integer(source['acquisitionSequence'],1) and source['backend']=='opengl'
          and source['stage']=='tone-map-before-hud' and source['view']==('main-stereo' if stereo else 'main-mono')
          and source['pixelFormat']=='rgba8-top-left' and extent(source['sourceExtent'],stereo=stereo) and extent(source['targetExtent'],stereo=stereo))
@@ -117,6 +170,7 @@ def validate(value,request,pid,epoch,*,stereo=False):
          and integer(image['width'],1,8192 if stereo else 4096) and integer(image['height'],1,4096)
          and [image['width'],image['height']]==source['targetExtent'])
     if stereo:stereo_source(source,value['capturedEpochMs'])
+    if traced:render_trace(source,value['requestedEpochMs'])
     return value
 
 
@@ -139,12 +193,13 @@ def measured_scale(value):
 
 
 class NativeWorldRenderCapture:
-    def __init__(self,send,read,files,clock_ms,guard,pid,*,intent,ios=False,stereo=False,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,send,read,files,clock_ms,guard,pid,*,intent,ios=False,stereo=False,require_trace=False,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(v) for v in (send,read,clock_ms,guard,intent,monotonic,sleep)) and integer(pid,1) and type(ios) is bool
-             and callable(getattr(files,'read',None)) and type(stereo) is bool and not (ios and stereo))
+             and callable(getattr(files,'read',None)) and type(stereo) is bool and not (ios and stereo)
+             and type(require_trace) is bool and (not require_trace or stereo))
         self.send,self.original,self.files,self.clock_ms,self.guard,self.pid=send,read,files,clock_ms,guard,pid
         self.ios,self.monotonic,self.sleep,self.intent=ios,monotonic,sleep,intent
-        self.stereo=stereo;self.frame=None;self.execution=self.submission=0
+        self.stereo,self.require_trace=stereo,require_trace;self.trace_frame=None;self.frame=None;self.execution=self.submission=0
         self.instance,self.sequence,self.acquisition,self.captured=None,0,0,0
 
     def read(self,after_sequence):
@@ -168,11 +223,13 @@ class NativeWorldRenderCapture:
                 now=self.monotonic();need(number(now,0,1e15) and now>=previous and now-started<timeout);previous=now
                 if type(value) is dict and value.get('requestId')==request:
                     epoch=value.get('capturedEpochMs') if self.ios else self.clock_ms()
-                    validate(value,request,self.pid,epoch,stereo=self.stereo)
+                    validate(value,request,self.pid,epoch,stereo=self.stereo,require_trace=self.require_trace)
                     source=value['source']
                     need(self.instance in (None,value['instance']) and value['sequence']>after_sequence
                          and source['acquisitionSequence']>self.acquisition and source['capturedEpochMs']>=self.captured
                          and (self.ios or value['requestedEpochMs']>=requested))
+                    trace=source.get('renderTrace')
+                    if trace is not None:need(trace['frameId']!=self.trace_frame)
                     if self.stereo:
                         frame=source['stereo'];present=source['presentation']
                         need(frame['frameIndex']!=self.frame and frame['executionSequence']>self.execution
@@ -189,6 +246,7 @@ class NativeWorldRenderCapture:
                     if not self.ios:fresh(source['capturedEpochMs'],self.clock_ms())
                     self.instance,self.sequence,self.acquisition,self.captured=value['instance'],value['sequence'],source['acquisitionSequence'],source['capturedEpochMs']
                     if self.stereo:self.frame,self.execution,self.submission=frame['frameIndex'],frame['executionSequence'],present['submissionSequence']
+                    if trace is not None:self.trace_frame=trace['frameId']
                     return value,png
                 if attempt<50:self.sleep(0.1)
         except Exception:

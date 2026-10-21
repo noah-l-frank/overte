@@ -21,6 +21,9 @@
 #include <UUIDHasher.h>
 
 #include <gpu/Forward.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <gpu/FeatureRenderTrace.h>
+#endif
 #include "Forward.h"
 
 class AABox;
@@ -301,6 +304,9 @@ namespace render {
         // A caller may apply scene transactions while capturing its camera
         // snapshot. Do not consume a newer transaction frame in SceneTask.
         bool _sceneTransactionsProcessed { false };
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        std::shared_ptr<gpu::FeatureRenderTrace> _featureRenderTrace;
+#endif
 
         /// Current camera mode for the primary camera.
         /// It's set once before command generation for a given frame starts.

@@ -1,17 +1,60 @@
-# World render acquisition, versions 1 and 2: partial instrumentation
+# World render acquisition, versions 1, 2 and 3: partial instrumentation
 
 This source packet supplies E2E-only GL readback, main-mono and Pico stereo frame hooks,
 original-memory/chunk readers and the closed existing probe/fixture dispatch.
 Persistent acquisition/receipt ownership and closed Android receipt IO now
-exist; the Pico factory now requires stereo v2. No complete Graphics capability
+exist; the Pico factory requires stereo v2/v3. No complete Graphics capability
 is advertised from this source alone. Existing mono callers retain v1 validation.
 Native C++ is uncompiled and all devices unqualified.
+
+## Executing stereo render trace, version 3
+
+The default-off feature test configuration now observes original primary stereo
+Forward and Mirror batches. Its existing actual backend lambdas record the
+begin marker, executed Frame index/execution sequence and counts from each
+original completed batch, including named calls materialized by Frame::finish.
+Haze counts refer to batches using an actual active Haze binding and enabled
+LightingModel. Mirror counts refer to the actual top-level mirror draw batch.
+They are draw-command provenance; they do not prove visible shader effects.
+Original per-eye pixel comparisons and independent actor observations remain
+mandatory before any complete Graphics feature claim.
+
+Native `source.captureVersion:3` adds `renderTrace` with `traceVersion:3`, a new
+original frameId, Frame index/execution identity, original recorded view and
+record/begin/complete times, renderer `forward`, view `main-stereo`, and separate
+Forward/Haze/Mirror batch and draw-command counts. A trace must begin, count and
+snapshot on the same executing stereo Frame/backend. Tone-map acquisition
+refuses an unavailable declared trace; it never downgrades it to legacy pixels.
+Frames prepared before the acquisition request are left unreserved until a new
+real prepared frame arrives, within the unchanged 1500ms lease.
+
+The original recording projection is row-major, while the existing stereo eye
+matrices and world camera view remain column-major. The reader checks the
+recorded pose against that actual camera view. The current record describes the original recording frustum and retained Frame
+eye matrices. It does not yet observe the final camera uniforms after HMD late
+pose correction or projection jitter. The whole Graphics effect projection must
+acquire those actual used GPU uniforms before comparing per-eye subject ROIs;
+a central recording frustum cannot substitute for either headset eye.
+Trace time order, counts and Frame identity must agree with the original
+readback and successful same-Frame OpenXR submission. A reused frameId fails
+before reading original pixels. `require_trace=True` requires v3 stereo; it is
+a host validation policy and adds no test input or fields to the nonce-only
+native acquisition command.
+
+Existing stereo readers accept v2 and v3 and validate any supplied trace; mono
+and iOS defaults retain v1. This branch does not interpret the frozen Phone
+branch's separate mono trace-v2 protocol as stereo. Reconcile that sibling
+protocol explicitly when integrating, without relabelling images. The
+[selection manifest](../adapters/pico4/GRAPHICS_TRACE_SELECTION.json) records the
+frozen provenance. Phone shader/material and loading-diagnostic product changes
+were excluded. Every new draw hook is E2E-gated; no production rendering behavior
+was changed. Native code is uncompiled and all GPUs/devices remain untested.
 
 ## Pico stereo source, version 2
 
 The original `source.captureVersion:2` uses `view:"main-stereo"`. The command,
 nonce ownership, chunk storage, receipts and release protocols are unchanged.
-Pico explicitly opts into v2; default mono and iOS readers reject it. A mono
+Pico explicitly opts into stereo; default mono and iOS readers reject it. A mono
 packet cannot satisfy Pico by changing its view label. Missing native support
 fails the acquisition and retains the durable original ownership.
 

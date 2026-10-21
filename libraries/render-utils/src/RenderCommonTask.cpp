@@ -381,7 +381,13 @@ public:
         }
         args->popViewFrustum();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        const gpu::Batch* originalBatch {nullptr};
+#endif
         gpu::doInBatch("DrawMirrorTask::run", args->_context, [&](gpu::Batch& batch) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            originalBatch = &batch;
+#endif
             args->_batch = &batch;
 
             if (cachedArgs) {
@@ -401,6 +407,17 @@ public:
 
             args->_batch = nullptr;
         });
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (args->_featureRenderTrace && cachedArgs && cachedArgs->_mirrorDepth == 0) {
+            const auto trace = args->_featureRenderTrace;
+            gpu::doInBatch("FeatureMirrorBatchComplete", args->_context, [trace,originalBatch](gpu::Batch& batch) {
+                batch.runLambda([trace,originalBatch] {
+                    trace->batch(gpu::Backend::featureExecutingBackend(),originalBatch,true,false);
+                });
+            });
+        }
+#endif
 
         if (cachedArgs) {
             // Restore the blit framebuffer after we've sampled from it

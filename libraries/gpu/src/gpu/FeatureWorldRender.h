@@ -3,6 +3,7 @@
 #pragma once
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "Backend.h"
+#include "FeatureRenderTrace.h"
 #include <QBuffer>
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -32,8 +33,9 @@ public:
         ~Ticket() { if (auto state = owner.lock()) { state->drained(id); } }
         void execute(Backend* backend, const TexturePointer& source,
                 const FramebufferPointer& destination, const Vec4i& viewport,
-                bool stereo = false, const Mat4& cameraView = Mat4(1.0f)) {
-            if (auto state = owner.lock()) { state->acquire(id,recorded,backend,source,destination,viewport,stereo,cameraView); }
+                bool stereo = false, const Mat4& cameraView = Mat4(1.0f),
+                const std::shared_ptr<FeatureRenderTrace>& trace = {}) {
+            if (auto state = owner.lock()) { state->acquire(id,recorded,backend,source,destination,viewport,stereo,cameraView,trace); }
         }
     };
 
@@ -51,10 +53,13 @@ public:
         return {{"requestId",id},{"pending",true}};
     }
 
-    std::shared_ptr<Ticket> reserve() {
+    std::shared_ptr<Ticket> reserve(const std::shared_ptr<FeatureRenderTrace>& trace = {}) {
         QMutexLocker lock(&_mutex);
         if (!enabled() || _active.isEmpty() || !_callback.isEmpty() || !_result.isEmpty() || !_pending.isEmpty()) { return {}; }
         if (_age.elapsed() >= 1500) { fail(_active); return {}; }
+        // A frame prepared before this original request cannot establish the
+        // current setting's execution. Wait for the next real prepared frame.
+        if (trace && trace->recordedEpochMs()<_requested) { return {}; }
         _callback = _active;
         auto ticket = std::make_shared<Ticket>();
         ticket->owner = shared_from_this(); ticket->id = _active; ticket->recorded = now();
@@ -150,7 +155,7 @@ private:
     }
     void acquire(const QString& id, qint64 recorded, Backend* backend,
             const TexturePointer& source, const FramebufferPointer& destination, const Vec4i& viewport,
-            bool stereo, const Mat4& cameraView) {
+            bool stereo, const Mat4& cameraView, const std::shared_ptr<FeatureRenderTrace>& trace) {
         qint64 requested {0};
         {
             QMutexLocker lock(&_mutex);
@@ -190,13 +195,16 @@ private:
         const auto normalized = id.startsWith("ios-") ? id.mid(4) : id;
         const QVariantMap image {{"name","world-render-image-"+normalized+".png"},{"bytes",png.size()},
             {"sha256",sha(png)},{"pixelSha256",QString::fromLatin1(pixelHash)},{"width",width},{"height",height}};
-        QVariantMap observation {{"captureVersion",stereo ? 2 : 1},{"available",true},
+        const auto execution=trace ? trace->snapshot(backend) : QVariantMap();
+        if (trace && (!stereo || execution.isEmpty())) { fail(id);return; }
+        QVariantMap observation {{"captureVersion",trace ? 3 : stereo ? 2 : 1},{"available",true},
             {"acquisitionSequence",static_cast<qulonglong>(++_acquisitions)}, {"recordedEpochMs",recorded},
             {"startedEpochMs",started},{"capturedEpochMs",captured},{"backend","opengl"},
             {"stage","tone-map-before-hud"},{"view",stereo ? "main-stereo" : "main-mono"},
             {"sourceExtent",QVariantList{actualExtent.x,actualExtent.y}},
             {"sourceViewport",QVariantList{viewport.x,viewport.y,viewport.z,viewport.w}},
             {"targetExtent",QVariantList{width,height}},{"pixelFormat","rgba8-top-left"},{"image",image}};
+        if (trace) { observation.insert("renderTrace",execution); }
         if (stereo) {
             // GLBackendTransform uses two horizontal half-width viewports.
             // Refuse odd dimensions rather than assign an unrendered edge.

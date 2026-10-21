@@ -467,7 +467,9 @@
         "tests/device/feature_journeys/GRAPHICS_SUBJECT.md",
         "tests/device/adapters/world_render_evidence.py",
         "android/vr/pico/apps/picoInterface/openxr/src/OpenXrDisplayPlugin.cpp",
-        "tests/device/native/WORLD_RENDER_ACQUISITION.md"
+        "tests/device/native/WORLD_RENDER_ACQUISITION.md",
+        "libraries/gpu/src/gpu/FeatureRenderTrace.h",
+        "tests/device/self_tests/test_stereo_render_trace.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -490,22 +492,23 @@
         "dialog"
       ],
       "missingOperationsOrEvidence": [
-        "Actual VR resolution control/confirmation and runtime-eye semantics",
-        "Actual Haze/Mirror pass execution and complete independent original stereo challenge/effect joins; stereo acquisition v2 source/host binding is present but uncompiled",
-        "Complete Pico source-specific Graphics/persistence/background/restart/restoration coordinator"
+        "Whole ordinary VR Settings access/restoration flow, distinguishing immediate viewport scale from separate restart-only Pico swapchain scale",
+        "Final used camera uniforms after HMD late pose correction/jitter and independent original per-eye challenge/effect pixel joins; executing batch trace v3 is source implemented but uncompiled",
+        "Complete Pico source-specific Graphics/scene/Web lifetime, persistence/background/restart/restoration coordinator"
       ],
       "requiredOriginalEvidence": [
         "Actual native stereo source/target extents and per-eye viewport/projection",
         "Same original executed frame and actual Haze/Mirror passes",
         "Original PNG bytes and current challenge in both eyes",
-        "Current preferences separately from measured render scale"
+        "Current preferences separately from measured render scale",
+        "Executing stereo Forward/Haze/Mirror batch trace v3 bound to original same-frame OpenXR submission"
       ],
       "cleanupObligations": [
         "Normal restoration of captured original VR preferences",
         "Actual render callbacks, buffers, receipts and Web subject resources released",
         "Restore original scene/view and independently observe complete owned UUID absence"
       ],
-      "nextExecutableStep": "Implement actual VR resolution confirmation and distinguish persistent OpenXR eye allocation from immediate Render viewport scale; compose current stereo v2 source with actual pass provenance, independent actor, fixture and original preference restoration before registering Graphics capabilities.",
+      "nextExecutableStep": "Acquire actual used per-eye GPU camera uniforms after late HMD pose correction and jitter, then join original subject/effect pixels, generic VR settings and scene/Web lifetimes before extracting the frozen whole Graphics coordinator through Pico factories.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },
