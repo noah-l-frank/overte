@@ -1279,7 +1279,7 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(const QVariantMap&
     _featureNativeCallContext=original;
 }
 
-ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method) :
+ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method, int originalScriptId) :
     _previous(_featureNativeCallContext) {
     _featureNativeCallContext.clear();
     if (!manager || !manager->_featureWorkEnabled || QThread::currentThread()!=manager->thread()
@@ -1288,9 +1288,11 @@ ScriptManager::FeatureNativeCallScope::FeatureNativeCallScope(ScriptManager* man
     const auto membership=manager->featureLoadMembership();const auto code=manager->featureSourceIdentity();
     if (membership.isEmpty() || code.isEmpty() || !membership.value("assigned").toBool()
             || !code.value("submitted").toBool()) { return; }
-    _featureNativeCallContext={{"callerVersion",1},{"method",QString::fromLatin1(method)},
+    const auto compilation=manager->_e2eRequiredModules.compilation(originalScriptId);
+    _featureNativeCallContext={{"callerVersion",2},{"method",QString::fromLatin1(method)},
         {"sequence",static_cast<qulonglong>(++manager->_featureNativeCallSequence)},
-        {"invokedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"manager",membership},{"code",code}};
+        {"invokedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"manager",membership},{"code",code},
+        {"compilation",compilation.isEmpty() ? QVariant() : QVariant(compilation)}};
 }
 
 ScriptManager::FeatureNativeCallScope::~FeatureNativeCallScope() { _featureNativeCallContext=_previous; }

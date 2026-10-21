@@ -696,6 +696,17 @@ ScriptValue ScriptEngineV8::evaluateInClosure(const ScriptValue& _closure,
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+int ScriptEngineV8::featureCurrentScriptId() const {
+    if (!_manager || !QCoreApplication::arguments().contains("--testScript")
+            || QThread::currentThread()!=_manager->thread() || !_v8Isolate || !_v8Isolate->IsCurrent()) { return 0; }
+    // Inspect the actual nearest JS frame at native method dispatch. A script
+    // name/sourceURL can be forged; the original V8 ID selects native bytes.
+    const auto trace=v8::StackTrace::CurrentStackTrace(_v8Isolate,1,v8::StackTrace::kScriptId);
+    if (trace.IsEmpty() || trace->GetFrameCount()!=1) { return 0; }
+    const auto frame=trace->GetFrame(_v8Isolate,0);
+    return frame.IsEmpty() ? 0 : frame->GetScriptId();
+}
+
 void ScriptEngineV8::featureRecordCompilation(v8::Local<v8::Script> script, v8::Local<v8::String> actualCode) {
     if (!_manager || !QCoreApplication::arguments().contains("--testScript")) { return; }
     if (QThread::currentThread()!=_manager->thread() || script.IsEmpty() || actualCode.IsEmpty()) {

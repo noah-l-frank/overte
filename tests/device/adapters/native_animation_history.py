@@ -7,6 +7,13 @@ from adapters.native_feature_observation import exact,integer,number,need
 from adapters.native_animation_caller import validate as caller_packet
 
 
+def original_origin(caller,origins):
+    if caller['callerVersion']==2 and caller['compilation'] is not None:
+        row=caller['compilation'];key=caller['manager']['instance']+':'+str(row['scriptId'])
+        previous=origins.get(key);need(previous is None or previous==row)
+        origins[key]=deepcopy(row);need(len(origins)<=4096)
+
+
 def clip(value):
     exact(value,{'url','requestedUrl','frame','firstFrame','lastFrame','framesPerSecond','loop',
         'loadedFrames','evaluatedEpochMs','evaluationSequence'})
@@ -26,7 +33,7 @@ def validate(value,animation,epoch):
          and value['callSequence']==value['droppedEvents']+len(value['events'])
          and value['frameSequence']==value['droppedFrames']+len(value['frames'])
          and value['overrideSequence']<=value['callSequence'])
-    previous=0;generation=0;callers={}
+    previous=0;generation=0;callers={};origins={}
     for index,event in enumerate(value['events']):
         need(type(event) is dict and event.get('kind') in ('override','restore'))
         exact(event,{'eventSequence','kind','overrideSequence','capturedEpochMs'}|({'request'} if event['kind']=='override' else set())
@@ -45,7 +52,8 @@ def validate(value,animation,epoch):
                 identifier=caller['manager']['instance'];old=callers.get(identifier)
                 if old is not None:
                     need(caller['sequence']>old['sequence'] and caller['invokedEpochMs']>=old['invokedEpochMs']
-                        and caller['manager']==old['manager'] and caller['code']==old['code'])
+                        and caller['manager']==old['manager'] and caller['code']==old['code'] and caller['callerVersion']==old['callerVersion'])
+                original_origin(caller,origins)
                 callers[identifier]=caller
         previous,generation=event['capturedEpochMs'],event['overrideSequence']
     if value['events']:need(generation==value['overrideSequence'])
@@ -85,6 +93,7 @@ def accept(previous,rig,history):
             dropped=history['droppedEvents' if field=='events' else 'droppedFrames']
             need(all(n<=dropped for n in before.keys()-current.keys()))
     callers=deepcopy(previous.get('callers',{})) if previous is not None else {}
+    origins=deepcopy(previous.get('origins',{})) if previous is not None else {}
     floor=previous['history']['callSequence'] if previous is not None else 0
     if history['historyVersion']==2:
         for event in history['events']:
@@ -93,10 +102,11 @@ def accept(previous,rig,history):
             identifier=caller['manager']['instance'];old=callers.get(identifier)
             if old is not None:
                 need(caller['sequence']>old['sequence'] and caller['invokedEpochMs']>=old['invokedEpochMs']
-                    and caller['manager']==old['manager'] and caller['code']==old['code'])
+                    and caller['manager']==old['manager'] and caller['code']==old['code'] and caller['callerVersion']==old['callerVersion'])
+            original_origin(caller,origins)
             callers[identifier]=deepcopy(caller)
         need(len(callers)<=4096)
-    return dict(rig=rig,history=deepcopy(history),callers=callers)
+    return dict(rig=rig,history=deepcopy(history),callers=callers,origins=origins)
 
 
 def moving_pose(left,right):

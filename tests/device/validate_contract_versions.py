@@ -28,7 +28,7 @@ REQUIRED = {
     "web-dom-observation": 1,
     "native-web-dom-observation": 1,
     "native-animation-history": 2,
-    "native-animation-caller": 1,
+    "native-animation-caller": 2,
     "native-script-controls": 1,
     "native-private-login-input": 2,
     "native-login-controls": 2,

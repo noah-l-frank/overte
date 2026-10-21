@@ -1131,7 +1131,10 @@ void ScriptMethodV8Proxy::call(const v8::FunctionCallbackInfo<v8::Value>& argume
         ScriptContextGuard guard(&ourContext);
         const QMetaMethod& meta = _metas[bestMeta];
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        ScriptManager::FeatureNativeCallScope featureNativeCall(_engine->manager(),meta.name());
+        const auto featureMethod=meta.name();
+        const int featureScriptId=(featureMethod=="overrideAnimation" || featureMethod=="restoreAnimation")
+            ? _engine->featureCurrentScriptId() : 0;
+        ScriptManager::FeatureNativeCallScope featureNativeCall(_engine->manager(),featureMethod,featureScriptId);
 #endif
         int returnTypeId = meta.returnType();
         QVector <QGenericArgument> &qGenArgs = qGenArgsVectors[bestMeta];

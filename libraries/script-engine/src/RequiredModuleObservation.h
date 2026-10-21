@@ -81,6 +81,11 @@ public:
         for (auto it=_compilations.cbegin();it!=_compilations.cend();++it) { rows.append(it.value()); }
         return {{"compiledSourcesVersion",1},{"complete",true},{"compilations",rows}};
     }
+    QVariantMap compilation(int scriptId) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_instance.isEmpty() || !_compilationsValid || scriptId<=0) { return {}; }
+        return _compilations.value(scriptId);
+    }
     // Observe the original assigned load URL before ScriptCache dispatch.
     // Pending managers are not yet in the public running-script hash.
     void assignedLoadURL(const QUrl& url, quint64 generation) {

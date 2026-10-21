@@ -1,4 +1,4 @@
-# Original VM-to-native animation caller, version 1
+# Original VM-to-native animation caller, version 2
 
 This source exists only under `OVERTE_E2E_FEATURE_TESTS` with `--testScript`.
 It changes no animation parameters, input semantics, Script source or completion
@@ -14,6 +14,14 @@ membership and submitted UTF16 code, increments its own bounded call cursor and
 captures native invocation time. No JavaScript argument, observation command or
 requested manager ID supplies these facts. Other native-method invocations clear
 this context for their scope; exit restores any enclosing context.
+
+Version 2 additionally reads the nearest actual V8 JS frame's original Script ID
+at native method dispatch. Only `overrideAnimation` and `restoreAnimation` collect
+this bounded one-frame trace. The manager looks that ID up in its own original
+[compilation inventory](SCRIPT_COMPILATIONS.md). A matching filename or forged
+`sourceURL` cannot supply origin. Unknown dynamic/native origins or invalid/lost
+compilation inventory produce explicit `compilation:null`; the real product call
+still proceeds. No caller accepts a requested Script ID through the test protocol.
 
 `MyAvatar` preserves a copy of this original metadata alongside its existing
 queued ordinary call when it must marshal to its owner thread. A scoped context
@@ -31,7 +39,8 @@ Emote manager. Empty origin never suppresses the underlying product call.
 ## Exact record and checks
 
 History version 2 requires a `caller` field per event. A non-null record has
-exactly `callerVersion:1`, `method`, `sequence`, `invokedEpochMs`, `manager`, `code`.
+exactly `callerVersion:2`, `method`, `sequence`, `invokedEpochMs`, `manager`, `code`,
+and `compilation` (the exact original compiled row or null).
 Method is the actual `overrideAnimation` or `restoreAnimation` and must match
 the event kind. Sequence is a native per-manager cursor from 1 through 1e9;
 failed/non-effectful calls may leave gaps. Invocation time precedes actual Rig
@@ -44,11 +53,27 @@ validation rejects invented result fields, malformed identities, numeric boolean
 wrong methods, missing assignment and incomplete code. Native origin is private;
 raw source/manager identities must not appear in public feature facts.
 
+Compilation has exactly the inventory's `scriptId`, `resourceName`, `encoding`,
+`codeUnits`, `sha256`, `compiledEpochMs` and must predate invocation. Manager/code
+continue identifying the owning top-level VM; compilation independently identifies
+the actual calling code within that VM. Compilation is not inferred from the
+manager filename, a requested feature or the selected animation URL.
+
+Legacy version 1 callers remain readable for existing historical standalone
+proofs. A profile with an independently observed compilation requires version 2
+and exact original compilation equality. It cannot use version 1 or null origin.
+A version 2 caller cannot qualify a legacy profile by ignoring its compilation.
+Caller versions cannot switch inside one actual manager history.
+
 Within a history and across reader replay, each actual manager's caller cursor
 and invocation clock advance monotonically; original assignment/code cannot
 change. Immutable overlap checks cover surviving rows. Reader cursor state
 retains previously observed callers after bounded ring trimming, so a fresh Rig
 event cannot reuse an earlier original call after that row disappears.
+It additionally retains up to 4,096 original `(manager instance, Script ID)` rows;
+their original name/hash/size/compilation time cannot change after ring trimming.
+Different actual scripts within one manager and equal numeric IDs in different
+managers remain distinct. Exhaustion fails; there is no eviction or rebinding.
 
 The Emote join separately matches this original caller against independently
 acquired configured-root/submitted-source/complete-membership facts. Actual
