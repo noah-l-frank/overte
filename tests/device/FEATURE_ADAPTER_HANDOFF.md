@@ -34,10 +34,11 @@ host-tested. [Native work v2](native/SCRIPT_WORK_OBSERVATION.md) and the
 [quiet-window owner v2](adapters/android-phone/EMOTE_LIFETIME.md) now classify actual
 callback-function Script IDs and preserve unrelated default-script timers.
 Selected or unclassified work completed between observations restarts the clean
-suffix. Whole Emote admission/action/failure/background/actor/run composition
-remains incomplete. Loaded animation resource readiness/content binding still
-needs source audit before full Emote registration; current Rig facts expose
-loaded URLs/frame counts, not original animation-byte digests.
+suffix. Whole Emote admission/action/failure/actor/run composition remains
+incomplete. [Consumed animation source](native/ANIMATION_SOURCE.md) now binds
+actual parsed FBX bytes/model identity to Rig playback and image intervals.
+The passive animation-cache inventory and fixed twelve-asset readiness join
+are implemented; whole admission/readiness ownership still needs integration.
 Integrate the native and reader changes together;
 older readers do not understand the optional new wire fields.
 
@@ -104,8 +105,13 @@ The [owned Phone Emote background cycle](adapters/android-phone/EMOTE_BACKGROUND
 now joins one-send ordinary Home/activation to actual OS foreground and new
 native lifecycle/idle proof. Lost returns reconstruct without duplicate inputs
 or foreground native access while backgrounded. Historical source replay has
-no transport; incomplete ownership blocks general teardown. Whole-feature
-phase-change cleanup recovery, images, actor and quiet retirement remain open.
+no native getter transport; incomplete ownership blocks general teardown.
+Version 2 selects the exact retained source/input namespace and adds separately
+owned cleanup-phase foreground recovery without completing the old failed
+action. Required retirement callbacks preserve original old/recovery contexts;
+pending source/image/input journals remain unresolved. Whole-feature admission,
+parent image-failure recovery, actor publication and quiet/run retirement remain
+open. This component still advertises no complete Emote capability.
 
 The [Phone ordinary-input/effect join](adapters/android-phone/EMOTE_EFFECTS.md)
 now recomputes actual native playback/restore from durable input and source
