@@ -9,5 +9,6 @@ from self_tests.test_native_graphics_subject import GraphicsSubjectTests
 from self_tests.test_native_scene_loads import SceneLoadTests
 from self_tests.test_native_web_runtime import WebRuntimeTests
 from self_tests.test_native_web_renderers import WebRendererTests
+from self_tests.test_pico_graphics_source import PicoGraphicsSourceTests
 
 if __name__=='__main__':unittest.main()

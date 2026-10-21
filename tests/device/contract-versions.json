@@ -20,6 +20,7 @@
     "native-scene-loads": {"current": 1, "reads": [1]},
     "native-web-runtime": {"current": 2, "reads": [1, 2]},
     "stereo-graphics-pixels": {"current": 1, "reads": [1]},
+    "pico-graphics-ui-observation": {"current": 1, "reads": [1]},
     "independent-chat-receiver": {"current": 1, "reads": [1]},
     "owned-messages-mixer": {"current": 1, "reads": [1]},
     "native-chat-actor-files": {"current": 1, "reads": [1]},

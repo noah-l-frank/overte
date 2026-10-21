@@ -488,7 +488,10 @@
         "android/common/web/java/org/overte/web/WebTextureObservation.java",
         "tests/device/adapters/stereo_graphics_pixels.py",
         "tests/device/native/STEREO_GRAPHICS_PIXELS.md",
-        "tests/device/self_tests/test_stereo_graphics_pixels.py"
+        "tests/device/self_tests/test_stereo_graphics_pixels.py",
+        "tests/device/adapters/pico4/graphics_source.py",
+        "tests/device/adapters/pico4/GRAPHICS_UI_SOURCE.md",
+        "tests/device/native/FeatureUiInventory.h"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -511,9 +514,10 @@
         "dialog"
       ],
       "missingOperationsOrEvidence": [
-        "Whole ordinary VR Settings access/restoration flow, distinguishing immediate viewport scale from separate restart-only Pico swapchain scale",
+        "Whole ordinary VR Settings input/restoration owner; passive generic controls, original weak roots/timer/QML component and keyboard/focus observations are now implemented. Preserve the separate restart-only Pico swapchain setting.",
         "Whole coordinator joining original per-eye challenge/photometry to source-bound native preference transitions and common original image/actor receipts; actual per-eye geometry and pixel reducer is now source implemented and host verified",
-        "Complete Pico source-specific Graphics/scene/Web lifetime, persistence/background/restart/restoration coordinator"
+        "Complete Pico source-specific Graphics/scene/Web lifetime, persistence/background/restart/restoration coordinator",
+        "Original Go To/request-service HTTP callback ownership and actual HMD/framework entity source for scene restoration; hiding or deleting a page alone cannot prove backend callback retirement."
       ],
       "requiredOriginalEvidence": [
         "Actual native stereo source/target extents and per-eye viewport/projection",

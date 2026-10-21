@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "pico-graphics-ui-observation": 1,
     "stereo-graphics-pixels": 1,
     "native-graphics-subject": 2,
     "native-scene-loads": 1,

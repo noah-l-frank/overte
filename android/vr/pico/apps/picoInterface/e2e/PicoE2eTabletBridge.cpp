@@ -7,6 +7,7 @@
 #include "../../../../../../tests/device/native/PrivatePreviewFiles.h"
 #include "../../../../../../tests/device/native/LoginUiInventory.h"
 #include <AccountManager.h>
+#include <scripting/RenderScriptingInterface.h>
 #include <Application.h>
 #include <ui/Keyboard.h>
 #include <EntityScriptingInterface.h>
@@ -366,6 +367,7 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
         scriptObservationTick();
         loginObservationTick();
+        graphicsObservationTick();
         homeObservationTick();
 #endif
     }
@@ -417,6 +419,44 @@ private:
             {"ignorePickIntersection",original.getIgnorePickIntersection()},
             {"sensorToWorld",matrix},{"headPosition",vector(hmd->getPosition())},{"position",vector(original.getPosition())}
         });
+    }
+
+    // Original generic VR controls and retained roots. This channel has no
+    // input action; ordinary input stays in NavigationUi/OpenXR.
+    void graphicsObservationTick() {
+        const QString path=BRIDGE_DIRECTORY+"/graphics-ui-command.json";
+        QFile input(path);
+        if (QFileInfo(path).isSymLink() || !input.open(QIODevice::ReadOnly) || input.size()>4096) { return; }
+        QJsonParseError error;const auto document=QJsonDocument::fromJson(input.readAll(),&error);
+        if (error.error!=QJsonParseError::NoError || !document.isObject()) { return; }
+        const auto command=document.object();const auto id=command.value("commandId").toString();
+        if (!exactKeys(command,{"schemaVersion","commandId","action"})
+                || command.value("schemaVersion")!=QJsonValue(1) || command.value("action")!=QJsonValue(QStringLiteral("observe"))
+                || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+                || _graphicsObservationNonces.contains(id) || _graphicsObservationNonces.size()>=4096) { return; }
+        _graphicsObservationNonces.insert(id);
+        if (QThread::currentThread()!=qApp->thread() || !DependencyManager::isSet<Keyboard>()) { return; }
+        const auto render=RenderScriptingInterface::getInstance();
+        const auto context=overte::e2e::GraphicsUiContext::fromNative(render->getViewportResolutionScale(),
+            render->getHazeEnabled(),render->getMirrorsEnabled());
+        const auto tablet=DependencyManager::get<TabletScriptingInterface>()->getTablet(SYSTEM_TABLET);
+        const auto root=tablet ? tablet->getTabletRoot() : nullptr;
+        const auto surface=tablet ? tablet->getTabletSurface() : nullptr;
+        const auto window=surface ? surface->getWindow() : nullptr;
+        auto packet=_graphicsObservation.observe(root,window,{},context);
+        if (packet.isEmpty()) { return; }
+        auto inventory=_graphicsInventory.observe(root,window);
+        inventory["qmlLoads"]=surface ? QJsonObject::fromVariantMap(surface->featureQmlLoadObservation()) : QJsonObject();
+        const auto keyboard=DependencyManager::get<Keyboard>();
+        inventory["keyboard3D"]=QJsonObject{{"raised",keyboard->isRaised()},{"enabled",keyboard->getUse3DKeyboard()}};
+        packet["commandId"]=id;packet["action"]=QStringLiteral("observe");
+        packet["graphicsObservationVersion"]=1;packet["graphicsInventory"]=inventory;
+        packet["tabletShown"]=tablet && tablet->property("tabletShown").toBool();
+        auto focused=window ? window->activeFocusItem() : nullptr;
+        packet["editorFocused"]=focused && (focused->inherits("QQuickTextInput") || focused->inherits("QQuickTextEdit"))
+            && focused->hasActiveFocus();
+        packet["capturedEpochMs"]=static_cast<double>(QDateTime::currentMSecsSinceEpoch());
+        writeJson(BRIDGE_DIRECTORY+"/graphics-ui.json",packet);
     }
 
     // Separate passive source for both publisher roles. No input command,
@@ -574,6 +614,9 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     overte::e2e::ScriptFileUi _scriptObservation;
     overte::e2e::LoginUi _loginObservation;
+    overte::e2e::GraphicsUi _graphicsObservation;
+    overte::e2e::FeatureUiInventory& _graphicsInventory {overte::e2e::graphicsUiInventory()};
+    QSet<QString> _graphicsObservationNonces;
     overte::e2e::LoginUiInventory _loginInventory;
     QSet<QString> _loginObservationNonces;
     QSet<QString> _homeNonces;

@@ -17,6 +17,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
+#include "../../../../../../tests/device/native/FeatureUiInventory.h"
 #include <AudioClient.h>
 #include <AccountManager.h>
 #include <Application.h>
@@ -135,6 +136,11 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     // reading the scene graph, including otherwise valid stale pointers.
     const bool gui = qApp && QThread::currentThread() == qApp->thread();
     if (!gui) { return {}; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Observe roots at the original normal-control read before a possible
+    // close/replacement, even if no passive publisher has polled yet.
+    overte::e2e::graphicsUiInventory().observe(root,window);
+#endif
     if (_root != root || _window != window || _open != open) {
         _generation = token();
         _controls.clear();

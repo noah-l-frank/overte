@@ -522,6 +522,11 @@ def create_adapter(args, base_class):
                 int(original.identity.split(':')[0]))
 
         @_private
+        def _graphics_ui_observer(self, target):
+            from adapters.pico4.graphics_source import PicoGraphicsSource
+            return PicoGraphicsSource(self,target,self._native_feature_observer(target))
+
+        @_private
         def _web_runtime_observer(self, target):
             from adapters.native_web_runtime import NativeWebRuntime, FILE as RUNTIME_FILE
             native = self._native_feature_observer(target)

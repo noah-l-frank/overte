@@ -240,3 +240,20 @@ proof of a requested setting. The full coordinator must still join preference
 changes, static foreign scene state, independent actor samples, lifetime/restart
 ownership and the complete restoration/quiet window. Native rendering and all
 physical output are unqualified.
+
+## Passive generic VR Graphics UI and weak lifetimes
+
+[The original UI source](GRAPHICS_UI_SOURCE.md) observes the actual VR generic
+controls, original Render values and the separation of tablet hiding, Qt page
+visibility and QObject retirement. Its weak root/menu tracker is shared with
+the existing Login implementation through a compatible default/alias. Normal
+control reads observe Graphics roots before possible replacement; passive
+publishers share that exact native weak registry. The original scrollbar Timer,
+QML component/status callbacks, keyboard and editor focus remain resources until
+their actual source shows retirement. Input is unavailable on this channel.
+
+The native source remains uncompiled; host seams and Authentication regressions
+pass. The complete Graphics owner still needs the ordinary Home/Settings/Go To
+recipe, original Go To/request-service backend callback lifetime, HMD/framework
+entity ownership, per-role sampling/restart and verified scene restoration.
+These concrete remaining sources are required before advertising the full triple.

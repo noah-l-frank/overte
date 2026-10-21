@@ -96,6 +96,28 @@ class FeatureObservationTests(unittest.TestCase):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
 
+    def test_pico_passive_graphics_ui_retains_hidden_roots_under_actual_candidate_guard(self):
+        from self_tests.test_pico_graphics_source import Boundary, COMMAND, FILE
+        from adapters.pico4.graphics_source import resources
+        source=Boundary();original_read=self.native.read_debug_app_file;original_write=self.native.write_debug_app_file
+        def write(target,package,path,raw):
+            if path==COMMAND:
+                source.epoch=self.native.epoch_milliseconds(target);source.write('synthetic',package,path,raw)
+                source.sample['processId']=int(self.native.identity.split(':')[0]);return
+            return original_write(target,package,path,raw)
+        def read(target,package,path,**options):
+            if path=='files/overte-e2e/'+FILE:return source.read('synthetic',package,path,**options)
+            return original_read(target,package,path,**options)
+        with patch.object(self.native,'write_debug_app_file',side_effect=write), \
+                patch.object(self.native,'read_debug_app_file',side_effect=read):
+            reader=self.adapter._graphics_ui_observer(self.native.target);value=reader.capture()
+            self.assertEqual(['panel:graphics','panel:graphics-tablet'],resources(value))
+            source.shown=False;source.roots[0].update(visible=False,inCurrentTree=False);source.controls=[]
+            self.assertEqual(['panel:graphics'],resources(reader.capture()));self.assertEqual([],self.native.inputs)
+            self.native.digest='f'*64
+            with self.assertRaises(RuntimeError):reader.capture()
+            self.assertEqual(2,len(source.requests))
+
     def test_pico_web_runtime_requires_actual_renderer_source_and_preserves_owner(self):
         from self_tests.test_native_web_renderers import RendererBoundary, RUN, ROOT, URL
         from adapters.native_web_runtime import active_marker,released

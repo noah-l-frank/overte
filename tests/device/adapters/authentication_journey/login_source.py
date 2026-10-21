@@ -46,7 +46,8 @@ def accept_loads(previous,current):
     return deepcopy(current)
 
 
-def inventory(value):
+def inventory(value,*,profiles=frozenset({'qml-login-v1','phone-login-v1','tablet-menu-v1'})):
+    need(type(profiles) is frozenset and profiles<=frozenset({'qml-login-v1','phone-login-v1','tablet-menu-v1','graphics-generic-v1','graphics-phone-v1'}))
     exact(value,{'inventoryVersion','complete','roots','retiredRoots','qmlLoads','keyboard3D'})
     qml_loads(value['qmlLoads']);exact(value['keyboard3D'],{'raised','enabled'})
     need(all(type(value['keyboard3D'][key]) is bool for key in ('raised','enabled')))
@@ -56,19 +57,20 @@ def inventory(value):
     ids=set()
     for row in value['roots']:
         exact(row,{'id','profile','visible','inCurrentTree','callbackRunning','callbackItemPresent'})
-        need(nonce(row['id']) and row['id'] not in ids and row['profile'] in ('qml-login-v1','phone-login-v1','tablet-menu-v1')
+        need(nonce(row['id']) and row['id'] not in ids and type(row['profile']) is str and row['profile'] in profiles
              and all(type(row[key]) is bool for key in ('visible','inCurrentTree','callbackRunning','callbackItemPresent'))
-             and (row['profile']=='tablet-menu-v1' or not row['callbackRunning'] and not row['callbackItemPresent']))
+             and (row['profile']=='tablet-menu-v1' or not row['callbackItemPresent']
+                 and (row['profile']=='graphics-generic-v1' or not row['callbackRunning'])))
         ids.add(row['id'])
     retired=value['retiredRoots']
     need(all(nonce(key) for key in retired) and retired==sorted(set(retired)) and not ids.intersection(retired))
     return value
 
 
-def accept_inventory(previous,current):
-    inventory(current)
+def accept_inventory(previous,current,*,profiles=frozenset({'qml-login-v1','phone-login-v1','tablet-menu-v1'})):
+    inventory(current,profiles=profiles)
     if previous is not None:
-        inventory(previous)
+        inventory(previous,profiles=profiles)
         accept_loads(previous['qmlLoads'],current['qmlLoads'])
         alive={row['id']:row for row in current['roots']};old={row['id']:row for row in previous['roots']}
         need(set(previous['retiredRoots'])<=set(current['retiredRoots'])

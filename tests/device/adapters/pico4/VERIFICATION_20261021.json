@@ -424,5 +424,37 @@
       "Three analytical fixture assertions initially assumed exact integer boundaries. Kept conservative source floor/ceil and allowed one border pixel of floating-point rounding in analytical expectations; pixel means and nonce correctness remain exact."
     ],
     "limits": "Original fact reduction only, without whole Graphics preference/effect/lifetime coordination. No native GPU/Chromium path was compiled or exercised."
+  },
+  "graphicsUiPacket": {
+    "contract": "pico-graphics-ui-observation v1; native weak-root implementation factored with compatible Login default/alias",
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "Canonical graphics-sources, authentication-feature-journey, suite-runner and coverage-matrix selection",
+        "groups": 4,
+        "status": "passed",
+        "durationSeconds": 14.79,
+        "junit": "graphics-ui-owning.xml"
+      },
+      {
+        "command": "Pico original wrapper hidden Graphics root/candidate-loss case",
+        "tests": 1,
+        "status": "passed"
+      },
+      {
+        "command": "Shared Graphics UI, login inventory and Authentication sample counterexamples",
+        "tests": 49,
+        "status": "passed"
+      },
+      {
+        "command": "Four selected no-build project documentation/contracts/layout/coverage suites",
+        "suites": 4,
+        "status": "passed",
+        "junit": "graphics-ui-project.xml"
+      }
+    ],
+    "remaining": "Whole ordinary input/restoration and actor/restart coordinator, original Go To/request-service backend callback ownership and actual HMD/framework entity restoration. No native or physical qualification."
   }
 }
