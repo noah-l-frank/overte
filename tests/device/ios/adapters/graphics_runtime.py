@@ -17,6 +17,17 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _graphics_geometry(self,selector):
+        return self._sources(selector)['observer'].geometry()
+
+    def _graphics_images(self,selector,run,role,stage,root,*,source_lock=None):
+        from ios.adapters.graphics_images import IOSGraphicsImages
+        need(role in ('primary','actor') and type(stage) is int and stage in (0,1))
+        source=self._sources(selector)
+        store=PrivateFeatureState(self.state_path(selector).with_name('graphics-screen-images-'+role+'-'+str(stage)+'.json'))
+        return IOSGraphicsImages(store,root,source['binding'],run,role,stage,source['client'],source['native_clock'],
+            source['check'],source_lock=source_lock)
+
     def _completed_frame_lease(self,selector,run,role,stage,*,source_lock=None):
         need(role in ('primary','actor') and type(stage) is int and stage in (0,1))
         source=self._sources(selector)

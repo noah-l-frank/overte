@@ -103,6 +103,28 @@ frame measurements and retain meaningful subject/marker comparisons. Requested
 texture sizes, CPU command recording, generic presentation counters and periodic
 files cannot replace this evidence. No Vulkan pixels are labelled OpenGL.
 
+`graphics_images.py` now acquires the actual existing WDA screenshot endpoint
+without changing PNG bytes. A private full-candidate/run/role/stage ledger
+persists planned/opened file responsibility before acquisition, actual inode
+identity before writing, original bytes/SHA/extents, and separate host and
+independently sampled native clock intervals. It deliberately has no native
+capture timestamp or GPU frame-ID field: WDA does not return those facts.
+Failed/lost acquisition cannot be silently retried by constructing a new owner.
+Historical reading verifies exact bytes and inode; cleanup refuses foreign,
+replaced, linked or resurrected files and observes actual path absence. It
+retains the ledger for the outer feature's final quiet-window proof.
+
+The existing `native_geometry.py` command now also has a full-feature reader
+using the canonical closed HTTP/AFC transport, separately guarded process and
+actual native clock. The unchanged legacy component API remains compatible.
+Its original geometry receipt contains no PID; that binding is independently
+guarded rather than inserted into the native receipt. This reader and original
+PNG acquisition are constructed through `IOSGraphicsRuntime`. The next packet
+must join both to bracketing completed Vulkan frames and actual viewport/subject
+geometry, decode the current challenge, and compare meaningful haze/mirror
+pixels. Acquiring a well-formed PNG alone does not complete that proof or the
+whole Graphics journey.
+
 ## Local verification
 
 Fifty-eight selected no-build host tests passed for original subject parsing,
@@ -133,3 +155,11 @@ real Journal registration constructor; it no longer fabricates an incomplete
 internal record. All six iOS Script/Authentication journey regression cases
 also passed after the shared server/Client extension. These are host-only
 regressions, with the same explicit compiler/device exclusions as before.
+
+The screen/geometry packet passed 22 no-build cases: eight new original-image/
+geometry cases plus twelve existing geometry/viewport and two completed-frame
+transport regressions. They cover one-send capture, native/host clock skew,
+late or missing results, changed process, original SHA/inode preservation,
+foreign-file cleanup refusal, stale/rotating geometry, and real closed HTTP/AFC
+framing at a synthetic SDK boundary. Screen pixels and native receipts are
+synthetic; there is no physical rendering or device qualification.

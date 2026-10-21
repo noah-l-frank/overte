@@ -157,6 +157,12 @@ class FeatureObservation:
             self.epoch_ms, self.guard, self.process['pid'], ios=True,
             monotonic=self.monotonic, sleep=self.sleep)
 
+    def geometry(self):
+        from ios.adapters.native_geometry import OriginalGeometry
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/ios-ui-request-result.json'
+        return OriginalGeometry(self.send,lambda:self.original(remote=remote,limit=65536),
+            self.epoch_ms,self.guard,monotonic=self.monotonic,sleep=self.sleep)
+
     def recorded_preview_observer(self):
         self.guard()
         root = self.remote.rsplit('/', 1)[0] + '/'
