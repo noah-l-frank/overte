@@ -7,10 +7,14 @@ The journal records intent before launch/termination and retains failed ownershi
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import re
+import time
 
 from adapters.normal_feature_state import context
 from ios.adapters.bundle_identity import compare
 from ios.adapters.bundle_observation import validate
+from adapters.restart_inputs import RestartInputs, validate_native_restart
+from adapters.native_feature_observation import NativeFeatureObservation
+from adapters.native_process_presence import NativeProcessPresence
 
 VERSION = 2
 READS = (1, 2)
@@ -114,6 +118,62 @@ class InstalledCodeBinding:
         current = dict(previous, phase='bound', source=provenance, process=process, observation=observed)
         self.store.write(current, previous)
         self.started = False
+        return self._claim()
+
+    def preparing_continuity(self, pid):
+        """Read-only continuity for a separately proven recovery readiness read."""
+        previous = self.record()
+        need(previous is not None and previous['bindingVersion'] == VERSION and previous['phase'] == 'preparing'
+             and type(pid) is int and pid > 0 and source(self.process_source()) == previous['source'])
+        actual = self.original_process()
+        need(actual is not None and actual['pid'] == pid and source(self.process_source()) == previous['source'])
+        return actual
+
+    def recover_prepared(self, inputs, native, presence, ready, *, monotonic=time.monotonic):
+        try:
+            return self._recover_prepared(inputs, native, presence, ready, monotonic)
+        except Exception:
+            raise ValueError('OVT_IOS_INSTALLED_CODE_BINDING_REJECTED') from None
+
+    def _recover_prepared(self, inputs, native, presence, ready, monotonic):
+        # Explicit restart recovery only; ordinary new-CLI bind still refuses.
+        # No SDK input or session creation occurs in this transaction.
+        need(isinstance(inputs, RestartInputs) and inputs.component_only
+             and isinstance(native, NativeFeatureObservation) and isinstance(presence, NativeProcessPresence)
+             and callable(ready) and callable(monotonic))
+        started = previous_clock = monotonic()
+        def bound():
+            nonlocal previous_clock
+            now = monotonic(); need(now >= previous_clock and now - started < 30)
+            previous_clock = now
+        previous = self.record(); intent = inputs.read()
+        need(previous is not None and previous['bindingVersion'] == VERSION and previous['phase'] == 'preparing'
+             and intent['phase'] == 'launch-issued' and inputs.store.path.parent == self.store.path.parent
+             and intent['oldBinding']['targetFingerprint'] == self.scope['targetFingerprint']
+             and intent['oldBinding']['generation'] == self.scope['generation']
+             and native.pid == presence.pid and native.pid != intent['oldNative']['pid'])
+        bound()
+        process = self.preparing_continuity(native.pid); bound()
+        def verify(packet):
+            validate_native_restart(intent['oldNative'], dict(pid=packet['processId'], instance=packet['instance'],
+                lifecycle=packet['lifecycle']))
+        first = native.read(native.sequence); verify(first); bound()
+        exited = presence.require_absent(intent['oldNative']['pid']); bound()
+        need(exited['instance'] == first['instance'])
+        observed = deepcopy(self.observation(self.native_bundle(), native.pid)); bound()
+        need(observed['instance'] != previous['previousInstance']
+             and observed['capturedEpochMs'] >= first['capturedEpochMs'])
+        need(self.preparing_continuity(native.pid) == process and inputs.read() == intent
+             and self.record() == previous); bound()
+        # The physical caller must run its original fresh first-probe check and
+        # save actual launch flags here, before binding becomes publicly usable.
+        ready(deepcopy(process), first['capturedEpochMs']); bound()
+        final = native.read(native.sequence); verify(final); bound()
+        need(final['instance'] == first['instance'] and final['capturedEpochMs'] >= exited['capturedEpochMs']
+             and self.preparing_continuity(native.pid) == process and inputs.read() == intent
+             and self.record() == previous); bound()
+        self.store.write(dict(previous, phase='bound', process=process, observation=observed), previous)
+        bound()
         return self._claim()
 
     def _claim(self):
