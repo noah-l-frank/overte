@@ -520,5 +520,50 @@
       }
     ],
     "limits": "Actual native data-source implementation remains uncompiled. Synthetic source/matrix/owner tests do not exercise real Qt locks or OpenXR tracking. Original owner and appearance facts alone do not complete Graphics restoration or restart adoption."
+  },
+  "graphicsSurfacePacket": {
+    "contracts": [
+      "pico-graphics-input-surface v1",
+      "pico-navigation-address-observation v1"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_surface self_tests.test_pico_tablet_home self_tests.test_token_graphics_ui (from tests/device)",
+        "tests": 30,
+        "status": "passed",
+        "note": "Before one additional exact-scope counterexample; final canonical owning selection includes that case."
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test authentication-feature-journey --test tablet-home-ray --test suite-runner --test coverage-matrix",
+        "groups": 5,
+        "status": "passed",
+        "durationSeconds": 19.31,
+        "junit": "graphics-surface-owning.xml"
+      },
+      {
+        "command": "Seven explicit PicoNormalScriptsTests Graphics and NativeExecutionBindingTest navigation cases, selected without compiler harnesses",
+        "tests": 7,
+        "status": "passed",
+        "durationSeconds": 20.967
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.49,
+        "junit": "graphics-surface-project.xml"
+      }
+    ],
+    "correctedFailures": [
+      "An initial timeout assertion included prior normal Home-page search time. The assertion now measures the original field-replacement wait from its own actual command timestamp; the original 10-second wait and 20-second operation limit remain unchanged."
+    ],
+    "remaining": "Whole durable Graphics/scene/preferences/image/actor/restart/lifetime owner. A different camera mode needs actual View-menu input; no product setter or complete capability is supplied."
   }
 }

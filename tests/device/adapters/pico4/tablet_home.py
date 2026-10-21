@@ -87,3 +87,13 @@ class PicoTabletHome:
             if current['onHomeScreen']:return current
             need(attempt<80);self.source.sleep(.1)
         need(False)
+
+
+def bind_home(adapter,target,native):
+    """One shared existing-session binding for normal Pico Home gestures."""
+    source=PicoHomeSource(adapter,target,native)
+    identity=adapter.require_pico_session_identity(target)
+    def stage(pose):
+        need(adapter.require_pico_session_identity(target)==identity)
+        return adapter.pico_input_session(target).stage(identity,'input.primary',pose)
+    return PicoTabletHome(source,stage)

@@ -20,7 +20,7 @@ from adapters.native_feature_observation import exact,fresh,need,validate as val
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.pico4.normal_account_menu import PicoAccountMenu
 from adapters.pico4.normal_login import PicoLoginIO
-from adapters.pico4.tablet_home import PicoHomeSource,PicoTabletHome,validate_input as validate_home_input
+from adapters.pico4.tablet_home import bind_home,validate_input as validate_home_input
 from adapters.pico4.normal_scripts import configuration as normal_configuration
 from adapters.pico4.navigation import validate_snapshot
 from adapters.pico4.script_journey import PicoScriptJourney
@@ -187,13 +187,7 @@ class PicoAuthenticationJourney(PicoScriptJourney):
             else:need(control in ('tablet.home','scripts.menu') or control.startswith('tablet.page.'))
 
     def _tablet_home(self,target):
-        native=self._native_feature_observer(target,read_only=True)
-        source=PicoHomeSource(self.original,target,native)
-        identity=self.original.require_pico_session_identity(target)
-        def stage(pose):
-            need(self.original.require_pico_session_identity(target)==identity)
-            return self.original.pico_input_session(target).stage(identity,'input.primary',pose)
-        return PicoTabletHome(source,stage)
+        return bind_home(self.original,target,self._native_feature_observer(target,read_only=True))
 
     @staticmethod
     def _validate_authentication_home_input(original,native,control):

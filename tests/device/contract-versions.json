@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "pico-navigation-address-observation": {"current": 1, "reads": [1]},
+    "pico-graphics-input-surface": {"current": 1, "reads": [1]},
     "vr-graphics-framework-ownership": {"current": 1, "reads": [1]},
     "native-tablet-http": {"current": 1, "reads": [1]},
     "acceptance-policy": {"current": 1, "reads": [1]},

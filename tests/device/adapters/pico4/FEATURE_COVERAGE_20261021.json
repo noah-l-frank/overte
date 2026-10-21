@@ -499,7 +499,10 @@
         "tests/device/native/TabletHttpObservation.h",
         "tests/device/adapters/vr_graphics_subject.py",
         "tests/device/native/VR_GRAPHICS_SUBJECT.md",
-        "libraries/pointers/src/PointerManager.cpp"
+        "libraries/pointers/src/PointerManager.cpp",
+        "tests/device/adapters/pico4/graphics_surface.py",
+        "tests/device/adapters/pico4/GRAPHICS_INPUT_SURFACE.md",
+        "tests/device/native/NormalNavigationAddress.h"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -522,7 +525,7 @@
         "dialog"
       ],
       "missingOperationsOrEvidence": [
-        "Whole ordinary VR Settings input/restoration owner; passive generic controls, original weak roots/timer/QML component and keyboard/focus observations are now implemented. Preserve the separate restart-only Pico swapchain setting.",
+        "Whole durable VR input/restoration coordinator; the ordinary generic Settings/Go To/Home surface, actual field-hash/authority checks and passive lifetime sources are source-implemented and host verified. A required different camera mode still needs a normal native View-menu operation; retain the separate restart-only Pico swapchain setting.",
         "Whole coordinator joining original per-eye challenge/photometry to source-bound native preference transitions and common original image/actor receipts; actual per-eye geometry and pixel reducer is now source implemented and host verified",
         "Complete Pico source-specific Graphics/scene/Web lifetime, persistence/background/restart/restoration coordinator",
         "Whole original scene/framework restoration policy and quiet-window composition; native HTTP callback/reply lifetime and actual HMD/framework source are now source-implemented and host verified, without a feature verdict."

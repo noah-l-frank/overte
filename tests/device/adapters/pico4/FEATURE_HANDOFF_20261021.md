@@ -284,3 +284,17 @@ head/camera facts are not a whole restoration verdict. Unknown pointer types or
 contended nonblocking observation locks stay unavailable. Actual full ordinary
 Graphics input, scene/preferences/effect/actor/restart restoration and quiet
 cleanup coordination remain open. Native compilation and devices are unverified.
+
+## Ordinary generic Graphics/Go To/Home input surface
+
+The [Pico Graphics input surface](GRAPHICS_INPUT_SURFACE.md) now composes existing
+VR Qt controls and the original OpenXR Home ray, with typed original input intents
+and UI leases. Its explicit navigation address-source v1 validates the actual
+field hash/length/focus and rechecks exact caller authority immediately before
+Enter. The per-instance scope replaces legacy URLs only for that explicit owner.
+Ignored/late replacement, revoked scope, failed intent, lost return and candidate
+loss remain unresolved without retries. Hidden owned Settings is reopened to Home
+before closing. The current camera mode must already be the required first-person
+mode; the surface does not invent a View menu or set Camera. Full Graphics durable
+coordination, independent images/effects/actor/restart and verified backend/quiet
+retirement remain missing. Native compilation and all devices remain unverified.

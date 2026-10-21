@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "pico-navigation-address-observation": 1,
+    "pico-graphics-input-surface": 1,
     "vr-graphics-framework-ownership": 1,
     "native-tablet-http": 1,
     "pico-graphics-ui-observation": 1,

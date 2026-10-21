@@ -70,6 +70,9 @@ def decode(raw, limit=262144):
 def validate_snapshot(value, process_id, epoch_ms):
     fields = {'schemaVersion', 'bridgeId', 'generation', 'processId', 'elapsedMs',
         'updatedEpochMs', 'lastCommandSequence', 'open', 'ready', 'controls'}
+    if type(value) is dict and 'navigationAddressVersion' in value:
+        fields.add('navigationAddressVersion')
+        need(type(value['navigationAddressVersion']) is int and value['navigationAddressVersion']==1)
     if type(value) is dict and 'featureControlsVersion' in value:
         fields.add('featureControlsVersion')
         need(type(value['featureControlsVersion']) is int and value['featureControlsVersion'] == 1)
@@ -108,6 +111,8 @@ def validate_snapshot(value, process_id, epoch_ms):
     for control in value['controls']:
         need(type(control) is dict and isinstance(control.get('id'), str))
         fields = {'id', 'token', 'enabled', 'focused'}
+        if control['id']=='navigation.address' and value.get('navigationAddressVersion')==1:
+            fields|={'textSha256','textLength','inputReady'}
         if control['id'].startswith('graphics.'):need(value.get('graphicsControlsVersion')==1)
         is_graphics=graphics_control(control['id']) and value.get('graphicsControlsVersion')==1
         is_create=control['id'].startswith('create.')
@@ -138,6 +143,11 @@ def validate_snapshot(value, process_id, epoch_ms):
              and identifier(control['token']) and control['id'] not in ids
              and control['token'] not in tokens and type(control['enabled']) is bool
              and type(control['focused']) is bool)
+        if control['id']=='navigation.address' and value.get('navigationAddressVersion')==1:
+            need(type(control['textSha256']) is str and re.fullmatch('[0-9a-f]{64}',control['textSha256'])
+                and type(control['textLength']) is int and 0<=control['textLength']<=2048
+                and type(control['inputReady']) is bool
+                and (not control['inputReady'] or control['enabled'] and control['focused']))
         if control['id'] in SNAPSHOT_CHOICES:
             need(type(control['checked']) is bool)
         if is_chat:chat_metadata(control)
@@ -178,7 +188,9 @@ def discard_stopped_state(path):
 
 class PicoNavigation:
     def __init__(self, io, state_path, identity, process_identity, scene_url,
-                 *, monotonic=time.monotonic, sleep=time.sleep):
+                 *, monotonic=time.monotonic, sleep=time.sleep, address_authority=None):
+        need(address_authority is None or callable(address_authority))
+        self.address_authority=address_authority
         self.io, self.path = io, Path(state_path)
         self.monotonic, self.sleep = monotonic, sleep
         self.urls = set(viewpoint_urls(scene_url).values())
@@ -251,7 +263,7 @@ class PicoNavigation:
                 return value
         return None
 
-    def input(self, control_id, action='activate', text=None, *, source=None, index=None, token=None, direction=None, value=None, reference=None):
+    def input(self, control_id, action='activate', text=None, *, source=None, index=None, token=None, direction=None, value=None, reference=None, expected_address=None):
         # SDK/package verification can take longer than the native input's
         # freshness window. Bind bytes first, then capture the current UI.
         self.io.bind_input()
@@ -259,6 +271,13 @@ class PicoNavigation:
         control = self.control(snapshot, control_id)
         need(snapshot['ready'] and control is not None and snapshot['lastCommandSequence'] < MAX_INTEGER)
         if token is not None: need(control['token'] == token)
+        need(expected_address is None or control_id=='navigation.address' and action=='submit')
+        if expected_address is not None:
+            need(type(expected_address) is str and 0<len(expected_address)<=2048
+                and snapshot.get('navigationAddressVersion')==1 and control['inputReady'] and control['focused']
+                and control['textLength']==len(expected_address)
+                and control['textSha256']==hashlib.sha256(expected_address.encode()).hexdigest())
+            need(self.address_authority(expected_address) is True if self.address_authority is not None else expected_address in self.urls)
         is_create=control_id.startswith('create.')
         is_chat=control_id.startswith('chat.')
         if reference is not None:
@@ -322,7 +341,8 @@ class PicoNavigation:
             command.update(observedElapsedMs=reference['scope']['elapsedMs'],sequence=reference['scope']['sequence']+1,controlToken=original['token'])
         if action == 'replace':
             if control_id == 'navigation.address':
-                need(text in self.urls)
+                need(type(text) is str and 0<len(text)<=2048)
+                need(self.address_authority(text) is True if self.address_authority is not None else text in self.urls)
             elif control_id == 'snapshot.name':
                 validate_operation_arguments('snapshot.files', {'prefix': text})
             elif control_id == 'scripts.url.field':
@@ -353,6 +373,12 @@ class PicoNavigation:
         if action == 'scroll': command['direction'] = direction
         if action == 'set-value':command['value']=value
         self.io.guard()
+        if control_id=='navigation.address' and snapshot.get('navigationAddressVersion')==1 and action in ('replace','submit'):
+            need(control['inputReady'] and control['focused'])
+        if control_id=='navigation.address' and action=='replace' and self.address_authority is not None:
+            need(self.address_authority(text) is True)
+        if expected_address is not None:
+            need(self.address_authority(expected_address) is True if self.address_authority is not None else expected_address in self.urls)
         # The owning transport writes exactly once, then only polls status.
         try:
             status, now = self.io.send(command)

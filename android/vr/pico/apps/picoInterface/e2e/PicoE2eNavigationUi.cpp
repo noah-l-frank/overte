@@ -18,6 +18,7 @@
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../../../../../tests/device/native/FeatureUiInventory.h"
+#include "../../../../../../tests/device/native/NormalNavigationAddress.h"
 #include "../../../../../../tests/device/native/TabletHttpObservation.h"
 #include <AudioClient.h>
 #include <AccountManager.h>
@@ -203,7 +204,10 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
                 const auto fileSource = overte::e2e::scriptFileControlSource(item);
                 auto source = fileSource.isEmpty() ? overte::e2e::scriptRowSource(item) : fileSource;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                if (id.startsWith("chat.")) {
+                if (id=="navigation.address") {
+                    source=overte::e2e::navigationAddressSource(item);
+                    if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("chat.")) {
                     source=overte::e2e::chatControlSource(item,id);
                     if (source.isEmpty()) { ambiguous=true;return; }
                 } else if (id.startsWith("create.")) {
@@ -265,7 +269,10 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        if (id.startsWith("chat.")) {
+        if (id=="navigation.address") {
+            const auto original=overte::e2e::navigationAddressObservation(control.item);
+            for (auto item=original.begin();item!=original.end();++item) { row[item.key()]=item.value(); }
+        } else if (id.startsWith("chat.")) {
             overte::e2e::appendChatControlObservation(row,control.item,id);
         } else if (id.startsWith("create.")) {
             overte::e2e::appendCreateControlObservation(row,control.item,id);
@@ -296,6 +303,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     if (graphicsContext.valid) { result["graphicsControlsVersion"] = 1; }
     if (loginContext.valid) { result["loginControlsVersion"]=2; }
     if (accountMenuContext.login.valid) { result["accountMenuControlsVersion"]=1; }
+    result["navigationAddressVersion"]=1;
 #endif
     return result;
 }

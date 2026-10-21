@@ -12,5 +12,6 @@ from self_tests.test_native_tablet_http import TabletHttpTests
 from self_tests.test_native_web_runtime import WebRuntimeTests
 from self_tests.test_native_web_renderers import WebRendererTests
 from self_tests.test_pico_graphics_source import PicoGraphicsSourceTests
+from self_tests.test_pico_graphics_surface import PicoGraphicsSurfaceTests
 
 if __name__=='__main__':unittest.main()

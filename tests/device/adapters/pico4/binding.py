@@ -522,6 +522,15 @@ def create_adapter(args, base_class):
                 int(original.identity.split(':')[0]))
 
         @_private
+        def _graphics_surface(self,target,run,intent,owns,lease,allow_url):
+            from adapters.pico4.graphics_surface import PicoGraphicsSurface
+            from adapters.pico4.tablet_home import bind_home
+            ui,_observe,_binding=self._script_runtime(target)
+            subject=self._graphics_subject_observer(target)
+            home=bind_home(self,target,self._native_feature_observer(target))
+            return PicoGraphicsSurface(ui,subject,home,run,intent,owns,lease,allow_url)
+
+        @_private
         def _graphics_ui_observer(self, target):
             from adapters.pico4.graphics_source import PicoGraphicsSource
             return PicoGraphicsSource(self,target,self._native_feature_observer(target))
