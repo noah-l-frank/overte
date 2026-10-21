@@ -11,6 +11,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tarfile
@@ -983,7 +984,7 @@ class CanonicalCIInputOwnershipTests(unittest.TestCase):
         callee=f.policy_root/gate.WORKFLOW;callee.parent.mkdir(parents=True,exist_ok=True)
         callee.write_bytes((ROOT/gate.WORKFLOW).read_bytes())
         fixed={}
-        for relative in gate.REVIEWED_CI_INPUTS|set(gate.android().EXECUTION_FILES):
+        for relative in gate.REVIEWED_CI_INPUTS|set(gate.android().EXECUTION_FILES)|{'.github/test-suites.json'}:
             if relative==gate.POLICY:continue
             raw=(ROOT/relative).read_bytes();mode=0o755 if (ROOT/relative).stat().st_mode&0o111 else 0o644
             fixed[relative]=(raw,mode)
@@ -998,7 +999,24 @@ class CanonicalCIInputOwnershipTests(unittest.TestCase):
             (f.candidate/gate.POLICY).write_text(json.dumps(previous))
         if fixture_change:fixture_change(f)
         for relative in gate.REVIEWED_CI_INPUTS-{gate.POLICY}:
-            path=f.candidate/relative;path.write_bytes(path.read_bytes()+b'\n# older CI source\n')
+            path=f.candidate/relative
+            if relative in gate.REVIEWED_CI_ADDITIONS:
+                path.unlink()
+            elif relative==gate.CATALOG:
+                previous=json.loads(path.read_bytes());previous['generations']=previous['generations'][:27]
+                path.write_text(json.dumps(previous))
+            elif relative==gate.DEPENDENCIES:
+                previous=json.loads(path.read_bytes())
+                for item in previous['targets'].values():item['reader_digest']='sha256:'+'0'*64
+                previous['suites']['device-control-plane-full']['reviewed_reader_digest']='sha256:'+'0'*64
+                path.write_text(json.dumps(previous))
+            elif relative==gate.COMPILER_INPUTS:
+                text,count=re.subn(r"INSTALLED_COMPILER_READER = 'sha256:[0-9a-f]{64}'",
+                    "INSTALLED_COMPILER_READER = 'sha256:"+'0'*64+"'",path.read_text())
+                self.assertEqual(count,1);path.write_text(text)
+            elif relative=='.github/workflows/project-tests.yml':
+                path.write_bytes((ROOT/'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml').read_bytes())
+            else:path.write_bytes(path.read_bytes()+b'\n# older CI source\n')
         old_values={}
         for relative,value in (old_extra or {}).items():
             path=f.candidate/relative;old_values[relative]=(path.read_bytes(),path.stat().st_mode&0o777)if path.exists()else None
@@ -1047,7 +1065,66 @@ class CanonicalCIInputOwnershipTests(unittest.TestCase):
                 self.assertEqual(result['reason'],'reviewed-canonical-ci-inputs');self.assertEqual(result['views'],[])
                 self.assertIsNone(result['lock_package_plan'])
                 self.assertEqual(gate.android().plan(f.candidate,target,views=result['views'],policy_root=f.policy_root)['executions'],{})
-                self.assertTrue(gate.REVIEWED_CI_INPUTS.isdisjoint(gate.android().EXECUTION_FILES))
+                self.assertEqual(set(gate.REVIEWED_CI_INPUTS)&set(gate.android().EXECUTION_FILES),{gate.COMPILER_INPUTS})
+                old=gate._sources(f.candidate,f.event['pull_request']['base']['sha'])
+                new=gate._sources(f.candidate)
+                self.assertEqual(set(result['paths']),gate.REVIEWED_CI_INPUTS)
+                self.assertEqual([p for p in result['paths']if p not in old.entries],sorted(gate.REVIEWED_CI_ADDITIONS))
+                self.assertNotEqual(old.text(gate.COMPILER_INPUTS),new.text(gate.COMPILER_INPUTS))
+                self.assertEqual(gate._compiler_reader_ast(old.text(gate.COMPILER_INPUTS)),gate._compiler_reader_ast(new.text(gate.COMPILER_INPUTS)))
+            f.doCleanups()
+
+    def test_reader_data_preserves_all_graph_structure_and_only_one_compiler_literal(self):
+        f=self.case();before=gate._sources(f.candidate,f.event['pull_request']['base']['sha'])
+        source=gate._sources(f.candidate);trusted=gate._sources(f.policy_root)
+        self.assertTrue(gate._reviewed_ci_data(before,source,trusted,list(gate.REVIEWED_CI_INPUTS),gate.android()))
+        text=source.text(gate.COMPILER_INPUTS)
+        for changed in (text+'\ndef unreviewed_execution(): return True\n',
+                text.replace('INSTALLED_COMPILER_READER =','INSTALLED_COMPILER_READER: str ='),
+                text.replace('INSTALLED_COMPILER_READER =','SECOND = INSTALLED_COMPILER_READER ='),
+                text+'\nINSTALLED_COMPILER_READER = "sha256:'+'1'*64+'"\n',
+                text.replace("INSTALLED_COMPILER_READER = 'sha256:","INSTALLED_COMPILER_READER = 'unknown:")):
+            with self.subTest(changed=changed[-100:]):
+                try:self.assertNotEqual(gate._compiler_reader_ast(text),gate._compiler_reader_ast(changed))
+                except ValueError:pass
+        old=before.json(gate.DEPENDENCIES);new=source.json(gate.DEPENDENCIES)
+        new['lookup_digest']='sha256:'+'f'*64;new['targets']['main']['lookup_digest']=new['lookup_digest']
+        class Source:
+            entries=source.entries
+            def json(_,p):return deepcopy(new)if p==gate.DEPENDENCIES else source.json(p)
+            def text(_,p):return source.text(p)
+        self.assertTrue(gate._reviewed_ci_data(before,Source(),trusted,[gate.DEPENDENCIES],gate.android()))
+        self.assertNotEqual(old['targets']['main']['reader_digest'],new['targets']['main']['reader_digest'])
+
+    def test_nonreader_dependency_catalog_addition_and_compiler_changes_keep40(self):
+        inputs=(ROOT/gate.COMPILER_INPUTS).read_bytes()
+        variants=[('compiler-function',{gate.COMPILER_INPUTS:inputs+b'\ndef changed_execution(): return True\n'}),
+            ('compiler-expression',{gate.COMPILER_INPUTS:inputs.replace(b'INSTALLED_COMPILER_READER = ',b'INSTALLED_COMPILER_READER = str(')+b')\n'}),
+            ('compiler-extra-assignment',{gate.COMPILER_INPUTS:inputs+b'\nINSTALLED_COMPILER_READER = "sha256:'+b'1'*64+b'"\n'}),
+            ('missing-other-CI',{'tools/repository-checks/codeql.py':None}),
+            ('alias-compiler',{gate.COMPILER_INPUTS:'alias'})]
+        dependencies=json.loads((ROOT/gate.DEPENDENCIES).read_bytes())
+        for field,value in (('schema',1),('lookup_digest','not-a-digest'),('registry_digest','sha256:'+'0'*64)):
+            changed=deepcopy(dependencies);changed[field]=value
+            variants.append(('dependency-'+field,{gate.DEPENDENCIES:json.dumps(changed).encode()}))
+        changed=deepcopy(dependencies);changed['suites']['producer-api']['setup']=['git']
+        variants.append(('dependency-setup',{gate.DEPENDENCIES:json.dumps(changed).encode()}))
+        changed=deepcopy(dependencies);changed['suites']['device-control-plane-full']['native_independent_paths'].append('unreviewed.py')
+        variants.append(('dependency-membership',{gate.DEPENDENCIES:json.dumps(changed).encode()}))
+        catalog=json.loads((ROOT/gate.CATALOG).read_bytes())
+        for shape in ('prefix','unknown-row','wrong-tuple'):
+            changed=deepcopy(catalog);changed['generations']=changed['generations'][:27]
+            if shape=='prefix':changed['generations'][0]['name']='unreviewed-history'
+            elif shape=='unknown-row':changed['generations'].append(deepcopy(changed['generations'][-1]))
+            else:changed['generations'][-1]['workflows']['.github/workflows/project-tests.yml']['sha']='1'*40
+            variants.append(('catalog-'+shape,{gate.CATALOG:json.dumps(changed).encode()}))
+        for shape,old in variants:
+            f=self.case(old_extra=old)
+            with self.subTest(shape=shape):self.assertIs(f.plan()['required'],True)
+            f.doCleanups()
+        for relative in gate.REVIEWED_CI_ADDITIONS:
+            f=self.case(candidate_change=lambda f:(f.candidate/relative).write_bytes(b'# unknown canonical recipe\n'))
+            with self.subTest(new_path=relative):self.assertIs(f.plan()['required'],True)
             f.doCleanups()
 
     def test_execution_inputs_Android_data_profiles_and_unknown_changes_keep_all40(self):

@@ -1615,8 +1615,14 @@ must be regular and exactly equal the protected default's entry. The complete
 candidate inventory, and the old inventory after replacing only those checked
 CI entries for comparison, must match the trusted target's existing lock-reader
 anchor and count. Policy JSON may change only its reviewed lock-source records.
-Execution controllers, runtime helpers, Android configuration, fixtures,
-profiles and toolchain changes retain the complete Android owner. Before a
+The dependency graph may change only validated reader and lookup digests; its
+definitions, membership and profiles remain exact. The generation catalog may
+only append the exact reviewed generation 28 to the exact historical 27-entry
+prefix. Only the two pinned passive recipes may be newly added. The sole
+execution-input exception is `inputs.py` with an identical complete Python AST
+after masking one valid top-level `INSTALLED_COMPILER_READER` digest literal.
+All functional execution-controller or runtime changes, Android configuration,
+fixtures, profiles and toolchain changes retain the complete Android owner. Before a
 branch delivery is published, independently derive its Android plan and locally
 preflight every selected command with all six ordinary views; shared host61 is
 not a substitute for the target-specific Android union.
