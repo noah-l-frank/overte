@@ -70,6 +70,17 @@ ordinary actions. Full coordination must retain and transfer bounded archive
 segments and original comparison images without dropping unresolved ownership;
 existing per-owner limits are unchanged.
 
+The Phone-only uncached private command reader is now polled before the probe's
+250 ms heavy-sample throttle, at most once per 20 ms of advancing wall time.
+The fixed debug marker must already be admitted; initial admission still occurs
+in the ordinary sample. Sample-side reads share the same poll cursor, so one
+update cannot read twice. A backwards clock rebases without dispatch. Missing
+Phone hooks retain the existing sampled Android channel. Native command parsing,
+operation nonce guards, source freshness limits and observation requirements are
+unchanged. This removes a source-imposed 250 ms delay for each sequential Phone
+command; it is not a measured transport latency or device performance result.
+The whole-run owner must still meet the actual freshness and timeout budgets.
+
 Pixel verification independently checks the actual original model draw, projection,
 challenge, PNG/pixel hashes and role-local comparison. A changing challenge with
 a frozen body, changing background/camera, foreign image or missing original

@@ -60,6 +60,8 @@
     var androidControlEligible = /^file:/.test(androidControlMarkerUrl);
     var androidControlAvailable = false;
     var androidControlProcessId = null;
+    var lastPhoneControlPollEpochMs = null;
+    var phoneControlPollIntervalMs = 20;
     var nativeMotionUrl = String(Script.resolvePath("avatar-motion-observation.json"));
     var nativeMotionLastRequestEpochMs = 0;
     var nativeMotionLastSequence = 0;
@@ -2216,12 +2218,40 @@
         }
     }
 
+    function pollPhoneControlCommand(now) {
+        // Only the compiled Phone E2E hook supports uncached private reads.
+        // Keep marker admission, closed command validation and each operation's
+        // original nonce guard. Reading a command is never a result observation.
+        if (!androidControlAvailable || typeof Test === "undefined"
+                || typeof Test.phoneReadFeatureCommand !== "function") {
+            return false;
+        }
+        if (typeof now !== "number" || !isFinite(now) || now < 0) {
+            return true;
+        }
+        if (lastPhoneControlPollEpochMs !== null) {
+            if (now < lastPhoneControlPollEpochMs) {
+                // Rebase without dispatch when the wall clock moves backwards.
+                lastPhoneControlPollEpochMs = now;
+                return true;
+            }
+            if (now - lastPhoneControlPollEpochMs < phoneControlPollIntervalMs) {
+                return true;
+            }
+        }
+        lastPhoneControlPollEpochMs = now;
+        pollAndroidControlCommand();
+        return true;
+    }
+
     function pollAndroidControlMarker() {
         if (!androidControlEligible) {
             return;
         }
         if (androidControlAvailable) {
-            pollAndroidControlCommand();
+            if (!pollPhoneControlCommand(Date.now())) {
+                pollAndroidControlCommand();
+            }
             return;
         }
         try {
@@ -2236,7 +2266,9 @@
         } catch (error) {
             androidControlAvailable = false;
         }
-        pollAndroidControlCommand();
+        if (!pollPhoneControlCommand(Date.now())) {
+            pollAndroidControlCommand();
+        }
     }
 
     function pollSoundCommand() {
@@ -2768,6 +2800,9 @@
 
     function updateProbe() {
         var observationStartedMs = Date.now();
+        if (typeof Test !== "undefined" && typeof Test.phoneReadFeatureCommand === "function") {
+            pollPhoneControlCommand(observationStartedMs);
+        }
         observeDispatcherRay(observationStartedMs);
         // Other Android products also publish the process marker but do not
         // provide the Pico application-thread history. Keep their real direct
