@@ -231,6 +231,10 @@ Start the coordinator from `feature_journeys/server.py --private-config <path>`.
 The file must contain `readerToken`, `actorToken`, `host`, `port`. Use separate
 random tokens of at least 32 characters. The actor token belongs only to the
 independent observer process; never pass it to the product adapter or runner.
+For product adapters, configure the separate optional `adapterToken` and the
+[version-1 adapter-only fixture reader](feature_journeys/ADAPTER_FIXTURE_ACCESS.md).
+It cannot mutate fixture state, publish samples or read independent journal facts.
+Never give an adapter the runner token; the harness keeps stripping it.
 The runner uses `OVERTE_E2E_FEATURE_FIXTURE_URL` (ending `/feature-fixture/v1`),
 `OVERTE_E2E_FEATURE_READER_TOKEN`, `OVERTE_E2E_FEATURE_IMAGE_POLICY`. Existing
 foundation suites retain their own fixture inputs. Avatar/People, Create, Emotes,

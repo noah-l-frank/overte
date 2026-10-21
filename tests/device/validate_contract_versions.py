@@ -12,6 +12,7 @@ REQUIRED = {
     "native-pending-commit-owner": 1,
     "native-pending-field-commit": 1,
     "asset-input-bundle": 1,
+    "feature-adapter-fixture-access": 1,
     "native-feature-observation": 1,
     "native-chat-observation": 1,
     "native-chat-view": 1,

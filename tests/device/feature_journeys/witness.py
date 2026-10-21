@@ -138,9 +138,11 @@ class Client:
         self.url, self.token = url, reader_token
         self.monotonic,self.sleep=monotonic,sleep
 
-    def request(self, path, value=None, method=None, *, script_nonce=None, graphics_nonce=None):
+    def request(self, path, value=None, method=None, *, script_nonce=None, graphics_nonce=None, adapter_access=False):
         raw = None if value is None else json.dumps(value).encode()
         headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'}
+        if type(adapter_access) is not bool:raise ValueError('Invalid adapter fixture access marker')
+        if adapter_access:headers['X-Overte-Fixture-Adapter-Read']='1'
         if script_nonce is not None:headers['X-Overte-Script-Read']=identifier(script_nonce)
         if graphics_nonce is not None:headers['X-Overte-Graphics-Read']=identifier(graphics_nonce)
         request = Request(self.url + path, data=raw, method=method,
