@@ -30,7 +30,7 @@ FIELDS={'phase','providerBefore','providerAfter','avatarBefore','avatarAfter','c
 
 class PhoneEmoteCapture:
     def __init__(self,source,index,policy,*,monotonic=time.monotonic):
-        need(isinstance(source,PhoneEmoteSources) and integer(index,1,256) and callable(monotonic))
+        need(isinstance(source,PhoneEmoteSources) and getattr(source,'historical',False) is False and integer(index,1,256) and callable(monotonic))
         source.lock.assert_held();need(source.state['phase'] in ('ready','reading') and source.frames and not source.failed)
         exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
         self.source,self.index,self.policy,self.monotonic=source,index,deepcopy(policy),monotonic

@@ -147,3 +147,55 @@ Host cases exercise the real Python acquisition, filesystem and measurement
 logic against synthetic native/SDK/Qt/GPU boundaries. These verify test logic
 only. Native code is uncompiled; devices remain untested. Complete Phone feature
 adapters remain three of fourteen.
+
+## Complete original archive transfer, version 1
+
+`transfer(retain)` supplies the full parent with the exact
+`emoteObservationArchiveVersion:1` record: `header` (this scope), `inputHeader`
+(primary input owner), `inputSourceHeader` (its original source journal),
+`sourceHeader` (this role's original source journal), and recomputed `result`.
+Primary source headers must be identical; actor headers remain independent.
+Every header retains its original immutable-file references and binding.
+The callback must durably retain the exact private record before scope metadata
+is removed. The existing five-second bound includes context replay, copies,
+callback IO, a second independent archive check and final guards. Changed source/
+input journals, lost candidate authority, incomplete capture retirement, new
+child metadata or missing originals prevent transfer. Original files and PNGs
+remain retained. This transfers metadata responsibility, not product cleanup.
+
+`PhoneEmoteObservation.archive(record,effects,index,policy)` rebuilds private
+historical source/input views from those exact retained headers, reopens the
+original files, recomputes input/Rig effects and image statistics, and compares
+the entire returned result. It works after live metadata has advanced or been
+transferred. The supplied actual effects owner provides current role/run/
+candidate/process/artifact-root/lock authority; it supplies no replacement facts.
+Archive views explicitly reject live source reads/writes, inputs, captures and
+fresh effect operations. No fake live metadata store is introduced. Historical
+replay sends no native observation command, fixture request or input and never
+retimes a result. Candidate guards and the replay deadline remain mandatory.
+
+`read(previous=...)` also accepts one complete archive record of an earlier
+same-role checkpoint, besides the original live-scope form. It first replays that
+complete record, then retains its original capture reference for pixel
+comparison. Wrong roles/contexts, uncompleted records, missing files and a
+non-earlier index fail. Three fresh stability captures may reuse the same current
+phase index after each successful transfer, while all compare against the same
+earlier completed checkpoint. Actual request nonces make PNGs unique; original
+content hashes/inodes distinguish retained capture/outcome files even when their
+bounded logical indices repeat. No input or image is replayed and no index/file
+limit is increased.
+
+The full coordinator should use an actual fixture activation sequence for the
+bounded phase index, rather than treating it as a global count of every poll.
+It must still own and validate source/input metadata handoffs between bounded
+segments, link original native/Script/UI continuity across those segments,
+preserve every archive and failed responsibility, and establish final cleanup.
+These remaining joins are required before complete Emote registration. The
+legacy `retire(retain)` returns/retains only the result and cannot by itself
+supply this full reconstruction context.
+
+Host cases verify independent primary/actor replay after live metadata removal,
+blocked live operations on historical views, changed context/results and missing
+originals, failed/slow retention and three actual new capture IDs in one phase
+without additional product inputs. These are source/logic checks only. Native
+compilation and device qualification remain pending.

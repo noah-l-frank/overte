@@ -39,7 +39,7 @@ class PhoneEmoteSources:
             and role in ('primary','actor') and isinstance(lock,PhoneScriptSourceLock) and callable(monotonic))
         path=adapter.state_path(selector);need(lock.path==path.with_name('phone-script-sources.lock'));lock.assert_held()
         self.adapter,self.selector,self.phase,self.role,self.lock=adapter,selector,phase,role,lock
-        self.monotonic=monotonic;self.run=identifier(phase.run)
+        self.monotonic=monotonic;self.run=identifier(phase.run);self.historical=False
         _ui,_service,binding,self.guard,_installed=adapter.normal_feature_runtime(selector,read_only=True)
         self.binding=deepcopy(context(binding));self.pid=int(self.binding['processIdentity'].split(':')[0]);need(integer(self.pid,1))
         self.store=PrivateFeatureState(path.with_name('phone-emote-'+role+'-sources.json'))
@@ -177,6 +177,7 @@ class PhoneEmoteSources:
         return activation['ticket']==after['activations'][-1]['ticket']
 
     def save(self):
+        need(getattr(self,'historical',False) is False)
         try:
             self.lock.assert_held();need(not self.failed and self.guard() is not False and same(self.store.read(),self.previous))
             self.state['revision']=len(self.frames)
@@ -191,6 +192,7 @@ class PhoneEmoteSources:
             raise
 
     def read(self):
+        need(getattr(self,'historical',False) is False)
         self.lock.assert_held();need(not self.failed and self.state['phase']=='ready' and len(self.frames)<LIMIT and self.guard() is not False)
         started=previous=self.monotonic();need(number(started,0,1e15))
         def bound():

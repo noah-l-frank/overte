@@ -29,6 +29,7 @@ class PhoneEmoteEffects:
             and self.source.run==self.input_source.run and self.source.phase.fixture_url==self.input_source.phase.fixture_url
             and same(self.source.binding,self.input_source.binding) and self.source.lock.path==self.input_source.lock.path)
         self.source.lock.assert_held()
+        self.historical=False
 
     @staticmethod
     def stored(source,reference):
@@ -50,10 +51,36 @@ class PhoneEmoteEffects:
         return dict(revision=len(self.source.frames),sha256=hashlib.sha256(canonical(self.source.frames[-1])).hexdigest())
 
     def bound(self):
+        need(self.historical is False)
         self.inputs.bound();self.source.lock.assert_held()
         need(not self.source.failed and self.source.guard() is not False
             and same(self.source.store.read(),self.source.previous) and self.source.state['phase']=='ready'
             and self.source.state['pending'] is None)
+
+    def _archive_context(self,input_header,input_source_header,source_header):
+        """Private read-only views rebuilt from retained original journals."""
+        source=self.source;started=source.monotonic();need(number(started,0,1e15))
+        source.lock.assert_held();need(source.guard() is not False)
+        def sources(actual,header):
+            need(type(header) is dict and header.get('role')==actual.role)
+            state,frames=PhoneEmoteSources.archive(header,phase=actual.phase,artifact_root=actual.artifact_root,
+                binding=actual.binding,guard=actual.guard,monotonic=actual.monotonic)
+            need(state['phase']=='ready' and state['pending'] is None)
+            view=object.__new__(PhoneEmoteSources);view.__dict__=actual.__dict__.copy()
+            view.previous,view.state,view.frames=deepcopy(header),state,frames
+            view.historical=True
+            return view
+        primary=sources(self.input_source,input_source_header)
+        if source.role=='primary':
+            need(same(input_source_header,source_header));current=primary
+        else:current=sources(source,source_header)
+        owner=object.__new__(PhoneEmoteInputs);owner.__dict__=self.inputs.__dict__.copy();owner.source=primary
+        owner.previous=deepcopy(input_header);owner.state,owner.history_state=owner.decode(owner.previous)
+        need(owner.history_state['pendingArchive'] is None)
+        context=PhoneEmoteEffects(owner,current_source=current);context.historical=True
+        source.lock.assert_held();need(source.guard() is not False)
+        end=source.monotonic();need(number(end,started,1e15) and end-started<5)
+        return context
 
     def panel(self,frame):
         ui=snapshot(frame['ui']);pages=[row for row in ui['controls'] if row['id']=='emote.page']

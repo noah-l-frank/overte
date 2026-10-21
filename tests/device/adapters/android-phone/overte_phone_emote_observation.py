@@ -29,12 +29,13 @@ class ObservationOriginals(PhoneEmoteOriginals):
 
 class PhoneEmoteObservation:
     def __init__(self,effects,index,policy):
-        need(isinstance(effects,PhoneEmoteEffects) and integer(index,1,256))
+        need(isinstance(effects,PhoneEmoteEffects) and effects.historical is False and integer(index,1,256))
         self.effects,self.source,self.index,self.policy=effects,effects.source,index,deepcopy(policy)
         exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
         source=self.source;source.lock.assert_held()
         self.store=PrivateFeatureState(source.store.path.with_name('phone-emote-'+source.role+'-observation-'+str(index)+'.json'))
         self.previous=self.store.read();self.failed=False;self.started=self.clock=None
+        self.historical=False
         self.state=dict(phase='reserved',ticket=None,capture=None,outcome=None,pending=None,retirement=None)
         self.originals=ObservationOriginals(source.artifact_root,source.binding,source.run,source.role,self.bound,
             self.storage_intent,kind='observations',monotonic=source.monotonic)
@@ -43,7 +44,9 @@ class PhoneEmoteObservation:
 
     def bound(self):
         source=self.source;source.lock.assert_held()
-        need(not self.failed and source.guard() is not False and same(self.store.read(),self.previous))
+        need(not self.failed and source.guard() is not False)
+        if self.historical:need(same(self.previous,self.archive_header))
+        else:need(same(self.store.read(),self.previous))
         now=source.monotonic();need(number(now,0,1e15) and (self.clock is None or now>=self.clock)
             and (self.started is None or now-self.started<5));self.clock=now
         return now
@@ -105,6 +108,7 @@ class PhoneEmoteObservation:
             and row['kind']==kind and row['ticket']==ticket)
 
     def save(self):
+        need(self.historical is False)
         self.bound()
         value=dict(emoteObservationVersion=VERSION,runId=self.source.run,fixtureUrl=self.source.phase.fixture_url,
             role=self.source.role,index=self.index,binding=deepcopy(self.source.binding),artifactRoot=str(self.source.artifact_root),
@@ -169,7 +173,7 @@ class PhoneEmoteObservation:
 
     def read(self,ticket,*,played=None,previous=None):
         """One new acquisition only; interruptions never replay this scope."""
-        identifier(ticket);need(self.previous is None and self.state['phase']=='reserved')
+        identifier(ticket);need(self.historical is False and self.previous is None and self.state['phase']=='reserved')
         self.started=self.bound();epoch_reader=self.source.adapter._native_feature_observer(self.source.selector,read_only=True)
         epoch=epoch_reader.clock_ms();host=self.source.phase.epoch_ms();need(integer(epoch,1) and number(host,1,1e15))
         try:
@@ -179,11 +183,16 @@ class PhoneEmoteObservation:
             self.effects.after(row,before)
             previous_ref=None
             if previous is not None:
-                need(isinstance(previous,PhoneEmoteObservation) and previous.index<self.index
-                    and previous.source.role==self.source.role and previous.source.run==self.source.run
-                    and same(previous.source.binding,self.source.binding) and same(previous.policy,self.policy)
-                    and previous.source.artifact_root==self.source.artifact_root)
-                previous.original();previous_ref=dict(index=previous.index,capture=deepcopy(previous.state['capture']))
+                if isinstance(previous,PhoneEmoteObservation):
+                    need(previous.index<self.index and previous.source.role==self.source.role and previous.source.run==self.source.run
+                        and same(previous.source.binding,self.source.binding) and same(previous.policy,self.policy)
+                        and previous.source.artifact_root==self.source.artifact_root)
+                    previous.original();previous_ref=dict(index=previous.index,capture=deepcopy(previous.state['capture']))
+                else:
+                    need(type(previous) is dict and type(previous.get('header')) is dict)
+                    index=previous['header'].get('index');need(integer(index,1,self.index-1))
+                    original=self.archive(previous,self.effects,index,self.policy)
+                    previous_ref=dict(index=index,capture=deepcopy(original['capture']))
             capture=PhoneEmoteCapture(self.source,self.index,self.policy,monotonic=self.source.monotonic)
             capture.read(ticket);capture.original()
             captured=dict(emoteObservationFrameVersion=VERSION,kind='capture',ticket=ticket,before=before,
@@ -242,7 +251,7 @@ class PhoneEmoteObservation:
 
     def retire(self,retain):
         """Retain exact completed original proof before removing this scope."""
-        need(callable(retain));self.started=self.bound()
+        need(self.historical is False and callable(retain));self.started=self.bound()
         try:
             value=self.original();need(self.state['pending'] is None)
             child=PrivateFeatureState(self.source.store.path.with_name('phone-emote-'+self.source.role+'-capture-'+str(self.index)+'.json'))
@@ -252,4 +261,44 @@ class PhoneEmoteObservation:
             self.source.lock.assert_held();need(self.source.guard() is not False)
             end=self.source.monotonic();need(number(end,self.started,1e15) and end-self.started<5)
             return value
+        finally:self.started=None
+
+    @classmethod
+    def archive(cls,value,effects,index,policy):
+        """Rebuild historical observations after all live journals advanced.
+
+        Replays exact retained contexts and immutable files. No fake live store,
+        target getter, fixture query, acquisition or fresh verdict is involved.
+        """
+        need(isinstance(effects,PhoneEmoteEffects) and integer(index,1,256));source=effects.source
+        started=source.monotonic();need(number(started,0,1e15));source.lock.assert_held();need(source.guard() is not False)
+        exact(value,{'emoteObservationArchiveVersion','header','inputHeader','inputSourceHeader','sourceHeader','result'})
+        need(type(value['emoteObservationArchiveVersion']) is int and value['emoteObservationArchiveVersion']==1)
+        context=effects._archive_context(value['inputHeader'],value['inputSourceHeader'],value['sourceHeader'])
+        scope=object.__new__(cls);scope.effects,scope.source,scope.index,scope.policy=context,context.source,index,deepcopy(policy)
+        exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
+        scope.historical=True;scope.failed=False;scope.started=started;scope.clock=None
+        scope.previous=deepcopy(value['header']);scope.archive_header=deepcopy(scope.previous)
+        scope.originals=ObservationOriginals(source.artifact_root,source.binding,source.run,source.role,scope.bound,
+            lambda *_:need(False),kind='observations',monotonic=source.monotonic)
+        scope.bound();scope.state=scope.decode(scope.previous);result=scope.original();need(same(result,value['result']))
+        returned=deepcopy(result);scope.bound();return returned
+
+    def transfer(self,retain):
+        """Retain a complete replay context before removing scope metadata."""
+        need(self.historical is False and callable(retain) and self.started is None)
+        self.started=self.source.monotonic();need(number(self.started,0,1e15))
+        try:
+            self.bound()
+            self.effects.bound();result=self.original();source=self.source;inputs=self.effects.inputs
+            value=dict(emoteObservationArchiveVersion=1,header=deepcopy(self.previous),inputHeader=deepcopy(inputs.previous),
+                inputSourceHeader=deepcopy(inputs.source.previous),sourceHeader=deepcopy(source.previous),result=result)
+            self.archive(value,self.effects,self.index,self.policy);self.bound();self.effects.bound()
+            child=PrivateFeatureState(source.store.path.with_name('phone-emote-'+source.role+'-capture-'+str(self.index)+'.json'))
+            need(child.read() is None and self.state['retirement'] is not None)
+            need(retain(deepcopy(value)) is not False);self.bound();self.effects.bound()
+            self.archive(value,self.effects,self.index,self.policy);self.bound();self.effects.bound();need(child.read() is None)
+            returned=deepcopy(value);self.bound();self.store.discard(self.previous);need(self.store.read() is None)
+            source.lock.assert_held();need(source.guard() is not False)
+            end=source.monotonic();need(number(end,self.started,1e15) and end-self.started<5);return returned
         finally:self.started=None

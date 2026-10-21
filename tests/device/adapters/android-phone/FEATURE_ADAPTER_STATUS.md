@@ -19,9 +19,12 @@ loading or repairing any. Owning admission, recovery, actor publication and
 complete Emote coordination remain pending.
 Capture cleanup additionally supports [parent retention](EMOTE_CAPTURE.md#parent-retention-before-child-metadata-removal)
 of exact child/source/native retirement originals before child metadata removal.
-Actual partial-file hashes remain failed diagnostic evidence. Whole parent
-failure recovery, bounded archive transfer and full Emote coordination remain
-open; the complete Phone count remains three of fourteen.
+Actual partial-file hashes remain failed diagnostic evidence. Complete
+[observation archive transfer](EMOTE_OBSERVATION.md#complete-original-archive-transfer-version-1)
+now retains replayable role-local source/input/image contexts and supports fresh
+stability images under one phase index. Whole parent failure recovery, source/
+input segment handoff/continuity and full Emote coordination remain open; the
+complete Phone count remains three of fourteen.
 Pico and iOS are owned by separate sessions/worktrees; this session edits Phone only. Historical
 component notes below do not supersede this current status. In particular,
 earlier Graphics statements that full coordination remains pending are historical:

@@ -21,6 +21,7 @@ from overte_phone_emote_inputs import PhoneEmoteInputs
 from overte_phone_emote_effects import PhoneEmoteEffects
 from overte_phone_emote_capture import PhoneEmoteCapture
 from overte_phone_emote_observation import PhoneEmoteObservation
+from overte_phone_script_history import unpack
 from test_emote_capture import Model as CaptureModel
 from test_emote_pixels import POLICY
 from test_emote_sources import RUN
@@ -111,6 +112,102 @@ class EmoteObservationTests(unittest.TestCase):
                     return result
                 with self.subTest(fault=fault),patch.object(scope,'load',side_effect=changed),self.assertRaises(NativeUIError):scope.original()
             self.assertEqual(value,scope.original());self.assertEqual(calls,m.calls)
+
+    def test_complete_primary_and_actor_archive_replays_after_live_journal_transfer_without_new_observations(self):
+        m=self.model;m.use_included_source();packets=[]
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));primary=m.scope(owner,1);first=primary.read(call['ticket'])
+            p=primary.transfer(lambda packet:packets.append(deepcopy(packet)))
+            actor=m.scope(owner,1,role='actor');second=actor.read(call['ticket']);a=actor.transfer(lambda packet:packets.append(deepcopy(packet)))
+            self.assertEqual([p,a],packets);self.assertIsNone(primary.store.read());self.assertIsNone(actor.store.read())
+            # Model a parent retaining both complete archive contexts before
+            # retiring live metadata. This proves archive logic, not actual
+            # product/UI/quiet cleanup or permission to forget a failed run.
+            owner.source.store.discard(owner.source.previous);actor.source.store.discard(actor.source.previous);owner.store.discard(owner.previous)
+            fresh=PhoneEmoteInputs(m.source());m.epoch+=10000;calls=deepcopy(m.calls)
+            for role,packet,expected in (('primary',p,first),('actor',a,second)):
+                reader=PhoneEmoteEffects(fresh,current_source=None if role=='primary' else m.source(role='actor'))
+                with self.subTest(role=role),patch.object(m,'_native_feature_observer',side_effect=AssertionError('Archive issued a new observation')):
+                    self.assertEqual(expected,PhoneEmoteObservation.archive(packet,reader,1,POLICY))
+            self.assertEqual(calls,m.calls)
+
+    def test_archive_context_cannot_issue_source_input_image_or_live_effect_operations(self):
+        m=self.model
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));scope=m.scope(owner,1);scope.read(call['ticket']);packet=scope.transfer(lambda *_:None)
+            context=scope.effects._archive_context(packet['inputHeader'],packet['inputSourceHeader'],packet['sourceHeader'])
+            calls=deepcopy(m.calls)
+            for operation in (lambda:context.source.read(),lambda:context.source.save(),lambda:context.inputs.act(call),
+                lambda:context.measure(packet['result']['effect']['frame']),lambda:PhoneEmoteObservation(context,2,POLICY),
+                lambda:PhoneEmoteCapture(context.source,2,POLICY)):
+                with self.assertRaises(NativeUIError):operation()
+            self.assertEqual(calls,m.calls)
+
+    def test_three_fresh_stability_images_reuse_one_phase_index_and_retired_previous_checkpoint_archive(self):
+        m=self.model;m.use_included_source();retained=[]
+        with m.lock.held():
+            owner,call=self.act('open');baseline=m.scope(owner,1);baseline.read(call['ticket']);previous=baseline.transfer(lambda packet:retained.append(deepcopy(packet)))
+            owner,call=self.act('play',dict(name='Waving'));inputs=len(m.controls.input_requests);packets=[]
+            for _ in range(3):
+                scope=m.scope(owner,2);value=scope.read(call['ticket'],previous=previous)
+                self.assertGreater(value['pixels']['bodyChangedFraction'],.05);self.assertEqual('Waving',value['state']['animation'])
+                packets.append(scope.transfer(lambda packet:retained.append(deepcopy(packet))))
+            self.assertEqual(inputs,len(m.controls.input_requests));self.assertEqual(4,m.world.counters['capture'])
+            self.assertEqual(3,len({unpack(packet['result']['image']['payload'])[0]['capture']['requestId'] for packet in packets}))
+            self.assertTrue(all(packet['result']['capture']['index']==3 and packet['result']['outcome']['index']==4 for packet in packets))
+            self.assertEqual(3,len({packet['result']['capture']['sha256'] for packet in packets}))
+            for packet in packets:self.assertEqual(packet['result'],PhoneEmoteObservation.archive(packet,scope.effects,2,POLICY))
+
+    def test_archive_transfer_failure_preserves_scope_and_originals(self):
+        for fault in ('rejected','slow','guard','input-header','source-header','new-child','missing-image'):
+            temporary=tempfile.TemporaryDirectory(prefix='overte-emote-archive-transfer-');self.addCleanup(temporary.cleanup)
+            m=Model(Path(temporary.name));self.model=m
+            with self.subTest(fault=fault),patch('overte_phone_emote_inputs.PhoneScriptUI',side_effect=m.tablet),m.lock.held():
+                owner,call=self.act('play',dict(name='Waving'));scope=m.scope(owner,1);scope.read(call['ticket'])
+                def retain(packet):
+                    self.assertIsNotNone(scope.store.read())
+                    if fault=='rejected':return False
+                    if fault=='slow':m.clock+=6
+                    elif fault=='guard':m.okay=False
+                    elif fault=='input-header':owner.store.discard(owner.previous)
+                    elif fault=='source-header':owner.source.store.discard(owner.source.previous)
+                    elif fault=='new-child':
+                        path=scope.store.path.with_name('phone-emote-primary-capture-1.json');path.write_text('{}');path.chmod(0o600)
+                    else:
+                        child=unpack(packet['result']['image']['payload'])[0];(m.root/child['image']['name']).unlink()
+                with self.assertRaises((NativeUIError,OSError,ValueError)):scope.transfer(retain)
+                self.assertIsNotNone(scope.store.read())
+
+    def test_slow_initial_transfer_guard_is_inside_the_whole_deadline_before_any_parent_callback(self):
+        m=self.model;retained=[]
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));scope=m.scope(owner,1);scope.read(call['ticket'])
+            original=scope.source.guard;calls=[0]
+            def slow():
+                calls[0]+=1
+                if calls[0]==1:m.clock+=6
+                return original()
+            scope.source.guard=slow
+            with self.assertRaises(NativeUIError):scope.transfer(lambda packet:retained.append(packet))
+            self.assertEqual([],retained);self.assertIsNotNone(scope.store.read())
+
+    def test_archive_replay_rejects_changed_context_result_role_and_missing_originals(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));scope=m.scope(owner,1);scope.read(call['ticket']);packet=scope.transfer(lambda *_:None)
+            for fault in ('version','result','input','primary-source','source','role','scope-index'):
+                value=deepcopy(packet);index=1
+                if fault=='version':value['emoteObservationArchiveVersion']=True
+                elif fault=='result':value['result']['state']['animation']='Crying'
+                elif fault=='input':value['inputHeader']['runId']='f'*32
+                elif fault=='primary-source':value['inputSourceHeader']['artifactRoot']='/foreign'
+                elif fault=='source':value['sourceHeader']['runId']='f'*32
+                elif fault=='role':value['sourceHeader']['role']='actor'
+                else:index=2
+                with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError,OSError)):
+                    PhoneEmoteObservation.archive(value,scope.effects,index,POLICY)
+            child=unpack(packet['result']['image']['payload'])[0];(m.root/child['image']['name']).unlink()
+            with self.assertRaises((NativeUIError,OSError)):PhoneEmoteObservation.archive(packet,scope.effects,1,POLICY)
 
     def test_open_play_and_restore_join_current_original_pixels_to_stable_native_intervals(self):
         m=self.model

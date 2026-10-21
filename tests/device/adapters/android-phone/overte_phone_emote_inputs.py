@@ -167,6 +167,7 @@ class PhoneEmoteInputs:
         return state,dict(count=len(history),manifests=deepcopy(stored['manifests']),pendingArchive=deepcopy(pending))
 
     def bound(self):
+        need(getattr(self.source,'historical',False) is False)
         now=self.source.monotonic();need(number(now,0,1e15) and (self.clock is None or now>=self.clock)
             and (self.started is None or now-self.started<45));self.clock=now
         self.lock.assert_held();need(not self.failed and self.source.guard() is not False and same(self.store.read(),self.previous)
