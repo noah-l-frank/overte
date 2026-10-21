@@ -31,6 +31,14 @@ existing Graphics private-file engine with separate versioned Emote scopes and
 to both; Graphics v1 stays compatible. This is host evidence storage, not native
 lease release or complete Emote acquisition/cleanup coordination.
 
+The [owned original Emote capture](adapters/android-phone/EMOTE_CAPTURE.md) now
+joins actual guarded native readers, identity-bound PNG storage and independently
+verified native buffer/callback/issuer-file retirement. Lost/ignored operations
+retain responsibility; reconstructed cleanup cannot replay the acquisition or
+adopt foreign ownership. Its historical originals feed the paired pixel helper.
+Controlled scene/content, current input/Rig/actor joins and whole Emote resource/
+run coordination remain required; no complete capability is enabled.
+
 Phone Emote now has [durable original per-role sources](adapters/android-phone/EMOTE_SOURCES.md)
 and [actual loaded/evaluated Rig playback and restoration joins](native/EMOTE_RIG_MEASUREMENTS.md).
 These retain original roots, submitted manager/code, actual Rig/pose history,

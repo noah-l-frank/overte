@@ -951,6 +951,16 @@ class FeatureAdapterTests(unittest.TestCase):
                 base.assert_called_once()
             self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_complete_partial_or_unknown_emote_capture_ownership(self):
+        for role,index in (('primary','1'),('actor','256'),('unknown','broken')):
+            store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-'+role+'-capture-'+index+'.json'))
+            store.write({'unresolved':True},None)
+            with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+                with self.subTest(role=role,index=index),self.assertRaisesRegex(ValueError,'PHONE_EMOTE_CAPTURE_CLEANUP_INCOMPLETE'):
+                    self.adapter.cleanup(SELECTOR)
+                base.assert_called_once()
+            self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_general_cleanup_cannot_forget_either_emote_source_owner(self):
         for role in ('primary','actor'):
             store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-'+role+'-sources.json'))

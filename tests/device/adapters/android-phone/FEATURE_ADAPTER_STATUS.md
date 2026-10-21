@@ -36,6 +36,14 @@ and acquisition indices preserve interrupted responsibilities without broadening
 limits. Native capture/receipt retirement and full source/fixture/actor/run
 coordination remain required before capability registration.
 
+[Owned original Emote capture](EMOTE_CAPTURE.md) now composes guarded avatar/model/
+GPU observations, durable private PNG evidence and separately verified native
+buffer/callback/issuer-file retirement. Counterexamples cover interrupted and
+ignored operations, foreign/missing originals, phase changes and late delivery.
+This closes the image acquisition component; controlled scene/content, fresh
+input/Rig/actor and whole-feature cleanup composition remain open. The full area
+count stays three; native additions remain uncompiled and devices untested.
+
 The [original Emote input component](NORMAL_EMOTE_PROTOCOL.md) now joins actual
 Qt widgets, normal pointer/wheel delivery, original tokens and private Phone
 read-only admission. Its 251-case combined host regression passes. Full Emote
