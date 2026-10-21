@@ -16,20 +16,22 @@ import uuid
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
 
-VERSION = 4
-READS = {1, 2, 3, 4}
+VERSION = 5
+READS = {1, 2, 3, 4, 5}
 FILE = 'feature-ios-web-closures.json'
 LIMIT = 262144
 KINDS = {'javascript', 'snapshot', 'presentation', 'rule-list', 'notification', 'script-reply', 'download'}
 RESOURCES = {'policy-grant', 'native-view', 'native-bitmap'}
 SOFTWARE_RESOURCES = {'scenegraph-node', 'offscreen-image', 'upload-image'}
+NATIVE_OBJECT_RESOURCES = {'native-delegate', 'native-presentation', 'native-snapshot-object'}
 GPU_RESOURCES = {'cpu-texture', 'vulkan-texture', 'vulkan-image', 'vulkan-image-view', 'vulkan-sampler',
                  'vulkan-allocation', 'vulkan-staging-buffer', 'vulkan-staging-memory', 'vulkan-submission'}
 
 
 def resources_for(version):
     return (RESOURCES | (SOFTWARE_RESOURCES if version >= 3 else set())
-            | (GPU_RESOURCES if version >= 4 else set()))
+            | (GPU_RESOURCES if version >= 4 else set())
+            | (NATIVE_OBJECT_RESOURCES if version >= 5 else set()))
 HEX = '[0-9a-f]{32}'
 
 
@@ -155,6 +157,20 @@ def drained_gpu_resources(value, admitted):
     rows = drained_software_resources(value, admitted)
     need(admitted['iosWebClosureVersion'] >= 4 and value['iosWebClosureVersion'] >= 4
          and all(any(row['resources'][kind]['created'] > 0 for row in admitted['contexts']) for kind in GPU_RESOURCES))
+    return rows
+
+
+def drained_owned_resources(value, admitted):
+    """Full version-5 traced Graphics marker path, including UIKit holders.
+
+    Native presentation is optional in this path; any observed presentation
+    holder still has to retire. Framework-internal caches outside the actual
+    traced objects and full-run quiet/world evidence are not asserted here.
+    """
+    rows = drained_gpu_resources(value, admitted)
+    need(admitted['iosWebClosureVersion'] >= 5 and value['iosWebClosureVersion'] >= 5
+         and all(any(row['resources'][kind]['created'] > 0 for row in admitted['contexts'])
+                 for kind in ('native-delegate', 'native-snapshot-object')))
     return rows
 
 

@@ -13,8 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from adapters.normal_ui import NativeUIError
 from fixture.serve import FixtureState
 from ios.adapters.feature_observation import FeatureObservation
-from ios.adapters.web_closures import (IOSWebClosures, KINDS, RESOURCES, SOFTWARE_RESOURCES, GPU_RESOURCES, resources_for,
-    command, drained, drained_native_resources, drained_software_resources, drained_gpu_resources)
+from ios.adapters.web_closures import (IOSWebClosures, KINDS, RESOURCES, SOFTWARE_RESOURCES, GPU_RESOURCES, NATIVE_OBJECT_RESOURCES, resources_for,
+    command, drained, drained_native_resources, drained_software_resources, drained_gpu_resources, drained_owned_resources)
 from self_tests.test_native_feature_observation import Boundary as ClockBoundary, probe_source
 
 RUN = 'a' * 32
@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[4]
 class ClosureBoundary:
     def __init__(self):
         self.time = 0.; self.sequence = 0; self.commands = []; self.request = None
-        self.version = 1; self.resources = {k:dict(created=1,retired=0,pending=1) for k in RESOURCES | SOFTWARE_RESOURCES | GPU_RESOURCES}
+        self.version = 1; self.resources = {k:dict(created=1,retired=0,pending=1) for k in RESOURCES | SOFTWARE_RESOURCES | GPU_RESOURCES | NATIVE_OBJECT_RESOURCES}
         self.mutate = None; self.alive = True; self.ignored = False; self.retired = 0; self.created = 1
     def send(self, value):
         self.commands.append(deepcopy(value)); self.request = value
@@ -258,8 +258,8 @@ class NativeResourceTests(unittest.TestCase):
     def test_native_resource_hooks_follow_actual_owners_without_retaining_the_view(self):
         view=(ROOT/'ios/web/IOSWebView.mm').read_text();snapshot=(ROOT/'ios/web/WKWebSnapshot.mm').read_text()
         header=(ROOT/'ios/web/IOSWebClosureTrace.h').read_text()
-        self.assertIn('objc_setAssociatedObject(state.view, &overteIOSWebViewLifetimeKey, lifetime, OBJC_ASSOCIATION_RETAIN_NONATOMIC)',view)
-        token=view[view.index('@interface OverteIOSWebViewLifetime'):view.index('@interface OverteIOSWebDelegate')]
+        self.assertIn('objc_setAssociatedObject(actual, &overteIOSWebResourceLifetimeKey, lifetime, OBJC_ASSOCIATION_RETAIN_NONATOMIC)',view)
+        token=view[view.index('@interface OverteIOSWebResourceLifetime'):view.index('@interface OverteIOSWebDelegate')]
         self.assertNotIn('WKWebView*',token);self.assertIn('feature_closures::Lease',token)
         self.assertIn('state.delegate->featureScope, feature_closures::Kind::NativeView',view)
         self.assertIn('_private->featurePolicyLease.reset()',view)
@@ -411,6 +411,47 @@ class GPUResourceTests(unittest.TestCase):
         self.assertIn('_currentFrame->featureImageSubmission->add(scopes)',backend)
         self.assertLess(cpu.index('_featureImageLeases'),cpu.index('const GPUObjectPointer gpuObject'))
         self.assertIn('QStringLiteral("cpu-texture")',cpu)
+
+
+class NativeHolderTests(unittest.TestCase):
+    def test_each_retained_delegate_presentation_and_snapshot_holder_prevents_cleanup(self):
+        for kind in NATIVE_OBJECT_RESOURCES:
+            b=ClosureBoundary();b.version=5;r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+            for c in b.resources.values():c.update(retired=1,pending=0)
+            b.resources[kind].update(retired=0,pending=1)
+            with self.subTest(kind=kind),self.assertRaises(RuntimeError):drained_owned_resources(r.read(RUN,URL),admitted)
+            b.resources[kind].update(retired=1,pending=0)
+            self.assertTrue(drained_owned_resources(r.read(RUN,URL),admitted))
+
+    def test_unopened_presentation_is_optional_but_missing_delegate_or_snapshot_source_is_not(self):
+        b=ClosureBoundary();b.version=5;b.resources['native-presentation'].update(created=0,retired=0,pending=0)
+        r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+        for c in b.resources.values():c.update(retired=c['created'],pending=0)
+        self.assertTrue(drained_owned_resources(r.read(RUN,URL),admitted))
+        for kind in ('native-delegate','native-snapshot-object'):
+            b=ClosureBoundary();b.version=5;b.resources[kind].update(created=0,retired=0,pending=0)
+            r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+            for c in b.resources.values():c.update(retired=c['created'],pending=0)
+            with self.subTest(kind=kind),self.assertRaises(RuntimeError):drained_owned_resources(r.read(RUN,URL),admitted)
+
+    def test_legacy_gpu_source_cannot_qualify_new_holder_lifetimes(self):
+        b=ClosureBoundary();b.version=4;r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+        for c in b.resources.values():c.update(retired=1,pending=0)
+        self.assertTrue(drained_gpu_resources(r.read(RUN,URL),admitted))
+        with self.assertRaises(RuntimeError):drained_owned_resources(r.read(RUN,URL),admitted)
+
+    def test_actual_native_holders_keep_all_original_scopes_and_attach_before_owner_guards(self):
+        view=(ROOT/'ios/web/IOSWebView.mm').read_text();snapshot=(ROOT/'ios/web/WKWebSnapshot.mm').read_text()
+        self.assertIn('if (!lifetime->leases.count(key)) {',view)
+        self.assertIn('lifetime->leases.emplace(key, retain(context, kind))',view)
+        self.assertIn('lifetime->leases.size() >= MAX_CONTEXTS * 4',view)
+        self.assertNotIn('leases.clear()',view[view.index('void nativeObject('):view.index('@interface OverteIOSWebDelegate')])
+        self.assertIn('feature_closures::Kind::NativeDelegate',view)
+        self.assertEqual(2,view.count('feature_closures::Kind::NativePresentation'))
+        self.assertLess(view.index('feature_closures::Kind::NativeDelegate'),view.index('state.view = [[WKWebView alloc]'))
+        self.assertLess(snapshot.index('feature_closures::Kind::NativeSnapshotObject'),snapshot.index('if (!owner) { return; }'))
+        bag=view[view.index('@interface OverteIOSWebResourceLifetime'):view.index('@end',view.index('@interface OverteIOSWebResourceLifetime'))]
+        self.assertNotIn('WKWebView',bag);self.assertNotIn('__strong',bag)
 
 
 class ClosureTransportTests(unittest.TestCase):

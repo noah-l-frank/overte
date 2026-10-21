@@ -141,16 +141,38 @@ QVariant qtValue(id value) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-// This associated token belongs to the actual native view. The ledger contains
-// no strong view reference and does not retire the lease when a QObject dies.
-@interface OverteIOSWebViewLifetime : NSObject {
+// Associated tokens follow actual native objects through their last holder.
+// The metadata bag has no strong reference back to its native object.
+@interface OverteIOSWebResourceLifetime : NSObject {
 @public
-    std::shared_ptr<overte::ios::feature_closures::Lease> lease;
+    std::map<QString, std::shared_ptr<overte::ios::feature_closures::Lease>> leases;
 }
 @end
-@implementation OverteIOSWebViewLifetime
+@implementation OverteIOSWebResourceLifetime
 @end
-static const char overteIOSWebViewLifetimeKey = 0;
+static const char overteIOSWebResourceLifetimeKey = 0;
+namespace overte::ios::feature_closures {
+void nativeObject(void* object, const ContextPointer& context, Kind kind) {
+    if (!context || !object) { return; }
+    if (!NSThread.isMainThread || (kind != Kind::NativeView && kind != Kind::NativeDelegate
+            && kind != Kind::NativePresentation && kind != Kind::NativeSnapshotObject)) { auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; return; }
+    id actual = (__bridge id)object;
+    OverteIOSWebResourceLifetime* lifetime = objc_getAssociatedObject(actual, &overteIOSWebResourceLifetimeKey);
+    if (!lifetime) {
+        lifetime = [OverteIOSWebResourceLifetime new];
+        objc_setAssociatedObject(actual, &overteIOSWebResourceLifetimeKey, lifetime, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    const auto key = QString::number(context->id) + ":" + QString::number(static_cast<qulonglong>(kind));
+    // Reusing a framework object across callbacks must retain every original
+    // scope, rather than replacing a previous context's lifetime token.
+    if (!lifetime->leases.count(key)) {
+        if (lifetime->leases.size() >= MAX_CONTEXTS * 4) {
+            auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; return;
+        }
+        lifetime->leases.emplace(key, retain(context, kind));
+    }
+}
+} // namespace overte::ios::feature_closures
 #endif
 
 @interface OverteIOSWebDelegate : NSObject <WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler> {
@@ -672,6 +694,10 @@ void IOSWebView::open() {
             }
             state.delegate = [OverteIOSWebDelegate new];
             state.delegate->owner = owner; state.delegate->generation = generation;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            state.delegate->featureScope = owner->featureClosureContext();
+            feature_closures::nativeObject((__bridge void*)state.delegate, state.delegate->featureScope, feature_closures::Kind::NativeDelegate);
+#endif
             [configuration.userContentController addScriptMessageHandler:state.delegate name:@"overteWebChannel"];
             const auto size = QSize(static_cast<int>(qBound(1.0, owner->width(), 2048.0)),
                                     static_cast<int>(qBound(1.0, owner->height(), 2048.0)));
@@ -679,11 +705,7 @@ void IOSWebView::open() {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
             if (featureEnabled() && state.view && state.featureCreation<9007199254740991ULL) { ++state.featureCreation; }
             state.delegate->featureScope = owner->featureClosureContext();
-            if (state.view && state.delegate->featureScope) {
-                OverteIOSWebViewLifetime* lifetime = [OverteIOSWebViewLifetime new];
-                lifetime->lease = feature_closures::retain(state.delegate->featureScope, feature_closures::Kind::NativeView);
-                objc_setAssociatedObject(state.view, &overteIOSWebViewLifetimeKey, lifetime, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            }
+            feature_closures::nativeObject((__bridge void*)state.view, state.delegate->featureScope, feature_closures::Kind::NativeView);
 #endif
             state.view.navigationDelegate = state.delegate; state.view.UIDelegate = state.delegate;
             state.view.opaque = state.background;
@@ -815,6 +837,9 @@ bool IOSWebView::openNative() {
     if (_private->presenter.presentedViewController) { return false; }
     _private->snapshot.detach();
     UIViewController* content = [UIViewController new];
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    feature_closures::nativeObject((__bridge void*)content, featureClosureContext(), feature_closures::Kind::NativePresentation);
+#endif
     content.view.backgroundColor = UIColor.systemBackgroundColor;
     [_private->view removeFromSuperview];
     _private->view.translatesAutoresizingMaskIntoConstraints = NO;
@@ -833,6 +858,9 @@ bool IOSWebView::openNative() {
         [[UIBarButtonItem alloc] initWithTitle:@"Reload" style:UIBarButtonItemStylePlain target:_private->delegate action:@selector(reload)]
     ];
     _private->presentation = [[UINavigationController alloc] initWithRootViewController:content];
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    feature_closures::nativeObject((__bridge void*)_private->presentation, featureClosureContext(), feature_closures::Kind::NativePresentation);
+#endif
     _private->presentation.toolbarHidden = NO;
     _private->presentation.modalPresentationStyle = UIModalPresentationFullScreen;
     _private->presentation.modalInPresentation = YES;

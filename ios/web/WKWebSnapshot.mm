@@ -101,6 +101,7 @@ void WKWebSnapshot::capture() {
         [view takeSnapshotWithConfiguration:configuration completionHandler:^(UIImage* snapshot, NSError* error) {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
             (void)featureLease; // Last native block copy owns the lease, including after QObject death.
+            feature_closures::nativeObject((__bridge void*)snapshot, featureContext, feature_closures::Kind::NativeSnapshotObject);
 #endif
             if (!owner) { return; }
             owner->_private->nativeCapturePending = false;

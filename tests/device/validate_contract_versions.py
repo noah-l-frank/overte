@@ -32,7 +32,7 @@ REQUIRED = {
     "feature-browser-resources": 1,
     "web-dom-observation": 1,
     "ios-feature-image-provenance": 1,
-    "ios-web-closures": 4,
+    "ios-web-closures": 5,
     "native-web-dom-observation": 1,
     "native-animation-history": 1,
     "native-script-controls": 1,

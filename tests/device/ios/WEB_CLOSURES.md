@@ -1,6 +1,6 @@
 # Original iOS Web callback ownership
 
-`ios/web/IOSWebClosureTrace.h` supplies a passive version-4 callback/native/software/GPU resource ledger for
+`ios/web/IOSWebClosureTrace.h` supplies a passive version-5 callback/native/software/GPU resource ledger for
 actual owned HTTP fixture contexts. It requires `OVERTE_E2E_FEATURE_TESTS` and
 the existing dedicated test-script/results launch arguments. Outside that
 boundary it creates no leases or native completion handlers.
@@ -44,7 +44,7 @@ nonempty original callback history and fresh retained contexts with zero
 pending callbacks, including newly added contexts. It does not implement a
 quiet window or replace its caller's durable ownership.
 
-Validation: 45 selected no-build cases pass across the new closure parser,
+Validation: 49 selected no-build cases pass across the new closure parser,
 actual HTTP/AFC factory, Node probe and existing shared/iOS Web DOM regressions.
 Counterexamples include held callback copies, lost delivery, disappearing
 contexts, foreign runs/PIDs, source replacement, counter regression, duplicate
@@ -60,7 +60,7 @@ capability is advertised.
 
 ## Version 2: native view, grant and bitmap resources
 
-Version 2 adds native resources; Python reads versions 1 through 4 without
+Version 2 adds native resources; Python reads versions 1 through 5 without
 inventing resource counts for legacy packets. Same-process source version
 changes fail continuity. `resources` records cumulative `policy-grant`,
 `native-view` and `native-bitmap` ownership separately from callbacks.
@@ -196,3 +196,37 @@ cases remain deliberately excluded. The five selected project documentation,
 contract, input-selection, policy and coverage suites pass. Registry and
 whitespace checks pass. The existing unrelated scissor-state static check's
 obsolete-field baseline failure is not changed or weakened by this packet.
+
+## Version 5: independently retained native holders
+
+The same actual-object association now covers native WK delegates, UIKit
+presentation/content controllers and returned WK snapshot UIImage objects.
+Delegates acquire their original token before native view allocation, so a
+failed allocation cannot hide a previously created native holder. Snapshot
+objects acquire a token before weak-owner early returns. Removing a view,
+releasing a Qt object or observing completed callback code is insufficient while
+these independently held native objects remain alive.
+
+One associated metadata bag retains every original context/kind on an actual
+object, rather than replacing an earlier scope when a framework reuses an
+object. A repeated acquisition of the same original scope does not double count
+that holder. The bag has no strong reference to its native object, accepts only
+its four closed native object kinds and is bounded. It adds no completion,
+presentation, dismissal, navigation, timer or resource destruction operation.
+Only actual native object destruction releases its tokens.
+
+`drained_owned_resources()` requires version 5 and original observed delegate
+and snapshot ownership in addition to the complete GPU/native/software path.
+The Graphics marker need not open a native presentation, but any presentation
+that actually exists must independently drain. Version-4 packets cannot qualify
+these new holder lifetimes. These are the actual traced app objects; private
+WebKit/CGImage/driver caches outside their ownership are not an asserted
+framework-wide memory inventory.
+
+Forty-nine selected no-build Web/closure cases pass, including each retained
+native holder, an unopened presentation, missing original object sources and
+legacy refusal. Native hook assertions verify attachment before owner guards
+and native view allocation, and preservation of original scopes on reused
+objects. Compilation and devices remain unverified. The earlier 665-iOS and
+1172-common full selections apply to version 4; this additional version-5 packet
+has the targeted selection and project/registry checks recorded with it.
