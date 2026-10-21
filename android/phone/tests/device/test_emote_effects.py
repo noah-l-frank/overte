@@ -242,5 +242,105 @@ class PhoneEmoteEffectTests(unittest.TestCase):
             owner.source.read();owner.source.read();m.call('close')
             with self.assertRaises(NativeUIError):effect.measure(effect.reference())
 
+    def actor(self,owner):
+        source=self.model.source(role='actor')
+        source.read();source.read()
+        return PhoneEmoteEffects(owner,current_source=source)
+
+    def test_actor_measures_its_own_loaded_effect_without_replaying_primary_inputs(self):
+        m=self.model
+        with m.lock.held():
+            owner,primary=self.act('play',dict(name='Waving'))
+            primary_value=self.observe(owner,primary);inputs=len(m.controls.input_requests)
+            actor=self.actor(owner);value=actor.measure(actor.reference())
+            self.assertEqual(2,value['emoteEffectVersion']);self.assertEqual('actor',value['role'])
+            self.assertEqual('Waving',value['state']['animation'])
+            self.assertNotEqual(primary_value['frame'],value['frame'])
+            self.assertEqual(2,value['frame']['revision'])
+            self.assertGreater(len(primary.source.frames),len(actor.source.frames))
+            self.assertEqual(inputs,len(m.controls.input_requests))
+
+    def test_actor_restoration_reopens_actor_play_and_primary_input_barriers(self):
+        m=self.model
+        with m.lock.held():
+            owner,primary=self.act('sit');primary_play=self.observe(owner,primary)['playbackReference']
+            actor=self.actor(owner);play=actor.measure(actor.reference())['playbackReference']
+            owner,_effect=self.act('cancel');actor=self.actor(owner)
+            value=actor.measure(actor.reference(),played=play)
+            self.assertEqual('restoration',value['kind']);self.assertFalse(value['state']['override'])
+            self.assertTrue(value['state']['restoredBeforeNominalEnd'])
+            with self.assertRaises(NativeUIError):actor.measure(actor.reference(),played=primary_play)
+
+    def test_actor_cannot_borrow_a_primary_frame_or_observation_before_consumption(self):
+        m=self.model
+        with m.lock.held():
+            owner,primary=self.act('open');self.observe(owner,primary)
+            actor=self.actor(owner);old=actor.reference()
+            owner,primary=self.act('play',dict(name='Crying'));self.observe(owner,primary)
+            actor=PhoneEmoteEffects(owner,current_source=actor.source)
+            with self.assertRaises(NativeUIError):actor.measure(old)
+            with self.assertRaises(NativeUIError):actor.measure(primary.reference())
+            actor.source.read();actor.source.read()
+            self.assertEqual('Crying',actor.measure(actor.reference())['state']['animation'])
+
+    def test_actor_rejects_ignored_foreign_and_wrong_loaded_effects_after_consumed_input(self):
+        for fault in ('ignored','foreign','different'):
+            with self.subTest(fault=fault):
+                temporary=tempfile.TemporaryDirectory(prefix='overte-emote-actor-');self.addCleanup(temporary.cleanup)
+                m=EffectsModel(Path(temporary.name));self.model=m
+                with patch('overte_phone_emote_inputs.PhoneScriptUI',side_effect=m.tablet),m.lock.held():
+                    m.ignore_native=fault!='foreign';m.foreign=fault=='foreign'
+                    owner,_primary=self.act('play',dict(name='Crying'))
+                    if fault=='different':m.start('Waving')
+                    actor=self.actor(owner)
+                    self.assertEqual('Crying',m.widgets.active)
+                    with self.assertRaises(NativeUIError):actor.measure(actor.reference())
+
+    def test_actor_missing_current_original_and_missing_primary_barrier_stay_unavailable(self):
+        for role in ('actor','primary'):
+            with self.subTest(role=role):
+                temporary=tempfile.TemporaryDirectory(prefix='overte-emote-actor-files-');self.addCleanup(temporary.cleanup)
+                m=EffectsModel(Path(temporary.name));self.model=m
+                with patch('overte_phone_emote_inputs.PhoneScriptUI',side_effect=m.tablet),m.lock.held():
+                    owner,_primary=self.act('play',dict(name='Waving'));actor=self.actor(owner)
+                    source=actor.source if role=='actor' else owner.source
+                    entries=source.originals.manifest(source.state['manifests'][0])
+                    source.originals.path(source.originals.expand(entries[-1])).unlink()
+                    with self.assertRaises((NativeUIError,OSError)):actor.measure(actor.reference())
+
+    def test_actor_unpersisted_current_state_and_lost_final_guard_cannot_publish(self):
+        m=self.model
+        with m.lock.held():
+            owner,_primary=self.act('play',dict(name='Waving'));actor=self.actor(owner)
+            original=deepcopy(actor.source.state);actor.source.state['revision']-=1
+            with self.assertRaises(NativeUIError):actor.measure(actor.reference())
+            actor.source.state=original;status=actor.source.phase.status
+            def lost(*args):
+                value=status(*args);m.okay=False;return value
+            actor.source.phase.status=lost
+            with self.assertRaises(NativeUIError):actor.measure(actor.reference())
+
+    def test_slow_primary_archive_replay_is_included_in_actor_freshness(self):
+        m=self.model
+        with m.lock.held():
+            owner,_primary=self.act('play',dict(name='Waving'));actor=self.actor(owner)
+            decode=owner.decode
+            def slow(value):
+                result=decode(value);m.clock+=2;return result
+            owner.decode=slow
+            with self.assertRaises(NativeUIError):actor.measure(actor.reference())
+
+    def test_actor_constructor_rejects_other_run_binding_or_lock(self):
+        m=self.model
+        with m.lock.held():
+            owner,_primary=self.act('open');source=m.source(role='actor')
+            for key,replacement in (('run','f'*32),('binding',dict(source.binding,processIdentity='32:other'))):
+                with self.subTest(key=key):
+                    original=getattr(source,key);setattr(source,key,replacement)
+                    with self.assertRaises(NativeUIError):PhoneEmoteEffects(owner,current_source=source)
+                    setattr(source,key,original)
+            other=m.source()
+            with self.assertRaises(NativeUIError):PhoneEmoteEffects(owner,current_source=other)
+
 
 if __name__=='__main__':unittest.main()

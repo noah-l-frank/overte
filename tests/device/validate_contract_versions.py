@@ -111,7 +111,7 @@ REQUIRED = {
     "emote-rig-measurement": 2,
     "phone-emote-sources": 3,
     "phone-emote-inputs": 2,
-    "phone-emote-effects": 1,
+    "phone-emote-effects": 2,
     "phone-emote-background": 1,
     "phone-emote-lifetime": 1,
     "phone-emote-pixels": 1,

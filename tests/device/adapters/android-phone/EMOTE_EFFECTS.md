@@ -1,4 +1,4 @@
-# Phone owned ordinary Emote effects, version 1
+# Phone owned ordinary Emote effects, version 2
 
 `PhoneEmoteEffects` connects existing ordinary input ownership to original native
 Rig measurements. It takes a real `PhoneEmoteInputs` backed by source journal v3;
@@ -6,6 +6,19 @@ it delivers no product input, retries no uncertain input, creates no new journal
 and advertises no complete Emote capability. Images, separate actor publication,
 background/resume and whole-resource cleanup remain missing. Phone still has
 three complete source adapters, with uncompiled native code and no device runs.
+
+Version 2 adds independently acquired actor effects and an explicit result role.
+Version 1 results have no role and are not accepted as version 2 originals.
+`PhoneEmoteEffects(primary_inputs, current_source=actor_sources)` reopens the
+primary immutable input receipts only as stimulus and causal barriers. All current
+Rig, VM, Qt and fixture facts come from the actor's own source journal, original
+files and fresh acquisition. The constructor requires the same run, fixture root,
+candidate/process and held source lock. Actor and primary revision indices are
+independent; ordering uses original native and consumed-input times and cursors,
+never revision comparisons across roles. An actor's prior playback reference is
+reopened from its own originals when checking restoration. Primary effect results
+or frame references cannot replace an actor observation. This helper does not
+publish actor records or independently authenticate an observer transport.
 
 ## Original arguments and ownership
 
@@ -60,7 +73,7 @@ animation or pose measurements.
 
 ## Exact result, freshness and failures
 
-The private result has exactly `emoteEffectVersion:1`, `runId`, actual `binding`,
+The private result has exactly `emoteEffectVersion:2`, actual `role`, `runId`, actual `binding`,
 original `call`, current `frame` reference, `playbackReference` or null, `kind`,
 measured `state`, and complete recomputed native `proof` or null. Kind is
 `playback`, `restoration`, `idle-reset` or `idle`. State has the common six fields:
