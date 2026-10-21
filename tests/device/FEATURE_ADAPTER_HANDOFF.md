@@ -686,3 +686,12 @@ boom/pinch setting observations. It exposes no setter. Thirteen common and two
 Phone host counterexamples pass; full normal Emote view/fixture/run composition
 remains open. Native instrumentation is uncompiled; complete Phone count stays
 three, and all device acceptance remains open.
+
+[Phone Emote view v1](adapters/android-phone/EMOTE_VIEW.md) now prepares/restores
+the normal Selfie/General-pinch view without replacing the domain, owns lost
+normal input/UI responsibilities and requires separately observed native contact
+retirement. Its parent must durably retain fresh original restored proof before
+child removal. The [touch source](native/PHONE_TOUCH_STATE.md) has no release
+setter. Controlled marker/content and complete fresh effect/image/actor/run joins
+are still missing; complete Phone count remains 3/14, native uncompiled and all
+devices untested.

@@ -773,6 +773,35 @@ QVariantMap TestScriptingInterface::featureSceneLoadObservation(const QVariantMa
 #endif
 }
 
+QVariantMap TestScriptingInterface::phoneTouchObservation(const QVariantMap& command) {
+#if defined(ANDROID_APP_PHONE_INTERFACE)
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=phoneTouchObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    const auto request=command.value("commandId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || command.keys()!=QStringList{"action","commandId","schemaVersion"}
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || command.value("action").toString()!="phone-touch-state-observe"
+            || !json.value("commandId").isString()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(request).hasMatch()) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    auto source=qApp->phoneTouchObservation();
+    if (source.isEmpty()) { return {}; }
+    source.insert("phoneTouchStateVersion",1);
+    return {{"schemaVersion",1},{"requestId",request},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_phoneTouchSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+#else
+    Q_UNUSED(command); return {};
+#endif
+}
+
 QVariantMap TestScriptingInterface::phoneAvatarConfigurationObservation(const QVariantMap& command) {
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     if (QThread::currentThread() != thread()) {

@@ -1163,3 +1163,10 @@ void Application::processDriverBlocklistReply(const QString& fullDriverToTest, c
         }
     }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap Application::phoneTouchObservation() const {
+    if (QThread::currentThread() != thread() || !_touchscreenVirtualPadDevice) { return {}; }
+    return _touchscreenVirtualPadDevice->e2eTouchObservation();
+}
+#endif

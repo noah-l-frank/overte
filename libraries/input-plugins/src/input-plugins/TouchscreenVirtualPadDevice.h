@@ -22,6 +22,9 @@
 #include <QtCore/QList>
 #endif
 #include "VirtualPadManager.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include <QVariantMap>
+#endif
 
 class QTouchEvent;
 class QGestureEvent;
@@ -46,6 +49,9 @@ public:
     void touchUpdateEvent(const QTouchEvent* event);
     void touchGestureEvent(const QGestureEvent* event);
     bool isWorldTapPosition(const QPointF& position);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    QVariantMap e2eTouchObservation() const;
+#endif
 
     static const char* NAME;
 

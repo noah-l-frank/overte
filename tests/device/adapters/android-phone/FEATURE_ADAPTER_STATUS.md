@@ -123,6 +123,14 @@ perspective boom/pinch preference. Its original resource/render join rejects
 external, replaced or missing content. Normal view setup and full Emote
 coordination remain open; this additive source promotes no feature capability.
 
+The [owned ordinary Emote view](EMOTE_VIEW.md) now uses normal Selfie, General
+checkbox/Save and bounded two-finger input with actual native boom/preference
+checks, durable interrupted-step/UI responsibility and exact original default
+view restoration. [Original Phone touch state](../../native/PHONE_TOUCH_STATE.md)
+independently rejects retained contacts, channels and pending pinch after SDK
+release. Whole marker/content/input/Rig/image/actor/run coordination remains
+open; full Emotes is still incomplete and no capability is advertised.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

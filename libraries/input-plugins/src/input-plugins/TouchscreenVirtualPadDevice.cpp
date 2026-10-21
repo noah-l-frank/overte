@@ -9,6 +9,10 @@
 //  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 //
 #include "TouchscreenVirtualPadDevice.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+#include <QThread>
+#include <QVariantMap>
+#endif
 #include "KeyboardMouseDevice.h"
 
 #include <QtGui/QTouchEvent>
@@ -704,3 +708,22 @@ bool TouchscreenVirtualPadDevice::TouchscreenButtonsManager::touchBeginInvalidFo
     }
     return true;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+QVariantMap TouchscreenVirtualPadDevice::e2eTouchObservation() const {
+    // The original event/drive-key owner is observed on its QObject thread.
+    if (QThread::currentThread() != thread()) { return {}; }
+    QVariantList axes, pressed;
+    for (const auto& axis : _inputDevice->_axisStateMap) {
+        axes.append(QVariantMap{{"channel",axis.first},{"value",axis.second.value}});
+    }
+    for (const auto button : _inputDevice->_buttonPressedMap) { pressed.append(button); }
+    int buttons {0};
+    for (const auto& button : _buttonsManager.buttons) { if (button.hasValidTouch) { ++buttons; } }
+    return {{"pluginActive",isRunning()},{"eventPointCount",_touchPointCount},
+        {"moveContact",_moveHasValidTouch},{"viewContact",_viewHasValidTouch},
+        {"buttonContacts",buttons},{"unusedContacts",static_cast<int>(_unusedTouches.size())},
+        {"axes",axes},{"pressedButtons",pressed},{"pendingPinchIn",_pinchIn},
+        {"pendingPinchOut",_pinchOut},{"lastPinchScale",_lastPinchScale}};
+}
+#endif

@@ -247,6 +247,7 @@
     }
     var lastPhoneEmoteRequest = "";
     var lastPhoneAvatarConfigurationRequest = "";
+    var lastPhoneTouchStateRequest = "";
     function validPhoneEmoteRequest(request) {
         function nonce(value) { return typeof value === "string" && value.length === 32 && /^[0-9a-f]{32}$/.test(value); }
         if (!request || request.schemaVersion !== 1 || !nonce(request.commandId)) { return false; }
@@ -1566,6 +1567,24 @@
         }
         if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
                 && /^[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 32
+                && command.action === "phone-touch-state-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId === lastPhoneTouchStateRequest) { return; }
+            lastPhoneTouchStateRequest = command.commandId;
+            var phoneTouchState = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.phoneTouchObservation === "function") {
+                    var originalPhoneTouchState = Test.phoneTouchObservation(command);
+                    if (originalPhoneTouchState && originalPhoneTouchState.requestId === command.commandId) {
+                        phoneTouchState = originalPhoneTouchState;
+                    }
+                }
+            } catch (_phoneTouchStateError) { /* No input ACK or default proves retired contacts. */ }
+            Test.saveObject(phoneTouchState, "phone-touch-state.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
+                && /^[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 32
                 && command.action === "phone-avatar-configuration-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
             if (command.commandId === lastPhoneAvatarConfigurationRequest) { return; }
@@ -2008,7 +2027,7 @@
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
                 || command.action === "feature-graphics-subject-observe"
-                || command.action === "phone-avatar-configuration-observe"
+                || command.action === "phone-avatar-configuration-observe" || command.action === "phone-touch-state-observe"
                 || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-script-files")) {

@@ -38,6 +38,7 @@ from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_graphics_subject import Boundary as GraphicsSubjectBoundary, RUN as GRAPHICS_RUN
 from self_tests.test_native_avatar_render import Boundary as AvatarRenderBoundary
 from self_tests.test_native_phone_avatar_configuration import Boundary as AvatarConfigurationBoundary
+from self_tests.test_native_phone_touch_state import Boundary as TouchStateBoundary
 from self_tests.test_native_phone_scene_loads import Boundary as SceneLoadBoundary, URL as SCENE_LOAD_URL
 from adapters.native_phone_scene_loads import committed as committed_scene
 from self_tests.test_native_phone_web_runtime import Boundary as WebRuntimeBoundary, ROOT as WEB_RUNTIME_ROOT, URL as WEB_RUNTIME_URL
@@ -926,6 +927,14 @@ class FeatureAdapterTests(unittest.TestCase):
         with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}):self.adapter.cleanup(SELECTOR)
         self.assertIsNone(self.adapter.account_probe_store(SELECTOR,role='actor').read())
 
+    def test_general_cleanup_cannot_forget_emote_view_or_preference_ownership(self):
+        store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-view.json'))
+        store.write({'unresolved':True},None)
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_EMOTE_VIEW_OWNERSHIP_REMAINS'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_general_cleanup_cannot_forget_emote_background_or_activation_intent(self):
         store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-background.json'))
         store.write({'unresolved':True},None)
@@ -1253,6 +1262,26 @@ class FeatureAdapterTests(unittest.TestCase):
         appium.readonly_feature_command(value)
         for change in (dict(expectedResource='fixture'),dict(boomLength=3),dict(action='phone-avatar-configuration-set'),
                 dict(commandId='ios-'+'a'*32)):
+            with self.subTest(change=change),self.assertRaises((RuntimeError,ValueError)):appium.readonly_feature_command(value|change)
+
+    def test_phone_touch_state_factory_preserves_original_contacts_without_session_start_or_feature_promotion(self):
+        self.read_only_boundaries()
+        source=self.preview_boundaries(TouchStateBoundary(),'phone-touch-state.json');source.touch['viewContact']=True
+        with patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+                monotonic=lambda:source.clock,sleep=source.sleep)):
+            reader=self.adapter._touch_state_observer(SELECTOR);value=reader.read()
+            self.assertEqual(source.sample,value);self.assertTrue(value['source']['viewContact'])
+            before=len(source.commands);self.native.identity='31:15'
+            with self.assertRaises(RuntimeError):reader.read()
+            self.assertEqual(before,len(source.commands))
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+        self.assertFalse(any(c.startswith('feature.emotes.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_touch_state_grammar_cannot_release_contacts_or_accept_expected_cleanup(self):
+        with self.assertRaises(ValueError):self.adapter._touch_state_observer(SELECTOR,read_only=False)
+        value=dict(schemaVersion=1,commandId='a'*32,action='phone-touch-state-observe')
+        appium.readonly_feature_command(value)
+        for change in (dict(released=True),dict(contacts=[]),dict(action='phone-touch-state-release'),dict(commandId='ios-'+'a'*32)):
             with self.subTest(change=change),self.assertRaises((RuntimeError,ValueError)):appium.readonly_feature_command(value|change)
 
     def avatar_render_boundaries(self,*,models=False):

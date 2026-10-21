@@ -99,6 +99,7 @@ class Application : public QApplication,
 
 public:
 #if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PHONE_INTERFACE)
+    QVariantMap phoneTouchObservation() const;
     QVariantMap phoneSceneLoadObservation() { return _featurePhoneSceneLoads->snapshot(_serverlessDomainRequestGeneration); }
 #endif
     Application(

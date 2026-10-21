@@ -129,10 +129,10 @@ class PhoneGraphicsSurface:
             self.ui.wait_absent(field);self.bound();self.mark('address',False)
             return {'performed':True} # No loaded-scene/viewpoint claim.
 
-    def open(self):
+    def open_settings(self):
         with self.operation():
             self.open_tablet();value=self.graphics.capture()
-            if self.graphics.row(value,'graphics.page') is None:
+            if self.graphics.row(value,'graphics.settings-entry') is None:
                 if self.graphics.row(value,'settings.entry') is None and self.graphics.row(value,'graphics.settings-entry') is None:
                     need(self.known_tablet(value))
                     if self.ui.available(self.tablet.resource('nav.home')):self.click('tablet-home',self.tablet.resource('nav.home'))
@@ -145,7 +145,13 @@ class PhoneGraphicsSurface:
                 if self.graphics.row(value,'settings.entry') is not None:
                     self.qt('settings.entry','settings-open')
                     self.graphics.wait(lambda current:self.graphics.row(current,'graphics.settings-entry') is not None);self.bound()
-                self.qt('graphics.settings-entry','graphics-open')
+            need(self.tablet.tablet_visible());return {'performed':True}
+
+    def open(self):
+        with self.operation():
+            self.open_tablet();value=self.graphics.capture()
+            if self.graphics.row(value,'graphics.page') is None:
+                self.open_settings();self.qt('graphics.settings-entry','graphics-open')
                 value=self.graphics.wait(lambda current:self.graphics.row(current,'graphics.page') is not None);self.bound()
             page=self.graphics.row(value,'graphics.page');need(page is not None and page['profile']=='phone-immediate-v1')
             need(self.tablet.tablet_visible());return {'performed':True}

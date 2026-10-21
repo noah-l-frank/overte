@@ -64,6 +64,7 @@ from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WOR
 from adapters.native_graphics_subject import NativeGraphicsSubject, FILE as GRAPHICS_SUBJECT_FILE
 from adapters.native_avatar_render import NativeAvatarRender, FILE as AVATAR_RENDER_FILE
 from adapters.native_phone_avatar_configuration import NativePhoneAvatarConfiguration, FILE as AVATAR_CONFIGURATION_FILE
+from adapters.native_phone_touch_state import NativePhoneTouchState, FILE as TOUCH_STATE_FILE
 from adapters.native_world_model_draws import NativeWorldModelDraws, FILE as WORLD_MODEL_DRAWS_FILE
 from adapters.native_phone_scene_loads import NativePhoneSceneLoads, FILE as SCENE_LOAD_FILE
 from adapters.native_phone_web_runtime import NativePhoneWebRuntime, FILE as WEB_RUNTIME_FILE
@@ -112,6 +113,9 @@ def readonly_feature_command(command):
     elif action=='feature-process-presence':
         from adapters.native_process_presence import command as validate_presence
         validate_presence(command)
+    elif action=='phone-touch-state-observe':
+        from adapters.native_phone_touch_state import command as validate_touch_state
+        validate_touch_state(command)
     elif action=='phone-avatar-configuration-observe':
         from adapters.native_phone_avatar_configuration import command as validate_avatar_configuration
         validate_avatar_configuration(command)
@@ -574,6 +578,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         return NativePhoneWebRuntime(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+WEB_RUNTIME_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _touch_state_observer(self, selector, *, read_only=True):
+        require(read_only is True,'PHONE_TOUCH_STATE_REQUIRES_EXISTING_READ_ONLY_SESSION')
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativePhoneTouchState(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+TOUCH_STATE_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _avatar_configuration_observer(self, selector, *, read_only=True):
@@ -1353,6 +1365,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE')
         require(not world_error and all(self.world_render_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_WORLD_RENDER_CLEANUP_INCOMPLETE')
+        require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-view.json')).read() is None,
+                'PHONE_EMOTE_VIEW_OWNERSHIP_REMAINS')
         require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-background.json')).read() is None,
                 'PHONE_EMOTE_BACKGROUND_CLEANUP_INCOMPLETE')
         require(all(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-'+role+'-lifetime.json')).read() is None

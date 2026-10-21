@@ -96,6 +96,8 @@
     "phone-graphics-restart": {"current": 1, "reads": [1]},
     "world-render-acquisition": {"current": 2, "reads": [1, 2]},
     "world-render-trace": {"current": 2, "reads": [1, 2]},
+    "native-phone-touch-state": {"current": 1, "reads": [1]},
+    "phone-emote-view": {"current": 1, "reads": [1]},
     "native-phone-avatar-configuration": {"current": 1, "reads": [1]},
     "native-avatar-render": {"current": 1, "reads": [1]},
     "native-world-model-draws": {"current": 1, "reads": [1]},
