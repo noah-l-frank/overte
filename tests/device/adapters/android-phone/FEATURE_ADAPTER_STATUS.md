@@ -51,6 +51,13 @@ all originals without relaxing private metadata limits. Interrupted archive
 writes and legacy inline journals fail closed. These checks establish storage
 and input logic only; the complete area count remains three of fourteen.
 
+The [original manager-thread work source](../../native/SCRIPT_WORK_OBSERVATION.md)
+now has E2E-only native implementation, a guarded read-only Phone factory and
+hardware-free Python/JS counterexamples. It observes actual timer entries and
+active timer/signal callback execution at a queued manager-thread barrier.
+The native additions remain uncompiled. Complete source/effect/image/actor/
+background/quiet-cleanup joins still remain; no full Emote capability is enabled.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

@@ -30,6 +30,12 @@ legacy inline records remain unavailable for fresh results. Full native effect,
 avatar image, independent actor, background/lifetime and cleanup composition
 remain required; native compilation and device qualification are still open.
 
+The [manager-thread Script work source](native/SCRIPT_WORK_OBSERVATION.md)
+adds actual timer-map and active timer/signal callback capture without waiting
+for the worker on the GUI thread or exposing input setters. Phone's guarded read-only binding and strict
+Python/JS protocol checks exist. C++ is uncompiled; the full Emote owner must
+join its actual manager/code to input/Rig/image/peer evidence and quiet cleanup.
+
 The [prepared native IME event](native/PREPARED_FIELD_COMMIT.md) and
 [native owner/private transport](native/PENDING_COMMIT_OWNER.md) retain original
 Qt event/context identity and verify fresh effects and actual pending inventory.

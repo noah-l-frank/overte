@@ -79,6 +79,7 @@ from overte_phone_authentication_feature import PhoneAuthenticationFeature, Auth
 from overte_phone_emote_controls import PhoneEmoteIO, FILE as EMOTE_UI_FILE
 from adapters.token_emote_ui import TokenEmoteUI
 from adapters.native_script_roots import NativeScriptRoots, FILE as SCRIPT_ROOTS_FILE
+from adapters.native_script_work import NativeScriptWork, FILE as SCRIPT_WORK_FILE, command as script_work_command
 from overte_phone_graphics_feature import PhoneGraphicsFeature
 from overte_phone_graphics_fixture import GraphicsFixtureReader
 from feature_journeys.witness import Client as FeatureFixtureClient
@@ -99,6 +100,8 @@ def readonly_feature_command(command):
     action=command.get('action')
     if action in ('feature-native-observe','feature-script-observe','feature-world-render-observe','feature-script-roots-observe'):
         require(set(command)=={'schemaVersion','commandId','action'},'PHONE_READ_ONLY_COMMAND_REJECTED')
+    elif action=='feature-script-work-observe':
+        script_work_command(command)
     elif action=='feature-script-files':
         from adapters.native_script_files import command as validate_files
         validate_files(command)
@@ -868,6 +871,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda: transport.read_debug_app_file(device, target['appId'],
                 'files/overte-e2e/' + SCRIPT_FILE_UI_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid)
+
+    def _script_work(self,selector,*,read_only=True):
+        require(read_only is True,'PHONE_SCRIPT_WORK_REQUIRES_EXISTING_READ_ONLY_SESSION')
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativeScriptWork(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+SCRIPT_WORK_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _script_roots(self,selector,*,read_only=False):
         native=self._native_feature_observer(selector,read_only=read_only)
