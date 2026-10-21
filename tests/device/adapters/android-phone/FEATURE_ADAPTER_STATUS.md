@@ -67,6 +67,13 @@ evidence. General teardown refuses success while either source role or input
 ownership remains, even after base teardown succeeds. Native code is uncompiled; full Emote image/peer/background/cleanup
 composition remains missing and the complete area count stays three.
 
+The [Phone ordinary-input/effect join](EMOTE_EFFECTS.md)
+now recomputes actual native playback/restore from durable input and source
+originals, including current widget visibility and selected VM call provenance.
+Consumed wrong/ignored inputs, unknown/old plays, replaced originals and slow
+final delivery fail. Full avatar image, independent actor, background and whole
+cleanup composition remain required; no complete Emote capability is enabled.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

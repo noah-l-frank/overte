@@ -66,6 +66,7 @@
     "emote-rig-measurement": {"current": 2, "reads": [2]},
     "phone-emote-sources": {"current": 3, "reads": [3]},
     "phone-emote-inputs": {"current": 2, "reads": [2]},
+    "phone-emote-effects": {"current": 1, "reads": [1]},
     "phone-emote-originals": {"current": 1, "reads": [1]},
     "graphics-subject": {"current": 2, "reads": [2]},
     "feature-graphics-resources": {"current": 1, "reads": [1]},

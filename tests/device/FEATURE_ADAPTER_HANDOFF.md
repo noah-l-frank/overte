@@ -30,6 +30,13 @@ legacy inline records remain unavailable for fresh results. Full native effect,
 avatar image, independent actor, background/lifetime and cleanup composition
 remain required; native compilation and device qualification are still open.
 
+The [Phone ordinary-input/effect join](adapters/android-phone/EMOTE_EFFECTS.md)
+now recomputes actual native playback/restore from durable input and source
+originals, including current widget visibility and selected VM call provenance.
+Consumed wrong/ignored inputs, unknown/old plays, replaced originals and slow
+final delivery fail. Full avatar image, independent actor, background and whole
+cleanup composition remain required; no complete Emote capability is enabled.
+
 The [actual VM-to-native animation caller](native/ANIMATION_CALLER.md) now
 links Rig history v2 to original manager assignment/code and invocation time,
 including the actual queued Avatar-thread handoff. Rig measurements v2 and
