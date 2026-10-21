@@ -9,6 +9,9 @@
 //
 
 #include "RenderableWebEntityItem.h"
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+#include <shared/IOSFeatureImageTrace.h>
+#endif
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -529,6 +532,10 @@ void WebEntityRenderer::doRender(RenderArgs* args) {
             uploadImage = uploadImage.mirrored(false, true);
         }
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        const auto featureImageScopes = overte::ios::feature_images::sources(newImage);
+        uploadImage = overte::ios::feature_images::image(uploadImage, featureImageScopes, QStringLiteral("upload-image"));
+#endif
         auto texture = gpu::Texture::createStrict(
             texelFormat,
             static_cast<uint16_t>(uploadImage.width()),

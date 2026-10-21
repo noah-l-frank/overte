@@ -10,6 +10,7 @@
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QDateTime>
 #include <QElapsedTimer>
+#include <QSGNode>
 #include <QHash>
 #include <QMutex>
 #include <QThread>
@@ -36,6 +37,7 @@
 #include <QUuid>
 #include <QWheelEvent>
 #include <atomic>
+#include <algorithm>
 #include <PathUtils.h>
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
@@ -327,6 +329,14 @@ namespace overte::ios {
 struct IOSWebView::Private {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     std::shared_ptr<feature_closures::Lease> featurePolicyLease;
+    feature_closures::ContextPointer featureImageContext;
+    feature_images::Scopes featurePaintedScopes;
+    std::vector<feature_images::Leases> featurePendingPaintLeases;
+    ~Private() {
+        // An actual paint not transferred to the native Qt node is an unknown
+        // ownership boundary, including destruction before a returned update.
+        for (const auto& scope : featurePaintedScopes) { scope.invalidate(); }
+    }
     const QString featureInstance { QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-') };
     quint64 featureHandle { 0 },featureCreation { 0 },featureSequence { 0 },featureGrant { 0 },featurePage { 0 };
     quint64 featureFinishedGrant { 0 },featureFinishedPage { 0 },featureVerifiedGrant { 0 },featureVerifiedPage { 0 };
@@ -471,7 +481,23 @@ void IOSWebView::geometryChange(const QRectF& next, const QRectF& previous) {
 }
 void IOSWebView::paint(QPainter* painter) {
     if (_private->background) { painter->fillRect(boundingRect(), Qt::white); }
-    if (!_private->image.isNull()) { painter->drawImage(boundingRect(), _private->image); }
+    if (!_private->image.isNull()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (_private->surface == QStringLiteral("world-entity") && _private->featureImageContext) {
+            const auto scope = feature_closures::imageScope(_private->featureImageContext);
+            feature_images::painted(scope);
+            if (std::none_of(_private->featurePaintedScopes.begin(), _private->featurePaintedScopes.end(),
+                    [&](const auto& old) { return old.id == scope.id; })) {
+                if (_private->featurePaintedScopes.size() >= feature_closures::MAX_CONTEXTS) { scope.invalidate(); }
+                else {
+                    _private->featurePaintedScopes.push_back(scope);
+                    _private->featurePendingPaintLeases.push_back(feature_images::retain({ scope }, QStringLiteral("scenegraph-node")));
+                }
+            }
+        }
+#endif
+        painter->drawImage(boundingRect(), _private->image);
+    }
     else if (!_private->error.isEmpty()) {
         painter->setPen(Qt::darkGray); painter->drawText(boundingRect().adjusted(12, 12, -12, -12), Qt::AlignCenter | Qt::TextWordWrap, _private->error);
     }
@@ -926,6 +952,9 @@ bool IOSWebView::beginDocumentNavigation(const QUrl& frame) {
 }
 void IOSWebView::acceptDocumentImage(std::uint64_t generation, std::uint64_t epoch, const QImage& image) {
     if (!active() || _private->generation != generation || _private->document.epoch() != epoch) { return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _private->featureImageContext = featureClosureContext();
+#endif
     _private->image = image; emit frameChanged(); update();
 }
 void IOSWebView::acceptInputResult(std::uint64_t generation, std::uint64_t epoch, bool editable) {
@@ -1165,6 +1194,35 @@ void IOSWebViewNative::failed(IOSWebView* owner, std::uint64_t generation) { if 
 void IOSWebViewNative::close(IOSWebView* owner) { if (owner) { owner->closePresentation(); } }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+namespace {
+class FeaturePaintNode final : public QSGNode {
+public:
+    QString source;
+    feature_images::Leases leases;
+};
+}
+QSGNode* IOSWebView::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* data) {
+    auto* node = QQuickPaintedItem::updatePaintNode(oldNode, data);
+    if (!node) { return node; }
+    // Actual Qt paint-node ownership survives independently of the QML object.
+    // A child with no rendering content changes no software rendering commands.
+    for (std::size_t i = 0; i < _private->featurePaintedScopes.size(); ++i) {
+        const auto& scope = _private->featurePaintedScopes[i];
+        bool found = false;
+        for (auto* child = node->firstChild(); child; child = child->nextSibling()) {
+            auto* token = dynamic_cast<FeaturePaintNode*>(child);
+            if (token && token->source == scope.id) { found = true; break; }
+        }
+        if (!found) {
+            auto* token = new FeaturePaintNode;
+            token->source = scope.id; token->leases = std::move(_private->featurePendingPaintLeases[i]);
+            token->setFlag(QSGNode::OwnedByParent, true);
+            node->appendChildNode(token);
+        }
+    }
+    _private->featurePaintedScopes.clear(); _private->featurePendingPaintLeases.clear();
+    return node;
+}
 feature_closures::ContextPointer IOSWebView::featureClosureContext() const {
     const auto& value = *_private;
     return feature_closures::context(value.featureHandle, value.featureCreation, value.generation,

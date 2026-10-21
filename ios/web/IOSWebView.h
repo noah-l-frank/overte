@@ -119,6 +119,7 @@ private:
     void evaluate(const QString& code);
     void closePresentation();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    QSGNode* updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* data) override;
     feature_closures::ContextPointer featureClosureContext() const;
     QVariantMap featureWebDOMRequest(const QVariantMap& command);
     QVariantMap featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source = {});

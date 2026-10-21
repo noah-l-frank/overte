@@ -7,6 +7,9 @@
 //
 
 #include "RenderEventHandler.h"
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+#include <shared/IOSFeatureImageTrace.h>
+#endif
 
 #include <mutex>
 
@@ -167,6 +170,9 @@ void RenderEventHandler::qmlRender(bool sceneGraphSync) {
     if (SharedObject::isSoftwareRendering()) {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         resize();
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        overte::ios::feature_images::PaintFrame featureImageFrame(_softwareImage);
+#endif
         if (!_shared->preRender(sceneGraphSync)) {
             return;
         }
@@ -183,6 +189,9 @@ void RenderEventHandler::qmlRender(bool sceneGraphSync) {
             // clears damaged regions when items are removed.
             _shared->_renderControl->render();
             _shared->_lastRenderTime = usecTimestampNow();
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+            featureImageFrame.finish(_softwareImage);
+#endif
             _shared->updateImage(_softwareImage);
 #if defined(Q_OS_IOS)
             recordIOSRuntimeSoftwareQmlImage(observationGeneration);

@@ -13,7 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from adapters.normal_ui import NativeUIError
 from fixture.serve import FixtureState
 from ios.adapters.feature_observation import FeatureObservation
-from ios.adapters.web_closures import IOSWebClosures, KINDS, RESOURCES, command, drained, drained_native_resources
+from ios.adapters.web_closures import (IOSWebClosures, KINDS, RESOURCES, SOFTWARE_RESOURCES, resources_for,
+    command, drained, drained_native_resources, drained_software_resources)
 from self_tests.test_native_feature_observation import Boundary as ClockBoundary, probe_source
 
 RUN = 'a' * 32
@@ -24,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[4]
 class ClosureBoundary:
     def __init__(self):
         self.time = 0.; self.sequence = 0; self.commands = []; self.request = None
-        self.version = 1; self.resources = {k:dict(created=1,retired=0,pending=1) for k in RESOURCES}
+        self.version = 1; self.resources = {k:dict(created=1,retired=0,pending=1) for k in RESOURCES | SOFTWARE_RESOURCES}
         self.mutate = None; self.alive = True; self.ignored = False; self.retired = 0; self.created = 1
     def send(self, value):
         self.commands.append(deepcopy(value)); self.request = value
@@ -40,7 +41,7 @@ class ClosureBoundary:
         c = self.request
         value = dict(iosWebClosureVersion=self.version, commandId=c['commandId'], runId=RUN, fixtureUrl=URL, instance='b'*32,
                      sequence=self.sequence, processId=42, capturedEpochMs=20000, complete=True, contexts=[row])
-        if self.version >= 2:row['resources']=deepcopy(self.resources)
+        if self.version >= 2:row['resources']={k:deepcopy(self.resources[k]) for k in resources_for(self.version)}
         if self.mutate:
             self.mutate(value)
         return json.dumps(value)
@@ -268,6 +269,64 @@ class NativeResourceTests(unittest.TestCase):
         self.assertIn('owner->cleaned->store(true); delete owner;',header)
         self.assertNotIn('original.copy()',header)
         self.assertIn('image.constBits(), image.width(), image.height(), image.bytesPerLine(), image.format()',header)
+
+
+class SoftwareResourceTests(unittest.TestCase):
+    def test_actual_node_software_buffer_and_upload_copy_have_independent_lifetimes(self):
+        b=ClosureBoundary();b.version=3;r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+        for c in b.resources.values():c.update(retired=1,pending=0)
+        for kind in SOFTWARE_RESOURCES:
+            b.resources[kind].update(retired=0,pending=1)
+            with self.subTest(kind=kind),self.assertRaises(RuntimeError):drained_software_resources(r.read(RUN,URL),admitted)
+            b.resources[kind].update(retired=1,pending=0)
+        self.assertTrue(drained_software_resources(r.read(RUN,URL),admitted))
+        self.assertEqual(1,admitted['contexts'][0]['resources']['offscreen-image']['pending'])
+
+    def test_legacy_native_only_and_unobserved_software_paths_cannot_qualify(self):
+        b=ClosureBoundary();b.version=2;r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+        for c in b.resources.values():c.update(retired=1,pending=0)
+        self.assertTrue(drained_native_resources(r.read(RUN,URL),admitted))
+        with self.assertRaises(RuntimeError):drained_software_resources(r.read(RUN,URL),admitted)
+        for kind in SOFTWARE_RESOURCES:
+            b=ClosureBoundary();b.version=3;b.resources[kind].update(created=0,retired=0,pending=0)
+            r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+            for c in b.resources.values():c.update(retired=c['created'],pending=0)
+            with self.subTest(kind=kind),self.assertRaises(RuntimeError):drained_software_resources(r.read(RUN,URL),admitted)
+
+    def test_reused_source_changed_software_counts_and_missing_paths_fail(self):
+        for kind in SOFTWARE_RESOURCES:
+            for edit in (lambda v:v['contexts'][0]['resources'].pop(kind),
+                         lambda v:v['contexts'][0]['resources'][kind].update(created=0,pending=0),
+                         lambda v:v['contexts'][0]['resources'][kind].update(retired=1,pending=1)):
+                b=ClosureBoundary();b.version=3;r=b.reader();r.read(RUN,URL);b.mutate=edit
+                with self.subTest(kind=kind,edit=edit),self.assertRaises(NativeUIError):r.read(RUN,URL)
+
+    def test_new_retained_copy_and_incomplete_trace_after_native_teardown_are_not_absence(self):
+        b=ClosureBoundary();b.version=3;r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+        for c in b.resources.values():c.update(retired=1,pending=0)
+        b.resources['offscreen-image'].update(created=2,pending=1)
+        with self.assertRaises(RuntimeError):drained_software_resources(r.read(RUN,URL),admitted)
+        b.resources['offscreen-image'].update(retired=2,pending=0);b.mutate=lambda v:v.update(complete=False)
+        with self.assertRaises(NativeUIError):r.read(RUN,URL)
+
+    def test_original_qt_render_and_upload_paths_are_bracketed_without_clear_or_reset(self):
+        trace=(ROOT/'libraries/shared/src/shared/IOSFeatureImageTrace.cpp').read_text()
+        render=(ROOT/'libraries/qml/src/qml/impl/RenderEventHandler.cpp').read_text()
+        upload=(ROOT/'libraries/entities-renderer/src/RenderableWebEntityItem.cpp').read_text()
+        view=(ROOT/'ios/web/IOSWebView.mm').read_text()
+        self.assertIn('std::map<qint64, Row> images',trace);self.assertIn('image.cacheKey()',trace)
+        self.assertIn('original = {}; // Drop the actual original implicit copy first.',trace)
+        self.assertIn('data.images.erase(key)',trace);self.assertNotIn('images.clear()',trace)
+        self.assertNotIn('.fill(',trace);self.assertNotIn('.copy(',trace)
+        self.assertLess(render.index('feature_images::PaintFrame'),render.index('_shared->preRender(sceneGraphSync)'))
+        self.assertLess(render.index('_shared->_renderControl->render()'),render.index('featureImageFrame.finish(_softwareImage)'))
+        self.assertLess(render.index('featureImageFrame.finish(_softwareImage)'),render.index('_shared->updateImage(_softwareImage)'))
+        self.assertIn('feature_images::sources(newImage)',upload)
+        self.assertLess(upload.index('QStringLiteral("upload-image")'),upload.index('auto texture = gpu::Texture::createStrict('))
+        self.assertIn('QQuickPaintedItem::updatePaintNode(oldNode, data)',view)
+        self.assertIn('token->setFlag(QSGNode::OwnedByParent, true)',view)
+        self.assertIn('std::move(_private->featurePendingPaintLeases[i])',view)
+        self.assertIn('_private->featurePaintedScopes.clear(); _private->featurePendingPaintLeases.clear()',view)
 
 
 class ClosureTransportTests(unittest.TestCase):

@@ -14,6 +14,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QImage>
+#include <shared/IOSFeatureImageTrace.h>
 #include <QRegularExpression>
 #include <QSet>
 #include <QUrl>
@@ -29,9 +30,9 @@
 namespace overte::ios::feature_closures {
 constexpr quint64 LIMIT = 9007199254740991ULL;
 constexpr std::size_t MAX_CONTEXTS = 1024;
-enum class Kind : std::size_t { JavaScript, Snapshot, Presentation, RuleList, Notification, ScriptReply, Download, PolicyGrant, NativeView, NativeBitmap, Count };
+enum class Kind : std::size_t { JavaScript, Snapshot, Presentation, RuleList, Notification, ScriptReply, Download, PolicyGrant, NativeView, NativeBitmap, SceneGraphNode, OffscreenImage, UploadImage, Count };
 inline const std::array<const char*, static_cast<std::size_t>(Kind::Count)> NAMES {
-    "javascript", "snapshot", "presentation", "rule-list", "notification", "script-reply", "download", "policy-grant", "native-view", "native-bitmap"
+    "javascript", "snapshot", "presentation", "rule-list", "notification", "script-reply", "download", "policy-grant", "native-view", "native-bitmap", "scenegraph-node", "offscreen-image", "upload-image"
 };
 constexpr std::size_t CALLBACK_KINDS = 7;
 struct Counters { quint64 created { 0 }, retired { 0 }; };
@@ -119,6 +120,16 @@ private:
 inline std::shared_ptr<Lease> retain(const ContextPointer& context, Kind kind) {
     return context ? std::make_shared<Lease>(context, kind) : std::shared_ptr<Lease>();
 }
+inline feature_images::Scope imageScope(const ContextPointer& context) {
+    if (!context) { return {}; }
+    const auto id = state().instance + ":" + QString::number(context->id);
+    return { id, [context](const QString& kind) -> std::shared_ptr<void> {
+        for (std::size_t i = CALLBACK_KINDS; i < NAMES.size(); ++i) {
+            if (kind == QLatin1String(NAMES[i])) { return retain(context, static_cast<Kind>(i)); }
+        }
+        auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; return {};
+    }, [] { auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false; } };
+}
 // A read-only QImage carrier retains the original allocation and a lease until
 // the last implicit copy is destroyed. Independently painted/converted images
 // need their own source; this carrier cannot prove their allocation absence.
@@ -166,7 +177,7 @@ inline QVariantMap observe(const QVariantMap& request) {
         rows.append(QVariantMap {{"id", static_cast<qulonglong>(id)}, {"descriptor", row.descriptor},
             {"createdEpochMs", row.createdEpochMs}, {"updatedEpochMs", row.updatedEpochMs}, {"callbacks", counters}, {"resources", resources}});
     }
-    QVariantMap result {{"iosWebClosureVersion", 2}, {"commandId", request.value("commandId")}, {"runId", request.value("runId")},
+    QVariantMap result {{"iosWebClosureVersion", 3}, {"commandId", request.value("commandId")}, {"runId", request.value("runId")},
         {"fixtureUrl", request.value("fixtureUrl")}, {"instance", data.instance}, {"sequence", static_cast<qulonglong>(++data.sequence)},
         {"processId", QCoreApplication::applicationPid()}, {"capturedEpochMs", now}, {"complete", data.complete}, {"contexts", rows}};
     if (QJsonDocument(QJsonObject::fromVariantMap(result)).toJson().size() > 262144) { data.complete = false; return {}; }

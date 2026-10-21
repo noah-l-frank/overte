@@ -16,12 +16,17 @@ import uuid
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
 
-VERSION = 2
-READS = {1, 2}
+VERSION = 3
+READS = {1, 2, 3}
 FILE = 'feature-ios-web-closures.json'
 LIMIT = 262144
 KINDS = {'javascript', 'snapshot', 'presentation', 'rule-list', 'notification', 'script-reply', 'download'}
 RESOURCES = {'policy-grant', 'native-view', 'native-bitmap'}
+SOFTWARE_RESOURCES = {'scenegraph-node', 'offscreen-image', 'upload-image'}
+
+
+def resources_for(version):
+    return RESOURCES | (SOFTWARE_RESOURCES if version >= 3 else set())
 HEX = '[0-9a-f]{32}'
 
 
@@ -68,7 +73,7 @@ def validate(value, request, pid, epoch):
         identity = json.dumps(descriptor, sort_keys=True)
         need(identity not in descriptors); descriptors.add(identity)
         exact(row['callbacks'], KINDS)
-        if value['iosWebClosureVersion'] >= 2:exact(row['resources'], RESOURCES)
+        if value['iosWebClosureVersion'] >= 2:exact(row['resources'], resources_for(value['iosWebClosureVersion']))
         for counters in list(row['callbacks'].values()) + list(row.get('resources', {}).values()):
             exact(counters, {'created', 'retired', 'pending'})
             need(integer(counters['created']) and integer(counters['retired'], 0, counters['created'])
@@ -120,9 +125,21 @@ def drained_native_resources(value, admitted):
     This remains insufficient for painted software buffers or GPU retirement.
     """
     rows = drained(value, admitted)
-    need(admitted['iosWebClosureVersion'] == 2 and value['iosWebClosureVersion'] == 2
+    need(admitted['iosWebClosureVersion'] >= 2 and value['iosWebClosureVersion'] >= 2
          and all(any(row['resources'][kind]['created'] > 0 for row in admitted['contexts']) for kind in RESOURCES)
          and all(c['pending'] == 0 for row in value['contexts'] for c in row['resources'].values()))
+    return rows
+
+
+def drained_software_resources(value, admitted):
+    """Native resources plus actual Qt node and software/upload image leases.
+
+    This does not include CPU texture, Vulkan objects or submission/recycler
+    lifetime. Conservative painted-source unions are not reset by dirty paints.
+    """
+    rows = drained_native_resources(value, admitted)
+    need(admitted['iosWebClosureVersion'] >= 3 and value['iosWebClosureVersion'] >= 3
+         and all(any(row['resources'][kind]['created'] > 0 for row in admitted['contexts']) for kind in SOFTWARE_RESOURCES))
     return rows
 
 

@@ -1,6 +1,6 @@
 # Original iOS Web callback ownership
 
-`ios/web/IOSWebClosureTrace.h` supplies a passive version-2 callback/native-resource ledger for
+`ios/web/IOSWebClosureTrace.h` supplies a passive version-3 callback/native/software-resource ledger for
 actual owned HTTP fixture contexts. It requires `OVERTE_E2E_FEATURE_TESTS` and
 the existing dedicated test-script/results launch arguments. Outside that
 boundary it creates no leases or native completion handlers.
@@ -44,7 +44,7 @@ nonempty original callback history and fresh retained contexts with zero
 pending callbacks, including newly added contexts. It does not implement a
 quiet window or replace its caller's durable ownership.
 
-Validation: 33 selected no-build cases pass across the new closure parser,
+Validation: 38 selected no-build cases pass across the new closure parser,
 actual HTTP/AFC factory, Node probe and existing shared/iOS Web DOM regressions.
 Counterexamples include held callback copies, lost delivery, disappearing
 contexts, foreign runs/PIDs, source replacement, counter regression, duplicate
@@ -53,15 +53,14 @@ unknown callback kinds. Native hook tests inspect source only. Native callbacks
 and the OS boundary remain synthetic; native compilation and devices are
 unverified.
 
-This facet is not a complete Web or Graphics adapter. QQuick software buffers,
-independent converted images, renderer texture uploads, recycler/GPU allocation
+This facet is not a complete Web or Graphics adapter. CPU texture, Vulkan wrapper/allocation, original submission and recycler
 retirement and final quiet-window composition still require separate original
 lifetime sources. No full feature
 capability is advertised.
 
 ## Version 2: native view, grant and bitmap resources
 
-The native writer now emits version 2; Python reads versions 1 and 2 without
+Version 2 adds native resources; Python reads versions 1, 2 and 3 without
 inventing resource counts for legacy packets. Same-process source version
 changes fail continuity. `resources` records cumulative `policy-grant`,
 `native-view` and `native-bitmap` ownership separately from callbacks.
@@ -91,5 +90,46 @@ whole-area capability. Thirty-three selected no-build Web/closure cases pass,
 including each held resource, new retained contexts, missing resource sources,
 legacy packets and counter regressions. Native resource hooks remain uncompiled
 and are checked only by source inspection and synthetic source counterexamples.
-Offscreen/QQuick images, renderer/GPU resources and final quiet composition
-remain unfinished.
+The additional software source is described below; renderer/GPU resource and
+final quiet composition remain unfinished.
+
+## Version 3: actual Qt software image provenance
+
+`shared/IOSFeatureImageTrace` owns one shared-library registry. It traces actual
+QImage implicit-copy identities and opaque source factories from the iOS Web
+module. It retains no QObject, paint node or GPU object in the registry. Original
+carrier cleanup removes only that carrier's registered identity and releases the
+actual original image reference before resource leases. A failed registration
+cannot erase another carrier's identity. Metadata is bounded to 4096 active
+carriers and 1024 original scopes; overflow invalidates the original native
+source instead of silently dropping ownership.
+
+The original Qt software render path brackets both synchronization and rendering.
+Actual owned `IOSWebView::paint` calls record their original image context inside
+that frame. Missing paint framing fails the source closed. The finished original
+software image carries the union of inherited and newly painted sources through
+`SharedObject` delivery, fetch/swap, copies and retained offscreen images. Dirty
+region rendering never becomes a full-clear receipt: old source ownership can
+remain conservative until the actual allocation's last implicit copy dies.
+No product pixels are cleared or restored by this instrumentation.
+
+The actual QQuickPaintedItem base `updatePaintNode` still creates and updates its
+native node. Resource-only child tokens attach pending original paint leases to
+that node and die under its real ownership. They contain no rendering commands.
+Pending source metadata is consumed only after transfer to the actual node;
+destruction with an untransferred actual paint invalidates the native source.
+The QML object's removal is not a substitute for node destruction.
+
+The Web entity's actual fetched software image supplies the provenance for its
+post-conversion/post-diagnostic upload carrier. Dimensions, format, stride and
+pixels stay original; the subsequent CPU texture remains a distinct source.
+`drained_software_resources()` requires original admission of real node,
+offscreen-image and upload-image ownership, plus native/callback drainage.
+Native-only legacy packets cannot qualify these resources. New implicit copies,
+retained nodes, missing paths or incomplete trace cannot become absence.
+
+Thirty-eight selected no-build cases pass, including each independent software
+resource, absent legacy source, changed original counts and new retained copies.
+The native checks inspect source placement and closed ownership only. Qt image,
+scene-graph and OS behavior remain synthetic/uncompiled; no claim of native
+execution, pixel identity on a device or GPU retirement follows from these tests.
