@@ -120,6 +120,7 @@ REQUIRED = {
     "phone-emote-journal-namespace": 1,
     "phone-emote-namespace-lease": 1,
     "phone-emote-inputs": 2,
+    "phone-emote-cleanup-inputs": 1,
     "phone-emote-effects": 2,
     "phone-emote-background": 2,
     "phone-emote-background-effect": 1,

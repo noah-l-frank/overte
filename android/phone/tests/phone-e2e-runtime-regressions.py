@@ -52,6 +52,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_emote_namespaces.py",
     "android/phone/tests/device/test_emote_originals.py",
     "android/phone/tests/device/test_emote_inputs.py",
+    "android/phone/tests/device/test_emote_cleanup.py",
     "android/phone/tests/device/test_emote_effects.py",
     "android/phone/tests/device/test_emote_background.py",
     "android/phone/tests/device/test_emote_background_effects.py",

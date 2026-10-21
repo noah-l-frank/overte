@@ -25,21 +25,8 @@ def input_name(segment):
     return 'phone-emote-inputs'+('-segment-'+str(segment) if segment else '')+'.json'
 
 
-class PhoneEmoteInputs:
-    def __init__(self,source):
-        need(isinstance(source,PhoneEmoteSources) and source.role=='primary');source.lock.assert_held()
-        self.source=source;self.adapter,self.selector,self.lock=source.adapter,source.selector,source.lock
-        self.run,self.fixture_url,self.binding=source.run,source.phase.fixture_url,source.binding
-        self.store=PrivateFeatureState(source.store.path.with_name(input_name(source.segment)))
-        self.previous=self.store.read();self.state=dict(history=[],current=None)
-        self.history_state=dict(count=0,manifests=[],pendingArchive=None)
-        self.history_store=PhoneEmoteOriginals(source.artifact_root,self.binding,self.run,'primary',source.guard,
-            self.archive_intent,kind='inputs',monotonic=source.monotonic)
-        self.started=self.clock=None;self.failed=False
-        if self.previous is not None:
-            try:self.state,self.history_state=self.decode(self.previous)
-            except (KeyError,TypeError,ValueError,OSError):raise NativeUIError('Original Emote input journal is invalid') from None
-
+class PhoneEmoteInputTransport:
+    """Shared one-send ordinary SDK/Qt primitives; owner supplies phase/storage."""
     def reference(self):
         need(self.source.frames and self.source.state['phase']=='ready')
         return dict(revision=len(self.source.frames),sha256=hashlib.sha256(canonical(self.source.frames[-1])).hexdigest())
@@ -49,13 +36,6 @@ class PhoneEmoteInputs:
         need(integer(reference['revision'],1,len(self.source.frames)))
         frame=self.source.frames[reference['revision']-1]
         need(reference['sha256']==hashlib.sha256(canonical(frame)).hexdigest());return frame
-
-    def active(self,call,status):
-        phase_packet(status,run=self.run,area='emotes',request=status['requestId'],epoch=status['capturedEpochMs'])
-        need(status['active'] and status['activations'])
-        row=status['activations'][-1]
-        need(row['ticket']==call['ticket'] and row['stimulus']['verb']==call['verb']
-            and same(row['stimulus']['inputs'],call['inputs']))
 
     @staticmethod
     def qt_intent(value):
@@ -84,11 +64,45 @@ class PhoneEmoteInputs:
             and right['sourceSequence']>left['sourceSequence'] and right['elapsedMs']>=left['elapsedMs']
             and right['capturedEpochMs']>=left['capturedEpochMs'])
 
-    def row(self,row):
-        exact(row,{'call','phase','before','intents','idleReset'})
-        call=arguments('feature.emotes.act',row['call'])
-        need(call['runId']==self.run and call['fixtureUrl']==self.fixture_url and call['verb'] in VERBS
-            and row['phase'] in ('acting','issuing','acknowledged') and type(row['intents']) is list and len(row['intents'])<=64)
+    def capture(self):
+        frame=self.source.read();self.active(self.state['current']['call'],frame['phaseAfter']);return self.reference()
+
+    def intent(self,value):
+        current=self.state['current'];need(current['phase']=='acting' and len(current['intents'])<64);self.qt_intent(value)
+        barrier=None
+        if value['controlId'].startswith('emote.play.'):
+            barrier=self.capture();frame=self.original(barrier)
+            same_reference(value['original'],frame['ui'],value['controlId']);provider=frame['phaseAfter']
+            if self.cancelling(current):
+                self.cancel_barrier(frame,value)
+        else:provider=self.source.phase.read(self.source.frames[-1]['phaseAfter'])['status']
+        self.active(current['call'],provider)
+        current['intents'].append(dict(kind='qt',input=deepcopy(value),provider=deepcopy(provider),barrier=barrier,after=None))
+        current['phase']='issuing';self.save()
+
+    def cancel_barrier(self,frame,value):
+        pages=[row for row in value['original']['controls'] if row['id']=='emote.page']
+        need(len(pages)==1 and pages[0]['activeName'] and value['controlId']=='emote.play.'+pages[0]['activeName']
+            and frame['group']['native']['animation']['overrideActive'] is True)
+
+    def receipt(self,value):
+        exact(value,{'intent','after'});current=self.state['current'];need(current['phase']=='issuing')
+        item=current['intents'][-1];need(item['kind']=='qt' and item['after'] is None and same(item['input'],value['intent']))
+        self.qt_receipt(value['intent'],value['after']);item['after']=deepcopy(value['after'])
+        current['phase']='acting';self.save()
+
+    def sdk(self,tablet,identifier):
+        current=self.state['current'];need(identifier in ('tablet.open','tablet.close')
+            and current['phase']=='acting' and len(current['intents'])<64)
+        before=self.capture();need(self.original(before)['ui']['open']==(identifier=='tablet.close'))
+        item=dict(kind='sdk',controlId=identifier,before=before,after=None);current['intents'].append(item)
+        current['phase']='issuing';self.save()
+        if identifier=='tablet.open':tablet.open_tablet()
+        else:need(identifier=='tablet.close');tablet.close_tablet();tablet.wait_tablet_absent()
+        after=self.capture();need(self.original(after)['ui']['open']==(identifier=='tablet.open'))
+        item['after']=after;current['phase']='acting';self.save()
+
+    def input_chain(self,row,call):
         if row['before'] is not None:
             first=self.original(row['before']);self.active(call,first['phaseAfter'])
             previous_ui,previous_provider=first['ui'],first['phaseAfter']
@@ -126,6 +140,40 @@ class PhoneEmoteInputs:
             if item['after'] is None:pending+=1;need(index==len(row['intents'])-1)
         need(pending==(1 if row['phase']=='issuing' else 0))
         plays=[item for item in row['intents'] if item['kind']=='qt' and item['input']['controlId'].startswith('emote.play.')]
+        return plays
+
+    def cancelling(self,current):
+        return current['call']['verb']=='cancel'
+
+
+class PhoneEmoteInputs(PhoneEmoteInputTransport):
+    def __init__(self,source):
+        need(isinstance(source,PhoneEmoteSources) and source.role=='primary');source.lock.assert_held()
+        self.source=source;self.adapter,self.selector,self.lock=source.adapter,source.selector,source.lock
+        self.run,self.fixture_url,self.binding=source.run,source.phase.fixture_url,source.binding
+        self.store=PrivateFeatureState(source.store.path.with_name(input_name(source.segment)))
+        self.previous=self.store.read();self.state=dict(history=[],current=None)
+        self.history_state=dict(count=0,manifests=[],pendingArchive=None)
+        self.history_store=PhoneEmoteOriginals(source.artifact_root,self.binding,self.run,'primary',source.guard,
+            self.archive_intent,kind='inputs',monotonic=source.monotonic)
+        self.started=self.clock=None;self.failed=False
+        if self.previous is not None:
+            try:self.state,self.history_state=self.decode(self.previous)
+            except (KeyError,TypeError,ValueError,OSError):raise NativeUIError('Original Emote input journal is invalid') from None
+
+    def active(self,call,status):
+        phase_packet(status,run=self.run,area='emotes',request=status['requestId'],epoch=status['capturedEpochMs'])
+        need(status['active'] and status['activations'])
+        row=status['activations'][-1]
+        need(row['ticket']==call['ticket'] and row['stimulus']['verb']==call['verb']
+            and same(row['stimulus']['inputs'],call['inputs']))
+
+    def row(self,row):
+        exact(row,{'call','phase','before','intents','idleReset'})
+        call=arguments('feature.emotes.act',row['call'])
+        need(call['runId']==self.run and call['fixtureUrl']==self.fixture_url and call['verb'] in VERBS
+            and row['phase'] in ('acting','issuing','acknowledged') and type(row['intents']) is list and len(row['intents'])<=64)
+        plays=self.input_chain(row,call)
         if call['verb'] in ('play','sit','override','cancel'):
             need(len(plays)<=1)
             if row['phase']=='acknowledged':need(len(plays)==1 or call['verb']=='cancel' and row['idleReset'] is not None)
@@ -229,41 +277,6 @@ class PhoneEmoteInputs:
         manifests=self.history_store.append(self.history_state['manifests'],original)
         self.state['history'].append(current);self.state['current']=None
         self.history_state=dict(count=len(self.state['history']),manifests=manifests,pendingArchive=None);self.persist()
-
-    def capture(self):
-        frame=self.source.read();self.active(self.state['current']['call'],frame['phaseAfter']);return self.reference()
-
-    def intent(self,value):
-        current=self.state['current'];need(current['phase']=='acting' and len(current['intents'])<64);self.qt_intent(value)
-        barrier=None
-        if value['controlId'].startswith('emote.play.'):
-            barrier=self.capture();frame=self.original(barrier)
-            same_reference(value['original'],frame['ui'],value['controlId']);provider=frame['phaseAfter']
-            if current['call']['verb']=='cancel':
-                pages=[row for row in value['original']['controls'] if row['id']=='emote.page']
-                need(len(pages)==1 and pages[0]['activeName'] and value['controlId']=='emote.play.'+pages[0]['activeName']
-                    and frame['group']['native']['animation']['overrideActive'] is True)
-        else:provider=self.source.phase.read(self.source.frames[-1]['phaseAfter'])['status']
-        self.active(current['call'],provider)
-        current['intents'].append(dict(kind='qt',input=deepcopy(value),provider=deepcopy(provider),barrier=barrier,after=None))
-        current['phase']='issuing';self.save()
-
-    def receipt(self,value):
-        exact(value,{'intent','after'});current=self.state['current'];need(current['phase']=='issuing')
-        item=current['intents'][-1];need(item['kind']=='qt' and item['after'] is None and same(item['input'],value['intent']))
-        self.qt_receipt(value['intent'],value['after']);item['after']=deepcopy(value['after'])
-        current['phase']='acting';self.save()
-
-    def sdk(self,tablet,identifier):
-        current=self.state['current'];need(identifier in ('tablet.open','tablet.close')
-            and current['phase']=='acting' and len(current['intents'])<64)
-        before=self.capture();need(self.original(before)['ui']['open']==(identifier=='tablet.close'))
-        item=dict(kind='sdk',controlId=identifier,before=before,after=None);current['intents'].append(item)
-        current['phase']='issuing';self.save()
-        if identifier=='tablet.open':tablet.open_tablet()
-        else:need(identifier=='tablet.close');tablet.close_tablet();tablet.wait_tablet_absent()
-        after=self.capture();need(self.original(after)['ui']['open']==(identifier=='tablet.open'))
-        item['after']=after;current['phase']='acting';self.save()
 
     def act(self,call):
         call=deepcopy(arguments('feature.emotes.act',call));need(call['verb'] in VERBS and call['runId']==self.run

@@ -75,6 +75,7 @@
     "phone-emote-journal-namespace": {"current": 1, "reads": [1]},
     "phone-emote-namespace-lease": {"current": 1, "reads": [1]},
     "phone-emote-inputs": {"current": 2, "reads": [2]},
+    "phone-emote-cleanup-inputs": {"current": 1, "reads": [1]},
     "phone-emote-effects": {"current": 2, "reads": [2]},
     "phone-emote-background": {"current": 2, "reads": [1, 2]},
     "phone-emote-background-effect": {"current": 1, "reads": [1]},
