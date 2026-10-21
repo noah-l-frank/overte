@@ -38,6 +38,8 @@ from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_graphics_subject import Boundary as GraphicsSubjectBoundary, RUN as GRAPHICS_RUN
 from self_tests.test_native_phone_scene_loads import Boundary as SceneLoadBoundary, URL as SCENE_LOAD_URL
 from adapters.native_phone_scene_loads import committed as committed_scene
+from self_tests.test_native_phone_web_runtime import Boundary as WebRuntimeBoundary, ROOT as WEB_RUNTIME_ROOT, URL as WEB_RUNTIME_URL
+from adapters.native_phone_web_runtime import active_marker as runtime_active_marker,released as runtime_released
 from self_tests.test_native_feature_observation import probe_source
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles
@@ -1090,6 +1092,37 @@ class FeatureAdapterTests(unittest.TestCase):
             monotonic=lambda: source.clock, sleep=source.sleep))
         boundary.start(); self.addCleanup(boundary.stop)
         return source, self.adapter._process_presence(SELECTOR)
+
+    def web_runtime_boundaries(self):
+        source=self.preview_boundaries(WebRuntimeBoundary(),'feature-phone-web-runtime.json');original=source.send
+        def send(request):original(request);source.original()
+        source.send=send
+        boundary=patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+            monotonic=lambda:source.clock,sleep=source.sleep))
+        boundary.start();self.addCleanup(boundary.stop);self.read_only_boundaries()
+        return source,self.adapter._web_runtime_observer(SELECTOR)
+
+    def test_phone_web_runtime_factory_reads_original_native_and_java_without_session_repair(self):
+        source,reader=self.web_runtime_boundaries();value=reader.read(GRAPHICS_RUN,WEB_RUNTIME_ROOT)
+        self.assertEqual(source.sample,value);self.assertEqual('1',runtime_active_marker(value,WEB_RUNTIME_URL)['native']['handle'])
+        source.revoked=True;self.assertEqual(source.sample['processId'],31)
+        self.assertEqual('ready',reader.read(GRAPHICS_RUN,WEB_RUNTIME_ROOT)['status']);runtime_released(reader.last)
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+        self.assertFalse(any(c.startswith('feature.graphics.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_web_runtime_factory_preserves_live_java_and_refuses_changed_install_or_repair_admission(self):
+        source,reader=self.web_runtime_boundaries()
+        with self.assertRaises(RuntimeError):runtime_released(reader.read(GRAPHICS_RUN,WEB_RUNTIME_ROOT))
+        with self.assertRaises(ValueError):self.adapter._web_runtime_observer(SELECTOR,read_only=False)
+        before=len(source.commands);self.fixture.adb.digest='f'*64
+        with self.assertRaises(RuntimeError):reader.read(GRAPHICS_RUN,WEB_RUNTIME_ROOT)
+        self.assertEqual(before,len(source.commands))
+
+    def test_phone_web_runtime_readonly_grammar_refuses_expected_verdicts_and_product_inputs(self):
+        value=dict(schemaVersion=1,commandId='a'*32,action='feature-phone-web-runtime-observe',runId=GRAPHICS_RUN,fixtureUrl=WEB_RUNTIME_ROOT)
+        appium.readonly_feature_command(value)
+        for change in (dict(expectedReleased=True),dict(callbacks=0),dict(action='feature-phone-web-runtime-destroy'),dict(surface='tablet')):
+            with self.subTest(fields=sorted(change)),self.assertRaises((RuntimeError,ValueError)):appium.readonly_feature_command(value|change)
 
     def scene_load_boundaries(self):
         source=self.preview_boundaries(SceneLoadBoundary(),'feature-scene-load.json')

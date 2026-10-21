@@ -149,6 +149,14 @@ shared-evidence cases reject stale/foreign/cached results and incomplete cleanup
 The complete independent Graphics coordinator and final fixture/Web lifetime
 retirement remain pending; no full Graphics capability is enabled.
 
+The [original Phone native/Android Web runtime inventory](../../native/PHONE_WEB_RUNTIME_OBSERVATION.md)
+now observes current source/document authority, original registered callbacks,
+pending creation and an actual Android UI queue fence. Nineteen shared host cases
+and three actual Phone wrappers reject hidden/live remnants, incomplete scans,
+wrong clocks/grants and missing sources. C++/Java remain uncompiled. The complete
+independent Graphics coordinator and final stable whole-fixture retirement remain
+pending; no full Graphics capability is enabled.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

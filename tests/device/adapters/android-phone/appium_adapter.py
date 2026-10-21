@@ -63,6 +63,7 @@ from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
 from adapters.native_graphics_subject import NativeGraphicsSubject, FILE as GRAPHICS_SUBJECT_FILE
 from adapters.native_phone_scene_loads import NativePhoneSceneLoads, FILE as SCENE_LOAD_FILE
+from adapters.native_phone_web_runtime import NativePhoneWebRuntime, FILE as WEB_RUNTIME_FILE
 from adapters.world_render_receipts import NativeWorldReceiptInventory, NativeWorldReceiptBatchFiles, INVENTORY_FILE as WORLD_RECEIPT_FILE
 from adapters.world_render_storage import NativeWorldRenderStorage
 from adapters.owned_world_render import WorldRenderOwner, OwnedWorldRenderCapture
@@ -104,6 +105,9 @@ def readonly_feature_command(command):
     elif action=='feature-scene-load-observe':
         from adapters.native_phone_scene_loads import command as validate_scene_load
         validate_scene_load(command)
+    elif action=='feature-phone-web-runtime-observe':
+        from adapters.native_phone_web_runtime import command as validate_web_runtime
+        validate_web_runtime(command)
     elif action=='feature-world-render-storage':
         from adapters.world_render_storage import command as validate_storage
         validate_storage(command)
@@ -469,6 +473,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(role in ('primary','actor') and type(stage) is int and stage in (0,1),
                 'PHONE_GRAPHICS_SOURCE_SCOPE_REQUIRED')
         return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-'+role+'-'+str(stage)+'-samples.json'))
+
+    def _web_runtime_observer(self, selector, *, read_only=True):
+        require(read_only is True,'PHONE_WEB_RUNTIME_REQUIRES_EXISTING_READ_ONLY_SESSION')
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativePhoneWebRuntime(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+WEB_RUNTIME_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _graphics_subject_observer(self, selector, *, read_only=False):
         native=self._native_feature_observer(selector,read_only=read_only)

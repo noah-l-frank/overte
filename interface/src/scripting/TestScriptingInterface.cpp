@@ -30,6 +30,7 @@
 #include "../../../tests/device/native/FeatureLifecycle.h"
 #include "../../../tests/device/native/ChatViewObservation.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
+#include "../../../tests/device/native/PhoneWebRuntimeBridge.h"
 #include "../../../tests/device/native/PendingFieldCommitBridge.h"
 #include "../../../tests/device/native/ProcessPresence.h"
 #include <ui/TabletScriptingInterface.h>
@@ -339,6 +340,21 @@ QVariantMap TestScriptingInterface::featurePendingCommitOwner(const QVariantMap&
     const auto original = qApp->property(overte::e2e::pendingCommitProviderProperty());
     if (original.userType() != qMetaTypeId<overte::e2e::PendingCommitProvider>()) { return {}; }
     const auto provider = original.value<overte::e2e::PendingCommitProvider>();
+    return provider ? provider(command) : QVariantMap();
+}
+
+QVariantMap TestScriptingInterface::featurePhoneWebRuntimeObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featurePhoneWebRuntimeObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::phoneWebRuntimeCommand(command)) { return {}; }
+    const auto original=qApp->property(overte::e2e::phoneWebRuntimeProperty());
+    if (original.userType()!=qMetaTypeId<overte::e2e::PhoneWebRuntimeProvider>()) { return {}; }
+    const auto provider=original.value<overte::e2e::PhoneWebRuntimeProvider>();
     return provider ? provider(command) : QVariantMap();
 }
 
@@ -1278,6 +1294,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
+            || filename == "feature-phone-web-runtime.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
