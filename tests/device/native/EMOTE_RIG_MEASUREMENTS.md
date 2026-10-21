@@ -1,4 +1,4 @@
-# Original Emote Rig measurements, version 1
+# Original Emote Rig measurements, version 2
 
 `adapters/emote_rig_measurements.py` joins original source identity and native
 Rig history. It accepts no requested animation, Sit variant, progress, pose or
@@ -18,7 +18,7 @@ All acquisitions must fit the existing 1.5-second freshness window. Later owning
 transports must also enforce an independent monotonic age floor.
 
 The current native packet requires an actual later Rig evaluation beyond its
-native request fence, animation history version 1 and its latest original
+native request fence, animation history version 2 and its latest original
 sample. That sample must match the current override generation and active flag,
 have an evaluation no later than current Rig state and be less than 75 ms old.
 The native history samples every 75 ms; equal evaluation counters additionally
@@ -35,7 +35,16 @@ their actual clip counters/frame positions and change final joint poses.
 Quaternion sign reversal alone is not movement. A native call without loaded
 playback, a frozen clip, a frozen pose or a foreign resource fails.
 
-The returned proof has exactly `emoteRigVersion:1`, `kind:"playback"`, complete
+The actual [native Script caller](ANIMATION_CALLER.md) must match the original
+selected manager instance, physical assignment URL, load generation/time and
+submitted code. Its original invocation must follow the pre-input native
+barrier. Missing, null, legacy or foreign origin fails even when the clip URL,
+loaded frames and changed poses otherwise match. Completed playback additionally
+requires the selected original restore caller. Restoration joins also require
+its advancing caller cursor, and ordinary cancellation requires the original
+restore invocation after the cancel barrier, not merely late queued execution.
+
+The returned proof has exactly `emoteRigVersion:2`, `kind:"playback"`, complete
 original `group` and `barrier`, measured `state`, original `event`, original
 `frameSequences`, original `restore` or null, and `inactiveFrameSequences`.
 The five measured state fields are `animation`, `sit`, `override`, `poseProgress`

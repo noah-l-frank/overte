@@ -137,6 +137,79 @@ class AnimationHistoryTests(unittest.TestCase):
         self.assertEqual(first['animation']['history']['frames'][1:],second['animation']['history']['frames'])
         with self.assertRaises(NativeUIError):clip_run(second,URL,after_event=0,after_epoch=19000)
 
+    def caller_source(self,change=None):
+        from test_emote_rig_measurements import RigPackets
+        model=RigPackets();origin=model.caller('override',19000)
+        def original(value):
+            history_source(value);history=value['animation']['history'];history['historyVersion']=2
+            for row in history['events']:
+                row['caller']=deepcopy(origin)
+                row['caller'].update(method='overrideAnimation' if row['kind']=='override' else 'restoreAnimation',
+                    sequence=row['eventSequence'],invokedEpochMs=row['capturedEpochMs'])
+            if change:change(value)
+        source=Boundary();source.mutate=original
+        return source,source.reader()
+
+    def test_v2_preserves_original_native_caller_and_explicit_non_script_origin(self):
+        source,reader=self.caller_source();value=reader.read(0,require_animation_history=True)
+        event,_frames=clip_run(value,URL,after_event=0,after_epoch=19000)
+        self.assertEqual(1,event['caller']['sequence'])
+        self.assertEqual('overrideAnimation',event['caller']['method'])
+        self.assertEqual(15000,event['caller']['code']['submittedEpochMs'])
+        source,reader=self.caller_source(lambda value:value['animation']['history']['events'][0].update(caller=None))
+        value=reader.read(0,require_animation_history=True)
+        self.assertIsNone(value['animation']['history']['events'][0]['caller'])
+
+    def test_v2_origin_requires_closed_real_assignment_code_method_clocks_and_types(self):
+        faults=[lambda c:c.update(callerVersion=True),lambda c:c.update(sequence=True),
+            lambda c:c.update(sequence=0),lambda c:c.update(method='restoreAnimation'),
+            lambda c:c.update(invokedEpochMs=20001),lambda c:c.update(invokedEpochMs=14999),
+            lambda c:c.update(expectedManager='a'*32),lambda c:c['manager'].update(instance='foreign'),
+            lambda c:c['manager'].update(assigned=False),lambda c:c['manager'].update(assignedEpochMs=16000),
+            lambda c:c['code'].update(submitted=False),lambda c:c['code'].update(sha256='foreign')]
+        for index,change in enumerate(faults):
+            with self.subTest(fault=index):
+                source,reader=self.caller_source(lambda value:change(value['animation']['history']['events'][0]['caller']))
+                with self.assertRaises(NativeUIError):reader.read(0,require_animation_history=True)
+
+    def test_v2_missing_origin_and_in_packet_caller_reuse_are_not_silently_adopted(self):
+        for fault in ('missing','sequence','clock','code','assignment'):
+            def change(value):
+                rows=value['animation']['history']['events'];caller=rows[-1]['caller']
+                if fault=='missing':rows[0].pop('caller')
+                elif fault=='sequence':caller['sequence']=1
+                elif fault=='clock':caller['invokedEpochMs']=18999
+                elif fault=='code':caller['code']['sha256']='f'*64
+                else:caller['manager']['url']='file:///foreign/script.js'
+            source,reader=self.caller_source(change)
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):reader.read(0,require_animation_history=True)
+
+    def test_caller_cursors_survive_complete_ring_trimming_and_are_not_reusable(self):
+        from adapters.native_animation_history import accept,validate
+        source,reader=self.caller_source();value=reader.read(0,require_animation_history=True)
+        previous=accept(None,2,value['animation']['history'])
+        base=deepcopy(value['animation']['history']);row=deepcopy(base['events'][-1])
+        row.update(eventSequence=3,capturedEpochMs=19900)
+        row['caller'].update(sequence=3,invokedEpochMs=19900)
+        base.update(events=[row],callSequence=3,droppedEvents=2)
+        validate(base,value['animation'],value['capturedEpochMs'])
+        accepted=accept(previous,2,base)
+        self.assertEqual(3,next(iter(accepted['callers'].values()))['sequence'])
+        for fault in ('sequence','code','assignment','clock'):
+            changed=deepcopy(base);caller=changed['events'][0]['caller']
+            if fault=='sequence':caller['sequence']=2
+            elif fault=='code':caller['code']['sha256']='f'*64
+            elif fault=='assignment':caller['manager']['url']='file:///foreign/script.js'
+            else:caller['invokedEpochMs']=19699
+            validate(changed,value['animation'],value['capturedEpochMs'])
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):accept(previous,2,changed)
+
+    def test_v1_remains_readable_but_cannot_replace_a_v2_history_in_the_same_rig(self):
+        source,reader=self.caller_source();first=reader.read(0,require_animation_history=True)
+        source.mutate=history_source
+        with self.assertRaises(NativeUIError):reader.read(first['sequence'],require_animation_history=True)
+        source,reader=self.source();self.assertEqual(1,reader.read(0,require_animation_history=True)['animation']['history']['historyVersion'])
+
     def test_missing_events_gap_numeric_flags_future_frames_and_malformed_poses_fail(self):
         def faults(h):
             return [lambda:h.update(available=1),lambda:h.update(historyVersion=True),lambda:h.update(events=[]),

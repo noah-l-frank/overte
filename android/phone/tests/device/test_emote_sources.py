@@ -76,7 +76,7 @@ class Originals(RigPackets):
                 value.update(instance='a'*32,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,processId=31,
                     animationFence=dict(rigId=2,sequence=evaluation-1,requestedEpochMs=self.epoch))
                 value['animation'].update(rigId=2,evaluationSequence=evaluation,capturedEpochMs=self.epoch,
-                    joints=[pose],overrideActive=False,history=dict(historyVersion=1,instance='e'*32,available=True,
+                    joints=[pose],overrideActive=False,history=dict(historyVersion=2,instance='e'*32,available=True,
                         callSequence=0,overrideSequence=0,frameSequence=self.sequence,droppedEvents=0,
                         droppedFrames=self.sequence-len(self.idle_frames),events=[],frames=deepcopy(self.idle_frames)))
                 value['animation'].pop('clip',None)
@@ -288,6 +288,29 @@ class PhoneEmoteSourcesTests(unittest.TestCase):
             source.store.write(legacy,None)
             with self.assertRaises(NativeUIError):m.source()
         self.assertEqual(legacy,source.store.read());self.assertEqual([],m.calls)
+    def test_v2_source_journal_is_preserved_without_adopting_its_legacy_native_origin(self):
+        m=self.model
+        with m.lock.held():
+            source=m.source();source.read();old=deepcopy(source.previous);old['emoteSourcesVersion']=2
+            source.store.write(old,source.previous);before=list(m.calls)
+            with self.assertRaises(NativeUIError):m.source()
+            self.assertEqual(old,source.store.read());self.assertEqual(before,m.calls)
+
+    def test_legacy_native_history_cannot_publish_a_v3_source_or_erase_pending_read(self):
+        m=self.model;original=m.native_send
+        def legacy(request):
+            original(request);history=m.value['animation']['history'];history['historyVersion']=1
+            for event in history['events']:event.pop('caller')
+        m.native_send=legacy
+        with m.lock.held():
+            source=m.source()
+            with self.assertRaises(NativeUIError):source.read()
+            self.assertEqual('reading',source.state['phase']);self.assertEqual([],source.frames)
+            before=list(m.calls)
+            with self.assertRaises(NativeUIError):source.read()
+            self.assertEqual(before,m.calls)
+            self.assertEqual('reading',m.source().state['phase'])
+
     def test_historical_replay_uses_existing_script_transitions_beyond_512_originals(self):
         m=self.model;reader=m._script_execution_observer('synthetic',read_only=True);frames=[]
         for _ in range(600):

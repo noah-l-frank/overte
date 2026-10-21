@@ -1,4 +1,4 @@
-# Actual Rig call and evaluated-pose history, version 1
+# Actual Rig call and evaluated-pose history, version 2
 
 This E2E-only, default-off source supplies original native facts needed for short
 Emotes. The version 5 common contract corrects ordinary-override/chooser
@@ -33,10 +33,15 @@ provide the absent original call; a new ordinary action is needed. Readers rejec
 Rig/context replacement instead of borrowing a previous avatar's evidence.
 
 The atomic existing `animation` observation optionally adds `history`, with
-exactly historyVersion 1, instance, available, callSequence, overrideSequence,
+exactly historyVersion 2, instance, available, callSequence, overrideSequence,
 frameSequence, droppedEvents, droppedFrames, events and frames. Event rows have
 eventSequence, kind (`override|restore`), overrideSequence and capturedEpochMs;
-only override additionally has the original request fields above. Frame rows
+only override additionally has the original request fields above. Version 2
+additionally requires `caller` on each event: either an original
+[VM-to-native Script call](ANIMATION_CALLER.md) or explicit null for a native
+call without Script origin. Generic readers retain legacy version 1 without
+this field, but cannot switch versions within one Rig/history birth. Full Emote
+measurements require version 2; null/foreign origins cannot qualify. Frame rows
 have frameSequence, overrideSequence, evaluationSequence, capturedEpochMs,
 overrideActive, joints and optional original clip. Joint rows are index/pose;
 pose is seven finite original quaternion/translation components. Clip fields
@@ -75,3 +80,8 @@ missing/unloaded/stalled/foreign frames, frozen/antipodal poses, restore without
 later evaluation, delayed natural completion, previous-action reuse, old-source
 downgrade, historical retiming, graph/Rig replacement and legitimate ring trimming.
 They execute no native C++, renderer or device and establish no product acceptance.
+
+Caller cursors and original assignment/code survive bounded event trimming in
+the reader state. New events cannot reuse an earlier caller sequence or rewind
+its invocation time, even when none of the earlier event rows remain in the
+ring. At most 4,096 caller identities may be retained; excess remains unavailable.

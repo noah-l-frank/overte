@@ -1,4 +1,4 @@
-# Phone original Emote source acquisition, version 2
+# Phone original Emote source acquisition, version 3
 
 `overte_phone_emote_sources.PhoneEmoteSources` connects the original Emote
 measurement join to actual guarded Phone source factories. The owning caller
@@ -11,7 +11,7 @@ uncompiled and all devices untested.
 
 ## Exact stored contract
 
-The private versioned header has `emoteSourcesVersion:2`, `runId`, `fixtureUrl`,
+The private versioned header has `emoteSourcesVersion:3`, `runId`, `fixtureUrl`,
 `role`, full actual `binding`, actual `artifactRoot` and bounded compressed `payload`. The binding is
 the existing source revision, installed artifact digest, PID/start, SDK session,
 generation and target fingerprint. Payload contains one exact record:
@@ -89,7 +89,7 @@ cannot be replaced by a valid source transcript. No native build or physical
 qualification has run.
 
 Version 1 was a local unadvertised component with no device qualification or
-required platform producer. Version 2 rejects and preserves v1 journals; there
+required platform producer. Version 3 rejects and preserves v1 journals; there
 is no automatic conversion, deletion or empty-state replacement. Preserve old
 originals for their offline v1 reader and verify actual cleanup before using a
 fresh run. A pending v1 record never becomes v2 current evidence.
@@ -99,3 +99,13 @@ Phone host regression passed with no failures, errors, skips or compiler
 attempts. After the final qrc-resource/actual-Rig-cursor hardening, all 78 affected
 source, Rig, root, profile, history, Phone transport and probe cases passed.
 These runs verify host logic and synthetic boundaries exclusively.
+
+Version 3 requires native animation history 2 and original VM-to-native caller
+provenance. All original native histories replay their caller cursors across
+immutable files, including ring trimming. Earlier source journals are preserved
+and rejected rather than migrated or adopted. The input journal remains version
+2 and can only reconstruct against this exact live source owner.
+
+General Phone teardown always attempts base cleanup, but returns unavailable
+while either role's source journal or the input journal remains. It does not
+forget originals or infer retirement from process shutdown.

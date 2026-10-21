@@ -10,7 +10,8 @@ from pathlib import Path
 import time
 
 from adapters.emote_rig_measurements import source,continuation
-from adapters.native_feature_observation import exact,fresh,integer,need,number
+from adapters.native_feature_observation import exact,fresh,integer,need,number,validate as native_packet
+from adapters.native_animation_history import accept as animation_history
 from adapters.native_script_roots import validate as roots_packet
 from adapters.native_script_observation import NativeScriptObservation,validate as script_packet
 from adapters.normal_feature_state import PrivateFeatureState,context
@@ -24,7 +25,7 @@ from overte_phone_graphics_samples import restore_native,restore_ui
 from overte_phone_script_history import pack,unpack,same
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=2
+VERSION=3
 LIMIT=MAX_FRAMES
 
 
@@ -64,9 +65,11 @@ class PhoneEmoteSources:
         # manager transitions. It issues no transport calls during replay.
         replay=NativeScriptObservation(lambda *_:need(False),lambda:need(False),lambda:need(False),lambda:need(False),self.pid)
         self.replay_scripts(replay,frames)
-        previous=None
+        previous=None;animation=None
         for frame in frames:
             self.validate_frame(frame,previous);previous=frame
+            packet=frame['group']['native']
+            animation=animation_history(animation,packet['animation']['rigId'],packet['animation']['history'])
         if state['phase']=='ready':need(state['pending'] is None)
         else:
             pending=state['pending'];exact(pending,{'startedEpochMs','role','revision','original','manifest'})
@@ -95,6 +98,16 @@ class PhoneEmoteSources:
                 and value['capturedEpochMs']>=reader.captured_epoch)
             transition=reader._history_transition(value,require_effects=True,require_code_identity=True,require_load_history=True,require_membership=True)
             reader._commit_history(value,transition)
+
+    def replay_animation(self,frames):
+        previous=None
+        for frame in frames:
+            packet=frame['group']['native']
+            native_packet(packet,identifier(packet.get('requestId')),self.pid,packet.get('capturedEpochMs'),
+                require_animation=True,require_animation_history=True)
+            need(packet['animation']['history']['historyVersion']==2)
+            previous=animation_history(previous,packet['animation']['rigId'],packet['animation']['history'])
+        return previous
 
     def storage_intent(self,kind,value):
         need(self.state['phase']=='reading' and kind in ('original','manifest'))
@@ -177,7 +190,8 @@ class PhoneEmoteSources:
         need(roots.pid==scripts.pid==native.pid==ui.pid==self.pid and native.ios is False and scripts.ios is False)
         if old:
             roots.restore(old['rootsAfter']);self.replay_scripts(scripts,self.frames)
-            restore_native(native,old['native']);native.rig=old['native']['animation']['rigId']
+            restore_native(native,old['native']);native.animation_history=self.replay_animation(self.frames)
+            native.rig=old['native']['animation']['rigId']
             native.rig_sequence=old['native']['animation']['evaluationSequence']
             restore_ui(ui,last['widgets'],widget_packet)
         # Persist responsibility before any actual observation request. A lost

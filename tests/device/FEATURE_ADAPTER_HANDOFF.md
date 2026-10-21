@@ -22,13 +22,21 @@ lost writes/results cannot be repaired by redelivering an uncertain input.
 Complete Emote effect/image/actor/background/lifetime/cleanup composition remains
 required before capability registration.
 
-Emote source/input ownership now uses explicit v2 private journals with
+Emote source/input ownership uses versioned private journals with
 [immutable original files and bounded indexes](adapters/android-phone/EMOTE_ORIGINALS.md).
 The complete 169-input Sit-discovery storage bound and 1,024 original records
 are host-verified without increasing private metadata limits. Interrupted and
 legacy inline records remain unavailable for fresh results. Full native effect,
 avatar image, independent actor, background/lifetime and cleanup composition
 remain required; native compilation and device qualification are still open.
+
+The [actual VM-to-native animation caller](native/ANIMATION_CALLER.md) now
+links Rig history v2 to original manager assignment/code and invocation time,
+including the actual queued Avatar-thread handoff. Rig measurements v2 and
+Phone source v3 reject null/foreign/legacy callers and replay original caller
+cursors after ring trimming. Source v1/v2 journals stay preserved and unavailable;
+input journals remain v2. This closes a foreign-Script provenance gap, without
+claiming the remaining image/peer/background/whole-cleanup coordinator.
 
 The [manager-thread Script work source](native/SCRIPT_WORK_OBSERVATION.md)
 adds actual timer-map and active timer/signal callback capture without waiting

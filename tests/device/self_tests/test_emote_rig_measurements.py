@@ -31,6 +31,13 @@ class RigPackets:
         self.code.mutate=observed;self.code_reader.clock_ms=lambda:self.epoch
         self.url=self.roots.root+'/system/assets/animations/'+name+'.fbx'
         self.request=dict(url=self.url,framesPerSecond=60.,loop=False,firstFrame=0.,lastFrame=120.)
+    def caller(self,kind,epoch):
+        return dict(callerVersion=1,method='overrideAnimation' if kind=='override' else 'restoreAnimation',
+            sequence=1 if kind=='override' else 2,invokedEpochMs=epoch,
+            manager=dict(instance=self.code.engine['required']['instance'],assigned=True,
+                url=self.roots.root+'/system/+android_phoneInterface/phoneEmote.js',loadGeneration=1,assignedEpochMs=14000),
+            code=dict(submitted=True,encoding=pins()[0]['encoding'],codeUnits=pins()[0]['codeUnits'],
+                sha256=pins()[0]['sha256'],submittedEpochMs=15000))
     def frame(self,sequence,epoch,evaluation,active,*,position=0.):
         value=dict(frameSequence=sequence,overrideSequence=1 if sequence>1 else 0,evaluationSequence=evaluation,
             capturedEpochMs=epoch,overrideActive=active,joints=[dict(index=0,pose=[0.,0.,0.,1.,position,.2,.3])])
@@ -42,7 +49,7 @@ class RigPackets:
         self.sequence+=1
         frames=[self.frame(1,18800,10,False,position=.1)];events=[]
         if not baseline:
-            events=[dict(eventSequence=1,kind='override',overrideSequence=1,capturedEpochMs=19000,request=deepcopy(self.request))]
+            events=[dict(eventSequence=1,kind='override',overrideSequence=1,capturedEpochMs=19000,request=deepcopy(self.request),caller=self.caller('override',19000))]
             frames += [self.frame(2,19200,20,True,position=.2),self.frame(3,19500,30,True,position=.3),
                 self.frame(4,20000,50,True,position=.4)]
             # Continue the producer's original timeline, including frames from
@@ -51,12 +58,12 @@ class RigPackets:
             if not active:
                 if self.restored_at is None:self.restored_at=restore_epoch
                 assert self.restored_at==restore_epoch
-                events.append(dict(eventSequence=2,kind='restore',overrideSequence=1,capturedEpochMs=self.restored_at))
+                events.append(dict(eventSequence=2,kind='restore',overrideSequence=1,capturedEpochMs=self.restored_at,caller=self.caller('restore',self.restored_at)))
             if not active or epoch>frames[-1]['capturedEpochMs']:
                 count=len(frames)+1;evaluation=frames[-1]['evaluationSequence']+10
                 frames.append(self.frame(count,epoch,evaluation,active,position=.4+(count-4)*.1))
         self.frames=deepcopy(frames)
-        history=dict(historyVersion=1,instance='e'*32,available=True,callSequence=len(events),overrideSequence=0 if baseline else 1,
+        history=dict(historyVersion=2,instance='e'*32,available=True,callSequence=len(events),overrideSequence=0 if baseline else 1,
             frameSequence=len(frames),droppedEvents=0,droppedFrames=0,events=events,frames=frames)
         latest=frames[-1];source=Features();source.sequence=self.sequence-1
         def original(value):
@@ -160,6 +167,41 @@ class EmoteRigTests(unittest.TestCase):
         value=playback(model.group(model.native(21010,restore_epoch=21000)),barrier,pid=31,epoch=21010)
         self.assertEqual('idle',value['state']['animation']);self.assertFalse(value['state']['override'])
         self.assertEqual([2,3,4],value['frameSequences'])
+    def test_same_loaded_clip_and_changed_pose_from_a_foreign_caller_cannot_prove_emote(self):
+        for fault in ('manager','assignment','generation','code','missing','null','before-barrier','legacy'):
+            model=RigPackets();barrier,group,_played=model.playing();history=group['native']['animation']['history']
+            caller=history['events'][0]['caller']
+            if fault=='manager':caller['manager']['instance']='8'*32
+            elif fault=='assignment':caller['manager']['url']='file:///foreign/phoneEmote.js'
+            elif fault=='generation':caller['manager']['loadGeneration']=2
+            elif fault=='code':caller['code']['sha256']='f'*64
+            elif fault=='missing':history['events'][0].pop('caller')
+            elif fault=='null':history['events'][0]['caller']=None
+            elif fault=='before-barrier':caller['invokedEpochMs']=18799
+            else:
+                history['historyVersion']=1
+                for row in history['events']:row.pop('caller')
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):playback(group,barrier,pid=31,epoch=20000)
+
+    def test_foreign_restore_and_queued_pre_cancel_call_cannot_borrow_a_valid_play(self):
+        for fault in ('manager','assignment','code','null','before-cancel','sequence'):
+            model=RigPackets();_barrier,_group,played=model.playing();before=model.native(20100,active=True)
+            packet=model.native(20200,restore_epoch=20150);caller=packet['animation']['history']['events'][-1]['caller']
+            if fault=='manager':caller['manager']['instance']='8'*32
+            elif fault=='assignment':caller['manager']['url']='file:///foreign/phoneEmote.js'
+            elif fault=='code':caller['code']['sha256']='f'*64
+            elif fault=='null':packet['animation']['history']['events'][-1]['caller']=None
+            elif fault=='before-cancel':caller['invokedEpochMs']=20099
+            else:caller['sequence']=1
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):
+                restoration(model.group(packet),played,pid=31,epoch=20200,native_barrier=before)
+
+    def test_already_completed_playback_still_requires_the_original_selected_restore_caller(self):
+        model=RigPackets();barrier=model.native(18800,baseline=True)
+        group=model.group(model.native(21010,restore_epoch=21000))
+        group['native']['animation']['history']['events'][-1]['caller']=None
+        with self.assertRaises(NativeUIError):playback(group,barrier,pid=31,epoch=21010)
+
     def test_ignored_repeated_input_or_old_override_is_not_a_new_playback(self):
         model=RigPackets();_barrier,group,_played=model.playing()
         current=model.group(model.native(20100,active=True))

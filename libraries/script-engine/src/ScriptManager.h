@@ -1050,6 +1050,18 @@ public:
     // Queued read on the actual manager thread; never evaluates JavaScript or
     // touches its timer map from a foreign observer thread.
     QVariantMap featureWorkObservation(const QString& requestId);
+    // Native-only call provenance. Never accepts a script-supplied manager ID.
+    static QVariantMap featureNativeCallContext();
+    class FeatureNativeCallScope {
+    public:
+        FeatureNativeCallScope(ScriptManager* manager, const QByteArray& method);
+        explicit FeatureNativeCallScope(const QVariantMap& original);
+        ~FeatureNativeCallScope();
+        FeatureNativeCallScope(const FeatureNativeCallScope&)=delete;
+        FeatureNativeCallScope& operator=(const FeatureNativeCallScope&)=delete;
+    private:
+        QVariantMap _previous;
+    };
     class FeatureCallbackScope {
     public:
         FeatureCallbackScope(ScriptManager* manager, bool timer) : _manager(nullptr), _timer(timer) {
@@ -1708,6 +1720,8 @@ protected:
     QVariantMap _featureWorkResult;
     bool _featureWorkPending {false};
     quint64 _featureWorkSequence {0};
+    quint64 _featureNativeCallSequence {0};
+    static thread_local QVariantMap _featureNativeCallContext;
 #endif
     Type _type;
     ScriptEnginePointer _engine;

@@ -1312,6 +1312,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE')
         require(not world_error and all(self.world_render_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_WORLD_RENDER_CLEANUP_INCOMPLETE')
+        require(all(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-'+role+'-sources.json')).read() is None
+                    for role in ('primary','actor')),'PHONE_EMOTE_SOURCE_CLEANUP_INCOMPLETE')
+        require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-inputs.json')).read() is None,
+                'PHONE_EMOTE_INPUT_CLEANUP_INCOMPLETE')
         require(self.graphics_restart_store(selector).read() is None and self.graphics_restart_inputs_store(selector).read() is None,
                 'PHONE_GRAPHICS_RESTART_CLEANUP_INCOMPLETE')
         require(self.graphics_background_store(selector).read() is None,'PHONE_GRAPHICS_BACKGROUND_CLEANUP_INCOMPLETE')

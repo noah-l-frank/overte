@@ -43,7 +43,7 @@ replayed by reconstructing or reusing the same object. This remains an internal
 component: background-resume, complete effect/image/actor/lifetime/cleanup
 coordination and the full capability are still pending.
 
-Emote source/input storage is now explicitly v2. The
+Emote source/input storage uses explicit versioned journals. The
 [immutable original store](EMOTE_ORIGINALS.md) preserves 1,024 source records and
 completed input histories behind bounded active indexes. Its maximum shared
 Sit-discovery storage case covers 169 ordinary input operations and reconstructs
@@ -57,6 +57,15 @@ hardware-free Python/JS counterexamples. It observes actual timer entries and
 active timer/signal callback execution at a queued manager-thread barrier.
 The native additions remain uncompiled. Complete source/effect/image/actor/
 background/quiet-cleanup joins still remain; no full Emote capability is enabled.
+
+The [actual native animation caller](../../native/ANIMATION_CALLER.md) now
+preserves original VM manager/assignment/code and call time across the actual
+Avatar-thread handoff into Rig history v2. Rig measurements v2 and Phone source
+v3 reject foreign/null/legacy origins and retain caller cursors beyond trimmed
+native rings. Earlier source journals are preserved, never migrated into fresh
+evidence. General teardown refuses success while either source role or input
+ownership remains, even after base teardown succeeds. Native code is uncompiled; full Emote image/peer/background/cleanup
+composition remains missing and the complete area count stays three.
 
 ## Historical component packets
 

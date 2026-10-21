@@ -47,6 +47,9 @@
 #include <PathUtils.h>
 #include <PerfStat.h>
 #include <ScriptEngine.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <ScriptManager.h>
+#endif
 #include <ScriptEngineCast.h>
 #include <ScriptEngineLogging.h>
 #include <SharedUtil.h>
@@ -1269,8 +1272,16 @@ void MyAvatar::render(RenderArgs* renderArgs) {
 
 void MyAvatar::overrideAnimation(const QString& url, float fps, bool loop, float firstFrame, float lastFrame) {
     if (QThread::currentThread() != thread()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        const auto original=ScriptManager::featureNativeCallContext();
+        QMetaObject::invokeMethod(this,[this,url,fps,loop,firstFrame,lastFrame,original] {
+            ScriptManager::FeatureNativeCallScope nativeCall(original);
+            overrideAnimation(url,fps,loop,firstFrame,lastFrame);
+        });
+#else
         QMetaObject::invokeMethod(this, "overrideAnimation", Q_ARG(const QString&, url), Q_ARG(float, fps),
                                   Q_ARG(bool, loop), Q_ARG(float, firstFrame), Q_ARG(float, lastFrame));
+#endif
         return;
     }
     _skeletonModel->getRig().overrideAnimation(url, fps, loop, firstFrame, lastFrame);
@@ -1287,7 +1298,15 @@ void MyAvatar::overrideHandAnimation(bool isLeft, const QString& url, float fps,
 
 void MyAvatar::restoreAnimation() {
     if (QThread::currentThread() != thread()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        const auto original=ScriptManager::featureNativeCallContext();
+        QMetaObject::invokeMethod(this,[this,original] {
+            ScriptManager::FeatureNativeCallScope nativeCall(original);
+            restoreAnimation();
+        });
+#else
         QMetaObject::invokeMethod(this, "restoreAnimation");
+#endif
         return;
     }
     _skeletonModel->getRig().restoreAnimation();
