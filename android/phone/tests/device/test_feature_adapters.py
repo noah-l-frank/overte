@@ -936,6 +936,15 @@ class FeatureAdapterTests(unittest.TestCase):
             base.assert_called_once()
         self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_partial_or_unknown_emote_observation_scopes(self):
+        for suffix in ('primary-1','actor-256','unknown-partial'):
+            store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-'+suffix.split('-')[0]+'-observation-'+suffix+'.json'))
+            store.write({'unresolved':True},None)
+            with self.subTest(suffix=suffix),patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+                with self.assertRaisesRegex(ValueError,'PHONE_EMOTE_OBSERVATION_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+                base.assert_called_once()
+            self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_general_cleanup_cannot_forget_emote_view_or_preference_ownership(self):
         store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-view.json'))
         store.write({'unresolved':True},None)

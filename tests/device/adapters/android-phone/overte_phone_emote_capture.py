@@ -202,6 +202,27 @@ class PhoneEmoteCapture:
         original_pixels(self.run,frame,raw,self.pid,state['avatarAfter']['capturedEpochMs'],self.policy);self._bound()
         return frame,raw # Historical only; no native query or fresh verdict.
 
+    @classmethod
+    def archive(cls,value,source,index,policy):
+        """Reopen a parent's retained complete original after child retirement.
+
+        This validates historical bytes/metadata only. The parent must retain
+        the exact child header before cleanup and independently prove freshness
+        and causality. A missing live child is not an observation.
+        """
+        need(isinstance(source,PhoneEmoteSources) and integer(index,1,256))
+        source.lock.assert_held();started=source.monotonic();need(number(started,0,1e15) and source.guard() is not False)
+        scope=object.__new__(cls);scope.source=source;scope.index=index;scope.policy=deepcopy(policy)
+        scope.run,scope.role,scope.binding,scope.pid=source.run,source.role,deepcopy(source.binding),source.pid
+        scope.guard,scope.root,scope.monotonic=source.guard,source.artifact_root,source.monotonic
+        exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
+        scope.state=scope.decode(value);need(scope.state['phase']=='complete')
+        frame=scope.frame();raw=scope.images().read(scope.state['image'])
+        original_pixels(scope.run,frame,raw,scope.pid,scope.state['avatarAfter']['capturedEpochMs'],scope.policy)
+        returned=deepcopy((frame,raw,scope.state));source.lock.assert_held();need(source.guard() is not False)
+        end=source.monotonic();need(number(end,started,1e15) and end-started<5)
+        return returned
+
     @operation
     def cleanup(self):
         """Retire this image scope; failed captures never become successful images."""

@@ -9,6 +9,21 @@ here. Pico/iOS adapters are maintained in separate sessions/worktrees; this Phon
 checkout does not establish their current implementation status. No native build or device
 qualification has been performed here.
 
+The [Phone current Emote observation](adapters/android-phone/EMOTE_OBSERVATION.md)
+now composes independently acquired per-role input/Rig/PNG originals, actual
+bundled avatar resource pins and stable native pre-/post-image brackets. Original
+parent evidence precedes child removal; stale, foreign, frozen or interrupted
+evidence cannot become success. Actor effects v2 use their own source originals.
+Approved scene/Script admission, background/failure recovery, authenticated actor
+publication and whole-run retirement still require the complete coordinator.
+This adds no complete feature capability or physical acceptance.
+
+Current source blocker: normal Phone startup evaluates `phoneEmote.js` through
+`Script.include` inside the shared Phone default-script manager. The existing
+standalone-manager Emote selector cannot admit that real path. Original included
+source identity, call provenance and selected-work ownership need extension;
+loading a separate replacement Emote script would not qualify normal startup.
+
 The [original avatar and executed model-draw contracts](native/AVATAR_RENDER_PROVENANCE.md)
 now join loaded SkeletonModel/Geometry identities and actual HFM source hashes to
 the exact original GPU frame/PNG, with guarded read-only Phone factories. Foreign,

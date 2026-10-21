@@ -87,6 +87,16 @@ returns historical `{ticket,avatarBefore,avatarAfter,capture,draws}` plus origin
 PNG bytes. It makes no native query, retimes nothing and does not supply a fresh
 feature verdict. It cannot replay `read` in that scope.
 
+`PhoneEmoteCapture.archive(header, source, index, policy)` validates a complete
+historical child header previously retained by its parent. It reopens the same
+actual PNG inode and bytes, validates every original capture/model/avatar/phase/
+retirement join and returns `(frame, png, decoded_state)`. It requires the real
+role-specific source owner, held lock, candidate guard and five-second local
+bound. It deliberately permits later source-header advancement or already
+retired child metadata. It supplies no fresh observation, adopts no missing
+child and invokes no target query. The [observation owner](EMOTE_OBSERVATION.md)
+commits that exact header to its immutable original file before child cleanup.
+
 `cleanup()` retires only this correlated capture. Its five-second bound and
 actual candidate/process guards also apply. It can finish retained native
 buffer/receipt work, including after ignored release or missing callback drain.
