@@ -128,6 +128,12 @@ one-send Home/activation to independent original OS PID/app-state and native
 lifecycle/preferences. It reconstructs lost Home delivery while backgrounded
 without requiring native UI. Restart transfer, actor and final lifetime remain.
 
+The [ordinary restart/transfer owner](GRAPHICS_RESTART.md) now drains both role
+captures before stop, requires original old-PID death and strict new birth/
+counter/candidate joins, preserves original preferences and recovers partial
+scene/preference CAS transfer without repeating lifecycle input. Full actor,
+WK lifetime, finalization and the unchanged fifteen-step composition remain.
+
 The existing world-target PNG sampler only reads actual main-mono OpenGL
 framebuffers; Vulkan's product `downloadFramebuffer` remains unimplemented.
 The [completed Vulkan frame source](../native/COMPLETED_FRAME_OBSERVATION.md)

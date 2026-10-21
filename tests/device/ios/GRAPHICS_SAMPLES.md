@@ -55,19 +55,19 @@ uniform feature pixels and general assertion errors do not authorize that path.
 An interrupted command, lost return, held native work or changed source remains
 durable; reconstructing a producer cannot repeat the capture.
 
-Fourteen sampler tests pass with real temporary private files and loopback fixture
+Seventeen sampler tests pass with real temporary private files and loopback fixture
 responses, actual iOS HTTP/AFC UI framing and synthetic native/GPU SDK boundaries.
 They cover separate reader credentials/role files, fresh originals after
 reconstruction, a visible Graphics tablet, current-marker readiness, lost
 capture, changed GPU birth, reused frames, altered files/sample records, failed
-intent persistence and late acquisition. Together with preference/history/scene,
-world measurement/effect, byte-evidence and Vulkan owner cases, 62 selected
-no-build tests pass. Six unchanged shared Graphics journey regressions also pass.
-The four additional version-2 cases cover crossed-phase recovery with a new
+intent persistence and late acquisition. The initial ten-case sampler packet
+passed in a 62-case selection with preference/history/scene, world measurement/
+effect, byte-evidence and Vulkan owner regressions. Six unchanged shared Graphics
+journey regressions also passed. The version-2 cases cover crossed-phase recovery with a new
 capture, same-phase refusal, replaced GPU birth and unchanged version-1 original
 archives during migration.
 
-Remaining composition includes background/restart transfer, independently
+Remaining composition includes independently
 credentialed actor publication, native WK marker-view/callback lifetime, final
 quiet cleanup and the unchanged full fifteen-step iOS journey. A crossed fixture
 phase retains acquisition responsibility and fails instead of publishing; the
@@ -87,6 +87,6 @@ retirement. A dangling foreign artifact is present, including when its target
 does not exist; neither cleanup nor phase recovery treats it as absence.
 
 The additional archive/partial-file/foreign-artifact packet passes 26 selected
-sampler and shared Vulkan-owner no-build cases. The future restart controller
-must still independently drain live owners before stop and prove original PID
-death, new native birth/counters and unchanged candidate before adopting sources.
+sampler and shared Vulkan-owner no-build cases. The [restart controller](GRAPHICS_RESTART.md)
+now independently drains live owners before stop and proves original PID death,
+new native birth/counters and unchanged candidate before adopting sources.

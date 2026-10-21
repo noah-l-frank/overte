@@ -67,17 +67,23 @@ class SDK(InputSDK):
         self.scene_rows=[];self.fetched=[];self.loads=LoadsSDK();self.loads.rows=[]
         self.subject.source.update(subjectVersion=3,avatarPose={},cameraOrbit={})
         self.core=CoreSDK();self.core.mutate=self.core_packet;self.core_fault=''
-        self.foreground=True;self.native_lifecycle=dict(backgrounds=0,activations=1,launches=1)
+        self.foreground=self.running=True;self.birth=self.loads_birth='a'*32
+        self.native_lifecycle=dict(backgrounds=0,activations=1,launches=1)
         self.target.update(platform='ios',physical=True,probe=dict(kind='ios-documents'))
     def host_epoch(self):return 1700000000000+round(self.clock*1000)
     def epoch(self):return self.host_epoch()+86400000
-    def observed(self):return super().observed()|dict(fileControlsVersion=1)
-    def process(self):return super().process()|dict(foreground=self.foreground)
+    def observed(self):return super().observed()|dict(fileControlsVersion=1,processId=self.pid)
+    def process(self):return super().process()|dict(foreground=self.foreground) if self.running else None
+    def post(self,request,timeout):
+        result=super().post(request,timeout)
+        if 'status' in self.receipt:self.receipt['status']['processId']=self.pid
+        return result
     def initial(self,url):
         self.url=url;self.loads.rows=[load_row(generation=1,resourceSha256=resource_hash(url),
             startedEpochMs=self.epoch(),updatedEpochMs=self.epoch(),releasedEpochMs=self.epoch(),bytes=len(BASELINE))]
     def subject_packet(self,value):
         super().subject_packet(value)
+        value.update(instance=self.birth,processId=self.pid)
         source=value['source'];source['subjectVersion']=3
         source['entities']=deepcopy(self.scene_rows);source['absentIds']=list(subject_ids(RUN).values())
         present={row['id'] for row in self.scene_rows};source['absentIds']=[item for item in source['absentIds'] if item not in present]
@@ -108,15 +114,15 @@ class SDK(InputSDK):
                 pending=self.fault=='held-load',bytes=len(raw)))
         return result
     def subject_reader(self):
-        value=self.subject.reader(ios=True,native_clock_bound=True);value.pid=42;value.clock_ms=self.epoch;return value
+        value=self.subject.reader(ios=True,native_clock_bound=True);value.pid=self.pid;value.clock_ms=self.epoch;return value
     def loads_reader(self):
         def send(query):
-            self.loads.epoch=self.epoch();self.loads.send(query);self.loads.sample['processId']=42
-        value=self.loads.reader(ios=True);value.pid=42;value.send=send;value.clock_ms=self.epoch
+            self.loads.epoch=self.epoch();self.loads.send(query);self.loads.sample.update(processId=self.pid,instance=self.loads_birth)
+        value=self.loads.reader(ios=True);value.pid=self.pid;value.send=send;value.clock_ms=self.epoch
         value.monotonic=lambda:self.clock;value.sleep=self.sleep;return value
     def core_packet(self,value):
         epoch=self.epoch()-(2000 if self.core_fault=='stale' else 0)
-        value.update(processId=42,requestedEpochMs=epoch,capturedEpochMs=epoch,animation={},animationFence={})
+        value.update(processId=self.pid,instance=self.birth,requestedEpochMs=epoch,capturedEpochMs=epoch,animation={},animationFence={})
         value['lifecycle']=deepcopy(self.native_lifecycle)
         value['graphics'].update(requestedResolutionScale=self.model.resolution,applicationResolutionScale=self.model.resolution,
             hazeSetting=self.model.haze,mirrorsSetting=self.model.mirrors)
@@ -137,7 +143,7 @@ class SDK(InputSDK):
         native=normal_input.NativeInput(self,'owned-session',self.target,self.process,native_epoch_ms=self.epoch,
             monotonic=lambda:self.clock,sleep=self.sleep)
         ui=NativeUI(self,'owned-session',native._check,monotonic=lambda:self.clock,sleep=self.sleep)
-        original=IOSScriptIO(ui,native);source=IOSGraphicsSource(original,self.epoch,native._check,42,monotonic=lambda:self.clock)
+        original=IOSScriptIO(ui,native);source=IOSGraphicsSource(original,self.epoch,native._check,self.pid,monotonic=lambda:self.clock)
         controls=TokenGraphicsUI(source,lambda *_:need(False),monotonic=lambda:self.clock,sleep=self.sleep)
         return IOSGraphicsSurface(original,self.subject_reader(),controls,run,intent,owns,lease,allow_url)
 
@@ -166,8 +172,10 @@ class SceneHarness:
         self.lock=ScriptSourceLock(self.root/'script-feature-sources.lock')
         def surface(_selector,run,intent,owns,lease,allow_url,*,lock):
             lock.assert_held();return self.sdk.surface(run,intent,owns,lease,allow_url)
-        self.adapter=SimpleNamespace(state_path=lambda _:self.root/'session.json',
-            normal_feature_runtime=lambda *_,**__: (None,None,deepcopy(BINDING),lambda:True,dict(installedCandidateVerified=True)),
+        def runtime(*_,**__):
+            need(self.sdk.running and self.sdk.foreground)
+            return None,None,deepcopy(BINDING)|dict(processIdentity=str(self.sdk.pid)),lambda:need(self.sdk.running and self.sdk.foreground),dict(installedCandidateVerified=True)
+        self.adapter=SimpleNamespace(state_path=lambda _:self.root/'session.json',normal_feature_runtime=runtime,
             _graphics_subject_observer=lambda *_,**__:self.sdk.subject_reader(),_scene_load_observer=lambda *_,**__:self.sdk.loads_reader(),
             _native_feature_observer=lambda *_,**__:self.sdk.core_reader(),
             _graphics_surface=surface)

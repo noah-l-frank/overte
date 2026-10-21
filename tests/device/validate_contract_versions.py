@@ -90,6 +90,7 @@ REQUIRED = {
     "ios-graphics-source-floors": 1,
     "ios-graphics-samples": 2,
     "ios-graphics-background": 1,
+    "ios-graphics-restart": 1,
     "feature-image-marker-readiness": 1,
     "ios-graphics-restart-proof": 1,
     "feature-graphics-viewpoint-query": 1,

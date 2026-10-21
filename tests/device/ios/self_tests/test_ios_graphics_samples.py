@@ -46,7 +46,7 @@ class GPU:
         self.sdk,self.worlds,self.sequence,self.frames=sdk,{},0,0
         self.marker=TICKET;self.commands=[];self.lost=False;self.no_fence=False;self.birth='c'*32;self.delay=0;self.on_read=None
     def source(self,packet):
-        packet['instance']=self.birth
+        packet['instance']=self.birth;packet['processId']=self.sdk.pid
         source=packet.get('source',{})
         if 'renderTrace' in source:
             source['renderTrace']['frameId']=format(self.frames+4000,'032x')
@@ -70,30 +70,37 @@ class GPU:
             b=current[0];b.clock=self.sdk.clock;b.sequence=self.sequence
             raw=b.original();self.sequence=b.sequence;self.sdk.clock=b.clock
             return raw
-        return NativeVulkanWorldFrame(send,original,self.sdk.epoch,lambda:True,42,intent,receipt=received,
+        return NativeVulkanWorldFrame(send,original,self.sdk.epoch,lambda:True,self.sdk.pid,intent,receipt=received,
                                      monotonic=lambda:self.sdk.clock,sleep=self.sdk.sleep)
 
 
-class SamplesTests(SceneHarness,unittest.TestCase):
+class SamplesHarness(SceneHarness):
     def setUp(self):
         super().setUp();self.gpu=GPU(self.sdk);(self.root/'pixels').mkdir(mode=0o700)
         def native():return normal_input.NativeInput(self.sdk,'owned-session',self.sdk.target,self.sdk.process,
             native_epoch_ms=self.sdk.epoch,monotonic=lambda:self.sdk.clock,sleep=self.sdk.sleep)
         def graphics(*_,**__):
             original=type('Original',(),dict(native=native()))()
-            return IOSGraphicsSource(original,self.sdk.epoch,lambda:True,42,read_only=True,monotonic=lambda:self.sdk.clock)
+            return IOSGraphicsSource(original,self.sdk.epoch,lambda:True,self.sdk.pid,read_only=True,monotonic=lambda:self.sdk.clock)
         self.adapter._graphics_ui_source=graphics
-        self.adapter._script_file_io=lambda *_,**__:IOSScriptUISource(native(),self.sdk.epoch,lambda:True,42,monotonic=lambda:self.sdk.clock)
+        self.adapter._script_file_io=lambda *_,**__:IOSScriptUISource(native(),self.sdk.epoch,lambda:True,self.sdk.pid,monotonic=lambda:self.sdk.clock)
         self.adapter.graphics_samples_store=lambda _selector,role,stage:PrivateFeatureState(self.root/('ios-graphics-'+role+'-'+str(stage)+'-samples.json'))
         def owner(_selector,run,role,stage,request,root,*,source_lock):
             store=PrivateFeatureState(self.root/('graphics-world-frame-'+role+'-'+str(stage)+'-'+request[4:]+'.json'))
             from self_tests.test_completed_frame_lease import BINDING
-            return VulkanWorldFrameOwner(store,root,BINDING,run,role,stage,request,self.gpu.reader,lambda:True,
+            return VulkanWorldFrameOwner(store,root,BINDING|dict(processIdentity=str(self.sdk.pid)),run,role,stage,request,self.gpu.reader,lambda:True,
                 source_lock=source_lock,monotonic=lambda:self.sdk.clock,sleep=self.sdk.sleep)
         self.adapter._vulkan_world_frame_owner=owner
     def samples(self,role='primary',cleanup=False,client=None):
         return IOSGraphicsSamples(self.adapter,'owned',client or self.client,RUN,role,0,self.lock,self.root/'pixels',POLICY,
             cleanup_only=cleanup,epoch_ms=self.sdk.host_epoch,monotonic=lambda:self.sdk.clock)
+
+    def archive_index(self,samples):
+        return IOSGraphicsSamples.archive_index(samples.previous,adapter=self.adapter,selector='owned',client=self.client,
+            run=RUN,role=samples.role,stage=0,lock=self.lock,binding=samples.binding,artifact_root=self.root/'pixels',image_policy=POLICY)
+
+
+class SamplesTests(SamplesHarness,unittest.TestCase):
 
     def test_new_original_samples_survive_owner_recreation_without_changing_raw_native_clocks(self):
         with self.lock.held():
@@ -228,10 +235,6 @@ class SamplesTests(SceneHarness,unittest.TestCase):
             self.assertEqual(unpack(old_sample['payload'])[0],archived)
             current.read(TICKET,self.sdk.host_epoch());self.assertEqual(2,current.previous['iosGraphicsSamplesVersion'])
             self.assertEqual(old_sample,store.read())
-
-    def archive_index(self,samples):
-        return IOSGraphicsSamples.archive_index(samples.previous,adapter=self.adapter,selector='owned',client=self.client,
-            run=RUN,role=samples.role,stage=0,lock=self.lock,binding=samples.binding,artifact_root=self.root/'pixels',image_policy=POLICY)
 
     def test_old_process_archive_validates_original_bytes_without_any_sdk_or_native_factory(self):
         with self.lock.held():

@@ -19,6 +19,52 @@ from adapters.normal_feature_state import context
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _graphics_restart(self,selector,client,run,lock,artifact_root,image_policy):
+        from ios.adapters.graphics_restart import IOSGraphicsRestart
+        return IOSGraphicsRestart(self,selector,client,run,lock,artifact_root,image_policy)
+
+    def graphics_restart_inputs_store(self,selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('ios-graphics-restart-inputs.json'))
+
+    def _graphics_restart_inputs(self,selector):
+        from adapters.restart_inputs import RestartInputs
+        return RestartInputs(self.graphics_restart_inputs_store(selector),self.graphics_restart_owners(selector))
+
+    def _graphics_restart_input(self,selector,operation):
+        from ios.adapters.graphics_restart import VERSION
+        from feature_journeys.contract import arguments
+        need(operation in ('app.stop','app.launch'))
+        value=PrivateFeatureState(self.state_path(selector).with_name('ios-graphics-restart.json')).read()
+        need(type(value) is dict and type(value.get('iosGraphicsRestartVersion')) is int and value['iosGraphicsRestartVersion']==VERSION)
+        rows=unpack(value['payload']);need(len(rows)==1);state=rows[0];call=arguments('feature.graphics.act',state['arguments'])
+        need(call['verb']=='restart-app' and call['runId']==value['runId'] and call['fixtureUrl']==value['fixtureUrl']+'/runs/'+value['runId']+'/'
+             and state['phase']=='prepared')
+        plan=self._graphics_restart_inputs(selector).read()
+        need(plan['phase']==('stop-issued' if operation=='app.stop' else 'launch-issued')
+             and same(plan['oldBinding'],unpack(state['oldScene']['payload'])[0]['binding']))
+        base=self.adapter;outer=base._operation;need(outer in (None,'feature.graphics.act'))
+        base._operation=None
+        try:return base.invoke(selector,operation,{})
+        finally:base._operation=outer
+
+    def _graphics_recover_launch(self,selector,inputs):
+        from adapters.restart_inputs import RestartInputs
+        need(isinstance(inputs,RestartInputs) and not inputs.component_only
+             and inputs.owner_files==self._graphics_restart_inputs(selector).owner_files)
+        owned=self.adapter._binding_store(selector).read()
+        if owned is not None and owned['phase']=='preparing':
+            need(inputs.read()['phase']=='launch-issued')
+            self.adapter._recover_script_restart_launch(selector,inputs=inputs)
+
+    def _graphics_restart_stopped(self,selector,old_binding):
+        inputs=self._graphics_restart_inputs(selector);need(same(inputs.read()['oldBinding'],old_binding))
+        base=self.adapter;base._candidate_guard(complete=True)
+        client,state,target=base._script_restart_session(selector,inputs=inputs)
+        gate=base._binding(selector,client,state['sessionId'],state,target);record=gate.record()
+        if record is not None and record['phase']=='retiring':gate.finish_retirement()
+        gate.retired_absence();base.reset_launch_state(selector,state)
+        return dict(running=False,identity=None)
+
     def _graphics_background(self,selector,client,run,lock):
         from ios.adapters.graphics_lifecycle import IOSGraphicsBackground
         return IOSGraphicsBackground.recover(self,selector,client,run,lock)
