@@ -1113,6 +1113,24 @@
             }
             return true;
         }
+        if (command && command.action === "feature-ios-web-closures") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^ios-[0-9a-f]{32}$/.test(command.commandId) && command.commandId.length === 36
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && typeof command.fixtureUrl === "string" && command.fixtureUrl.length <= 512
+                    && new RegExp("^https?://[^/?#@\\s]+/feature-fixture/v1/runs/"+command.runId+"/$").test(command.fixtureUrl)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId","fixtureUrl"])) {
+                var webClosures = {iosWebClosureVersion:1,commandId:command.commandId,complete:false};
+                try {
+                    if (typeof Test.featureIOSWebClosures === "function") {
+                        var originalClosures = Test.featureIOSWebClosures(command);
+                        if (originalClosures && originalClosures.commandId === command.commandId) { webClosures = originalClosures; }
+                    }
+                } catch (_webClosureError) { /* No native source is never an empty inventory. */ }
+                Test.saveObject(webClosures,"feature-ios-web-closures.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-web-dom-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)

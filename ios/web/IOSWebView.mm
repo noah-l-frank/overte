@@ -139,6 +139,9 @@ QVariant qtValue(id value) {
 @public
     QPointer<overte::ios::IOSWebView> owner;
     std::uint64_t generation;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::ios::feature_closures::ContextPointer featureScope;
+#endif
 }
 - (void)close;
 - (void)back;
@@ -282,10 +285,22 @@ QVariant qtValue(id value) {
     (void)view; (void)origin; (void)frame; decisionHandler(WKPermissionDecisionDeny);
 }
 - (void)webView:(WKWebView*)view navigationAction:(WKNavigationAction*)action didBecomeDownload:(WKDownload*)download {
-    (void)view; (void)action; [download cancel:^(NSData*) {}];
+    (void)view; (void)action;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto featureLease = overte::ios::feature_closures::retain(featureScope, overte::ios::feature_closures::Kind::Download);
+    [download cancel:^(NSData*) { (void)featureLease; }];
+#else
+    [download cancel:^(NSData*) {}];
+#endif
 }
 - (void)webView:(WKWebView*)view navigationResponse:(WKNavigationResponse*)response didBecomeDownload:(WKDownload*)download {
-    (void)view; (void)response; [download cancel:^(NSData*) {}];
+    (void)view; (void)response;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto featureLease = overte::ios::feature_closures::retain(featureScope, overte::ios::feature_closures::Kind::Download);
+    [download cancel:^(NSData*) { (void)featureLease; }];
+#else
+    [download cancel:^(NSData*) {}];
+#endif
 }
 // No custom file-panel delegate: WK's system-mediated chooser requires explicit
 // user file selection. This HTML mode does not grant app filesystem access and
@@ -611,6 +626,7 @@ void IOSWebView::open() {
             state.view = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, size.width(), size.height()) configuration:configuration];
 #if defined(OVERTE_E2E_FEATURE_TESTS)
             if (featureEnabled() && state.view && state.featureCreation<9007199254740991ULL) { ++state.featureCreation; }
+            state.delegate->featureScope = owner->featureClosureContext();
 #endif
             state.view.navigationDelegate = state.delegate; state.view.UIDelegate = state.delegate;
             state.view.opaque = state.background;
@@ -621,8 +637,14 @@ void IOSWebView::open() {
             state.observers = [NSMutableArray array];
             for (NSNotificationName name in @[UIApplicationWillResignActiveNotification, UISceneWillDeactivateNotification,
                     UIWindowDidResignKeyNotification]) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                const auto featureLease = feature_closures::retain(owner->featureClosureContext(), feature_closures::Kind::Notification);
+#endif
                 id token = [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue
                     usingBlock:^(NSNotification* note) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                        (void)featureLease;
+#endif
                         if (!owner || owner->_private->generation != generation) { return; }
                         if ([note.name isEqualToString:UIApplicationWillResignActiveNotification] ||
                                 note.object == owner->_private->window.windowScene || note.object == owner->_private->window) {
@@ -646,6 +668,9 @@ void IOSWebView::open() {
     };
     auto createView = [owner, generation, createConfiguredView] {
         if (!owner || !owner->active() || owner->_private->generation != generation) { return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        const auto featureLease = feature_closures::retain(owner->featureClosureContext(), feature_closures::Kind::RuleList);
+#endif
         // Every isolated WK view blocks the reserved namespace, including pages
         // reached by ordinary browsing. There is no DNS/network fallback for a
         // synthetic document or a foreign subresource in that namespace.
@@ -653,6 +678,9 @@ void IOSWebView::open() {
             encodedContentRuleList:nativeString(iosInlineNamespaceRules())
             completionHandler:^(WKContentRuleList* rules, NSError* error) {
                 dispatch_async(dispatch_get_main_queue(), ^{
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                    (void)featureLease;
+#endif
                     if (!owner || !owner->active() || owner->_private->generation != generation) { return; }
                     if (error || !rules) {
                         owner->fail(owner->tr("The web document isolation rules could not be installed.")); return;
@@ -672,12 +700,30 @@ void IOSWebView::open() {
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
     _private->scriptReply = _private->network.get(request);
     auto* reply = _private->scriptReply.data();
-    connect(reply, &QNetworkReply::readyRead, this, [owner, generation, reply] {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto featureReadyLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::ScriptReply);
+    const auto featureFinishedLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::ScriptReply);
+#endif
+    connect(reply, &QNetworkReply::readyRead, this, [owner, generation, reply
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        , featureReadyLease
+#endif
+    ] {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        (void)featureReadyLease;
+#endif
         if (!owner || !owner->active() || owner->_private->generation != generation) { return; }
         owner->_private->script.append(reply->readAll());
         if (owner->_private->script.size() > 1024 * 1024) { owner->fail(owner->tr("The web script exceeds the allowed size.")); }
     });
-    connect(reply, &QNetworkReply::finished, this, [owner, generation, reply, createView] {
+    connect(reply, &QNetworkReply::finished, this, [owner, generation, reply, createView
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        , featureFinishedLease
+#endif
+    ] {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        (void)featureFinishedLease;
+#endif
         if (!owner || !owner->active() || owner->_private->generation != generation) { reply->deleteLater(); return; }
         owner->_private->scriptReply = nullptr;
         const bool success = reply->error() == QNetworkReply::NoError &&
@@ -742,7 +788,13 @@ void IOSWebView::closePresentation() {
     [_private->view removeFromSuperview];
     QPointer<IOSWebView> owner(this);
     const auto generation = _private->generation;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto featureLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::Presentation);
+#endif
     [_private->presentation dismissViewControllerAnimated:NO completion:^{
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        (void)featureLease;
+#endif
         if (!owner || !owner->active() || owner->_private->generation != generation) { return; }
         auto& state = *owner->_private;
         state.presentation = nil;
@@ -762,6 +814,9 @@ void IOSWebView::nativeNavigationFinished() {
         QObject::disconnect(_private->snapshotConnection);
         const auto generation = _private->generation;
         const auto epoch = _private->document.epoch();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _private->snapshot.setFeatureClosureContext(featureClosureContext());
+#endif
         _private->snapshotConnection = connect(&_private->snapshot, &WKWebSnapshot::imageReady,
             this, [this, generation, epoch](const QImage& image) { acceptDocumentImage(generation, epoch, image); });
         if (!_private->snapshot.attach((__bridge void*)_private->view, size)) {
@@ -777,7 +832,13 @@ void IOSWebView::verifyDocument() {
     const auto epoch = _private->document.epoch();
     const auto nonce = encodedArguments(QJsonArray { _private->document.nonce() });
     const auto script = QStringLiteral("!!(window.qt&&qt.webChannelTransport&&qt.webChannelTransport.document===%1[0]);").arg(nonce);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto featureLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::JavaScript);
+#endif
     [_private->view evaluateJavaScript:nativeString(script) completionHandler:^(id result, NSError* error) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        (void)featureLease;
+#endif
         if (!owner || !owner->active() || owner->_private->generation != generation || owner->_private->document.epoch() != epoch) { return; }
         auto& state = *owner->_private;
         const auto verified = state.document.verify(generation, epoch,
@@ -878,6 +939,16 @@ void IOSWebView::emitScriptEvent(const QVariant& message) {
     if (active()) { _private->channel.publishScriptEvent(message); }
 }
 void IOSWebView::evaluate(const QString& code) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (active() && _private->view) {
+        const auto featureLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::JavaScript);
+        if (featureLease) {
+            [_private->view evaluateJavaScript:nativeString(guardedScript(code, _private->document.nonce()))
+                completionHandler:^(id, NSError*) { (void)featureLease; }];
+            return;
+        }
+    }
+#endif
     if (active() && _private->view) { [_private->view evaluateJavaScript:nativeString(guardedScript(code, _private->document.nonce())) completionHandler:nil]; }
 }
 void IOSWebView::goBack() { if (active() && _private->view.canGoBack) { _private->document.resetRecovery(); [_private->view goBack]; } }
@@ -908,7 +979,13 @@ void IOSWebView::runJavaScript(const QString& code, const QJSValue& callback) {
     QPointer<IOSWebView> owner(this);
     const auto generation = _private->generation;
     const auto epoch = _private->document.epoch();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto featureLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::JavaScript);
+#endif
     [_private->view evaluateJavaScript:nativeString(source) completionHandler:^(id result, NSError* error) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        (void)featureLease;
+#endif
         if (!owner || !owner->active() || owner->_private->generation != generation || owner->_private->document.epoch() != epoch || !callback.isCallable()) { return; }
         auto* engine = qmlEngine(owner.data());
         if (!engine) { return; }
@@ -930,7 +1007,13 @@ return !!(el.isContentEditable||el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&
     QPointer<IOSWebView> owner(this);
     const auto generation = _private->generation;
     const auto epoch = _private->document.epoch();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto featureLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::JavaScript);
+#endif
     [_private->view evaluateJavaScript:nativeString(guardedScript(QStringLiteral("return ") + code, _private->document.nonce())) completionHandler:^(id result, NSError* error) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        (void)featureLease;
+#endif
         if (!owner || type != QStringLiteral("press")) { return; }
         owner->acceptInputResult(generation, epoch, !error && [result isKindOfClass:NSNumber.class] && [result boolValue]);
     }];
@@ -1051,6 +1134,11 @@ void IOSWebViewNative::failed(IOSWebView* owner, std::uint64_t generation) { if 
 void IOSWebViewNative::close(IOSWebView* owner) { if (owner) { owner->closePresentation(); } }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+feature_closures::ContextPointer IOSWebView::featureClosureContext() const {
+    const auto& value = *_private;
+    return feature_closures::context(value.featureHandle, value.featureCreation, value.generation,
+        value.document.epoch(), value.surface, value.identity, value.policy.url().toString(QUrl::FullyEncoded));
+}
 void IOSWebViewNative::featureResponse(IOSWebView* owner,std::uint64_t generation,WKWebView* view,NSHTTPURLResponse* response) {
     if (!featureEnabled() || !current(owner,generation) || view!=owner->_private->view || !response) { return; }
     auto& state=*owner->_private;
@@ -1114,8 +1202,10 @@ QVariantMap IOSWebView::featureWebDOMRequest(const QVariantMap& command) {
         const auto code=QStringLiteral("return window.__overteFeatureWebDOM?JSON.stringify(window.__overteFeatureWebDOM.read(%1[0])):null;").arg(argument);
         const auto script=guardedScript(code,nonce);
         QPointer<IOSWebView> owner(this);__weak WKWebView* observed=state.view;
+        const auto featureLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::JavaScript);
         @try {
             [state.view evaluateJavaScript:nativeString(script) completionHandler:^(id result,NSError* error) {
+                (void)featureLease;
                 if (!owner || !featureEnabled() || !owner->active()) { return; }
                 auto& actual=*owner->_private;
                 if (!observed || observed!=actual.view || actual.generation!=generation || actual.document.epoch()!=epoch
@@ -1180,6 +1270,10 @@ void registerIOSWebView() {
     if (featureEnabled() && QCoreApplication::instance()) {
         overte::e2e::WebDOMProvider provider=[](const QVariantMap& command) { return overte::ios::IOSWebView::featureWebDOMObservation(command); };
         QCoreApplication::instance()->setProperty(overte::e2e::webDOMProviderProperty(),QVariant::fromValue(provider));
+        overte::ios::feature_closures::Provider closures=[](const QVariantMap& command) {
+            return overte::ios::feature_closures::observe(command);
+        };
+        QCoreApplication::instance()->setProperty(overte::ios::feature_closures::providerProperty(),QVariant::fromValue(closures));
     }
 #endif
 }

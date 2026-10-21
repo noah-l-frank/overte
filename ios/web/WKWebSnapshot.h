@@ -6,6 +6,9 @@
 #include <QObject>
 #include <QSize>
 #include <memory>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "IOSWebClosureTrace.h"
+#endif
 
 namespace overte::ios {
 // Capture only: the endpoint owns WKWebView configuration/navigation, its
@@ -19,6 +22,9 @@ public:
     // capped independently of Retina scale. An unattached view is rejected.
     bool attach(void* webView, QSize logicalSize);
     void detach();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    void setFeatureClosureContext(feature_closures::ContextPointer context);
+#endif
 signals:
     void imageReady(const QImage& image);
     void failed();

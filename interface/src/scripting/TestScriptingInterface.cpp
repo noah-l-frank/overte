@@ -67,6 +67,7 @@
 #include "../../../tests/device/native/ChatViewObservation.h"
 #if defined(Q_OS_IOS)
 #include "../../../tests/device/ios/InstalledBundleIdentity.h"
+#include "../../../tests/device/native/IOSWebClosureBridge.h"
 #endif
 
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
@@ -726,6 +727,23 @@ QVariantMap TestScriptingInterface::featurePendingCommitOwner(const QVariantMap&
     const auto provider = original.value<overte::e2e::PendingCommitProvider>();
     return provider ? provider(command) : QVariantMap();
 }
+
+#if defined(Q_OS_IOS)
+QVariantMap TestScriptingInterface::featureIOSWebClosures(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this, [&] { result = featureIOSWebClosures(command); }, Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::ios::feature_closures::command(command)) { return {}; }
+    const auto original = qApp->property(overte::ios::feature_closures::providerProperty());
+    if (original.userType() != qMetaTypeId<overte::ios::feature_closures::Provider>()) { return {}; }
+    const auto provider = original.value<overte::ios::feature_closures::Provider>();
+    return provider ? provider(command) : QVariantMap();
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureWebDOMObservation(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
@@ -1462,7 +1480,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     QString filepath = QDir::cleanPath(_testResultsLocation + filename);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
-            || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
+            || filename == "feature-ios-web-closures.json" || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json" || filename == "feature-completed-frame.json" || filename == "feature-vulkan-world-frame.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"

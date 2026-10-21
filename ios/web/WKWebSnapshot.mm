@@ -17,6 +17,9 @@ bool foreground(WKWebView* view) {
 }
 }
 struct WKWebSnapshot::Private {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    feature_closures::ContextPointer featureClosureContext;
+#endif
     __strong WKWebView* view { nil };
     EmbeddedWebSurfaceState state;
     std::uint64_t generation { 0 };
@@ -33,6 +36,11 @@ WKWebSnapshot::WKWebSnapshot(QObject* parent) : QObject(parent), _private(std::m
 }
 
 WKWebSnapshot::~WKWebSnapshot() { detach(); }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void WKWebSnapshot::setFeatureClosureContext(feature_closures::ContextPointer context) {
+    _private->featureClosureContext = std::move(context);
+}
+#endif
 
 void WKWebSnapshot::detach() {
     _private->state.invalidate(); // Old completions cannot release a new capture.
@@ -81,12 +89,18 @@ void WKWebSnapshot::capture() {
     _private->nativeCaptureStarted = now;
     const auto size = _private->state.size();
     QPointer<WKWebSnapshot> owner(this);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto featureLease = feature_closures::retain(_private->featureClosureContext, feature_closures::Kind::Snapshot);
+#endif
     @try {
         WKSnapshotConfiguration* configuration = [WKSnapshotConfiguration new];
         configuration.rect = CGRectMake(0, 0, size.width, size.height);
         configuration.snapshotWidth = @(size.width);
         configuration.afterScreenUpdates = NO;
         [view takeSnapshotWithConfiguration:configuration completionHandler:^(UIImage* snapshot, NSError* error) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            (void)featureLease; // Last native block copy owns the lease, including after QObject death.
+#endif
             if (!owner) { return; }
             owner->_private->nativeCapturePending = false;
             if (!owner->_private->state.current(generation)) { return; }

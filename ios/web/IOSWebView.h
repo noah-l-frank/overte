@@ -1,6 +1,9 @@
 // Copyright 2026 Overte e.V.
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "IOSWebClosureTrace.h"
+#endif
 #include <QImage>
 #include <QJSValue>
 #include <QQuickPaintedItem>
@@ -116,6 +119,7 @@ private:
     void evaluate(const QString& code);
     void closePresentation();
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    feature_closures::ContextPointer featureClosureContext() const;
     QVariantMap featureWebDOMRequest(const QVariantMap& command);
     QVariantMap featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source = {});
 #endif

@@ -165,6 +165,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureChatViewObservation(const QVariantMap& command);
 #if defined(Q_OS_IOS)
     Q_INVOKABLE QVariantMap featureIOSBundleObservation(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureIOSWebClosures(const QVariantMap& command);
 #endif
 
     Q_INVOKABLE QVariantMap featureWebDOMObservation(const QVariantMap& command);
