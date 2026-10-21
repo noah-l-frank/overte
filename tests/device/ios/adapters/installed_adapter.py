@@ -58,7 +58,7 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
     class IOSInstalledAdapter(IOSNativeMixin, base_class):
         def __init__(self):
             self._operation = None
-            self._preparing = self._retiring = None
+            self._preparing = self._retiring = self._recovering = None
             super().__init__()
 
         @classmethod
@@ -114,9 +114,45 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
             self._candidate_guard()
             return super()._script_restart_inputs(*args, **kwargs)
 
-        def _script_restart_source(self, *args, **kwargs):
+        def _script_restart_source(self, selector):
             self._candidate_guard()
-            return super()._script_restart_source(*args, **kwargs)
+            owned = self._binding_store(selector).read()
+            if owned is not None and owned.get('phase') == 'preparing':
+                self._recover_script_restart_launch(selector)
+            return super()._script_restart_source(selector)
+
+        def _recover_script_restart_launch(self, selector):
+            # Only the explicit restart coordinator may enter this read-only
+            # recovery path. Ordinary ensure_session/describe/launch still fail
+            # on abandoned launch intent, without delivering another SDK input.
+            self._candidate_guard(complete=True)
+            need(self._recovering is None)
+            client, state, target = self._script_restart_session(selector)
+            session = state['sessionId']
+            gate = self._binding(selector, client, session, state, target)
+            actual = gate.original_process()
+            need(actual is not None)
+            pid = actual['pid']
+            def process():
+                return gate.preparing_continuity(pid)
+            observer = FeatureObservation(client, session, target, process)
+            def ready(measured, native_after):
+                need(measured == actual and state.get('processIdentity') in
+                     (None, str(self._script_restart_inputs(selector).read()['oldNative']['pid']), str(pid)))
+                state['processIdentity'] = str(pid)
+                # Compare original device probe time to an original native
+                # fence; neither AFC metadata nor host UTC supplies freshness.
+                self.wait_first_ios_probe(selector, client, session, state, target, str(pid), native_after)
+                state.update(iosE2ELaunchCompleted=True,
+                    iosE2ESceneUrl=target['testBuild']['fixtureOrigin'] + target['testBuild']['scenePath'])
+                self.save_session(selector, state)
+            self._recovering = (selector, session, pid)
+            try:
+                gate.recover_prepared(self._script_restart_inputs(selector), observer.native_observer(),
+                    observer.process_presence(), ready)
+                self._candidate_guard(complete=True)
+            finally:
+                self._recovering = None
 
         def _script_restart(self, *args, **kwargs):
             self._candidate_guard()
@@ -217,6 +253,10 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
 
         def assert_ios_process_identity(self, selector, client, session, state, target):
             gate = self._binding(selector,client,session,state,target)
+            if self._recovering is not None and self._recovering[:2] == (selector, session):
+                actual = gate.preparing_continuity(self._recovering[2])
+                need(state.get('processIdentity') in (None, str(actual['pid'])))
+                return str(actual['pid'])
             if self._preparing == (selector,session):
                 need(gate.record()['phase'] == 'preparing')
                 return super().assert_ios_process_identity(selector,client,session,state,target)

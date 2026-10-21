@@ -134,3 +134,46 @@ separate cases still exercise the original runtime/identity/General CLI with
 injected immutable-package/official-format boundaries. These checks establish
 adapter logic only, not native compilation, installation, signing acceptance,
 physical-device behavior or complete feature-area adapters.
+
+## Explicit lost-launch recovery (writer v3)
+
+New ownership records use binding version 3; exact readers for versions 1 and 2
+remain. V3 adds nullable `recovery`; ordinary launches keep it null. A legacy v1
+`preparing` record has no original source and cannot recover. A v2 `preparing`
+record retains that source and may upgrade only through the checks below.
+
+`_script_restart_source(selector)` may recover an existing `preparing` binding
+only from its matching durable `RestartInputs` `launch-issued` intent and a
+previously bound/retired bundle instance. Ordinary `describe`, `ensure_session`
+and `app.launch` continue to reject an abandoned launch. No recovery path calls
+launch, activation, termination, installation or session creation.
+
+Recovery joins the original same-session/generation/target and process-plugin
+source with a currently foreground new PID, new native feature birth and actual
+persisted lifecycle counters, original kernel ESRCH for the old PID, a new
+nonce-bound installed-bundle byte measurement, the original first-probe readiness
+check and a later original native fence. Both native readers must be iOS readers.
+The first-probe fence is the original native acquisition epoch; AFC metadata and
+host UTC never replace it. Bundle-observer birth is a separate native identity
+from feature-observer birth; equality between those UUIDs is not assumed.
+
+V3 retains `launchRecoveryVersion:1`, original old component binding/native
+birth, both complete original native frames, the original old-process absence
+packet and original recovered bundle packet. Subsequent byte verification
+advances only the current observation; it does not rewrite this proof. Exact
+proof readers reject changed identities, false absence, regressing counters,
+rewritten frames, reused nonces and nonadvancing sequences. The native source,
+intent and preparing record must still agree immediately before the CAS to
+`bound`. A failed proof retains preparing/input ownership and cannot become an
+SDK retry. Recovery is bounded by a monotonic 30-second transaction; individual
+read/first-probe bounds and outer operation ceilings remain in force.
+
+These checks establish installed-code recovery only. They do not establish
+empty Script execution, companion/effect ownership transfer, independent actor
+facts or feature cleanup. Those remain the separate existing restart handoff.
+If unresolved Script input ownership prevents cleanup, base process/session
+teardown still runs and cleanup reports failure with original journals retained.
+It must not erase those journals to manufacture successful cleanup.
+
+The recovery and canonical-wrapper counterexamples run without compilers or
+devices. Native instrumentation and real driver behavior remain unqualified.

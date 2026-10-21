@@ -38,7 +38,7 @@ class InstalledCodeTests(unittest.TestCase):
 
     def test_preparing_records_original_source_before_launch_and_rejects_replacement_before_bind(self):
         self.binding.begin(); original = self.store.read()
-        self.assertEqual(2, original['bindingVersion']); self.assertEqual(self.source, original['source'])
+        self.assertEqual(3, original['bindingVersion']); self.assertEqual(self.source, original['source'])
         self.source['instance'] = 'e' * 32
         with self.assertRaises(ValueError): self.binding.bind()
         self.assertEqual(original, self.store.read())
@@ -52,10 +52,10 @@ class InstalledCodeTests(unittest.TestCase):
 
     def test_legacy_bound_readers_remain_supported_but_preparing_cannot_invent_missing_provenance(self):
         self.active(); current = self.store.read()
-        self.store.write(current | {'bindingVersion': 1}, current)
+        self.store.write({k:v for k,v in (current | {'bindingVersion': 1}).items() if k != 'recovery'}, current)
         self.make().verify(); self.assertEqual(1, self.store.read()['bindingVersion'])
         self.store.discard(self.store.read()); self.binding.begin(); current = self.store.read()
-        self.store.write(current | dict(bindingVersion=1, source=None), current)
+        self.store.write({k:v for k,v in (current | dict(bindingVersion=1, source=None)).items() if k != 'recovery'}, current)
         self.assertIsNone(self.make().record()['source'])
         for action in (self.binding.bind, self.make().bind, self.make().begin, self.make().verify):
             with self.assertRaises(ValueError): action()

@@ -12,12 +12,12 @@ import time
 from adapters.normal_feature_state import context
 from ios.adapters.bundle_identity import compare
 from ios.adapters.bundle_observation import validate
-from adapters.restart_inputs import RestartInputs, validate_native_restart
-from adapters.native_feature_observation import NativeFeatureObservation
-from adapters.native_process_presence import NativeProcessPresence
+from adapters.restart_inputs import RestartInputs, validate_native_restart, native as validate_restart_native
+from adapters.native_feature_observation import NativeFeatureObservation, number, validate as validate_native
+from adapters.native_process_presence import NativeProcessPresence, validate as validate_presence
 
-VERSION = 2
-READS = (1, 2)
+VERSION = 3
+READS = (1, 2, 3)
 SCOPE = {'sourceRevision', 'artifactSha256', 'sessionId', 'generation', 'targetFingerprint'}
 SDK = {'appium': '3.7.0', 'xcuitest': '12.8.0', 'remoteXpc': '5.15.3'}
 
@@ -62,11 +62,16 @@ class InstalledCodeBinding:
         value = self.store.read()
         if value is None:
             return None
-        need(type(value) is dict and set(value) == {'bindingVersion', 'phase', 'scope',
-             'source', 'process', 'observation', 'previousInstance'}
+        fields = {'bindingVersion', 'phase', 'scope', 'source', 'process', 'observation', 'previousInstance'}
+        need(type(value) is dict)
+        if value.get('bindingVersion') == 3: fields.add('recovery')
+        need(set(value) == fields
              and type(value['bindingVersion']) is int and value['bindingVersion'] in READS
              and value['scope'] == self.scope and value['phase'] in
              ('preparing', 'bound', 'retiring', 'retired'))
+        if value['bindingVersion'] == 3:
+            need(value['recovery'] is None or value['phase'] in ('bound', 'retiring', 'retired'))
+            if value['recovery'] is not None: self._recovery_proof(value)
         previous = value['previousInstance']
         need(previous is None or type(previous) is str and re.fullmatch('[0-9a-f]{32}', previous))
         context(dict(value['scope'], processIdentity='1'))
@@ -100,14 +105,14 @@ class InstalledCodeBinding:
         # process may only be handled by the original controlled-launch path.
         current = dict(bindingVersion=VERSION, phase='preparing', scope=deepcopy(self.scope),
                        source=provenance, process=None, observation=None,
-                       previousInstance=previous['observation']['instance'] if previous else None)
+                       previousInstance=previous['observation']['instance'] if previous else None, recovery=None)
         self.store.write(current, previous)
         self.started = True
 
     def bind(self):
         previous = self.record()
         need(self.started and previous is not None and previous['phase'] == 'preparing'
-             and previous['bindingVersion'] == VERSION)
+             and previous['bindingVersion'] in (2, VERSION))
         provenance = deepcopy(source(self.process_source()))
         need(provenance == previous['source'])
         process = self.original_process()
@@ -123,7 +128,7 @@ class InstalledCodeBinding:
     def preparing_continuity(self, pid):
         """Read-only continuity for a separately proven recovery readiness read."""
         previous = self.record()
-        need(previous is not None and previous['bindingVersion'] == VERSION and previous['phase'] == 'preparing'
+        need(previous is not None and previous['bindingVersion'] in (2, VERSION) and previous['phase'] == 'preparing'
              and type(pid) is int and pid > 0 and source(self.process_source()) == previous['source'])
         actual = self.original_process()
         need(actual is not None and actual['pid'] == pid and source(self.process_source()) == previous['source'])
@@ -140,14 +145,15 @@ class InstalledCodeBinding:
         # No SDK input or session creation occurs in this transaction.
         need(isinstance(inputs, RestartInputs) and inputs.component_only
              and isinstance(native, NativeFeatureObservation) and isinstance(presence, NativeProcessPresence)
-             and callable(ready) and callable(monotonic))
-        started = previous_clock = monotonic()
+             and native.ios and presence.ios and callable(ready) and callable(monotonic))
+        started = previous_clock = monotonic(); need(number(started, 0, 1e15))
         def bound():
             nonlocal previous_clock
-            now = monotonic(); need(now >= previous_clock and now - started < 30)
+            now = monotonic(); need(number(now, 0, 1e15) and now >= previous_clock and now - started < 30)
             previous_clock = now
         previous = self.record(); intent = inputs.read()
-        need(previous is not None and previous['bindingVersion'] == VERSION and previous['phase'] == 'preparing'
+        need(previous is not None and previous['bindingVersion'] in (2, VERSION) and previous['phase'] == 'preparing'
+             and previous['previousInstance'] is not None
              and intent['phase'] == 'launch-issued' and inputs.store.path.parent == self.store.path.parent
              and intent['oldBinding']['targetFingerprint'] == self.scope['targetFingerprint']
              and intent['oldBinding']['generation'] == self.scope['generation']
@@ -159,7 +165,7 @@ class InstalledCodeBinding:
                 lifecycle=packet['lifecycle']))
         first = native.read(native.sequence); verify(first); bound()
         exited = presence.require_absent(intent['oldNative']['pid']); bound()
-        need(exited['instance'] == first['instance'])
+        need(exited['instance'] == first['instance'] and exited['capturedEpochMs'] >= first['capturedEpochMs'])
         observed = deepcopy(self.observation(self.native_bundle(), native.pid)); bound()
         need(observed['instance'] != previous['previousInstance']
              and observed['capturedEpochMs'] >= first['capturedEpochMs'])
@@ -169,12 +175,44 @@ class InstalledCodeBinding:
         # save actual launch flags here, before binding becomes publicly usable.
         ready(deepcopy(process), first['capturedEpochMs']); bound()
         final = native.read(native.sequence); verify(final); bound()
-        need(final['instance'] == first['instance'] and final['capturedEpochMs'] >= exited['capturedEpochMs']
+        need(final['instance'] == first['instance'] and final['capturedEpochMs'] >= max(exited['capturedEpochMs'], observed['capturedEpochMs'])
              and self.preparing_continuity(native.pid) == process and inputs.read() == intent
              and self.record() == previous); bound()
-        self.store.write(dict(previous, phase='bound', process=process, observation=observed), previous)
+        recovery = dict(launchRecoveryVersion=1, oldBinding=deepcopy(intent['oldBinding']),
+            oldNative=deepcopy(intent['oldNative']), firstNative=first, oldProcessAbsent=exited,
+            bundleObservation=deepcopy(observed), finalNative=final)
+        current = dict(previous, bindingVersion=VERSION, phase='bound', process=process, observation=observed, recovery=recovery)
+        self._recovery_proof(current)
+        self.store.write(current, previous)
         bound()
         return self._claim()
+
+    def _recovery_proof(self, record):
+        proof = record['recovery']
+        need(type(proof) is dict and set(proof) == {'launchRecoveryVersion', 'oldBinding',
+            'oldNative', 'firstNative', 'oldProcessAbsent', 'bundleObservation', 'finalNative'}
+            and type(proof['launchRecoveryVersion']) is int and proof['launchRecoveryVersion'] == 1)
+        old = validate_restart_native(proof['oldNative'])
+        binding = context(proof['oldBinding'], component_only=True)
+        need(binding['targetFingerprint'] == self.scope['targetFingerprint']
+             and binding['generation'] == self.scope['generation']
+             and binding['processIdentity'] == str(old['pid']))
+        first, final, absence = proof['firstNative'], proof['finalNative'], proof['oldProcessAbsent']
+        bundle = self.observation(proof['bundleObservation'], record['process']['pid'])
+        need(record['observation']['instance'] == bundle['instance']
+             and record['observation']['preparedEpochMs'] == bundle['preparedEpochMs']
+             and record['observation']['sequence'] >= bundle['sequence']
+             and record['observation']['capturedEpochMs'] >= bundle['capturedEpochMs'])
+        for packet in (first, final):
+            validate_native(packet, packet.get('requestId'), record['process']['pid'], packet.get('capturedEpochMs'))
+            validate_native_restart(old, dict(pid=packet['processId'], instance=packet['instance'], lifecycle=packet['lifecycle']))
+        request = dict(schemaVersion=1, commandId=absence.get('commandId'), action='feature-process-presence', queryProcessId=old['pid'])
+        validate_presence(absence, request, record['process']['pid'], absence.get('capturedEpochMs'))
+        need(absence['presence'] == 'absent' and first['instance'] == absence['instance'] == final['instance']
+             and final['sequence'] > first['sequence'] and final['requestId'] != first['requestId']
+             and first['capturedEpochMs'] <= absence['capturedEpochMs'] <= final['capturedEpochMs']
+             and first['capturedEpochMs'] <= bundle['capturedEpochMs'] <= final['capturedEpochMs']
+             and all(final['lifecycle'][key] >= count for key, count in first['lifecycle'].items()))
 
     def _claim(self):
         record = self.record()

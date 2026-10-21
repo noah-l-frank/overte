@@ -24,6 +24,7 @@ from ios.adapters.adapter import IOSNativeMixin
 from ios.adapters import appium_adapter as ios_backend
 from ios.self_tests.test_ios_bundle_observation import Boundary
 from self_tests.test_native_feature_observation import Boundary as ClockBoundary
+from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from fixture.serve import FixtureState
 
 
@@ -33,6 +34,8 @@ class InstalledAdapterTests(unittest.TestCase):
         self.artifacts = self.root/'artifacts';self.artifacts.mkdir();self.artifact = self.artifacts/'Overte.ipa'
         self.artifact.write_bytes(b'Synthetic artifact boundary; not an installable build')
         self.native = Boundary();self.clock = ClockBoundary();self.clock.mutate = lambda v:v.update(processId=42)
+        self.presence = PresenceBoundary(pid=43); self.presence.presence = 'absent'
+        self.presence.edit = lambda v: v.update(instance='f'*32)
         self.process = dict(bundleId=self.native.bundle['bundleId'],pid=42,foreground=True)
         self.source = dict(processSourceVersion=1,source='dvt-bundle-pid-xcuitest-state',instance='d'*32,
                            available=True,cleanupPending=False,sdk=dict(SDK))
@@ -58,6 +61,7 @@ class InstalledAdapterTests(unittest.TestCase):
             echo[0]=json.dumps(value).encode()
             if value['action']=='ios-bundle-observe':self.native.send(value)
             elif value['action']=='feature-native-observe':self.clock.send(value)
+            elif value['action']=='feature-process-presence':self.presence.send(value)
             else:raise AssertionError('unexpected native input')
             return Response()
         class Client:
@@ -73,6 +77,7 @@ class InstalledAdapterTests(unittest.TestCase):
                     path=values['remotePath']
                     if path=='@org.example.overte:documents/owned-results/ios-installed-bundle-observation.json':raw=test.native.original()
                     elif path=='@org.example.overte:documents/owned-results/feature-native-observation.json':raw=json.dumps(test.clock.sample)
+                    elif path=='@org.example.overte:documents/owned-results/feature-process-presence.json':raw=test.presence.original()
                     else:raise AssertionError('foreign private file')
                     return base64.b64encode(raw.encode()).decode()
                 raise AssertionError('unexpected OS operation: '+operation)
@@ -147,7 +152,8 @@ class InstalledAdapterTests(unittest.TestCase):
     def test_restart_factories_preserve_candidate_gate_before_any_session_or_private_owner_io(self):
         self.artifact.write_bytes(b'changed original artifact boundary')
         for method in ('_script_manager_status', '_script_missing_manager', '_script_restart_prepare', '_script_restart_adopt', '_script_restart_handoff',
-                       '_script_restart_inputs', '_script_restart_source', '_script_restart', '_script_restart_stopped'):
+                       '_script_restart_inputs', '_script_restart_source', '_script_restart', '_script_restart_stopped',
+                       '_recover_script_restart_launch'):
             with self.subTest(method=method), self.assertRaises(ValueError):
                 getattr(self.adapter, method)('test-only')
         self.assertEqual(0, self.sessions); self.assertEqual([], self.commands)
@@ -188,6 +194,68 @@ class InstalledAdapterTests(unittest.TestCase):
         self.assertEqual('retired', self.adapter._binding_store('test-only').read()['phase'])
         self.assertEqual(stops, sum(operation == 'mobile: terminateApp' for operation, _values in self.commands))
         self.assertEqual(1, self.launches)
+
+    def uncertain_launch(self):
+        from adapters.restart_inputs import RestartDeliveryUncertain
+        self.restart_input_origin()
+        inputs = self.adapter._script_restart_inputs('test-only')
+        inputs.stop(lambda: self.adapter.invoke('test-only', 'app.stop', {}))
+        def launched_but_lost():
+            state = self.adapter.read_session('test-only')
+            gate = self.adapter._binding('test-only', self.adapter.client, 'test-only', state, self.target)
+            gate.begin()
+            self.process = dict(bundleId=self.native.bundle['bundleId'], pid=43, foreground=True)
+            self.native.mutate = lambda v: v.update(processId=43, instance='e'*32)
+            self.clock.mutate = lambda v: v.update(processId=43, instance='f'*32,
+                lifecycle=dict(backgrounds=0, activations=2, launches=2))
+            raise RuntimeError('Synthetic lost SDK response')
+        with self.assertRaises(RestartDeliveryUncertain):
+            inputs.launch(lambda: dict(running=False, identity=None), launched_but_lost)
+        return inputs
+
+    def test_explicit_restart_source_recovers_original_launch_without_sdk_or_session_replay(self):
+        inputs = self.uncertain_launch(); before = self.sessions; launches = self.launches
+        with patch.object(ios_backend, 'WebDriver', return_value=self.adapter.client), \
+             patch.object(IOSNativeMixin, '_script_restart_source', return_value='original-next-source') as source, \
+             patch.object(self.adapter, 'launch_ios_test_build') as launch, \
+             patch.object(self.adapter, 'wait_first_ios_probe') as ready:
+            self.assertEqual('original-next-source', self.adapter._script_restart_source('test-only'))
+            launch.assert_not_called(); source.assert_called_once_with('test-only')
+            ready.assert_called_once()
+            self.assertEqual(('43', 20000), ready.call_args.args[-2:])
+        state = self.adapter.read_session('test-only')
+        self.assertEqual('43', state['processIdentity']); self.assertTrue(state['iosE2ELaunchCompleted'])
+        self.assertEqual(self.target['testBuild']['fixtureOrigin']+'/scene.json', state['iosE2ESceneUrl'])
+        owned = self.adapter._binding_store('test-only').read()
+        self.assertEqual('bound', owned['phase']); self.assertEqual(3, owned['bindingVersion'])
+        self.assertEqual('absent', owned['recovery']['oldProcessAbsent']['presence'])
+        self.assertEqual('launch-issued', inputs.read()['phase'])
+        self.assertEqual(before, self.sessions); self.assertEqual(launches, self.launches)
+        self.assertIsNone(self.adapter._recovering)
+        self.assertTrue(self.adapter.describe('test-only')['executionIdentity']['installedCandidateVerified'])
+
+    def test_lost_launch_stays_closed_for_ordinary_commands_and_readiness_failure(self):
+        self.uncertain_launch()
+        for operation in (lambda: self.adapter.describe('test-only'),
+                          lambda: self.adapter.invoke('test-only', 'app.launch', {})):
+            with self.assertRaises(ValueError): operation()
+        with patch.object(ios_backend, 'WebDriver', return_value=self.adapter.client), \
+             patch.object(self.adapter, 'wait_first_ios_probe', side_effect=RuntimeError('Synthetic missing probe')):
+            with self.assertRaises(ValueError): self.adapter._recover_script_restart_launch('test-only')
+        self.assertEqual('preparing', self.adapter._binding_store('test-only').read()['phase'])
+        self.assertIsNone(self.adapter._recovering)
+        self.assertEqual(1, self.launches)
+        with self.assertRaises(RuntimeError): self.adapter.cleanup('test-only')
+        self.assertIsNone(self.adapter.read_session('test-only'))  # Base teardown still runs.
+        self.assertEqual('preparing', self.adapter._binding_store('test-only').read()['phase'])
+        self.assertEqual('launch-issued', self.adapter._script_restart_inputs('test-only').read()['phase'])
+
+    def test_recovery_candidate_loss_is_rejected_before_os_or_journal_acquisition(self):
+        self.uncertain_launch(); before = len(self.commands)
+        self.artifact.write_bytes(b'Replaced synthetic candidate')
+        with self.assertRaises(ValueError): self.adapter._recover_script_restart_launch('test-only')
+        self.assertEqual(before, len(self.commands))
+        self.assertEqual('preparing', self.adapter._binding_store('test-only').read()['phase'])
 
     def test_full_candidate_recheck_after_original_operation_blocks_changed_evidence(self):
         self.adapter.describe('test-only')
