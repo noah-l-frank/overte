@@ -1593,16 +1593,45 @@ consume the four commands already completed by that PR's original Repository
 documentation and workflow-contract jobs. This requires the exact registered
 caller and documentation recipes, native attempt 1 and App, the same current
 B/H/M/tree, complete successful job inventories and fresh source bookends.
-Pending owners wait before candidate tests; failed, stale or changed owners
-block rather than cause those four commands to run again. The validator then
-executes the remaining 33 commands and reports only their actual JUnit cases.
-An independently selected product or Android owner keeps the previous CI37
-execution route; this narrow no-product command proof cannot represent it.
+The validator reserves exactly those four commands and executes the remaining
+33 concurrently with pending native owners. A pending owner grants no coverage;
+completed native proof is required before any successful report. Failed, stale
+or changed owners block rather than cause those four commands to run again.
+Only the 33 actual commands produce candidate JUnit cases.
+An independently selected native or project product owner keeps the previous
+CI37 execution route. A required Android owner remains separate: the same
+original Repository run must authenticate its complete route, execute and
+verify jobs before the four-command proof can be consumed. Its commands are
+never counted as shared CI coverage.
 The separate native four-command proof is not an environment, fingerprint or E;
 the combined report remains `qualification: false` and `reusable: false`.
 Metadata retention and the finite identical-tree Android parent consumer
 independently revalidate both owners. Closed PR associations may be cleared
 only after the existing exact normal-merge geometry has been authenticated.
+
+Android routing may omit its independent union for the closed set of canonical
+CI/controller/test and guide changes in `REVIEWED_CI_INPUTS`. Every changed entry
+must be regular and exactly equal the protected default's entry. The complete
+candidate inventory, and the old inventory after replacing only those checked
+CI entries for comparison, must match the trusted target's existing lock-reader
+anchor and count. Policy JSON may change only its reviewed lock-source records.
+The dependency graph may change only validated reader and lookup digests; its
+definitions, membership and profiles remain exact. The generation catalog may
+only append the exact reviewed generation 28 to the exact historical 27-entry
+prefix. Only the two pinned passive recipes may be newly added. The sole
+execution-input exception is `inputs.py` with an identical complete Python AST
+after masking one valid top-level `INSTALLED_COMPILER_READER` digest literal.
+All functional execution-controller or runtime changes, Android configuration,
+fixtures, profiles and toolchain changes retain the complete Android owner. Before a
+branch delivery is published, independently derive its Android plan and locally
+preflight every selected command with all six ordinary views; shared host61 is
+not a substitute for the target-specific Android union.
+
+Metadata retention authenticates `pull_request_target` execution against the
+protected default branch's exact source, independently of the PR's target and
+B/H/M/tree. GitHub uses the default branch for this event's workflow and
+`GITHUB_REF`/`GITHUB_SHA`; see the [event change announcement](https://github.blog/changelog/2025-11-07-actions-pull_request_target-and-environment-branch-protections-changes/)
+and [event reference](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows/#pull_request_target).
 
 A partial parent run uploads its real JUnit results and a diagnostic
 `host-selection.json` with the exact candidate, package plan, selected and

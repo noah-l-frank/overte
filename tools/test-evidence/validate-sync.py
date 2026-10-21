@@ -51,7 +51,7 @@ class NativeStandaloneCIProof(dict):
 
 
 class StandalonePending(ValidationError):
-    """Only a still-pending original owner may be polled before execution."""
+    """A pending original owner has no completed command coverage yet."""
 
 
 def _standalone_ci_names(selection, registry):
@@ -282,10 +282,28 @@ def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=
                 or j.get('head_sha') != request.head_sha or j.get('status') != 'completed'
                 or j.get('conclusion') not in {'success', 'skipped'} for j in jobs):
             raise ValidationError('standalone original job inventory is pending, failed or mixed')
-        for name in ('project', 'native', 'android'):
+        for name in ('project', 'native'):
             rows = [j for j in jobs if j.get('name') == name]
             if len(rows) != 1 or rows[0].get('conclusion') != 'skipped':
                 raise ValidationError('standalone CI proof requires the actual delegated no-product route')
+        android_steps = {
+            'android / route': 'Independently select the complete Android union',
+            'android / execute': 'Execute and verify the independently selected Android owners once',
+            'android / verify': 'Recompute candidate union and require complete successful ownership',
+        }
+        android = [j for j in jobs if j.get('name') == 'android']
+        expanded = [j for j in jobs if type(j.get('name')) is str and j['name'].startswith('android / ')]
+        if android:
+            if len(android) != 1 or android[0].get('conclusion') != 'skipped' or expanded:
+                raise ValidationError('standalone independent Android layout is mixed or unavailable')
+            android_steps = {}
+        elif request.base not in {'android-main', 'android-phone', 'android-vr', 'android-vr-pico'} \
+                or len(expanded) != 3 or {j['name'] for j in expanded} != set(android_steps) \
+                or any(j.get('conclusion') != 'success' for j in expanded):
+            raise ValidationError('standalone independent Android owners did not all succeed')
+        elif not any(ref.get('path') == request.repository + '/.github/workflows/android-required.yml@'
+                + request.merge_sha for ref in latest['referenced_workflows']):
+            raise ValidationError('standalone independent Android native recipe is unavailable')
         for name in ('repository-checks', 'Select required repository checks'):
             rows = [j for j in jobs if j.get('name') == name]
             if len(rows) != 1 or rows[0].get('conclusion') != 'success':
@@ -298,13 +316,14 @@ def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=
         }
         if len({j.get('name') for j in jobs}) != len(jobs):
             raise ValidationError('standalone native job names are ambiguous')
-        relevant = [job for job in jobs if job['name'] in {*commands, 'repository-checks', 'Select required repository checks'}]
+        relevant = [job for job in jobs if job['name'] in {
+            *commands, *android_steps, 'repository-checks', 'Select required repository checks'}]
         checks = {job['name']: gate._metadata_check(api, prefix, latest, job, request.head_sha) for job in relevant}
         if any(checks[job['name']].get('details_url') != 'https://github.com/' + request.repository
                 + '/actions/runs/' + str(identifier) + '/job/' + str(job['id']) for job in relevant):
             raise ValidationError('standalone native job/check/run links differ')
         selected_jobs = {}
-        for name, steps in commands.items():
+        for name, steps in {**commands, **{name: (step,) for name, step in android_steps.items()}}.items():
             rows = [j for j in jobs if j.get('name') == name]
             if len(rows) != 1 or rows[0].get('conclusion') != 'success':
                 raise ValidationError('standalone original successful command owner is unavailable')
@@ -316,7 +335,15 @@ def verify_standalone_ci_owners(api, gate, request, registry, selection, *, now=
                     <= gate.parse_time(job['completed_at'], 'standalone job completion') \
                     <= gate.parse_time(latest['updated_at'], 'standalone run completion'):
                 raise ValidationError('standalone job is outside its original native run')
-            selected_jobs[name] = job
+            if name in commands:
+                selected_jobs[name] = job
+        if android_steps:
+            ordered = {job['name']: job for job in expanded}
+            if not gate.parse_time(ordered['android / route']['completed_at'], 'Android route completion') \
+                    <= gate.parse_time(ordered['android / execute']['started_at'], 'Android execution start') \
+                    <= gate.parse_time(ordered['android / execute']['completed_at'], 'Android execution completion') \
+                    <= gate.parse_time(ordered['android / verify']['started_at'], 'Android verification start'):
+                raise ValidationError('standalone independent Android owner ordering differs')
         return {'listed': listed, 'run': latest, 'attempt': attempt, 'jobs': jobs,
             'checks': checks, 'selected_jobs': selected_jobs, 'registration': registration, 'check_suite': suite}
 
@@ -362,7 +389,7 @@ def verify_standalone_ci_provenance(reported, actual, request, *, normal_parent=
 
 
 def _native_standalone_ci_owners(api, gate, request, registry, selection):
-    """Wait only before commands; pending is never successful native coverage."""
+    """Wait before reporting coverage; pending is never successful proof."""
     deadline = time.monotonic() + 900
     while True:
         try:
@@ -411,7 +438,9 @@ def _standalone_ci_schedule(candidate, event, request, plan, *, base_tree, candi
         event_name='pull_request', policy_root=ROOT, pr_context=pr_context)
     if selected.get('candidate') != request.merge_sha or type(selected.get('required')) is not bool:
         raise ValidationError('standalone Android scheduling route is malformed')
-    return selected['required'] is False
+    # Android remains independently required and verified. This proof covers
+    # only the four standalone CI commands, including when Android also ran.
+    return True
 
 
 def _trusted_module(name: str, path: Path):
@@ -1058,13 +1087,20 @@ def validate_sync(args, *, api=None):
             native_evidence=prepared_native)
         if no_setup and (evidence is None or ci_required):
             raise ValidationError('unprepared selected CI commands cannot run after native proof changed')
+        standalone_names = []
         if evidence is None and not reused and ci_required == selection['suites'] \
                 and _standalone_ci_names(selection, registry):
-            standalone = _native_standalone_ci_owners(api, gate, request, registry, selection)
-            if not isinstance(standalone, NativeStandaloneCIProof):
-                raise ValidationError('standalone owner is not authenticated native command coverage')
-            reused = list(standalone['suites'])
-            ci_required = [name for name in selection['suites'] if name not in reused]
+            # Reserve only the statically selected commands. Pending native
+            # work grants no coverage, but need not serialize the other33.
+            standalone_names = _standalone_ci_names(selection, registry)
+            try:
+                standalone = verify_standalone_ci_owners(api, gate, request, registry, selection)
+            except StandalonePending:
+                pass
+            else:
+                if not isinstance(standalone, NativeStandaloneCIProof) or standalone.get('suites') != standalone_names:
+                    raise ValidationError('standalone owner is not exact native command coverage')
+            ci_required = [name for name in selection['suites'] if name not in standalone_names]
         if ci_required:
             execution_path = Path(args.receipt).with_name(Path(args.receipt).name + ".ci-execution.json")
             status, returned = _execute_ci(candidate, initial, selection, registry, args.junit, execution_path,
@@ -1078,6 +1114,12 @@ def validate_sync(args, *, api=None):
             # Differential validation actually ran above. There is no unused
             # consumer environment or execution receipt to manufacture.
             _bounded_junit(args.junit, [])
+        if standalone_names:
+            if standalone is None:
+                standalone = _native_standalone_ci_owners(api, gate, request, registry, selection)
+            if not isinstance(standalone, NativeStandaloneCIProof) or standalone.get('suites') != standalone_names:
+                raise ValidationError('standalone owner is not exact completed native command coverage')
+            reused = list(standalone['suites'])
         if reused and standalone is None:
             _recheck_native_ci(gate, api, config, request, evidence, registry, local_tree, reused)
         if set(reused) & set(executed) or set(reused) | set(executed) != set(selection["suites"]):
