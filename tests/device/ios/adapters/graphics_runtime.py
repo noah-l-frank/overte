@@ -10,6 +10,7 @@ from adapters.normal_ui import NativeUI
 from adapters.token_graphics_ui import TokenGraphicsUI
 from ios.adapters.normal_scripts import IOSScriptIO
 from ios.adapters.graphics_source import IOSGraphicsSource
+from ios.adapters.graphics_surface import IOSGraphicsSurface
 from ios.adapters.script_runtime import IOSScriptRuntime
 
 
@@ -30,3 +31,10 @@ class IOSGraphicsRuntime(IOSScriptRuntime):
     def _graphics_controls(self,selector,intent):
         need(callable(intent))
         return TokenGraphicsUI(self._graphics_ui_source(selector,read_only=False),intent)
+
+    def _graphics_surface(self,selector,run,intent,owns,lease,allow_url):
+        source=self._sources(selector)
+        original=IOSScriptIO(NativeUI(source['client'],source['session'],source['check']),source['native'])
+        reader=IOSGraphicsSource(original,source['native_clock'],source['check'],int(source['binding']['processIdentity']))
+        graphics=TokenGraphicsUI(reader,lambda *_:need(False))
+        return IOSGraphicsSurface(original,source['observer'].graphics_subject(),graphics,run,intent,owns,lease,allow_url)

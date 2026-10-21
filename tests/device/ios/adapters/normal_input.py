@@ -27,6 +27,7 @@ from adapters.token_login_ui import IDS as LOGIN_IDS, VERSION as LOGIN_VERSION,m
 from adapters.native_account_origin import origin_text
 from ios.adapters.account_menu import IDS as ACCOUNT_IDS,FIELDS as ACCOUNT_FIELDS,metadata as account_metadata
 from ios.adapters.account_preferences import CONTROL_ID as REMEMBER_ID,CONTROL_FIELDS as REMEMBER_FIELDS,control_metadata as remember_metadata
+from ios.adapters.view_controls import IDS as VIEW_IDS,FIELDS as VIEW_FIELDS,metadata as view_metadata
 from adapters.token_audio_ui import audio_control, metadata_fields as audio_metadata_fields, validate_metadata as validate_audio_metadata
 from adapters.token_script_file_ui import (file_control, folder_text,
     metadata_fields as file_metadata_fields, validate_metadata as validate_file_metadata)
@@ -85,6 +86,10 @@ def observation(value, pid, now_ms=None):
         if type(value['accountMenuControlsVersion']) is not int or value['accountMenuControlsVersion']!=1:
             raise NativeUIError('Native iOS account menu control version is invalid')
         fields.add('accountMenuControlsVersion')
+    if type(value) is dict and 'viewMenuControlsVersion' in value:
+        if type(value['viewMenuControlsVersion']) is not int or value['viewMenuControlsVersion']!=1:
+            raise NativeUIError('Native iOS View menu control version is invalid')
+        fields.add('viewMenuControlsVersion')
     if type(value) is dict and 'fileControlsVersion' in value:
         if type(value['fileControlsVersion']) is not int or value['fileControlsVersion'] != 1:
             raise NativeUIError('Native iOS file control version is invalid')
@@ -132,6 +137,9 @@ def observation(value, pid, now_ms=None):
         elif is_create:
             if value.get('createControlsVersion')!=1:raise NativeUIError('Native iOS Create controls lack their source extension')
             original=dict(control);original.pop('frame',None);create_metadata(original);fields=set(control)
+        elif type(control) is dict and control.get('id') in VIEW_IDS:
+            if value.get('viewMenuControlsVersion')!=1:raise NativeUIError('Native iOS View menu lacks its source extension')
+            view_metadata(control);fields |= VIEW_FIELDS
         elif type(control) is dict and control.get('id')==REMEMBER_ID:
             if value.get('accountPreferences',{}).get('accountPreferenceVersion')!=2:
                 raise NativeUIError('Native iOS Remember control lacks its preference source')
@@ -160,7 +168,7 @@ def observation(value, pid, now_ms=None):
             fields.add('checked')
         if (not isinstance(control, dict) or set(control) != fields
                 or not isinstance(control['id'], str)
-                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])) or control['id'] in seen
+                or not (control['id'] in CONTROLS or script_control(control['id']) or file_control(control['id']) or audio_control(control['id']) or graphics_control(control['id']) or control['id'] in LOGIN_IDS or control['id'] in ACCOUNT_IDS or control['id'] in VIEW_IDS or control['id']==REMEMBER_ID or is_create and create_control(control['id']) or is_chat and chat_control(control['id'])) or control['id'] in seen
                 or not _uuid(control['token']) or control['token'] in tokens
                 or type(control['enabled']) is not bool or type(control['focused']) is not bool):
             raise NativeUIError('Native iOS input controls are invalid')

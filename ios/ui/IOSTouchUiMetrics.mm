@@ -419,13 +419,11 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
         }
         OverteIOSE2EAccessibilityButton* control = tabletE2EAccessibilityButton(window, identifier);
         control.sourceControlToken = sourceToken;
-        if (id.startsWith(QStringLiteral("scripts.")) || id.startsWith(QStringLiteral("script-file."))
-                || id.startsWith("login.") || id.startsWith("account.") || id.startsWith("audio.")
-                || id.startsWith("graphics.") || id == "settings.entry") {
-            // The adapter checks this original token on the resolved UIKit
-            // object. Replacing a row also retires that UIKit object above.
-            control.accessibilityValue = sourceToken;
-        }
+        // Every E2E proxy is a source-token control, including Home, tablet
+        // pages and the address editor. Text comes from the original native
+        // survey/private carrier, never this token attribute. Replacing the
+        // Qt source also retires this actual UIKit object above.
+        control.accessibilityValue = sourceToken;
         control.frame = frame;
         control.accessibilityIdentifier = identifier;
         static const QHash<QString, QString> labels {
@@ -434,6 +432,8 @@ void updateNormalUiButtons(UIWindow* window, CGRect safeBounds, NSMutableSet<NSS
             { "login.submit", "Submit login" }, { "login.cancel", "Close login" },
             { "account.menu-file", "File menu" }, { "account.logout", "Log out" },
             { "account.remember", "Keep me logged in" },
+            { "view.menu", "View menu" }, { "view.first-person", "First Person" },
+            { "view.third-person", "Third Person" }, { "view.selfie", "Selfie" },
             { "hud.goto", "Go to destination" }, { "address.field", "Destination address" },
             { "address.go", "Go" }, { "address.cancel", "Cancel" }, { "address.back", "Back" },
             { "places.back", "Back" }, { "places.forward", "Forward" },

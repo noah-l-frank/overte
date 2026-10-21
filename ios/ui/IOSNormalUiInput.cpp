@@ -22,6 +22,7 @@
 #include "../../tests/device/native/ScriptFileUi.h"
 #include "../../tests/device/native/ScriptUiInventory.h"
 #include "../../tests/device/native/NormalAccountMenuControls.h"
+#include "../../tests/device/native/NormalViewMenuControls.h"
 #include "../../tests/device/native/AccountPreferenceObservation.h"
 #endif
 
@@ -69,6 +70,8 @@ QString identify(QQuickItem* item, bool hud, bool fileAllowed) {
         if (!accountPreference.isEmpty()) { return accountPreference; }
         const auto accountMenu=overte::e2e::accountMenuControlId(item);
         if (!accountMenu.isEmpty()) { return accountMenu; }
+        const auto viewMenu=overte::e2e::viewMenuControlId(item);
+        if (!viewMenu.isEmpty()) { return viewMenu; }
         const auto login=overte::e2e::loginControlId(item);
         if (!login.isEmpty()) { return login; }
     }
@@ -216,7 +219,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
                 auto source = overte::e2e::scriptFileControlSource(node);
                 if (source.isEmpty()) { source = overte::e2e::scriptRowSource(node); }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-                if (id.startsWith("account.")) {
+                if (id.startsWith("view.")) {
+                    source=overte::e2e::viewMenuControlSource(node);
+                    if (source.isEmpty()) { ambiguous=true;return; }
+                } else if (id.startsWith("account.")) {
                     source=id=="account.remember" ? overte::e2e::accountPreferenceControlSource(node,loginContext)
                         : overte::e2e::accountMenuControlSource(node);
                     if (source.isEmpty()) { ambiguous=true;return; }
@@ -305,7 +311,10 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         overte::e2e::appendScriptControlObservation(row, control.item, id);
         overte::e2e::appendScriptFileObservation(row, control.item, id);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        if (id.startsWith("account.")) {
+        if (id.startsWith("view.")) {
+            const auto metadata=overte::e2e::viewMenuControlObservation(control.item);
+            for (auto it=metadata.begin();it!=metadata.end();++it) { row[it.key()]=it.value(); }
+        } else if (id.startsWith("account.")) {
             if (id=="account.remember") {
                 const auto metadata=overte::e2e::accountPreferenceControlObservation(control.item,loginContext);
                 for (auto it=metadata.begin();it!=metadata.end();++it) { row[it.key()]=it.value(); }
@@ -334,6 +343,7 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
     result["accountMenuControlsVersion"]=1;
+    result["viewMenuControlsVersion"]=1;
     result["loginClearInputVersion"]=1;
     result["accountPreferences"]=overte::e2e::accountPreferenceObservation();
     result["scriptObservationVersion"]=1;
@@ -380,7 +390,12 @@ bool NormalUiInput::press(const QString& controlId, const QString& token) {
     if (!control || !enabled(control)) { return false; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     const auto graphicsContext = _graphicsReader ? _graphicsReader() : overte::e2e::GraphicsUiContext();
-    if (controlId.startsWith("account.")) {
+    if (controlId.startsWith("view.")) {
+        const auto source=overte::e2e::viewMenuControlSource(control);
+        if (source.isEmpty() || source!=_controls.value(controlId).source
+                || !overte::e2e::NormalControlUi::ownsPoint(control,control->window(),
+                    control->mapToScene(QPointF(control->width()/2,control->height()/2)))) { return false; }
+    } else if (controlId.startsWith("account.")) {
         const auto point=control->mapToScene(QPointF(control->width()/2,control->height()/2));
         const auto context=_loginReader ? _loginReader() : overte::e2e::LoginUiContext();
         if (controlId=="account.remember" && (!context.valid || context.pending || context.tokenPresent)) { return false; }

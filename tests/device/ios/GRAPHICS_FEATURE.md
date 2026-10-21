@@ -47,6 +47,24 @@ pointer, scrollbar and on-grid slider input. Read-only acquisition refuses all
 mutations. Actual window-generation changes remain in the original records;
 individual input recipes must pin the context after opening the tablet.
 
+`graphics_surface.py` supplies ordinary generic Graphics/Go To/View-menu input
+under caller-owned persisted intent and UI leases. It navigates only original
+or caller-owned URLs through the actual address editor/IME, searches actual
+tablet pages, scrolls real Graphics controls, and clicks original QAction
+delegates for camera changes. The generic `look at` mode maps to the product's
+**Third Person** action; no Phone label or package selector is reused. View-menu
+source v1 binds the actual source QObject, kind, label hash and checked state,
+and rechecks source plus hit ownership before pointer delivery. The dedicated
+test UI is required to use the current English menu labels.
+
+All UIKit E2E proxies now expose their original source token, including Home,
+tablet-page and address controls used by these ordinary recipes. A replaced Qt
+source retires the actual UIKit proxy. Field text is read from its native source
+or private carrier, never confused with this token attribute. Graphics input
+identity is pinned after the actual tablet window opens and released only after
+observed closure. The surface returns input receipts only; scene/preferences/
+images and durable whole-run cleanup remain separate owner responsibilities.
+
 The [original iOS scene-load ledger](../native/SCENE_LOAD_OBSERVATION.md)
 records actual local-file/ResourceRequest outcomes, current generations and
 retained owner-thread/viewpoint callbacks. The full runtime's existing native
@@ -98,6 +116,14 @@ Eighteen further source/input host tests cover original iOS Graphics receipt
 projection, generic-source admission, read-only input refusal, altered/stale/
 foreign originals, and the existing meaningful scroll/slider/ignored-input
 counterexamples. These do not yet exercise the full iOS Graphics journey.
+
+The ordinary surface packet passed 45 selected no-build host cases. The SDK
+model exercises actual W3C lookup/token/click and native HTTP/AFC framing,
+generic settings open/scroll/set/toggle/close/reopen, actual mode reads after
+View-menu pointers, normal address IME input and failed persisted intent.
+Ignored slider/camera inputs, foreign source metadata and retired tokens fail
+without resend. Native/UIKit positives remain synthetic; these checks cannot
+establish native compilation, ordinary iOS accessibility or device behavior.
 
 The Graphics provider/phase/fixture packet passed 150 shared host tests,
 including all existing journey logic, closed role access and actual loopback
