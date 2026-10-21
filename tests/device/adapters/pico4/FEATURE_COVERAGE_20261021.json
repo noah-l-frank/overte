@@ -536,7 +536,10 @@
         "tests/device/self_tests/test_pico_graphics_background.py",
         "tests/device/adapters/graphics_journey/restart.py",
         "tests/device/adapters/pico4/GRAPHICS_RESTART.md",
-        "tests/device/self_tests/test_pico_graphics_restart.py"
+        "tests/device/self_tests/test_pico_graphics_restart.py",
+        "tests/device/adapters/graphics_journey/lifetime.py",
+        "tests/device/adapters/pico4/GRAPHICS_LIFETIME.md",
+        "tests/device/self_tests/test_pico_graphics_lifetime.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -562,7 +565,7 @@
         "Whole feature coordinator joining the source-implemented normal VR surface, durable scene owner v4 and durable native preference owner v3; a different camera mode needs actual View-menu input, and the separate restart-only Pico swapchain setting is outside this generic path.",
         "Whole feature coordinator and actor dispatcher around the source-implemented role observer/readiness/effects, role/process sampler v5, paired originals and complete native receipt retirement; no full Graphics public or actor operation is registered.",
         "Independent Graphics actor/publication, whole feature coordination and fresh stereo rendering persistence across lifecycle/restart. Normal background/resume, archive-only activation recovery and normal restart/one-send recovery with original old-PID ESRCH and qualified new-process framework transfer are source-implemented; the full feature/actor operation remains required.",
-        "Complete actual UI/QML/XHR/reply/scene/Web-renderer/capture retirement and three-second quiet restoration across both roles; original scene/avatar/framework restoration policy is now source-implemented and host verified."
+        "The source-implemented per-role/process original lifetime owner now joins actual UI/QML/XHR/reply/scene/Web-renderer and fresh both-role capture issuer/receipt inspections with qualified world/avatar/framework restoration and three-second quiet windows. The full feature/actor coordinator still must join those owners and recoverable final metadata retirement across the complete shared flow."
       ],
       "requiredOriginalEvidence": [
         "Actual native stereo source/target extents and per-eye viewport/projection",
@@ -584,7 +587,7 @@
         "Restore original scene/view and independently observe complete owned UUID absence",
         "Restore original avatar feet/orientation/scale and framework configuration while checking the current physical HMD/camera relation; never demand a fixed Phone head pose or ignore arbitrary local/custom-pointer entities"
       ],
-      "nextExecutableStep": "Implement combined role/process Graphics lifetime ownership across original subject/load/Web-renderer/UI/QML/XHR/reply/capture sources, then join the full shared Graphics feature/actor coordinator and host-verify its complete 15-checkpoint normal VR flow.",
+      "nextExecutableStep": "Implement the full Graphics feature and independent actor dispatcher over the existing normal scene/preferences/background/restart, original stereo observer and multi-source quiet owner; host-verify all 15 shared checkpoints, error/recovery and final metadata retirement before advertising complete capabilities.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "graphics-journey-lifetime": 1,
+    "graphics-lifetime-archive": 1,
     "graphics-journey-restart": 1,
     "graphics-restart-archive": 1,
     "graphics-journey-background": 1,

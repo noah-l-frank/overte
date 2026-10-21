@@ -1139,5 +1139,38 @@
     ],
     "details": "Original one-send normal stop/launch, own-UID process decoding, actual Pico bridge replacement, original old-PID ESRCH and durable exact scene/preference transfer. Private immutable component references preserve full original records within unchanged history bounds. Counterexamples include lost replies, ignored inputs, uncertain process/exit, setting loss, interrupted transfer, retained UI and missing/changed/escaping archive references. Final actual restoration and owner-file absence precede restart/input journal retirement.",
     "limits": "Synthetic native/UI/SDK/process boundaries. Full Graphics/actor coordination and combined quiet lifetime retirement remain required; no native compilation or physical qualification."
+  },
+  "graphicsCombinedLifetimePacket": {
+    "contracts": [
+      "graphics-journey-lifetime v1",
+      "graphics-lifetime-archive v1"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_lifetime (from tests/device)",
+        "tests": 15,
+        "status": "passed",
+        "durationSeconds": 25.867
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 83.06,
+        "junit": "graphics-combined-lifetime-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.42,
+        "junit": "graphics-combined-lifetime-project.xml"
+      }
+    ],
+    "details": "Separate per-role active proofs for all three original world Web/renderer sources, original full scene/avatar/framework restoration, native scene loads, tablet HTTP/XHR/reply lifetime, passive Graphics UI and Script inventory, and new complete-issuer/receipt inspections of both retired role acquisitions. Every invocation requires a new bounded three-second original/local quiet window. Counterexamples cover separate actor acquisition, retained objects/callbacks, unknown capture ownership, changed current framework, pending scene leases, frozen original epochs, observation gaps, interrupted windows, reused queries and missing archive files.",
+    "limits": "Synthetic native/UI/SDK/process boundaries. Full Graphics feature/actor coordination and recoverable final metadata retirement remain required. Native sources are uncompiled and devices untested."
   }
 }

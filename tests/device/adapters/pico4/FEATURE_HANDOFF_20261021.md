@@ -482,3 +482,22 @@ are synthetic source/SDK boundaries. No native code is compiled and no device
 is qualified. Next join combined original resource quiet ownership and the full
 feature/actor coordinator; Graphics remains partial and the complete count is
 two of fourteen.
+
+
+## Combined original Graphics quiet ownership
+
+The [per-role lifetime owner](GRAPHICS_LIFETIME.md) now joins all three original
+world Web/renderer authorities, complete scene restoration, tablet HTTP/XHR and
+reply destruction, passive Graphics UI and Script inventory, and fresh native
+complete-issuer inspections of both roles' retired capture resources. Existing
+role/legacy acquisition owners prevent quiet inspection. No release/removal
+input or entity-absence inference is substituted for these observations.
+
+Separate actor windows, interruption, frozen original clocks, observation gaps,
+retained workers/replies/UI/callbacks, pending scene leases, changed framework,
+reused queries and missing archives are host tested. Every call starts a whole
+new three-second window. Hash-referenced private original groups preserve
+bounded durable histories. This is still an internal owner: next compose the
+full public Graphics feature and independent actor dispatcher and exercise all
+15 shared checkpoints plus final metadata retirement. The complete count stays
+two of fourteen; native compilation and devices remain unverified.

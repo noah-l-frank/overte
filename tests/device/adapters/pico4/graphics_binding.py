@@ -40,6 +40,41 @@ class PicoGraphicsBinding(PicoScriptJourney):
         need(type(read_only) is bool);self._guard(target)
         return self.original._graphics_ui_observer(target)
 
+    def _web_runtime_observer(self,target,*,read_only=False):
+        need(read_only is True);self._guard(target)
+        reader=self.original._web_runtime_observer(target)
+        need(reader.require_renderers is True);return reader
+
+    def _tablet_http_observer(self,target,*,read_only=False):
+        need(read_only is True);self._guard(target)
+        return self.original._tablet_http_observer(target)
+
+    def _graphics_retired_capture_observer(self,target,proof,lock,*,previous=None):
+        from adapters.graphics_journey.samples import retirement
+        from adapters.world_render_receipts import NativeWorldReceiptInventory,INVENTORY_FILE
+        self._lock(target,lock).assert_held()
+        _ui,_observer,binding,guard,_installed=self.normal_feature_runtime(target,read_only=True)
+        native=self._native_feature_observer(target,read_only=True);packet=native.read(0)
+        role=proof['owner']['role'];retirement(proof,proof['owner'],native.pid,binding,role)
+        need(packet['instance']==proof['memory']['instance'])
+        stores=[self.world_render_store(target,role=value) for value in ('primary','actor')]
+        stores.append(self.original._world_render_store(target))
+        def quiet_guard():
+            lock.assert_held();need(guard() is not False and native.guard() is not False
+                and all(store.read() is None for store in stores));return True
+        floor=proof['files']['absent'] if previous is None else previous
+        updated=deepcopy(proof);updated['files']['absent']=deepcopy(floor)
+        retirement(updated,proof['owner'],native.pid,binding,role)
+        need(floor['sequence']>=proof['files']['absent']['sequence'])
+        quiet_guard()
+        reader=NativeWorldReceiptInventory(native.send,
+            lambda:self.original.adb.read_debug_app_file(target,'org.overte.pico','files/overte-e2e/'+INVENTORY_FILE,attempts=1),
+            native.clock_ms,quiet_guard,native.pid,lambda:deepcopy(proof['owner']),lambda:packet['instance'],
+            monotonic=native.monotonic,sleep=native.sleep)
+        reader.sequence,reader.captured=floor['sequence'],floor['capturedEpochMs']
+        reader.histories={floor['requestId']:{row['receiptId']:row['issued'] for row in floor['source']['receipts']}}
+        return reader
+
     def _script_file_io(self,target,*,read_only=False):
         need(type(read_only) is bool)
         return super()._script_file_io(target)
