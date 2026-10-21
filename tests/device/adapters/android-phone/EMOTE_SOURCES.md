@@ -135,3 +135,35 @@ its own original format and cannot substitute version 3 frames for a version 4
 role/effect/image archive. Primary/actor joins require equal admission policies.
 Source/input/observation bounds, source epochs, native commands and common journey
 version 17 remain unchanged. Full Emote capability registration is still pending.
+
+
+## Completed interrupted acquisition recovery
+
+`recover_complete()` is an internal, explicit recovery operation under the
+existing held source lock. It reads no target/UI/fixture source, dispatches no
+input and returns no fresh measurement. Its actual prior control must still
+be reading, with an opened or saved original containing the complete exact
+owned bytes. It independently validates that original frame, checked admission
+policy, source/native/UI/phase continuity, compiled Script history and native
+animation history. An actual namespace predecessor remains bound throughout.
+
+Only after validation can an opened original advance to saved. The existing
+manifest must either be absent from the pending metadata (so the normal durable
+append owns its creation), or already exist with exactly the pending reference,
+original and previous entries. A planned manifest with verified complete bytes
+can finish its saved callback; an absent planned file is not adopted or invented.
+The method commits the same original revision and restores historical cursors.
+A subsequent public measurement still requires a new ordinary source read with
+new actual native/UI/phase observations. Original epochs are never replaced.
+
+Missing results, an empty/partial file, changed bytes, a missing saved file,
+foreign context or late verification remain errors. They keep reading state and
+all existing ownership for the enclosing failure-retirement protocol. This
+method cannot erase pending responsibility, close a run, claim native quietness
+or qualify product behavior. Its five-second bound includes original validation,
+manifest persistence and final parent commit. Formats remain versions 3/4.
+
+Host counterexamples cover saved original/manifest callback loss, a complete
+opened file after lost verification, absent/partial/changed originals, late
+replay and checked version 4 recovery without policy downgrade or redating.
+They acquire no replacement sources and do not qualify devices.

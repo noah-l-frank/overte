@@ -245,6 +245,42 @@ class PhoneEmoteSources:
                 else:self.state,self.frames=dict(phase='ready',revision=0,manifests=[],pending=None),[]
             raise
 
+    def recover_complete(self):
+        """Commit an interrupted complete original; never deliver it as fresh.
+
+        Reads lost before complete owned bytes remain unresolved. This method
+        acquires no native/UI/fixture source and never repeats an input.
+        """
+        need(getattr(self,'historical',False) is False and not self.failed)
+        started=self.monotonic();need(number(started,0,1e15));clock=started
+        def bound():
+            nonlocal clock
+            self.lock.assert_held();need(self.guard() is not False);self.configuration_bound();self.predecessor_bound()
+            now=self.monotonic();need(number(now,clock,1e15) and now-started<5);clock=now
+        bound();need(self.state['phase']=='reading' and self.state['pending'] is not None)
+        state,frames=self.decode(self.previous);need(same(state,self.state) and same(frames,self.frames))
+        pending=self.state['pending'];original=pending['original']
+        need(original is not None and original['phase'] in ('opened','saved'))
+        frame=self.originals.read(original);bound()
+        self.validate_frame(frame,self.frames[-1] if self.frames else self.predecessor)
+        if not self.frames:self.segment_start(frame['group']['native'])
+        replay=NativeScriptObservation(lambda *_:need(False),lambda:need(False),lambda:need(False),lambda:need(False),self.pid)
+        self.replay_scripts(replay,self.frames+[frame]);self.replay_animation(self.frames+[frame]);bound()
+        if original['phase']=='opened':
+            original=deepcopy(original);original['phase']='saved';self.storage_intent('original',original);bound()
+        ref=self.originals.compact(original);manifest=pending['manifest']
+        if manifest is None:manifests=self.originals.append(self.state['manifests'],ref)
+        else:
+            entries=self.originals.manifest(manifest['reference']);need(same(entries[-1],ref))
+            prior=[] if len(entries)==1 else self.originals.manifest(self.state['manifests'][-1])
+            need(same(entries[:-1],prior))
+            if manifest['phase']=='planned':self.storage_intent('manifest',dict(manifest,phase='saved'))
+            manifests=deepcopy(self.state['manifests'])
+            if len(entries)>1:manifests.pop()
+            manifests.append(deepcopy(manifest['reference']))
+        bound();self.frames.append(deepcopy(frame));self.state.update(phase='ready',manifests=manifests,pending=None)
+        self.save();bound()
+
     def read(self):
         need(getattr(self,'historical',False) is False)
         self.lock.assert_held();need(not self.failed and self.state['phase']=='ready' and len(self.frames)<LIMIT and self.guard() is not False)

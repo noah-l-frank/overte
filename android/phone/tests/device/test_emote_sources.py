@@ -129,6 +129,91 @@ class PhoneEmoteSourcesTests(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory(prefix='overte-emote-sources-');self.addCleanup(temporary.cleanup)
         self.model=Originals(Path(temporary.name))
 
+    def test_saved_original_and_manifest_interruptions_recover_without_acquisition_or_fresh_return(self):
+        for boundary in ('original','manifest'):
+            with self.subTest(boundary=boundary):
+                self.setUp();m=self.model
+                with m.lock.held():
+                    source=m.source();source.read();first=deepcopy(source.frames[0]);intent=source.originals.intent
+                    def interrupt(kind,value):
+                        intent(kind,value)
+                        if kind==boundary and value['phase']=='saved':raise NativeUIError('Synthetic lost archive callback')
+                    source.originals.intent=interrupt
+                    with self.assertRaises(NativeUIError):source.read()
+                    calls=deepcopy(m.calls);recovered=m.source()
+                    self.assertIsNone(recovered.recover_complete());self.assertEqual(calls,m.calls)
+                    self.assertEqual(2,len(recovered.frames));self.assertEqual(first,recovered.frames[0])
+                    self.assertEqual('ready',recovered.state['phase']);historical=deepcopy(recovered.frames[-1])
+                    current=recovered.read();self.assertGreater(current['group']['native']['sequence'],historical['group']['native']['sequence'])
+
+    def test_complete_opened_original_recovers_only_after_exact_owned_bytes_validate(self):
+        m=self.model
+        with m.lock.held():
+            source=m.source();read=source.originals.read
+            def interrupt(value):
+                read(value);raise NativeUIError('Synthetic lost original verification return')
+            with patch.object(source.originals,'read',side_effect=interrupt),self.assertRaises(NativeUIError):source.read()
+            self.assertEqual('opened',source.state['pending']['original']['phase'])
+            calls=deepcopy(m.calls);recovered=m.source();self.assertIsNone(recovered.recover_complete())
+            self.assertEqual(calls,m.calls);self.assertEqual(1,recovered.state['revision'])
+            self.assertEqual('ready',recovered.state['phase'])
+
+    def test_absent_partial_missing_or_changed_original_cannot_be_reset_as_a_complete_source(self):
+        for fault in ('dispatch','empty','missing','changed'):
+            with self.subTest(fault=fault):
+                self.setUp();m=self.model
+                with m.lock.held():
+                    source=m.source();intent=source.originals.intent
+                    def interrupt(kind,value):
+                        intent(kind,value)
+                        phase='opened' if fault=='empty' else 'saved'
+                        if kind=='original' and value['phase']==phase:raise NativeUIError('Synthetic source interruption')
+                    source.originals.intent=interrupt
+                    if fault=='dispatch':m.fault='lost-return'
+                    with self.assertRaises(NativeUIError):source.read()
+                    original=source.state['pending']['original']
+                    if fault in ('missing','changed'):
+                        path=source.originals.path(original)
+                        if fault=='missing':path.unlink()
+                        else:path.write_bytes(b'{}')
+                    recovered=m.source();header=deepcopy(recovered.previous);calls=deepcopy(m.calls)
+                    with self.assertRaises((NativeUIError,FileNotFoundError)):recovered.recover_complete()
+                    self.assertEqual(header,recovered.store.read());self.assertEqual(calls,m.calls)
+                    self.assertEqual('reading',recovered.state['phase']);self.assertEqual(0,recovered.state['revision'])
+
+    def test_recovered_checked_original_preserves_policy_and_cannot_become_unchecked_or_retimed(self):
+        from test_emote_observation import AdmittedModel
+        with tempfile.TemporaryDirectory(prefix='overte-source-recovery-approved-') as directory:
+            m=AdmittedModel(Path(directory))
+            with m.lock.held():
+                source=m.source();intent=source.originals.intent
+                def interrupt(kind,value):
+                    intent(kind,value)
+                    if kind=='manifest' and value['phase']=='saved':raise NativeUIError('Synthetic lost checked source commit')
+                source.originals.intent=interrupt
+                with self.assertRaises(NativeUIError):source.read()
+                original=source.originals.read(source.state['pending']['original']);calls=deepcopy(m.calls)
+                m.epoch+=10000;recovered=m.source();recovered.recover_complete()
+                self.assertEqual(calls,m.calls);self.assertEqual(original,recovered.frames[0])
+                self.assertEqual(4,recovered.previous['emoteSourcesVersion']);self.assertEqual(source.admission,recovered.admission)
+                self.assertLess(recovered.frames[0]['hostEpochMs'],m.epoch-1500)
+
+    def test_slow_complete_recovery_keeps_pending_responsibility_and_acquires_no_new_sources(self):
+        m=self.model
+        with m.lock.held():
+            source=m.source();intent=source.originals.intent
+            def interrupt(kind,value):
+                intent(kind,value)
+                if kind=='original' and value['phase']=='saved':raise NativeUIError('Synthetic lost saved source return')
+            source.originals.intent=interrupt
+            with self.assertRaises(NativeUIError):source.read()
+            recovered=m.source();header=deepcopy(recovered.previous);calls=deepcopy(m.calls);read=recovered.originals.read
+            def slow(value):
+                frame=read(value);m.clock+=5.1;return frame
+            with patch.object(recovered.originals,'read',side_effect=slow),self.assertRaises(NativeUIError):recovered.recover_complete()
+            self.assertEqual(header,recovered.store.read());self.assertEqual(calls,m.calls)
+            self.assertEqual('reading',recovered.state['phase']);self.assertEqual(0,recovered.state['revision'])
+
     def test_bounded_segments_keep_previous_metadata_and_original_files_and_link_actual_native_ui_roots(self):
         m=self.model;m.idle=True
         with m.lock.held():
