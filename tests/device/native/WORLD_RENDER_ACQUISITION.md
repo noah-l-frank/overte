@@ -1,11 +1,57 @@
-# World render acquisition, versions 1, 2 and 3: partial instrumentation
+# World render acquisition, versions 1, 2, 3 and 4: partial instrumentation
 
 This source packet supplies E2E-only GL readback, main-mono and Pico stereo frame hooks,
 original-memory/chunk readers and the closed existing probe/fixture dispatch.
 Persistent acquisition/receipt ownership and closed Android receipt IO now
-exist; the Pico factory requires stereo v2/v3. No complete Graphics capability
+exist; the Pico factory requires stereo v2/v3/v4. No complete Graphics capability
 is advertised from this source alone. Existing mono callers retain v1 validation.
 Native C++ is uncompiled and all devices unqualified.
+
+## Actual used camera uniforms, version 4
+
+Native stereo `captureVersion:4` and `renderTrace.traceVersion:4` add original
+`cameraBatches` for both Forward and root Mirror draws. After each original
+batch executes, the backend retains its Frame/execution/batch cursors and the
+camera data actually used at draw time. The following observation lambda can
+read only that exact completed original batch on the same executing backend.
+It cannot substitute a later batch, a current Camera getter or requested pose.
+
+The observer reads the original CPU array uploaded to the camera UBO, after
+late HMD view correction and projection jitter. At actual eye binding it
+checks the current driver UBO name, range start and range size against that
+original backend camera buffer. The buffer's original weak GL share-group
+identity must match the current context, so a foreign numeric buffer name is
+insufficient. Queries change no binding and consume no prior GL error. This
+establishes original submitted uniform data and binding, not fragment execution
+or physical headset output; independent original pixels remain required.
+
+Each batch records its original sequence, Frame/execution identity, observed
+role (`forward` or `mirror`), raw/executed draw-command counts, actual compiled
+stereo technique (`doubled` or `instanced`) and used camera entries. Each entry
+contains original slot, eye, column-major view/projection, UBO viewport and
+stereoInfo, actual driver draw viewport and associated draw-command count.
+Doubled GLES eyes retain the actual separately bound range/half viewport;
+instanced rendering retains both eye uniforms in the original bound array.
+The recording frustum and Frame eye matrices are preserved separately. They
+are not overwritten with late corrected matrices or used to reconstruct them.
+
+`require_cameras=True` requires v4 stereo without changing the nonce-only
+native command. Default stereo readers also accept legacy v2/v3, while mono
+and iOS retain v1. A mandatory declared v4 camera source cannot downgrade to
+legacy trace on missing uniforms, unsupported ranges or incomplete coverage.
+The decoder requires both actual eye views, exact technique/viewport semantics,
+complete original draw coverage, matching role counters and advancing native
+batch cursors. Duplicated eye views, relabelled traces and foreign/reused
+camera-batch identities fail before pixels are read.
+
+Collection is enabled only while an original bounded acquisition is active.
+There are at most 128 source batches and 128 total camera entries, with at most
+4,096 draw commands and 128 used camera entries per backend batch. Exhaustion
+fails closed. Camera snapshots hold no GL resource or Frame lifetime; original
+acquisition/callback/buffer/receipt release obligations and all timeouts remain
+unchanged. Native query overhead and every GL/GLES/backend path are uncompiled
+and require later Proxmox qualification. Full Graphics ownership, scene/Web
+lifetime, original preferences and independent per-eye effect joins remain open.
 
 ## Executing stereo render trace, version 3
 

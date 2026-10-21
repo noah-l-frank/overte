@@ -23,6 +23,9 @@
 #include <array>
 
 #include <QtCore/QLoggingCategory>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QPointer>
+#endif
 
 #include <gl/Config.h>
 #include <gl/GLShaders.h>
@@ -148,6 +151,17 @@ public:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     bool featureReadFramebuffer(const FramebufferPointer& framebuffer, QImage& image) final override;
     bool featureTextureExtent(const TexturePointer& texture, Vec2i& extent) final override;
+    bool featureExecutedBatchCameras(const Batch*, FeatureBatchCameras&) const final override;
+protected:
+    void featureCameraBufferCreated();
+private:
+    void featureObserveCamera(int eye);
+    QPointer<QObject> _featureCameraShareGroup;
+    const Batch* _featureCompletedBatch {nullptr};
+    FeatureBatchCameras _featureCompletedCameras, _featureWorkingCameras;
+    uint64_t _featureBatchSequence {0};
+    bool _featureCameraDraw {false};
+public:
 #endif
 
     // this is the maximum numeber of available input buffers

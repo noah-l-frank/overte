@@ -13,6 +13,9 @@
 #define hifi_gpu_Backend_h
 
 #include <GLMHelpers.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <vector>
+#endif
 
 #include "Forward.h"
 #include "Batch.h"
@@ -112,17 +115,32 @@ public:
     static Backend* featureExecutingBackend() { return _featureExecutingBackend; }
     // Frozen executing Frame state, unaffected by a resample batch temporarily
     // disabling stereo. Never read the recording Context on the Present thread.
+    struct FeatureCameraUniform {
+        uint32_t slot, eye;
+        Mat4 view, projection;
+        Vec4 viewport, stereoInfo;
+        Vec4i drawViewport;
+        uint64_t draws {0};
+    };
+    struct FeatureBatchCameras {
+        uint32_t frame {0};
+        uint64_t execution {0}, sequence {0}, rawDraws {0}, executedDraws {0};
+        bool complete {false}, instanced {false};
+        std::vector<FeatureCameraUniform> cameras;
+    };
+    virtual bool featureExecutedBatchCameras(const Batch*, FeatureBatchCameras&) const;
     struct FeatureFrame {
         uint32_t index;
         uint64_t execution;
         StereoState stereo;
+        bool observeCameras {false};
     };
     const FeatureFrame* featureFrame() const { return _featureFrame; }
     class FeatureFrameScope {
     public:
-        FeatureFrameScope(Backend& backend, uint32_t index, const StereoState& stereo)
+        FeatureFrameScope(Backend& backend, uint32_t index, const StereoState& stereo, bool observeCameras = false)
             : _backend(backend), _previous(backend._featureFrame),
-              _frame {index, ++backend._featureFrameExecutions, stereo} {
+              _frame {index, ++backend._featureFrameExecutions, stereo, observeCameras} {
             backend._featureFrame = &_frame;
         }
         ~FeatureFrameScope() { _backend._featureFrame = _previous; }

@@ -8,6 +8,7 @@
 #include <QVariantMap>
 #include <QUuid>
 #include <memory>
+#include <cmath>
 
 namespace gpu {
 // One primary stereo forward view, retained by that view's original GPU commands.
@@ -42,30 +43,68 @@ public:
                 ++_forwardBatches; _forwardDraws += draws;
                 if (haze) { ++_hazeBatches; _hazeDraws += draws; }
             }
+            observeCameras(backend,original,mirror,draws);
         }
         _completed = now();
     }
 
     QVariantMap snapshot(Backend* backend) const {
-        if (!sameFrame(backend)) { return {}; }
-        return {{"traceVersion",3},{"frameId",_id},{"frameIndex",_frame},{"executionSequence",static_cast<qulonglong>(_execution)},
-            {"recordedEpochMs",_recorded},{"recordedView",_view},
+        if (!sameFrame(backend) || !_camerasComplete || _cameraBatches.isEmpty()) { return {}; }
+        return {{"traceVersion",4},{"frameId",_id},{"frameIndex",_frame},{"executionSequence",static_cast<qulonglong>(_execution)},
+            {"recordedEpochMs",_recorded},{"recordedView",_view},{"cameraBatches",_cameraBatches},
             {"begunEpochMs",_begun},{"completedEpochMs",_completed},{"renderer","forward"},{"view","main-stereo"},
             {"forwardBatches",_forwardBatches},{"forwardDrawCommands",_forwardDraws},
             {"hazeBatches",_hazeBatches},{"hazeDrawCommands",_hazeDraws},
             {"mirrorBatches",_mirrorBatches},{"mirrorDrawCommands",_mirrorDraws}};
     }
 private:
+    void observeCameras(Backend* backend,const Batch* original,bool mirror,quint64 draws) {
+        Backend::FeatureBatchCameras originalCameras;
+        if (!backend->featureExecutedBatchCameras(original,originalCameras) || !originalCameras.complete
+                || originalCameras.frame!=_frame || originalCameras.execution!=_execution
+                || originalCameras.rawDraws!=draws || !originalCameras.executedDraws || originalCameras.cameras.empty()
+                || _cameraBatches.size()>=128) { _camerasComplete=false; }
+        else {
+            QVariantList cameras;
+            for (const auto& camera:originalCameras.cameras) {
+                if (++_cameraRowCount>128) { _camerasComplete=false;break; }
+                const auto view=matrix(camera.view),projection=matrix(camera.projection);
+                if (view.isEmpty() || projection.isEmpty()) { _camerasComplete=false;break; }
+                cameras.append(QVariantMap{{"slot",camera.slot},{"eye",camera.eye ? "right" : "left"},
+                    {"view",view},{"projection",projection},
+                    {"viewport",QVariantList{camera.viewport.x,camera.viewport.y,camera.viewport.z,camera.viewport.w}},
+                    {"drawViewport",QVariantList{camera.drawViewport.x,camera.drawViewport.y,camera.drawViewport.z,camera.drawViewport.w}},
+                    {"stereoInfo",QVariantList{camera.stereoInfo.x,camera.stereoInfo.y,camera.stereoInfo.z,camera.stereoInfo.w}},
+                    {"drawCommands",static_cast<qulonglong>(camera.draws)}});
+            }
+            _cameraBatches.append(QVariantMap{{"sequence",static_cast<qulonglong>(originalCameras.sequence)},{"role",mirror ? "mirror" : "forward"},
+                {"frameIndex",originalCameras.frame},{"executionSequence",static_cast<qulonglong>(originalCameras.execution)},
+                {"rawDrawCommands",static_cast<qulonglong>(originalCameras.rawDraws)},
+                {"executedDrawCommands",static_cast<qulonglong>(originalCameras.executedDraws)},
+                {"technique",originalCameras.instanced ? "instanced" : "doubled"},{"cameras",cameras}});
+        }
+    }
     bool sameFrame(Backend* backend) const {
         const auto frame=backend ? backend->featureFrame() : nullptr;
         return _begun && backend && backend==_backend && backend==Backend::featureExecutingBackend()
             && frame && frame->stereo.isStereo() && frame->index==_frame && frame->execution==_execution;
+    }
+    static QVariantList matrix(const Mat4& value) {
+        QVariantList result;
+        for (int column=0;column<4;++column) { for (int row=0;row<4;++row) {
+            if (!std::isfinite(value[column][row])) { return {}; }
+            result.append(static_cast<double>(value[column][row]));
+        } }
+        return result;
     }
     static qint64 now() { return QDateTime::currentMSecsSinceEpoch(); }
     const QString _id;
     const qint64 _recorded;
     const QVariantMap _view;
     Backend* _backend {nullptr};
+    bool _camerasComplete {true};
+    QVariantList _cameraBatches;
+    uint32_t _cameraRowCount {0};
     uint32_t _frame {0};
     uint64_t _execution {0};
     qint64 _begun {0}, _completed {0};

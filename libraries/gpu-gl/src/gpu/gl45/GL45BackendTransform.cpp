@@ -21,6 +21,9 @@ void GL45Backend::initTransform() {
     glCreateBuffers(3, transformBuffers);
     _transform._objectBuffer = transformBuffers[0];
     _transform._cameraBuffer = transformBuffers[1];
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    featureCameraBufferCreated();
+#endif
     _transform._drawCallInfoBuffer = transformBuffers[2];
 #ifdef GPU_SSBO_TRANSFORM_OBJECT
 #else

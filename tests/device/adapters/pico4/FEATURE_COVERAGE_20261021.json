@@ -469,7 +469,8 @@
         "android/vr/pico/apps/picoInterface/openxr/src/OpenXrDisplayPlugin.cpp",
         "tests/device/native/WORLD_RENDER_ACQUISITION.md",
         "libraries/gpu/src/gpu/FeatureRenderTrace.h",
-        "tests/device/self_tests/test_stereo_render_trace.py"
+        "tests/device/self_tests/test_stereo_render_trace.py",
+        "tests/device/self_tests/test_stereo_camera_uniforms.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -493,7 +494,7 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole ordinary VR Settings access/restoration flow, distinguishing immediate viewport scale from separate restart-only Pico swapchain scale",
-        "Final used camera uniforms after HMD late pose correction/jitter and independent original per-eye challenge/effect pixel joins; executing batch trace v3 is source implemented but uncompiled",
+        "Independent original per-eye challenge/effect pixel joins using actual camera-uniform source v4; native Forward/Mirror uniforms and executing trace are source implemented but uncompiled",
         "Complete Pico source-specific Graphics/scene/Web lifetime, persistence/background/restart/restoration coordinator"
       ],
       "requiredOriginalEvidence": [
@@ -501,14 +502,15 @@
         "Same original executed frame and actual Haze/Mirror passes",
         "Original PNG bytes and current challenge in both eyes",
         "Current preferences separately from measured render scale",
-        "Executing stereo Forward/Haze/Mirror batch trace v3 bound to original same-frame OpenXR submission"
+        "Executing stereo Forward/Haze/Mirror batch trace v3 bound to original same-frame OpenXR submission",
+        "Actual bound original camera UBO range/data and GL share-group identity after late pose correction/jitter, with Forward/Mirror roles"
       ],
       "cleanupObligations": [
         "Normal restoration of captured original VR preferences",
         "Actual render callbacks, buffers, receipts and Web subject resources released",
         "Restore original scene/view and independently observe complete owned UUID absence"
       ],
-      "nextExecutableStep": "Acquire actual used per-eye GPU camera uniforms after late HMD pose correction and jitter, then join original subject/effect pixels, generic VR settings and scene/Web lifetimes before extracting the frozen whole Graphics coordinator through Pico factories.",
+      "nextExecutableStep": "Join original per-eye subject/effect pixels using the actual late-corrected GPU camera-uniform source v4, then compose generic VR settings and scene/Web lifetimes with the frozen whole Graphics coordinator through Pico factories.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

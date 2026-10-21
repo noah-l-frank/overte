@@ -28,5 +28,6 @@
     "Phone UI and launch state",
     "Moving or uncommitted Phone work"
   ],
-  "qualification": "Uncompiled E2E observation sources; no whole Graphics capability enabled."
+  "qualification": "Uncompiled E2E observation sources; no whole Graphics capability enabled.",
+  "localCameraExtension": "Locally authored source v4: original actual bound camera UBO arrays/ranges and driver viewports at real eye draws, with exact completed-batch/Frame/execution identity, original GL share-group ownership and acquisition-only bounded collection. No product rendering or pose changes."
 }

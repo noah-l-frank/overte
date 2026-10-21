@@ -1,6 +1,6 @@
 """Original world-target acquisition reader; no rendered-feature verdict.
 
-Mono version 1 and opt-in stereo versions 2/3 refuse unimplemented Vulkan readback.
+Mono version 1 and opt-in stereo versions 2/3/4 refuse unimplemented Vulkan readback.
 The GPU/backend hook and platform original-file transport must be implemented
 before this internal reader can acquire anything on a target.
 """
@@ -103,12 +103,57 @@ def recorded_view(value):
     return value
 
 
+def camera_batches(source):
+    trace=source['renderTrace'];rows=trace['cameraBatches']
+    need(type(rows) is list and 1<=len(rows)<=128 and len(rows)==trace['forwardBatches']+trace['mirrorBatches'])
+    need(sum(len(row.get('cameras',[])) for row in rows if type(row) is dict and type(row.get('cameras')) is list)<=128)
+    previous=0;raw_totals=dict(forward=0,mirror=0);batch_counts=dict(forward=0,mirror=0)
+    for batch in rows:
+        exact(batch,{'sequence','frameIndex','executionSequence','rawDrawCommands','executedDrawCommands','role','technique','cameras'})
+        need(integer(batch['sequence'],previous+1) and integer(batch['frameIndex'],0,2**32-1)
+             and batch['frameIndex']==trace['frameIndex'] and integer(batch['executionSequence'],1)
+             and batch['executionSequence']==trace['executionSequence']
+             and integer(batch['rawDrawCommands'],1,4096) and integer(batch['executedDrawCommands'],1,4096)
+             and batch['role'] in ('forward','mirror')
+             and batch['rawDrawCommands']==batch['executedDrawCommands'] and batch['technique'] in ('doubled','instanced')
+             and type(batch['cameras']) is list and 2<=len(batch['cameras'])<=128)
+        previous=batch['sequence'];raw_totals[batch['role']]+=batch['rawDrawCommands'];batch_counts[batch['role']]+=1
+        keys=set();counts=[0,0];views=[set(),set()]
+        for camera in batch['cameras']:
+            exact(camera,{'slot','eye','view','projection','viewport','drawViewport','stereoInfo','drawCommands'})
+            need(integer(camera['slot'],0,4096) and camera['eye'] in ('left','right')
+                 and integer(camera['drawCommands'],1,4096))
+            eye=0 if camera['eye']=='left' else 1
+            matrix(camera['view'],affine=True);matrix(camera['projection'])
+            need(abs(camera['projection'][11])>1e-8 and abs(camera['projection'][15])<1e-8)
+            viewport=camera['viewport'];draw=camera['drawViewport'];info=camera['stereoInfo']
+            need(type(viewport) is list and len(viewport)==4 and all(number(v,0,8192) for v in viewport)
+                 and all(v==int(v) for v in viewport) and viewport[2]>0 and viewport[3]>0
+                 and viewport[0]+viewport[2]<=source['sourceExtent'][0] and viewport[1]+viewport[3]<=source['sourceExtent'][1]
+                 and (batch['role']=='mirror' or viewport==source['sourceViewport'])
+                 and type(draw) is list and len(draw)==4
+                 and all(integer(v,0,8192) for v in draw)
+                 and draw==(viewport if batch['technique']=='instanced' else
+                     [viewport[0]+eye*viewport[2]/2,viewport[1],viewport[2]/2,viewport[3]])
+                 and type(info) is list and len(info)==4 and all(number(v,-8192,8192) for v in info)
+                 and info[0]==1 and info[1]==eye and abs(info[2]*viewport[2]-1)<.0001
+                 and abs(info[3]*viewport[3]-1)<.0001)
+            key=(camera['slot'],eye,tuple(draw));need(key not in keys);keys.add(key)
+            counts[eye]+=camera['drawCommands'];views[eye].add(tuple(camera['view']))
+        need(counts==[batch['executedDrawCommands']]*2 and views[0] and views[1] and views[0].isdisjoint(views[1]))
+    need(all(raw_totals[role]==trace[role+'DrawCommands'] and batch_counts[role]==trace[role+'Batches']
+        for role in ('forward','mirror')))
+    return rows
+
+
 def render_trace(source,requested):
     trace=source['renderTrace'];frame=source['stereo']
     exact(trace,{'traceVersion','frameId','frameIndex','executionSequence','recordedEpochMs','recordedView',
         'begunEpochMs','completedEpochMs','renderer','view','forwardBatches','forwardDrawCommands',
-        'hazeBatches','hazeDrawCommands','mirrorBatches','mirrorDrawCommands'})
-    need(type(trace['traceVersion']) is int and trace['traceVersion']==3
+        'hazeBatches','hazeDrawCommands','mirrorBatches','mirrorDrawCommands'}
+        | ({'cameraBatches'} if type(trace) is dict and trace.get('traceVersion')==4 else set()))
+    need(type(trace['traceVersion']) is int and trace['traceVersion'] in (3,4)
+         and source['captureVersion']==trace['traceVersion']
          and type(trace['frameId']) is str and re.fullmatch('[0-9a-f]{32}',trace['frameId'])
          and integer(trace['frameIndex'],0,2**32-1) and trace['frameIndex']==frame['frameIndex']
          and integer(trace['executionSequence'],1) and trace['executionSequence']==frame['executionSequence']
@@ -133,11 +178,13 @@ def render_trace(source,requested):
              and (batches>0)==(draws>0))
     need(trace['forwardDrawCommands']>0 and trace['hazeBatches']<=trace['forwardBatches']
          and trace['hazeDrawCommands']<=trace['forwardDrawCommands'])
+    if trace['traceVersion']==4:camera_batches(source)
     return trace
 
 
-def validate(value,request,pid,epoch,*,stereo=False,require_trace=False):
-    need(type(stereo) is bool and type(require_trace) is bool and (not require_trace or stereo))
+def validate(value,request,pid,epoch,*,stereo=False,require_trace=False,require_cameras=False):
+    need(type(stereo) is bool and type(require_trace) is bool and (not require_trace or stereo)
+         and type(require_cameras) is bool and (not require_cameras or stereo))
     exact(value,{'schemaVersion','requestId','instance','sequence','requestedEpochMs','capturedEpochMs','processId','source'})
     need(type(value['schemaVersion']) is int and value['schemaVersion']==1 and value['requestId']==request
          and type(value['instance']) is str and re.fullmatch('[0-9a-f]{32}',value['instance']) is not None
@@ -149,11 +196,12 @@ def validate(value,request,pid,epoch,*,stereo=False,require_trace=False):
     fields={'captureVersion','available','acquisitionSequence','recordedEpochMs','startedEpochMs','capturedEpochMs',
         'backend','stage','view','sourceExtent','sourceViewport','targetExtent','pixelFormat','image'}
     if stereo:fields.update(('stereo','presentation'))
-    traced=type(source) is dict and source.get('captureVersion')==3
+    traced=type(source) is dict and source.get('captureVersion') in (3,4)
     if traced:fields.add('renderTrace')
     exact(source,fields)
-    need(type(source['captureVersion']) is int and source['captureVersion'] in ((2,3) if stereo else (1,))
-         and (not require_trace or traced) and source['available'] is True
+    need(type(source['captureVersion']) is int and source['captureVersion'] in ((2,3,4) if stereo else (1,))
+         and (not require_trace or traced) and (not require_cameras or source['captureVersion']==4)
+         and source['available'] is True
          and integer(source['acquisitionSequence'],1) and source['backend']=='opengl'
          and source['stage']=='tone-map-before-hud' and source['view']==('main-stereo' if stereo else 'main-mono')
          and source['pixelFormat']=='rgba8-top-left' and extent(source['sourceExtent'],stereo=stereo) and extent(source['targetExtent'],stereo=stereo))
@@ -193,13 +241,14 @@ def measured_scale(value):
 
 
 class NativeWorldRenderCapture:
-    def __init__(self,send,read,files,clock_ms,guard,pid,*,intent,ios=False,stereo=False,require_trace=False,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,send,read,files,clock_ms,guard,pid,*,intent,ios=False,stereo=False,require_trace=False,require_cameras=False,monotonic=time.monotonic,sleep=time.sleep):
         need(all(callable(v) for v in (send,read,clock_ms,guard,intent,monotonic,sleep)) and integer(pid,1) and type(ios) is bool
              and callable(getattr(files,'read',None)) and type(stereo) is bool and not (ios and stereo)
-             and type(require_trace) is bool and (not require_trace or stereo))
+             and type(require_trace) is bool and (not require_trace or stereo)
+             and type(require_cameras) is bool and (not require_cameras or stereo))
         self.send,self.original,self.files,self.clock_ms,self.guard,self.pid=send,read,files,clock_ms,guard,pid
         self.ios,self.monotonic,self.sleep,self.intent=ios,monotonic,sleep,intent
-        self.stereo,self.require_trace=stereo,require_trace;self.trace_frame=None;self.frame=None;self.execution=self.submission=0
+        self.stereo,self.require_trace,self.require_cameras=stereo,require_trace,require_cameras;self.camera_batch_sequence=0;self.trace_frame=None;self.frame=None;self.execution=self.submission=0
         self.instance,self.sequence,self.acquisition,self.captured=None,0,0,0
 
     def read(self,after_sequence):
@@ -223,13 +272,15 @@ class NativeWorldRenderCapture:
                 now=self.monotonic();need(number(now,0,1e15) and now>=previous and now-started<timeout);previous=now
                 if type(value) is dict and value.get('requestId')==request:
                     epoch=value.get('capturedEpochMs') if self.ios else self.clock_ms()
-                    validate(value,request,self.pid,epoch,stereo=self.stereo,require_trace=self.require_trace)
+                    validate(value,request,self.pid,epoch,stereo=self.stereo,require_trace=self.require_trace,require_cameras=self.require_cameras)
                     source=value['source']
                     need(self.instance in (None,value['instance']) and value['sequence']>after_sequence
                          and source['acquisitionSequence']>self.acquisition and source['capturedEpochMs']>=self.captured
                          and (self.ios or value['requestedEpochMs']>=requested))
                     trace=source.get('renderTrace')
-                    if trace is not None:need(trace['frameId']!=self.trace_frame)
+                    if trace is not None:
+                        need(trace['frameId']!=self.trace_frame)
+                        if trace['traceVersion']==4:need(trace['cameraBatches'][0]['sequence']>self.camera_batch_sequence)
                     if self.stereo:
                         frame=source['stereo'];present=source['presentation']
                         need(frame['frameIndex']!=self.frame and frame['executionSequence']>self.execution
@@ -246,7 +297,9 @@ class NativeWorldRenderCapture:
                     if not self.ios:fresh(source['capturedEpochMs'],self.clock_ms())
                     self.instance,self.sequence,self.acquisition,self.captured=value['instance'],value['sequence'],source['acquisitionSequence'],source['capturedEpochMs']
                     if self.stereo:self.frame,self.execution,self.submission=frame['frameIndex'],frame['executionSequence'],present['submissionSequence']
-                    if trace is not None:self.trace_frame=trace['frameId']
+                    if trace is not None:
+                        self.trace_frame=trace['frameId']
+                        if trace['traceVersion']==4:self.camera_batch_sequence=trace['cameraBatches'][-1]['sequence']
                     return value,png
                 if attempt<50:self.sleep(0.1)
         except Exception:

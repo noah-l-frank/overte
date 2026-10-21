@@ -53,6 +53,11 @@ public:
         return {{"requestId",id},{"pending",true}};
     }
 
+    bool observing() {
+        QMutexLocker lock(&_mutex);
+        return enabled() && !_active.isEmpty() && _result.isEmpty() && _age.elapsed()<1500;
+    }
+
     std::shared_ptr<Ticket> reserve(const std::shared_ptr<FeatureRenderTrace>& trace = {}) {
         QMutexLocker lock(&_mutex);
         if (!enabled() || _active.isEmpty() || !_callback.isEmpty() || !_result.isEmpty() || !_pending.isEmpty()) { return {}; }
@@ -197,7 +202,7 @@ private:
             {"sha256",sha(png)},{"pixelSha256",QString::fromLatin1(pixelHash)},{"width",width},{"height",height}};
         const auto execution=trace ? trace->snapshot(backend) : QVariantMap();
         if (trace && (!stereo || execution.isEmpty())) { fail(id);return; }
-        QVariantMap observation {{"captureVersion",trace ? 3 : stereo ? 2 : 1},{"available",true},
+        QVariantMap observation {{"captureVersion",trace ? 4 : stereo ? 2 : 1},{"available",true},
             {"acquisitionSequence",static_cast<qulonglong>(++_acquisitions)}, {"recordedEpochMs",recorded},
             {"startedEpochMs",started},{"capturedEpochMs",captured},{"backend","opengl"},
             {"stage","tone-map-before-hud"},{"view",stereo ? "main-stereo" : "main-mono"},

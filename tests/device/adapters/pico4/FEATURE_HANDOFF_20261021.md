@@ -17,7 +17,7 @@ device qualification. Native code is uncompiled; no device is tested.
 | Emotes | Partial submitted-code/Rig observations | Actual running source/profile, VR normal controls, timer/caller/pose and stereo avatar evidence |
 | Web in world | Partial native DOM source | Actual controller-ray hit/DOM input, original document/echo journals, response receipt and stereo image join |
 | Web in tablet | Partial native DOM source | VR DOM input plus original inline carrier/retained callback and complete document/cleanup owner |
-| Graphics | Partial normal settings; stereo acquisition v2/v3 with executing pass provenance | Per-eye effect pixels, original scene/Web lifetimes, independent actor and complete area ownership |
+| Graphics | Partial normal settings; stereo v2/v3/v4 with executing passes and used camera uniforms | Per-eye effect pixels, original scene/Web lifetimes, independent actor and complete area ownership |
 | Audio | Partial normal controls/cycle/history/PCM sources | Whole cycle owner, microphone stimulus, independent acoustic capture/publisher and lifecycle/cleanup join |
 | Chat | Partial normal controls, current native view/cache and peer IPC prerequisites | Independent primary/peer UI/storage/keyboard/delivery ledger and owned mixer/distance/recovery coordinator |
 | Snapshots | Partial private original-output foundation | Actual OS Save backend/authorization, independently acquired receiver/save/upload originals and callback cleanup |
@@ -106,7 +106,8 @@ integration.
   and eight stereo counterexample tests do not qualify native GPU behavior or
   complete the Graphics area. Version 3 additionally joins actual executed
   stereo Forward/Haze/Mirror batch provenance to that same frame and preserves
-  v1 mono/v2 stereo readers. Source-dependent per-eye effects and the whole-area
+  v1 mono/v2 stereo readers. Version 4 adds actual bound Forward/Mirror camera uniforms after late pose
+  correction and jitter, retaining older readers. Source-dependent per-eye effects and the whole-area
   coordinator remain open. See the shared acquisition document.
 
 Review the shared server/witness/fixture and native header dependencies together

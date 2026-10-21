@@ -10,6 +10,9 @@
 //  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 //
 #include "GLBackend.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QOpenGLContext>
+#endif
 
 
 #include <mutex>
@@ -434,8 +437,24 @@ void GLBackend::renderPassDraw(const Batch& batch) {
                 updateTransform(batch);
                 updatePipeline();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                _featureCameraDraw=_featureWorkingCameras.complete;
+#endif
                 CommandCall call = _commandCalls[(*command)];
                 (this->*(call))(batch, *offset);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                if (_featureCameraDraw) {
+                    ++_featureWorkingCameras.executedDraws;
+                    if (_featureWorkingCameras.executedDraws>4096) { _featureWorkingCameras.complete=false; }
+#ifdef GPU_STEREO_DRAWCALL_INSTANCED
+                    if (_stereo.isStereo()) { featureObserveCamera(0);featureObserveCamera(1); }
+                    else { _featureWorkingCameras.complete=false; }
+#else
+                    if (!_stereo.isStereo()) { _featureWorkingCameras.complete=false; }
+#endif
+                }
+                _featureCameraDraw=false;
+#endif
                 break;
             }
 #ifdef GPU_BATCH_DETAILED_TRACING
@@ -581,6 +600,18 @@ private:
 
 void GLBackend::render(const Batch& batch) {
     GL_PROFILE_RANGE(render_gpu_gl, batch.getName().c_str());
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _featureWorkingCameras=FeatureBatchCameras();_featureCameraDraw=false;
+    const auto featureExecutingFrame=featureFrame();
+    if (featureExecutingFrame && featureExecutingFrame->observeCameras && featureExecutingFrame->stereo.isStereo()) {
+        _featureWorkingCameras.frame=featureExecutingFrame->index;
+        _featureWorkingCameras.execution=featureExecutingFrame->execution;
+        _featureWorkingCameras.complete=true;
+#ifdef GPU_STEREO_DRAWCALL_INSTANCED
+        _featureWorkingCameras.instanced=true;
+#endif
+    }
+#endif
 
     _transform._skybox = _stereo._skybox = batch.isSkyboxEnabled();
     // FIXME move this to between the transfer and draw passes, so that
@@ -615,6 +646,13 @@ void GLBackend::render(const Batch& batch) {
     }
 #endif
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    for (const auto command:batch.getCommands()) {
+        if (command>=Batch::COMMAND_draw && command<=Batch::COMMAND_multiDrawIndexedIndirect) { ++_featureWorkingCameras.rawDraws; }
+    }
+    _featureWorkingCameras.sequence=++_featureBatchSequence;
+    _featureCompletedCameras=std::move(_featureWorkingCameras);_featureCompletedBatch=&batch;
+#endif
     // Restore the saved stereo state for the next batch
     _stereo._enable = savedStereo;
 
@@ -626,6 +664,63 @@ void GLBackend::render(const Batch& batch) {
         batch._mustUpdatePreviousModels = false;
     }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+void GLBackend::featureCameraBufferCreated() {
+    const auto context=QOpenGLContext::currentContext();
+    _featureCameraShareGroup=context ? context->shareGroup() : nullptr;
+}
+
+bool GLBackend::featureExecutedBatchCameras(const Batch* batch, FeatureBatchCameras& result) const {
+    const auto frame=featureFrame();result=FeatureBatchCameras();
+    if (!frame || !batch || batch!=_featureCompletedBatch || Backend::featureExecutingBackend()!=this
+            || !_featureCompletedCameras.complete || _featureCompletedCameras.frame!=frame->index
+            || _featureCompletedCameras.execution!=frame->execution) { return false; }
+    result=_featureCompletedCameras;return true;
+}
+
+void GLBackend::featureObserveCamera(int eye) {
+    auto& result=_featureWorkingCameras;
+    if (!result.complete || !_featureCameraDraw) { return; }
+    // Read the actual range bound for this draw, not a reconstructed head pose.
+    // Queries do not change bindings or consume an existing GL error.
+    const auto context=QOpenGLContext::currentContext();
+    if (!context || !_featureCameraShareGroup || context->shareGroup()!=_featureCameraShareGroup.data()
+            || !_stereo.isStereo() || eye<0 || eye>1 || !_transform._cameraUboSize
+            || result.executedDraws>4096 || _transform._currentCameraOffset==INVALID_OFFSET) {
+        result.complete=false;return;
+    }
+    const auto offset=_transform._currentCameraOffset;
+    if (offset%_transform._cameraUboSize) { result.complete=false;return; }
+    const auto index=offset/_transform._cameraUboSize;
+    if (index>4096) { result.complete=false;return; }
+#ifdef GPU_STEREO_CAMERA_BUFFER
+    if (index>=_transform._cameras.size()) { result.complete=false;return; }
+    const auto& original=_transform._cameras[index]._cams[eye];
+    const auto expectedOffset=offset;
+#else
+    if (index+eye>=_transform._cameras.size()) { result.complete=false;return; }
+    const auto& original=_transform._cameras[index+eye];
+    const auto expectedOffset=offset+eye*_transform._cameraUboSize;
+#endif
+    GLint bound {0};GLint64 start {0},size {0};
+    glGetIntegeri_v(GL_UNIFORM_BUFFER_BINDING,slot::buffer::Buffer::CameraTransform,&bound);
+    glGetInteger64i_v(GL_UNIFORM_BUFFER_START,slot::buffer::Buffer::CameraTransform,&start);
+    glGetInteger64i_v(GL_UNIFORM_BUFFER_SIZE,slot::buffer::Buffer::CameraTransform,&size);
+    if (static_cast<GLuint>(bound)!=_transform._cameraBuffer || start!=static_cast<GLint64>(expectedOffset)
+            || size!=static_cast<GLint64>(sizeof(TransformStageState::CameraBufferElement))) { result.complete=false;return; }
+    Vec4i drawViewport;
+    glGetIntegerv(GL_VIEWPORT,&drawViewport.x);
+    for (auto& previous:result.cameras) {
+        if (previous.slot==index && previous.eye==static_cast<uint32_t>(eye) && previous.drawViewport==drawViewport) {
+            ++previous.draws;return;
+        }
+    }
+    if (result.cameras.size()>=128) { result.complete=false;return; }
+    result.cameras.push_back({static_cast<uint32_t>(index),static_cast<uint32_t>(eye),
+        original._view,original._projection,original._viewport,original._stereoInfo,drawViewport,1});
+}
+#endif
 
 void GLBackend::executeFrame(const FramePointer& frame) {
     // Execute the frame rendering commands
@@ -657,6 +752,9 @@ void GLBackend::setupStereoSide(int side) {
 #endif
 #else
     _transform.bindCurrentCamera(side);
+#endif
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (_featureCameraDraw) { featureObserveCamera(side); }
 #endif
 }
 #else

@@ -19,6 +19,9 @@ using namespace gpu::gl41;
 void GL41Backend::initTransform() {
     glGenBuffers(1, &_transform._objectBuffer);
     glGenBuffers(1, &_transform._cameraBuffer);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    featureCameraBufferCreated();
+#endif
     glGenBuffers(1, &_transform._drawCallInfoBuffer);
     glGenTextures(1, &_transform._objectBufferTexture);
     size_t cameraSize = sizeof(TransformStageState::CameraBufferElement);

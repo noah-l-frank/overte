@@ -259,5 +259,44 @@
       }
     ],
     "remaining": "Final GPU camera uniforms after late HMD correction/jitter, per-eye effect pixels, owned scene/Web lifetimes and the full Graphics feature coordinator remain unavailable. Original batch counts are not visible shader-effect proof. No product render/material/shader changes were imported."
+  },
+  "stereoCameraPacket": {
+    "contract": "world-render-acquisition v4 and native-stereo-render-trace v4; explicit v1 mono/v2/v3 stereo readers retained",
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "PYTHONPATH=tests/device python3 -m unittest self_tests.test_stereo_camera_uniforms self_tests.test_stereo_render_trace self_tests.test_stereo_world_render self_tests.test_world_render_evidence self_tests.test_world_render_storage self_tests.test_world_render_receipts -q",
+        "tests": 60,
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test suite-runner --test coverage-matrix --junit PRIVATE/stereo-camera-owning.xml",
+        "groups": 3,
+        "tests": 40,
+        "status": "passed"
+      },
+      {
+        "command": "Three exact Pico world original/mono-refusal/candidate-loss cases plus self_tests.test_owned_world_render",
+        "tests": 13,
+        "durationSeconds": 5.161,
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage --junit PRIVATE/stereo-camera-project.xml",
+        "suites": 4,
+        "status": "passed"
+      }
+    ],
+    "counterexamples": [
+      "actual late-corrected views/jitter differ from retained recording matrices and remain original",
+      "both actual doubled and instanced technique viewport semantics",
+      "foreign/reused Frame/execution/batch identities",
+      "missing or duplicated eye views, malformed projection or view matrices",
+      "wrong UBO viewport, driver viewport, stereoInfo or draw coverage",
+      "legacy trace cannot supply mandatory actual uniform evidence"
+    ],
+    "limits": "Uncompiled GL/GLES/default-off E2E sources. Original data/binding evidence does not establish fragment visibility, independent effect proof or physical headset output. Actual driver query overhead, native ownership and all GPU paths require later Proxmox qualification. No complete Graphics triple is advertised."
   }
 }

@@ -139,7 +139,8 @@ void Context::executeFrame(const FramePointer& frame) const {
     consumeFrameUpdates(frame);
     _backend->setStereoState(frame->stereoState);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    Backend::FeatureFrameScope featureFrame(*_backend, frame->frameIndex, frame->stereoState);
+    Backend::FeatureFrameScope featureFrame(*_backend, frame->frameIndex, frame->stereoState,
+        _featureWorldRender->observing());
 #endif
 
     executeBatch("Context::executeFrame::begin", [&](Batch& batch){
