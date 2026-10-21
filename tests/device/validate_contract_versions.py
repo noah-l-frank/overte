@@ -115,6 +115,7 @@ REQUIRED = {
     "emote-source-profile": 2,
     "phone-emote-manager-pins": 1,
     "emote-rig-measurement": 2,
+    "emote-motion-evidence": 1,
     "phone-emote-sources": 3,
     "phone-emote-journal-namespace": 1,
     "phone-emote-inputs": 2,
