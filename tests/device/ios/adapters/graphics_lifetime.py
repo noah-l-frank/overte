@@ -33,7 +33,10 @@ from ios.adapters.login_source import nonce
 from ios.adapters.web_closures import (IOSWebClosures, validate as web_packet, continuity as web_continuity,
     drained_owned_resources, RESOURCES, SOFTWARE_RESOURCES, GPU_RESOURCES)
 
-VERSION = 1
+VERSION = 2
+READS = (1,2)
+RECORD_VERSION = 2
+RECORD_READS = (1,2)
 CURSORS = {'provider', 'native', 'subject', 'loads', 'web'}
 REQUIRED = RESOURCES | SOFTWARE_RESOURCES | GPU_RESOURCES | {'native-delegate', 'native-snapshot-object'}
 LIVE = {'policy-grant', 'native-view', 'native-bitmap', 'scenegraph-node', 'offscreen-image',
@@ -93,12 +96,12 @@ class IOSGraphicsLifetime:
         self.previous = self.store.read()
         if self.previous is None:
             self.state = dict(binding=self.binding, phase='ready', cursors={k:None for k in CURSORS}, records=[],
-                              activeProofs=[], original=None, windows=[], pending=None)
+                              activeProofs=[], abortProof=None, original=None, windows=[], pending=None)
             self.save()
         else:self.state = self.decode(self.previous)
 
-    def envelope(self, state):
-        return dict(iosGraphicsLifetimeVersion=VERSION, runId=self.run, fixtureUrl=self.source.client.url,
+    def envelope(self, state, version=VERSION):
+        return dict(iosGraphicsLifetimeVersion=version, runId=self.run, fixtureUrl=self.source.client.url,
                     providerInstance=self.source.instance, role=self.role, stage=self.stage, payload=pack([state]))
 
     def record_store(self, ordinal):
@@ -155,9 +158,10 @@ class IOSGraphicsLifetime:
 
     def group(self, row, original=None, admitted=None):
         exact(row, {'ordinal', 'intent', 'mode', 'providerBefore', 'subject', 'loads', 'web', 'providerAfter', 'clockJoin'})
-        need(integer(row['ordinal'], 1, 256) and row['mode'] in ('active', 'held', 'released'))
+        need(integer(row['ordinal'], 1, 256) and row['mode'] in ('active', 'abort', 'held', 'released'))
         exact(row['intent'], {'ordinal','kind','window'})
-        need(row['intent']['ordinal'] == row['ordinal'] and (row['intent']['kind'] == 'active') == (row['mode'] == 'active'))
+        need(row['intent']['ordinal'] == row['ordinal'] and
+             row['intent']['kind']==('release' if row['mode'] in ('held','released') else row['mode']))
         for kind, key in (('provider','providerBefore'), ('subject','subject'), ('loads','loads'), ('web','web'), ('provider','providerAfter')):
             self.validate_packet(kind, row[key])
         self.follows('provider', row['providerBefore'], row['providerAfter'])
@@ -166,19 +170,24 @@ class IOSGraphicsLifetime:
              and row['providerBefore']['capturedEpochMs'] <= clock['hostBeforeEpochMs'] <= clock['hostAfterEpochMs'] <= row['providerAfter']['capturedEpochMs']
              and row['providerAfter']['capturedEpochMs'] - row['providerBefore']['capturedEpochMs'] < 1500)
         follow_native(clock['nativeBefore'],clock['nativeAfter'])
-        committed(row['loads'], row['subject']['source']['sceneUrl'])
+        if row['mode']!='abort':committed(row['loads'], row['subject']['source']['sceneUrl'])
         if row['mode'] == 'active':
             before, after = row['providerBefore'], row['providerAfter']
             need(before['active'] and after['active'] and before['ticket'] == after['ticket'] and after['sceneTicket'] is not None)
             aligned_entities(row['subject'], self.run, after['sceneTicket'], self.fixture_url)
             marker(row['web'], row['subject'], self.run)
+        elif row['mode']=='abort':
+            # A complete original source ledger may contain partial creation,
+            # callbacks or zero contexts. This is cancellation responsibility,
+            # never marker admission or positive feature evidence.
+            need(row['providerBefore']['active']==row['providerAfter']['active'])
         else:
             need(not row['providerBefore']['active'] and not row['providerAfter']['active'] and original is not None and admitted is not None)
             self.original(original); restored(original['subject'], row['subject'])
             web_continuity(admitted['web'], row['web'], self.pid)
             held = any(c['pending'] for r in row['web']['contexts'] for collection in ('callbacks','resources') for c in r[collection].values())
             need(held == (row['mode'] == 'held'))
-            if not held:drained_owned_resources(row['web'], admitted['web'])
+            if not held and admitted['mode']=='active':drained_owned_resources(row['web'], admitted['web'])
         return row
 
     def load(self, reference):
@@ -186,17 +195,20 @@ class IOSGraphicsLifetime:
         value=store.read() if getattr(self,'_archives',None) is None else self._archives.get(reference['ordinal'])
         need(value is not None and digest(value) == reference['sha256'])
         exact(value, {'iosGraphicsLifetimeRecordVersion', 'runId', 'fixtureUrl', 'providerInstance', 'role', 'stage', 'binding', 'payload'})
-        need(type(value['iosGraphicsLifetimeRecordVersion']) is int and value['iosGraphicsLifetimeRecordVersion'] == 1
+        need(type(value['iosGraphicsLifetimeRecordVersion']) is int and value['iosGraphicsLifetimeRecordVersion'] in RECORD_READS
              and value['runId'] == self.run and value['fixtureUrl'] == self.source.client.url and value['providerInstance'] == self.source.instance
              and value['role'] == self.role and type(value['stage']) is int and value['stage'] == self.stage and same(value['binding'], self.binding))
-        rows=unpack(value['payload']); need(len(rows) == 1 and type(rows[0]['ordinal']) is int and rows[0]['ordinal'] == reference['ordinal']); return rows[0]
+        rows=unpack(value['payload']); need(len(rows) == 1 and type(rows[0]['ordinal']) is int and rows[0]['ordinal'] == reference['ordinal'])
+        if value['iosGraphicsLifetimeRecordVersion']==1:need(rows[0].get('mode')!='abort')
+        return rows[0]
 
     def decode(self, value):
         exact(value, {'iosGraphicsLifetimeVersion','runId','fixtureUrl','providerInstance','role','stage','payload'})
-        rows=unpack(value['payload']); need(len(rows) == 1 and type(value['iosGraphicsLifetimeVersion']) is int and value['iosGraphicsLifetimeVersion'] == VERSION
-            and same(value, self.envelope(rows[0])))
-        state=rows[0]; exact(state, {'binding','phase','cursors','records','activeProofs','original','windows','pending'})
-        need(same(context(state['binding']), self.binding) and state['phase'] in ('ready','releasing','released')
+        rows=unpack(value['payload']);version=value['iosGraphicsLifetimeVersion']
+        need(len(rows) == 1 and type(version) is int and version in READS and same(value, self.envelope(rows[0],version)))
+        state=rows[0]; exact(state, {'binding','phase','cursors','records','activeProofs','original','windows','pending'}|({'abortProof'} if version>=2 else set()))
+        if version==1:state=dict(state,abortProof=None)
+        need(same(context(state['binding']), self.binding) and state['phase'] in ('ready','audited','releasing','released')
              and type(state['records']) is list and len(state['records']) <= 256 and type(state['activeProofs']) is list and len(state['activeProofs']) <= 8
              and type(state['windows']) is list and len(state['windows']) <= 8)
         exact(state['cursors'], CURSORS)
@@ -204,7 +216,7 @@ class IOSGraphicsLifetime:
             if p is not None:self.validate_packet(k,p)
         original=state['original']
         if original is not None:self.original(original)
-        accepted={k:None for k in CURSORS}; active={}; records={}
+        accepted={k:None for k in CURSORS}; active={}; records={}; aborted=None
         for ordinal,ref in enumerate(state['records'],1):
             need(ref['ordinal'] == ordinal); row=self.load(ref); records[ordinal]=row
             if row.get('mode') == 'abandoned':
@@ -214,25 +226,29 @@ class IOSGraphicsLifetime:
                     if p is not None:self.validate_packet(kind,p)
             else:
                 self.intent(row['intent'],ordinal,state)
-                self.group(row,original,next(iter(active.values())) if active else None)
+                self.group(row,original,next(iter(active.values())) if active else aborted)
                 self.follows('native',accepted['native'],row['clockJoin']['nativeBefore'],equal=True)
                 packets=self.packets(row)
-                if row['mode'] == 'active':active[ordinal]=row
+                if row['mode'] == 'active':need(aborted is None);active[ordinal]=row
+                elif row['mode']=='abort':need(not active and aborted is None);aborted=row
             for kind,p in packets.items():
                 if p is not None:self.follows(kind,accepted[kind],p,equal=True); accepted[kind]=p
                 else:need(accepted[kind] is None)
         need(state['activeProofs'] == list(active))
+        need(state['abortProof']==(aborted['ordinal'] if aborted is not None else None))
         for kind,p in accepted.items():
             if p is not None:need(state['cursors'][kind] is not None); self.follows(kind,p,state['cursors'][kind],equal=True)
             if state['pending'] is None:need(same(p,state['cursors'][kind]))
-        if active:
-            first=next(iter(active.values()))
+        if active or aborted is not None:
+            first=next(iter(active.values())) if active else aborted
             if self.stage == 0 and original is not None:
-                need(original['subject']['instance'] == first['subject']['instance'] and original['subject']['sequence'] < first['subject']['sequence'])
+                need(original['subject']['instance'] == first['subject']['instance'] and
+                     (original['subject']['sequence'] < first['subject']['sequence'] if active else
+                      original['subject']['sequence'] <= first['subject']['sequence']))
         for index,window in enumerate(state['windows']):
             exact(window, {'samples','start','elapsedMs','complete'})
             need(type(window['samples']) is list and len(window['samples']) <= 81 and type(window['complete']) is bool
-                 and integer(window['elapsedMs'],0,20000) and original is not None and active
+                 and integer(window['elapsedMs'],0,20000) and original is not None and (active or aborted is not None)
                  and (window['start'] is None or integer(window['start'],0,len(window['samples'])-1)))
             need(all(type(n) is int and n in records and records[n]['mode'] in ('held','released','abandoned') for n in window['samples'])
                  and window['samples'] == sorted(set(window['samples'])))
@@ -241,18 +257,19 @@ class IOSGraphicsLifetime:
                 need(window['start'] is not None and window['elapsedMs'] >= 3000)
                 quiet=[records[n] for n in window['samples'][window['start']:]]; self.quiet(quiet)
                 need(window['elapsedMs'] == math.floor((quiet[-1]['clockJoin']['hostBeforeMonotonic']-quiet[0]['clockJoin']['hostAfterMonotonic'])*1000))
-        if state['phase'] == 'ready':need(original is None and not state['windows'])
-        else:need(original is not None and active and state['windows'])
+        if state['phase'] in ('ready','audited'):
+            need(original is None and not state['windows'] and (state['phase']=='audited')==(aborted is not None))
+        else:need(original is not None and (active or aborted is not None) and state['windows'])
         if state['phase'] == 'released':need(state['windows'][-1]['complete'] and state['pending'] is None)
         if state['pending'] is not None:
             self.intent(state['pending'],len(state['records'])+1,state)
-            need(state['pending']['kind'] == ('active' if state['phase'] == 'ready' else 'release'))
+            need(state['pending']['kind'] in (('active','abort') if state['phase']=='ready' else ('release',)))
         return state
 
     def intent(self, value, ordinal, state):
         exact(value, {'ordinal','kind','window'})
-        need(type(value['ordinal']) is int and value['ordinal'] == ordinal and value['kind'] in ('active','release'))
-        if value['kind'] == 'active':need(value['window'] is None)
+        need(type(value['ordinal']) is int and value['ordinal'] == ordinal and value['kind'] in ('active','abort','release'))
+        if value['kind'] in ('active','abort'):need(value['window'] is None)
         else:need(integer(value['window'],0,len(state['windows'])-1))
 
     def bound(self):
@@ -270,7 +287,7 @@ class IOSGraphicsLifetime:
 
     def store_record(self, row):
         ordinal=row['ordinal']; store=self.record_store(ordinal)
-        value=dict(iosGraphicsLifetimeRecordVersion=1,runId=self.run,fixtureUrl=self.source.client.url,
+        value=dict(iosGraphicsLifetimeRecordVersion=RECORD_VERSION,runId=self.run,fixtureUrl=self.source.client.url,
                    providerInstance=self.source.instance,role=self.role,stage=self.stage,binding=self.binding,payload=pack([row]))
         previous=store.read()
         if previous is None:store.write(value,None)
@@ -282,12 +299,14 @@ class IOSGraphicsLifetime:
         row=self.load(reference); need(row['ordinal'] == intent['ordinal'])
         if row.get('mode') == 'abandoned':need(same(row['intent'],intent) and same(row['cursors'],self.state['cursors']))
         else:
-            admitted=self.load(self.state['records'][self.state['activeProofs'][0]-1]) if self.state['activeProofs'] else None
+            ordinal=self.state['activeProofs'][0] if self.state['activeProofs'] else self.state['abortProof']
+            admitted=self.load(self.state['records'][ordinal-1]) if ordinal is not None else None
             self.group(row,self.state['original'],admitted)
-            need(same(row['intent'],intent) and (row['mode'] == 'active') == (intent['kind'] == 'active'))
+            need(same(row['intent'],intent) and (row['mode'] == intent['kind'] or intent['kind']=='release' and row['mode'] in ('held','released')))
             for kind,p in self.packets(row).items():self.follows(kind,p,self.state['cursors'][kind],equal=True)
         self.state['records'].append(deepcopy(reference))
         if intent['kind'] == 'active' and row['mode'] == 'active':self.state['activeProofs'].append(row['ordinal'])
+        elif intent['kind']=='abort' and row['mode']=='abort':self.state.update(abortProof=row['ordinal'],phase='audited')
         elif intent['kind'] == 'release':self.state['windows'][intent['window']]['samples'].append(row['ordinal'])
         self.state['pending']=None; self.save(); return row
 
@@ -318,10 +337,11 @@ class IOSGraphicsLifetime:
         originals=dict(subject=actual,loads=pending,web=closures)
         clock=acquisition.finish(originals,[(k,'capturedEpochMs') for k in originals]); self.accept('native',clock['nativeAfter'])
         after=self.accept('provider',self.source.status(self.state['cursors']['provider']))
-        mode='active' if kind == 'active' else ('held' if any(c['pending'] for r in closures['contexts']
+        mode=kind if kind in ('active','abort') else ('held' if any(c['pending'] for r in closures['contexts']
               for collection in ('callbacks','resources') for c in r[collection].values()) else 'released')
         row=dict(ordinal=intent['ordinal'],intent=deepcopy(intent),mode=mode,providerBefore=before,subject=actual,loads=pending,web=closures,providerAfter=after,clockJoin=clock)
-        admitted=self.load(self.state['records'][self.state['activeProofs'][0]-1]) if self.state['activeProofs'] else None
+        ordinal=self.state['activeProofs'][0] if self.state['activeProofs'] else self.state['abortProof']
+        admitted=self.load(self.state['records'][ordinal-1]) if ordinal is not None else None
         self.group(row,self.state['original'],admitted)
         ref=self.store_record(row); self.adopt(ref)
         end=self.bound(); now=self.source.clock(); fresh(before['capturedEpochMs'],now)
@@ -334,7 +354,19 @@ class IOSGraphicsLifetime:
         try:
             before=len(self.state['activeProofs']); self.recover()
             if len(self.state['activeProofs']) > before:return deepcopy(self.state['records'][self.state['activeProofs'][-1]-1])
-            need(len(self.state['activeProofs']) < 8); ref,_row=self.read_group('active'); return deepcopy(ref)
+            need(self.state['phase']=='ready' and self.state['abortProof'] is None and len(self.state['activeProofs']) < 8)
+            ref,_row=self.read_group('active'); return deepcopy(ref)
+        finally:self.deadline=None
+
+    def observe_aborted(self):
+        """Audit actual partial resources; never substitute for active admission."""
+        self.bound();need(self.state['phase'] in ('ready','audited') and not self.state['activeProofs'])
+        started=self.bound();self.deadline=started+20
+        try:
+            self.recover()
+            need(not self.state['activeProofs'])
+            if self.state['abortProof'] is not None:return deepcopy(self.state['records'][self.state['abortProof']-1])
+            need(self.state['phase']=='ready');ref,_row=self.read_group('abort');return deepcopy(ref)
         finally:self.deadline=None
 
     @staticmethod
@@ -346,7 +378,15 @@ class IOSGraphicsLifetime:
              and last['hostBeforeMonotonic']-first['hostAfterMonotonic'] >= 3)
 
     def wait_released(self, original, *, restart=None):
-        self.bound(); need(self.state['activeProofs'] and len(self.state['windows']) < 8)
+        self.bound();need(self.state['activeProofs'] and self.state['abortProof'] is None)
+        return self._wait_released(original,restart=restart)
+
+    def wait_aborted(self,original,*,restart=None):
+        self.bound();need(not self.state['activeProofs'] and self.state['abortProof'] is not None)
+        return self._wait_released(original,restart=restart)
+
+    def _wait_released(self,original,*,restart=None):
+        self.bound(); need(len(self.state['windows']) < 8)
         expected=self.original(dict(subject=deepcopy(original),restart=deepcopy(restart)))
         if self.state['original'] is not None:need(same(expected,self.state['original']))
         started=self.bound(); self.deadline=started+20

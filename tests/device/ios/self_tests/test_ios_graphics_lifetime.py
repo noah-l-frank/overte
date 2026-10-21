@@ -157,7 +157,7 @@ class LifetimeRecoveryTests(LifetimeHarness,unittest.TestCase):
             owner=self.lifetime();self.scene().prepare();write=PrivateFeatureState.write;lost=[False]
             def uncertain(store,value,previous):
                 result=write(store,value,previous)
-                if value.get('iosGraphicsLifetimeRecordVersion')==1 and not lost[0]:lost[0]=True;raise OSError('Synthetic lost original-record return')
+                if value.get('iosGraphicsLifetimeRecordVersion') in (1,2) and not lost[0]:lost[0]=True;raise OSError('Synthetic lost original-record return')
                 return result
             with patch.object(PrivateFeatureState,'write',new=uncertain),self.assertRaises(OSError):owner.observe_active()
             count=len(self.web.commands);owner=self.lifetime();reference=owner.observe_active()

@@ -115,3 +115,30 @@ review also confirms that the observer still needs current enabled-effect
 pixel qualification outside explicit enable phases (including initial enabled
 baselines and restart/restoration). That remains a whole-feature prerequisite,
 not a capability supplied by this resource-lifetime component.
+
+## Partial-setup cancellation, owner and record version 2
+
+`observe_aborted()` reads a complete original five-source ledger for a partial
+or failed setup. It does not require the complete active marker, settled scene
+or every GPU resource to have been created. Unknown passive reads preserve their
+accepted floors and an explicit abandoned record; immutable committed records
+can be adopted without another query. This audit is separate from `activeProofs`.
+An already committed active admission cannot be reclassified after a lost return.
+An audited cancellation cannot later become a positive active admission.
+
+`wait_aborted(original, restart=...)` requires that actual audit, actual fixture
+retirement, measured original world/avatar/camera restoration and all original
+plus later Web/Qt/GPU callback/resource counts at zero. It uses the same newly
+started three-second native/host/monotonic quiet window and activity-reset rules.
+Version-5 native completeness and immutable context/history prefixes remain
+mandatory even for an audit with no created contexts. A missing source, forgotten
+context or retired fixture without original-world restoration cannot pass.
+The normal `wait_released` still requires actual positive marker admission.
+Neither API converts cancellation cleanup into feature success.
+
+Owner/record v1 remains readable; no abort proof is invented during migration.
+Original packets retain their actual PID, birth, nonce, clocks and contents.
+Fourteen new no-build cancellation cases and the 26 existing resource cases pass,
+including strict old-PID death and new-source evidence for failed stage-1 setup.
+The full whole-owner failure/finalization composition remains in progress.
+Native compilation and real devices remain unexecuted.
