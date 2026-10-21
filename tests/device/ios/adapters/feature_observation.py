@@ -160,6 +160,26 @@ class FeatureObservation:
             self.epoch_ms, self.guard, self.process['pid'], ios=True,
             monotonic=self.monotonic, sleep=self.sleep)
 
+    def bound_native_observer(self,clock_source=None):
+        self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+NATIVE_FEATURE_FILE
+        original=lambda:self.original(remote=remote,limit=NATIVE_FEATURE_LIMIT)
+        if clock_source is None:
+            # An independent nonce-bound original read. Host time is only the
+            # legacy clock reader's local request bookkeeping, never freshness.
+            clock_source=NativeFeatureObservation(self.send,original,lambda:int(time.time()*1000),self.guard,
+                self.process['pid'],ios=True,monotonic=self.monotonic,sleep=self.sleep)
+        if not isinstance(clock_source,NativeFeatureObservation) or not clock_source.ios or clock_source.pid!=self.process['pid']:
+            raise NativeUIError('Original native clock source does not match this iOS process')
+        def clock():
+            packet=clock_source.read(clock_source.sequence)
+            if reader.instance not in (None,packet['instance']):
+                raise NativeUIError('Original native clocks changed their iOS source birth')
+            reader.instance=packet['instance']
+            return packet['capturedEpochMs']
+        reader=NativeFeatureObservation(self.send,original,clock,self.guard,self.process['pid'],ios=True,
+            monotonic=self.monotonic,sleep=self.sleep,native_clock_bound=True)
+        return reader
+
     def geometry(self):
         from ios.adapters.native_geometry import OriginalGeometry
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/ios-ui-request-result.json'

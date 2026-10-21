@@ -19,7 +19,8 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 class IOSGraphicsRuntime(IOSScriptRuntime):
     def _native_feature_observer(self,selector,*,read_only=False):
         need(type(read_only) is bool)
-        return self._sources(selector)['observer'].native_observer()
+        source=self._sources(selector)
+        return source['observer'].bound_native_observer(source['clock_source'])
 
     def graphics_samples_store(self,selector,role,stage):
         need(role in ('primary','actor') and type(stage) is int and stage in (0,1))

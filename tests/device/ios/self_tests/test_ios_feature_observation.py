@@ -85,6 +85,27 @@ class FeatureObservationTests(unittest.TestCase):
         boundary.start(); self.addCleanup(boundary.stop)
         self.observer = self.native.observer()
 
+    def test_bound_native_clock_factory_uses_distinct_original_nonces_and_keeps_native_time(self):
+        source=self.native_feature_boundaries();self.observer.epoch_ms=lambda:9000000
+        reader=self.observer.bound_native_observer();value=reader.read(0)
+        self.assertEqual(10000,value['capturedEpochMs'])
+        self.assertEqual(4,len(source.commands))
+        self.assertEqual(4,len({row['commandId'] for row in source.commands}))
+        self.assertEqual(source.commands[1]['commandId'],value['requestId'])
+        self.assertEqual(2,value['sequence']);self.assertEqual(4,source.sample['sequence'])
+
+    def test_bound_native_clock_factory_refuses_a_foreign_birth_or_stale_middle_packet(self):
+        for fault in ('birth','old'):
+            with self.subTest(fault=fault):
+                source=self.native_feature_boundaries();original=source.mutate
+                def mutate(value):
+                    original(value)
+                    if source.sequence==2:
+                        if fault=='birth':value['instance']='c'*32
+                        else:value.update(capturedEpochMs=9000,requestedEpochMs=9000,animation={},animationFence={})
+                source.mutate=mutate
+                with self.assertRaises(NativeUIError):self.observer.bound_native_observer().read(0)
+
     def test_ios_passive_account_source_keeps_native_clock_and_refuses_downgrade(self):
         source=self.native_feature_boundaries();original=source.mutate
         def observed(value):original(value);account_source(value)

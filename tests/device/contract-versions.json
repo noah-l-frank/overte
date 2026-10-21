@@ -17,6 +17,7 @@
     "web-dom-observation": {"current": 1, "reads": [1]},
     "feature-browser-resources": {"current": 1, "reads": [1]},
     "native-feature-observation": {"current": 1, "reads": [1]},
+    "ios-native-feature-clock-binding": {"current": 1, "reads": [1]},
     "native-ios-bundle-observation": {"current": 1, "reads": [1]},
     "ios-bundle-byte-identity": {"current": 1, "reads": [1]},
     "ios-physical-candidate-consumer": {"current": 1, "reads": [1]},

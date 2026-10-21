@@ -13,6 +13,7 @@ REQUIRED = {
     "native-pending-field-commit": 1,
     "asset-input-bundle": 1,
     "native-feature-observation": 1,
+    "ios-native-feature-clock-binding": 1,
     "native-ios-bundle-observation": 1,
     "ios-bundle-byte-identity": 1,
     "ios-physical-candidate-consumer": 1,

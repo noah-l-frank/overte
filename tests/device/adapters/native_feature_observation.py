@@ -17,6 +17,7 @@ from adapters.normal_ui import NativeUIError
 
 FILE = 'feature-native-observation.json'
 LIMIT = 262144
+BOUND_CLOCK_VERSION = 1
 
 
 def need(condition):
@@ -173,11 +174,13 @@ def validate(value, request, pid, epoch, *, require_animation=False, require_rec
 
 class NativeFeatureObservation:
     def __init__(self, send, read, clock_ms, guard, pid, *, ios=False,
-                 monotonic=time.monotonic, sleep=time.sleep):
+                 monotonic=time.monotonic, sleep=time.sleep,native_clock_bound=False):
         need(all(callable(value) for value in (send, read, clock_ms, guard, monotonic, sleep))
-             and integer(pid, 1) and type(ios) is bool)
+             and integer(pid, 1) and type(ios) is bool and type(native_clock_bound) is bool
+             and (not native_clock_bound or ios))
         self.send, self.original, self.clock_ms, self.guard, self.pid = send, read, clock_ms, guard, pid
         self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
+        self.native_clock_bound=native_clock_bound;self.captured_epoch=0
         self.instance, self.sequence, self.rig, self.rig_sequence = None, 0, None, 0
         self.lifecycle = None
         self.voice_event_sequence = 0
@@ -191,10 +194,14 @@ class NativeFeatureObservation:
             need(integer(after_sequence) and after_sequence >= self.sequence
                  and all(type(v) is bool for v in (require_animation,require_recorded_voice,require_recorded_history,require_animation_history,require_account))
                  and self.guard() is not False)
+            bound_started=self.monotonic() if self.native_clock_bound else None
             requested_at = self.clock_ms()
             need(integer(requested_at, 1))
-            started = previous = self.monotonic()
+            started=bound_started if self.native_clock_bound else self.monotonic()
+            previous=started
             need(number(started, 0, 1e15))
+            if self.native_clock_bound:
+                previous=self.monotonic();need(number(previous,started,1e15) and previous-started<1.5 and self.guard() is not False)
             request = ('ios-' if self.ios else '') + uuid.uuid4().hex
             self.send(dict(schemaVersion=1, commandId=request, action='feature-native-observe'))
             source_floor, pinned_instance, pinned_rig = after_sequence, self.instance, self.rig
@@ -213,18 +220,20 @@ class NativeFeatureObservation:
                 need(self.guard() is not False)
                 resample_animation = False
                 if type(value) is dict and value.get('requestId') == request:
-                    # HTTP/AFC provides no independent device wall clock. A
-                    # unique native request fence and bounded local transport
-                    # time establish this acquisition; all source ages use the
-                    # original native envelope clock, never a retimed pose.
+                    # Legacy component reads retain their envelope clock. Full
+                    # iOS owners opt into separately acquired native clocks;
+                    # neither mode substitutes AFC timestamps or host UTC.
                     if self.ios:
                         need(integer(value.get('requestedEpochMs'), 1))
-                        epoch = value.get('capturedEpochMs')
+                        if not self.native_clock_bound:epoch = value.get('capturedEpochMs')
                     value = validate(value, request, self.pid, epoch, require_animation=False,
                                      require_recorded_voice=require_recorded_voice, require_recorded_history=require_recorded_history,
                                      require_animation_history=require_animation_history, require_account=require_account)
                     need(pinned_instance in (None, value['instance']) and value['sequence'] > source_floor
-                         and (self.ios or value['capturedEpochMs'] >= requested_at))
+                         and (self.ios and not self.native_clock_bound or value['capturedEpochMs'] >= requested_at))
+                    if self.native_clock_bound:
+                        need(epoch>=value['capturedEpochMs']>=max(self.captured_epoch,requested_at)
+                             and value['requestedEpochMs']>=requested_at)
                     pinned_instance, source_floor = value['instance'], value['sequence']
                     if seen_lifecycle is not None:
                         need(all(value['lifecycle'][key] >= seen_lifecycle[key] for key in seen_lifecycle))
@@ -264,10 +273,15 @@ class NativeFeatureObservation:
                             resample_animation = True
                     if not resample_animation:
                         need(self.guard() is not False)
+                        if self.native_clock_bound:
+                            final_epoch=self.clock_ms();need(integer(final_epoch,epoch) and final_epoch>=value['capturedEpochMs'])
+                            fresh(value['capturedEpochMs'],final_epoch)
+                            need(self.guard() is not False)
                         completed_at = self.monotonic()
                         need(number(completed_at, 0, 1e15) and previous <= completed_at
-                             and completed_at - started < 5)
+                             and completed_at - started < (1.5 if self.native_clock_bound else 5))
                         self.instance, self.sequence = value['instance'], value['sequence']
+                        self.captured_epoch=value['capturedEpochMs']
                         self.lifecycle = value['lifecycle'].copy()
                         self.voice_event_sequence = voice_sequence
                         self.voice_history = deepcopy(seen_history)
@@ -279,7 +293,7 @@ class NativeFeatureObservation:
                 current = self.monotonic()
                 need(number(current, 0, 1e15) and current >= previous)
                 previous = current
-                if current - started >= 5 or _attempt == 50:
+                if current - started >= (1.5 if self.native_clock_bound else 5) or _attempt == 50:
                     break
                 self.sleep(0.1)
                 if resample_animation:

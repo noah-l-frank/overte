@@ -31,6 +31,17 @@ contains the current command nonce. Legacy passive component reader semantics
 remain available only through its separate explicit construction; they cannot
 stand in for full acquisition clock joins.
 
+The core native settings reader also has an explicit version-1 independent-clock
+mode. `FeatureObservation.bound_native_observer` obtains separate nonce-bound
+native snapshots before, after and at completion, pins their actual source birth,
+and includes all clock transport in its 1500 ms acquisition deadline. A current
+nonce around pre-request settings, a regressing clock, or a late final clock does
+not advance the settings cursor. Graphics uses this factory. Original snapshot
+schema v1 and default legacy component semantics remain compatible; no timestamp
+is replaced. The generic source reader's opt-in is iOS-only. Twelve clock cases,
+two HTTP/AFC factory cases and existing source/transport regressions pass (61
+selected device-free tests). Native boundary data is synthetic.
+
 The shared Graphics stimulus advances to version 2: the orange object now
 intersects the real mirror reflection, and the challenge card is near enough
 to preserve black/white contrast under haze. Deterministic entity identities
