@@ -537,6 +537,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
             observed.update(processIdentity=process['identity'],sessionId=session,generation=state['generation'],targetFingerprint=fingerprint)
             return dict(binding=observed,foreground=after==4,running=process['running'],appState=after)
 
+    def _emote_lifecycle_status(self,selector,binding):
+        # Reuse the original Android OS/process observer. It does not read or
+        # mutate Graphics settings and remains available in the background.
+        return self._graphics_lifecycle_status(selector,binding)
+
     def graphics_samples_store(self, selector, role, stage):
         require(role in ('primary','actor') and type(stage) is int and stage in (0,1),
                 'PHONE_GRAPHICS_SOURCE_SCOPE_REQUIRED')
@@ -1312,6 +1317,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE')
         require(not world_error and all(self.world_render_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_WORLD_RENDER_CLEANUP_INCOMPLETE')
+        require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-background.json')).read() is None,
+                'PHONE_EMOTE_BACKGROUND_CLEANUP_INCOMPLETE')
         require(all(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-'+role+'-sources.json')).read() is None
                     for role in ('primary','actor')),'PHONE_EMOTE_SOURCE_CLEANUP_INCOMPLETE')
         require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-inputs.json')).read() is None,

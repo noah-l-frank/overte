@@ -85,6 +85,22 @@ class PhoneEmoteSources:
                 need(item['reference']['block']==state['revision']//BLOCK+1 and item['reference']['count']==state['revision']%BLOCK+1)
         return deepcopy(state),deepcopy(frames)
 
+    @classmethod
+    def archive(cls,value,*,phase,artifact_root,binding,guard,monotonic=time.monotonic):
+        """Historical files only; no runtime, transport or usable live owner.
+
+        The caller guards actual candidate/process authority before and after
+        the bounded local replay. This does not create fresh product facts.
+        """
+        need(isinstance(phase,PhaseFixtureReader) and phase.area=='emotes' and type(value) is dict
+            and value.get('role') in ('primary','actor') and callable(guard) and callable(monotonic))
+        scope=object.__new__(cls);scope.phase,scope.run,scope.role=phase,identifier(phase.run),value['role']
+        scope.binding=deepcopy(context(binding));scope.pid=int(scope.binding['processIdentity'].split(':')[0]);need(integer(scope.pid,1))
+        scope.artifact_root=Path(artifact_root);scope.monotonic=monotonic
+        scope.originals=PhoneEmoteOriginals(scope.artifact_root,scope.binding,scope.run,scope.role,guard,
+            lambda *_args:need(False),monotonic=monotonic)
+        return deepcopy(scope.decode(value))
+
     @staticmethod
     def replay_scripts(reader,frames):
         # Extend through the existing original packet validator and pure native

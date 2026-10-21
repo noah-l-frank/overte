@@ -74,6 +74,13 @@ Consumed wrong/ignored inputs, unknown/old plays, replaced originals and slow
 final delivery fail. Full avatar image, independent actor, background and whole
 cleanup composition remain required; no complete Emote capability is enabled.
 
+The [owned Phone Emote background cycle](EMOTE_BACKGROUND.md)
+now joins one-send ordinary Home/activation to actual OS foreground and new
+native lifecycle/idle proof. Lost returns reconstruct without duplicate inputs
+or foreground native access while backgrounded. Historical source replay has
+no transport; incomplete ownership blocks general teardown. Whole-feature
+phase-change cleanup recovery, images, actor and quiet retirement remain open.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

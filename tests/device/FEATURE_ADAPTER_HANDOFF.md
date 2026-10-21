@@ -30,6 +30,13 @@ legacy inline records remain unavailable for fresh results. Full native effect,
 avatar image, independent actor, background/lifetime and cleanup composition
 remain required; native compilation and device qualification are still open.
 
+The [owned Phone Emote background cycle](adapters/android-phone/EMOTE_BACKGROUND.md)
+now joins one-send ordinary Home/activation to actual OS foreground and new
+native lifecycle/idle proof. Lost returns reconstruct without duplicate inputs
+or foreground native access while backgrounded. Historical source replay has
+no transport; incomplete ownership blocks general teardown. Whole-feature
+phase-change cleanup recovery, images, actor and quiet retirement remain open.
+
 The [Phone ordinary-input/effect join](adapters/android-phone/EMOTE_EFFECTS.md)
 now recomputes actual native playback/restore from durable input and source
 originals, including current widget visibility and selected VM call provenance.

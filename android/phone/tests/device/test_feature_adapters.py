@@ -924,6 +924,22 @@ class FeatureAdapterTests(unittest.TestCase):
         with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}):self.adapter.cleanup(SELECTOR)
         self.assertIsNone(self.adapter.account_probe_store(SELECTOR,role='actor').read())
 
+    def test_general_cleanup_cannot_forget_emote_background_or_activation_intent(self):
+        store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-background.json'))
+        store.write({'unresolved':True},None)
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_EMOTE_BACKGROUND_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
+    def test_actual_emote_os_status_preserves_background_read_only_android_binding(self):
+        self.read_only_boundaries();_ui,_observer,binding,_guard,_installed=self.adapter.normal_feature_runtime(SELECTOR,read_only=True)
+        with patch.object(self.adapter,'query_app_state',return_value=3),patch.object(self.adapter,'normal_feature_runtime',side_effect=AssertionError('Unexpected foreground-only source')):
+            value=self.adapter._emote_lifecycle_status(SELECTOR,binding)
+            self.assertFalse(value['foreground']);self.assertEqual(3,value['appState']);self.assertEqual(binding,value['binding'])
+        with self.assertRaises(ValueError):self.adapter._emote_lifecycle_status(SELECTOR,binding|dict(artifactSha256='f'*64))
+        self.assertEqual([],self.native.inputs);self.assertEqual([],self.native.lifecycle_inputs)
+
     def test_general_cleanup_cannot_forget_either_emote_source_owner(self):
         for role in ('primary','actor'):
             store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-'+role+'-sources.json'))
