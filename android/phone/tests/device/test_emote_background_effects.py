@@ -16,6 +16,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from overte_phone_emote_inputs import PhoneEmoteInputs
 from overte_phone_emote_effects import PhoneEmoteEffects
 from overte_phone_script_history import pack,unpack
+from overte_phone_emote_observation import PhoneEmoteObservation,ObservationBoundaries
 from test_emote_observation import Model as ImageModel
 from test_emote_background import Model as BackgroundModel
 from test_emote_pixels import POLICY
@@ -136,6 +137,124 @@ class EmoteBackgroundEffectTests(unittest.TestCase):
         with m.lock.held():
             effects,context,_call=self.prepare();m.start('Waving');effects.source.read()
             with self.assertRaises(NativeUIError):effects.background_recompute(effects.reference(),**context)
+
+
+class EmoteBackgroundObservationTests(unittest.TestCase):
+    setUp=EmoteBackgroundEffectTests.setUp
+    prepare=EmoteBackgroundEffectTests.prepare
+
+    def image_scope(self,effects):
+        self.model.current_index=3
+        return PhoneEmoteObservation(effects,3,POLICY)
+
+    def boundary(self,effects,context):
+        source=effects.source;intents=[]
+        writer=ObservationBoundaries(source.artifact_root,source.binding,source.run,source.role,source.guard,
+            lambda kind,value:intents.append((kind,deepcopy(value))),kind='observation-boundaries',monotonic=source.monotonic)
+        reference=writer.write(1,context)
+        self.assertEqual(['planned','opened','saved'],[value['phase'] for kind,value in intents])
+        return writer,reference
+
+    def test_actual_background_image_retains_current_early_restore_without_a_fake_ordinary_input(self):
+        m=self.model
+        with m.lock.held():
+            effects,context,call=self.prepare();writer,reference=self.boundary(effects,context)
+            before=deepcopy(effects.inputs.previous);scope=self.image_scope(effects)
+            value=scope.read_background(call['ticket'],reference)
+            self.assertEqual(3,value['emoteObservationResultVersion']);self.assertEqual(3,scope.previous['emoteObservationVersion'])
+            self.assertEqual(1,value['effect']['emoteBackgroundEffectVersion']);self.assertTrue(value['state']['restoredBeforeNominalEnd'])
+            self.assertEqual('idle',value['state']['animation']);self.assertEqual(before,effects.inputs.previous)
+            self.assertEqual(reference,scope.state['background']);self.assertLess(scope.store.path.stat().st_size,65536)
+            self.assertEqual(context,writer.read(writer.expand(reference)))
+            self.assertEqual(['lifecycle.background','app.launch'],m.normal_inputs)
+
+    def test_actor_background_image_uses_its_original_cancel_and_own_new_native_frame(self):
+        m=self.model
+        with m.lock.held():
+            effects,context,call=self.prepare('actor');_writer,reference=self.boundary(effects,context)
+            scope=self.image_scope(effects);value=scope.read_background(call['ticket'],reference)
+            self.assertEqual('actor',value['role']);self.assertEqual('actor',value['effect']['role'])
+            self.assertEqual(effects.current_original(value['effect']['frame'])['group'],value['effect']['proof']['group'])
+
+    def test_preparing_failure_transfers_real_background_dependencies_without_relabeling_cancel(self):
+        m=self.model
+        with m.lock.held():
+            effects,context,call=self.prepare();writer,reference=self.boundary(effects,context)
+            scope=self.image_scope(effects)
+            with patch.object(effects.source,'read',side_effect=NativeUIError('Synthetic source failure')),self.assertRaises(NativeUIError):
+                scope.read_background(call['ticket'],reference)
+            self.assertEqual('preparing',scope.state['phase']);self.assertNotEqual(call['ticket'],effects.inputs.state['current']['call']['ticket'])
+            packets=[];packet=scope.transfer_failed(lambda value:packets.append(deepcopy(value)))
+            self.assertEqual([packet],packets);self.assertIsNone(scope.store.read());self.assertIsNone(packet['childRetirement'])
+            self.assertEqual(packet,PhoneEmoteObservation.failure_archive(packet,effects,3,POLICY))
+            self.assertEqual(context,writer.read(writer.expand(reference)))
+
+    def test_missing_or_foreign_boundary_never_creates_a_capture_or_ready_result(self):
+        m=self.model
+        with m.lock.held():
+            effects,context,call=self.prepare();writer,reference=self.boundary(effects,context)
+            wrong=deepcopy(reference);wrong['sha256']='9'*64
+            scope=self.image_scope(effects);reads=m.calls.count('native-read')
+            with self.assertRaises((NativeUIError,FileNotFoundError)):scope.read_background(call['ticket'],wrong)
+            self.assertIsNone(scope.store.read());self.assertEqual(reads,m.calls.count('native-read'))
+            self.assertEqual(context,writer.read(writer.expand(reference)))
+
+    def test_expectation_bearing_boundary_is_rejected_before_native_acquisition(self):
+        m=self.model
+        with m.lock.held():
+            effects,context,call=self.prepare();writer,_reference=self.boundary(effects,context)
+            reference=writer.write(2,context|dict(expectedState=dict(animation='idle')))
+            scope=self.image_scope(effects);reads=m.calls.count('native-read')
+            with self.assertRaises(NativeUIError):scope.read_background(call['ticket'],reference)
+            self.assertIsNone(scope.store.read());self.assertEqual(reads,m.calls.count('native-read'))
+
+    def test_completed_background_archive_replays_after_a_later_input_without_new_measurements(self):
+        m=self.model
+        with m.lock.held():
+            effects,context,call=self.prepare();_writer,reference=self.boundary(effects,context)
+            scope=self.image_scope(effects);value=scope.read_background(call['ticket'],reference)
+            packet=scope.transfer(lambda *_:None);m.call('close');effects.source.read();calls=deepcopy(m.calls)
+            self.assertEqual(value,PhoneEmoteObservation.archive(packet,effects,3,POLICY))
+            self.assertEqual(calls,m.calls);self.assertIsNone(scope.store.read())
+
+    def test_phase_change_after_the_image_preserves_an_incomplete_v3_archive_not_a_result(self):
+        m=self.model
+        with m.lock.held():
+            effects,context,call=self.prepare();writer,reference=self.boundary(effects,context)
+            scope=self.image_scope(effects);read=effects.source.read;reads=[]
+            def changed_after_image():
+                reads.append(True)
+                if len(reads)==2:m.call('close')
+                return read()
+            with patch.object(effects.source,'read',side_effect=changed_after_image),self.assertRaises(NativeUIError):
+                scope.read_background(call['ticket'],reference)
+            self.assertEqual('measuring',scope.state['phase']);packets=[]
+            packet=scope.transfer_incomplete(lambda value:packets.append(deepcopy(value)))
+            self.assertEqual([packet],packets);self.assertNotIn('result',packet)
+            self.assertEqual(packet,PhoneEmoteObservation.incomplete_archive(packet,effects,3,POLICY))
+            self.assertIsNone(scope.store.read());self.assertEqual(context,writer.read(writer.expand(reference)))
+
+    def test_missing_boundary_blocks_ready_replay_and_metadata_retirement(self):
+        m=self.model
+        with m.lock.held():
+            effects,context,call=self.prepare();writer,reference=self.boundary(effects,context)
+            scope=self.image_scope(effects);scope.read_background(call['ticket'],reference)
+            writer.path(writer.expand(reference)).unlink();retained=[]
+            with self.assertRaises(FileNotFoundError):scope.original()
+            with self.assertRaises(FileNotFoundError):scope.transfer(lambda value:retained.append(value))
+            self.assertEqual([],retained);self.assertIsNotNone(scope.store.read())
+
+    def test_ignored_native_release_keeps_failed_background_scope_until_actual_cleanup(self):
+        m=self.model
+        with m.lock.held():
+            effects,context,call=self.prepare();_writer,reference=self.boundary(effects,context)
+            scope=self.image_scope(effects);m.world.storage.ignore_release=True;captures=m.world.counters['capture']
+            with self.assertRaises(NativeUIError):scope.read_background(call['ticket'],reference)
+            with self.assertRaises(NativeUIError):scope.transfer_failed(lambda *_:None)
+            self.assertIsNotNone(scope.store.read());self.assertEqual(captures+1,m.world.counters['capture'])
+            m.world.storage.ignore_release=False;packet=scope.transfer_failed(lambda *_:None)
+            self.assertEqual(packet,PhoneEmoteObservation.failure_archive(packet,effects,3,POLICY))
+            self.assertEqual(captures+1,m.world.counters['capture']);self.assertIsNone(scope.store.read())
 
 
 if __name__=='__main__':unittest.main()

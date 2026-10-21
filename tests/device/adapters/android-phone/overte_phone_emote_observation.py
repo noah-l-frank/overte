@@ -26,10 +26,16 @@ from overte_phone_script_history import pack,unpack,same
 
 VERSION=1
 HEADER_VERSION=2
+BACKGROUND_VERSION=3
 
 
 class ObservationOriginals(PhoneEmoteOriginals):
     KINDS=frozenset({'observations'})
+
+
+class ObservationBoundaries(PhoneEmoteOriginals):
+    """Parent-owned immutable dependencies; scopes read but never create them."""
+    KINDS=frozenset({'observation-boundaries'})
 
 
 class PhoneEmoteObservation:
@@ -59,25 +65,29 @@ class PhoneEmoteObservation:
 
     def decode(self,value):
         source=self.source
-        need(type(value) is dict and type(value.get('emoteObservationVersion')) is int and value['emoteObservationVersion'] in (1,2))
+        need(type(value) is dict and type(value.get('emoteObservationVersion')) is int and value['emoteObservationVersion'] in (1,2,BACKGROUND_VERSION))
         version=value['emoteObservationVersion']
         exact(value,{'emoteObservationVersion','runId','fixtureUrl','role','index','binding','artifactRoot','imagePolicy','payload'}
-            |({'scopeId'} if version==2 else set()))
-        if version==2:identifier(value['scopeId'])
+            |({'scopeId'} if version>=2 else set()))
+        if version>=2:identifier(value['scopeId'])
         need(value.get('scopeId')==self.scope_id
             and value['runId']==source.run and value['fixtureUrl']==source.phase.fixture_url and value['role']==source.role
             and type(value['index']) is int and value['index']==self.index and same(value['binding'],source.binding)
             and value['artifactRoot']==str(source.artifact_root) and same(value['imagePolicy'],self.policy))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'phase','ticket','capture','outcome','pending','retirement'})
+        exact(state,{'phase','ticket','capture','outcome','pending','retirement'}|({'background'} if version==BACKGROUND_VERSION else set()))
         need(state['phase'] in ('reserved','capturing','captured','measuring','complete')
-            or version==2 and state['phase']=='preparing')
+            or version>=2 and state['phase']=='preparing')
         if state['ticket'] is not None:identifier(state['ticket'])
         else:need(state['phase']=='reserved')
+        if version==BACKGROUND_VERSION:
+            context=self.background(state['background'])
+            _prior,cycle,_before,_after=self.effects.background_context(**context)
+            need(state['phase']!='reserved' and cycle['call']['ticket']==state['ticket'])
         for key,offset in (('capture',1),('outcome',2)):
             if state[key] is not None:
                 ref=state[key];self.originals.expand(ref);need(ref['index']==(self.index-1)*2+offset)
-                row=self.originals.read(self.originals.expand(ref));self.row(row,key,state['ticket'])
+                row=self.originals.read(self.originals.expand(ref));self.row(row,key,state['ticket'],boundary=state.get('background'))
         if state['pending'] is not None:
             pending=state['pending'];exact(pending,{'kind','original'});need(pending['kind'] in ('capture','outcome') and state[pending['kind']] is None)
             if pending['original'] is not None:
@@ -94,10 +104,11 @@ class PhoneEmoteObservation:
         if state['phase']=='complete':need(state['outcome'] is not None and state['pending'] is None and state['retirement'] is not None)
         return deepcopy(state)
 
-    def row(self,row,kind,ticket):
+    def row(self,row,kind,ticket,*,boundary=None):
         need(kind in ('capture','outcome'))
         version=row.get('emoteObservationFrameVersion') if type(row) is dict else None
-        need(type(version) is int and version in (1,2))
+        need(type(version) is int and version in (1,2,BACKGROUND_VERSION))
+        need((version==BACKGROUND_VERSION)==(self.previous.get('emoteObservationVersion')==BACKGROUND_VERSION))
         if kind=='capture':
             exact(row,{'emoteObservationFrameVersion','kind','ticket','before','header','played','previous'})
             frame,_raw,_state=PhoneEmoteCapture.archive(row['header'],self.source,self.index,self.policy)
@@ -107,6 +118,10 @@ class PhoneEmoteObservation:
             if version==2:
                 need(row['played'] is None)
                 phase=self.effects.phase_recompute(row['before']);need(phase['ticket']==ticket)
+            if version==BACKGROUND_VERSION:
+                need(row['played'] is None)
+                effect=self.effects.background_recompute(row['before'],**self.background(boundary))
+                need(effect['call']['ticket']==ticket)
             if row['played'] is not None:exact(row['played'],{'inputTicket','frame'});identifier(row['played']['inputTicket'])
             if row['previous'] is not None:
                 exact(row['previous'],{'index','capture'})
@@ -123,6 +138,10 @@ class PhoneEmoteObservation:
                 exact(effect,{'emotePhaseEffectVersion','role','runId','binding','phase','ticket','frame','state'})
                 need(type(effect['emotePhaseEffectVersion']) is int and effect['emotePhaseEffectVersion']==1
                     and self.effects.phase_identity(frame['phaseAfter'])==(effect['phase'],ticket) and effect['ticket']==ticket)
+            elif version==BACKGROUND_VERSION:
+                exact(effect,{'emoteBackgroundEffectVersion','role','runId','binding','call','frame','previousTicket','state','proof'})
+                need(type(effect['emoteBackgroundEffectVersion']) is int and effect['emoteBackgroundEffectVersion']==1
+                    and effect['call']['ticket']==ticket)
             else:need(effect['emoteEffectVersion']==2 and effect['call']['ticket']==ticket)
             need(effect['role']==self.source.role and effect['runId']==self.source.run and same(effect['binding'],self.source.binding)
                 and same(effect['frame'],row['after']))
@@ -132,7 +151,8 @@ class PhoneEmoteObservation:
     def save(self):
         need(self.historical is False)
         self.bound()
-        value=dict(emoteObservationVersion=HEADER_VERSION if self.scope_id is not None else 1,runId=self.source.run,fixtureUrl=self.source.phase.fixture_url,
+        value=dict(emoteObservationVersion=BACKGROUND_VERSION if 'background' in self.state else HEADER_VERSION if self.scope_id is not None else 1,
+            runId=self.source.run,fixtureUrl=self.source.phase.fixture_url,
             role=self.source.role,index=self.index,binding=deepcopy(self.source.binding),artifactRoot=str(self.source.artifact_root),
             imagePolicy=deepcopy(self.policy),payload=pack([self.state]))
         if self.scope_id is not None:value['scopeId']=self.scope_id
@@ -163,7 +183,7 @@ class PhoneEmoteObservation:
     def previous_image(self,reference):
         if reference is None:return None
         row=self.originals.read(self.originals.expand(reference['capture']))
-        need(row['kind']=='capture' and type(row['emoteObservationFrameVersion']) is int and row['emoteObservationFrameVersion'] in (1,2))
+        need(row['kind']=='capture' and type(row['emoteObservationFrameVersion']) is int and row['emoteObservationFrameVersion'] in (1,2,BACKGROUND_VERSION))
         frame,raw,_record=PhoneEmoteCapture.archive(row['header'],self.source,reference['index'],self.policy)
         need(frame['ticket']!=self.state['ticket'])
         return dict(frame=frame,png=raw)
@@ -202,14 +222,34 @@ class PhoneEmoteObservation:
         """Actual baseline/cleanup image join without an ordinary input row."""
         return self._read(ticket,played=None,previous=previous,phase=True)
 
-    def _read(self,ticket,*,played,previous,phase):
+    def background(self,reference=None):
+        """Read a parent's actual immutable boundary file, never a callback."""
+        reference=self.state.get('background') if reference is None else reference
+        reader=ObservationBoundaries(self.source.artifact_root,self.source.binding,self.source.run,self.source.role,
+            self.bound,lambda *_:need(False),kind='observation-boundaries',monotonic=self.source.monotonic)
+        context=reader.read(reader.expand(reference))
+        exact(context,{'previous','header','image_policy'});need(same(context['image_policy'],self.policy))
+        return context
+
+    def read_background(self,ticket,boundary,*,previous=None):
+        """Fresh Rig/image join after a real cycle and this role's early cancel."""
+        return self._read(ticket,played=None,previous=previous,phase=False,background=boundary)
+
+    def _read(self,ticket,*,played,previous,phase,background=None):
         identifier(ticket);need(type(phase) is bool and self.historical is False and self.previous is None and self.state['phase']=='reserved')
-        self.started=self.bound();epoch_reader=self.source.adapter._native_feature_observer(self.source.selector,read_only=True)
-        epoch=epoch_reader.clock_ms();host=self.source.phase.epoch_ms();need(integer(epoch,1) and number(host,1,1e15))
+        need('background' not in self.state and (background is None or phase is False and played is None))
+        self.started=self.bound()
         try:
+            epoch_reader=self.source.adapter._native_feature_observer(self.source.selector,read_only=True)
+            epoch=epoch_reader.clock_ms();host=self.source.phase.epoch_ms();need(integer(epoch,1) and number(host,1,1e15))
+            if background is not None:
+                context=self.background(background);self.effects.background_context(**context)
+                self.state['background']=deepcopy(background)
             self.effects.bound();self.state.update(phase='preparing',ticket=ticket);self.save()
             self.source.read();before=self.effects.reference()
             if phase:need(self.effects.phase_recompute(before)['ticket']==ticket)
+            elif background is not None:
+                need(self.effects.background_recompute(before,**self.background())['call']['ticket']==ticket)
             else:
                 row=self.effects.inputs.state['current'];need(row is not None and row['call']['ticket']==ticket)
                 self.effects.after(row,before)
@@ -228,21 +268,23 @@ class PhoneEmoteObservation:
             self.state['phase']='capturing';self.save()
             capture=PhoneEmoteCapture(self.source,self.index,self.policy,monotonic=self.source.monotonic,parent_scope=self.scope_id)
             capture.read(ticket);capture.original()
-            captured=dict(emoteObservationFrameVersion=2 if phase else VERSION,kind='capture',ticket=ticket,before=before,
+            frame_version=BACKGROUND_VERSION if background is not None else 2 if phase else VERSION
+            captured=dict(emoteObservationFrameVersion=frame_version,kind='capture',ticket=ticket,before=before,
                 header=deepcopy(capture.previous),played=deepcopy(played),previous=previous_ref)
             # The parent's immutable original is committed before child removal
             # or any source-header advancement. A lost cleanup return retains it.
             self.record('capture',captured);self.state['phase']='captured';self.save()
             self.state['retirement']=capture.cleanup();self.state['phase']='measuring';self.save()
             self.source.read();reference=self.effects.reference()
-            effect=self.effects.phase_measure(reference) if phase else self.effects.measure(reference,played=played)
+            effect=(self.effects.phase_measure(reference) if phase else
+                self.effects.measure(reference,played=played,background=self.background() if background is not None else None))
             configuration=self.source.adapter._avatar_configuration_observer(self.source.selector,read_only=True)
             need(isinstance(configuration,NativePhoneAvatarConfiguration) and configuration.pid==self.source.pid and configuration.ios is False)
             config=configuration.read()
             image,raw,_record=PhoneEmoteCapture.archive(captured['header'],self.source,self.index,self.policy)
             measured=pixels(self.source.run,image,raw,self.policy,self.source.pid,configuration.clock_ms,self.source.guard,
                 previous=self.previous_image(previous_ref),monotonic=self.source.monotonic)
-            outcome=dict(emoteObservationFrameVersion=2 if phase else VERSION,kind='outcome',ticket=ticket,after=reference,
+            outcome=dict(emoteObservationFrameVersion=frame_version,kind='outcome',ticket=ticket,after=reference,
                 configuration=config,effect=effect,pixels=measured)
             self.join(captured,outcome);self.record('outcome',outcome);self.state['phase']='complete';self.save()
             result=self.original();self.delivery(result,epoch_reader,epoch,host);return result
@@ -270,6 +312,7 @@ class PhoneEmoteObservation:
         captured,outcome=self.load('capture'),self.load('outcome');image,raw,_before,_after=self.join(captured,outcome)
         need(captured['emoteObservationFrameVersion']==outcome['emoteObservationFrameVersion'])
         effect=(self.effects.phase_recompute(outcome['after']) if captured['emoteObservationFrameVersion']==2
+            else self.effects.background_recompute(outcome['after'],**self.background()) if captured['emoteObservationFrameVersion']==BACKGROUND_VERSION
             else self.effects.recompute(outcome['after'],played=captured['played'],call=outcome['effect']['call']))
         need(same(effect,outcome['effect']))
         # Recompute pixel facts from retained original PNGs, including prior
@@ -479,7 +522,10 @@ class PhoneEmoteObservation:
         need(scope.scope_id is not None);child=value['childRetirement']
         if scope.state['phase']=='preparing':
             need(child is None)
-            if scope.effects.inputs.state['current'] is not None:
+            if scope.previous['emoteObservationVersion']==BACKGROUND_VERSION:
+                _prior,cycle,_before,_after=scope.effects.background_context(**scope.background())
+                need(cycle['call']['ticket']==scope.state['ticket'])
+            elif scope.effects.inputs.state['current'] is not None:
                 need(scope.effects.inputs.state['current']['call']['ticket']==scope.state['ticket'])
             else:
                 need(value['inputHeader'] is None and bool(scope.source.frames))

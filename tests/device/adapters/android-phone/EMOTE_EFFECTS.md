@@ -165,6 +165,12 @@ instrumentation/device qualification remain pending.
 
 ## Current background restoration effects, version 1
 
+`background_context(previous=..., header=..., image_policy=...)` reopens only
+the original dependencies, without requiring a new current frame or returning
+fresh state. It rejects nested background/phase results as the preceding ordinary
+cancel. The image scope uses this bounded historical dependency check before
+its first acquisition and during interrupted-preparation retirement.
+
 `background_recompute(reference, previous=..., header=..., image_policy=...)`
 reopens this role's complete original cancel observation archive and the actual
 completed `PhoneEmoteBackground` header. The prior checkpoint must independently

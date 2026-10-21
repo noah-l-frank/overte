@@ -185,17 +185,15 @@ class PhoneEmoteEffects:
         returned=deepcopy(value);source.lock.assert_held();need(source.guard() is not False)
         end=source.monotonic();need(number(end,started,1e15) and end-started<5);return returned
 
-    def background_recompute(self,reference,*,previous,header,image_policy):
-        """Fresh-frame facts joined to this role's original cancel and OS cycle.
-
-        The old ordinary input remains an old input. No background input row,
-        synthetic ACK, old measured state or peer fact is adopted as current.
-        """
+    def background_context(self,*,previous,header,image_policy):
+        """Reopen historical dependencies only; no new-frame effect verdict."""
         from overte_phone_emote_observation import PhoneEmoteObservation
         from overte_phone_emote_background import PhoneEmoteBackground
         source=self.source;started=source.monotonic();need(number(started,0,1e15))
         source.lock.assert_held();need(source.guard() is not False)
         need(type(previous) is dict and type(previous.get('header')) is dict)
+        need(previous['header'].get('emoteObservationVersion') in (1,2)
+            and type(previous.get('result')) is dict and previous['result'].get('emoteObservationResultVersion')==1)
         prior=PhoneEmoteObservation.archive(previous,self,previous['header'].get('index'),image_policy)
         effect=prior['effect']
         need(prior['role']==source.role and type(effect.get('emoteEffectVersion')) is int
@@ -204,6 +202,23 @@ class PhoneEmoteEffects:
             and effect['state']['restoredBeforeNominalEnd'] is True)
         proof=effect['proof'];need(proof['kind']=='restoration' and proof['barrier'] is not None)
         cycle,before,after=PhoneEmoteBackground.completed_archive(header,source);call=cycle['call']
+        for key in ('phaseBefore','phaseAfter'):
+            rows=before[-1][key]['activations'];need(len(rows)>=2)
+            need(rows[-2]['ticket']==effect['call']['ticket']
+                and same(rows[-2]['stimulus'],dict(verb='cancel',inputs=effect['call']['inputs'])))
+        source.lock.assert_held();need(source.guard() is not False)
+        end=source.monotonic();need(number(end,started,1e15) and end-started<5)
+        return prior,cycle,before,after
+
+    def background_recompute(self,reference,*,previous,header,image_policy):
+        """Current-frame facts joined to this role's original cancel and OS cycle.
+
+        The old ordinary input remains an old input. No background input row,
+        synthetic ACK, old measured state or peer fact is adopted as current.
+        """
+        source=self.source;started=source.monotonic();need(number(started,0,1e15))
+        prior,cycle,before,after=self.background_context(previous=previous,header=header,image_policy=image_policy)
+        effect=prior['effect'];proof=effect['proof'];call=cycle['call']
         frame=self.current_original(reference)
         for key in ('phaseBefore','phaseAfter'):
             packet=frame[key];self.inputs.active(call,packet)

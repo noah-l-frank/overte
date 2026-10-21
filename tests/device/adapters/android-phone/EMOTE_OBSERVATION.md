@@ -1,4 +1,4 @@
-# Phone current Emote input, Rig and image observation, header version 2
+# Phone current Emote input, Rig and image observation, header versions 2 and 3
 
 `PhoneEmoteObservation` composes real source/input/effect readers, the existing
 owned GPU capture and original PNG/body-pixel verifier. Each role acquires its
@@ -49,6 +49,48 @@ and verify cleanup of that file before whole-run retirement. Historical views,
 incomplete scopes, idle/phase observations, old/foreign/absent originals, changed
 live input phases, too few/short native frames and late verification fail closed.
 No full feature capability is enabled by this exporter.
+
+`read_background(ticket, boundary, previous=None)` uses the same original
+source/PNG/configuration/pixel/retirement pipeline for the actual completed
+background cycle. It requires this role's original early-cancel checkpoint and
+the [current background effects](EMOTE_EFFECTS.md); it does not invent an ordinary
+background input row. The optional `previous` image still requests changed-body
+verification. A background cycle may correctly retain an unchanged idle body,
+so it normally omits that optional changed-body comparison. Marker, actual model
+draw/body coverage, configuration and native before/after checks remain required.
+
+`boundary` is a compact immutable-file reference from `ObservationBoundaries`,
+which uses the existing original-file v1 format with kind
+`observation-boundaries`, unchanged 1 MiB/file and 1,024-original bounds, actual
+run/role/candidate binding, exclusive creation, inode/digest and private-file
+checks. Its closed frame is `{previous,header,image_policy}`: the actual role's
+complete prior cancel archive, original completed background header and exact
+configured image policy. The enclosing run owner must durably journal file
+creation intent and responsibility before calling `write(index, frame)`, retain
+the actual file/ref before the scope starts, and verify its eventual cleanup.
+Scopes instantiate a read-only original-file view; they never create, recreate,
+rewrite or retire this parent-owned file. No resolver callback or supplied
+computed state can replace the original file. Metadata, full dependencies and
+frame proofs do not get inlined into the 64 KiB scope control journal.
+
+Background scopes use `emoteObservationVersion:3`, with the same outer fields
+and actual `scopeId` as header v2. Their payload adds exactly `background` to the
+existing scope state; it contains the actual compact boundary reference.
+Capture/outcome originals and returned private result use version 3, retaining
+the existing field sets. `played` is null; outcome `effect` is the original
+background-effect v1 packet. Normal input version 1 and idle-phase version 2
+remain separate closed variants and cannot substitute for background version 3.
+
+The original boundary is retained before the first source/image acquisition.
+Historical replay reopens it and recomputes this role's prior cancel/cycle and
+current-frame facts. A failure in `preparing` can transfer its real background
+context without relabeling the old cancel ticket. Failures after capture use the
+existing incomplete/failed archive paths and preserve their original phase;
+they never become completed results. Missing/changed dependencies or ignored
+native cleanup block scope metadata retirement. The parent retains boundary
+files until all required archives and whole-run resource retirement have been
+verified. The complete feature owner, independent publisher and full resource/
+host-journal retirement remain pending; no complete Emote capability is enabled.
 
 `read_phase(ticket,previous=None)` uses the same source/image/configuration/pixel
 acquisition and retirement path for actual fixture `baseline`/`cleanup` phases.
