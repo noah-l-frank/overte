@@ -394,5 +394,35 @@
       "Synthetic Pico runtime factory test initially regenerated immutable first-observed handle time. Corrected the test producer to preserve its original birth; the actual continuity guard stayed unchanged."
     ],
     "limits": "Native source and Java ownership only; no compilation, JVM/Chromium/GL execution or physical acceptance. Actual callbacks/worker GC retention can legitimately keep cleanup unavailable. No product operation, callback timer, cancellation policy or renderer failure is repaired."
+  },
+  "stereoGraphicsPixelsPacket": {
+    "contract": "stereo-graphics-pixels v1; original whole-image/camera/subject join and separate per-eye decoded challenge/photometry",
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "Canonical Pico stereo-world-render, graphics-sources, suite-runner and coverage-matrix selection",
+        "groups": 4,
+        "status": "passed",
+        "durationSeconds": 3.87,
+        "junit": "stereo-graphics-pixels-owning.xml"
+      },
+      {
+        "command": "Final focused stereo pixel counterexamples, including shared MarkerNotReady behavior",
+        "tests": 11,
+        "status": "passed"
+      },
+      {
+        "command": "Four no-build project documentation/contracts/layout/coverage suites",
+        "suites": 4,
+        "status": "passed",
+        "junit": "stereo-graphics-pixels-project.xml"
+      }
+    ],
+    "correctedFailures": [
+      "Three analytical fixture assertions initially assumed exact integer boundaries. Kept conservative source floor/ceil and allowed one border pixel of floating-point rounding in analytical expectations; pixel means and nonce correctness remain exact."
+    ],
+    "limits": "Original fact reduction only, without whole Graphics preference/effect/lifetime coordination. No native GPU/Chromium path was compiled or exercised."
   }
 }

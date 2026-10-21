@@ -485,7 +485,10 @@
         "tests/device/native/SceneLoadObservation.h",
         "tests/device/adapters/native_web_runtime.py",
         "tests/device/native/WEB_RUNTIME_OBSERVATION.md",
-        "android/common/web/java/org/overte/web/WebTextureObservation.java"
+        "android/common/web/java/org/overte/web/WebTextureObservation.java",
+        "tests/device/adapters/stereo_graphics_pixels.py",
+        "tests/device/native/STEREO_GRAPHICS_PIXELS.md",
+        "tests/device/self_tests/test_stereo_graphics_pixels.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -509,7 +512,7 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole ordinary VR Settings access/restoration flow, distinguishing immediate viewport scale from separate restart-only Pico swapchain scale",
-        "Independent original per-eye challenge/effect pixel joins using actual camera-uniform source v4; native Forward/Mirror uniforms and executing trace are source implemented but uncompiled",
+        "Whole coordinator joining original per-eye challenge/photometry to source-bound native preference transitions and common original image/actor receipts; actual per-eye geometry and pixel reducer is now source implemented and host verified",
         "Complete Pico source-specific Graphics/scene/Web lifetime, persistence/background/restart/restoration coordinator"
       ],
       "requiredOriginalEvidence": [
@@ -525,7 +528,7 @@
         "Actual render callbacks, buffers, receipts and Web subject resources released",
         "Restore original scene/view and independently observe complete owned UUID absence"
       ],
-      "nextExecutableStep": "Join original per-eye subject/effect pixels using the actual late-corrected GPU camera-uniform source v4, then compose generic VR settings and scene/Web lifetimes with the frozen whole Graphics coordinator through Pico factories.",
+      "nextExecutableStep": "Compose the per-eye original pixel reducer with the frozen full Graphics ownership coordinator, actual generic VR settings, per-role capture leases and source-specific scene/UI restoration. Require Web runtime v2 and actual renderer/callback quiet retirement.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

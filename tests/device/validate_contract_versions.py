@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "stereo-graphics-pixels": 1,
     "native-graphics-subject": 2,
     "native-scene-loads": 1,
     "native-web-runtime": 2,

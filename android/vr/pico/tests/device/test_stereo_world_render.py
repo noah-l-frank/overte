@@ -8,5 +8,6 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 from self_tests.test_stereo_world_render import StereoWorldRenderTests
 from self_tests.test_stereo_render_trace import StereoRenderTraceTests
 from self_tests.test_stereo_camera_uniforms import StereoCameraUniformTests
+from self_tests.test_stereo_graphics_pixels import StereoGraphicsPixelTests
 
 if __name__=='__main__':unittest.main()

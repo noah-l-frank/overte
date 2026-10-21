@@ -217,3 +217,26 @@ project documentation suites alone did not run that exact check. They are now
 included and the dedicated registry/governance checks pass. The three original
 private result filenames also use the existing gated atomic owner-only native
 save path.
+
+## Per-eye original challenge and photometry
+
+[The stereo pixel reducer](../../native/STEREO_GRAPHICS_PIXELS.md) now joins
+original full PNG/pixel hashes, v4 executing camera uniforms and independent
+subject snapshots. It decodes the current world marker separately in both eyes,
+uses all original camera candidates, preserves late HMD/jitter values and maps
+the original source viewport without creating replacement evidence images.
+Haze and the final reflector rectangle use their actual Forward/Mirror camera
+roles; zero original Mirror draws are handled explicitly as Forward geometry.
+
+Source-bound polygon interiors yield measured per-eye RGB/histogram statistics,
+with marker polygons excluded. Candidate/process, clock, processing and oldest
+source freshness remain guarded. A missing/stale pixel marker raises the shared
+`MarkerNotReady`; an owning sampler may acquire another original frame only
+within its existing deadline and after retiring the failed original acquisition.
+No ordinary input is resent. Invalid source/camera ownership remains fatal.
+
+This supplies original challenge and photometry, not whole-area completion or
+proof of a requested setting. The full coordinator must still join preference
+changes, static foreign scene state, independent actor samples, lifetime/restart
+ownership and the complete restoration/quiet window. Native rendering and all
+physical output are unqualified.
