@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "graphics-journey-originals": {"current": 1, "reads": [1]},
     "graphics-journey-preferences": {"current": 3, "reads": [3]},
     "graphics-journey-source-history": {"current": 1, "reads": [1]},
     "graphics-journey-scene": {"current": 3, "reads": [3]},

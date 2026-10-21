@@ -8,7 +8,8 @@
     "tests/device/adapters/android-phone/overte_phone_graphics_restart_proof.py": "1b9299d9375c42403aae0682c42a3d587acb3a2fd3e6f748738e96eb7c2d31ae",
     "tests/device/adapters/android-phone/overte_phone_graphics_measurements.py": "ad824092f5846fecf0fe937c1880657040af8ce175fefee14e1e4a7ff9a35ee7",
     "tests/device/adapters/android-phone/overte_phone_graphics_preferences.py": "8c19c2d6967e56884e1ba760d0bae2d4b7ffd679fabbdd7f9f938b8dade39463",
-    "tests/device/adapters/android-phone/overte_phone_graphics_samples.py": "3deb042ea604af9e0c5a3f41f78ea20f4f70780536e5f1a6b2ee26c442d0e9f6"
+    "tests/device/adapters/android-phone/overte_phone_graphics_samples.py": "3deb042ea604af9e0c5a3f41f78ea20f4f70780536e5f1a6b2ee26c442d0e9f6",
+    "tests/device/adapters/android-phone/overte_phone_graphics_images.py": "d6a1af58d9caac8f634259bbc7f594cd7b594d3671f3e828bda37507e35eae0a"
   },
-  "changes": "Neutral durable scene owner and original fixture/restart proofs; platform-specific observation/admission/alignment/restoration is injected explicitly. Phone and iOS producers are unchanged. Original preference barriers and source-owned history restoration are reused with actual Pico generic controls and closed-tablet observations."
+  "changes": "Neutral durable scene owner and original fixture/restart proofs; platform-specific observation/admission/alignment/restoration is injected explicitly. Phone and iOS producers are unchanged. Original preference barriers and source-owned history restoration are reused with actual Pico generic controls and closed-tablet observations. The original PNG storage intent/inode protocol is extended separately to world-render v4 and native metadata artifacts with immutable owner transitions."
 }

@@ -350,3 +350,15 @@ uses the actual closed source, and absent address dismissal no longer blocks
 normal Graphics Home/close. Lost scalar/partial restoration returns recover
 through new sources without input replay. Original stereo effects/files, actor,
 background/restart and complete resource/quiet retirement remain open.
+
+
+## Original PNG/native metadata file identity
+
+The [original artifact writer](GRAPHICS_ORIGINALS.md) now retains whole original
+world-render v4 PNGs and closed original native metadata separately, with exact
+hash/byte/inode ownership and planned/opened/saved pre-write intents. Immutable
+transitions, partial/lost writes, file replacement, mode/link/symlink and guard/
+deadline counterexamples are host verified. Historical storage is distinct from
+actual currentness and independently decoded per-eye ticket/effect facts. The
+full role/process sampler and complete Graphics/actor/restart/quiet owner still
+need to join these sources; no complete feature capability is added.

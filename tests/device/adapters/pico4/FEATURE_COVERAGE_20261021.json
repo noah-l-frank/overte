@@ -513,7 +513,9 @@
         "tests/device/adapters/pico4/GRAPHICS_SCENE_OWNER.md",
         "tests/device/adapters/graphics_journey/preferences.py",
         "tests/device/adapters/graphics_journey/source_history.py",
-        "tests/device/adapters/pico4/GRAPHICS_PREFERENCES_OWNER.md"
+        "tests/device/adapters/pico4/GRAPHICS_PREFERENCES_OWNER.md",
+        "tests/device/adapters/graphics_journey/originals.py",
+        "tests/device/adapters/pico4/GRAPHICS_ORIGINALS.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -537,7 +539,7 @@
       ],
       "missingOperationsOrEvidence": [
         "Whole feature coordinator joining the source-implemented normal VR surface, durable scene owner v3 and durable native preference owner v3; a different camera mode needs actual View-menu input, and the separate restart-only Pico swapchain setting is outside this generic path.",
-        "Durable whole original PNG plus native JSON file owner and role/process sample producer, joining the independent both-eye challenge/effect verifier to native setting transitions and actual resource inventories.",
+        "Role/process sample producer joining the source-implemented durable original PNG/native JSON owner and independent both-eye challenge/effect verifier to original native transitions, complete resource inventories and every immutable file-intent history.",
         "Independent Graphics actor/publication and source-specific persistence/background/restart adoption with original old-PID ESRCH and retained ownership.",
         "Complete actual UI/QML/XHR/reply/scene/Web-renderer/capture retirement and three-second quiet restoration across both roles; original scene/avatar/framework restoration policy is now source-implemented and host verified."
       ],

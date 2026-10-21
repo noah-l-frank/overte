@@ -750,5 +750,43 @@
       "The Phone open-page status wrapper cannot read a closed Pico tablet. Closed status now uses the validated actual navigation snapshot; an open page still requires actual ready generic controls."
     ],
     "limits": "Native/window/widget and OS boundaries remain synthetic. Actual rendering effects, original files, independent actor, background/restart and native UI/HTTP/Web/capture quiet retirement are not completed by this preference owner."
+  },
+  "graphicsOriginalsPacket": {
+    "contracts": [
+      "graphics-journey-originals v1"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_graphics_originals self_tests.test_stereo_graphics_evidence (from tests/device)",
+        "tests": 25,
+        "status": "passed",
+        "durationSeconds": 8.422
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test suite-runner --test coverage-matrix",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 12.36,
+        "junit": "graphics-originals-owning.xml"
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.86,
+        "junit": "graphics-originals-project.xml"
+      }
+    ],
+    "correctedFailures": [
+      "A storage test originally demanded that PNG inode/hash validation alone detect a ticket relabel. Storage deliberately does not decode headset challenges: the counterexample now separately requires immutable owner transitions, while original pixel challenge validation remains mandatory in the common evidence verifier. Metadata files directly bind their original ticket."
+    ],
+    "limits": "Storage identity and historical original bytes only. The complete sampler must apply immutable transition checks under its source lock/CAS, join both files to actual native/fixture/candidate/process sources and retain unresolved writes. No currentness or complete Graphics capability follows from an original file alone."
   }
 }
