@@ -1335,6 +1335,7 @@ class HostSelectionTests(unittest.TestCase):
                  'tools/repository-checks/workflows/producers/parent-qualification.yml',
                  'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
                  'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
+                 'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
                  'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml')
         selected = self.selected(paths)
         self.assertEqual(set(selected['suites']), self.ci_quick)
@@ -1351,6 +1352,7 @@ class HostSelectionTests(unittest.TestCase):
                      'tools/repository-checks/workflows/producers/parent-qualification.yml',
                      'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
                      'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
+                     'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
                      'tools/repository-checks/workflows/producers/parent-qualification-android-platform.yml'):
             candidate = copy_git_tree(self.tree)
             candidate[path] = {'mode': '100644', 'type': 'blob', 'sha': 'b' * 40}
@@ -1732,7 +1734,7 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         data={topology:('9a8aa6f7a9fc28924b5212c9be703c213f3dd694','455fdd13c7580f474e291f67595c4d97a0891f04'),
               bootstrap:('e8df02954fc83cc1efefcf36adbaeb19fe21cdae','787651befbf7a627633b80185d798d7567db2466')}
         helper='tools/ios-build-qualification/inputs.py'
-        trusted={helper:ordinary('5a25de7985760e8b56c2d94bb869e909404cf06a')}
+        trusted={helper:ordinary('97e39758a08092d8bc5361c8c3f91cc55c019057')}
         def stage(value,parent=False):
             return {topology:ordinary(data[topology][value>0]),bootstrap:ordinary(
                 'ea772c34abdee24a42babd94529bf1e753020fb3' if parent else data[bootstrap][value==2])}
@@ -1859,7 +1861,7 @@ class InstalledCompilerProgramsTests(unittest.TestCase):
         self.assertEqual(HOST.inputs.INSTALLED_COMPILER_PROFILE,
             {path:{'mode':mode,'type':'blob','sha':sha} for path,(mode,sha) in expected.items()})
         self.assertEqual(HOST.inputs.INSTALLED_COMPILER_READER,
-            'sha256:bee460f99e185e4f7be1d42f47ff43d1da985570f0b7ac63358a580a92c321a8')
+            'sha256:93afe6ce5d9fd22f9fd556d39d1e1b69618c1d0c3b38494094f5a7742b46d592')
         for path in expected:
             self.assertNotIn(path,HOST.DEVICE_CONTROL_INPUTS)
         self.assertIn('ios',HOST.inputs._DEVICE_INPUTS)

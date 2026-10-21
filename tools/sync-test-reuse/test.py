@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from copy import deepcopy
 from dataclasses import replace
 from types import SimpleNamespace
@@ -2235,11 +2235,11 @@ class EffectiveBaseTopologyTests(unittest.TestCase):
                     'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': REPOSITORY,
                     'GITHUB_REPOSITORY_ID': str(REPOSITORY_ID), 'GITHUB_RUN_ATTEMPT': '1',
                     'GITHUB_EVENT_NAME': 'pull_request_target', 'GITHUB_RUN_ID': '901',
-                    'GITHUB_JOB': 'sync-test-reuse', 'GITHUB_REF': 'refs/heads/android-main',
+                    'GITHUB_JOB': 'sync-test-reuse', 'GITHUB_REF': 'refs/heads/main',
                     'GITHUB_BASE_REF': 'android-main', 'GITHUB_HEAD_REF': 'main',
-                    'GITHUB_SHA': BASE, 'GITHUB_WORKFLOW_SHA': BASE,
-                    'GITHUB_WORKFLOW_REF': REPOSITORY + '/.github/workflows/sync-test-reuse.yml@refs/heads/android-main'}
-        self.docs = {}
+                    'GITHUB_SHA': self.default, 'GITHUB_WORKFLOW_SHA': self.default,
+                    'GITHUB_WORKFLOW_REF': REPOSITORY + '/.github/workflows/sync-test-reuse.yml@refs/heads/main'}
+        self.docs = {'repos/' + REPOSITORY: {**self.event['repository'], 'default_branch':'main'}}
         def put(path, value): self.docs['repos/' + REPOSITORY + '/' + path] = value
         put('pulls/610', self.pr)
         put('branches/android-main', {'name': 'android-main', 'protected': True, 'commit': {'sha': BASE}})
@@ -2276,14 +2276,21 @@ class EffectiveBaseTopologyTests(unittest.TestCase):
                    'head_sha': source, 'head_branch': 'main', 'run_attempt': 1, 'status': 'in_progress', 'conclusion': None,
                    'check_suite_id': suite, 'run_started_at': started, 'repository': repo, 'head_repository': repo,
                    'pull_requests': [{'number': 610, 'base': self.pr['base'], 'head': self.pr['head']}],
+                   'referenced_workflows': [],
                    'display_title': 'Sync validation gate-901-attempt-1' if identifier == 902 else 'Sync test reuse for PR 610'}
             put(f'actions/runs/{identifier}', run); put(f'actions/runs/{identifier}/attempts/1', deepcopy(run))
             put(f'actions/workflows/{workflow}', {'id': workflow, 'path': path, 'state': 'active'})
-            put(f'check-suites/{suite}', {'id': suite, 'head_sha': source, 'app': {'id': 15368}, 'repository': repo})
+            put(f'check-suites/{suite}', {'id': suite, 'head_sha': source, 'head_branch':'main', 'app': {'id': 15368}, 'repository': repo, 'pull_requests':[]})
+            native_job = {'id':identifier+10000,'run_id':identifier,'run_attempt':1,'head_sha':source,
+                'name':'Validate exact synchronization' if identifier == 902 else 'sync-test-reuse',
+                'status':'in_progress','conclusion':None,
+                'check_run_url':f'https://api.github.com/repos/{REPOSITORY}/check-runs/{identifier+10000}'}
+            put(f'actions/runs/{identifier}/attempts/1/jobs?per_page=100', {'total_count':1,'jobs':[native_job]})
+            put(f'check-runs/{identifier+10000}', {**native_job,'app':{'id':15368},'check_suite':{'id':suite}})
         self.api = MappingApi(self.docs)
 
     def older_caller(self):
-        environment = dict(self.env, GITHUB_SHA=HEAD, GITHUB_WORKFLOW_SHA=HEAD)
+        environment = dict(self.env)
         self.docs[f'repos/{REPOSITORY}/git/commits/{HEAD}'] = {
             'sha': HEAD, 'tree': {'sha': TREE}, 'parents': []}
         return environment
@@ -2301,21 +2308,21 @@ class EffectiveBaseTopologyTests(unittest.TestCase):
                 ('docs/change.md',), ('docs/change.md',), event_base_sha=HEAD)
             self.assertEqual(gate.recheck_effective_request(self.api, request,
                 event_pr=self.event['pull_request']), context)
-            self.assertEqual(gate.os.environ['GITHUB_SHA'], HEAD)
-            self.assertEqual(gate.os.environ['GITHUB_WORKFLOW_SHA'], HEAD)
+            self.assertEqual(gate.os.environ['GITHUB_SHA'], self.default)
+            self.assertEqual(gate.os.environ['GITHUB_WORKFLOW_SHA'], self.default)
         self.assertEqual((self.event, environment, self.docs), before)
 
     def test_older_caller_requires_its_own_ancestry_and_exact_ordinary_recipe(self):
         environment = self.older_caller()
         original = deepcopy(self.docs)
         compare = f'repos/{REPOSITORY}/compare/{HEAD}...{BASE}?per_page=1'
-        tree = f'repos/{REPOSITORY}/git/trees/{TREE}?recursive=1'
+        tree = f'repos/{REPOSITORY}/git/trees/{METADATA_WORKFLOW_BLOB}?recursive=1'
         for mutation in ('mismatched-workflow-source', 'missing-caller', 'missing-ancestry', 'diverged',
                          'reverse', 'wrong-merge-base', 'boolean-count', 'caller-recipe', 'caller-mode',
                          'caller-alias', 'truncated-caller'):
             self.docs.clear(); self.docs.update(deepcopy(original)); env = dict(environment)
             if mutation == 'mismatched-workflow-source': env['GITHUB_WORKFLOW_SHA'] = BASE
-            elif mutation == 'missing-caller': self.docs[f'repos/{REPOSITORY}/git/commits/{HEAD}'] = {}
+            elif mutation == 'missing-caller': self.docs[f'repos/{REPOSITORY}/git/commits/{self.default}'] = {}
             elif mutation == 'missing-ancestry': self.docs[compare] = {}
             elif mutation == 'diverged': self.docs[compare]['status'] = 'diverged'
             elif mutation == 'reverse': self.docs[compare].update(status='behind', ahead_by=0, behind_by=1)
@@ -2513,6 +2520,73 @@ class EffectiveBaseTopologyTests(unittest.TestCase):
         self.docs[f'repos/{REPOSITORY}/git/trees/{TREE}?recursive=1']['truncated'] = True
         with self.assertRaises(gate.GateError): gate.immutable_change_documents(self.api, REPOSITORY, BASE, MERGE)
 
+
+    def test_default_main_role_accepts_cleared_native_associations_without_target_ancestry(self):
+        for identifier in (901, 902):
+            for suffix in ('', '/attempts/1'):
+                self.docs[f'repos/{REPOSITORY}/actions/runs/{identifier}{suffix}']['pull_requests'] = []
+        # No compare(default...target) document exists. Only genuine PR base
+        # observations HEAD -> BASE are ancestors of the current target.
+        with mock.patch.dict('os.environ', self.env, clear=True):
+            self.assertEqual(gate.effective_pr_context(self.event, self.api).base, BASE)
+        manual = {**self.env, 'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_RUN_ID':'902',
+            'GITHUB_JOB':'validate','GITHUB_WORKFLOW_REF':REPOSITORY+'/.github/workflows/sync-validation.yml@refs/heads/main'}
+        with mock.patch.dict('os.environ', manual, clear=True):
+            self.assertEqual(gate.effective_pr_context(self.event, self.api).base, BASE)
+        for mutation in ('target-ref','stale-default','foreign-repository','event-number','wrong-title',
+                'reusable-reference','suite-branch','suite-association','job-app','job-missing','mixed-association','wrong-association'):
+            original=deepcopy(self.docs); event=deepcopy(self.event); environment=dict(self.env)
+            if mutation=='target-ref':
+                environment.update(GITHUB_REF='refs/heads/android-main',
+                    GITHUB_WORKFLOW_REF=REPOSITORY+'/.github/workflows/sync-test-reuse.yml@refs/heads/android-main')
+            elif mutation=='stale-default':environment.update(GITHUB_SHA=HEAD,GITHUB_WORKFLOW_SHA=HEAD)
+            elif mutation=='foreign-repository':event['repository']['id']=7
+            elif mutation=='event-number':event['number']=611
+            elif mutation=='suite-branch':self.docs[f'repos/{REPOSITORY}/check-suites/9010']['head_branch']='foreign'
+            elif mutation=='suite-association':self.docs[f'repos/{REPOSITORY}/check-suites/9010']['pull_requests']=[{'number':999}]
+            elif mutation=='job-app':self.docs[f'repos/{REPOSITORY}/check-runs/10901']['app']['id']=7
+            elif mutation=='job-missing':self.docs[f'repos/{REPOSITORY}/actions/runs/901/attempts/1/jobs?per_page=100'].update(total_count=0,jobs=[])
+            else:
+                for suffix in ('','/attempts/1'):
+                    run=self.docs[f'repos/{REPOSITORY}/actions/runs/901{suffix}']
+                    if mutation=='wrong-title':run['display_title']='Sync test reuse for PR 611'
+                    elif mutation=='reusable-reference':run['referenced_workflows']=[{'sha':BASE}]
+                    elif mutation=='mixed-association':run['pull_requests']=[{'number':610},{'number':611}]
+                    else:run['pull_requests']=[{'number':611}]
+            with self.subTest(mutation=mutation), mock.patch.dict('os.environ',environment,clear=True):
+                with self.assertRaises(gate.GateError):gate.effective_pr_context(event,self.api)
+            self.docs.clear();self.docs.update(original)
+
+    def test_unrelated_repository_metadata_does_not_replace_or_invalidate_default_identity(self):
+        owner=self; reads=0
+        class API:
+            def json(self,path):
+                nonlocal reads
+                value=deepcopy(owner.docs[path])
+                if path=='repos/'+REPOSITORY:
+                    reads+=1;value.update(pushed_at='metadata-change-'+str(reads),open_issues_count=reads)
+                return value
+        with mock.patch.dict('os.environ',self.env,clear=True):
+            self.assertEqual(gate.effective_pr_context(self.event,API()).base,BASE)
+        self.assertEqual(reads,2)
+
+    def test_default_current_and_native_closing_bookends_are_independently_rechecked(self):
+        for mutation in ('default','current-head','native-attempt','native-App','recipe'):
+            owner=self; reads={}; original=deepcopy(self.docs)
+            class API:
+                def json(self,path):
+                    reads[path]=reads.get(path,0)+1
+                    value=deepcopy(owner.docs[path])
+                    if mutation=='default' and path.endswith('/branches/main') and reads[path]>1:value['commit']['sha']=BASE
+                    elif mutation=='current-head' and path.endswith('/pulls/610') and reads[path]>2:value['head']['sha']=BASE
+                    elif mutation=='native-attempt' and path.endswith('/actions/runs/901/attempts/1') and reads[path]>1:value['run_attempt']=2
+                    elif mutation=='native-App' and path.endswith('/check-suites/9010') and reads[path]>1:value['app']['id']=7
+                    elif mutation=='recipe' and path.endswith('/git/trees/'+METADATA_WORKFLOW_BLOB+'?recursive=1'):
+                        next(r for r in value['tree']if r['path']=='.github/workflows/sync-test-reuse.yml')['sha']=BASE
+                    return value
+            with self.subTest(mutation=mutation), mock.patch.dict('os.environ',self.env,clear=True):
+                with self.assertRaises(gate.GateError):gate.effective_pr_context(self.event,API())
+            self.docs.clear();self.docs.update(original)
 
 class RequiredCodeQLInvocationTests(unittest.TestCase):
     """Actual trusted gate hook and immutable API tree; no caller job facts."""
@@ -4564,7 +4638,13 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         self.docs[f.prefix+'/rules/branches/android-main']=[{'type':'required_status_checks','parameters':{
             'strict_required_status_checks_policy':True,'required_status_checks':[{'context':n,'integration_id':15368}for n in self.paths]}}]
         for n,path in self.paths.items():
-            raw=(gate.ROOT/path).read_bytes()
+            # This fixture retains the original Repo28 native roster. The
+            # successor() fixture independently authenticates actual Repo29.
+            raw=(gate.ROOT/('tools/repository-checks/workflows/producers/repository-checks.yml'
+                if path==gate._REPOSITORY_CALLER else path)).read_bytes()
+            if path==gate._REPOSITORY_CALLER:
+                self.assertEqual({'mode':'100644','type':'blob','sha':hashlib.sha1(
+                    b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()},gate._REPOSITORY_PREVIOUS)
             f.tree[path]={'mode':'100644','type':'blob','sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
         f.tree['tests/platform-profile.json']={'mode':'100644','type':'blob','sha':gate.suite_inputs._AFFECTED_TARGET_PROFILES['android-main']}
         f.tree['.github/android-orchestration.json']={'mode':'100644','type':'blob','sha':'6'*40}
@@ -4587,8 +4667,80 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         self.docs[f.prefix+'/commits/'+HEAD+'/check-runs?filter=all&per_page=100']={'total_count':len(checks),'check_runs':checks}
         f.pack()
 
-    def verify(self, *, mutate=None, pure=False, real_tree=False):
+    def successor(self, *, predecessor=True):
+        """Exact catalog successor fixture; the five other recipes stay real."""
+        rows=gate.package_checks.workflow_generations()[:28]
+        self.assertEqual(rows[-1]['name'],'protected-producer-optional-leaf-common-v1')
+        new=deepcopy(rows[-1]);new['name']=gate.REPOSITORY_PARENT_GENERATION
+        new['workflows'][gate._REPOSITORY_CALLER]={'mode':'100644','type':'blob',
+            'sha':gate.REPOSITORY_PARENT_RECIPE}
+        self.successor_rows=[*rows,new]
+        self.f.tree.update(deepcopy(new['workflows']))
+        self.f.tree[gate.REPOSITORY_PARENT_TEMPLATE]=deepcopy(new['workflows'][gate._REPOSITORY_CALLER])
+        for name in ('pr-metadata-context','native-tests','project-tests','android-required',
+                'documentation-checks','workflow-security'):
+            path='.github/workflows/'+name+'.yml';raw=(gate.ROOT/path).read_bytes()
+            self.f.tree[path]={'mode':'100644','type':'blob','sha':hashlib.sha1(
+                b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+        self.before.update(deepcopy((rows[-1]if predecessor else new)['workflows']))
+        refs=[{'path':REPOSITORY+'/.github/workflows/'+name+'.yml@'+MERGE,
+            'sha':MERGE,'ref':'refs/pull/610/merge'}for name in (
+            'pr-metadata-context','native-tests','project-tests','android-required','documentation-checks','workflow-security')]
+        for suffix in ('','/attempts/1'):
+            self.docs[self.f.prefix+'/actions/runs/403'+suffix]['referenced_workflows']=deepcopy(refs)
+            self.docs[self.f.prefix+'/actions/runs/403'+suffix]['event']='pull_request'
+        self.f.pack()
+
+    def verify(self, *, mutate=None, pure=False, real_tree=False, native_role=False, consume=False,
+               repository_role=None, environment_changes=None):
         owner=self; f=self.f
+        environment={'GITHUB_ACTIONS':'true'}
+        if native_role or repository_role:
+            repo={'id':REPOSITORY_ID,'full_name':REPOSITORY}
+            environment.update(GITHUB_REPOSITORY=REPOSITORY,GITHUB_REPOSITORY_ID=str(REPOSITORY_ID),
+                GITHUB_RUN_ATTEMPT='1',GITHUB_RUN_ID='900',GITHUB_JOB='sync-test-reuse',
+                GITHUB_EVENT_NAME='pull_request_target',GITHUB_REF='refs/heads/main',
+                GITHUB_SHA=PARENT,GITHUB_WORKFLOW_SHA=PARENT,
+                GITHUB_WORKFLOW_REF=REPOSITORY+'/.github/workflows/sync-test-reuse.yml@refs/heads/main',
+                GITHUB_BASE_REF='android-vr',GITHUB_HEAD_REF=self.request.head)
+            run={'id':900,'workflow_id':350930894,'path':'.github/workflows/sync-test-reuse.yml',
+                'event':'pull_request_target','head_sha':self.child_head,'head_branch':self.request.head,
+                'run_attempt':1,'status':'in_progress','conclusion':None,'check_suite_id':1900,
+                'run_started_at':'2026-10-19T21:48:00Z','repository':repo,'head_repository':repo,
+                'pull_requests':[],'referenced_workflows':[],'display_title':'Sync test reuse for PR 611'}
+            for suffix in ('','/attempts/1'):self.docs[f.prefix+'/actions/runs/900'+suffix]=deepcopy(run)
+            self.docs[f.prefix+'/check-suites/1900']={'id':1900,'head_sha':self.child_head,
+                'head_branch':self.request.head,'app':{'id':15368},'repository':repo,'pull_requests':[]}
+            job={'id':1901,'run_id':900,'run_attempt':1,'head_sha':self.child_head,'name':'sync-test-reuse',
+                'status':'in_progress','conclusion':None,'check_run_url':'https://api.github.com/'+f.prefix+'/check-runs/1901'}
+            self.docs[f.prefix+'/actions/runs/900/attempts/1/jobs?per_page=100']={'total_count':1,'jobs':[job]}
+            self.docs[f.prefix+'/check-runs/1901']={**job,'app':{'id':15368},'check_suite':{'id':1900}}
+            self.docs[f.prefix+'/branches/android-vr']={'name':'android-vr','protected':True,'commit':{'sha':self.child_base}}
+            from urllib.parse import quote
+            self.docs[f.prefix+'/git/ref/heads/'+quote(self.request.head,safe='')]={
+                'ref':'refs/heads/'+self.request.head,'object':{'type':'commit','sha':self.child_head}}
+            self.docs[f.prefix+'/commits/refs/pull/611/merge']=deepcopy(self.docs[f.prefix+'/git/commits/'+self.child_merge])
+            if repository_role:
+                environment.update(GITHUB_JOB=repository_role,GITHUB_EVENT_NAME='pull_request',
+                    GITHUB_REF='refs/pull/611/merge',GITHUB_SHA=self.child_merge,GITHUB_WORKFLOW_SHA=self.child_merge,
+                    GITHUB_WORKFLOW_REF=REPOSITORY+'/.github/workflows/repository-checks.yml@refs/pull/611/merge',
+                    RUNNER_ENVIRONMENT='github-hosted',ImageOS='ubuntu24')
+                association=[{'number':611,'base':{'ref':'android-vr','sha':self.child_base},
+                    'head':{'ref':self.request.head,'sha':self.child_head}}]
+                run.update(workflow_id=703,path='.github/workflows/repository-checks.yml',event='pull_request',
+                    pull_requests=association,display_title='Overte native ordinary qualification v2',
+                    referenced_workflows=[{'path':REPOSITORY+'/.github/workflows/'+name+'.yml@'+self.child_merge,
+                        'sha':self.child_merge,'ref':'refs/pull/611/merge'}for name in (
+                        'pr-metadata-context','native-tests','project-tests','android-required','documentation-checks','workflow-security')])
+                for suffix in ('','/attempts/1'):self.docs[f.prefix+'/actions/runs/900'+suffix]=deepcopy(run)
+                self.docs[f.prefix+'/actions/workflows/repository-checks.yml']={
+                    'id':703,'path':'.github/workflows/repository-checks.yml','state':'active'}
+                self.docs[f.prefix+'/check-suites/1900']['pull_requests']=deepcopy(association)
+                job['name']=repository_role
+                job.update(started_at='2026-10-19T21:48:01Z',completed_at=None)
+                self.docs[f.prefix+'/check-runs/1901'].update(name=repository_role,
+                    details_url='https://github.com/'+REPOSITORY+'/actions/runs/900/job/1901')
+        environment.update(environment_changes or {})
         class API:
             def json(self,path,**kwargs):
                 if kwargs.get('method','GET')!='GET':raise AssertionError('proof attempted a mutation')
@@ -4617,9 +4769,20 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         def tree(api,repo,revision):
             return actual_recursive_tree(api,repo,revision)if real_tree else (
                 TREE,deepcopy(self.before if revision in (BASE,self.child_base)else f.tree))
-        with mock.patch.dict(gate.os.environ,{'GITHUB_ACTIONS':'true'},clear=True), \
+        real_git=gate.subprocess.check_output
+        def git(arguments,**kwargs):
+            if (native_role or repository_role)and arguments[-2:]==['rev-parse','HEAD']:return (PARENT+'\n').encode()
+            if (native_role or repository_role)and 'ls-tree'in arguments and arguments[-2]=='--':
+                name=arguments[-1]; row=f.tree[name]
+                return (row['mode']+' '+row['type']+' '+row['sha']+'\t'+name+'\n').encode()
+            return real_git(arguments,**kwargs)
+        role_context=nullcontext()if native_role else mock.patch.object(gate,'_native_effective_role')
+        successor_context=(mock.patch.object(gate.package_checks,'workflow_generations',return_value=self.successor_rows)
+            if hasattr(self,'successor_rows')else nullcontext())
+        with mock.patch.dict(gate.os.environ,environment,clear=True), \
+                mock.patch.object(gate.subprocess,'check_output',side_effect=git), \
                 mock.patch.object(gate,'_dispatch_checkout_source',return_value=PARENT), \
-                mock.patch.object(gate,'_native_effective_role'), \
+                role_context, successor_context, \
                 mock.patch.object(gate,'classify_event',return_value=self.request), \
                 mock.patch.object(gate,'recursive_tree',side_effect=tree), \
                 mock.patch.object(gate.suite_inputs,'full_tree',return_value=deepcopy(f.tree)), \
@@ -4627,10 +4790,20 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
                 mock.patch.object(gate,'_callback_sync_recipe',return_value=True), \
                 mock.patch.object(gate.package_checks,'select',return_value={'package_set':[],'tool_projects':[]}), \
                 mock.patch.object(gate.package_checks,'load',side_effect=load):
+            if repository_role:
+                return gate.native_repository_parent_evidence(API(),config(),{
+                    'repository':self.docs[f.prefix],'number':611,
+                    'pull_request':deepcopy(self.docs[f.prefix+'/pulls/611'])},now=f.now)
             if pure:
                 with mock.patch.dict(gate.os.environ,{},clear=True):
                     return gate.verify_exact_tree_parent_evidence(API(),config(),self.request,
                         protected_source=PARENT,protected_tree=TREE,now=f.now)
+            if consume:
+                directory=str(gate.ROOT/'tools/test-evidence')
+                with mock.patch.object(sys,'path',[directory,*sys.path]):
+                    validator=real_load('default_context_native_validator','tools/test-evidence/validate-sync.py')
+                return validator._native_ci_reuse(SimpleNamespace(mode='reuse'),gate,API(),config(),
+                    self.request,f.registry,deepcopy(f.tree),{'suites':list(getattr(self,'current_names',f.names))})
             return gate.native_exact_tree_parent_evidence(API(),config(),self.request,now=f.now)
 
     def test_real_report_whole_tree_native_normal_and_all_37_are_retained_without_E(self):
@@ -4644,6 +4817,82 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         self.assertTrue(proof['expires_at'].startswith('2026-10-22T21:45:15.669186'))
         self.assertEqual(proof['kind'],'original-sync-identical-android-tree-v1')
         self.assertNotIn('original_suites',proof);self.assertNotIn('covered_suites',proof)
+
+    def test_repository_roles_reuse_real_typed_parent_without_current_Sync_or_receipt(self):
+        self.successor()
+        for role in ('parent-owners','repository-checks'):
+            with self.subTest(role=role):
+                proof=self.verify(repository_role=role,real_tree=True)
+                self.assertIsInstance(proof,gate.NativeExactTreeParentEvidence)
+                self.assertEqual(gate.exact_tree_covered_suites(proof,self.f.names),self.f.names)
+                self.assertIs(proof['qualification'],False);self.assertIs(proof['reusable'],False)
+                self.assertNotIn('environment',proof);self.assertNotIn('results',proof)
+                self.assertEqual(proof['original_report'],self.f.report)
+
+    def test_repository_missing_completed_parent_returns_immediately_without_waiting(self):
+        self.successor()
+        def missing(path,value):
+            if path==self.f.prefix+'/commits/'+self.normal+'/pulls?per_page=100':return []
+            return value
+        with mock.patch.object(gate.time,'sleep',side_effect=AssertionError('parent omission must not poll')):
+            self.assertIsNone(self.verify(repository_role='parent-owners',real_tree=True,mutate=missing))
+
+    def test_repository_native_envelope_forgery_and_current_drift_are_errors_not_fallback(self):
+        self.successor()
+        for field,value in (('GITHUB_EVENT_NAME','pull_request_target'),('GITHUB_SHA','8'*40),
+                ('GITHUB_WORKFLOW_SHA',PARENT),('GITHUB_REF','refs/heads/main'),
+                ('GITHUB_JOB','route'),('GITHUB_RUN_ATTEMPT','2'),('GITHUB_REPOSITORY_ID','3'),
+                ('RUNNER_ENVIRONMENT','self-hosted')):
+            with self.subTest(field=field),self.assertRaises(gate.GateError):
+                self.verify(repository_role='parent-owners',environment_changes={field:value},real_tree=True)
+        cases=(('/check-suites/1900',lambda v:v['app'].update(id=1)),
+            ('/actions/runs/900/attempts/1',lambda v:v.update(run_attempt=2)),
+            ('/actions/runs/900',lambda v:v['referenced_workflows'][0].update(sha='8'*40)),
+            ('/check-runs/1901',lambda v:v.update(details_url='https://github.com/foreign/run/1')),
+            ('/commits/refs/pull/611/merge',lambda v:v.update(sha='8'*40)))
+        for suffix,change in cases:
+            def wrong(path,value,suffix=suffix,change=change):
+                if path==self.f.prefix+suffix:change(value)
+                return value
+            with self.subTest(suffix=suffix),self.assertRaises(gate.GateError):
+                self.verify(repository_role='parent-owners',real_tree=True,mutate=wrong)
+
+    def test_exact_repository_predecessor_transition_retains_real_native_M_and_rejects_mixed(self):
+        self.successor()
+        self.assertIsInstance(self.verify(pure=True,real_tree=True),gate.NativeExactTreeParentEvidence)
+        path=gate._REPOSITORY_CALLER
+        with mock.patch.object(gate.package_checks,'workflow_generations',return_value=self.successor_rows):
+            self.assertTrue(gate.repository_command_sources(self.before,self.f.tree,self.f.tree))
+            for side in ('before','candidate','trusted'):
+                for shape in ('sha','mode','missing'):
+                    frames={'before':deepcopy(self.before),'candidate':deepcopy(self.f.tree),'trusted':deepcopy(self.f.tree)}
+                    if shape=='missing':frames[side].pop(path)
+                    else:frames[side][path][shape]='8'*40 if shape=='sha'else'100755'
+                    with self.subTest(side=side,shape=shape):
+                        self.assertFalse(gate.repository_command_sources(**frames))
+        def stale(path,value):
+            if path==self.f.prefix+'/actions/runs/403':value['referenced_workflows'][0]['sha']='8'*40
+            return value
+        self.assertIsNone(self.verify(pure=True,real_tree=True,mutate=stale))
+
+    def test_repository_closing_source_drift_rejects_but_unrelated_native_metadata_can_progress(self):
+        self.successor()
+        calls={}
+        def metadata(path,value):
+            if path.endswith('/actions/runs/900'):
+                calls[path]=calls.get(path,0)+1;value['updated_at']=str(calls[path])
+            if path.endswith('/check-suites/1900'):value['repository']['open_issues_count']=len(calls)
+            return value
+        self.assertIsInstance(self.verify(repository_role='parent-owners',real_tree=True,mutate=metadata),
+            gate.NativeExactTreeParentEvidence)
+        calls.clear()
+        def changed(path,value):
+            if path.endswith('/actions/runs/900'):
+                calls[path]=calls.get(path,0)+1
+                if calls[path]>1:value['referenced_workflows'][0]['sha']='8'*40
+            return value
+        with self.assertRaises(gate.GateError):
+            self.verify(repository_role='parent-owners',real_tree=True,mutate=changed)
 
     def rosters(self, original, requested):
         f=self.f;f.names=list(original);self.current_names=list(requested)
@@ -4799,6 +5048,34 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         self.f.original['status']='in_progress';self.f.original['conclusion']=None
         self.assertIsNone(self.verify())
 
+
+    def test_actual_default_main_facade_and_consumer_reach_typed_schema1_parent_without_E(self):
+        # Actual source1500 targets already carry this exact Sync wrapper;
+        # the historical legacy-parent wrapper remains tested separately.
+        self.before['.github/workflows/sync-test-reuse.yml']=deepcopy(self.f.tree['.github/workflows/sync-test-reuse.yml'])
+        proof=self.verify(native_role=True,real_tree=True)
+        self.assertIsInstance(proof,gate.NativeExactTreeParentEvidence)
+        self.assertEqual(proof['original_report'],self.f.report)
+        self.assertIs(proof['qualification'],False);self.assertIs(proof['reusable'],False)
+        # The consumer invokes the real facade again, including its native
+        # caller role, before consuming already authenticated original CI data.
+        with mock.patch.object(gate,'datetime',wraps=datetime)as clock:
+            clock.now.return_value=self.f.now
+            proof,covered,remaining=self.verify(native_role=True,real_tree=True,consume=True)
+        self.assertIsInstance(proof,gate.NativeExactTreeParentEvidence)
+        self.assertEqual(covered,self.f.names);self.assertEqual(remaining,[])
+        self.assertTrue(any(path.endswith('/check-runs/1901')for kind,path in self.f.calls))
+        for shape in ('native-app','native-source','native-attempt','native-association','native-title','current-merge'):
+            def change(path,value):
+                if shape=='native-app'and path.endswith('/check-suites/1900'):value['app']['id']=7
+                elif path.endswith(('/actions/runs/900','/actions/runs/900/attempts/1')):
+                    if shape=='native-source':value['head_sha']=BASE
+                    elif shape=='native-attempt':value['run_attempt']=2
+                    elif shape=='native-association':value['pull_requests']=[{'number':999}]
+                    elif shape=='native-title':value['display_title']='Sync test reuse for PR 999'
+                elif shape=='current-merge'and path.endswith('/commits/refs/pull/611/merge'):value['parents'].reverse()
+                return value
+            with self.subTest(shape=shape):self.assertIsNone(self.verify(native_role=True,real_tree=True,mutate=change))
 
 class RetainedInheritedSyncMetadataTests(unittest.TestCase):
     """Native metadata envelope retains the distinct zero-command report."""
