@@ -217,6 +217,16 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
         def _binding_store(self, selector):
             return PrivateFeatureState(self.state_path(selector).with_name('installed-code-binding.json'))
 
+        def _retired_candidate_scope(self,selector,scope):
+            # Historical SDK teardown still belongs to this exact candidate
+            # and target, even when no live SDK state remains for _scope().
+            self._candidate_guard(complete=True);target=self._target(selector)
+            fingerprint=hashlib.sha256(json.dumps(target,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+            need(scope['sourceRevision']==candidate['artifactIdentity']['sourceRevision']
+                 and scope['artifactSha256']==candidate['artifactIdentity']['artifactSha256']
+                 and scope['targetFingerprint']==fingerprint)
+            return target
+
         def _binding(self, selector, client, session, state, target):
             scope = self._scope(selector, session, state, target)
             def process():
@@ -305,7 +315,11 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 need(operation in capabilities(self._target(selector)))
                 self._operation=operation
                 try:
-                    if operation.split('.')[1]=='authentication':
+                    if operation.split('.')[1]=='graphics':
+                        from ios.adapters.graphics_runtime import IOSGraphicsRuntime
+                        config=configuration();runtime=IOSGraphicsRuntime(self)
+                        flow=runtime._graphics_feature(selector,values['runId'],role='primary',client=reader(config),settings=config['graphics'])
+                    elif operation.split('.')[1]=='authentication':
                         from ios.adapters.authentication_runtime import IOSAuthenticationRuntime
                         runtime=IOSAuthenticationRuntime(self,reader(configuration()),values['runId'])
                         flow=runtime._authentication_feature(selector,values['runId'])
@@ -344,6 +358,30 @@ def create_physical_adapter(args, base_class, preflight, *, cleanup_only=False):
                 self._operation = self._retiring = None
 
         def cleanup(self, selector):
+            # Graphics has its own paired original-world/final-Stop protocol.
+            # Its durable handoff survives metadata retirement and a lost SDK
+            # DELETE return. Never fall through to another terminate on error.
+            from ios.adapters.feature_configuration import configuration,reader
+            def state(name):return PrivateFeatureState(self.state_path(selector).with_name(name)).read()
+            graphics=state('ios-graphics-feature.json')
+            graphics_retirement=state('ios-graphics-retirement.json')
+            graphics_session=state('ios-feature-session-retirement.json')
+            graphics_receipt=state('ios-feature-session-retired.json')
+            original=next((value for value in (graphics_session,graphics_retirement,graphics) if value is not None),None)
+            historical=(original is None and graphics_receipt is not None and self.read_session(selector) is None
+                        and self._binding_store(selector).read() is None)
+            if original is not None or historical:
+                from ios.adapters.graphics_runtime import IOSGraphicsRuntime
+                from ios.adapters.graphics_session_retirement import IOSGraphicsSessionRetirement
+                need(state('ios-authentication-feature.json') is None and state('ios-authentication-retirement.json') is None
+                     and state('script-feature-owner.json') is None and state('script-feature-retirement.json') is None)
+                if historical:
+                    transaction=IOSGraphicsSessionRetirement.from_receipt(IOSGraphicsRuntime(self),selector,graphics_receipt)
+                    return transaction.historical(graphics_receipt)
+                config=configuration();need(config is not None and config['iosFeatureAdapterVersion']==2 and 'graphics' in config['areas'])
+                transaction=IOSGraphicsSessionRetirement(IOSGraphicsRuntime(self),selector,reader(config),config['graphics'],original)
+                need(self.cleanup_components(selector))
+                return transaction.finalize()
             # Preserve the original component cleanup and independent native
             # process/session teardown even if all candidate inputs are lost.
             store = self._binding_store(selector)

@@ -352,7 +352,7 @@ class IOSNativeMixin:
         ui, _observe, _binding = self._script_runtime(selector)
         return TokenScriptFilePicker(ui.io, directory)
 
-    def cleanup(self, selector):
+    def cleanup_components(self, selector):
         chat_error=False
         try:
             owned=self.chat_capture_store(selector).read()
@@ -382,16 +382,20 @@ class IOSNativeMixin:
                 scripts.invoke('scripts.manager.close', {})
         except Exception:
             script_error = True
-        # Always reach original native/session teardown if owned-source cleanup
-        # fails, including when candidate inputs or installed binding are lost.
-        result = super().cleanup(selector)
-        need(not chat_error and not script_error and not private_error and not probe_error and not origin_error and store.read() is None
+        return (not chat_error and not script_error and not private_error and not probe_error and not origin_error and store.read() is None
              and self.chat_capture_store(selector).read() is None
              and self.private_login_input_store(selector).read() is None
              and self.script_restart_store(selector).read() is None
              and self.script_restart_inputs_store(selector).read() is None
              and self.script_files_store(selector).read() is None and self.account_probe_store(selector).read() is None
              and self.account_origin_store(selector).read() is None)
+    def cleanup(self, selector):
+        components=self.cleanup_components(selector)
+        # Preserve the normal fallback when component cleanup fails. A paired
+        # Graphics retirement separately requires these components drained
+        # before its own one-send Stop and verified SDK-only teardown.
+        result=super().cleanup(selector)
+        need(components)
         return result
 
     @staticmethod

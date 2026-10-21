@@ -99,7 +99,10 @@ Only then are role/stage transcripts retired under a recoverable hash plan.
 
 ## Explicit admission and independent observer
 
-The private `OVERTE_IOS_FEATURE_ADAPTER_CONFIG` schema remains version 1.
+The private `OVERTE_IOS_FEATURE_ADAPTER_CONFIG` schema accepts version 1 for
+Scripts/Authentication. Version 2 adds explicit Graphics settings; a version-2
+configuration without Graphics requires `graphics: null`. Existing version-1
+files remain valid.
 `areas` may select `authentication`, `scripts` or both without duplicates. The
 existing `fixtureConfig` points to the private adapter-only reader config; it
 cannot publish actor facts or mutate the provider. Authentication additionally

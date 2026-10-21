@@ -92,5 +92,47 @@ class IOSScriptRuntimeTests(unittest.TestCase):
             with self.assertRaises(ValueError):self.f.adapter.invoke('test-only','feature.authentication.observe',values)
             self.assertEqual(1,len(calls))
 
+    def test_canonical_graphics_dispatch_uses_explicit_reader_policy_and_actual_binding(self):
+        from ios.adapters import graphics_runtime,feature_configuration
+        calls=[];run='a'*32;client=object();selected={'private-policy':'fixed'}
+        def flow(selector,requested,**kwargs):
+            calls.append((selector,requested,kwargs));return SimpleNamespace(observe=lambda values:{'routing-test':values['runId']})
+        runtime=SimpleNamespace(_graphics_feature=flow,_existing=self.runtime._existing)
+        with patch.object(feature_configuration,'configuration',return_value={'graphics':selected}), \
+             patch.object(feature_configuration,'reader',return_value=client), \
+             patch.object(feature_configuration,'capabilities',return_value=['feature.graphics.observe']), \
+             patch.object(graphics_runtime,'IOSGraphicsRuntime',return_value=runtime):
+            values=dict(contractVersion=VERSION,runId=run,afterSequence=0)
+            self.assertEqual({'routing-test':run},self.f.adapter.invoke('test-only','feature.graphics.observe',values))
+            self.assertEqual([('test-only',run,dict(role='primary',client=client,settings=selected))],calls)
+            self.f.artifact.write_bytes(b'foreign candidate bytes')
+            with self.assertRaises(ValueError):self.f.adapter.invoke('test-only','feature.graphics.observe',values)
+            self.assertEqual(1,len(calls))
+
+    def test_canonical_graphics_finalization_failure_never_falls_through_to_native_stop(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        from ios.adapters import graphics_session_retirement,feature_configuration
+        original={'runId':'a'*32};path=self.f.adapter.state_path('test-only').with_name('ios-graphics-feature.json')
+        PrivateFeatureState(path).write(original,None)
+        config=dict(iosFeatureAdapterVersion=2,areas=['graphics'],graphics={'private-policy':'fixed'})
+        transaction=SimpleNamespace(finalize=lambda:(_ for _ in ()).throw(RuntimeError('Pending paired ownership')))
+        current=deepcopy(self.f.adapter._state);process=deepcopy(self.f.process)
+        with patch.object(feature_configuration,'configuration',return_value=config), \
+             patch.object(feature_configuration,'reader',return_value=object()), \
+             patch.object(graphics_session_retirement,'IOSGraphicsSessionRetirement',return_value=transaction) as factory, \
+             patch.object(self.f.adapter,'cleanup_components',return_value=True):
+            with self.assertRaises(RuntimeError):self.f.adapter.cleanup('test-only')
+            self.assertEqual(original,factory.call_args.args[4])
+        self.assertEqual(current,self.f.adapter._state);self.assertEqual(process,self.f.process)
+        self.assertEqual(original,PrivateFeatureState(path).read())
+
+    def test_retired_candidate_scope_refuses_other_candidate_or_target_without_sdk_creation(self):
+        _client,_session,_state,_target,scope=self.runtime._existing('test-only')
+        self.assertEqual(self.f.target,self.f.adapter._retired_candidate_scope('test-only',scope))
+        calls=len(self.calls)
+        for fields in (dict(sourceRevision='b'*40),dict(artifactSha256='f'*64),dict(targetFingerprint='d'*64)):
+            with self.assertRaises(ValueError):self.f.adapter._retired_candidate_scope('test-only',scope|fields)
+        self.assertEqual(calls,len(self.calls))
+
 
 if __name__=='__main__':unittest.main()

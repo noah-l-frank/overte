@@ -6,8 +6,8 @@ retirement. It runs **after** the shared journey's observable cleanup and actual
 fixture retirement. It is separate from `feature.graphics.cleanup`, which must
 remain observable and repeatable while the controlled scene and process exist.
 The finalizer does not mark the journey successful or advertise a capability.
-Graphics remains partial until primary private configuration and canonical
-dispatch/session teardown are integrated and verified with the full shared journey.
+Graphics remains partial until the integrated worker, canonical operation path
+and SDK teardown are verified with the full shared journey.
 
 ## Operation and original evidence
 
@@ -157,3 +157,45 @@ journey with this worker, primary configuration, canonical dispatch and session
 deletion without repeated termination remains the next integration packet.
 No complete Graphics capability is enabled by this file. Registry additions
 `ios-graphics-observer-worker` and `ios-graphics-worker-failure` are version 1.
+
+## Canonical dispatch and SDK retirement
+
+Private primary configuration version 2 adds the exact `graphics` field with
+`artifactRoot` and `imagePolicy`; version-1 Scripts/Authentication files remain
+readable. Version 2 without Graphics requires `graphics: null`. Graphics
+configuration is parsed but capability admission still fails while the full
+integrated journey is unverified. No incomplete capability can make a green run.
+
+The canonical installed adapter dispatches all three Graphics operations through
+`IOSGraphicsRuntime`. Observable `feature.graphics.cleanup` remains foreground
+and repeatable. Later canonical session cleanup first drains existing component
+owners, then runs the paired finalizer under a shared 60-second deadline. Its
+`IOSGraphicsSessionRetirement` transaction retains the exact original SDK scope
+in `ios-feature-session-retirement.json`; an error never falls through to normal
+WDA or DVT termination. Concurrent Script/Authentication ownership is rejected
+before Graphics may stop their process.
+
+After the final receipt, fresh original process absence and original installed
+source admission permit SDK deletion. The journal distinguishes `prepared` and
+`delete-issued`, persisting the latter before one normal SDK DELETE. An ACK
+requires a separate actual GET/404 absence. A lost result is resolved only by
+actual absence; a still-present SDK retains responsibility without another
+DELETE or Stop. Foreign SDK metadata cannot be deleted. The same candidate and
+target fingerprint are required even after local SDK metadata is gone.
+
+Original SDK metadata, installed binding, OS packet and controller acquisition
+are immutable referenced documents in the existing private artifact root. The
+parent remains bounded without reducing its original records or increasing the
+64 KiB private-file limit. Only exact original SDK and binding metadata are
+removed. An immutable `graphics-session-retired-<run>.json` receipt and local
+`ios-feature-session-retired.json` pointer retain historical completion. Repeated
+cleanup validates those originals with an unusable HTTP client and needs no
+fixture credential, source factory, current product measurement or second Stop.
+Another live SDK or installed binding prevents this historical shortcut.
+
+Four coupled host tests cover complete retirement, lost DELETE recovery,
+foreign SDK ownership and ignored DELETE ACKs. Forty-four focused canonical,
+configuration, source-binding and cleanup tests pass. The new session contract
+is `ios-graphics-session-retirement` version 1. The fifteen-step journey with
+the actual worker followed by this SDK transaction is still pending; no native
+compilation, device or laboratory qualification is claimed.
