@@ -977,6 +977,14 @@ class FeatureAdapterTests(unittest.TestCase):
             base.assert_called_once()
         self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_emote_run_ownership(self):
+        store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name('phone-emote-run.json'))
+        store.write({'unresolved':True},None)
+        with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+            with self.assertRaisesRegex(ValueError,'PHONE_EMOTE_RUN_OWNERSHIP_REMAINS'):self.adapter.cleanup(SELECTOR)
+            base.assert_called_once()
+        self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_actual_emote_os_status_preserves_background_read_only_android_binding(self):
         self.read_only_boundaries();_ui,_observer,binding,_guard,_installed=self.adapter.normal_feature_runtime(SELECTOR,read_only=True)
         with patch.object(self.adapter,'query_app_state',return_value=3),patch.object(self.adapter,'normal_feature_runtime',side_effect=AssertionError('Unexpected foreground-only source')):

@@ -16,6 +16,12 @@ here. Pico/iOS adapters are maintained in separate sessions/worktrees; this Phon
 checkout does not establish their current implementation status. No native build or device
 qualification has been performed here.
 
+The [Phone setup/input run owner v1](adapters/android-phone/EMOTE_RUN.md) now
+composes actual setup, ordinary input, per-role sources, bounded namespace
+switches and foreground-first input cleanup. Its input acknowledgments do not
+supply feature facts or complete cleanup; full admission, observations/actor and
+whole-run retirement still block complete Emote capability registration.
+
 The [Phone namespace lease v2](adapters/android-phone/EMOTE_NAMESPACE_LEASE.md)
 now preserves aborted partial freezes and both roles' original headers under the
 actual cleanup ticket. Verified metadata retirement transfers the original proof

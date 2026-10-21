@@ -122,6 +122,7 @@ REQUIRED = {
     "phone-emote-namespace-retirement": 1,
     "phone-emote-inputs": 2,
     "phone-emote-cleanup-inputs": 1,
+    "phone-emote-run": 1,
     "phone-emote-effects": 2,
     "phone-emote-background": 2,
     "phone-emote-background-effect": 1,

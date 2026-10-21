@@ -16,6 +16,15 @@ Emotes, alongside original PNG and independent facts. This handles brief
 non-looping clips without input replay or fabricated public stability; final
 early cancellation uses Crying. See [the motion contract](../../feature_journeys/EMOTE_MOTION.md).
 The Emote primitives remain unregistered as a complete feature triple.
+The [setup/input run owner](EMOTE_RUN.md) now composes real View/Scene setup,
+ordinary inputs, per-role sources, namespace switching and foreground-first
+input cleanup. The [cleanup input owner](EMOTE_CLEANUP_INPUTS.md) reconciles lost
+Qt/SDK returns without replay and independently proves actual native/UI
+restoration. The [namespace lease v2](EMOTE_NAMESPACE_LEASE.md) retains aborted
+partial freezes and transfers original proof before metadata retirement.
+Approved-world/Script/cache admission, public role/image/motion observation,
+credentialed actor publishing and whole-run resource/file retirement remain
+open; complete Emotes remains missing and unregistered.
 The [consumed animation data source](../../native/ANIMATION_SOURCE.md) now joins
 actual parser bytes and original retargeted model/resource identity to compiled
 Emote effects and image brackets. Wrong file content at the correct URL remains
@@ -29,13 +38,13 @@ Actual partial-file hashes remain failed diagnostic evidence. Complete
 [observation archive transfer](EMOTE_OBSERVATION.md#complete-original-archive-transfer-version-1)
 now retains replayable role-local source/input/image contexts and supports fresh
 stability images under one phase index. Whole parent failure recovery, source/
-input segment ownership and full Emote coordination remain open; the
+role checkpoint/archive ownership and full Emote retirement remain open; the
 complete Phone count remains three of fourteen.
 The [bounded journal namespaces](EMOTE_JOURNAL_NAMESPACE.md) now preserve old
 source/input metadata while a successor restores and checks actual native/
 Script/UI continuity. Frozen/missing/active predecessors and unknown remaining
-segment files fail closed. Whole-parent rotation/actor leases, failure recovery
-and final retirement still require composition before capability registration.
+segment files fail closed. Full role checkpoint/archive ownership, observation failure transfer and whole
+resource/file retirement still require composition before capability registration.
 Pico and iOS are owned by separate sessions/worktrees; this session edits Phone only. Historical
 component notes below do not supersede this current status. In particular,
 earlier Graphics statements that full coordination remains pending are historical:
