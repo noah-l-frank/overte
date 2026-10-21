@@ -438,6 +438,97 @@ QVariantMap TestScriptingInterface::featureAccountProbe(const QVariantMap& comma
     return result;
 }
 
+QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&] { result = featureGraphicsSubjectObservation(command); },Qt::BlockingQueuedConnection);
+        return result;
+    }
+    const auto json = QJsonObject::fromVariantMap(command);
+    QStringList fields {"schemaVersion","commandId","action","runId"}; fields.sort();
+    const auto request = command.value("commandId").toString();
+    const auto run = command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || _featureGraphicsSubjectSequence>=1000000000
+            || command.keys() != fields
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble() != 1
+            || json.value("action").toString() != "feature-graphics-subject-observe"
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(request).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
+    const auto requested = QDateTime::currentMSecsSinceEpoch();
+    const auto entities = DependencyManager::get<EntityScriptingInterface>();
+    if (!entities || !entities->getEntityTree()) { return {}; }
+    const auto avatar = DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if (!avatar) { return {}; }
+    auto vec = [](const glm::vec3& value) { return QVariantList{value.x,value.y,value.z}; };
+    auto quat = [](const glm::quat& value) { return QVariantList{value.x,value.y,value.z,value.w}; };
+    auto color = [](const glm::u8vec3& value) { return QVariantList{int(value.x),int(value.y),int(value.z)}; };
+    auto properties = [&](const EntityItemProperties& p) -> QVariantMap {
+        const auto host = p.getEntityHostType();
+        const auto& haze = p.getHaze();
+        return {{"name",p.getName()},{"type",EntityTypes::getEntityTypeName(p.getType())},
+            {"hostType",host == entity::HostType::LOCAL ? "local" : host == entity::HostType::AVATAR ? "avatar" : "domain"},
+            {"position",vec(p.getPosition())},{"rotation",quat(p.getRotation())},{"dimensions",vec(p.getDimensions())},
+            {"color",color(p.getColor())},{"visible",p.getVisible()},
+            {"mirrorMode",MirrorModeHelpers::getNameForMirrorMode(p.getMirrorMode())},
+            {"hazeMode",int(p.getHazeMode())},{"sourceUrl",p.getSourceUrl()},
+            {"haze",QVariantMap{{"range",haze.getHazeRange()},{"color",color(haze.getHazeColor())},
+                {"altitudeEffect",haze.getHazeAltitudeEffect()},{"glare",haze.getHazeEnableGlare()},
+                {"backgroundBlend",haze.getHazeBackgroundBlend()}}}};
+    };
+    QSet<QUuid> owned;
+    QVariantList present,absent;
+    const auto space = QUuid::fromRfc4122(QByteArray::fromHex(run.toLatin1()));
+    for (const auto& name : {"zone","floor","fog-board","resolution-bars","reflector","reflected-color","marker"}) {
+        const auto id = QUuid::createUuidV5(space,QByteArray("graphics-subject-v1/")+name);
+        owned.insert(id);
+        const auto actual = entities->getEntityProperties(id);
+        if (actual.getType() == EntityTypes::Unknown) { absent.append(id.toString(QUuid::WithoutBraces)); continue; }
+        auto row = properties(actual);
+        if (actual.getName().size() > 256 || actual.getSourceUrl().size() > 2048) { return {}; }
+        row.insert("id",id.toString(QUuid::WithoutBraces));
+        row.insert("lastEditedEpochUs",static_cast<qulonglong>(actual.getLastEdited()));
+        present.append(row);
+    }
+    // The declared scan is bounded and local to the controlled subject. Owned
+    // UUIDs above are always queried directly, even if moved/renamed/offscreen.
+    const auto mask = PickFilter::getBitMask(PickFilter::FlagBit::LOCAL_ENTITIES)
+        | PickFilter::getBitMask(PickFilter::FlagBit::DOMAIN_ENTITIES)
+        | PickFilter::getBitMask(PickFilter::FlagBit::AVATAR_ENTITIES)
+        | PickFilter::getBitMask(PickFilter::FlagBit::COARSE);
+    const auto ids = entities->findEntities(glm::vec3(0),128.0f,mask);
+    if (ids.size() > 1024) { return {}; }
+    QVariantList unowned;
+    for (const auto& id : ids) {
+        if (owned.contains(id)) { continue; }
+        const auto actual = entities->getEntityProperties(id);
+        if (actual.getType() == EntityTypes::Unknown || actual.getName().size() > 256 || actual.getSourceUrl().size() > 2048) { return {}; }
+        // Original spatial/visual state, without edit timestamps which legitimately
+        // change when the same original controlled scene is normally reloaded.
+        const auto digest = QCryptographicHash::hash(QJsonDocument::fromVariant(properties(actual)).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex();
+        unowned.append(QVariantMap{{"id",id.toString(QUuid::WithoutBraces)},{"sha256",QString::fromLatin1(digest)}});
+    }
+    const auto& camera = qApp->getCamera();
+    ViewFrustum frustum; camera.loadViewFrustum(frustum);
+    const auto address = DependencyManager::get<AddressManager>()->currentAddress().toString(QUrl::FullyEncoded);
+    if (address.size() > 2048) { return {}; }
+    QVariantMap source {{"subjectVersion",2},{"sceneUrl",address},
+        {"avatarPose",QVariantMap{{"feetPosition",vec(avatar->getWorldFeetPosition())},
+            {"orientation",quat(avatar->getWorldOrientation())},{"modelScale",avatar->getModelScale()}}},
+        {"view",QVariantMap{{"position",vec(frustum.getPosition())},{"rotation",quat(frustum.getOrientation())},
+            {"mode",camera.getModeString()},{"fieldOfViewDegrees",frustum.getFieldOfView()},
+            {"aspectRatio",frustum.getAspectRatio()},{"perspective",frustum.isPerspective()}}},
+        {"entities",present},{"absentIds",absent},
+        {"scan",QVariantMap{{"center",QVariantList{0,0,0}},{"radiusMeters",128},{"propertyScope","graphics-spatial-v1"},
+            {"scannedEntities",ids.size()},{"unowned",unowned}}}};
+    if (QJsonDocument::fromVariant(source).toJson(QJsonDocument::Compact).size() > 200000) { return {}; }
+    return {{"schemaVersion",1},{"requestId",request},{"runId",run},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureGraphicsSubjectSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
+}
+
 QVariantMap TestScriptingInterface::featureWorldRenderCapture(const QString& requestId) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;
@@ -1309,7 +1400,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
-            || filename == "feature-process-presence.json"
+            || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"

@@ -178,6 +178,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureGraphicsSubjectObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderCapture(const QString& requestId);
     Q_INVOKABLE QVariantMap featureWorldRenderStorage(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderReceipt(const QVariantMap& command);
@@ -259,6 +260,7 @@ private:
     QByteArray _featurePreviewInputDigest, _featurePreviewSinkDigest;
     quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
     quint64 _featureScriptSequence {0};
+    quint64 _featureGraphicsSubjectSequence {0};
     QSet<QUuid> _featureScriptEffectIds;
     quint64 _featureScriptFilesSequence {0};
     quint64 _featureWorldReceiptSequence {0};
