@@ -11,7 +11,7 @@ from adapters.emote_rig_measurements import playback,restoration
 from adapters.normal_ui import NativeUIError
 from test_native_feature_observation import Boundary as Features
 from test_native_script_roots import RootBoundary
-from test_emote_source_profile import actual,pins
+from test_emote_source_profile import actual,pins,included_source,included_caller
 
 
 class RigPackets:
@@ -86,7 +86,48 @@ class RigPackets:
         return barrier,group,playback(group,barrier,pid=31,epoch=20000)
 
 
+class IncludedRigPackets(RigPackets):
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs);observe=self.code.mutate
+        def measured(value):
+            observe(value);included_source(value,self.roots.root)
+        self.code.mutate=measured
+
+    def caller(self,kind,epoch):return included_caller(super().caller(kind,epoch),self.roots.root)
+
+
 class EmoteRigTests(unittest.TestCase):
+    def test_normal_phone_included_code_joins_original_loaded_clip_and_its_actual_asset_directory(self):
+        model=IncludedRigPackets();_barrier,group,value=model.playing()
+        self.assertEqual('Waving',value['state']['animation'])
+        self.assertEqual(model.roots.root+'/system/assets/animations/Waving.fbx',value['event']['request']['url'])
+        self.assertEqual(2,value['event']['caller']['callerVersion']);self.assertEqual(23,value['event']['caller']['compilation']['scriptId'])
+        self.assertTrue(group['script']['source']['engines'][0]['url'].endswith('/defaultScripts.js'))
+        self.assertEqual(1,len(group['script']['source']['engines']))
+
+    def test_included_phone_restore_retains_the_same_original_vm_and_compiled_function(self):
+        model=IncludedRigPackets();_barrier,group,played=model.playing()
+        current=model.group(model.native(20600,active=False,restore_epoch=20500))
+        value=restoration(current,played,pid=31,epoch=20600,native_barrier=group['native'])
+        self.assertTrue(value['state']['restoredBeforeNominalEnd']);self.assertFalse(value['state']['override'])
+        self.assertEqual(23,value['restore']['caller']['compilation']['scriptId'])
+
+    def test_loaded_correct_clip_from_the_shared_default_or_foreign_compilation_is_not_emote(self):
+        for fault in ('default-script','foreign-id','foreign-code','unknown-origin','legacy-manager-only'):
+            model=IncludedRigPackets();original=model.caller
+            def foreign(kind,epoch):
+                caller=original(kind,epoch)
+                if fault=='default-script':
+                    caller['compilation'].update(scriptId=11,resourceName=model.roots.root+'/defaultScripts.js',compiledEpochMs=15001,
+                        **{key:caller['code'][key] for key in ('encoding','codeUnits','sha256')})
+                elif fault=='foreign-id':caller['compilation']['scriptId']=24
+                elif fault=='foreign-code':caller['compilation']['sha256']='f'*64
+                elif fault=='unknown-origin':caller['compilation']=None
+                else:caller['callerVersion']=1;caller.pop('compilation')
+                return caller
+            model.caller=foreign
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):model.playing()
+
     def test_current_playback_comes_from_actual_clip_frame_and_loaded_moving_poses(self):
         model=RigPackets();barrier,group,value=model.playing();original=deepcopy((barrier,group))
         self.assertEqual('Waving',value['state']['animation']);self.assertTrue(value['state']['override'])

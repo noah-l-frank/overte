@@ -15,6 +15,7 @@ from overte_phone_emote_inputs import PhoneEmoteInputs
 from overte_phone_emote_effects import PhoneEmoteEffects
 from self_tests.test_native_feature_observation import Boundary as NativeBoundary
 from test_emote_inputs import Originals
+from test_emote_source_profile import included_source,included_caller
 
 
 class EffectsModel(Originals):
@@ -341,6 +342,20 @@ class PhoneEmoteEffectTests(unittest.TestCase):
                     setattr(source,key,original)
             other=m.source()
             with self.assertRaises(NativeUIError):PhoneEmoteEffects(owner,current_source=other)
+
+    def test_primary_and_actor_ordinary_input_effects_support_the_actual_shared_default_vm(self):
+        m=self.model;observe=m.code.mutate;caller=m.caller
+        def included(value):observe(value);included_source(value,m.roots.root)
+        m.code.mutate=included;m.caller=lambda kind,epoch:included_caller(caller(kind,epoch),m.roots.root)
+        with m.lock.held():
+            owner,effect=self.act('sit');value=self.observe(owner,effect)
+            actor=self.actor(owner);remote=actor.measure(actor.reference())
+            self.assertEqual('Sit2',value['state']['sit']);self.assertEqual(value['state'],remote['state'])
+            self.assertEqual(2,remote['proof']['event']['caller']['callerVersion'])
+            play=value['playbackReference'];actor_play=remote['playbackReference']
+            owner,effect=self.act('cancel');value=self.observe(owner,effect,play)
+            actor=self.actor(owner);remote=actor.measure(actor.reference(),played=actor_play)
+            self.assertTrue(value['state']['restoredBeforeNominalEnd']);self.assertEqual(value['state'],remote['state'])
 
 
 if __name__=='__main__':unittest.main()

@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from adapters.emote_source_profile import pins,select,select_from_roots
+from adapters.emote_source_profile import pins,manager_pins,select,select_from_roots
 from adapters.normal_ui import NativeUIError
 from test_native_script_observation import Boundary
 
@@ -25,6 +25,33 @@ def actual(profile, *, root=ROOT):
             codeUnits=profile['codeUnits'],sha256=profile['sha256'],submittedEpochMs=15000)
     boundary.mutate=observed
     return boundary,boundary.reader()
+
+
+def included_source(value,root,*,alias=True):
+    """Synthetic original VM/compile boundary for the real Phone include layout."""
+    manager=manager_pins()[0];emote=pins()[0];physical=root+'/defaultScripts.js'
+    engine=value['source']['engines'][0]
+    engine['url']='file:///~//defaultScripts.js' if alias and root.startswith('file:') else physical
+    engine['code'].update({key:manager[key] for key in ('encoding','codeUnits','sha256')})
+    member=value['source']['membership']['managers'][0];member['url']=physical
+    def compiled(identifier,name,code,epoch):
+        return dict(scriptId=identifier,resourceName=name,compiledEpochMs=epoch,
+            **{key:code[key] for key in ('encoding','codeUnits','sha256')})
+    value['source']['compiledSourceVersion']=1
+    engine['compiled']=dict(compiledSourcesVersion=1,complete=True,compilations=[
+        compiled(11,engine['url'],manager,15001),compiled(23,root+'/system/+android_phoneInterface/phoneEmote.js',emote,15002)])
+    return value
+
+
+def included_caller(value,root):
+    """Synthetic actual call originating in the included Phone compilation."""
+    value=deepcopy(value);manager=manager_pins()[0];emote=pins()[0]
+    value.update(callerVersion=2)
+    value['manager']['url']=root+'/defaultScripts.js'
+    value['code'].update({key:manager[key] for key in ('encoding','codeUnits','sha256')})
+    value['compilation']=dict(scriptId=23,resourceName=root+'/system/+android_phoneInterface/phoneEmote.js',
+        compiledEpochMs=15002,**{key:emote[key] for key in ('encoding','codeUnits','sha256')})
+    return value
 
 
 class EmoteSourceProfileTests(unittest.TestCase):
@@ -177,6 +204,86 @@ process.stdout.write(JSON.stringify(calls.map(args=>({url:args[0],endFrameType:t
         result=select(value,ROOT);result['code']['sha256']='f'*64;result['profile']['chooserAfterPlay']='hidden'
         self.assertEqual(before,value)
         self.assertEqual('retained',select(value,ROOT)['profile']['chooserAfterPlay'])
+
+    def included(self,*,alias=True):
+        packet,before,after=self.rooted(alias=alias)
+        included_source(packet,before['source']['defaultScriptsUrl'],alias=alias)
+        return packet,before,after
+
+    def test_normal_phone_default_manager_includes_emote_without_a_replacement_manager(self):
+        packet,before,after=self.included();original=deepcopy((packet,before,after))
+        selected=select_from_roots(packet,before,after,pid=31,epoch=20000)
+        self.assertEqual('phone-one-shot-hide-v1',selected['profile']['id'])
+        self.assertEqual('phone-default-includes-v1',selected['managerProfile']['id'])
+        self.assertEqual(23,selected['compilation']['scriptId']);self.assertEqual(11,selected['managerCompilation']['scriptId'])
+        self.assertEqual('file:///~//defaultScripts.js',selected['url'])
+        self.assertTrue(selected['assignedUrl'].endswith('/scripts/defaultScripts.js'))
+        self.assertTrue(selected['sourceUrl'].endswith('/scripts/system/+android_phoneInterface/phoneEmote.js'))
+        self.assertEqual(2018,selected['code']['codeUnits']);self.assertEqual(4827,selected['compilation']['codeUnits'])
+        self.assertEqual(original,(packet,before,after))
+
+    def test_actual_physical_and_qrc_default_keys_need_their_own_original_code_and_include(self):
+        for root in ('file:///actual/configured/cache/scripts','qrc:/scripts'):
+            packet,before,after=self.included(alias=False)
+            for phase in (before,after):phase['source']['defaultScriptsUrl']=root
+            included_source(packet,root,alias=False)
+            with self.subTest(root=root):
+                selected=select_from_roots(packet,before,after,pid=31,epoch=20000)
+                self.assertEqual(root+'/defaultScripts.js',selected['assignedUrl'])
+                self.assertEqual(root+'/system/+android_phoneInterface/phoneEmote.js',selected['sourceUrl'])
+
+    def test_included_code_is_never_inferred_from_root_filename_or_top_level_submission(self):
+        for fault in ('no-extension','no-top','no-emote','incomplete','wrong-top-code','wrong-emote-code','foreign-include','future-include','early-include'):
+            packet,before,after=self.included();engine=packet['source']['engines'][0];rows=engine['compiled']['compilations']
+            if fault=='no-extension':packet['source'].pop('compiledSourceVersion');engine.pop('compiled')
+            elif fault=='no-top':rows.pop(0)
+            elif fault=='no-emote':rows.pop()
+            elif fault=='incomplete':engine['compiled']=dict(compiledSourcesVersion=1,complete=False)
+            elif fault=='wrong-top-code':rows[0]['sha256']='f'*64
+            elif fault=='wrong-emote-code':rows[1]['sha256']='f'*64
+            elif fault=='foreign-include':rows[1]['resourceName']='file:///foreign/scripts/system/+android_phoneInterface/phoneEmote.js'
+            elif fault=='future-include':rows[1]['compiledEpochMs']=20001
+            else:rows[1]['compiledEpochMs']=15000
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):select_from_roots(packet,before,after,pid=31,epoch=20000)
+
+    def test_unknown_default_code_assignment_or_duplicate_emote_origins_cannot_select_normal_startup(self):
+        for fault in ('default-code','foreign-assignment','late-assignment','duplicate-emote','foreign-same-name','duplicate-manager','extra-standalone'):
+            packet,before,after=self.included();engine=packet['source']['engines'][0];rows=engine['compiled']['compilations']
+            if fault=='default-code':engine['code']['sha256']='f'*64
+            elif fault=='foreign-assignment':packet['source']['membership']['managers'][0]['url']='file:///foreign/scripts/defaultScripts.js'
+            elif fault=='late-assignment':packet['source']['membership']['managers'][0]['assignedEpochMs']=16000
+            elif fault in ('duplicate-emote','foreign-same-name'):
+                extra=deepcopy(rows[-1]);extra['scriptId']=24
+                if fault=='foreign-same-name':extra['sha256']='f'*64
+                rows.append(extra)
+            elif fault=='duplicate-manager':
+                other=deepcopy(engine);other['required']['instance']='e'*32;packet['source']['engines'].append(other)
+            else:
+                standalone=deepcopy(engine);standalone['url']=before['source']['defaultScriptsUrl']+'/system/+android_phoneInterface/phoneEmote.js'
+                standalone['required']['instance']='e'*32;standalone['code'].update({key:pins()[0][key] for key in ('encoding','codeUnits','sha256')})
+                packet['source']['engines'].append(standalone)
+                member=deepcopy(packet['source']['membership']['managers'][0]);member.update(instance='e'*32,url=standalone['url'])
+                packet['source']['membership']['managers'].append(member)
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):select_from_roots(packet,before,after,pid=31,epoch=20000)
+
+    def test_legacy_selection_without_original_root_assignment_cannot_adopt_included_code(self):
+        packet,before,_after=self.included()
+        with self.assertRaises(NativeUIError):select(packet,before['source']['defaultScriptsUrl']+'/')
+
+    def test_manager_pin_matches_actual_local_bootstrap_and_immutable_source_base(self):
+        root=Path(__file__).resolve().parents[3];pin=manager_pins()[0]
+        raw=(root/pin['sourcePath']).read_bytes().decode('utf-8').encode('utf-16-le',errors='surrogatepass')
+        self.assertEqual(pin['codeUnits'],len(raw)//2);self.assertEqual(pin['sha256'],hashlib.sha256(raw).hexdigest())
+        original=subprocess.run(['git','show',pin['sourceBase']+':'+pin['sourcePath']],cwd=root,capture_output=True,check=True).stdout
+        self.assertEqual(raw,original.decode('utf-8').encode('utf-16-le',errors='surrogatepass'))
+
+    def test_standalone_source_with_new_native_compilations_keeps_its_actual_origin(self):
+        packet,before,after=self.rooted();engine=packet['source']['engines'][0];code=engine['code']
+        packet['source']['compiledSourceVersion']=1
+        engine['compiled']=dict(compiledSourcesVersion=1,complete=True,compilations=[dict(scriptId=8,resourceName=engine['url'],
+            compiledEpochMs=15001,**{key:code[key] for key in ('encoding','codeUnits','sha256')})])
+        selected=select_from_roots(packet,before,after,pid=31,epoch=20000)
+        self.assertEqual(8,selected['compilation']['scriptId']);self.assertEqual(selected['assignedUrl'],selected['sourceUrl'])
 
 
 if __name__=='__main__':unittest.main()

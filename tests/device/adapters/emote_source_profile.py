@@ -8,8 +8,11 @@ import re
 from urllib.parse import unquote, urlsplit, urlunsplit
 from adapters.native_feature_observation import exact, integer, need
 from adapters.native_script_observation import submitted_source
+from adapters.native_script_compilations import validate as compiled_packet
 
 PINS=Path(__file__).resolve().parents[1]/'feature_journeys/emote-source-pins.v1.json'
+MANAGER_PINS=PINS.with_name('phone-emote-manager-pins.v1.json')
+VERSION=2
 PROFILES={'phone-one-shot-hide-v1','touch-one-shot-chooser-v1','tablet-one-shot-sit-hold-v1'}
 PATHS={'scripts/system/+android_phoneInterface/phoneEmote.js','scripts/system/emote.js'}
 
@@ -43,6 +46,33 @@ def assignment(value, engine):
     return deepcopy(rows[0])
 
 
+def manager_pins(path=MANAGER_PINS):
+    value=json.loads(Path(path).read_text());exact(value,{'contractVersion','managers'})
+    need(type(value['contractVersion']) is int and value['contractVersion']==1
+        and type(value['managers']) is list and len(value['managers'])==1)
+    row=value['managers'][0]
+    exact(row,{'id','sourcePath','runtimePath','sourceBase','encoding','codeUnits','sha256','includedProfiles'})
+    need(row['id']=='phone-default-includes-v1' and row['sourcePath']=='scripts/+android_phoneInterface/defaultScripts.js'
+        and row['runtimePath']=='defaultScripts.js' and type(row['sourceBase']) is str and re.fullmatch('[0-9a-f]{40}',row['sourceBase'])
+        and row['encoding']=='utf-16le-code-units' and integer(row['codeUnits'],1,4194304)
+        and type(row['sha256']) is str and re.fullmatch('[0-9a-f]{64}',row['sha256'])
+        and row['includedProfiles']==['phone-one-shot-hide-v1'])
+    return deepcopy(value['managers'])
+
+
+def compiled_source(value,engine,physical,code,*,after_epoch):
+    need(type(value['source'].get('compiledSourceVersion')) is int and value['source']['compiledSourceVersion']==1)
+    inventory=engine.get('compiled');compiled_packet(inventory,value['capturedEpochMs']);need(inventory['complete'])
+    # A top-level manager may retain its actual normalized key as V8 resource
+    # name. Included files are evaluated with their actual resolved URL.
+    names={physical}
+    if physical==code.get('assignedUrl'):names.add(engine['url'])
+    rows=[row for row in inventory['compilations'] if row['resourceName'] in names]
+    need(len(rows)==1 and rows[0]['compiledEpochMs']>=after_epoch
+        and all(rows[0][key]==code[key] for key in ('encoding','codeUnits','sha256')))
+    return deepcopy(rows[0])
+
+
 def select(value, installed_scripts_root, *, reviewed=None):
     return _select(value,installed_scripts_root,reviewed=reviewed,assigned=False)
 
@@ -62,7 +92,7 @@ def _select(value, installed_scripts_root, *, reviewed, assigned):
         options={physical}
         if assigned and root.scheme=='file':options.add('file:///~//'+suffix)
         return physical,options
-    candidates=[]
+    candidates=[];managers=manager_pins() if assigned else []
     for profile in reviewed:
         physical,options=urls(profile['sourcePath'])
         rows=[engine for engine in value['source']['engines'] if engine['url'] in options
@@ -75,8 +105,27 @@ def _select(value, installed_scripts_root, *, reviewed, assigned):
             if all(code[key]==profile[key] for key in ('encoding','codeUnits','sha256')):
                 selected=dict(profile=deepcopy(profile),url=engine['url'],engineInstance=engine['required']['instance'],code=code)
                 if original is not None:selected.update(assignedUrl=original['url'],loadGeneration=original['loadGeneration'],assignedEpochMs=original['assignedEpochMs'])
+                if assigned and value['source'].get('compiledSourceVersion')==1:
+                    selected.update(sourceUrl=physical,compilation=compiled_source(value,engine,physical,
+                        dict(code,assignedUrl=original['url']),after_epoch=code['submittedEpochMs']))
                 candidates.append(selected)
     known=set().union(*(urls(source)[1] for source in PATHS))
+    for manager in managers:
+        physical,options=urls('scripts/'+manager['runtimePath']);known|=options
+        for engine in value['source']['engines']:
+            if engine['url'] not in options or not engine['running'] or engine['stopping'] or engine['finished']:continue
+            code=submitted_source(value,engine['url']);original=assignment(value,engine)
+            need(original['url']==physical and original['assignedEpochMs']<=code['submittedEpochMs'])
+            if not all(code[key]==manager[key] for key in ('encoding','codeUnits','sha256')):continue
+            top=compiled_source(value,engine,physical,dict(code,assignedUrl=original['url']),after_epoch=code['submittedEpochMs'])
+            for profile in reviewed:
+                if profile['id'] not in manager['includedProfiles']:continue
+                included,_options=urls(profile['sourcePath'])
+                source=compiled_source(value,engine,included,profile,after_epoch=top['compiledEpochMs'])
+                need(source['scriptId']!=top['scriptId'])
+                candidates.append(dict(profile=deepcopy(profile),url=engine['url'],engineInstance=engine['required']['instance'],code=code,
+                    assignedUrl=original['url'],loadGeneration=original['loadGeneration'],assignedEpochMs=original['assignedEpochMs'],
+                    sourceUrl=source['resourceName'],compilation=source,managerProfile=deepcopy(manager),managerCompilation=top))
     active_urls={engine['url'] for engine in value['source']['engines'] if engine['running']
         and not engine['stopping'] and not engine['finished'] and engine['url'] in known}
     need(active_urls=={candidate['url'] for candidate in candidates} and len(candidates)==1)

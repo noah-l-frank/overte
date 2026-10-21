@@ -87,7 +87,8 @@ readable, but cannot supply the newly required included-code facts.
 
 The existing 256 KiB Script response and private file bounds remain unchanged;
 oversized/partial evidence fails. This extends native provenance only. Included
-Emote selection, caller correlation and selected-work lifetime still require
-composition, and complete Phone areas remain three of fourteen. Host tests use
+Emote [selection](EMOTE_SOURCE_PROFILE.md) and [caller correlation](ANIMATION_CALLER.md)
+are now source-implemented; selected-work lifetime and whole-run composition
+remain required. Complete Phone areas remain three of fourteen. Host tests use
 synthetic packets and inspect guarded native hook placement; they do not compile
 V8/native code or establish product/device success.

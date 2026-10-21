@@ -25,6 +25,7 @@ from test_emote_capture import Model as CaptureModel
 from test_emote_pixels import POLICY
 from test_emote_sources import RUN
 from self_tests.test_native_phone_avatar_configuration import Boundary as ConfigurationBoundary
+from test_emote_source_profile import included_source,included_caller
 
 
 class Model(CaptureModel):
@@ -268,6 +269,17 @@ class EmoteObservationTests(unittest.TestCase):
             self.assertEqual('capturing',scope.state['phase']);self.assertIsNotNone(scope.store.read())
             self.assertTrue(m.root.joinpath('phone-emote-primary-capture-1.json').exists())
             with self.assertRaises(NativeUIError):scope.retire(lambda *_:None)
+
+    def test_shared_default_vm_normal_input_and_original_image_brackets_compose_for_both_roles(self):
+        m=self.model;observe=m.code.mutate;caller=m.caller
+        def included(value):observe(value);included_source(value,m.roots.root)
+        m.code.mutate=included;m.caller=lambda kind,epoch:included_caller(caller(kind,epoch),m.roots.root)
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));primary=m.scope(owner,1)
+            value=primary.read(call['ticket']);actor=m.scope(owner,1,role='actor');remote=actor.read(call['ticket'])
+            self.assertEqual('Waving',value['state']['animation']);self.assertEqual(value['state'],remote['state'])
+            self.assertEqual(23,remote['effect']['proof']['event']['caller']['compilation']['scriptId'])
+            self.assertEqual(2,m.world.counters['capture'])
 
 
 if __name__=='__main__':unittest.main()

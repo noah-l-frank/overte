@@ -70,6 +70,9 @@ and original `assignedUrl`, generation and assignment time separately. Submitted
 UTF16 code identity must match one reviewed source pin. Wrong code, foreign paths with a
 recognized filename, missing packets/nonces, old reads or mixed processes fail.
 Returned metadata selects input semantics only; it contains no measured pose.
+The later [v2 Emote selection](EMOTE_SOURCE_PROFILE.md) separately joins original
+compiled code inside the shared Phone default VM. A top-level default-script
+assignment alone cannot identify included Emote bytes or caller origin.
 Each role's later full measurement owner must independently acquire and persist
 these originals alongside its own original Rig, widget, image and phase records.
 

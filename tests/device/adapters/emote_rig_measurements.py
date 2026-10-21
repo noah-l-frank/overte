@@ -44,7 +44,7 @@ def source(group,pid,epoch):
     relative='../assets/animations/' if selected['profile']['sourcePath'].endswith('/phoneEmote.js') else 'assets/animations/'
     # urllib.urljoin does not resolve Qt's qrc scheme. Resolve only this fixed
     # reviewed relative directory against the original physical assigned URL.
-    assigned=urlsplit(selected['assignedUrl'])
+    assigned=urlsplit(selected.get('sourceUrl',selected['assignedUrl']))
     directory=normpath(join(dirname(assigned.path),relative))+'/'
     base='qrc:'+directory if assigned.scheme=='qrc' else urlunsplit((assigned.scheme,'',directory,'',''))
     urls={base+name+'.fbx':name for name in NAMES}

@@ -7,9 +7,10 @@ only; actor facts never forward primary measurements. This internal component
 advertises no complete feature capability. Approved domain/Script membership,
 scene/view ownership, background recovery, authenticated actor publication and
 whole-run cleanup remain the enclosing feature owner's responsibilities.
-Normal Phone startup currently includes Emote inside the default-script manager;
-the existing standalone source selector still requires included-source/native
-caller/work instrumentation before it can admit that actual startup path.
+The [v2 source selector](../../native/EMOTE_SOURCE_PROFILE.md) now admits normal
+Phone Emote inclusion inside the default-script manager using original compiled
+source and caller identities. Scoped timer/callback lifetime in that shared VM
+still needs selected-work instrumentation before complete feature registration.
 
 ## Authority and operations
 

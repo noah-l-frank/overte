@@ -18,17 +18,22 @@ Approved scene/Script admission, background/failure recovery, authenticated acto
 publication and whole-run retirement still require the complete coordinator.
 This adds no complete feature capability or physical acceptance.
 
-Current source blocker: normal Phone startup evaluates `phoneEmote.js` through
-`Script.include` inside the shared Phone default-script manager. The existing
-standalone-manager Emote selector cannot admit that real path. Original included
-source identity, call provenance and selected-work ownership need extension;
-loading a separate replacement Emote script would not qualify normal startup.
+Normal Phone startup evaluates `phoneEmote.js` through `Script.include` inside
+the shared default-script manager. The [version 2 source selector](native/EMOTE_SOURCE_PROFILE.md)
+now admits that actual layout using original manager assignment/submitted and
+compiled bootstrap bytes, separately compiled Emote bytes/ID and actual caller
+origin. It derives animation assets from the original included source URL.
+Loading a separate replacement script is unnecessary and would not qualify the
+normal startup path.
 The [V8 compilation extension](native/SCRIPT_COMPILATIONS.md) now records actual
 compiled bytes/resource names/Script IDs at both application compile boundaries,
 and the original Script reader retains immutable histories. The [version 2 native
 caller](native/ANIMATION_CALLER.md) now correlates the actual nearest VM frame ID
 with that manager's original compilation. Both parts are source-implemented and
-host-tested; included Emote selection and selected-work joins remain open.
+host-tested. The remaining native source blocker is selected-function timer/
+callback ownership inside that shared VM; manager-wide timer absence would
+incorrectly include unrelated normal default-script timers. Whole Emote
+admission/action/failure/background/actor/run composition also remains incomplete.
 Integrate the native and reader changes together;
 older readers do not understand the optional new wire fields.
 
