@@ -213,6 +213,7 @@ public:
     AnimNode::ConstPointer getAnimNode() const { return _animNode; }
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap e2eAnimationObservation() const;
+    int e2eRigId() const { return _rigId; }
 #endif
     AnimNode::ConstPointer findAnimNodeByName(const QString& name) const;
     AnimSkeleton::ConstPointer getAnimSkeleton() const { return _animSkeleton; }

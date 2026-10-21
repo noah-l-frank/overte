@@ -11,6 +11,9 @@
 //
 
 #include "MeshPartPayload.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QCryptographicHash>
+#endif
 
 #include <BillboardMode.h>
 #include <MirrorMode.h>
@@ -34,7 +37,18 @@ ModelMeshPartPayload::ModelMeshPartPayload(ModelPointer model, int meshIndex, in
 
     assert(model && model->isLoaded());
 
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const auto& geometry = model->getGeometry();
+    const auto source = geometry->getHFMModel().originalURL.toUtf8();
+    _e2eOriginalModel = {{"modelInstance",model->e2eModelInstance()},
+        {"geometryInstance",geometry->e2eGeometryInstance()},{"loadedSourcePresent",!source.isEmpty()},
+        {"loadedSourceSha256",QString::fromLatin1(QCryptographicHash::hash(source,QCryptographicHash::Sha256).toHex())}};
+#endif
+
     auto& modelMesh = model->getGeometry()->getMeshes().at(_meshIndex);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _e2eOriginalDrawMesh = modelMesh;
+#endif
     _meshNumVertices = (int)modelMesh->getNumVertices();
     const Model::MeshState& state = model->getMeshState(_meshIndex);
 
@@ -388,6 +402,28 @@ void ModelMeshPartPayload::render(RenderArgs* args) {
         PerformanceTimer perfTimer("batch.drawIndexed()");
         drawCall(batch);
     }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Append after the original indexed draw, using immutable metadata from
+    // the actual mesh payload. No Model/Geometry ownership escapes this call.
+    // Shadow, mirror and stereo draws cannot qualify a main-mono capture.
+    if (_clusterPaletteValid && _drawPart._numIndices > 0 && args->_featureRenderTrace
+            && args->_renderMode == RenderArgs::DEFAULT_RENDER_MODE && args->_mirrorDepth == 0 && !args->isStereo()) {
+        auto original = _e2eOriginalModel;
+        const auto bound = getBound(args);
+        const auto low = bound.getMinimum(), high = bound.getMaximum();
+        original.insert("minimum",QVariantList{low.x,low.y,low.z});
+        original.insert("maximum",QVariantList{high.x,high.y,high.z});
+        original.insert("indices",static_cast<qulonglong>(_drawPart._numIndices));
+        original.insert("skinned",bool(drawcallInfo & 2));
+        original.insert("blendshaped",bool(drawcallInfo & 1));
+        // Normal scriptable mesh replacement can change a live payload. Such
+        // draws remain counted but cannot masquerade as loaded HFM geometry.
+        original.insert("originalGeometry",_e2eOriginalDrawMesh.lock() == _drawMesh);
+        const auto trace = args->_featureRenderTrace;
+        batch.runLambda([trace,original] { trace->model(gpu::Backend::featureExecutingBackend(),original); });
+    }
+#endif
 
     const int INDICES_PER_TRIANGLE = 3;
     args->_details._trianglesRendered += _drawPart._numIndices / INDICES_PER_TRIANGLE;

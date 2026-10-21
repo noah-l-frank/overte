@@ -286,6 +286,8 @@
     var scriptWorkTimer = null;
     var lastProcessPresenceRequest = "";
     var lastGraphicsSubjectRequest = "";
+    var lastAvatarRenderRequest = "";
+    var lastWorldModelDrawsRequest = "";
     var lastSceneLoadRequest = "";
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
@@ -1562,6 +1564,40 @@
             return;
         }
         if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                && command.action === "feature-avatar-render-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
+            if (command.commandId === lastAvatarRenderRequest) { return; }
+            lastAvatarRenderRequest = command.commandId;
+            var avatarRender = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureAvatarRenderObservation === "function") {
+                    var originalAvatarRender = Test.featureAvatarRenderObservation(command);
+                    if (originalAvatarRender && originalAvatarRender.requestId === command.commandId) { avatarRender = originalAvatarRender; }
+                }
+            } catch (_avatarRenderError) { /* Missing original model/view metadata stays unavailable. */ }
+            Test.saveObject(avatarRender, "feature-avatar-render.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.captureRequestId === "string" && /^(?:ios-)?[0-9a-f]{32}$/.test(command.captureRequestId)
+                && command.commandId.indexOf("ios-") === command.captureRequestId.indexOf("ios-")
+                && command.action === "feature-world-model-draws-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "captureRequestId"])) {
+            if (command.commandId === lastWorldModelDrawsRequest) { return; }
+            lastWorldModelDrawsRequest = command.commandId;
+            var modelDraws = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureWorldModelDrawsObservation === "function") {
+                    var originalModelDraws = Test.featureWorldModelDrawsObservation(command);
+                    if (originalModelDraws && originalModelDraws.requestId === command.commandId) { modelDraws = originalModelDraws; }
+                }
+            } catch (_modelDrawsError) { /* Released/foreign/missing captures stay unavailable. */ }
+            Test.saveObject(modelDraws, "feature-world-model-draws.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
                 && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
                 && command.action === "feature-scene-load-observe"
@@ -1953,6 +1989,7 @@
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"
                 || command.action === "feature-graphics-subject-observe"
+                || command.action === "feature-avatar-render-observe" || command.action === "feature-world-model-draws-observe"
                 || command.action === "feature-scene-load-observe"
                 || command.action === "feature-script-files")) {
             // Android's existing private channel is separate from the HTTP

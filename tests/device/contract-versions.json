@@ -93,6 +93,8 @@
     "phone-graphics-restart": {"current": 1, "reads": [1]},
     "world-render-acquisition": {"current": 2, "reads": [1, 2]},
     "world-render-trace": {"current": 2, "reads": [1, 2]},
+    "native-avatar-render": {"current": 1, "reads": [1]},
+    "native-world-model-draws": {"current": 1, "reads": [1]},
     "world-render-storage": {"current": 1, "reads": [1]},
     "world-render-ownership": {"current": 2, "reads": [1, 2]},
     "world-render-receipt-cleanup": {"current": 1, "reads": [1]},

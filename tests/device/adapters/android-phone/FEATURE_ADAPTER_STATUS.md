@@ -10,10 +10,18 @@ host-journal retirement. See [Script](SCRIPT_FEATURE.md),
 This is source implementation and host verification only. Native instrumentation
 has not been compiled; no device, installation, build or Jenkins run was performed.
 The remaining eleven complete Android feature adapters are still missing.
-Pico and iOS are paused until all fourteen Android areas are complete. Historical
+Pico and iOS are owned by separate sessions/worktrees; this session edits Phone only. Historical
 component notes below do not supersede this current status. In particular,
 earlier Graphics statements that full coordination remains pending are historical:
 the complete coordinator and guarded triple are now implemented.
+
+The [original avatar/render-model join](../../native/AVATAR_RENDER_PROVENANCE.md)
+now observes actual loaded Model/Geometry/Rig and HFM source identity, and executed
+model draws retained with one exact original world PNG/frame. Guarded Phone
+factories and host counterexamples reject foreign/replaced/mixed meshes and old
+or changed image/view provenance. This does not establish visible Emote pixels
+or full Emote coordination. Native code is uncompiled; the complete count stays
+three of fourteen and every area remains device-unqualified.
 
 The [original Emote input component](NORMAL_EMOTE_PROTOCOL.md) now joins actual
 Qt widgets, normal pointer/wheel delivery, original tokens and private Phone

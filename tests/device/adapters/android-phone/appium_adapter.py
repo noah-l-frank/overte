@@ -62,6 +62,8 @@ from adapters.restart_inputs import RestartInputs, run_script_restart
 from adapters.android_world_render import AndroidWorldRenderReceipts
 from adapters.world_render_evidence import NativeWorldRenderCapture, FILE as WORLD_RENDER_FILE
 from adapters.native_graphics_subject import NativeGraphicsSubject, FILE as GRAPHICS_SUBJECT_FILE
+from adapters.native_avatar_render import NativeAvatarRender, FILE as AVATAR_RENDER_FILE
+from adapters.native_world_model_draws import NativeWorldModelDraws, FILE as WORLD_MODEL_DRAWS_FILE
 from adapters.native_phone_scene_loads import NativePhoneSceneLoads, FILE as SCENE_LOAD_FILE
 from adapters.native_phone_web_runtime import NativePhoneWebRuntime, FILE as WEB_RUNTIME_FILE
 from adapters.world_render_receipts import NativeWorldReceiptInventory, NativeWorldReceiptBatchFiles, INVENTORY_FILE as WORLD_RECEIPT_FILE
@@ -109,6 +111,12 @@ def readonly_feature_command(command):
     elif action=='feature-process-presence':
         from adapters.native_process_presence import command as validate_presence
         validate_presence(command)
+    elif action=='feature-avatar-render-observe':
+        from adapters.native_avatar_render import command as validate_avatar_render
+        validate_avatar_render(command)
+    elif action=='feature-world-model-draws-observe':
+        from adapters.native_world_model_draws import command as validate_model_draws
+        validate_model_draws(command)
     elif action=='feature-graphics-subject-observe':
         from adapters.native_graphics_subject import command as validate_subject
         validate_subject(command)
@@ -562,6 +570,22 @@ class PhoneAppiumAdapter(AppiumAdapter):
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         return NativePhoneWebRuntime(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+WEB_RUNTIME_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _avatar_render_observer(self, selector, *, read_only=True):
+        require(read_only is True,'PHONE_AVATAR_RENDER_REQUIRES_EXISTING_READ_ONLY_SESSION')
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativeAvatarRender(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+AVATAR_RENDER_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _world_model_draws_observer(self, selector, *, read_only=True):
+        require(read_only is True,'PHONE_MODEL_DRAWS_REQUIRES_EXISTING_READ_ONLY_SESSION')
+        native=self._native_feature_observer(selector,read_only=True)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativeWorldModelDraws(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+WORLD_MODEL_DRAWS_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _graphics_subject_observer(self, selector, *, read_only=False):

@@ -44,7 +44,7 @@ public:
         if (_active.isEmpty()) {
             // A cancelled queued/executing callback must drain before reuse.
             if (!_callback.isEmpty() || _retired.size() >= 256) { return {}; }
-            _active = id; _requested = now(); _age.start(); _result.clear(); _png.clear();
+            _active = id; _requested = now(); _age.start(); _result.clear(); _png.clear(); _modelResult.clear();
         }
         if (_active != id) { return {}; }
         if (!_result.isEmpty()) { return _result; } // Original times, never retimed.
@@ -87,7 +87,7 @@ public:
             _retired.insert(id);
         }
         if (action == "release" && _active == id) {
-            _active.clear(); _result.clear(); _png.clear();
+            _active.clear(); _result.clear(); _png.clear(); _modelResult.clear();
             // A queued lambda keeps its ticket until execution or batch discard.
         }
         QVariantMap value {{"storageVersion",1},{"commandId",nonce},{"requestId",id},{"instance",_instance},
@@ -118,6 +118,23 @@ public:
         return found.value().second;
     }
     QString instance() const { return _instance; }
+
+    QVariantMap modelObservation(const QVariantMap& command) {
+        QMutexLocker lock(&_mutex);
+        const auto json = QJsonObject::fromVariantMap(command);
+        const auto nonce = command.value("commandId").toString();
+        const auto capture = command.value("captureRequestId").toString();
+        if (!enabled() || command.keys() != QStringList{"action","captureRequestId","commandId","schemaVersion"}
+                || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble() != 1
+                || command.value("action").toString() != "feature-world-model-draws-observe"
+                || !json.value("commandId").isString() || !json.value("captureRequestId").isString()
+                || !valid(nonce) || !valid(capture) || nonce.startsWith("ios-") != capture.startsWith("ios-")
+                || _active != capture || _retired.contains(capture) || _modelResult.isEmpty()) { return {}; }
+        const auto requested = now();
+        return {{"schemaVersion",1},{"requestId",nonce},{"instance",_instance},
+            {"sequence",static_cast<qulonglong>(++_modelSequence)},{"processId",QCoreApplication::applicationPid()},
+            {"requestedEpochMs",requested},{"capturedEpochMs",now()},{"source",_modelResult}};
+    }
 
     QVariantMap receiptInventory(const QString& capture, const QStringList& nonces) {
         QMutexLocker lock(&_mutex);
@@ -152,7 +169,7 @@ private:
     static bool valid(const QString& id) { return QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch(); }
     static QString sha(const QByteArray& bytes) { return QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex()); }
     void fail(const QString& id) {
-        if (_active == id) { _result = {{"schemaVersion",1},{"requestId",id},{"available",false}}; }
+        if (_active == id) { _modelResult.clear(); _result = {{"schemaVersion",1},{"requestId",id},{"available",false}}; }
     }
     void drained(const QString& id) {
         QMutexLocker lock(&_mutex);
@@ -212,6 +229,12 @@ private:
         _result = {{"schemaVersion",1},{"requestId",id},{"instance",_instance},
             {"sequence",static_cast<qulonglong>(++_sequence)}, {"requestedEpochMs",requested},
             {"capturedEpochMs",published},{"processId",QCoreApplication::applicationPid()},{"source",observation}};
+        const auto modelTrace = trace ? trace->modelSnapshot(backend) : QVariantMap();
+        if (!modelTrace.isEmpty()) {
+            _modelResult = {{"modelCaptureVersion",1},{"captureRequestId",id},{"captureSequence",_sequence},
+                {"acquisitionSequence",_acquisitions},{"captureCapturedEpochMs",captured},
+                {"imageSha256",image.value("sha256")},{"pixelSha256",image.value("pixelSha256")},{"modelTrace",modelTrace}};
+        }
     }
     QMutex _mutex;
     const QString _instance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
@@ -219,8 +242,8 @@ private:
     QSet<QString> _retired; // Bounded; never forget retired nonces to enable replay.
     QElapsedTimer _age;
     qint64 _requested {0};
-    quint64 _sequence {0}, _acquisitions {0}, _storageSequence {0};
-    QVariantMap _result;
+    quint64 _sequence {0}, _acquisitions {0}, _storageSequence {0}, _modelSequence {0};
+    QVariantMap _result, _modelResult;
     QByteArray _png;
     QHash<QString,QPair<QString,QByteArray>> _receipts; // Bounded original receipt identities/hashes, not PNG copies.
 };

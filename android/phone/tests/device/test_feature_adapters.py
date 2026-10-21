@@ -36,6 +36,7 @@ from self_tests.test_native_script_loads import history as load_history, URL as 
 from self_tests.test_native_script_membership import membership_source
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_graphics_subject import Boundary as GraphicsSubjectBoundary, RUN as GRAPHICS_RUN
+from self_tests.test_native_avatar_render import Boundary as AvatarRenderBoundary
 from self_tests.test_native_phone_scene_loads import Boundary as SceneLoadBoundary, URL as SCENE_LOAD_URL
 from adapters.native_phone_scene_loads import committed as committed_scene
 from self_tests.test_native_phone_web_runtime import Boundary as WebRuntimeBoundary, ROOT as WEB_RUNTIME_ROOT, URL as WEB_RUNTIME_URL
@@ -1221,6 +1222,45 @@ class FeatureAdapterTests(unittest.TestCase):
             monotonic=lambda:source.clock,sleep=source.sleep))
         boundary.start();self.addCleanup(boundary.stop)
         return source,self.adapter._graphics_subject_observer(SELECTOR)
+
+    def avatar_render_boundaries(self,*,models=False):
+        source=self.preview_boundaries(AvatarRenderBoundary(),
+            'feature-world-model-draws.json' if models else 'feature-avatar-render.json')
+        boundary=patch.object(appium,'NativeFeatureObservation',partial(NativeFeatureObservation,
+            monotonic=lambda:source.clock,sleep=source.sleep))
+        boundary.start();self.addCleanup(boundary.stop)
+        factory=self.adapter._world_model_draws_observer if models else self.adapter._avatar_render_observer
+        return source,factory(SELECTOR)
+
+    def test_phone_original_avatar_and_model_factories_return_actual_private_packets_without_feature_promotion(self):
+        self.read_only_boundaries()
+        for models in (False,True):
+            source,reader=self.avatar_render_boundaries(models=models)
+            value=reader.read(source.capture) if models else reader.read()
+            self.assertEqual(source.sample,value);self.assertEqual([],self.native.inputs)
+            self.assertEqual([],self.native.lifecycle_inputs)
+            self.assertFalse(any(c.startswith('feature.emotes.') for c in self.adapter.advertised_capabilities(self.target)))
+
+    def test_phone_avatar_and_model_factories_refuse_changed_candidate_or_process_before_dispatch(self):
+        self.read_only_boundaries()
+        for models in (False,True):
+            source,reader=self.avatar_render_boundaries(models=models)
+            read=lambda:reader.read(source.capture) if models else reader.read()
+            read();before=len(source.commands);original=self.fixture.adb.digest;self.fixture.adb.digest='f'*64
+            with self.assertRaises(RuntimeError):read()
+            self.fixture.adb.digest=original;self.native.identity='31:15'
+            with self.assertRaises(RuntimeError):read()
+            self.assertEqual(before,len(source.commands));self.native.identity='31:14'
+
+    def test_phone_original_avatar_render_getters_have_no_start_or_expected_subject_route(self):
+        for factory in (self.adapter._avatar_render_observer,self.adapter._world_model_draws_observer):
+            with self.assertRaises(ValueError):factory(SELECTOR,read_only=False)
+        for command in (dict(schemaVersion=1,commandId='a'*32,action='feature-avatar-render-observe'),
+                dict(schemaVersion=1,commandId='a'*32,action='feature-world-model-draws-observe',captureRequestId='b'*32)):
+            appium.readonly_feature_command(command)
+            for change in (dict(expectedAvatar='wanted'),dict(pose=[]),dict(action='feature-avatar-render-set'),
+                    dict(captureRequestId='ios-'+'b'*32)):
+                with self.subTest(change=change),self.assertRaises((RuntimeError,ValueError)):appium.readonly_feature_command(command|change)
 
     def test_phone_graphics_subject_factory_returns_original_inventory_without_feature_promotion(self):
         source,reader=self.graphics_subject_boundaries();source.add();value=reader.read(GRAPHICS_RUN)

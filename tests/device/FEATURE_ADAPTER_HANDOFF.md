@@ -4,9 +4,18 @@ Current implementation: the complete Phone [Script](adapters/android-phone/SCRIP
 [Authentication](adapters/android-phone/AUTHENTICATION_FEATURE.md) and
 [Graphics](adapters/android-phone/GRAPHICS_FEATURE.md) triples
 are source-implemented and device-free verified. The foundation notes below
-include earlier intermediate states. The other eleven Phone areas and all
-complete Pico/iOS areas remain missing; no native build or device qualification
-has been performed.
+include earlier intermediate states. The other eleven Phone areas remain incomplete
+here. Pico/iOS adapters are maintained in separate sessions/worktrees; this Phone
+checkout does not establish their current implementation status. No native build or device
+qualification has been performed here.
+
+The [original avatar and executed model-draw contracts](native/AVATAR_RENDER_PROVENANCE.md)
+now join loaded SkeletonModel/Geometry identities and actual HFM source hashes to
+the exact original GPU frame/PNG, with guarded read-only Phone factories. Foreign,
+mixed or script-replaced meshes cannot qualify that join. This remains draw
+provenance; controlled challenge/body pixels, actor and whole Emote cleanup still
+need composition. Existing Graphics wire contracts and the three complete Phone
+area count remain unchanged. Native additions are uncompiled.
 
 Phone Emote now has [durable original per-role sources](adapters/android-phone/EMOTE_SOURCES.md)
 and [actual loaded/evaluated Rig playback and restoration joins](native/EMOTE_RIG_MEASUREMENTS.md).

@@ -150,6 +150,18 @@ QVariantMap TestScriptingInterface::featureWorldRenderCapture(const QString& req
     return context ? context->featureWorldRender()->request(requestId) : QVariantMap();
 }
 
+QVariantMap TestScriptingInterface::featureWorldModelDrawsObservation(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result = featureWorldModelDrawsObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")) { return {}; }
+    const auto context = qApp->getGPUContext();
+    return context ? context->featureWorldRender()->modelObservation(command) : QVariantMap();
+}
+
 QVariantMap TestScriptingInterface::featureWorldRenderStorage(const QVariantMap& command) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;
@@ -757,6 +769,59 @@ QVariantMap TestScriptingInterface::featureSceneLoadObservation(const QVariantMa
 #else
     Q_UNUSED(command);return {};
 #endif
+}
+
+QVariantMap TestScriptingInterface::featureAvatarRenderObservation(const QVariantMap& command) {
+    if (QThread::currentThread() != thread()) {
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result = featureAvatarRenderObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json = QJsonObject::fromVariantMap(command);
+    const auto request = command.value("commandId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript")
+            || command.keys() != QStringList{"action","commandId","schemaVersion"}
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble() != 1
+            || command.value("action").toString() != "feature-avatar-render-observe"
+            || !json.value("commandId").isString()
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(request).hasMatch()) { return {}; }
+    const auto requested = QDateTime::currentMSecsSinceEpoch();
+    const auto avatar = DependencyManager::get<AvatarManager>()->getMyAvatar();
+    if (!avatar) { return {}; }
+    const auto model = avatar->getSkeletonModel();
+    if (!model) { return {}; }
+    const auto geometry = model->getGeometry();
+    QVariant loadedGeometry;
+    if (geometry && geometry->isHFMModelLoaded()) {
+        // This is the immutable loaded HFM source, never the requested Model URL.
+        const auto source = geometry->getHFMModel().originalURL.toUtf8();
+        loadedGeometry = QVariantMap{{"instance",geometry->e2eGeometryInstance()},{"sourcePresent",!source.isEmpty()},
+            {"sourceSha256",QString::fromLatin1(QCryptographicHash::hash(source,QCryptographicHash::Sha256).toHex())}};
+    }
+    const auto& camera = qApp->getCamera();
+    ViewFrustum frustum; camera.loadViewFrustum(frustum);
+    QVariantList projection;
+    const auto& matrix = frustum.getProjection();
+    for (int row = 0; row < 4; ++row) {
+        for (int column = 0; column < 4; ++column) { projection.append(matrix[column][row]); }
+    }
+    auto vec = [](const glm::vec3& value) { return QVariantList{value.x,value.y,value.z}; };
+    auto quat = [](const glm::quat& value) { return QVariantList{value.x,value.y,value.z,value.w}; };
+    const QVariantMap source {{"avatarRenderVersion",1},{"modelInstance",model->e2eModelInstance()},
+        {"rigId",model->getRig().e2eRigId()},{"loaded",model->isLoaded()},{"visible",model->isVisible()},
+        {"addedToScene",model->isAddedToScene()},{"localRenderingEnabled",avatar->getShouldRenderLocally()},
+        {"avatarShouldRender",avatar->shouldRender()},{"geometry",loadedGeometry},
+        {"pose",QVariantMap{{"feetPosition",vec(avatar->getWorldFeetPosition())},
+            {"orientation",quat(avatar->getWorldOrientation())},{"modelScale",avatar->getModelScale()}}},
+        {"cameraMode",camera.getModeString()},
+        {"view",QVariantMap{{"position",vec(frustum.getPosition())},{"rotation",quat(frustum.getOrientation())},
+            {"projection",projection},{"fieldOfViewDegrees",frustum.getFieldOfView()},{"aspectRatio",frustum.getAspectRatio()},
+            {"nearClip",frustum.getNearClip()},{"farClip",frustum.getFarClip()},{"perspective",frustum.isPerspective()}}}};
+    return {{"schemaVersion",1},{"requestId",request},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureAvatarRenderSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }
 
 QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVariantMap& command) {
