@@ -9,6 +9,19 @@ from .contract import exact,json_document
 from .fixtures import challenge, document
 
 MAX_BYTES = 32 * 1024 * 1024
+MARKER_READINESS_VERSION = 1
+
+
+class MarkerNotReady(AssertionError):
+    """Original pixels lack the current challenge; never successful evidence.
+
+    A specialized owner may retain and retire this failed original acquisition
+    before reading a different frame. The common verifier still fails at once.
+    Selected from frozen fe4684bf46585088370b3a328a738f147e670b97.
+    """
+    def __init__(self,reason,*,observed=None,cell=None,rgb=None):
+        self.observation=dict(reason=reason,observed=observed,cell=cell,rgb=rgb)
+        super().__init__('Original rendered challenge is ambiguous, stale or foreign')
 
 
 def rectangle(value, size):
@@ -44,10 +57,10 @@ def image_observation(content, run, ticket, policy, previous=None, changed=False
         elif min(rgb) > 185:
             bits.append('1')
         else:
-            raise AssertionError('Rendered challenge marker is ambiguous')
+            raise MarkerNotReady('ambiguous',cell=index,rgb=list(rgb))
     wanted = ''.join(f'{byte:08b}' for byte in challenge(run, ticket))
     if ''.join(bits) != wanted:
-        raise AssertionError('Screenshot contains a stale or foreign challenge')
+        raise MarkerNotReady('mismatch',observed=hex(int(''.join(bits),2))[2:].zfill(32))
     subject_rect = rectangle(policy['subject'], image.size)
     marker_rect = rectangle(policy['marker'], image.size)
     if (max(marker_rect[0], subject_rect[0]) < min(marker_rect[2], subject_rect[2])

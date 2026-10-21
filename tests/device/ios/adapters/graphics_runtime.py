@@ -17,6 +17,10 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _graphics_samples(self,selector,client,run,role,stage,lock,artifact_root,image_policy,*,cleanup_only=False):
+        from ios.adapters.graphics_samples import IOSGraphicsSamples
+        return IOSGraphicsSamples(self,selector,client,run,role,stage,lock,artifact_root,image_policy,cleanup_only=cleanup_only)
+
     def _native_feature_observer(self,selector,*,read_only=False):
         need(type(read_only) is bool)
         source=self._sources(selector)

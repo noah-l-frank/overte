@@ -1418,6 +1418,28 @@ class FeatureEvidenceCounterexamples(unittest.TestCase):
             with self.subTest(changed=changed,bytes=len(candidate)),self.assertRaises((ValueError,AssertionError)):
                 image_observation(candidate,run,TICKET,SCREEN_POLICY,previous,changed)
 
+    def test_marker_readiness_preserves_failure_and_records_only_actual_decoded_pixels(self):
+        from feature_journeys.evidence import image_observation,MarkerNotReady
+        from PIL import Image
+        boundary=Boundary('graphics');boundary.ticket=TICKET;raw=boundary.image()
+        with self.assertRaises(MarkerNotReady) as mismatch:image_observation(raw,'ab'*16,TICKET,SCREEN_POLICY)
+        self.assertIsInstance(mismatch.exception,AssertionError)
+        actual=challenge(RUN,TICKET).hex()
+        self.assertEqual(dict(reason='mismatch',observed=actual,cell=None,rgb=None),mismatch.exception.observation)
+        image=Image.open(io.BytesIO(raw));image.putpixel((6,8),(120,120,120));stream=io.BytesIO();image.save(stream,format='PNG')
+        with self.assertRaises(MarkerNotReady) as ambiguous:image_observation(stream.getvalue(),RUN,TICKET,SCREEN_POLICY)
+        self.assertEqual(dict(reason='ambiguous',observed=None,cell=0,rgb=[120,120,120]),ambiguous.exception.observation)
+
+    def test_invalid_png_or_uniform_feature_is_not_a_marker_readiness_retry(self):
+        from feature_journeys.evidence import image_observation,MarkerNotReady
+        from PIL import Image,ImageDraw
+        boundary=Boundary('graphics');boundary.ticket=TICKET;raw=boundary.image()
+        image=Image.open(io.BytesIO(raw));ImageDraw.Draw(image).rectangle(SCREEN_POLICY['subject'],fill=(128,128,128))
+        stream=io.BytesIO();image.save(stream,format='PNG')
+        for content in (raw[:-8],stream.getvalue()):
+            with self.subTest(bytes=len(content)),self.assertRaises(AssertionError) as failed:image_observation(content,RUN,TICKET,SCREEN_POLICY)
+            self.assertNotIsInstance(failed.exception,MarkerNotReady)
+
     def test_private_product_and_actor_strings_fail_before_being_persisted(self):
         boundary=Boundary('authentication'); boundary.activate(TICKET)
         value=boundary.observe({'afterSequence':0}); value['state']['principal']='private@example.test'

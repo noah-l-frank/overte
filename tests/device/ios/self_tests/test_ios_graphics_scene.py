@@ -70,6 +70,7 @@ class SDK(InputSDK):
         self.target.update(platform='ios',physical=True,probe=dict(kind='ios-documents'))
     def host_epoch(self):return 1700000000000+round(self.clock*1000)
     def epoch(self):return self.host_epoch()+86400000
+    def observed(self):return super().observed()|dict(fileControlsVersion=1)
     def initial(self,url):
         self.url=url;self.loads.rows=[load_row(generation=1,resourceSha256=resource_hash(url),
             startedEpochMs=self.epoch(),updatedEpochMs=self.epoch(),releasedEpochMs=self.epoch(),bytes=len(BASELINE))]

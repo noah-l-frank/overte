@@ -117,6 +117,12 @@ original settings, normal one-send input, independent source/UI outcomes and
 normal restoration. Whole-run lifecycle/sample/actor/final-lifetime composition
 is still required before exposing the Graphics feature triple.
 
+The [durable role sample producer](GRAPHICS_SAMPLES.md) now connects those
+original settings/scene/UI sources to separately owned pre-HUD Vulkan images,
+actual consumer retirement and a bounded native/host clock acquisition. It keeps
+independent role histories and files and refuses uncertain capture replay.
+Whole-run lifecycle, actor publication and final lifetime composition remain.
+
 The existing world-target PNG sampler only reads actual main-mono OpenGL
 framebuffers; Vulkan's product `downloadFramebuffer` remains unimplemented.
 The [completed Vulkan frame source](../native/COMPLETED_FRAME_OBSERVATION.md)
