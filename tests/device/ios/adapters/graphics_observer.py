@@ -48,6 +48,7 @@ class IOSGraphicsObserver:
                  monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(source,GraphicsFixtureReader) and role in ('primary','actor') and isinstance(lock,ScriptSourceLock)
              and callable(monotonic) and callable(sleep))
+        self.historical=False
         self.adapter,self.selector,self.source,self.role,self.lock=adapter,selector,source,role,lock
         self.run,self.fixture_url=source.run,source.fixture_url
         self.root,self.policy=Path(artifact_root),deepcopy(image_policy)
@@ -64,6 +65,30 @@ class IOSGraphicsObserver:
             backend=deepcopy(source.previous),baseline=None,last=None,offFrames=dict(haze=None,mirror=None),effects=[],restart=None,pending=None,retirements=[],currentEffects=[],currentEffectsAfter=0,disabledEffects=[],disabledEffectsAfter=0,nativeFloor=None)
         if self.previous is None:self.save()
         else:self.state=self.decode(self.previous)
+
+    @classmethod
+    def _archive_scope(cls,value,*,path,run,fixture_url,provider_instance,role,lock,artifact_root,image_policy):
+        """Historical original decoder with no live SDK, guard or clock factory."""
+        from feature_journeys.graphics_resources import fixture_url as validate_url
+        need(isinstance(lock,ScriptSourceLock) and role in ('primary','actor'));lock.assert_held()
+        identifier(run);identifier(provider_instance);validate_url(fixture_url)
+        scope=object.__new__(cls);scope.run,scope.fixture_url,scope.role=run,fixture_url+'/runs/'+run+'/',role
+        scope.root,scope.policy,scope.lock=Path(artifact_root),deepcopy(image_policy),lock
+        need(scope.root.is_absolute() and scope.root.is_dir() and scope.root.resolve()==scope.root
+             and type(image_policy) is dict and image_policy.get('source')=='world-render-target')
+        PrivateFeatureState(scope.root/'graphics-archive-root-check')._parent()
+        scope.store=PrivateFeatureState(path)
+        need(scope.store.path.name=='ios-graphics-'+role+'-observer.json'
+             and lock.path==scope.store.path.with_name('script-feature-sources.lock'))
+        from types import SimpleNamespace
+        scope.source=object.__new__(GraphicsFixtureReader)
+        scope.source.run,scope.source.fixture_url,scope.source.instance=run,scope.fixture_url,provider_instance
+        scope.source.client=SimpleNamespace(url=fixture_url)
+        scope.historical=True;scope.state=scope.decode(deepcopy(value));return scope
+
+    @classmethod
+    def archive(cls,value,**scope):
+        return deepcopy(cls._archive_scope(value,**scope).state)
 
     def frame_store(self,stage,request):
         nonce(request);need(type(stage) is int and stage in (0,1))
@@ -303,7 +328,7 @@ class IOSGraphicsObserver:
         return deepcopy(data) # Explicit retirement originals, no feature facts.
 
     def save(self):
-        self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
+        need(not self.historical);self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
         value=dict(iosGraphicsObserverVersion=VERSION,runId=self.run,fixtureUrl=self.source.client.url,providerInstance=self.source.instance,
             role=self.role,artifactRoot=str(self.root),imagePolicy=self.policy,payload=pack([self.state]))
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)

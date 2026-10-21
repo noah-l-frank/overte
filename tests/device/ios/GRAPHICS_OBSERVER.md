@@ -90,3 +90,10 @@ These private seeds are not public samples. A false setting and zero issued
 haze/mirror draws cannot hide current stale enabled-effect pixels. Legacy v1/v2
 records retain their original qualification boundary; their history is not
 upgraded into fabricated disabled proofs. See the current-effect handoff above.
+
+
+The [durable publication owner](GRAPHICS_PUBLICATION.md) now handles planned/
+issued POST responsibility, original journal/provider receipts and lost-return
+recovery. Pure observer/publication archive decoders validate retained original
+pixels after runtime metadata removal without any live SDK or refreshed clock.
+Whole-run coordinator and worker integration remain pending.

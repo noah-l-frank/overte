@@ -102,6 +102,8 @@ REQUIRED = {
     "ios-retired-process": 1,
     "ios-retired-process-acquisition": 1,
     "ios-graphics-calibration": 1,
+    "ios-graphics-publisher": 1,
+    "ios-graphics-publication-record": 1,
     "ios-graphics-observer": 3,
     "ios-graphics-observer-frame": 1,
     "ios-graphics-observer-phase-retirement": 1,
