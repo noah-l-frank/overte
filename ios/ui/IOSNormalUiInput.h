@@ -47,6 +47,8 @@ private:
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     std::function<overte::e2e::LoginUiContext()> _loginReader;
     QString _loginGeneration;
+    qint64 _scriptObservationSequence {0};
+    QHash<QQuickItem*, QPointer<QQuickItem>> _scriptRoots;
     std::function<overte::e2e::AudioUiContext()> _audioReader;
     std::function<overte::e2e::GraphicsUiContext()> _graphicsReader;
 #endif

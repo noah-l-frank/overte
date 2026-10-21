@@ -16,6 +16,7 @@ from urllib.parse import unquote, urlsplit
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
 from adapters.native_script_loads import validate as validate_loads
+from adapters.native_script_membership import validate as validate_membership, accept as accept_membership
 
 FILE = 'feature-script-observation.json'
 LIMIT = 262144
@@ -38,6 +39,7 @@ def validate(value, request, pid, epoch):
     extended = type(source) is dict and 'effectSourceVersion' in source
     identified = type(source) is dict and 'sourceIdentityVersion' in source
     loads = type(source) is dict and 'loadSourceVersion' in source
+    membership = type(source) is dict and 'membershipSourceVersion' in source
     fields = {'complete','engines'}
     if extended: fields |= {'effectSourceVersion','effects'}
     if identified:
@@ -47,6 +49,10 @@ def validate(value, request, pid, epoch):
         fields |= {'loadSourceVersion', 'loads'}
         need(type(source['loadSourceVersion']) is int and source['loadSourceVersion'] == 1)
         validate_loads(source['loads'], value['capturedEpochMs'])
+    if membership:
+        fields |= {'membershipSourceVersion','membership'}
+        need(type(source['membershipSourceVersion']) is int and source['membershipSourceVersion']==1)
+        validate_membership(source['membership'],value['capturedEpochMs'])
     exact(source, fields)
     need(source['complete'] is True and type(source['engines']) is list and len(source['engines']) <= 128)
     identities = set()
@@ -72,6 +78,8 @@ def validate(value, request, pid, epoch):
         need((required['sequence'] == 0) == (not required['modules']))
         if required['modules']:
             need(max(cursors) == required['sequence'])
+    if membership and source['membership']['complete']:
+        need(identities<={row['instance'] for row in source['membership']['managers']})
     if extended:
         need(type(source['effectSourceVersion']) is int and source['effectSourceVersion'] == 1)
         effects = source['effects']
@@ -188,10 +196,121 @@ class NativeScriptObservation:
         self.effects_required = False
         self.code_required = False
         self.loads = None
+        self.membership, self.retired_managers = None, set()
+        self.captured_epoch = 0
 
-    def read(self, after_sequence, *, require_effects=False, require_code_identity=False, require_load_history=False):
+    def _history_transition(self, value, *, require_effects=False, require_code_identity=False,
+                            require_load_history=False, require_membership=False):
+        """Pure continuity check for an already validated original frame."""
+        source = value['source']
+        member = source.get('membership') if source.get('membershipSourceVersion')==1 else None
+        complete_member = member is not None and member['complete']
+        need(not (require_membership or self.membership is not None) or complete_member)
+        next_membership, retired_managers = self.membership, self.retired_managers
+        if complete_member:
+            next_membership, retired_managers = accept_membership(
+                self.membership,member,self.retired_managers,value['capturedEpochMs'])
+        loaded = source.get('loadSourceVersion') == 1
+        need(not (require_load_history or self.loads is not None) or loaded)
+        next_loads = source['loads'] if loaded else None
+        if next_loads is not None and self.loads is not None:
+            need(next_loads['instance'] == self.loads['instance']
+                 and next_loads['sequence'] >= self.loads['sequence']
+                 and next_loads['events'][:len(self.loads['events'])] == self.loads['events'])
+        need(not (require_effects or self.effects_required) or source.get('effectSourceVersion') == 1)
+        identified = source.get('sourceIdentityVersion') == 1
+        need(not (require_code_identity or self.code_required) or identified)
+        next_effects, absent = None, None
+        if source.get('effectSourceVersion') == 1:
+            next_effects = {row['id']: row for row in source['effects']['entities']}
+            absent = set(source['effects']['absentIds'])
+            need(self.absent_effects <= absent and not self.absent_effects & set(next_effects)
+                 and set(self.effect_rows) <= set(next_effects) | absent)
+            for identifier, row in next_effects.items():
+                old = self.effect_rows.get(identifier)
+                if old is not None:
+                    need(row['name'] == old['name'] and row['type'] == old['type']
+                         and row['hostType'] == old['hostType']
+                         and row['lastEditedEpochUs'] >= old['lastEditedEpochUs'])
+                    if row['lastEditedEpochUs'] == old['lastEditedEpochUs']: need(row == old)
+            need(len(set(next_effects) | absent) <= 256)
+        engines = {}
+        for engine in value['source']['engines']:
+            source = engine['required']
+            instance = source['instance']
+            need(instance not in self.retired)
+            old = self.engines.get(instance)
+            if old is not None:
+                need(old['url'] == engine['url'] and source['sequence'] >= old['sequence'])
+                if old.get('code',{}).get('submitted'):
+                    need(identified and engine['code']==old['code'])
+                modules = {m['url']: m for m in source['modules']}
+                for module in old['modules']:
+                    need(module['url'] in modules and modules[module['url']]['sequence'] >= module['sequence']
+                         and modules[module['url']]['capturedEpochMs'] >= module['capturedEpochMs'])
+                previous_modules = {m['url']: m for m in old['modules']}
+                for module in source['modules']:
+                    previous_module = previous_modules.get(module['url'])
+                    if previous_module is not None and module['sequence'] == previous_module['sequence']:
+                        need(module == previous_module)
+                    else:
+                        need(module['sequence'] > old['sequence'])
+            engines[instance] = dict(url=engine['url'], sequence=source['sequence'], modules=deepcopy(source['modules']))
+            if identified: engines[instance]['code']=deepcopy(engine['code'])
+        need(len(set(self.engines) | set(engines)) <= 4096)
+        return dict(engines=engines,next_effects=next_effects,absent=absent,identified=identified,
+                    next_loads=next_loads,next_membership=next_membership,retired_managers=retired_managers)
+
+    def _commit_history(self, value, next_history):
+        engines=next_history['engines']
+        next_effects=next_history['next_effects']
+        absent=next_history['absent']
+        identified=next_history['identified']
+        next_loads=next_history['next_loads']
+        next_membership=next_history['next_membership']
+        retired_managers=next_history['retired_managers']
+        self.retired |= self.active - set(engines)
+        self.active = set(engines)
+        self.engines.update(engines)
+        if next_effects is not None:
+            self.effect_rows, self.absent_effects = deepcopy(next_effects), absent
+            self.effects_required = True
+        self.code_required = self.code_required or identified
+        if next_loads is not None: self.loads = deepcopy(next_loads)
+        self.membership,self.retired_managers=next_membership,retired_managers
+        self.instance, self.sequence = value['instance'], value['sequence']
+        self.captured_epoch=value['capturedEpochMs']
+
+    def restore_history(self, frames):
+        """Restore history only; historical frames never count as a fresh read.
+
+        Call only on a virgin reader. Validate every original frame with its
+        original clock and replay the same pure prefix/retirement transitions.
+        Transport callbacks and product input are never invoked here.
+        """
+        need(type(frames) is list and len(frames)<=512 and self.instance is None and self.sequence==0
+             and not self.engines and not self.active and not self.retired and self.loads is None
+             and self.membership is None and not self.effect_rows and not self.absent_effects
+             and not self.effects_required and not self.code_required and not self.retired_managers
+             and self.captured_epoch==0)
+        candidate=NativeScriptObservation(self.send,self.original,self.clock_ms,self.guard,self.pid,
+            ios=self.ios,monotonic=self.monotonic,sleep=self.sleep)
+        for value in frames:
+            need(type(value) is dict and type(value.get('requestId')) is str
+                 and re.fullmatch(('ios-' if self.ios else '')+'[0-9a-f]{32}',value['requestId']) is not None)
+            validate(value,value['requestId'],self.pid,value.get('capturedEpochMs'))
+            need(candidate.instance in (None,value['instance']) and value['sequence']>candidate.sequence
+                 and value['capturedEpochMs']>=candidate.captured_epoch)
+            next_history=candidate._history_transition(value,require_effects=True,require_code_identity=True,
+                require_load_history=True,require_membership=True)
+            candidate._commit_history(value,next_history)
+        for key in ('instance','sequence','engines','active','retired','effect_rows','absent_effects',
+                    'effects_required','code_required','loads','membership','retired_managers','captured_epoch'):
+            setattr(self,key,deepcopy(getattr(candidate,key)))
+
+    def read(self, after_sequence, *, require_effects=False, require_code_identity=False, require_load_history=False, require_membership=False):
         try:
-            need(all(type(flag) is bool for flag in (require_effects, require_code_identity, require_load_history)))
+            need(all(type(flag) is bool for flag in (require_effects, require_code_identity, require_load_history, require_membership)))
             need(integer(after_sequence) and after_sequence >= self.sequence and self.guard() is not False)
             started = previous = self.monotonic()
             need(number(started, 0, 1e15))
@@ -219,68 +338,14 @@ class NativeScriptObservation:
                     need(integer(epoch, 1) and epoch >= requested)
                     validate(value, request, self.pid, epoch)
                     need(self.instance in (None, value['instance']) and value['sequence'] > after_sequence
-                         and value['requestedEpochMs'] >= requested)
-                    source = value['source']
-                    loaded = source.get('loadSourceVersion') == 1
-                    need(not (require_load_history or self.loads is not None) or loaded)
-                    next_loads = source['loads'] if loaded else None
-                    if next_loads is not None and self.loads is not None:
-                        need(next_loads['instance'] == self.loads['instance']
-                             and next_loads['sequence'] >= self.loads['sequence']
-                             and next_loads['events'][:len(self.loads['events'])] == self.loads['events'])
-                    need(not (require_effects or self.effects_required) or source.get('effectSourceVersion') == 1)
-                    identified = source.get('sourceIdentityVersion') == 1
-                    need(not (require_code_identity or self.code_required) or identified)
-                    next_effects, absent = None, None
-                    if source.get('effectSourceVersion') == 1:
-                        next_effects = {row['id']: row for row in source['effects']['entities']}
-                        absent = set(source['effects']['absentIds'])
-                        need(self.absent_effects <= absent and not self.absent_effects & set(next_effects)
-                             and set(self.effect_rows) <= set(next_effects) | absent)
-                        for identifier, row in next_effects.items():
-                            old = self.effect_rows.get(identifier)
-                            if old is not None:
-                                need(row['name'] == old['name'] and row['type'] == old['type']
-                                     and row['hostType'] == old['hostType']
-                                     and row['lastEditedEpochUs'] >= old['lastEditedEpochUs'])
-                                if row['lastEditedEpochUs'] == old['lastEditedEpochUs']: need(row == old)
-                        need(len(set(next_effects) | absent) <= 256)
-                    engines = {}
-                    for engine in value['source']['engines']:
-                        source = engine['required']
-                        instance = source['instance']
-                        need(instance not in self.retired)
-                        old = self.engines.get(instance)
-                        if old is not None:
-                            need(old['url'] == engine['url'] and source['sequence'] >= old['sequence'])
-                            if old.get('code',{}).get('submitted'):
-                                need(identified and engine['code']==old['code'])
-                            modules = {m['url']: m for m in source['modules']}
-                            for module in old['modules']:
-                                need(module['url'] in modules and modules[module['url']]['sequence'] >= module['sequence']
-                                     and modules[module['url']]['capturedEpochMs'] >= module['capturedEpochMs'])
-                            previous_modules = {m['url']: m for m in old['modules']}
-                            for module in source['modules']:
-                                previous_module = previous_modules.get(module['url'])
-                                if previous_module is not None and module['sequence'] == previous_module['sequence']:
-                                    need(module == previous_module)
-                                else:
-                                    need(module['sequence'] > old['sequence'])
-                        engines[instance] = dict(url=engine['url'], sequence=source['sequence'], modules=deepcopy(source['modules']))
-                        if identified: engines[instance]['code']=deepcopy(engine['code'])
+                         and value['requestedEpochMs'] >= requested and value['capturedEpochMs']>=self.captured_epoch)
+                    next_history=self._history_transition(value,require_effects=require_effects,
+                        require_code_identity=require_code_identity,require_load_history=require_load_history,
+                        require_membership=require_membership)
                     need(self.guard() is not False)
-                    need(len(set(self.engines) | set(engines)) <= 4096)
                     now = self.monotonic()
                     need(number(now, 0, 1e15) and now >= previous and now - started < 5)
-                    self.retired |= self.active - set(engines)
-                    self.active = set(engines)
-                    self.engines.update(engines)
-                    if next_effects is not None:
-                        self.effect_rows, self.absent_effects = deepcopy(next_effects), absent
-                        self.effects_required = True
-                    self.code_required = self.code_required or identified
-                    if next_loads is not None: self.loads = deepcopy(next_loads)
-                    self.instance, self.sequence = value['instance'], value['sequence']
+                    self._commit_history(value,next_history)
                     return value
                 if attempt < 50: self.sleep(0.1)
         except Exception:

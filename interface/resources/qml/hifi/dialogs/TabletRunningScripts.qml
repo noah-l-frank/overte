@@ -50,6 +50,7 @@ Rectangle {
     Timer { interval: 1000; repeat: true; running: root.visible; onTriggered: root.developerMenuEnabled = MenuInterface.isOptionChecked("Developer Menu") }
     HifiControls.TouchUiMetrics { id: metrics }
     ColumnLayout {
+        id: scriptLayout
         anchors.fill: parent; anchors.margins: 12; spacing: 8
         Label { text: root.title; color: "white"; font.pixelSize: 22; Layout.fillWidth: true }
         Flow {

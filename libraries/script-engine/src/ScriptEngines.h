@@ -415,6 +415,9 @@ protected:
     QMultiHash<QUrl, ScriptManagerPointer> _scriptManagersHash;
     QSet<ScriptManagerPointer> _allKnownScriptManagers;
     QMutex _allScriptsMutex;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    quint64 _featureKnownScriptRevision {0};
+#endif
     ScriptsModel _scriptsModel;
     ScriptsModelFilter _scriptsModelFilter;
     std::atomic<bool> _isStopped { false };

@@ -20,6 +20,7 @@
 #include "../../tests/device/native/NormalScriptFileControls.h"
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../tests/device/native/ScriptFileUi.h"
+#include "../../tests/device/native/ScriptUiInventory.h"
 #endif
 
 namespace overte::ios {
@@ -146,6 +147,43 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
     const auto loginContext=_loginReader ? _loginReader() : overte::e2e::LoginUiContext();
     const auto audioContext = _audioReader ? _audioReader() : overte::e2e::AudioUiContext();
     const auto graphicsContext = _graphicsReader ? _graphicsReader() : overte::e2e::GraphicsUiContext();
+#endif
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // This separate passive walk includes hidden roots and actual retained
+    // objects. Input eligibility/modal suppression cannot manufacture absence.
+    overte::e2e::ScriptUiInventory scriptInventory;
+    QSet<QQuickItem*> surveyed;
+    bool inventoryComplete {hud != nullptr && hud->window() != nullptr};
+    std::function<void(QQuickItem*, int)> survey = [&](QQuickItem* node, int depth) {
+        if (!node || surveyed.contains(node) || !inventoryComplete) { return; }
+        if (depth > 128 || surveyed.size() >= 8192 || node->thread() != qApp->thread()) {
+            inventoryComplete=false;return;
+        }
+        surveyed.insert(node);
+        scriptInventory.visit(node);
+        if (node->objectName()=="RunningScripts"
+                || (node->objectName()=="nativeFileBrowser"
+                    && node->property("caption").toString()=="Open Script and Companion Files")) {
+            _scriptRoots.insert(node,node);
+        }
+        for (auto child:node->childItems()) { survey(child,depth+1); }
+    };
+    if (hud && hud->window()) { survey(hud->window()->contentItem(),0); }
+    else { survey(hud,0); }
+    if (tablet && tablet->window()) { survey(tablet->window()->contentItem(),0); }
+    else { survey(tablet,0); }
+    // QPointers remain owned until actual destruction, including objects which
+    // were removed from their visual parent while a callback is outstanding.
+    for (auto it=_scriptRoots.begin();it!=_scriptRoots.end();) {
+        if (!it.value()) { it=_scriptRoots.erase(it);continue; }
+        ++it;
+    }
+    const auto retainedRoots=_scriptRoots.values();
+    for (const auto& root:retainedRoots) { if (root) { survey(root,0); } }
+    if (_scriptRoots.size()>32 || _scriptObservationSequence>=9007199254740991LL) { inventoryComplete=false; }
+    auto scriptState=scriptInventory.observation(inventoryComplete);
+    scriptState["tabletPresent"]=tablet!=nullptr;
+    scriptState["tabletShown"]=tabletShown;
 #endif
     QHash<QString, Control> controls;
     int visited { 0 };
@@ -280,6 +318,9 @@ QJsonObject NormalUiInput::observe(QQuickItem* hud, QQuickItem* tablet, bool tab
         { "tabletShown", tabletShown }, { "ready", !ambiguous && hud && hud->window() }, { "controls", observed } };
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     result["featureControlsVersion"] = 1;
+    result["scriptObservationVersion"]=1;
+    result["scriptSourceSequence"]=++_scriptObservationSequence;
+    result["scriptInventory"]=scriptState;
     result["createControlsVersion"]=1;result["createGeneration"]=_loginGeneration;
     result["chatControlsVersion"]=1;result["chatGeneration"]=_loginGeneration;
     result["fileControlsVersion"] = 1;

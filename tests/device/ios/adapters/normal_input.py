@@ -7,6 +7,7 @@ join is deliberately not a cryptographic association with installed code.
 """
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
+from copy import deepcopy
 import base64
 import json
 import math
@@ -62,6 +63,15 @@ def observation(value, pid, now_ms=None):
         if type(value['featureControlsVersion']) is not int or value['featureControlsVersion'] != 1:
             raise NativeUIError('Native iOS feature control version is invalid')
         fields.add('featureControlsVersion')
+    if type(value) is dict and 'scriptObservationVersion' in value:
+        from adapters.script_ui_inventory import validate as validate_script_inventory
+        if (type(value['scriptObservationVersion']) is not int or value['scriptObservationVersion'] != 1
+                or not _integer(value.get('scriptSourceSequence'), 1)):
+            raise NativeUIError('Original iOS Script observation version or cursor is invalid')
+        validate_script_inventory(value.get('scriptInventory'))
+        if value['scriptInventory']['tabletShown'] != value.get('tabletShown'):
+            raise NativeUIError('Original Script inventory and tablet visibility disagree')
+        fields |= {'scriptObservationVersion', 'scriptSourceSequence', 'scriptInventory'}
     if type(value) is dict and 'fileControlsVersion' in value:
         if type(value['fileControlsVersion']) is not int or value['fileControlsVersion'] != 1:
             raise NativeUIError('Native iOS file control version is invalid')
@@ -168,6 +178,7 @@ class NativeInput:
         self.observe_process, self.monotonic, self.sleep = observe_process, monotonic, sleep
         self.process, self.instance = None, None
         self.last_clock = None
+        self.last_receipt = None
 
     def _check(self):
         process = self.observe_process()
@@ -187,6 +198,7 @@ class NativeInput:
         return value
 
     def _request(self, operation, native=None):
+        self.last_receipt = None
         self._check()
         command_id = 'ios-' + uuid.uuid4().hex
         payload = {'schemaVersion': 1, 'commandId': command_id,
@@ -223,14 +235,19 @@ class NativeInput:
                         or type(receipt['schemaVersion']) is not int or receipt['schemaVersion'] != 1):
                     raise NativeUIError('Native iOS input receipt has an invalid schema')
                 self._check()
+                self.last_receipt = deepcopy(receipt)
                 return receipt[key]
             if self._now() >= deadline:
                 break
             self.sleep(0.1)
         raise NativeUIError('Native iOS input did not produce this request receipt')
 
-    def capture(self):
-        value = observation(self._request('observe'), self.process['pid'])
+    def capture(self, *, native_epoch_ms=None):
+        value = self._request('observe')
+        if native_epoch_ms is not None and not callable(native_epoch_ms):
+            raise NativeUIError('An independent original native clock reader is required')
+        epoch = None if native_epoch_ms is None else native_epoch_ms()
+        value = observation(value, self.process['pid'], epoch)
         if self.instance is not None and value['instance'] != self.instance:
             raise NativeUIError('Native iOS input instance changed')
         self.instance = value['instance']

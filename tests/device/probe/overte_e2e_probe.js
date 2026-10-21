@@ -179,7 +179,7 @@
         return command && command.schemaVersion === 1 && command.action === "feature-account-origin"
             && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
             && /^[0-9a-f]{32}$/.test(String(command.runId)) && /^[0-9a-f]{32}$/.test(String(command.instance))
-            && /^[0-9a-f]{64}$/.test(String(command.ownerToken)) && /^(stage|observe|release)$/.test(String(command.operation))
+            && /^[0-9a-f]{64}$/.test(String(command.ownerToken)) && /^(stage|observe|release|locate)$/.test(String(command.operation))
             && (command.operation !== "stage" || (typeof command.origin === "string" && command.origin.length <= 1024))
             && objectKeysMatch(command,command.operation === "stage"
                 ? ["schemaVersion","commandId","action","operation","runId","ownerToken","instance","origin"]
@@ -1228,7 +1228,7 @@
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "feature-script-files"
-                && /^(stage|observe|release)$/.test(String(command.operation))
+                && /^(stage|observe|release|locate)$/.test(String(command.operation))
                 && /^[0-9a-f]{32}$/.test(String(command.runId))
                 && /^[0-9a-f]{64}$/.test(String(command.ownerToken))
                 && objectKeysMatch(command, command.operation === "stage"
