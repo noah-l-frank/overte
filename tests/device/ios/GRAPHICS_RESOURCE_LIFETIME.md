@@ -110,11 +110,9 @@ substitute for this new packet's targeted checks.
 
 The combined observer/effect/Vulkan-owner/sample/preference/scene/history/
 background/restart/lifetime/Web source selection passes 148 no-build cases.
-All five selected project suites, registry and whitespace checks pass. A source
-review also confirms that the observer still needs current enabled-effect
-pixel qualification outside explicit enable phases (including initial enabled
-baselines and restart/restoration). That remains a whole-feature prerequisite,
-not a capability supplied by this resource-lifetime component.
+All five selected project suites, registry and whitespace checks pass. The later observer v3 now qualifies both enabled and disabled effect pixels
+throughout baseline, current phases and restart/restoration. Those comparisons
+are separate from this resource-lifetime component.
 
 ## Partial-setup cancellation, owner and record version 2
 
@@ -142,3 +140,30 @@ Fourteen new no-build cancellation cases and the 26 existing resource cases pass
 including strict old-PID death and new-source evidence for failed stage-1 setup.
 The full whole-owner failure/finalization composition remains in progress.
 Native compilation and real devices remain unexecuted.
+
+## Actual cached software-image boundary
+
+Source inspection confirms that HTML Web entities return their surface to
+`OffscreenQmlSurfaceCache`: `Application_Setup.cpp` pauses the surface, replaces
+the Web loader URL with `about:blank` and returns the surface to the cache.
+`OffscreenQmlSurfaceCache::release` retains that paused surface.
+`SharedObject::pause` sets the pause flag; it does not clear the software image.
+`RenderEventHandler` intentionally retains its paint allocation between renders.
+The instrumentation conservatively preserves actual scope leases on that image.
+Consequently, scene removal and a blank replacement must not be assumed to free
+all retained software pixels. The synthetic SDK's immediate release model cannot
+qualify this actual native cache behavior.
+
+The full finalizer therefore still needs a process-retirement composition:
+both roles observe actual original-world restoration before the owned stop,
+then independently prove the old numeric PID absent and a fresh complete quiet
+window before retiring its ownership. Original resource counters must retain
+their pre-exit values; no fictional post-death zero packet is allowed. This is
+adapter work, not authorization to change or clear product caches. The existing
+read-only DVT process source needs an original numeric-PID observation after
+stop; bundle absence alone is insufficient for that proof.
+
+The archived local RemoteXPC 5.15.3 API was read only as a source reference:
+`Services.startDVTService` exposes `deviceInfo.isRunningPid`. No service, server,
+device connection, installation or retired workstation laboratory was started.
+Live Proxmox installation and device behavior remain unverified.
