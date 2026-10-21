@@ -35,6 +35,13 @@ their actual clip counters/frame positions and change final joint poses.
 Quaternion sign reversal alone is not movement. A native call without loaded
 playback, a frozen clip, a frozen pose or a foreign resource fails.
 
+Compiled source profiles additionally require [actual consumed FBX provenance](ANIMATION_SOURCE.md)
+for every advancing original frame and the active current clip. Actual loaded
+URLs select the fixed twelve byte pins; another file at the correct URL fails.
+The resource/model identity and original consumption time remain unchanged
+throughout a playback generation. A cache hit may predate its input. Completed
+playback still checks its original data rather than borrowing a current cache.
+
 The actual [native Script caller](ANIMATION_CALLER.md) must match the original
 selected manager instance, physical assignment URL, load generation/time and
 submitted code. Its original invocation must follow the pre-input native

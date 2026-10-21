@@ -53,7 +53,10 @@ image's last avatar capture must precede the post-image configured-root request.
 PID/native birth/Rig agree. Actual lifecycle counters, animation history instance,
 call cursor, override generation and active state remain identical across the
 interval. Active clips must already be loaded before image capture, with the same
-actual resource/range/rate/loop/loaded-frame count afterwards. A restore, restart
+actual resource/range/rate/loop/loaded-frame count afterwards. Instrumented clips
+must also preserve their exact original consumed resource/model/FBX identity
+across the image; compiled Emote playback checks the fixed actual-byte pins.
+A restore, restart
 of the same clip, different override or background during capture fails. A later
 correct Rig sample cannot retroactively qualify an unrelated image.
 

@@ -10,6 +10,10 @@ host-journal retirement. See [Script](SCRIPT_FEATURE.md),
 This is source implementation and host verification only. Native instrumentation
 has not been compiled; no device, installation, build or Jenkins run was performed.
 The remaining eleven complete Android feature adapters are still missing.
+The [consumed animation data source](../../native/ANIMATION_SOURCE.md) now joins
+actual parser bytes and original retargeted model/resource identity to compiled
+Emote effects and image brackets. Wrong file content at the correct URL remains
+red. Passive all-clip readiness and complete Emote coordination remain pending.
 Pico and iOS are owned by separate sessions/worktrees; this session edits Phone only. Historical
 component notes below do not supersede this current status. In particular,
 earlier Graphics statements that full coordination remains pending are historical:

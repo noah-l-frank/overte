@@ -12,6 +12,7 @@ from urllib.parse import urlsplit,urlunsplit
 from adapters.native_feature_observation import exact,fresh,integer,need,validate as native_packet
 from adapters.native_animation_history import accept,clip_run,restored_after,moving_pose
 from adapters.native_animation_caller import selected as selected_caller
+from adapters.native_animation_source import controlled as controlled_animation
 from adapters.emote_source_profile import select_from_roots
 from feature_journeys.contract import typed_equal
 
@@ -105,6 +106,15 @@ def playback(group,native_barrier,*,pid,epoch):
     selected_caller(event,selected,after_epoch=native_barrier['capturedEpochMs'])
     original,frames=clip_run(current,event['request']['url'],after_event=floor,after_epoch=native_barrier['capturedEpochMs'])
     need(original==event)
+    if 'compilation' in selected:
+        originals=[controlled_animation(frame['clip'],urls[frame['clip']['url']],frame['capturedEpochMs']) for frame in frames]
+        # The clip retains the data actually copied into this generation. A
+        # cache hit may legitimately predate the input; it must not be retimed
+        # or replaced between original playback samples/current evaluation.
+        need(all(typed_equal(value,originals[0]) for value in originals))
+        if current['animation']['overrideActive']:
+            need(typed_equal(controlled_animation(current['animation']['clip'],urls[event['request']['url']],
+                current['capturedEpochMs']),originals[0]))
     state,restore,inactive=actual_state(current,event,urls,native_barrier)
     if restore is not None:selected_caller(restore,selected,after_epoch=event['caller']['invokedEpochMs'])
     return dict(emoteRigVersion=VERSION,kind='playback',group=deepcopy(group),barrier=deepcopy(native_barrier),

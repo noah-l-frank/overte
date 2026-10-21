@@ -20,6 +20,11 @@
 #include <DependencyManager.h>
 #include <hfm/HFM.h>
 #include <ResourceCache.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <QCoreApplication>
+#include <QUuid>
+#include <QVariantMap>
+#endif
 
 class Animation;
 
@@ -66,6 +71,9 @@ public:
     Q_INVOKABLE QVector<HFMAnimationFrame> getFrames() const;
 
     const QVector<HFMAnimationFrame>& getFramesReference() const;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureSourceForModel(const HFMModel* original) const;
+#endif
     
 protected:
     virtual void downloadFinished(const QByteArray& data) override;
@@ -77,6 +85,10 @@ protected slots:
 private:
     
     HFMModel::Pointer _hfmModel;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    const QString _featureInstance {QCoreApplication::arguments().contains("--testScript")
+        ? QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-') : QString()};
+#endif
 };
 
 /// Reads geometry in a worker thread.

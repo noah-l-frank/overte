@@ -10,6 +10,9 @@
 //
 
 #include "AnimationCache.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include "AnimationDataObservation.h"
+#endif
 
 #include <QRunnable>
 #include <QThreadPool>
@@ -138,6 +141,10 @@ void AnimationReader::run() {
                 animationMapping.insert("_phoneSkipUnusedAnimationCurveData", skipUnusedCurveData);
 #endif
                 hfmModel = FBXSerializer().read(_data, animationMapping, _url.path());
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                overte::e2e::animationDataObservation().record(hfmModel,_url,_data,
+                    animationMapping.value("_phoneSkipUnusedAnimationCurveData").toBool());
+#endif
 #if defined(ANDROID_APP_PHONE_INTERFACE)
                 if (phoneLoadingDiagnosticsEnabled() && hfmModel) {
                     PHONE_LOADING("phase=animation_digest url_hash=%s sha256=%s", loadingHash.constData(), animationPoseDigest(*hfmModel).constData());
@@ -197,6 +204,14 @@ QVector<HFMAnimationFrame> Animation::getFrames() const {
 const QVector<HFMAnimationFrame>& Animation::getFramesReference() const {
     return _hfmModel->animationFrames;
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap Animation::featureSourceForModel(const HFMModel* original) const {
+    if (_featureInstance.isEmpty() || !original || _hfmModel.get()!=original) { return {}; }
+    const auto model=overte::e2e::animationDataObservation().source(original);
+    return model.isEmpty() ? QVariantMap() : QVariantMap{{"animationSourceVersion",1},{"resourceInstance",_featureInstance},{"model",model}};
+}
+#endif
 
 void Animation::downloadFinished(const QByteArray& data) {
     PHONE_LOADING("phase=animation_queue url_hash=%s bytes=%d", QCryptographicHash::hash(_url.toEncoded(), QCryptographicHash::Md5).toHex().constData(), data.size());

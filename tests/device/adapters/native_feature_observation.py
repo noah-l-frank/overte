@@ -148,7 +148,7 @@ def validate(value, request, pid, epoch, *, require_animation=False, require_rec
         need('clip' not in animation or animation['overrideActive'])
         if 'clip' in animation:
             from adapters.native_animation_history import clip
-            clip(animation['clip'])
+            clip(animation['clip'],epoch=animation['capturedEpochMs'])
         if 'history' in animation:
             from adapters.native_animation_history import validate as history
             history(animation['history'],animation,value['capturedEpochMs'])

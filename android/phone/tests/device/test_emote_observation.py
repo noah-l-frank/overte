@@ -271,15 +271,30 @@ class EmoteObservationTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):scope.retire(lambda *_:None)
 
     def test_shared_default_vm_normal_input_and_original_image_brackets_compose_for_both_roles(self):
-        m=self.model;observe=m.code.mutate;caller=m.caller
-        def included(value):observe(value);included_source(value,m.roots.root)
-        m.code.mutate=included;m.caller=lambda kind,epoch:included_caller(caller(kind,epoch),m.roots.root)
+        m=self.model;m.use_included_source()
         with m.lock.held():
             owner,call=self.act('play',dict(name='Waving'));primary=m.scope(owner,1)
             value=primary.read(call['ticket']);actor=m.scope(owner,1,role='actor');remote=actor.read(call['ticket'])
             self.assertEqual('Waving',value['state']['animation']);self.assertEqual(value['state'],remote['state'])
             self.assertEqual(23,remote['effect']['proof']['event']['caller']['compilation']['scriptId'])
             self.assertEqual(2,m.world.counters['capture'])
+
+    def test_visible_moving_avatar_and_correct_loaded_url_cannot_hide_wrong_consumed_animation_bytes(self):
+        m=self.model;m.use_included_source();m.actual_asset_name='Cheering'
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));scope=m.scope(owner,1)
+            with self.assertRaises(NativeUIError):scope.read(call['ticket'])
+            self.assertIsNotNone(scope.store.read());self.assertNotEqual('complete',scope.state['phase'])
+            self.assertEqual(1,m.world.counters['capture'])
+            with self.assertRaises(NativeUIError):scope.retire(lambda *_:None)
+
+    def test_changed_consumed_resource_across_original_image_bracket_cannot_publish(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));scope=m.scope(owner,1)
+            m.on_capture=lambda:setattr(m,'actual_asset_name','Cheering')
+            with self.assertRaises(NativeUIError):scope.read(call['ticket'])
+            self.assertIsNotNone(scope.store.read());self.assertNotEqual('complete',scope.state['phase'])
 
 
 if __name__=='__main__':unittest.main()

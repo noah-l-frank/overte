@@ -158,6 +158,9 @@ class PhoneEmoteObservation:
             need('clip' in a and 'clip' in b and a['clip']['loadedFrames']>0 and b['clip']['loadedFrames']>0
                 and all(same(a['clip'][key],b['clip'][key]) for key in ('url','requestedUrl','firstFrame','lastFrame','framesPerSecond','loop','loadedFrames'))
                 and a['clip']['evaluatedEpochMs']<=image['capture']['source']['renderTrace']['recordedEpochMs'])
+            if 'animationSourceVersion' in a['clip'] or 'animationSourceVersion' in b['clip']:
+                need(a['clip'].get('animationSourceVersion')==b['clip'].get('animationSourceVersion')==1
+                    and a['clip'].get('assetSource') is not None and same(a['clip']['assetSource'],b['clip'].get('assetSource')))
         configuration=outcome['configuration']
         need(configuration['requestedEpochMs']>=native_after['capturedEpochMs'])
         controlled(configuration,image['avatarBefore']);controlled(configuration,image['avatarAfter'])

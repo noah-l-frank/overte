@@ -14,13 +14,23 @@ def original_origin(caller,origins):
         origins[key]=deepcopy(row);need(len(origins)<=4096)
 
 
-def clip(value):
+def clip(value,*,epoch=None):
+    sourced=type(value) is dict and 'animationSourceVersion' in value
     exact(value,{'url','requestedUrl','frame','firstFrame','lastFrame','framesPerSecond','loop',
-        'loadedFrames','evaluatedEpochMs','evaluationSequence'})
+        'loadedFrames','evaluatedEpochMs','evaluationSequence'}|({'animationSourceVersion','assetSource'} if sourced else set()))
     need(all(type(value[k]) is str and len(value[k])<=4096 and not any(ord(c)<32 for c in value[k]) for k in ('url','requestedUrl'))
          and all(number(value[k]) for k in ('frame','firstFrame','lastFrame','framesPerSecond'))
          and type(value['loop']) is bool and integer(value['loadedFrames'],0,1000000)
          and integer(value['evaluatedEpochMs']) and integer(value['evaluationSequence']))
+    if sourced:
+        need(type(value['animationSourceVersion']) is int and value['animationSourceVersion']==1)
+        source=value['assetSource']
+        if source is not None:
+            need(type(source) is dict)
+            from adapters.native_animation_source import validate as source_packet
+            source_packet(source,epoch if epoch is not None else max(value['evaluatedEpochMs'],source.get('consumedEpochMs',0)))
+            need(source['model']['frames']==value['loadedFrames'])
+            if value['evaluatedEpochMs']>0:need(source['consumedEpochMs']<=value['evaluatedEpochMs'])
 
 
 def validate(value,animation,epoch):
@@ -76,7 +86,7 @@ def validate(value,animation,epoch):
             indices.append(joint['index'])
         need(indices==sorted(set(indices)) and ('clip' not in frame or frame['overrideActive']))
         if 'clip' in frame:
-            clip(frame['clip']);need(frame['clip']['evaluatedEpochMs']<=frame['capturedEpochMs'])
+            clip(frame['clip'],epoch=frame['capturedEpochMs']);need(frame['clip']['evaluatedEpochMs']<=frame['capturedEpochMs'])
         previous,evaluation,generation=frame['capturedEpochMs'],frame['evaluationSequence'],frame['overrideSequence']
     return value
 

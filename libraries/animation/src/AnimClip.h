@@ -104,6 +104,8 @@ protected:
     qint64 _e2eEvaluatedEpochMs {0};
     quint64 _e2eEvaluationSequence {0};
     QString _e2eLoadedUrl;
+    QVariantMap _e2eLoadedSource;
+    qint64 _e2eConsumedEpochMs {0};
 #endif
 
     // no copies

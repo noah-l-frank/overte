@@ -16,12 +16,13 @@ from overte_phone_emote_effects import PhoneEmoteEffects
 from self_tests.test_native_feature_observation import Boundary as NativeBoundary
 from test_emote_inputs import Originals
 from test_emote_source_profile import included_source,included_caller
+from test_native_animation_source import source_for_clip
 
 
 class EffectsModel(Originals):
     def __init__(self,root):
         super().__init__(root);self.actual_name=None;self.events=[];self.actual_frames=[];self.generation=0;self.call_cursor=0
-        self.ignore_native=False;self.foreign=False
+        self.ignore_native=False;self.foreign=False;self.compiled_assets=False;self.actual_asset_name=None
         original=self.widgets.activate
         def activate(identifier,*,token):
             original(identifier,token=token)
@@ -30,6 +31,11 @@ class EffectsModel(Originals):
             if self.actual_name is not None and self.widgets.active=='':self.restore()
             else:self.start('Sit2' if name=='Sit' else name)
         self.widgets.activate=activate
+
+    def use_included_source(self):
+        observe=self.code.mutate;caller=self.caller;self.compiled_assets=True
+        def included(value):observe(value);included_source(value,self.roots.root)
+        self.code.mutate=included;self.caller=lambda kind,epoch:included_caller(caller(kind,epoch),self.roots.root)
 
     def _script_roots(self,*args,**kwargs):
         self.roots.epoch=self.epoch
@@ -59,6 +65,8 @@ class EffectsModel(Originals):
         if self.actual_name:
             frame['clip']=dict(self.events[-1]['request'],requestedUrl=self.actual_url,frame=min((self.epoch-self.started_at)*.06,120.),
                 loadedFrames=120,evaluatedEpochMs=self.epoch,evaluationSequence=self.sequence)
+            if self.compiled_assets:frame['clip'].update(animationSourceVersion=1,
+                assetSource=source_for_clip(frame['clip'],consumed=self.started_at,actual_name=self.actual_asset_name))
         self.actual_frames.append(frame)
         history=dict(historyVersion=2,instance='e'*32,available=True,callSequence=len(self.events),overrideSequence=self.generation,
             frameSequence=self.sequence,droppedEvents=max(0,len(self.events)-64),droppedFrames=max(0,len(self.actual_frames)-32),
@@ -344,9 +352,7 @@ class PhoneEmoteEffectTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):PhoneEmoteEffects(owner,current_source=other)
 
     def test_primary_and_actor_ordinary_input_effects_support_the_actual_shared_default_vm(self):
-        m=self.model;observe=m.code.mutate;caller=m.caller
-        def included(value):observe(value);included_source(value,m.roots.root)
-        m.code.mutate=included;m.caller=lambda kind,epoch:included_caller(caller(kind,epoch),m.roots.root)
+        m=self.model;m.use_included_source()
         with m.lock.held():
             owner,effect=self.act('sit');value=self.observe(owner,effect)
             actor=self.actor(owner);remote=actor.measure(actor.reference())
@@ -356,6 +362,19 @@ class PhoneEmoteEffectTests(unittest.TestCase):
             owner,effect=self.act('cancel');value=self.observe(owner,effect,play)
             actor=self.actor(owner);remote=actor.measure(actor.reference(),played=actor_play)
             self.assertTrue(value['state']['restoredBeforeNominalEnd']);self.assertEqual(value['state'],remote['state'])
+
+    def test_consumed_correct_button_url_and_moving_rig_with_foreign_file_bytes_cannot_publish_for_either_role(self):
+        for role in ('primary','actor'):
+            m=self.model;m.use_included_source();m.actual_asset_name='Cheering'
+            with self.subTest(role=role),patch('overte_phone_emote_inputs.PhoneScriptUI',side_effect=m.tablet),m.lock.held():
+                owner,_effect=self.act('play',dict(name='Waving'));owner.source.read();owner.source.read()
+                effect=PhoneEmoteEffects(owner) if role=='primary' else self.actor(owner)
+                with self.assertRaises(NativeUIError):effect.measure(effect.reference())
+            # Independent attempts need fresh durable ownership, not a retry
+            # over the failed journal. The next subcase uses a new test model.
+            if role=='primary':
+                temporary=tempfile.TemporaryDirectory(prefix='overte-emote-wrong-bytes-');self.addCleanup(temporary.cleanup)
+                self.model=EffectsModel(Path(temporary.name))
 
 
 if __name__=='__main__':unittest.main()

@@ -12,6 +12,7 @@ from adapters.normal_ui import NativeUIError
 from test_native_feature_observation import Boundary as Features
 from test_native_script_roots import RootBoundary
 from test_emote_source_profile import actual,pins,included_source,included_caller
+from test_native_animation_source import source_for_clip
 
 
 class RigPackets:
@@ -95,8 +96,37 @@ class IncludedRigPackets(RigPackets):
 
     def caller(self,kind,epoch):return included_caller(super().caller(kind,epoch),self.roots.root)
 
+    def frame(self,*args,**kwargs):
+        value=super().frame(*args,**kwargs)
+        if 'clip' in value:value['clip'].update(animationSourceVersion=1,assetSource=source_for_clip(value['clip']))
+        return value
+
 
 class EmoteRigTests(unittest.TestCase):
+    def test_included_playback_requires_original_bytes_for_all_measured_frames_and_current_clip(self):
+        for fault in ('missing','null','other-file','current-only','replaced-model','retimed-cache','skip-parser'):
+            model=IncludedRigPackets();barrier,group,_value=model.playing()
+            clips=[row['clip'] for row in group['native']['animation']['history']['frames'] if 'clip' in row]
+            clips.append(group['native']['animation']['clip'])
+            if fault=='current-only':clips=clips[-1:]
+            elif fault in ('replaced-model','retimed-cache'):clips=clips[1:2]
+            for clip in clips:
+                if fault=='missing':clip.pop('animationSourceVersion');clip.pop('assetSource')
+                elif fault=='null':clip['assetSource']=None
+                elif fault in ('other-file','current-only'):clip['assetSource']=source_for_clip(clip,actual_name='Cheering')
+                elif fault=='replaced-model':clip['assetSource']['model']['instance']='f'*32
+                elif fault=='retimed-cache':clip['assetSource']['consumedEpochMs']+=1
+                else:clip['assetSource']['model']['parser']='fbx-skip-unused-curves-v1'
+            with self.subTest(fault=fault),self.assertRaises(NativeUIError):playback(group,barrier,pid=31,epoch=20000)
+
+    def test_completed_included_playback_still_checks_original_loaded_data(self):
+        model=IncludedRigPackets();barrier=model.native(18800,baseline=True)
+        group=model.group(model.native(21010,restore_epoch=21000))
+        value=playback(group,barrier,pid=31,epoch=21010);self.assertEqual('idle',value['state']['animation'])
+        for row in group['native']['animation']['history']['frames']:
+            if 'clip' in row:row['clip']['assetSource']=source_for_clip(row['clip'],actual_name='Cheering')
+        with self.assertRaises(NativeUIError):playback(group,barrier,pid=31,epoch=21010)
+
     def test_normal_phone_included_code_joins_original_loaded_clip_and_its_actual_asset_directory(self):
         model=IncludedRigPackets();_barrier,group,value=model.playing()
         self.assertEqual('Waving',value['state']['animation'])
@@ -136,13 +166,13 @@ class EmoteRigTests(unittest.TestCase):
     def test_all_three_sit_variants_are_derived_from_actual_loaded_urls_without_a_requested_variant(self):
         for name in ('Sit1','Sit2','Sit3'):
             with self.subTest(name=name):
-                _barrier,_group,value=RigPackets(name).playing()
+                _barrier,_group,value=IncludedRigPackets(name).playing()
                 self.assertEqual('Sit',value['state']['animation']);self.assertEqual(name,value['state']['sit'])
     def test_every_actual_clip_name_is_reported_without_accepting_a_requested_name(self):
         from adapters.emote_rig_measurements import NAMES
         for name in NAMES:
             with self.subTest(name=name):
-                _barrier,_group,value=RigPackets(name).playing()
+                _barrier,_group,value=IncludedRigPackets(name).playing()
                 self.assertEqual('Sit' if name.startswith('Sit') else name,value['state']['animation'])
                 self.assertEqual(name if name.startswith('Sit') else 'none',value['state']['sit'])
                 self.assertNotIn('panel',value['state'])
