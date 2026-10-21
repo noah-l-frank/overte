@@ -1,17 +1,6 @@
 name: Direct browser client
 
 on:
-  pull_request:
-    paths:
-      - 'browser-direct-client/**'
-      - '!browser-direct-client/**/*.md'
-      - '!browser-direct-client/**/*.mdx'
-  push:
-    branches: ['main']
-    paths:
-      - 'browser-direct-client/**'
-      - '!browser-direct-client/**/*.md'
-      - '!browser-direct-client/**/*.mdx'
   workflow_dispatch:
 
 permissions:

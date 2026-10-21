@@ -1,11 +1,6 @@
 name: Browser client
 
 on:
-  pull_request:
-    paths:
-      - 'browser-client/**'
-      - '!browser-client/**/*.md'
-      - '!browser-client/**/*.mdx'
   workflow_dispatch:
     inputs:
       startup_diagnostics:

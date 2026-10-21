@@ -1,0 +1,1137 @@
+{
+  "schema": 1,
+  "control_inputs": [
+    "tests/requirements-host.txt"
+  ],
+  "suites": {
+    "documentation-contracts": {
+      "command": [
+        "python",
+        "tests/documentation-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/documentation-test.py",
+          "tests/check-documentation.py"
+        ],
+        "required": [
+          "tests/documentation-test.py",
+          "tests/check-documentation.py"
+        ]
+      }
+    },
+    "release-bundle": {
+      "command": [
+        "python",
+        "tools/release/tests/release-bundle-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/release/tests/release-bundle-test.py",
+          "tools/release/**",
+          "tools/release/build-release-bundle.py",
+          "tools/release/validate-release-bundle.py",
+          "tools/release/release_bundle.py"
+        ],
+        "required": [
+          "tools/release/tests/release-bundle-test.py",
+          "tools/release/build-release-bundle.py",
+          "tools/release/validate-release-bundle.py",
+          "tools/release/release_bundle.py"
+        ]
+      }
+    },
+    "project-coverage": {
+      "command": [
+        "python",
+        "tests/project-coverage-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "repository",
+        "inputs": [],
+        "required": [
+          "tests/project-coverage-test.py"
+        ]
+      }
+    },
+    "codeql-remediation": {
+      "command": [
+        "node",
+        "--test",
+        "tests/codeql-remediation-test.js"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "node",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/codeql-remediation-test.js",
+          "server-console/src/modules/open-url.js",
+          "server-console/src/modules/hf-app.js",
+          "unpublishedScripts/marketplace/camera-move/app.html",
+          "scripts/developer/utilities/render/photobooth/html/photobooth.html",
+          "scripts/developer/tests/sliderTest.html",
+          "domain-server/resources/web/content/js/content.js",
+          "domain-server/resources/web/assignment/js/ace/worker-javascript.js",
+          "scripts/system/html/users.html",
+          "scripts/system/create/entityProperties/html/js/entityProperties.js",
+          "scripts/communityScripts/libraries/vuetify/vuetify-v2.3.9.js",
+          "tools/jsdoc/hifi-jsdoc-template/static/scripts/vuetify.js",
+          "tools/jsdoc/hifi-jsdoc-template/static/scripts/vue_dev.js"
+        ],
+        "required": [
+          "tests/codeql-remediation-test.js"
+        ]
+      }
+    },
+    "javascript-behavior": {
+      "command": [
+        "node",
+        "tests/mocha/test/testVirtualBaton.js"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "node",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/mocha/test/testVirtualBaton.js",
+          "scripts/developer/libraries/virtualBaton.js",
+          "unpublishedScripts/DomainContent/Home/virtualBaton.js"
+        ],
+        "required": [
+          "tests/mocha/test/testVirtualBaton.js",
+          "scripts/developer/libraries/virtualBaton.js",
+          "unpublishedScripts/DomainContent/Home/virtualBaton.js"
+        ]
+      }
+    },
+    "device-control-plane-full": {
+      "command": [
+        "python",
+        "-I",
+        "-S",
+        "-B",
+        "tests/device/run_control_plane_tests.py",
+        "--profile",
+        "full",
+        "--require-qml",
+        "--junit",
+        "build/test-results/device-e2e-control-plane.xml"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "repository",
+        "inputs": [],
+        "required": [
+          "tests/device/run_control_plane_tests.py"
+        ]
+      }
+    },
+    "safe-landing-lifecycle": {
+      "command": [
+        "python",
+        "tests/safe-landing/test_safe_landing_lifecycle.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/safe-landing/test_safe_landing_lifecycle.py",
+          "tests/safe-landing/**",
+          "interface/src/octree/SafeLanding.*",
+          "tests/safe-landing/safe-landing-fixture.h",
+          "tests/safe-landing/safe-landing-driver.cpp",
+          "interface/src/octree/SafeLanding.h",
+          "interface/src/octree/SafeLanding.cpp"
+        ],
+        "required": [
+          "tests/safe-landing/test_safe_landing_lifecycle.py",
+          "tests/safe-landing/safe-landing-fixture.h",
+          "tests/safe-landing/safe-landing-driver.cpp",
+          "interface/src/octree/SafeLanding.h",
+          "interface/src/octree/SafeLanding.cpp"
+        ]
+      }
+    },
+    "embedded-web-policy": {
+      "command": [
+        "python",
+        "tests/device/contracts/web/test_embedded_web_policy.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/contracts/web/test_embedded_web_policy.py",
+          "tests/device/contracts/web/**",
+          "libraries/shared/src/**",
+          "tests/device/contracts/web/embedded-web-policy-test.cpp",
+          "libraries/shared/src/EmbeddedWebPolicy.h"
+        ],
+        "required": [
+          "tests/device/contracts/web/test_embedded_web_policy.py",
+          "tests/device/contracts/web/embedded-web-policy-test.cpp",
+          "libraries/shared/src/EmbeddedWebPolicy.h"
+        ]
+      }
+    },
+    "embedded-web-qml": {
+      "command": [
+        "python",
+        "tests/device/contracts/web/test_embedded_web_qml.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/contracts/web/test_embedded_web_qml.py",
+          "tests/device/contracts/web/**",
+          "interface/resources/qml/**",
+          "interface/resources/qml/controls/EmbeddedWebView.qml",
+          "tests/device/contracts/web/qml/tst_embedded_web_view.qml"
+        ],
+        "required": [
+          "tests/device/contracts/web/test_embedded_web_qml.py",
+          "interface/resources/qml/controls/EmbeddedWebView.qml",
+          "tests/device/contracts/web/qml/tst_embedded_web_view.qml"
+        ]
+      }
+    },
+    "web-entity-visibility": {
+      "command": [
+        "python",
+        "tests/device/contracts/web/test_web_entity_visibility.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "repository",
+        "inputs": [],
+        "required": [
+          "tests/device/contracts/web/test_web_entity_visibility.py",
+          "libraries/entities-renderer/src/RenderableWebEntityItem.cpp",
+          "libraries/entities-renderer/src/RenderableWebEntityItem.h",
+          "interface/src/Application_Setup.cpp",
+          "libraries/shared/src/EmbeddedWebPolicy.h",
+          "tests/device/contracts/web/web-entity-visibility-test.cpp"
+        ]
+      }
+    },
+    "places-native-qml": {
+      "command": [
+        "python",
+        "tests/device/contracts/places/test_places_qml.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/contracts/places/test_places_qml.py",
+          "tests/device/contracts/places/**",
+          "scripts/system/places/**",
+          "interface/resources/qml/**",
+          "scripts/system/places/PicoPlaces.qml",
+          "tests/device/contracts/places/tst_places.qml"
+        ],
+        "required": [
+          "tests/device/contracts/places/test_places_qml.py",
+          "scripts/system/places/PicoPlaces.qml",
+          "tests/device/contracts/places/tst_places.qml"
+        ]
+      }
+    },
+    "account-auth-dispatch": {
+      "command": [
+        "python",
+        "tests/device/contracts/lifecycle/test_account_auth_dispatch.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/contracts/lifecycle/test_account_auth_dispatch.py",
+          "tests/device/contracts/lifecycle/**",
+          "interface/src/Application_Setup.cpp",
+          "tests/device/contracts/lifecycle/account-auth-dispatch-test.cpp"
+        ],
+        "required": [
+          "tests/device/contracts/lifecycle/test_account_auth_dispatch.py",
+          "interface/src/Application_Setup.cpp",
+          "tests/device/contracts/lifecycle/account-auth-dispatch-test.cpp"
+        ]
+      }
+    },
+    "lod-preferences": {
+      "command": [
+        "python",
+        "tests/device/contracts/lifecycle/test_lod_preferences.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "repository",
+        "inputs": [],
+        "required": [
+          "tests/device/contracts/lifecycle/test_lod_preferences.py",
+          "interface/src/LODManager.cpp",
+          "interface/src/LODManager.h",
+          "libraries/octree/src/OctreeConstants.h",
+          "libraries/octree/src/OctreeUtils.cpp",
+          "libraries/shared/src/SettingHandle.h",
+          "tests/device/contracts/lifecycle/lod-preferences-test.cpp",
+          "tests/device/contracts/lifecycle/test_login_dialog_domain_receiver.py"
+        ]
+      }
+    },
+    "goto-dialog-script": {
+      "command": [
+        "python",
+        "tests/device/contracts/lifecycle/test_goto_dialog_script.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "repository",
+        "inputs": [],
+        "required": [
+          "tests/device/contracts/lifecycle/test_goto_dialog_script.py",
+          "interface/src/ui/DialogsManager.cpp",
+          "interface/src/ui/DialogsManager.h",
+          "interface/src/scripting/DialogsManagerScriptingInterface.cpp",
+          "interface/src/scripting/DialogsManagerScriptingInterface.h",
+          "scripts/system/goto.js"
+        ]
+      }
+    },
+    "recorded-voice-native": {
+      "command": [
+        "python",
+        "tests/device/contracts/audio/test_recorded_voice_test.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "repository",
+        "inputs": [],
+        "required": [
+          "tests/device/contracts/audio/test_recorded_voice_test.py",
+          "libraries/audio-client/src/AudioClient.cpp",
+          "libraries/audio-client/src/AudioClient.h",
+          "libraries/audio-client/src/PhoneVoiceTestBuffer.h",
+          "libraries/audio/src/AudioScriptingInterface.cpp",
+          "tests/device/contracts/audio/recorded-voice-native-fixture.cpp"
+        ]
+      }
+    },
+    "recorded-voice-qml": {
+      "command": [
+        "python",
+        "tests/device/contracts/audio/test_recorded_voice_qml.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/contracts/audio/test_recorded_voice_qml.py",
+          "tests/device/contracts/audio/**",
+          "interface/resources/qml/**",
+          "interface/resources/qml/hifi/audio/LoopbackAudio.qml",
+          "tests/device/contracts/audio/qml/tst_recorded_voice.qml"
+        ],
+        "required": [
+          "tests/device/contracts/audio/test_recorded_voice_qml.py",
+          "interface/resources/qml/hifi/audio/LoopbackAudio.qml",
+          "tests/device/contracts/audio/qml/tst_recorded_voice.qml"
+        ]
+      }
+    },
+    "snapshot-native": {
+      "command": [
+        "python",
+        "tests/device/contracts/snapshot/test_snapshot_native.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/contracts/snapshot/test_snapshot_native.py",
+          "tests/device/contracts/snapshot/**",
+          "interface/src/ui/Snapshot*",
+          "interface/src/scripting/WindowScriptingInterface.cpp",
+          "interface/src/Application.cpp",
+          "libraries/shared/src/**",
+          "libraries/networking/src/**",
+          "interface/src/ui/Snapshot.cpp",
+          "interface/src/ui/SnapshotAnimated.cpp",
+          "interface/src/ui/SnapshotAnimated.h",
+          "interface/src/ui/SnapshotCapture.h",
+          "interface/src/ui/SnapshotStorage.h",
+          "interface/src/ui/SnapshotUploader.h",
+          "interface/src/ui/SnapshotUploader.cpp",
+          "tests/device/contracts/snapshot/fixtures/GifCreator.zip"
+        ],
+        "required": [
+          "tests/device/contracts/snapshot/test_snapshot_native.py",
+          "interface/src/ui/Snapshot.cpp",
+          "interface/src/ui/SnapshotAnimated.cpp",
+          "interface/src/ui/SnapshotAnimated.h",
+          "interface/src/ui/SnapshotCapture.h",
+          "interface/src/ui/SnapshotStorage.h",
+          "interface/src/ui/SnapshotUploader.h",
+          "interface/src/ui/SnapshotUploader.cpp",
+          "interface/src/scripting/WindowScriptingInterface.cpp",
+          "interface/src/Application.cpp",
+          "tests/device/contracts/snapshot/fixtures/GifCreator.zip"
+        ]
+      }
+    },
+    "snapshot-qml": {
+      "command": [
+        "python",
+        "tests/device/contracts/snapshot/test_snapshot_qml.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/contracts/snapshot/test_snapshot_qml.py",
+          "tests/device/contracts/snapshot/**",
+          "scripts/system/snapshot/**",
+          "interface/resources/qml/**",
+          "scripts/system/snapshot/NativeSnapshotReview.qml",
+          "tests/device/contracts/snapshot/qml/tst_snapshot.qml"
+        ],
+        "required": [
+          "tests/device/contracts/snapshot/test_snapshot_qml.py",
+          "scripts/system/snapshot/NativeSnapshotReview.qml",
+          "tests/device/contracts/snapshot/qml/tst_snapshot.qml"
+        ]
+      }
+    },
+    "document-tree-native": {
+      "command": [
+        "python",
+        "tests/device/contracts/script_assets/test_document_tree_abi.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/contracts/script_assets/test_document_tree_abi.py",
+          "tests/device/contracts/script_assets/**",
+          "libraries/ui/src/**",
+          "libraries/ui/src/OffscreenUi.cpp",
+          "libraries/ui/src/FileDialogHelper.cpp",
+          "libraries/ui/src/FileDialogHelper.h",
+          "libraries/ui/src/ui/Logging.cpp",
+          "tests/device/contracts/script_assets/tree-abi.cpp"
+        ],
+        "required": [
+          "tests/device/contracts/script_assets/test_document_tree_abi.py",
+          "libraries/ui/src/OffscreenUi.cpp",
+          "libraries/ui/src/FileDialogHelper.cpp",
+          "libraries/ui/src/FileDialogHelper.h",
+          "libraries/ui/src/ui/Logging.cpp",
+          "tests/device/contracts/script_assets/tree-abi.cpp"
+        ]
+      }
+    },
+    "obj-material-native": {
+      "command": [
+        "python",
+        "tests/device/contracts/script_assets/test_obj_material_bundle.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/contracts/script_assets/test_obj_material_bundle.py",
+          "tests/device/contracts/script_assets/**",
+          "libraries/model-serializers/src/**",
+          "libraries/hfm/src/**",
+          "libraries/procedural/src/**",
+          "libraries/shared/src/**",
+          "libraries/image/src/**",
+          "libraries/model-serializers/src/OBJSerializer.cpp",
+          "libraries/model-serializers/src/OBJSerializer.h",
+          "libraries/hfm/src/hfm/HFM.h",
+          "libraries/procedural/src/procedural/ProceduralMaterialCache.cpp",
+          "tests/device/contracts/script_assets/obj-material.cpp",
+          "tests/device/contracts/script_assets/obj-material-services.h"
+        ],
+        "required": [
+          "tests/device/contracts/script_assets/test_obj_material_bundle.py",
+          "libraries/model-serializers/src/OBJSerializer.cpp",
+          "libraries/model-serializers/src/OBJSerializer.h",
+          "libraries/hfm/src/hfm/HFM.h",
+          "libraries/procedural/src/procedural/ProceduralMaterialCache.cpp",
+          "tests/device/contracts/script_assets/obj-material.cpp",
+          "tests/device/contracts/script_assets/obj-material-services.h"
+        ]
+      }
+    },
+    "native-registration": {
+      "command": [
+        "python",
+        "tests/native-registration-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/native-registration-test.py",
+          "tests/CMakeLists.txt",
+          "tests/*/CMakeLists.txt",
+          "cmake/macros/SetupHifiTestCase.cmake",
+          ".github/native-tests.json"
+        ],
+        "required": [
+          "tests/native-registration-test.py",
+          "tests/CMakeLists.txt",
+          "cmake/macros/SetupHifiTestCase.cmake",
+          ".github/native-tests.json"
+        ]
+      }
+    },
+    "device-result-schema": {
+      "command": [
+        "python",
+        "tests/run-unittest-suite.py",
+        "tests/device/schema"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/run-unittest-suite.py",
+          "tests/device/**"
+        ],
+        "required": [
+          "tests/run-unittest-suite.py"
+        ]
+      }
+    },
+    "device-jenkins": {
+      "command": [
+        "python",
+        "tests/run-unittest-suite.py",
+        "tests/device/jenkins"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/run-unittest-suite.py",
+          "tests/device/**"
+        ],
+        "required": [
+          "tests/run-unittest-suite.py"
+        ]
+      }
+    },
+    "desktop-input-protocol": {
+      "command": [
+        "python",
+        "tests/run-unittest-suite.py",
+        "tests/device/adapters/desktop_oculix",
+        "--pattern",
+        "test_wayland_libei_client.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/run-unittest-suite.py",
+          "tests/device/adapters/desktop_oculix/**",
+          "tests/device/adapters/desktop_oculix/test_wayland_libei_client.py",
+          "tests/device/adapters/desktop_oculix/wayland_libei_client.py"
+        ],
+        "required": [
+          "tests/run-unittest-suite.py",
+          "tests/device/adapters/desktop_oculix/test_wayland_libei_client.py",
+          "tests/device/adapters/desktop_oculix/wayland_libei_client.py"
+        ]
+      }
+    },
+    "performance-contracts": {
+      "command": [
+        "python",
+        "tests/run-unittest-suite.py",
+        "tests/performance/schema"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/run-unittest-suite.py",
+          "tests/performance/**",
+          "interface/src/metrics/**",
+          "interface/src/RefreshRateManager.*"
+        ],
+        "required": [
+          "tests/run-unittest-suite.py",
+          "tests/performance/schema/test_metrics.py",
+          "tests/performance/schema/test_native_metrics.py",
+          "tests/performance/schema/reference-fixture.json",
+          "tests/performance/schema/metrics.py",
+          "tests/performance/analyze.py",
+          "interface/src/metrics/NativeMetrics.cpp",
+          "interface/src/RefreshRateManager.cpp"
+        ]
+      }
+    },
+    "server-console-behavior": {
+      "command": [
+        "node",
+        "--test",
+        "server-console/test/open-url.test.js",
+        "server-console/test/file-tail.test.js",
+        "server-console/test/notification-compat.test.js"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "node",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "server-console/test/open-url.test.js",
+          "server-console/test/**",
+          "server-console/src/modules/**",
+          "server-console/package.json",
+          "server-console/package-lock.json",
+          "server-console/test/file-tail.test.js",
+          "server-console/test/notification-compat.test.js",
+          "server-console/src/modules/open-url.js",
+          "server-console/src/modules/file-tail.js",
+          "server-console/src/modules/hf-notifications.js"
+        ],
+        "required": [
+          "server-console/test/open-url.test.js",
+          "server-console/test/file-tail.test.js",
+          "server-console/test/notification-compat.test.js",
+          "server-console/src/modules/open-url.js",
+          "server-console/src/modules/file-tail.js",
+          "server-console/src/modules/hf-notifications.js"
+        ]
+      }
+    },
+    "shared-script-behavior": {
+      "command": [
+        "node",
+        "--test",
+        "tests/javascript/test/default-scripts.production.test.js",
+        "tests/javascript/test/messages.test.js",
+        "tests/javascript/test/mobile-action-bar.production.test.js",
+        "tests/javascript/test/mobile-chat.production.test.js",
+        "tests/javascript/test/mobile-chat.qml.test.js",
+        "tests/javascript/test/mobile-create.bridge.test.js",
+        "tests/javascript/test/mobile-create.editor.test.js",
+        "tests/javascript/test/mobile-create.qml.test.js",
+        "tests/javascript/test/mobile-create.voxel-native.test.js",
+        "tests/javascript/test/mobile-script-assets.qml.test.js",
+        "tests/javascript/test/mobile-tablet-apps.production.test.js",
+        "tests/javascript/test/mobile-web-reference.fixture.test.js",
+        "tests/javascript/test/phone-emote.production.test.js",
+        "tests/javascript/test/phone-graphics.production.test.js",
+        "tests/javascript/test/places.production.test.js",
+        "tests/javascript/test/portal.production.test.js",
+        "tests/javascript/test/quick-goto.production.test.js",
+        "tests/javascript/test/script.test.js",
+        "tests/javascript/test/signal.test.js",
+        "tests/javascript/test/snapshot.production.test.js",
+        "tests/javascript/test/tablet-users.production.test.js",
+        "tests/javascript/test/tablet.test.js"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "node",
+      "closure": {
+        "kind": "repository",
+        "inputs": [],
+        "required": [
+          "tests/javascript/test/default-scripts.production.test.js"
+        ]
+      }
+    },
+    "documentation": {
+      "command": [
+        "python",
+        "tests/check-documentation.py",
+        "--all"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "repository",
+        "inputs": [],
+        "required": [
+          "tests/check-documentation.py"
+        ]
+      }
+    },
+    "branch-policy": {
+      "command": [
+        "python",
+        "tests/branch-policy-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/branch-policy-test.py",
+          "tools/branch-policy/**",
+          ".github/branch-policy.json",
+          ".github/rulesets/retirements/archived-branches.json",
+          "tools/branch-policy/check.py",
+          "tools/branch-policy/drift.py"
+        ],
+        "required": [
+          "tests/branch-policy-test.py",
+          "tools/branch-policy/check.py",
+          "tools/branch-policy/drift.py",
+          ".github/branch-policy.json",
+          ".github/rulesets/retirements/archived-branches.json"
+        ]
+      }
+    },
+    "branch-name-guard": {
+      "command": [
+        "python",
+        "tests/branch-name-guard-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/branch-name-guard-test.py",
+          "tools/branch-policy/**",
+          ".github/branch-policy.json",
+          "tools/branch-policy/install.py",
+          "tools/branch-policy/guard.py",
+          "tools/branch-policy/check.py"
+        ],
+        "required": [
+          "tests/branch-name-guard-test.py",
+          "tools/branch-policy/install.py",
+          "tools/branch-policy/guard.py",
+          "tools/branch-policy/check.py",
+          ".github/branch-policy.json"
+        ]
+      }
+    },
+    "dependency-releases": {
+      "command": [
+        "python",
+        "tools/dependency-releases/test.py",
+        "PolicyTests.test_rejects_wrong_repository_mutable_tag_and_bad_digest",
+        "PolicyTests.test_rejects_duplicate_keys",
+        "PolicyTests.test_checksum_output_works_with_sha256sum",
+        "PolicyTests.test_duplicate_checksum_file_is_rejected",
+        "PolicyTests.test_inventory_accepts_only_current_dependencies",
+        "PolicyTests.test_inventory_missing_mutated_or_duplicate_current_release_fails",
+        "PolicyTests.test_orphan_old_tag_blocks_strict_inventory",
+        "PolicyTests.test_retirement_never_deletes_newer_or_unrelated_versions",
+        "PolicyTests.test_no_mutation_outside_fork",
+        "PolicyTests.test_failed_verification_cannot_delete",
+        "PolicyTests.test_failed_delete_restores_tag_protection",
+        "PolicyTests.test_corrupt_cached_download_is_not_restored",
+        "PolicyTests.test_isolated_restores_never_use_owner_cache"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "host-qt5-qt6",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/dependency-releases/**",
+          ".github/dependency-releases.json"
+        ],
+        "required": [
+          "tools/dependency-releases/test.py",
+          "tools/dependency-releases/check.py",
+          "tools/dependency-releases/retire.py",
+          "tools/dependency-releases/verify.py",
+          ".github/dependency-releases.json"
+        ]
+      }
+    },
+    "pr-ci-plan": {
+      "command": [
+        "python",
+        "tests/pr-ci-plan-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_plan.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_observer.py",
+          "tests/pr-ci-plan-test.py",
+          "tests/pr-ci-context-test.py",
+          "tests/pr-ci-run-test.py",
+          "tests/pr-ci-observer-test.py",
+          "tests/pr-ci-workflow-test.py",
+          ".github/pr-ci-suites.json",
+          ".github/pr-ci-dependencies.json",
+          ".github/workflows/**",
+          "tools/native-tests/check.py",
+          "tools/repository-checks/package_checks.py",
+          "tools/repository-checks/tool_dependencies.py",
+          "tools/repository-checks/codeql.py",
+          "tools/test-evidence/inputs.py",
+          "tools/repository-checks/pr_ci_transport.py",
+          "tests/pr-ci-cli-test.py",
+          "tests/pr-ci-transport-test.py"
+        ],
+        "required": [
+          "tests/pr-ci-plan-test.py"
+        ]
+      }
+    },
+    "pr-ci-context": {
+      "command": [
+        "python",
+        "tests/pr-ci-context-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_plan.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_observer.py",
+          "tests/pr-ci-plan-test.py",
+          "tests/pr-ci-context-test.py",
+          "tests/pr-ci-run-test.py",
+          "tests/pr-ci-observer-test.py",
+          "tests/pr-ci-workflow-test.py",
+          ".github/pr-ci-suites.json",
+          ".github/pr-ci-dependencies.json",
+          ".github/workflows/**",
+          "tools/native-tests/check.py",
+          "tools/repository-checks/package_checks.py",
+          "tools/repository-checks/tool_dependencies.py",
+          "tools/repository-checks/codeql.py",
+          "tools/test-evidence/inputs.py",
+          "tools/repository-checks/pr_ci_transport.py",
+          "tests/pr-ci-cli-test.py",
+          "tests/pr-ci-transport-test.py"
+        ],
+        "required": [
+          "tests/pr-ci-context-test.py"
+        ]
+      }
+    },
+    "pr-ci-run": {
+      "command": [
+        "python",
+        "tests/pr-ci-run-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_plan.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_observer.py",
+          "tests/pr-ci-plan-test.py",
+          "tests/pr-ci-context-test.py",
+          "tests/pr-ci-run-test.py",
+          "tests/pr-ci-observer-test.py",
+          "tests/pr-ci-workflow-test.py",
+          ".github/pr-ci-suites.json",
+          ".github/pr-ci-dependencies.json",
+          ".github/workflows/**",
+          "tools/native-tests/check.py",
+          "tools/repository-checks/package_checks.py",
+          "tools/repository-checks/tool_dependencies.py",
+          "tools/repository-checks/codeql.py",
+          "tools/test-evidence/inputs.py",
+          "tools/repository-checks/pr_ci_transport.py",
+          "tests/pr-ci-cli-test.py",
+          "tests/pr-ci-transport-test.py"
+        ],
+        "required": [
+          "tests/pr-ci-run-test.py"
+        ]
+      }
+    },
+    "pr-ci-observer": {
+      "command": [
+        "python",
+        "tests/pr-ci-observer-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_plan.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_observer.py",
+          "tests/pr-ci-plan-test.py",
+          "tests/pr-ci-context-test.py",
+          "tests/pr-ci-run-test.py",
+          "tests/pr-ci-observer-test.py",
+          "tests/pr-ci-workflow-test.py",
+          ".github/pr-ci-suites.json",
+          ".github/pr-ci-dependencies.json",
+          ".github/workflows/**",
+          "tools/native-tests/check.py",
+          "tools/repository-checks/package_checks.py",
+          "tools/repository-checks/tool_dependencies.py",
+          "tools/repository-checks/codeql.py",
+          "tools/test-evidence/inputs.py",
+          "tools/repository-checks/pr_ci_transport.py",
+          "tests/pr-ci-cli-test.py",
+          "tests/pr-ci-transport-test.py"
+        ],
+        "required": [
+          "tests/pr-ci-observer-test.py"
+        ]
+      }
+    },
+    "pr-ci-workflow": {
+      "command": [
+        "python",
+        "tests/pr-ci-workflow-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_plan.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_observer.py",
+          "tests/pr-ci-plan-test.py",
+          "tests/pr-ci-context-test.py",
+          "tests/pr-ci-run-test.py",
+          "tests/pr-ci-observer-test.py",
+          "tests/pr-ci-workflow-test.py",
+          ".github/pr-ci-suites.json",
+          ".github/pr-ci-dependencies.json",
+          ".github/workflows/**",
+          "tools/native-tests/check.py",
+          "tools/repository-checks/package_checks.py",
+          "tools/repository-checks/tool_dependencies.py",
+          "tools/repository-checks/codeql.py",
+          "tools/test-evidence/inputs.py",
+          "tools/repository-checks/pr_ci_transport.py",
+          "tests/pr-ci-cli-test.py",
+          "tests/pr-ci-transport-test.py"
+        ],
+        "required": [
+          "tests/pr-ci-workflow-test.py"
+        ]
+      }
+    },
+    "pr-ci-cli": {
+      "command": [
+        "python",
+        "tests/pr-ci-cli-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_plan.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_observer.py",
+          "tests/pr-ci-plan-test.py",
+          "tests/pr-ci-context-test.py",
+          "tests/pr-ci-run-test.py",
+          "tests/pr-ci-observer-test.py",
+          "tests/pr-ci-workflow-test.py",
+          ".github/pr-ci-suites.json",
+          ".github/pr-ci-dependencies.json",
+          ".github/workflows/**",
+          "tools/native-tests/check.py",
+          "tools/repository-checks/package_checks.py",
+          "tools/repository-checks/tool_dependencies.py",
+          "tools/repository-checks/codeql.py",
+          "tools/test-evidence/inputs.py",
+          "tools/repository-checks/pr_ci_transport.py",
+          "tests/pr-ci-cli-test.py",
+          "tests/pr-ci-transport-test.py"
+        ],
+        "required": [
+          "tests/pr-ci-cli-test.py"
+        ]
+      }
+    },
+    "pr-ci-transport": {
+      "command": [
+        "python",
+        "tests/pr-ci-transport-test.py"
+      ],
+      "layer": "quick",
+      "scope": "content",
+      "environment": "python",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tools/repository-checks/pr_ci.py",
+          "tools/repository-checks/pr_ci_context.py",
+          "tools/repository-checks/pr_ci_plan.py",
+          "tools/repository-checks/pr_ci_run.py",
+          "tools/repository-checks/pr_ci_observer.py",
+          "tests/pr-ci-plan-test.py",
+          "tests/pr-ci-context-test.py",
+          "tests/pr-ci-run-test.py",
+          "tests/pr-ci-observer-test.py",
+          "tests/pr-ci-workflow-test.py",
+          ".github/pr-ci-suites.json",
+          ".github/pr-ci-dependencies.json",
+          ".github/workflows/**",
+          "tools/native-tests/check.py",
+          "tools/repository-checks/package_checks.py",
+          "tools/repository-checks/tool_dependencies.py",
+          "tools/repository-checks/codeql.py",
+          "tools/test-evidence/inputs.py",
+          "tools/repository-checks/pr_ci_transport.py",
+          "tests/pr-ci-cli-test.py",
+          "tests/pr-ci-transport-test.py"
+        ],
+        "required": [
+          "tests/pr-ci-transport-test.py"
+        ]
+      }
+    },
+    "pillow-image-observation": {
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.device.self_tests.test_media_observation",
+        "tests.device.self_tests.test_movement_world_image",
+        "tests.device.self_tests.test_pico_fixture_image",
+        "tests.device.self_tests.test_pico_render_observation",
+        "tests.device.self_tests.test_android_observation"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "python-pillow",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/**",
+          "tests/requirements-host.txt"
+        ],
+        "required": [
+          "tests/requirements-host.txt",
+          "tests/device/self_tests/test_media_observation.py",
+          "tests/device/self_tests/test_movement_world_image.py",
+          "tests/device/self_tests/test_pico_fixture_image.py",
+          "tests/device/self_tests/test_pico_render_observation.py",
+          "tests/device/self_tests/test_android_observation.py"
+        ]
+      }
+    },
+    "pillow-animated-overlay": {
+      "command": [
+        "python",
+        "tests/device/contracts/test_animated_overlay_tint.py"
+      ],
+      "layer": "host",
+      "scope": "content",
+      "environment": "qt6-pillow",
+      "closure": {
+        "kind": "patterns",
+        "inputs": [
+          "tests/device/contracts/test_animated_overlay_tint.py",
+          "tests/device/contracts/animated-overlay-tint-test.cpp",
+          "interface/resources/qml/hifi/overlays/Overlay.qml",
+          "interface/resources/qml/hifi/overlays/ImageOverlay.qml",
+          "interface/resources/qml/hifi/overlays/ItemTint.qml",
+          "tests/requirements-host.txt"
+        ],
+        "required": [
+          "tests/device/contracts/test_animated_overlay_tint.py",
+          "tests/device/contracts/animated-overlay-tint-test.cpp",
+          "interface/resources/qml/hifi/overlays/Overlay.qml",
+          "interface/resources/qml/hifi/overlays/ImageOverlay.qml",
+          "interface/resources/qml/hifi/overlays/ItemTint.qml",
+          "tests/requirements-host.txt"
+        ]
+      }
+    }
+  }
+}

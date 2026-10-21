@@ -52,6 +52,7 @@ needs a native build, cache preparation, and staged gate activation.
 
 | Task | Start here |
 | --- | --- |
+| Select main pull-request work and activate its required CI check | [Pull-request CI](PR_CI.md) |
 | Understand components and source entry points | [Architecture](ARCHITECTURE.md) |
 | Build and host the browser client | [Browser client](browser-client/README.md) |
 | Select and run the relevant verification layer | [Project testing](../tests/PROJECT_TESTING.md) |

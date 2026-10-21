@@ -175,7 +175,7 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         prospective = next(g for g in self.generations if g['name'] == 'protected-shared-producer-v1')
         self.assertEqual(set(prospective['workflows']), set(PACKAGES.CONSUMER_WORKFLOW_PATHS))
         self.assertEqual(len(self.generations[:25]), 25)
-        self.assertEqual(len(self.generations), 28)
+        self.assertEqual(len(self.generations), 29)
         self.assertEqual(hashlib.sha256(json.dumps(self.generations[:26],sort_keys=True,
             separators=(',',':')).encode()).hexdigest(),
             '92e641b712f88bcb66808c51d8fe4b95b4cfb8834c0d39b3869adc4587fa7ec8')
@@ -293,6 +293,7 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
             'protected-producer-original-default-required-context-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
             'protected-producer-optional-parent-source-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
             'protected-producer-optional-leaf-common-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
+            'protected-producer-exact-parent-command-owners-v1':'7b0703d88d404f38c1b3dec92f77f03586c9144c',
         }
         self.assertIn(installed,codeql_by_generation)
         self.assertEqual(rows[installed][caller],blob((ROOT/caller).read_bytes()))
@@ -301,9 +302,10 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         self.assertIn(codeql.stat().st_mode & 0o777,(0o444,0o644))
         allowed_codeql={codeql_by_generation[installed]}
         if installed in {'protected-producer-original-default-required-context-v1',
-                         'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1'}:
+                         'protected-producer-optional-parent-source-v1','protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'}:
             self.assertEqual(rows[installed][caller],{'mode':'100644','type':'blob',
-                'sha':'22fe0d6d39d120f800099136d7d1ab5280d80b41'})
+                'sha':('5ab9ff4592635ad67cd7f542de9676702180592d' if installed == 'protected-producer-exact-parent-command-owners-v1'
+                       else '22fe0d6d39d120f800099136d7d1ab5280d80b41')})
             upload=ROOT/'tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml'
             self.assertFalse(upload.is_symlink())
             self.assertIn(upload.stat().st_mode & 0o777,(0o444,0o644))
@@ -312,10 +314,23 @@ class WorkflowGenerationTests(TemporaryGit, unittest.TestCase):
         self.assertIn(blob(codeql.read_bytes())['sha'],allowed_codeql)
         for name in ('protected-producer-original-default-v1','protected-producer-original-default-boolean-v1',
                      'protected-producer-original-default-required-context-v1',
-                     'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'):
+                     'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1', 'protected-producer-exact-parent-command-owners-v1'):
             self.assertEqual(PACKAGES.validate_tree_wiring(rows[name]),name)
             unknown=deepcopy(rows[name]);unknown[caller]['sha']='f'*40
             with self.subTest(name=name),self.assertRaises(ValueError):PACKAGES.validate_tree_wiring(unknown)
+
+    def test_exact_parent_catalog_successor_preserves_all_28_and_only_changes_repository(self):
+        self.assertEqual(len(self.generations),29)
+        self.assertEqual(hashlib.sha256(json.dumps(self.generations[:28],sort_keys=True,
+            separators=(',',':')).encode()).hexdigest(),"153e36b07fadbb45ca6fc449b03437627c661d51cfae23a923e7ffa9d33f7194")
+        prior,following=self.generations[-2:]
+        self.assertEqual(following['name'],'protected-producer-exact-parent-command-owners-v1')
+        self.assertEqual(set(prior['workflows']),set(following['workflows']))
+        self.assertEqual([p for p in prior['workflows'] if prior['workflows'][p]!=following['workflows'][p]],
+            ['.github/workflows/repository-checks.yml'])
+        self.assertEqual(following['workflows']['.github/workflows/repository-checks.yml'],
+            blob((ROOT/'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml').read_bytes()))
+        self.assertEqual(PACKAGES.validate_tree_wiring(following['workflows']),following['name'])
 
     def test_metadata_candidate_and_immutable_base_cannot_omit_or_alias_the_sixth_workflow(self):
         generation = next(row for row in self.generations if row['name'] == 'protected-producer-metadata-ci-v1')
