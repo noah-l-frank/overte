@@ -55,3 +55,26 @@ def scene(run, ticket, fixture_url):
     # A marker page is loaded through one registered ticket. It independently
     # polls /current for later marker bytes; no desired graphics state is sent.
     return dict(DataVersion=3,Entities=entities)
+
+
+LEGACY_PROFILE = 'legacy-v2'
+PICO_PROFILE = 'pico-stereo-cues-v1'
+PICO_RESOURCE = 'graphics-scene.pico-stereo.v1.json'
+
+
+def pico_scene(run,ticket,fixture_url):
+    """Explicit VR stimulus variant; default legacy geometry remains unchanged."""
+    from .graphics_surface_cues import RESOURCES
+    value=scene(run,ticket,fixture_url)
+    for entity in value['Entities']:
+        name=entity['name'].rsplit('-graphics-',1)[1]
+        if name=='zone':entity['haze']['hazeRange']=90
+        if name not in ('fog-board','reflected-color'):continue
+        surface='haze' if name=='fog-board' else 'reflection'
+        entity.update(type='Web',dpi=100,color=dict(red=255,green=255,blue=255),canCastShadow=False,
+            isVisibleInSecondaryCamera=name=='reflected-color',
+            sourceUrl=fixture_url+'tickets/'+ticket+'/'+RESOURCES[surface]+'.html')
+        entity['dimensions']=dict(x=14,y=6,z=.01) if name=='fog-board' else dict(x=4.6,y=2.3,z=.01)
+        if name=='fog-board':entity['position']=dict(x=-7,y=2,z=-28)
+        if name=='reflected-color':entity['rotation']=dict(x=0,y=1,z=0,w=0)
+    return value

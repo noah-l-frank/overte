@@ -188,7 +188,11 @@ class Client:
             # Do not print URLs, headers, account details or provider exceptions.
             raise ValueError('Owned feature fixture transport failed') from error
 
-    def register(self, area):
+    def register(self, area, *, graphics_profile=None):
+        if graphics_profile is not None:
+            from .graphics_resources import profile_name
+            profile_name(graphics_profile)
+            if area!='graphics':raise ValueError('Graphics fixture profile belongs to another area')
         if getattr(self,'run',None) is not None and not getattr(self,'closed',False):
             raise ValueError('An existing owned fixture run must close first')
         if area=='scripts':
@@ -224,11 +228,12 @@ class Client:
                     or provider['internalErrors']!=0):raise ValueError('Required account provider is unavailable')
             self.account_instance=identifier(provider['instance'])
             self.account_sequence=self.account_epoch=0
-        result = self.request('/runs', {'area': area})
+        result = self.request('/runs', {'area': area}|({'graphicsProfile':graphics_profile} if graphics_profile is not None else {}))
         exact(result, {'runId'}, 'feature fixture registration')
         self.run = identifier(result['runId'])
         self.area,self.closed=area,False
-        if area=='graphics':self.graphics_instance=self.graphics_previous=None
+        if area=='graphics':
+            self.graphics_instance=self.graphics_previous=None;self.graphics_profile=graphics_profile
         return self.run, self.url + '/runs/' + self.run + '/'
 
     def activate(self, ticket, verb='baseline', inputs=None):
@@ -282,6 +287,8 @@ class Client:
         value=self.request('/runs/'+self.run+'/graphics',graphics_nonce=nonce)
         validate_status(value,instance=self.graphics_instance,run=self.run,url=self.url,request=nonce,
             previous=self.graphics_previous)
+        if getattr(self,'graphics_profile',None) is not None and value.get('profile','legacy-v2')!=self.graphics_profile:
+            raise ValueError('Original Graphics fixture profile changed')
         if not -250<=time.time()*1000-value['capturedEpochMs']<=1500:
             raise ValueError('Original Graphics provider snapshot is stale')
         self.graphics_previous=copy.deepcopy(value)

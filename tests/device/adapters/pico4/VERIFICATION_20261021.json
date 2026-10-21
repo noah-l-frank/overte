@@ -897,5 +897,41 @@
       }
     ],
     "remaining": "Implement separately versioned original Haze/reflection surface identity and UI visibility proof for open-page checkpoints; legacy photometry is a closed-tablet prerequisite only."
+  },
+  "graphicsSurfaceStimulusPacket": {
+    "contracts": [
+      "feature-graphics-resources v2 (reads v1/v2)",
+      "feature-graphics-world-surface-stimulus v1"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_graphics_surface_resources self_tests.test_graphics_surface_cues self_tests.test_graphics_resources (from tests/device)",
+        "tests": 32,
+        "durationSeconds": 13.725,
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test suite-runner --test coverage-matrix",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 57.84,
+        "junit": "graphics-cue-stimulus-final.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 5.91,
+        "junit": "graphics-cue-stimulus-project.xml"
+      }
+    ],
+    "repairedFailures": [
+      "The new page initially assumed run/area fields absent from the existing /current response; it now validates the actual ticket-only envelope.",
+      "New flat resources initially reached the general retired-run lookup and returned 400; routing now uses the existing Graphics ownership handler and returns 404 after retirement."
+    ],
+    "remaining": "This is stimulus only. Original per-eye surface decoding and open-tablet composition proof remain required before profile activation or a full Graphics capability."
   }
 }

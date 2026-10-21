@@ -11,11 +11,38 @@ import time
 from urllib.parse import urlsplit
 
 from .contract import exact,identifier,typed_equal
-from .graphics_fixture import scene
+from .graphics_fixture import scene,pico_scene,LEGACY_PROFILE,PICO_PROFILE,PICO_RESOURCE
+from .graphics_surface_cues import RESOURCES as CUE_RESOURCES,png_bytes as cue_png,document as cue_document
 from .script_fixture import authority
 
-VERSION=1
+VERSION=2
+READY_VERSION=1
 RESOURCE='graphics-scene.v1.json'
+
+
+ALL_RESOURCES={RESOURCE,PICO_RESOURCE}|{stem+suffix for stem in CUE_RESOURCES.values() for suffix in ('.html','.png')}
+
+
+def profile_name(value):
+    if type(value) is not str or value not in (LEGACY_PROFILE,PICO_PROFILE):raise ValueError('Unknown owned Graphics fixture profile')
+    return value
+
+
+def resource_body(profile,run,ticket,scene_ticket,url,resource):
+    profile_name(profile);identifier(run);identifier(ticket);identifier(scene_ticket)
+    root=url+'/runs/'+run+'/'
+    if profile==LEGACY_PROFILE:
+        if resource!=RESOURCE or ticket!=scene_ticket:raise ValueError('Foreign legacy Graphics resource')
+        value=scene(run,scene_ticket,root)
+    elif resource==PICO_RESOURCE:
+        if ticket!=scene_ticket:raise ValueError('Foreign Pico Graphics scene ticket')
+        value=pico_scene(run,scene_ticket,root)
+    else:
+        for surface,stem in CUE_RESOURCES.items():
+            if resource==stem+'.png':return cue_png(run,ticket,surface)
+            if resource==stem+'.html' and ticket==scene_ticket:return cue_document(run,scene_ticket,root,surface)
+        raise ValueError('Foreign Pico Graphics surface resource')
+    return json.dumps(value,sort_keys=True,separators=(',',':')).encode()
 
 
 def fixture_url(value):
@@ -46,21 +73,21 @@ class GraphicsResources:
 
     def ready(self):
         with self.lock:
-            return dict(graphicsProviderVersion=VERSION,instance=self.instance,fixtureUrl=self.url,
+            return dict(graphicsProviderVersion=READY_VERSION,instance=self.instance,fixtureUrl=self.url,
                 capturedEpochMs=self.epoch(),ready=self.valid and not self.failed and len(self.runs)<32,
                 activeRuns=sum(row['active'] for row in self.runs.values()),failedResponses=self.failed)
 
     def has_run(self,run):
         with self.lock:return run in self.runs
 
-    def provision(self,run):
-        identifier(run)
+    def provision(self,run,*,profile=LEGACY_PROFILE):
+        identifier(run);profile_name(profile)
         with self.lock:
             if (not self.valid or self.failed or run in self.runs or len(self.runs)>=32
                     or any(row['active'] for row in self.runs.values())):
                 raise ValueError('Graphics scene ownership is unavailable')
             self.epoch()
-            self.runs[run]=dict(active=True,ticket=None,sceneTicket=None,activations=[],responses=[])
+            self.runs[run]=dict(active=True,ticket=None,sceneTicket=None,activations=[],responses=[],profile=profile)
 
     def activate(self,run,ticket):
         identifier(ticket)
@@ -78,16 +105,20 @@ class GraphicsResources:
         identifier(request)
         with self.lock:
             row=self.runs[identifier(run)]
-            return dict(graphicsProviderVersion=VERSION,instance=self.instance,fixtureUrl=self.url,
+            original=deepcopy(row);profile=original.pop('profile')
+            packet=dict(graphicsProviderVersion=1 if profile==LEGACY_PROFILE else VERSION,instance=self.instance,fixtureUrl=self.url,
                 runId=run,requestId=request,capturedEpochMs=self.epoch(),healthy=self.valid and not self.failed,
-                failedResponses=self.failed,**deepcopy(row))
+                failedResponses=self.failed,**original)
+            if profile!=LEGACY_PROFILE:packet['profile']=profile
+            return packet
+
 
     def retire(self,run):
         with self.lock:
             row=self.runs[identifier(run)];self.epoch();row.update(active=False,ticket=None)
 
     @contextmanager
-    def response(self,run,ticket,*,request_authority,request_scheme):
+    def response(self,run,ticket,*,request_authority,request_scheme,resource=RESOURCE):
         identifier(run);identifier(ticket);authority(request_authority)
         parsed=urlsplit(self.url)
         if request_authority!=parsed.netloc or request_scheme!=parsed.scheme:
@@ -97,11 +128,12 @@ class GraphicsResources:
         with self.lock:
             row=self.runs.get(run)
             if (row is None or not row['active'] or not self.valid or self.failed
-                    or row['sceneTicket']!=ticket):
+                    or ticket not in {item['ticket'] for item in row['activations']}):
                 yield None;return
             if len(row['responses'])>=256:
                 self.valid=False;yield None;return
-            body=json.dumps(scene(run,ticket,self.url+'/runs/'+run+'/'),sort_keys=True,separators=(',',':')).encode()
+            try:body=resource_body(row['profile'],run,ticket,row['sceneTicket'],self.url,resource)
+            except ValueError:yield None;return
             started,response_id=self.epoch(),secrets.token_hex(16)
             writes=[]
             def actual_write(value):
@@ -119,20 +151,23 @@ class GraphicsResources:
                 self.failed+=1;raise
             else:
                 row['responses'].append(dict(sequence=len(row['responses'])+1,ticket=ticket,
-                    activeTicket=row['ticket'],resource=RESOURCE,requestAuthority=request_authority,
+                    activeTicket=row['ticket'],resource=resource,requestAuthority=request_authority,
                     requestScheme=request_scheme,startedEpochMs=started,completedEpochMs=completed,**writes[0]))
 
 
 def validate_status(value,*,instance,run,url,request,previous=None):
     identifier(instance);identifier(run);identifier(request);fixture_url(url)
+    version=value.get('graphicsProviderVersion') if type(value) is dict else None
     exact(value,{'graphicsProviderVersion','instance','fixtureUrl','runId','requestId','capturedEpochMs','healthy',
-        'failedResponses','active','ticket','sceneTicket','activations','responses'},'original Graphics provider status')
-    if (type(value['graphicsProviderVersion']) is not int or value['graphicsProviderVersion']!=VERSION
+        'failedResponses','active','ticket','sceneTicket','activations','responses'}|({'profile'} if version==2 else set()),'original Graphics provider status')
+    if (type(value['graphicsProviderVersion']) is not int or value['graphicsProviderVersion'] not in (1,2)
             or value['instance']!=instance or value['fixtureUrl']!=url or value['runId']!=run or value['requestId']!=request
             or type(value['capturedEpochMs']) is not int or value['capturedEpochMs']<=0 or value['healthy'] is not True
             or type(value['failedResponses']) is not int or value['failedResponses']!=0 or type(value['active']) is not bool
             or any(type(value[k]) is not list or len(value[k])>256 for k in ('activations','responses'))):
         raise ValueError('Original Graphics provider is unavailable or changed')
+    profile=LEGACY_PROFILE if version==1 else profile_name(value['profile'])
+    if version==2 and profile!=PICO_PROFILE:raise ValueError('Unknown Graphics profile/version binding')
     tickets={};last=0
     for sequence,row in enumerate(value['activations'],1):
         exact(row,{'sequence','ticket','activatedEpochMs'},'original Graphics activation')
@@ -146,24 +181,25 @@ def validate_status(value,*,instance,run,url,request,previous=None):
     if value['sceneTicket']!=scene_ticket or value['ticket']!=active_ticket:
         raise ValueError('Graphics original scene or active challenge was relabeled')
     response_ids=set();last=0;parsed=urlsplit(url)
-    body=(json.dumps(scene(run,scene_ticket,url+'/runs/'+run+'/'),sort_keys=True,separators=(',',':')).encode()
-        if scene_ticket is not None else None)
     for sequence,row in enumerate(value['responses'],1):
         exact(row,{'sequence','ticket','activeTicket','resource','requestAuthority','requestScheme','startedEpochMs',
             'completedEpochMs','responseId','status','bytes','sha256'},'original Graphics response')
-        response=identifier(row['responseId'])
+        response=identifier(row['responseId']);identifier(row['ticket']);identifier(row['activeTicket'])
+        if scene_ticket is None or row['ticket'] not in tickets:raise ValueError('Unknown Graphics response ticket')
+        body=resource_body(profile,run,row['ticket'],scene_ticket,url,row['resource'])
         if (type(row['sequence']) is not int or row['sequence']!=sequence or response in response_ids or body is None
-                or row['ticket']!=scene_ticket or row['activeTicket'] not in tickets or row['resource']!=RESOURCE
+                or row['activeTicket'] not in tickets
                 or row['requestAuthority']!=parsed.netloc or row['requestScheme']!=parsed.scheme
                 or type(row['status']) is not int or not 100<=row['status']<=599
                 or type(row['bytes']) is not int or row['bytes']!=len(body) or row['sha256']!=hashlib.sha256(body).hexdigest()
                 or type(row['startedEpochMs']) is not int or type(row['completedEpochMs']) is not int
-                or not max(last,tickets[row['activeTicket']])<=row['startedEpochMs']<=row['completedEpochMs']<=value['capturedEpochMs']):
+                or not max(last,tickets[row['activeTicket']],tickets[row['ticket']])<=row['startedEpochMs']<=row['completedEpochMs']<=value['capturedEpochMs']):
             raise ValueError('Original Graphics scene response provenance is invalid')
         response_ids.add(response);last=row['completedEpochMs']
     if previous is not None:
         validate_status(previous,instance=instance,run=run,url=url,request=previous['requestId'])
-        if (value['requestId']==previous['requestId'] or value['capturedEpochMs']<previous['capturedEpochMs']
+        if (version!=previous['graphicsProviderVersion'] or value.get('profile')!=previous.get('profile')
+                or value['requestId']==previous['requestId'] or value['capturedEpochMs']<previous['capturedEpochMs']
                 or (not previous['active'] and value['active'])
                 or any(not typed_equal(value[k][:len(previous[k])],previous[k]) for k in ('activations','responses'))
                 or previous['sceneTicket'] not in (None,value['sceneTicket'])):

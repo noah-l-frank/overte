@@ -26,7 +26,8 @@ from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PR
 from feature_journeys.browser_fixture import BrowserResources
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
 from feature_journeys.script_fixture import ScriptResources
-from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE
+from feature_journeys.graphics_resources import GraphicsResources, RESOURCE as GRAPHICS_SCENE,ALL_RESOURCES as GRAPHICS_RESOURCES,profile_name as graphics_profile
+from feature_journeys.graphics_fixture import LEGACY_PROFILE as LEGACY_GRAPHICS_PROFILE
 
 PREFIX = '/feature-fixture/v1'
 
@@ -82,7 +83,7 @@ class Handler(BaseHTTPRequestHandler):
             observe_write(dict(status=actual_status,responseId=actual_id,bytes=written,sha256=hashlib.sha256(body).hexdigest()))
 
     def resource(self,run,ticket,name):
-        if name==GRAPHICS_SCENE:
+        if name in GRAPHICS_RESOURCES:
             provider=self.server.graphics_resources
             if provider is None:return self.send(503,{'error':'graphics-provider-unavailable'})
             with self.server.journal.lock:
@@ -92,9 +93,11 @@ class Handler(BaseHTTPRequestHandler):
             authorities=self.headers.get_all('Host',[])
             if len(authorities)!=1:raise ValueError('One original Graphics request authority is required')
             with provider.response(run,ticket,request_authority=authorities[0],
-                    request_scheme='https' if isinstance(self.connection,ssl.SSLSocket) else 'http') as response:
+                    request_scheme='https' if isinstance(self.connection,ssl.SSLSocket) else 'http',resource=name) as response:
                 if response is None:return self.send(404,{'error':'not-found'})
-                return self.send(response[0],response[1],response_id=response[2],observe_write=response[3])
+                return self.send(response[0],response[1],
+                    'application/json' if name.endswith('.json') else 'image/png' if name.endswith('.png') else 'text/html; charset=utf-8',
+                    response_id=response[2],observe_write=response[3])
         if name=='missing.js' and self.server.script_resources is not None and self.server.script_resources.has_run(run):
             self.connection.settimeout(2)
             authorities=self.headers.get_all('Host',[])
@@ -209,7 +212,7 @@ class Handler(BaseHTTPRequestHandler):
             # Flat resource paths have exactly five components.
             if self.command == 'GET' and len(parts) == 5 and parts[0] == 'runs' and parts[2] == 'tickets':
                 run, ticket = identifier(parts[1]), identifier(parts[3])
-                if parts[4]==GRAPHICS_SCENE:return self.resource(run,ticket,parts[4])
+                if parts[4] in GRAPHICS_RESOURCES:return self.resource(run,ticket,parts[4])
                 if parts[4]=='missing.js' and self.server.script_resources is not None and self.server.script_resources.has_run(run):
                     return self.resource(run,ticket,parts[4])
                 if not self.server.journal.has_ticket(run, ticket):
@@ -247,7 +250,9 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('Invalid bounded body')
                 body = json_document(self.rfile.read(size))
             if self.command == 'POST' and parts == ['runs'] and reader:
-                exact(body, {'area'}, 'fixture registration')
+                exact(body, {'area'}|({'graphicsProfile'} if type(body) is dict and 'graphicsProfile' in body else set()), 'fixture registration')
+                selected=graphics_profile(body.get('graphicsProfile',LEGACY_GRAPHICS_PROFILE))
+                if 'graphicsProfile' in body and body['area']!='graphics':raise ValueError('Graphics profile belongs to a different feature area')
                 if body['area']=='authentication' and self.server.account_provider is None:
                     return self.send(503,{'error':'account-provider-unavailable'})
                 if body['area']=='world-navigation' and self.server.navigation_resources is None:
@@ -256,7 +261,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(503,{'error':'script-provider-unavailable'})
                 run=self.server.journal.register(body['area'])
                 if body['area']=='graphics' and self.server.graphics_resources is not None:
-                    try:self.server.graphics_resources.provision(run)
+                    try:self.server.graphics_resources.provision(run,profile=selected)
                     except Exception:
                         self.server.journal.close(run)
                         raise

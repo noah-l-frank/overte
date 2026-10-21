@@ -61,7 +61,8 @@ REQUIRED = {
     'pico-script-feature-binding': 1,
     'pico-script-observer': 1,
 
-    'feature-graphics-resources': 1,
+    'feature-graphics-resources': 2,
+    'feature-graphics-world-surface-stimulus': 1,
     'native-script-fixture-location': 1,
     'native-script-membership': 1,
     'feature-adapter-fixture-access': 1,
