@@ -5390,6 +5390,99 @@ class OptionalLeafCommonTests(unittest.TestCase):
                     self.W.source_admission.SourceUnavailable('cold original B') if self.unavailable else None)):
             return self.W.optional_leaf_current({},self.environment,self.adapter)
 
+    def large_tree(self):
+        # Match the measured native response size without live API/history or
+        # a multi-megabyte repository fixture. Trailing JSON whitespace counts
+        # toward the genuine pipe bound just as the native inventory bytes do.
+        tree = {'sha':'e'*40,'truncated':False,'tree':[
+            {'path':f'source/input-{number:05d}.py','mode':'100644','type':'blob',
+             'sha':'f'*40,'size':1,'url':'https://api.github.com/'+A.PREFIX+'/git/blobs/'+'f'*40}
+            for number in range(11_779)]}
+        raw = json.dumps(tree,separators=(',',':')).encode()
+        self.assertLess(len(raw),3_073_657)
+        return raw + b' '*(3_073_657-len(raw))
+
+    def transport_context(self, raw, *, inspect=None, tree='e'*40):
+        import tempfile
+        value=json.loads(raw); commands=[]
+        real=subprocess.Popen
+        with tempfile.TemporaryDirectory(prefix='optional-leaf-tree-transport-') as temporary:
+            payload=Path(temporary)/'response.json'; payload.write_bytes(raw)
+            def child(command,**kwargs):
+                commands.append(command)
+                endpoint=command[-1]
+                self.assertTrue(endpoint.startswith(A.PREFIX+'/'))
+                if endpoint.startswith(A.PREFIX+'/git/commits/'):
+                    content=json.dumps({'sha':endpoint.rsplit('/',1)[1],
+                        'tree':{'sha':tree}}).encode()
+                elif endpoint==A.PREFIX+'/actions/workflows/330551824':
+                    content=b'{"id":330551824}'
+                else:
+                    # Use an actual child pipe, the unmodified request loop,
+                    # its real byte caps, and the unmodified strict JSON parser.
+                    return real([sys.executable,'-B','-c',
+                        'import pathlib,sys;sys.stdout.buffer.write(pathlib.Path(sys.argv[1]).read_bytes())',
+                        str(payload)],**kwargs)
+                return real([sys.executable,'-B','-c',
+                    'import sys;sys.stdout.buffer.write(bytes.fromhex(sys.argv[1]))',content.hex()],**kwargs)
+            api=A.GitHubReadOnly();adapter=A.Adapter(api)
+            adapter._integrated_current=lambda *args:(deepcopy(self.binding),deepcopy(self.refs))
+            def admitted(event,environment,source_api,root):
+                if inspect is not None: inspect(source_api)
+                # Retain the real source parser at the same transport boundary
+                # used by optional_leaf_import, including its closing repeat.
+                for revision in (self.default,self.source):
+                    result=self.W.source_admission.api_tree(source_api,revision)
+                    self.assertEqual(len(result),sum(row['type']!='tree' for row in value['tree']))
+                return deepcopy(self.admitted)
+            with patch.object(A.shutil,'which',return_value='/usr/bin/gh'), \
+                    patch.object(A.subprocess,'Popen',side_effect=child), \
+                    patch.object(self.W.source_admission,'optional_leaf_import',side_effect=admitted), \
+                    patch.object(self.W.source_admission,'actual_import_inventory',return_value={}), \
+                    patch.object(self.W.source_admission,'compatibility',return_value=None):
+                result=self.W.optional_leaf_current({},self.environment,adapter)
+        return result,commands
+
+    def test_native_sized_complete_tree_uses_existing_tree_transport_and_real_parser(self):
+        raw=self.large_tree()
+        self.assertEqual(len(raw),3_073_657)
+        inventory={row['path']:{key:row[key] for key in ('mode','type','sha')}
+            for row in json.loads(raw)['tree']}
+        self.assertGreater(len(P.inputs._canonical(inventory)),1_000_000)
+        with self.assertRaises(P.ProtocolError):P.digest(inventory)
+        for small in ({},{'source/input.py':self.W.source_admission.ordinary('f'*40)}):
+            self.assertEqual(self.W.source_admission.digest(small),P.digest(small))
+        def small_metadata(api):
+            self.assertEqual(api.get('actions/workflows/330551824'),{'id':330551824})
+        result,commands=self.transport_context(raw,inspect=small_metadata)
+        self.assertFalse(result['qualification_unavailable'])
+        self.assertEqual(result['identity']['original_base_inventory'],self.W.source_admission.digest(inventory))
+        self.assertEqual(len([row for row in commands if '/git/trees/' in row[-1]]),6)
+        self.assertTrue(all(row[-1]==A.PREFIX+'/git/trees/'+'e'*40+'?recursive=1'
+            for row in commands if '/git/trees/' in row[-1]))
+        for key in ('receipt','results','qualification','reusable','executed_suites'):
+            self.assertNotIn(key,result)
+
+    def test_large_tree_transport_does_not_bypass_rebound_truncated_or_entry_validation(self):
+        original=json.loads(self.large_tree())
+        for name in ('rebound','truncated','duplicate','mode','path','sha','entries'):
+            value=deepcopy(original)
+            if name=='rebound':value['sha']='1'*40
+            elif name=='truncated':value['truncated']=True
+            elif name=='duplicate':value['tree'].append(deepcopy(value['tree'][0]))
+            elif name=='mode':value['tree'][0]['mode']='040000'
+            elif name=='path':value['tree'][0]['path']='../outside'
+            elif name=='sha':value['tree'][0]['sha']='not-an-object'
+            else:value['tree']='not-an-inventory'
+            with self.subTest(change=name),self.assertRaises(ValueError):
+                self.transport_context(json.dumps(value).encode())
+
+    def test_non_tree_and_nonexact_tree_endpoints_retain_the_small_response_cap(self):
+        for endpoint in ('actions/runs/500','git/trees/'+'e'*40+'?recursive=2',
+                'git/trees/'+'e'*40+'?recursive=1&other=1'):
+            with self.subTest(endpoint=endpoint),self.assertRaisesRegex(ValueError,'response exceeds reviewed byte bound'):
+                self.transport_context(self.large_tree(),inspect=lambda api:api.get(endpoint))
+
     def test_current_normal_binding_and_import_authorities_are_both_required_without_B_or_E_claim(self):
         value=self.context()
         self.assertEqual(self.W.optional_leaf_outputs(value),{'common_unavailable':'true',
