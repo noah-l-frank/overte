@@ -142,6 +142,7 @@
         Test.saveObject(value, "world-render-observation.json");
     }
     var lastScriptSourceRequest = "";
+    var lastGraphicsSubjectRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
@@ -1198,6 +1199,23 @@
         }
         if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
+                && /^[0-9a-f]{32}$/.test(String(command.runId))
+                && command.action === "feature-graphics-subject-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastGraphicsSubjectRequest) { return; }
+            lastGraphicsSubjectRequest = command.commandId;
+            var subject = {schemaVersion: 1, requestId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureGraphicsSubjectObservation === "function") {
+                    var originalSubject = Test.featureGraphicsSubjectObservation(command);
+                    if (originalSubject && originalSubject.requestId === command.commandId) { subject = originalSubject; }
+                }
+            } catch (_graphicsSubjectError) { /* Missing originals remain unavailable. */ }
+            Test.saveObject(subject, "feature-graphics-subject.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
+                && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "feature-world-render-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action"])) {
             if (command.commandId !== lastWorldRenderRequest) {
@@ -1547,6 +1565,7 @@
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-world-render-observe"
+                || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-script-files")) {

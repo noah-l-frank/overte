@@ -96,6 +96,29 @@ class FeatureObservationTests(unittest.TestCase):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
 
+    def test_pico_graphics_subject_keeps_original_inventory_without_input(self):
+        from self_tests.test_native_graphics_subject import Boundary, RUN
+        source=Boundary();source.epoch=self.native.epoch_milliseconds(self.native.target)
+        source.source.update(subjectVersion=2,avatarPose=dict(feetPosition=[0,-.2,0],orientation=[0,0,0,1],modelScale=1.25))
+        old_send=source.send
+        def send(command):
+            source.epoch=self.native.epoch_milliseconds(self.native.target)
+            old_send(command);source.sample['processId']=int(self.fixture.fake.identity.split(':')[0])
+        native=self.adapter._native_feature_observer(self.native.target)
+        original_read=self.native.read_debug_app_file
+        def read(target,package,path,**options):
+            if path=='files/overte-e2e/feature-graphics-subject.json':return source.original()
+            return original_read(target,package,path,**options)
+        with patch.object(native,'send',side_effect=send),patch.object(self.adapter,'_native_feature_observer',return_value=native), \
+                patch.object(self.native,'read_debug_app_file',side_effect=read):
+            reader=self.adapter._graphics_subject_observer(self.native.target)
+            value=reader.read(RUN,require_avatar=True)
+            self.assertEqual(source.source,value['source']);self.assertEqual(1,len(source.commands))
+            self.assertEqual([],self.native.inputs)
+            self.native.digest='f'*64
+            with self.assertRaises(RuntimeError):reader.read(RUN,require_avatar=True)
+            self.assertEqual(1,len(source.commands))
+
     def test_pico_passive_account_source_preserves_binding_and_refuses_downgrade(self):
         source=self.native_feature_boundaries();original=source.mutate
         def observed(value):original(value);account_source(value)

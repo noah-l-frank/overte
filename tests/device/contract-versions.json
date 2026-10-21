@@ -16,6 +16,7 @@
     "web-dom-observation": {"current": 1, "reads": [1]},
     "feature-browser-resources": {"current": 1, "reads": [1]},
     "native-feature-observation": {"current": 1, "reads": [1]},
+    "native-graphics-subject": {"current": 2, "reads": [1, 2]},
     "independent-chat-receiver": {"current": 1, "reads": [1]},
     "owned-messages-mixer": {"current": 1, "reads": [1]},
     "native-chat-actor-files": {"current": 1, "reads": [1]},

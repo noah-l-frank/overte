@@ -151,3 +151,20 @@ runner default was not changed, and default whole-catalog timing is unqualified.
 The new nine-case adapter group and one-case shared-engine group both pass
 within their unchanged 120-second per-group budget. Native getter, input,
 readiness, common journey and quiet-window deadlines were not widened.
+
+## Graphics original subject source
+
+The neutral frozen subject v2 reader and original Test source are now selected
+with hashes in `GRAPHICS_SUBJECT_SELECTION.json`. The Pico factory uses its
+existing candidate/OpenXR/PID-start guards and original private probe channel.
+Only a run and fresh nonce cross the source boundary. Original properties of the
+seven derived UUIDs, bounded unowned spatial hashes, actual camera and avatar
+feet/orientation/scale are preserved; missing roots are unavailable. Native
+nonce history is bounded at 4096 per observer birth and never recaptures an old
+request. The existing probe and controlled fixture dispatch support this source.
+
+The full Graphics scene owner still requires actual VR framework entity
+ownership, callback/resource retirement and original scene-load observation.
+Do not copy Phone's moving-tablet-free scan or fixed-camera restoration checks.
+This source adds no feature capability. Native compilation and devices remain
+unverified.

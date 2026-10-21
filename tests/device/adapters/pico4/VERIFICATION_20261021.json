@@ -298,5 +298,34 @@
       "legacy trace cannot supply mandatory actual uniform evidence"
     ],
     "limits": "Uncompiled GL/GLES/default-off E2E sources. Original data/binding evidence does not establish fragment visibility, independent effect proof or physical headset output. Actual driver query overhead, native ownership and all GPU paths require later Proxmox qualification. No complete Graphics triple is advertised."
+  },
+  "graphicsSubjectPacket": {
+    "source": "Original seven-UUID entity inventory, bounded unowned scan, actual camera and avatar pose; neutral frozen v2 selection and actual candidate-bound Pico factory",
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "PYTHONPATH=tests/device python3 -m unittest self_tests.test_native_graphics_subject self_tests.test_native_feature_observation -q",
+        "tests": 46,
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/device/test_feature_observation.py FeatureObservationTests.test_pico_graphics_subject_keeps_original_inventory_without_input",
+        "tests": 1,
+        "status": "passed",
+        "earlierAttempts": "Two synthetic boundary setup failures corrected: overbroad file interception and source timestamp sampled before the actual request. No production guard relaxed."
+      },
+      {
+        "command": "node --check tests/device/probe/overte_e2e_probe.js",
+        "status": "passed"
+      },
+      {
+        "command": "Four selected no-build documentation/contracts/layout/coverage project suites",
+        "suites": 4,
+        "status": "passed",
+        "junit": "graphics-subject-project.xml"
+      }
+    ],
+    "completeFeatureCapabilityAdded": false
   }
 }

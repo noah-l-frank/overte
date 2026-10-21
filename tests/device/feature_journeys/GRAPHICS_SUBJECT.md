@@ -96,14 +96,23 @@ and publish no receipt. Recorded non-200 status stays non-200. These are resourc
 delivery facts only: they cannot prove that a client requested, loaded or rendered
 the subject. Actual native entity/view and same-frame image checks remain required.
 
-Native subject/view observations must independently supply original per-UUID
-presence/absence and camera facts. The existing
-[world-render source](../native/WORLD_RENDER_ACQUISITION.md) supplies original
-mono pixels on this branch; its stereo and complete same-frame execution/view
-qualification remain unavailable here. The frozen Phone branch has additional
-subject/view components that were not selected as Pico producers. Neither a
-fixture receipt nor those components establish preparation, foreign-state
-preservation, image-effect classification or full-area cleanup on its own.
+Native subject/view observations independently supply original per-UUID
+presence/absence, original camera facts and avatar feet/orientation/scale through
+`native-graphics-subject` v2. The Pico private source uses fresh nonce-only reads,
+original observer birth/PID/cursors and retained no-recapture nonce ownership.
+Its declared 128 m scan includes all local/domain/avatar entities, including VR
+framework UI. It is not a global inventory and does not silently exclude tablet,
+keyboard or pointer entities. A complete Pico scene restoration must distinguish
+those actual framework owners and observe their cleanup separately; the Phone
+whole-scan comparison cannot simply be reused for a moving VR tablet.
+
+The [world-render source](../native/WORLD_RENDER_ACQUISITION.md) supplies original
+mono v1 or opt-in stereo v2/v3/v4 acquisition. Pico v4 additionally binds actual
+used camera uniforms after late HMD pose correction to executing batches and
+same-frame OpenXR submission. A fixture receipt, source inventory or camera
+batch does not by itself establish preparation, preservation of foreign state,
+visible image effects or full-area cleanup. No complete Graphics capability is
+advertised. Native additions remain uncompiled and all devices untested.
 
 Retirement holds the same ownership lock as in-flight scene delivery, preserves
 original histories and prevents later scene replies. An independently read

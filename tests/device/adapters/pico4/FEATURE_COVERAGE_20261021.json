@@ -470,7 +470,9 @@
         "tests/device/native/WORLD_RENDER_ACQUISITION.md",
         "libraries/gpu/src/gpu/FeatureRenderTrace.h",
         "tests/device/self_tests/test_stereo_render_trace.py",
-        "tests/device/self_tests/test_stereo_camera_uniforms.py"
+        "tests/device/self_tests/test_stereo_camera_uniforms.py",
+        "tests/device/adapters/native_graphics_subject.py",
+        "tests/device/adapters/pico4/GRAPHICS_SUBJECT_SELECTION.json"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [

@@ -1,0 +1,24 @@
+{
+  "sourceCommit": "fe4684bf46585088370b3a328a738f147e670b97",
+  "selection": "Neutral original entity/view/feet source and reader only; no Phone UI or feature verdict. Native nonce retention additionally authored for Pico integration.",
+  "files": [
+    {
+      "source": "tests/device/adapters/native_graphics_subject.py",
+      "sourceSha256": "d1d83498d9e7092eceb126dbc7f40352dedba8e30c935274f1f79f37ff44a2a7"
+    },
+    {
+      "source": "tests/device/self_tests/test_native_graphics_subject.py",
+      "sourceSha256": "7c49aa32a1f0d3b6fb627069185d24e2dbf05350e1f8fe69aeb9ce93c2dd5980"
+    },
+    {
+      "source": "interface/src/scripting/TestScriptingInterface.cpp",
+      "sourceSha256": "d2d9368197796423a81c6c999f96ed219a883d6f12fc78848b5554e040dd79a4"
+    },
+    {
+      "source": "tests/device/probe/overte_e2e_probe.js",
+      "sourceSha256": "15d4a00f34dbb164090ff377e7ef2112b9e3391501a1ea409978091b4b672348"
+    }
+  ],
+  "nativeCompilation": "unverified",
+  "deviceQualification": "untested"
+}
