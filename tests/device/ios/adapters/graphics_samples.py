@@ -126,6 +126,62 @@ class IOSGraphicsSamples:
                          and any(same(event['receipt'],proof['retirement']) for event in owner.events))
         scope.bound();return deepcopy(scope.state)
 
+    @classmethod
+    def archive_owned(cls,value,*,path,run,role,stage,lock,binding,fixture_url,provider_instance,artifact_root,image_policy,originals):
+        """Pure original validation after exact metadata retirement.
+
+        The separate live archive_index retains its required current-index CAS.
+        Frozen copies cannot authorize input or make an old sample fresh.
+        """
+        from types import SimpleNamespace
+        from feature_journeys.graphics_resources import fixture_url as validate_url
+        need(isinstance(lock,ScriptSourceLock) and role in ('primary','actor') and type(stage) is int and stage in (0,1))
+        lock.assert_held();identifier(run);identifier(provider_instance);validate_url(fixture_url)
+        class Frozen(PrivateFeatureState):
+            def __init__(self,path,original):super().__init__(path);self.original=deepcopy(original)
+            def read(self):return deepcopy(self.original)
+            def write(self,*_args):need(False)
+            def discard(self,*_args):need(False)
+        scope=object.__new__(cls);scope.run,scope.role,scope.stage=run,role,stage
+        scope.lock,scope.root,scope.policy=lock,Path(artifact_root),deepcopy(image_policy)
+        need(scope.root.is_absolute() and scope.root.is_dir() and scope.root.resolve()==scope.root
+             and type(image_policy) is dict and image_policy.get('source')=='world-render-target')
+        PrivateFeatureState(scope.root/'graphics-archive-root-check')._parent()
+        scope.store=Frozen(path,value)
+        need(scope.store.path.name=='ios-graphics-'+role+'-'+str(stage)+'-samples.json'
+             and lock.path==scope.store.path.with_name('script-feature-sources.lock'))
+        scope.binding=deepcopy(context(binding));scope.pid=int(binding['processIdentity']);need(str(scope.pid)==binding['processIdentity'] and scope.pid>0)
+        scope.client=SimpleNamespace(url=fixture_url);scope.instance=provider_instance
+        scope.fixture=object.__new__(GraphicsFixtureReader)
+        scope.fixture.run,scope.fixture.fixture_url,scope.fixture.instance=run,fixture_url+'/runs/'+run+'/',provider_instance
+        scope.fixture.client=scope.client
+        scope.historical=scope.cleanup_only=True;scope.guard=lambda:True;scope.previous=deepcopy(value)
+        scope.state=scope.decode(value);need(scope.state['phase']=='ready')
+        need(type(originals) is dict and set(originals)=={row['requestId'] for row in scope.state['owners']})
+        retained=deepcopy(originals)
+        for item in retained.values():exact(item,{'sample','owner'});need(type(item['sample']) is dict and (item['owner'] is None or type(item['owner']) is dict))
+        # Both frozen sources retain their original expected paths and headers;
+        # only storage of the exact original copy changes, never its authority.
+        sample_path=scope.sample_store
+        scope.sample_store=lambda row:Frozen(sample_path(row).path,retained[row['requestId']]['sample'])
+        def owner(row):
+            path=scope.store.path.with_name('graphics-world-frame-'+role+'-'+str(stage)+'-'+row['requestId'][4:]+'.json')
+            return VulkanWorldFrameOwner(Frozen(path,retained[row['requestId']]['owner']),scope.root,scope.binding,
+                run,role,stage,row['requestId'],lambda *_:need(False),lambda:True,source_lock=lock)
+        scope.owner=owner;scope.bound();scope.ready_history()
+        for row in scope.state['owners']:
+            if row['phase']!='abandoned':scope.archive(row)
+            else:
+                _value,proof=scope.record(row);original_owner=scope.owner(row)
+                if original_owner.store.read() is None:
+                    need(proof['capture'] is None and proof['retirement'] is None);scope.absent_artifact(original_owner)
+                else:
+                    original_owner.verify_owned_artifact()
+                    need(same(original_owner.state['frame'],proof['capture'])
+                         and any(same(event['receipt'],proof['retirement']) for event in original_owner.events))
+        scope.bound();return deepcopy(scope.state)
+
+
     def envelope(self,state):
         return dict(iosGraphicsSamplesVersion=VERSION,runId=self.run,role=self.role,stage=self.stage,
             providerInstance=self.instance,fixtureUrl=self.client.url,artifactRoot=str(self.root),imagePolicy=self.policy,payload=pack([state]))

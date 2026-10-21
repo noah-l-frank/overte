@@ -4,6 +4,11 @@ Graphics is in progress and advertises no full feature capability. Scripts and
 Authentication remain the two complete source-level iOS areas. All new native
 code remains uncompiled and all devices remain untested.
 
+The [whole-run coordinator and exact remaining finalization boundary](GRAPHICS_COORDINATION.md)
+now have a passing unchanged fifteen-step host journey, including both role
+restart barriers and repeated fresh cleanup windows. The complete worker, final
+stop, paired process retirement and metadata integration remain unfinished.
+
 ## Original subject source
 
 The read-only `feature-graphics-subject-observe` query selects a run, never an
