@@ -27,6 +27,15 @@ with two independent native reads. It prevents matching filenames or stale/
 foreign paths from selecting a profile. Full original Rig/pose/image/actor/
 cleanup composition remains required; no complete Emote capability is enabled.
 
+The [durable original Emote source acquisition](EMOTE_SOURCES.md) now connects
+those roots, submitted source, actual Rig/pose history and original widgets to
+separate run/role/candidate-bound Phone journals. Its fresh reads and historical
+replay reject mixed ownership, lost results, reused cursors and stale final
+delivery. [Rig measurements](../../native/EMOTE_RIG_MEASUREMENTS.md) derive actual
+loaded playback and restoration without requested pose/name inputs. Full normal
+input causality, controlled avatar images, actor publication and whole-resource
+cleanup remain required. The complete Phone count remains three of fourteen.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

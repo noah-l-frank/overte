@@ -8,6 +8,13 @@ include earlier intermediate states. The other eleven Phone areas and all
 complete Pico/iOS areas remain missing; no native build or device qualification
 has been performed.
 
+Phone Emote now has [durable original per-role sources](adapters/android-phone/EMOTE_SOURCES.md)
+and [actual loaded/evaluated Rig playback and restoration joins](native/EMOTE_RIG_MEASUREMENTS.md).
+These retain original roots, submitted manager/code, actual Rig/pose history,
+widgets and fixture phase, with fresh independent reads and guarded historical
+replay. The complete normal-input/image/actor/lifetime/cleanup coordinator is
+still missing; this does not promote the feature's capability or device status.
+
 The [prepared native IME event](native/PREPARED_FIELD_COMMIT.md) and
 [native owner/private transport](native/PENDING_COMMIT_OWNER.md) retain original
 Qt event/context identity and verify fresh effects and actual pending inventory.
