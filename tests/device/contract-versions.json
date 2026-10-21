@@ -43,6 +43,7 @@
     "emote-source-profile": {"current": 1, "reads": [1]},
     "graphics-subject": {"current": 2, "reads": [2]},
     "native-graphics-subject": {"current": 2, "reads": [1, 2]},
+    "native-scene-loads": {"current": 1, "reads": [1]},
     "world-render-acquisition": {"current": 1, "reads": [1]},
     "world-render-storage": {"current": 1, "reads": [1]},
     "world-render-ownership": {"current": 1, "reads": [1]},

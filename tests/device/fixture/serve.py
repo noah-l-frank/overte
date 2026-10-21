@@ -501,6 +501,12 @@ class FixtureState:
             try:bundle_command(command)
             except (ValueError,RuntimeError):raise ValueError("invalid original iOS bundle read request") from None
             valid=True
+        elif action == "feature-scene-load-observe":
+            sys.path.insert(0,str(ROOT.parent))
+            from adapters.native_scene_loads import command as scene_load_command
+            try:scene_load_command(command,ios=True)
+            except (ValueError,RuntimeError):raise ValueError("invalid original scene load request") from None
+            valid=True
         elif action == "feature-graphics-subject-observe":
             sys.path.insert(0,str(ROOT.parent))
             from adapters.native_graphics_subject import command as graphics_subject_command

@@ -16,6 +16,9 @@
 #define hifi_Application_h
 
 #include <QtWidgets/QApplication>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+#include "../../tests/device/native/SceneLoadObservation.h"
+#endif
 #include <deque>
 #include <functional>
 #include <memory>
@@ -95,6 +98,9 @@ class Application : public QApplication,
     Q_OBJECT
 
 public:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    QVariantMap featureSceneLoadObservation() { return _featureSceneLoads->snapshot(_serverlessDomainRequestGeneration); }
+#endif
     Application(
         int& argc, char** argv,
         QElapsedTimer& startup_time
@@ -1037,6 +1043,9 @@ private:
     // It's set to true by Application::clearDomainOctreeData and is cleared by Application::setIsServerlessMode
     bool _waitForServerlessToBeSet { true };
     quint64 _serverlessDomainRequestGeneration { 0 };
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(Q_OS_IOS)
+    std::shared_ptr<overte::e2e::FeatureSceneLoads> _featureSceneLoads { std::make_shared<overte::e2e::FeatureSceneLoads>() };
+#endif
 #if defined(ANDROID_APP_PICO_INTERFACE)
     bool _picoServerlessLoadFailed { false };
 #endif

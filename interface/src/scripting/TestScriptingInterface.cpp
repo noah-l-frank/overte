@@ -438,6 +438,35 @@ QVariantMap TestScriptingInterface::featureAccountProbe(const QVariantMap& comma
     return result;
 }
 
+QVariantMap TestScriptingInterface::featureSceneLoadObservation(const QVariantMap& command) {
+#if defined(Q_OS_IOS)
+    if (QThread::currentThread() != thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&] { result=featureSceneLoadObservation(command); },Qt::BlockingQueuedConnection);
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto id=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || json.value("action").toString()!="feature-scene-load-observe"
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\Aios-[0-9a-f]{32}\\z").match(id).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
+    auto value=qApp->featureSceneLoadObservation();
+    value.insert("commandId",id);value.insert("runId",run);
+    value.insert("processId",QCoreApplication::applicationPid());
+    value.insert("capturedEpochMs",QDateTime::currentMSecsSinceEpoch());
+    return value;
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
+
 QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVariantMap& command) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;
@@ -1400,7 +1429,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
     if (filename == "feature-chat-observation.json" || filename == "feature-native-observation.json" || filename == "normal-feature-observation.json"
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
-            || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json"
+            || filename == "feature-process-presence.json" || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"

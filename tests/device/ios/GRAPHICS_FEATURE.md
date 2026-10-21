@@ -47,6 +47,13 @@ pointer, scrollbar and on-grid slider input. Read-only acquisition refuses all
 mutations. Actual window-generation changes remain in the original records;
 individual input recipes must pin the context after opening the tablet.
 
+The [original iOS scene-load ledger](../native/SCENE_LOAD_OBSERVATION.md)
+records actual local-file/ResourceRequest outcomes, current generations and
+retained owner-thread/viewpoint callbacks. The full runtime's existing native
+source factory reads this separate immutable original ledger. A current commit
+requires all traced leases to drain, including older replaced loads. Native
+input, scene, camera, provider and rendered evidence remain separate joins.
+
 ## Remaining whole-journey work
 
 The iOS Graphics coordinator must still compose normal generic Graphics/Go To/

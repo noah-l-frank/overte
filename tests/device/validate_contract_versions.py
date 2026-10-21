@@ -45,6 +45,7 @@ REQUIRED = {
     "world-render-receipt-cleanup": 1,
     "graphics-subject": 2,
     "native-graphics-subject": 2,
+    "native-scene-loads": 1,
     "native-script-code-identity": 1,
     "native-script-load-history": 1,
     "native-process-presence": 1,

@@ -14,6 +14,10 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _scene_load_observer(self,selector,*,read_only=True):
+        need(read_only is True)
+        return self._sources(selector)['observer'].scene_loads()
+
     def _graphics_subject_observer(self,selector,*,read_only=True):
         need(read_only is True)
         return self._sources(selector)['observer'].graphics_subject()
