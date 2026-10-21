@@ -1,4 +1,4 @@
-# Durable Phone Graphics original samples v2
+# Durable Phone Graphics original samples v3
 
 `PhoneGraphicsSamples` joins the existing original sources with a private
 role/process ledger and original PNG artifacts. It performs no normal product
@@ -61,6 +61,35 @@ A release/remove ACK alone cannot complete it. All measurement ownership must
 be gone before a ready sample can be returned. Changed birth/owner, outstanding
 callbacks, ignored removal, incomplete rows or leftover files retain a red attempt.
 
+## Rejected marker acquisitions
+
+Version 3 adds fully original rejected-marker frames and separate readiness
+retirement. A complete original capture whose pixels are ambiguous/stale/foreign
+remains a failed observation, represented by `GraphicsMarkerPending`. All other
+native/view/UI/trace/PNG checks must already have passed. Its complete original
+PNG is saved, native memory/callbacks and issued files retire independently, and
+freshness (including local elapsed-age floor) remains mandatory. Its original
+source packets/image/retirement remain in the pending record; no facts return.
+
+Only the same live object that completed those proofs may call
+`retire_marker_not_ready()`. A recreated reading journal, unknown capture,
+missing/partial file, changed context, incomplete cleanup or expired original
+cannot enter this path. It independently verifies the exact retained marker
+failure, original PNG/retirement, actual owner-journal absence and unchanged
+current active/provider phase. It preserves an immutable complete cursor/frame/
+actual-marker-observation record under `readiness` and returns to acquisition
+readiness. That state means ready to acquire, not product success. A subsequent
+read must acquire entirely new originals/frame/PNG. Up to 64 rejected-marker
+records are retained within the existing 256 capture/ledger limit. Rejected
+frames remain private diagnostics and can never become the current result or
+borrow a later ticket. Changed-ticket retirement retains any rejected original
+frame under its own original phase as well.
+
+The separate [bounded readiness wrapper](GRAPHICS_READINESS.md) composes this
+measurement-only path. It does not weaken the common image verifier: ambiguous,
+stale or foreign pixels remain failures there. Corrupt provenance, missing
+results and incomplete retirement cannot be retried as marker readiness.
+
 ## Interruption and archives
 
 A pending attempt stays `reading`, including its original cursors, capture nonce,
@@ -90,8 +119,8 @@ memory/file proofs, abandoned-file absence and both phase/provider observations.
 It returns scope/history data, never measured feature state. The next `read`
 still requires entirely new original sources/frame/PNG. Retirements are bounded
 at 32 and the ledger/capture sequence at 256, with a 20-second total attempt
-budget. Version 1 journals are refused without implicit upgrade or provenance
-reset; `phone-graphics-samples` now reads only version 2.
+budget. Version 1/2 journals are refused without implicit upgrade or provenance
+reset; `phone-graphics-samples` now reads only version 3.
 
 `archive(...)` validates historical originals and every retained original PNG
 without an adapter, SDK, native input, session repair or new current result.

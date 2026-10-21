@@ -141,6 +141,14 @@ metadata retirement. The 356-case combined Phone/Authentication regression
 passes. Independent role/GPU/image orchestration and complete fixture/Web
 retirement remain pending; no full Graphics capability is enabled.
 
+The [bounded original image-readiness wrapper](GRAPHICS_READINESS.md) now
+requires a new GPU frame after every rejected original marker. Source version 3
+retains complete immutable failed-frame/cursor/PNG/retirement history and refuses
+pending reconstruction. Sixteen focused cases and 99 combined source/effect/
+shared-evidence cases reject stale/foreign/cached results and incomplete cleanup.
+The complete independent Graphics coordinator and final fixture/Web lifetime
+retirement remain pending; no full Graphics capability is enabled.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

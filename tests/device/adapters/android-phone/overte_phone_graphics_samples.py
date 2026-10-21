@@ -16,12 +16,14 @@ import time
 from adapters.native_feature_observation import exact,fresh,integer,need,number,validate as native_packet
 from adapters.native_graphics_subject import validate as subject_packet
 from adapters.normal_feature_state import PrivateFeatureState,context
+from adapters.normal_ui import NativeUIError
 from adapters.owned_world_render import WorldRenderOwner
 from adapters.world_render_evidence import validate as capture_packet
 from feature_journeys.contract import arguments,identifier
 from feature_journeys.scenarios import VERSION as FEATURE_VERSION
 from feature_journeys.graphics_resources import validate_status
 from feature_journeys.witness import Client
+from feature_journeys.evidence import MarkerNotReady
 from overte_phone_graphics import validate as graphics_packet
 from overte_phone_graphics_images import PhoneGraphicsImages,record as image_record
 from overte_phone_graphics_measurements import compose
@@ -29,9 +31,13 @@ from overte_phone_script_files import validate as tablet_packet
 from overte_phone_script_history import pack,unpack,same
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=2
+VERSION=3
 CURSORS={'native','subject','graphics','tablet','capture','storage','inventory','provider'}
-FIELDS={'binding','phase','sequence','cursors','seenFrames','images','pending','frame','retirements'}
+FIELDS={'binding','phase','sequence','cursors','seenFrames','images','pending','frame','retirements','readiness'}
+
+
+class GraphicsMarkerPending(NativeUIError):
+    """A retained original acquisition lacks current marker pixels; no facts."""
 
 
 def restore_native(reader,previous):
@@ -130,7 +136,8 @@ class PhoneGraphicsSamples:
         _ui,_service,binding,self.guard,_installed=adapter.normal_feature_runtime(selector,read_only=True)
         self.previous=self.store.read()
         self.state=dict(binding=deepcopy(context(binding)),phase='ready',sequence=0,cursors={key:None for key in CURSORS},
-            seenFrames=[],images=[],pending=None,frame=None,retirements=[])
+            seenFrames=[],images=[],pending=None,frame=None,retirements=[],readiness=[])
+        self._marker_token=None
         if self.previous is not None:
             previous=self._decode(self.previous)
             need(same(previous['binding'],binding) and previous['phase']=='ready')
@@ -155,7 +162,8 @@ class PhoneGraphicsSamples:
              and type(state['seenFrames']) is list and len(state['seenFrames'])<=256
              and len(set(state['seenFrames']))==len(state['seenFrames'])
              and type(state['images']) is list and len(state['images'])<=256
-             and type(state['retirements']) is list and len(state['retirements'])<=32)
+             and type(state['retirements']) is list and len(state['retirements'])<=32
+             and type(state['readiness']) is list and len(state['readiness'])<=64)
         for frame in state['seenFrames']:identifier(frame)
         pid=int(state['binding']['processIdentity'].split(':')[0]);need(pid>0)
         cursors=state['cursors']
@@ -169,9 +177,11 @@ class PhoneGraphicsSamples:
                  and image['capture']['source']['renderTrace']['frameId'] in state['seenFrames'])
             names.add(image['name'])
         last_sequence=0
+        event_sequences=set()
         for item in state['retirements']:
-            exact(item,{'sequence','ticket','active','provider','cursors','measurement','abandonedImages'})
+            exact(item,{'sequence','ticket','active','provider','cursors','measurement','abandonedImages','markerFrame'})
             need(integer(item['sequence'],last_sequence+1,state['sequence']));last_sequence=item['sequence']
+            event_sequences.add(item['sequence'])
             identifier(item['ticket']);self._active(item['active']);need(item['ticket']!=item['active']['ticket'])
             packet=item['provider'];validate_status(packet,instance=self.provider_instance,run=self.run,
                 url=self.client.url,request=packet['requestId'])
@@ -182,30 +192,58 @@ class PhoneGraphicsSamples:
                 need(same(item['cursors']['storage'],proof['memory'])
                      and same(item['cursors']['inventory'],proof['files']['absent']))
             self._abandoned(item['abandonedImages'],state['binding'],item['ticket'])
+            if item['markerFrame'] is not None:
+                need(item['markerFrame']['ticket']==item['ticket']
+                    and any(same(item['markerFrame']['image'],image) for image in state['images']));self._marker_history(item['markerFrame'])
+        last_marker=0
+        for item in state['readiness']:
+            exact(item,{'sequence','ticket','active','provider','cursors','frame','marker'})
+            need(integer(item['sequence'],last_marker+1,state['sequence']) and item['sequence'] not in event_sequences)
+            last_marker=item['sequence'];event_sequences.add(last_marker);identifier(item['ticket']);self._active(item['active'])
+            need(item['active']['ticket']==item['ticket'] and item['frame']['ticket']==item['ticket'])
+            need(any(same(item['frame']['image'],image) for image in state['images']))
+            provider=item['provider'];validate_status(provider,instance=self.provider_instance,run=self.run,url=self.client.url,request=provider['requestId'])
+            need(provider['active'] and provider['ticket']==item['ticket'])
+            self._cursors(item['cursors'],pid);need(same(item['cursors']['provider'],provider))
+            need(same(item['marker'],self._marker_history(item['frame'])))
+            self._frame_cursors(item['frame'],item['cursors'],include_provider=False)
         if state['phase']=='ready':
             need(state['pending'] is None and all(image['phase']=='saved' for image in state['images']))
             if state['sequence']==0:need(state['frame'] is None and not state['images'] and not state['seenFrames']
-                and all(packet is None for packet in cursors.values()) and not state['retirements'])
+                and all(packet is None for packet in cursors.values()) and not state['retirements'] and not state['readiness'])
             else:
-                last_retired=last_sequence==state['sequence']
+                last_retired=max(last_sequence,last_marker)==state['sequence']
                 frame=state['frame'];need(type(frame) is dict or last_retired)
                 if frame is not None:
                     need(any(same(frame['image'],image) for image in state['images']))
                     retirement(frame['retirement'],frame['retirement']['owner'],pid,state['binding'],self.role)
                     if not last_retired:
-                        need(same(frame['nativeAfter'],cursors['native']) and same(frame['subjectAfter'],cursors['subject'])
-                             and same(frame['graphics'],cursors['graphics']) and same(frame['tablet'],cursors['tablet'])
-                             and same(frame['capture'],cursors['capture']) and same(frame['provider'],cursors['provider'])
-                             and same(cursors['storage'],frame['retirement']['memory'])
-                             and same(cursors['inventory'],frame['retirement']['files']['absent']))
-                if last_retired:need(same(cursors,state['retirements'][-1]['cursors']))
+                        self._frame_cursors(frame,cursors)
+                if last_retired:
+                    last=state['retirements'][-1] if last_sequence>last_marker else state['readiness'][-1]
+                    need(same(cursors,last['cursors']))
         else:
-            pending=state['pending'];exact(pending,{'ticket','afterEpochMs','captureIntent','retirement','abandonedImages'})
+            pending=state['pending'];exact(pending,{'ticket','afterEpochMs','captureIntent','retirement','abandonedImages','markerFrame'})
             identifier(pending['ticket']);need(integer(pending['afterEpochMs'],1))
             if pending['captureIntent'] is not None:WorldRenderOwner.acquisition(pending['captureIntent'])
             if pending['retirement'] is not None:retirement(pending['retirement'],pending['retirement']['owner'],pid,state['binding'],self.role)
             self._abandoned(pending['abandonedImages'],state['binding'],pending['ticket'])
+            if pending['markerFrame'] is not None:
+                frame=pending['markerFrame'];need(type(frame) is dict and frame['ticket']==pending['ticket'])
+                if frame['retirement'] is not None:self._marker_history(frame)
         return state
+
+    @staticmethod
+    def _frame_cursors(frame,cursors,*,include_provider=True):
+        need(same(frame['nativeAfter'],cursors['native']) and same(frame['subjectAfter'],cursors['subject'])
+             and same(frame['graphics'],cursors['graphics']) and same(frame['tablet'],cursors['tablet'])
+             and same(frame['capture'],cursors['capture']) and (not include_provider or same(frame['provider'],cursors['provider']))
+             and same(cursors['storage'],frame['retirement']['memory']) and same(cursors['inventory'],frame['retirement']['files']['absent']))
+
+    def _marker_history(self,frame):
+        try:self._historical(frame)
+        except MarkerNotReady as error:return deepcopy(error.observation)
+        raise NativeUIError('Original Graphics readiness history unexpectedly contains a valid current frame')
 
     def _cursors(self,rows,pid):
         exact(rows,CURSORS)
@@ -282,6 +320,40 @@ class PhoneGraphicsSamples:
             return packet
         owned.storage.request=remember
 
+    def retire_marker_not_ready(self):
+        """Retire only this live, fully proved invalid-marker acquisition.
+
+        No inputs, old-fact publication, context reset or recreated pending
+        journal is admitted. The next measurement needs an entirely new frame.
+        """
+        self.lock.assert_held();pending=self.state['pending']
+        need(self.state['phase']=='reading' and pending is not None and pending['markerFrame'] is not None
+            and self._marker_token is not None and len(self.state['readiness'])<64 and self.state['sequence']<256)
+        frame=pending['markerFrame'];need(frame['capture']['requestId']==self._marker_token
+            and same(pending['captureIntent'],frame['retirement']['owner']['capture'])
+            and same(pending['retirement'],frame['retirement']) and not pending['abandonedImages'])
+        started=previous=self.monotonic();need(number(started,0,1e15))
+        def bound():
+            nonlocal previous
+            self.lock.assert_held();need(self.guard() is not False)
+            current=self.monotonic();need(number(current,previous,1e15) and current-started<20);previous=current
+        self._frame_cursors(frame,self.state['cursors']);marker=self._marker_history(frame);bound()
+        owned=self.adapter._world_render_capture(self.selector,read_only=True,role=self.role,require_frame_view=True)
+        need(owned.owner.store.read() is None);bound()
+        active=deepcopy(self._active(self.client.request('/runs/'+self.run+'/active')))
+        need(active['ticket']==pending['ticket']);bound()
+        provider=self.client.graphics_status();bound()
+        validate_status(provider,instance=self.provider_instance,run=self.run,url=self.client.url,request=provider['requestId'],
+            previous=self.state['cursors']['provider'])
+        need(provider['active'] and provider['ticket']==pending['ticket']);fresh(provider['capturedEpochMs'],self.epoch_ms())
+        confirmed=self._active(self.client.request('/runs/'+self.run+'/active'));need(same(confirmed,active));bound()
+        cursors=deepcopy(self.state['cursors']);cursors['provider']=deepcopy(provider)
+        item=dict(sequence=self.state['sequence']+1,ticket=pending['ticket'],active=active,provider=deepcopy(provider),
+            cursors=deepcopy(cursors),frame=deepcopy(frame),marker=marker)
+        self.state.update(phase='ready',sequence=item['sequence'],cursors=cursors,pending=None,readiness=self.state['readiness']+[item])
+        self.save();bound();self._marker_token=None
+        return deepcopy(item) # Rejected original image/history only, never feature state.
+
     def retire_changed_ticket(self):
         """Retire this live interrupted acquisition, without publishing facts.
 
@@ -335,9 +407,12 @@ class PhoneGraphicsSamples:
         self.state['cursors']['provider']=deepcopy(provider);self.save();bound()
         confirmed=self._active(self.client.request('/runs/'+self.run+'/active'));need(same(confirmed,active));bound()
         item=dict(sequence=self.state['sequence']+1,ticket=pending['ticket'],active=active,provider=deepcopy(provider),
-            cursors=deepcopy(self.state['cursors']),measurement=deepcopy(pending['retirement']),abandonedImages=deepcopy(pending['abandonedImages']))
+            cursors=deepcopy(self.state['cursors']),measurement=deepcopy(pending['retirement']),abandonedImages=deepcopy(pending['abandonedImages']),
+            markerFrame=deepcopy(pending['markerFrame']))
+        if item['markerFrame'] is not None:
+            item['markerFrame']['retirement']=deepcopy(pending['retirement']);self._marker_history(item['markerFrame'])
         self.state.update(phase='ready',sequence=item['sequence'],pending=None,retirements=self.state['retirements']+[item])
-        self.save();bound()
+        self.save();bound();self._marker_token=None
         return deepcopy(item) # Scope/history retirement only; no measured feature state.
 
     def _historical(self,frame):
@@ -370,7 +445,8 @@ class PhoneGraphicsSamples:
     def read(self,ticket,after_epoch):
         identifier(ticket);need(integer(after_epoch,1));self.lock.assert_held()
         need(self.state['phase']=='ready' and self.state['sequence']<256 and len(self.state['seenFrames'])<256)
-        self.state.update(phase='reading',pending=dict(ticket=ticket,afterEpochMs=after_epoch,captureIntent=None,retirement=None,abandonedImages=[]));self.save()
+        self._marker_token=None
+        self.state.update(phase='reading',pending=dict(ticket=ticket,afterEpochMs=after_epoch,captureIntent=None,retirement=None,abandonedImages=[],markerFrame=None));self.save()
         started=previous=self.monotonic();need(number(started,0,1e15))
         def bound():
             nonlocal previous
@@ -407,6 +483,7 @@ class PhoneGraphicsSamples:
         if inventory is not None:owned.receipts.cleanup.sequence,owned.receipts.cleanup.captured=inventory['sequence'],inventory['capturedEpochMs']
         self._track_storage(owned,bound)
         bound()
+        marker_error=None
         try:
             acquisition_started=self.monotonic();need(number(acquisition_started,previous,1e15));previous=acquisition_started
             before=native.read(native.sequence);remember('native',before)
@@ -423,18 +500,34 @@ class PhoneGraphicsSamples:
                 previous=self.state['cursors']['provider'])
             remember('provider',provider)
             sample_epoch=native.clock_ms();need(integer(sample_epoch,after['capturedEpochMs']))
-            actual=compose(self.run,ticket,self.client.url+'/runs/'+self.run+'/',native.pid,provider,self.provider_instance,
-                provider['requestId'],before,first,graphics,tabs,capture,raw,last,after,sample_epoch,after_epoch,self.image_policy)
+            try:
+                actual=compose(self.run,ticket,self.client.url+'/runs/'+self.run+'/',native.pid,provider,self.provider_instance,
+                    provider['requestId'],before,first,graphics,tabs,capture,raw,last,after,sample_epoch,after_epoch,self.image_policy)
+            except MarkerNotReady as error:marker_error=deepcopy(error.observation)
             image=self.images.write(ticket,capture,raw);bound()
+            if marker_error is not None:
+                self.state['pending']['markerFrame']=dict(ticket=ticket,afterEpochMs=after_epoch,nativeBefore=before,subjectBefore=first,
+                    graphics=graphics,tablet=tabs,capture=capture,subjectAfter=last,nativeAfter=after,provider=provider,image=image,retirement=None)
+                self.save();bound()
         finally:
             if owned.owner.store.read() is not None:
                 # Capture/storage ownership is separately durable before every
                 # dispatch, including a failed or undelivered acquisition.
                 self._release_measurement(owned,native.pid,bound)
         need(self.state['pending']['retirement'] is not None and owned.owner.store.read() is None)
-        current_epoch=native.clock_ms();need(integer(current_epoch,sample_epoch));fresh(actual['capturedEpochMs'],current_epoch);bound()
+        captured=actual['capturedEpochMs'] if marker_error is None else min(before['capturedEpochMs'],provider['capturedEpochMs'])
+        current_epoch=native.clock_ms();need(integer(current_epoch,sample_epoch));fresh(captured,current_epoch);bound()
         frame=dict(ticket=ticket,afterEpochMs=after_epoch,nativeBefore=before,subjectBefore=first,graphics=graphics,tablet=tabs,
             capture=capture,subjectAfter=last,nativeAfter=after,provider=provider,image=image,retirement=self.state['pending']['retirement'])
+        if marker_error is not None:
+            self.state['pending']['markerFrame']=deepcopy(frame);self.save();bound()
+            need(same(marker_error,self._marker_history(frame)))
+            freshness_started=self.monotonic();need(number(freshness_started,previous,1e15))
+            final_epoch=native.clock_ms();need(integer(final_epoch,current_epoch));fresh(captured,final_epoch);bound()
+            need(max(final_epoch-captured+math.ceil((previous-freshness_started)*1000),
+                before['capturedEpochMs']-captured+math.ceil((previous-acquisition_started)*1000))<=1500)
+            self._marker_token=capture['requestId']
+            raise GraphicsMarkerPending('Original Graphics pixels do not yet contain the current challenge')
         self.state.update(phase='ready',sequence=self.state['sequence']+1,pending=None,frame=frame)
         self.save();bound()
         freshness_started=self.monotonic();need(number(freshness_started,previous,1e15))

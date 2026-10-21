@@ -25,7 +25,7 @@ from adapters.world_render_storage import NativeWorldRenderStorage,receipt_file
 from adapters.world_render_receipts import NativeWorldReceiptInventory,NativeWorldReceiptBatchFiles
 from feature_journeys.witness import Client
 from overte_phone_graphics import PhoneGraphicsIO
-from overte_phone_graphics_samples import PhoneGraphicsSamples
+from overte_phone_graphics_samples import PhoneGraphicsSamples,GraphicsMarkerPending
 from overte_phone_script_files import PhoneScriptFileIO
 from overte_phone_script_history import unpack,pack
 from overte_phone_script_lock import PhoneScriptSourceLock
@@ -190,7 +190,8 @@ class GraphicsSamplesTests(unittest.TestCase):
         source.pixels=raw;self.boundary.storage.raw=raw
         source.capture['source']['image'].update(bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),pixelSha256=pixel_sha)
         with self.assertRaises(NativeUIError):self.read()
-        self.assertEqual([],list(self.root.glob('*.png')));self.assertFalse((self.root/'world-primary.json').exists())
+        images=list(self.root.glob('*.png'));self.assertEqual(1,len(images));self.assertEqual(raw,images[0].read_bytes())
+        self.assertFalse((self.root/'world-primary.json').exists())
         with self.boundary.lock.held(),self.assertRaises(NativeUIError):self.boundary.factory()
 
     def test_existing_foreign_capture_is_neither_adopted_nor_retired_by_a_new_sample(self):
@@ -299,7 +300,7 @@ class GraphicsSamplesTests(unittest.TestCase):
     def test_changed_phase_retires_a_failed_observation_but_requires_an_entirely_new_sample(self):
         with self.boundary.lock.held():
             samples=self.boundary.factory();self.boundary.scene.image(ticket='f'*32);self.boundary.storage.raw=self.boundary.scene.pixels
-            with self.assertRaises(AssertionError):samples.read(TICKET,20000)
+            with self.assertRaises(GraphicsMarkerPending):samples.read(TICKET,20000)
             self.boundary.change_phase();item=samples.retire_changed_ticket()
             self.assertNotIn('state',item);self.assertEqual(TICKET,item['ticket']);self.assertEqual('7'*32,item['active']['ticket'])
             self.assertEqual([item['cursors']['capture']['source']['renderTrace']['frameId']],samples.state['seenFrames'])
@@ -310,7 +311,7 @@ class GraphicsSamplesTests(unittest.TestCase):
     def test_same_ticket_cannot_reset_a_failed_read_or_replay_any_native_request(self):
         with self.boundary.lock.held():
             samples=self.boundary.factory();self.boundary.scene.image(ticket='f'*32);self.boundary.storage.raw=self.boundary.scene.pixels
-            with self.assertRaises(AssertionError):samples.read(TICKET,20000)
+            with self.assertRaises(GraphicsMarkerPending):samples.read(TICKET,20000)
             before=len(self.boundary.calls)
             with self.assertRaises(NativeUIError):samples.retire_changed_ticket()
             self.assertEqual(before,len(self.boundary.calls));self.assertEqual('reading',samples.state['phase'])
@@ -388,7 +389,7 @@ class GraphicsSamplesTests(unittest.TestCase):
             root=self.root/fault;root.mkdir(mode=0o700);boundary=Originals(root)
             with boundary.lock.held():
                 samples=boundary.factory();boundary.scene.image(ticket='f'*32);boundary.storage.raw=boundary.scene.pixels
-                with self.assertRaises(AssertionError):samples.read(TICKET,20000)
+                with self.assertRaises(GraphicsMarkerPending):samples.read(TICKET,20000)
                 boundary.change_phase()
                 if fault in ('run','area'):boundary.active['runId' if fault=='run' else 'area']='f'*32 if fault=='run' else 'scripts'
                 else:
@@ -432,11 +433,12 @@ class GraphicsSamplesTests(unittest.TestCase):
             self.assertEqual(retained['pending']['abandonedImages'],item['abandonedImages'])
             self.assertEqual(1,self.boundary.counters['capture'])
 
-    def test_v1_ledger_is_refused_without_implicit_upgrade_or_native_access(self):
-        self.read();store=PrivateFeatureState(self.root/'phone-graphics-primary-0-samples.json');value=store.read()
-        value['graphicsSamplesVersion']=1;store.write(value,store.read());before=len(self.boundary.calls)
-        with self.boundary.lock.held(),self.assertRaises(NativeUIError):self.boundary.factory()
-        self.assertEqual(value,store.read());self.assertEqual(before,len(self.boundary.calls))
+    def test_v1_and_v2_ledgers_are_refused_without_implicit_upgrade_or_native_access(self):
+        self.read();store=PrivateFeatureState(self.root/'phone-graphics-primary-0-samples.json');original=store.read()
+        for version in (1,2):
+            value=deepcopy(original);value['graphicsSamplesVersion']=version;store.write(value,store.read());before=len(self.boundary.calls)
+            with self.subTest(version=version),self.boundary.lock.held(),self.assertRaises(NativeUIError):self.boundary.factory()
+            self.assertEqual(value,store.read());self.assertEqual(before,len(self.boundary.calls))
 
     def test_lost_world_owner_discard_return_retains_complete_original_proof_before_recovery(self):
         with self.boundary.lock.held():
