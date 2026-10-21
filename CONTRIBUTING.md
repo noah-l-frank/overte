@@ -95,12 +95,19 @@ auditable. Never bypass required checks for routine work.
 
 Start with the [developer guide](docs/README.md) for branch selection and the
 [testing guide](tests/PROJECT_TESTING.md) for host prerequisites and test layers.
-From the repository root, run the dependency-light repository checks:
+On `main`, use the [selective PR CI guide](docs/PR_CI.md) for affected product
+and dependency consumers. Run the controller regressions from the repository root:
 
 ```bash
-python3 tests/run-project-tests.py --profile quick --timeout 240
+for suite in context plan run observer transport cli workflow; do
+    python3 "tests/pr-ci-${suite}-test.py" || exit
+done
 git diff --check
 ```
+
+The previous project-runner profiles remain available for historical and
+platform-specific checks; they are not the active `main` PR controller.
+Local tests do not replace the independently authenticated GitHub merge gate.
 
 Platform changes must also run the relevant branch-specific host, simulator,
 emulator, or device checks. A successful host test must not be presented as
