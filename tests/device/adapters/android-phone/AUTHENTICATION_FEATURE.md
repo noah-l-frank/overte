@@ -13,7 +13,9 @@ uncompiled; no APK, device, installation, build or Jenkins run was executed.
 Enable `OVERTE_PHONE_FEATURE_AUTHENTICATION=1` and
 `OVERTE_PHONE_ACCOUNT_FIXTURE=1`. Supply the existing
 `OVERTE_E2E_FEATURE_FIXTURE_URL` as an exact controlled HTTPS
-`/feature-fixture/v1` URL and `OVERTE_E2E_FEATURE_READER_TOKEN` privately. The
+`/feature-fixture/v1` URL. Supply `OVERTE_PHONE_FEATURE_FIXTURE_CONFIG` using the
+[separate private adapter access contract](../../feature_journeys/ADAPTER_FIXTURE_ACCESS.md).
+Its original URL must match; the runner reader token remains unavailable to adapters. The
 target must be the verified Phone debug candidate, with `android-debug-e2e`
 launch and `appium:autoLaunch: false`. The account fixture must be trusted by
 the actual client and supply original provider v2/TLS readiness. There is no

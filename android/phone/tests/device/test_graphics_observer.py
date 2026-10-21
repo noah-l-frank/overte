@@ -395,5 +395,14 @@ class GraphicsObserverTests(unittest.TestCase):
             with patch.object(PrivateFeatureState,'write',lost),self.assertRaises(RuntimeError):owner.read(0,0)
             self.assertEqual(1,len(list(self.root.glob('graphics-observer-*.json'))));self.assertEqual('reading',m.factory_observer().state['phase'])
 
+    def test_requested_preference_without_executed_batches_stays_actual_false_pass_for_common_wait(self):
+        m=self.m
+        with m.lock.held():
+            owner=m.factory_observer();owner.read(0,0);m.phase('set-haze',dict(enabled=True))
+            m.scene.before['graphics']['hazeSetting']=True
+            owner=m.factory_observer();value=owner.read(1,0)
+            self.assertTrue(value['state']['haze']);self.assertFalse(value['state']['hazePass']);self.assertEqual([],owner.state['effects'])
+            self.assertEqual('ready',owner.state['phase'])
+
 
 if __name__=='__main__':unittest.main()

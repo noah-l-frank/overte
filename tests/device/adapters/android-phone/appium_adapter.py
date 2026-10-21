@@ -76,12 +76,16 @@ from overte_phone_script_observation import PhoneScriptObservation
 from overte_phone_script_actions import PhoneScriptActions
 from overte_phone_script_feature import PhoneScriptFeature, ScriptFixtureReader
 from overte_phone_authentication_feature import PhoneAuthenticationFeature, AuthenticationFixtureReader
+from overte_phone_graphics_feature import PhoneGraphicsFeature
+from overte_phone_graphics_fixture import GraphicsFixtureReader
 from feature_journeys.witness import Client as FeatureFixtureClient
+from adapters.feature_fixture_access import client as adapter_fixture_client
 from overte_phone_account_fixture import origin as account_fixture_origin, launch_command as account_fixture_launch
 from overte_phone_account_menu import PhoneAccountMenu
 
 SCRIPT_FEATURE_OPERATIONS={'feature.scripts.'+kind for kind in ('act','observe','cleanup')}
 AUTHENTICATION_FEATURE_OPERATIONS={'feature.authentication.'+kind for kind in ('act','observe','cleanup')}
+GRAPHICS_FEATURE_OPERATIONS={'feature.graphics.'+kind for kind in ('act','observe','cleanup')}
 
 
 def readonly_feature_command(command):
@@ -220,16 +224,22 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(full_scripts in ('0','1'),'PHONE_FEATURE_SCRIPTS_CONFIGURATION_INVALID')
         if full_scripts=='1':
             require(script_enabled=='1','PHONE_FEATURE_SCRIPTS_REQUIRES_NORMAL_SCRIPTS')
-            FeatureFixtureClient(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''),
-                                 os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN',''))
+            self._feature_fixture_client()
             values=sorted(set(values)|SCRIPT_FEATURE_OPERATIONS)
         full_authentication=os.environ.get('OVERTE_PHONE_FEATURE_AUTHENTICATION','0')
         require(full_authentication in ('0','1'),'PHONE_FEATURE_AUTHENTICATION_CONFIGURATION_INVALID')
         if full_authentication=='1':
             require(self.account_fixture_configuration(target) is not None,'PHONE_FEATURE_AUTHENTICATION_REQUIRES_ACCOUNT_FIXTURE_LAUNCH')
-            FeatureFixtureClient(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''),
-                os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN',''))
+            self._feature_fixture_client()
             values=sorted(set(values)|AUTHENTICATION_FEATURE_OPERATIONS)
+        full_graphics=os.environ.get('OVERTE_PHONE_FEATURE_GRAPHICS','0')
+        require(full_graphics in ('0','1'),'PHONE_FEATURE_GRAPHICS_CONFIGURATION_INVALID')
+        if full_graphics=='1':
+            require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                    and self.controlled_android_client(target),'PHONE_FEATURE_GRAPHICS_REQUIRES_BOUND_DEBUG_TARGET')
+            self._graphics_configuration()
+            self._feature_fixture_client()
+            values=sorted(set(values)|GRAPHICS_FEATURE_OPERATIONS)
         create_enabled = os.environ.get('OVERTE_PHONE_NORMAL_CREATE', '0')
         require(create_enabled in ('0', '1'), 'PHONE_NORMAL_CREATE_CONFIGURATION_INVALID')
         if create_enabled == '1':
@@ -351,6 +361,14 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(role in ('primary','actor'),'PHONE_ACCOUNT_PROBE_ROLE_REQUIRED')
         return PrivateFeatureState(self.state_path(selector).with_name('phone-account-'+('actor-' if role=='actor' else '')+'probe-owner.json'))
 
+    @staticmethod
+    def _feature_fixture_client():
+        try:
+            return adapter_fixture_client(Path(os.environ.get('OVERTE_PHONE_FEATURE_FIXTURE_CONFIG','')),
+                configured_url=os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL'))
+        except (OSError,RuntimeError,ValueError,TypeError,KeyError):
+            raise ValueError('PHONE_FEATURE_FIXTURE_READER_CONFIGURATION_INVALID') from None
+
     def authentication_samples_store(self, selector, role, stage):
         require(role in ('primary','actor') and type(stage) is int and 0<=stage<=3,
                 'PHONE_AUTHENTICATION_SOURCE_SCOPE_REQUIRED')
@@ -376,8 +394,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def _authentication_feature(self, selector, run, *, role='primary', client=None):
         if client is None:
             require(role=='primary','PHONE_AUTHENTICATION_ACTOR_REQUIRES_SEPARATE_CLIENT')
-            client=FeatureFixtureClient(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''),
-                os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN',''))
+            client=self._feature_fixture_client()
         return PhoneAuthenticationFeature(self,selector,AuthenticationFixtureReader(client,run),role=role)
 
     def _authentication_restart_stopped(self, selector, old_binding):
@@ -431,6 +448,51 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(role in ('primary','actor'),'PHONE_WORLD_RENDER_ROLE_INVALID')
         name='phone-world-render-owner.json' if role=='primary' else 'phone-world-render-actor-owner.json'
         return PrivateFeatureState(self.state_path(selector).with_name(name))
+
+    @staticmethod
+    def _graphics_configuration(metadata=None):
+        try:
+            from feature_journeys.evidence import rectangle
+            if metadata is None:
+                policy=PrivateFeatureState(Path(os.environ.get('OVERTE_PHONE_GRAPHICS_IMAGE_POLICY',''))).read()
+                root=Path(os.environ.get('OVERTE_DEVICE_ARTIFACT_DIR',''))
+            else:
+                require(type(metadata) is dict and type(metadata.get('graphicsFeatureVersion')) is int
+                        and metadata['graphicsFeatureVersion']==1,'PHONE_GRAPHICS_ORIGINAL_CONFIGURATION_REQUIRED')
+                policy=metadata['imagePolicy'];root=Path(metadata['artifactRoot'])
+            require(type(policy) is dict and set(policy)=={'source','marker','subject'} and policy['source']=='world-render-target',
+                    'PHONE_GRAPHICS_IMAGE_POLICY_REQUIRED')
+            marker=rectangle(policy['marker'],(4096,4096));subject=rectangle(policy['subject'],(4096,4096))
+            require(marker[2]-marker[0]>=128 and marker[3]-marker[1]>=32
+                    and not (max(marker[0],subject[0])<min(marker[2],subject[2]) and max(marker[1],subject[1])<min(marker[3],subject[3])),
+                    'PHONE_GRAPHICS_IMAGE_POLICY_REQUIRED')
+            PrivateFeatureState(root/'graphics-configuration-boundary.json')._parent()
+            return root,deepcopy(policy)
+        except (OSError,RuntimeError,ValueError,TypeError,KeyError):
+            raise ValueError('PHONE_FEATURE_GRAPHICS_CONFIGURATION_INVALID') from None
+
+    def graphics_feature_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-feature.json'))
+
+    def graphics_retirement_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-retirement.json'))
+
+    def _graphics_feature(self, selector, run, *, role='primary', client=None, retirement=False):
+        target=self.target(selector)
+        require(getattr(self,'candidate',None) is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target),'PHONE_FEATURE_GRAPHICS_REQUIRES_BOUND_DEBUG_TARGET')
+        if client is None:
+            require(role=='primary','PHONE_GRAPHICS_ACTOR_REQUIRES_SEPARATE_CLIENT')
+            client=self._feature_fixture_client()
+        require(type(retirement) is bool,'PHONE_GRAPHICS_ORIGINAL_CONFIGURATION_REQUIRED')
+        metadata=None
+        if role=='actor' or retirement:
+            metadata=self.graphics_feature_store(selector).read() or self.graphics_retirement_store(selector).read()
+            require(type(metadata) is dict and metadata.get('runId')==run
+                    and metadata.get('fixtureUrl')==client.url+'/runs/'+run+'/',
+                    'PHONE_GRAPHICS_ORIGINAL_CONFIGURATION_REQUIRED')
+        root,policy=self._graphics_configuration(metadata)
+        return PhoneGraphicsFeature(self,selector,GraphicsFixtureReader(client,run),root,policy,role=role)
 
     def graphics_scene_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-scene.json'))
@@ -624,8 +686,7 @@ class PhoneAppiumAdapter(AppiumAdapter):
     def _script_feature(self, selector, run, *, role='primary', client=None):
         if client is None:
             require(role=='primary','PHONE_SCRIPT_ACTOR_REQUIRES_SEPARATE_CLIENT')
-            client=FeatureFixtureClient(os.environ.get('OVERTE_E2E_FEATURE_FIXTURE_URL',''),
-                os.environ.get('OVERTE_E2E_FEATURE_READER_TOKEN',''))
+            client=self._feature_fixture_client()
         return PhoneScriptFeature(self,selector,ScriptFixtureReader(client,run),role=role)
 
     def account_fixture_configuration(self,target):
@@ -1108,6 +1169,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        graphics_error=False
+        try:
+            feature=self.graphics_feature_store(selector).read() or self.graphics_retirement_store(selector).read()
+            if feature is not None:self._graphics_feature(selector,feature['runId'],retirement=True).finalize()
+        except Exception:graphics_error=True # Retain all unresolved ownership; base teardown is still attempted.
         authentication_error=False
         try:
             feature=self.authentication_feature_store(selector).read() or self.authentication_retirement_store(selector).read()
@@ -1240,6 +1306,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(not authentication_error and self.authentication_feature_store(selector).read() is None and self.authentication_retirement_store(selector).read() is None
                 and all(PrivateFeatureState(self.state_path(selector).with_name('phone-authentication-'+role+'-feature.json')).read() is None
                         for role in ('primary','actor')),'PHONE_AUTHENTICATION_FEATURE_CLEANUP_INCOMPLETE')
+        require(not graphics_error and self.graphics_feature_store(selector).read() is None
+                and self.graphics_retirement_store(selector).read() is None,'PHONE_GRAPHICS_FEATURE_CLEANUP_INCOMPLETE')
         return result
 
     def normal_navigation(self, selector, operation, values):
@@ -1295,6 +1363,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
             require(operation in self.advertised_capabilities(self.target(selector)),
                     'PHONE_AUTHENTICATION_FEATURE_NOT_ENABLED')
             return getattr(self._authentication_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
+        if operation in GRAPHICS_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values)
+            require(operation in self.advertised_capabilities(self.target(selector)),
+                    'PHONE_GRAPHICS_FEATURE_NOT_ENABLED')
+            return getattr(self._graphics_feature(selector,values['runId']),operation.rsplit('.',1)[1])(values)
         if operation.startswith('places.'):
             return self.normal_navigation(selector, operation, values)
         if operation in SNAPSHOT_OPERATIONS:

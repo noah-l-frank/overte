@@ -45,6 +45,7 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_graphics_fixture_reader.py",
     "android/phone/tests/device/test_graphics_lifetime.py",
     "android/phone/tests/device/test_graphics_observer.py",
+    "android/phone/tests/device/test_graphics_feature.py",
     "android/phone/tests/device/test_graphics_effects.py",
     "android/phone/tests/device/test_graphics_surface.py",
     "android/phone/tests/device/test_graphics_scene.py",
@@ -74,4 +75,7 @@ for name in selected + COMMON_HOST_CHECKS:
     arguments = [sys.executable, str(path)]
     if name.endswith("phone-test-inventory-test.py"):
         arguments.append(str(ROOT))
-    subprocess.run(arguments, cwd=ROOT, check=True, timeout=90)
+    # The complete Graphics composition also runs the fifteen-step common
+    # journey; its host-only file/image checks need a larger aggregate budget.
+    subprocess.run(arguments, cwd=ROOT, check=True,
+                   timeout=240 if name.endswith("test_graphics_feature.py") else 90)

@@ -1,17 +1,21 @@
 # Current Android Phone adapter status
 
-The full v16 Script and Authentication triples are now implemented through the
+The full v16 Script, Authentication and Graphics triples are now implemented through the
 existing adapter entrypoint, each under its explicit default-off configuration.
-Both join ordinary inputs, original independent observations, each role's own
+All three join ordinary inputs, original independent observations, each role's own
 restart histories, the separately credentialed publisher and verified cleanup/
-host-journal retirement. See [Script](SCRIPT_FEATURE.md) and
-[Authentication](AUTHENTICATION_FEATURE.md) for exact configurations and evidence.
+host-journal retirement. See [Script](SCRIPT_FEATURE.md),
+[Authentication](AUTHENTICATION_FEATURE.md) and [Graphics](GRAPHICS_FEATURE.md) for exact configurations and evidence.
 
 This is source implementation and host verification only. Native instrumentation
 has not been compiled; no device, installation, build or Jenkins run was performed.
-The remaining twelve complete Android feature adapters are still missing.
+The remaining eleven complete Android feature adapters are still missing.
 Pico and iOS are paused until all fourteen Android areas are complete. Historical
-component notes below do not supersede this current status.
+component notes below do not supersede this current status. In particular,
+earlier Graphics statements that full coordination remains pending are historical:
+the complete coordinator and guarded triple are now implemented.
+
+## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)
 alongside original world-target pixels. Fourteen new reader counterexamples

@@ -220,7 +220,7 @@ class PhoneGraphicsObserver:
         for feature,verb in (('haze','set-haze'),('mirror','set-mirrors')):
             if not actual['state'][feature] and not actual['state'][feature+'Pass']:
                 self.state['offFrames'][feature]=deepcopy(frame)
-            elif active['verb']==verb and actual['state'][feature]:
+            elif active['verb']==verb and actual['state'][feature] and actual['state'][feature+'Pass']:
                 before=self.state['offFrames'][feature];need(before is not None and len(self.state['effects'])+len(effects)<64)
                 _old,raw_before=self.frame(before,self.current_binding,stage)
                 _current,raw_after=self.frame(frame,self.current_binding,stage)

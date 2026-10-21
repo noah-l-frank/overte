@@ -397,7 +397,7 @@ class AuthenticationOwnerTests(unittest.TestCase):
             image_policy={},continuity=lambda *_args:None,monotonic=lambda:self.s.clock,epoch_ms=self.epoch,
             sleep=lambda value:setattr(self.s,'clock',self.s.clock+value),report=reports.append)
         with (patch.dict(os.environ,dict(OVERTE_PHONE_FEATURE_AUTHENTICATION='1',OVERTE_PHONE_ACCOUNT_FIXTURE='1',
-                    OVERTE_E2E_FEATURE_FIXTURE_URL=URL,OVERTE_E2E_FEATURE_READER_TOKEN='x'*64)),
+                    OVERTE_E2E_FEATURE_FIXTURE_URL=URL,**self.fixture_access_environment())),
               patch.object(f.adapter,'_authentication_feature',return_value=self.primary)):
             journey.execute()
         self.assertTrue(reports[-1]['sequenceCompleted']);self.assertTrue(reports[-1]['cleanupSucceeded'])
@@ -405,6 +405,12 @@ class AuthenticationOwnerTests(unittest.TestCase):
         self.assertEqual(['app.stop','app.launch']*3,self.s.inputs)
         self.s.client.close();self.assertEqual({'performed':True},self.primary.finalize())
         self.assertTrue(all(store.read() is None for store in self.primary._retirement_paths()))
+
+    def fixture_access_environment(self):
+        from adapters.normal_feature_state import PrivateFeatureState
+        path=self.root/'adapter-fixture-access.json';store=PrivateFeatureState(path)
+        if store.read() is None:store.write(dict(fixtureAdapterAccessVersion=1,fixtureUrl=URL,adapterToken='d'*64),None)
+        return dict(OVERTE_PHONE_FEATURE_FIXTURE_CONFIG=str(path))
 
     def registered_adapter(self):
         from test_account_fixture_launch import AccountFixtureLaunchTests
@@ -416,7 +422,7 @@ class AuthenticationOwnerTests(unittest.TestCase):
         import test_feature_adapters as bound
         f=self.registered_adapter()
         config=dict(OVERTE_PHONE_FEATURE_AUTHENTICATION='1',OVERTE_PHONE_ACCOUNT_FIXTURE='1',
-            OVERTE_E2E_FEATURE_FIXTURE_URL=URL,OVERTE_E2E_FEATURE_READER_TOKEN='x'*64)
+            OVERTE_E2E_FEATURE_FIXTURE_URL=URL,**self.fixture_access_environment())
         with patch.dict(os.environ,config),patch.object(f.adapter,'_authentication_feature',return_value=self.primary) as factory:
             operations=f.adapter.advertised_capabilities(f.target)
             self.assertTrue(all('feature.authentication.'+kind in operations for kind in ('act','observe','cleanup')))
@@ -429,9 +435,9 @@ class AuthenticationOwnerTests(unittest.TestCase):
     def test_missing_required_launch_reader_or_https_scope_is_never_advertised_as_complete(self):
         f=self.registered_adapter()
         good=dict(OVERTE_PHONE_FEATURE_AUTHENTICATION='1',OVERTE_PHONE_ACCOUNT_FIXTURE='1',
-            OVERTE_E2E_FEATURE_FIXTURE_URL=URL,OVERTE_E2E_FEATURE_READER_TOKEN='x'*64)
+            OVERTE_E2E_FEATURE_FIXTURE_URL=URL,**self.fixture_access_environment())
         for edit in (dict(OVERTE_PHONE_FEATURE_AUTHENTICATION='yes'),dict(OVERTE_PHONE_ACCOUNT_FIXTURE='0'),
-                     dict(OVERTE_E2E_FEATURE_FIXTURE_URL='http://owned.invalid/feature-fixture/v1'),dict(OVERTE_E2E_FEATURE_READER_TOKEN='')):
+                     dict(OVERTE_E2E_FEATURE_FIXTURE_URL='http://owned.invalid/feature-fixture/v1'),dict(OVERTE_PHONE_FEATURE_FIXTURE_CONFIG='')):
             with self.subTest(edit=edit),patch.dict(os.environ,good|edit),self.assertRaises((ValueError,RuntimeError)):
                 f.adapter.advertised_capabilities(f.target)
 

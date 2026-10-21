@@ -388,8 +388,11 @@ class ScriptFeatureTests(unittest.TestCase):
     def test_registered_invocation_and_capability_require_explicit_complete_configuration(self):
         import os
         self.assertFalse(any(value.startswith('feature.scripts.') for value in self.f.adapter.advertised_capabilities(self.f.target)))
+        access=self.f.adapter.state_path(bound.SELECTOR).with_name('adapter-fixture-access.json')
+        from adapters.normal_feature_state import PrivateFeatureState
+        PrivateFeatureState(access).write(dict(fixtureAdapterAccessVersion=1,fixtureUrl=self.client.url,adapterToken='d'*64),None)
         config={'OVERTE_PHONE_FEATURE_SCRIPTS':'1','OVERTE_E2E_FEATURE_FIXTURE_URL':self.client.url,
-                'OVERTE_E2E_FEATURE_READER_TOKEN':self.client.token}
+                'OVERTE_PHONE_FEATURE_FIXTURE_CONFIG':str(access)}
         with patch.dict(os.environ,config),patch.object(self.f.adapter,'_script_feature',return_value=self.primary):
             caps=self.f.adapter.advertised_capabilities(self.f.target)
             self.assertTrue(all('feature.scripts.'+kind in caps for kind in ('act','observe','cleanup')))

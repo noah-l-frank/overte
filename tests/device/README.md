@@ -34,7 +34,8 @@ assertion failure.
 The fourteen-area [feature journeys](FEATURE_JOURNEYS.md) compose the existing
 modules with missing feature workflows. See the [coverage matrix](FEATURE_COVERAGE.md)
 and [adapter handoff](FEATURE_ADAPTER_HANDOFF.md): shared logic is implemented;
-the complete Phone Script and Authentication extensions are now source-implemented; the other area
+the complete Phone Script, Authentication and [Graphics](adapters/android-phone/GRAPHICS_FEATURE.md)
+extensions are now source-implemented; the other area
 adapters and physical-device qualification are pending. Native instrumentation
 remains uncompiled. See [the Script handoff](adapters/android-phone/SCRIPT_FEATURE.md)
 and [Authentication handoff](adapters/android-phone/AUTHENTICATION_FEATURE.md).

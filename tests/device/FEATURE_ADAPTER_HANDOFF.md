@@ -1,9 +1,10 @@
 # Feature adapter handoff, contract v16
 
 Current implementation: the complete Phone [Script](adapters/android-phone/SCRIPT_FEATURE.md)
-and [Authentication](adapters/android-phone/AUTHENTICATION_FEATURE.md) triples
+[Authentication](adapters/android-phone/AUTHENTICATION_FEATURE.md) and
+[Graphics](adapters/android-phone/GRAPHICS_FEATURE.md) triples
 are source-implemented and device-free verified. The foundation notes below
-include earlier intermediate states. The other twelve Phone areas and all
+include earlier intermediate states. The other eleven Phone areas and all
 complete Pico/iOS areas remain missing; no native build or device qualification
 has been performed.
 
@@ -530,7 +531,7 @@ The Phone branch now implements the v16 Script triple, original normal input
 causality/readiness, five-source observations, actual owned HTTP404 receipts,
 separate per-role restart histories, a separately credentialed publisher and
 verified cleanup/journal retirement. See [the versioned Phone handoff](adapters/android-phone/SCRIPT_FEATURE.md).
-Script and Authentication are implemented on Phone; the other twelve Phone areas and
+Script, Authentication and Graphics are implemented on Phone; the other eleven Phone areas and
 complete Pico/iOS adapters remain pending. Native code is uncompiled, all device
 qualification remains open, and missing required capabilities still fail the
 whole selected suite. Host simulations establish control logic only.
@@ -549,3 +550,14 @@ retirement. The same observer entrypoint accepts explicit v2 Authentication
 configuration while preserving Script v1. See [the exact versioned handoff](adapters/android-phone/AUTHENTICATION_FEATURE.md).
 The full common seventeen-step journey is host-verified with explicit synthetic
 native/SDK/HTTPS seams; this is not an APK execution or device acceptance.
+
+## Complete Android Phone Graphics extension
+
+The existing entrypoint composes the v16 Graphics triple behind
+`OVERTE_PHONE_FEATURE_GRAPHICS=1`, a separate read-only fixture credential and
+private original-image policy. Ordinary scene/settings/background/restart inputs
+join independent role histories, original rendered pixels, actual draw batches
+and both roles' actual restored-world/Web lifetime windows. Exact archives and
+recoverable hash-scoped retirement retain failures and unknown files. See the
+[complete handoff](adapters/android-phone/GRAPHICS_FEATURE.md). Host simulations
+verify control logic only; native compilation and all devices remain untested.

@@ -18,13 +18,13 @@ previously corrected their actual original-source semantics. The native retained
 input owner/private channel is now registered in all three separate platform
 branches; complete Lifecycle joins remain missing.
 
-All rows have shared test logic. Android Phone now implements the complete Script and Authentication extensions; native instrumentation remains uncompiled and untested on devices. The other twelve Phone area adapters and all complete Pico/iOS area adapters remain missing.
+All rows have shared test logic. Android Phone now implements the complete Script, Authentication and Graphics extensions; native instrumentation remains uncompiled and untested on devices. The other eleven Phone area adapters and all complete Pico/iOS area adapters remain missing.
 These are implementation statuses, not complete product-feature acceptance.
 The [source compatibility review](FEATURE_SOURCE_COMPATIBILITY.md) identifies
 remaining platform Emote prerequisites. Version 5 corrects ordinary override/chooser semantics, adds nine automatic completions and a separate early-restoration check. Version 4 corrects Graphics to immediate settings and independently measured original preferences. Version 2 corrected Scripts to the real file-bundle picker; version 3 corrected
 Audio to automatic in-memory capture/play/drain/completion;
 its adapter input/observer join is still incomplete. Host logic is present; it is not yet a qualified
-product workflow. Phone Script and Authentication can be explicitly enabled; this promotes no physical acceptance.
+product workflow. Phone Script, Authentication and Graphics can be explicitly enabled; this promotes no physical acceptance.
 The later [local adapter packet audit](FEATURE_ADAPTER_IMPLEMENTATION.md)
 records the earlier foundation implementations and concrete native blockers.
 The later Phone Script facade is described in its [current handoff](adapters/android-phone/SCRIPT_FEATURE.md).
@@ -54,7 +54,7 @@ to implement the new complete area contract.
 | create | `create-management`, `entity-sync`, `world-interaction` | Model URL/texture/voxel creation/edit, real entity-JSON picker cancellation/import, exact-slot original export and rez denial/retry. | changed, file, image, peer | Logic present; adapter missing; device untested |
 | emotes | No prior feature journey | Ten actual native overrides, nine automatic completions, all observed Sit variants, chooser lifetime, early restoration and resume. | changed, image, peer | Logic present; adapter missing; device untested |
 | world-web | `world-web-video` | Real text/bridge, foreign origin rejection, navigation/Back, 404/reload and background resume. | changed, image, peer | Logic present; adapter missing; device untested |
-| graphics | `render-health` | Immediate resolution/Haze/Mirrors, actual completed-frame/pass effects, close/restart durability and measured original restoration. | changed, image | Logic present; adapter missing; device untested |
+| graphics | `render-health` | Immediate resolution/Haze/Mirrors, actual completed-frame/pass effects, close/restart durability and measured original restoration. | changed, image | Logic present; Phone adapter implemented (native uncompiled); Pico/iOS adapter missing; all devices untested |
 | audio | `audio-controls`, `permission-recovery`, `sound-playback`, `voice-roundtrip` | Automatic memory capture/play/drain/completion, real cancel, muted rejection/cancel and background cancellation; OS permissions remain in the composed foundation. | audio, file, peer, silence | Logic present; adapter missing; device untested |
 | chat | `text-input` | Unicode send/receive, cancelled draft, actual Local/Domain histories, distant Local rejection, history reopen, no-mixer local echo and explicit retyped resend. | peer | Logic present; adapter missing; device untested |
 | snapshots | `snapshot-output-parity` | Actual pending-cancel history; Photos Save denial with successful private capture; measured Save backend, original Save/share/upload bytes, system-sheet cancellation and resume. | file, image, peer | Logic present; adapter missing; device untested |

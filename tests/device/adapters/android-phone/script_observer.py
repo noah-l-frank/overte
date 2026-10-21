@@ -21,6 +21,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from feature_journeys.witness import Client
 from overte_phone_script_feature import ScriptPhasePending,ScriptRunRetired
 from overte_phone_authentication_feature import AuthenticationPhasePending,AuthenticationRunRetired
+from overte_phone_graphics_fixture import GraphicsPhasePending,GraphicsRunRetired
 from overte_phone_account_fixture import origin as account_origin
 from overte_phone_script_lock import PhoneScriptSourceBusy
 
@@ -36,7 +37,7 @@ def configuration(path):
     else:
         exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'})
         need(type(value['featureObserverVersion']) is int and value['featureObserverVersion']==VERSION
-             and value['area'] in ('scripts','authentication'))
+             and value['area'] in ('scripts','authentication','graphics'))
         if value['area']=='authentication':account_origin(value['fixtureUrl'])
     need(type(value['target']) is str and bool(value['target'])
          and type(value['candidateArguments']) is list and len(value['candidateArguments'])<=64
@@ -50,11 +51,11 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
-    area=config.get('area','scripts');need(area in ('scripts','authentication'))
+    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics'))
     if area=='authentication':account_origin(config['fixtureUrl'])
-    owner_store=adapter.authentication_feature_store if area=='authentication' else adapter.script_feature_store
-    retirement_store=adapter.authentication_retirement_store if area=='authentication' else adapter.script_retirement_store
-    make_flow=adapter._authentication_feature if area=='authentication' else adapter._script_feature
+    owner_store=getattr(adapter,'script_feature_store' if area=='scripts' else area+'_feature_store')
+    retirement_store=getattr(adapter,'script_retirement_store' if area=='scripts' else area+'_retirement_store')
+    make_flow=getattr(adapter,'_script_feature' if area=='scripts' else '_'+area+'_feature')
     while True:
         now=monotonic();need(number(now,0,1e15) and previous<=now and now-started<config['durationSeconds']);previous=now
         if flow is None:
@@ -72,10 +73,10 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
             if retirement is not None:
                 need(retirement.get('kind')=='retirement' and retirement.get('runId')==flow.run
                      and retirement.get('fixtureUrl')==flow.fixture_url)
-                return 0 # Its actual cleanup observation was verified before this plan.
+                if area!='graphics':return 0 # Graphics still owes its independent restored-world window.
             try:flow.publish()
-            except (ScriptRunRetired,AuthenticationRunRetired):return 0
-            except (ScriptPhasePending,AuthenticationPhasePending,PhoneScriptSourceBusy):pass
+            except (ScriptRunRetired,AuthenticationRunRetired,GraphicsRunRetired):return 0
+            except (ScriptPhasePending,AuthenticationPhasePending,GraphicsPhasePending,PhoneScriptSourceBusy):pass
         sleep(.25)
 
 
@@ -99,6 +100,7 @@ def main(argv=None):
         # factories. It never advertises or invokes the primary feature triple.
         os.environ['OVERTE_PHONE_FEATURE_SCRIPTS']='0'
         os.environ['OVERTE_PHONE_FEATURE_AUTHENTICATION']='0'
+        os.environ['OVERTE_PHONE_FEATURE_GRAPHICS']='0'
         return run(PhoneAppiumAdapter(candidate),config)
     except (OSError,RuntimeError,ValueError,TypeError,KeyError,RecursionError):
         print('PHONE_FEATURE_OBSERVER_REJECTED',file=sys.stderr)

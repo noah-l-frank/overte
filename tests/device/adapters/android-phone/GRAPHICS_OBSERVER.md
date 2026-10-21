@@ -1,8 +1,8 @@
 # Independent Phone Graphics observations, version 2
 
 `PhoneGraphicsObserver` composes the original GPU/native/UI/PNG sources for one
-role. The complete feature coordinator is still missing; no full Graphics triple
-is advertised. These host-tested Python sources qualify test logic only. Native
+role. The [complete feature coordinator](GRAPHICS_FEATURE.md) authorizes its
+current ticket and explicit restart stage through the registered triple. These host-tested Python sources qualify test logic only. Native
 instrumentation is uncompiled and all physical clients remain untested.
 
 ## Scope and original acquisitions
@@ -17,7 +17,7 @@ register/activate, direct Entity/Render settings, or primary observe on behalf o
 an actor. General Phone cleanup refuses either role's observer journal.
 
 `read(after_sequence,stage)` accepts only a cursor already reached by this role
-and process stage `0|1`. The future complete coordinator must authorize the
+and process stage `0|1`. The complete coordinator must authorize the
 current fixture ticket/input completion and explicit restart stage before this
 call, under the same lock. A stage is scope admission, never measured state.
 Every read obtains the actual fresh fixture phase and read barrier, saves durable
@@ -68,7 +68,7 @@ fail closed; a new archive cannot overwrite an existing different original.
 
 Actual native settings and executed passes identify each role's own most recent
 off reference; caller inputs do not create one. At the actual Haze/Mirror action
-phase, an observed on setting requires the role's original off/on PNG pair and
+phase, an observed on setting with an actual executed pass requires the role's original off/on PNG pair and
 [`compare`](GRAPHICS_EFFECTS.md). It independently checks fixed recorded view,
 source/native/fixture continuity, unchanged other settings and original target
 ROI statistics. Haze must change the far-board blue dominance; Mirrors must

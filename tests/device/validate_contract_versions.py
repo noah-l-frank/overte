@@ -46,6 +46,7 @@ REQUIRED = {
     "native-phone-scene-loads": 1,
     "phone-graphics-fixture-reader": 1,
     "phone-graphics-observer-frame": 1,
+    "phone-graphics-feature": 1,
     "phone-graphics-observer": 2,
     "phone-graphics-lifetime": 1,
     "native-phone-web-runtime": 1,

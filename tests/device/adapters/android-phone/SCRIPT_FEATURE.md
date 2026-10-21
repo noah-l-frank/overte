@@ -4,10 +4,13 @@ The existing Phone Appium entrypoint now implements all three v16 operations:
 `feature.scripts.act`, `feature.scripts.observe`, `feature.scripts.cleanup`.
 Enable them explicitly with `OVERTE_PHONE_FEATURE_SCRIPTS=1`, the existing
 `OVERTE_PHONE_NORMAL_SCRIPTS=1`, a verified debug candidate and the existing
-`OVERTE_E2E_FEATURE_FIXTURE_URL` / `OVERTE_E2E_FEATURE_READER_TOKEN` settings.
+`OVERTE_PHONE_FEATURE_FIXTURE_CONFIG` private adapter access file. See the
+[separate read-only credential contract](../../feature_journeys/ADAPTER_FIXTURE_ACCESS.md).
+An optional `OVERTE_E2E_FEATURE_FIXTURE_URL` must match that file; the runner
+reader token remains unavailable to adapter processes.
 An incomplete configuration fails. Authentication is separately available under
-its [own explicit configuration](AUTHENTICATION_FEATURE.md); twelve other
-complete area triples remain absent.
+its [own explicit configuration](AUTHENTICATION_FEATURE.md); eleven other
+complete area triples remain absent; [Graphics](GRAPHICS_FEATURE.md) is separately available.
 No acceptance policy or required-capability gate is weakened.
 
 This is source implementation with device-free control verification. Native
