@@ -76,6 +76,9 @@ REVIEWED_CI_HOST_BOUNDARY = "90da341e226f56b8dfb8b925af7c0273ecc41772ca424e3426b
 # may use this additional negative dependency certificate; it is no test/E.
 REVIEWED_COMPILER_PR_CI_HOST_BOUNDARY = "c5c7e6b868df7b10b4f5b713b7f7640600e1aa7b67760987a274c2b6961ac3a4"
 CI_HOST_INDEPENDENT_PATHS = frozenset({
+    # Native metadata-only result reader; the product host launcher neither
+    # imports this exact leaf nor discovers tests in its tools directory.
+    "tools/ios-build-qualification/text-edits.py",
     # Standalone fake-API producer lifecycle; no application or device readers.
     'tests/producer-owner-lifecycle-test.py',
     # Linux-only shared Device launcher; its required Device owner is unchanged.
@@ -597,7 +600,20 @@ def _compiler_comparison(snapshot, inputs, *, guide=False):
     return inputs.routing_data_comparison(comparison) or comparison
 
 
-def compiler_data_selection(previous, current, head, *, policy_root=ROOT):
+def _compiler_npm_admission(previous, current, head, inputs, repository, package_owner):
+    """Keep package ownership bound to the actual B/M and the same head locks."""
+    if repository is None or package_owner is None:
+        return None
+    admitted = inputs.npm_package_admission(repository, previous, current, package_owner)
+    if admitted is None:
+        return None
+    actual, proposed = entries(current), entries(head)
+    if any(proposed.get(path) != actual.get(path) for path in admitted["changedPaths"]):
+        return None
+    return admitted
+
+
+def compiler_data_selection(previous, current, head, *, policy_root=ROOT, repository=None, package_owner=None):
     """Exact reviewed cache transition/continuation; no product result authority."""
     inputs = selector(policy_root)
     snapshots = (previous, current, head)
@@ -615,6 +631,8 @@ def compiler_data_selection(previous, current, head, *, policy_root=ROOT):
     matches = lambda tree, row: all(tree.get(path) == identity for path, identity in row.items())
     changed = [{path for path in observed[0].keys() | tree.keys() if observed[0].get(path) != tree.get(path)}
                for tree in observed[1:]]
+    npm = _compiler_npm_admission(previous, current, head, inputs, repository, package_owner)
+    npm_paths = set(npm["changedPaths"]) if npm is not None else set()
     transition = (matches(observed[0], approved["host-v1"])
         and _compiler_profile(previous, COMPILER_DATA_ORIGINAL)
         and all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_DATA_UPDATED)
@@ -623,21 +641,25 @@ def compiler_data_selection(previous, current, head, *, policy_root=ROOT):
     continuation = (all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_DATA_UPDATED, guide=False)
                         for tree, snapshot in zip(observed, snapshots))
         and all(paths for paths in changed)
-        and all(inputs._kind(entry) != "application-input" for snapshot, paths in zip(snapshots[1:], changed)
+        and all(inputs._kind(entry) != "application-input" or entry.path in npm_paths
+                for snapshot, paths in zip(snapshots[1:], changed)
                 for entry in (*previous.entries, *snapshot.entries) if entry.path in paths))
     if not (transition or continuation) or any(inputs._boundary(_compiler_comparison(snapshot, inputs))
             != inputs.REVIEWED_BOUNDARY for snapshot in snapshots):
         return None
-    return {"schema": 1, "reason": "reviewed-compiler-data-only-inputs" if transition
+    result = {"schema": 1, "reason": "reviewed-compiler-data-only-inputs" if transition
             else "reviewed-compiler-data-independent-inputs", "requires_application_build": False,
             "reviewed_boundary": inputs.REVIEWED_BOUNDARY, "comparison_profile": digest(COMPILER_DATA_UPDATED),
             "base": {"revision": previous.revision, "tree": previous.tree},
             "head": {"revision": head.revision, "tree": head.tree},
             "candidate": {"revision": current.revision, "tree": current.tree},
             "changedPaths": sorted(changed[0])}
+    if npm is not None:
+        result["package_ownership"] = npm
+    return result
 
 
-def compiler_pr_data_selection(previous, current, head, *, policy_root=ROOT):
+def compiler_pr_data_selection(previous, current, head, *, policy_root=ROOT, repository=None, package_owner=None):
     """Exact reviewed cache transition/continuation; no product result authority."""
     inputs = selector(policy_root)
     snapshots = (previous, current, head)
@@ -655,6 +677,8 @@ def compiler_pr_data_selection(previous, current, head, *, policy_root=ROOT):
     matches = lambda tree, row: all(tree.get(path) == identity for path, identity in row.items())
     changed = [{path for path in observed[0].keys() | tree.keys() if observed[0].get(path) != tree.get(path)}
                for tree in observed[1:]]
+    npm = _compiler_npm_admission(previous, current, head, inputs, repository, package_owner)
+    npm_paths = set(npm["changedPaths"]) if npm is not None else set()
     original_base = (matches(observed[0], approved["host-v1"])
         and _compiler_profile(previous, COMPILER_DATA_ORIGINAL))
     installed_v3_base = (matches(observed[0], approved[COMPILER_DATA_GENERATION])
@@ -666,18 +690,22 @@ def compiler_pr_data_selection(previous, current, head, *, policy_root=ROOT):
     continuation = (all(matches(tree, updated) and _compiler_profile(snapshot, COMPILER_PR_DATA_UPDATED, guide=False)
                         for tree, snapshot in zip(observed, snapshots))
         and all(paths for paths in changed)
-        and all(inputs._kind(entry) != "application-input" for snapshot, paths in zip(snapshots[1:], changed)
+        and all(inputs._kind(entry) != "application-input" or entry.path in npm_paths
+                for snapshot, paths in zip(snapshots[1:], changed)
                 for entry in (*previous.entries, *snapshot.entries) if entry.path in paths))
     if not (transition or continuation) or any(inputs._boundary(_compiler_comparison(snapshot, inputs))
             != inputs.REVIEWED_BOUNDARY for snapshot in snapshots):
         return None
-    return {"schema": 1, "reason": "reviewed-protected-pr-compiler-data-only-inputs" if transition
+    result = {"schema": 1, "reason": "reviewed-protected-pr-compiler-data-only-inputs" if transition
             else "reviewed-protected-pr-compiler-data-independent-inputs", "requires_application_build": False,
             "reviewed_boundary": inputs.REVIEWED_BOUNDARY, "comparison_profile": digest(COMPILER_PR_DATA_UPDATED),
             "base": {"revision": previous.revision, "tree": previous.tree},
             "head": {"revision": head.revision, "tree": head.tree},
             "candidate": {"revision": current.revision, "tree": current.tree},
             "changedPaths": sorted(changed[0])}
+    if npm is not None:
+        result["package_ownership"] = npm
+    return result
 
 def _compiler_pr_ci_comparison(previous, current, head, *, policy_root=ROOT):
     """Only an installed exact new profile can normalize an old CI complement."""
@@ -768,9 +796,11 @@ def route(event, candidate, source, *, policy_root=ROOT):
             package_owner = required_package_owner(event, candidate, source, policy_root=policy_root) if npm_changed else None
             selection = workflow_bootstrap(candidate, previous, current, head_source, policy_root=policy_root)
             if selection is None:
-                selection = compiler_data_selection(previous, current, head_source, policy_root=policy_root)
+                selection = compiler_data_selection(previous, current, head_source, policy_root=policy_root,
+                    repository=candidate, package_owner=package_owner)
             if selection is None:
-                selection = compiler_pr_data_selection(previous, current, head_source, policy_root=policy_root)
+                selection = compiler_pr_data_selection(previous, current, head_source, policy_root=policy_root,
+                    repository=candidate, package_owner=package_owner)
             if selection is None:
                 selection = inputs.candidate_plan(candidate, base, source, package_owner=package_owner)
             required, host_required = selection["requires_application_build"], True
