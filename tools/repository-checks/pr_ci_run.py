@@ -297,8 +297,9 @@ def namespace_command(candidate, command, *, prepared_roots=(), network=False,
     command = _command(command)
     values = _environment(environment, roots)
     # Limit address space, processes, files and CPU without a privileged cgroup
-    # manager. This is an address-space bound, not Docker's physical-memory cap.
-    argv = [PRLIMIT, "--as=" + str(32 * 1024 ** 3),
+    # manager. The real Node/Wasm worker build needs more than 32 GiB of sparse
+    # virtual mappings. This finite bound is not a physical-memory allocation.
+    argv = [PRLIMIT, "--as=" + str(128 * 1024 ** 3),
             "--nofile=8192:8192", "--core=0:0", "--fsize=" + str(4 * 1024 ** 3),
             "--cpu=" + str(math.ceil(timeout)), "--", BWRAP,
             "--unshare-all", "--die-with-parent", "--new-session", "--clearenv",

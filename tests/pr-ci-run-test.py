@@ -104,6 +104,7 @@ class DockerCommandTests(unittest.TestCase):
         self.assertNotIn("--cap-add", argv)
         self.assertNotIn("--unshare-user-try", argv)
         self.assertGreater(argv.index("--nproc=512:512"), argv.index(R.BWRAP))
+        self.assertIn("--as=" + str(128 * 1024 ** 3), argv)
         ro = [argv[index + 1:index + 3] for index, word in enumerate(argv) if word == "--ro-bind"]
         self.assertIn([str(self.candidate / ".git"), "/work/.git"], ro)
         self.assertIn(["/usr", "/usr"], ro)
