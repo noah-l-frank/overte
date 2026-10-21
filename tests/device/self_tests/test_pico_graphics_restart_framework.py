@@ -18,6 +18,7 @@ from self_tests.test_native_feature_observation import Boundary as FeatureBounda
 from self_tests.test_native_process_presence import Boundary as PresenceBoundary
 from self_tests.test_native_scene_loads import Boundary as LoadBoundary,row as load_row
 from adapters.native_scene_loads import resource_hash
+from adapters.graphics_journey.restart_proof import validate as restart_proof,pico_binding_change,PICO_BINDING_POLICY
 
 
 def new_process(original):
@@ -86,7 +87,8 @@ class PicoGraphicsRestartFrameworkTests(unittest.TestCase):
         m=self.model
         self.enterContext(m.lock.held())
         from self_tests import test_pico_graphics_scene as source_model
-        self.enterContext(patch.dict(source_model.BINDING,processIdentity='31:1111'))
+        self.enterContext(patch.dict(source_model.BINDING,processIdentity='31:1111',
+            sessionId='11111111-1111-4111-8111-111111111111',generation=0))
         scene=m.factory();scene.prepare();original=deepcopy(scene.previous)
         m.world_render_store=lambda _target,role:PrivateFeatureState(m.root/('graphics-'+role+'-world-render-owner.json'))
         owners=[scene.store,*[m.world_render_store('owned',role=role) for role in ('primary','actor')]]
@@ -105,11 +107,16 @@ class PicoGraphicsRestartFrameworkTests(unittest.TestCase):
         before=inputs.capture(scene.binding,native(31,self.original['instance'],1));events=[]
         inputs.stop(lambda:events.append('stop'))
         inputs.launch(lambda:dict(running=False,identity=None),lambda:events.append('launch'))
-        binding=deepcopy(scene.binding);binding['processIdentity']='32:2222'
+        binding=deepcopy(scene.binding);binding.update(processIdentity='32:2222',sessionId='22222222-2222-4222-8222-222222222222')
         after=inputs.observe(binding,native(32,self.baseline['instance'],2))
         presence=PresenceBoundary(pid=32,epoch_ms=lambda:m.native.epoch);presence.presence='absent'
         presence.edit=lambda value:value.update(instance=self.baseline['instance'])
-        receipt=dict(input=inputs.read(),oldNative=before,native=after,exit=presence.reader().require_absent(31))
+        receipt=dict(graphicsRestartProofVersion=2,bindingPolicy=PICO_BINDING_POLICY,
+            input=inputs.read(),oldNative=before,native=after,exit=presence.reader().require_absent(31))
+        restart_proof(receipt)
+        legacy=deepcopy(receipt);legacy.pop('graphicsRestartProofVersion');legacy.pop('bindingPolicy')
+        with self.assertRaises(NativeUIError):restart_proof(legacy)
+        legacy['input']['newBinding']['sessionId']=legacy['input']['oldBinding']['sessionId'];restart_proof(legacy)
         baseline=deepcopy(self.baseline);baseline.update(requestedEpochMs=m.native.epoch,capturedEpochMs=m.native.epoch)
         loads=LoadBoundary();loads.epoch=m.native.epoch
         loads.rows=[load_row(resourceSha256=resource_hash(baseline['source']['sceneUrl']),
@@ -131,6 +138,15 @@ class PicoGraphicsRestartFrameworkTests(unittest.TestCase):
         presence.presence='unknown';state['handoff']['receipt']['exit']=presence.reader().read(31)
         bad['payload']=pack([state])
         with self.assertRaises(NativeUIError):GraphicsScene.archive(bad,adapter=m,selector='owned',client=m.client,run=RUN)
+
+    def test_pico_bridge_birth_cannot_keep_the_old_bridge_or_change_candidate_target_or_host_generation(self):
+        from self_tests.test_owned_world_render import BINDING
+        old=deepcopy(BINDING);old.update(processIdentity='31:1111',sessionId='11111111-1111-4111-8111-111111111111',generation=0)
+        new=deepcopy(old);new.update(processIdentity='32:2222',sessionId='22222222-2222-4222-8222-222222222222')
+        pico_binding_change(old,new)
+        for edit in (dict(sessionId=old['sessionId']),dict(artifactSha256='d'*64),dict(targetFingerprint='d'*64),
+                dict(generation=1),dict(processIdentity='31:2222'),dict(sessionId='copied-phone-session')):
+            with self.subTest(edit=edit),self.assertRaises(NativeUIError):pico_binding_change(old,new|edit)
 
 
 if __name__=='__main__':unittest.main()

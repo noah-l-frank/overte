@@ -453,3 +453,14 @@ replies, ignored inputs, unexpected launches, changed settings and unknown OS
 sources remain covered. Rendering persistence still requires fresh independent
 stereo samples. Full normal restart, Graphics/actor dispatch and combined quiet
 retirement remain open. Native code is uncompiled and devices untested.
+
+
+## Actual Pico Qt bridge birth on restart
+
+`NavigationUi::NavigationUi()` creates a per-process UUID, and the Pico normal
+runtime uses it as its binding session ID. Restart-proof v2 now names the Pico
+binding policy explicitly and requires a new canonical Qt bridge alongside the
+qualified new PID/start. The role observer accepts that actual bridge replacement
+while retaining original old frames. The legacy preserved-session reader remains
+separate. This corrects a frozen Phone assumption; full normal Graphics restart
+and feature/quiet coordination remain pending.

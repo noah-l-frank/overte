@@ -78,3 +78,10 @@ unchanged-scale world-origin shift. Actual physical sensor/head movement remains
 permitted when the restored world transform and independent camera/head relation
 remain valid. This source policy does not supply normal restart input/recovery,
 the feature coordinator or device qualification. Native source is uncompiled.
+
+Pico restart-proof v2 explicitly selects `pico-native-qt-bridge-v1`: the actual
+NavigationUi constructor creates a new bridge UUID in every process. The new
+binding preserves candidate/target and host generation zero while replacing
+both PID/start and native Qt bridge identity. The legacy v1 receipt reader
+still enforces its original preserved-session rule. Neither reader infers PID
+death from a bridge change or an input acknowledgment.

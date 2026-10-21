@@ -11,7 +11,7 @@ from pathlib import Path
 REQUIRED = {
     "graphics-journey-background": 1,
     "pico-graphics-lifecycle-binding": 1,
-    "graphics-journey-observer": 1,
+    "graphics-journey-observer": 2,
     "graphics-journey-readiness": 1,
     "graphics-journey-effects": 1,
 
@@ -25,7 +25,7 @@ REQUIRED = {
     "graphics-journey-scene": 4,
     "graphics-journey-fixture": 1,
     "graphics-journey-geometry": 2,
-    "graphics-journey-restart-proof": 1,
+    "graphics-journey-restart-proof": 2,
     "pico-graphics-scene-policy": 3,
     "stereo-graphics-archive": 2,
     "stereo-graphics-evidence": 2,

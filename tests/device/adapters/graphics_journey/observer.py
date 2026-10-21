@@ -28,10 +28,11 @@ from adapters.graphics_journey.effects import original,compare,compare_original
 from adapters.graphics_journey.measurements import frame_fields,FRAME,SURFACE_FRAME,metadata_bytes
 from adapters.graphics_journey.samples import GraphicsSamples
 from adapters.graphics_journey.readiness import GraphicsReadiness
+from adapters.graphics_journey.restart_proof import pico_binding_change
 from adapters.script_journey.history import pack,unpack,same,canonical
 from adapters.script_journey.lock import ScriptSourceLock
 
-VERSION=1
+VERSION=2
 FRAME_VERSION=1
 
 
@@ -111,8 +112,7 @@ class GraphicsObserver:
         exact(proof,{'oldBinding','oldFrame','newBinding','newFrame','exit'})
         old,new=context(proof['oldBinding']),context(proof['newBinding'])
         before,_=self.frame(proof['oldFrame'],old,0);after,_=self.frame(proof['newFrame'],new,1)
-        need(all(same(old[key],new[key]) for key in old if key!='processIdentity')
-            and old['processIdentity']!=new['processIdentity'])
+        pico_binding_change(old,new)
         left,right=proof['oldFrame']['nativeAfter'],proof['newFrame']['nativeBefore']
         validate_native_restart(dict(pid=left['processId'],instance=left['instance'],lifecycle=left['lifecycle']),
             dict(pid=right['processId'],instance=right['instance'],lifecycle=right['lifecycle']))
@@ -126,7 +126,7 @@ class GraphicsObserver:
 
     def decode(self,value):
         exact(value,{'graphicsObserverVersion','runId','fixtureUrl','providerInstance','role','artifactRoot','imagePolicy','payload'})
-        need(type(value['graphicsObserverVersion']) is int and value['graphicsObserverVersion']==VERSION
+        need(type(value['graphicsObserverVersion']) is int and value['graphicsObserverVersion'] in (1,2)
             and value['runId']==self.run and value['fixtureUrl']==self.source.client.url and value['providerInstance']==self.source.instance
             and value['role']==self.role and value['artifactRoot']==str(self.artifact_root) and same(value['imagePolicy'],self.image_policy))
         rows=unpack(value['payload']);need(len(rows)==1);state=self.frame_references(rows[0],loading=True)
@@ -190,8 +190,7 @@ class GraphicsObserver:
         need(stage==self.state['stage'] and same(self.current_binding,self.state['binding'])
             or stage==1 and self.state['stage']==0 and self.state['baseline'] is not None and not same(self.current_binding,self.state['binding']))
         if stage!=self.state['stage']:
-            need(all(same(self.current_binding[key],self.state['binding'][key])
-                for key in self.current_binding if key!='processIdentity'))
+            pico_binding_change(self.state['binding'],self.current_binding)
         started=previous=self.monotonic();need(number(started,0,1e15))
         def bound():
             nonlocal previous

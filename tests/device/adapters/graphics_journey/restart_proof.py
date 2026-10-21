@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
 import re
+import uuid
 
 from adapters.native_feature_observation import exact,need,validate as native_packet
 from adapters.native_process_presence import validate as presence_packet
@@ -11,11 +12,28 @@ from adapters.restart_inputs import validate_native_restart
 from adapters.script_journey.history import same
 from adapters.native_scene_loads import nonce
 
-VERSION=1
+VERSION=2
+PICO_BINDING_POLICY='pico-native-qt-bridge-v1'
+
+
+def pico_binding_change(old,new):
+    """Original process/Qt bridge replacement, with the same owned candidate."""
+    context(old);context(new)
+    need(all(old[key]==new[key] for key in ('sourceRevision','artifactSha256','targetFingerprint'))
+        and old['generation']==new['generation']==0)
+    for binding in (old,new):
+        need(re.fullmatch('[1-9][0-9]{0,9}:[0-9]{1,20}',binding['processIdentity'])
+            and re.fullmatch('[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',binding['sessionId'])
+            and uuid.UUID(binding['sessionId']).int!=0)
+    need(old['processIdentity'].split(':')[0]!=new['processIdentity'].split(':')[0]
+        and old['sessionId']!=new['sessionId'])
 
 
 def validate(value):
-    exact(value,{'input','oldNative','native','exit'})
+    version=value.get('graphicsRestartProofVersion',1) if type(value) is dict else None
+    exact(value,{'input','oldNative','native','exit'}|({'graphicsRestartProofVersion','bindingPolicy'} if version==2 else set()))
+    need(type(version) is int and version in (1,2))
+    if version==2:need(value['bindingPolicy']==PICO_BINDING_POLICY)
     plan=value['input']
     exact(plan,{'restartInputVersion','componentOnly','oldBinding','oldNative','phase','newBinding','newNative','ownerFiles','scriptHandoff'})
     need(type(plan['restartInputVersion']) is int and plan['restartInputVersion']==1 and plan['componentOnly'] is False
@@ -23,7 +41,8 @@ def validate(value):
         and len(plan['ownerFiles'])==3 and len(set(plan['ownerFiles']))==3 and all(type(path) is str for path in plan['ownerFiles']))
     old,new=context(plan['oldBinding']),context(plan['newBinding'])
     need(all(re.fullmatch('[1-9][0-9]{0,9}:[0-9]{1,20}',binding['processIdentity']) for binding in (old,new)))
-    need(all(old[key]==new[key] for key in ('sourceRevision','artifactSha256','sessionId','generation','targetFingerprint')))
+    if version==1:need(all(old[key]==new[key] for key in ('sourceRevision','artifactSha256','sessionId','generation','targetFingerprint')))
+    else:pico_binding_change(old,new)
     validate_native_restart(plan['oldNative'],plan['newNative'])
     for binding,packet,original in ((old,value['oldNative'],plan['oldNative']),(new,value['native'],plan['newNative'])):
         need(nonce(packet['requestId']) and 'requestedEpochMs' in packet)

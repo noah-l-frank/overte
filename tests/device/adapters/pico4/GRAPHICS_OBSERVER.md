@@ -1,4 +1,4 @@
-# Original Graphics role observer v1
+# Original Graphics role observer v2
 
 The neutral [`GraphicsObserver`](../graphics_journey/observer.py) reuses the
 frozen Phone role transaction architecture, with exact Git-object provenance in
@@ -36,3 +36,12 @@ and independent verifier at synthetic native/UI/GPU/OS boundaries. No native
 compilation, physical input/rendering/timing or device qualification is claimed.
 The full feature coordinator, actor dispatcher, normal background/restart and
 combined UI/QML/XHR/HTTP/Web/scene/capture quiet cleanup are still required.
+
+The v2 role journal retains its explicit v1 baseline reader. On a Pico process
+restart the actual native NavigationUi bridge UUID changes, so the original
+new binding must have a distinct canonical bridge UUID with the same candidate,
+target and current zero-valued host generation. Stage transfer preserves old
+frames and independently requires new native birth/capture and old-PID absence.
+It never copies the old GUI bridge into the new process. Legacy preserved-session
+restart receipts remain a separate v1 reader; the Pico producer uses the
+explicit `pico-native-qt-bridge-v1` receipt policy in restart-proof v2.

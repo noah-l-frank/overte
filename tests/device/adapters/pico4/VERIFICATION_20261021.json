@@ -1072,5 +1072,38 @@
     ],
     "details": "Normal existing Android/Pico lifecycle input is admitted against original kernel/foreground/candidate scope. Archive-only recovery does not construct a live foreground owner while backgrounded. Both lost replies, both ignored operations, changed original files, unexpected launch counters/settings, missing controlled probe and process replacement prevent unsafe replay or success. Rendering persistence remains an independent original stereo requirement.",
     "limits": "Synthetic native/UI/OS boundaries. No full restart/feature/actor operation or combined quiet retirement is registered; source logic does not qualify devices or native timing."
+  },
+  "graphicsQtRestartBindingPacket": {
+    "contracts": [
+      "graphics-journey-restart-proof v2 (explicit v1/v2 readers)",
+      "graphics-journey-observer v2 (reads v1/v2)"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "sourceFinding": "NavigationUi::NavigationUi() creates a process-local UUID; Pico normal_scripts.runtime stores that actual bridge ID as context.sessionId with host generation zero. A real restart changes that native Qt bridge, unlike the frozen Phone preserved-session assumption.",
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_restart_framework self_tests.test_pico_graphics_observer (from tests/device)",
+        "tests": 15,
+        "status": "passed",
+        "durationSeconds": 43.748
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test graphics-sources --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 4,
+        "status": "passed",
+        "durationSeconds": 176.71,
+        "junit": "graphics-pico-qt-restart-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 5.6,
+        "junit": "graphics-pico-qt-restart-project.xml"
+      }
+    ],
+    "limits": "Synthetic source/UI/process boundaries. The actual Pico binding policy retains old originals and does not itself provide normal restart dispatch/recovery, whole feature/actor coordination or quiet cleanup."
   }
 }

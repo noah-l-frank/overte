@@ -3,7 +3,7 @@
   "contracts": {
     "graphics-journey-background": {"current": 1, "reads": [1]},
     "pico-graphics-lifecycle-binding": {"current": 1, "reads": [1]},
-    "graphics-journey-observer": {"current": 1, "reads": [1]},
+    "graphics-journey-observer": {"current": 2, "reads": [1, 2]},
     "graphics-journey-readiness": {"current": 1, "reads": [1]},
     "graphics-journey-effects": {"current": 1, "reads": [1]},
 
@@ -17,7 +17,7 @@
     "graphics-journey-scene": {"current": 4, "reads": [3, 4]},
     "graphics-journey-fixture": {"current": 1, "reads": [1]},
     "graphics-journey-geometry": {"current": 2, "reads": [1, 2]},
-    "graphics-journey-restart-proof": {"current": 1, "reads": [1]},
+    "graphics-journey-restart-proof": {"current": 2, "reads": [1, 2]},
     "pico-graphics-scene-policy": {"current": 3, "reads": [1, 2, 3]},
     "stereo-graphics-archive": {"current": 2, "reads": [1, 2]},
     "stereo-graphics-evidence": {"current": 2, "reads": [1, 2]},
