@@ -11,10 +11,12 @@ from adapters.token_emote_ui import control_id,snapshot,same_reference
 from feature_journeys.contract import arguments
 from feature_journeys.phase_fixture import validate as phase_packet
 from overte_phone_emote_sources import PhoneEmoteSources
+from overte_phone_emote_originals import PhoneEmoteOriginals,BLOCK
 from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_ui import PhoneScriptUI
 
-VERSION=1
+VERSION=2
+MAX_INPUTS=256
 VERBS={'open','play','sit','override','cancel','wait-complete','close'}
 
 
@@ -25,10 +27,13 @@ class PhoneEmoteInputs:
         self.run,self.fixture_url,self.binding=source.run,source.phase.fixture_url,source.binding
         self.store=PrivateFeatureState(source.store.path.with_name('phone-emote-inputs.json'))
         self.previous=self.store.read();self.state=dict(history=[],current=None)
-        self.started=self.clock=None
+        self.history_state=dict(count=0,manifests=[],pendingArchive=None)
+        self.history_store=PhoneEmoteOriginals(source.artifact_root,self.binding,self.run,'primary',source.guard,
+            self.archive_intent,kind='inputs',monotonic=source.monotonic)
+        self.started=self.clock=None;self.failed=False
         if self.previous is not None:
-            try:self.state=self.decode(self.previous)
-            except (KeyError,TypeError,ValueError):raise NativeUIError('Original Emote input journal is invalid') from None
+            try:self.state,self.history_state=self.decode(self.previous)
+            except (KeyError,TypeError,ValueError,OSError):raise NativeUIError('Original Emote input journal is invalid') from None
 
     def reference(self):
         need(self.source.frames and self.source.state['phase']=='ready')
@@ -136,33 +141,88 @@ class PhoneEmoteInputs:
         return row
 
     def decode(self,value):
-        exact(value,{'emoteInputsVersion','runId','fixtureUrl','binding','payload'})
+        exact(value,{'emoteInputsVersion','runId','fixtureUrl','binding','artifactRoot','payload'})
         need(type(value['emoteInputsVersion']) is int and value['emoteInputsVersion']==VERSION
-            and value['runId']==self.run and value['fixtureUrl']==self.fixture_url and same(context(value['binding']),self.binding))
-        rows=unpack(value['payload']);need(len(rows)==1);state=rows[0];exact(state,{'history','current'})
-        need(type(state['history']) is list and len(state['history'])<=63);tickets=set()
+            and value['runId']==self.run and value['fixtureUrl']==self.fixture_url and same(context(value['binding']),self.binding)
+            and value['artifactRoot']==str(self.source.artifact_root))
+        rows=unpack(value['payload']);need(len(rows)==1);stored=rows[0];exact(stored,{'historyCount','manifests','pendingArchive','current'})
+        need(integer(stored['historyCount'],0,MAX_INPUTS) and (stored['current'] is None or stored['historyCount']<MAX_INPUTS))
+        history=self.history_store.restore(stored['manifests'],stored['historyCount'])
+        state=dict(history=history,current=stored['current']);tickets=set()
         for row in state['history']+([state['current']] if state['current'] is not None else []):
             self.row(row);need(row['call']['ticket'] not in tickets);tickets.add(row['call']['ticket'])
         need(all(row['phase']=='acknowledged' for row in state['history']))
-        return state
+        pending=stored['pendingArchive']
+        if pending is not None:
+            exact(pending,{'original','manifest'})
+            need(state['current'] is not None and state['current']['phase']=='acknowledged' and len(history)<MAX_INPUTS)
+            if pending['original'] is not None:
+                self.history_store.original(pending['original']);need(pending['original']['index']==len(history)+1)
+            if pending['manifest'] is not None:
+                item=pending['manifest'];exact(item,{'emoteManifestVersion','reference','phase'})
+                need(type(item['emoteManifestVersion']) is int and item['emoteManifestVersion']==1 and item['phase'] in ('planned','saved')
+                    and pending['original'] is not None and pending['original']['phase']=='saved')
+                self.history_store.manifest_reference(item['reference'])
+                need(item['reference']['block']==len(history)//BLOCK+1 and item['reference']['count']==len(history)%BLOCK+1)
+        return state,dict(count=len(history),manifests=deepcopy(stored['manifests']),pendingArchive=deepcopy(pending))
 
     def bound(self):
         now=self.source.monotonic();need(number(now,0,1e15) and (self.clock is None or now>=self.clock)
             and (self.started is None or now-self.started<45));self.clock=now
-        self.lock.assert_held();need(self.source.guard() is not False and same(self.store.read(),self.previous)
+        self.lock.assert_held();need(not self.failed and self.source.guard() is not False and same(self.store.read(),self.previous)
             and same(self.source.store.read(),self.source.previous))
 
-    def save(self):
+    def persist(self):
         try:
             self.bound()
-            value=dict(emoteInputsVersion=VERSION,runId=self.run,fixtureUrl=self.fixture_url,binding=self.binding,payload=pack([self.state]))
+            stored=dict(historyCount=self.history_state['count'],manifests=self.history_state['manifests'],
+                pendingArchive=self.history_state['pendingArchive'],current=self.state['current'])
+            need(len(self.state['history'])==stored['historyCount'])
+            value=dict(emoteInputsVersion=VERSION,runId=self.run,fixtureUrl=self.fixture_url,binding=self.binding,
+                artifactRoot=str(self.source.artifact_root),payload=pack([stored]))
             self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
         except Exception:
+            self.failed=True
             # A failed final ACK write must not make this same live object
             # acknowledge an uncommitted state on the caller's next attempt.
             if same(self.store.read(),self.previous):
-                self.state=self.decode(self.previous) if self.previous is not None else dict(history=[],current=None)
+                if self.previous is not None:self.state,self.history_state=self.decode(self.previous)
+                else:self.state,self.history_state=dict(history=[],current=None),dict(count=0,manifests=[],pendingArchive=None)
             raise
+
+    def save(self):
+        need(self.history_state['pendingArchive'] is None)
+        self.persist()
+
+    def archive_intent(self,kind,value):
+        need(kind in ('original','manifest') and self.history_state['pendingArchive'] is not None)
+        pending=self.history_state['pendingArchive'];old=pending[kind]
+        if kind=='original':
+            self.history_store.original(value);need(value['index']==self.history_state['count']+1)
+            if old is None:need(value['phase']=='planned')
+            else:need(value['phase']=={'planned':'opened','opened':'saved'}.get(old['phase'])
+                and all(same(value[key],old[key]) for key in value if key not in ('phase','file'))
+                and (old['phase']=='planned' or same(old['file'],value['file'])))
+        else:
+            exact(value,{'emoteManifestVersion','reference','phase'})
+            need(type(value['emoteManifestVersion']) is int and value['emoteManifestVersion']==1
+                and pending['original'] is not None and pending['original']['phase']=='saved')
+            self.history_store.manifest_reference(value['reference'])
+            need(value['reference']['block']==self.history_state['count']//BLOCK+1
+                and value['reference']['count']==self.history_state['count']%BLOCK+1)
+            need(value['phase']=='planned' if old is None else old['phase']=='planned' and value['phase']=='saved'
+                and same(old['reference'],value['reference']))
+        pending[kind]=deepcopy(value);self.persist()
+
+    def archive_current(self):
+        self.bound();need(self.history_state['pendingArchive'] is None and self.state['current'] is not None
+            and self.state['current']['phase']=='acknowledged' and len(self.state['history'])<MAX_INPUTS)
+        current=deepcopy(self.row(self.state['current']))
+        self.history_state['pendingArchive']=dict(original=None,manifest=None);self.persist()
+        original=self.history_store.write(len(self.state['history'])+1,current)
+        manifests=self.history_store.append(self.history_state['manifests'],original)
+        self.state['history'].append(current);self.state['current']=None
+        self.history_state=dict(count=len(self.state['history']),manifests=manifests,pendingArchive=None);self.persist()
 
     def capture(self):
         frame=self.source.read();self.active(self.state['current']['call'],frame['phaseAfter']);return self.reference()
@@ -203,6 +263,7 @@ class PhoneEmoteInputs:
         call=deepcopy(arguments('feature.emotes.act',call));need(call['verb'] in VERBS and call['runId']==self.run
             and call['fixtureUrl']==self.fixture_url);self.lock.assert_held()
         self.started=self.source.monotonic();need(number(self.started,0,1e15));self.bound()
+        need(self.history_state['pendingArchive'] is None)
         floor=self.source.frames[-1]['phaseAfter'] if self.source.frames else None
         self.active(call,self.source.phase.read(floor)['status']);self.bound()
         current=self.state['current']
@@ -210,8 +271,9 @@ class PhoneEmoteInputs:
             self.row(current)
             if current['call']['ticket']==call['ticket']:
                 need(same(current['call'],call) and current['phase']=='acknowledged');self.bound();return {'performed':True}
-            need(current['phase']=='acknowledged' and len(self.state['history'])<63)
-            self.state['history'].append(current)
+            need(current['phase']=='acknowledged' and len(self.state['history'])<MAX_INPUTS-1)
+            self.archive_current()
+        need(len(self.state['history'])<MAX_INPUTS)
         self.state['current']=dict(call=call,phase='acting',before=None,intents=[],idleReset=None);self.save()
         with self.adapter.existing_input_session(self.selector):
             current=self.state['current'];current['before']=self.capture();self.save()

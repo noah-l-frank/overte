@@ -24,10 +24,6 @@ from test_emote_sources import Originals as SourceOriginals,RUN,TICKET,OTHER
 class Originals(SourceOriginals):
     def __init__(self,root):
         super().__init__(root);self.tablet_inputs=[];self.input_fault=None;self.sessions=0;self.phase_index=0;self.idle=False
-    def native_send(self,request):
-        if not self.idle:return super().native_send(request)
-        self.calls.append('native-read');self.epoch+=100;self.roots.epoch=self.epoch
-        self.value=self.native(self.epoch,active=False,restore_epoch=20000);self.value['requestId']=request['commandId']
     def normal_feature_runtime(self,_selector,*,read_only=False):
         binding=deepcopy(self.binding)
         return None,None,binding,lambda:self.okay and self.binding==binding,dict(bound=True)
@@ -255,6 +251,66 @@ class PhoneEmoteInputsTests(unittest.TestCase):
                     item['input']['original']['scope']['sequence']+=1;item['input']['sequence']+=1;item['after']['scope']['sequence']+=1
                 changed['payload']=pack([state]);owner.store.write(changed,owner.store.read())
                 with self.subTest(fault=fault),self.assertRaises(NativeUIError):PhoneEmoteInputs(m.source())
+    def test_lost_history_archive_preserves_pending_scope_and_never_delivers_the_next_call(self):
+        m=self.model
+        with m.lock.held():
+            owner=PhoneEmoteInputs(m.source());owner.act(m.call('open'));next_call=m.call('wait-complete')
+            intent=owner.history_store.intent
+            def lost(kind,value):
+                intent(kind,value)
+                if kind=='original' and value['phase']=='opened':raise NativeUIError('Synthetic archive return lost')
+            owner.history_store.intent=lost
+            with self.assertRaises(NativeUIError):owner.act(next_call)
+            restored=PhoneEmoteInputs(m.source())
+            with self.assertRaises(NativeUIError):restored.act(next_call)
+            self.assertEqual('opened',restored.history_state['pendingArchive']['original']['phase'])
+        self.assertEqual(1,len(m.controls.input_requests))
+    def test_completed_history_file_corruption_cannot_be_hidden_by_the_current_row(self):
+        m=self.model
+        with m.lock.held():
+            owner=PhoneEmoteInputs(m.source());owner.act(m.call('open'));owner.act(m.call('wait-complete'))
+            entry=owner.history_store.manifest(owner.history_state['manifests'][0])[0]
+            owner.history_store.path(owner.history_store.expand(entry)).write_bytes(b'{}')
+            with self.assertRaises(NativeUIError):PhoneEmoteInputs(m.source())
+    def test_full_shared_sit_attempt_bound_fits_original_history_and_private_owner_records(self):
+        from feature_journeys.scenarios import SCENARIOS
+        maximum=len(SCENARIOS['emotes']['steps'])-3+3*24*2
+        m=self.model;m.widgets.page=True;m.widgets.offset=6
+        with m.lock.held():
+            owner=PhoneEmoteInputs(m.source())
+            for _ in range(3*24):
+                owner.act(m.call('sit'));owner.act(m.call('cancel'))
+            for _ in range(maximum-3*24*2):owner.act(m.call('wait-complete'))
+            self.assertEqual(maximum-1,len(owner.state['history']))
+            self.assertLess(owner.store.path.stat().st_size,65536);self.assertLess(owner.source.store.path.stat().st_size,65536)
+            restored=PhoneEmoteInputs(m.source())
+            self.assertEqual(maximum-1,len(restored.state['history']))
+            self.assertEqual(owner.state,restored.state)
+        # These are ordinary input/storage boundaries. Native Waving remained
+        # unchanged throughout: this test establishes no Sit/product success.
+        self.assertEqual(144,len(m.controls.input_requests))
+    def test_lost_guard_during_ack_commit_cannot_pass_after_session_guard_returns(self):
+        m=self.model
+        with m.lock.held():
+            owner=PhoneEmoteInputs(m.source());owner.act(m.call('open'));call=m.call('wait-complete');write=owner.store.write
+            def lost(value,previous):
+                current=unpack(value['payload'])[0]['current']
+                if current is not None and current['call']['ticket']==call['ticket'] and current['phase']=='acknowledged':
+                    m.okay=False;raise NativeUIError('Synthetic lost guard during ACK commit')
+                write(value,previous)
+            owner.store.write=lost
+            with self.assertRaises(NativeUIError):owner.act(call)
+            m.okay=True
+            with self.assertRaises(NativeUIError):owner.act(call)
+        self.assertTrue(owner.failed);self.assertEqual(1,len(m.controls.input_requests))
+    def test_legacy_inline_input_history_is_preserved_without_adoption(self):
+        m=self.model
+        with m.lock.held():
+            owner=PhoneEmoteInputs(m.source());legacy=dict(emoteInputsVersion=1,runId=RUN,fixtureUrl=URL(),binding=m.binding,
+                payload=pack([dict(history=[],current=None)]))
+            owner.store.write(legacy,None)
+            with self.assertRaises(NativeUIError):PhoneEmoteInputs(m.source())
+        self.assertEqual(legacy,owner.store.read());self.assertEqual([],m.controls.input_requests)
 
 
 if __name__=='__main__':unittest.main()

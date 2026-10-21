@@ -6,24 +6,26 @@ cursors only; every successful read obtains new native/UI/fixture originals.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from pathlib import Path
 import time
 
 from adapters.emote_rig_measurements import source,continuation
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.native_script_roots import validate as roots_packet
-from adapters.native_script_observation import NativeScriptObservation
+from adapters.native_script_observation import NativeScriptObservation,validate as script_packet
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
 from adapters.token_emote_ui import snapshot
 from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import PhaseFixtureReader,validate as phase_packet
 from overte_phone_emote_controls import validate as widget_packet
+from overte_phone_emote_originals import PhoneEmoteOriginals,MAX_FRAMES,BLOCK
 from overte_phone_graphics_samples import restore_native,restore_ui
 from overte_phone_script_history import pack,unpack,same
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=1
-LIMIT=128
+VERSION=2
+LIMIT=MAX_FRAMES
 
 
 class EmotePhaseChanged(NativeUIError):
@@ -31,7 +33,7 @@ class EmotePhaseChanged(NativeUIError):
 
 
 class PhoneEmoteSources:
-    def __init__(self,adapter,selector,phase,role,lock,*,monotonic=time.monotonic):
+    def __init__(self,adapter,selector,phase,role,lock,*,artifact_root,monotonic=time.monotonic):
         need(isinstance(phase,PhaseFixtureReader) and phase.area=='emotes'
             and role in ('primary','actor') and isinstance(lock,PhoneScriptSourceLock) and callable(monotonic))
         path=adapter.state_path(selector);need(lock.path==path.with_name('phone-script-sources.lock'));lock.assert_held()
@@ -40,35 +42,79 @@ class PhoneEmoteSources:
         _ui,_service,binding,self.guard,_installed=adapter.normal_feature_runtime(selector,read_only=True)
         self.binding=deepcopy(context(binding));self.pid=int(self.binding['processIdentity'].split(':')[0]);need(integer(self.pid,1))
         self.store=PrivateFeatureState(path.with_name('phone-emote-'+role+'-sources.json'))
-        self.previous=self.store.read();self.frames=[]
-        self.state=dict(phase='ready',revision=0,transcript=pack([]),pending=None)
+        self.previous=self.store.read();self.frames=[];self.failed=False
+        self.artifact_root=Path(artifact_root)
+        self.state=dict(phase='ready',revision=0,manifests=[],pending=None)
+        self.originals=PhoneEmoteOriginals(self.artifact_root,self.binding,self.run,self.role,self.guard,self.storage_intent,monotonic=self.monotonic)
         if self.previous is not None:
             try:self.state,self.frames=self.decode(self.previous)
-            except (KeyError,TypeError,ValueError):
+            except (KeyError,TypeError,ValueError,OSError):
                 raise NativeUIError('Original Emote source journal is invalid') from None
 
     def decode(self,value):
-        exact(value,{'emoteSourcesVersion','runId','fixtureUrl','role','binding','payload'})
+        exact(value,{'emoteSourcesVersion','runId','fixtureUrl','role','binding','artifactRoot','payload'})
         need(type(value['emoteSourcesVersion']) is int and value['emoteSourcesVersion']==VERSION
             and value['runId']==self.run and value['fixtureUrl']==self.phase.fixture_url and value['role']==self.role
-            and same(context(value['binding']),self.binding))
+            and same(context(value['binding']),self.binding) and value['artifactRoot']==str(self.artifact_root))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'phase','revision','transcript','pending'})
+        exact(state,{'phase','revision','manifests','pending'})
         need(state['phase'] in ('ready','reading') and integer(state['revision'],0,LIMIT))
-        frames=unpack(state['transcript']);need(len(frames)==state['revision'])
+        frames=self.originals.restore(state['manifests'],state['revision'])
         # Existing Script history validation owns immutable module/code/load/
         # manager transitions. It issues no transport calls during replay.
         replay=NativeScriptObservation(lambda *_:need(False),lambda:need(False),lambda:need(False),lambda:need(False),self.pid)
-        replay.restore_history([frame['group']['script'] for frame in frames])
+        self.replay_scripts(replay,frames)
         previous=None
         for frame in frames:
             self.validate_frame(frame,previous);previous=frame
         if state['phase']=='ready':need(state['pending'] is None)
         else:
-            exact(state['pending'],{'startedEpochMs','role','revision'})
-            need(integer(state['pending']['startedEpochMs'],1) and state['pending']['role']==self.role
-                and type(state['pending']['revision']) is int and state['pending']['revision']==state['revision'])
+            pending=state['pending'];exact(pending,{'startedEpochMs','role','revision','original','manifest'})
+            need(state['revision']<LIMIT and integer(pending['startedEpochMs'],1) and pending['role']==self.role
+                and type(pending['revision']) is int and pending['revision']==state['revision'])
+            if pending['original'] is not None:
+                self.originals.original(pending['original']);need(pending['original']['index']==state['revision']+1)
+            if pending['manifest'] is not None:
+                item=pending['manifest'];exact(item,{'emoteManifestVersion','reference','phase'})
+                need(type(item['emoteManifestVersion']) is int and item['emoteManifestVersion']==1 and item['phase'] in ('planned','saved')
+                    and pending['original'] is not None and pending['original']['phase']=='saved')
+                self.originals.manifest_reference(item['reference'])
+                need(item['reference']['block']==state['revision']//BLOCK+1 and item['reference']['count']==state['revision']%BLOCK+1)
         return deepcopy(state),deepcopy(frames)
+
+    @staticmethod
+    def replay_scripts(reader,frames):
+        # Extend through the existing original packet validator and pure native
+        # history state machine. Its ordinary <=512-frame batch API stays intact.
+        # No transport, callback, expected facts or clock replacement is involved.
+        need(isinstance(reader,NativeScriptObservation) and reader.ios is False and len(frames)<=LIMIT)
+        reader.restore_history([])
+        for frame in frames:
+            value=frame['group']['script'];script_packet(value,identifier(value.get('requestId')),reader.pid,value.get('capturedEpochMs'))
+            need(reader.instance in (None,value['instance']) and value['sequence']>reader.sequence
+                and value['capturedEpochMs']>=reader.captured_epoch)
+            transition=reader._history_transition(value,require_effects=True,require_code_identity=True,require_load_history=True,require_membership=True)
+            reader._commit_history(value,transition)
+
+    def storage_intent(self,kind,value):
+        need(self.state['phase']=='reading' and kind in ('original','manifest'))
+        pending=self.state['pending'];old=pending[kind]
+        if kind=='original':
+            self.originals.original(value);need(value['index']==self.state['revision']+1)
+            if old is None:need(value['phase']=='planned')
+            else:
+                need(value['phase']=={'planned':'opened','opened':'saved'}.get(old['phase'])
+                    and all(same(value[key],old[key]) for key in value if key not in ('phase','file'))
+                    and (old['phase']=='planned' or same(old['file'],value['file'])))
+        else:
+            exact(value,{'emoteManifestVersion','reference','phase'})
+            need(type(value['emoteManifestVersion']) is int and value['emoteManifestVersion']==1
+                and pending['original'] is not None and pending['original']['phase']=='saved')
+            self.originals.manifest_reference(value['reference'])
+            need(value['reference']['block']==self.state['revision']//BLOCK+1 and value['reference']['count']==self.state['revision']%BLOCK+1)
+            need(value['phase']=='planned' if old is None else old['phase']=='planned' and value['phase']=='saved'
+                and same(old['reference'],value['reference']))
+        pending[kind]=deepcopy(value);self.save()
 
     def validate_frame(self,frame,previous=None):
         exact(frame,{'group','ui','widgets','phaseBefore','phaseAfter','hostEpochMs','epochMs'})
@@ -103,19 +149,20 @@ class PhoneEmoteSources:
 
     def save(self):
         try:
-            self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
-            self.state['revision']=len(self.frames);self.state['transcript']=pack(self.frames)
+            self.lock.assert_held();need(not self.failed and self.guard() is not False and same(self.store.read(),self.previous))
+            self.state['revision']=len(self.frames)
             value=dict(emoteSourcesVersion=VERSION,runId=self.run,fixtureUrl=self.phase.fixture_url,role=self.role,
-                binding=self.binding,payload=pack([self.state]))
+                binding=self.binding,artifactRoot=str(self.artifact_root),payload=pack([self.state]))
             self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
         except Exception:
+            self.failed=True
             if same(self.store.read(),self.previous):
                 if self.previous is not None:self.state,self.frames=self.decode(self.previous)
-                else:self.state,self.frames=dict(phase='ready',revision=0,transcript=pack([]),pending=None),[]
+                else:self.state,self.frames=dict(phase='ready',revision=0,manifests=[],pending=None),[]
             raise
 
     def read(self):
-        self.lock.assert_held();need(self.state['phase']=='ready' and len(self.frames)<LIMIT and self.guard() is not False)
+        self.lock.assert_held();need(not self.failed and self.state['phase']=='ready' and len(self.frames)<LIMIT and self.guard() is not False)
         started=previous=self.monotonic();need(number(started,0,1e15))
         def bound():
             nonlocal previous
@@ -129,14 +176,14 @@ class PhoneEmoteSources:
         ui=self.adapter._emote_controls(self.selector,lambda *_:need(False),read_only=True).io
         need(roots.pid==scripts.pid==native.pid==ui.pid==self.pid and native.ios is False and scripts.ios is False)
         if old:
-            roots.restore(old['rootsAfter']);scripts.restore_history([frame['group']['script'] for frame in self.frames])
+            roots.restore(old['rootsAfter']);self.replay_scripts(scripts,self.frames)
             restore_native(native,old['native']);native.rig=old['native']['animation']['rigId']
             native.rig_sequence=old['native']['animation']['evaluationSequence']
             restore_ui(ui,last['widgets'],widget_packet)
         # Persist responsibility before any actual observation request. A lost
         # dispatch/result may not disappear through object reconstruction.
-        epoch=native.clock_ms();need(integer(epoch,1))
-        self.state.update(phase='reading',pending=dict(startedEpochMs=epoch,role=self.role,revision=len(self.frames)));self.save();bound()
+        epoch_local=self.monotonic();epoch=native.clock_ms();need(integer(epoch,1))
+        self.state.update(phase='reading',pending=dict(startedEpochMs=epoch,role=self.role,revision=len(self.frames),original=None,manifest=None));self.save();bound()
         host_started=self.phase.epoch_ms();need(number(host_started,1,1e15))
         phase_started=self.monotonic();bound()
         phase=self.phase.read(last['phaseAfter'] if last else None);bound()
@@ -152,15 +199,17 @@ class PhoneEmoteSources:
         stable=self.validate_frame(frame,last);bound()
         fresh(before['requestedEpochMs'],device_epoch)
         # Frozen external clocks cannot conceal late sequential acquisition.
-        need(max(device_epoch-before['requestedEpochMs'],epoch-before['requestedEpochMs']+(previous-started)*1000)<=1500
+        need(max(device_epoch-before['requestedEpochMs'],epoch-before['requestedEpochMs']+(previous-epoch_local)*1000)<=1500
             and max(host_epoch-phase['status']['capturedEpochMs'],
                 host_started-phase['status']['capturedEpochMs']+(previous-phase_started)*1000)<=1500)
-        self.frames.append(deepcopy(frame));self.state.update(phase='ready',pending=None);self.save();bound()
+        original=self.originals.write(len(self.frames)+1,frame);bound()
+        manifests=self.originals.append(self.state['manifests'],original);bound()
+        self.frames.append(deepcopy(frame));self.state.update(phase='ready',manifests=manifests,pending=None);self.save();bound()
         # Durability/guard work is part of delivery time, too. Accepted packets
         # remain historical if a slow final write prevents a fresh return.
         delivered_epoch=native.clock_ms();delivered_host=self.phase.epoch_ms();bound()
         need(integer(delivered_epoch,device_epoch) and number(delivered_host,host_epoch,1e15)
-            and max(delivered_epoch-before['requestedEpochMs'],epoch-before['requestedEpochMs']+(previous-started)*1000)<=1500
+            and max(delivered_epoch-before['requestedEpochMs'],epoch-before['requestedEpochMs']+(previous-epoch_local)*1000)<=1500
             and max(delivered_host-phase['status']['capturedEpochMs'],
                 host_started-phase['status']['capturedEpochMs']+(previous-phase_started)*1000)<=1500)
         if not stable:raise EmotePhaseChanged('Original Emote sources crossed the active input phase; no current facts returned')

@@ -22,6 +22,7 @@ from overte_phone_emote_sources import PhoneEmoteSources,EmotePhaseChanged
 from overte_phone_script_history import pack,unpack
 from overte_phone_script_lock import PhoneScriptSourceLock
 from test_emote_rig_measurements import RigPackets
+from self_tests.test_native_feature_observation import Boundary as NativeBoundary
 from test_emote_controls import RawWidgets
 from audio_native_boundary import ControlNativeBoundary
 from test_graphics_images import BINDING
@@ -33,7 +34,7 @@ URL='http://controlled.invalid/feature-fixture/v1'
 class Originals(RigPackets):
     def __init__(self,root):
         super().__init__();self.root=root;self.clock=0.;self.binding=deepcopy(BINDING);self.okay=True
-        self.calls=[];self.value=None;self.fault=None;self.phase_reads=0
+        self.calls=[];self.value=None;self.fault=None;self.phase_reads=0;self.idle=False;self.idle_frames=[]
         self.widgets=RawWidgets();self.controls=ControlNativeBoundary(self.widgets,'phone-emote-ui')
         self.controls.mutate=self.widget_original
         self.journal=Journal(lambda:self.epoch)
@@ -65,7 +66,35 @@ class Originals(RigPackets):
         reader.clock_ms=lambda:self.epoch;return reader
     def native_send(self,request):
         self.calls.append('native-read');self.epoch+=100;self.roots.epoch=self.epoch
-        value=self.native(self.epoch,active=True);value['requestId']=request['commandId']
+        if self.idle:
+            self.sequence+=1;evaluation=self.sequence*10
+            pose=[0.,0.,0.,1.,self.sequence*.0001,.2,.3]
+            self.idle_frames.append(dict(frameSequence=self.sequence,overrideSequence=0,evaluationSequence=evaluation,
+                capturedEpochMs=self.epoch,overrideActive=False,joints=[dict(index=0,pose=pose)]))
+            self.idle_frames=self.idle_frames[-32:]
+            def observed(value):
+                value.update(instance='a'*32,requestedEpochMs=self.epoch,capturedEpochMs=self.epoch,processId=31,
+                    animationFence=dict(rigId=2,sequence=evaluation-1,requestedEpochMs=self.epoch))
+                value['animation'].update(rigId=2,evaluationSequence=evaluation,capturedEpochMs=self.epoch,
+                    joints=[pose],overrideActive=False,history=dict(historyVersion=1,instance='e'*32,available=True,
+                        callSequence=0,overrideSequence=0,frameSequence=self.sequence,droppedEvents=0,
+                        droppedFrames=self.sequence-len(self.idle_frames),events=[],frames=deepcopy(self.idle_frames)))
+                value['animation'].pop('clip',None)
+            original=NativeBoundary();original.sequence=self.sequence-1;original.mutate=observed;original.send(request)
+            value=deepcopy(original.sample)
+        else:
+            value=self.native(self.epoch,active=True);value['requestId']=request['commandId']
+            # The independent native fixture models a held final one-shot
+            # pose when input is ignored. Keep original prefixes immutable and
+            # expose the actual native 32-frame ring, rather than an unbounded
+            # history or an impossible clip position beyond its loaded range.
+            for frame in self.frames:
+                if 'clip' in frame:frame['clip']['frame']=min(frame['clip']['frame'],120.)
+                for joint in frame['joints']:joint['pose'][4]=min(joint['pose'][4],1.)
+            history=value['animation']['history'];history['frames']=deepcopy(self.frames[-32:])
+            history['droppedFrames']=len(self.frames)-len(history['frames'])
+            value['animation']['joints']=[deepcopy(row['pose']) for row in self.frames[-1]['joints']]
+            value['animation']['clip']['frame']=min(value['animation']['clip']['frame'],120.)
         if self.fault=='old-native':value['sequence']=1
         elif self.fault=='native-birth':value['instance']='6'*32
         self.value=value
@@ -92,7 +121,7 @@ class Originals(RigPackets):
         return self.journal.phase(RUN,kwargs['phase_nonce'])
     def source(self,role='primary'):
         phase=PhaseFixtureReader(self.client,RUN,'emotes',epoch_ms=lambda:self.epoch,monotonic=lambda:self.clock)
-        return PhoneEmoteSources(self,'synthetic-selector',phase,role,self.lock,monotonic=lambda:self.clock)
+        return PhoneEmoteSources(self,'synthetic-selector',phase,role,self.lock,artifact_root=self.root,monotonic=lambda:self.clock)
 
 
 class PhoneEmoteSourcesTests(unittest.TestCase):
@@ -104,7 +133,7 @@ class PhoneEmoteSourcesTests(unittest.TestCase):
         with m.lock.held():source=m.source();value=source.read()
         self.assertEqual('ready',source.state['phase']);self.assertEqual(1,source.state['revision'])
         self.assertEqual(TICKET,value['phaseAfter']['activations'][-1]['ticket'])
-        self.assertEqual(value,source.frames[0]);self.assertEqual(1,len(unpack(source.state['transcript'])))
+        self.assertEqual(value,source.frames[0]);self.assertEqual(1,len(source.state['manifests']))
         self.assertNotIn('state',value);self.assertNotIn('facts',value);self.assertNotIn('resources',value)
         self.assertEqual([],m.controls.input_requests)
     def test_reconstructed_reader_acquires_new_originals_beyond_every_retained_cursor(self):
@@ -157,15 +186,25 @@ class PhoneEmoteSourcesTests(unittest.TestCase):
         with m.lock.held():
             source=m.source();source.read();original=source.store.read()
             for fault in ('native-birth','root','pose','phase-prefix','ui','pending'):
-                changed=deepcopy(original);state=unpack(changed['payload'])[0];rows=unpack(state['transcript']);frame=rows[0]
+                changed=deepcopy(original);state=unpack(changed['payload'])[0];frame=deepcopy(source.frames[0])
                 if fault=='native-birth':frame['group']['native']['instance']='f'*32
                 elif fault=='root':frame['group']['rootsAfter']['source']['defaultScriptsUrl']='file:///foreign/scripts'
                 elif fault=='pose':frame['group']['native']['animation']['joints'][0][4]+=.1
                 elif fault=='phase-prefix':frame['phaseAfter']['activations'][0]['stimulus']['verb']='open'
                 elif fault=='ui':frame['ui']['scope']['sequence']+=1
                 else:state['pending']={}
-                state['transcript']=pack(rows);changed['payload']=pack([state]);source.store.write(changed,source.store.read())
-                with self.subTest(fault=fault),self.assertRaises(NativeUIError):m.source()
+                if fault=='pending':
+                    changed['payload']=pack([state]);source.store.write(changed,source.store.read())
+                    with self.subTest(fault=fault),self.assertRaises(NativeUIError):m.source()
+                    source.store.write(original,source.store.read())
+                else:
+                    # Storage must reject changed originals before any native
+                    # facts can be replayed, even when their JSON stays valid.
+                    entry=source.originals.manifest(source.state['manifests'][0])[0]
+                    value=source.originals.expand(entry);path=source.originals.path(value);raw=path.read_bytes()
+                    body=json.loads(raw);body['frame']=frame;path.write_text(json.dumps(body))
+                    with self.subTest(fault=fault),self.assertRaises(NativeUIError):m.source()
+                    path.write_bytes(raw)
     def test_changed_source_manager_native_birth_or_reused_cursors_never_become_fresh(self):
         for fault in ('manager','native-birth','old-native','old-ui'):
             with self.subTest(fault=fault),tempfile.TemporaryDirectory(prefix='overte-emote-counterexample-') as root:
@@ -241,6 +280,54 @@ class PhoneEmoteSourcesTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):source.read()
         self.assertEqual(dict(foreign=True),source.store.read())
         self.assertNotIn('phase-read',m.calls);self.assertNotIn('native-read',m.calls)
+    def test_legacy_inline_journal_is_preserved_and_never_upgraded_to_current_evidence(self):
+        m=self.model
+        with m.lock.held():
+            source=m.source();legacy=dict(emoteSourcesVersion=1,runId=RUN,fixtureUrl=source.phase.fixture_url,role='primary',
+                binding=m.binding,payload=pack([dict(phase='ready',revision=0,transcript=pack([]),pending=None)]))
+            source.store.write(legacy,None)
+            with self.assertRaises(NativeUIError):m.source()
+        self.assertEqual(legacy,source.store.read());self.assertEqual([],m.calls)
+    def test_historical_replay_uses_existing_script_transitions_beyond_512_originals(self):
+        m=self.model;reader=m._script_execution_observer('synthetic',read_only=True);frames=[]
+        for _ in range(600):
+            packet=reader.read(reader.sequence,require_effects=True,require_code_identity=True,require_load_history=True,require_membership=True)
+            frames.append(dict(group=dict(script=packet)))
+        candidate=m._script_execution_observer('synthetic',read_only=True)
+        PhoneEmoteSources.replay_scripts(candidate,frames);self.assertEqual(600,candidate.sequence)
+        packet=candidate.read(600,require_code_identity=True,require_membership=True);self.assertEqual(601,packet['sequence'])
+        changed=deepcopy(frames);changed[550]['group']['script']['source']['engines'][0]['code']['sha256']='f'*64
+        candidate=m._script_execution_observer('synthetic',read_only=True)
+        with self.assertRaises(NativeUIError):PhoneEmoteSources.replay_scripts(candidate,changed)
+    def test_historical_replay_time_does_not_retime_the_later_live_acquisition_barrier(self):
+        m=self.model
+        with m.lock.held():
+            source=m.source();source.read();factory=m._script_execution_observer
+            def slow(*args,**kwargs):m.clock+=2;return factory(*args,**kwargs)
+            m._script_execution_observer=slow
+            second=source.read()
+        self.assertEqual(2.,m.clock);self.assertEqual(20200,second['epochMs'])
+    def test_file_loss_or_namespace_swap_blocks_reconstruction_before_product_input(self):
+        m=self.model
+        with m.lock.held():
+            source=m.source();source.read();reference=source.state['manifests'][0]
+            original=source.originals.manifest(reference)[0]
+            source.originals.path(source.originals.expand(original)).unlink()
+            with self.assertRaises(NativeUIError):m.source()
+        self.assertEqual([],m.controls.input_requests)
+    def test_failed_write_with_lost_guard_cannot_become_fresh_after_guard_restoration(self):
+        m=self.model
+        with m.lock.held():
+            source=m.source();source.read();write=source.store.write
+            def lost(value,previous):
+                if unpack(value['payload'])[0]['phase']=='ready':
+                    m.okay=False;raise NativeUIError('Synthetic lost guard during commit')
+                write(value,previous)
+            source.store.write=lost
+            with self.assertRaises(NativeUIError):source.read()
+            m.okay=True;before=len(m.calls)
+            with self.assertRaises(NativeUIError):source.read()
+        self.assertEqual(before,len(m.calls));self.assertTrue(source.failed)
 
 
 if __name__=='__main__':unittest.main()

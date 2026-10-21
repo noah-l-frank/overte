@@ -22,6 +22,14 @@ lost writes/results cannot be repaired by redelivering an uncertain input.
 Complete Emote effect/image/actor/background/lifetime/cleanup composition remains
 required before capability registration.
 
+Emote source/input ownership now uses explicit v2 private journals with
+[immutable original files and bounded indexes](adapters/android-phone/EMOTE_ORIGINALS.md).
+The complete 169-input Sit-discovery storage bound and 1,024 original records
+are host-verified without increasing private metadata limits. Interrupted and
+legacy inline records remain unavailable for fresh results. Full native effect,
+avatar image, independent actor, background/lifetime and cleanup composition
+remain required; native compilation and device qualification are still open.
+
 The [prepared native IME event](native/PREPARED_FIELD_COMMIT.md) and
 [native owner/private transport](native/PENDING_COMMIT_OWNER.md) retain original
 Qt event/context identity and verify fresh effects and actual pending inventory.

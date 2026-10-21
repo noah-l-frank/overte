@@ -43,6 +43,14 @@ replayed by reconstructing or reusing the same object. This remains an internal
 component: background-resume, complete effect/image/actor/lifetime/cleanup
 coordination and the full capability are still pending.
 
+Emote source/input storage is now explicitly v2. The
+[immutable original store](EMOTE_ORIGINALS.md) preserves 1,024 source records and
+completed input histories behind bounded active indexes. Its maximum shared
+Sit-discovery storage case covers 169 ordinary input operations and reconstructs
+all originals without relaxing private metadata limits. Interrupted archive
+writes and legacy inline journals fail closed. These checks establish storage
+and input logic only; the complete area count remains three of fourteen.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)
