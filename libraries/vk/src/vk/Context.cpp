@@ -474,7 +474,46 @@ void Context::Recycler::trashVKSurfaceKHR(VkSurfaceKHR& surface) {
 
 void Context::Recycler::trashVmaAllocation(VmaAllocation& allocation) {
     vmaFreeMemory(vks::Allocation::getAllocator(), allocation);
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    std::lock_guard<std::recursive_mutex> guard(recyclerMutex);
+    featureAllocations.retired(allocation);
+#endif
 }
+
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+void Context::Recycler::featureImageCreated(VkImage handle, const FeatureScopes& scopes) {
+    std::lock_guard<std::recursive_mutex> guard(recyclerMutex);
+    featureImages.created(handle, scopes, QStringLiteral("vulkan-image"));
+}
+void Context::Recycler::featureViewCreated(VkImageView handle, const FeatureScopes& scopes) {
+    std::lock_guard<std::recursive_mutex> guard(recyclerMutex);
+    featureViews.created(handle, scopes, QStringLiteral("vulkan-image-view"));
+}
+void Context::Recycler::featureSamplerCreated(VkSampler handle, const FeatureScopes& scopes) {
+    std::lock_guard<std::recursive_mutex> guard(recyclerMutex);
+    featureSamplers.created(handle, scopes, QStringLiteral("vulkan-sampler"));
+}
+void Context::Recycler::featureAllocationCreated(VmaAllocation handle, const FeatureScopes& scopes) {
+    std::lock_guard<std::recursive_mutex> guard(recyclerMutex);
+    featureAllocations.created(handle, scopes, QStringLiteral("vulkan-allocation"));
+}
+void Context::Recycler::featureStagingBufferCreated(VkBuffer handle, const FeatureScopes& scopes) {
+    std::lock_guard<std::recursive_mutex> guard(recyclerMutex);
+    featureStagingBuffers.created(handle, scopes, QStringLiteral("vulkan-staging-buffer"));
+}
+void Context::Recycler::featureStagingMemoryCreated(VkDeviceMemory handle, const FeatureScopes& scopes) {
+    std::lock_guard<std::recursive_mutex> guard(recyclerMutex);
+    featureStagingMemory.created(handle, scopes, QStringLiteral("vulkan-staging-memory"));
+}
+void Context::Recycler::featureStagingBufferDestroyed(VkBuffer handle) {
+    std::lock_guard<std::recursive_mutex> guard(recyclerMutex);
+    featureStagingBuffers.retired(handle);
+}
+void Context::Recycler::featureStagingMemoryFreed(VkDeviceMemory handle) {
+    std::lock_guard<std::recursive_mutex> guard(recyclerMutex);
+    featureStagingMemory.retired(handle);
+}
+#endif
 
 void Context::Recycler::framebufferDeleted(gpu::vk::VKFramebuffer* framebuffer) {
     std::lock_guard<std::recursive_mutex> lockGuard(recyclerMutex);

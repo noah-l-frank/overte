@@ -27,6 +27,11 @@ struct VKFilterMode {
 };
 
 class VKTexture : public VKObject<Texture> {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    overte::ios::feature_images::Leases _featureTextureLeases;
+protected:
+    overte::ios::feature_images::Scopes _featureImageScopes;
+#endif
 public:
     // VKTODO
     //static void initTextureTransferHelper();

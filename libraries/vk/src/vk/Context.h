@@ -28,6 +28,9 @@
 #include "VulkanDevice.h"
 #include "VulkanDebug.h"
 #include "VulkanTools.h"
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+#include "FeatureResourceHandles.h"
+#endif
 
 namespace gpu::vk {
     class VKFramebuffer;
@@ -159,6 +162,18 @@ public:
         void trashVkDeviceMemory(VkDeviceMemory &memory);
         void trashVmaAllocation(VmaAllocation &allocation);
 
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        using FeatureScopes = overte::ios::feature_images::Scopes;
+        void featureImageCreated(VkImage handle, const FeatureScopes& scopes);
+        void featureViewCreated(VkImageView handle, const FeatureScopes& scopes);
+        void featureSamplerCreated(VkSampler handle, const FeatureScopes& scopes);
+        void featureAllocationCreated(VmaAllocation handle, const FeatureScopes& scopes);
+        void featureStagingBufferCreated(VkBuffer handle, const FeatureScopes& scopes);
+        void featureStagingMemoryCreated(VkDeviceMemory handle, const FeatureScopes& scopes);
+        void featureStagingBufferDestroyed(VkBuffer handle);
+        void featureStagingMemoryFreed(VkDeviceMemory handle);
+#endif
+
         void framebufferDeleted(gpu::vk::VKFramebuffer *framebuffer);
         void bufferDeleted(gpu::vk::VKBuffer *buffer);
         void textureDeleted(gpu::vk::VKTexture *texture);
@@ -166,6 +181,14 @@ public:
 
     private:
         std::recursive_mutex recyclerMutex;
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        FeatureResourceHandles<VkImage> featureImages;
+        FeatureResourceHandles<VkImageView> featureViews;
+        FeatureResourceHandles<VkSampler> featureSamplers;
+        FeatureResourceHandles<VmaAllocation> featureAllocations;
+        FeatureResourceHandles<VkBuffer> featureStagingBuffers;
+        FeatureResourceHandles<VkDeviceMemory> featureStagingMemory;
+#endif
 
         std::vector<VkFence> vkFences;
         std::vector<VkFramebuffer> vkFramebuffers;

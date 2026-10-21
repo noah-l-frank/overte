@@ -827,6 +827,9 @@ void VulkanDisplayPlugin::present(const std::shared_ptr<RefreshRateController>& 
         auto correction = getViewCorrection();
         auto vkBackend = std::dynamic_pointer_cast<gpu::vk::VKBackend>(getBackend());
         auto vkDevice = vkBackend->getContext().device->logicalDevice;
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        std::shared_ptr<overte::ios::feature_images::Submission> featureImageSubmission;
+#endif
         Q_ASSERT(vkBackend);
         vkBackend->updatePresentFrame(correction);
 
@@ -942,6 +945,9 @@ void VulkanDisplayPlugin::present(const std::shared_ptr<RefreshRateController>& 
 #endif
             vkBackend->setDrawCommandBuffer(commandBuffer);
             _gpuContext->executeFrame(_currentFrame);
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+            featureImageSubmission = vkBackend->featureImageSubmission();
+#endif
 #if !defined(Q_OS_IOS)
             context->doneCurrent();
 #endif
@@ -1287,6 +1293,16 @@ void VulkanDisplayPlugin::present(const std::shared_ptr<RefreshRateController>& 
                 // become cleanup proof. Only the successful matching fence can.
                 if (ticket->submit(_currentFrame->frameIndex) && featureSubmitResult==VK_SUCCESS && !_vkWindow->_featureFrameCompletion) {
                     _vkWindow->_featureFrameCompletion=[ticket](bool completed) { ticket->finish(completed); };
+                }
+            }
+            if (featureImageSubmission) {
+                featureImageSubmission->submit(featureSubmitResult == VK_SUCCESS);
+                if (featureSubmitResult == VK_SUCCESS) {
+                    const auto previous = std::move(_vkWindow->_featureFrameCompletion);
+                    _vkWindow->_featureFrameCompletion = [previous, featureImageSubmission](bool completed) {
+                        if (previous) { previous(completed); }
+                        featureImageSubmission->finish(completed);
+                    };
                 }
             }
             VK_CHECK_RESULT(featureSubmitResult);

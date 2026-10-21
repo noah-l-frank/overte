@@ -159,6 +159,13 @@ VKTexture::VKTexture(const std::weak_ptr<VKBackend>& backend, const Texture& tex
     _downsampleSource(backend),
     _vkTexelFormat(evalTexelFormatInternal(texture.getTexelFormat(), backend.lock()->getContext()))
 {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    _featureImageScopes = texture.featureImageScopes();
+    _featureTextureLeases = overte::ios::feature_images::retain(_featureImageScopes, QStringLiteral("vulkan-texture"));
+    if (texture.getUsageType() != TextureUsageType::STRICT_RESOURCE) {
+        for (const auto& scope : _featureImageScopes) { scope.invalidate(); }
+    }
+#endif
     Backend::setGPUObject(texture, this);
 }
 
@@ -468,6 +475,10 @@ void VKStrictResourceTexture::createTexture(VKBackend &backend) {
     VmaAllocationCreateInfo allocationCI = {};
     allocationCI.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     VK_CHECK_RESULT(vmaCreateImage(vks::Allocation::getAllocator(), &imageCI, &allocationCI, &_vkImage, &_vmaAllocation, nullptr));
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    backend.getContext().recycler.featureImageCreated(_vkImage, _featureImageScopes);
+    backend.getContext().recycler.featureAllocationCreated(_vmaAllocation, _featureImageScopes);
+#endif
 
     VmaAllocationInfo allocationInfo {};
     vmaGetAllocationInfo(vks::Allocation::getAllocator(), _vmaAllocation, &allocationInfo);
@@ -521,6 +532,9 @@ void VKStrictResourceTexture::transfer(VKBackend &backend) {
     bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VK_CHECK_RESULT(vkCreateBuffer(device->logicalDevice, &bufferCreateInfo, nullptr, &stagingBuffer));
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    backend.getContext().recycler.featureStagingBufferCreated(stagingBuffer, _featureImageScopes);
+#endif
 
     // Get memory requirements for the staging buffer (alignment, memory type bits)
     vkGetBufferMemoryRequirements(device->logicalDevice, stagingBuffer, &memReqs);
@@ -531,6 +545,9 @@ void VKStrictResourceTexture::transfer(VKBackend &backend) {
     memAllocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     VK_CHECK_RESULT(vkAllocateMemory(device->logicalDevice, &memAllocInfo, nullptr, &stagingMemory));
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    backend.getContext().recycler.featureStagingMemoryCreated(stagingMemory, _featureImageScopes);
+#endif
     VK_CHECK_RESULT(vkBindBufferMemory(device->logicalDevice, stagingBuffer, stagingMemory, 0));
 
     // Copy texture data into staging buffer
@@ -662,7 +679,13 @@ void VKStrictResourceTexture::transfer(VKBackend &backend) {
 
     // Clean up staging resources
     vkDestroyBuffer(device->logicalDevice, stagingBuffer, nullptr);
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    backend.getContext().recycler.featureStagingBufferDestroyed(stagingBuffer);
+#endif
     vkFreeMemory(device->logicalDevice, stagingMemory, nullptr);
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    backend.getContext().recycler.featureStagingMemoryFreed(stagingMemory);
+#endif
 }
 
 void VKStrictResourceTexture::postTransfer(VKBackend &backend) {
@@ -706,6 +729,9 @@ void VKStrictResourceTexture::postTransfer(VKBackend &backend) {
         _transferData.mips.empty() ? 0 : _transferData.mips.size() - 1);
     samplerCreateInfo.maxAnisotropy = 1.0f;
     VK_CHECK_RESULT(vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &_vkSampler));
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    backend.getContext().recycler.featureSamplerCreated(_vkSampler, _featureImageScopes);
+#endif
 
     // Create image view
     VkImageViewCreateInfo viewCreateInfo = {};
@@ -722,6 +748,9 @@ void VKStrictResourceTexture::postTransfer(VKBackend &backend) {
     }
     viewCreateInfo.image = _vkImage;
     VK_CHECK_RESULT(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &_vkImageView));
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    backend.getContext().recycler.featureViewCreated(_vkImageView, _featureImageScopes);
+#endif
 
     // Upload is synchronous. Do not keep KTX/file-backed mip references pinned
     // for the entire lifetime of the Vulkan image.

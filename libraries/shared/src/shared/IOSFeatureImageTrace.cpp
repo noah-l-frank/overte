@@ -89,6 +89,42 @@ void painted(const Scope& scope) {
     if (currentFrame && currentPainted) { *currentPainted = true; merge(*currentFrame, Scopes { scope }); }
     else if (scope.invalidate) { scope.invalidate(); } // An untraced paint cannot become complete lifetime coverage.
 }
+struct Submission::Private {
+    std::mutex mutex;
+    Scopes scopes;
+    Leases leases;
+    bool submitted { false }, completed { false }, valid { true };
+};
+Submission::Submission() : _private(std::make_unique<Private>()) {}
+Submission::~Submission() {
+    // Releasing an unknown or failed ticket never restores source completeness.
+    if (!_private->valid || !_private->submitted || !_private->completed) { invalid(_private->scopes); }
+}
+void Submission::add(const Scopes& scopes) {
+    std::lock_guard<std::mutex> guard(_private->mutex);
+    if (!_private->valid || _private->submitted || _private->completed) { invalid(scopes); invalid(_private->scopes); _private->valid = false; return; }
+    const auto before = _private->scopes.size();
+    if (!merge(_private->scopes, scopes)) { _private->valid = false; return; }
+    Scopes added(_private->scopes.begin() + before, _private->scopes.end());
+    auto leases = retain(added, QStringLiteral("vulkan-submission"));
+    if (leases.size() != added.size()) { invalid(_private->scopes); _private->valid = false; return; }
+    _private->leases.insert(_private->leases.end(), leases.begin(), leases.end());
+}
+void Submission::submit(bool success) {
+    std::lock_guard<std::mutex> guard(_private->mutex);
+    if (!_private->valid || _private->submitted || _private->completed || !success) {
+        invalid(_private->scopes); _private->valid = false; return;
+    }
+    _private->submitted = true;
+}
+void Submission::finish(bool success) {
+    std::lock_guard<std::mutex> guard(_private->mutex);
+    if (!_private->valid || !_private->submitted || _private->completed || !success) {
+        invalid(_private->scopes); _private->valid = false; return;
+    }
+    _private->completed = true;
+    // Keep leases through actual callback/FrameData copies, after fence success.
+}
 struct PaintFrame::Private {
     Scopes scopes; Scopes* previous { nullptr }; bool* previousPainted { nullptr };
     bool finished { false }, painted { false };

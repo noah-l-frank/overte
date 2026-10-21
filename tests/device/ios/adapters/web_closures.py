@@ -16,17 +16,20 @@ import uuid
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
 
-VERSION = 3
-READS = {1, 2, 3}
+VERSION = 4
+READS = {1, 2, 3, 4}
 FILE = 'feature-ios-web-closures.json'
 LIMIT = 262144
 KINDS = {'javascript', 'snapshot', 'presentation', 'rule-list', 'notification', 'script-reply', 'download'}
 RESOURCES = {'policy-grant', 'native-view', 'native-bitmap'}
 SOFTWARE_RESOURCES = {'scenegraph-node', 'offscreen-image', 'upload-image'}
+GPU_RESOURCES = {'cpu-texture', 'vulkan-texture', 'vulkan-image', 'vulkan-image-view', 'vulkan-sampler',
+                 'vulkan-allocation', 'vulkan-staging-buffer', 'vulkan-staging-memory', 'vulkan-submission'}
 
 
 def resources_for(version):
-    return RESOURCES | (SOFTWARE_RESOURCES if version >= 3 else set())
+    return (RESOURCES | (SOFTWARE_RESOURCES if version >= 3 else set())
+            | (GPU_RESOURCES if version >= 4 else set()))
 HEX = '[0-9a-f]{32}'
 
 
@@ -140,6 +143,18 @@ def drained_software_resources(value, admitted):
     rows = drained_native_resources(value, admitted)
     need(admitted['iosWebClosureVersion'] >= 3 and value['iosWebClosureVersion'] >= 3
          and all(any(row['resources'][kind]['created'] > 0 for row in admitted['contexts']) for kind in SOFTWARE_RESOURCES))
+    return rows
+
+
+def drained_gpu_resources(value, admitted):
+    """All traced Web resources, original GPU fences and actual recycler drains.
+
+    Fresh acquisition, original world/pixel absence and the caller's whole quiet
+    window remain mandatory. Process replacement needs its separate death proof.
+    """
+    rows = drained_software_resources(value, admitted)
+    need(admitted['iosWebClosureVersion'] >= 4 and value['iosWebClosureVersion'] >= 4
+         and all(any(row['resources'][kind]['created'] > 0 for row in admitted['contexts']) for kind in GPU_RESOURCES))
     return rows
 
 

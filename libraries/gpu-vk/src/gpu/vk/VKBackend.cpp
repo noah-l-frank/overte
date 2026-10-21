@@ -1339,6 +1339,18 @@ void VKBackend::updateVkDescriptorWriteSetsTexture(const Cache::PipelineLayout &
                 }
             }
         }
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        if (validTexture && texturePointer && !texturePointer->featureImageScopes().empty()) {
+            const auto& scopes = texturePointer->featureImageScopes();
+            if (!_currentFrame) { for (const auto& scope : scopes) { scope.invalidate(); } }
+            else {
+                if (!_currentFrame->featureImageSubmission) {
+                    _currentFrame->featureImageSubmission = std::make_shared<overte::ios::feature_images::Submission>();
+                }
+                _currentFrame->featureImageSubmission->add(scopes);
+            }
+        }
+#endif
         imageInfos.push_back(imageInfo);
 
         VkWriteDescriptorSet descriptorWriteSet{};
@@ -2911,6 +2923,9 @@ VKBackend::FrameData::~FrameData() {
 }
 
 void VKBackend::FrameData::cleanup() {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    featureImageSubmission.reset(); // Actual window/fence callbacks still own their copies.
+#endif
     for (auto renderPass : _renderPasses) {
         vkDestroyRenderPass(_backend->_context.device->logicalDevice, renderPass, nullptr);
     }
@@ -3345,6 +3360,9 @@ void VKBackend::perFrameCleanup() {
 
     for (auto sampler : recycler.vkSamplers) {
         vkDestroySampler(device, sampler, nullptr);
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        recycler.featureSamplers.retired(sampler);
+#endif
     }
     capacityBeforeClear = recycler.vkSamplers.capacity();
     recycler.vkSamplers.clear();
@@ -3352,6 +3370,9 @@ void VKBackend::perFrameCleanup() {
 
     for (auto imageView : recycler.vkImageViews) {
         vkDestroyImageView(device, imageView, nullptr);
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        recycler.featureViews.retired(imageView);
+#endif
     }
     capacityBeforeClear = recycler.vkImageViews.capacity();
     recycler.vkImageViews.clear();
@@ -3359,6 +3380,9 @@ void VKBackend::perFrameCleanup() {
 
     for (auto image : recycler.vkImages) {
         vkDestroyImage(device, image, nullptr);
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        recycler.featureImages.retired(image);
+#endif
     }
     capacityBeforeClear = recycler.vkImages.capacity();
     recycler.vkImages.clear();

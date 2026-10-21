@@ -1,6 +1,6 @@
 # Original iOS Web callback ownership
 
-`ios/web/IOSWebClosureTrace.h` supplies a passive version-3 callback/native/software-resource ledger for
+`ios/web/IOSWebClosureTrace.h` supplies a passive version-4 callback/native/software/GPU resource ledger for
 actual owned HTTP fixture contexts. It requires `OVERTE_E2E_FEATURE_TESTS` and
 the existing dedicated test-script/results launch arguments. Outside that
 boundary it creates no leases or native completion handlers.
@@ -44,7 +44,7 @@ nonempty original callback history and fresh retained contexts with zero
 pending callbacks, including newly added contexts. It does not implement a
 quiet window or replace its caller's durable ownership.
 
-Validation: 38 selected no-build cases pass across the new closure parser,
+Validation: 45 selected no-build cases pass across the new closure parser,
 actual HTTP/AFC factory, Node probe and existing shared/iOS Web DOM regressions.
 Counterexamples include held callback copies, lost delivery, disappearing
 contexts, foreign runs/PIDs, source replacement, counter regression, duplicate
@@ -53,14 +53,14 @@ unknown callback kinds. Native hook tests inspect source only. Native callbacks
 and the OS boundary remain synthetic; native compilation and devices are
 unverified.
 
-This facet is not a complete Web or Graphics adapter. CPU texture, Vulkan wrapper/allocation, original submission and recycler
-retirement and final quiet-window composition still require separate original
-lifetime sources. No full feature
+This facet is not a complete Web or Graphics adapter. Whole-run durable admission, role-specific cleanup, original-world pixel
+absence, complete quiet windows and final metadata retirement remain to be
+composed with these sources. No full feature
 capability is advertised.
 
 ## Version 2: native view, grant and bitmap resources
 
-Version 2 adds native resources; Python reads versions 1, 2 and 3 without
+Version 2 adds native resources; Python reads versions 1 through 4 without
 inventing resource counts for legacy packets. Same-process source version
 changes fail continuity. `resources` records cumulative `policy-grant`,
 `native-view` and `native-bitmap` ownership separately from callbacks.
@@ -90,8 +90,8 @@ whole-area capability. Thirty-three selected no-build Web/closure cases pass,
 including each held resource, new retained contexts, missing resource sources,
 legacy packets and counter regressions. Native resource hooks remain uncompiled
 and are checked only by source inspection and synthetic source counterexamples.
-The additional software source is described below; renderer/GPU resource and
-final quiet composition remain unfinished.
+The additional software source is described below; GPU source is described below; final whole-run quiet composition remains
+unfinished.
 
 ## Version 3: actual Qt software image provenance
 
@@ -133,3 +133,66 @@ resource, absent legacy source, changed original counts and new retained copies.
 The native checks inspect source placement and closed ownership only. Qt image,
 scene-graph and OS behavior remain synthetic/uncompiled; no claim of native
 execution, pixel identity on a device or GPU retirement follows from these tests.
+
+## Version 4: actual CPU/Vulkan resource and submission ownership
+
+Actual software upload pixels supply immutable scopes to the resulting CPU
+texture after `assignStoredMip`. Test-only members retire after original stored
+pixels and backend object ownership. Vulkan texture construction reads those
+actual scopes; another texture usage fails source completeness. Original strict
+image/VMA allocation, staging buffer/memory, sampler and image-view creation
+registers leases only after successful native calls and actual non-null handles.
+No original native resource handles are exported in diagnostics.
+
+`vk/FeatureResourceHandles` uses the existing recycler mutex and bounded maps.
+It holds only metadata and leases, without retaining Vulkan objects or changing
+native queue behavior. Wrapper or CPU texture destruction does not retire
+queued images/views/samplers. The existing recycler's actual `vkDestroy*` calls
+precede their ownership retirement. Actual VMA free and staging buffer/memory
+destroy/free have separate original retirement hooks. Duplicate live handles,
+overflow and map destruction with unresolved ownership invalidate the source.
+No metadata reset can turn unresolved resource lifetime into absence.
+
+Actual valid texture descriptors add their original scopes to a per-command
+frame submission ticket. The actual `vkQueueSubmit` result records submission;
+it cannot mark completion. The ticket joins the window's already existing
+matching fence callback, composed with completed-frame capture callbacks. Only
+that callback's actual success can qualify completion. No extra GPU wait,
+submission, copy, fence reset or product lifetime repair is introduced.
+Failed, unknown, repeated or missing completion leaves source completeness
+invalid. Leases remain through actual FrameData and callback ticket copies,
+including after a successful fence; destruction of an unknown ticket cannot
+restore completeness. A replay without newly executed commands does not reuse a
+previous ticket as a new submission.
+
+Version-4 `drained_gpu_resources()` requires admitted originals for all nine
+CPU/Vulkan resource kinds, retained native/software/callback history and zero
+pending resource leases, including later-created contexts. Older packets stay
+readable for their narrower source coverage and cannot qualify GPU cleanup.
+The predicate still needs fresh acquisition, the full caller-owned quiet
+window, independent original-world pixels and separate process-death evidence
+when a restart retires an old source. It is not a whole-area capability.
+
+Forty-five selected no-build Web cases pass. New counterexamples retain every
+GPU resource separately, release CPU/native objects while recycler/fence work
+remains, remove original upload sources, regress counters or report zero counts
+with an incomplete source. Native source inspections verify successful-call,
+actual destroy/free and original fence callback placement. Five existing static
+iOS rendering inventory/contract checks also pass. These are source checks and
+synthetic native counterexamples. No native compilation, Vulkan execution,
+physical GPU lifetime acceptance, build or device test has occurred.
+
+The complete reviewed no-build iOS selection passes 665 cases with zero
+failures, errors, skips or blocked subprocess attempts. Twenty native compiler
+cases are deliberately excluded by the private verification selector. Printed
+negative-fixture messages are expected counterexamples, not suite failures.
+This includes unchanged full Scripts and Authentication regressions and the
+existing Graphics component/recovery selections. Native execution remains
+unverified.
+
+The reviewed common quick selection also passes 1172 no-build cases with zero
+failures, errors, skips or blocked subprocess attempts; three native compiler
+cases remain deliberately excluded. The five selected project documentation,
+contract, input-selection, policy and coverage suites pass. Registry and
+whitespace checks pass. The existing unrelated scissor-state static check's
+obsolete-field baseline failure is not changed or weakened by this packet.

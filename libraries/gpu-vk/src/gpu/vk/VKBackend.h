@@ -324,6 +324,9 @@ protected:
     // Contains objects that are created per frame and need to be deleted after the frame is rendered
     class FrameData {
     public:
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+        std::shared_ptr<overte::ios::feature_images::Submission> featureImageSubmission;
+#endif
         std::vector<VkBufferMemoryBarrier> bufferBarriers;
 
         std::vector<VkDescriptorSet> uniformDescriptorSets;
@@ -415,6 +418,11 @@ public:
     quint64 _featureDrawSequence {0};bool _featureDrawSequenceValid {true};
     VkViewport _featureIssuedViewport {};
     VkCommandBuffer _featureViewportCommandBuffer {VK_NULL_HANDLE};
+#endif
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    std::shared_ptr<overte::ios::feature_images::Submission> featureImageSubmission() const {
+        return _currentlyRenderedFrame ? _currentlyRenderedFrame->featureImageSubmission : nullptr;
+    }
 #endif
     void setDrawCommandBuffer(VkCommandBuffer commandBuffer);
     // Finish the final renderer pass before the platform swapchain transfer.

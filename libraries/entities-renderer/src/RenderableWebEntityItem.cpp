@@ -546,6 +546,9 @@ void WebEntityRenderer::doRender(RenderArgs* args) {
             0,
             static_cast<gpu::Size>(uploadImage.sizeInBytes()),
             reinterpret_cast<const gpu::Byte*>(uploadImage.constBits()));
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        texture->featureSetImageScopes(featureImageScopes);
+#endif
         texture->setSource("WebEntityRendererSoftware");
         _texture = std::move(texture);
         ++_softwareFrameOrdinal;

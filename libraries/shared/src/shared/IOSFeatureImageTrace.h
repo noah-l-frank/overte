@@ -23,6 +23,21 @@ Scopes sources(const QImage& image);
 Leases retain(const Scopes& scopes, const QString& kind);
 QImage image(const QImage& original, const Scopes& scopes, const QString& kind);
 void painted(const Scope& scope);
+// Original command-buffer reference ownership. Only the existing successful
+// matching submission fence can qualify completion; last ticket copies drain.
+class Submission final {
+public:
+    Submission();
+    ~Submission();
+    Submission(const Submission&) = delete;
+    Submission& operator=(const Submission&) = delete;
+    void add(const Scopes& scopes);
+    void submit(bool success);
+    void finish(bool success);
+private:
+    struct Private;
+    std::unique_ptr<Private> _private;
+};
 class PaintFrame final {
 public:
     explicit PaintFrame(const QImage& original);

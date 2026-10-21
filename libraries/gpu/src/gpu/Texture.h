@@ -16,6 +16,9 @@
 
 #include <QMetaType>
 #include <QUrl>
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+#include <shared/IOSFeatureImageTrace.h>
+#endif
 
 #include <functional>
 #include <shared/Storage.h>
@@ -132,6 +135,11 @@ enum class TextureUsageType : uint8 {
 };
 
 class Texture : public Resource {
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    // First members retire after actual stored pixels and backend ownership.
+    overte::ios::feature_images::Leases _featureImageLeases;
+    overte::ios::feature_images::Scopes _featureImageScopes;
+#endif
     static ContextMetricCount _textureCPUCount;
     static ContextMetricSize _textureCPUMemSize;
 
@@ -140,6 +148,18 @@ class Texture : public Resource {
     static void updateTextureCPUMemoryUsage(Size prevObjectSize, Size newObjectSize);
 
 public:
+#if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
+    const overte::ios::feature_images::Scopes& featureImageScopes() const { return _featureImageScopes; }
+    void featureSetImageScopes(const overte::ios::feature_images::Scopes& scopes) {
+        if (!_featureImageScopes.empty()) {
+            for (const auto& scope : _featureImageScopes) { scope.invalidate(); }
+            for (const auto& scope : scopes) { scope.invalidate(); }
+            return;
+        }
+        _featureImageScopes = scopes;
+        _featureImageLeases = overte::ios::feature_images::retain(scopes, QStringLiteral("cpu-texture"));
+    }
+#endif
     static const uint32_t CUBE_FACE_COUNT { 6 };
     static uint32_t getTextureCPUCount();
     static Size getTextureCPUMemSize();

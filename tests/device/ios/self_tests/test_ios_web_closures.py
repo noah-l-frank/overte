@@ -13,8 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from adapters.normal_ui import NativeUIError
 from fixture.serve import FixtureState
 from ios.adapters.feature_observation import FeatureObservation
-from ios.adapters.web_closures import (IOSWebClosures, KINDS, RESOURCES, SOFTWARE_RESOURCES, resources_for,
-    command, drained, drained_native_resources, drained_software_resources)
+from ios.adapters.web_closures import (IOSWebClosures, KINDS, RESOURCES, SOFTWARE_RESOURCES, GPU_RESOURCES, resources_for,
+    command, drained, drained_native_resources, drained_software_resources, drained_gpu_resources)
 from self_tests.test_native_feature_observation import Boundary as ClockBoundary, probe_source
 
 RUN = 'a' * 32
@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[4]
 class ClosureBoundary:
     def __init__(self):
         self.time = 0.; self.sequence = 0; self.commands = []; self.request = None
-        self.version = 1; self.resources = {k:dict(created=1,retired=0,pending=1) for k in RESOURCES | SOFTWARE_RESOURCES}
+        self.version = 1; self.resources = {k:dict(created=1,retired=0,pending=1) for k in RESOURCES | SOFTWARE_RESOURCES | GPU_RESOURCES}
         self.mutate = None; self.alive = True; self.ignored = False; self.retired = 0; self.created = 1
     def send(self, value):
         self.commands.append(deepcopy(value)); self.request = value
@@ -327,6 +327,90 @@ class SoftwareResourceTests(unittest.TestCase):
         self.assertIn('token->setFlag(QSGNode::OwnedByParent, true)',view)
         self.assertIn('std::move(_private->featurePendingPaintLeases[i])',view)
         self.assertIn('_private->featurePaintedScopes.clear(); _private->featurePendingPaintLeases.clear()',view)
+
+
+class GPUResourceTests(unittest.TestCase):
+    def test_original_cpu_cleanup_does_not_retire_vulkan_recycler_or_fence_ownership(self):
+        b=ClosureBoundary();b.version=4;r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+        for kind,c in b.resources.items():
+            if kind not in GPU_RESOURCES or kind=='cpu-texture':c.update(retired=1,pending=0)
+        with self.assertRaises(RuntimeError):drained_gpu_resources(r.read(RUN,URL),admitted)
+        for c in b.resources.values():c.update(retired=1,pending=0)
+        self.assertTrue(drained_gpu_resources(r.read(RUN,URL),admitted))
+
+    def test_each_allocation_staging_object_sampler_view_and_submission_remains_independent(self):
+        for kind in GPU_RESOURCES:
+            b=ClosureBoundary();b.version=4;r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+            for c in b.resources.values():c.update(retired=1,pending=0)
+            b.resources[kind].update(retired=0,pending=1)
+            with self.subTest(kind=kind),self.assertRaises(RuntimeError):drained_gpu_resources(r.read(RUN,URL),admitted)
+            b.resources[kind].update(retired=1,pending=0)
+            self.assertTrue(drained_gpu_resources(r.read(RUN,URL),admitted))
+
+    def test_actual_matching_fence_success_is_required_even_after_unknown_ticket_copies_disappear(self):
+        b=ClosureBoundary();b.version=4;r=b.reader();r.read(RUN,URL);b.retired=1
+        for c in b.resources.values():c.update(retired=1,pending=0)
+        b.mutate=lambda v:v.update(complete=False)
+        with self.assertRaises(NativeUIError):r.read(RUN,URL)
+        self.assertTrue(all(c['pending']==0 for c in b.resources.values()))
+
+    def test_legacy_software_only_source_and_unobserved_gpu_upload_cannot_qualify(self):
+        b=ClosureBoundary();b.version=3;r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+        for c in b.resources.values():c.update(retired=1,pending=0)
+        self.assertTrue(drained_software_resources(r.read(RUN,URL),admitted))
+        with self.assertRaises(RuntimeError):drained_gpu_resources(r.read(RUN,URL),admitted)
+        for kind in GPU_RESOURCES:
+            b=ClosureBoundary();b.version=4;b.resources[kind].update(created=0,retired=0,pending=0)
+            r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+            for c in b.resources.values():c.update(retired=c['created'],pending=0)
+            with self.subTest(kind=kind),self.assertRaises(RuntimeError):drained_gpu_resources(r.read(RUN,URL),admitted)
+
+    def test_retained_later_gpu_object_and_rewritten_or_missing_actual_counters_fail(self):
+        for kind in GPU_RESOURCES:
+            b=ClosureBoundary();b.version=4;r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+            for c in b.resources.values():c.update(retired=1,pending=0)
+            b.resources[kind].update(created=2,pending=1)
+            with self.subTest(kind=kind),self.assertRaises(RuntimeError):drained_gpu_resources(r.read(RUN,URL),admitted)
+            b.resources[kind].update(created=0,retired=0,pending=0)
+            with self.assertRaises(NativeUIError):r.read(RUN,URL)
+        b=ClosureBoundary();b.version=4;b.mutate=lambda v:v['contexts'][0]['resources'].pop('vulkan-allocation')
+        with self.assertRaises(NativeUIError):b.reader().read(RUN,URL)
+
+    def test_actual_handle_birth_and_retirement_follow_successful_calls_and_actual_recycler_destruction(self):
+        texture=(ROOT/'libraries/gpu-vk/src/gpu/vk/VKTexture.cpp').read_text()
+        backend=(ROOT/'libraries/gpu-vk/src/gpu/vk/VKBackend.cpp').read_text()
+        context=(ROOT/'libraries/vk/src/vk/Context.cpp').read_text()
+        strict=texture[texture.index('void VKStrictResourceTexture::transfer('):texture.index('VKStrictResourceTexture::~VKStrictResourceTexture')]
+        self.assertLess(strict.index('vkCreateBuffer('),strict.index('featureStagingBufferCreated('))
+        self.assertLess(strict.index('vkAllocateMemory('),strict.index('featureStagingMemoryCreated('))
+        self.assertLess(strict.index('vkDestroyBuffer('),strict.index('featureStagingBufferDestroyed('))
+        self.assertLess(strict.index('vkFreeMemory('),strict.index('featureStagingMemoryFreed('))
+        self.assertLess(context.index('vmaFreeMemory('),context.index('featureAllocations.retired('))
+        self.assertLess(backend.index('vkDestroyImage(device, image, nullptr)'),backend.index('recycler.featureImages.retired(image)'))
+        self.assertLess(backend.index('vkDestroyImageView(device, imageView, nullptr)'),backend.index('recycler.featureViews.retired(imageView)'))
+        self.assertLess(backend.index('vkDestroySampler(device, sampler, nullptr)'),backend.index('recycler.featureSamplers.retired(sampler)'))
+        handles=(ROOT/'libraries/vk/src/vk/FeatureResourceHandles.h').read_text()
+        self.assertIn('if (found != _live.end()) { invalid(found->second.scopes); invalid(scopes); return; }',handles)
+        self.assertIn('for (const auto& [handle, row] : _live) { invalid(row.scopes); }',handles)
+        self.assertNotIn('vkDestroy',handles);self.assertNotIn('_live.clear()',handles)
+
+    def test_original_window_fence_callback_is_composed_and_cannot_complete_at_queue_submit(self):
+        trace=(ROOT/'libraries/shared/src/shared/IOSFeatureImageTrace.cpp').read_text()
+        plugin=(ROOT/'libraries/display-plugins/src/display-plugins/VulkanDisplayPlugin.cpp').read_text()
+        backend=(ROOT/'libraries/gpu-vk/src/gpu/vk/VKBackend.cpp').read_text()
+        cpu=(ROOT/'libraries/gpu/src/gpu/Texture.h').read_text()
+        submit=trace[trace.index('void Submission::submit('):trace.index('void Submission::finish(')]
+        self.assertNotIn('_private->completed = true',submit)
+        self.assertIn('!_private->submitted || _private->completed || !success',trace)
+        self.assertIn('!_private->valid || !_private->submitted || !_private->completed',trace)
+        self.assertNotIn('_private->leases.clear()',trace)
+        self.assertIn('featureImageSubmission->submit(featureSubmitResult == VK_SUCCESS)',plugin)
+        self.assertIn('if (previous) { previous(completed); }',plugin)
+        self.assertIn('featureImageSubmission->finish(completed)',plugin)
+        self.assertIn('featureImageSubmission = vkBackend->featureImageSubmission()',plugin)
+        self.assertIn('_currentFrame->featureImageSubmission->add(scopes)',backend)
+        self.assertLess(cpu.index('_featureImageLeases'),cpu.index('const GPUObjectPointer gpuObject'))
+        self.assertIn('QStringLiteral("cpu-texture")',cpu)
 
 
 class ClosureTransportTests(unittest.TestCase):
