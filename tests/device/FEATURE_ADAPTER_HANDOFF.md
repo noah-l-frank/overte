@@ -17,6 +17,14 @@ provenance; controlled challenge/body pixels, actor and whole Emote cleanup stil
 need composition. Existing Graphics wire contracts and the three complete Phone
 area count remain unchanged. Native additions are uncompiled.
 
+The [Phone projected-avatar pixel join](adapters/android-phone/EMOTE_PIXELS.md)
+now checks original challenge/body pixels and measured movement inside actual
+projected model bounds, with a separately stable background control. New markers,
+frozen bodies and camera/background motion cannot supply that comparison.
+It still requires durable original acquisition, controlled scene/content,
+Rig/input causality, independent actor and complete resource/run retirement;
+no full Emote capability is promoted.
+
 Phone Emote now has [durable original per-role sources](adapters/android-phone/EMOTE_SOURCES.md)
 and [actual loaded/evaluated Rig playback and restoration joins](native/EMOTE_RIG_MEASUREMENTS.md).
 These retain original roots, submitted manager/code, actual Rig/pose history,

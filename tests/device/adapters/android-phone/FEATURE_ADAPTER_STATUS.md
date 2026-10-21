@@ -23,6 +23,13 @@ or changed image/view provenance. This does not establish visible Emote pixels
 or full Emote coordination. Native code is uncompiled; the complete count stays
 three of fourteen and every area remains device-unqualified.
 
+The [projected-avatar pixel measurement](EMOTE_PIXELS.md) additionally reuses
+original PNG/challenge verification and original view projection, checks actual
+body-region changes and stable outside controls, and rejects marker-only or
+camera/background changes. Its sixteen host counterexamples validate measurement
+logic only. Owned image/fixture acquisition, Rig/input/actor and whole-run
+cleanup composition remain required; full Emotes is still incomplete.
+
 The [original Emote input component](NORMAL_EMOTE_PROTOCOL.md) now joins actual
 Qt widgets, normal pointer/wheel delivery, original tokens and private Phone
 read-only admission. Its 251-case combined host regression passes. Full Emote
