@@ -147,7 +147,9 @@ it is not a whole-feature cleanup verdict.
 
 Interrupted scopes cannot replay acquisition or become complete through missing
 metadata. A lost child-cleanup return preserves the parent's original capture
-but supplies no outcome or successful scope retirement. Failed/partial scopes
+but supplies no outcome or successful observation. The bounded incomplete-parent
+transfer below can retire that measurement scope's metadata while preserving the
+failed phase and every original. Earlier or partial acquisitions
 remain explicit unresolved responsibilities for enclosing failure recovery;
 general teardown rejects any remaining observation filename, including unknown
 roles/indices. The enclosing coordinator must implement that recovery before a
@@ -158,6 +160,48 @@ Host cases exercise the real Python acquisition, filesystem and measurement
 logic against synthetic native/SDK/Qt/GPU boundaries. These verify test logic
 only. Native code is uncompiled; devices remain untested. Complete Phone feature
 adapters remain three of fourteen.
+
+## Incomplete original archive transfer, version 1
+
+`transfer_incomplete(retain)` is restricted to existing `captured` or `measuring`
+parents with a saved complete child image original and no pending parent-file
+write. It acquires no new image, source, native observation or ordinary input.
+The complete immutable child must already contain original independently
+observed memory/callback/issuer-file retirement. A missing child file alone
+cannot supply that proof. The actual same-role world owner must currently be
+absent; a foreign/current owner is neither adopted nor released by this path.
+If the exact complete child metadata still exists, ordinary child cleanup
+revalidates/removes it while the durable parent capture original remains held.
+If a child cleanup return was lost, the parent can recover only the original
+subresource-retirement field from that already committed proof, after reopening
+the full original capture/PNG and checking the current world-owner absence.
+
+The mandatory retention callback receives exactly
+`{emoteObservationIncompleteArchiveVersion:1,header,inputHeader,inputSourceHeader,sourceHeader}`.
+There is no returned result, derived product state or fresh-observation verdict.
+The original incomplete phase remains unchanged. Primary/actor archive contexts
+retain separate original sources; a post-image source journal may still contain
+an interrupted read. That source/input journal stays owned and unresolved.
+If an outcome was fully committed before its final complete-phase write failed,
+its full input/Rig/image/pixel facts are recomputed without promoting the phase.
+
+The existing five-second whole-operation bound includes the initial candidate
+guard, original-file replay, child cleanup, callback IO, a second independent
+replay and final guards/copies. The exact source/input headers must stay unchanged
+across retention. A rejected/slow callback, new child/world ownership, missing
+or replaced PNG, changed original/context or uncertain retirement write prevents
+parent metadata removal. A failed live write requires reconstruction; no
+acquisition or product input is repeated. Immutable files and PNGs remain held.
+`incomplete_archive(packet,effects,index,policy)` reopens the retained exact
+contexts and originals after metadata transfer, with no live native getters or
+timestamp refresh. Historical views cannot perform live source/input operations.
+
+This transfers one incomplete measurement's responsibility. It does not retire
+the whole failed run or prove current global native/resource absence. The final
+owner still needs fresh native quiet/absence, actual fixture/UI/scene/view/actor
+cleanup and all host-journal retirement. A parent without a saved complete image,
+or with an opened/planned/pending parent original, remains red and cannot use
+this narrower recovery path. Complete feature registration remains disabled.
 
 ## Complete original archive transfer, version 1
 

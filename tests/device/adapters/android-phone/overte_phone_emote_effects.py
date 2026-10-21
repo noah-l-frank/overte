@@ -57,15 +57,15 @@ class PhoneEmoteEffects:
             and same(self.source.store.read(),self.source.previous) and self.source.state['phase']=='ready'
             and self.source.state['pending'] is None)
 
-    def _archive_context(self,input_header,input_source_header,source_header):
+    def _archive_context(self,input_header,input_source_header,source_header,*,ready=True):
         """Private read-only views rebuilt from retained original journals."""
-        source=self.source;started=source.monotonic();need(number(started,0,1e15))
+        source=self.source;started=source.monotonic();need(number(started,0,1e15) and type(ready) is bool)
         source.lock.assert_held();need(source.guard() is not False)
         def sources(actual,header):
             need(type(header) is dict and header.get('role')==actual.role)
             state,frames=PhoneEmoteSources.archive(header,phase=actual.phase,artifact_root=actual.artifact_root,
                 binding=actual.binding,guard=actual.guard,monotonic=actual.monotonic)
-            need(state['phase']=='ready' and state['pending'] is None)
+            if ready:need(state['phase']=='ready' and state['pending'] is None)
             view=object.__new__(PhoneEmoteSources);view.__dict__=actual.__dict__.copy()
             view.previous,view.state,view.frames=deepcopy(header),state,frames
             view.historical=True

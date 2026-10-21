@@ -109,8 +109,11 @@ no native getter transport; incomplete ownership blocks general teardown.
 Version 2 selects the exact retained source/input namespace and adds separately
 owned cleanup-phase foreground recovery without completing the old failed
 action. Required retirement callbacks preserve original old/recovery contexts;
-pending source/image/input journals remain unresolved. Whole-feature admission,
-parent image-failure recovery, actor publication and quiet/run retirement remain
+pending source/image/input journals remain unresolved. The existing observation
+owner now transfers incomplete parents with saved complete child originals,
+including lost child cleanup returns, without a feature result or a completed
+phase. Earlier/partial parent acquisitions remain unresolved. Whole-feature admission,
+remaining image-failure recovery, actor publication and quiet/run retirement remain
 open. This component still advertises no complete Emote capability.
 
 The [Phone ordinary-input/effect join](adapters/android-phone/EMOTE_EFFECTS.md)

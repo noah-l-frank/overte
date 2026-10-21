@@ -13,6 +13,7 @@ from adapters.emote_rig_measurements import continuation
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.native_phone_avatar_configuration import NativePhoneAvatarConfiguration,controlled,validate as config_packet
 from adapters.normal_feature_state import PrivateFeatureState
+from adapters.owned_world_render import OwnedWorldRenderCapture
 from feature_journeys.contract import identifier
 from overte_phone_emote_capture import PhoneEmoteCapture
 from overte_phone_emote_effects import PhoneEmoteEffects
@@ -225,6 +226,15 @@ class PhoneEmoteObservation:
 
     def _original(self):
         self.bound();need(self.previous is not None and same(self.decode(self.previous),self.state) and self.state['phase']=='complete')
+        captured,outcome,measured=self._facts()
+        value=dict(emoteObservationResultVersion=VERSION,role=self.source.role,index=self.index,runId=self.source.run,
+            binding=deepcopy(self.source.binding),ticket=self.state['ticket'],state=deepcopy(outcome['effect']['state']),
+            effect=deepcopy(outcome['effect']),pixels=measured,image=deepcopy(captured['header']),
+            capture=deepcopy(self.state['capture']),outcome=deepcopy(self.state['outcome']))
+        result=deepcopy(value);self.bound();return result
+
+    def _facts(self):
+        """Replay saved facts without changing or promoting the durable phase."""
         captured,outcome=self.load('capture'),self.load('outcome');image,raw,_before,_after=self.join(captured,outcome)
         effect=self.effects.recompute(outcome['after'],played=captured['played'],call=outcome['effect']['call'])
         need(same(effect,outcome['effect']))
@@ -233,11 +243,7 @@ class PhoneEmoteObservation:
         measured=pixels(self.source.run,image,raw,self.policy,self.source.pid,lambda:outcome['configuration']['capturedEpochMs'],
             self.source.guard,previous=self.previous_image(captured['previous']),monotonic=self.source.monotonic)
         need(same(measured,outcome['pixels']))
-        value=dict(emoteObservationResultVersion=VERSION,role=self.source.role,index=self.index,runId=self.source.run,
-            binding=deepcopy(self.source.binding),ticket=self.state['ticket'],state=deepcopy(outcome['effect']['state']),
-            effect=deepcopy(outcome['effect']),pixels=measured,image=deepcopy(captured['header']),
-            capture=deepcopy(self.state['capture']),outcome=deepcopy(self.state['outcome']))
-        result=deepcopy(value);self.bound();return result
+        self.bound();return captured,outcome,measured
 
     def delivery(self,value,reader,epoch,host):
         self.effects.bound();need(reader.guard() is not False)
@@ -298,6 +304,74 @@ class PhoneEmoteObservation:
             need(child.read() is None and self.state['retirement'] is not None)
             need(retain(deepcopy(value)) is not False);self.bound();self.effects.bound()
             self.archive(value,self.effects,self.index,self.policy);self.bound();self.effects.bound();need(child.read() is None)
+            returned=deepcopy(value);self.bound();self.store.discard(self.previous);need(self.store.read() is None)
+            source.lock.assert_held();need(source.guard() is not False)
+            end=source.monotonic();need(number(end,self.started,1e15) and end-self.started<5);return returned
+        finally:self.started=None
+
+    @classmethod
+    def incomplete_archive(cls,value,effects,index,policy):
+        """Reopen an incomplete parent's retained originals; never a result."""
+        need(isinstance(effects,PhoneEmoteEffects) and integer(index,1,256));source=effects.source
+        started=source.monotonic();need(number(started,0,1e15));source.lock.assert_held();need(source.guard() is not False)
+        exact(value,{'emoteObservationIncompleteArchiveVersion','header','inputHeader','inputSourceHeader','sourceHeader'})
+        need(type(value['emoteObservationIncompleteArchiveVersion']) is int and value['emoteObservationIncompleteArchiveVersion']==1)
+        context=effects._archive_context(value['inputHeader'],value['inputSourceHeader'],value['sourceHeader'],ready=False)
+        scope=object.__new__(cls);scope.effects,scope.source,scope.index,scope.policy=context,context.source,index,deepcopy(policy)
+        exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
+        scope.historical=True;scope.failed=False;scope.started=started;scope.clock=None
+        scope.previous=deepcopy(value['header']);scope.archive_header=deepcopy(scope.previous)
+        scope.originals=ObservationOriginals(source.artifact_root,source.binding,source.run,source.role,scope.bound,
+            lambda *_:need(False),kind='observations',monotonic=source.monotonic)
+        scope.bound();scope.state=scope.decode(scope.previous)
+        need(scope.state['phase'] in ('captured','measuring') and scope.state['pending'] is None
+            and scope.state['capture'] is not None and scope.state['retirement'] is not None)
+        scope.load('capture')
+        if scope.state['outcome'] is not None:scope._facts()
+        returned=deepcopy(value);scope.bound();return returned
+
+    def transfer_incomplete(self,retain):
+        """Transfer only a saved image parent's responsibility, preserving failure.
+
+        Earlier acquisitions and partial parent files remain unresolved. This
+        path issues no input, image or new native observation and cannot replace
+        whole-run current quiet/resource cleanup.
+        """
+        need(self.historical is False and callable(retain) and self.started is None)
+        self.started=self.source.monotonic();need(number(self.started,0,1e15))
+        try:
+            self.bound();need(self.previous is not None and same(self.decode(self.previous),self.state)
+                and self.state['phase'] in ('captured','measuring') and self.state['pending'] is None
+                and self.state['capture'] is not None)
+            captured=self.load('capture');_frame,_raw,record=PhoneEmoteCapture.archive(captured['header'],self.source,self.index,self.policy)
+            expected=dict(emoteCaptureCleanupVersion=1,completeImageRecord=True,
+                retirement=deepcopy(record['retirement']),retainedPartialImage=False)
+            need(expected['retirement'] is not None)
+            source=self.source;inputs=self.effects.inputs;inputs.bound()
+            need(source.guard() is not False and same(source.store.read(),source.previous))
+            owned=source.adapter._world_render_capture(source.selector,read_only=True,role=source.role,require_frame_view=True)
+            need(isinstance(owned,OwnedWorldRenderCapture) and same(owned.owner.binding,source.binding)
+                and owned.owner.role==source.role and owned.owner.store.read() is None)
+            child=PrivateFeatureState(source.store.path.with_name('phone-emote-'+source.role+'-capture-'+str(self.index)+'.json'))
+            if child.read() is not None:
+                need(same(child.read(),captured['header']))
+                capture=PhoneEmoteCapture(source,self.index,self.policy,monotonic=source.monotonic)
+                need(same(capture.cleanup(),expected))
+            need(child.read() is None and owned.owner.store.read() is None);self.bound()
+            if self.state['retirement'] is None:
+                # The immutable complete child already contains the original
+                # independently observed buffer/receipt retirement. Absence of
+                # a child file alone could never supply this proof.
+                self.state['retirement']=deepcopy(expected);self.save()
+            else:need(same(self.state['retirement'],expected))
+            value=dict(emoteObservationIncompleteArchiveVersion=1,header=deepcopy(self.previous),inputHeader=deepcopy(inputs.previous),
+                inputSourceHeader=deepcopy(inputs.source.previous),sourceHeader=deepcopy(source.previous))
+            self.incomplete_archive(value,self.effects,self.index,self.policy);self.bound();inputs.bound()
+            need(retain(deepcopy(value)) is not False);self.bound();inputs.bound()
+            need(same(source.store.read(),source.previous) and same(source.previous,value['sourceHeader'])
+                and same(inputs.previous,value['inputHeader']) and same(inputs.source.previous,value['inputSourceHeader']))
+            self.incomplete_archive(value,self.effects,self.index,self.policy);self.bound();inputs.bound()
+            need(child.read() is None and owned.owner.store.read() is None)
             returned=deepcopy(value);self.bound();self.store.discard(self.previous);need(self.store.read() is None)
             source.lock.assert_held();need(source.guard() is not False)
             end=source.monotonic();need(number(end,self.started,1e15) and end-self.started<5);return returned
