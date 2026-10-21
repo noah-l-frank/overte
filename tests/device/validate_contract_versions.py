@@ -53,7 +53,7 @@ REQUIRED = {
     "native-chat-controls": 1,
     "native-audio-controls": 1,
     "native-graphics-controls": 1,
-    "world-render-acquisition": 1,
+    "world-render-acquisition": 2,
     "world-render-storage": 1,
     "world-render-ownership": 1,
     "world-render-receipt-cleanup": 1,

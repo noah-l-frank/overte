@@ -122,15 +122,18 @@ void ToneMapAndResample::run(const RenderContextPointer& renderContext, const In
         batch.setResourceTexture(render_utils::slot::texture::ToneMappingColor, lightingBuffer);
         batch.draw(gpu::TRIANGLE_STRIP, 4);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-        if (args->_renderMode == RenderArgs::DEFAULT_RENDER_MODE && args->_mirrorDepth == 0 && !args->isStereo()) {
+        if (args->_renderMode == RenderArgs::DEFAULT_RENDER_MODE && args->_mirrorDepth == 0
+                && (!args->isStereo() || !shouldMirror)) {
             const auto state = args->_context->featureWorldRender();
             if (auto ticket = state->reserve()) {
                 const auto sourceViewport = args->_viewport;
+                const auto stereo = args->isStereo();
+                const auto cameraView = args->getViewFrustum().getView();
                 // A later Present-thread batch command, immediately after the
                 // original tone-map draw and before HUD jobs. Recording alone
                 // cannot advance an acquisition cursor or publish image bytes.
-                batch.runLambda([ticket,lightingBuffer,destinationFramebuffer,sourceViewport] {
-                    ticket->execute(gpu::Backend::featureExecutingBackend(),lightingBuffer,destinationFramebuffer,sourceViewport);
+                batch.runLambda([ticket,lightingBuffer,destinationFramebuffer,sourceViewport,stereo,cameraView] {
+                    ticket->execute(gpu::Backend::featureExecutingBackend(),lightingBuffer,destinationFramebuffer,sourceViewport,stereo,cameraView);
                 });
             }
         }

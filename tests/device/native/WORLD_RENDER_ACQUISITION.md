@@ -1,11 +1,62 @@
-# World render acquisition, version 1: partial instrumentation
+# World render acquisition, versions 1 and 2: partial instrumentation
 
-This source packet supplies E2E-only GL readback, a main-mono frame hook,
+This source packet supplies E2E-only GL readback, main-mono and Pico stereo frame hooks,
 original-memory/chunk readers and the closed existing probe/fixture dispatch.
 Persistent acquisition/receipt ownership and closed Android receipt IO now
-exist; **concrete platform factories are not connected yet**. No world image can be obtained through a
-complete feature adapter at this stage. Full capabilities remain unadvertised.
+exist; the Pico factory now requires stereo v2. No complete Graphics capability
+is advertised from this source alone. Existing mono callers retain v1 validation.
 Native C++ is uncompiled and all devices unqualified.
+
+## Pico stereo source, version 2
+
+The original `source.captureVersion:2` uses `view:"main-stereo"`. The command,
+nonce ownership, chunk storage, receipts and release protocols are unchanged.
+Pico explicitly opts into v2; default mono and iOS readers reject it. A mono
+packet cannot satisfy Pico by changing its view label. Missing native support
+fails the acquisition and retains the durable original ownership.
+
+`Context::executeFrame` scopes an immutable executing `Frame` index, execution
+sequence and original stereo state on its actual backend. This snapshot is
+independent of the mutable recording Context and the resample batch's temporary
+stereo-disable flag. Only the original default, non-mirror-depth tone-map draw
+can reserve an acquisition. Mirrored stereo resamples are excluded. The callback
+copies the actual recording frustum's world camera view and the executing
+frame's two original eye projection/view-offset matrices; matrices are column
+major. It copies original packed RGBA pixels before the HUD, with per-eye source
+and target rectangles from the renderer's horizontal half-width layout. Odd
+packed widths are rejected. No image is duplicated, cropped, painted or resized
+to manufacture a second eye. Bounds for stereo are 8192 by 4096 and at most
+16,777,216 pixels; existing mono bounds remain unchanged. The PNG limit remains
+32 MiB, and the 1500 ms native acquisition lease includes encoding and submission.
+These limits and the synchronous readback require later performance qualification.
+
+GPU readback leaves a pending native original, not a successful observation.
+Only the same Pico GPU context's successful `xrEndFrame`, with the actual
+two-view projection layer and matching current Frame index, completes it. The
+packet records the original OpenXR submission time, native submission sequence,
+two subimage rectangles and array indices. A failed, omitted, foreign or late
+submission cannot complete it. This proves that the frame containing the
+captured world target was submitted; the pre-HUD pixels do not represent a
+runtime-warped compositor image or prove physical headset optics.
+
+The reader requires fresh packet/acquisition/execution/submission sequences,
+distinct consecutive Frame indices, valid invertible original transforms,
+separate left/right view offsets, exact nonoverlapping per-eye rectangles and
+the same frame's successful submission. A redisplayed old frame fails even
+with a new acquisition cursor. Pixel hash verification covers the whole
+original PNG and decoded RGBA bytes, including both eyes. Feature effects,
+rendered pass provenance, independent actor acquisition and complete Graphics
+ownership are separate obligations. Storage release retires late requests,
+clears pending submission state and pixels, and must observe callback drainage
+and receipt absence before its host journal can retire.
+
+Host verification: 46 no-build acquisition/storage/receipt tests, including
+eight stereo tests with ignored input, missing submission, reused cursors,
+foreign frame identity, swapped or duplicated eyes, malformed matrices, wrong
+pixels and bounded extents. The Pico catalog includes `stereo-world-render`.
+None establishes compiled GPU/GL/OpenXR behavior.
+
+## Retained mono source, version 1
 
 ## Implemented GPU primitive
 
@@ -89,14 +140,14 @@ feature effect. Required challenge/subject/actor assertions remain separate.
 ## Native frame hook and remaining ownership work
 
 `gpu::Context` owns one `FeatureWorldRender` state. An explicit request reserves
-only a later original main/default, mirror-depth-zero, mono ToneMapAndResample
+for version 1, only a later original main/default, mirror-depth-zero, mono ToneMapAndResample
 batch. Its `runLambda` follows the original draw before subsequent HUD jobs;
 recording alone publishes nothing. The callback measures the original source
 texture's actual GPU extent, requires agreement with the source description,
 and retains the original source subregion used in the recorded tone-map
 transform. This is distinct from a preference getter. Qualification must still
 verify backend execution/order and effective sampled subregions on hardware.
-Mirror/secondary/shadow/stereo are excluded. Vulkan/default backend methods
+Version 1 excludes mirror/secondary/shadow/stereo sources. Vulkan/default backend methods
 return false. A backend/view extension needs a reviewed contract migration.
 
 Only one request or undrained callback may exist per context. A 1500ms native

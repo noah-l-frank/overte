@@ -1,3 +1,5 @@
+Stereo source follow-up: world-render acquisition v2 now joins original two-eye GPU pixels and executing Frame matrices with a successful same-frame Pico OpenXR submission. The Pico factory requires v2; mono callers retain v1. This is an uncompiled source/host prerequisite, not complete Graphics coverage. See `FEATURE_HANDOFF_20261021.md`.
+
 # Pico feature adapter implementation status
 
 Current isolated continuation: [2026-10-21 coverage and handoff](FEATURE_HANDOFF_20261021.md).

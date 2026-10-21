@@ -18,6 +18,7 @@
 #include <QSet>
 #include <QUuid>
 #include <QVariantMap>
+#include <cmath>
 
 namespace gpu {
 // One bounded, explicitly owned acquisition per recording context. Only the
@@ -30,8 +31,9 @@ public:
         qint64 recorded {0};
         ~Ticket() { if (auto state = owner.lock()) { state->drained(id); } }
         void execute(Backend* backend, const TexturePointer& source,
-                const FramebufferPointer& destination, const Vec4i& viewport) {
-            if (auto state = owner.lock()) { state->acquire(id,recorded,backend,source,destination,viewport); }
+                const FramebufferPointer& destination, const Vec4i& viewport,
+                bool stereo = false, const Mat4& cameraView = Mat4(1.0f)) {
+            if (auto state = owner.lock()) { state->acquire(id,recorded,backend,source,destination,viewport,stereo,cameraView); }
         }
     };
 
@@ -41,7 +43,7 @@ public:
         if (_active.isEmpty()) {
             // A cancelled queued/executing callback must drain before reuse.
             if (!_callback.isEmpty() || _retired.size() >= 256) { return {}; }
-            _active = id; _requested = now(); _age.start(); _result.clear(); _png.clear();
+            _active = id; _requested = now(); _age.start(); _result.clear(); _pending.clear(); _png.clear();
         }
         if (_active != id) { return {}; }
         if (!_result.isEmpty()) { return _result; } // Original times, never retimed.
@@ -51,12 +53,27 @@ public:
 
     std::shared_ptr<Ticket> reserve() {
         QMutexLocker lock(&_mutex);
-        if (!enabled() || _active.isEmpty() || !_callback.isEmpty() || !_result.isEmpty()) { return {}; }
+        if (!enabled() || _active.isEmpty() || !_callback.isEmpty() || !_result.isEmpty() || !_pending.isEmpty()) { return {}; }
         if (_age.elapsed() >= 1500) { fail(_active); return {}; }
         _callback = _active;
         auto ticket = std::make_shared<Ticket>();
         ticket->owner = shared_from_this(); ticket->id = _active; ticket->recorded = now();
         return ticket;
+    }
+
+    // Called only after a successful xrEndFrame with the original projection
+    // layer. A rendered stereo target alone is not headset submission evidence.
+    void submitted(uint32_t frameIndex, const QVariantList& views) {
+        QMutexLocker lock(&_mutex);
+        if (!enabled() || _pending.isEmpty() || _pendingFrame != frameIndex || _active.isEmpty()) { return; }
+        if (_age.elapsed() >= 1500 || views.size() != 2) { fail(_active); return; }
+        auto source = _pending.value("source").toMap();
+        const auto stamp = now();
+        if (stamp < source.value("capturedEpochMs").toLongLong()) { fail(_active); return; }
+        source.insert("presentation",QVariantMap {{"backend","openxr"},{"frameIndex",frameIndex},
+            {"submissionSequence",static_cast<qulonglong>(++_submissions)}, {"submittedEpochMs",stamp},{"views",views}});
+        _pending.insert("source",source); _pending.insert("capturedEpochMs",stamp);
+        _result = std::move(_pending); _pending.clear();
     }
 
     // A closed memory transport: logical nonce PNG names are never filesystem
@@ -84,7 +101,7 @@ public:
             _retired.insert(id);
         }
         if (action == "release" && _active == id) {
-            _active.clear(); _result.clear(); _png.clear();
+            _active.clear(); _result.clear(); _pending.clear(); _png.clear();
             // A queued lambda keeps its ticket until execution or batch discard.
         }
         QVariantMap value {{"storageVersion",1},{"commandId",nonce},{"requestId",id},{"instance",_instance},
@@ -122,14 +139,18 @@ private:
     static bool valid(const QString& id) { return QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch(); }
     static QString sha(const QByteArray& bytes) { return QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex()); }
     void fail(const QString& id) {
-        if (_active == id) { _result = {{"schemaVersion",1},{"requestId",id},{"available",false}}; }
+        if (_active == id) {
+            _pending.clear(); _png.clear();
+            _result = {{"schemaVersion",1},{"requestId",id},{"available",false}};
+        }
     }
     void drained(const QString& id) {
         QMutexLocker lock(&_mutex);
         if (_callback == id) { _callback.clear(); }
     }
     void acquire(const QString& id, qint64 recorded, Backend* backend,
-            const TexturePointer& source, const FramebufferPointer& destination, const Vec4i& viewport) {
+            const TexturePointer& source, const FramebufferPointer& destination, const Vec4i& viewport,
+            bool stereo, const Mat4& cameraView) {
         qint64 requested {0};
         {
             QMutexLocker lock(&_mutex);
@@ -138,8 +159,12 @@ private:
             requested = _requested;
         }
         const auto started = now();
+        const auto frame = backend ? backend->featureFrame() : nullptr;
+        // The recorded job's display mode must match this executing Frame.
+        const bool frameOkay = !stereo || (frame && frame->stereo.isStereo());
         Vec2i actualExtent(0); QImage pixels;
         const bool read = backend && backend == Backend::featureExecutingBackend()
+            && frameOkay
             && backend->featureTextureExtent(source,actualExtent)
             && viewport.x >= 0 && viewport.y >= 0 && viewport.z > 0 && viewport.w > 0
             && viewport.x <= actualExtent.x-viewport.z && viewport.y <= actualExtent.y-viewport.w
@@ -165,17 +190,47 @@ private:
         const auto normalized = id.startsWith("ios-") ? id.mid(4) : id;
         const QVariantMap image {{"name","world-render-image-"+normalized+".png"},{"bytes",png.size()},
             {"sha256",sha(png)},{"pixelSha256",QString::fromLatin1(pixelHash)},{"width",width},{"height",height}};
-        const QVariantMap observation {{"captureVersion",1},{"available",true},
+        QVariantMap observation {{"captureVersion",stereo ? 2 : 1},{"available",true},
             {"acquisitionSequence",static_cast<qulonglong>(++_acquisitions)}, {"recordedEpochMs",recorded},
             {"startedEpochMs",started},{"capturedEpochMs",captured},{"backend","opengl"},
-            {"stage","tone-map-before-hud"},{"view","main-mono"},
+            {"stage","tone-map-before-hud"},{"view",stereo ? "main-stereo" : "main-mono"},
             {"sourceExtent",QVariantList{actualExtent.x,actualExtent.y}},
             {"sourceViewport",QVariantList{viewport.x,viewport.y,viewport.z,viewport.w}},
             {"targetExtent",QVariantList{width,height}},{"pixelFormat","rgba8-top-left"},{"image",image}};
+        if (stereo) {
+            // GLBackendTransform uses two horizontal half-width viewports.
+            // Refuse odd dimensions rather than assign an unrendered edge.
+            if (!frame || width % 2 || viewport.z % 2 || viewport.x % 2) { fail(id); return; }
+            const auto view = matrix(cameraView);
+            QVariantList eyes;
+            for (int eye = 0; eye < 2; ++eye) {
+                const auto projection = matrix(frame->stereo._eyeProjections[eye]);
+                const auto offset = matrix(frame->stereo._eyeViews[eye]);
+                if (projection.isEmpty() || offset.isEmpty() || view.isEmpty()) { fail(id); return; }
+                eyes.append(QVariantMap {{"eye",eye ? "right" : "left"},{"projection",projection},{"viewOffset",offset},
+                    {"sourceViewport",QVariantList{viewport.x+eye*(viewport.z/2),viewport.y,viewport.z/2,viewport.w}},
+                    {"targetViewport",QVariantList{eye*(width/2),0,width/2,height}}});
+            }
+            observation.insert("stereo",QVariantMap {{"frameIndex",frame->index},
+                {"executionSequence",static_cast<qulonglong>(frame->execution)},
+                {"layout","side-by-side"},{"matrixLayout","column-major"},{"cameraView",view},{"eyes",eyes}});
+        }
         _png = std::move(png);
-        _result = {{"schemaVersion",1},{"requestId",id},{"instance",_instance},
+        QVariantMap result {{"schemaVersion",1},{"requestId",id},{"instance",_instance},
             {"sequence",static_cast<qulonglong>(++_sequence)}, {"requestedEpochMs",requested},
             {"capturedEpochMs",published},{"processId",QCoreApplication::applicationPid()},{"source",observation}};
+        if (stereo) { _pending = std::move(result); _pendingFrame = frame->index; }
+        else { _result = std::move(result); }
+    }
+    static QVariantList matrix(const Mat4& value) {
+        QVariantList result;
+        for (int column = 0; column < 4; ++column) {
+            for (int row = 0; row < 4; ++row) {
+                if (!std::isfinite(value[column][row])) { return {}; }
+                result.append(static_cast<double>(value[column][row]));
+            }
+        }
+        return result;
     }
     QMutex _mutex;
     const QString _instance {QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-')};
@@ -183,8 +238,9 @@ private:
     QSet<QString> _retired; // Bounded; never forget retired nonces to enable replay.
     QElapsedTimer _age;
     qint64 _requested {0};
-    quint64 _sequence {0}, _acquisitions {0}, _storageSequence {0};
-    QVariantMap _result;
+    quint64 _sequence {0}, _acquisitions {0}, _storageSequence {0}, _submissions {0};
+    uint32_t _pendingFrame {0};
+    QVariantMap _result, _pending;
     QByteArray _png;
     QHash<QString,QPair<QString,QByteArray>> _receipts; // Bounded original receipt identities/hashes, not PNG copies.
 };

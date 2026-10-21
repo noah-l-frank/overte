@@ -12,6 +12,10 @@
 #include <SettingHandle.h>
 
 #include "ViewFrustum.h"
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#include <gpu/Context.h>
+#include <gpu/Frame.h>
+#endif
 
 #include <chrono>
 #include <glm/gtx/string_cast.hpp>
@@ -817,6 +821,19 @@ bool OpenXrDisplayPlugin::endFrame(bool submitLayer) {
 
 #if defined(OVERTE_E2E_OPENXR_INPUT_V1)
     recordE2ePresentation(info.layerCount > 0);
+#endif
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (info.layerCount > 0 && projectionLayer.viewCount == 2 && _currentFrame && _gpuContext && _projectionLayerViews.size() == 2) {
+        QVariantList views;
+        for (size_t eye = 0; eye < 2; ++eye) {
+            const auto& image = _projectionLayerViews[eye].subImage;
+            views.append(QVariantMap {{"eye",eye ? "right" : "left"},
+                {"imageRect",QVariantList{image.imageRect.offset.x,image.imageRect.offset.y,
+                    image.imageRect.extent.width,image.imageRect.extent.height}},
+                {"arrayIndex",image.imageArrayIndex}});
+        }
+        _gpuContext->featureWorldRender()->submitted(_currentFrame->frameIndex,views);
+    }
 #endif
     return true;
 }

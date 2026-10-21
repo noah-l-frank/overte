@@ -387,8 +387,8 @@ def create_adapter(args, base_class):
 
         @_private
         def _world_render_capture(self, target):
-            # Version 1 refuses real stereo captures. Connecting transport must
-            # never substitute a desktop image or guess one eye for Pico.
+            # Version 2 requires original same-frame stereo GPU pixels and a
+            # successful native OpenXR projection-layer submission.
             manager = self._scripts(target)
             native = self._native_feature_observer(target)
             owner = WorldRenderOwner(self._world_render_store(target), manager.binding, native.guard)
@@ -399,7 +399,7 @@ def create_adapter(args, base_class):
             capture = NativeWorldRenderCapture(native.send,
                 lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
                     'files/overte-e2e/' + WORLD_RENDER_FILE, attempts=1),
-                storage, native.clock_ms, native.guard, native.pid, intent=owner.intent, **options)
+                storage, native.clock_ms, native.guard, native.pid, intent=owner.intent, stereo=True, **options)
             return OwnedWorldRenderCapture(capture, storage, owner, receipts)
 
         def _create_controls(self, target, intent):

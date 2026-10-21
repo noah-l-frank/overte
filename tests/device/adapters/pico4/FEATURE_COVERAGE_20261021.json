@@ -454,7 +454,10 @@
         "tests/device/adapters/pico4/binding.py",
         "libraries/render-utils/src/ToneMapAndResampleTask.cpp",
         "libraries/gpu/src/gpu/FeatureWorldRender.h",
-        "tests/device/feature_journeys/GRAPHICS_SUBJECT.md"
+        "tests/device/feature_journeys/GRAPHICS_SUBJECT.md",
+        "tests/device/adapters/world_render_evidence.py",
+        "android/vr/pico/apps/picoInterface/openxr/src/OpenXrDisplayPlugin.cpp",
+        "tests/device/native/WORLD_RENDER_ACQUISITION.md"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -478,7 +481,7 @@
       ],
       "missingOperationsOrEvidence": [
         "Actual VR resolution control/confirmation and runtime-eye semantics",
-        "Original per-eye capture, projection/view/frame identity and actual pass execution",
+        "Actual Haze/Mirror pass execution and complete independent original stereo challenge/effect joins; stereo acquisition v2 source/host binding is present but uncompiled",
         "Complete Pico source-specific Graphics/persistence/background/restart/restoration coordinator"
       ],
       "requiredOriginalEvidence": [
@@ -492,7 +495,7 @@
         "Actual render callbacks, buffers, receipts and Web subject resources released",
         "Restore original scene/view and independently observe complete owned UUID absence"
       ],
-      "nextExecutableStep": "Version the native acquisition and evidence contract for actual stereo frames: the current ToneMapAndResampleTask explicitly requires !args->isStereo(), and capture v1 admits main-mono only. Bind real VR resolution confirmation before adapting the Phone coordinator; never relabel mono images.",
+      "nextExecutableStep": "Implement actual VR resolution confirmation and distinguish persistent OpenXR eye allocation from immediate Render viewport scale; compose current stereo v2 source with actual pass provenance, independent actor, fixture and original preference restoration before registering Graphics capabilities.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

@@ -133,5 +133,21 @@
   "nativeCompilation": "unverified",
   "physicalRuns": 0,
   "deviceQualification": "untested",
-  "picoInitialCombinedSelection": "The four non-Script groups passed in this initial combined invocation; the repaired normal-scripts group subsequently passed all 77 cases in its own final invocation."
+  "picoInitialCombinedSelection": "The four non-Script groups passed in this initial combined invocation; the repaired normal-scripts group subsequently passed all 77 cases in its own final invocation.",
+  "stereoSourcePacket": {
+    "contract": "world-render-acquisition v2; v1 mono readers retained",
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "PYTHONPATH=tests/device python3 -m unittest self_tests.test_stereo_world_render self_tests.test_world_render_evidence self_tests.test_world_render_storage self_tests.test_world_render_receipts -q",
+        "result": "46 passed; no build/device execution"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test suite-runner --test coverage-matrix --junit PRIVATE/stereo-source-catalog.xml",
+        "result": "3 selected groups passed; 8 stereo, 12 runner and 6 coverage tests; catalog 48"
+      }
+    ],
+    "completeFeatureCapabilityAdded": false
+  }
 }

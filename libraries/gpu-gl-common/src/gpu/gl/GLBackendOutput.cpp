@@ -221,19 +221,21 @@ bool GLBackend::featureTextureExtent(const TexturePointer& texture, Vec2i& exten
     glGetTexLevelParameteriv(GL_TEXTURE_2D,0,GL_TEXTURE_WIDTH,&width);
     glGetTexLevelParameteriv(GL_TEXTURE_2D,0,GL_TEXTURE_HEIGHT,&height);
     glBindTexture(GL_TEXTURE_2D,static_cast<GLuint>(bound));
+    const bool stereoFrame = featureFrame() && featureFrame()->stereo.isStereo();
     if (glGetError() != GL_NO_ERROR || width != texture->getWidth() || height != texture->getHeight()
-            || width < 1 || height < 1 || width > 4096 || height > 4096
-            || static_cast<quint64>(width)*height > 8388608ULL) { return false; }
+            || width < 1 || height < 1 || width > (stereoFrame ? 8192 : 4096) || height > 4096
+            || static_cast<quint64>(width)*height > (stereoFrame ? 16777216ULL : 8388608ULL)) { return false; }
     extent = Vec2i(width,height);
     return true;
 }
 
 bool GLBackend::featureReadFramebuffer(const FramebufferPointer& framebuffer, QImage& image) {
     image = QImage();
+    const bool stereoFrame = featureFrame() && featureFrame()->stereo.isStereo();
     if (Backend::featureExecutingBackend() != this || !QCoreApplication::arguments().contains("--testScript") || !QOpenGLContext::currentContext()
             || !framebuffer || framebuffer->getWidth() < 1 || framebuffer->getHeight() < 1
-            || framebuffer->getWidth() > 4096 || framebuffer->getHeight() > 4096
-            || static_cast<quint64>(framebuffer->getWidth())*framebuffer->getHeight() > 8388608ULL) { return false; }
+            || framebuffer->getWidth() > (stereoFrame ? 8192 : 4096) || framebuffer->getHeight() > 4096
+            || static_cast<quint64>(framebuffer->getWidth())*framebuffer->getHeight() > (stereoFrame ? 16777216ULL : 8388608ULL)) { return false; }
     // The original completed draw must already have created this exact GPU
     // object. Do not synchronize/create a framebuffer or read the default UI
     // target as a fallback. GPU backend family is fixed by Context::init.

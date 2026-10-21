@@ -3,7 +3,7 @@
   "capabilities": [
     {"id": "apk-platform-contract", "risk": "high", "tests": ["package-contract", "android-entrypoints", "platform-glue", "native-classloader", "activity-ingress"]},
     {"id": "candidate-release-and-acceptance", "risk": "high", "tests": ["apk-verifier", "release-contract", "device-acceptance", "source-inputs-v1", "source-inputs-v2", "source-inputs-v3"]},
-    {"id": "openxr-lifecycle-and-rendering", "risk": "critical", "tests": ["openxr-loader", "openxr-display", "platform-glue"]},
+    {"id": "openxr-lifecycle-and-rendering", "risk": "critical", "tests": ["openxr-loader", "openxr-display", "platform-glue", "stereo-world-render"]},
     {"id": "openxr-input-and-tracking", "risk": "critical", "tests": ["openxr-input", "interaction-diagnostics"]},
     {"id": "webview-rendering-and-input", "risk": "high", "tests": ["webview-bridge", "webview-touch-state", "embedded-web", "legacy-web-lifecycle", "legacy-web-qt-jni", "activity-ingress"]},
     {"id": "microphone-lifecycle-and-transport", "risk": "critical", "tests": ["audio-capture-state", "audio-native-transport", "microphone-runner"]},

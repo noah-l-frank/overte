@@ -110,6 +110,29 @@ public:
     // Only actual backend lambda execution establishes this thread-local
     // identity. Recording a batch or retaining a Context backend is insufficient.
     static Backend* featureExecutingBackend() { return _featureExecutingBackend; }
+    // Frozen executing Frame state, unaffected by a resample batch temporarily
+    // disabling stereo. Never read the recording Context on the Present thread.
+    struct FeatureFrame {
+        uint32_t index;
+        uint64_t execution;
+        StereoState stereo;
+    };
+    const FeatureFrame* featureFrame() const { return _featureFrame; }
+    class FeatureFrameScope {
+    public:
+        FeatureFrameScope(Backend& backend, uint32_t index, const StereoState& stereo)
+            : _backend(backend), _previous(backend._featureFrame),
+              _frame {index, ++backend._featureFrameExecutions, stereo} {
+            backend._featureFrame = &_frame;
+        }
+        ~FeatureFrameScope() { _backend._featureFrame = _previous; }
+        FeatureFrameScope(const FeatureFrameScope&) = delete;
+        FeatureFrameScope& operator=(const FeatureFrameScope&) = delete;
+    private:
+        Backend& _backend;
+        const FeatureFrame* _previous;
+        FeatureFrame _frame;
+    };
     class FeatureExecutionScope {
     public:
         explicit FeatureExecutionScope(Backend* backend) : _previous(_featureExecutingBackend) { _featureExecutingBackend = backend; }
@@ -121,6 +144,8 @@ public:
     };
 private:
     static thread_local Backend* _featureExecutingBackend;
+    const FeatureFrame* _featureFrame {nullptr};
+    uint64_t _featureFrameExecutions {0};
 public:
 #endif
 
