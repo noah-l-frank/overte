@@ -91,6 +91,27 @@ class EmoteObservationTests(unittest.TestCase):
             self.assertIsNotNone(scope.store.read());self.assertNotEqual('complete',scope.state['phase'])
             self.assertEqual(1,m.world.counters['capture'])
 
+    def test_historical_image_replay_recomputes_derived_effect_state_and_proof_from_originals(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));scope=m.scope(owner,1);value=scope.read(call['ticket'])
+            load=scope.load;calls=deepcopy(m.calls)
+            for fault in ('animation','sit','pose','panel','early','kind','caller'):
+                def changed(kind):
+                    result=load(kind)
+                    if kind=='outcome':
+                        effect=result['effect'];state=effect['state']
+                        if fault=='animation':state['animation']='Crying'
+                        elif fault=='sit':state['sit']='Sit2'
+                        elif fault=='pose':state['poseProgress']=0.
+                        elif fault=='panel':state['panel']=not state['panel']
+                        elif fault=='early':state['restoredBeforeNominalEnd']=True
+                        elif fault=='kind':effect['kind']='expected'
+                        else:effect['proof']['event']['caller']['compilation']['scriptId']=11
+                    return result
+                with self.subTest(fault=fault),patch.object(scope,'load',side_effect=changed),self.assertRaises(NativeUIError):scope.original()
+            self.assertEqual(value,scope.original());self.assertEqual(calls,m.calls)
+
     def test_open_play_and_restore_join_current_original_pixels_to_stable_native_intervals(self):
         m=self.model
         with m.lock.held():

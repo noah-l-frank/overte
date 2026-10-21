@@ -121,7 +121,8 @@ whole-operation monotonic floors detect frozen external clocks. A late delivery
 may leave complete historical evidence but cannot return fresh success.
 
 `original()` reopens immutable parent records and the original PNG, rejoins native
-image brackets and actual resource pins, and recomputes pixel statistics from
+image brackets and actual resource pins, recomputes the full input/Rig effect
+from original input-history prefixes, and recomputes pixel statistics from
 original bytes. It is historical only, sends no target query/input and never
 refreshes timestamps. Later source-header advancement does not erase or refresh
 that evidence. Missing, equal-byte replaced-inode or corrupted files fail.

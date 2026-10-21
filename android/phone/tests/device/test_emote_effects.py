@@ -364,6 +364,34 @@ class PhoneEmoteEffectTests(unittest.TestCase):
             actor=self.actor(owner);remote=actor.measure(actor.reference(),played=actor_play)
             self.assertTrue(value['state']['restoredBeforeNominalEnd']);self.assertEqual(value['state'],remote['state'])
 
+    def test_historical_primary_and_actor_recompute_use_the_original_input_prefix_after_a_future_play(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            owner,effect=self.act('sit');play=self.observe(owner,effect);actor=self.actor(owner);actor_play=actor.measure(actor.reference())
+            owner,effect=self.act('cancel');stopped=self.observe(owner,effect,play['playbackReference'])
+            actor=self.actor(owner);actor_stopped=actor.measure(actor.reference(),played=actor_play['playbackReference'])
+            owner,effect=self.act('play',dict(name='Crying'));current=self.observe(owner,effect)
+            actor=self.actor(owner);actor.measure(actor.reference());m.epoch+=2000;calls=deepcopy(m.calls)
+            for reader,original,played in ((effect,stopped,play['playbackReference']),(actor,actor_stopped,actor_play['playbackReference'])):
+                with self.subTest(role=original['role']),patch.object(m,'_native_feature_observer',side_effect=AssertionError('Historical replay queried native state')):
+                    self.assertEqual(original,reader.recompute(original['frame'],played=played,call=original['call']))
+                    self.assertTrue(original['state']['restoredBeforeNominalEnd'])
+                    with self.assertRaises(NativeUIError):reader.recompute(original['frame'],played=current['playbackReference'],call=original['call'])
+                    wrong=dict(original['call'],ticket='f'*32)
+                    with self.assertRaises(NativeUIError):reader.recompute(original['frame'],played=played,call=wrong)
+            self.assertEqual(calls,m.calls)
+
+    def test_historical_effect_recompute_reopens_originals_and_detects_late_local_replay(self):
+        m=self.model
+        with m.lock.held():
+            owner,effect=self.act('play',dict(name='Waving'));value=self.observe(owner,effect)
+            decode=owner.decode
+            def slow(header):result=decode(header);m.clock+=6;return result
+            with patch.object(owner,'decode',side_effect=slow),self.assertRaises(NativeUIError):effect.recompute(value['frame'])
+            manifest=owner.source.originals.manifest(owner.source.state['manifests'][0])
+            owner.source.originals.path(owner.source.originals.expand(manifest[-1])).unlink()
+            with self.assertRaises((NativeUIError,OSError)):effect.recompute(value['frame'])
+
     def test_consumed_correct_button_url_and_moving_rig_with_foreign_file_bytes_cannot_publish_for_either_role(self):
         for role in ('primary','actor'):
             m=self.model;m.use_included_source();m.actual_asset_name='Cheering'

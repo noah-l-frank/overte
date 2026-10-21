@@ -217,6 +217,8 @@ class PhoneEmoteObservation:
     def _original(self):
         self.bound();need(self.previous is not None and same(self.decode(self.previous),self.state) and self.state['phase']=='complete')
         captured,outcome=self.load('capture'),self.load('outcome');image,raw,_before,_after=self.join(captured,outcome)
+        effect=self.effects.recompute(outcome['after'],played=captured['played'],call=outcome['effect']['call'])
+        need(same(effect,outcome['effect']))
         # Recompute pixel facts from retained original PNGs, including prior
         # role-local pixels. Stored statistics never replace measured bytes.
         measured=pixels(self.source.run,image,raw,self.policy,self.source.pid,lambda:outcome['configuration']['capturedEpochMs'],

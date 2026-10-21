@@ -99,3 +99,27 @@ No cleanup, deletion, timer clearing or native restoration setter is introduced.
 Host cases run actual Python input/source/effect logic against explicit synthetic
 SDK/Qt/native boundaries, including all ten ordinary buttons. They verify test
 logic only and establish no physical Emote success.
+
+## Historical recomputation from originals
+
+`recompute(reference,played=None,call=None)` reopens original input archives and
+role-local source files, then derives the complete v2 effect state/proof again.
+An explicit original `call` selects exactly one owned historical input and its
+preceding history prefix. A later play cannot replace the original play being
+restored. Current widget state, actual loaded file/pose/caller proof and original
+cancel barriers remain independently checked. Stored derived state is not an
+input to this calculation.
+
+This method performs no target or fixture query and never asserts current
+ownership or freshness. It keeps the actual source lock/candidate guard and
+five-second monotonic replay bound; missing/replaced originals and late replay
+fail. It does not retime evidence. `measure` uses the same calculation with its
+existing live journal/provider checks and final 1.5-second delivery limits.
+Phone image archive replay also recomputes and exactly compares the full saved
+effect, including animation, Sit variant, progress, panel, restoration timing
+and original native proof. Correct PNGs cannot legitimize invented stored facts.
+
+Host counterexamples cover historical primary/actor cancellation after a future
+play, foreign play references/calls, missing files, slow replay and changed
+derived image/effect facts. Full Phone Emotes remains unregistered and native
+instrumentation/device qualification remain pending.
