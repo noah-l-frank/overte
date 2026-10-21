@@ -549,7 +549,8 @@ def _generation_matches(tree, approved, policy_root):
 def has_staged_caller(candidate, *, policy_root=ROOT):
     tree = _sources(candidate).entries
     caller = tree.get(".github/workflows/repository-checks.yml")
-    return any(caller == _blob(android()._file(Path(policy_root), path).read_bytes()) for path in CALLERS + OWNED_CALLERS)
+    return any(caller == _blob(android()._file(Path(policy_root), path).read_bytes()) for path in CALLERS + OWNED_CALLERS + (
+        "tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml",))
 
 
 def handoff():
