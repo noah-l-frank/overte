@@ -26,6 +26,7 @@ REQUIRED = {
     "native-account-observation": 1,
     "native-account-probe": 1,
     "native-account-origin": 1,
+    "feature-fixture-adapter-access": 1,
     "feature-account-provider": 2,
     "feature-browser-resources": 1,
     "web-dom-observation": 1,

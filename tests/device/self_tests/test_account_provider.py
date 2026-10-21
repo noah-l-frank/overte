@@ -88,6 +88,21 @@ class AccountProviderTests(unittest.TestCase):
         status,value=self.request(PROFILE_PATH,headers=headers)
         return nonce,status,value
 
+    def test_adapter_only_role_reads_owned_input_credentials_but_cannot_issue_or_control_grants(self):
+        from adapters.feature_fixture_access import AdapterFixtureClient
+        adapter='d'*64;self.server.adapter_token=adapter
+        source=AdapterFixtureClient(self.origin+PREFIX,adapter);source.run=self.run;source.area='authentication';source.closed=False
+        original=source.account_credentials('owned');self.assertEqual(self.provider.credentials(self.run,'owned'),original)
+        # These synthetic secrets stay in the actual HTTPS request and private
+        # test memory. No credential text is logged or asserted as product state.
+        status,_value=self.request(TOKEN_PATH,body=dict(grant_type='password',scope='owner',**original),form_body=True,
+            headers={'Authorization':'Bearer '+adapter})
+        self.assertEqual(403,status)
+        status,_value=self.request(PREFIX+'/runs/'+self.run+'/account/control',body=dict(operation='cleanup'),
+            headers={'Authorization':'Bearer '+adapter})
+        self.assertEqual(403,status);self.assertEqual(0,self.provider.snapshot(self.run)['accessTokens'])
+        with self.assertRaises(RuntimeError):source.account_control('cleanup')
+
     def test_actual_password_grant_and_bearer_profile_make_distinct_original_proof(self):
         status,token=self.grant();self.assertEqual(200,status)
         self.assertEqual({'access_token','refresh_token','token_type','expires_in'},set(token))

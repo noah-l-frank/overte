@@ -11,6 +11,7 @@
     "native-navigation-replies": {"current": 1, "reads": [1]},
     "native-pending-field-commit": {"current": 1, "reads": [1]},
     "native-pending-commit-owner": {"current": 1, "reads": [1]},
+    "feature-fixture-adapter-access": {"current": 1, "reads": [1]},
     "feature-account-provider": {"current": 2, "reads": [2]},
     "native-web-dom-observation": {"current": 1, "reads": [1]},
     "web-dom-observation": {"current": 1, "reads": [1]},

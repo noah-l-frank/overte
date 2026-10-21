@@ -143,6 +143,11 @@ class Handler(BaseHTTPRequestHandler):
                 current=(self.command=='GET' and len(pieces)==3 and pieces[0]=='runs' and pieces[2]=='current')
                 if not (asset or current) or len(pieces)<2 or not self.server.browser_resources.has_run(pieces[1]):
                     return self.send(404,{'error':'not-found'})
+            adapter_token=getattr(self.server,'adapter_token',None)
+            adapter_reader=(adapter_token is not None and hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+adapter_token))
+            adapter_markers=self.headers.get_all('X-Overte-Fixture-Adapter-Read',[])
+            if adapter_markers and (adapter_markers!=['1'] or not adapter_reader):return self.send(403,{'error':'forbidden'})
+            if adapter_reader and self.command!='GET':return self.send(403,{'error':'forbidden'})
             if self.account_request(parsed):return
             if self.navigation_request(parsed):return
             if parsed.query or parsed.fragment or not parsed.path.startswith(PREFIX + '/'):
@@ -173,8 +178,12 @@ class Handler(BaseHTTPRequestHandler):
                         or self.server.journal.runs[run]['area']!='authentication'):
                     return self.send(404,{'error':'not-found'})
                 return self.send(200,self.server.account_provider.delayed_status(run))
-            if not reader and not actor:
+            if not reader and not actor and not adapter_reader:
                 return self.send(403, {'error': 'forbidden'})
+            if self.command=='GET' and parts==['adapter-reader']:
+                if not adapter_reader:return self.send(403,{'error':'forbidden'})
+                return self.send(200,dict(fixtureAdapterAccessVersion=1,role='adapter',canMutate=False,
+                    canPublish=False,peerFactsVisible=False))
             if self.command=='GET' and parts==['account-provider']:
                 if self.server.account_provider is None:return self.send(503,{'error':'account-provider-unavailable'})
                 return self.send(200,dict(providerVersion=2,instance=self.server.account_provider.instance,
@@ -228,7 +237,7 @@ class Handler(BaseHTTPRequestHandler):
                 if provider is None:return self.send(503,{'error':'account-provider-unavailable'})
                 if self.command=='GET' and parts[3:]==['status']:
                     return self.send(200,provider.snapshot(run))
-                if self.command=='GET' and len(parts)==5 and parts[3]=='credentials' and reader:
+                if self.command=='GET' and len(parts)==5 and parts[3]=='credentials' and (reader or adapter_reader):
                     return self.send(200,provider.credentials(run,parts[4]))
                 if self.command=='GET' and len(parts)==6 and parts[3]=='proof' and actor:
                     return self.send(200,provider.proof(run,parts[4],parts[5]))
@@ -260,7 +269,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.journal.publish(run, body)
                 return self.send(200, {})
             if self.command == 'GET' and len(parts) == 2:
-                return self.send(200, self.server.journal.snapshot(run))
+                original=self.server.journal.snapshot(run)
+                if adapter_reader:original['entries']=[]
+                return self.send(200,original)
             if self.command == 'DELETE' and len(parts) == 2 and reader:
                 if self.server.navigation_resources is not None and run in self.server.navigation_resources.runs:
                     self.server.navigation_resources.retire(run)
@@ -300,7 +311,11 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,adapter_token=None):
+    if adapter_token is not None and (type(adapter_token) is not str or not 32<=len(adapter_token)<=256
+            or not adapter_token.isascii() or any(not 33<=ord(c)<=126 for c in adapter_token)
+            or adapter_token in (reader_token,actor_token)):
+        raise ValueError('A separate private adapter-only read credential is required')
     if (type(reader_token) is not str or type(actor_token) is not str
             or min(len(reader_token), len(actor_token)) < 32 or reader_token == actor_token):
         raise ValueError('Separate private reader and independent publisher tokens are required')
@@ -322,6 +337,7 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
     server.navigation_resources=navigation_resources
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token
+    server.adapter_token=adapter_token
     server.journal = Journal() if browser_peer_of is None else browser_peer_of.journal
     server.browser_resources = BrowserResources() if browser_peer_of is None else browser_peer_of.browser_resources
     server.browser_peer = browser_peer_of is not None
@@ -342,7 +358,7 @@ def main():
         parser.error('--private-config is required to serve')
     from adapters.normal_feature_state import PrivateFeatureState
     config=PrivateFeatureState(args.private_config.absolute()).read()
-    fields={'readerToken','actorToken','host','port'}|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())
+    fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())
     exact(config,fields,'private fixture configuration')
     tls=None;provider=None
     if 'tls' in config:
@@ -361,7 +377,7 @@ def main():
     navigation=NavigationResources(config['navigationProvider']) if 'navigationProvider' in config else None
     with ExitStack() as owned:
         server=owned.enter_context(make_server(config['readerToken'],config['actorToken'],(config['host'],config['port']),
-            account_provider=provider,tls_context=tls,navigation_resources=navigation))
+            account_provider=provider,tls_context=tls,navigation_resources=navigation,adapter_token=config.get('adapterToken')))
         peer=None;worker=None
         if 'browserPeer' in config:
             exact(config['browserPeer'],{'host','port'},'private second browser listener')

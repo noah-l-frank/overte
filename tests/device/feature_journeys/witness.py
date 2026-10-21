@@ -138,10 +138,12 @@ class Client:
         self.url, self.token = url, reader_token
         self.monotonic,self.sleep=monotonic,sleep
 
-    def request(self, path, value=None, method=None):
+    def request(self, path, value=None, method=None, *, adapter_access=False):
         raw = None if value is None else json.dumps(value).encode()
-        request = Request(self.url + path, data=raw, method=method,
-                          headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'})
+        headers = {'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'}
+        if type(adapter_access) is not bool:raise ValueError('Invalid adapter fixture access marker')
+        if adapter_access:headers['X-Overte-Fixture-Adapter-Read']='1'
+        request = Request(self.url + path, data=raw, method=method, headers=headers)
         try:
             with build_opener(NoRedirect).open(request, timeout=5) as response:
                 body = response.read(1024 * 1024 + 1)
