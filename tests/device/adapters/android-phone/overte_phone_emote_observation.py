@@ -16,6 +16,7 @@ from adapters.native_phone_avatar_configuration import NativePhoneAvatarConfigur
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.owned_world_render import OwnedWorldRenderCapture
 from feature_journeys.contract import identifier
+from feature_journeys import emote_motion
 from overte_phone_emote_capture import PhoneEmoteCapture
 from overte_phone_emote_effects import PhoneEmoteEffects
 from overte_phone_emote_originals import PhoneEmoteOriginals
@@ -290,6 +291,42 @@ class PhoneEmoteObservation:
         need(integer(now,epoch) and number(host_now,host,1e15) and number(end,self.started,1e15) and end-self.started<5)
         floor=max(now,epoch+math.ceil((end-self.started)*1000));host_floor=max(host_now,host+math.ceil((end-self.started)*1000))
         fresh(before['group']['rootsBefore']['requestedEpochMs'],floor);fresh(before['phaseBefore']['capturedEpochMs'],host_floor)
+
+    def motion_bytes(self):
+        """Encode current image-qualified originals for common motion v1.
+
+        No target input, getter, new acquisition or file is created here. The
+        whole-run owner must persist these bytes with its original file intent,
+        descriptor epoch and cleanup responsibility before publication.
+        """
+        need(self.historical is False and self.started is None and self.state['phase']=='complete')
+        self.started=self.bound()
+        try:
+            host=self.source.phase.epoch_ms();need(number(host,1,1e15))
+            self.effects.bound();value=self.original();outcome=self.load('outcome')
+            need(outcome['emoteObservationFrameVersion']==1)
+            call=outcome['effect']['call'];owner=self.effects.inputs;row=owner.state['current']
+            need(row is not None and call['verb'] in ('play','sit','override')
+                and same(row['call'],call) and row['phase']=='acknowledged')
+            owner.row(row)
+            intents=[item for item in row['intents'] if item['kind']=='qt'
+                and item['input']['controlId'].startswith('emote.play.')]
+            need(len(intents)==1)
+            before=self.effects.original(intents[0]['barrier'])
+            after=self.effects.current_original(outcome['after'])
+            raw=emote_motion.packet(call,before,after,role=self.source.role)
+            summary=emote_motion.read(raw,call=call,role=self.source.role,epoch=self.source.phase.epoch_ms(),
+                captured=after['hostEpochMs'],state=value['state'])
+            phase=self.source.phase.status(after['phaseAfter']);owner.active(call,phase)
+            self.effects.bound();self.bound()
+            now=self.source.phase.epoch_ms();end=self.bound();need(number(now,host,1e15))
+            floor=max(now,host+math.ceil((end-self.started)*1000))
+            first=next(frame for frame in after['group']['native']['animation']['history']['frames']
+                if frame['frameSequence']==summary['firstFrameSequence'])
+            need(-250<=floor-after['hostEpochMs']<=1500
+                and after['epochMs']-first['capturedEpochMs']+max(0,floor-after['hostEpochMs'])<=1500)
+            return raw
+        finally:self.started=None
 
     def retire(self,retain):
         """Retain exact completed original proof before removing this scope."""

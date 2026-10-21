@@ -30,6 +30,26 @@ role/run/candidate/artifact directory and with the same image policy. It supplie
 only the independently reopened historical PNG for changed-body comparison.
 No expected name, pose, pixel statistics or success flag enters a native query.
 
+`motion_bytes()` exports the common v1
+[original native motion file](../../feature_journeys/EMOTE_MOTION.md) from a live,
+completed, image-qualified ordinary play/Sit/override observation. It reopens
+the exact Qt play intent's native barrier and this role's after-source frame,
+recomputes the retained image/effect proof, requires the currently acknowledged
+owned input, verifies the actual current fixture phase, and checks original
+host/native freshness again after serialization/verification. Elapsed monotonic
+time cannot be hidden by a frozen host clock. The source packet epochs and
+selected compiled code/consumed FBX/caller identities remain unchanged.
+
+The method returns bounded JSON bytes only. It creates no file, performs no
+native/UI/image getter or ordinary input, and does not fill in missing samples.
+The single authenticated fixture phase read is input metadata, not a product
+measurement. The enclosing owner must persist exact bytes under a prewritten
+file intent, retain the original after-frame host epoch in the public descriptor,
+and verify cleanup of that file before whole-run retirement. Historical views,
+incomplete scopes, idle/phase observations, old/foreign/absent originals, changed
+live input phases, too few/short native frames and late verification fail closed.
+No full feature capability is enabled by this exporter.
+
 `read_phase(ticket,previous=None)` uses the same source/image/configuration/pixel
 acquisition and retirement path for actual fixture `baseline`/`cleanup` phases.
 It uses the existing [idle phase effects](EMOTE_EFFECTS.md), with no ordinary

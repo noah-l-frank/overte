@@ -17,6 +17,7 @@ from PIL import Image
 from adapters.native_phone_avatar_configuration import NativePhoneAvatarConfiguration
 from adapters.normal_ui import NativeUIError
 from feature_journeys.fixtures import marker_bytes
+from feature_journeys import emote_motion
 from overte_phone_emote_inputs import PhoneEmoteInputs
 from overte_phone_emote_effects import PhoneEmoteEffects
 from overte_phone_emote_capture import PhoneEmoteCapture
@@ -71,6 +72,65 @@ class EmoteObservationTests(unittest.TestCase):
     def act(self,verb,inputs=None):
         m=self.model;call=m.call(verb,inputs);owner=PhoneEmoteInputs(m.source());owner.act(call)
         return owner,call
+
+    def test_motion_file_reopens_owned_qt_barrier_and_role_local_image_qualified_originals(self):
+        for role in ('primary','actor'):
+            with self.subTest(role=role):
+                temporary=tempfile.TemporaryDirectory(prefix='overte-emote-motion-');self.addCleanup(temporary.cleanup)
+                m=Model(Path(temporary.name));m.use_included_source()
+                with patch('overte_phone_emote_inputs.PhoneScriptUI',side_effect=m.tablet),m.lock.held():
+                    call=m.call('play',dict(name='Waving'));owner=PhoneEmoteInputs(m.source());owner.act(call)
+                    scope=m.scope(owner,1,role=role)
+                    for _ in range(5):scope.source.read()
+                    result=scope.read(call['ticket']);calls=deepcopy(m.calls);header=deepcopy(scope.previous)
+                    before_files=set(m.root.rglob('*'))
+                    raw=scope.motion_bytes();payload=json.loads(raw)
+                    summary=emote_motion.read(raw,call=call,role=role,epoch=m.epoch,
+                        captured=payload['after']['hostEpochMs'],state=result['state'])
+                    self.assertGreaterEqual(summary['nativeSamples'],3);self.assertGreaterEqual(summary['nativeSpanMs'],500)
+                    barrier=[item['barrier'] for item in owner.state['current']['intents'] if item['kind']=='qt'
+                        and item['input']['controlId'].startswith('emote.play.')][0]
+                    self.assertEqual(emote_motion.original(scope.effects.original(barrier)),payload['before'])
+                    self.assertEqual(role,payload['role']);self.assertEqual(['phase-read'],m.calls[len(calls):]);self.assertEqual(header,scope.previous)
+                    self.assertEqual(before_files,set(Path(temporary.name).rglob('*')))
+
+    def test_two_image_qualified_native_samples_do_not_synthesize_motion_window_or_replay_input(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));scope=m.scope(owner,1);scope.read(call['ticket'])
+            calls=deepcopy(m.calls);original=deepcopy(scope.previous)
+            with self.assertRaises(NativeUIError):scope.motion_bytes()
+            self.assertEqual(calls,m.calls);self.assertEqual(original,scope.previous)
+
+    def test_motion_export_rejects_stale_source_and_changed_live_phase_without_new_measurements(self):
+        for fault in ('old','phase','missing-original','slow-verification','invalid-clock'):
+            with self.subTest(fault=fault):
+                temporary=tempfile.TemporaryDirectory(prefix='overte-emote-motion-');self.addCleanup(temporary.cleanup)
+                m=Model(Path(temporary.name));m.use_included_source()
+                with patch('overte_phone_emote_inputs.PhoneScriptUI',side_effect=m.tablet),m.lock.held():
+                    call=m.call('play',dict(name='Waving'));owner=PhoneEmoteInputs(m.source());owner.act(call)
+                    for _ in range(5):owner.source.read()
+                    scope=m.scope(owner,1);scope.read(call['ticket']);calls=deepcopy(m.calls)
+                    if fault=='old':m.epoch+=1600
+                    elif fault=='phase':m.call('close')
+                    elif fault=='missing-original':
+                        after=scope.load('outcome')['after'];source=scope.source
+                        index=after['revision'];block=(index-1)//128
+                        entries=source.originals.manifest(source.state['manifests'][block])
+                        source.originals.path(source.originals.expand(entries[(index-1)%128])).unlink()
+                    read=emote_motion.read
+                    def slow(*args,**kwargs):
+                        value=read(*args,**kwargs)
+                        if fault=='slow-verification':m.clock+=2
+                        return value
+                    with patch('overte_phone_emote_observation.emote_motion.read',side_effect=slow):
+                        if fault=='invalid-clock':
+                            with patch.object(scope.source.phase,'epoch_ms',return_value=float('nan')),self.assertRaises(NativeUIError):
+                                scope.motion_bytes()
+                        else:
+                            with self.assertRaises((AssertionError,NativeUIError,FileNotFoundError)):scope.motion_bytes()
+                    self.assertEqual(calls,[item for index,item in enumerate(m.calls) if index<len(calls) or item!='phase-read'])
+                    self.assertIsNone(scope.started)
 
     def test_one_fresh_loaded_source_on_each_side_of_image_preserves_two_original_advancing_pose_frames(self):
         m=self.model;m.use_included_source()
