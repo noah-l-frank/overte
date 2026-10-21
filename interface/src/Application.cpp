@@ -1166,7 +1166,16 @@ bool Application::prepareServerlessDomainContents(const QUrl& domainURL, const Q
 
 void Application::loadServerlessDomain(QUrl domainURL) {
     if (QThread::currentThread() != thread()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        const auto featureDelivery = _featureSceneLoads->begin("delivery", 0, domainURL);
+        QMetaObject::invokeMethod(this, [this, domainURL, featureDelivery] {
+            if (featureDelivery) { featureDelivery->phase("running"); }
+            loadServerlessDomain(domainURL);
+            if (featureDelivery) { featureDelivery->phase("delivered"); }
+        }, Qt::QueuedConnection);
+#else
         QMetaObject::invokeMethod(this, "loadServerlessDomain", Q_ARG(QUrl, domainURL));
+#endif
         return;
     }
 
@@ -1175,7 +1184,13 @@ void Application::loadServerlessDomain(QUrl domainURL) {
     // tree, session, permissions, or DomainHandler state. An empty destination
     // is also a navigation/reset boundary and must retire an in-flight request.
     const quint64 requestGeneration = ++_serverlessDomainRequestGeneration;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    const auto featureLoad = _featureSceneLoads->begin("request", requestGeneration, domainURL);
+#endif
     if (domainURL.isEmpty()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        if (featureLoad) { featureLoad->phase("empty"); }
+#endif
         return;
     }
 #if defined(ANDROID_APP_PICO_INTERFACE)
@@ -1184,13 +1199,26 @@ void Application::loadServerlessDomain(QUrl domainURL) {
         if (!_picoDeferredServerlessSceneURL.isEmpty()) {
             const QUrl deferredURL = _picoDeferredServerlessSceneURL;
             _picoDeferredServerlessSceneURL = QUrl();
-            QMetaObject::invokeMethod(this, [this, deferredURL] {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            const auto featureDeferred = _featureSceneLoads->begin("delivery", 0, deferredURL);
+#endif
+            QMetaObject::invokeMethod(this, [this, deferredURL
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                    , featureDeferred
+#endif
+                    ] {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                if (featureDeferred) { featureDeferred->phase("running"); }
+#endif
                 _picoServerlessSceneImportCommitted = false;
                 _picoServerlessSceneURL = QUrl();
                 clearDomainOctreeDetails(false);
                 setIsServerlessMode(true);
                 loadServerlessDomain(deferredURL);
                 updateWindowTitle();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+                if (featureDeferred) { featureDeferred->phase("delivered"); }
+#endif
             }, Qt::QueuedConnection);
         }
     };
@@ -1202,6 +1230,9 @@ void Application::loadServerlessDomain(QUrl domainURL) {
     if (localDomainURL.isLocalFile()) {
         QFile domainFile(localDomainURL.toLocalFile());
         if (!domainFile.open(QIODevice::ReadOnly)) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureLoad) { featureLoad->phase("failed"); }
+#endif
             _picoServerlessLoadFailed = true;
             qWarning("%s", overte::security::diagnosticEvent(
                 overte::security::DiagnosticEvent::WorldImportFailed));
@@ -1210,12 +1241,18 @@ void Application::loadServerlessDomain(QUrl domainURL) {
             return;
         }
         const QByteArray domainData = domainFile.readAll();
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (featureLoad) { featureLoad->reply(0, domainData.size()); }
+#endif
         qCInfo(interfaceapp) << "PICO_SERVERLESS_TRACE localRead"
             << localDomainURL << "bytes" << domainData.size();
         _picoServerlessSceneURL = domainURL;
         _picoServerlessSceneImportInProgress = true;
         std::map<QString, QString> namedPaths;
         if (!prepareServerlessDomainContents(domainURL, domainData, namedPaths)) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureLoad) { featureLoad->phase("failed"); }
+#endif
             _picoServerlessSceneURL = QUrl();
             finishPicoServerlessImport();
             _picoServerlessLoadFailed = true;
@@ -1225,12 +1262,18 @@ void Application::loadServerlessDomain(QUrl domainURL) {
                 << localDomainURL;
             return;
         }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (featureLoad) { featureLoad->phase("parsed"); }
+#endif
         auto nodeList = DependencyManager::get<NodeList>();
         nodeList->getDomainHandler().connectedToServerless(namedPaths);
         setIsServerlessMode(true);
         _octreeProcessor->getFullSceneReceivedCounter()++;
         _picoServerlessSceneURL = domainURL;
         _picoServerlessSceneImportCommitted = true;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        if (featureLoad) { featureLoad->phase("committed"); }
+#endif
         qCInfo(interfaceapp) << "PICO_SERVERLESS_TRACE importCommitted"
             << domainURL
             << "treeServerless" << isServerlessMode()
@@ -1256,6 +1299,9 @@ void Application::loadServerlessDomain(QUrl domainURL) {
         this, trimmedUrl, DEFAULT_IS_OBSERVABLE, DEFAULT_CALLER_ID, "Application::loadServerlessDomain");
 
     if (!request) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        if (featureLoad) { featureLoad->phase("failed"); }
+#endif
 #if defined(ANDROID_APP_PICO_INTERFACE)
         _picoServerlessLoadFailed = true;
 #endif
@@ -1263,7 +1309,13 @@ void Application::loadServerlessDomain(QUrl domainURL) {
     }
 
     connect(request, &ResourceRequest::finished, this, [=, this]() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        if (featureLoad) { featureLoad->reply(static_cast<int>(request->getResult()), request->getData().size()); }
+#endif
         if (requestGeneration != _serverlessDomainRequestGeneration) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            if (featureLoad) { featureLoad->phase("stale"); }
+#endif
             qCInfo(interfaceapp) << "PICO_SERVERLESS_TRACE staleRequestIgnored"
                 << domainURL;
             request->deleteLater();
@@ -1279,6 +1331,9 @@ void Application::loadServerlessDomain(QUrl domainURL) {
             _picoServerlessSceneImportInProgress = true;
 #endif
             if (!prepareServerlessDomainContents(domainURL, request->getData(), namedPaths)) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                if (featureLoad) { featureLoad->phase("failed"); }
+#endif
 #if defined(ANDROID_APP_PICO_INTERFACE)
                 _picoServerlessSceneURL = QUrl();
                 finishPicoServerlessImport();
@@ -1291,6 +1346,9 @@ void Application::loadServerlessDomain(QUrl domainURL) {
                 request->deleteLater();
                 return;
             }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            if (featureLoad) { featureLoad->phase("parsed"); }
+#endif
             auto nodeList = DependencyManager::get<NodeList>();
             nodeList->getDomainHandler().connectedToServerless(namedPaths);
             // connectedToServerless() emits the domain transition that clears
@@ -1303,6 +1361,9 @@ void Application::loadServerlessDomain(QUrl domainURL) {
 #if defined(ANDROID_APP_PICO_INTERFACE)
             _picoServerlessSceneURL = domainURL;
             _picoServerlessSceneImportCommitted = true;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureLoad) { featureLoad->phase("committed"); }
+#endif
             qCInfo(interfaceapp) << "PICO_SERVERLESS_TRACE importCommitted"
                 << domainURL
                 << "treeServerless" << isServerlessMode()
@@ -1320,6 +1381,9 @@ void Application::loadServerlessDomain(QUrl domainURL) {
 #endif
         } else {
 #if defined(ANDROID_APP_PICO_INTERFACE)
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            if (featureLoad) { featureLoad->phase("failed"); }
+#endif
             _picoServerlessLoadFailed = true;
             qWarning("%s", overte::security::diagnosticEvent(
                 overte::security::DiagnosticEvent::WorldImportFailed));
@@ -1332,7 +1396,16 @@ void Application::loadServerlessDomain(QUrl domainURL) {
 
 void Application::loadErrorDomain(QUrl domainURL) {
     if (QThread::currentThread() != thread()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        const auto featureDelivery = _featureSceneLoads->begin("delivery", 0, domainURL);
+        QMetaObject::invokeMethod(this, [this, domainURL, featureDelivery] {
+            if (featureDelivery) { featureDelivery->phase("running"); }
+            loadErrorDomain(domainURL);
+            if (featureDelivery) { featureDelivery->phase("delivered"); }
+        }, Qt::QueuedConnection);
+#else
         QMetaObject::invokeMethod(this, "loadErrorDomain", Q_ARG(QUrl, domainURL));
+#endif
         return;
     }
 

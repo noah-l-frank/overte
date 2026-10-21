@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "fe4684bf46585088370b3a328a738f147e670b97",
+  "files": [
+    {
+      "source": "tests/device/native/PhoneSceneLoadObservation.h",
+      "target": "tests/device/native/SceneLoadObservation.h",
+      "sha256": "50dde6cafe0262423602074bb8b09e97786664f8fd63e50bf285c9db30e55b98"
+    },
+    {
+      "source": "tests/device/adapters/native_phone_scene_loads.py",
+      "target": "tests/device/adapters/native_scene_loads.py",
+      "sha256": "fcb207f69b5e765defdc2428a08c75f6c991bdc23f621e4f2284a1f4852cc5be"
+    },
+    {
+      "source": "tests/device/self_tests/test_native_phone_scene_loads.py",
+      "target": "tests/device/self_tests/test_native_scene_loads.py",
+      "sha256": "5afac66561efb845d2d690b843a3aed269681d018c9cc0c6f2fcd67d6de8d04c"
+    }
+  ],
+  "selection": "Neutral lease/validator extraction; actual Pico synchronous-file, ResourceRequest and queued delivery hooks independently authored. Phone ticket/handoff product code excluded.",
+  "nativeCompilation": "unverified",
+  "physicalRuns": 0
+}

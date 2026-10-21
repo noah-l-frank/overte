@@ -143,6 +143,7 @@
     }
     var lastScriptSourceRequest = "";
     var lastGraphicsSubjectRequest = "";
+    var lastSceneLoadRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
@@ -1198,6 +1199,23 @@
             return;
         }
         if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && command.action === "feature-scene-load-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastSceneLoadRequest) { return; }
+            lastSceneLoadRequest = command.commandId;
+            var sceneLoad = {schemaVersion: 1, commandId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureSceneLoadObservation === "function") {
+                    var originalSceneLoad = Test.featureSceneLoadObservation(command);
+                    if (originalSceneLoad && originalSceneLoad.commandId === command.commandId) { sceneLoad = originalSceneLoad; }
+                }
+            } catch (_sceneLoadError) { /* Missing native lifecycle facts remain unavailable. */ }
+            Test.saveObject(sceneLoad, "feature-scene-load.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^[0-9a-f]{32}$/.test(String(command.runId))
                 && command.action === "feature-graphics-subject-observe"
@@ -1566,6 +1584,7 @@
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-graphics-subject-observe"
+                || command.action === "feature-scene-load-observe"
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-script-files")) {

@@ -96,6 +96,30 @@ class FeatureObservationTests(unittest.TestCase):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
 
+    def test_pico_scene_load_source_preserves_retained_callbacks_and_candidate_owner(self):
+        from self_tests.test_native_scene_loads import Boundary, RUN, URL
+        from adapters.native_scene_loads import committed
+        source=Boundary();source.rows[0].update(pending=True,releasedEpochMs=None)
+        old_send=source.send
+        def send(command):
+            source.epoch=self.native.epoch_milliseconds(self.native.target)
+            old_send(command);source.sample['processId']=int(self.native.identity.split(':')[0])
+        native=self.adapter._native_feature_observer(self.native.target);original_read=self.native.read_debug_app_file
+        def read(target,package,path,**options):
+            if path=='files/overte-e2e/feature-scene-load.json':return source.original()
+            return original_read(target,package,path,**options)
+        with patch.object(native,'send',side_effect=send),patch.object(self.adapter,'_native_feature_observer',return_value=native), \
+                patch.object(self.native,'read_debug_app_file',side_effect=read):
+            reader=self.adapter._scene_load_observer(self.native.target);first=reader.read(RUN)
+            self.assertEqual(1,first['pendingLeases']);self.assertEqual(source.rows,first['requests'])
+            with self.assertRaises(RuntimeError):committed(first,URL)
+            source.rows[0].update(pending=False,releasedEpochMs=source.epoch,updatedEpochMs=source.epoch)
+            second=reader.read(RUN);self.assertEqual(source.rows[0],committed(second,URL))
+            self.assertEqual([],self.native.inputs)
+            self.native.digest='f'*64
+            with self.assertRaises(RuntimeError):reader.read(RUN)
+            self.assertEqual(2,len(source.commands))
+
     def test_pico_graphics_subject_keeps_original_inventory_without_input(self):
         from self_tests.test_native_graphics_subject import Boundary, RUN
         source=Boundary();source.epoch=self.native.epoch_milliseconds(self.native.target)

@@ -522,6 +522,16 @@ def create_adapter(args, base_class):
                 int(original.identity.split(':')[0]))
 
         @_private
+        def _scene_load_observer(self, target):
+            from adapters.native_scene_loads import NativeSceneLoads, FILE as LOADS_FILE
+            native = self._native_feature_observer(target)
+            return NativeSceneLoads(native.send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + LOADS_FILE, attempts=1),
+                native.clock_ms, native.guard, native.pid,
+                monotonic=native.monotonic, sleep=native.sleep)
+
+        @_private
         def _graphics_subject_observer(self, target):
             from adapters.native_graphics_subject import NativeGraphicsSubject, FILE as SUBJECT_FILE
             native = self._native_feature_observer(target)

@@ -85,6 +85,36 @@ void TestScriptingInterface::setTestResultsLocation(const QString path) {
 }
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+QVariantMap TestScriptingInterface::featureSceneLoadObservation(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    if (QThread::currentThread() != thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        QMetaObject::invokeMethod(this,[&] { result=featureSceneLoadObservation(command); },Qt::BlockingQueuedConnection);
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);
+    QStringList fields {"schemaVersion","commandId","action","runId"};fields.sort();
+    const auto id=command.value("commandId").toString(),run=command.value("runId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || command.keys()!=fields
+            || !json.value("schemaVersion").isDouble() || json.value("schemaVersion").toDouble()!=1
+            || json.value("action").toString()!="feature-scene-load-observe"
+            || !json.value("commandId").isString() || !json.value("runId").isString()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(id).hasMatch()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(run).hasMatch()) { return {}; }
+    if (_featureSceneLoadRequests.contains(id) || _featureSceneLoadRequests.size() >= 4096) { return {}; }
+    _featureSceneLoadRequests.insert(id);
+    auto value=qApp->featureSceneLoadObservation();
+    value.insert("commandId",id);value.insert("runId",run);
+    value.insert("processId",QCoreApplication::applicationPid());
+    value.insert("capturedEpochMs",QDateTime::currentMSecsSinceEpoch());
+    return value;
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
 QVariantMap TestScriptingInterface::featureGraphicsSubjectObservation(const QVariantMap& command) {
     if (QThread::currentThread() != thread()) {
         QVariantMap result;

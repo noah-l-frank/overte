@@ -38,7 +38,9 @@
       "sources": [
         "tests/device/adapters/pico4/navigation.py",
         "tests/device/adapters/pico4/binding.py",
-        "tests/device/feature_journeys/NAVIGATION_SOURCE.md"
+        "tests/device/feature_journeys/NAVIGATION_SOURCE.md",
+        "tests/device/adapters/native_scene_loads.py",
+        "tests/device/native/SceneLoadObservation.h"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -472,7 +474,9 @@
         "tests/device/self_tests/test_stereo_render_trace.py",
         "tests/device/self_tests/test_stereo_camera_uniforms.py",
         "tests/device/adapters/native_graphics_subject.py",
-        "tests/device/adapters/pico4/GRAPHICS_SUBJECT_SELECTION.json"
+        "tests/device/adapters/pico4/GRAPHICS_SUBJECT_SELECTION.json",
+        "tests/device/adapters/native_scene_loads.py",
+        "tests/device/native/SceneLoadObservation.h"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [

@@ -19,6 +19,9 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../tests/device/native/SceneLoadObservation.h"
+#endif
 
 #include <AbstractScriptingServicesInterface.h>
 #include <AbstractUriHandler.h>
@@ -92,6 +95,9 @@ class Application : public QApplication,
     Q_OBJECT
 
 public:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    QVariantMap featureSceneLoadObservation() { return _featureSceneLoads->snapshot(_serverlessDomainRequestGeneration); }
+#endif
     Application(
         int& argc, char** argv,
         QElapsedTimer& startup_time
@@ -1020,6 +1026,9 @@ private:
     // It's set to true by Application::clearDomainOctreeData and is cleared by Application::setIsServerlessMode
     bool _waitForServerlessToBeSet { true };
     quint64 _serverlessDomainRequestGeneration { 0 };
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    std::shared_ptr<overte::e2e::SceneLoads> _featureSceneLoads { std::make_shared<overte::e2e::SceneLoads>() };
+#endif
 #if defined(ANDROID_APP_PICO_INTERFACE)
     bool _picoServerlessLoadFailed { false };
 #endif

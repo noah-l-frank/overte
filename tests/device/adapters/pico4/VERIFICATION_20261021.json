@@ -327,5 +327,36 @@
       }
     ],
     "completeFeatureCapabilityAdded": false
+  },
+  "sceneLoadPacket": {
+    "contract": "native-scene-loads v1, neutral frozen lease/validator extraction with actual Pico-only original load/callback/queue hooks",
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "completeFeatureCapabilityAdded": false,
+    "checks": [
+      {
+        "command": "PYTHONPATH=tests/device python3 -m unittest self_tests.test_native_scene_loads self_tests.test_native_graphics_subject -q",
+        "tests": 39,
+        "status": "passed"
+      },
+      {
+        "command": "Pico FeatureObservationTests.test_pico_scene_load_source_preserves_retained_callbacks_and_candidate_owner",
+        "tests": 1,
+        "status": "passed"
+      },
+      {
+        "command": "Four no-build project documentation/contracts/layout/coverage suites",
+        "suites": 4,
+        "status": "passed",
+        "junit": "scene-load-project.xml"
+      }
+    ],
+    "counterexamples": [
+      "committed scene with original live callback is not retired",
+      "older queued request cannot hide behind newer commit",
+      "actual owner-thread delivery counts until original closure retires",
+      "history omission/replacement/regression, stale/foreign capture, ignored request and changed candidate fail closed"
+    ],
+    "limitations": "Original source lifetime only; no actual scene/pixel or complete-area verdict. Native sources remain uncompiled."
   }
 }

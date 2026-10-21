@@ -168,3 +168,26 @@ ownership, callback/resource retirement and original scene-load observation.
 Do not copy Phone's moving-tablet-free scan or fixed-camera restoration checks.
 This source adds no feature capability. Native compilation and devices remain
 unverified.
+
+## Original Pico scene-load lifetime
+
+`_scene_load_observer()` now reads the neutral `native-scene-loads` v1 source
+through the existing private channel and candidate/OpenXR/PID-start guards.
+`SCENE_LOAD_SELECTION.json` records the frozen original lease/validator hashes.
+The instrumentation is gated by both `OVERTE_E2E_FEATURE_TESTS` and the Pico
+application configuration; other platforms retain their original paths.
+
+The actual synchronous local-file load, ResourceRequest callback, cross-thread
+serverless/error handoff and Pico deferred-import closure each carry an original
+observational lease. Commit acknowledgement cannot remove it: only original
+callback/closure destruction retires it. Original request generation, resource
+hash with only the location query omitted, phases, result, byte count, native
+birth/cursor and capture epochs survive reads. Requests are bounded at 128 per
+native observer birth; exhaustion is unavailable. Nonces are retained up to 4096
+and never recapture. No request is cancelled, retried, reordered or repaired.
+
+The source records the actual Pico flow and does not import Phone's request
+cancellation/ticket/handoff product changes. A committed current scene plus zero
+live leases is required before scene restoration can be claimed; actual subject,
+provider and pixels remain separate. Native sources are uncompiled, and no
+complete Graphics or Worlds capability is enabled by this prerequisite.
