@@ -33,7 +33,9 @@ class DockerCommandTests(unittest.TestCase):
         self.gid = patch.object(R.os, "getgid", return_value=1000)
         self.uid.start(); self.gid.start()
         self.addCleanup(self.uid.stop); self.addCleanup(self.gid.stop)
-        self.clean_env = patch.dict(os.environ, {}, clear=True)
+        # The isolated runner has no host passwd database. Give this fixture an
+        # owned home instead of depending on the workstation's NSS lookup.
+        self.clean_env = patch.dict(os.environ, {"HOME": str(self.root)}, clear=True)
         self.clean_env.start(); self.addCleanup(self.clean_env.stop)
 
     def command(self, command=None, **kwargs):
