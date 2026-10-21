@@ -8,7 +8,8 @@ from adapters.normal_ui import NativeUIError
 from feature_journeys.scenarios import VERSION
 from feature_journeys.witness import Client
 from ios.adapters.graphics_fixture import GraphicsFixtureReader,GraphicsPhasePending
-from ios.adapters.graphics_observer import IOSGraphicsObserver
+from ios.adapters.graphics_observer import IOSGraphicsObserver,GraphicsEffectReferencePending
+from adapters.script_feature.history import pack,unpack
 from ios.adapters.graphics_preferences import IOSGraphicsPreferences
 from ios.adapters.graphics_samples import IOSGraphicsSamples
 from ios.self_tests.test_ios_graphics_samples import SamplesHarness,POLICY
@@ -169,6 +170,118 @@ class ObserverRestartTests(ObserverHarness,RestartHarness,unittest.TestCase):
             self.prepare();observer=self.observer();observer.read(0,0);native=len(self.gpu.commands)
             with self.assertRaises(NativeUIError):observer.read(0,1)
             self.assertEqual(native,len(self.gpu.commands))
+
+
+class CurrentObserverHarness(ObserverHarness):
+    def private_action(self,verb,inputs=None):
+        self.counter=getattr(self,'counter',1000)+1
+        self.preferences().act(dict(contractVersion=VERSION,runId=RUN,ticket=format(self.counter,'032x'),
+            fixtureUrl=self.client.url+'/runs/'+RUN+'/',verb=verb,inputs=inputs or {}))
+    def original_true(self):
+        self.sdk.model.haze=self.sdk.model.mirrors=True
+        ObserverHarness.prepare(self)
+    def off_references(self,roles=('primary',)):
+        self.private_action('open');self.private_action('set-haze',dict(enabled=False))
+        self.private_action('set-mirrors',dict(enabled=False))
+        refs={role:self.observer(role).seed_off(['haze','mirror'],0) for role in roles}
+        self.private_action('restore-original');self.private_action('close')
+        return refs
+
+
+class CurrentObserverTests(CurrentObserverHarness,unittest.TestCase):
+    def test_initially_enabled_effect_requires_actual_off_originals_before_any_capture_or_public_sequence(self):
+        with self.lock.held():
+            self.original_true();observer=self.observer();count=len(self.gpu.commands)
+            with self.assertRaises(GraphicsEffectReferencePending):observer.read(0,0)
+            self.assertEqual(count,len(self.gpu.commands));self.assertEqual('ready',observer.state['phase'])
+            self.assertEqual(0,observer.state['sequence']);self.assertIsNone(observer.state['baseline'])
+
+    def test_private_normal_calibration_keeps_actual_true_baseline_and_independent_actor_images(self):
+        with self.lock.held():
+            self.original_true();refs=self.off_references(('primary','actor'))
+            self.assertNotEqual(refs['primary'],refs['actor'])
+            self.assertEqual(TICKET,self.client.request('/runs/'+RUN+'/active')['ticket'])
+            primary=self.observer();value=primary.read(0,0);actor=self.observer('actor');actor.publish(0,0)
+            self.assertTrue(value['state']['haze']);self.assertTrue(value['state']['mirror'])
+            self.assertEqual(1,value['sequence']);self.assertTrue(primary.baseline()['haze'])
+            self.assertEqual({'haze','mirror'},{row['feature'] for row in primary.state['currentEffects']})
+            self.assertEqual(refs['primary'],primary.state['offFrames'])
+            self.assertNotEqual(primary.state['last'],actor.state['last'])
+
+    def test_true_baseline_with_settings_and_draws_but_without_pixels_never_qualifies(self):
+        with self.lock.held():
+            self.original_true();refs=self.off_references();self.gpu.effects=False
+            with self.assertRaises(NativeUIError):self.observer().read(0,0)
+            observer=self.observer();self.assertIsNone(observer.state['baseline']);self.assertEqual(0,observer.state['sequence'])
+            self.assertEqual(refs['primary'],observer.state['offFrames']);self.assertEqual('reading',observer.state['phase'])
+
+    def test_non_enable_resolution_phase_still_requires_both_enabled_effect_pixels(self):
+        with self.lock.held():
+            self.original_true();self.off_references();self.observer().read(0,0)
+            self.action('open');self.action('set-resolution',dict(value=.5));self.gpu.effects=False
+            with self.assertRaises(NativeUIError):self.observer().read(0,0)
+            self.assertEqual(1,self.observer().state['sequence'])
+
+    def test_expired_off_reference_does_not_capture_or_reset_sequence_or_original_clocks(self):
+        with self.lock.held():
+            self.original_true();self.off_references();observer=self.observer();observer.read(0,0)
+            refs=deepcopy(observer.state['offFrames']);before=observer.frame(refs['haze'],observer.state['binding'])[0]
+            count=len(self.gpu.commands);self.sdk.sleep(46)
+            with self.assertRaises(GraphicsEffectReferencePending):self.observer().read(0,0)
+            current=self.observer();self.assertEqual(count,len(self.gpu.commands));self.assertEqual(1,current.state['sequence'])
+            self.assertEqual(before,current.frame(refs['haze'],current.state['binding'])[0]);self.assertEqual('ready',current.state['phase'])
+
+    def test_missing_last_current_pixel_proof_is_rejected_from_private_history(self):
+        with self.lock.held():
+            self.original_true();self.off_references();observer=self.observer();observer.read(0,0)
+            changed=deepcopy(observer.previous);state=unpack(changed['payload'])[0];state['currentEffects']=[]
+            changed['payload']=pack([state]);observer.store.write(changed,observer.previous)
+            count=len(self.gpu.commands)
+            with self.assertRaises(NativeUIError):self.observer()
+            self.assertEqual(count,len(self.gpu.commands))
+
+    def test_lost_private_reference_capture_is_not_repeated_and_retires_only_after_phase_change(self):
+        with self.lock.held():
+            self.original_true();self.private_action('open');self.private_action('set-haze',dict(enabled=False))
+            observer=self.observer();self.gpu.lost=True
+            with self.assertRaises(NativeUIError):observer.seed_off(['haze'],0)
+            count=sum(c['operation']=='read' for c in self.gpu.commands)
+            with self.assertRaises(NativeUIError):self.observer().seed_off(['haze'],0)
+            with self.assertRaises(NativeUIError):self.observer().retire_phase()
+            self.gpu.lost=False;self.client.activate('f'*32,'cleanup',{});self.gpu.marker='f'*32
+            observer=self.observer();observer.retire_phase()
+            self.assertEqual(count,sum(c['operation']=='read' for c in self.gpu.commands))
+            self.assertIsNone(observer.state['offFrames']['haze']);self.assertEqual(0,observer.state['sequence'])
+
+    def test_legacy_readable_history_keeps_original_native_floor_on_first_v2_passive_read(self):
+        with self.lock.held():
+            self.prepare();observer=self.observer();observer.read(0,0)
+            floor=observer.frame(observer.state['last'],observer.state['binding'])[0]['clockJoin']['nativeAfter']
+            value=deepcopy(observer.previous);value['iosGraphicsObserverVersion']=1;state=unpack(value['payload'])[0]
+            for key in ('currentEffects','currentEffectsAfter','nativeFloor'):state.pop(key)
+            value['payload']=pack([state]);observer.store.write(value,observer.previous)
+            migrated=self.observer();self.assertEqual(floor,migrated.accepted_native())
+            migrated.effect_preflight(0)
+            self.assertGreater(migrated.state['nativeFloor']['sequence'],floor['sequence'])
+            self.assertEqual(1,migrated.state['sequence']);self.assertEqual(1,migrated.state['currentEffectsAfter'])
+
+
+class CurrentObserverRestartTests(CurrentObserverHarness,RestartHarness,unittest.TestCase):
+    def test_enabled_effects_after_real_restart_use_original_old_role_refs_and_strict_receipt(self):
+        with self.lock.held():
+            self.original_true();refs=self.off_references(('primary','actor'))
+            self.observer().read(0,0);self.observer('actor').publish(0,0)
+            controller=RestartHarness.prepare(self);self.gpu.marker='8'*32
+            self.observer().read(0,0);self.observer('actor').publish(0,0)
+            controller.act(RestartHarness.call(self))
+            for role in ('primary','actor'):
+                observer=self.observer(role);value=observer.read(0,1)
+                self.assertTrue(value['state']['haze']);self.assertTrue(value['state']['mirror'])
+                self.assertEqual(refs[role],observer.state['offFrames'])
+                current=[row for row in observer.state['currentEffects'] if row['stage']==1]
+                self.assertEqual(2,len(current));self.assertTrue(all(row['observed']['restartSha256'] for row in current))
+                self.assertEqual('ESRCH',observer.state['restart']['exit']['errorSymbol'])
+            self.assertEqual(['app.stop','app.launch'],self.inputs)
 
 
 if __name__=='__main__':unittest.main()

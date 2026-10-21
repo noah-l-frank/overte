@@ -29,10 +29,18 @@ from ios.adapters.graphics_fixture import GraphicsFixtureReader,GraphicsPhasePen
 from ios.adapters.graphics_samples import IOSGraphicsSamples,GraphicsMarkerPending
 from ios.adapters.graphics_world_measurements import compose
 from ios.adapters.graphics_world_effects import compare,GraphicsWorldEffectPending
+from ios.adapters.graphics_current_effects import compare as compare_current
+from ios.adapters.graphics_history import restore_native,follow_native
+from ios.adapters.graphics_restart_proof import validate as restart_receipt
 from ios.adapters.login_source import nonce
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 FRAME_VERSION=1
+
+
+class GraphicsEffectReferencePending(GraphicsPhasePending):
+    """A current enabled effect needs an actually acquired recent off reference."""
 
 
 class IOSGraphicsObserver:
@@ -53,7 +61,7 @@ class IOSGraphicsObserver:
         if source.previous is None:source.status()
         self.previous=self.store.read()
         self.state=dict(phase='ready',binding=self.current_binding,stage=0,sequence=0,capturedEpochMs=0,
-            backend=deepcopy(source.previous),baseline=None,last=None,offFrames=dict(haze=None,mirror=None),effects=[],restart=None,pending=None,retirements=[])
+            backend=deepcopy(source.previous),baseline=None,last=None,offFrames=dict(haze=None,mirror=None),effects=[],restart=None,pending=None,retirements=[],currentEffects=[],currentEffectsAfter=0,nativeFloor=None)
         if self.previous is None:self.save()
         else:self.state=self.decode(self.previous)
 
@@ -123,11 +131,20 @@ class IOSGraphicsObserver:
 
     def decode(self,value):
         exact(value,{'iosGraphicsObserverVersion','runId','fixtureUrl','providerInstance','role','artifactRoot','imagePolicy','payload'})
-        need(type(value['iosGraphicsObserverVersion']) is int and value['iosGraphicsObserverVersion']==VERSION
+        need(type(value['iosGraphicsObserverVersion']) is int and value['iosGraphicsObserverVersion'] in READS
              and value['runId']==self.run and value['fixtureUrl']==self.source.client.url and value['providerInstance']==self.source.instance
              and value['role']==self.role and value['artifactRoot']==str(self.root) and same(value['imagePolicy'],self.policy))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'phase','binding','stage','sequence','capturedEpochMs','backend','baseline','last','offFrames','effects','restart','pending','retirements'})
+        version=value['iosGraphicsObserverVersion']
+        fields={'phase','binding','stage','sequence','capturedEpochMs','backend','baseline','last','offFrames','effects','restart','pending','retirements'}
+        exact(state,fields|({'currentEffects','currentEffectsAfter','nativeFloor'} if version>=2 else set()))
+        if version==1:state=dict(state,currentEffects=[],currentEffectsAfter=state['sequence'],nativeFloor=None)
+        need(type(state['currentEffects']) is list and len(state['currentEffects'])<=1024
+             and integer(state['currentEffectsAfter'],0,state['sequence']))
+        if state['nativeFloor'] is not None:
+            packet=state['nativeFloor']
+            from adapters.native_feature_observation import validate as native_packet
+            native_packet(packet,nonce(packet['requestId']),int(state['binding']['processIdentity']),packet['capturedEpochMs'])
         context(state['binding']);need(state['phase'] in ('ready','reading','retired') and integer(state['stage'],0,1)
              and integer(state['sequence'],0,512) and number(state['capturedEpochMs'],0,1e15)
              and type(state['effects']) is list and len(state['effects'])<=64)
@@ -136,7 +153,8 @@ class IOSGraphicsObserver:
         if state['stage']==0:need(state['restart'] is None)
         else:need(state['restart'] is not None and same(state['binding'],state['restart']['newBinding']));self.transfer(state['restart'])
         if state['baseline'] is None:need(state['last'] is None and state['sequence']==state['capturedEpochMs']==0
-             and not state['effects'] and state['restart'] is None and all(v is None for v in state['offFrames'].values()))
+             and not state['effects'] and not state['currentEffects'] and state['restart'] is None
+             and (version>=2 or all(v is None for v in state['offFrames'].values())))
         else:
             need(state['baseline']['stage']==0)
             _frame,_raw,baseline,_name=self.frame(state['baseline'],self.binding_for(state,0))
@@ -147,8 +165,8 @@ class IOSGraphicsObserver:
             need(state['baseline'] is not None and state['sequence']>0 and actual['capturedEpochMs']==state['capturedEpochMs'])
         for feature,ref in state['offFrames'].items():
             if ref is None:continue
-            need(ref['stage']==state['stage'])
-            _frame,_raw,actual,_name=self.frame(ref,state['binding'])
+            need(integer(ref['stage'],0,state['stage']))
+            _frame,_raw,actual,_name=self.frame(ref,self.binding_for(state,ref['stage']))
             need(not actual['state'][feature] and not actual['state'][feature+'Pass'])
         for effect in state['effects']:
             exact(effect,{'stage','feature','before','after','observed'});need(integer(effect['stage'],0,state['stage']) and effect['feature'] in ('haze','mirror'))
@@ -157,6 +175,20 @@ class IOSGraphicsObserver:
             observed=compare(self.run,effect['feature'],self.fixture_url,binding,before,a,after,b,self.policy,self.source.instance,
                 lambda:round(after['clockJoin']['hostAfterEpochMs']),lambda:True,monotonic=lambda:0.)
             need(same(observed,effect['observed']))
+        for effect in state['currentEffects']:
+            exact(effect,{'stage','feature','before','after','receipt','observed'})
+            need(integer(effect['stage'],0,state['stage']) and effect['feature'] in ('haze','mirror')
+                 and effect['after']['stage']==effect['stage'] and integer(effect['before']['stage'],0,effect['stage']))
+            left=self.binding_for(state,effect['before']['stage']);right=self.binding_for(state,effect['after']['stage'])
+            before,a,_old,_name=self.frame(effect['before'],left);after,b,_new,_name=self.frame(effect['after'],right)
+            measured=compare_current(self.run,effect['feature'],self.fixture_url,left,before,a,right,after,b,self.policy,self.source.instance,
+                lambda:round(after['clockJoin']['hostAfterEpochMs']),lambda:True,restart=effect['receipt'],monotonic=lambda:0.)
+            need(same(measured,effect['observed']))
+        if state['last'] is not None and state['sequence']>state['currentEffectsAfter']:
+            actual=self.frame(state['last'],state['binding'])[2]
+            for feature in ('haze','mirror'):
+                if actual['state'][feature]:
+                    need(any(row['feature']==feature and same(row['after'],state['last']) for row in state['currentEffects']))
         if state['phase']=='reading':
             self.validate_pending(state['pending']);pending=state['pending'];need(integer(pending['stage'],state['stage'],1))
             if pending['stage']==state['stage']:need(same(pending['binding'],state['binding']))
@@ -165,7 +197,32 @@ class IOSGraphicsObserver:
         need(type(state['retirements']) is list and len(state['retirements'])<=64)
         for ordinal,reference in enumerate(state['retirements'],1):self.retirement(reference,ordinal)
         if state['phase']=='retired':need(state['last'] is not None and provider['active'] is False)
+        self.accepted_native(state) # All retained source floors must form one original prefix.
         return state
+
+    def accepted_native(self,state=None):
+        """Recover the highest admitted original; legacy archives never reset it."""
+        state=self.state if state is None else state
+        packets=[]
+        if state['nativeFloor'] is not None:packets.append(state['nativeFloor'])
+        refs=[state['last']]+list(state['offFrames'].values())
+        seen=set()
+        for ref in refs:
+            if ref is None or ref['stage']!=state['stage'] or ref['requestId'] in seen:continue
+            seen.add(ref['requestId']);packets.append(self.frame(ref,state['binding'])[0]['clockJoin']['nativeAfter'])
+        for ordinal,reference in enumerate(state['retirements'],1):
+            data=self.retirement(reference,ordinal)
+            if data['samples'] is not None and same(data['pending']['binding'],state['binding']):
+                packet=unpack(data['samples']['payload'])[0]['cursors']['native']
+                if packet is not None:packets.append(packet)
+        originals={}
+        for packet in packets:
+            key=packet['sequence']
+            if key in originals:need(same(originals[key],packet))
+            else:originals[key]=packet
+        ordered=[originals[key] for key in sorted(originals)]
+        for before,after in zip(ordered,ordered[1:]):follow_native(before,after)
+        return deepcopy(ordered[-1]) if ordered else None
 
     def validate_pending(self,pending):
         exact(pending,{'stage','binding','active'});context(pending['binding']);need(integer(pending['stage'],0,1));active=pending['active']
@@ -245,6 +302,65 @@ class IOSGraphicsObserver:
         need(self.state['baseline'] is not None)
         return projection('graphics',self.frame(self.state['baseline'],self.binding_for(self.state,0))[2]['state'])
 
+    def effect_restart_receipt(self):
+        value=PrivateFeatureState(self.store.path.with_name('ios-graphics-restart.json')).read()
+        exact(value,{'iosGraphicsRestartVersion','runId','fixtureUrl','providerInstance','payload'})
+        need(type(value['iosGraphicsRestartVersion']) is int and value['iosGraphicsRestartVersion']==1
+             and value['runId']==self.run and value['fixtureUrl']==self.source.client.url and value['providerInstance']==self.source.instance)
+        rows=unpack(value['payload']);need(len(rows)==1 and rows[0]['phase']=='applied')
+        receipt=restart_receipt(rows[0]['receipt'])
+        need(receipt['input']['ownerFiles']==[str(self.store.path.with_name(name)) for name in
+            ('ios-graphics-scene.json','ios-graphics-primary-0-samples.json','ios-graphics-actor-0-samples.json')])
+        return receipt
+
+    def effect_preflight(self,stage):
+        # Source inspection only, before reserving a resource-creating capture.
+        # Missing references never become a positive native draw-only result.
+        if stage==self.state['stage'] and same(self.current_binding,self.state['binding']):
+            reader=self.adapter._native_feature_observer(self.selector,read_only=True)
+            floor=self.accepted_native();restore_native(reader,floor);packet=reader.read(reader.sequence)
+            if floor is not None:follow_native(floor,packet)
+            self.state['nativeFloor']=deepcopy(packet);self.save();graphics=packet['graphics']
+        else:
+            need(self.state['last'] is not None)
+            graphics=self.frame(self.state['last'],self.state['binding'])[0]['nativeAfter']['graphics']
+        for feature,field in (('haze','hazeSetting'),('mirror','mirrorsSetting')):
+            if not graphics[field]:continue
+            ref=self.state['offFrames'][feature]
+            if ref is None:raise GraphicsEffectReferencePending('Current enabled Graphics effect has no original off reference')
+            old=self.frame(ref,self.binding_for(self.state,ref['stage']))[0]
+            if self.source.clock()-old['clockJoin']['hostAfterEpochMs']>45000:
+                raise GraphicsEffectReferencePending('Current Graphics effect off reference requires a new ordinary-input calibration')
+
+    def seed_off(self,features,stage):
+        """Retain this role's own actual off originals; no public sample/input.
+
+        The whole owner must perform any necessary ordinary-input calibration
+        first. Unknown captures remain in the existing durable sampler and must
+        follow the actual crossed-phase retirement path on run cancellation.
+        """
+        need(type(features) is list and 1<=len(features)<=2 and len(set(features))==len(features)
+             and all(f in ('haze','mirror') for f in features) and type(stage) is int
+             and stage==self.state['stage'] and same(self.current_binding,self.state['binding']) and self.state['phase']=='ready')
+        self.lock.assert_held();need(self.guard() is not False);started=self.monotonic()
+        floor=self.accepted_native()
+        active=self.source.read(self.state['backend'])
+        self.state.update(phase='reading',pending=dict(stage=stage,binding=self.current_binding,active=deepcopy(active)));self.save()
+        samples=self.adapter._graphics_samples(self.selector,self.source.client,self.run,self.role,stage,self.lock,self.root,self.policy)
+        samples.read(active['ticket'],active['afterEpochMs']);ref=self.retain_frame(samples)
+        frame,_raw,measured,_name=self.frame(ref,self.current_binding)
+        if floor is not None:follow_native(floor,frame['clockJoin']['nativeBefore'])
+        need(all(not measured['state'][f] and not measured['state'][f+'Pass'] for f in features))
+        confirmed=self.source.read(samples.state['cursors']['provider']);need(confirmed['ticket']==active['ticket'])
+        clock=frame['clockJoin'];epoch=self.source.clock();now=self.monotonic()
+        need(number(now,started,started+20) and self.guard() is not False
+             and clock['hostAfterEpochMs']<=epoch and epoch-clock['hostBeforeEpochMs']<1500
+             and clock['hostAfterMonotonic']<=now and now-clock['hostBeforeMonotonic']<1.5
+             and abs(epoch-clock['hostBeforeEpochMs']-(now-clock['hostBeforeMonotonic'])*1000)<=250)
+        for f in features:self.state['offFrames'][f]=deepcopy(ref)
+        self.state.update(phase='ready',pending=None,backend=confirmed['status'],nativeFloor=deepcopy(frame['clockJoin']['nativeAfter']));self.save()
+        return {f:deepcopy(ref) for f in features}
+
     def read(self,after_sequence,stage):
         need(integer(after_sequence,0,self.state['sequence']) and integer(stage,self.state['stage'],1) and self.state['phase']=='ready')
         need(stage==self.state['stage'] and same(self.current_binding,self.state['binding']) or
@@ -254,7 +370,7 @@ class IOSGraphicsObserver:
             nonlocal previous
             self.lock.assert_held();need(self.guard() is not False)
             now=self.monotonic();need(number(now,previous,1e15) and now-started<20);previous=now
-        active=self.source.read(self.state['backend']);bound()
+        active=self.source.read(self.state['backend']);bound();self.effect_preflight(stage);bound()
         if self.state['baseline'] is None:need(stage==0 and active['verb']=='baseline')
         self.state.update(phase='reading',pending=dict(stage=stage,binding=self.current_binding,active=deepcopy(active)));self.save()
         samples=self.adapter._graphics_samples(self.selector,self.source.client,self.run,self.role,stage,self.lock,self.root,self.policy)
@@ -269,35 +385,45 @@ class IOSGraphicsObserver:
             need(same({key:measured[key] for key in ('state','lifecycle','resources','image','frameId')},
                       {key:actual[key] for key in ('state','lifecycle','resources','image','frameId')}))
             candidate=deepcopy(self.state)
-            if stage!=candidate['stage']:candidate['offFrames']=dict(haze=None,mirror=None)
-            effects=[]
+            if stage==candidate['stage'] and candidate['nativeFloor'] is not None:
+                follow_native(candidate['nativeFloor'],frame['clockJoin']['nativeBefore'])
+            if stage!=candidate['stage']:
+                old=self.frame(self.state['last'],self.state['binding'])[0]
+                transfer=dict(oldBinding=self.state['binding'],oldFrame=self.state['last'],newBinding=self.current_binding,newFrame=ref,
+                    exit=self.adapter._process_presence(self.selector,read_only=True).require_absent(old['nativeAfter']['processId']))
+                self.transfer(transfer);candidate.update(stage=stage,binding=self.current_binding,restart=transfer)
+            effects=[];current_effects=[]
             try:
                 for feature,verb in (('haze','set-haze'),('mirror','set-mirrors')):
                     enabled=active['verb']==verb and active['inputs'].get('enabled') is True
                     if not measured['state'][feature] and not measured['state'][feature+'Pass'] and not enabled:candidate['offFrames'][feature]=ref
                     elif enabled and measured['state'][feature] and measured['state'][feature+'Pass']:
                         before=candidate['offFrames'][feature];need(before is not None and len(candidate['effects'])+len(effects)<64)
-                        old,a,_old,_name=self.frame(before,self.current_binding)
-                        stats=compare(self.run,feature,self.fixture_url,self.current_binding,old,a,frame,raw,self.policy,self.source.instance,
-                            self.source.epoch_ms,self.guard,monotonic=self.monotonic)
-                        effects.append(dict(stage=stage,feature=feature,before=before,after=ref,observed=stats));bound()
+                        if before['stage']==stage:
+                            old,a,_old,_name=self.frame(before,self.current_binding)
+                            stats=compare(self.run,feature,self.fixture_url,self.current_binding,old,a,frame,raw,self.policy,self.source.instance,
+                                self.source.epoch_ms,self.guard,monotonic=self.monotonic)
+                            effects.append(dict(stage=stage,feature=feature,before=before,after=ref,observed=stats));bound()
+                    if measured['state'][feature]:
+                        reference=candidate['offFrames'][feature];need(reference is not None and len(candidate['currentEffects'])+len(current_effects)<1024)
+                        left=self.binding_for(candidate,reference['stage']);old,a,_old,_name=self.frame(reference,left)
+                        receipt=self.effect_restart_receipt() if not same(left,self.current_binding) else None
+                        stats=compare_current(self.run,feature,self.fixture_url,left,old,a,self.current_binding,frame,raw,self.policy,self.source.instance,
+                            self.source.epoch_ms,self.guard,restart=receipt,monotonic=self.monotonic)
+                        current_effects.append(dict(stage=stage,feature=feature,before=reference,after=ref,receipt=receipt,observed=stats));bound()
+
             except GraphicsWorldEffectPending:
                 bound();need(attempt<80)
                 current=self.source.read(samples.state['cursors']['provider'])
                 if current['ticket']!=active['ticket']:raise GraphicsPhasePending('Original Graphics phase changed during effect readiness')
                 self.sleep(.25);bound();continue
-            candidate['effects']+=effects;break
+            candidate['effects']+=effects;candidate['currentEffects']+=current_effects;break
         else:raise NativeUIError('Original Graphics pixels did not reach readiness')
-        if stage!=self.state['stage']:
-            old=self.frame(self.state['last'],self.state['binding'])[0]
-            transfer=dict(oldBinding=self.state['binding'],oldFrame=self.state['last'],newBinding=self.current_binding,newFrame=ref,
-                exit=self.adapter._process_presence(self.selector,read_only=True).require_absent(old['nativeAfter']['processId']))
-            self.transfer(transfer);candidate.update(stage=stage,binding=self.current_binding,restart=transfer)
         if candidate['baseline'] is None:
             need(not measured['state']['dialog'] and not measured['resources']);candidate['baseline']=ref
         confirmed=self.source.read(samples.state['cursors']['provider']);bound()
         need(measured['capturedEpochMs']>=self.state['capturedEpochMs'])
-        candidate.update(phase='ready',pending=None,sequence=self.state['sequence']+1,capturedEpochMs=measured['capturedEpochMs'],backend=confirmed['status'],last=ref)
+        candidate.update(phase='ready',pending=None,sequence=self.state['sequence']+1,capturedEpochMs=measured['capturedEpochMs'],backend=confirmed['status'],last=ref,nativeFloor=deepcopy(frame['clockJoin']['nativeAfter']))
         self.state=candidate
         self.save();bound()
         if confirmed['ticket']!=active['ticket']:raise GraphicsPhasePending('Original Graphics frame retained under its own ticket without publication')

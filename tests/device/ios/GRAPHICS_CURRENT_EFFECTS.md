@@ -50,8 +50,9 @@ and original edit-time preservation. Actual normal iOS input framing, private
 files and loopback resources are used. All native/GPU/OS/kernel boundaries and
 pixels are synthetic. Native compilation and devices remain unverified.
 
-The observer still needs to use this comparator for all current enabled states,
-including baseline, non-enable phases, restart and restoration. Its per-role
-off-reference acquisition, ordinary-input calibration, complete owner/actor
-composition and finalization remain pending. This helper is not a completed
+The version-2 observer uses this comparator for all current enabled states,
+including baseline, non-enable phases, restart and restoration. Its private
+`seed_off` retains separate role originals without changing the fixture phase.
+Whole-owner ordinary-input calibration, actor coordination and finalization
+remain pending. This helper is not a completed
 Graphics adapter and does not supply current disabled-effect qualification.

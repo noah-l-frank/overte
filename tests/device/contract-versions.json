@@ -95,7 +95,7 @@
     "ios-graphics-lifetime-record": {"current": 1, "reads": [1]},
     "ios-graphics-background": {"current": 1, "reads": [1]},
     "ios-graphics-restart": {"current": 1, "reads": [1]},
-    "ios-graphics-observer": {"current": 1, "reads": [1]},
+    "ios-graphics-observer": {"current": 2, "reads": [1, 2]},
     "ios-graphics-observer-frame": {"current": 1, "reads": [1]},
     "ios-graphics-observer-phase-retirement": {"current": 1, "reads": [1]},
     "ios-graphics-world-effect-readiness": {"current": 1, "reads": [1]},

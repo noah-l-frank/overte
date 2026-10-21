@@ -24,8 +24,11 @@ inside the 1500 ms acquisition ceiling and its independent monotonic/UTC checks.
 Explicit enable phases compare actual geometry-derived haze blue dominance and
 mirror orange reflection outside the complete challenge card. Settings and issued
 draw counts without corresponding effect pixels cannot pass those enable phases.
-Baseline and later non-enable observations of already enabled effects still need
-fresh independent pixel qualification before whole-feature completion. A qualified original image
+Version 2 also qualifies enabled effects in baseline, resolution, background,
+restart and restoration observations against this role's recent original off
+image. Missing or older-than-45-second references raise
+`GraphicsEffectReferencePending` before reserving a capture or public sequence.
+A qualified original image
 without effect pixels can await another original frame under the existing
 20-second/81-attempt ceiling; malformed source/identity data cannot use this
 readiness path. Every attempted image and native retirement remains owned.
@@ -46,13 +49,13 @@ record and fresh native absence without repeating a capture. This path publishes
 no product facts and does not claim final world/WK lifetime or quiet cleanup.
 The sampler's multi-owner drain now also has an overall 20-second bound.
 
-Fourteen observer cases pass, including separate actor publication, actual
+Twenty-three observer cases pass, including separate actor publication, actual
 effect pixels, delayed effect readiness, rejected unchanged pixels, fresh images
 after reconstruction, stale processing, altered PNGs, phase/cancellation
 recovery, lost metadata return and independent restart/old-PID evidence. Ten
 shared Vulkan-owner cases pass including immutable original archive validation.
-The combined observer/effect/owner/sample/preference/scene/history/background/
-restart selection passes 84 no-build cases.
+The preceding version was also checked together with effect, Vulkan owner,
+sample, preference, scene, history, background and restart components.
 All UI/native/GPU/OS/kernel boundaries and rasterized pixels are synthetic.
 Actual host transports, private files and loopback scene responses are used.
 Native compilation and devices remain unverified.
@@ -60,11 +63,20 @@ Native compilation and devices remain unverified.
 The native WK/Qt/Vulkan sources and durable per-role/stage
 [resource lifetime owner](GRAPHICS_RESOURCE_LIFETIME.md) now provide original
 marker admission and restored-world/resource quiet windows. The full fifteen-step
-Graphics owner, independent worker lifecycle, enabled-effect baseline/restart/
-restoration pixel qualification and final metadata composition remain unfinished. No Graphics feature triple is advertised.
+Graphics owner, independent worker lifecycle, ordinary calibration coordination and final metadata composition
+remain unfinished. No Graphics feature triple is advertised.
 
 The separate [current-effect comparison](GRAPHICS_CURRENT_EFFECTS.md) now has
 source/host logic for current enabled pixels, recent original off frames,
-resolution/background differences and strict process replacement. It remains
-unwired to this observer; existing non-enable observations must not be counted
-as having that additional qualification yet.
+resolution/background differences and strict process replacement. It is wired into every enabled-effect observation in version 2.
+`seed_off` captures each role's own originals under the unchanged actual phase,
+without input or public samples. The parent must first perform ordinary private
+calibration, restore the original settings and then admit the public baseline.
+Lost captures remain durable and can retire only after a real phase change.
+The complete parent calibration handshake is still pending.
+
+Version-1 archives remain readable without inventing historical current-effect
+proofs. Their accepted native floor is recovered from retained original frames
+and phase retirements. Version-2 current frames must retain the actual pixel
+proof for each enabled effect; dropping a proof is rejected. Passive preflight
+reads preserve native birth, sequence, lifecycle and source-history prefixes.
