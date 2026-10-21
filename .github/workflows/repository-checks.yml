@@ -1,244 +1,558 @@
-# Dormant trusted package generation; activation requires reviewed target policy.
 name: Repository checks
-run-name: ${{ (github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics'))) && 'Overte native metadata nonproducer v2' || 'Overte native ordinary qualification v2' }}
-on:
+
+# PR jobs execute with read-only permissions. The default-branch PR-target job
+# observes their native results and never checks out or executes a candidate.
+on: # zizmor: ignore[dangerous-triggers] PR-target runs only the read-only protected observer; it never checks out candidate code.
   pull_request:
-    types:
-    - opened
-    - reopened
-    - synchronize
-    - edited
-    - labeled
-    - unlabeled
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review, edited]
   workflow_dispatch:
     inputs:
+      pr_number:
+        description: Open pull request to qualify with this reviewed controller
+        type: string
+        required: true
       run_regression:
-        description: Run the complete device-free regression tier
+        description: Compatibility input; protected policy selects all required work
         type: boolean
-        default: true
         required: false
+        default: true
+
 permissions:
   contents: read
-concurrency:
-  group: repository-checks-${{ github.event.pull_request.number || github.ref }}-${{ ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')) && github.run_id || 'qualification' }}
-  cancel-in-progress: true
-jobs:
-  metadata-source:
-    name: Authenticate PR text edit
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      actions: read
-      checks: read
-      pull-requests: read
-    uses: ./.github/workflows/pr-metadata-context.yml
-    with:
-      nonproducer_intent: ${{ !(!(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))) }}
 
-  route:
-    needs: metadata-source
-    if: always() && (needs.metadata-source.result == 'success' || needs.metadata-source.result == 'skipped')
+concurrency:
+  group: pr-ci-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.pr_number }}-${{ github.event.action == 'edited' && !github.event.changes.base && github.run_id || 'execution' }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: Select exact candidate tasks
+    if: github.event_name != 'pull_request_target' && !github.event.pull_request.draft && !(github.event_name == 'pull_request' && github.event.action == 'edited' && !github.event.changes.base)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       actions: read
       checks: read
       pull-requests: read
-    name: Select required repository checks
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
     outputs:
-      metadata_only: ${{ steps.event.outputs.metadata_only }}
-      mode: ${{ steps.plan.outputs.mode }}
+      active: ${{ steps.bootstrap.outputs.active }}
+      context_json: ${{ steps.context.outputs.context_json }}
+      controller: ${{ steps.context.outputs.controller }}
+      source: ${{ steps.context.outputs.source }}
+      target: ${{ steps.context.outputs.target }}
+      base: ${{ steps.context.outputs.base }}
+      head: ${{ steps.context.outputs.head }}
+      tree: ${{ steps.context.outputs.tree }}
+      plan_json: ${{ steps.plan.outputs.plan_json }}
+      host: ${{ steps.plan.outputs.host }}
+      npm: ${{ steps.plan.outputs.npm }}
+      native: ${{ steps.plan.outputs.native }}
+      codeql: ${{ steps.plan.outputs.codeql }}
       security: ${{ steps.plan.outputs.security }}
-      native: ${{ steps.native.outputs.mode }}
-      tool_projects: ${{ steps.plan.outputs.tool_projects }}
-      package_candidate: ${{ steps.plan.outputs.package_candidate }}
-      package_plan: ${{ steps.plan.outputs.package_plan }}
-      package_host_mode: ${{ steps.plan.outputs.package_host_mode }}
-      package_tool_projects: ${{ steps.plan.outputs.package_tool_projects }}
-      package_set: ${{ steps.plan.outputs.package_set }}
-      android_required: ${{ steps.plan.outputs.android_required }}
-      android_candidate: ${{ steps.plan.outputs.android_candidate }}
-      android_plan: ${{ steps.plan.outputs.android_plan }}
-      android_inventory: ${{ steps.plan.outputs.android_inventory }}
+      android: ${{ steps.plan.outputs.android }}
+      ios: ${{ steps.plan.outputs.ios }}
+      native_mode: ${{ steps.plan.outputs.native_mode }}
+      npm_projects: ${{ steps.plan.outputs.npm_projects }}
+      codeql_languages: ${{ steps.plan.outputs.codeql_languages }}
+      full_host: ${{ steps.plan.outputs.full_host }}
+      setup_json: ${{ steps.plan.outputs.setup_json }}
     steps:
-    - name: Check out trusted routing policy
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      with:
-        ref: ${{ github.event.repository.default_branch }}
-        path: trusted
-        persist-credentials: false
-        sparse-checkout: |
-          .github
-          tools/repository-checks
-          tools/test-evidence
-          tools/native-tests
-          tools/ios-build-qualification
-    - name: Recognize only complete title or body edit events
-      id: event
-      env:
-        GH_TOKEN: ${{ github.token }}
-        NATIVE_METADATA_INTENT: ${{ needs.metadata-source.outputs.metadata_intent }}
-        NATIVE_METADATA_SCHEDULING: ${{ needs.metadata-source.outputs.metadata_scheduling }}
-      run: >-
-        python3 -I -S -B trusted/tools/repository-checks/check.py metadata-event
-        --event "$GITHUB_EVENT_PATH" --event-name "$GITHUB_EVENT_NAME" --output "$GITHUB_OUTPUT"
-    - name: Read the candidate tree without executing it
-      if: steps.event.outputs.metadata_only != 'true'
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      with:
-        path: candidate
-        fetch-depth: 2
-        persist-credentials: false
-        sparse-checkout: .github
-    - name: Select checks from the exact merge candidate
-      if: steps.event.outputs.metadata_only != 'true'
-      id: plan
-      run: python3 trusted/tools/repository-checks/check.py plan --event "$GITHUB_EVENT_PATH" --candidate candidate
-        --sha "$GITHUB_SHA" --output "$GITHUB_OUTPUT"
-    - name: Select native checks from the exact merge candidate
-      if: steps.event.outputs.metadata_only != 'true'
-      id: native
-      run: python3 trusted/tools/native-tests/check.py plan --event "$GITHUB_EVENT_PATH" --candidate candidate --sha
-        "$GITHUB_SHA" --output "$GITHUB_OUTPUT" --report native-plan.json
+      - name: Check out the trusted controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.repository.default_branch }}
+          path: trusted
+          persist-credentials: false
+      - name: Detect installed controller before bootstrap
+        id: bootstrap
+        run: |
+          if test -f trusted/tools/repository-checks/pr_ci.py; then
+            echo 'active=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'active=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Authenticate immutable PR inputs
+        if: steps.bootstrap.outputs.active == 'true'
+        id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
+        run: |
+          controller=$(git -C trusted rev-parse HEAD)
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py context \
+            --event "$GITHUB_EVENT_PATH" --event-name "$GITHUB_EVENT_NAME" \
+            --number "$PR_NUMBER" --controller "$controller" \
+            --out context.json --output "$GITHUB_OUTPUT"
+      - name: Check out only the authenticated candidate
+        if: steps.bootstrap.outputs.active == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ steps.context.outputs.source }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Select owners from complete immutable trees
+        if: steps.bootstrap.outputs.active == 'true'
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py plan \
+            --context context.json --candidate candidate --out plan.json --output "$GITHUB_OUTPUT"
+
+  policy:
+    name: Authenticate candidate policy
+    needs: plan
+    if: needs.plan.outputs.active == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+      pull-requests: read
+    steps:
+      - name: Check out the immutable trusted controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.controller }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out the immutable candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Verify exact policy and source identities
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTEXT_JSON: ${{ needs.plan.outputs.context_json }}
+          PLAN_JSON: ${{ needs.plan.outputs.plan_json }}
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py policy \
+            --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" --candidate candidate
+
+  host:
+    name: Host contracts
+    needs: [plan, policy]
+    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.host == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out the immutable trusted controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.controller }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out the immutable private candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12.15'
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.23.3'
+      - name: Set up Java for complete host contracts
+        if: needs.plan.outputs.full_host == 'true'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare Python dependencies from trusted requirements
+        env:
+          FULL_HOST: ${{ needs.plan.outputs.full_host }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/pr-ci-venv"
+          requirements=trusted/tests/requirements-repository.txt
+          if test "$FULL_HOST" = true; then
+            requirements=trusted/tests/requirements-host.txt
+          fi
+          "$RUNNER_TEMP/pr-ci-venv/bin/python" -m pip install \
+            --disable-pip-version-check --requirement "$requirements"
+      - name: Prepare the reviewed image-test dependency when selected
+        if: needs.plan.outputs.full_host != 'true' && contains(fromJSON(needs.plan.outputs.setup_json), 'pillow')
+        run: |
+          pillow=$(sed -n '/^Pillow==[0-9][0-9.]*$/p' trusted/tests/requirements-host.txt)
+          test -n "$pillow" && test "$(printf '%s\n' "$pillow" | wc -l)" -eq 1
+          "$RUNNER_TEMP/pr-ci-venv/bin/python" -m pip install --disable-pip-version-check -- "$pillow"
+      - name: Install complete host prerequisites
+        if: needs.plan.outputs.full_host == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            cmake ninja-build qml-module-qttest qtdeclarative5-dev-tools \
+            qt6-base-dev qt6-base-dev-tools libglm-dev qtdeclarative5-dev \
+            qml-module-qtquick2 qml-module-qtquick-controls2 qml-module-qtquick-layouts \
+            qml-module-qtquick-window2 qt6-declarative-dev qt6-declarative-dev-tools \
+            qt6-webchannel-dev libqt5webchannel5-dev qml-module-qt-labs-folderlistmodel \
+            qml6-module-qt-labs-folderlistmodel qml6-module-qtqml qml6-module-qtqml-models \
+            qml6-module-qtqml-workerscript qml6-module-qtquick qml6-module-qtquick-controls \
+            qml6-module-qtquick-layouts qml6-module-qtquick-templates qml6-module-qtquick-window \
+            qml6-module-qt-labs-settings qml6-module-qtquick-dialogs qml6-module-qttest
+          pkg-config --exists Qt5Quick Qt5WebChannel Qt5Network Qt6Quick Qt6WebChannel Qt6Network
+          test -x /usr/lib/qt6/bin/qmltestrunner
+      - name: Install selected Qt6 and portable compiler prerequisites
+        if: needs.plan.outputs.full_host != 'true' && contains(fromJSON(needs.plan.outputs.setup_json), 'qt6-qml')
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            cmake ninja-build g++ pkg-config qt6-base-dev qt6-base-dev-tools \
+            qt6-declarative-dev qt6-declarative-dev-tools \
+            qml6-module-qtquick qml6-module-qtqml-workerscript qml6-module-qttest
+          pkg-config --exists Qt6Quick Qt6Test
+      - name: Prepare tokenless namespace execution
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y bubblewrap
+          if ! unshare --user --map-root-user --net /usr/bin/true; then
+            test -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+            test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            unshare --user --map-root-user --net /usr/bin/true
+          fi
+      - name: Execute selected host contracts without credentials
+        env:
+          CONTEXT_JSON: ${{ needs.plan.outputs.context_json }}
+          PLAN_JSON: ${{ needs.plan.outputs.plan_json }}
+          FULL_HOST: ${{ needs.plan.outputs.full_host }}
+        run: |
+          node_root=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
+          prepared=(--prepared-root "$node_root")
+          if test "$FULL_HOST" = true; then
+            prepared+=(--prepared-root "$(readlink -f "$JAVA_HOME")")
+          fi
+          "$RUNNER_TEMP/pr-ci-venv/bin/python" -I -S -B trusted/tools/repository-checks/pr_ci.py execute \
+            --lane host --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" \
+            --candidate candidate "${prepared[@]}"
+
+  npm:
+    name: npm (${{ matrix.project }})
+    needs: [plan, policy]
+    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.npm == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.plan.outputs.npm_projects) }}
+    steps:
+      - name: Check out the immutable trusted controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.controller }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out the immutable private candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12.15'
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.23.3'
+      - name: Prepare tokenless namespace execution
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y bubblewrap
+          if ! unshare --user --map-root-user --net /usr/bin/true; then
+            test -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+            test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            unshare --user --map-root-user --net /usr/bin/true
+          fi
+      - name: Execute the selected package owner without credentials
+        env:
+          CONTEXT_JSON: ${{ needs.plan.outputs.context_json }}
+          PLAN_JSON: ${{ needs.plan.outputs.plan_json }}
+          PROJECT: ${{ matrix.project }}
+        run: |
+          node_root=$(dirname "$(dirname "$(readlink -f "$(command -v node)")")")
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py execute \
+            --lane npm --project "$PROJECT" --context-json "$CONTEXT_JSON" \
+            --plan-json "$PLAN_JSON" --candidate candidate --prepared-root "$node_root"
+
   native:
-    name: ${{ needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true' && 'native (metadata unchanged)' || 'native' }}
+    name: Native C++ owner
+    needs: [plan, policy]
+    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.native == 'true' && github.event_name == 'pull_request'
     permissions:
       contents: read
       packages: read
-    needs: route
-    if: always() && !cancelled() && needs.route.result == 'success' && needs.route.outputs.metadata_only != 'true' && needs.route.outputs.native != 'skip' && !(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))
     uses: ./.github/workflows/native-tests.yml
     with:
-      mode: ${{ needs.route.outputs.native }}
-  project:
+      mode: ${{ needs.plan.outputs.native_mode }}
+
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    needs: [plan, policy]
+    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.codeql == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
-      actions: read
-      pull-requests: read
-      checks: read
-    name: ${{ needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true' && 'project (metadata unchanged)' || 'project' }}
-    needs: route
-    if: always() && !cancelled() && needs.route.result == 'success' && needs.route.outputs.metadata_only != 'true' && (needs.route.outputs.package_host_mode == 'full' || needs.route.outputs.package_host_mode == 'tool-dependencies' || needs.route.outputs.package_set != '[]') && !(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))
-    uses: ./.github/workflows/project-tests.yml
-    with:
-      dependency_projects: ${{ needs.route.outputs.tool_projects }}
-      expected_candidate: ${{ needs.route.outputs.package_candidate }}
-      expected_package_plan: ${{ needs.route.outputs.package_plan }}
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(needs.plan.outputs.codeql_languages) }}
+    steps:
+      - name: Check out the immutable trusted controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.controller }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out the immutable candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Initialize the pinned CodeQL extractor
+        id: init
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938
+        with:
+          tools: https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.2/codeql-bundle-linux64.tar.zst
+          languages: ${{ matrix.language }}
+          build-mode: none
+          source-root: candidate
+          config-file: ./trusted/.github/codeql/codeql-config.yml
+      - name: Require the reviewed extractor version
+        env:
+          CODEQL_VERSION: ${{ steps.init.outputs.codeql-version }}
+        run: test "$CODEQL_VERSION" = 2.27.2
+      - name: Analyze the exact PR merge source
+        id: analyze
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938
+        with:
+          checkout_path: candidate
+          sha: ${{ needs.plan.outputs.source }}
+          ref: refs/pull/${{ fromJSON(needs.plan.outputs.context_json).number }}/merge
+          category: /language:${{ matrix.language }}
+          wait-for-processing: false
+      - name: Record the native upload identity
+        env:
+          CONTEXT_JSON: ${{ needs.plan.outputs.context_json }}
+          CODEQL_LANGUAGE: ${{ matrix.language }}
+          CODEQL_SARIF_ID: ${{ steps.analyze.outputs.sarif-id }}
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py upload-proof \
+            --context-json "$CONTEXT_JSON" --language "$CODEQL_LANGUAGE" \
+            --sarif "$CODEQL_SARIF_ID" --out upload.json
+      - name: Publish the native upload identity
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: codeql-upload-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.language }}
+          path: upload.json
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: false
+
+  security:
+    name: Workflow security
+    needs: [plan, policy]
+    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.security == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the immutable trusted controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.controller }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out the immutable candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Verify immutable action references as data
+        run: python3 -I -S -B trusted/tools/workflow-security/check-action-pins.py --root candidate
+      - name: Install checksum-verified static analyzers
+        env:
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+          ZIZMOR_SHA256: ec8c95cd800845abb9bbc5f377ec7c57d2eb8e2386a00a201d3a74ee4092e5ed
+        run: |
+          set -euo pipefail
+          tools_dir="$RUNNER_TEMP/workflow-security-tools"
+          mkdir -p "$tools_dir/bin"
+          curl --fail --location --silent --show-error \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$tools_dir/actionlint.tar.gz"
+          curl --fail --location --silent --show-error \
+            https://github.com/woodruffw/zizmor/releases/download/v1.30.0/zizmor-x86_64-unknown-linux-gnu.tar.gz \
+            --output "$tools_dir/zizmor.tar.gz"
+          curl --fail --location --silent --show-error \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$tools_dir/gitleaks.tar.gz"
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" "$tools_dir/actionlint.tar.gz" \
+            "$ZIZMOR_SHA256" "$tools_dir/zizmor.tar.gz" \
+            "$GITLEAKS_SHA256" "$tools_dir/gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf "$tools_dir/actionlint.tar.gz" -C "$tools_dir/bin" actionlint
+          tar -xzf "$tools_dir/zizmor.tar.gz" -C "$tools_dir/bin" zizmor
+          tar -xzf "$tools_dir/gitleaks.tar.gz" -C "$tools_dir/bin" gitleaks
+      - name: Lint candidate workflow syntax with trusted configuration
+        env:
+          SHELLCHECK_OPTS: --external-sources=false
+        run: |
+          "$RUNNER_TEMP/workflow-security-tools/bin/actionlint" \
+            -config-file trusted/.github/actionlint.yaml -no-color -shellcheck= \
+            candidate/.github/workflows/*.yml
+      - name: Audit candidate workflow security
+        if: always()
+        run: |
+          "$RUNNER_TEMP/workflow-security-tools/bin/zizmor" --offline --min-severity medium candidate/.github/workflows
+      - name: Scan candidate workflows for secrets with redacted output
+        if: always()
+        run: |
+          "$RUNNER_TEMP/workflow-security-tools/bin/gitleaks" dir --redact=100 --no-banner --no-color candidate/.github
+
   android:
-    name: ${{ needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true' && 'android (metadata unchanged)' || 'android' }}
-    needs: route
-    if: always() && !cancelled() && needs.route.result == 'success' && needs.route.outputs.metadata_only != 'true' && needs.route.outputs.android_required == 'true' && !(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))
-    uses: ./.github/workflows/android-required.yml
-    with:
-      android_required: ${{ needs.route.outputs.android_required }}
-      android_candidate: ${{ needs.route.outputs.android_candidate }}
-      android_plan: ${{ needs.route.outputs.android_plan }}
-      android_inventory: ${{ needs.route.outputs.android_inventory }}
-  parent-owners:
-    name: parent-owners
-    needs: route
-    if: always() && !cancelled() && needs.route.result == 'success' && github.event_name == 'pull_request' && github.base_ref == 'android-vr' && needs.route.outputs.metadata_only != 'true' && needs.route.outputs.mode == 'delegated-sync' && !(github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) && !(github.event.action == 'labeled' || github.event.action == 'unlabeled')
+    name: Android product owner
+    needs: [plan, policy]
+    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.android == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the immutable trusted controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.controller }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out the immutable candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Require the selected Android product validation
+        env:
+          CONTEXT_JSON: ${{ needs.plan.outputs.context_json }}
+          PLAN_JSON: ${{ needs.plan.outputs.plan_json }}
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py platform \
+            --lane android --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" --candidate candidate
+
+  ios:
+    name: iOS product owner
+    needs: [plan, policy]
+    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.ios == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the immutable trusted controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.controller }}
+          path: trusted
+          persist-credentials: false
+      - name: Check out the immutable candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          path: candidate
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Require the selected iOS product validation
+        env:
+          CONTEXT_JSON: ${{ needs.plan.outputs.context_json }}
+          PLAN_JSON: ${{ needs.plan.outputs.plan_json }}
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py platform \
+            --lane ios --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" --candidate candidate
+
+  ci-execution:
+    name: Candidate execution receipt
+    needs: [plan, policy, host, npm, native, codeql, security, android, ios]
+    if: always() && needs.plan.outputs.active == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       actions: read
       checks: read
       pull-requests: read
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      documentation_verified: ${{ steps.parent.outputs.documentation_verified }}
-      workflow_contracts_verified: ${{ steps.parent.outputs.workflow_contracts_verified }}
-      parent_proof: ${{ steps.parent.outputs.parent_proof }}
     steps:
-    - name: Check out the trusted complete parent verifier
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      with:
-        ref: ${{ github.event.repository.default_branch }}
-        path: trusted
-        persist-credentials: false
-    - name: Authenticate completed identical-tree parent commands
-      id: parent
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: python3 -I -S -B trusted/tools/repository-checks/check.py parent-owners --event "$GITHUB_EVENT_PATH" --output "$GITHUB_OUTPUT"
-  documentation:
-    name: ${{ needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true' && 'documentation (metadata unchanged)' || 'documentation' }}
-    needs: [route, project, parent-owners]
-    if: always() && needs.route.result == 'success' && (needs.project.result == 'success' || needs.project.result == 'skipped') && (needs.parent-owners.result == 'success' || needs.parent-owners.result == 'skipped') && needs.route.outputs.metadata_only != 'true' && needs.project.outputs.documentation_verified != 'true' && needs.parent-owners.outputs.documentation_verified != 'true' && !(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))
-    uses: ./.github/workflows/documentation-checks.yml
-  workflow-security:
-    name: ${{ needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true' && 'workflow-security (metadata unchanged)' || 'workflow-security' }}
-    needs: route
-    if: always() && !cancelled() && needs.route.result == 'success' && needs.route.outputs.metadata_only != 'true' && needs.route.outputs.security == 'true' && !(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))
-    uses: ./.github/workflows/workflow-security.yml
-    with:
-      defer_workflow_contracts: true
-  workflow-contracts:
-    needs: [route, project, parent-owners]
-    if: always() && needs.route.result == 'success' && (needs.project.result == 'success' || needs.project.result == 'skipped') && (needs.parent-owners.result == 'success' || needs.parent-owners.result == 'skipped') && needs.route.outputs.metadata_only != 'true' && needs.route.outputs.security == 'true' && needs.project.outputs.workflow_contracts_verified != 'true' && needs.parent-owners.outputs.workflow_contracts_verified != 'true' && !(github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')))
+      - name: Check out only the immutable trusted verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.plan.outputs.controller }}
+          path: trusted
+          persist-credentials: false
+      - name: Require every selected owner and unchanged PR identities
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTEXT_JSON: ${{ needs.plan.outputs.context_json }}
+          PLAN_JSON: ${{ needs.plan.outputs.plan_json }}
+          OWNER_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py complete \
+            --context-json "$CONTEXT_JSON" --plan-json "$PLAN_JSON" \
+            --needs-json "$OWNER_RESULTS" --out result.json
+      - name: Publish the exact native execution receipt
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: pr-ci-${{ github.run_id }}-${{ github.run_attempt }}
+          path: result.json
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: false
+
+  required-ci:
+    name: ${{ github.event_name == 'pull_request' && 'Execution observer has no acceptance authority' || 'required-ci' }}
+    needs: ci-execution
+    if: always() && (github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch') && !github.event.pull_request.draft
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-    - name: Check out the exact candidate without credentials
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      with:
-        ref: ${{ github.sha }}
-        fetch-depth: 2
-        persist-credentials: false
-    - name: Verify remaining workflow contracts
-      run: PYTHONDONTWRITEBYTECODE=1 python3 tests/workflow-contract-test.py
-  repository-checks:
+    timeout-minutes: 100
     permissions:
       contents: read
       actions: read
-      pull-requests: read
       checks: read
-    name: repository-checks
-    if: always()
-    needs:
-    - route
-    - parent-owners
-    - project
-    - documentation
-    - workflow-security
-    - workflow-contracts
-    - native
-    - android
-    runs-on: ubuntu-24.04
-    timeout-minutes: ${{ needs.route.outputs.metadata_only == 'true' && 100 || 5 }}
+      pull-requests: read
+      security-events: read
     steps:
-    - name: Reject unavailable native metadata context before checkout
-      if: github.event_name == 'pull_request' && ((github.event.action == 'edited' && !github.event.changes.base && (github.event.changes.title || github.event.changes.body)) || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'android-long-diagnostics')) && (needs.route.result != 'success' || needs.route.outputs.metadata_only != 'true')
-      run: exit 1
-    - name: Check out trusted result verifier
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      with:
-        ref: ${{ github.event.repository.default_branch }}
-        path: trusted
-        persist-credentials: false
-    - name: Mirror the freshly authenticated original mandatory result
-      if: needs.route.result == 'success' && needs.route.outputs.metadata_only == 'true'
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: >-
-        python3 -I -S -B trusted/tools/repository-checks/metadata_context.py --result
-        --event "$GITHUB_EVENT_PATH" --event-name "$GITHUB_EVENT_NAME" --output "$GITHUB_OUTPUT"
-    - name: Check out the exact candidate without credentials
-      if: needs.route.outputs.metadata_only != 'true'
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      with:
-        path: candidate
-        fetch-depth: 2
-        persist-credentials: false
-        sparse-checkout-cone-mode: false
-        sparse-checkout: |
-          .github
-          tests/platform-profile.json
-    - name: Require all selected checks to succeed
-      if: needs.route.outputs.metadata_only != 'true'
-      env:
-        CHECK_RESULTS: ${{ toJSON(needs) }}
-        GH_TOKEN: ${{ github.token }}
-      run: python3 trusted/tools/repository-checks/check.py verify --event "$GITHUB_EVENT_PATH" --needs-json "$CHECK_RESULTS" --candidate candidate --sha
-        "$GITHUB_SHA"
+      - name: Check out only the protected observer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.workflow_sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Observe genuine native owners without executing candidate code
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
+        run: |
+          controller=$(git -C trusted rev-parse HEAD)
+          python3 -I -S -B trusted/tools/repository-checks/pr_ci.py gate \
+            --event "$GITHUB_EVENT_PATH" --event-name "$GITHUB_EVENT_NAME" \
+            --number "$PR_NUMBER" --controller "$controller"

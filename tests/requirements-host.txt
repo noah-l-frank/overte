@@ -2,5 +2,5 @@
 # Host evidence validators and contract tools; keep test caches separate from product builds.
 -r requirements-repository.txt
 -r ../tools/sbom/requirements-validation.txt
-Pillow==12.3.0
+Pillow==13.0.0
 conan==2.25.2

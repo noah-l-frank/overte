@@ -4,12 +4,9 @@ run-name: ${{ (github.event_name == 'pull_request' && ((github.event.action == '
 
 on:
   push:
-    branches: [main, apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
+    branches: [apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
     paths-ignore:
       - "**/*.md"
-  pull_request:
-    types: [opened, reopened, synchronize, edited]
-    branches: [main, apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
   schedule:
     - cron: "17 3 * * 4"
 
