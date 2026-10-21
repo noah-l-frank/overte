@@ -1238,5 +1238,45 @@
     ],
     "details": "Actual normal Pico owners, analytical original stereo SDK raster/renderer boundaries, private receipt files, original native/UI/Web/HTTP source protocols, separate role/stage observations and complete final source/metadata retirement. Lost Home recovery precedes foreground owner construction. Original final runtime headers and group files remain immutable private evidence. The first composed finalization correctly rejected live Web/HTTP resources; the SDK model now represents their normal destruction during ordinary world navigation, without weakening validators.",
     "limits": "Direct coordinator integration only. General common Journey, OverteSession public operations, private configuration, independent actor dispatch and complete capability gating remain pending; no physical timing or native/device qualification."
+  },
+  "graphicsExactOriginalCachePacket": {
+    "wireSchemaChanged": false,
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "limits": {
+      "entries": 64,
+      "chargedInputResultContextBytes": 16777216
+    },
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_stereo_graphics_original_cache self_tests.test_stereo_graphics_surface_evidence (from tests/device)",
+        "tests": 10,
+        "status": "passed",
+        "durationSeconds": 12.259
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_feature_stereo.PicoGraphicsFeatureStereoTests.test_full_normal_journey_and_independent_final_actor_quiet_windows_retire_all_live_metadata",
+        "tests": 1,
+        "status": "passed",
+        "durationSeconds": 147.544
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test graphics-sources --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 4,
+        "status": "passed",
+        "durationSeconds": 181.94,
+        "junit": "graphics-exact-original-cache-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 3.05,
+        "junit": "graphics-exact-original-cache-project.xml"
+      }
+    ],
+    "details": "Successful pure historical analysis is memoized only for exact PNG/metadata bytes and run/ticket/URL/role, returning independent deserialized facts. Serialized inputs/results/context are charged to a bounded per-process LRU. Custom clocks bypass the cache. Original file identity/read/hash, current age/guard/source/ownership and frame/query replay checks remain outside it and execute normally. Changed pair/scope, clock failure, eviction, caller mutation and replay counterexamples pass.",
+    "timingComparison": "The same complete direct core journey/finalization case previously took 357.601 seconds and now took 147.544 seconds. Host contention was not controlled; these are observed test timings, not physical/native performance qualification."
   }
 }

@@ -70,3 +70,18 @@ Graphics page is open. That flow needs a separately versioned original
 per-surface identity/visibility proof (including Haze and reflected content)
 before the complete Pico capability can be registered. Native compilation and
 devices remain unverified; old photometry is not silently promoted.
+
+## Exact historical analysis cache
+
+Repeated archive validation may reuse only a successful pure analysis of the
+exact same original PNG bytes, metadata bytes, run, ticket, fixture URL and role.
+The process-local LRU holds at most 64 entries and 16 MiB of charged original
+input, serialized result and context bytes. Results are deserialized into new
+objects; callers cannot mutate previously accepted facts. Custom diagnostic
+clocks bypass the cache and the existing five-second analysis budget remains.
+
+No current observation, age, guard, file identity, provider status, acquisition
+ownership, cursor or replay verdict is cached. Callers still read and verify
+actual private originals, including SHA256/inode/mode, and run all current source
+and query/frame continuity checks. Missing or changed files cannot be replaced
+from this cache. Source packets and the v1/v2 evidence schemas are unchanged.

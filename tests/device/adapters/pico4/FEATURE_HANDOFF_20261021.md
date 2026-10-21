@@ -518,3 +518,16 @@ OverteSession public operations, private configuration and actor dispatcher are
 not yet integrated or qualified by those direct tests. Complete Graphics
 capabilities remain absent, the complete-area count stays two of fourteen, and
 native code/devices remain unverified.
+
+
+## Bounded exact historical analysis reuse
+
+The independent stereo verifier now memoizes successful historical analysis for
+an exact original PNG/metadata/context pair. A 64-entry/16-MiB charged-byte LRU
+stores serialized facts and returns new objects. File read/identity/hash,
+current source/age/guard/ownership and replay admission remain live caller
+checks; custom diagnostic clocks always run the original analysis. Neither
+evidence schema changes nor capability promotion is introduced. Counterexamples
+and the complete direct coordinator/final retirement case still pass. The
+observed complete-case host time fell from 357.601 to 147.544 seconds under
+uncontrolled workstation contention; no device timing is inferred.

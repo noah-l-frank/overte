@@ -7,10 +7,12 @@ interval; a caller must separately bind the result to its current acquisition.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+from collections import OrderedDict
 import hashlib
 import json
 import math
 import time
+import threading
 from adapters.native_feature_observation import exact,integer,need,validate as native_packet
 from adapters.normal_feature_state import context
 from adapters.pico4.graphics_source import validate as ui_packet
@@ -30,12 +32,57 @@ LIMIT=2*1024*1024
 FIELDS={'stereoGraphicsEvidenceVersion','runId','ticket','sceneTicket','fixtureUrl','binding','role','stage',
     'nativeBefore','nativeAfter','subjectBefore','subjectAfter','graphics','capture','provider'}
 SURFACE_FIELDS=FIELDS|{'graphicsAfter'}
+_ORIGINAL_CLOCK=time.monotonic
+_ORIGINAL_CACHE=OrderedDict()
+_ORIGINAL_CACHE_LOCK=threading.RLock()
+_ORIGINAL_CACHE_BYTES=0
+_ORIGINAL_CACHE_LIMIT=16*1024*1024
+_ORIGINAL_CACHE_ENTRIES=64
 
 
 def policy(value):exact(value,PROFILE);need(value in (PROFILE,SURFACE_PROFILE));return value
 
 
 def analyse(raw,metadata,run,ticket,fixture_url,*,role='primary',monotonic=time.monotonic):
+    """Pure historical analysis, bounded memoization of exact original bytes.
+
+    Current acquisition/age/guard, original file identity and source replay
+    checks belong to callers and are never cached. Custom clocks always execute
+    the original analysis so an injected clock failure cannot be hidden.
+    """
+    global _ORIGINAL_CACHE_BYTES
+    if (monotonic is not _ORIGINAL_CLOCK or type(raw) is not bytes or type(metadata) is not bytes
+            or not all(type(value) is str for value in (run,ticket,fixture_url,role))):
+        return _analyse_uncached(raw,metadata,run,ticket,fixture_url,role=role,monotonic=monotonic)
+    started=monotonic();key=(raw,metadata,run,ticket,fixture_url,role)
+    with _ORIGINAL_CACHE_LOCK:
+        cached=_ORIGINAL_CACHE.get(key)
+        if cached is not None:_ORIGINAL_CACHE.move_to_end(key)
+    if cached is not None:
+        value=json.loads(cached[0]) # A new result; callers cannot mutate cached facts.
+    else:
+        value=_analyse_uncached(raw,metadata,run,ticket,fixture_url,role=role,monotonic=monotonic)
+    finished=monotonic()
+    need(type(started) in (int,float) and math.isfinite(started) and started>=0
+        and type(finished) in (int,float) and math.isfinite(finished) and started<=finished and finished-started<5)
+    if cached is None:
+        encoded=json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
+        charge=len(raw)+len(metadata)+len(encoded)+sum(len(item.encode()) for item in key[2:])
+        # Store serialized facts rather than mutable decoded objects. The byte
+        # budget accounts for both original inputs, output and context strings.
+        if charge<=_ORIGINAL_CACHE_LIMIT and json.loads(encoded)==value:
+            with _ORIGINAL_CACHE_LOCK:
+                if key not in _ORIGINAL_CACHE:
+                    while _ORIGINAL_CACHE and (_ORIGINAL_CACHE_BYTES+charge>_ORIGINAL_CACHE_LIMIT
+                            or len(_ORIGINAL_CACHE)>=_ORIGINAL_CACHE_ENTRIES):
+                        _old,(_encoded,cost)=_ORIGINAL_CACHE.popitem(last=False);_ORIGINAL_CACHE_BYTES-=cost
+                    _ORIGINAL_CACHE[key]=(encoded,charge);_ORIGINAL_CACHE_BYTES+=charge
+    finished=monotonic()
+    need(type(finished) in (int,float) and math.isfinite(finished) and started<=finished and finished-started<5)
+    return value
+
+
+def _analyse_uncached(raw,metadata,run,ticket,fixture_url,*,role='primary',monotonic=time.monotonic):
     """Historical original facts; never a current sampler, clock or input API."""
     need(type(metadata) is bytes and 0<len(metadata)<=LIMIT and callable(monotonic) and role in ('primary','actor'))
     started=monotonic();need(type(started) in (int,float) and math.isfinite(started) and started>=0)
