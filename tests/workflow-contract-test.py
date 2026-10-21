@@ -384,6 +384,8 @@ def assert_project_caller_routing(case, source):
         ('tools/repository-checks/workflows/producers/repository-checks.yml',
          ('protected-producer-original-default-required-context-v1',
           'protected-producer-optional-parent-source-v1'), True),
+        ('tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
+         ('protected-producer-exact-parent-command-owners-v1',), True),
     )
     for relative, generations, metadata in templates:
         expected=(original_default_workflow('repository-checks').decode() if relative is None else
@@ -1989,11 +1991,20 @@ class OptionalParentGenerationFixtureContracts(unittest.TestCase):
         # These are complete historical tuples. A future installed project28
         # must not accidentally turn a Parent26/27 fixture into a mixed tuple.
         project=original(ROOT/'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml')
+        caller_path=ROOT/'.github/workflows/repository-checks.yml'
+        caller_raw=original(ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml')
+        catalog=json.loads(original(ROOT/'.github/package-workflow-generations.json'))['generations']
+        self.assertEqual(catalog[25]['workflows']['.github/workflows/repository-checks.yml'],
+            {'mode':'100644','type':'blob',
+             'sha':hashlib.sha1(b'blob '+str(len(caller_raw)).encode()+b'\0'+caller_raw).hexdigest()})
+        def historical_read(path, parent_raw, template_raw):
+            return (project if path==WORKFLOW else caller_raw if path==caller_path else
+                    parent_raw if path==parent else template_raw if path==template else original(path))
         variants=(('protected-producer-original-default-required-context-v1','parent-qualification'),
                   ('protected-producer-optional-parent-source-v1','optional-parent-qualification'))
         for expected,fixture in variants:
             raw=original_default_workflow(fixture)
-            def read(path):return project if path==WORKFLOW else raw if path in (parent,template) else original(path)
+            def read(path):return historical_read(path,raw,raw)
             with self.subTest(generation=expected),mock.patch.object(Path,'read_bytes',read):
                 self.assertEqual(reviewed_package_generation(),expected)
                 packages,tree=prospective_package_tree()
@@ -2001,12 +2012,12 @@ class OptionalParentGenerationFixtureContracts(unittest.TestCase):
                 caller=(ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml').read_text()
                 self.assertEqual(assert_project_caller_routing(self,caller),'package_host_mode')
         for bad in (b'foreign Parent bytes\n',original_default_workflow('optional-parent-qualification')+b'\n# unknown\n'):
-            def read(path):return project if path==WORKFLOW else bad if path in (parent,template) else original(path)
+            def read(path):return historical_read(path,bad,bad)
             with self.subTest(invalid=bad[:20]),mock.patch.object(Path,'read_bytes',read),self.assertRaises((AssertionError,ValueError)):
                 prospective_package_tree()
         raw=original_default_workflow('optional-parent-qualification')
         old=original_default_workflow('parent-qualification')
-        def read(path):return project if path==WORKFLOW else raw if path==parent else old if path==template else original(path)
+        def read(path):return historical_read(path,raw,old)
         with mock.patch.object(Path,'read_bytes',read):
             self.assertEqual(reviewed_package_generation(),'protected-producer-optional-parent-source-v1')
             self.assertEqual(prospective_package_tree()[0].validate_tree_wiring(prospective_package_tree()[1]),

@@ -1016,6 +1016,8 @@ class CanonicalCIInputOwnershipTests(unittest.TestCase):
                 self.assertEqual(count,1);path.write_text(text)
             elif relative=='.github/workflows/project-tests.yml':
                 path.write_bytes((ROOT/'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml').read_bytes())
+            elif relative=='.github/workflows/repository-checks.yml':
+                path.write_bytes((ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml').read_bytes())
             else:path.write_bytes(path.read_bytes()+b'\n# older CI source\n')
         old_values={}
         for relative,value in (old_extra or {}).items():
@@ -1068,7 +1070,13 @@ class CanonicalCIInputOwnershipTests(unittest.TestCase):
                 self.assertEqual(set(gate.REVIEWED_CI_INPUTS)&set(gate.android().EXECUTION_FILES),{gate.COMPILER_INPUTS})
                 old=gate._sources(f.candidate,f.event['pull_request']['base']['sha'])
                 new=gate._sources(f.candidate)
-                self.assertEqual(set(result['paths']),gate.REVIEWED_CI_INPUTS)
+                caller='.github/workflows/repository-checks.yml'
+                expected_paths=gate.REVIEWED_CI_INPUTS-({caller}if old.entries[caller]==new.entries[caller]else set())
+                self.assertEqual(set(result['paths']),expected_paths)
+                self.assertEqual(old.entries[caller],{'mode':'100644','type':'blob','sha':'22fe0d6d39d120f800099136d7d1ab5280d80b41'})
+                self.assertIn(new.entries[caller],[
+                    {'mode':'100644','type':'blob','sha':'22fe0d6d39d120f800099136d7d1ab5280d80b41'},
+                    {'mode':'100644','type':'blob','sha':'5ab9ff4592635ad67cd7f542de9676702180592d'}])
                 self.assertEqual([p for p in result['paths']if p not in old.entries],sorted(gate.REVIEWED_CI_ADDITIONS))
                 self.assertNotEqual(old.text(gate.COMPILER_INPUTS),new.text(gate.COMPILER_INPUTS))
                 self.assertEqual(gate._compiler_reader_ast(old.text(gate.COMPILER_INPUTS)),gate._compiler_reader_ast(new.text(gate.COMPILER_INPUTS)))
@@ -1102,6 +1110,8 @@ class CanonicalCIInputOwnershipTests(unittest.TestCase):
             ('compiler-expression',{gate.COMPILER_INPUTS:inputs.replace(b'INSTALLED_COMPILER_READER = ',b'INSTALLED_COMPILER_READER = str(')+b')\n'}),
             ('compiler-extra-assignment',{gate.COMPILER_INPUTS:inputs+b'\nINSTALLED_COMPILER_READER = "sha256:'+b'1'*64+b'"\n'}),
             ('missing-other-CI',{'tools/repository-checks/codeql.py':None}),
+            ('unknown-repository-caller',{'.github/workflows/repository-checks.yml':b'# unapproved complete caller\n'}),
+            ('aliased-repository-caller',{'.github/workflows/repository-checks.yml':'alias'}),
             ('alias-compiler',{gate.COMPILER_INPUTS:'alias'})]
         dependencies=json.loads((ROOT/gate.DEPENDENCIES).read_bytes())
         for field,value in (('schema',1),('lookup_digest','not-a-digest'),('registry_digest','sha256:'+'0'*64)):

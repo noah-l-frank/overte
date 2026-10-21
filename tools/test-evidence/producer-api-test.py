@@ -4759,6 +4759,13 @@ class CurrentParentTransitionTests(unittest.TestCase):
                 # Its complete immutable tuple must survive an active27/28 checkout.
                 raw=historical_metadata_workflow(name,
                     'protected-producer-original-default-required-context-v1',C.ROOT)
+            elif name=='.github/workflows/repository-checks.yml':
+                # Retain the exact generation26 caller when active29 is installed.
+                raw=(C.ROOT/'tools/repository-checks/workflows/producers/repository-checks.yml').read_bytes()
+                row=next(row for row in json.loads((C.ROOT/'.github/package-workflow-generations.json').read_bytes())['generations']
+                    if row['name']=='protected-producer-original-default-required-context-v1')
+                self.assertEqual(row['workflows'][name],{'mode':'100644','type':'blob','sha':'22fe0d6d39d120f800099136d7d1ab5280d80b41'})
+                self.assertEqual(C.source_admission.blob_id(raw),row['workflows'][name]['sha'])
             else:
                 raw=(C.ROOT/name).read_bytes()
             s.bodies[name]=raw;s.default[name]=C.source_admission.ordinary(C.source_admission.blob_id(raw),

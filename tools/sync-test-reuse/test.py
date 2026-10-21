@@ -4638,7 +4638,13 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         self.docs[f.prefix+'/rules/branches/android-main']=[{'type':'required_status_checks','parameters':{
             'strict_required_status_checks_policy':True,'required_status_checks':[{'context':n,'integration_id':15368}for n in self.paths]}}]
         for n,path in self.paths.items():
-            raw=(gate.ROOT/path).read_bytes()
+            # This fixture retains the original Repo28 native roster. The
+            # successor() fixture independently authenticates actual Repo29.
+            raw=(gate.ROOT/('tools/repository-checks/workflows/producers/repository-checks.yml'
+                if path==gate._REPOSITORY_CALLER else path)).read_bytes()
+            if path==gate._REPOSITORY_CALLER:
+                self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),
+                    gate._REPOSITORY_PREVIOUS)
             f.tree[path]={'mode':'100644','type':'blob','sha':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
         f.tree['tests/platform-profile.json']={'mode':'100644','type':'blob','sha':gate.suite_inputs._AFFECTED_TARGET_PROFILES['android-main']}
         f.tree['.github/android-orchestration.json']={'mode':'100644','type':'blob','sha':'6'*40}
