@@ -7,8 +7,8 @@ instrumentation is uncompiled, devices are untested, and no build, installation,
 ADB/Appium/OpenXR device run or Jenkins job was performed.
 
 The [fourteen-area matrix](FEATURE_COVERAGE_20261021.json) is current for this
-isolated branch. Scripts is the only complete Pico source-level area here. The
-remaining thirteen complete triples remain unavailable, so a required full run
+isolated branch. Scripts, Authentication and Graphics are complete source-level
+areas here. The remaining eleven complete triples remain unavailable, so a required full run
 cannot become green. Earlier [status entries](FEATURE_ADAPTER_STATUS.md) are
 historical component checkpoints.
 

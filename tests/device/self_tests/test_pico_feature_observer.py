@@ -9,6 +9,7 @@ import unittest
 from adapters.pico4.feature_observer import configuration,run
 from adapters.authentication_journey.feature import AuthenticationPhasePending
 from adapters.normal_ui import NativeUIError
+from adapters.graphics_journey.fixture import GraphicsPhasePending,GraphicsRunRetired
 
 
 class PicoFeatureObserverTests(unittest.TestCase):
@@ -52,6 +53,26 @@ class PicoFeatureObserverTests(unittest.TestCase):
             for change in (dict(fixtureUrl='http://owned.invalid/feature-fixture/v1'),dict(readerToken='x'*64),dict(area='audio')):
                 path.write_text(json.dumps(self.config|change))
                 with self.assertRaises(NativeUIError):configuration(path)
+    def test_graphics_v2_config_pins_private_artifacts_and_does_not_promote_the_v1_reader(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);root.chmod(0o700);path=root/'actor.json'
+            value=self.config|dict(picoFeatureObserverVersion=2,area='graphics',artifactRoot=str(root))
+            path.write_text(json.dumps(value));path.chmod(0o600);self.assertEqual(value,configuration(path))
+            for change in (dict(picoFeatureObserverVersion=1),dict(artifactRoot='relative'),dict(readerToken='x'*64)):
+                path.write_text(json.dumps(value|change))
+                with self.assertRaises(NativeUIError):configuration(path)
+    def test_graphics_keeps_publishing_during_the_parent_plan_until_its_own_final_window_finishes(self):
+        self.config.update(picoFeatureObserverVersion=2,area='graphics')
+        plan=dict(kind='retirement',runId='a'*32,fixtureUrl=self.owner['fixtureUrl'])
+        def publish():
+            self.count+=1
+            if self.count==1:raise GraphicsPhasePending('Original world restoration is pending')
+            raise GraphicsRunRetired({})
+        self.flow.publish=publish
+        self.journey=SimpleNamespace(graphics_feature_store=lambda target:SimpleNamespace(read=lambda:self.owner),
+            graphics_retirement_store=lambda target:SimpleNamespace(read=lambda:plan),_graphics_feature=self.actor)
+        self.assertEqual(0,run(self.journey,self.config,monotonic=lambda:self.clock,sleep=self.sleep))
+        self.assertEqual(2,self.count)
 
 
 if __name__=='__main__':unittest.main()

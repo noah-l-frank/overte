@@ -1,3 +1,7 @@
+> Current Graphics continuation: [complete source/host binding](GRAPHICS_FEATURE.md),
+> including the common Journey, public session/router and independent actor/final
+> original stereo/resource retirement. Native compilation and devices are unverified.
+
 > Current continuation: [Authentication](AUTHENTICATION_FEATURE.md) now has a
 > complete source-level feature triple and host-verified shared 17-step flow.
 > Its actual VR Home ray, passive weak login/menu inventory, process-only HTTPS
@@ -9,8 +13,8 @@ Stereo source follow-up: world-render acquisition v2 now joins original two-eye 
 # Pico feature adapter implementation status
 
 Current isolated continuation: [2026-10-21 coverage and handoff](FEATURE_HANDOFF_20261021.md).
-Scripts and Authentication have complete source-level, host-verified v16 triples
-on that local branch, using the actual Pico VR input composition. The other twelve complete
+Scripts, Authentication and Graphics have complete source-level, host-verified v16 triples
+on that local branch, using the actual Pico VR input composition. The other eleven complete
 areas remain unavailable; native source is uncompiled and every device is
 untested. See the [Scripts contract](SCRIPT_FEATURE.md) and
 [machine matrix](FEATURE_COVERAGE_20261021.json).

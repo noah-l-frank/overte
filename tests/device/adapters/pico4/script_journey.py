@@ -76,19 +76,29 @@ class PicoScriptJourney:
     def __init__(self, adapter):
         self.original = adapter
 
-    def state_path(self, target):
+    def _state_directory(self,target,*,create):
         need(self.original.pico_configuration is not None)
         parent = self.original.pico_configuration[1]
         key = hashlib.sha256(('org.overte.pico\0' + target).encode()).hexdigest()[:32]
         need(self.state_area in ('scripts','authentication','graphics'))
         directory = parent / ('feature-' + self.state_area + '-' + key)
         # Only a host namespace; this does not establish a device/session owner.
-        try: directory.mkdir(mode=0o700)
-        except FileExistsError: pass
-        info = directory.lstat()
+        if create:
+            try:directory.mkdir(mode=0o700)
+            except FileExistsError:pass
+        try:info=directory.lstat()
+        except FileNotFoundError:
+            need(not create);return None
         need(stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()
              and stat.S_IMODE(info.st_mode) == 0o700 and directory.resolve(strict=True) == directory)
-        return directory / 'state.json'
+        return directory
+
+    def state_path(self,target):return self._state_directory(target,create=True)/'state.json'
+
+    def existing_state_path(self,target):
+        """Inspect cleanup ownership without creating an otherwise unused namespace."""
+        directory=self._state_directory(target,create=False)
+        return None if directory is None else directory/'state.json'
 
     def _guard(self, target):
         installed = self.original._installation(target)

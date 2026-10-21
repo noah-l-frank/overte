@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "pico-graphics-feature-binding": 1,
     "graphics-journey-feature": 1,
     "graphics-journey-lifetime": 1,
     "graphics-lifetime-archive": 1,
@@ -57,7 +58,7 @@ REQUIRED = {
     'native-account-menu-controls': 1,
     'pico-authentication-feature-binding': 1,
     'pico-tablet-home-observation': 1,
-    'pico-feature-observer': 1,
+    'pico-feature-observer': 2,
     'owned-feature-observer': 1,
 
     'script-journey-actions': 1,

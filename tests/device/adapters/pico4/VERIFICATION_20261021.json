@@ -4,7 +4,8 @@
   "qualification": "Source implementation and selected device-free host checks only; not a complete 52-group catalog run or product/device qualification.",
   "sourceCompleteAreas": [
     "scripts",
-    "authentication"
+    "authentication",
+    "graphics"
   ],
   "full14AdaptersComplete": false,
   "picoOwningChecks": [
@@ -1278,5 +1279,53 @@
     ],
     "details": "Successful pure historical analysis is memoized only for exact PNG/metadata bytes and run/ticket/URL/role, returning independent deserialized facts. Serialized inputs/results/context are charged to a bounded per-process LRU. Custom clocks bypass the cache. Original file identity/read/hash, current age/guard/source/ownership and frame/query replay checks remain outside it and execute normally. Changed pair/scope, clock failure, eviction, caller mutation and replay counterexamples pass.",
     "timingComparison": "The same complete direct core journey/finalization case previously took 357.601 seconds and now took 147.544 seconds. Host contention was not controlled; these are observed test timings, not physical/native performance qualification."
+  },
+  "graphicsPublicIntegrationPacket": {
+    "contracts": [
+      "pico-graphics-feature-binding v1",
+      "pico-feature-observer v2 (reads v1/v2)",
+      "owned-feature-observer v1 additive observation-during-retirement API"
+    ],
+    "completeFeatureCapabilityAdded": true,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_common_engine (from tests/device)",
+        "tests": 1,
+        "status": "passed",
+        "durationSeconds": 251.862,
+        "checkpoints": 17,
+        "route": "existing Journey -> OverteSession -> actual PicoBoundAdapter -> normal controls and independent original source readers; actual actor loop and final metadata retirement"
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_configuration self_tests.test_pico_graphics_public_binding self_tests.test_pico_feature_observer",
+        "tests": 14,
+        "status": "passed",
+        "durationSeconds": 3.607
+      },
+      {
+        "command": "python3 -m unittest test_native_execution_binding.NativeExecutionBindingTest.test_native_navigation_native_cleanup_retires_partial_state_with_invalid_candidate",
+        "tests": 1,
+        "status": "passed",
+        "durationSeconds": 2.537
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test authentication-feature-journey --test script-feature-journey --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 5,
+        "status": "passed",
+        "durationSeconds": 165.14,
+        "junit": "graphics-public-integration-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.5,
+        "junit": "graphics-public-integration-project.xml"
+      }
+    ],
+    "details": "Private explicit normal-VR/fixture/artifact configuration, default-off public triple and actual Pico routing. Actor protocol v2 pins artifacts and preserves v1 Auth/Script readers. Graphics continues observation during the parent retirement plan until its independent final window completes. Existing cleanup inspection no longer creates unused feature namespaces, including the Auth source-lease inspection. Package/GUI/OS/GPU/fixture transport boundaries are synthetic; real owners, schemas, files, source validators, common engine, session, router and actor retirement execute.",
+    "limits": "Host source/adapter qualification only. No builds, compilers, installation, device, service or physical VR/render/timing qualification. Eleven areas remain partial/missing."
   }
 }

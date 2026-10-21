@@ -28,6 +28,7 @@ from adapters.native_script_observation import NativeScriptObservation, FILE as 
 from adapters.pico4 import normal_scripts
 from adapters.pico4 import script_journey
 from adapters.pico4 import authentication_journey
+from adapters.pico4 import graphics_journey
 from adapters.token_script_file_ui import TokenScriptFilePicker
 from adapters.native_script_files import NativeScriptFiles, OwnedScriptFiles, FILE as SCRIPT_FIXTURE_FILE
 from adapters.script_restart_handoff import ScriptRestartHandoff
@@ -195,6 +196,9 @@ def create_adapter(args, base_class):
             if authentication_journey.configured(os.environ):
                 _need(not cleanup_only and self.pico_configuration is not None and candidate['e2e_input_layer'] is True)
                 values.extend(authentication_journey.OPERATIONS)
+            if graphics_journey.configured(os.environ):
+                _need(not cleanup_only and self.pico_configuration is not None and candidate['e2e_input_layer'] is True)
+                values.extend(graphics_journey.OPERATIONS)
             return sorted(set(values))
 
         def _script_journey(self):
@@ -202,6 +206,9 @@ def create_adapter(args, base_class):
 
         def _authentication_journey(self):
             return authentication_journey.PicoAuthenticationJourney(self)
+
+        def _graphics_journey(self):
+            return graphics_journey.PicoGraphicsJourney(self)
 
         def _script_paths(self, target):
             _need(self.pico_configuration is not None)
@@ -728,7 +735,13 @@ def create_adapter(args, base_class):
             # turn a foreign installation into an accepted initial describe.
             self._installation(target)
             try:
-                if operation in authentication_journey.OPERATIONS:
+                if operation in graphics_journey.OPERATIONS:
+                    _need(graphics_journey.configured(os.environ))
+                    from feature_journeys.contract import arguments
+                    arguments(operation,values)
+                    flow=self._graphics_journey()._graphics_feature(target,values['runId'])
+                    result=getattr(flow,operation.rsplit('.',1)[1])(values)
+                elif operation in authentication_journey.OPERATIONS:
                     _need(authentication_journey.configured(os.environ))
                     from feature_journeys.contract import arguments
                     arguments(operation,values)
@@ -756,7 +769,7 @@ def create_adapter(args, base_class):
         def cleanup(self, target):
             feature_error = False
             try:
-                if self.pico_configuration is not None:
+                if self.pico_configuration is not None and self._script_journey().existing_state_path(target) is not None:
                     journey = self._script_journey()
                     owner = journey.script_feature_store(target).read()
                     retirement = journey.script_retirement_store(target).read()
@@ -778,7 +791,7 @@ def create_adapter(args, base_class):
             except Exception:
                 feature_error = True
             try:
-                if self.pico_configuration is not None:
+                if self.pico_configuration is not None and self._authentication_journey().existing_state_path(target) is not None:
                     journey=self._authentication_journey()
                     owner=journey.authentication_feature_store(target).read()
                     retirement=journey.authentication_retirement_store(target).read()
@@ -793,10 +806,24 @@ def create_adapter(args, base_class):
                         _need(not any(p.name!='authentication-sources.lock' for p in path.iterdir()))
             except Exception:
                 feature_error=True
+            try:
+                if self.pico_configuration is not None and self._graphics_journey().existing_state_path(target) is not None:
+                    journey=self._graphics_journey()
+                    owner=journey.graphics_feature_store(target).read()
+                    retirement=journey.graphics_retirement_store(target).read()
+                    if owner is not None or retirement is not None:
+                        if cleanup_only:self._recover_cleanup_candidate()
+                        record=owner if owner is not None else retirement
+                        journey._graphics_cleanup_feature(target,record['runId']).finalize()
+                    else:
+                        path=journey.state_path(target).parent
+                        _need(not any(p.name!='script-sources.lock' for p in path.iterdir()))
+            except Exception:
+                feature_error=True
             # Release only known E2E source leases before base force-stop, even
             # when full independent retirement could not complete. The feature
             # error and its original journals remain unresolved in that case.
-            if self.pico_configuration is not None:
+            if self.pico_configuration is not None and self._authentication_journey().existing_state_path(target) is not None:
                 journey=self._authentication_journey()
                 for role in ('primary','actor'):
                     try:

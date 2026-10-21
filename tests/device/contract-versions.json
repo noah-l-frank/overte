@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "pico-graphics-feature-binding": {"current": 1, "reads": [1]},
     "graphics-journey-feature": {"current": 1, "reads": [1]},
     "graphics-journey-lifetime": {"current": 1, "reads": [1]},
     "graphics-lifetime-archive": {"current": 1, "reads": [1]},
@@ -129,7 +130,7 @@
     "native-account-menu-controls": {"current": 1, "reads": [1]},
     "pico-authentication-feature-binding": {"current": 1, "reads": [1]},
     "pico-tablet-home-observation": {"current": 1, "reads": [1]},
-    "pico-feature-observer": {"current": 1, "reads": [1]},
+    "pico-feature-observer": {"current": 2, "reads": [1, 2]},
     "native-qml-load-inventory": {"current": 1, "reads": [1]},
     "owned-feature-observer": {"current": 1, "reads": [1]}
   },

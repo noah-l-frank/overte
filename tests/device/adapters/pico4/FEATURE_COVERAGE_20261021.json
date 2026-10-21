@@ -11,12 +11,13 @@
   "full14AdaptersComplete": false,
   "sourceCompleteAreas": [
     "scripts",
-    "authentication"
+    "authentication",
+    "graphics"
   ],
   "deviceQualifiedAreas": [],
   "physicalRuns": 0,
   "historicalOverviewUsedAsAuthority": false,
-  "qualification": "Host simulations and uncompiled source only. Twelve complete Pico areas remain unavailable; missing required capabilities must fail the full run.",
+  "qualification": "Host simulations and uncompiled source only. Eleven complete Pico areas remain unavailable; missing required capabilities must fail the full run.",
   "rows": [
     {
       "area": "world-navigation",
@@ -465,10 +466,17 @@
     {
       "area": "graphics",
       "sharedTestLogic": "present-v16",
-      "picoAdapter": "partial",
-      "completeOperations": [],
+      "picoAdapter": "complete-source-host-verified",
+      "completeOperations": [
+        "feature.graphics.act",
+        "feature.graphics.observe",
+        "feature.graphics.cleanup"
+      ],
       "existingModules": [
-        "render-health"
+        "render-health",
+        "graphics-sources",
+        "stereo-world-render",
+        "feature-graphics (existing common catalog Journey)"
       ],
       "sources": [
         "tests/device/adapters/pico4/normal_graphics.py",
@@ -543,7 +551,14 @@
         "tests/device/adapters/graphics_journey/feature.py",
         "tests/device/adapters/pico4/GRAPHICS_FEATURE_OWNER.md",
         "tests/device/self_tests/test_pico_graphics_feature.py",
-        "tests/device/self_tests/test_pico_graphics_feature_stereo.py"
+        "tests/device/self_tests/test_pico_graphics_feature_stereo.py",
+        "tests/device/adapters/pico4/graphics_journey.py",
+        "tests/device/adapters/pico4/feature_observer.py",
+        "tests/device/adapters/owned_observer.py",
+        "tests/device/adapters/pico4/GRAPHICS_FEATURE.md",
+        "tests/device/self_tests/test_pico_graphics_configuration.py",
+        "tests/device/self_tests/test_pico_graphics_public_binding.py",
+        "tests/device/self_tests/test_pico_graphics_common_engine.py"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -565,12 +580,7 @@
         "mirrorPass",
         "dialog"
       ],
-      "missingOperationsOrEvidence": [
-        "The internal whole-run coordinator now joins normal VR surface/scene/preference/background/restart owners and is directly host verified across all fifteen shared phase definitions. Public operation binding through OverteSession and the complete common Journey runner still require integration and verification. A different camera mode requires actual View-menu input; the restart-only Pico swapchain setting remains outside this generic control profile.",
-        "Public adapter and independent actor configuration/dispatcher around the source-implemented stereo coordinator/observer and paired originals. Direct primary/actor acquisition, all fifteen phase definitions and complete metadata retirement are host verified; no full Graphics public or actor operation is registered yet.",
-        "General common Journey execution, actual public operation and actor dispatch, configuration admission, capability gating and composed negative/recovery integration. Normal background/resume, archive-only activation recovery, one-send restart with old-PID ESRCH, qualified new-process framework transfer and direct original rendering observations are source-implemented.",
-        "Common runner/public dispatch integration of the source-implemented complete quiet/final retirement coordinator. Direct finalization now verifies original UI/QML/XHR/reply/scene/Web-renderer and fresh both-role capture issuer/receipt evidence, actor quiet windows, original world restoration and absence of all live child/parent/final runtime metadata."
-      ],
+      "missingOperationsOrEvidence": [],
       "requiredOriginalEvidence": [
         "Actual native stereo source/target extents and per-eye viewport/projection",
         "Same original executed frame and actual Haze/Mirror passes",
@@ -591,7 +601,7 @@
         "Restore original scene/view and independently observe complete owned UUID absence",
         "Restore original avatar feet/orientation/scale and framework configuration while checking the current physical HMD/camera relation; never demand a fixed Phone head pose or ignore arbitrary local/custom-pointer entities"
       ],
-      "nextExecutableStep": "Integrate the internal coordinator with Pico public feature operations, private configuration and independent actor dispatch; run the full existing common Journey engine through OverteSession with original stereo evidence and composed counterexamples before advertising complete capabilities.",
+      "nextExecutableStep": "Source implementation and host verification are complete. Native compilation and later exact-candidate VR/device qualification remain explicitly outside this no-build/no-device session; continue implementing the other eleven areas locally.",
       "nativeCompilation": "unverified",
       "deviceQualification": "untested"
     },

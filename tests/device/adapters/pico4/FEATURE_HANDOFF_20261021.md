@@ -1,7 +1,7 @@
 # Pico adapter handoff: 2026-10-21
 
-This branch completes two source-level Pico feature areas, Scripts and
-Authentication. The other twelve remain partial or missing
+This branch completes three source-level Pico feature areas: Scripts,
+Authentication and Graphics. The other eleven remain partial or missing
 with concrete missing operations, original evidence, cleanup obligations and
 next executable source steps in the
 [machine coverage matrix](FEATURE_COVERAGE_20261021.json). Every row separately
@@ -17,7 +17,7 @@ device qualification. Native code is uncompiled; no device is tested.
 | Emotes | Partial submitted-code/Rig observations | Actual running source/profile, VR normal controls, timer/caller/pose and stereo avatar evidence |
 | Web in world | Partial native DOM source | Actual controller-ray hit/DOM input, original document/echo journals, response receipt and stereo image join |
 | Web in tablet | Partial native DOM source | VR DOM input plus original inline carrier/retained callback and complete document/cleanup owner |
-| Graphics | Partial normal settings; stereo v2/v3/v4 with executing passes and used camera uniforms | Per-eye effect pixels, original scene/Web lifetimes, independent actor and complete area ownership |
+| Graphics | Complete source; actual public/session/common-engine route, original stereo/effects and independent final retirement host verified | Later compile and qualify the exact E2E candidate on Proxmox; no device work in this session |
 | Audio | Partial normal controls/cycle/history/PCM sources | Whole cycle owner, microphone stimulus, independent acoustic capture/publisher and lifecycle/cleanup join |
 | Chat | Partial normal controls, current native view/cache and peer IPC prerequisites | Independent primary/peer UI/storage/keyboard/delivery ledger and owned mixer/distance/recovery coordinator |
 | Snapshots | Partial private original-output foundation | Actual OS Save backend/authorization, independently acquired receiver/save/upload originals and callback cleanup |
@@ -531,3 +531,23 @@ evidence schema changes nor capability promotion is introduced. Counterexamples
 and the complete direct coordinator/final retirement case still pass. The
 observed complete-case host time fell from 357.601 to 147.544 seconds under
 uncontrolled workstation contention; no device timing is inferred.
+
+
+## Complete source-level Graphics integration
+
+The [Graphics binding](GRAPHICS_FEATURE.md) now connects the existing catalog
+Journey through OverteSession and the actual Pico operation router to normal
+VR input and independent original source readers. All seventeen common engine
+checkpoints and final independent actor/world/resource/metadata retirement pass.
+The source-level complete count is now three of fourteen. Native compilation
+remains unverified and physical runs remain zero.
+
+The private public/actor configuration preserves adapter-only read authority,
+explicit original stereo policy and default-off capability gating. Actor v2
+pins the artifact root and retains v1 Auth/Script compatibility. Graphics keeps
+publishing through the parent retirement plan until its own final quiet window;
+other features retain the existing default. Read-only cleanup inspection no
+longer creates unused Script/Auth/Graphics namespaces. The original invalid-
+candidate navigation cleanup regression passes again. These are test adapter
+changes, not functional product fixes. Continue the other eleven areas; no
+protected/remote/reference/Phone/iOS integration or qualification was performed.

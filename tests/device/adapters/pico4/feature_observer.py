@@ -18,6 +18,8 @@ from adapters.native_feature_observation import exact,need,number
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.owned_observer import run as publish_owned
 from adapters.pico4.authentication_journey import PicoAuthenticationJourney
+from adapters.pico4.graphics_journey import PicoGraphicsJourney,artifact_directory
+from adapters.graphics_journey.fixture import GraphicsPhasePending,GraphicsRunRetired
 from adapters.authentication_journey.fixture import origin
 from adapters.authentication_journey.feature import AuthenticationPhasePending,AuthenticationRunRetired
 from adapters.script_journey.lock import ScriptSourceBusy
@@ -25,25 +27,35 @@ from adapters.pico4.script_journey import PicoScriptJourney
 from adapters.pico4.script_observer import run as publish_scripts
 from feature_journeys.witness import Client
 
-VERSION=1
+VERSION=2
 
 
 def configuration(path):
     value=PrivateFeatureState(path).read()
-    exact(value,{'picoFeatureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'})
-    need(type(value['picoFeatureObserverVersion']) is int and value['picoFeatureObserverVersion']==VERSION
-         and value['area'] in ('authentication','scripts') and type(value['target']) is str and 1<=len(value['target'])<=256
+    graphics=type(value) is dict and value.get('area')=='graphics'
+    exact(value,{'picoFeatureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
+        |({'artifactRoot'} if graphics else set()))
+    need(type(value['picoFeatureObserverVersion']) is int and value['picoFeatureObserverVersion'] in (1,2)
+         and (not graphics or value['picoFeatureObserverVersion']==2)
+         and value['area'] in ('authentication','scripts','graphics') and type(value['target']) is str and 1<=len(value['target'])<=256
          and all(33<=ord(c)<127 for c in value['target'])
          and type(value['candidateArguments']) is list and 1<=len(value['candidateArguments'])<=80
          and all(type(item) is str and bool(item) for item in value['candidateArguments'])
          and number(value['durationSeconds'],30,1800))
     Client(value['fixtureUrl'],value['actorToken']) # Parse only; no transport.
     if value['area']=='authentication':origin(value['fixtureUrl'])
+    if graphics:artifact_directory(value['artifactRoot'])
     return value
 
 
 def run(journey,config,*,monotonic=time.monotonic,sleep=time.sleep):
     if config['area']=='scripts':return publish_scripts(journey,config,monotonic=monotonic,sleep=sleep)
+    if config['area']=='graphics':
+        return publish_owned(config,owner=lambda:journey.graphics_feature_store(config['target']).read(),
+            retirement=lambda:journey.graphics_retirement_store(config['target']).read(),
+            actor=lambda run,client:journey._graphics_feature(config['target'],run,role='actor',client=client),
+            pending=(GraphicsPhasePending,ScriptSourceBusy),retired=GraphicsRunRetired,observe_during_retirement=True,
+            monotonic=monotonic,sleep=sleep)
     need(config['area']=='authentication')
     return publish_owned(config,owner=lambda:journey.authentication_feature_store(config['target']).read(),
         retirement=lambda:journey.authentication_retirement_store(config['target']).read(),
@@ -64,8 +76,10 @@ def main(argv=None):
         need(candidate.native_binding and candidate.kind=='pico' and candidate.action=='describe'
              and candidate.target==config['target'] and candidate.operation is None and candidate.arguments=='{}')
         os.environ['OVERTE_PICO_FEATURE_SCRIPTS']=os.environ['OVERTE_PICO_FEATURE_AUTHENTICATION']='0'
+        os.environ['OVERTE_PICO_FEATURE_GRAPHICS']='0'
         original=binding.create_adapter(candidate,adapter.AndroidAdapter)
-        journey=PicoAuthenticationJourney(original) if config['area']=='authentication' else PicoScriptJourney(original)
+        journey=(PicoAuthenticationJourney(original) if config['area']=='authentication' else
+            PicoGraphicsJourney(original,artifact_root=config['artifactRoot']) if config['area']=='graphics' else PicoScriptJourney(original))
         return run(journey,config)
     except (OSError,RuntimeError,ValueError,TypeError,KeyError,RecursionError):
         print('OVT_PICO_FEATURE_OBSERVER_REJECTED',file=sys.stderr);return 2

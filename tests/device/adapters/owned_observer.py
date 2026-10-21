@@ -8,8 +8,8 @@ from feature_journeys.witness import Client
 VERSION=1
 
 
-def run(config,*,owner,retirement,actor,pending,retired,monotonic=time.monotonic,sleep=time.sleep):
-    need(all(callable(value) for value in (owner,retirement,actor,monotonic,sleep)))
+def run(config,*,owner,retirement,actor,pending,retired,observe_during_retirement=False,monotonic=time.monotonic,sleep=time.sleep):
+    need(type(observe_during_retirement) is bool and all(callable(value) for value in (owner,retirement,actor,monotonic,sleep)))
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
     while True:
@@ -24,7 +24,8 @@ def run(config,*,owner,retirement,actor,pending,retired,monotonic=time.monotonic
             plan=retirement()
             if plan is not None:
                 need(plan.get('kind')=='retirement' and plan.get('runId')==flow.run and plan.get('fixtureUrl')==flow.fixture_url)
-                return 0 # Finalization still independently requires this role's cleanup originals.
+                if not observe_during_retirement:
+                    return 0 # These owners already require this role's cleanup originals before the plan.
             try:flow.publish()
             except retired:return 0
             except pending:pass
