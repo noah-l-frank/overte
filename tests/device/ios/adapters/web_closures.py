@@ -16,10 +16,12 @@ import uuid
 from adapters.native_feature_observation import decode, exact, fresh, integer, need, number
 from adapters.normal_ui import NativeUIError
 
-VERSION = 1
+VERSION = 2
+READS = {1, 2}
 FILE = 'feature-ios-web-closures.json'
 LIMIT = 262144
 KINDS = {'javascript', 'snapshot', 'presentation', 'rule-list', 'notification', 'script-reply', 'download'}
+RESOURCES = {'policy-grant', 'native-view', 'native-bitmap'}
 HEX = '[0-9a-f]{32}'
 
 
@@ -43,7 +45,7 @@ def validate(value, request, pid, epoch):
     command(request)
     exact(value, {'iosWebClosureVersion', 'commandId', 'runId', 'fixtureUrl', 'instance', 'sequence',
                   'processId', 'capturedEpochMs', 'complete', 'contexts'})
-    need(type(value['iosWebClosureVersion']) is int and value['iosWebClosureVersion'] == VERSION
+    need(type(value['iosWebClosureVersion']) is int and value['iosWebClosureVersion'] in READS
          and all(value[k] == request[k] for k in ('commandId', 'runId', 'fixtureUrl'))
          and type(value['instance']) is str and re.fullmatch(HEX, value['instance'])
          and integer(value['sequence'], 1) and integer(value['processId'], 1) and value['processId'] == pid
@@ -52,7 +54,8 @@ def validate(value, request, pid, epoch):
     prefix = request['fixtureUrl'] + 'tickets/'
     previous = 0; descriptors = set()
     for row in value['contexts']:
-        exact(row, {'id', 'descriptor', 'createdEpochMs', 'updatedEpochMs', 'callbacks'})
+        exact(row, {'id', 'descriptor', 'createdEpochMs', 'updatedEpochMs', 'callbacks'}
+              | ({'resources'} if value['iosWebClosureVersion'] >= 2 else set()))
         need(integer(row['id'], previous + 1) and integer(row['createdEpochMs'], 1, value['capturedEpochMs'])
              and integer(row['updatedEpochMs'], row['createdEpochMs'], value['capturedEpochMs']))
         previous = row['id']; descriptor = row['descriptor']
@@ -65,7 +68,8 @@ def validate(value, request, pid, epoch):
         identity = json.dumps(descriptor, sort_keys=True)
         need(identity not in descriptors); descriptors.add(identity)
         exact(row['callbacks'], KINDS)
-        for counters in row['callbacks'].values():
+        if value['iosWebClosureVersion'] >= 2:exact(row['resources'], RESOURCES)
+        for counters in list(row['callbacks'].values()) + list(row.get('resources', {}).values()):
             exact(counters, {'created', 'retired', 'pending'})
             need(integer(counters['created']) and integer(counters['retired'], 0, counters['created'])
                  and integer(counters['pending']) and counters['pending'] == counters['created'] - counters['retired'])
@@ -77,16 +81,17 @@ def continuity(previous, value, pid):
         return
     validate(previous, dict(schemaVersion=1, commandId=previous['commandId'], action='feature-ios-web-closures',
                             runId=previous['runId'], fixtureUrl=previous['fixtureUrl']), pid, previous['capturedEpochMs'])
-    need(value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
+    need(value['iosWebClosureVersion'] == previous['iosWebClosureVersion'] and value['instance'] == previous['instance'] and value['sequence'] > previous['sequence']
          and value['capturedEpochMs'] >= previous['capturedEpochMs']
          and all(value[k] == previous[k] for k in ('runId', 'fixtureUrl', 'processId'))
          and len(value['contexts']) >= len(previous['contexts']) and (previous['complete'] or not value['complete']))
     for old, new in zip(previous['contexts'], value['contexts']):
         need(all(new[k] == old[k] for k in ('id', 'descriptor', 'createdEpochMs'))
              and new['updatedEpochMs'] >= old['updatedEpochMs'])
-        for kind in KINDS:
-            a, b = old['callbacks'][kind], new['callbacks'][kind]
-            need(b['created'] >= a['created'] and b['retired'] >= a['retired'])
+        for collection in ('callbacks', 'resources') if value['iosWebClosureVersion'] >= 2 else ('callbacks',):
+            for kind in old[collection]:
+                a, b = old[collection][kind], new[collection][kind]
+                need(b['created'] >= a['created'] and b['retired'] >= a['retired'])
         if new['callbacks'] != old['callbacks']:
             need(new['updatedEpochMs'] >= old['updatedEpochMs'])
 
@@ -107,6 +112,18 @@ def drained(value, admitted):
     need(bool(admitted['contexts']) and any(c['created'] > 0 for row in admitted['contexts'] for c in row['callbacks'].values())
          and all(c['pending'] == 0 for row in value['contexts'] for c in row['callbacks'].values()))
     return deepcopy(value['contexts'])
+
+
+def drained_native_resources(value, admitted):
+    """Callbacks plus original native view/grant/bitmap implicit-copy absence.
+
+    This remains insufficient for painted software buffers or GPU retirement.
+    """
+    rows = drained(value, admitted)
+    need(admitted['iosWebClosureVersion'] == 2 and value['iosWebClosureVersion'] == 2
+         and all(any(row['resources'][kind]['created'] > 0 for row in admitted['contexts']) for kind in RESOURCES)
+         and all(c['pending'] == 0 for row in value['contexts'] for c in row['resources'].values()))
+    return rows
 
 
 class IOSWebClosures:

@@ -31,7 +31,7 @@ REQUIRED = {
     "feature-account-provider": 2,
     "feature-browser-resources": 1,
     "web-dom-observation": 1,
-    "ios-web-closures": 1,
+    "ios-web-closures": 2,
     "native-web-dom-observation": 1,
     "native-animation-history": 1,
     "native-script-controls": 1,

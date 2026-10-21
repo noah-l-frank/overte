@@ -90,7 +90,8 @@ void WKWebSnapshot::capture() {
     const auto size = _private->state.size();
     QPointer<WKWebSnapshot> owner(this);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
-    const auto featureLease = feature_closures::retain(_private->featureClosureContext, feature_closures::Kind::Snapshot);
+    const auto featureContext = _private->featureClosureContext;
+    const auto featureLease = feature_closures::retain(featureContext, feature_closures::Kind::Snapshot);
 #endif
     @try {
         WKSnapshotConfiguration* configuration = [WKSnapshotConfiguration new];
@@ -118,7 +119,11 @@ void WKWebSnapshot::capture() {
             CGContextRelease(context);
             const auto completed = static_cast<std::uint64_t>(owner->_private->clock.elapsed());
             if (!owner->_private->state.finishSnapshot(generation, size, completed)) { owner->fail(); return; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            emit owner->imageReady(feature_closures::nativeBitmap(pixels, featureContext));
+#else
             emit owner->imageReady(pixels);
+#endif
         }];
     } @catch (NSException*) { _private->nativeCapturePending = false; fail(); }
 }

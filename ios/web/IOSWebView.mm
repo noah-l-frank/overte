@@ -39,6 +39,9 @@
 #include <PathUtils.h>
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+#import <objc/runtime.h>
+#endif
 
 namespace overte::ios {
 struct IOSWebViewNative {
@@ -134,6 +137,19 @@ QVariant qtValue(id value) {
     return {};
 }
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+// This associated token belongs to the actual native view. The ledger contains
+// no strong view reference and does not retire the lease when a QObject dies.
+@interface OverteIOSWebViewLifetime : NSObject {
+@public
+    std::shared_ptr<overte::ios::feature_closures::Lease> lease;
+}
+@end
+@implementation OverteIOSWebViewLifetime
+@end
+static const char overteIOSWebViewLifetimeKey = 0;
+#endif
 
 @interface OverteIOSWebDelegate : NSObject <WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler> {
 @public
@@ -310,6 +326,7 @@ QVariant qtValue(id value) {
 namespace overte::ios {
 struct IOSWebView::Private {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+    std::shared_ptr<feature_closures::Lease> featurePolicyLease;
     const QString featureInstance { QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-') };
     quint64 featureHandle { 0 },featureCreation { 0 },featureSequence { 0 },featureGrant { 0 },featurePage { 0 };
     quint64 featureFinishedGrant { 0 },featureFinishedPage { 0 },featureVerifiedGrant { 0 },featureVerifiedPage { 0 };
@@ -465,6 +482,9 @@ void IOSWebView::scheduleOpen() {
     // The bridge objects stay alive through a possible current Qt invocation.
     if (_private->generation) {
         _private->policy.close(); _private->generation = 0;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+        _private->featurePolicyLease.reset();
+#endif
         _private->document.invalidate(); _private->inlineNavigation.clear(); _private->snapshot.detach();
         _private->bridgeReady = false; _private->bridgeFrame = QUrl();
         _private->deadline.stop(); [_private->view stopLoading];
@@ -510,6 +530,9 @@ bool IOSWebView::observeInlineDocument() {
 
 void IOSWebView::tearDown() {
     _private->policy.close(); // Shared invalidation precedes every native cleanup.
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _private->featurePolicyLease.reset();
+#endif
     QObject::disconnect(_private->inlineRevocationConnection); _private->inlineRevocationConnection = {};
     _private->generation = 0;
     _private->inlineBinding.clear(); _private->inlineNavigation.clear(); _private->inlineMode = false;
@@ -564,6 +587,9 @@ bool IOSWebView::openSource() {
         _private->generation = _private->policy.open(_private->url, surface, _private->identity, _private->documentRoot);
     }
     if (!_private->generation) { return false; }
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    _private->featurePolicyLease = feature_closures::retain(featureClosureContext(), feature_closures::Kind::PolicyGrant);
+#endif
     if (_private->inlineMode && !observeInlineDocument()) {
         return false;
     }
@@ -627,6 +653,11 @@ void IOSWebView::open() {
 #if defined(OVERTE_E2E_FEATURE_TESTS)
             if (featureEnabled() && state.view && state.featureCreation<9007199254740991ULL) { ++state.featureCreation; }
             state.delegate->featureScope = owner->featureClosureContext();
+            if (state.view && state.delegate->featureScope) {
+                OverteIOSWebViewLifetime* lifetime = [OverteIOSWebViewLifetime new];
+                lifetime->lease = feature_closures::retain(state.delegate->featureScope, feature_closures::Kind::NativeView);
+                objc_setAssociatedObject(state.view, &overteIOSWebViewLifetimeKey, lifetime, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            }
 #endif
             state.view.navigationDelegate = state.delegate; state.view.UIDelegate = state.delegate;
             state.view.opaque = state.background;

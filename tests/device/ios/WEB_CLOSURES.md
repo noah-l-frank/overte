@@ -1,6 +1,6 @@
 # Original iOS Web callback ownership
 
-`ios/web/IOSWebClosureTrace.h` supplies a passive version-1 callback ledger for
+`ios/web/IOSWebClosureTrace.h` supplies a passive version-2 callback/native-resource ledger for
 actual owned HTTP fixture contexts. It requires `OVERTE_E2E_FEATURE_TESTS` and
 the existing dedicated test-script/results launch arguments. Outside that
 boundary it creates no leases or native completion handlers.
@@ -44,7 +44,7 @@ nonempty original callback history and fresh retained contexts with zero
 pending callbacks, including newly added contexts. It does not implement a
 quiet window or replace its caller's durable ownership.
 
-Validation: 27 selected no-build cases pass across the new closure parser,
+Validation: 33 selected no-build cases pass across the new closure parser,
 actual HTTP/AFC factory, Node probe and existing shared/iOS Web DOM regressions.
 Counterexamples include held callback copies, lost delivery, disappearing
 contexts, foreign runs/PIDs, source replacement, counter regression, duplicate
@@ -53,8 +53,43 @@ unknown callback kinds. Native hook tests inspect source only. Native callbacks
 and the OS boundary remain synthetic; native compilation and devices are
 unverified.
 
-This facet is not a complete Web or Graphics adapter. WK view deallocation,
-native bitmap copies, QQuick software buffers, renderer texture uploads,
-recycler/GPU allocation retirement, active policy grants and final quiet-window
-composition still require separate original lifetime sources. No full feature
+This facet is not a complete Web or Graphics adapter. QQuick software buffers,
+independent converted images, renderer texture uploads, recycler/GPU allocation
+retirement and final quiet-window composition still require separate original
+lifetime sources. No full feature
 capability is advertised.
+
+## Version 2: native view, grant and bitmap resources
+
+The native writer now emits version 2; Python reads versions 1 and 2 without
+inventing resource counts for legacy packets. Same-process source version
+changes fail continuity. `resources` records cumulative `policy-grant`,
+`native-view` and `native-bitmap` ownership separately from callbacks.
+
+An Objective-C associated token belongs to the actual WKWebView allocation and
+retires its lease when that native object destroys its associated token. The
+token contains no strong WK view reference; Qt object destruction, removing a
+view from its superview or setting the owner's view pointer to nil cannot
+retire another native holder's lease. Native policy leases follow actual
+successful grant creation and synchronous policy close. No policy calls or
+native teardown behavior are added.
+
+A test-only read-only QImage carrier retains the original WK snapshot allocation
+and a lease through its implicit copies, including the view's image and
+`frameSource` copies. Its actual external-data cleanup releases the retained
+original image reference before the lease. Pixels, stride, dimensions and format
+remain original. Failed carrier construction fails the source closed and
+handles both Qt cleanup outcomes without duplicate deletion. Independent deep
+copies, painting, conversion and GPU upload require their own lifetime source;
+the native bitmap carrier does not claim to cover those allocations.
+
+`drained_native_resources()` requires original admission of all three resource
+kinds, retained callbacks and zero pending original native resources. The
+callback-only predicate remains explicitly narrower. The canonical Graphics
+runtime exposes the same existing HTTP/AFC source factory without advertising a
+whole-area capability. Thirty-three selected no-build Web/closure cases pass,
+including each held resource, new retained contexts, missing resource sources,
+legacy packets and counter regressions. Native resource hooks remain uncompiled
+and are checked only by source inspection and synthetic source counterexamples.
+Offscreen/QQuick images, renderer/GPU resources and final quiet composition
+remain unfinished.

@@ -156,6 +156,10 @@ class IOSGraphicsRuntime(IOSScriptRuntime):
         need(callable(intent))
         return self._sources(selector)['observer'].vulkan_world_frame(intent,receipt)
 
+    def _web_closure_observer(self,selector,*,read_only=True):
+        need(read_only is True)
+        return self._sources(selector)['observer'].web_closures()
+
     def _scene_load_observer(self,selector,*,read_only=True):
         need(read_only is True)
         return self._sources(selector)['observer'].scene_loads()

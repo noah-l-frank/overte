@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from adapters.normal_ui import NativeUIError
 from fixture.serve import FixtureState
 from ios.adapters.feature_observation import FeatureObservation
-from ios.adapters.web_closures import IOSWebClosures, KINDS, command, drained
+from ios.adapters.web_closures import IOSWebClosures, KINDS, RESOURCES, command, drained, drained_native_resources
 from self_tests.test_native_feature_observation import Boundary as ClockBoundary, probe_source
 
 RUN = 'a' * 32
@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[4]
 class ClosureBoundary:
     def __init__(self):
         self.time = 0.; self.sequence = 0; self.commands = []; self.request = None
+        self.version = 1; self.resources = {k:dict(created=1,retired=0,pending=1) for k in RESOURCES}
         self.mutate = None; self.alive = True; self.ignored = False; self.retired = 0; self.created = 1
     def send(self, value):
         self.commands.append(deepcopy(value)); self.request = value
@@ -37,8 +38,9 @@ class ClosureBoundary:
                           sourceUrl=URL+'tickets/'+'f'*32+'/graphics-marker.v1.html')
         row = dict(id=1, descriptor=descriptor, createdEpochMs=19000, updatedEpochMs=20000, callbacks=callbacks)
         c = self.request
-        value = dict(iosWebClosureVersion=1, commandId=c['commandId'], runId=RUN, fixtureUrl=URL, instance='b'*32,
+        value = dict(iosWebClosureVersion=self.version, commandId=c['commandId'], runId=RUN, fixtureUrl=URL, instance='b'*32,
                      sequence=self.sequence, processId=42, capturedEpochMs=20000, complete=True, contexts=[row])
+        if self.version >= 2:row['resources']=deepcopy(self.resources)
         if self.mutate:
             self.mutate(value)
         return json.dumps(value)
@@ -198,6 +200,74 @@ if(files.length!==3||files[2].v.complete!==false||'contexts' in files[2].v)throw
         self.assertIn('feature_closures::observe(command)',view)
         self.assertNotIn('rows.clear()',header);self.assertNotIn('rows.erase',header)
         self.assertIn('MAX_CONTEXTS = 1024',header)
+
+
+class NativeResourceTests(unittest.TestCase):
+    def test_callback_drainage_cannot_substitute_for_real_native_view_or_bitmap_retirement(self):
+        b=ClosureBoundary();b.version=2;r=b.reader();admitted=r.read(RUN,URL)
+        b.retired=1;callbacks=r.read(RUN,URL)
+        self.assertTrue(drained(callbacks,admitted))
+        with self.assertRaises(RuntimeError):drained_native_resources(callbacks,admitted)
+        for kind in RESOURCES:b.resources[kind].update(retired=1,pending=0)
+        released=r.read(RUN,URL)
+        self.assertTrue(drained_native_resources(released,admitted))
+        self.assertEqual(1,admitted['contexts'][0]['resources']['native-view']['pending'])
+
+    def test_each_actual_resource_and_new_retained_context_prevent_drainage(self):
+        for kind in RESOURCES:
+            b=ClosureBoundary();b.version=2;r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+            for c in b.resources.values():c.update(retired=1,pending=0)
+            b.resources[kind].update(retired=0,pending=1)
+            with self.subTest(kind=kind),self.assertRaises(RuntimeError):drained_native_resources(r.read(RUN,URL),admitted)
+            b.resources[kind].update(retired=1,pending=0)
+            def new(v):
+                row=deepcopy(v['contexts'][0]);row['id']=2;row['descriptor']['page']=5
+                row['resources'][kind].update(created=2,pending=1);v['contexts'].append(row)
+            b.mutate=new
+            with self.assertRaises(RuntimeError):drained_native_resources(r.read(RUN,URL),admitted)
+
+    def test_legacy_source_is_readable_but_cannot_qualify_native_resources(self):
+        b=ClosureBoundary();r=b.reader();admitted=r.read(RUN,URL);b.retired=1;later=r.read(RUN,URL)
+        self.assertTrue(drained(later,admitted))
+        with self.assertRaises(RuntimeError):drained_native_resources(later,admitted)
+        b.version=2
+        with self.assertRaises(NativeUIError):r.read(RUN,URL)
+
+    def test_missing_unknown_or_unobserved_resource_cannot_become_absence(self):
+        for edit in (lambda v:v['contexts'][0].pop('resources'),
+                     lambda v:v['contexts'][0]['resources'].pop('native-view'),
+                     lambda v:v['contexts'][0]['resources'].update(fake=dict(created=0,retired=0,pending=0)),
+                     lambda v:v['contexts'][0]['resources']['native-view'].update(created=True)):
+            b=ClosureBoundary();b.version=2;b.mutate=edit
+            with self.subTest(edit=edit),self.assertRaises(NativeUIError):b.reader().read(RUN,URL)
+        b=ClosureBoundary();b.version=2;b.resources['native-bitmap'].update(created=0,retired=0,pending=0)
+        r=b.reader();admitted=r.read(RUN,URL);b.retired=1
+        for c in b.resources.values():c.update(retired=c['created'],pending=0)
+        with self.assertRaises(RuntimeError):drained_native_resources(r.read(RUN,URL),admitted)
+
+    def test_original_resource_counters_and_tombstones_cannot_regress(self):
+        for kind in RESOURCES:
+            b=ClosureBoundary();b.version=2;r=b.reader();r.read(RUN,URL)
+            b.resources[kind].update(created=0,retired=0,pending=0)
+            with self.subTest(kind=kind),self.assertRaises(NativeUIError):r.read(RUN,URL)
+            b=ClosureBoundary();b.version=2;b.resources[kind].update(retired=1,pending=0);r=b.reader();r.read(RUN,URL)
+            b.resources[kind].update(retired=0,pending=1)
+            with self.assertRaises(NativeUIError):r.read(RUN,URL)
+
+    def test_native_resource_hooks_follow_actual_owners_without_retaining_the_view(self):
+        view=(ROOT/'ios/web/IOSWebView.mm').read_text();snapshot=(ROOT/'ios/web/WKWebSnapshot.mm').read_text()
+        header=(ROOT/'ios/web/IOSWebClosureTrace.h').read_text()
+        self.assertIn('objc_setAssociatedObject(state.view, &overteIOSWebViewLifetimeKey, lifetime, OBJC_ASSOCIATION_RETAIN_NONATOMIC)',view)
+        token=view[view.index('@interface OverteIOSWebViewLifetime'):view.index('@interface OverteIOSWebDelegate')]
+        self.assertNotIn('WKWebView*',token);self.assertIn('feature_closures::Lease',token)
+        self.assertIn('state.delegate->featureScope, feature_closures::Kind::NativeView',view)
+        self.assertIn('_private->featurePolicyLease.reset()',view)
+        self.assertIn('feature_closures::Kind::PolicyGrant',view)
+        self.assertIn('imageReady(feature_closures::nativeBitmap(pixels, featureContext))',snapshot)
+        self.assertIn('QImage original; // Destroy the original reference before retiring its lease.',header)
+        self.assertIn('owner->cleaned->store(true); delete owner;',header)
+        self.assertNotIn('original.copy()',header)
+        self.assertIn('image.constBits(), image.width(), image.height(), image.bytesPerLine(), image.format()',header)
 
 
 class ClosureTransportTests(unittest.TestCase):

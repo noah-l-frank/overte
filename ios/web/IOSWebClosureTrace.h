@@ -3,8 +3,9 @@
 #pragma once
 #include <QtCore/qglobal.h>
 
-// Passive closure ownership only. This does not prove WK view, software-image
-// or GPU-allocation absence. No product policy, navigation or timer is changed.
+// Passive callback, native view, policy grant and native bitmap ownership.
+// This does not prove software-image or GPU-allocation absence.
+// No product policy, navigation or timer is changed.
 #if defined(Q_OS_IOS) && defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../tests/device/native/IOSWebClosureBridge.h"
 #include <QCoreApplication>
@@ -12,6 +13,7 @@
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QImage>
 #include <QRegularExpression>
 #include <QSet>
 #include <QUrl>
@@ -19,6 +21,7 @@
 #include <QVariantMap>
 #include <QVariantList>
 #include <array>
+#include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -26,10 +29,11 @@
 namespace overte::ios::feature_closures {
 constexpr quint64 LIMIT = 9007199254740991ULL;
 constexpr std::size_t MAX_CONTEXTS = 1024;
-enum class Kind : std::size_t { JavaScript, Snapshot, Presentation, RuleList, Notification, ScriptReply, Download, Count };
+enum class Kind : std::size_t { JavaScript, Snapshot, Presentation, RuleList, Notification, ScriptReply, Download, PolicyGrant, NativeView, NativeBitmap, Count };
 inline const std::array<const char*, static_cast<std::size_t>(Kind::Count)> NAMES {
-    "javascript", "snapshot", "presentation", "rule-list", "notification", "script-reply", "download"
+    "javascript", "snapshot", "presentation", "rule-list", "notification", "script-reply", "download", "policy-grant", "native-view", "native-bitmap"
 };
+constexpr std::size_t CALLBACK_KINDS = 7;
 struct Counters { quint64 created { 0 }, retired { 0 }; };
 struct Row {
     QVariantMap descriptor;
@@ -115,6 +119,34 @@ private:
 inline std::shared_ptr<Lease> retain(const ContextPointer& context, Kind kind) {
     return context ? std::make_shared<Lease>(context, kind) : std::shared_ptr<Lease>();
 }
+// A read-only QImage carrier retains the original allocation and a lease until
+// the last implicit copy is destroyed. Independently painted/converted images
+// need their own source; this carrier cannot prove their allocation absence.
+struct BitmapOwner {
+    std::shared_ptr<std::atomic<bool>> cleaned;
+    std::shared_ptr<Lease> lease;
+    QImage original; // Destroy the original reference before retiring its lease.
+};
+inline QImage nativeBitmap(const QImage& image, const ContextPointer& context) {
+    if (!context || image.isNull()) { return image; }
+    const auto cleaned = std::make_shared<std::atomic<bool>>(false);
+    auto* owner = new BitmapOwner { cleaned, retain(context, Kind::NativeBitmap), image };
+    {
+        QImage carrier(image.constBits(), image.width(), image.height(), image.bytesPerLine(), image.format(),
+            [](void* data) {
+                auto* owner = static_cast<BitmapOwner*>(data);
+                owner->cleaned->store(true); delete owner;
+            }, owner);
+        // Native WK snapshot images have the fresh allocation's default metadata.
+        // Do not transform pixels, dimensions, row stride, format or timestamps.
+        if (!carrier.isNull()) { return carrier; }
+    }
+    // Handle a failed carrier constructor regardless of whether Qt invoked its
+    // external-data cleanup. The failed QImage is already destroyed here.
+    if (!cleaned->load()) { delete owner; }
+    auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex); data.complete = false;
+    return image;
+}
 inline QVariantMap observe(const QVariantMap& request) {
     if (!enabled() || !command(request)) { return {}; }
     auto& data = state(); std::lock_guard<std::mutex> guard(data.mutex);
@@ -124,16 +156,17 @@ inline QVariantMap observe(const QVariantMap& request) {
     const auto prefix = request.value("fixtureUrl").toString() + "tickets/";
     for (const auto& [id, row] : data.rows) {
         if (!row.descriptor.value("sourceUrl").toString().startsWith(prefix)) { continue; }
-        QVariantMap counters;
+        QVariantMap counters, resources;
         for (std::size_t i = 0; i < NAMES.size(); ++i) {
             const auto& counter = row.counters[i];
-            counters.insert(NAMES[i], QVariantMap {{"created", static_cast<qulonglong>(counter.created)},
+            auto& collection = i < CALLBACK_KINDS ? counters : resources;
+            collection.insert(NAMES[i], QVariantMap {{"created", static_cast<qulonglong>(counter.created)},
                 {"retired", static_cast<qulonglong>(counter.retired)}, {"pending", static_cast<qulonglong>(counter.created - counter.retired)}});
         }
         rows.append(QVariantMap {{"id", static_cast<qulonglong>(id)}, {"descriptor", row.descriptor},
-            {"createdEpochMs", row.createdEpochMs}, {"updatedEpochMs", row.updatedEpochMs}, {"callbacks", counters}});
+            {"createdEpochMs", row.createdEpochMs}, {"updatedEpochMs", row.updatedEpochMs}, {"callbacks", counters}, {"resources", resources}});
     }
-    QVariantMap result {{"iosWebClosureVersion", 1}, {"commandId", request.value("commandId")}, {"runId", request.value("runId")},
+    QVariantMap result {{"iosWebClosureVersion", 2}, {"commandId", request.value("commandId")}, {"runId", request.value("runId")},
         {"fixtureUrl", request.value("fixtureUrl")}, {"instance", data.instance}, {"sequence", static_cast<qulonglong>(++data.sequence)},
         {"processId", QCoreApplication::applicationPid()}, {"capturedEpochMs", now}, {"complete", data.complete}, {"contexts", rows}};
     if (QJsonDocument(QJsonObject::fromVariantMap(result)).toJson().size() > 262144) { data.complete = false; return {}; }
