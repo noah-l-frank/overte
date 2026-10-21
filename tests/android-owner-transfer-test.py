@@ -232,7 +232,14 @@ class AndroidOwnerTransferTests(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 gate.validate_tree_wiring(forged)
         generations = gate.packages().workflow_generations()
-        self.assertEqual(len(generations),28)
+        self.assertEqual(len(generations),29)
+        self.assertEqual(hashlib.sha256(json.dumps(generations[:28],sort_keys=True,
+            separators=(',',':')).encode()).hexdigest(),
+            '153e36b07fadbb45ca6fc449b03437627c661d51cfae23a923e7ffa9d33f7194')
+        self.assertEqual(generations[28]['name'],'protected-producer-exact-parent-command-owners-v1')
+        self.assertEqual([path for path in generations[27]['workflows']
+            if generations[27]['workflows'][path]!=generations[28]['workflows'][path]],
+            ['.github/workflows/repository-checks.yml'])
         self.assertEqual(hashlib.sha256(json.dumps(generations[:26],sort_keys=True,
             separators=(',',':')).encode()).hexdigest(),
             '92e641b712f88bcb66808c51d8fe4b95b4cfb8834c0d39b3869adc4587fa7ec8')

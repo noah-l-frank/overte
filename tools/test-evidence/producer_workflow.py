@@ -475,7 +475,7 @@ def project_template(policy, candidate_tree):
     if PLATFORM_TEMPLATE not in candidate_tree:
         return TEMPLATE
     generation = policy.package_policy().validate_tree_wiring(candidate_tree)
-    if generation == source_admission.OPTIONAL_LEAF_GENERATION:
+    if generation in {source_admission.OPTIONAL_LEAF_GENERATION, source_admission.EXACT_PARENT_GENERATION}:
         return OPTIONAL_LEAF_TEMPLATE
     return PLATFORM_TEMPLATE if generation in PLATFORM_GENERATIONS else TEMPLATE
 
@@ -594,6 +594,9 @@ def optional_leaf_current(event, environment, adapter, *, root=ROOT):
     """
     class ReadSource:
         def get(self, endpoint):
+            tree = re.fullmatch(r'git/trees/([0-9a-f]{40})[?]recursive=1', endpoint)
+            if tree is not None:
+                return adapter.api.immutable_tree(tree.group(1))
             return adapter._object(endpoint)
     source_api = ReadSource()
     admitted = source_admission.optional_leaf_import(event, environment, source_api, root)
@@ -621,7 +624,7 @@ def optional_leaf_current(event, environment, adapter, *, root=ROOT):
     identity = {'schema':1, 'kind':'optional-leaf-common-source-decision-v1',
         'binding':binding, 'references':refs, 'controller_digest':admitted['controller_digest'],
         'lookup_digest':admitted['lookup_digest'], 'target_profile':admitted['target_profile'],
-        'original_base_inventory':protocol.digest(previous), 'qualification_unavailable':unavailable}
+        'original_base_inventory':source_admission.digest(previous), 'qualification_unavailable':unavailable}
     host.require(adapter._integrated_current(run_id, 15368, datetime.now(timezone.utc)) == (binding, refs),
         'optional leaf normal integration changed')
     return {'identity':identity, 'digest':protocol.digest(identity), 'run_id':run_id,
@@ -699,13 +702,13 @@ def current_platform_context(candidate, event, environment, adapter, *, root=ROO
         'platform push needs the complete enrolled future generation')
     workflow = refs['integration']['workflow_path']
     template = (PLATFORM_PARENT_TEMPLATE if workflow == '.github/workflows/parent-qualification.yml' else
-        OPTIONAL_LEAF_TEMPLATE if generation == source_admission.OPTIONAL_LEAF_GENERATION else PLATFORM_TEMPLATE)
+        OPTIONAL_LEAF_TEMPLATE if generation in {source_admission.OPTIONAL_LEAF_GENERATION, source_admission.EXACT_PARENT_GENERATION} else PLATFORM_TEMPLATE)
     host.require(workflow in {'.github/workflows/parent-qualification.yml', '.github/workflows/project-tests.yml'}
         and current.get(workflow) == local.get(template), 'platform push workflow is not its fixed recipe')
     # Loading current controllers and deriving ownership grants no execution
     # authority. Original B lookup data may differ only in the fixed seventeen.
     decision = (optional_leaf_current(event, environment, adapter, root=root)
-        if generation == source_admission.OPTIONAL_LEAF_GENERATION and target in source_admission.OPTIONAL_LEAF_TARGETS else None)
+        if generation in {source_admission.OPTIONAL_LEAF_GENERATION, source_admission.EXACT_PARENT_GENERATION} and target in source_admission.OPTIONAL_LEAF_TARGETS else None)
     optional = decision is not None and decision['qualification_unavailable'] is True
     controller = (decision['identity'] if optional else
         postmerge.integrated_controller_for_reuse(policy, previous, current, local, target, root))
@@ -1340,7 +1343,7 @@ def verify_platform_project(candidate, event, environment, adapter, needs):
         if key not in {'protected_full', 'platform_required'}}
     normalized = {key: value for key, value in needs.items() if key != 'platform-tests'}
     normalized['route'] = {**route, 'outputs': ordinary}
-    optional = (generation == source_admission.OPTIONAL_LEAF_GENERATION
+    optional = (generation in {source_admission.OPTIONAL_LEAF_GENERATION, source_admission.EXACT_PARENT_GENERATION}
         and environment.get('GITHUB_EVENT_NAME') == 'push'
         and environment.get('GITHUB_REF','').removeprefix('refs/heads/') in source_admission.OPTIONAL_LEAF_TARGETS
         and plan['host_mode'] == 'full')
