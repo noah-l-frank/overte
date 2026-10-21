@@ -28,7 +28,10 @@ The [Phone Emote run owner](adapters/android-phone/EMOTE_RUN.md) now connects
 setup, ordinary inputs, original role sources, bounded namespace switching and
 input cleanup. [Original admission](adapters/android-phone/EMOTE_ADMISSION.md)
 now gates setup and each current source enforces executable/world approval.
-Complete Emotes still lacks public observations/actor and whole-run retirement; it is not counted as an implemented full triple.
+The [per-role observation owner](adapters/android-phone/EMOTE_ROLE.md) now retains
+original native/image/motion evidence and derives common v17 samples. Complete
+Emotes still lacks its public facade, separately credentialed actor lifecycle
+and whole-run retirement; it is not counted as an implemented full triple.
 These are implementation statuses, not complete product-feature acceptance.
 The [source compatibility review](FEATURE_SOURCE_COMPATIBILITY.md) identifies
 remaining platform Emote prerequisites. Version 5 corrects ordinary override/chooser semantics, adds nine automatic completions and a separate early-restoration check. Version 4 corrects Graphics to immediate settings and independently measured original preferences. Version 2 corrected Scripts to the real file-bundle picker; version 3 corrected

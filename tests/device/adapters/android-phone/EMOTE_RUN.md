@@ -3,9 +3,10 @@
 `PhoneEmoteRun` joins the existing View, Scene, per-role Source, normal Input,
 Background, Namespace and Cleanup Input components under the same source lock.
 This internal owner is not a complete feature adapter and is deliberately not
-registered as `feature.emotes.*`. Public role/image/motion observations,
-independently credentialed actor publication and whole-run resource/file retirement are still
-required. Its private `prepared` phase requires the actual original world/Script/
+registered as `feature.emotes.*`. The [per-role observation owner](EMOTE_ROLE.md)
+now retains original role/image/motion observations. The public facade,
+independently credentialed actor lifecycle and whole-run resource/file retirement
+are still required. Its private `prepared` phase requires the actual original world/Script/
 cache admission and completion of its actual setup children. Native source
 remains uncompiled; device behavior is untested.
 

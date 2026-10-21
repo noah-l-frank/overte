@@ -141,6 +141,20 @@ class PhoneEmoteEffects:
         need(bool(plays) and reference['inputTicket']==plays[-1]['call']['ticket'])
         return self.played(plays[-1],reference['frame'])
 
+    def pending_restore(self,reference,played):
+        """Actual still-playing state after a handled cancel/wait input.
+
+        A consumed input never supplies an inactive native result. This keeps
+        ordinary automatic completion observable while its real timer runs.
+        """
+        row=self.inputs.state['current'];need(row is not None and row['call']['verb'] in ('cancel','wait-complete'))
+        frame=self.after(row,reference);original=self.restore_play(played)
+        proof=playback(frame['group'],original['barrier'],pid=self.source.pid,epoch=frame['epochMs'])
+        need(proof['state']['override'] is True and same(proof['event'],original['event']))
+        state=deepcopy(proof['state']);state['panel']=self.panel(frame)
+        return dict(emotePendingRestoreVersion=1,role=self.source.role,runId=self.source.run,binding=deepcopy(self.source.binding),
+            call=deepcopy(row['call']),frame=deepcopy(reference),played=deepcopy(played),state=state,proof=proof)
+
     def recompute(self,reference,*,played=None,call=None):
         """Reopen actual originals and derive historical state without queries.
 

@@ -44,14 +44,18 @@ def record(value):return _image_record(value,'graphics')
 
 class PhoneGraphicsImages:
     KIND='graphics'
+    LIMIT=LIMIT
 
     @classmethod
     def record(cls,value):return _image_record(value,cls.KIND)
 
+    @classmethod
+    def valid_stage(cls,stage):
+        return type(stage) is int and (stage in (0,1) if cls.KIND=='graphics' else cls.KIND=='emote' and 1<=stage<=256)
+
     def __init__(self,root,binding,run,role,stage,guard,intent,*,monotonic=time.monotonic,timeout=5):
         context(binding);identifier(run)
-        need(role in ('primary','actor') and type(stage) is int
-             and (stage in (0,1) if self.KIND=='graphics' else self.KIND=='emote' and 1<=stage<=256)
+        need(role in ('primary','actor') and self.valid_stage(stage)
              and all(callable(v) for v in (guard,intent,monotonic)) and number(timeout,.01,5))
         self.root,self.binding,self.run,self.role,self.stage=Path(root),deepcopy(binding),run,role,stage
         self.guard,self.intent,self.monotonic,self.timeout=guard,intent,monotonic,timeout
@@ -67,7 +71,7 @@ class PhoneGraphicsImages:
     def _file(self,path,descriptor,value):
         before=os.fstat(descriptor);current=path.lstat()
         for info in (before,current):
-            need(stat.S_ISREG(info.st_mode) and info.st_nlink==1 and info.st_size<=LIMIT
+            need(stat.S_ISREG(info.st_mode) and info.st_nlink==1 and info.st_size<=self.LIMIT
                  and (os.name=='nt' or info.st_uid==os.geteuid() and stat.S_IMODE(info.st_mode)==0o600))
         need((before.st_dev,before.st_ino)==(current.st_dev,current.st_ino)
              ==(value['file']['device'],value['file']['inode']))
@@ -89,19 +93,23 @@ class PhoneGraphicsImages:
         descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
         with os.fdopen(descriptor,'rb') as stream:
             self._file(path,stream.fileno(),value)
-            raw=stream.read(LIMIT+1);self._file(path,stream.fileno(),value)
-        original_pixels(value['capture'],raw)
+            raw=stream.read(self.LIMIT+1);self._file(path,stream.fileno(),value)
+        self.content(value,raw)
         self._budget(started,previous)
         return raw
+
+    def value(self,ticket,capture):
+        return dict(binding=deepcopy(self.binding),runId=self.run,role=self.role,stage=self.stage,
+            ticket=ticket,capture=deepcopy(capture),name=self.KIND+'-'+self.run+'-'+self.role+'-'+str(self.stage)+'-'+str(capture.get('requestId'))+'.png',
+            phase='planned',file=None,**{self.KIND+'ImageVersion':VERSION})
+
+    def content(self,value,raw):original_pixels(value['capture'],raw)
 
     def write(self,ticket,capture,raw):
         """Persist planned/opened intent before bytes; never overwrite a file."""
         started=previous=self._now();previous=self._budget(started,previous)
         identifier(ticket);need(type(capture) is dict)
-        value=dict(binding=deepcopy(self.binding),runId=self.run,role=self.role,stage=self.stage,
-            ticket=ticket,capture=deepcopy(capture),name=self.KIND+'-'+self.run+'-'+self.role+'-'+str(self.stage)+'-'+str(capture.get('requestId'))+'.png',
-            phase='planned',file=None,**{self.KIND+'ImageVersion':VERSION})
-        self.record(value);original_pixels(capture,raw)
+        value=self.value(ticket,capture);self.record(value);self.content(value,raw)
         previous=self._budget(started,previous)
         path=self._path(value)
         need(self.intent(deepcopy(value)) is not False);previous=self._budget(started,previous)
