@@ -136,6 +136,25 @@ The durable per-image owner now persists file/chunk responsibility and pins the
 original GPU source before requesting its frame. It preserves host evidence
 through native release and keeps unresolved ownership after lost responses.
 
+`graphics_world_measurements.py` and `graphics_world_effects.py` now join that
+original Vulkan PNG directly to native settings/scene/view, visible generic Qt
+Graphics controls, real consumer/buffer/PNG retirement and bounded native/host
+clocks. A full-screen tablet remains shown in the independently observed UI;
+pre-HUD image acquisition neither hides it nor mislabels a WDA screenshot. Actual
+GPU allocation ratios remain distinct from requested resolution. Actual original
+RGBA and PNG hashes are both mandatory. The geometry-derived haze/reflection
+statistics are shared pure code with the native-screen component; their
+platform acquisition and original lifetime proofs remain separate.
+
+Thirteen selected no-build world measurement/effect and existing native-screen
+effect regressions pass. New positives cover a visible full-screen Graphics
+dialog, independently differing requested/allocated scale, blue haze and orange
+reflection. Retained copy resources, wrong source/format/PID/pixel hashes, stale
+or uniform pixels, changed challenge alone and incorrect effect colors fail.
+All native/UI/GPU boundaries and pixels are synthetic. The full scene/preference/
+lifecycle/sample/actor coordinator remains unfinished; no Graphics capability is
+advertised by these internal joins.
+
 `graphics_measurements.py` now joins original native settings/subjects/UI,
 two separately fence-completed frames and their actual retained-consumer drain,
 unmodified screen bytes, actual UIKit safe-area/density geometry and a complete
