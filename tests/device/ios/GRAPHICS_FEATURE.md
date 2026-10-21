@@ -123,6 +123,11 @@ actual consumer retirement and a bounded native/host clock acquisition. It keeps
 independent role histories and files and refuses uncertain capture replay.
 Whole-run lifecycle, actor publication and final lifetime composition remain.
 
+The [ordinary background/activation owner](GRAPHICS_LIFECYCLE.md) now binds
+one-send Home/activation to independent original OS PID/app-state and native
+lifecycle/preferences. It reconstructs lost Home delivery while backgrounded
+without requiring native UI. Restart transfer, actor and final lifetime remain.
+
 The existing world-target PNG sampler only reads actual main-mono OpenGL
 framebuffers; Vulkan's product `downloadFramebuffer` remains unimplemented.
 The [completed Vulkan frame source](../native/COMPLETED_FRAME_OBSERVATION.md)

@@ -67,10 +67,12 @@ class SDK(InputSDK):
         self.scene_rows=[];self.fetched=[];self.loads=LoadsSDK();self.loads.rows=[]
         self.subject.source.update(subjectVersion=3,avatarPose={},cameraOrbit={})
         self.core=CoreSDK();self.core.mutate=self.core_packet;self.core_fault=''
+        self.foreground=True;self.native_lifecycle=dict(backgrounds=0,activations=1,launches=1)
         self.target.update(platform='ios',physical=True,probe=dict(kind='ios-documents'))
     def host_epoch(self):return 1700000000000+round(self.clock*1000)
     def epoch(self):return self.host_epoch()+86400000
     def observed(self):return super().observed()|dict(fileControlsVersion=1)
+    def process(self):return super().process()|dict(foreground=self.foreground)
     def initial(self,url):
         self.url=url;self.loads.rows=[load_row(generation=1,resourceSha256=resource_hash(url),
             startedEpochMs=self.epoch(),updatedEpochMs=self.epoch(),releasedEpochMs=self.epoch(),bytes=len(BASELINE))]
@@ -115,10 +117,12 @@ class SDK(InputSDK):
     def core_packet(self,value):
         epoch=self.epoch()-(2000 if self.core_fault=='stale' else 0)
         value.update(processId=42,requestedEpochMs=epoch,capturedEpochMs=epoch,animation={},animationFence={})
+        value['lifecycle']=deepcopy(self.native_lifecycle)
         value['graphics'].update(requestedResolutionScale=self.model.resolution,applicationResolutionScale=self.model.resolution,
             hazeSetting=self.model.haze,mirrorsSetting=self.model.mirrors)
         if self.core_fault=='foreign':value['instance']='f'*32
     def core_post(self,request,timeout):
+        need(self.foreground)
         command=json.loads(request.data);need(command['action']=='feature-native-observe')
         self.core.send(command);self.response=json.dumps(command).encode();return self
     def execute(self,session,operation,values):

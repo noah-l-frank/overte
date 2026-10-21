@@ -14,9 +14,46 @@ from ios.adapters.normal_scripts import IOSScriptIO
 from ios.adapters.graphics_source import IOSGraphicsSource
 from ios.adapters.graphics_surface import IOSGraphicsSurface
 from ios.adapters.script_runtime import IOSScriptRuntime
+from adapters.script_feature.history import unpack,same
+from adapters.normal_feature_state import context
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _graphics_background(self,selector,client,run,lock):
+        from ios.adapters.graphics_lifecycle import IOSGraphicsBackground
+        return IOSGraphicsBackground.recover(self,selector,client,run,lock)
+
+    def _graphics_lifecycle_status(self,selector,binding):
+        context(binding);source=self._existing(selector);client,session,state,target,scope=source
+        gate=self.adapter._binding(selector,client,session,state,target)
+        before=gate.continuity(allow_background=True)
+        need(same(dict(scope,processIdentity=str(before['pid'])),binding))
+        app_state=self.adapter.query_app_state(client,session,target)
+        after=gate.continuity(allow_background=True)
+        need(type(app_state) is int and app_state in (2,3,4) and same(before,after)
+             and after['foreground']==(app_state==4) and self.adapter._scope(selector,session,state,target)==scope)
+        return dict(binding=dict(scope,processIdentity=str(after['pid'])),foreground=after['foreground'],running=True,appState=app_state)
+
+    def invoke(self,selector,operation,values):
+        # Full feature owners persist the exact one-send lifecycle phase first.
+        # This cannot install/create a session or bypass candidate source checks.
+        need(operation in ('lifecycle.background','app.launch') and values=={})
+        value=PrivateFeatureState(self.state_path(selector).with_name('ios-graphics-background.json')).read()
+        from ios.adapters.graphics_lifecycle import VERSION
+        from feature_journeys.contract import arguments
+        need(type(value) is dict and type(value.get('iosGraphicsBackgroundVersion')) is int
+             and value['iosGraphicsBackgroundVersion']==VERSION)
+        rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
+        call=arguments('feature.graphics.act',state['arguments'])
+        need(call['verb']=='background-resume' and call['runId']==value['runId'] and call['fixtureUrl']==value['fixtureUrl']
+             and state['phase']==('background-issued' if operation=='lifecycle.background' else 'foreground-issued'))
+        packet=self._graphics_lifecycle_status(selector,state['binding'])
+        need(packet['foreground']==(operation=='lifecycle.background'))
+        base=self.adapter;outer=base._operation;need(outer in (None,'feature.graphics.act'))
+        base._operation=None
+        try:return base.invoke(selector,operation,{})
+        finally:base._operation=outer
+
     def _graphics_samples(self,selector,client,run,role,stage,lock,artifact_root,image_policy,*,cleanup_only=False):
         from ios.adapters.graphics_samples import IOSGraphicsSamples
         return IOSGraphicsSamples(self,selector,client,run,role,stage,lock,artifact_root,image_policy,cleanup_only=cleanup_only)
