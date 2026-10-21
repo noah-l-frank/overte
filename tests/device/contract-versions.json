@@ -78,6 +78,7 @@
     "phone-emote-pixels": {"current": 1, "reads": [1]},
     "phone-emote-images": {"current": 1, "reads": [1]},
     "phone-emote-capture": {"current": 1, "reads": [1]},
+    "phone-emote-capture-retirement": {"current": 1, "reads": [1]},
     "phone-emote-observation": {"current": 1, "reads": [1]},
     "phone-emote-originals": {"current": 1, "reads": [1]},
     "graphics-subject": {"current": 2, "reads": [2]},

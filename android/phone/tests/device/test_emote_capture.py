@@ -23,7 +23,7 @@ from adapters.owned_world_render import WorldRenderOwner
 from adapters.world_render_evidence import image_name
 from feature_journeys.fixtures import marker_bytes
 from overte_phone_emote_capture import PhoneEmoteCapture
-from overte_phone_script_history import unpack
+from overte_phone_script_history import pack,unpack
 from test_emote_effects import EffectsModel
 from test_emote_pixels import Pair,POLICY
 from test_emote_sources import RUN,TICKET
@@ -100,6 +100,83 @@ class EmoteCaptureTests(unittest.TestCase):
     def setUp(self):
         temporary=tempfile.TemporaryDirectory(prefix='overte-emote-capture-');self.addCleanup(temporary.cleanup)
         self.model=Model(Path(temporary.name))
+
+    def test_parent_retains_exact_complete_child_and_source_originals_before_metadata_removal(self):
+        m=self.model;retained=[]
+        with m.lock.held():
+            owner=m.capture();owner.read(TICKET);original=deepcopy(owner.previous)
+            def retain(proof):
+                self.assertEqual(original,owner.store.read());self.assertEqual(original,proof['header'])
+                self.assertEqual(owner.source_header,proof['sourceHeader']);retained.append(deepcopy(proof))
+            result=owner.cleanup(retain=retain);self.assertIsNone(owner.store.read())
+            self.assertEqual(result,retained[0]['cleanup'])
+            calls=len(m.world.calls);reopened=PhoneEmoteCapture.retirement_archive(retained[0],owner.source,1,POLICY)
+            self.assertEqual(retained[0],reopened);self.assertEqual(calls,len(m.world.calls))
+            self.assertTrue(result['completeImageRecord']);self.assertIsNone(reopened['partialFile'])
+
+    def test_lost_native_capture_return_retains_failed_cleanup_originals_without_new_capture(self):
+        m=self.model;m.capture_fault='lost-return';retained=[]
+        with m.lock.held():
+            owner=m.capture()
+            with self.assertRaises(NativeUIError):owner.read(TICKET)
+            owner=m.capture();result=owner.cleanup(retain=lambda proof:retained.append(deepcopy(proof)))
+            self.assertFalse(result['completeImageRecord']);self.assertEqual(1,m.world.counters['capture'])
+            self.assertEqual(retained[0],PhoneEmoteCapture.retirement_archive(retained[0],owner.source,1,POLICY))
+            with self.assertRaises(NativeUIError):PhoneEmoteCapture.archive(retained[0]['header'],owner.source,1,POLICY)
+
+    def test_partial_image_retention_measures_actual_incomplete_bytes_and_rejects_subsequent_changes(self):
+        m=self.model;retained=[]
+        with m.lock.held():
+            owner=m.capture();write=owner.store.write
+            def lost(value,previous):
+                write(value,previous);image=unpack(value['payload'])[0]['image']
+                if image is not None and image['phase']=='opened':raise RuntimeError('Synthetic lost opened metadata return')
+            with patch.object(owner.store,'write',side_effect=lost),self.assertRaises(NativeUIError):owner.read(TICKET)
+            owner=m.capture();image=owner.state['image'];path=m.root/image['name'];self.assertEqual(0,path.stat().st_size)
+            result=owner.cleanup(retain=lambda proof:retained.append(deepcopy(proof)))
+            self.assertTrue(result['retainedPartialImage']);self.assertFalse(result['completeImageRecord'])
+            partial=retained[0]['partialFile'];self.assertEqual(0,partial['bytes']);self.assertEqual(hashlib.sha256(b'').hexdigest(),partial['sha256'])
+            self.assertNotEqual(image['capture']['source']['image']['sha256'],partial['sha256'])
+            PhoneEmoteCapture.retirement_archive(retained[0],owner.source,1,POLICY)
+            path.write_bytes(b'changed diagnostic')
+            with self.assertRaises(NativeUIError):PhoneEmoteCapture.retirement_archive(retained[0],owner.source,1,POLICY)
+
+    def test_failed_or_slow_parent_retention_does_not_discard_child_responsibility(self):
+        for fault in ('rejected','exception','slow','lost-guard','changed-header','new-owner','missing-image'):
+            temporary=tempfile.TemporaryDirectory(prefix='overte-emote-retention-');self.addCleanup(temporary.cleanup)
+            m=Model(Path(temporary.name))
+            with self.subTest(fault=fault),m.lock.held():
+                owner=m.capture();owner.read(TICKET)
+                def retain(proof):
+                    if fault=='rejected':return False
+                    if fault=='exception':raise RuntimeError('Synthetic failed retention')
+                    if fault=='slow':m.clock+=6
+                    elif fault=='lost-guard':m.okay=False
+                    elif fault=='changed-header':owner.store.discard(owner.previous)
+                    elif fault=='new-owner':
+                        store=PrivateFeatureState(m.world_root/'world-primary.json');store.write(proof['cleanup']['retirement']['owner'],None)
+                    else:(m.root/owner.state['image']['name']).unlink()
+                with self.assertRaises((NativeUIError,RuntimeError,OSError)):owner.cleanup(retain=retain)
+                if fault!='changed-header':self.assertIsNotNone(owner.store.read())
+
+    def test_retirement_archive_rejects_foreign_role_binding_proof_and_missing_original_source(self):
+        m=self.model;retained=[]
+        with m.lock.held():
+            owner=m.capture();owner.read(TICKET);owner.cleanup(retain=lambda proof:retained.append(deepcopy(proof)))
+            for fault in ('version','role','header','cleanup','partial','birth'):
+                value=deepcopy(retained[0])
+                if fault=='version':value['emoteCaptureRetirementVersion']=True
+                elif fault=='role':value['sourceHeader']['role']='actor'
+                elif fault=='header':value['header']['binding']['processIdentity']='32:foreign'
+                elif fault=='cleanup':value['cleanup']['completeImageRecord']=False
+                elif fault=='partial':value['partialFile']=dict(expectedSha256='f'*64)
+                else:
+                    state=unpack(value['header']['payload'])[0];state['avatarBefore']['instance']='b'*32;value['header']['payload']=pack([state])
+                with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError,OSError)):
+                    PhoneEmoteCapture.retirement_archive(value,owner.source,1,POLICY)
+            manifest=owner.source.originals.manifest(owner.source.state['manifests'][0]);original=owner.source.originals.expand(manifest[0])
+            owner.source.originals.path(original).unlink()
+            with self.assertRaises((NativeUIError,OSError)):PhoneEmoteCapture.retirement_archive(retained[0],owner.source,1,POLICY)
     def test_original_capture_png_and_independent_memory_receipt_absence_precede_completion(self):
         m=self.model
         with m.lock.held():

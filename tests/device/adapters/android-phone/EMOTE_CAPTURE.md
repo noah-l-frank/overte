@@ -126,6 +126,41 @@ clear the parent's pending responsibility. If the app is backgrounded, its
 ordinary lifecycle owner must first establish the authorized foreground cleanup
 scope. This component performs no background activation, repair or restart.
 
+## Parent retention before child metadata removal
+
+`cleanup(retain=callback)` adds a bounded parent transfer. The callback receives
+an exact `emoteCaptureRetirementVersion:1` record with `sourceHeader` (the original
+source journal/immutable-file references), `header` (the exact updated child
+journal including original native buffer/callback/issuer-file proof), `cleanup`
+(the existing v1 cleanup result), and `partialFile` (null or actual diagnostic
+metadata). The callback must durably retain the exact private record before
+returning. Returning false, throwing, losing the candidate guard, exceeding the
+five-second operation budget, changing headers or introducing another render
+owner prevents child metadata removal. The child originals are reopened both
+before and after parent retention IO. Missing/replaced source/PNG files remain
+errors. The enclosing feature owner must use this callback when transferring
+responsibility; the legacy callback-free component API alone establishes no
+parent retention or full-run cleanup.
+
+A partial image has exactly `name`, original `file:{device,inode}`, measured
+`bytes` and measured lowercase `sha256`. These come from the actual owned
+incomplete private file, including a possible empty file. Its expected full PNG
+digest/length is never returned as measured diagnostic data. Planned files must
+remain absent; foreign files are neither adopted nor removed. Partial files stay
+retained and are never decoded/published as valid images.
+
+`PhoneEmoteCapture.retirement_archive(record,source,index,policy)` independently
+reopens the retained original source files and owned image/diagnostic bytes,
+validates exact role/run/candidate/process/native birth and historical cleanup
+proof, and returns the original record. It works after child metadata removal
+and issues no target query. Original model/capture proof and measured partial
+bytes must remain unchanged. Failed captures remain failed, including lost GPU
+returns, even if their native resources were safely retired. This historical
+record is not a new memory inventory, fresh image or whole-feature verdict;
+the full coordinator must still prove its final quiet window and resource
+absence, preserve failure status, recover interrupted parent scopes and retire
+all other run ownership.
+
 Nineteen acquisition host cases plus a general-cleanup counterexample exercise
 actual Python readers, private source/PNG/metadata files and real render owner/
 receipt logic against synthetic native boundaries. They cover lost results,

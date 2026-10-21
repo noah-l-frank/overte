@@ -2,6 +2,7 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import hashlib
 import math
 import os
 import time
@@ -12,7 +13,7 @@ from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.owned_world_render import OwnedWorldRenderCapture,WorldRenderOwner
-from adapters.world_render_evidence import validate as capture_packet
+from adapters.world_render_evidence import validate as capture_packet,LIMIT
 from feature_journeys.contract import identifier
 from feature_journeys.phase_fixture import validate as phase_packet
 from overte_phone_emote_sources import PhoneEmoteSources
@@ -223,9 +224,54 @@ class PhoneEmoteCapture:
         end=source.monotonic();need(number(end,started,1e15) and end-started<5)
         return returned
 
+    def diagnostic(self):
+        """Validate retained image ownership, measuring incomplete bytes only."""
+        image=self.state['image']
+        if image is None:return None
+        images=self.images()
+        if image['phase']=='saved':images.read(image);return None
+        if image['phase']=='planned':need(images.absent(image));return None
+        path=images._path(image);descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+        with os.fdopen(descriptor,'rb') as stream:
+            images._file(path,stream.fileno(),image);raw=stream.read(LIMIT+1)
+            images._file(path,stream.fileno(),image)
+            need(len(raw)==os.fstat(stream.fileno()).st_size)
+        return dict(name=image['name'],file=deepcopy(image['file']),bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
+
+    @classmethod
+    def retirement_archive(cls,value,source,index,policy):
+        """Historical failed/complete cleanup evidence, never an image result."""
+        need(isinstance(source,PhoneEmoteSources) and integer(index,1,256));source.lock.assert_held()
+        started=source.monotonic();need(number(started,0,1e15) and source.guard() is not False)
+        exact(value,{'emoteCaptureRetirementVersion','sourceHeader','header','cleanup','partialFile'})
+        need(type(value['emoteCaptureRetirementVersion']) is int and value['emoteCaptureRetirementVersion']==1
+            and type(value['sourceHeader']) is dict and value['sourceHeader'].get('role')==source.role)
+        _state,frames=PhoneEmoteSources.archive(value['sourceHeader'],phase=source.phase,artifact_root=source.artifact_root,
+            binding=source.binding,guard=source.guard,monotonic=source.monotonic);need(bool(frames))
+        scope=object.__new__(cls);scope.source,scope.index,scope.policy=source,index,deepcopy(policy)
+        scope.run,scope.role,scope.binding,scope.pid=source.run,source.role,deepcopy(source.binding),source.pid
+        scope.guard,scope.root,scope.monotonic=source.guard,source.artifact_root,source.monotonic
+        exact(policy,{'source','marker','subject'});need(policy['source']=='world-render-target')
+        scope.state=scope.decode(value['header']);state=scope.state
+        if state['captureIntent'] is not None:need(state['retirement'] is not None)
+        if state['providerBefore'] is not None:
+            need(scope._phase(state['providerBefore'])==frames[-1]['phaseAfter']['activations'][-1]['ticket'])
+        for key in ('avatarBefore','avatarAfter','capture'):
+            if state[key] is not None:need(state[key]['instance']==frames[-1]['group']['native']['instance'])
+        diagnostic=scope.diagnostic();need(same(diagnostic,value['partialFile']))
+        expected=dict(emoteCaptureCleanupVersion=VERSION,completeImageRecord=state['phase']=='complete',
+            retirement=state['retirement'],retainedPartialImage=diagnostic is not None)
+        need(same(value['cleanup'],expected))
+        if state['phase']=='complete':
+            raw=scope.images().read(state['image'])
+            original_pixels(scope.run,scope.frame(),raw,scope.pid,state['avatarAfter']['capturedEpochMs'],scope.policy)
+        result=deepcopy(value);source.lock.assert_held();need(source.guard() is not False)
+        end=source.monotonic();need(number(end,started,1e15) and end-started<5);return result
+
     @operation
-    def cleanup(self):
+    def cleanup(self,*,retain=None):
         """Retire this image scope; failed captures never become successful images."""
+        need(retain is None or callable(retain))
         self._bound();need(not self.failed and self.previous is not None and same(self.store.read(),self.previous))
         state=self.decode(self.previous);need(same(state,self.state))
         owned=self._owned();current=owned.owner.store.read()
@@ -233,19 +279,18 @@ class PhoneEmoteCapture:
             need(state['captureIntent'] is not None and same(owned.owner.owned()['capture'],state['captureIntent']))
             self._release(owned)
         elif state['captureIntent'] is not None:need(state['retirement'] is not None)
-        image=self.state['image'];diagnostic=False
-        if image is not None:
-            images=self.images()
-            if image['phase']=='saved':images.read(image)
-            elif image['phase']=='planned':need(images.absent(image))
-            else:
-                # Retain an actually owned partial file as failed private
-                # evidence. It is never decoded or published as a valid image.
-                path=images._path(image);descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
-                with os.fdopen(descriptor,'rb') as stream:images._file(path,stream.fileno(),image)
-                diagnostic=True
+        diagnostic=self.diagnostic()
         need(owned.owner.store.read() is None);self._bound()
         result=deepcopy(dict(emoteCaptureCleanupVersion=VERSION,completeImageRecord=self.state['phase']=='complete',
-            retirement=self.state['retirement'],retainedPartialImage=diagnostic))
+            retirement=self.state['retirement'],retainedPartialImage=diagnostic is not None))
+        if retain is not None:
+            proof=dict(emoteCaptureRetirementVersion=1,sourceHeader=deepcopy(self.source_header),header=deepcopy(self.previous),
+                cleanup=deepcopy(result),partialFile=diagnostic)
+            self.retirement_archive(proof,self.source,self.index,self.policy);self._bound()
+            need(retain(deepcopy(proof)) is not False);self._bound()
+            # IO inside the parent retention callback cannot authorize loss of
+            # child metadata if originals, candidate or ownership changed.
+            self.retirement_archive(proof,self.source,self.index,self.policy)
+            need(owned.owner.store.read() is None);self._bound()
         self._bound();self.store.discard(self.previous);need(self.store.read() is None);self._bound()
         return result
