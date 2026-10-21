@@ -66,6 +66,16 @@ def controlled(clip,name,epoch):
     need(value['blend']=='normal' and actual['parser']=='fbx-full-v1' and type(clip.get('url')) is str
         and actual['sourceUrlSha256']==hashlib.sha256(clip['url'].encode('utf-8')).hexdigest()
         and actual['frames']==clip['loadedFrames'])
-    expected=next(row for row in pins()['animations'] if row['name']==name)
-    need(actual['bytes']==expected['bytes'] and actual['sha256']==expected['sha256'])
+    controlled_model(actual,name,clip['url'],epoch)
     return deepcopy(value)
+
+
+def controlled_model(actual,name,url,epoch):
+    """Validate an original parsed model against an independently observed URL."""
+    need(name in NAMES and type(url) is str and 1<=len(url)<=4096);model(actual,epoch)
+    parsed=urlsplit(url)
+    need(parsed.scheme in ('file','qrc') and not parsed.netloc and not parsed.query and not parsed.fragment
+        and parsed.path.rsplit('/',1)[-1]==name+'.fbx' and actual['parser']=='fbx-full-v1'
+        and actual['sourceUrlSha256']==hashlib.sha256(url.encode()).hexdigest())
+    expected=next(row for row in pins()['animations'] if row['name']==name)
+    need(actual['bytes']==expected['bytes'] and actual['sha256']==expected['sha256']);return deepcopy(actual)

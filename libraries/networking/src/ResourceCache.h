@@ -281,6 +281,10 @@ protected:
 private:
     friend class Resource;
     friend class ScriptableResourceCache;
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    // Read-only animation inventory; no getResource/ensureLoading side effects.
+    friend class AnimationCache;
+#endif
 
     void reserveUnusedResource(qint64 resourceSize);
     void removeResource(const QUrl& url, size_t extraHash, qint64 size = 0);

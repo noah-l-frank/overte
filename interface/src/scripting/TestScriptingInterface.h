@@ -170,6 +170,7 @@ public slots:
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptRoots(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap featureAnimationInventory(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureScriptWork(const QVariantMap& command);
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     Q_INVOKABLE QVariantMap phoneScriptFileUi(const QVariantMap& command);
@@ -256,6 +257,7 @@ private:
     quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
     quint64 _featureScriptSequence {0};
     quint64 _featureScriptRootsSequence {0};
+    quint64 _featureAnimationInventorySequence {0};
     quint64 _featureScriptWorkSequence {0};
     QVariantMap _featureScriptWorkCommand, _featureScriptWorkResult;
 #if defined(ANDROID_APP_PHONE_INTERFACE)

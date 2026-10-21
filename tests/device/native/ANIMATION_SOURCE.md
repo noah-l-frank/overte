@@ -69,9 +69,9 @@ The reader inherits source-group freshness and owning Phone deadlines (1.5
 seconds for fresh evidence, 5 seconds for one bounded owning acquisition); it
 performs no transport, polling or implicit retry. Unknown/oversized/foreign
 content fails the known-content join. No fallback hashes the requested URL or
-rereads disk in place of consumed bytes. Passive cache readiness is a separate
-required component; this record alone does not establish that every Emote can
-start.
+rereads disk in place of consumed bytes. [Passive cache readiness](ANIMATION_INVENTORY.md)
+is a separate required join; this record alone does not establish that every
+Emote can start.
 
 No additional timer, input, file, entity or network operation is created.
 Metadata disappears with its original clip/model; weak registry entries are

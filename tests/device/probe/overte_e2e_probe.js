@@ -309,6 +309,7 @@
         return /^(?:settings\.entry|graphics\.(?:settings-entry|haze|mirrors))$/.test(String(request.controlId));
     }
     var lastScriptRootsRequest = "";
+    var lastAnimationInventoryRequest = "";
     var lastScriptWorkRequest = "";
     var scriptWorkTimer = null;
     var lastProcessPresenceRequest = "";
@@ -1404,6 +1405,24 @@
             }
             return true;
         }
+        if (command && command.action === "feature-animation-inventory-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action"])
+                    && command.commandId !== lastAnimationInventoryRequest) {
+                lastAnimationInventoryRequest=command.commandId;
+                var animationInventory={animationInventoryVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureAnimationInventory === "function") {
+                        var originalAnimationInventory=Test.featureAnimationInventory(command);
+                        if (originalAnimationInventory && originalAnimationInventory.commandId === command.commandId) { animationInventory=originalAnimationInventory; }
+                    }
+                } catch (_animationInventoryError) { /* Missing cache evidence never triggers a load. */ }
+                Test.saveObject(animationInventory,"feature-animation-inventory.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-script-roots-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -2073,7 +2092,7 @@
                 || command.action === "feature-phone-web-runtime-observe"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
                 || command.action === "feature-process-presence" || command.action === "feature-script-roots-observe"
-                || command.action === "feature-script-work-observe"
+                || command.action === "feature-script-work-observe" || command.action === "feature-animation-inventory-observe"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "phone-login-ui" || command.action === "phone-create-ui" || command.action === "phone-chat-ui"

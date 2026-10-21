@@ -38,6 +38,9 @@ public:
 
     Q_INVOKABLE AnimationPointer getAnimation(const QString& url) { return getAnimation(QUrl(url)); }
     Q_INVOKABLE AnimationPointer getAnimation(const QUrl& url);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    QVariantMap featureResourceObservation();
+#endif
 
 protected:
     virtual QSharedPointer<Resource> createResource(const QUrl& url) override;
@@ -73,6 +76,7 @@ public:
     const QVector<HFMAnimationFrame>& getFramesReference() const;
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     QVariantMap featureSourceForModel(const HFMModel* original) const;
+    QVariantMap featureResourceObservation() const;
 #endif
     
 protected:

@@ -53,6 +53,7 @@
 #include <QUuid>
 #include <QTimer>
 #include <ScriptEngines.h>
+#include <AnimationCache.h>
 #if defined(ANDROID_APP_PHONE_INTERFACE)
 #include "../../../tests/device/native/ScriptFileUi.h"
 #include "../../../tests/device/native/PhoneAvatarConfiguration.h"
@@ -660,6 +661,29 @@ QVariantMap TestScriptingInterface::featureScriptWork(const QVariantMap& command
         {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
         {"capturedEpochMs",captured},{"source",source}};
     _featureScriptWorkCommand=command;_featureScriptWorkResult=result;return result;
+}
+
+QVariantMap TestScriptingInterface::featureAnimationInventory(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureAnimationInventory(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto keys=json.keys();
+    const auto id=json.value("commandId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || _featureAnimationInventorySequence>=1000000000
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action"}
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue(QStringLiteral("feature-animation-inventory-observe"))
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch()) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();QVariantMap source{{"complete",false}};
+    // isSet is essential: an observer must not instantiate a cache or resource.
+    if (DependencyManager::isSet<AnimationCache>()) { source=DependencyManager::get<AnimationCache>()->featureResourceObservation(); }
+    return {{"animationInventoryVersion",1},{"commandId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureAnimationInventorySequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},{"source",source}};
 }
 
 QVariantMap TestScriptingInterface::featureScriptRoots(const QVariantMap& command) {

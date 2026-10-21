@@ -21,6 +21,15 @@ NAMES=('Crying','Surprised','Dancing','Cheering','Waving','Fall','Pointing','Cla
 GROUP={'rootsBefore','script','native','rootsAfter'}
 
 
+def asset_urls(selected):
+    """Fixed animation directory relative to the original physical source."""
+    relative='../assets/animations/' if selected['profile']['sourcePath'].endswith('/phoneEmote.js') else 'assets/animations/'
+    assigned=urlsplit(selected.get('sourceUrl',selected['assignedUrl']))
+    directory=normpath(join(dirname(assigned.path),relative))+'/'
+    base='qrc:'+directory if assigned.scheme=='qrc' else urlunsplit((assigned.scheme,'',directory,'',''))
+    return {base+name+'.fbx':name for name in NAMES}
+
+
 def source(group,pid,epoch):
     exact(group,GROUP)
     selected=select_from_roots(group['script'],group['rootsBefore'],group['rootsAfter'],pid=pid,epoch=epoch)
@@ -42,14 +51,9 @@ def source(group,pid,epoch):
             and typed_equal(row['pose'],current['animation']['joints'][row['index']]) for row in last['joints']))
     # Path selection follows actual submitted source and its original assigned
     # physical URL. The observed native clip selects a name from this inventory.
-    relative='../assets/animations/' if selected['profile']['sourcePath'].endswith('/phoneEmote.js') else 'assets/animations/'
     # urllib.urljoin does not resolve Qt's qrc scheme. Resolve only this fixed
     # reviewed relative directory against the original physical assigned URL.
-    assigned=urlsplit(selected.get('sourceUrl',selected['assignedUrl']))
-    directory=normpath(join(dirname(assigned.path),relative))+'/'
-    base='qrc:'+directory if assigned.scheme=='qrc' else urlunsplit((assigned.scheme,'',directory,'',''))
-    urls={base+name+'.fbx':name for name in NAMES}
-    return selected,current,urls
+    return selected,current,asset_urls(selected)
 
 
 def continuation(before,current,pid):
