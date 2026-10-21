@@ -19,6 +19,7 @@ from self_tests.test_pico_graphics_composition import composition
 class Model(Base):
     def __init__(self):
         super().__init__();self.fixture=Source();self.raw,self.body,_=self.fixture.acquire()
+        self.surface_haze=True;self.surface_mirror=True
         self.client.graphics_instance=self.fixture.provider.instance
         self.subject.source=deepcopy(self.body['subjectBefore']['source'])
         self.ui.shown=True;self.ui.controls=deepcopy(self.body['graphics']['controls'])
@@ -28,7 +29,7 @@ class Model(Base):
         owned=super()._world_render_capture(*args,**options);send=owned.capture.send
         def stimulus(*,card_ticket):
             for stem in ('graphics-haze-code.v1','graphics-reflection-code.v1'):self.fixture.deliver(self.active,stem+'.png')
-            return SurfacePixels(ticket=card_ticket)
+            return SurfacePixels(ticket=card_ticket,haze=self.surface_haze,mirror=self.surface_mirror)
         def capture(command):
             with patch('self_tests.test_pico_graphics_samples.JourneyPixels',side_effect=stimulus):return send(command)
         owned.capture.send=capture;return owned

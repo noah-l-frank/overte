@@ -973,5 +973,38 @@
       "Original composition IDs now use the same canonical UUID representation as the independent native framework source."
     ],
     "limits": "Host simulations establish adapter/test logic only. Original open-tablet proof does not supply whole public/actor orchestration, normal background/restart, new-process framework adoption or combined UI/HTTP/Web/scene/capture quiet retirement. Scripts and Authentication remain the only two complete source-level areas."
+  },
+  "graphicsRoleObserverPacket": {
+    "contracts": [
+      "graphics-journey-observer v1",
+      "graphics-journey-readiness v1",
+      "graphics-journey-effects v1"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_observer self_tests.test_pico_graphics_samples self_tests.test_pico_graphics_surface_samples (from tests/device)",
+        "tests": 22,
+        "status": "passed",
+        "durationSeconds": 36.027
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test stereo-world-render --test suite-runner --test coverage-matrix",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 71.51,
+        "junit": "graphics-role-observer-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.34,
+        "junit": "graphics-role-observer-project.xml"
+      }
+    ],
+    "limits": "Internal role observer, not full public/actor dispatch. Synthetic native/UI/GPU/OS boundaries with actual paired-file/source-owner/fixture-journal logic. Complete feature, normal lifecycle/restart/new-process framework and all quiet cleanup remain open."
   }
 }

@@ -10,7 +10,7 @@ from adapters.pico4.graphics_source import resources as graphics_resources
 from adapters.script_journey.files import validate as tablet_packet
 from adapters.script_ui_inventory import validate as tablet_inventory
 from adapters.world_render_evidence import measured_scale
-from feature_journeys.stereo_graphics_evidence import analyse,policy,SURFACE_PROFILE
+from feature_journeys.stereo_graphics_evidence import analyse,policy,SURFACE_PROFILE,_subject
 
 VERSION=2
 FACTS={'ticket','afterEpochMs','nativeBefore','subjectBefore','graphics','tablet','capture','subjectAfter','nativeAfter','provider'}
@@ -60,4 +60,4 @@ def compose(run,frame,raw,binding,role,stage,fixture_url,image_policy):
     image=deepcopy(value['pixels']);image['metadataSha256']=hashlib.sha256(metadata).hexdigest()
     return deepcopy(dict(state=value['state'],capturedEpochMs=value['earliestEpochMs'],lifecycle=value['lifecycle'],
         resources=graphics_resources(frame['graphics']),image=image,trace=frame['capture']['source']['renderTrace'],
-        scale=measured_scale(frame['capture'])))
+        scale=measured_scale(frame['capture']),subject=_subject(value)))

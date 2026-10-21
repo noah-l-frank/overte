@@ -1,6 +1,10 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "graphics-journey-observer": {"current": 1, "reads": [1]},
+    "graphics-journey-readiness": {"current": 1, "reads": [1]},
+    "graphics-journey-effects": {"current": 1, "reads": [1]},
+
     "pico-graphics-composition": {"current": 1, "reads": [1]},
     "stereo-graphics-surface-pixels": {"current": 1, "reads": [1]},
     "graphics-journey-samples": {"current": 5, "reads": [4, 5]},

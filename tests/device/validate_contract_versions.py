@@ -9,6 +9,10 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "graphics-journey-observer": 1,
+    "graphics-journey-readiness": 1,
+    "graphics-journey-effects": 1,
+
     "pico-graphics-composition": 1,
     "stereo-graphics-surface-pixels": 1,
     "graphics-journey-samples": 5,

@@ -414,3 +414,19 @@ Pico sources, then join independent actor publication, normal background/restart
 a separately observed new-process framework baseline and all original
 UI/QML/XHR/HTTP/Web-renderer/scene/capture quiet cleanup. Scripts and
 Authentication remain the only two complete source-level areas.
+
+## Original Graphics role observation continuation
+
+The [role observer](GRAPHICS_OBSERVER.md) now composes the actual Pico stereo
+sampler, both immutable files, existing fixture journal and original per-eye
+readiness/effect verification. Primary and actor histories/captures remain
+separate. Archive validation uses a pure historical comparison; the frozen
+Phone archive clock substitution is explicitly not reused. A missing original
+metadata file blocks reconstruction without another native capture. Ignored
+passes remain measured mismatches rather than requested values.
+
+This is still an internal observer, not a complete public Graphics operation or
+actor dispatcher. Next join normal lifecycle input, qualified restart ownership
+and all actual quiet resource retirement in the full feature coordinator.
+Native code remains uncompiled, all devices untested, and the complete-area
+count remains two of fourteen.
