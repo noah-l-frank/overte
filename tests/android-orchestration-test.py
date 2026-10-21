@@ -11,6 +11,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tarfile
@@ -965,6 +966,216 @@ sudo() {
 
 
 
+class CanonicalCIInputOwnershipTests(unittest.TestCase):
+    """Real B/M/D Git inventories; no Android command or native API runs."""
+    def case(self, target="android-phone", *, old_extra=None, candidate_change=None,
+             policy_change=None, anchor_change=None, fixture_change=None, old_policy_change=None):
+        f=RequiredAndroidTests();f.setUp();self.addCleanup(f.doCleanups)
+        f.workflow_files()
+        packages=gate.packages()
+        generation=packages.validate_wiring(ROOT)
+        row=next(row for row in packages.workflow_generations()if row['name']==generation)
+        self.assertIn(generation,gate.CURRENT_SOURCE_GENERATIONS)
+        for relative,entry in row['workflows'].items():
+            for root in (f.candidate,f.policy_root):
+                path=root/relative;path.parent.mkdir(parents=True,exist_ok=True)
+                path.write_bytes((ROOT/relative).read_bytes());path.chmod(0o644)
+            self.assertEqual(gate._blob((f.candidate/relative).read_bytes()),entry)
+        callee=f.policy_root/gate.WORKFLOW;callee.parent.mkdir(parents=True,exist_ok=True)
+        callee.write_bytes((ROOT/gate.WORKFLOW).read_bytes())
+        fixed={}
+        for relative in gate.REVIEWED_CI_INPUTS|set(gate.android().EXECUTION_FILES)|{'.github/test-suites.json'}:
+            if relative==gate.POLICY:continue
+            raw=(ROOT/relative).read_bytes();mode=0o755 if (ROOT/relative).stat().st_mode&0o111 else 0o644
+            fixed[relative]=(raw,mode)
+            for root in (f.candidate,f.policy_root):
+                path=root/relative;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw);path.chmod(mode)
+        for relative in gate.FOREIGN_LOCKS:
+            path=f.candidate/relative;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('{}\n')
+        f.policy['required_branches']=list(gate.CURRENT_SOURCE_TARGETS)
+        f.write_policy();(f.candidate/gate.POLICY).write_bytes((f.policy_root/gate.POLICY).read_bytes())
+        if old_policy_change:
+            previous=deepcopy(f.policy);old_policy_change(previous)
+            (f.candidate/gate.POLICY).write_text(json.dumps(previous))
+        if fixture_change:fixture_change(f)
+        for relative in gate.REVIEWED_CI_INPUTS-{gate.POLICY}:
+            path=f.candidate/relative
+            if relative in gate.REVIEWED_CI_ADDITIONS:
+                path.unlink()
+            elif relative==gate.CATALOG:
+                previous=json.loads(path.read_bytes());previous['generations']=previous['generations'][:27]
+                path.write_text(json.dumps(previous))
+            elif relative==gate.DEPENDENCIES:
+                previous=json.loads(path.read_bytes())
+                for item in previous['targets'].values():item['reader_digest']='sha256:'+'0'*64
+                previous['suites']['device-control-plane-full']['reviewed_reader_digest']='sha256:'+'0'*64
+                path.write_text(json.dumps(previous))
+            elif relative==gate.COMPILER_INPUTS:
+                text,count=re.subn(r"INSTALLED_COMPILER_READER = 'sha256:[0-9a-f]{64}'",
+                    "INSTALLED_COMPILER_READER = 'sha256:"+'0'*64+"'",path.read_text())
+                self.assertEqual(count,1);path.write_text(text)
+            elif relative=='.github/workflows/project-tests.yml':
+                path.write_bytes((ROOT/'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml').read_bytes())
+            else:path.write_bytes(path.read_bytes()+b'\n# older CI source\n')
+        old_values={}
+        for relative,value in (old_extra or {}).items():
+            path=f.candidate/relative;old_values[relative]=(path.read_bytes(),path.stat().st_mode&0o777)if path.exists()else None
+            path.parent.mkdir(parents=True,exist_ok=True)
+            if value is None:path.unlink()
+            elif value=='alias':path.unlink();path.symlink_to('missing-source')
+            else:path.write_bytes(value)
+        f.fixture.commit();base=f.git('rev-parse','HEAD')
+        f.git('checkout','-qb','task/android/canonical-ci')
+        for relative,(raw,mode)in fixed.items():
+            path=f.candidate/relative
+            if path.is_symlink():path.unlink()
+            path.write_bytes(raw);path.chmod(mode)
+        for relative,old in old_values.items():
+            if relative in fixed:continue
+            path=f.candidate/relative
+            if path.is_symlink():path.unlink()
+            if old is None:
+                if path.exists():path.unlink()
+            else:path.write_bytes(old[0]);path.chmod(old[1])
+        if candidate_change:candidate_change(f)
+        f.fixture.commit()
+        source=gate._sources(f.candidate)
+        f.policy['reviewed_lock_sources'][target]={
+            'commit':f.git('rev-parse','HEAD'),'tree':f.git('rev-parse','HEAD^{tree}'),
+            'readers':gate.lock_reader_identity(source.entries),'entries':len(source.entries)-len(gate.FOREIGN_LOCKS)}
+        if policy_change:policy_change(f.policy)
+        if anchor_change:anchor_change(f.policy['reviewed_lock_sources'][target])
+        f.write_policy();(f.candidate/gate.POLICY).write_bytes((f.policy_root/gate.POLICY).read_bytes())
+        f.fixture.commit();head=f.git('rev-parse','HEAD')
+        f.git('checkout','-q','android-phone');f.git('merge','--no-ff','-qm','Exact canonical CI merge','task/android/canonical-ci')
+        f.sha=f.git('rev-parse','HEAD')
+        repo={'full_name':gate.REPOSITORY,'id':gate.REPOSITORY_ID}
+        f.event={'repository':repo,'pull_request':{'labels':[],
+            'base':{'ref':target,'sha':base,'repo':repo},'head':{'ref':'task/android/canonical-ci','sha':head,'repo':repo}}}
+        for args in (('init','-q','--initial-branch=main'),('config','user.name','Trusted source fixture'),
+                ('config','user.email','source@example.invalid'),('add','.'),('commit','-qm','Immutable protected D fixture')):
+            subprocess.run(['git',*args],cwd=f.policy_root,check=True,capture_output=True)
+        return f
+
+    def test_actual_four_target_CI_policy_lock_record_delta_uses_complete_anchor_without_execution(self):
+        for target in sorted(gate.CURRENT_SOURCE_TARGETS):
+            f=self.case(target)
+            with self.subTest(target=target):
+                result=f.plan();self.assertIs(result['required'],False)
+                self.assertEqual(result['reason'],'reviewed-canonical-ci-inputs');self.assertEqual(result['views'],[])
+                self.assertIsNone(result['lock_package_plan'])
+                self.assertEqual(gate.android().plan(f.candidate,target,views=result['views'],policy_root=f.policy_root)['executions'],{})
+                self.assertEqual(set(gate.REVIEWED_CI_INPUTS)&set(gate.android().EXECUTION_FILES),{gate.COMPILER_INPUTS})
+                old=gate._sources(f.candidate,f.event['pull_request']['base']['sha'])
+                new=gate._sources(f.candidate)
+                self.assertEqual(set(result['paths']),gate.REVIEWED_CI_INPUTS)
+                self.assertEqual([p for p in result['paths']if p not in old.entries],sorted(gate.REVIEWED_CI_ADDITIONS))
+                self.assertNotEqual(old.text(gate.COMPILER_INPUTS),new.text(gate.COMPILER_INPUTS))
+                self.assertEqual(gate._compiler_reader_ast(old.text(gate.COMPILER_INPUTS)),gate._compiler_reader_ast(new.text(gate.COMPILER_INPUTS)))
+            f.doCleanups()
+
+    def test_reader_data_preserves_all_graph_structure_and_only_one_compiler_literal(self):
+        f=self.case();before=gate._sources(f.candidate,f.event['pull_request']['base']['sha'])
+        source=gate._sources(f.candidate);trusted=gate._sources(f.policy_root)
+        self.assertTrue(gate._reviewed_ci_data(before,source,trusted,list(gate.REVIEWED_CI_INPUTS),gate.android()))
+        text=source.text(gate.COMPILER_INPUTS)
+        for changed in (text+'\ndef unreviewed_execution(): return True\n',
+                text.replace('INSTALLED_COMPILER_READER =','INSTALLED_COMPILER_READER: str ='),
+                text.replace('INSTALLED_COMPILER_READER =','SECOND = INSTALLED_COMPILER_READER ='),
+                text+'\nINSTALLED_COMPILER_READER = "sha256:'+'1'*64+'"\n',
+                text.replace("INSTALLED_COMPILER_READER = 'sha256:","INSTALLED_COMPILER_READER = 'unknown:")):
+            with self.subTest(changed=changed[-100:]):
+                try:self.assertNotEqual(gate._compiler_reader_ast(text),gate._compiler_reader_ast(changed))
+                except ValueError:pass
+        old=before.json(gate.DEPENDENCIES);new=source.json(gate.DEPENDENCIES)
+        new['lookup_digest']='sha256:'+'f'*64;new['targets']['main']['lookup_digest']=new['lookup_digest']
+        class Source:
+            entries=source.entries
+            def json(_,p):return deepcopy(new)if p==gate.DEPENDENCIES else source.json(p)
+            def text(_,p):return source.text(p)
+        self.assertTrue(gate._reviewed_ci_data(before,Source(),trusted,[gate.DEPENDENCIES],gate.android()))
+        self.assertNotEqual(old['targets']['main']['reader_digest'],new['targets']['main']['reader_digest'])
+
+    def test_nonreader_dependency_catalog_addition_and_compiler_changes_keep40(self):
+        inputs=(ROOT/gate.COMPILER_INPUTS).read_bytes()
+        variants=[('compiler-function',{gate.COMPILER_INPUTS:inputs+b'\ndef changed_execution(): return True\n'}),
+            ('compiler-expression',{gate.COMPILER_INPUTS:inputs.replace(b'INSTALLED_COMPILER_READER = ',b'INSTALLED_COMPILER_READER = str(')+b')\n'}),
+            ('compiler-extra-assignment',{gate.COMPILER_INPUTS:inputs+b'\nINSTALLED_COMPILER_READER = "sha256:'+b'1'*64+b'"\n'}),
+            ('missing-other-CI',{'tools/repository-checks/codeql.py':None}),
+            ('alias-compiler',{gate.COMPILER_INPUTS:'alias'})]
+        dependencies=json.loads((ROOT/gate.DEPENDENCIES).read_bytes())
+        for field,value in (('schema',1),('lookup_digest','not-a-digest'),('registry_digest','sha256:'+'0'*64)):
+            changed=deepcopy(dependencies);changed[field]=value
+            variants.append(('dependency-'+field,{gate.DEPENDENCIES:json.dumps(changed).encode()}))
+        changed=deepcopy(dependencies);changed['suites']['producer-api']['setup']=['git']
+        variants.append(('dependency-setup',{gate.DEPENDENCIES:json.dumps(changed).encode()}))
+        changed=deepcopy(dependencies);changed['suites']['device-control-plane-full']['native_independent_paths'].append('unreviewed.py')
+        variants.append(('dependency-membership',{gate.DEPENDENCIES:json.dumps(changed).encode()}))
+        catalog=json.loads((ROOT/gate.CATALOG).read_bytes())
+        for shape in ('prefix','unknown-row','wrong-tuple'):
+            changed=deepcopy(catalog);changed['generations']=changed['generations'][:27]
+            if shape=='prefix':changed['generations'][0]['name']='unreviewed-history'
+            elif shape=='unknown-row':changed['generations'].append(deepcopy(changed['generations'][-1]))
+            else:changed['generations'][-1]['workflows']['.github/workflows/project-tests.yml']['sha']='1'*40
+            variants.append(('catalog-'+shape,{gate.CATALOG:json.dumps(changed).encode()}))
+        for shape,old in variants:
+            f=self.case(old_extra=old)
+            with self.subTest(shape=shape):self.assertIs(f.plan()['required'],True)
+            f.doCleanups()
+        for relative in gate.REVIEWED_CI_ADDITIONS:
+            f=self.case(candidate_change=lambda f:(f.candidate/relative).write_bytes(b'# unknown canonical recipe\n'))
+            with self.subTest(new_path=relative):self.assertIs(f.plan()['required'],True)
+            f.doCleanups()
+
+    def test_execution_inputs_Android_data_profiles_and_unknown_changes_keep_all40(self):
+        paths=[*gate.android().EXECUTION_FILES,'.github/android-checks.json','tests/platform-profile.json',
+            'android/common/tests/unknown-runtime-input.txt','.github/branch-policy.json']
+        for relative in paths:
+            f=self.case(old_extra={relative:b'# older execution input\n'})
+            with self.subTest(relative=relative):
+                result=f.plan();self.assertIs(result['required'],True)
+                self.assertEqual(len(gate.android().plan(f.candidate,'android-phone',views=result['views'],policy_root=f.policy_root)['executions']),40)
+            f.doCleanups()
+
+    def test_noncanonical_missing_aliased_and_nonregular_CI_entries_cannot_use_anchor(self):
+        relative='tools/test-evidence/validate-sync.py'
+        changes=[('candidate-bytes',{},lambda f:(f.candidate/relative).write_text('# not protectedD\n')),
+            ('candidate-mode',{},lambda f:(f.candidate/relative).chmod(0o755)),
+            ('missing-base',{relative:None},None),('aliased-base',{relative:'alias'},None)]
+        for shape,old,changed in changes:
+            f=self.case(old_extra=old,candidate_change=changed)
+            with self.subTest(shape=shape):self.assertIs(f.plan()['required'],True)
+            f.doCleanups()
+
+    def test_policy_nonlock_changes_bad_anchor_count_and_hermetic_source_keep40(self):
+        variants=[('policy-scope',{'policy_change':lambda p:p['activation_blockers'].append('prospective-generation-hosted-qualification')}),
+            ('anchor',{'anchor_change':lambda p:p.update(readers='sha256:'+'0'*64)}),
+            ('count',{'anchor_change':lambda p:p.update(entries=p['entries']+1)}),
+            ('hermetic',{'fixture_change':lambda f:(f.candidate/gate.HERMETIC_METADATA_TEST).write_bytes(b'# unreviewed metadata reader\n')})]
+        for shape,kwargs in variants:
+            f=self.case(**kwargs)
+            with self.subTest(shape=shape):self.assertIs(f.plan()['required'],True)
+            f.doCleanups()
+
+    def test_malformed_old_lock_records_are_conservative_without_weakening_trusted_policy(self):
+        for value in (list(gate.CURRENT_SOURCE_TARGETS),None,True,'unknown'):
+            f=self.case(old_policy_change=lambda p:p.update(reviewed_lock_sources=value))
+            with self.subTest(value=value):
+                result=f.plan();self.assertIs(result['required'],True)
+                self.assertEqual(result['reason'],'conservative-complete-union')
+            f.doCleanups()
+
+    def test_diagnostics_manual_and_wrong_wiring_never_become_CI_decline(self):
+        f=self.case();self.assertIs(f.plan()['required'],False)
+        f.event['pull_request']['labels']=[{'name':'android-long-diagnostics'}]
+        self.assertIs(f.plan()['required'],True)
+        manual={'repository':f.event['repository'],'ref':'refs/heads/android-phone'}
+        self.assertIs(gate.candidate_plan(f.candidate,manual,f.sha,event_name='workflow_dispatch',policy_root=f.policy_root)['required'],True)
+        f.event['pull_request']['labels']=[]
+        with patch.object(gate,'validate_tree_wiring',side_effect=ValueError('noncanonical source generation')):
+            self.assertIs(f.plan()['required'],True)
+
+
 class CurrentAndroidNativeOwnerTests(unittest.TestCase):
     """Fake native API; no Android commands, tool capture or host qualification."""
     def setUp(self):
@@ -1375,6 +1586,17 @@ class AndroidDefaultBootstrapTests(unittest.TestCase):
         self.assertEqual(context['admission']['target'],'main')
         self.assertFalse((self.root/'tools/test-evidence/__pycache__').exists())
         self.assertNotIn('trusted_android_default_bootstrap',__import__('sys').modules)
+
+    def test_ordinary_immutable_unknown_guard_cannot_choose_its_own_bootstrap(self):
+        path=self.root/'tools/test-evidence/source_admission.py'
+        path.write_bytes(path.read_bytes()+b'\nraise AssertionError("unknown guard must never execute")\n')
+        for command in (('add','--','tools/test-evidence/source_admission.py'),
+                ('-c','user.name=Fixture','-c','user.email=fixture@example.invalid',
+                 'commit','--quiet','-m','Unknown immutable bootstrap remains unreviewed')):
+            gate._bootstrap_git(self.root,*command)
+        with patch.object(self.api,'get',side_effect=AssertionError('no API before reviewed bootstrap')), \
+             self.assertRaisesRegex(ValueError,'no reviewed bootstrap identity'):
+            gate._protected_default(self.root,api=self.api)
 
     def test_alias_mode_changed_guard_and_untracked_import_never_execute(self):
         path=self.root/'tools/test-evidence/source_admission.py';raw=path.read_bytes()

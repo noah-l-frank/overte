@@ -7,6 +7,7 @@ until the complete prospective generation receives separate hosted qualification
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import importlib.util
 import json
@@ -39,6 +40,41 @@ INDEPENDENT_ROOTS = (
 )
 FOREIGN_LOCKS = frozenset({"browser-client/package-lock.json",
                           "script-archive/marketplace/S3Server/package-lock.json"})
+REVIEWED_CI_INPUTS = frozenset({
+    ".github/android-orchestration.json", ".github/package-workflow-generations.json",
+    ".github/test-suite-dependencies.json", ".github/workflows/codeql.yml",
+    ".github/workflows/project-tests.yml", ".github/workflows/shared-sandbox-host-diagnostic.yml",
+    "tests/PROJECT_TESTING.md", "tests/android-orchestration-test.py",
+    "tests/android-owner-transfer-test.py", "tests/browser-cpu-selection-test.py",
+    "tests/codeql-selection-test.py", "tests/host-producer-preparation-test.py",
+    "tests/host-selection-test.py", "tests/ios-build-qualification-test.py",
+    "tests/ios-input-selection-test.py", "tests/native-ci-test.py",
+    "tests/repository-checks-test.py", "tests/workflow-contract-test.py",
+    "tools/ios-build-qualification/host.py", "tools/ios-build-qualification/inputs.py",
+    "tools/repository-checks/android_gate.py", "tools/repository-checks/check.py",
+    "tools/repository-checks/codeql.py", "tools/repository-checks/codeql_results.py",
+    "tools/repository-checks/host_selection.py", "tools/sync-test-reuse/gate.py",
+    "tools/sync-test-reuse/test.py", "tools/test-evidence/affected-test.py",
+    "tools/repository-checks/metadata_context.py", "tools/repository-checks/package_checks.py",
+    "tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml",
+    "tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml",
+    "tools/repository-checks/workflows/shared-sandbox-host-diagnostic.yml",
+    "tools/test-evidence/ci-integration-test.py", "tools/test-evidence/ci_profile.py",
+    "tools/test-evidence/inputs.py", "tools/test-evidence/producer-api-test.py",
+    "tools/test-evidence/producer_api.py", "tools/test-evidence/producer_workflow.py",
+    "tools/test-evidence/runtime-test.py", "tools/test-evidence/sandbox-host-test.py",
+    "tools/test-evidence/source-admission-test.py", "tools/test-evidence/source_admission.py",
+    "tools/test-evidence/validate-sync-test.py", "tools/test-evidence/validate-sync.py",
+})
+REVIEWED_CI_ADDITIONS = {
+    "tools/repository-checks/workflows/metadata-edits/codeql-upload-provenance.yml":
+        {"mode": "100644", "type": "blob", "sha": "b29e0558dc69bc9dd6fc6b47bd6024382be4079d"},
+    "tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml":
+        {"mode": "100644", "type": "blob", "sha": "f4765fa63bdfede51cf6d711d24a952c5d0e0316"},
+}
+COMPILER_INPUTS = "tools/test-evidence/inputs.py"
+DEPENDENCIES = ".github/test-suite-dependencies.json"
+CATALOG = ".github/package-workflow-generations.json"
 HERMETIC_METADATA_TEST = "android/phone/tests/phone-release-metadata-test.py"
 HERMETIC_METADATA_BLOB = "8f0968ab4af834577b894971af09244cb9c82316"
 BLOCKERS = {"extended-tier-prerequisite-transfer", "advisory-profile-owner-handoff",
@@ -52,11 +88,13 @@ SOURCE_GUARD_BLOB = '20580c3ea413e63a6779898fdd3d2c5e051625f4'
 CURRENT_PARENT_IMPORT_GUARD_BLOB = '3b97657d8874a842c74a0cbf5a8032e06b941e65'
 BOOLEAN_SOURCE_GUARD_BLOB = 'a89e1d51be5039214def84d8f6f5a06f3dfaea29'
 REQUIRED_CONTEXT_SOURCE_GUARD_BLOB = 'aed06c587034f2762552eeb666bda1f4b6efff23'
+OPTIONAL_LEAF_SOURCE_GUARD_BLOB = '9c2897b7971daea2a3460a0d8146a0cbe2ac86aa'
 CURRENT_SOURCE_GENERATION = "protected-producer-original-default-v1"
 CURRENT_SOURCE_GENERATIONS = frozenset({CURRENT_SOURCE_GENERATION,
     "protected-producer-original-default-boolean-v1",
     "protected-producer-original-default-required-context-v1",
-    "protected-producer-optional-parent-source-v1"})
+    "protected-producer-optional-parent-source-v1",
+    "protected-producer-optional-leaf-common-v1"})
 CURRENT_SOURCE_TARGETS = frozenset({"android-main", "android-vr", "android-vr-pico", "android-phone"})
 CURRENT_JOBS = {
     "android / route": "Independently select the complete Android union",
@@ -218,6 +256,115 @@ def _reviewed_lock_delta(candidate, event, sha, source, before, paths, anchor, *
         return None
 
 
+def _compiler_reader_ast(text):
+    """Mask one data literal; every other Python AST node remains exact."""
+    module = ast.parse(text, type_comments=True)
+    assignments = [node for node in module.body if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "INSTALLED_COMPILER_READER"
+                for target in node.targets)]
+    if len(assignments) != 1 or len(assignments[0].targets) != 1 \
+            or not isinstance(assignments[0].value, ast.Constant) \
+            or type(assignments[0].value.value) is not str \
+            or re.fullmatch("sha256:[0-9a-f]{64}", assignments[0].value.value) is None:
+        raise ValueError("compiler reader must be one top-level digest literal")
+    assignments[0].value = ast.Constant(value="reviewed-compiler-reader")
+    return ast.dump(module, include_attributes=False)
+
+
+def _reviewed_ci_data(before, source, trusted, paths, owner):
+    if COMPILER_INPUTS in paths and (before.entries[COMPILER_INPUTS]["mode"] != "100644"
+            or source.entries[COMPILER_INPUTS]["mode"] != "100644"
+            or _compiler_reader_ast(before.text(COMPILER_INPUTS)) != _compiler_reader_ast(source.text(COMPILER_INPUTS))):
+        return False
+    if DEPENDENCIES in paths:
+        shared, _ = owner._shared()
+        registry = trusted.json(".github/test-suites.json")
+        values = [shared.inputs._validate_dependencies(tree.json(DEPENDENCIES), registry)
+                  for tree in (before, source)]
+        for value in values:
+            value["lookup_digest"] = "reviewed-lookup"
+            for row in value["targets"].values():
+                row["reader_digest"], row["lookup_digest"] = "reviewed-reader", "reviewed-lookup"
+            value["suites"]["device-control-plane-full"]["reviewed_reader_digest"] = "reviewed-reader"
+        if values[0] != values[1]:
+            return False
+    if CATALOG in paths:
+        old, new = before.json(CATALOG), source.json(CATALOG)
+        if digest(old) != "sha256:b33b94ac8f683f5fd62cbfffdb66b44112f5f009c5b548adbe9c8e2b831debb9" \
+                or digest(new) != "sha256:733fffb359a27302cde36f2aa9f13cafc209b30c0fcbcc8fe8f6449619de16e5" \
+                or len(old["generations"]) != 27 or len(new["generations"]) != 28 \
+                or old["generations"] != new["generations"][:27]:
+            return False
+    return True
+
+
+def _reviewed_ci_delta(source, before, paths, policy, branch, event, *, event_name, policy_root):
+    """Scheduling only; actual B/M remain unchanged and supply no test result."""
+    if event_name != "pull_request" or before is None or not paths \
+            or not set(paths).issubset(REVIEWED_CI_INPUTS):
+        return False
+    owner = android()
+    if set(paths).intersection(set(owner.EXECUTION_FILES) - {COMPILER_INPUTS}):
+        return False
+    try:
+        if _diagnostic_presence(event["pull_request"].get("labels", [])):
+            return False
+        if paths != sorted(path for path in source.entries.keys() | before.entries.keys()
+                           if source.entries.get(path) != before.entries.get(path)):
+            return False
+        trusted = _sources(policy_root)
+        if policy != trusted.json(POLICY) or source.entries.get(POLICY) != trusted.entries.get(POLICY):
+            return False
+        for path in paths:
+            new, old = source.entries.get(path, {}), before.entries.get(path)
+            if new.get("type") != "blob" or new.get("mode") not in {"100644", "100755"} \
+                    or new != trusted.entries.get(path) \
+                    or old is None and new != REVIEWED_CI_ADDITIONS.get(path) \
+                    or old is not None and (old.get("type") != "blob" or old.get("mode") not in {"100644", "100755"}) \
+                    or path in REVIEWED_CI_ADDITIONS and new != REVIEWED_CI_ADDITIONS[path]:
+                return False
+        if not _reviewed_ci_data(before, source, trusted, paths, owner):
+            return False
+        # Only the already source-bound lock records may change within policy.
+        old_policy, new_policy = before.json(POLICY), source.json(POLICY)
+        if type(old_policy) is not dict or type(new_policy) is not dict:
+            return False
+        old_records, new_records = old_policy.pop("reviewed_lock_sources"), new_policy.pop("reviewed_lock_sources")
+        if type(old_records) is not dict or type(new_records) is not dict \
+                or old_policy != new_policy or set(old_records) != set(new_records) \
+                or set(new_records) != set(policy["reviewed_lock_sources"]):
+            return False
+        for records in (old_records, new_records):
+            if any(type(row) is not dict or set(row) != {"commit", "tree", "readers", "entries"}
+                    or any(type(row[k]) is not str or re.fullmatch("[0-9a-f]{40}", row[k]) is None for k in ("commit", "tree"))
+                    or type(row["readers"]) is not str or re.fullmatch("sha256:[0-9a-f]{64}", row["readers"]) is None
+                    or type(row["entries"]) is not int or row["entries"] < 0 for row in records.values()):
+                return False
+        anchor = policy["reviewed_lock_sources"][branch]
+        if anchor["entries"] <= 0:
+            return False
+        for tree in (before, source):
+            if tree.entries.get(HERMETIC_METADATA_TEST) != {
+                    "mode": "100755", "type": "blob", "sha": HERMETIC_METADATA_BLOB} \
+                    or any(tree.entries.get(path, {}).get("mode") != "100644" or
+                           tree.entries[path].get("type") != "blob" for path in FOREIGN_LOCKS):
+                return False
+        # This comparison copy is never passed to source admission or emitted
+        # as historical provenance. It replaces only the checked canonical CI
+        # entries, retaining the complete negative inventory on both sides.
+        compared = {**before.entries, **{path: source.entries[path] for path in paths}}
+        if any(len(entries) - len(FOREIGN_LOCKS) != anchor["entries"] or
+               lock_reader_identity(entries) != anchor["readers"] for entries in (source.entries, compared)):
+            return False
+        if validate_tree_wiring(source.entries, policy_root=policy_root) not in CURRENT_SOURCE_GENERATIONS \
+                or validate_tree_wiring(trusted.entries, policy_root=policy_root) not in CURRENT_SOURCE_GENERATIONS:
+            return False
+        packages().validate_tree_wiring(before.entries)
+        return True
+    except (ValueError, KeyError, TypeError, SyntaxError, OSError, subprocess.SubprocessError):
+        return False
+
+
 def _policy_identity(policy_root):
     owner = android()
     names = [POLICY, ".github/android-checks.json", ".github/package-workflow-generations.json",
@@ -331,6 +478,9 @@ def candidate_plan(candidate, event, sha, *, event_name="pull_request", policy_r
                 policy["reviewed_lock_sources"][branch], event_name=event_name, base=base, head=head)
             if lock_package_plan is not None:
                 selected, reason = False, "reviewed-package-lock-inputs"
+        elif _reviewed_ci_delta(source, before, paths, policy, branch, event,
+                event_name=event_name, policy_root=policy_root):
+            selected, reason = False, "reviewed-canonical-ci-inputs"
         elif before is not None and all(path.startswith(INDEPENDENT_ROOTS) for path in paths):
             regular = all(item is None or item["mode"] in {"100644", "100755"} and item["type"] == "blob"
                           for path in paths for item in (before.entries.get(path), source.entries.get(path)))
@@ -487,7 +637,7 @@ def _protected_default(policy_root, *, api=None):
         if path.is_symlink():raise ValueError('Android stdlib guard has an aliased source')
     raw=_bootstrap_git(root,'show','HEAD:'+relative)
     if not path.is_file() or path.stat().st_size>128_000 or path.stat().st_mode&0o111 \
-            or path.read_bytes()!=raw or _blob(raw)['sha'] not in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB, REQUIRED_CONTEXT_SOURCE_GUARD_BLOB):
+            or path.read_bytes()!=raw or _blob(raw)['sha'] not in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB, REQUIRED_CONTEXT_SOURCE_GUARD_BLOB, OPTIONAL_LEAF_SOURCE_GUARD_BLOB):
         raise ValueError('Android stdlib guard has no reviewed bootstrap identity')
     search=list(sys.path);bytecode=sys.dont_write_bytecode;standard=Path(os.__file__).resolve().parent
     sys.path[:]=[str(standard),str(standard/'lib-dynload')]
@@ -774,7 +924,7 @@ def _source_generation(candidate,sha,policy_root):
     if type(value) is not dict or set(value)!={'schema','repository','generations'} or type(value['schema']) is not int \
             or value['schema']!=1 or value['repository']!={'full_name':REPOSITORY,'id':REPOSITORY_ID} \
             or type(value['repository'].get('id')) is not int \
-            or type(value['generations']) is not list or not 1<=len(value['generations'])<=27:
+            or type(value['generations']) is not list or not 1<=len(value['generations'])<=28:
         raise ValueError('Android source catalog is not the finite protected schema')
     four={'.github/workflows/'+name+'.yml' for name in ('project-tests','parent-qualification','sync-validation','repository-checks')}
     five=four|{'.github/workflows/browser-client.yml'};six=five|{'.github/workflows/pr-metadata-context.yml'}

@@ -719,7 +719,7 @@ class IsolatedConsumerTests(unittest.TestCase):
                 for path in sources}
             candidates=[row for row in catalog if row['name'] in {
                 'protected-producer-original-default-required-context-v1',
-                'protected-producer-optional-parent-source-v1'} and row['workflows']==actual]
+                'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'} and row['workflows']==actual]
             self.assertLessEqual(len(candidates),1)
             future=candidates[0] if candidates else None
             if future is None:
@@ -1267,7 +1267,7 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         self.assertIn(generation,{'npm-consumers-sync-ci-v1','npm-consumers-sync-ci-budget-v1','npm-consumers-sync-ci-budget-cleanup-v1','protected-producer-original-default-v1',
             'protected-producer-original-default-boolean-v1',
             'protected-producer-original-default-required-context-v1',
-            'protected-producer-optional-parent-source-v1'})
+            'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'})
         return packages,generation
 
     def setUp(self):
@@ -1393,7 +1393,7 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
         if generation in {'protected-producer-original-default-v1',
                 'protected-producer-original-default-boolean-v1',
                 'protected-producer-original-default-required-context-v1',
-                'protected-producer-optional-parent-source-v1'}:
+                'protected-producer-optional-parent-source-v1', 'protected-producer-optional-leaf-common-v1'}:
             self.assertEqual(active,path.read_text())
             self.assertIn('expected-empty-setup',active)
             # Bind every independently stored canonical endpoint as well as the
@@ -1404,6 +1404,8 @@ class VerifiedEmptyConsumerTests(unittest.TestCase):
                 '.github/workflows/sync-validation.yml':'sync-ci-selection.yml',
                 '.github/workflows/browser-client.yml':'npm-consumers/browser-client.yml',
                 '.github/workflows/pr-metadata-context.yml':'metadata-edits/pr-metadata-context.yml'}
+            if generation=='protected-producer-optional-leaf-common-v1':
+                sources['.github/workflows/project-tests.yml']='producers/protected-project-tests-optional-leaf.yml'
             self.assertEqual(set(sources),set(packages.METADATA_WORKFLOW_PATHS))
             for target,relative in sources.items():
                 actual=(VALIDATION.ROOT/target).read_bytes()
@@ -1679,8 +1681,15 @@ class ExactTreeParentConsumerTests(unittest.TestCase):
     def setUp(self):
         self.f=IsolatedConsumerTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
         f=self.f;f.ci_fixture();f.args.mode='reuse'
-        self.kind=VALIDATION._gate().NativeExactTreeParentEvidence
+        native_gate=VALIDATION._gate()
+        self.kind=native_gate.NativeExactTreeParentEvidence
         f.gate.NativeExactTreeParentEvidence=self.kind
+        # The existing tiny isolated fixture models one command. The finite
+        # 32/37 cases below call the real protected-roster consistency helper.
+        f.gate.exact_tree_covered_suites=lambda proof,names: (['alpha']
+            if proof.get('kind')=='original-sync-identical-android-tree-v1'
+            and proof.get('requested_suites')==names==['alpha']
+            else native_gate.exact_tree_covered_suites(proof,names))
         now=datetime.now(timezone.utc)
         self.evidence=self.kind({'kind':'original-sync-identical-android-tree-v1','source':'a'*40,
             'qualification':False,'reusable':False,'parent_branch':'android-main','parent_commit':f.parent,
@@ -1748,6 +1757,670 @@ class ExactTreeParentConsumerTests(unittest.TestCase):
         with self.assertRaises(VALIDATION.ValidationError):self.prepare()
         self.evidence['requested_suites']=['alpha'];self.evidence['reusable']=True
         with self.assertRaises(VALIDATION.ValidationError):self.prepare()
+
+    def rosters(self, original, requested):
+        f=self.f
+        full=json.loads((VALIDATION.ROOT/'.github/ci37-runtime.json').read_bytes())['suites']
+        command=deepcopy(f.registry['suites']['alpha'])
+        f.registry['suites']={name:deepcopy(command)for name in full}
+        self.selection={'schema':1,'lane':'affected-ci','requested_mode':'reuse','full_host':False,
+            'suites':list(requested),'external_package_set':[],'selection':'fixture-fixed-selection'}
+        f.args.expected_selection=self.selection['selection']
+        self.evidence.update(requested_suites=list(requested))
+        self.evidence['original_report'].update(requested_mode='fallback',executed_suites=list(original))
+        if original!=full or requested!=full:
+            self.evidence.update(kind='original-sync-identical-android-ci-subset-v1',original_suites=list(original),
+                covered_suites=[n for n in requested if n in original])
+        return [n for n in requested if n in original],[n for n in requested if n not in original]
+
+    def test_finite32_37_combinations_execute_only_genuine_complement_with_no_E(self):
+        full=json.loads((VALIDATION.ROOT/'.github/ci37-runtime.json').read_bytes())['suites']
+        partial=[n for n in full if n not in {'producer-proof','python-test-runner','release-bundle',
+            'project-coverage','native-registration'}]
+        for original,requested in ((full,full),(partial,full),(partial,partial),(full,partial)):
+            case=ExactTreeParentConsumerTests();case.setUp();self.addCleanup(case.doCleanups)
+            f=case.f;covered,remaining=case.rosters(original,requested)
+            with self.subTest(original=len(original),requested=len(requested)), \
+                    patch.object(VALIDATION,'_ci_selection',return_value=deepcopy(case.selection)), \
+                    patch.object(inputs,'plan_reuse',side_effect=AssertionError('no environment/E reuse')):
+                selected=f.ci_prepare()
+                self.assertEqual(selected.get('consumer_setup')=='none',not remaining)
+                f.args.expected_native_setup=selected.get('native_setup','')
+                result=f.validate(runtime_failure=AssertionError('no reusable environment'))
+                self.assertEqual(result['reused_suites'],covered);self.assertEqual(result['executed_suites'],remaining)
+                self.assertEqual(f.executed(),['alpha']*len(remaining))
+                self.assertEqual(result['mode'],'native-exact-tree-parent')
+                self.assertFalse(result['qualification']);self.assertFalse(result['reusable'])
+                self.assertEqual(result['parent_evidence']['original_report'],case.evidence['original_report'])
+                import xml.etree.ElementTree as ET
+                self.assertEqual([c.get('name')for c in ET.parse(f.args.junit).iter('testcase')],remaining or ['sync-differential'])
+                sidecar=Path(str(f.args.receipt)+'.ci-execution.json')
+                self.assertEqual(sidecar.exists(),bool(remaining))
+                if remaining:
+                    self.assertEqual(json.loads(sidecar.read_bytes())['requested_suites'],remaining)
+                    self.assertEqual(result['execution']['requested_suites'],remaining)
+
+    def test_partial_cannot_claim_zero_setup_failed_complement_or_changed_final_coverage(self):
+        full=json.loads((VALIDATION.ROOT/'.github/ci37-runtime.json').read_bytes())['suites']
+        partial=[n for n in full if n not in {'producer-proof','python-test-runner','release-bundle',
+            'project-coverage','native-registration'}]
+        self.rosters(partial,full);f=self.f
+        with patch.object(VALIDATION,'_ci_selection',return_value=deepcopy(self.selection)):
+            f.args.expected_native_setup='sha256:'+'0'*64
+            with self.assertRaises(VALIDATION.ValidationError):f.validate()
+            self.assertEqual(f.executed(),[])
+            f.args.expected_native_setup=''
+            with self.assertRaises(VALIDATION.ValidationError):
+                f.validate(extra_environment={'FIXTURE_FAIL_ALPHA':'1'})
+            self.assertFalse(f.args.receipt.exists())
+            self.assertEqual(f.executed(),['alpha']*5)
+            f.log.unlink()
+            def drift(*a,**k):self.evidence['covered_suites']=list(full)
+            with patch.object(VALIDATION,'_differential',side_effect=drift), \
+                    self.assertRaises(VALIDATION.ValidationError):f.validate()
+            self.assertEqual(f.executed(),[])
+            self.assertFalse(f.args.receipt.exists())
+
+
+
+class StandaloneNativeOwnersTests(unittest.TestCase):
+    """Real four-command native verifier; every network read is a fixed fake."""
+    def setUp(self):
+        self.gate = VALIDATION._gate()
+        self.prefix = 'repos/noah-l-frank/overte'
+        self.repo = {'id':1319052603,'full_name':'noah-l-frank/overte','default_branch':'main'}
+        self.b,self.h,self.m,self.d,self.t = [c*40 for c in '12345']
+        self.now = datetime(2026,10,20,20,10,tzinfo=timezone.utc)
+        self.registry = inputs.load_registry(VALIDATION.ROOT/'.github/test-suites.json')
+        self.names = json.loads((VALIDATION.ROOT/'.github/ci37-runtime.json').read_bytes())['suites']
+        self.selection = {'lane':'affected-ci','requested_mode':'fallback','full_host':False,
+            'suites':self.names,'external_package_set':[],'standalone_ci_schedule':True,
+            'candidate':self.m,'tree':self.t}
+        self.request = SimpleNamespace(repository=self.repo['full_name'],repository_id=self.repo['id'],number=42,
+            base='apple-main',base_sha=self.b,head='reconcile/apple/example',head_sha=self.h,
+            merge_sha=self.m,parent='main',parent_sha=self.d,head_repository_id=self.repo['id'],repair_paths=())
+        self.tree = {'.github/workflows/'+name:{'mode':'100644','type':'blob','sha':sha}
+            for name,sha in (('repository-checks.yml','22fe0d6d39d120f800099136d7d1ab5280d80b41'),
+                ('documentation-checks.yml','a86e36287a315eed7bbadf366f923966a04bd806'))}
+        for path in ('tools/test-evidence/validate-sync.py','tools/sync-test-reuse/gate.py',
+                     '.github/test-suites.json','.github/ci37-runtime.json'):
+            raw=(VALIDATION.ROOT/path).read_bytes()
+            self.tree[path]={'mode':'100644','type':'blob','sha':__import__('hashlib').sha1(
+                b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+        self.pr = {'number':42,'state':'open','merged':False,'mergeable':True,'merge_commit_sha':self.m,
+            'base':{'ref':self.request.base,'sha':self.b,'repo':self.repo},
+            'head':{'ref':self.request.head,'sha':self.h,'repo':self.repo}}
+        association = [{'number':42,'base':{'sha':self.b},'head':{'sha':self.h}}]
+        self.run = {'id':901,'workflow_id':900,'check_suite_id':902,'run_attempt':1,
+            'path':'.github/workflows/repository-checks.yml','event':'pull_request','head_sha':self.h,
+            'head_branch':self.request.head,'display_title':'Overte native ordinary qualification v2',
+            'status':'completed','conclusion':'success','repository':self.repo,'head_repository':self.repo,
+            'pull_requests':association,'run_started_at':'2026-10-20T20:00:00Z','updated_at':'2026-10-20T20:05:00Z',
+            'referenced_workflows':[{'path':self.repo['full_name']+'/.github/workflows/documentation-checks.yml@'+self.m,
+                'sha':self.m,'ref':'refs/pull/42/merge'}]}
+        self.docs = {self.prefix:self.repo,
+            self.prefix+'/branches/main':{'name':'main','protected':True,'commit':{'sha':self.d}},
+            self.prefix+'/branches/apple-main':{'name':'apple-main','protected':True,'commit':{'sha':self.b}},
+            self.prefix+'/actions/workflows/sync-validation.yml':{'id':350930895,'path':'.github/workflows/sync-validation.yml','name':'Sync validation','state':'active'},
+            self.prefix+'/pulls/42':self.pr,
+            self.prefix+'/git/ref/heads/apple-main':{'object':{'type':'commit','sha':self.b}},
+            self.prefix+'/git/ref/heads/main':{'object':{'type':'commit','sha':self.d}},
+            self.prefix+'/git/commits/'+self.m:{'sha':self.m,'tree':{'sha':self.t},'parents':[{'sha':self.b},{'sha':self.h}]},
+            self.prefix+'/actions/workflows/repository-checks.yml':{'id':900,'path':'.github/workflows/repository-checks.yml','state':'active'},
+            self.prefix+'/actions/runs/901':deepcopy(self.run),
+            self.prefix+'/actions/runs/901/attempts/1':deepcopy(self.run),
+            self.prefix+'/actions/workflows/900/runs?head_sha='+self.h+'&per_page=100':{'total_count':1,'workflow_runs':[deepcopy(self.run)]},
+            self.prefix+'/check-suites/902':{'id':902,'head_sha':self.h,'app':{'id':15368},
+                'repository':self.repo,'pull_requests':deepcopy(association)}}
+        self.jobs = []
+        steps = {'documentation / documentation':['Verify documentation checker behavior',
+            'Check every workspace document and incoming link','Verify policy-derived branch and suite displays'],
+            'workflow-contracts':['Verify remaining workflow contracts']}
+        for index,name in enumerate(('project','native','android','Select required repository checks','repository-checks',*steps)):
+            identifier=910+index;result='skipped' if name in ('project','native','android')else'success'
+            job={'id':identifier,'name':name,'run_id':901,'run_attempt':1,'head_sha':self.h,
+                'status':'completed','conclusion':result,'started_at':'2026-10-20T20:01:00Z','completed_at':'2026-10-20T20:04:00Z',
+                'check_run_url':'https://api.github.com/'+self.prefix+'/check-runs/'+str(identifier),
+                'steps':[{'name':step,'status':'completed','conclusion':'success',
+                    'started_at':'2026-10-20T20:02:00Z','completed_at':'2026-10-20T20:03:00Z'}for step in steps.get(name,[])]}
+            self.jobs.append(job)
+            self.docs[self.prefix+'/check-runs/'+str(identifier)]={'id':identifier,'name':name,'head_sha':self.h,
+                'status':'completed','conclusion':result,'app':{'id':15368},'check_suite':{'id':902},
+                'pull_requests':deepcopy(association),
+                'details_url':'https://github.com/'+self.repo['full_name']+'/actions/runs/901/job/'+str(identifier)}
+        self.docs[self.prefix+'/actions/runs/901/attempts/1/jobs?per_page=100']={'total_count':len(self.jobs),'jobs':self.jobs}
+        for revision in (self.b,self.d):
+            self.docs[self.prefix+'/git/commits/'+revision]={'sha':revision,'tree':{'sha':self.t},'parents':[]}
+        self.docs[self.prefix+'/git/trees/'+self.t+'?recursive=1']={'sha':self.t,'truncated':False,
+            'tree':[{'path':p,**v}for p,v in self.tree.items()]}
+        self.calls=[]
+
+    def android_owners(self):
+        self.request.base='android-main';self.pr['base']['ref']='android-main'
+        self.docs[self.prefix+'/branches/android-main']={'name':'android-main','protected':True,'commit':{'sha':self.b}}
+        self.docs[self.prefix+'/git/ref/heads/android-main']={'object':{'type':'commit','sha':self.b}}
+        self.jobs[:]=[job for job in self.jobs if job['name']!='android']
+        path='.github/workflows/android-required.yml';raw=(VALIDATION.ROOT/path).read_bytes()
+        self.tree[path]={'mode':'100644','type':'blob','sha':__import__('hashlib').sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()}
+        for run in (self.run,self.docs[self.prefix+'/actions/runs/901'],self.docs[self.prefix+'/actions/runs/901/attempts/1'],
+                self.docs[self.prefix+'/actions/workflows/900/runs?head_sha='+self.h+'&per_page=100']['workflow_runs'][0]):
+            run['referenced_workflows'].append({'path':self.repo['full_name']+'/'+path+'@'+self.m,
+                'sha':self.m,'ref':'refs/pull/42/merge'})
+        steps=('Independently select the complete Android union',
+            'Execute and verify the independently selected Android owners once',
+            'Recompute candidate union and require complete successful ownership')
+        for index,(role,step)in enumerate(zip(('route','execute','verify'),steps)):
+            identifier=930+index
+            start,end=(('20:01:00','20:02:00'),('20:02:00','20:03:00'),('20:03:00','20:04:00'))[index]
+            stamp=lambda value:'2026-10-20T'+value+'Z'
+            job={'id':identifier,'name':'android / '+role,'run_id':901,'run_attempt':1,'head_sha':self.h,
+                'status':'completed','conclusion':'success','started_at':stamp(start),'completed_at':stamp(end),
+                'check_run_url':'https://api.github.com/'+self.prefix+'/check-runs/'+str(identifier),
+                'steps':[{'name':step,'status':'completed','conclusion':'success',
+                    'started_at':stamp(start),'completed_at':stamp(end)}]}
+            self.jobs.append(job)
+            self.docs[self.prefix+'/check-runs/'+str(identifier)]={'id':identifier,'name':job['name'],'head_sha':self.h,
+                'status':'completed','conclusion':'success','app':{'id':15368},'check_suite':{'id':902},
+                'started_at':job['started_at'],'completed_at':job['completed_at'],
+                'pull_requests':deepcopy(self.run['pull_requests']),
+                'details_url':'https://github.com/'+self.repo['full_name']+'/actions/runs/901/job/'+str(identifier)}
+        self.docs[self.prefix+'/actions/runs/901/attempts/1/jobs?per_page=100']['total_count']=len(self.jobs)
+
+    def verify(self, *, mutate=None, normal_parent=None, controller=None, observation_clock=None):
+        owner=self
+        class API:
+            def native_producer_api(self, actual_controller):
+                owner.assertIs(actual_controller,controller)
+                return self
+            def json(self,endpoint,**kwargs):
+                owner.calls.append(endpoint)
+                if kwargs.get('method','GET')!='GET':raise AssertionError('no mutation')
+                value=deepcopy(owner.docs[endpoint])
+                return mutate(endpoint,value)if mutate else value
+        with patch.object(self.gate,'_dispatch_checkout_source',return_value=self.d), \
+                patch.object(self.gate,'_callback_sync_recipe',return_value=True), \
+                patch.object(self.gate,'_native_parent_controller',return_value=controller or SimpleNamespace()), \
+                patch.object(inputs,'full_tree',return_value=deepcopy(self.tree)):
+            self.docs[self.prefix+'/git/trees/'+self.t+'?recursive=1']['tree']=[{'path':p,**v}for p,v in self.tree.items()]
+            return VALIDATION.verify_standalone_ci_owners(API(),self.gate,self.request,self.registry,self.selection,
+                now=self.now,normal_parent=normal_parent,observation_clock=observation_clock)
+
+    def test_real_native_four_command_source_app_and_complete_inventories_without_E(self):
+        proof=self.verify()
+        self.assertIsInstance(proof,VALIDATION.NativeStandaloneCIProof)
+        self.assertEqual(proof['suites'],[n for n in self.names if n in VALIDATION.STANDALONE_CI_COMMANDS])
+        self.assertEqual(proof['candidate'],self.m)
+        self.assertIs(proof['qualification'],False);self.assertIs(proof['reusable'],False)
+        self.assertNotIn('environment',proof);self.assertNotIn('fingerprint',str(proof))
+        self.assertEqual(self.calls.count(self.prefix+'/actions/runs/901/attempts/1/jobs?per_page=100'),2)
+        self.assertEqual(self.calls.count(self.prefix+'/git/commits/'+self.m),1)
+        self.assertEqual(self.calls.count(self.prefix+'/git/trees/'+self.t+'?recursive=1'),1)
+        self.assertEqual(self.calls.count(self.prefix+'/check-runs/910'),0,'unrelated skipped jobs grant no command coverage')
+        self.assertLessEqual(len(self.calls),50)
+
+    def documentation_three(self):
+        self.selection['suites']=[n for n in self.names if n not in {'producer-proof','python-test-runner',
+            'release-bundle','project-coverage','native-registration'}]
+        # Actual immutable B/M delta is an implementation-only CI path. No
+        # native workflow-contract job ran for the protected security=false route.
+        before=deepcopy(self.tree);before['tools/sync-test-reuse/gate.py']['sha']='8'*40
+        before_tree='9'*40
+        self.docs[self.prefix+'/git/commits/'+self.b]['tree']['sha']=before_tree
+        self.docs[self.prefix+'/git/trees/'+before_tree+'?recursive=1']={'sha':before_tree,'truncated':False,
+            'tree':[{'path':p,**v}for p,v in before.items()]}
+        job=next(j for j in self.jobs if j['name']=='workflow-contracts')
+        job.update(conclusion='skipped',steps=[],started_at=None,completed_at=None)
+        self.docs[self.prefix+'/check-runs/'+str(job['id'])]['conclusion']='skipped'
+        return before_tree
+
+    def test_actual_CI32_security_false_reuses_only_documentation_three_not_skipped_workflow(self):
+        self.documentation_three();proof=self.verify()
+        expected=[n for n in self.selection['suites']if n in VALIDATION.STANDALONE_CI_COMMANDS and n!='workflow-contracts']
+        self.assertEqual(len(expected),3);self.assertEqual(proof['suites'],expected)
+        self.assertEqual(proof['native']['repository_route'],{'mode':'delegated-sync','security':'false'})
+        self.assertEqual(set(proof['native']['selected_jobs']),{'documentation / documentation'})
+        self.assertNotIn('workflow-contracts',proof['native']['checks'])
+        self.assertEqual(proof['native']['skipped_workflow_contracts']['job']['conclusion'],'skipped')
+        self.assertIsNone(proof['native']['skipped_workflow_contracts']['job']['completed_at'])
+        self.assertFalse(proof['qualification']);self.assertFalse(proof['reusable'])
+
+    def test_CI32_requires_real_security_false_unique_skipped_workflow_and_unchanged_books(self):
+        before_tree=self.documentation_three()
+        for shape in ('security','success','missing','duplicate','foreign-check','closing-base'):
+            reads=0
+            def change(path,value):
+                nonlocal reads
+                if shape=='security'and path.endswith('/git/trees/'+before_tree+'?recursive=1'):
+                    value['tree'].append({'path':'.github/workflows/unreviewed.yml','mode':'100644','type':'blob','sha':'7'*40})
+                if path.endswith('/jobs?per_page=100'):
+                    row=next(j for j in value['jobs']if j['name']=='workflow-contracts')
+                    if shape=='success':row['conclusion']='success'
+                    elif shape=='missing':value['jobs'].remove(row);value['total_count']-=1
+                    elif shape=='duplicate':
+                        value['jobs'].append({**row,'id':999});value['total_count']+=1
+                if shape=='foreign-check'and path.endswith('/check-runs/916'):value['app']['id']=1
+                if shape=='closing-base'and path.endswith('/branches/apple-main'):
+                    reads+=1
+                    if reads>1:value['commit']['sha']='a'*40
+                return value
+            with self.subTest(shape=shape),self.assertRaises((VALIDATION.ValidationError,self.gate.GateError)):
+                self.verify(mutate=change)
+
+    def test_completed_independent_Android_three_job_owner_still_supplies_only_four_CI_commands(self):
+        self.android_owners();proof=self.verify()
+        self.assertEqual(len(proof['suites']),4);self.assertEqual(set(proof['commands']),set(VALIDATION.STANDALONE_CI_COMMANDS))
+        self.assertEqual(set(proof['native']['selected_jobs']),{'documentation / documentation','workflow-contracts'})
+        self.assertTrue({'android / route','android / execute','android / verify'}<=proof['native']['checks'].keys())
+        self.assertIs(proof['qualification'],False);self.assertIs(proof['reusable'],False)
+        self.assertNotIn('platform_results',proof);self.assertNotIn('environment',proof)
+
+    def test_incomplete_failed_pending_or_foreign_Android_owner_cannot_supply_command_coverage(self):
+        self.android_owners()
+        for shape in ('missing','duplicate','unknown','mixed','failed','pending','attempt','head','app','step','step-failed','source','ordering'):
+            def change(path,value):
+                if path.endswith('/jobs?per_page=100'):
+                    row=next(j for j in value['jobs']if j['name']=='android / execute')
+                    if shape=='missing':value['jobs'].remove(row);value['total_count']-=1
+                    elif shape in ('duplicate','mixed'):
+                        extra=deepcopy(row);extra['id']=990
+                        if shape=='mixed':extra.update(name='android',conclusion='skipped',steps=[])
+                        value['jobs'].append(extra);value['total_count']+=1
+                    elif shape=='unknown':row['name']='android / foreign'
+                    elif shape=='failed':row['conclusion']='failure'
+                    elif shape=='pending':row.update(status='in_progress',conclusion=None,completed_at=None)
+                    elif shape=='attempt':row['run_attempt']=2
+                    elif shape=='head':row['head_sha']='a'*40
+                    elif shape=='step':row['steps'][0]['name']='Run a different owner'
+                    elif shape=='step-failed':row['steps'][0]['conclusion']='failure'
+                    elif shape=='ordering':row['started_at']='2026-10-20T20:00:30Z'
+                if shape=='app'and path.endswith('/check-runs/931'):value['app']['id']=1
+                if shape=='source'and path.endswith('/actions/runs/901'):value['referenced_workflows'][-1]['sha']='a'*40
+                return value
+            with self.subTest(shape=shape),self.assertRaises((VALIDATION.ValidationError,self.gate.GateError)):
+                self.verify(mutate=change)
+
+    def test_wrong_attempt_source_recipe_App_steps_incomplete_inventory_and_failure_are_denied(self):
+        variants = [
+            (lambda path,v:v.update(run_attempt=2) if path.endswith('/attempts/1')else None),
+            (lambda path,v:v.update(head_sha='a'*40) if path.endswith('/actions/runs/901')else None),
+            (lambda path,v:v.update(conclusion='failure') if path.endswith('/actions/runs/901')else None),
+            (lambda path,v:v.update(total_count=v['total_count']+1) if path.endswith('/jobs?per_page=100')else None),
+            (lambda path,v:v['app'].update(id=1) if '/check-runs/'in path else None),
+            (lambda path,v:v['referenced_workflows'][0].update(sha='a'*40) if path.endswith('/actions/runs/901')else None),
+            (lambda path,v:v['jobs'][-1]['steps'][0].update(name='unreviewed command') if path.endswith('/jobs?per_page=100')else None),
+            (lambda path,v:v.update(state='disabled_manually') if path.endswith('/workflows/repository-checks.yml')else None),
+            (lambda path,v:v['commit'].update(sha='a'*40) if path.endswith('/branches/main')else None),
+        ]
+        for index,variant in enumerate(variants):
+            with self.subTest(index=index),self.assertRaises((VALIDATION.ValidationError,self.gate.GateError)):
+                self.verify(mutate=lambda p,v:(variant(p,v),v)[1])
+        for path in self.tree:
+            before=deepcopy(self.tree);self.tree[path]['mode']='120000'
+            with self.subTest(recipe=path),self.assertRaises(VALIDATION.ValidationError):self.verify()
+            self.tree=before
+
+    def test_pending_never_supplies_coverage_and_whole_same_endpoint_closing_drift_blocks(self):
+        def pending(path,value):
+            if path.endswith('/actions/runs/901'):value.update(status='in_progress',conclusion=None)
+            return value
+        with self.assertRaises(VALIDATION.StandalonePending):self.verify(mutate=pending)
+        def registering(path,value):
+            if '/actions/runs/901'in path or '/runs?head_sha='in path:
+                rows=value.get('workflow_runs',[value])
+                for row in rows:row.update(status='queued',conclusion=None,run_started_at=None,referenced_workflows=None,pull_requests=[])
+            return value
+        with self.assertRaises(VALIDATION.StandalonePending):self.verify(mutate=registering)
+        def absent(path,value):
+            if '/runs?head_sha='in path:value.update(total_count=0,workflow_runs=[])
+            return value
+        with self.assertRaises(VALIDATION.StandalonePending):self.verify(mutate=absent)
+        def ambiguous(path,value):
+            if '/runs?head_sha='in path:
+                another=deepcopy(value['workflow_runs'][0]);another['id']=903
+                value['workflow_runs'].append(another);value['total_count']=2
+            return value
+        with self.assertRaises(VALIDATION.ValidationError)as failed:self.verify(mutate=ambiguous)
+        self.assertNotIsInstance(failed.exception,VALIDATION.StandalonePending)
+        def foreign_pending(path,value):
+            value=pending(path,value)
+            if path.endswith('/actions/runs/901'):value['head_sha']='a'*40
+            return value
+        with self.assertRaises(VALIDATION.ValidationError)as failed:self.verify(mutate=foreign_pending)
+        self.assertNotIsInstance(failed.exception,VALIDATION.StandalonePending)
+        reads=[]
+        def drift(path,value):
+            if path.endswith('/actions/runs/901'):
+                reads.append(path)
+                if len(reads)==2:value['updated_at']='2026-10-20T20:06:00Z'
+            return value
+        with self.assertRaises(VALIDATION.ValidationError):self.verify(mutate=drift)
+
+    def test_only_exact_closed_normal_allows_cleared_associations_without_rebinding_original_M(self):
+        opened=dict(self.verify());normal='a'*40
+        self.pr.update(state='closed',merged=True,merge_commit_sha=normal)
+        self.pr['base']['sha']=normal
+        self.docs[self.prefix+'/git/ref/heads/apple-main']['object']['sha']=normal
+        self.docs[self.prefix+'/branches/apple-main']['commit']['sha']=normal
+        self.docs[self.prefix+'/git/commits/'+normal]={'sha':normal,'tree':{'sha':self.t},'parents':[{'sha':self.b},{'sha':self.h}]}
+        for value in (self.docs[self.prefix+'/actions/runs/901'],self.docs[self.prefix+'/actions/runs/901/attempts/1'],
+                self.docs[self.prefix+'/actions/workflows/900/runs?head_sha='+self.h+'&per_page=100']['workflow_runs'][0],
+                self.docs[self.prefix+'/check-suites/902'],
+                *[v for k,v in self.docs.items()if '/check-runs/'in k]):
+            value['pull_requests']=[]
+        closed=self.verify(normal_parent=normal)
+        VALIDATION.verify_standalone_ci_provenance(opened,closed,self.request,normal_parent=normal)
+        empty=deepcopy(opened);empty['native']['check_suite']['pull_requests']=[]
+        for check in empty['native']['checks'].values():check['pull_requests']=[]
+        VALIDATION.verify_standalone_ci_provenance(empty,closed,self.request,normal_parent=normal)
+        forged=deepcopy(opened);forged['native']['check_suite']['pull_requests'][0]['number']=999
+        with self.assertRaises(VALIDATION.ValidationError):
+            VALIDATION.verify_standalone_ci_provenance(forged,closed,self.request,normal_parent=normal)
+        self.assertEqual(closed['candidate'],self.m)
+        with self.assertRaises(VALIDATION.ValidationError):self.verify()
+        self.docs[self.prefix+'/git/commits/'+normal]['parents'].reverse()
+        with self.assertRaises(VALIDATION.ValidationError):self.verify(normal_parent=normal)
+
+    def test_closed_CI32_retains_exact_skipped_check_when_original_PR_association_clears(self):
+        self.documentation_three();opened=dict(self.verify());normal='a'*40
+        self.pr.update(state='closed',merged=True,merge_commit_sha=normal);self.pr['base']['sha']=normal
+        self.docs[self.prefix+'/git/ref/heads/apple-main']['object']['sha']=normal
+        self.docs[self.prefix+'/branches/apple-main']['commit']['sha']=normal
+        self.docs[self.prefix+'/git/commits/'+normal]={'sha':normal,'tree':{'sha':self.t},
+            'parents':[{'sha':self.b},{'sha':self.h}]}
+        for value in (self.docs[self.prefix+'/actions/runs/901'],self.docs[self.prefix+'/actions/runs/901/attempts/1'],
+                self.docs[self.prefix+'/actions/workflows/900/runs?head_sha='+self.h+'&per_page=100']['workflow_runs'][0],
+                self.docs[self.prefix+'/check-suites/902'],*[v for k,v in self.docs.items()if '/check-runs/'in k]):
+            value['pull_requests']=[]
+        closed=self.verify(normal_parent=normal)
+        VALIDATION.verify_standalone_ci_provenance(opened,closed,self.request,normal_parent=normal)
+        self.assertEqual(closed['native']['skipped_workflow_contracts']['check']['pull_requests'],[])
+        self.assertEqual(closed['candidate'],self.m)
+        with self.assertRaises(VALIDATION.ValidationError):
+            VALIDATION.verify_standalone_ci_provenance(opened,closed,self.request)
+        for shape in ('number','base','head'):
+            forged=deepcopy(opened);row=forged['native']['skipped_workflow_contracts']['check']['pull_requests'][0]
+            if shape=='number':row['number']=999
+            else:row[shape]['sha']='f'*40
+            with self.subTest(shape=shape),self.assertRaises(VALIDATION.ValidationError):
+                VALIDATION.verify_standalone_ci_provenance(forged,closed,self.request,normal_parent=normal)
+
+    def test_only_pending_proof_retries_are_bounded(self):
+        proof=VALIDATION.NativeStandaloneCIProof({'fixture':'completed native facts'})
+        with patch.object(VALIDATION,'verify_standalone_ci_owners',side_effect=[VALIDATION.StandalonePending('pending'),proof])as verify, \
+                patch.object(VALIDATION.time,'monotonic',return_value=0),patch.object(VALIDATION.time,'sleep')as sleep:
+            self.assertIs(VALIDATION._native_standalone_ci_owners(None,None,None,None,None),proof)
+            self.assertEqual(verify.call_count,2);sleep.assert_called_once_with(5)
+        with patch.object(VALIDATION,'verify_standalone_ci_owners',side_effect=VALIDATION.StandalonePending('pending')), \
+                patch.object(VALIDATION.time,'monotonic',side_effect=[0,901]),patch.object(VALIDATION.time,'sleep')as sleep, \
+                self.assertRaises(VALIDATION.ValidationError):
+            VALIDATION._native_standalone_ci_owners(None,None,None,None,None)
+        sleep.assert_not_called()
+        with patch.object(VALIDATION,'verify_standalone_ci_owners',side_effect=VALIDATION.ValidationError('failed'))as verify, \
+                patch.object(VALIDATION.time,'sleep')as sleep,self.assertRaises(VALIDATION.ValidationError):
+            VALIDATION._native_standalone_ci_owners(None,None,None,None,None)
+        verify.assert_called_once();sleep.assert_not_called()
+
+    def test_metadata_competitor_receives_fresh_observation_clock_without_future_time_waiver(self):
+        later=self.now+timedelta(seconds=2)
+        metadata=deepcopy(self.run);metadata.update(id=903,display_title='Overte native metadata nonproducer v2',
+            updated_at=later.isoformat().replace('+00:00','Z'))
+        listed=self.docs[self.prefix+'/actions/workflows/900/runs?head_sha='+self.h+'&per_page=100']
+        listed['workflow_runs'].append(metadata);listed['total_count']=2
+        def intent(row,binding,policy,**kwargs):
+            self.assertEqual(kwargs['now'],self.now)
+            self.assertIs(kwargs['observation_clock'],clock)
+            observed=kwargs['observation_clock']()
+            if self.gate.parse_time(row['updated_at'],'fixture metadata update')>observed:
+                raise VALIDATION.ValidationError('metadata update exceeds fresh observation')
+            return {'fixture':'authenticated neverproducer'}
+        adapter=SimpleNamespace(_native_metadata_intent=Mock(side_effect=intent))
+        controller=SimpleNamespace(A=SimpleNamespace(Adapter=Mock(return_value=adapter),MetadataPolicy=Mock()),
+            producer=SimpleNamespace(metadata_generations=Mock(return_value=({},{})),_host_policy=Mock()))
+        clock=lambda:later
+        proof=self.verify(controller=controller,observation_clock=clock)
+        self.assertIsInstance(proof,VALIDATION.NativeStandaloneCIProof)
+        self.assertEqual(adapter._native_metadata_intent.call_count,2)
+        clock=lambda:self.now+timedelta(seconds=1)
+        with self.assertRaises(VALIDATION.ValidationError):
+            self.verify(controller=controller,observation_clock=clock)
+
+
+class StandaloneNativeConsumerTests(unittest.TestCase):
+    def setUp(self):
+        self.f=IsolatedConsumerTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
+        f=self.f;f.ci_fixture()
+        self.names=json.loads((VALIDATION.ROOT/'.github/ci37-runtime.json').read_bytes())['suites']
+        original=deepcopy(f.registry['suites']['alpha']);f.registry['suites']={n:deepcopy(original)for n in self.names}
+        for n,c in VALIDATION.STANDALONE_CI_COMMANDS.items():f.registry['suites'][n]['command']=c
+        self.selection={'schema':1,'lane':'affected-ci','requested_mode':'fallback','full_host':False,
+            'suites':self.names,'external_package_set':[],'selection':'fixture-fixed-selection',
+            'standalone_ci_schedule':True}
+        f.args.expected_selection=self.selection['selection']
+        self.proof=VALIDATION.NativeStandaloneCIProof({'kind':'same-pr-native-standalone-ci-commands-v1',
+            'qualification':False,'reusable':False,'candidate':f.commit,'tree':f.tree_sha,
+            'suites':[n for n in self.names if n in VALIDATION.STANDALONE_CI_COMMANDS]})
+        self.required=[n for n in self.names if n not in self.proof['suites']]
+        tree={'.github/workflows/'+name+'.yml':{'mode':'100644','type':'blob','sha':'a'*40}
+            for name in ('pr-metadata-context','native-tests','project-tests','android-required','workflow-security')}
+        tree.update({'.github/workflows/repository-checks.yml':{'mode':'100644','type':'blob','sha':'22fe0d6d39d120f800099136d7d1ab5280d80b41'},
+            '.github/workflows/documentation-checks.yml':{'mode':'100644','type':'blob','sha':'a86e36287a315eed7bbadf366f923966a04bd806'},
+            '.github/test-suites.json':{'mode':'100644','type':'blob','sha':'b'*40}})
+        self.schedule_inputs={key:deepcopy(tree)for key in ('base_tree','candidate_tree','trusted_tree')}
+
+    def run_case(self, *, opening=None, closing=None, reuse=None, probe=None):
+        f=self.f
+        observations=0
+        def observe(*args,**kwargs):
+            nonlocal observations
+            observations+=1
+            read=probe if observations==1 else closing
+            return deepcopy(self.proof)if read is None else read(*args,**kwargs)
+        with patch.object(VALIDATION,'_ci_selection',return_value=deepcopy(self.selection)), \
+                patch.object(VALIDATION,'_native_ci_reuse',return_value=reuse or(None,[],self.names)), \
+                patch.object(VALIDATION,'_native_standalone_ci_owners',side_effect=opening or(lambda *a:deepcopy(self.proof)))as owner, \
+                patch.object(VALIDATION,'verify_standalone_ci_owners',side_effect=observe), \
+                patch.object(VALIDATION,'_recheck_native_ci'),patch.object(runtime,'capture_host_environment',side_effect=AssertionError('no E capture')):
+            result=f.validate()
+            return result,owner
+
+    def test_actual33_commands_JUnit33_plus_native4_is_complete37_without_E_or_fake_cases(self):
+        result,owner=self.run_case()
+        self.assertEqual(result['mode'],'native-standalone-ci');self.assertEqual(result['executed_suites'],self.required)
+        self.assertEqual(result['reused_suites'],self.proof['suites']);self.assertEqual(len(self.f.executed()),33)
+        xml=__import__('xml.etree.ElementTree',fromlist=['parse']).parse(self.f.args.junit)
+        self.assertEqual([c.get('name')for c in xml.iter('testcase')],self.required)
+        self.assertIs(result['reusable'],False);self.assertIs(result['qualification'],False)
+        self.assertEqual(result['execution']['requested_suites'],self.required)
+        self.assertEqual(result['standalone_owner_evidence'],self.proof);owner.assert_not_called()
+
+    def documentation_three(self):
+        self.names=[n for n in self.names if n not in {'producer-proof','python-test-runner','release-bundle',
+            'project-coverage','native-registration'}]
+        self.selection['suites']=self.names
+        self.proof['suites']=[n for n in self.proof['suites']if n!='workflow-contracts']
+        self.required=[n for n in self.names if n not in self.proof['suites']]
+        f=self.f
+        (f.candidate/'tests/workflow-contract-test.py').write_bytes((f.candidate/'tests/alpha.py').read_bytes())
+        f.ci_refresh();self.proof.update(candidate=f.commit,tree=f.tree_sha)
+
+    def test_actual29_commands_plus_native_documentation3_covers_CI32_without_fake_workflow_case(self):
+        self.documentation_three();result,owner=self.run_case()
+        self.assertEqual(len(self.proof['suites']),3);self.assertEqual(len(self.required),29)
+        self.assertIn('workflow-contracts',self.required)
+        self.assertEqual(result['executed_suites'],self.required);self.assertEqual(result['reused_suites'],self.proof['suites'])
+        self.assertEqual(self.f.executed(),['alpha']*29)
+        import xml.etree.ElementTree as ET
+        self.assertEqual([c.get('name')for c in ET.parse(self.f.args.junit).iter('testcase')],self.required)
+        self.assertEqual(result['execution']['requested_suites'],self.required)
+        self.assertFalse(result['qualification']);self.assertFalse(result['reusable']);owner.assert_not_called()
+
+    def test_CI32_pending_documentation_failure_after29_never_produces_success_or_repeats_three(self):
+        self.documentation_three()
+        def pending(*a,**k):raise VALIDATION.StandalonePending('original documentation pending')
+        def failed(*a):
+            self.assertEqual(self.f.executed(),['alpha']*29)
+            self.assertFalse(self.f.args.receipt.exists())
+            raise VALIDATION.ValidationError('original documentation failed')
+        with self.assertRaises(VALIDATION.ValidationError):self.run_case(probe=pending,opening=failed)
+        self.assertFalse(self.f.args.receipt.exists());self.assertEqual(self.f.executed(),['alpha']*29)
+
+    def test_completed_independent_Android_still_leaves_only33_CI_commands_to_execute(self):
+        self.proof['native']={'jobs':[{'name':'android / '+role,'status':'completed','conclusion':'success'}
+            for role in ('route','execute','verify')]}
+        result,owner=self.run_case()
+        self.assertEqual(result['executed_suites'],self.required);self.assertEqual(len(self.f.executed()),33)
+        self.assertEqual(result['reused_suites'],self.proof['suites']);owner.assert_not_called()
+        self.assertIs(result['qualification'],False);self.assertNotIn('platform_results',result)
+
+    def test_known_failed_or_invalid_native_proof_blocks_before_any_candidate_command(self):
+        for proof in (None,dict(self.proof),VALIDATION.NativeStandaloneCIProof(dict(self.proof,suites=[]))):
+            with self.subTest(proof=proof),self.assertRaises(VALIDATION.ValidationError):
+                self.run_case(probe=lambda *a,**k:proof)
+            self.assertEqual(self.f.executed(),[]);self.assertFalse(self.f.args.receipt.exists())
+        with self.assertRaises(VALIDATION.ValidationError):
+            self.run_case(probe=lambda *a,**k:(_ for _ in()).throw(VALIDATION.ValidationError('failed')))
+        self.assertEqual(self.f.executed(),[]);self.assertFalse(self.f.args.receipt.exists())
+
+    def test_pending_native_Android_allows33_concurrently_but_no_report_until_completed_proof(self):
+        self.proof['native']={'jobs':[{'name':'android / '+role,'status':'completed','conclusion':'success'}
+            for role in ('route','execute','verify')]}
+        def pending(*args,**kwargs):
+            self.assertEqual(self.f.executed(),[]);self.assertFalse(self.f.args.receipt.exists())
+            raise VALIDATION.StandalonePending('original Android is running')
+        def completed(*args):
+            self.assertEqual(self.f.executed(),['alpha']*len(self.required))
+            observed=json.loads(Path(str(self.f.args.receipt)+'.ci-execution.json').read_bytes())
+            self.assertEqual(observed['requested_suites'],self.required)
+            self.assertFalse(self.f.args.receipt.exists(),'33 alone must never produce a successful report')
+            return deepcopy(self.proof)
+        result,owner=self.run_case(probe=pending,opening=completed)
+        owner.assert_called_once()
+        self.assertEqual(result['executed_suites'],self.required)
+        self.assertEqual(result['reused_suites'],self.proof['suites'])
+        self.assertIs(result['qualification'],False);self.assertIs(result['reusable'],False)
+
+    def test_failed_or_still_pending_final_owner_cannot_report_success_or_repeat_native_four(self):
+        for error in (VALIDATION.ValidationError('Android failed'),VALIDATION.StandalonePending('wait expired')):
+            self.f.log.unlink(missing_ok=True)
+            def pending(*args,**kwargs):raise VALIDATION.StandalonePending('original Android is running')
+            def failed(*args):
+                self.assertEqual(self.f.executed(),['alpha']*len(self.required))
+                observed=json.loads(Path(str(self.f.args.receipt)+'.ci-execution.json').read_bytes())
+                self.assertEqual(observed['requested_suites'],self.required)
+                self.assertFalse(self.f.args.receipt.exists())
+                raise error
+            with self.subTest(error=type(error)),self.assertRaises(VALIDATION.ValidationError):
+                self.run_case(probe=pending,opening=failed)
+            self.assertEqual(self.f.executed(),['alpha']*len(self.required))
+            self.assertFalse(self.f.args.receipt.exists())
+
+    def test_closing_drift_does_not_retry_or_repeat_the_completed33(self):
+        changed=deepcopy(self.proof);changed['candidate']='a'*40
+        with self.assertRaises(VALIDATION.ValidationError):self.run_case(closing=lambda *a,**k:changed)
+        self.assertEqual(len(self.f.executed()),33)
+
+    def test_existing_full_native_E_remains_preferred_and_factory_is_unused(self):
+        self.f.evidence['results']['suites']={name:{'status':'passed','fingerprint':'fixture-existing-E'}for name in self.names}
+        result,owner=self.run_case(reuse=(self.f.evidence,self.names,[]))
+        self.assertEqual(result['reused_suites'],self.names);self.assertEqual(self.f.executed(),[])
+        owner.assert_not_called();self.assertNotIn('standalone_owner_evidence',result)
+
+    def test_independent_product_schedule_keeps_prior37_without_entering_native_factory(self):
+        f=self.f
+        for name,command in VALIDATION.STANDALONE_CI_COMMANDS.items():
+            path=f.candidate/command[1];path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_text("from pathlib import Path\nimport os\nwith Path(os.environ['FIXTURE_EXECUTION_LOG']).open('a') as s:s.write("+repr(name+'\n')+")\n")
+        f.ci_refresh();self.selection['standalone_ci_schedule']=False
+        result,owner=self.run_case(opening=lambda *a:(_ for _ in()).throw(AssertionError('independent product schedule must not select native four')))
+        self.assertEqual(result['mode'],'affected-ci');self.assertEqual(result['executed_suites'],self.names)
+        self.assertEqual(len(f.executed()),37);owner.assert_not_called()
+
+    def test_scheduling_uses_current_trusted_native_Android_and_effective_context_without_authority(self):
+        event={'pull_request':{'number':42}};context={'base':'actual-effective-base'}
+        plan={'host_mode':'delegated-sync','package_set':[],'paths':['tools/branch-cleanup/cleanup.py'],'regular':True}
+        native=SimpleNamespace(plan=Mock(return_value={'mode':'skip'}))
+        android=SimpleNamespace(activated=Mock(return_value=True),has_staged_caller=Mock(return_value=False),
+            validate_execution_generation=Mock(),candidate_plan=Mock(return_value={'candidate':self.f.request.merge_sha,'required':False}))
+        def load(name,path):return native if str(path).endswith('native-tests/check.py')else android
+        with patch.object(VALIDATION,'_trusted_module',side_effect=load):
+            self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
+                **self.schedule_inputs,pr_context=context),True)
+            self.assertEqual(android.candidate_plan.call_args.kwargs['pr_context'],context)
+            android.candidate_plan.return_value['required']=True
+            self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
+                **self.schedule_inputs,pr_context=context),True)
+            native.plan.return_value={'mode':'full'};android.candidate_plan.reset_mock()
+            self.assertIs(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
+                **self.schedule_inputs),False)
+            android.candidate_plan.assert_not_called()
+            native.plan.return_value={'mode':'skip'};android.candidate_plan.side_effect=ValueError('source mismatch')
+            with self.assertRaises(ValueError):VALIDATION._standalone_ci_schedule(
+                self.f.candidate,event,self.f.request,plan,**self.schedule_inputs)
+
+    def test_CI32_schedule_recomputes_trusted_security_false_before_reserving_documentation(self):
+        partial=[n for n in self.names if n not in {'producer-proof','python-test-runner','release-bundle',
+            'project-coverage','native-registration'}]
+        plan={'host_mode':'delegated-sync','package_set':[],'paths':['tools/sync-test-reuse/gate.py'],'regular':True}
+        event={'repository':self.f.repository,'pull_request':self.f.pr}
+        native=SimpleNamespace(plan=Mock(return_value={'mode':'skip'}))
+        android=SimpleNamespace(activated=Mock(return_value=False),has_staged_caller=Mock(return_value=False))
+        real=VALIDATION._trusted_module
+        def load(name,path):
+            if str(path).endswith('native-tests/check.py'):return native
+            if str(path).endswith('repository-checks/android_gate.py'):return android
+            return real(name,path)
+        with patch.object(VALIDATION,'_trusted_module',side_effect=load):
+            self.assertTrue(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
+                **self.schedule_inputs,suite_names=partial))
+            plan['paths']=['.github/workflows/unreviewed.yml'];native.plan.reset_mock()
+            self.assertFalse(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
+                **self.schedule_inputs,suite_names=partial));native.plan.assert_not_called()
+
+    def test_static_recipe_registry_and_complete_callee_entries_choose_only_supported_native_four(self):
+        plan={'host_mode':'delegated-sync','package_set':[],'paths':['tools/branch-cleanup/cleanup.py'],'regular':True}
+        native=SimpleNamespace(plan=Mock(return_value={'mode':'skip'}))
+        android=SimpleNamespace(activated=Mock(return_value=False),has_staged_caller=Mock(return_value=False))
+        def load(name,path):return native if str(path).endswith('native-tests/check.py')else android
+        def selected(frames):
+            return VALIDATION._standalone_ci_schedule(self.f.candidate,{},self.f.request,plan,**frames)
+        with patch.object(VALIDATION,'_trusted_module',side_effect=load):
+            self.assertIs(selected(self.schedule_inputs),True)
+            for side in self.schedule_inputs:
+                for path in ('.github/workflows/repository-checks.yml',
+                        '.github/workflows/documentation-checks.yml','.github/test-suites.json'):
+                    for shape in ('changed','missing','mode','type'):
+                        frames=deepcopy(self.schedule_inputs)
+                        if shape=='missing':frames[side].pop(path)
+                        else:frames[side][path][{'changed':'sha','mode':'mode','type':'type'}[shape]]={
+                            'changed':'c'*40,'mode':'100755','type':'commit'}[shape]
+                        with self.subTest(side=side,path=path,shape=shape):self.assertIs(selected(frames),False)
+            for name in ('pr-metadata-context','native-tests','project-tests','android-required','workflow-security'):
+                path='.github/workflows/'+name+'.yml'
+                for side in ('candidate_tree','trusted_tree'):
+                    for shape in ('changed','missing','mode','type'):
+                        frames=deepcopy(self.schedule_inputs)
+                        if shape=='missing':frames[side].pop(path)
+                        else:frames[side][path][{'changed':'sha','mode':'mode','type':'type'}[shape]]={
+                            'changed':'c'*40,'mode':'100755','type':'commit'}[shape]
+                        with self.subTest(side=side,path=path,shape=shape):self.assertIs(selected(frames),False)
+                frames=deepcopy(self.schedule_inputs);frames['base_tree'][path]['sha']='c'*40
+                with self.subTest(old_base_callee=name):self.assertIs(selected(frames),True)
+
+    def test_unsupported_recipe_keeps_actual37_without_entering_expected_native_proof(self):
+        f=self.f
+        for name,command in VALIDATION.STANDALONE_CI_COMMANDS.items():
+            path=f.candidate/command[1];path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_text("from pathlib import Path\nimport os\nwith Path(os.environ['FIXTURE_EXECUTION_LOG']).open('a') as s:s.write("+repr(name+'\n')+")\n")
+        f.ci_refresh()
+        self.schedule_inputs['base_tree']['.github/workflows/documentation-checks.yml']['sha']='c'*40
+        plan={'host_mode':'delegated-sync','package_set':[]}
+        with patch.object(VALIDATION,'_trusted_module',side_effect=AssertionError('unsupported recipe is decided before owner routing')):
+            self.selection['standalone_ci_schedule']=VALIDATION._standalone_ci_schedule(
+                f.candidate,{},f.request,plan,**self.schedule_inputs)
+        self.assertIs(self.selection['standalone_ci_schedule'],False)
+        result,owner=self.run_case(opening=lambda *a:(_ for _ in()).throw(AssertionError('unsupported recipe cannot enter native proof')))
+        self.assertEqual(result['mode'],'affected-ci');self.assertEqual(result['executed_suites'],self.names)
+        self.assertEqual(len(f.executed()),37);owner.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()
