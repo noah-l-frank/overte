@@ -1,5 +1,10 @@
 # iOS feature adapter implementation status
 
+Current iOS source coverage and remaining whole-area prerequisites are recorded
+in [the 2026-10-21 audit](../../ios/FEATURE_ADAPTER_COVERAGE_20261021.md). Earlier checkpoint
+claims below are historical; no complete iOS feature triple or device result is
+claimed by those component counts.
+
 The installed-code host journal now writes **version 2** and explicitly reads
 versions 1 and 2. Its preparing owner freezes the actual SDK process-source
 before launch; ordinary binding requires that same source afterward. Missing,

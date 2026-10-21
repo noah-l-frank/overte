@@ -1,4 +1,4 @@
-# Physical iOS installed-code binding v1
+# Physical iOS installed-code binding v3
 
 `--native-binding --physical-candidate-metadata ...` now composes the original
 physical candidate consumer, original Appium physical/WDA attestation, native
@@ -51,10 +51,11 @@ separate immutable Proxmox runtime packaging/activation; no active runtime was
 changed. Source-info alone is neither code identity nor device acceptance.
 
 `installed-code-binding.json` uses the existing private ownership store, with
-closed `bindingVersion,phase,scope,source,process,observation,previousInstance`.
-The current host journal writer is version 2; readers explicitly support
-versions 1 and 2. A v2 `preparing` record freezes the original validated SDK
-process-source metadata before any launch. Its process/byte observation remain
+closed legacy fields `bindingVersion,phase,scope,source,process,observation,previousInstance`;
+version 3 adds `recovery`.
+The current host journal writer is version 3; readers explicitly support
+versions 1, 2 and 3. Starting with v2, a `preparing` record freezes the original
+validated SDK process-source metadata before any launch. Its process/byte observation remain
 null until actual binding. Ordinary `bind()` still requires the original
 in-memory launch owner and now requires that exact persisted SDK source before
 and after the independently measured installed bundle. A retired source must
@@ -65,9 +66,10 @@ Existing v1 bound/retiring/retired owners retain their original verification
 and cleanup readers; no bytes, source or completion result is synthesized.
 A v1 preparing owner has no original prelaunch source and remains unqualified:
 it cannot be auto-migrated, adopted, rebound or used to replay launch. A fresh
-CLI still cannot bind any abandoned preparing owner. Explicit physical restart
-recovery remains a separate pending implementation; version 2 supplies its
-necessary original provenance without enabling recovery by itself.
+CLI still cannot bind any abandoned preparing owner. Version 2 supplies original
+provenance but does not enable recovery by itself.
+The explicit v3 physical restart recovery is described below; ordinary fresh
+CLI binding of abandoned launch intent remains refused.
 
 Scope is exact source SHA, original archive SHA, actual Appium session,
 generation and current target fingerprint. The original session state and

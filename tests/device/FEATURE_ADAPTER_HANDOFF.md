@@ -512,3 +512,5 @@ results validate host test logic only. Native instrumentation remains uncompiled
 complete area adapters remain missing and all three physical clients are untested.
 
 Version 11 corrects browser source semantics and document transitions; see [the exact Web handoff](feature_journeys/WEB_SOURCE.md). It does not promote complete adapters or device acceptance.
+
+The iOS-only [2026-10-21 implementation and dependency audit](ios/FEATURE_ADAPTER_COVERAGE_20261021.md) records current partial sources, original lost-launch recovery and all fourteen remaining full-area interfaces. Shared adapter-only fixture read admission is documented in [ADAPTER_FIXTURE_ACCESS.md](feature_journeys/ADAPTER_FIXTURE_ACCESS.md). These additions do not activate a complete iOS capability.

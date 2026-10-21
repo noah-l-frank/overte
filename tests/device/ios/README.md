@@ -5,6 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Fedora iOS E2E handoff and immutable runtime
 
+Current iOS source coverage and remaining whole-area prerequisites are recorded
+in [the 2026-10-21 audit](FEATURE_ADAPTER_COVERAGE_20261021.md). Earlier checkpoint
+claims below are historical; no complete iOS feature triple or device result is
+claimed by those component counts.
+
 This directory is the Fedora half of the protected iOS device-lab boundary.
 Fedora never builds or signs an IPA. It consumes only the two age-encrypted
 artifacts produced by the protected `apple-ios` workflow, verifies their exact

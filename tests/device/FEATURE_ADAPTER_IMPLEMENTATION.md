@@ -1,5 +1,7 @@
 # Local adapter implementation and remaining native prerequisites
 
+For current iOS status, use [the source-based fourteen-area audit](ios/FEATURE_ADAPTER_COVERAGE_20261021.md). It separates installed-code/restart components from the still-missing complete feature triples and records exact local shared changes. The older platform packet history below is retained for provenance.
+
 The fourteen-area **common test logic exists**. This adapter phase is **partially
 implemented**: Phone has new ordinary Create/script foundation bindings; Pico
 has a candidate-bound original-observation backend; iOS has original-read
