@@ -84,6 +84,7 @@
     "ios-graphics-effects": {"current": 1, "reads": [1]},
     "graphics-subject-pixels": {"current": 1, "reads": [1]},
     "ios-graphics-world-measurements": {"current": 1, "reads": [1]},
+    "ios-graphics-current-effects": {"current": 1, "reads": [1]},
     "ios-graphics-world-effects": {"current": 1, "reads": [1]},
     "ios-graphics-fixture-reader": {"current": 1, "reads": [1]},
     "ios-graphics-scene": {"current": 1, "reads": [1]},

@@ -85,6 +85,7 @@ REQUIRED = {
     "ios-graphics-effects": 1,
     "graphics-subject-pixels": 1,
     "ios-graphics-world-measurements": 1,
+    "ios-graphics-current-effects": 1,
     "ios-graphics-world-effects": 1,
     "ios-graphics-fixture-reader": 1,
     "ios-graphics-scene": 1,

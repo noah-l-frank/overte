@@ -62,3 +62,9 @@ The native WK/Qt/Vulkan sources and durable per-role/stage
 marker admission and restored-world/resource quiet windows. The full fifteen-step
 Graphics owner, independent worker lifecycle, enabled-effect baseline/restart/
 restoration pixel qualification and final metadata composition remain unfinished. No Graphics feature triple is advertised.
+
+The separate [current-effect comparison](GRAPHICS_CURRENT_EFFECTS.md) now has
+source/host logic for current enabled pixels, recent original off frames,
+resolution/background differences and strict process replacement. It remains
+unwired to this observer; existing non-enable observations must not be counted
+as having that additional qualification yet.
