@@ -50,6 +50,8 @@
     "completed-frame-lease": {"current": 1, "reads": [1]},
     "native-vulkan-world-frame": {"current": 1, "reads": [1]},
     "native-vulkan-world-storage": {"current": 1, "reads": [1]},
+    "owned-vulkan-world-frame": {"current": 1, "reads": [1]},
+    "vulkan-world-chunk-summary": {"current": 1, "reads": [1]},
     "recorded-render-view": {"current": 1, "reads": [1]},
     "feature-graphics-resources": {"current": 1, "reads": [1]},
     "feature-phase-fixture": {"current": 1, "reads": [1]},

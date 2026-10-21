@@ -52,6 +52,8 @@ REQUIRED = {
     "completed-frame-lease": 1,
     "native-vulkan-world-frame": 1,
     "native-vulkan-world-storage": 1,
+    "owned-vulkan-world-frame": 1,
+    "vulkan-world-chunk-summary": 1,
     "recorded-render-view": 1,
     "feature-graphics-resources": 1,
     "feature-phase-fixture": 1,

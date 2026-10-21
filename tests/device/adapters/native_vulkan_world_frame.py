@@ -89,6 +89,20 @@ class NativeVulkanWorldFrame(NativeCompletedFrame):
     storage_validator=staticmethod(storage)
     limit=LIMIT
 
+    def __init__(self,*args,receipt=None,**kwargs):
+        need(receipt is None or callable(receipt))
+        super().__init__(*args,**kwargs);self.receipt=receipt
+
+    def perform(self,query):
+        started=self.monotonic();need(number(started,0,1e15))
+        result=super().perform(query)
+        if self.receipt is not None:
+            self.receipt(query,result)
+            ended=self.monotonic();need(number(ended,started,1e15) and ended-started<1.5 and self.guard() is not False)
+            fresh(result['capturedEpochMs'],self.clock_ms())
+            ended=self.monotonic();need(number(ended,started,1e15) and ended-started<1.5 and self.guard() is not False)
+        return result
+
     def image(self,capture):
         """Read bounded original bytes; each one-send command requires intent.
 

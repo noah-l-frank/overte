@@ -31,6 +31,10 @@ class World(Boundary):
         self.fault=None
     def send(self,value):
         command(value)
+        # Original GPU completion progresses independently of reading the
+        # observation carrier, including after a lost read response/release.
+        if self.request is not None and not self.no_fence and self.clock-self.started>=.05:
+            self.gpu_pending=False
         if value['operation']=='read-bytes':
             self.commands.append(deepcopy(value));self.sequence+=1;offset=value['offset']
             self.value=dict(vulkanWorldStorageVersion=1,commandId=value['commandId'],requestId=value['requestId'],
@@ -44,10 +48,13 @@ class World(Boundary):
             super().send(dict(value,action='feature-completed-frame'));self.commands[-1]=deepcopy(value)
             if 'frameStorageVersion' in self.value:
                 self.value['vulkanWorldStorageVersion']=self.value.pop('frameStorageVersion')
-                self.value['source'].update(pngBytes=0 if self.retired else len(self.png),gpuBufferBytes=262144 if self.gpu_pending else 0)
+                present=self.request is not None and not self.retired
+                self.value['source'].update(present=present,pngBytes=len(self.png) if present and self.metadata else 0,
+                                           gpuBufferBytes=262144 if self.gpu_pending else 0)
                 if self.fault:self.fault(self.value)
     def original(self):
         raw=super().original()
+        if self.value is not None:self.value['requestId']=self.commands[-1]['requestId'];raw=json.dumps(self.value)
         if 'completedFrameVersion' in self.value and self.value.get('pending') is not True:
             self.value['vulkanWorldFrameVersion']=self.value.pop('completedFrameVersion')
             source=self.value['source'];self.clock+=.002;self.value['capturedEpochMs']=self.epoch()

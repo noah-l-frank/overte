@@ -272,10 +272,10 @@ class FeatureObservation:
         return NativeCompletedFrame(self.send,lambda:self.original(remote=remote,limit=65536),
             self.epoch_ms,self.guard,self.process['pid'],intent,monotonic=self.monotonic,sleep=self.sleep)
 
-    def vulkan_world_frame(self,intent):
+    def vulkan_world_frame(self,intent,receipt=None):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+VULKAN_WORLD_FILE
         return NativeVulkanWorldFrame(self.send,lambda:self.original(remote=remote,limit=VULKAN_WORLD_LIMIT),
-            self.epoch_ms,self.guard,self.process['pid'],intent,monotonic=self.monotonic,sleep=self.sleep)
+            self.epoch_ms,self.guard,self.process['pid'],intent,receipt=receipt,monotonic=self.monotonic,sleep=self.sleep)
 
     def scene_loads(self):
         self.guard();remote=self.remote.rsplit('/',1)[0]+'/'+SCENE_LOAD_FILE

@@ -64,9 +64,34 @@ source; release cancels its timer and native retired selectors reject late rearm
 `native_vulkan_world_frame.py` verifies closed shapes, actual original allocation/
 frame/clock identity, complete immutable PNG/decoded-pixel hashes and contiguous
 chunks. Commands require caller-persisted intent before delivery and are never
-silently resent. This low-level reader does not yet supply the whole durable
-image/file owner, Graphics samples, actor or full journey capability. A read
-failure must remain in that owner's transcript until real resource cleanup.
+silently resent. This low-level reader advertises no full journey capability.
+
+`owned_vulkan_world_frame.py` now persists one full-candidate/run/role/stage
+acquisition. It records its filename before opening, actual inode before native
+acquisition, each command before delivery and its validated receipt before the
+next chunk. It first pins the actual native GPU-context birth through a fresh
+inspection, before arming any capture. A lost read followed by a replaced Context
+cannot use the replacement's empty counters as the old source's cleanup.
+The metadata-only completed-frame lease now has the same preflight guarantee;
+complete legacy transcripts remain readable, while a lost unbound legacy read
+is retained rather than adopted without an original source birth.
+
+The private compressed transcript retains complete frame/storage originals.
+Chunk transport summaries retain the original header, exact data size/SHA and
+whole original-packet SHA without duplicating all PNG bytes into JSON state.
+Archived reading reconstructs each original chunk packet from its recorded PNG
+slice and checks that original hash. This is explicitly transport summarization,
+not a newly minted original observation. The original full PNG and decoded pixel
+hashes remain bound to the actual frame. All state limits fail closed.
+
+Lost read/chunk/release responses, failed persistence and host reconstruction do
+not authorize another acquisition or another release. Fresh inspection observes
+real consumer/buffer/PNG absence. Native release preserves the original host
+evidence PNG and ledger; explicit artifact removal independently verifies its
+owned inode and actual path absence after fresh native retirement. No method
+erases the owner's metadata or substitutes for the full feature's three-second
+quiet window. The outer Graphics owner must retain its private owner paths and
+compose scene/preferences/samples, actor and full journey cleanup.
 
 ## Local verification
 
@@ -84,3 +109,11 @@ New shared version-1 registry entries are `native-vulkan-world-frame` and
 `native-vulkan-world-storage`. The E2E-only backend readback interface, original
 frame ticket and separate source/storage parsers must be reconciled as a unit
 with parallel platform changes. No moving Phone/Pico work was imported.
+
+The durable ownership packet passes 37 further selected no-build cases across
+the new owner, preflight/legacy lease cases, original frame/PNG protocol and iOS
+transport. Counterexamples include Context replacement after a lost frame,
+changed chunk-header digest, foreign file/candidate/role, lost release without
+resend, failed durable writes and preserved original transcript prefixes. All
+native/GPU positives remain synthetic. New contracts are
+`owned-vulkan-world-frame: 1` and `vulkan-world-chunk-summary: 1`.

@@ -86,6 +86,13 @@ fences, lost release responses, CAS changes, failed persistence, foreign scope
 and reused frame/cursor evidence. These synthetic originals qualify ownership
 logic only.
 
+New acquisitions now persist an original native-source inspection before the
+first frame request. Context birth/cursor continuity is therefore available even
+if the later frame answer is lost. Empty storage from a replacement Context
+cannot retire the old responsibility. Complete legacy transcripts remain
+compatible; an old lost read without any original birth is explicitly refused
+for adoption. This hardening keeps the version-1 serialized shape unchanged.
+
 `FeatureObservation.completed_frame` uses existing iOS HTTP/AFC and an independent
 native clock. `IOSGraphicsRuntime` constructs it through the canonical candidate/
 existing-session gate. Native frame times, host acquisition and later original

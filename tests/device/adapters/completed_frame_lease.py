@@ -38,13 +38,19 @@ class CompletedFrameLease:
         exact(self.state,{'frameLeaseVersion','binding','runId','role','active','transcript'})
         need(type(self.state['frameLeaseVersion']) is int and self.state['frameLeaseVersion']==VERSION
              and same(self.state['binding'],self.binding) and self.state['runId']==self.run and self.state['role']==self.role)
-        self.events=unpack(self.state['transcript']);seen=set();frames=set();active=None;released=set();cursor=None
+        self.events=unpack(self.state['transcript']);seen=set();frames=set();reads=set();active=None;released=set();cursor=None
         for event in self.events:
             exact(event,{'command','packet'});query=command(event['command']);packet=event['packet']
             need(query['commandId'] not in seen);seen.add(query['commandId'])
             if query['operation']=='read':
-                need(active is None and query['requestId'] not in released);active=query['requestId']
+                if active is None:
+                    # Compatible complete legacy transcripts already bind an
+                    # actual source birth. A lost legacy read without any birth
+                    # cannot be adopted as cleanup proof in a new Context.
+                    need(packet is not None);active=query['requestId']
+                need(active==query['requestId'] and active not in reads and (cursor is not None or packet is not None));reads.add(active)
             else:
+                if active is None and query['operation']=='inspect':active=query['requestId']
                 need(active==query['requestId'])
                 if query['operation']=='release':
                     need(active not in released);released.add(active)
@@ -97,7 +103,10 @@ class CompletedFrameLease:
         try:
             with self.lock.held():
                 self._load();need(self.state is None or self.state['active'] is None)
-                return self._perform('read','ios-'+uuid.uuid4().hex)
+                request_id='ios-'+uuid.uuid4().hex
+                before=self._perform('inspect',request_id)['source']
+                need(before==dict(retired=False,present=False,callbacks=0,gpuPending=False,metadataBytes=0))
+                return self._perform('read',request_id)
         except Exception:
             raise NativeUIError('Completed frame acquisition failed; durable responsibility is retained') from None
 

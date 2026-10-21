@@ -17,6 +17,15 @@ from ios.adapters.script_runtime import IOSScriptRuntime
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _vulkan_world_frame_owner(self,selector,run,role,stage,request_id,root,*,source_lock=None):
+        from adapters.owned_vulkan_world_frame import VulkanWorldFrameOwner
+        from adapters.native_completed_frame import nonce
+        need(role in ('primary','actor') and type(stage) is int and stage in (0,1) and nonce(request_id))
+        source=self._sources(selector)
+        store=PrivateFeatureState(self.state_path(selector).with_name('graphics-world-frame-'+role+'-'+str(stage)+'-'+request_id[4:]+'.json'))
+        return VulkanWorldFrameOwner(store,root,source['binding'],run,role,stage,request_id,
+            lambda intent,receipt:self._vulkan_world_frame_reader(selector,intent,receipt),source['check'],source_lock=source_lock)
+
     def _graphics_geometry(self,selector):
         return self._sources(selector)['observer'].geometry()
 
@@ -39,9 +48,9 @@ class IOSGraphicsRuntime(IOSScriptRuntime):
         need(callable(intent))
         return self._sources(selector)['observer'].completed_frame(intent)
 
-    def _vulkan_world_frame_reader(self,selector,intent):
+    def _vulkan_world_frame_reader(self,selector,intent,receipt=None):
         need(callable(intent))
-        return self._sources(selector)['observer'].vulkan_world_frame(intent)
+        return self._sources(selector)['observer'].vulkan_world_frame(intent,receipt)
 
     def _scene_load_observer(self,selector,*,read_only=True):
         need(read_only is True)

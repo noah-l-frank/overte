@@ -130,8 +130,11 @@ provides original pre-HUD PNG/pixel hashes through the existing frame fence and
 private HTTP/AFC channel. It avoids the opened tablet's screenshot occlusion and
 preserves the product readback TODO. Native layout/copy/barrier code remains
 uncompiled; device pixels remain unverified. The next full-owner packet must
-persist image/file/chunk responsibility, join these originals to actual scene/
+join these originals to actual scene/
 settings, independently credential the actor and prove complete quiet cleanup.
+The durable per-image owner now persists file/chunk responsibility and pins the
+original GPU source before requesting its frame. It preserves host evidence
+through native release and keeps unresolved ownership after lost responses.
 
 `graphics_measurements.py` now joins original native settings/subjects/UI,
 two separately fence-completed frames and their actual retained-consumer drain,
