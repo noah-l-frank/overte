@@ -164,3 +164,26 @@ after it. They cover normal Stop/Launch, stopped processes, replaced credentials
 late pending failure and an unmasked current-consumer error. Together with the
 unchanged full real-loopback-HTTPS journey and existing source/input cases,
 nine focused tests pass. Full-suite verification follows separately.
+
+## Native deadline in the synthetic SDK
+
+`AccountManager::observeAccountTokenDeadline` uses an absolute 15000-ms native
+event-loop timer. The synthetic native SDK now measures this same interval on
+its original virtual native clock, separately from the real loopback HTTPS
+socket's bounded 90-second host guard. Host filesystem/other-test latency must
+not become a different simulated product clock. The full unchanged seventeen
+steps pass with this explicit boundary (focused run, 68.945 s; all twelve selected transport/journey cases also pass in 50.579 s).
+
+A current transport failure settles once as the actual native `login-reply`
+then `login-failed` sequence, with original HTTP status zero, nonzero network
+error and no token adoption. A virtual native deadline sets the original
+`timedOut` flag and cancellation error. Its still-pending actual host future
+remains owned until settlement; any later body cannot authenticate that expired
+consumer. Unexpected SDK programming errors still fail the test. Eight focused
+host cases cover retirement, current network errors, exact 15-second expiry,
+late successful bodies, pending transport ownership and separate host guards.
+This does not extend a journey deadline or alter native product behavior.
+
+The preceding full reviewed no-build selection executed 788 iOS cases with
+one transport-model error, no failures/skips/compiler/device attempts. It is
+retained as a failed historical run, not relabeled green by this focused fix.

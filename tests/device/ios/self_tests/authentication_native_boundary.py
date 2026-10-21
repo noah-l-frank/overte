@@ -14,7 +14,8 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
+from http.client import HTTPException
 from urllib.parse import urlencode
 from urllib.request import Request
 import uuid
@@ -48,6 +49,7 @@ class Native:
         self.remember=False;self.saved='';self.input_log=[];self.commands=[];self.references={}
         self.account=account();self.account['observation'].update(endpointSha256=hashlib.sha256(origin.encode()).hexdigest())
         self.token=self.refresh=None;self.cache=None;self.success_at=None;self.tasks=[]
+        self.task_started={};self.finished_tasks=set()
         self.executor=ThreadPoolExecutor(max_workers=4)
         self.feature=FeatureBoundary();self.feature.mutate=self.feature_packet
         self.origins=OriginBoundary(self.root/'native-origin');self.origins.mutate=self.origin_packet
@@ -85,16 +87,31 @@ class Native:
     def poll(self):
         remaining=[]
         for future,birth,generation in self.tasks:
-            if not future.done():remaining.append((future,birth,generation));continue
-            if birth!=self.birth or not self.running or generation!=self.account['observation']['credentialGeneration']:continue
-            # The host's original HTTPS future may fail after its simulated
-            # native consumer died. That failure belongs to the retired
-            # consumer too; never evaluate it in the replacement process.
-            status,raw=future.result()
+            current=(birth==self.birth and self.running and generation==self.account['observation']['credentialGeneration'])
+            if not current or future in self.finished_tasks:
+                if not future.done():remaining.append((future,birth,generation))
+                else:self.task_started.pop(future,None);self.finished_tasks.discard(future)
+                continue
+            # AccountManager's actual absolute 15000-ms timer belongs to the
+            # native event-loop clock. A host HTTPS socket guard is not that
+            # clock and cannot expire this virtual request merely because
+            # host metadata/other test workers take longer in wall time.
+            started=self.task_started.setdefault(future,self.clock)
+            network_error=0;timed_out=False
+            if not future.done():
+                if self.clock-started<15:
+                    remaining.append((future,birth,generation));continue
+                status,raw=0,b'';network_error=5;timed_out=True
+                self.finished_tasks.add(future);remaining.append((future,birth,generation))
+            else:
+                try:status,raw=future.result()
+                except (OSError,URLError,HTTPException) as error:
+                    status,raw=0,b'';network_error=4 if isinstance(error,TimeoutError) else 99
+                self.task_started.pop(future,None)
             self.account['observation']['loginPending']=False
             reply=event(sequence=self.account['observation']['eventSequence']+1,kind='login-reply',
                 epoch=self.epoch(),generation=generation,status=status)
-            reply['networkError']=0 if status==200 else 203;append(self.account,reply)
+            reply['networkError']=network_error or (0 if status==200 else 203);reply['timedOut']=timed_out;append(self.account,reply)
             if status==200:
                 grant=json.loads(raw);self.token=grant['access_token'];self.refresh=grant['refresh_token']
                 code,body=self.http(PROFILE_PATH,headers={'Authorization':'Bearer '+self.token})
@@ -106,6 +123,7 @@ class Native:
                 self.login.waiting=False;self.login.pending=False;self.saved=self.login.fields.get('login.username','') if self.remember else self.saved
             else:
                 self.login.waiting=False;self.login.pending=False;self.login.error='invalid-credentials'
+                append(self.account,event(sequence=self.account['observation']['eventSequence']+1,kind='login-failed',epoch=self.epoch(),generation=generation))
         self.tasks=remaining
         if self.success_at is not None and self.clock>=self.success_at:
             self.login.dialog=False;self.login.focused=None;self.success_at=None
@@ -265,7 +283,8 @@ class Native:
                 if self.remember:self.saved=self.login.fields.get('login.username','')
                 data=urlencode(dict(grant_type='password',scope='owner',username=self.login.fields.get('login.username',''),
                     password=self.login.fields.get('login.password',''))).encode()
-                future=self.executor.submit(self.http,TOKEN_PATH,data=data,headers={'Content-Type':'application/x-www-form-urlencoded'},timeout=30)
+                future=self.executor.submit(self.http,TOKEN_PATH,data=data,headers={'Content-Type':'application/x-www-form-urlencoded'},timeout=90)
+                self.task_started[future]=self.clock
                 self.tasks.append((future,self.birth,self.account['observation']['credentialGeneration']))
         elif name=='scripts.menu':self.menu='root'
         elif name=='account.menu-file':self.menu='file'
