@@ -501,3 +501,20 @@ bounded durable histories. This is still an internal owner: next compose the
 full public Graphics feature and independent actor dispatcher and exercise all
 15 shared checkpoints plus final metadata retirement. The complete count stays
 two of fourteen; native compilation and devices remain unverified.
+
+
+## Internal Graphics coordinator and final retirement
+
+The [internal complete-run coordinator](GRAPHICS_FEATURE_OWNER.md) now joins
+normal input, both original stereo roles, background/restart ownership and
+complete quiet/final metadata retirement. Direct host cases cover all fifteen
+shared phase definitions and a separate complete restoration/finalization run.
+A final lifetime continuation requires actual foreground/native admission,
+keeps exact archived floors and creates a whole fresh quiet window. Its private
+original final headers survive live metadata removal.
+
+This remains an internal source component. The general common Journey engine,
+OverteSession public operations, private configuration and actor dispatcher are
+not yet integrated or qualified by those direct tests. Complete Graphics
+capabilities remain absent, the complete-area count stays two of fourteen, and
+native code/devices remain unverified.

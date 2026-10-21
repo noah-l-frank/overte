@@ -1193,5 +1193,50 @@
       }
     ],
     "details": "The actual normal restart controller and original lifetime owner are exercised together: new PID/native/Qt bridge, old-PID ESRCH, persisted actual settings, qualified new-process framework baseline, normal world restoration, input journal retirement and fresh both-role capture/resource quiet proofs. Old-process active Web/subject originals keep their original PID. Synthetic transports only; no subprocess reaches a device."
+  },
+  "graphicsInternalCoordinatorPacket": {
+    "contracts": [
+      "graphics-journey-feature v1",
+      "graphics-journey-lifetime v1 continuation API (unchanged existing envelope)"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "Targeted coordinator, ignored-renderer and lifetime-continuation self-tests (from tests/device)",
+        "tests": 10,
+        "status": "passed",
+        "durationSeconds": 33.486
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_feature_stereo.PicoGraphicsFeatureStereoTests.test_all_fifteen_shared_phases_use_normal_inputs_and_independent_original_stereo_frames",
+        "tests": 1,
+        "status": "passed",
+        "durationSeconds": 125.466
+      },
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_feature_stereo.PicoGraphicsFeatureStereoTests.test_full_normal_journey_and_independent_final_actor_quiet_windows_retire_all_live_metadata",
+        "tests": 1,
+        "status": "passed",
+        "durationSeconds": 357.601
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 116.84,
+        "junit": "graphics-internal-coordinator-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 3.13,
+        "junit": "graphics-internal-coordinator-project.xml"
+      }
+    ],
+    "details": "Actual normal Pico owners, analytical original stereo SDK raster/renderer boundaries, private receipt files, original native/UI/Web/HTTP source protocols, separate role/stage observations and complete final source/metadata retirement. Lost Home recovery precedes foreground owner construction. Original final runtime headers and group files remain immutable private evidence. The first composed finalization correctly rejected live Web/HTTP resources; the SDK model now represents their normal destruction during ordinary world navigation, without weakening validators.",
+    "limits": "Direct coordinator integration only. General common Journey, OverteSession public operations, private configuration, independent actor dispatch and complete capability gating remain pending; no physical timing or native/device qualification."
   }
 }

@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "graphics-journey-feature": {"current": 1, "reads": [1]},
     "graphics-journey-lifetime": {"current": 1, "reads": [1]},
     "graphics-lifetime-archive": {"current": 1, "reads": [1]},
     "graphics-journey-restart": {"current": 1, "reads": [1]},

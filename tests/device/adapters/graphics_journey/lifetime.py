@@ -57,6 +57,10 @@ class GraphicsLifetime:
         else:
             if source.instance is None:source.status()
             self.state=self.decode(self.previous);need(same(self.binding,self.state['binding']))
+        self.sources()
+
+    def sources(self):
+        adapter,selector=self.adapter,self.selector
         self.subject=adapter._graphics_subject_observer(selector,read_only=True)
         self.loads=adapter._scene_load_observer(selector,read_only=True)
         self.web=adapter._web_runtime_observer(selector,read_only=True)
@@ -67,6 +71,40 @@ class GraphicsLifetime:
         restore_ui(self.graphics,self.state['graphics'],graphics_packet)
         restore_ui(self.tablet,self.state['tablet'],tablet_packet)
         self.deadline=None;self.local_clock=None
+
+    @classmethod
+    def continuation(cls,adapter,selector,source,stage,lock,original,*,artifact_root,monotonic=time.monotonic,sleep=time.sleep):
+        """A fresh live final window continuing exact archived source floors.
+
+        This separate bounded journal remains owned by the final coordinator
+        after ordinary role metadata is archived or retired. Original records
+        are history only; actual foreground/binding admission and new sources
+        remain mandatory. No role or acquisition owner is recreated.
+        """
+        need(isinstance(source,GraphicsFixtureReader) and isinstance(lock,ScriptSourceLock)
+            and integer(stage,0,1) and callable(monotonic) and callable(sleep));lock.assert_held()
+        need(adapter.graphics_scene_policy.fixture_profile==PICO_PROFILE)
+        owner=object.__new__(cls)
+        owner.adapter,owner.selector,owner.source,owner.role,owner.stage,owner.lock=adapter,selector,source,'primary',stage,lock
+        owner.monotonic,owner.sleep,owner.artifact_root=monotonic,sleep,Path(artifact_root)
+        owner.run,owner.fixture_url=source.run,source.fixture_url
+        path=adapter.state_path(selector);need(lock.path==path.with_name('script-sources.lock'))
+        owner.store=PrivateFeatureState(path.with_name('graphics-final-runtime.json'))
+        _ui,_observer,binding,owner.guard,_installed=adapter.normal_feature_runtime(selector,read_only=True)
+        owner.binding=deepcopy(context(binding));owner.pid=int(binding['processIdentity'].split(':')[0])
+        baseline=owner.decode(original);need(baseline['phase']=='released')
+        owner.previous=owner.store.read()
+        if owner.previous is None:
+            owner.state=deepcopy(baseline);owner.save()
+        else:
+            owner.state=owner.decode(owner.previous)
+            need(same(owner.state['activeProofs'],baseline['activeProofs']) and same(owner.state['original'],baseline['original'])
+                and same(owner.state['captureProofs'],baseline['captureProofs'])
+                and same(owner.state['windows'][:len(baseline['windows'])],baseline['windows']))
+            for kind in CURSORS:
+                before,after=baseline[kind],owner.state[kind]
+                if not same(before,after):owner.follows(kind,before,after)
+        owner.sources();return owner
 
     def reference(self,value,*,loading):
         if type(value) is dict:

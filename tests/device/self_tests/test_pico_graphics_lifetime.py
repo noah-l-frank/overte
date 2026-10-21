@@ -241,6 +241,20 @@ class PicoGraphicsLifetimeTests(unittest.TestCase):
         self.assertEqual(32,owner.pid);self.assertEqual('released',owner.state['phase'])
         self.assertEqual(31,old.state['activeProofs'][0]['subject']['processId'])
         self.assertNotEqual(old.state['web']['instance'],owner.state['web']['instance'])
+    def test_final_continuation_keeps_archived_floors_and_requires_a_whole_fresh_window(self):
+        m=self.model;owner,scene,proofs=m.ready();original=owner.wait_released(scene,proofs);before=m.native.clock
+        continuation=GraphicsLifetime.continuation(m.flow,'owned',m.source,0,m.lock,original,
+            artifact_root=m.root/'artifacts',monotonic=lambda:m.native.clock,sleep=m.native.sleep)
+        self.assertEqual('graphics-final-runtime.json',continuation.store.path.name)
+        continuation.wait_released(scene,proofs);self.assertGreaterEqual(m.native.clock-before,3)
+        self.assertEqual(original,owner.store.read());self.assertEqual(2,len(continuation.state['windows']))
+    def test_final_continuation_requires_actual_foreground_and_never_recreates_a_live_role_owner(self):
+        m=self.model;owner,scene,proofs=m.ready();original=owner.wait_released(scene,proofs)
+        owner.store.discard(original);m.foreground=False
+        with self.assertRaises(NativeUIError):GraphicsLifetime.continuation(m.flow,'owned',m.source,0,m.lock,original,
+            artifact_root=m.root/'artifacts',monotonic=lambda:m.native.clock,sleep=m.native.sleep)
+        self.assertIsNone(owner.store.read())
+        self.assertFalse((m.root/'graphics-final-runtime.json').exists())
 
 
 if __name__=='__main__':unittest.main()
