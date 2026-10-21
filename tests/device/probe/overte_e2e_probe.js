@@ -1217,7 +1217,7 @@
             return;
         }
         if (command && command.schemaVersion === 1
-                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.commandId === "string" && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
                 && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
                 && command.action === "feature-scene-load-observe"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {

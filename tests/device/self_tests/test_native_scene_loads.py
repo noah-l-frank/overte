@@ -44,6 +44,22 @@ class Boundary:
 
 
 class SceneLoadTests(unittest.TestCase):
+    def test_actual_probe_dispatches_original_ios_prefixed_command_without_retiming(self):
+        program=r'''
+const Uuid={generate:()=>"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"};
+const objectKeysMatch=(v,k)=>JSON.stringify(Object.keys(v).sort())===JSON.stringify(k.sort());
+let calls=[],files=[];
+const original={sceneLoadVersion:1,commandId:"ios-"+"a".repeat(32),capturedEpochMs:17000,pendingLeases:2,requests:[]};
+const Test={featureSceneLoadObservation:c=>{calls.push(c);return original;},saveObject:(v,name)=>files.push({v,name})};
+SOURCE
+const request={schemaVersion:1,commandId:"ios-"+"a".repeat(32),action:"feature-scene-load-observe",runId:"b".repeat(32)};
+applyClientCommand(request);applyClientCommand(request);
+if(calls.length!==1||files.length!==1||files[0].v!==original||files[0].name!=="feature-scene-load.json")throw Error("Original iOS source not dispatched");
+if(original.capturedEpochMs!==17000||original.pendingLeases!==2||calls[0].commandId!==request.commandId)throw Error("Original native scope retimed or changed");
+'''.replace('SOURCE',probe_source())
+        result=subprocess.run(['node','-e',program],capture_output=True,text=True,timeout=5)
+        self.assertEqual(0,result.returncode,result.stderr)
+
     def test_ios_nonce_preserves_original_native_clock_and_request_history(self):
         source=Boundary();source.epoch+=86400000
         reader=source.reader(ios=True);value=reader.read(RUN)
