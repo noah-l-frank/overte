@@ -1681,8 +1681,15 @@ class ExactTreeParentConsumerTests(unittest.TestCase):
     def setUp(self):
         self.f=IsolatedConsumerTests();self.f.setUp();self.addCleanup(self.f.doCleanups)
         f=self.f;f.ci_fixture();f.args.mode='reuse'
-        self.kind=VALIDATION._gate().NativeExactTreeParentEvidence
+        native_gate=VALIDATION._gate()
+        self.kind=native_gate.NativeExactTreeParentEvidence
         f.gate.NativeExactTreeParentEvidence=self.kind
+        # The existing tiny isolated fixture models one command. The finite
+        # 32/37 cases below call the real protected-roster consistency helper.
+        f.gate.exact_tree_covered_suites=lambda proof,names: (['alpha']
+            if proof.get('kind')=='original-sync-identical-android-tree-v1'
+            and proof.get('requested_suites')==names==['alpha']
+            else native_gate.exact_tree_covered_suites(proof,names))
         now=datetime.now(timezone.utc)
         self.evidence=self.kind({'kind':'original-sync-identical-android-tree-v1','source':'a'*40,
             'qualification':False,'reusable':False,'parent_branch':'android-main','parent_commit':f.parent,
@@ -1750,6 +1757,69 @@ class ExactTreeParentConsumerTests(unittest.TestCase):
         with self.assertRaises(VALIDATION.ValidationError):self.prepare()
         self.evidence['requested_suites']=['alpha'];self.evidence['reusable']=True
         with self.assertRaises(VALIDATION.ValidationError):self.prepare()
+
+    def rosters(self, original, requested):
+        f=self.f
+        full=json.loads((VALIDATION.ROOT/'.github/ci37-runtime.json').read_bytes())['suites']
+        command=deepcopy(f.registry['suites']['alpha'])
+        f.registry['suites']={name:deepcopy(command)for name in full}
+        self.selection={'schema':1,'lane':'affected-ci','requested_mode':'reuse','full_host':False,
+            'suites':list(requested),'external_package_set':[],'selection':'fixture-fixed-selection'}
+        f.args.expected_selection=self.selection['selection']
+        self.evidence.update(requested_suites=list(requested))
+        self.evidence['original_report'].update(requested_mode='fallback',executed_suites=list(original))
+        if original!=full or requested!=full:
+            self.evidence.update(kind='original-sync-identical-android-ci-subset-v1',original_suites=list(original),
+                covered_suites=[n for n in requested if n in original])
+        return [n for n in requested if n in original],[n for n in requested if n not in original]
+
+    def test_finite32_37_combinations_execute_only_genuine_complement_with_no_E(self):
+        full=json.loads((VALIDATION.ROOT/'.github/ci37-runtime.json').read_bytes())['suites']
+        partial=[n for n in full if n not in {'producer-proof','python-test-runner','release-bundle',
+            'project-coverage','native-registration'}]
+        for original,requested in ((full,full),(partial,full),(partial,partial),(full,partial)):
+            case=ExactTreeParentConsumerTests();case.setUp();self.addCleanup(case.doCleanups)
+            f=case.f;covered,remaining=case.rosters(original,requested)
+            with self.subTest(original=len(original),requested=len(requested)), \
+                    patch.object(VALIDATION,'_ci_selection',return_value=deepcopy(case.selection)), \
+                    patch.object(inputs,'plan_reuse',side_effect=AssertionError('no environment/E reuse')):
+                selected=f.ci_prepare()
+                self.assertEqual(selected.get('consumer_setup')=='none',not remaining)
+                f.args.expected_native_setup=selected.get('native_setup','')
+                result=f.validate(runtime_failure=AssertionError('no reusable environment'))
+                self.assertEqual(result['reused_suites'],covered);self.assertEqual(result['executed_suites'],remaining)
+                self.assertEqual(f.executed(),['alpha']*len(remaining))
+                self.assertEqual(result['mode'],'native-exact-tree-parent')
+                self.assertFalse(result['qualification']);self.assertFalse(result['reusable'])
+                self.assertEqual(result['parent_evidence']['original_report'],case.evidence['original_report'])
+                import xml.etree.ElementTree as ET
+                self.assertEqual([c.get('name')for c in ET.parse(f.args.junit).iter('testcase')],remaining or ['sync-differential'])
+                sidecar=Path(str(f.args.receipt)+'.ci-execution.json')
+                self.assertEqual(sidecar.exists(),bool(remaining))
+                if remaining:
+                    self.assertEqual(json.loads(sidecar.read_bytes())['requested_suites'],remaining)
+                    self.assertEqual(result['execution']['requested_suites'],remaining)
+
+    def test_partial_cannot_claim_zero_setup_failed_complement_or_changed_final_coverage(self):
+        full=json.loads((VALIDATION.ROOT/'.github/ci37-runtime.json').read_bytes())['suites']
+        partial=[n for n in full if n not in {'producer-proof','python-test-runner','release-bundle',
+            'project-coverage','native-registration'}]
+        self.rosters(partial,full);f=self.f
+        with patch.object(VALIDATION,'_ci_selection',return_value=deepcopy(self.selection)):
+            f.args.expected_native_setup='sha256:'+'0'*64
+            with self.assertRaises(VALIDATION.ValidationError):f.validate()
+            self.assertEqual(f.executed(),[])
+            f.args.expected_native_setup=''
+            with self.assertRaises(VALIDATION.ValidationError):
+                f.validate(extra_environment={'FIXTURE_FAIL_ALPHA':'1'})
+            self.assertFalse(f.args.receipt.exists())
+            self.assertEqual(f.executed(),['alpha']*5)
+            f.log.unlink()
+            def drift(*a,**k):self.evidence['covered_suites']=list(full)
+            with patch.object(VALIDATION,'_differential',side_effect=drift), \
+                    self.assertRaises(VALIDATION.ValidationError):f.validate()
+            self.assertEqual(f.executed(),[])
+            self.assertFalse(f.args.receipt.exists())
 
 
 
@@ -1888,6 +1958,54 @@ class StandaloneNativeOwnersTests(unittest.TestCase):
         self.assertEqual(self.calls.count(self.prefix+'/check-runs/910'),0,'unrelated skipped jobs grant no command coverage')
         self.assertLessEqual(len(self.calls),50)
 
+    def documentation_three(self):
+        self.selection['suites']=[n for n in self.names if n not in {'producer-proof','python-test-runner',
+            'release-bundle','project-coverage','native-registration'}]
+        # Actual immutable B/M delta is an implementation-only CI path. No
+        # native workflow-contract job ran for the protected security=false route.
+        before=deepcopy(self.tree);before['tools/sync-test-reuse/gate.py']['sha']='8'*40
+        before_tree='9'*40
+        self.docs[self.prefix+'/git/commits/'+self.b]['tree']['sha']=before_tree
+        self.docs[self.prefix+'/git/trees/'+before_tree+'?recursive=1']={'sha':before_tree,'truncated':False,
+            'tree':[{'path':p,**v}for p,v in before.items()]}
+        job=next(j for j in self.jobs if j['name']=='workflow-contracts')
+        job.update(conclusion='skipped',steps=[],started_at=None,completed_at=None)
+        self.docs[self.prefix+'/check-runs/'+str(job['id'])]['conclusion']='skipped'
+        return before_tree
+
+    def test_actual_CI32_security_false_reuses_only_documentation_three_not_skipped_workflow(self):
+        self.documentation_three();proof=self.verify()
+        expected=[n for n in self.selection['suites']if n in VALIDATION.STANDALONE_CI_COMMANDS and n!='workflow-contracts']
+        self.assertEqual(len(expected),3);self.assertEqual(proof['suites'],expected)
+        self.assertEqual(proof['native']['repository_route'],{'mode':'delegated-sync','security':'false'})
+        self.assertEqual(set(proof['native']['selected_jobs']),{'documentation / documentation'})
+        self.assertNotIn('workflow-contracts',proof['native']['checks'])
+        self.assertEqual(proof['native']['skipped_workflow_contracts']['job']['conclusion'],'skipped')
+        self.assertIsNone(proof['native']['skipped_workflow_contracts']['job']['completed_at'])
+        self.assertFalse(proof['qualification']);self.assertFalse(proof['reusable'])
+
+    def test_CI32_requires_real_security_false_unique_skipped_workflow_and_unchanged_books(self):
+        before_tree=self.documentation_three()
+        for shape in ('security','success','missing','duplicate','foreign-check','closing-base'):
+            reads=0
+            def change(path,value):
+                nonlocal reads
+                if shape=='security'and path.endswith('/git/trees/'+before_tree+'?recursive=1'):
+                    value['tree'].append({'path':'.github/workflows/unreviewed.yml','mode':'100644','type':'blob','sha':'7'*40})
+                if path.endswith('/jobs?per_page=100'):
+                    row=next(j for j in value['jobs']if j['name']=='workflow-contracts')
+                    if shape=='success':row['conclusion']='success'
+                    elif shape=='missing':value['jobs'].remove(row);value['total_count']-=1
+                    elif shape=='duplicate':
+                        value['jobs'].append({**row,'id':999});value['total_count']+=1
+                if shape=='foreign-check'and path.endswith('/check-runs/916'):value['app']['id']=1
+                if shape=='closing-base'and path.endswith('/branches/apple-main'):
+                    reads+=1
+                    if reads>1:value['commit']['sha']='a'*40
+                return value
+            with self.subTest(shape=shape),self.assertRaises((VALIDATION.ValidationError,self.gate.GateError)):
+                self.verify(mutate=change)
+
     def test_completed_independent_Android_three_job_owner_still_supplies_only_four_CI_commands(self):
         self.android_owners();proof=self.verify()
         self.assertEqual(len(proof['suites']),4);self.assertEqual(set(proof['commands']),set(VALIDATION.STANDALONE_CI_COMMANDS))
@@ -2002,6 +2120,30 @@ class StandaloneNativeOwnersTests(unittest.TestCase):
         self.docs[self.prefix+'/git/commits/'+normal]['parents'].reverse()
         with self.assertRaises(VALIDATION.ValidationError):self.verify(normal_parent=normal)
 
+    def test_closed_CI32_retains_exact_skipped_check_when_original_PR_association_clears(self):
+        self.documentation_three();opened=dict(self.verify());normal='a'*40
+        self.pr.update(state='closed',merged=True,merge_commit_sha=normal);self.pr['base']['sha']=normal
+        self.docs[self.prefix+'/git/ref/heads/apple-main']['object']['sha']=normal
+        self.docs[self.prefix+'/branches/apple-main']['commit']['sha']=normal
+        self.docs[self.prefix+'/git/commits/'+normal]={'sha':normal,'tree':{'sha':self.t},
+            'parents':[{'sha':self.b},{'sha':self.h}]}
+        for value in (self.docs[self.prefix+'/actions/runs/901'],self.docs[self.prefix+'/actions/runs/901/attempts/1'],
+                self.docs[self.prefix+'/actions/workflows/900/runs?head_sha='+self.h+'&per_page=100']['workflow_runs'][0],
+                self.docs[self.prefix+'/check-suites/902'],*[v for k,v in self.docs.items()if '/check-runs/'in k]):
+            value['pull_requests']=[]
+        closed=self.verify(normal_parent=normal)
+        VALIDATION.verify_standalone_ci_provenance(opened,closed,self.request,normal_parent=normal)
+        self.assertEqual(closed['native']['skipped_workflow_contracts']['check']['pull_requests'],[])
+        self.assertEqual(closed['candidate'],self.m)
+        with self.assertRaises(VALIDATION.ValidationError):
+            VALIDATION.verify_standalone_ci_provenance(opened,closed,self.request)
+        for shape in ('number','base','head'):
+            forged=deepcopy(opened);row=forged['native']['skipped_workflow_contracts']['check']['pull_requests'][0]
+            if shape=='number':row['number']=999
+            else:row[shape]['sha']='f'*40
+            with self.subTest(shape=shape),self.assertRaises(VALIDATION.ValidationError):
+                VALIDATION.verify_standalone_ci_provenance(forged,closed,self.request,normal_parent=normal)
+
     def test_only_pending_proof_retries_are_bounded(self):
         proof=VALIDATION.NativeStandaloneCIProof({'fixture':'completed native facts'})
         with patch.object(VALIDATION,'verify_standalone_ci_owners',side_effect=[VALIDATION.StandalonePending('pending'),proof])as verify, \
@@ -2090,6 +2232,37 @@ class StandaloneNativeConsumerTests(unittest.TestCase):
         self.assertIs(result['reusable'],False);self.assertIs(result['qualification'],False)
         self.assertEqual(result['execution']['requested_suites'],self.required)
         self.assertEqual(result['standalone_owner_evidence'],self.proof);owner.assert_not_called()
+
+    def documentation_three(self):
+        self.names=[n for n in self.names if n not in {'producer-proof','python-test-runner','release-bundle',
+            'project-coverage','native-registration'}]
+        self.selection['suites']=self.names
+        self.proof['suites']=[n for n in self.proof['suites']if n!='workflow-contracts']
+        self.required=[n for n in self.names if n not in self.proof['suites']]
+        f=self.f
+        (f.candidate/'tests/workflow-contract-test.py').write_bytes((f.candidate/'tests/alpha.py').read_bytes())
+        f.ci_refresh();self.proof.update(candidate=f.commit,tree=f.tree_sha)
+
+    def test_actual29_commands_plus_native_documentation3_covers_CI32_without_fake_workflow_case(self):
+        self.documentation_three();result,owner=self.run_case()
+        self.assertEqual(len(self.proof['suites']),3);self.assertEqual(len(self.required),29)
+        self.assertIn('workflow-contracts',self.required)
+        self.assertEqual(result['executed_suites'],self.required);self.assertEqual(result['reused_suites'],self.proof['suites'])
+        self.assertEqual(self.f.executed(),['alpha']*29)
+        import xml.etree.ElementTree as ET
+        self.assertEqual([c.get('name')for c in ET.parse(self.f.args.junit).iter('testcase')],self.required)
+        self.assertEqual(result['execution']['requested_suites'],self.required)
+        self.assertFalse(result['qualification']);self.assertFalse(result['reusable']);owner.assert_not_called()
+
+    def test_CI32_pending_documentation_failure_after29_never_produces_success_or_repeats_three(self):
+        self.documentation_three()
+        def pending(*a,**k):raise VALIDATION.StandalonePending('original documentation pending')
+        def failed(*a):
+            self.assertEqual(self.f.executed(),['alpha']*29)
+            self.assertFalse(self.f.args.receipt.exists())
+            raise VALIDATION.ValidationError('original documentation failed')
+        with self.assertRaises(VALIDATION.ValidationError):self.run_case(probe=pending,opening=failed)
+        self.assertFalse(self.f.args.receipt.exists());self.assertEqual(self.f.executed(),['alpha']*29)
 
     def test_completed_independent_Android_still_leaves_only33_CI_commands_to_execute(self):
         self.proof['native']={'jobs':[{'name':'android / '+role,'status':'completed','conclusion':'success'}
@@ -2183,6 +2356,25 @@ class StandaloneNativeConsumerTests(unittest.TestCase):
             native.plan.return_value={'mode':'skip'};android.candidate_plan.side_effect=ValueError('source mismatch')
             with self.assertRaises(ValueError):VALIDATION._standalone_ci_schedule(
                 self.f.candidate,event,self.f.request,plan,**self.schedule_inputs)
+
+    def test_CI32_schedule_recomputes_trusted_security_false_before_reserving_documentation(self):
+        partial=[n for n in self.names if n not in {'producer-proof','python-test-runner','release-bundle',
+            'project-coverage','native-registration'}]
+        plan={'host_mode':'delegated-sync','package_set':[],'paths':['tools/sync-test-reuse/gate.py'],'regular':True}
+        event={'repository':self.f.repository,'pull_request':self.f.pr}
+        native=SimpleNamespace(plan=Mock(return_value={'mode':'skip'}))
+        android=SimpleNamespace(activated=Mock(return_value=False),has_staged_caller=Mock(return_value=False))
+        real=VALIDATION._trusted_module
+        def load(name,path):
+            if str(path).endswith('native-tests/check.py'):return native
+            if str(path).endswith('repository-checks/android_gate.py'):return android
+            return real(name,path)
+        with patch.object(VALIDATION,'_trusted_module',side_effect=load):
+            self.assertTrue(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
+                **self.schedule_inputs,suite_names=partial))
+            plan['paths']=['.github/workflows/unreviewed.yml'];native.plan.reset_mock()
+            self.assertFalse(VALIDATION._standalone_ci_schedule(self.f.candidate,event,self.f.request,plan,
+                **self.schedule_inputs,suite_names=partial));native.plan.assert_not_called()
 
     def test_static_recipe_registry_and_complete_callee_entries_choose_only_supported_native_four(self):
         plan={'host_mode':'delegated-sync','package_set':[],'paths':['tools/branch-cleanup/cleanup.py'],'regular':True}

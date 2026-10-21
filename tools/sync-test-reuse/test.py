@@ -99,6 +99,63 @@ class GitHubApiDiagnosticsTests(unittest.TestCase):
         self.assertIn("command exit=1 http=404", str(caught.exception))
         self.assertNotIn("synthetic-private-body", str(caught.exception))
 
+    def test_owned_job_logs_preserve_raw_terminal_bytes_in_captured_pipes(self):
+        raw = b"prefix\r\n\x1b[31mcolored\x1b[0m\x00\xff\n"
+        for identifier in (1, 118649365857):
+            with self.subTest(identifier=identifier):
+                endpoint = f"repos/noah-l-frank/overte/actions/jobs/{identifier}/logs"
+
+                def fake_cli(command, **kwargs):
+                    self.assertEqual(command, ["gh", "api", "--allow-escape-sequences", endpoint])
+                    self.assertEqual(kwargs, {"check": True, "stdout": subprocess.PIPE,
+                                              "stderr": subprocess.PIPE})
+                    return SimpleNamespace(stdout=raw)
+
+                with mock.patch.object(gate.subprocess, "run", side_effect=fake_cli) as run:
+                    self.assertIs(gate.GitHubApi().bytes(endpoint), raw)
+                self.assertEqual(run.call_count, 1)
+
+    def test_other_binary_endpoints_keep_the_original_cli_transport(self):
+        endpoints = (
+            "repos/noah-l-frank/overte/actions/artifacts/123/zip",
+            "repos/overte-org/overte/actions/jobs/123/logs",
+            "repos/noah-l-frank/other/actions/jobs/123/logs",
+            "repos/Noah-l-frank/overte/actions/jobs/123/logs",
+            "repos/noah-l-frank/overte/actions/jobs/0/logs",
+            "repos/noah-l-frank/overte/actions/jobs/01/logs",
+            "repos/noah-l-frank/overte/actions/jobs/-1/logs",
+            "repos/noah-l-frank/overte/actions/jobs/123/logs/",
+            "repos/noah-l-frank/overte/actions/jobs/123/logs?per_page=100",
+            "repos/noah-l-frank/overte/actions/jobs/123/logs/extra",
+            "/repos/noah-l-frank/overte/actions/jobs/123/logs",
+            "https://api.github.com/repos/noah-l-frank/overte/actions/jobs/123/logs",
+        )
+        raw = b"unchanged-binary\x00\xff"
+        for endpoint in endpoints:
+            with self.subTest(endpoint=endpoint):
+                with mock.patch.object(gate.subprocess, "run", return_value=SimpleNamespace(stdout=raw)) as run:
+                    self.assertIs(gate.GitHubApi().bytes(endpoint), raw)
+                run.assert_called_once_with(["gh", "api", endpoint], check=True,
+                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def test_owned_job_log_errors_remain_fail_closed_without_raw_output(self):
+        endpoint = "repos/noah-l-frank/overte/actions/jobs/123/logs"
+        errors = (
+            subprocess.CalledProcessError(1, ["gh"], output=b"synthetic-private-stdout\x1b[31m",
+                                          stderr=b"synthetic-private-stderr (HTTP 403)"),
+            OSError(2, "synthetic-private-path"),
+        )
+        for error in errors:
+            with self.subTest(error=type(error).__name__):
+                with mock.patch.object(gate.subprocess, "run", side_effect=error) as run:
+                    with self.assertRaises(gate.EvidenceError) as caught:
+                        gate.GitHubApi().bytes(endpoint)
+                self.assertIs(caught.exception.__cause__, error)
+                self.assertNotIn("synthetic-private", str(caught.exception))
+                self.assertNotIn("\x1b", str(caught.exception))
+                run.assert_called_once_with(["gh", "api", "--allow-escape-sequences", endpoint],
+                                            check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
     def test_success_and_empty_success_preserve_existing_values(self):
         for stdout, expected in (("{\"ok\": true}", {"ok": True}), ("", {})):
             with mock.patch.object(gate.subprocess, "run", return_value=SimpleNamespace(stdout=stdout)):
@@ -4548,7 +4605,9 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
                 return mutate(path,value)if mutate else value
             def bytes(self,path):f.calls.append(('BYTES',path));return owner.binary[path]
         real_load=gate.package_checks.load
-        host=SimpleNamespace(select=mock.Mock(return_value=deepcopy(f.selected)))
+        host=SimpleNamespace(select=mock.Mock(side_effect=lambda *a,**k:deepcopy(
+            {**f.selected,'suites':getattr(self,'current_names',f.names)}
+            if k.get('target')=='android-vr' else f.selected)))
         native=SimpleNamespace(plan=lambda *a,**k:{'mode':'skip'})
         def load(name,path):
             if path=='tools/repository-checks/host_selection.py':return host
@@ -4583,6 +4642,55 @@ class ExactAndroidTreeParentTests(unittest.TestCase):
         self.assertNotIn('environment',proof);self.assertNotIn('results',proof)
         self.assertEqual(proof['original_proof']['run_id'],300)
         self.assertTrue(proof['expires_at'].startswith('2026-10-22T21:45:15.669186'))
+        self.assertEqual(proof['kind'],'original-sync-identical-android-tree-v1')
+        self.assertNotIn('original_suites',proof);self.assertNotIn('covered_suites',proof)
+
+    def rosters(self, original, requested):
+        f=self.f;f.names=list(original);self.current_names=list(requested)
+        f.selected['suites']=list(original)
+        f.selection.update(suites=list(original),omitted_suites=[n for n in f.registry['suites']if n not in original])
+        f.report.update(executed_suites=list(original),not_selected_suites=f.selection['omitted_suites'])
+        f.observed.update(requested_suites=list(original),results=[{'name':n,'status':'passed',
+            'command':f.registry['suites'][n]['command']}for n in original])
+        f.pack()
+
+    def test_finite32_and37_original_native_reports_cover_exact_ordered_intersection(self):
+        full=list(self.f.names)
+        partial=[n for n in full if n not in {'producer-proof','python-test-runner','release-bundle',
+            'project-coverage','native-registration'}]
+        self.assertEqual(len(partial),32)
+        for original,requested in ((full,full),(partial,full),(partial,partial),(full,partial)):
+            self.rosters(original,requested)
+            with self.subTest(original=len(original),requested=len(requested)):
+                proof=self.verify(pure=True)
+                self.assertIsInstance(proof,gate.NativeExactTreeParentEvidence)
+                covered=[n for n in requested if n in original]
+                self.assertEqual(gate.exact_tree_covered_suites(proof,requested),covered)
+                self.assertEqual(proof['original_report'],self.f.report)
+                self.assertEqual(proof['original_report']['executed_suites'],original)
+                if original!=full or requested!=full:
+                    self.assertEqual(proof['kind'],'original-sync-identical-android-ci-subset-v1')
+                    self.assertEqual(proof['original_suites'],original)
+                    self.assertEqual(proof['covered_suites'],covered)
+
+    def test_unknown_subset_order_duplicate_or_scalar32_claim_never_omits_commands(self):
+        full=list(self.f.names);partial=[n for n in full if n not in {
+            'producer-proof','python-test-runner','release-bundle','project-coverage','native-registration'}]
+        for original,requested in ((full[:-1],full),(full,list(reversed(partial))),
+                (partial+[partial[0]],full),(full,partial[:-1])):
+            self.rosters(original,requested)
+            with self.subTest(original=original,requested=requested):self.assertIsNone(self.verify(pure=True))
+        self.rosters(partial,full)
+        self.f.observed['requested_suites']=full
+        self.f.pack()
+        self.assertIsNone(self.verify(pure=True),'a32 report cannot borrow a37 sidecar claim')
+
+    def test_legacy_typed_kind_cannot_claim32_or_arbitrary_partial_coverage(self):
+        proof=self.verify(pure=True);full=list(self.f.names)
+        for requested in (full[:-1],list(reversed(full)),['foreign'],[] ):
+            changed=deepcopy(proof);changed['requested_suites']=requested
+            with self.subTest(requested=requested),self.assertRaises((gate.GateError,gate.EvidenceError)):
+                gate.exact_tree_covered_suites(changed,requested)
 
     def test_real_recursive_tree_preserves_exact_normal_inventory_and_rejects_changed_before(self):
         proof=self.verify(pure=True,real_tree=True)
@@ -4730,12 +4838,21 @@ class RetainedInheritedSyncMetadataTests(unittest.TestCase):
     def pack(self, *, extra=None, mutate=None):
         f=self.f
         f.selection.pop('selection',None);f.selection['selection']=f.digest(f.selection)
-        f.report.update(ci_selection=f.selection,execution=None,
-            parent_evidence=self.validator._parent_provenance(self.proof,f.names,gate))
+        covered=gate.exact_tree_covered_suites(self.proof,f.names)
+        remaining=[n for n in f.names if n not in covered]
+        if remaining:
+            f.observed.update(selection=f.selection['selection'],requested_suites=remaining,
+                results=[{'name':n,'status':'passed','command':f.registry['suites'][n]['command']}for n in remaining])
+            f.observed.pop('receipt_digest',None);f.observed['receipt_digest']=f.digest(f.observed)
+        f.report.update(ci_selection=f.selection,execution=f.observed if remaining else None,
+            parent_evidence=self.validator._parent_provenance(self.proof,covered,gate))
         f.report.pop('receipt_digest',None);f.report['receipt_digest']=f.digest(f.report)
-        xml=b'<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase name="sync-differential"/></testsuite>'
-        payload={'build/test-results/sync-selected.xml':xml,
+        junit=remaining or ['sync-differential']
+        xml='<testsuite tests="'+str(len(junit))+'" failures="0" errors="0" skipped="0">'+''.join(
+            '<testcase name="'+n+'"/>'for n in junit)+'</testsuite>'
+        payload={'build/test-results/sync-selected.xml':xml.encode(),
             'build/test-results/sync-validation.json':gate.canonical_json(f.report)}
+        if remaining:payload['build/test-results/sync-validation.json.ci-execution.json']=gate.canonical_json(f.observed)
         if extra:payload.update(extra)
         if mutate:mutate(payload)
         out=io.BytesIO()
@@ -4763,6 +4880,55 @@ class RetainedInheritedSyncMetadataTests(unittest.TestCase):
             self.assertEqual(call.kwargs['protected_tree'],TREE)
         self.assertIsNone(self.f.report['execution'])
         self.assertEqual(self.f.report['executed_suites'],[])
+
+    def rosters(self, original, requested):
+        f=self.f;f.names=list(requested);f.selected['suites']=list(requested)
+        f.selection.update(suites=list(requested),omitted_suites=[n for n in f.registry['suites']if n not in requested])
+        f.report['not_selected_suites']=f.selection['omitted_suites']
+        covered=[n for n in requested if n in original]
+        self.proof.update(kind='original-sync-identical-android-ci-subset-v1',original_suites=list(original),
+            requested_suites=list(requested),covered_suites=covered)
+        self.proof['original_report']['executed_suites']=list(original)
+        f.report.update(reused_suites=covered,executed_suites=[n for n in requested if n not in covered])
+        self.pack()
+
+    def test_metadata32_37_intersections_require_actual_five_sidecar_and_zero_work_shapes(self):
+        full=list(self.f.names);partial=[n for n in full if n not in {
+            'producer-proof','python-test-runner','release-bundle','project-coverage','native-registration'}]
+        for original,requested in ((partial,full),(partial,partial),(full,partial)):
+            self.rosters(original,requested)
+            with self.subTest(original=len(original),requested=len(requested)):
+                result,fresh=self.verify()
+                self.assertTrue(result['metadata_authenticated']);self.assertFalse(result['new_execution'])
+                self.assertEqual(fresh.call_count,2)
+                with zipfile.ZipFile(io.BytesIO(self.f.binary[self.f.prefix+'/actions/artifacts/401/zip']))as archive:
+                    self.assertEqual(len(archive.namelist()),3 if original==partial and requested==full else 2)
+
+    def test_partial_metadata_cannot_omit_or_forge_remaining_execution_sidecar_and_JUnit(self):
+        full=list(self.f.names);partial=[n for n in full if n not in {
+            'producer-proof','python-test-runner','release-bundle','project-coverage','native-registration'}]
+        self.rosters(partial,full)
+        report_path='build/test-results/sync-validation.json';sidecar=report_path+'.ci-execution.json'
+        for shape in ('missing','command','JUnit','reused','execution-time'):
+            def mutate(payload):
+                if shape=='missing':payload.pop(sidecar)
+                elif shape=='JUnit':payload['build/test-results/sync-selected.xml']=b'<testsuite tests="1"><testcase name="sync-differential"/></testsuite>'
+                else:
+                    value=json.loads(payload[sidecar]if shape!='reused'else payload[report_path])
+                    if shape=='command':value['results'][0]['command']=['python','unreviewed.py']
+                    elif shape=='execution-time':value['completed_at']='2026-10-19T21:46:00Z'
+                    else:value['reused_suites']=full
+                    value.pop('receipt_digest');value['receipt_digest']=self.f.digest(value)
+                    payload[sidecar if shape!='reused'else report_path]=gate.canonical_json(value)
+                    if shape!='reused':
+                        report=json.loads(payload[report_path]);report['execution']=value
+                        report.pop('receipt_digest');report['receipt_digest']=self.f.digest(report)
+                        payload[report_path]=gate.canonical_json(report)
+            self.pack(mutate=mutate)
+            with self.subTest(shape=shape),self.assertRaises((gate.GateError,ValueError)):self.verify()
+        self.pack()
+        changed=deepcopy(self.proof);changed['covered_suites']=full
+        with self.assertRaises(gate.GateError):self.verify(evidence=changed)
 
     def test_unavailable_expired_changed_or_recursive_parent_proof_cannot_retain(self):
         for shape in ('unavailable','expired','provenance','recursive'):
@@ -4828,13 +4994,14 @@ class RetainedStandaloneSyncMetadataTests(unittest.TestCase):
     def mixed(self,f):
         f.selection['standalone_ci_schedule']=True
         f.observed['requested_suites']=self.remaining
-        f.observed['results']=[r for r in f.observed['results']if r['name']in self.remaining]
+        f.observed['results']=[{'name':n,'status':'passed','command':f.registry['suites'][n]['command']}
+            for n in self.remaining]
         f.report.update(mode='native-standalone-ci',executed_suites=list(self.remaining),reused_suites=list(self.four),
             qualification=False,reusable=False,standalone_owner_evidence=deepcopy(dict(self.proof)))
         self.pack(f)
 
     def pack(self,f):
-        xml='<testsuite tests="33" failures="0" errors="0" skipped="0">'+''.join('<testcase name="'+n+'"/>'for n in self.remaining)+'</testsuite>'
+        xml='<testsuite tests="'+str(len(self.remaining))+'" failures="0" errors="0" skipped="0">'+''.join('<testcase name="'+n+'"/>'for n in self.remaining)+'</testsuite>'
         f.pack(mutate=lambda payload:payload.update({'build/test-results/sync-selected.xml':xml.encode()}))
 
     def verify(self,**kwargs):
@@ -4854,6 +5021,57 @@ class RetainedStandaloneSyncMetadataTests(unittest.TestCase):
         self.assertIs(result['metadata_authenticated'],True);self.assertIs(result['new_execution'],False)
         self.assertIs(result['qualification'],False);self.assertEqual(result['validation_run'],300)
         self.assertEqual(self.f.observed['requested_suites'],self.remaining)
+
+    def documentation_three(self):
+        f=self.f
+        partial=[n for n in f.names if n not in {'producer-proof','python-test-runner','release-bundle',
+            'project-coverage','native-registration'}]
+        self.four=[n for n in self.four if n!='workflow-contracts']
+        self.remaining=[n for n in partial if n not in self.four]
+        f.names=partial;f.selected['suites']=partial
+        f.selection.update(suites=partial,omitted_suites=[n for n in f.registry['suites']if n not in partial])
+        f.report['not_selected_suites']=f.selection['omitted_suites']
+        self.proof['suites']=self.four
+        self.proof['native']['jobs']=[j for j in self.proof['native']['jobs']if j['name']!='workflow-contracts']
+        for name in ('checks','selected_jobs'):self.proof['native'][name].pop('workflow-contracts',None)
+        self.proof['native'].update(repository_route={'mode':'delegated-sync','security':'false'},
+            skipped_workflow_contracts={'job':{'name':'workflow-contracts','conclusion':'skipped','completed_at':None},
+                'check':{'name':'workflow-contracts','conclusion':'skipped'}})
+        self.mixed(f)
+
+    def test_native_docs3_plus_actual29_retains_CI32_and_supplies_subset_parent_coverage(self):
+        full=list(self.f.names);self.documentation_three()
+        result=self.verify()
+        self.assertTrue(result['metadata_authenticated']);self.assertFalse(result['new_execution'])
+        self.assertEqual(len(self.f.report['reused_suites']),3);self.assertEqual(len(self.f.report['executed_suites']),29)
+        self.assertIn('workflow-contracts',self.f.report['executed_suites'])
+        parent=ExactAndroidTreeParentTests();parent.setUp();self.addCleanup(parent.doCleanups)
+        parent.rosters(self.f.names,full);self.mixed(parent.f)
+        real=gate.package_checks.load
+        with mock.patch.object(gate.package_checks,'load',side_effect=lambda n,p:self.validator if p=='tools/test-evidence/validate-sync.py'else real(n,p)), \
+                mock.patch.object(self.validator,'verify_standalone_ci_owners',return_value=deepcopy(self.proof))as native:
+            proof=parent.verify(pure=True)
+        self.assertIsInstance(proof,gate.NativeExactTreeParentEvidence)
+        self.assertEqual(proof['original_suites'],self.f.names)
+        self.assertEqual(gate.exact_tree_covered_suites(proof,full),self.f.names)
+        self.assertEqual(proof['original_report']['executed_suites'],self.remaining)
+        self.assertEqual(proof['original_report']['reused_suites'],self.four)
+        self.assertGreaterEqual(native.call_count,2)
+
+    def test_native_docs3_metadata_rejects_fake_four_coverage_missing29_or_failed_native(self):
+        self.documentation_three();f=self.f
+        for shape in ('fake-workflow','missing-command','qualification'):
+            before=deepcopy(f.report),deepcopy(f.observed)
+            if shape=='fake-workflow':f.report['reused_suites'].append('workflow-contracts')
+            elif shape=='missing-command':f.observed['results'].pop()
+            else:f.report['qualification']=True
+            self.pack(f)
+            with self.subTest(shape=shape),self.assertRaises((gate.GateError,ValueError)):self.verify()
+            f.report,f.observed=deepcopy(before);self.pack(f)
+        real=gate.package_checks.load
+        with mock.patch.object(gate.package_checks,'load',side_effect=lambda n,p:self.validator if p=='tools/test-evidence/validate-sync.py'else real(n,p)), \
+                mock.patch.object(self.validator,'verify_standalone_ci_owners',side_effect=ValueError('original documentation failed')), \
+                self.assertRaises(ValueError):f.verify()
 
     def test_positive_Android_native_facts_preserve_mixed_metadata_and_exact_normal_parent_coverage(self):
         association=[{'number':610,'base':{'sha':BASE},'head':{'sha':HEAD}}]

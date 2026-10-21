@@ -1219,6 +1219,14 @@ both outer verifiers; candidate JSON and caller flags cannot enable it. Legacy
 four-file callers retain their behavior. Once the protected base contains the
 new generation, a candidate cannot revert to the legacy owner or opt out.
 
+An already installed, exact iOS compiler-cache profile can also retain its
+application and own-host omission for these independently owned npm changes.
+The trusted PR route recomputes the package plan, verifies the original B/M
+lock admission and identical H/M lock bytes, and retains the complete compiler
+profile and reader-boundary checks on B/H/M. Missing or mismatched ownership,
+changed cache inputs and unrelated product changes keep the full iOS gate.
+Compiler-cache installation itself still requires its independent iOS host.
+
 The paired Browser workflow preserves every existing Browser/native journey
 step and manual input. Its metadata route omits both existing jobs only for an
 exact focused package owner or reviewed formatting-only lock change. Unsupported
@@ -1598,6 +1606,12 @@ The validator reserves exactly those four commands and executes the remaining
 completed native proof is required before any successful report. Failed, stale
 or changed owners block rather than cause those four commands to run again.
 Only the 33 actual commands produce candidate JUnit cases.
+For the exact protected CI32 selection, the original Repository route must
+independently select `security=false`: its three documentation commands supply
+coverage while the uniquely skipped workflow-contract job supplies none. Sync
+executes the other 29 commands, including workflow contracts, and records only
+those actual commands in its JUnit and execution sidecar. Pending or failed
+documentation cannot produce a successful combined report.
 An independently selected native or project product owner keeps the previous
 CI37 execution route. A required Android owner remains separate: the same
 original Repository run must authenticate its complete route, execute and
@@ -1608,6 +1622,16 @@ the combined report remains `qualification: false` and `reusable: false`.
 Metadata retention and the finite identical-tree Android parent consumer
 independently revalidate both owners. Closed PR associations may be cleared
 only after the existing exact normal-merge geometry has been authenticated.
+
+The identical-tree AndroidMain-to-VR consumer independently derives both ordered
+selections. It accepts only CI37 or CI37 without `producer-proof`,
+`python-test-runner`, `release-bundle`, `project-coverage` and
+`native-registration`. An authenticated original CI32 covers those same 32
+commands in a current CI37 request; the current validator executes the five
+remaining commands and records their actual JUnit and sidecar. Complete coverage
+uses the existing differential-only path with no consumer setup. Original and
+requested rosters, their intersection, the full original report, native owners
+and expiry remain explicit; none of these reports qualifies a runtime or E.
 
 Android routing may omit its independent union for the closed set of canonical
 CI/controller/test and guide changes in `REVIEWED_CI_INPUTS`. Every changed entry
@@ -1980,6 +2004,10 @@ workflow recipes must still match the trusted default recipe exactly. Native
 App, original attempt, association and current base/head/merge checks remain
 required at both bookends. Manual validation still requires the exact current
 default caller; an older caller never replaces the current merge context.
+
+Sync captures job-log bytes unchanged with `gh api --allow-escape-sequences`
+only for the exact fork-owned job-log GET endpoint. Output remains in captured
+pipes; artifact downloads, other endpoints and failure handling are unchanged.
 
 The source-staged `codeql-upload-provenance.yml` successor records the pinned
 Analyze action's opaque `sarif-id` output in one small native artifact per selected
