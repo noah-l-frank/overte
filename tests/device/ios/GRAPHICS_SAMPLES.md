@@ -74,3 +74,19 @@ phase retains acquisition responsibility and fails instead of publishing; the
 outer live coordinator can now invoke the separately qualified crossed-phase
 retirement path before a fresh capture. No native compilation or device qualification was
 performed; physical transport/GPU timing is unmeasured and deadlines are intact.
+
+`archive_index()` now validates retained old-process indexes, original records,
+PNG bytes/chunks and retirement receipts entirely through private files and
+pure original-source parsers. It performs no candidate/SDK/native admission and
+cannot produce a usable live reader. The exact old index must remain owned and
+locked. This permits restart recovery to inspect old evidence while the original
+process is stopped, without querying a replacement source as if it were the old
+one. Abandoned partial/empty files receive inode-ownership inspection only and
+cannot become image evidence. Historical scopes reject read, drain and phase
+retirement. A dangling foreign artifact is present, including when its target
+does not exist; neither cleanup nor phase recovery treats it as absence.
+
+The additional archive/partial-file/foreign-artifact packet passes 26 selected
+sampler and shared Vulkan-owner no-build cases. The future restart controller
+must still independently drain live owners before stop and prove original PID
+death, new native birth/counters and unchanged candidate before adopting sources.

@@ -5,6 +5,7 @@ from copy import deepcopy
 import hashlib
 from io import BytesIO
 import json
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from PIL import Image,ImageDraw
@@ -227,6 +228,42 @@ class SamplesTests(SceneHarness,unittest.TestCase):
             self.assertEqual(unpack(old_sample['payload'])[0],archived)
             current.read(TICKET,self.sdk.host_epoch());self.assertEqual(2,current.previous['iosGraphicsSamplesVersion'])
             self.assertEqual(old_sample,store.read())
+
+    def archive_index(self,samples):
+        return IOSGraphicsSamples.archive_index(samples.previous,adapter=self.adapter,selector='owned',client=self.client,
+            run=RUN,role=samples.role,stage=0,lock=self.lock,binding=samples.binding,artifact_root=self.root/'pixels',image_policy=POLICY)
+
+    def test_old_process_archive_validates_original_bytes_without_any_sdk_or_native_factory(self):
+        with self.lock.held():
+            self.scene().prepare();samples=self.samples();samples.read(TICKET,self.sdk.host_epoch());before=len(self.gpu.commands)
+            def forbidden(*_,**__):raise AssertionError('Historical archive attempted live SDK admission')
+            with patch.object(self.adapter,'normal_feature_runtime',side_effect=forbidden), \
+                 patch.object(self.adapter,'_vulkan_world_frame_owner',side_effect=forbidden):
+                archived=self.archive_index(samples)
+            self.assertEqual(samples.state,archived);self.assertEqual(before,len(self.gpu.commands))
+
+    def test_abandoned_partial_file_stays_owned_in_old_process_archive_without_becoming_pixel_evidence(self):
+        self.gpu.lost=True
+        with self.lock.held():
+            self.scene().prepare();samples=self.samples()
+            with self.assertRaises(NativeUIError):samples.read(TICKET,self.sdk.host_epoch())
+            self.gpu.lost=False;self.client.activate('7'*32,'open',{});recovery=self.samples(cleanup=True);recovery.retire_crossed_phase()
+            before=len(self.gpu.commands);archived=self.archive_index(recovery)
+            self.assertEqual('abandoned',archived['owners'][0]['phase']);self.assertEqual(before,len(self.gpu.commands))
+            with self.assertRaises(NativeUIError):recovery.archive(recovery.state['owners'][0])
+
+    def test_foreign_dangling_artifact_is_never_mistaken_for_absence_before_a_capture(self):
+        with self.lock.held():
+            self.scene().prepare();samples=self.samples()
+            def unavailable(*_,**__):raise NativeUIError('Synthetic missing native subject hook')
+            with patch.object(self.adapter,'_graphics_subject_observer',return_value=SimpleNamespace(last=None,read=unavailable)), \
+                 self.assertRaises(NativeUIError):samples.read(TICKET,self.sdk.host_epoch())
+            row=samples.state['owners'][0];owner=samples.owner(row)
+            self.assertIsNone(owner.store.read());self.assertEqual([],self.gpu.commands)
+            (self.root/'pixels'/owner.name).symlink_to(self.root/'absent-foreign-target')
+            self.client.activate('7'*32,'open',{})
+            with self.assertRaises(NativeUIError):self.samples(cleanup=True).retire_crossed_phase()
+            with self.assertRaises(NativeUIError):self.samples(cleanup=True).drain()
 
 
 if __name__=='__main__':unittest.main()

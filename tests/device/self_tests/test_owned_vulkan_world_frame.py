@@ -28,6 +28,21 @@ def owner(b,store,root,*,binding=BINDING,role='primary'):
 
 
 class OwnerTests(unittest.TestCase):
+    def test_abandoned_empty_artifact_can_verify_only_inode_ownership_without_native_or_png_claim(self):
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);store=PrivateFeatureState(root/'owner.json');b=World();current=owner(b,store,root);send=b.send
+            def lost(query):
+                send(query)
+                if query['operation']=='read':raise OSError('Synthetic lost native capture return')
+            b.send=lost
+            with self.assertRaises(NativeUIError):current.capture(TICKET)
+            b.send=send;current.release();before=len(b.commands)
+            self.assertTrue(current.verify_owned_artifact());self.assertEqual(before,len(b.commands))
+            with self.assertRaises(NativeUIError):current.archive()
+            (root/'foreign-link').hardlink_to(root/current.name)
+            with self.assertRaises(NativeUIError):current.verify_owned_artifact()
+            self.assertEqual(before,len(b.commands))
+
     def test_capture_retains_original_file_and_chunk_summaries_across_host_reconstruction(self):
         with tempfile.TemporaryDirectory() as root:
             root=Path(root);store=PrivateFeatureState(root/'owner.json');b=World();current=owner(b,store,root)

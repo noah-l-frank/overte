@@ -194,6 +194,26 @@ class VulkanWorldFrameOwner:
         with self.lock.held():
             self._load();raw=self._read();need(same(self.store.read(),self.state) and self.guard() is not False);return raw
 
+    def verify_owned_artifact(self):
+        """Inspect retained file ownership after native release, without pixels.
+
+        Interrupted/abandoned acquisitions may own an empty or partial file.
+        Its inode is cleanup responsibility; this is never PNG/content proof.
+        No native command, file mutation or metadata retirement is performed.
+        """
+        with self.lock.held():
+            self._load();need(self.state is not None and self.state['phase']=='released' and absent(self.state['absence']))
+            path=self.root/self.name
+            if self.state['file'] is None:
+                try:path.lstat()
+                except FileNotFoundError:pass
+                else:need(False)
+            else:
+                descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+                with os.fdopen(descriptor,'rb') as stream:self._file(stream.fileno())
+            need(same(self.store.read(),self.state) and self.guard() is not False)
+            return True
+
     def release(self):
         """Retire native resources; preserve the original host PNG and ledger."""
         try:

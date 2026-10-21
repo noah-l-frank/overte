@@ -16,6 +16,7 @@ from adapters.native_graphics_subject import validate as subject_packet
 from adapters.native_vulkan_world_frame import absent,validate as capture_packet
 from adapters.normal_feature_state import PrivateFeatureState,context
 from adapters.normal_ui import NativeUIError
+from adapters.owned_vulkan_world_frame import VulkanWorldFrameOwner
 from adapters.script_feature.history import pack,unpack,same
 from adapters.script_feature.lock import ScriptSourceLock
 from adapters.script_feature.ui_source import validate as tablet_packet
@@ -59,7 +60,7 @@ class IOSGraphicsSamples:
         self.lock,self.root,self.policy=lock,Path(artifact_root),deepcopy(image_policy)
         need(self.root.is_absolute() and self.root.is_dir() and self.root==self.root.resolve())
         PrivateFeatureState(self.root/'graphics-artifact-root-check')._parent()
-        self.epoch_ms,self.monotonic,self.cleanup_only=epoch_ms,monotonic,cleanup_only
+        self.epoch_ms,self.monotonic,self.cleanup_only=epoch_ms,monotonic,cleanup_only;self.historical=False
         self.fixture=GraphicsFixtureReader(client,run,epoch_ms=epoch_ms);self.fixture.attach()
         identifier(self.fixture.instance);self.client,self.instance=client,self.fixture.instance
         self.store=adapter.graphics_samples_store(selector,role,stage)
@@ -70,6 +71,9 @@ class IOSGraphicsSamples:
         self.state=dict(binding=self.binding,phase='ready',sequence=0,cursors={key:None for key in CURSORS},owners=[],seenFrames=[])
         if self.previous is not None:self.state=self.decode(self.previous)
         need(cleanup_only or self.state['phase']=='ready')
+        self.ready_history()
+
+    def ready_history(self):
         if self.previous is not None and self.state['phase']=='ready' and self.state['owners']:
             records=[self.record(row)[1] for row in self.state['owners']];seen=[]
             for record in records:
@@ -85,6 +89,42 @@ class IOSGraphicsSamples:
                     ('tablet','tablet'),('capture','capture'),('retirement','retirement'),('provider','provider'))}
                 expected['native']=last['clockJoin']['nativeAfter']
             need(same(expected,self.state['cursors']))
+
+    @classmethod
+    def archive_index(cls,value,*,adapter,selector,client,run,role,stage,lock,binding,artifact_root,image_policy):
+        """Validate retained old-process sources/files without SDK admission.
+
+        This cannot construct a usable live reader, issue a native command or
+        authorize new-process input. The exact old index must remain owned.
+        """
+        need(isinstance(lock,ScriptSourceLock) and role in ('primary','actor') and type(stage) is int and stage in (0,1))
+        lock.assert_held();identifier(run);scope=object.__new__(cls)
+        scope.adapter,scope.selector,scope.run,scope.role,scope.stage=adapter,selector,run,role,stage
+        scope.lock,scope.root,scope.policy=lock,Path(artifact_root),deepcopy(image_policy)
+        need(scope.root.is_absolute() and scope.root.is_dir() and scope.root.resolve()==scope.root)
+        PrivateFeatureState(scope.root/'graphics-artifact-root-check')._parent()
+        scope.client=client;scope.fixture=GraphicsFixtureReader(client,run);scope.fixture.attach()
+        scope.instance=scope.fixture.instance;identifier(scope.instance)
+        scope.store=adapter.graphics_samples_store(selector,role,stage)
+        need(lock.path==scope.store.path.with_name('script-feature-sources.lock'))
+        scope.binding=deepcopy(context(binding));scope.pid=int(binding['processIdentity'])
+        need(str(scope.pid)==binding['processIdentity'])
+        scope.historical=scope.cleanup_only=True;scope.guard=lambda:True;scope.previous=deepcopy(value)
+        scope.bound();scope.state=scope.decode(value);need(scope.state['phase']=='ready');scope.ready_history()
+        for row in scope.state['owners']:
+            if row['phase']!='abandoned':scope.archive(row)
+            else:
+                _value,proof=scope.record(row);owner=scope.owner(row)
+                if owner.store.read() is None:
+                    need(proof['capture'] is None and proof['retirement'] is None)
+                    try:(scope.root/owner.name).lstat()
+                    except FileNotFoundError:pass
+                    else:need(False)
+                else:
+                    owner.verify_owned_artifact()
+                    need(same(owner.state['frame'],proof['capture'])
+                         and any(same(event['receipt'],proof['retirement']) for event in owner.events))
+        scope.bound();return deepcopy(scope.state)
 
     def envelope(self,state):
         return dict(iosGraphicsSamplesVersion=VERSION,runId=self.run,role=self.role,stage=self.stage,
@@ -153,12 +193,21 @@ class IOSGraphicsSamples:
         self.state['cursors'][key]=deepcopy(value);self.save()
 
     def owner(self,row):
-        owner=self.adapter._vulkan_world_frame_owner(self.selector,self.run,self.role,self.stage,row['requestId'],self.root,source_lock=self.lock)
-        need(owner.store.path==self.store.path.with_name('graphics-world-frame-'+self.role+'-'+str(self.stage)+'-'+row['requestId'][4:]+'.json'))
+        path=self.store.path.with_name('graphics-world-frame-'+self.role+'-'+str(self.stage)+'-'+row['requestId'][4:]+'.json')
+        if self.historical:
+            owner=VulkanWorldFrameOwner(PrivateFeatureState(path),self.root,self.binding,self.run,self.role,self.stage,
+                row['requestId'],lambda *_:need(False),lambda:True,source_lock=self.lock)
+        else:owner=self.adapter._vulkan_world_frame_owner(self.selector,self.run,self.role,self.stage,row['requestId'],self.root,source_lock=self.lock)
+        need(owner.store.path==path)
         return owner
 
     def sample_store(self,row):
         return PrivateFeatureState(self.store.path.with_name('ios-graphics-'+self.role+'-'+str(self.stage)+'-'+row['requestId'][4:]+'-sample.json'))
+
+    def absent_artifact(self,owner):
+        try:(self.root/owner.name).lstat()
+        except FileNotFoundError:return True
+        need(False)
 
     def record(self,row):
         need(row['phase']!='reserved')
@@ -214,7 +263,7 @@ class IOSGraphicsSamples:
         self.bound();return deepcopy(frame),raw,deepcopy(result)
 
     def read(self,ticket,after_epoch):
-        identifier(ticket);need(integer(after_epoch,1) and not self.cleanup_only and self.state['phase']=='ready'
+        identifier(ticket);need(integer(after_epoch,1) and not self.historical and not self.cleanup_only and self.state['phase']=='ready'
                                 and len(self.state['owners'])<512 and self.state['sequence']<512)
         self.bound();phase=self.fixture.read(self.state['cursors']['provider']);need(phase['ticket']==ticket)
         native=self.adapter._native_feature_observer(self.selector,read_only=True);restore_native(native,self.state['cursors']['native'])
@@ -271,7 +320,7 @@ class IOSGraphicsSamples:
         once, original callbacks/buffers must actually drain, and all original
         files/transcripts remain owned. No native capture is replayed.
         """
-        self.bound();need(self.state['phase']=='reading' and self.state['owners'][-1]['phase']=='reserved')
+        self.bound();need(not self.historical and self.state['phase']=='reading' and self.state['owners'][-1]['phase']=='reserved')
         row=self.state['owners'][-1];phase=self.fixture.read(self.state['cursors']['provider'])
         need(phase['ticket']!=row['ticket'] and self.sample_store(row).read() is None)
         reader=self.adapter._native_feature_observer(self.selector,read_only=True);restore_native(reader,self.state['cursors']['native'])
@@ -280,7 +329,7 @@ class IOSGraphicsSamples:
         owner=self.owner(row);retirement=capture=None
         if owner.store.read() is not None:
             retirement=owner.release();self.remember('retirement',retirement);capture=deepcopy(owner.state['frame'])
-        else:need(not (self.root/owner.name).exists())
+        else:self.absent_artifact(owner)
         provider=self.fixture.status(phase['status']);need(provider['active'] and provider['ticket']==phase['ticket'])
         self.remember('provider',provider)
         packets={'native':native}
@@ -302,11 +351,11 @@ class IOSGraphicsSamples:
 
     def drain(self):
         """Fresh actual native absence; does not retire metadata or prove quiet."""
-        self.bound();proofs=[]
+        self.bound();need(not self.historical);proofs=[]
         for row in self.state['owners']:
             owner=self.owner(row)
             if owner.store.read() is not None:
                 proof=owner.release();need(absent(proof));proofs.append(proof)
-            else:need(row['phase']=='reserved' and not (self.root/owner.name).exists())
+            else:need(row['phase']=='reserved');self.absent_artifact(owner)
             self.bound()
         return deepcopy(proofs)
