@@ -86,8 +86,11 @@ class Native:
         remaining=[]
         for future,birth,generation in self.tasks:
             if not future.done():remaining.append((future,birth,generation));continue
-            status,raw=future.result()
             if birth!=self.birth or not self.running or generation!=self.account['observation']['credentialGeneration']:continue
+            # The host's original HTTPS future may fail after its simulated
+            # native consumer died. That failure belongs to the retired
+            # consumer too; never evaluate it in the replacement process.
+            status,raw=future.result()
             self.account['observation']['loginPending']=False
             reply=event(sequence=self.account['observation']['eventSequence']+1,kind='login-reply',
                 epoch=self.epoch(),generation=generation,status=status)

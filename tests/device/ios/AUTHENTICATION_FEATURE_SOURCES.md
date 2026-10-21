@@ -144,3 +144,23 @@ policy-consistency and project-coverage. Commands use the existing unittest
 entrypoints under a subprocess audit that refuses compiler/build/device/Jenkins
 programs; only the reviewed synthetic SDK stub is permitted. `git diff --check`
 and the contract registry validator passed.
+
+## Retired SDK transport failures
+
+Broader host verification exposed an intermittent protected-probe release
+failure. Investigation reproduced a synthetic consumer bug: the SDK boundary
+called `Future.result()` before checking whether the original native process or
+credential generation had retired. An old HTTPS timeout could therefore raise
+inside a replacement process, despite its original consumer being gone.
+
+The boundary now checks original birth, running state and credential generation
+before consuming a completed future. Pending host transports remain retained
+until they settle. Current-process transport failures still propagate. This
+orders the SDK simulation's existing retirement guard; it does not alter native
+product code, source freshness, input causality or adapter deadlines.
+
+Five targeted consumer cases reproduce four failures before the change and pass
+after it. They cover normal Stop/Launch, stopped processes, replaced credentials,
+late pending failure and an unmasked current-consumer error. Together with the
+unchanged full real-loopback-HTTPS journey and existing source/input cases,
+nine focused tests pass. Full-suite verification follows separately.
