@@ -55,6 +55,7 @@ TESTS = (
     test("openxr-input", "openxr", PYTHON, "pico-openxr-input-test.py"),
     test("openxr-display", "openxr", PYTHON, "pico-openxr-display-test.py"),
     test("stereo-world-render", "openxr", PYTHON, "device/test_stereo_world_render.py"),
+    test("graphics-sources", "interaction", PYTHON, "device/test_graphics_sources.py"),
     test("native-classloader", "android", PYTHON, "device/test_pico_native_classloader.py", requires=("javac", "java")),
     test("interaction-diagnostics", "interaction", "node", "pico-interaction-diagnostics-test.js", requires=("node",)),
     test("tablet-lifecycle", "interaction", "node", "pico-tablet-lifecycle-test.js", requires=("node",)),

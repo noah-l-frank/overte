@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "native-graphics-subject": 2,
+    "native-scene-loads": 1,
+    "native-web-runtime": 2,
     'native-qml-load-inventory': 1,
     'authentication-journey-actions': 1,
     'authentication-journey-causality': 1,

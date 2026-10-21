@@ -30,6 +30,7 @@
 #include "../../../tests/device/native/FeatureLifecycle.h"
 #include "../../../tests/device/native/ChatViewObservation.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
+#include "../../../tests/device/native/WebRuntimeBridge.h"
 #include "../../../tests/device/native/PendingFieldCommitBridge.h"
 #include "../../../tests/device/native/ProcessPresence.h"
 #include <ui/TabletScriptingInterface.h>
@@ -355,6 +356,21 @@ QVariantMap TestScriptingInterface::featurePendingCommitOwner(const QVariantMap&
     const auto original = qApp->property(overte::e2e::pendingCommitProviderProperty());
     if (original.userType() != qMetaTypeId<overte::e2e::PendingCommitProvider>()) { return {}; }
     const auto provider = original.value<overte::e2e::PendingCommitProvider>();
+    return provider ? provider(command) : QVariantMap();
+}
+
+QVariantMap TestScriptingInterface::featureWebRuntimeObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureWebRuntimeObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || !overte::e2e::webRuntimeCommand(command)) { return {}; }
+    const auto original=qApp->property(overte::e2e::webRuntimeProperty());
+    if (original.userType()!=qMetaTypeId<overte::e2e::WebRuntimeProvider>()) { return {}; }
+    const auto provider=original.value<overte::e2e::WebRuntimeProvider>();
     return provider ? provider(command) : QVariantMap();
 }
 
@@ -943,6 +959,8 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-chat-view-observation.json" || filename == "feature-web-dom-observation.json"
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json"
+            || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
+            || filename == "feature-web-runtime.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"

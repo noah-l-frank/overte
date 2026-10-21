@@ -329,7 +329,10 @@
       "sources": [
         "tests/device/adapters/pico4/WEB_DOM_OBSERVATION.md",
         "tests/device/adapters/pico4/binding.py",
-        "tests/device/feature_journeys/WEB_SOURCE.md"
+        "tests/device/feature_journeys/WEB_SOURCE.md",
+        "tests/device/adapters/native_web_runtime.py",
+        "tests/device/native/WEB_RUNTIME_OBSERVATION.md",
+        "android/common/web/java/org/overte/web/WebTextureObservation.java"
       ],
       "declaredCheckpoints": 19,
       "inputVerbs": [
@@ -395,7 +398,10 @@
       "sources": [
         "tests/device/adapters/pico4/WEB_DOM_OBSERVATION.md",
         "tests/device/adapters/pico4/binding.py",
-        "tests/device/feature_journeys/WEB_SOURCE.md"
+        "tests/device/feature_journeys/WEB_SOURCE.md",
+        "tests/device/adapters/native_web_runtime.py",
+        "tests/device/native/WEB_RUNTIME_OBSERVATION.md",
+        "android/common/web/java/org/overte/web/WebTextureObservation.java"
       ],
       "declaredCheckpoints": 26,
       "inputVerbs": [
@@ -476,7 +482,10 @@
         "tests/device/adapters/native_graphics_subject.py",
         "tests/device/adapters/pico4/GRAPHICS_SUBJECT_SELECTION.json",
         "tests/device/adapters/native_scene_loads.py",
-        "tests/device/native/SceneLoadObservation.h"
+        "tests/device/native/SceneLoadObservation.h",
+        "tests/device/adapters/native_web_runtime.py",
+        "tests/device/native/WEB_RUNTIME_OBSERVATION.md",
+        "android/common/web/java/org/overte/web/WebTextureObservation.java"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [

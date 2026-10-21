@@ -96,6 +96,34 @@ class FeatureObservationTests(unittest.TestCase):
             boundary.start(); self.addCleanup(boundary.stop)
         return source
 
+    def test_pico_web_runtime_requires_actual_renderer_source_and_preserves_owner(self):
+        from self_tests.test_native_web_renderers import RendererBoundary, RUN, ROOT, URL
+        from adapters.native_web_runtime import active_marker,released
+        source=RendererBoundary();old_send=source.send
+        observed_birth=self.native.epoch_milliseconds(self.native.target)
+        def send(command):
+            source.epoch=self.native.epoch_milliseconds(self.native.target);old_send(command)
+        def identity(value):
+            value['processId']=value['source']['java']['processId']=int(self.native.identity.split(':')[0])
+            for key in ('nativeBefore','nativeAfter'):
+                value['source'][key]['knownHandles'][0]['firstObservedEpochMs']=observed_birth
+        source.edit=identity
+        native=self.adapter._native_feature_observer(self.native.target);original_read=self.native.read_debug_app_file
+        def read(target,package,path,**options):
+            if path=='files/overte-e2e/feature-web-runtime.json':return source.original()
+            return original_read(target,package,path,**options)
+        with patch.object(native,'send',side_effect=send),patch.object(self.adapter,'_native_feature_observer',return_value=native), \
+                patch.object(self.native,'read_debug_app_file',side_effect=read):
+            reader=self.adapter._web_runtime_observer(self.native.target);self.assertTrue(reader.require_renderers)
+            value=reader.read(RUN,ROOT);self.assertEqual('1',active_marker(value,URL)['native']['handle'])
+            source.close();source.renderer['mainCallbacks']=1
+            with self.assertRaises(RuntimeError):released(reader.read(RUN,ROOT),require_renderers=True)
+            source.renderer['mainCallbacks']=0;released(reader.read(RUN,ROOT),require_renderers=True)
+            self.assertEqual([],self.native.inputs);self.assertEqual(3,len(source.commands))
+            self.native.digest='f'*64
+            with self.assertRaises(RuntimeError):reader.read(RUN,ROOT)
+            self.assertEqual(3,len(source.commands))
+
     def test_pico_scene_load_source_preserves_retained_callbacks_and_candidate_owner(self):
         from self_tests.test_native_scene_loads import Boundary, RUN, URL
         from adapters.native_scene_loads import committed

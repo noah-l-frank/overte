@@ -47,6 +47,7 @@ final class WebTextureRenderer implements AutoCloseable {
     private final WebFrameGate gate;
     private final HandlerThread thread = new HandlerThread("OverteWebTexture");
     private final Handler gl;
+    private final WebTextureObservation.Record feature;
     private final AtomicBoolean closed = new AtomicBoolean();
     private VirtualDisplay display;
     private Presentation presentation;
@@ -69,13 +70,23 @@ final class WebTextureRenderer implements AutoCloseable {
 
     WebTextureRenderer(Activity activity, int width, int height, Callback callback) {
         this.activity = activity; this.callback = callback; this.gate = new WebFrameGate(activity);
+        feature = WebTextureObservation.create(this,thread);
         int[] size = size(width, height); this.width = size[0]; this.height = size[1];
         vertices.put(new float[]{-1,-1,0,0, 1,-1,1,0, -1,1,0,1, 1,1,1,1}).position(0);
         thread.start(); gl = new Handler(thread.getLooper());
-        gl.post(() -> {
-            try { initialize(); MAIN.post(this::present); }
+        gl.post(observe(() -> {
+            try { initialize(); MAIN.post(observe(this::present,true)); }
             catch (RuntimeException | OutOfMemoryError failure) { fail(); }
-        });
+        }, false));
+    }
+    private Runnable observe(Runnable original, boolean main) {
+        return feature == null ? original : feature.wrap(original,main);
+    }
+    void featureOwner(long handle, long creation, String source) {
+        if (feature != null) { feature.handle = handle; feature.creation = creation; feature.source = source; }
+    }
+    static org.json.JSONObject featureSnapshot(String root, java.util.Set<Long> known) throws Exception {
+        return WebTextureObservation.snapshot(root,known);
     }
     private static int[] size(int width, int height) {
         if (width < 1 || height < 1) throw new IllegalArgumentException("invalid viewport");
@@ -114,11 +125,11 @@ final class WebTextureRenderer implements AutoCloseable {
         if (closed.get() || (size[0] == width && size[1] == height)) return;
         width = size[0]; height = size[1]; final int w = width, h = height;
         final long epoch = ++surfaceEpoch; surfaceReady = false; gate.invalidate();
-        gl.post(() -> {
+        gl.post(observe(() -> {
             if (closed.get()) return;
             try {
                 texture.setDefaultBufferSize(w,h); allocate(w,h);
-                MAIN.post(() -> {
+                MAIN.post(observe(() -> {
                     if (closed.get() || epoch != surfaceEpoch) return;
                     try {
                         // Presentation cancels itself when display metrics change. Recreate only
@@ -130,9 +141,9 @@ final class WebTextureRenderer implements AutoCloseable {
                         surfaceReady = true; callback.resized();
                     }
                     catch (RuntimeException failure) { fail(); }
-                });
+                }, true));
             } catch (RuntimeException | OutOfMemoryError failure) { fail(); }
-        });
+        }, false));
     }
     void invalidate() { gate.invalidate(); }
     void pause() {
@@ -147,23 +158,25 @@ final class WebTextureRenderer implements AutoCloseable {
         if (closed.get() || !surfaceReady || !surfaceActive || gate.matches(grant,page,surfaceEpoch,document)) return;
         WebFrameGate.Ticket ticket = gate.begin(activity,grant,page,surfaceEpoch,document);
         if (ticket == null) return;
-        view.postVisualStateCallback(ticket.serial, new WebView.VisualStateCallback() {
+        WebView.VisualStateCallback visualCallback = new WebView.VisualStateCallback() {
             @Override public void onComplete(long requestId) {
                 if (closed.get() || requestId != ticket.serial || !gate.matches(grant,page,ticket.surface,document)) return;
                 if (!view.isHardwareAccelerated()) { fail(); return; }
                 // The callback promises the NEXT draw reflects the requested DOM state.
                 // Drain queued buffers first, then invalidate and require a newer producer timestamp.
-                gl.post(() -> {
+                gl.post(observe(() -> {
                     if (closed.get()) return;
                     try {
                         texture.updateTexImage(); final long baseline = texture.getTimestamp();
-                        MAIN.post(() -> {
+                        MAIN.post(observe(() -> {
                             if (!closed.get() && gate.visual(ticket,baseline)) view.invalidate();
-                        });
+                        }, true));
                     } catch (RuntimeException failure) { fail(); }
-                });
+                }, false));
             }
-        });
+        };
+        if (feature != null) feature.callback(visualCallback);
+        view.postVisualStateCallback(ticket.serial,visualCallback);
     }
     private void onSignal() { if (!closed.get()) { signal = true; schedule(); } }
     private void schedule() {
@@ -174,7 +187,7 @@ final class WebTextureRenderer implements AutoCloseable {
         boolean capture = ticket != null && now - lastCapture >= 100;
         if (capture) lastCapture = now;
         final boolean copy = capture; final int w = width, h = height; final long epoch = surfaceEpoch;
-        gl.post(() -> {
+        gl.post(observe(() -> {
             ByteBuffer result = null; long timestamp = 0;
             try {
                 if (!closed.get()) {
@@ -185,7 +198,7 @@ final class WebTextureRenderer implements AutoCloseable {
                 }
             } catch (RuntimeException | OutOfMemoryError failure) { fail(); }
             final ByteBuffer pixels = result; final long produced = timestamp;
-            MAIN.post(() -> {
+            MAIN.post(observe(() -> {
                 if (!closed.get() && epoch == surfaceEpoch && gate.fresh(ticket,produced)) {
                     if (pixels != null && gate.deliver(ticket,produced)) {
                         lastCapture = SystemClock.uptimeMillis(); callback.frame(ticket,pixels,w,h);
@@ -194,19 +207,20 @@ final class WebTextureRenderer implements AutoCloseable {
                     }
                 }
                 busy = false; if (!closed.get() && signal) schedule();
-            });
-        });
+            }, true));
+        }, false));
     }
     private void fail() {
-        MAIN.post(() -> { if (!closed.get()) { close(); callback.failed(); } });
+        MAIN.post(observe(() -> { if (!closed.get()) { close(); callback.failed(); } }, true));
     }
     @Override public void close() {
         if (!closed.compareAndSet(false,true)) return;
+        if (feature != null) feature.closed = true;
         gate.close(); MAIN.removeCallbacks(retryCapture);
         if (attached != null && container != null) { container.removeView(attached); attached = null; }
         if (presentation != null) { try { presentation.dismiss(); } catch (RuntimeException ignored) { } }
         if (display != null) display.release();
-        gl.post(() -> { try { release(); } finally { thread.quitSafely(); } });
+        gl.post(observe(() -> { try { release(); } finally { thread.quitSafely(); } }, false));
     }
     private void initialize() {
         synchronized (DISPLAY_LOCK) {
@@ -281,12 +295,19 @@ final class WebTextureRenderer implements AutoCloseable {
                 if (program != 0) GLES20.glDeleteProgram(program);
             }
             EGL14.eglMakeCurrent(eglDisplay,EGL14.EGL_NO_SURFACE,EGL14.EGL_NO_SURFACE,EGL14.EGL_NO_CONTEXT);
-            if (eglSurface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(eglDisplay,eglSurface);
-            if (eglContext != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(eglDisplay,eglContext);
+            if (eglSurface != EGL14.EGL_NO_SURFACE) {
+                boolean retired = EGL14.eglDestroySurface(eglDisplay,eglSurface);
+                if (feature != null && !retired) feature.releaseSucceeded = false;
+            }
+            if (eglContext != EGL14.EGL_NO_CONTEXT) {
+                boolean retired = EGL14.eglDestroyContext(eglDisplay,eglContext);
+                if (feature != null && !retired) feature.releaseSucceeded = false;
+            }
             // Qt and other views also own contexts on Android's process-wide default display.
             // Retire only our context/surface; never eglTerminate that shared native display.
             eglDisplay = EGL14.EGL_NO_DISPLAY; EGL14.eglReleaseThread();
         }
         rgba = null; packed = null;
+        if (feature != null) feature.released = true;
     }
 }

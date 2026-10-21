@@ -3,10 +3,12 @@
 #include "NativeWebViewItem.h"
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QCryptographicHash>
 #include <QJsonArray>
 #include <QThread>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include "../../../../tests/device/native/WebDOMObservationBridge.h"
+#include "../../../../tests/device/native/WebRuntimeBridge.h"
 #endif
 #include <QFile>
 #include <QFocusEvent>
@@ -30,6 +32,7 @@
 #include <jni.h>
 #include <atomic>
 #include <limits>
+#include <algorithm>
 
 namespace {
 QMutex registryMutex;
@@ -92,6 +95,10 @@ void registerType() {
     if (featureEnabled() && QCoreApplication::instance()) {
         overte::e2e::WebDOMProvider provider=[](const QVariantMap& command) { return NativeWebViewItem::featureWebDOMObservation(command); };
         QCoreApplication::instance()->setProperty(overte::e2e::webDOMProviderProperty(),QVariant::fromValue(provider));
+#if defined(ANDROID_APP_PICO_INTERFACE)
+        overte::e2e::WebRuntimeProvider runtime{[](const QVariantMap& command) { return NativeWebViewItem::featureWebRuntimeObservation(command); }};
+        QCoreApplication::instance()->setProperty(overte::e2e::webRuntimeProperty(),QVariant::fromValue(runtime));
+#endif
     }
 #endif
 }
@@ -534,8 +541,30 @@ bool NativeWebViewItem::runJavaScript(const QString& source, const QJSValue& cal
     auto text = jni.string(source); if (!text) { if (jni.env->ExceptionCheck()) jni.env->ExceptionClear(); return false; }
     jvalue args[5]; args[0].j = _handle; args[1].j = grant; args[2].j = page; args[3].j = request; args[4].l = text;
     _callbacks.insert(request, callback); const bool posted = call("evaluateResult", "(JJJJLjava/lang/String;)V", args); jni.env->DeleteLocalRef(text);
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (featureEnabled()) {
+        QString original;{ QMutexLocker guard(&_mutex);original=_session.url().toString(QUrl::FullyEncoded); }
+        const QUrl observed(original);
+        if (observed.userInfo().isEmpty() && !observed.hasQuery() && !observed.hasFragment()
+                && QRegularExpression("\\A/feature-fixture/v1/runs/[0-9a-f]{32}/tickets/[0-9a-f]{32}/[^/]+\\z").match(observed.path()).hasMatch()) {
+            if (_featureCallbackSources.size()<1024) { _featureCallbackSources.insert(request,original); }
+            else { _featureCallbackSourcesComplete=false; }
+        }
+    }
+#endif
     if (!posted) { _callbacks.remove(request); return false; }
-    QTimer::singleShot(10000, this, [this, grant, page, request] {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    std::shared_ptr<quint8> featureExpiry;
+    if (_featureCallbackSources.contains(request)) {
+        featureExpiry=std::make_shared<quint8>(0);
+        _featureCallbackExpiries.insert(request,featureExpiry);
+    }
+#endif
+    QTimer::singleShot(10000, this, [this, grant, page, request
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+            , featureExpiry
+#endif
+            ] {
         auto expired = _callbacks.take(request);
         { QMutexLocker guard(&_mutex); if (!current(grant, page)) return; }
         if (expired.isCallable()) expired.call({ QJSValue(QJSValue::UndefinedValue) });
@@ -806,6 +835,133 @@ extern "C" JNIEXPORT jobject JNICALL Java_org_overte_web_EmbeddedWebView_nativeR
 
 
 #if defined(OVERTE_E2E_FEATURE_TESTS)
+namespace {
+struct WebRuntime {
+    const QString instance { QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-') };
+    quint64 sequence { 0 };
+    qint64 epoch { 0 };
+    QVariantMap command,packet,before;
+    QElapsedTimer timer;
+    QHash<QString,QVariantList> histories;
+    QSet<QString> requests;
+    bool complete { true };
+};
+WebRuntime webRuntime;
+bool runtimeOwned(const QString& raw,const QString& root) {
+    const QUrl url(raw,QUrl::StrictMode);
+    const auto original=url.adjusted(QUrl::RemoveQuery|QUrl::RemoveFragment).toString(QUrl::FullyEncoded);
+    const auto prefix=root+"tickets/";
+    return url.isValid() && url.userInfo().isEmpty() && original.startsWith(prefix)
+        && QRegularExpression("\\A[0-9a-f]{32}/[A-Za-z0-9_.-]{1,80}\\z").match(original.mid(prefix.size())).hasMatch();
+}
+QString runtimeHash(const QString& value) { return QString::fromLatin1(QCryptographicHash::hash(value.toUtf8(),QCryptographicHash::Sha256).toHex()); }
+QVariantMap runtimePacket(const QVariantMap& command,const QString& status,const QVariantMap& source={}) {
+    const auto now=QDateTime::currentMSecsSinceEpoch();
+    if (now<=0 || now<webRuntime.epoch || webRuntime.sequence>=1000000000) { return {}; }
+    webRuntime.epoch=now;
+    return {{"webRuntimeVersion",2},{"commandId",command.value("commandId")},{"runId",command.value("runId")},
+        {"instance",webRuntime.instance},{"sequence",static_cast<qulonglong>(++webRuntime.sequence)},
+        {"processId",QCoreApplication::applicationPid()},{"capturedEpochMs",now},{"status",status},{"source",source}};
+}
+}
+
+QVariantMap NativeWebViewItem::featureWebSnapshot(const QVariantMap& command) {
+    if (!featureEnabled() || !overte::e2e::webRuntimeCommand(command)
+            || !QCoreApplication::instance() || QThread::currentThread()!=QCoreApplication::instance()->thread()) { return {}; }
+    QList<QPointer<NativeWebViewItem>> original;
+    { QMutexLocker guard(&registryMutex);
+      if (registry.size()>128) { return {}; }
+      for (auto* item:registry) { original.append(item); } }
+    for (const auto& item:original) { if (!item || item->thread()!=QThread::currentThread()) { return {}; } }
+    std::sort(original.begin(),original.end(),[](const auto& a,const auto& b) { return a->_handle<b->_handle; });
+    const auto run=command.value("runId").toString(),root=command.value("fixtureUrl").toString();
+    if (!webRuntime.histories.contains(run) && webRuntime.histories.size()>=32) { webRuntime.complete=false;return {}; }
+    auto& history=webRuntime.histories[run];QSet<QString> known;
+    for (const auto& value:history) { known.insert(value.toMap().value("handle").toString()); }
+    QVariantList views;
+    const auto now=QDateTime::currentMSecsSinceEpoch();
+    for (const auto& item:original) {
+        QString source,document;quint64 grant,page;bool active,authorized,suspended;
+        { QMutexLocker guard(&item->_mutex);source=item->_session.url().toString(QUrl::FullyEncoded);
+          document=item->_document.toString(QUrl::FullyEncoded);grant=item->_session.generation();page=item->_page;
+          active=item->_session.active();authorized=item->_sourceAuthorized;suspended=item->_suspendedDocument; }
+        const auto creation=item->_creationSource.toString(QUrl::FullyEncoded),handle=QString::number(item->_handle);
+        const bool sourceOwned=runtimeOwned(source,root),documentOwned=runtimeOwned(document,root),creationOwned=runtimeOwned(creation,root);
+        int callbacks=0;
+        if (!item->_featureCallbackSourcesComplete) { webRuntime.complete=false; }
+        for (auto found=item->_featureCallbackSources.cbegin();found!=item->_featureCallbackSources.cend();++found) {
+            if (runtimeOwned(found.value(),root) && (item->_callbacks.contains(found.key())
+                    || !item->_featureCallbackExpiries.value(found.key()).expired())) { ++callbacks; }
+        }
+        if (!sourceOwned && !documentOwned && !creationOwned && !callbacks && !known.contains(handle)) { continue; }
+        if (!known.contains(handle)) {
+            if (history.size()>=256) { webRuntime.complete=false;return {}; }
+            const auto observedSource=sourceOwned ? source : documentOwned ? document : creation;
+            history.append(QVariantMap{{"handle",handle},{"firstObservedEpochMs",now},{"sourceSha256",runtimeHash(observedSource)}});known.insert(handle);
+        }
+        int replies=0;
+        if (sourceOwned || documentOwned) { for (const auto& reply:item->_scriptReplies) { replies += reply ? 1 : 0; } }
+        const bool domPending=item->_featureWebCommand.value("runId").toString()==run
+            && item->_featureWebPacket.value("status")=="pending" && item->_featureWebTimer.isValid() && item->_featureWebTimer.elapsed()<4000;
+        views.append(QVariantMap{{"handle",handle},{"surface",item->_surface==WorldEntity ? "world" : "tablet"},
+            {"creation",static_cast<qulonglong>(item->_creationRevision)},{"grant",static_cast<qulonglong>(grant)},{"page",static_cast<qulonglong>(page)},
+            {"sourceOwned",sourceOwned},{"documentOwned",documentOwned},{"creationOwned",creationOwned},
+            {"sourceSha256",runtimeHash(source)},{"documentSha256",runtimeHash(document)},{"creationSha256",runtimeHash(creation)},
+            {"sessionActive",active},{"authorized",authorized},{"created",item->_created},{"pendingCreate",item->_pending},
+            {"retryPending",item->_retryPending},{"suspended",suspended},{"loading",item->_loading},
+            {"callbacks",callbacks},{"scriptReplies",replies},{"domPending",domPending}});
+    }
+    return {{"capturedEpochMs",now},{"complete",webRuntime.complete},{"knownHandles",history},{"views",views}};
+}
+
+QVariantMap NativeWebViewItem::featureWebRuntimeObservation(const QVariantMap& command) {
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    if (!featureEnabled() || !overte::e2e::webRuntimeCommand(command) || !QCoreApplication::instance()
+            || QThread::currentThread()!=QCoreApplication::instance()->thread()) { return {}; }
+    if (webRuntime.command.value("commandId")==command.value("commandId")) {
+        if (webRuntime.command!=command) { return {}; }
+        if (webRuntime.packet.value("status")=="pending" && webRuntime.timer.elapsed()>=4000) {
+            webRuntime.packet=runtimePacket(command,"unavailable");
+        }
+        return webRuntime.packet; // Original completed epoch, never retimed.
+    }
+    if (webRuntime.packet.value("status")=="pending") { return {}; }
+    const auto nonce=command.value("commandId").toString();
+    if (webRuntime.requests.contains(nonce) || webRuntime.requests.size()>=4096) { return {}; }
+    webRuntime.requests.insert(nonce);
+    webRuntime.command=command;webRuntime.before=featureWebSnapshot(command);webRuntime.timer.start();
+    if (webRuntime.before.isEmpty()) { webRuntime.packet=runtimePacket(command,"unavailable");return webRuntime.packet; }
+    webRuntime.packet=runtimePacket(command,"pending");
+    Jni jni;if (!jni.env) { webRuntime.packet=runtimePacket(command,"unavailable");return webRuntime.packet; }
+    const auto id=jni.string(command.value("commandId").toString()),root=jni.string(command.value("fixtureUrl").toString());
+    const auto known=jni.string(QString::fromUtf8(QJsonDocument(QJsonArray::fromVariantList(webRuntime.before.value("knownHandles").toList())).toJson(QJsonDocument::Compact)));
+    if (!id || !root || !known) { webRuntime.packet=runtimePacket(command,"unavailable"); }
+    else {
+        jvalue args[3];args[0].l=id;args[1].l=root;args[2].l=known;
+        if (!call("featureRuntimeSnapshot","(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",args)) {
+            webRuntime.packet=runtimePacket(command,"unavailable");
+        }
+    }
+    if (id) { jni.env->DeleteLocalRef(id); }if (root) { jni.env->DeleteLocalRef(root); }if (known) { jni.env->DeleteLocalRef(known); }
+    return webRuntime.packet;
+#else
+    Q_UNUSED(command);return {};
+#endif
+}
+
+void NativeWebViewItem::acceptFeatureWebRuntime(const QString& request,const QByteArray& json) {
+    if (!featureEnabled() || json.size()>262144 || !QCoreApplication::instance()) { return; }
+    QMetaObject::invokeMethod(QCoreApplication::instance(),[request,json] {
+        if (webRuntime.command.value("commandId")!=request || webRuntime.packet.value("status")!="pending") { return; }
+        const auto document=QJsonDocument::fromJson(json);const auto source=document.isObject() ? document.object().toVariantMap() : QVariantMap();
+        const auto after=NativeWebViewItem::featureWebSnapshot(webRuntime.command);
+        if (webRuntime.timer.elapsed()>=4000 || source.value("commandId")!=request || source.value("complete")!=true || after.isEmpty()) {
+            webRuntime.packet=runtimePacket(webRuntime.command,"unavailable");return;
+        }
+        webRuntime.packet=runtimePacket(webRuntime.command,"ready",{{"nativeBefore",webRuntime.before},{"java",source},{"nativeAfter",after}});
+    },Qt::QueuedConnection);
+}
+
 QVariantMap NativeWebViewItem::featureWebPacket(const QVariantMap& command, const QString& status, const QVariantMap& source) {
     const auto epoch=QDateTime::currentMSecsSinceEpoch();
     if (epoch<=0 || epoch<_featureWebEpoch || _featureWebSequence>=9007199254740991ULL) { return {}; }
@@ -916,6 +1072,14 @@ void NativeWebViewItem::acceptFeatureWebDOM(quint64 grant, quint64 page, const Q
 }
 #endif
 
+extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeFeatureRuntimeResult(JNIEnv* env,jclass,jstring request,jstring result) {
+#if defined(OVERTE_E2E_FEATURE_TESTS)
+    if (!request || !result || env->GetStringLength(request)!=32 || env->GetStringLength(result)>262144) { return; }
+    NativeWebViewItem::acceptFeatureWebRuntime(string(env,request),string(env,result).toUtf8());
+#else
+    Q_UNUSED(env);Q_UNUSED(request);Q_UNUSED(result);
+#endif
+}
 extern "C" JNIEXPORT jboolean JNICALL Java_org_overte_web_EmbeddedWebView_nativeFeatureEnabled(JNIEnv*, jclass) { return featureEnabled(); }
 extern "C" JNIEXPORT void JNICALL Java_org_overte_web_EmbeddedWebView_nativeFeatureDOMResult(JNIEnv* env, jclass, jlong handle,
     jlong grant,jlong page,jstring document,jstring request,jstring result) {

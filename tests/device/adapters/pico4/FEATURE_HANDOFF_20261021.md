@@ -191,3 +191,29 @@ cancellation/ticket/handoff product changes. A committed current scene plus zero
 live leases is required before scene restoration can be claimed; actual subject,
 provider and pixels remain separate. Native sources are uncompiled, and no
 complete Graphics or Worlds capability is enabled by this prerequisite.
+
+## Actual common Web backend and retained renderer lifetime
+
+The original shared Web runtime source has been selected into a neutral namespace
+and attached to the actual Pico common backend. The provenance is in
+`WEB_RUNTIME_SELECTION.json`; [source v2](../../native/WEB_RUNTIME_OBSERVATION.md)
+records its operations, freshness/deadlines, bounds and cleanup obligations.
+The original `Web3DSurface` selector resolves this common backend on Pico.
+The legacy OffscreenWebView backend is a separate source boundary.
+
+Pico's private factory requires v2, independently reading both native snapshots,
+the original Android MAIN fence and actual renderer/worker/callback/EGL release
+state. A deleted view, delivered JS result or release request cannot hide the
+original expiry lambda, live worker, pending MAIN/GL callback, retained Chromium
+callback or failed release. Source-only helper tests do not qualify product
+cleanup; no full Graphics/Web capability is enabled. Native C++/JNI/Java sources
+remain uncompiled. The canonical no-build catalog now has 52 groups; only the
+explicit safe selection was run.
+
+The explicit version-registry validator now registers the selected subject v2,
+scene-load v1 and neutral Web-runtime v2 contracts as well as their readers.
+The initial dedicated registry run caught those missing declarations; the light
+project documentation suites alone did not run that exact check. They are now
+included and the dedicated registry/governance checks pass. The three original
+private result filenames also use the existing gated atomic owner-only native
+save path.

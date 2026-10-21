@@ -1,0 +1,39 @@
+{
+  "sourceCommit": "fe4684bf46585088370b3a328a738f147e670b97",
+  "files": [
+    {
+      "source": "tests/device/native/PhoneWebRuntimeBridge.h",
+      "target": "tests/device/native/WebRuntimeBridge.h",
+      "sha256": "8507e1d8595b35808d54d1b0d30cf460cfb9cf42d476d45a62946a61053224e3"
+    },
+    {
+      "source": "tests/device/adapters/native_phone_web_runtime.py",
+      "target": "tests/device/adapters/native_web_runtime.py",
+      "sha256": "3fa37e89ccf7861ce1ca9fc727a402f4542251988bd70ee832d1cd76b22ccbc7"
+    },
+    {
+      "source": "tests/device/self_tests/test_native_phone_web_runtime.py",
+      "target": "tests/device/self_tests/test_native_web_runtime.py",
+      "sha256": "16f8ca6a3db99ae3ca76e2b68a49f734dbad47e995b877f982796c7237059e69"
+    },
+    {
+      "source": "android/common/web/src/NativeWebViewItem.cpp",
+      "target": "android/common/web/src/NativeWebViewItem.cpp",
+      "sha256": "a6fe49749ea8a11593e8f0240bfcc0cf7868666e47ac2c541513887860a4b083"
+    },
+    {
+      "source": "android/common/web/src/NativeWebViewItem.h",
+      "target": "android/common/web/src/NativeWebViewItem.h",
+      "sha256": "eb238f0f28fc12aff97013c11f0e54226264651f98951879d840a4e4abb7d545"
+    },
+    {
+      "source": "android/common/web/java/org/overte/web/EmbeddedWebView.java",
+      "target": "android/common/web/java/org/overte/web/EmbeddedWebView.java",
+      "sha256": "cf2516f40b58c74c88994147e854dd25328b0088d58d5849c8e31e32c7d622ed"
+    }
+  ],
+  "selection": "Neutral shared NativeWebViewItem/EmbeddedWebView inventory on actual Pico common World/Tablet backend; distinct neutral protocol namespace, Pico-only provider registration, retained native nonce ownership. No legacy OffscreenWebView or Phone-specific input/product paths imported.",
+  "nativeCompilation": "unverified",
+  "physicalRuns": 0,
+  "localExtension": "Neutral source v2 additionally observes actual renderer worker threads, original MAIN/GL callback dispatch lifetimes, weak retained Chromium VisualStateCallbacks, actual EGL release return values and native original Qt callback expiry leases. No cancellation, handler delay, renderer scheduling or product outcome is changed."
+}

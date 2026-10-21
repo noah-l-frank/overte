@@ -5,6 +5,7 @@
 #include <QImage>
 #if defined(OVERTE_E2E_FEATURE_TESTS)
 #include <QElapsedTimer>
+#include <memory>
 #include <QUuid>
 #endif
 #include <QJSValue>
@@ -124,6 +125,8 @@ public:
     void acceptInputFocus(quint64 revision, quint64 birth, bool focused);
 #if defined(OVERTE_E2E_FEATURE_TESTS)
     static QVariantMap featureWebDOMObservation(const QVariantMap& command);
+    static QVariantMap featureWebRuntimeObservation(const QVariantMap& command);
+    static void acceptFeatureWebRuntime(const QString& request,const QByteArray& json);
     void acceptFeatureWebDOM(quint64 grant, quint64 page, const QUrl& document, const QString& request, const QByteArray& result);
     void acceptFeatureWebFinished(quint64 grant, quint64 page, const QUrl& document);
     void acceptFeatureWebHTTPError(quint64 grant, quint64 page, const QUrl& document, int status);
@@ -211,6 +214,10 @@ private:
     QVariantMap _featureWebCommand, _featureWebPacket;
     bool _featureWebIssued { false };
     QElapsedTimer _featureWebTimer;
+    static QVariantMap featureWebSnapshot(const QVariantMap& command);
+    QHash<quint64,QString> _featureCallbackSources;
+    QHash<quint64,std::weak_ptr<quint8>> _featureCallbackExpiries;
+    bool _featureCallbackSourcesComplete { true };
 #endif
     NativeWebTransport* _transport;
     NativeSurfaceBridge* _bridge;

@@ -522,6 +522,16 @@ def create_adapter(args, base_class):
                 int(original.identity.split(':')[0]))
 
         @_private
+        def _web_runtime_observer(self, target):
+            from adapters.native_web_runtime import NativeWebRuntime, FILE as RUNTIME_FILE
+            native = self._native_feature_observer(target)
+            return NativeWebRuntime(native.send,
+                lambda: self.adb.read_debug_app_file(target, 'org.overte.pico',
+                    'files/overte-e2e/' + RUNTIME_FILE, attempts=1),
+                native.clock_ms, native.guard, native.pid, require_renderers=True,
+                monotonic=native.monotonic, sleep=native.sleep)
+
+        @_private
         def _scene_load_observer(self, target):
             from adapters.native_scene_loads import NativeSceneLoads, FILE as LOADS_FILE
             native = self._native_feature_observer(target)

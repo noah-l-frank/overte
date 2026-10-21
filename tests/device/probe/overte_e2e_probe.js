@@ -1071,6 +1071,24 @@
             }
             return true;
         }
+        if (command && command.action === "feature-web-runtime-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
+                    && typeof command.runId === "string" && command.runId.length === 32 && /^[0-9a-f]{32}$/.test(command.runId)
+                    && typeof command.fixtureUrl === "string" && command.fixtureUrl.length <= 512
+                    && new RegExp("^https?://[^/?#@\\s]+/feature-fixture/v1/runs/"+command.runId+"/$").test(command.fixtureUrl)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action","runId","fixtureUrl"])) {
+                var webRuntime={webRuntimeVersion:1,commandId:command.commandId,status:"unavailable"};
+                try {
+                    if (typeof Test.featureWebRuntimeObservation === "function") {
+                        var originalWebRuntime=Test.featureWebRuntimeObservation(command);
+                        if (originalWebRuntime && originalWebRuntime.commandId === command.commandId) { webRuntime=originalWebRuntime; }
+                    }
+                } catch (_webRuntimeError) {}
+                Test.saveObject(webRuntime,"feature-web-runtime.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-web-dom-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
@@ -1585,6 +1603,7 @@
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"
+                || command.action === "feature-web-runtime-observe"
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-script-files")) {

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "local-packets-verified-scope-in-progress",
-  "qualification": "Source implementation and selected device-free host checks only; not a complete 51-group catalog run or product/device qualification.",
+  "qualification": "Source implementation and selected device-free host checks only; not a complete 52-group catalog run or product/device qualification.",
   "sourceCompleteAreas": [
     "scripts",
     "authentication"
@@ -358,5 +358,41 @@
       "history omission/replacement/regression, stale/foreign capture, ignored request and changed candidate fail closed"
     ],
     "limitations": "Original source lifetime only; no actual scene/pixel or complete-area verdict. Native sources remain uncompiled."
+  },
+  "webRuntimePacket": {
+    "contract": "Neutral native-web-runtime v2; explicit legacy v1 reader retained; actual Pico factory requires renderer evidence",
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "completeFeatureCapabilityAdded": false,
+    "checks": [
+      {
+        "command": "Canonical Pico graphics-sources, feature-observation, suite-runner and coverage-matrix selection",
+        "groups": 4,
+        "status": "passed",
+        "durationSeconds": 19.089,
+        "junit": "web-runtime-owning.xml"
+      },
+      {
+        "command": "PYTHONPATH=tests/device python3 -m unittest self_tests.test_native_web_renderers self_tests.test_native_web_runtime self_tests.test_native_web_dom -q",
+        "tests": 38,
+        "status": "passed"
+      },
+      {
+        "command": "Dedicated contract registry plus policy/version governance and renderer counterexamples",
+        "tests": 11,
+        "status": "passed"
+      },
+      {
+        "command": "Four selected no-build project documentation/contracts/layout/coverage suites",
+        "suites": 4,
+        "status": "passed",
+        "junit": "web-runtime-final-project.xml"
+      }
+    ],
+    "correctedFailures": [
+      "Explicit version registry initially rejected new subject/scene/Web keys because its exact REQUIRED set had not been extended. Added actual declarations; no accepted contract was removed or weakened.",
+      "Synthetic Pico runtime factory test initially regenerated immutable first-observed handle time. Corrected the test producer to preserve its original birth; the actual continuity guard stayed unchanged."
+    ],
+    "limits": "Native source and Java ownership only; no compilation, JVM/Chromium/GL execution or physical acceptance. Actual callbacks/worker GC retention can legitimately keep cleanup unavailable. No product operation, callback timer, cancellation policy or renderer failure is repaired."
   }
 }

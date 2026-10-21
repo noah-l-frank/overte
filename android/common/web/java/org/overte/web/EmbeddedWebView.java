@@ -32,6 +32,7 @@ import androidx.webkit.WebMessageCompat;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 import java.io.ByteArrayInputStream;
 import java.lang.ref.WeakReference;
@@ -39,6 +40,9 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.UUID;
+import java.security.MessageDigest;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Shared native HTML runtime; product hosts own presentation and OS prompts. */
@@ -51,8 +55,10 @@ public final class EmbeddedWebView {
     private static WeakReference<EmbeddedWebHost> host = new WeakReference<>(null);
     private static final ConcurrentHashMap<Long, PendingCreation> CREATING = new ConcurrentHashMap<>();
     private static final class PendingCreation {
-        final EmbeddedWebHost owner; final Activity activity; final long revision; WebTextureRenderer renderer;
-        PendingCreation(EmbeddedWebHost owner, long revision) { this.owner = owner; this.activity = owner.activity(); this.revision = revision; }
+        final EmbeddedWebHost owner; final Activity activity; final long revision; final String originalSource; WebTextureRenderer renderer;
+        PendingCreation(EmbeddedWebHost owner, long revision, String originalSource) {
+            this.owner = owner; this.activity = owner.activity(); this.revision = revision; this.originalSource = nativeFeatureEnabled() ? originalSource : null;
+        }
     }
     private EmbeddedWebView() { }
 
@@ -100,9 +106,11 @@ public final class EmbeddedWebView {
     }
     private static native void nativeInitialize();
     private static native boolean nativeFeatureEnabled();
+    static boolean featureObservationEnabled() { return nativeFeatureEnabled(); }
     private static native void nativeFeatureDOMResult(long handle,long grant,long page,String document,String requestId,String result);
     private static native void nativeFeatureFinished(long handle,long grant,long page,String document);
     private static native void nativeFeatureHTTPError(long handle,long grant,long page,String document,int status);
+    private static native void nativeFeatureRuntimeResult(String requestId,String result);
     private static native void nativeForeground(boolean active);
     private static native long nativeGeneration(long handle);
     private static native long nativeLifecycleRevision(long handle);
@@ -167,7 +175,7 @@ public final class EmbeddedWebView {
             Instance suspended = VIEWS.get(handle);
             WebNavigationArchive history = suspended != null && suspended.destroyedDocument ? suspended.archive : null;
             destroyOnMain(handle);
-            PendingCreation creation = new PendingCreation(owner, grant);
+            PendingCreation creation = new PendingCreation(owner, grant, url);
             CREATING.put(handle, creation);
             Runnable finish = () -> {
                 if (CREATING.get(handle) != creation) return;
@@ -244,6 +252,7 @@ public final class EmbeddedWebView {
                         }
                     }
                 });
+                if (creation.renderer != null) creation.renderer.featureOwner(handle,grant,url);
             } catch (RuntimeException | OutOfMemoryError failure) {
                 if (CREATING.remove(handle,creation)) {
                     if (creation.renderer != null) creation.renderer.close();
@@ -399,6 +408,79 @@ public final class EmbeddedWebView {
         }
         return selected != null && goBack(expectedOwner, selected);
     }
+    /** Lazy E2E-only observer state. This has no product scheduling decisions. */
+    private static final class FeatureRuntime {
+        static final String INSTANCE = UUID.randomUUID().toString().replace("-", "");
+        static long sequence, epoch;
+    }
+    static boolean featureOwnedURL(String value,String root) {
+        if (value == null) return false;
+        Uri original = Uri.parse(value).buildUpon().clearQuery().fragment(null).build();
+        String prefix = root + "tickets/", raw = original.toString();
+        return original.getUserInfo() == null && raw.startsWith(prefix)
+            && raw.substring(prefix.length()).matches("[0-9a-f]{32}/[A-Za-z0-9_.-]{1,80}");
+    }
+    static String featureURLHash(String value) throws java.security.NoSuchAlgorithmException {
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest((value == null ? "" : value).getBytes(StandardCharsets.UTF_8));
+        StringBuilder text = new StringBuilder(64);
+        for (byte part : digest) text.append(String.format(java.util.Locale.ROOT,"%02x",part & 255));
+        return text.toString();
+    }
+    /** Original UI queue fence and bounded inventories; no JavaScript or input. */
+    public static void featureRuntimeSnapshot(String requestId,String root,String knownJSON) {
+        if (!nativeFeatureEnabled() || requestId == null || !requestId.matches("[0-9a-f]{32}")
+                || root == null || root.length() > 512 || !root.matches("https?://[^/?#@\\s]+/feature-fixture/v1/runs/[0-9a-f]{32}/")
+                || knownJSON == null || knownJSON.length() > 65536) return;
+        MAIN.post(() -> {
+            try {
+                requireMain();long now = System.currentTimeMillis();
+                boolean complete = now > 0 && now >= FeatureRuntime.epoch && FeatureRuntime.sequence < 1000000000L
+                    && VIEWS.size() <= 128 && CREATING.size() <= 128;
+                FeatureRuntime.epoch = now;
+                JSONArray known = new JSONArray(knownJSON);HashSet<Long> handles = new HashSet<>();
+                if (known.length() > 256) throw new IllegalArgumentException("Observer inventory quota");
+                for (int index = 0; index < known.length(); ++index) {
+                    String raw = known.getJSONObject(index).getString("handle");
+                    if (!raw.matches("[1-9][0-9]{0,18}")) throw new IllegalArgumentException("Observer handle");
+                    handles.add(Long.parseLong(raw));
+                }
+                JSONArray views = new JSONArray(), creations = new JSONArray();
+                ArrayList<Long> viewHandles = new ArrayList<>(VIEWS.keySet());Collections.sort(viewHandles);
+                if (complete) for (long handle : viewHandles) {
+                    Instance instance = VIEWS.get(handle);if (instance == null) { complete = false;break; }
+                    String current = instance.destroyedDocument ? instance.fallbackUrl : instance.view.getUrl();
+                    boolean sourceOwned = featureOwnedURL(instance.requestedUrl,root), documentOwned = featureOwnedURL(current,root);
+                    if (!sourceOwned && !documentOwned && !handles.contains(handle)) continue;
+                    boolean owner = host.get() == instance.owner && instance.owner.activity() == instance.activity;
+                    views.put(new JSONObject().put("handle",Long.toString(handle)).put("creation",instance.creationRevision)
+                        .put("grant",instance.document.grant()).put("page",instance.document.page())
+                        .put("active",instance.active).put("destroyed",instance.destroyedDocument).put("closing",instance.closing)
+                        .put("ownerCurrent",owner).put("foreground",owner && instance.owner.isForeground()).put("loading",instance.loading)
+                        .put("sourceOwned",sourceOwned).put("documentOwned",documentOwned)
+                        .put("sourceSha256",featureURLHash(instance.requestedUrl)).put("documentSha256",featureURLHash(current)));
+                }
+                ArrayList<Long> pendingHandles = new ArrayList<>(CREATING.keySet());Collections.sort(pendingHandles);
+                if (complete) for (long handle : pendingHandles) {
+                    PendingCreation pending = CREATING.get(handle);if (pending == null) { complete = false;break; }
+                    boolean owned = featureOwnedURL(pending.originalSource,root);
+                    if (!owned && !handles.contains(handle)) continue;
+                    creations.put(new JSONObject().put("handle",Long.toString(handle)).put("creation",pending.revision)
+                        .put("sourceOwned",owned).put("sourceSha256",featureURLHash(pending.originalSource)));
+                }
+                JSONObject renderers = WebTextureRenderer.featureSnapshot(root,handles);
+                complete = complete && renderers.getBoolean("complete");
+                JSONObject result = new JSONObject().put("javaWebRuntimeVersion",2).put("commandId",requestId)
+                    .put("instance",FeatureRuntime.INSTANCE).put("sequence",++FeatureRuntime.sequence)
+                    .put("processId",android.os.Process.myPid()).put("capturedEpochMs",now).put("complete",complete)
+                    .put("views",views).put("creations",creations).put("renderers",renderers.getJSONArray("renderers"));
+                nativeFeatureRuntimeResult(requestId,result.toString());
+            } catch (Exception | OutOfMemoryError unavailable) {
+                // Missing original observations never become successful empty inventories.
+                nativeFeatureRuntimeResult(requestId,"{\"commandId\":\""+requestId+"\",\"complete\":false}");
+            }
+        });
+    }
+
     // Closed E2E read only. No caller-controlled JavaScript, DOM selector or
     // expected result reaches the WebView through this entrypoint.
     public static void featureRead(long handle, long grant, long page, String requestId) {
