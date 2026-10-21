@@ -10,7 +10,7 @@ from adapters.normal_ui import NativeUIError
 from adapters.token_emote_ui import control_id,snapshot,same_reference
 from feature_journeys.contract import arguments
 from feature_journeys.phase_fixture import validate as phase_packet
-from overte_phone_emote_sources import PhoneEmoteSources
+from overte_phone_emote_sources import PhoneEmoteSources,MAX_SEGMENTS
 from overte_phone_emote_originals import PhoneEmoteOriginals,BLOCK
 from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_ui import PhoneScriptUI
@@ -20,13 +20,17 @@ MAX_INPUTS=256
 VERBS={'open','play','sit','override','cancel','wait-complete','close'}
 
 
+def input_name(segment):
+    need(integer(segment,0,MAX_SEGMENTS-1))
+    return 'phone-emote-inputs'+('-segment-'+str(segment) if segment else '')+'.json'
+
+
 class PhoneEmoteInputs:
     def __init__(self,source):
         need(isinstance(source,PhoneEmoteSources) and source.role=='primary');source.lock.assert_held()
         self.source=source;self.adapter,self.selector,self.lock=source.adapter,source.selector,source.lock
         self.run,self.fixture_url,self.binding=source.run,source.phase.fixture_url,source.binding
-        suffix='-segment-'+str(source.segment) if source.segment else ''
-        self.store=PrivateFeatureState(source.store.path.with_name('phone-emote-inputs'+suffix+'.json'))
+        self.store=PrivateFeatureState(source.store.path.with_name(input_name(source.segment)))
         self.previous=self.store.read();self.state=dict(history=[],current=None)
         self.history_state=dict(count=0,manifests=[],pendingArchive=None)
         self.history_store=PhoneEmoteOriginals(source.artifact_root,self.binding,self.run,'primary',source.guard,

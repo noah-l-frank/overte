@@ -1407,6 +1407,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_EMOTE_VIEW_OWNERSHIP_REMAINS')
         require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-background.json')).read() is None,
                 'PHONE_EMOTE_BACKGROUND_CLEANUP_INCOMPLETE')
+        require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-namespaces.json')).read() is None,
+                'PHONE_EMOTE_NAMESPACE_CLEANUP_INCOMPLETE')
         require(all(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-'+role+'-lifetime.json')).read() is None
                     for role in ('primary','actor')),'PHONE_EMOTE_LIFETIME_CLEANUP_INCOMPLETE')
         require(not any(self.state_path(selector).parent.glob('phone-emote-*-capture-*.json')),
