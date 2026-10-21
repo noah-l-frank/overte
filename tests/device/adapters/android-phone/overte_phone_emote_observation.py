@@ -174,7 +174,7 @@ class PhoneEmoteObservation:
         epoch=epoch_reader.clock_ms();host=self.source.phase.epoch_ms();need(integer(epoch,1) and number(host,1,1e15))
         try:
             self.effects.bound();self.state.update(phase='capturing',ticket=ticket);self.save()
-            self.source.read();self.source.read();before=self.effects.reference()
+            self.source.read();before=self.effects.reference()
             row=self.effects.inputs.state['current'];need(row is not None and row['call']['ticket']==ticket)
             self.effects.after(row,before)
             previous_ref=None
@@ -192,7 +192,7 @@ class PhoneEmoteObservation:
             # or any source-header advancement. A lost cleanup return retains it.
             self.record('capture',captured);self.state['phase']='captured';self.save()
             self.state['retirement']=capture.cleanup();self.state['phase']='measuring';self.save()
-            self.source.read();self.source.read();reference=self.effects.reference()
+            self.source.read();reference=self.effects.reference()
             effect=self.effects.measure(reference,played=played)
             configuration=self.source.adapter._avatar_configuration_observer(self.source.selector,read_only=True)
             need(isinstance(configuration,NativePhoneAvatarConfiguration) and configuration.pid==self.source.pid and configuration.ios is False)

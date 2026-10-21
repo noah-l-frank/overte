@@ -33,7 +33,7 @@ No expected name, pose, pixel statistics or success flag enters a native query.
 The sequence is:
 
 1. Persist observation responsibility before any new source/image acquisition.
-2. Read two new role-local source groups and check the original consumed-input
+2. Read one new role-local source group and check the original consumed-input
    barrier. Retain the exact original pre-image frame reference.
 3. Acquire the actual PNG/model/avatar originals. Capture itself proves actual
    native buffer/callback and issuer-receipt retirement.
@@ -41,7 +41,7 @@ The sequence is:
    immutable parent original file **before** removing the child scope or advancing
    the source header. A failed parent write leaves the child and pending file.
 5. Retire the child metadata and retain its exact original cleanup proof.
-6. Obtain two new role-local source groups after the image, recompute current
+6. Obtain one new role-local source group after the image, recompute current
    actual input/Rig effects, and independently read actual loaded avatar resource
    configuration. Both bundled resources must match the existing repository byte
    pins and exact original Model/Geometry/Rig/raw-source identities.
@@ -59,6 +59,16 @@ across the image; compiled Emote playback checks the fixed actual-byte pins.
 A restore, restart
 of the same clip, different override or background during capture fails. A later
 correct Rig sample cannot retroactively qualify an unrelated image.
+
+The native playback proof still requires at least two original advancing loaded
+frames with changed final poses; the fresh pre-image and post-image acquisitions
+can provide those frames. Removing duplicate acquisitions does not permit a
+call-only, frozen pose/clip or stale image proof. This halves source groups per
+new image. It does not by itself solve the complete run budget: the shared
+runner requires at least three fresh samples per checkpoint, and up to 169
+ordinary actions. Full coordination must retain and transfer bounded archive
+segments and original comparison images without dropping unresolved ownership;
+existing per-owner limits are unchanged.
 
 Pixel verification independently checks the actual original model draw, projection,
 challenge, PNG/pixel hashes and role-local comparison. A changing challenge with

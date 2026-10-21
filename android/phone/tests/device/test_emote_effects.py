@@ -22,7 +22,7 @@ from test_native_animation_source import source_for_clip
 class EffectsModel(Originals):
     def __init__(self,root):
         super().__init__(root);self.actual_name=None;self.events=[];self.actual_frames=[];self.generation=0;self.call_cursor=0
-        self.ignore_native=False;self.foreign=False;self.compiled_assets=False;self.actual_asset_name=None
+        self.ignore_native=False;self.foreign=False;self.compiled_assets=False;self.actual_asset_name=None;self.frozen_rig=False
         original=self.widgets.activate
         def activate(identifier,*,token):
             original(identifier,token=token)
@@ -62,6 +62,7 @@ class EffectsModel(Originals):
         frame=dict(frameSequence=self.sequence,overrideSequence=self.generation,evaluationSequence=self.sequence*10,
             capturedEpochMs=self.epoch,overrideActive=self.actual_name is not None,
             joints=[dict(index=0,pose=[0.,0.,0.,1.,.1+self.sequence*.01 if self.actual_name else .1,.2,.3])])
+        if self.actual_name and self.frozen_rig:frame['joints'][0]['pose'][4]=.2
         if self.actual_name:
             frame['clip']=dict(self.events[-1]['request'],requestedUrl=self.actual_url,frame=min((self.epoch-self.started_at)*.06,120.),
                 loadedFrames=120,evaluatedEpochMs=self.epoch,evaluationSequence=self.sequence)

@@ -71,6 +71,26 @@ class EmoteObservationTests(unittest.TestCase):
         m=self.model;call=m.call(verb,inputs);owner=PhoneEmoteInputs(m.source());owner.act(call)
         return owner,call
 
+    def test_one_fresh_loaded_source_on_each_side_of_image_preserves_two_original_advancing_pose_frames(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));scope=m.scope(owner,1);prior=len(owner.source.frames)
+            value=scope.read(call['ticket']);self.assertEqual(2,len(owner.source.frames)-prior)
+            proof=value['effect']['proof'];self.assertEqual(2,len(proof['frameSequences']))
+            captured=scope.load('capture');outcome=scope.load('outcome')
+            before=scope.effects.current_original(captured['before'])['group']['native']
+            after=scope.effects.current_original(outcome['after'])['group']['native']
+            self.assertLess(before['animation']['evaluationSequence'],after['animation']['evaluationSequence'])
+            self.assertEqual(before['animation']['clip']['assetSource'],after['animation']['clip']['assetSource'])
+
+    def test_two_fresh_sources_with_advancing_clip_but_frozen_actual_pose_cannot_use_moving_image_as_success(self):
+        m=self.model;m.use_included_source();m.frozen_rig=True
+        with m.lock.held():
+            owner,call=self.act('play',dict(name='Waving'));scope=m.scope(owner,1)
+            with self.assertRaises(NativeUIError):scope.read(call['ticket'])
+            self.assertIsNotNone(scope.store.read());self.assertNotEqual('complete',scope.state['phase'])
+            self.assertEqual(1,m.world.counters['capture'])
+
     def test_open_play_and_restore_join_current_original_pixels_to_stable_native_intervals(self):
         m=self.model
         with m.lock.held():
