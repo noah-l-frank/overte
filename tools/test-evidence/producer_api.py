@@ -55,6 +55,8 @@ CODEQL_UPLOAD_TEMPLATE = 'tools/repository-checks/workflows/metadata-edits/codeq
 # recipes. Their nonproducer intent structurally excludes every heavy job even
 # when recognition is missing/failed. Historical recipes require their marker.
 _NATIVE_INTENT_RECIPES = frozenset({
+    ('.github/workflows/repository-checks.yml', '5ab9ff4592635ad67cd7f542de9676702180592d',
+     'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/codeql.yml', CODEQL_UPLOAD_WORKFLOW,
      'b76ade9fd7a76da21bf2cb2161deae7a262163e8'),
     ('.github/workflows/repository-checks.yml', '22fe0d6d39d120f800099136d7d1ab5280d80b41',
@@ -76,7 +78,8 @@ RETAINED_OWNER_GENERATIONS = frozenset({'protected-producer-original-default-v1'
     'protected-producer-original-default-boolean-v1',
     'protected-producer-original-default-required-context-v1',
     'protected-producer-optional-parent-source-v1',
-    'protected-producer-optional-leaf-common-v1'})
+    'protected-producer-optional-leaf-common-v1',
+    'protected-producer-exact-parent-command-owners-v1'})
 
 
 def retain_native_metadata_sources(generations, sources):
@@ -1146,6 +1149,39 @@ class Adapter:
                 "source": source, "run": {key: attempt.get(key) for key in fields},
                 "references": references, "jobs": jobs, "checks": checks, "artifacts": artifacts}
 
+    def _codeql_carried_jobs(self, current, originals, result, now):
+        """Authenticate retry inventory mirrors; original1 keeps all authority."""
+        before = {job.get('name'):job for job in originals if job.get('name') != 'codeql-security-results'}
+        carried = [job for job in current if job.get('name') != 'codeql-security-results']
+        require(len(before) == len(originals)-1 and len(carried) == len(before)
+            and {job.get('name') for job in carried} == set(before),
+            'CodeQL carried inventory is incomplete, mixed or unknown')
+        retry_start = P._time(result.get('run_started_at'))
+        identities = {positive(job.get('id')) for job in originals}
+        require(len(identities) == len(originals)
+            and len({positive(job.get('id')) for job in current}) == len(current),
+            'CodeQL native job identity is repeated')
+        # These are transport/record identities, not execution fields. GitHub
+        # gives carried rows new IDs/creation times and omits runner_group_id.
+        metadata = {'id','node_id','url','html_url','check_run_url','run_attempt','created_at','runner_group_id'}
+        checks = {}
+        for job in carried:
+            original = before[job['name']]
+            fact = self._job(job,result,15368,final_name=job['name'])
+            require(fact.job_id not in identities and (fact.status,fact.conclusion) == ('completed','success')
+                and set(job) == set(original)
+                and {key:value for key,value in job.items() if key not in metadata}
+                    == {key:value for key,value in original.items() if key not in metadata}
+                and job.get('runner_group_id') in (None,original.get('runner_group_id')),
+                'CodeQL carried native execution differs from original1')
+            require(P._time(job.get('started_at')) <= P._time(job.get('completed_at')) <= retry_start,
+                'CodeQL carried execution is not wholly before retry')
+            if 'created_at' in job:
+                require(retry_start <= P._time(job['created_at']) <= now,
+                    'CodeQL carried record was not created by this retry')
+            checks[fact.job_id] = vars(fact)
+        return carried, checks
+
     def codeql_result_attempts(self, run_id, source, head, *, attempt, now=None, completed=False):
         """Authenticate one whole native analysis attempt and its real result gate.
 
@@ -1176,10 +1212,17 @@ class Adapter:
             require(len(parents) == 2 and parents[1] == head and result.get('display_title') == ORDINARY_RUN_NAME,
                     'CodeQL upload source lacks ordered ordinary PR identity')
         current_jobs = self._pages(f'actions/runs/{run_id}/attempts/{attempt}/jobs', 'jobs')
-        continuation = attempt == 2 and len(current_jobs) == 1 and current_jobs[0].get('name') == 'codeql-security-results'
+        gates = [job for job in current_jobs if job.get('name') == 'codeql-security-results']
+        non_gates = [job for job in current_jobs if job.get('name') != 'codeql-security-results']
+        old_clock = (attempt == 2 and result['event'] == 'pull_request' and non_gates
+            and any(P._time(job.get('started_at')) < P._time(result.get('run_started_at')) for job in non_gates))
+        continuation = attempt == 2 and len(gates) == 1 and (len(current_jobs) == 1 or old_clock)
         analysis_attempt = 1 if continuation else attempt
         analysis = self._object(f'actions/runs/{run_id}/attempts/1') if continuation else result
         originals = self._pages(f'actions/runs/{run_id}/attempts/1/jobs','jobs') if continuation else current_jobs
+        carried, carried_checks = ([],{})
+        if continuation and non_gates:
+            carried, carried_checks = self._codeql_carried_jobs(current_jobs,originals,result,now)
         if continuation:
             require(result['event'] == 'pull_request' and analysis.get('run_attempt') == 1
                 and all(analysis.get(key) == result.get(key) for key in (
@@ -1246,12 +1289,20 @@ class Adapter:
             expected = 'skipped' if job['name'] == metadata_job and analysis['event'] != 'pull_request' else 'success'
             require((fact.status,fact.conclusion) == ('completed',expected), 'CodeQL current selector/analyzer did not succeed')
         if continuation:
-            fact = self._job(current_jobs[0],result,15368,final_name='codeql-security-results')
+            fact = self._job(gates[0],result,15368,final_name='codeql-security-results')
             require((fact.status,fact.conclusion) in allowed_status, 'CodeQL retry native gate failed or unavailable')
+            if fact.started_at is None:
+                require(fact.status in P._PENDING-{'in_progress'} and fact.completed_at is None,
+                    'CodeQL retry result has no actual execution interval')
+            else:
+                require(P._time(result.get('run_started_at')) <= P._time(fact.started_at) <= now
+                    and (fact.completed_at is None or P._time(fact.started_at) <= P._time(fact.completed_at) <= now),
+                    'CodeQL retry result gate did not execute in its actual attempt')
             checks[fact.job_id] = vars(fact)
         return {'analysis_attempt':analysis_attempt,'result_attempt':attempt,'source_commit':source,
                 'analysis_run':analysis,'result_run':result,'latest_run':latest,
-                'analysis_jobs':originals,'result_jobs':current_jobs,'native_checks':checks,'languages':selected}
+                'analysis_jobs':originals,'result_jobs':current_jobs,'native_checks':checks,'languages':selected,
+                **({'carried_forward_jobs':carried,'carried_forward_checks':carried_checks} if carried else {})}
 
     def _scheduling_source(self, listed, binding, policy, *, now, integrated=False,
                            allow_intent_progress=False, observation_clock=None,
@@ -1268,10 +1319,9 @@ class Adapter:
         latest = self._object(f'actions/runs/{identity}')
         continuation = None
         if positive(latest.get('run_attempt')) > 1 and policy.caller_path == '.github/workflows/codeql.yml':
-            current_jobs = self._pages(f"actions/runs/{identity}/attempts/{latest['run_attempt']}/jobs",'jobs')
-            only_gate = latest['run_attempt'] == 2 and len(current_jobs) == 1 and current_jobs[0].get('name') == 'codeql-security-results'
-            origin = self._object(f'actions/runs/{identity}/attempts/1') if only_gate else latest
-            edges = [row for row in origin.get('referenced_workflows', []) if type(row) is dict
+            # The factory resolves genuine fresh execution versus native carried
+            # rows; job count alone cannot select the analysis attempt.
+            edges = [row for row in latest.get('referenced_workflows', []) if type(row) is dict
                 and row.get('path', '').startswith(REPOSITORY + '/' + METADATA_WORKFLOW + '@')]
             require(len(edges) == 1, 'CodeQL result retry original native source is unavailable')
             continuation = self.codeql_result_attempts(identity, sha(edges[0].get('sha')),

@@ -28,6 +28,8 @@ CURRENT_PARENT_GENERATIONS = frozenset({'protected-producer-original-default-v1'
     'protected-producer-original-default-required-context-v1'})
 OPTIONAL_LEAF_GENERATION = 'protected-producer-optional-leaf-common-v1'
 OPTIONAL_LEAF_TEMPLATE = 'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml'
+EXACT_PARENT_GENERATION = 'protected-producer-exact-parent-command-owners-v1'
+EXACT_PARENT_TEMPLATE = 'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml'
 OPTIONAL_LEAF_TARGETS = frozenset({'apple-ios', 'android-phone', 'android-vr-pico'})
 PROFILE = 'tests/platform-profile.json'
 DOCUMENTATION_WORKFLOW = '.github/workflows/documentation-push-owner.yml'
@@ -93,6 +95,7 @@ CONTROLLERS = (
     'tools/repository-checks/workflows/producers/protected-project-tests.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests-android-platform.yml',
     'tools/repository-checks/workflows/producers/protected-project-tests-optional-leaf.yml',
+    'tools/repository-checks/workflows/producers/repository-checks-parent-owners.yml',
     'tools/repository-checks/workflows/shared-sandbox-host-diagnostic.yml',
     'tools/sbom/requirements-validation.txt',
     'tools/sync-test-reuse/differential.py',
@@ -593,7 +596,7 @@ def current_parent_import(context, environment, api, base, default, root):
 def optional_leaf_import(event, environment, api, root):
     """CURRENT imports for an optional normal-push common diagnostic only.
 
-    Recipe28 authenticates this module from actual protected D before calling
+    Recipes28/29 authenticate this module from actual protected D before calling
     it. B is retained as normal-merge geometry, never asserted compatible with
     D. This capability cannot admit execution, an original receipt or E.
     """
@@ -615,17 +618,31 @@ def optional_leaf_import(event, environment, api, root):
     require(type(catalog) is dict and set(catalog) == {'schema','repository','generations'}
         and type(catalog.get('schema')) is int and catalog['schema'] == 1
         and catalog.get('repository') == {'full_name':REPOSITORY,'id':REPOSITORY_ID}
-        and type(catalog.get('generations')) is list and len(catalog['generations']) == 28,
+        and type(catalog.get('generations')) is list and len(catalog['generations']) in {28,29}
+        and digest({**catalog,'generations':catalog['generations'][:28]}) ==
+            'sha256:8bbe59673086377fee6bd9c7f91d3beb619f3c62cd35a261a3234123cc00b430'
+        and (len(catalog['generations']) == 28 or digest(catalog) ==
+            'sha256:7181167df881f3937124d703d18e19d32bc117f1018ad2272bb04ee923b5363d'),
         'optional leaf catalog is not the exact enrolled successor')
-    row = catalog['generations'][-1]
-    paths = {'.github/workflows/'+name+'.yml' for name in (
-        'repository-checks','project-tests','parent-qualification','sync-validation','browser-client','pr-metadata-context')}
-    require(type(row) is dict and set(row) == {'name','workflows'}
-        and row['name'] == OPTIONAL_LEAF_GENERATION and type(row['workflows']) is dict
-        and set(row['workflows']) == paths
+    prior = catalog['generations'][27]
+    rows = [prior]
+    if len(catalog['generations']) == 29:
+        row = catalog['generations'][28]
+        require(type(row) is dict and set(row) == {'name','workflows'}
+            and row['name'] == EXACT_PARENT_GENERATION and type(row['workflows']) is dict
+            and set(row['workflows']) == set(prior['workflows'])
+            and all(row['workflows'][path] == expected for path,expected in prior['workflows'].items()
+                if path != '.github/workflows/repository-checks.yml')
+            and row['workflows']['.github/workflows/repository-checks.yml'] == default.get(EXACT_PARENT_TEMPLATE)
+            and row['workflows']['.github/workflows/repository-checks.yml'] != prior['workflows']['.github/workflows/repository-checks.yml'],
+            'optional leaf exact-parent successor differs outside its Repository recipe')
+        rows.append(row)
+    installed = [row for row in rows if all(current.get(path) == default.get(path) == expected
+        for path,expected in row['workflows'].items())]
+    require(prior['name'] == OPTIONAL_LEAF_GENERATION and len(installed) == 1
         and all(type(expected) is dict and expected == ordinary(expected.get('sha'))
-            and current.get(path) == default.get(path) == expected for path,expected in row['workflows'].items())
-        and default.get(OPTIONAL_LEAF_TEMPLATE) == row['workflows']['.github/workflows/project-tests.yml'],
+            for expected in installed[0]['workflows'].values())
+        and default.get(OPTIONAL_LEAF_TEMPLATE) == prior['workflows']['.github/workflows/project-tests.yml'],
         'optional leaf complete installed successor or recipe changed')
     clean_env = {'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_NOSYSTEM':'1',
         'GIT_CONFIG_GLOBAL':'/dev/null','GIT_TERMINAL_PROMPT':'0'}
