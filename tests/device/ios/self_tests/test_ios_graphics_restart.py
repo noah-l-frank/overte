@@ -21,7 +21,7 @@ from self_tests.test_native_scene_loads import Boundary as LoadsSDK
 from self_tests.test_native_process_presence import Boundary as PresenceSDK
 
 
-class RestartTests(SamplesHarness,unittest.TestCase):
+class RestartHarness(SamplesHarness):
     def setUp(self):
         super().setUp();self.inputs=[];self.dead=set();self.fault='';self.binding_phase='bound';self.recovered=0
         self.adapter.existing_input_session=lambda _:nullcontext()
@@ -94,6 +94,8 @@ class RestartTests(SamplesHarness,unittest.TestCase):
         monotonic=lambda:self.sdk.clock,sleep=self.sdk.sleep)
     def call(self):return dict(contractVersion=VERSION,runId=RUN,ticket='8'*32,verb='restart-app',inputs={},fixtureUrl=self.client.url+'/runs/'+RUN+'/')
 
+
+class RestartTests(RestartHarness,unittest.TestCase):
     def test_normal_restart_drains_both_roles_proves_old_pid_death_and_rebuilds_scene_with_original_preferences(self):
         with self.lock.held():
             restart=self.prepare();self.assertEqual({'performed':True},restart.act(self.call()))

@@ -29,7 +29,7 @@ from self_tests.test_native_vulkan_world_frame import World
 POLICY=dict(source='world-render-target',marker=[187,70,443,134],subject=[0,170,640,400])
 
 
-def raster(ticket):
+def raster(ticket,*,sdk=None,effects=True):
     image=Image.new('RGBA',(640,400),(95,95,95,255));draw=ImageDraw.Draw(image)
     for y in range(170,400,10):
         for x in range(0,640,10):draw.rectangle((x,y,x+9,y+9),fill=(20,40,80,255) if (x//10+y//10)%2 else (180,200,220,255))
@@ -37,6 +37,16 @@ def raster(ticket):
     for index,bit in enumerate(bits):
         x=187+(index%32)*8;y=70+(index//32)*16
         draw.rectangle((x,y,x+7,y+15),fill='white' if bit=='1' else 'black')
+    if sdk is not None and effects:
+        from adapters.graphics_subject_geometry import projected_box
+        from self_tests.test_native_completed_frame import view
+        marker=image.crop((170,60,470,145))
+        for enabled,name,color in ((sdk.model.haze,'fog-board',(25,90,210,255)),(sdk.model.mirrors,'reflector',(255,90,0,255))):
+            if not enabled:continue
+            row=next(item for item in sdk.scene_rows if item['name'].endswith('-'+name))
+            box=projected_box(row,view(),[640,400]);dx=(box[2]-box[0])*.25;dy=(box[3]-box[1])*.25
+            draw.rectangle([round(box[0]+dx),round(box[1]+dy),round(box[2]-dx),round(box[3]-dy)],fill=color)
+        image.paste(marker,(170,60))
     stream=BytesIO();image.save(stream,format='PNG');return stream.getvalue(),image.tobytes()
 
 
@@ -44,20 +54,22 @@ class GPU:
     """Independent read/callback model; no adapter desired-state input is read."""
     def __init__(self,sdk):
         self.sdk,self.worlds,self.sequence,self.frames=sdk,{},0,0
-        self.marker=TICKET;self.commands=[];self.lost=False;self.no_fence=False;self.birth='c'*32;self.delay=0;self.on_read=None
+        self.marker=TICKET;self.commands=[];self.lost=False;self.no_fence=False;self.birth='c'*32;self.delay=0;self.on_read=None;self.effects=True
     def source(self,packet):
         packet['instance']=self.birth;packet['processId']=self.sdk.pid
         source=packet.get('source',{})
         if 'renderTrace' in source:
             source['renderTrace']['frameId']=format(self.frames+4000,'032x')
             source['image'].update(width=640,height=400)
+            source['renderTrace'].update(hazeBatches=int(self.sdk.model.haze),hazeDrawCalls=5 if self.sdk.model.haze else 0,
+                mirrorBatches=int(self.sdk.model.mirrors),mirrorDrawCalls=2 if self.sdk.model.mirrors else 0)
     def reader(self,intent,received):
         current=[None]
         def send(query):
             self.commands.append(deepcopy(query));key=query['requestId']
             if key not in self.worlds:
                 b=World();b.target_extent=[640,400];b.source_extent=[round(640*self.sdk.model.resolution),round(400*self.sdk.model.resolution)]
-                b.png,b.raw_pixels=raster(self.marker);b.no_fence=self.no_fence
+                b.png,b.raw_pixels=raster(self.marker,sdk=self.sdk,effects=self.effects);b.no_fence=self.no_fence
                 b.fault=self.source;self.worlds[key]=b
             b=self.worlds[key];current[0]=b
             b.clock=self.sdk.clock;b.sequence=self.sequence;b.offset=1700000000000+86400000

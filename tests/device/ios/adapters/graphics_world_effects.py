@@ -10,12 +10,20 @@ from adapters.native_feature_observation import fresh,integer,need,number
 from adapters.graphics_subject_geometry import steady_subject
 from adapters.graphics_subject_pixels import measure_pair
 from adapters.script_feature.history import same
+from adapters.normal_ui import NativeUIError
 from feature_journeys.contract import identifier
 from feature_journeys.graphics_fixture import subject_ids
 from feature_journeys.graphics_resources import validate_status
 from ios.adapters.graphics_world_measurements import compose
 
 VERSION=1
+
+
+class GraphicsWorldEffectPending(NativeUIError):
+    """Qualified original pixels do not yet show the measured setting effect."""
+    def __init__(self,observation):
+        self.observation=deepcopy(observation)
+        super().__init__('Original Graphics effect pixels are not ready')
 
 
 def compare(run,feature,fixture_url,binding,before,raw_before,after,raw_after,policy,provider_instance,
@@ -57,11 +65,12 @@ def compare(run,feature,fixture_url,binding,before,raw_before,after,raw_after,po
     target=rows[ids['fog-board' if feature=='haze' else 'reflector']]
     stats=measure_pair(raw_before,raw_after,target,rows[ids['marker']],b['renderTrace']['recordedView'],
                        b['targetExtent'],[0,0],b['targetExtent'],policy,bound)
-    direction=1 if right[field] else -1;need(stats['changedFraction']>=.05)
-    if feature=='haze':need(direction*(stats['blueDominanceAfter']-stats['blueDominanceBefore'])>10)
-    else:need(direction*(stats['orangeFractionAfter']-stats['orangeFractionBefore'])>.005)
+    direction=1 if right[field] else -1
+    ready=stats['changedFraction']>=.05 and (direction*(stats['blueDominanceAfter']-stats['blueDominanceBefore'])>10 if feature=='haze'
+        else direction*(stats['orangeFractionAfter']-stats['orangeFractionBefore'])>.005)
     result=dict(graphicsWorldEffectsVersion=VERSION,feature=feature,beforeTicket=before['provider']['ticket'],afterTicket=after['provider']['ticket'],
                 beforeSha256=hashlib.sha256(raw_before).hexdigest(),afterSha256=hashlib.sha256(raw_after).hexdigest(),targetId=target['id'],**stats)
     bound();current=epoch_ms();need(integer(current,epoch));fresh(math.floor(last['capturedEpochMs']),current);bound()
     need(max(current-last['capturedEpochMs'],epoch-last['capturedEpochMs']+(previous-started)*1000)<=1500)
+    if not ready:raise GraphicsWorldEffectPending(result)
     return deepcopy(result)

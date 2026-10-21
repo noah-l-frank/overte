@@ -351,11 +351,13 @@ class IOSGraphicsSamples:
 
     def drain(self):
         """Fresh actual native absence; does not retire metadata or prove quiet."""
-        self.bound();need(not self.historical);proofs=[]
+        self.bound();need(not self.historical);proofs=[];started=previous=self.monotonic();need(number(started,0,1e15))
         for row in self.state['owners']:
+            now=self.monotonic();need(number(now,previous,1e15) and now-started<20);previous=now
             owner=self.owner(row)
             if owner.store.read() is not None:
                 proof=owner.release();need(absent(proof));proofs.append(proof)
             else:need(row['phase']=='reserved');self.absent_artifact(owner)
             self.bound()
+            now=self.monotonic();need(number(now,previous,1e15) and now-started<20);previous=now
         return deepcopy(proofs)

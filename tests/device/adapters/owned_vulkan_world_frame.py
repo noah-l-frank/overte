@@ -57,6 +57,25 @@ def validate_summary(value,query,pid,raw=None):
 
 
 class VulkanWorldFrameOwner:
+    @classmethod
+    def archive_original(cls,value,root,binding,run,role,stage,request_id,lock):
+        """Read an immutable original owner copy and its actual retained PNG.
+
+        No live metadata, SDK/native command, mutable owner or current fact is
+        exposed. The owning feature keeps the exact original copy in its
+        private evidence archive before retiring runtime metadata.
+        """
+        need(isinstance(lock,ScriptSourceLock));lock.assert_held()
+        original=deepcopy(value)
+        class Archive(PrivateFeatureState):
+            def read(self):return deepcopy(original)
+            def write(self,*_args):need(False)
+            def discard(self,*_args):need(False)
+        path=lock.path.with_name('graphics-world-frame-'+role+'-'+str(stage)+'-'+request_id[4:]+'.json')
+        owner=cls(Archive(path),root,binding,run,role,stage,request_id,lambda *_:need(False),lambda:True,source_lock=lock)
+        raw=owner.archive();need(owner.state['phase']=='released' and absent(owner.state['absence']))
+        return raw
+
     def __init__(self,store,root,binding,run,role,stage,request_id,factory,guard,*,source_lock=None,
                  monotonic=time.monotonic,sleep=time.sleep):
         self.store,self.root,self.binding=store,Path(root),deepcopy(context(binding))

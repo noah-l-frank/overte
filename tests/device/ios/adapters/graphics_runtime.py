@@ -19,6 +19,10 @@ from adapters.normal_feature_state import context
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _graphics_observer(self,selector,source,role,lock,artifact_root,image_policy):
+        from ios.adapters.graphics_observer import IOSGraphicsObserver
+        return IOSGraphicsObserver(self,selector,source,role,lock,artifact_root,image_policy)
+
     def _graphics_restart(self,selector,client,run,lock,artifact_root,image_policy):
         from ios.adapters.graphics_restart import IOSGraphicsRestart
         return IOSGraphicsRestart(self,selector,client,run,lock,artifact_root,image_policy)

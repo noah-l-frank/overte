@@ -12,6 +12,7 @@ from adapters.owned_vulkan_world_frame import VulkanWorldFrameOwner
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.script_feature.history import pack,unpack
+from adapters.script_feature.lock import ScriptSourceLock
 from self_tests.test_native_vulkan_world_frame import World
 from self_tests.test_completed_frame_lease import BINDING,RUN
 
@@ -28,6 +29,19 @@ def owner(b,store,root,*,binding=BINDING,role='primary'):
 
 
 class OwnerTests(unittest.TestCase):
+    def test_immutable_original_archive_needs_actual_unchanged_png_and_no_live_native_factory(self):
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);store=PrivateFeatureState(root/'owner.json');b=World();current=owner(b,store,root)
+            _capture,raw=current.capture(TICKET);current.release();original=store.read();calls=len(b.commands)
+            lock=ScriptSourceLock(root/'script-feature-sources.lock')
+            with lock.held():
+                self.assertEqual(raw,VulkanWorldFrameOwner.archive_original(original,root,BINDING,RUN,'primary',0,REQUEST,lock))
+                self.assertEqual(original,store.read());self.assertEqual(calls,len(b.commands))
+                with self.assertRaises(NativeUIError):VulkanWorldFrameOwner.archive_original(original,root,BINDING|{'artifactSha256':'f'*64},RUN,'primary',0,REQUEST,lock)
+                (root/current.name).write_bytes(b'foreign PNG')
+                with self.assertRaises(NativeUIError):VulkanWorldFrameOwner.archive_original(original,root,BINDING,RUN,'primary',0,REQUEST,lock)
+                self.assertEqual(calls,len(b.commands))
+
     def test_abandoned_empty_artifact_can_verify_only_inode_ownership_without_native_or_png_claim(self):
         with tempfile.TemporaryDirectory() as root:
             root=Path(root);store=PrivateFeatureState(root/'owner.json');b=World();current=owner(b,store,root);send=b.send

@@ -134,6 +134,13 @@ counter/candidate joins, preserves original preferences and recovers partial
 scene/preference CAS transfer without repeating lifecycle input. Full actor,
 WK lifetime, finalization and the unchanged fifteen-step composition remain.
 
+The [independent role observer](GRAPHICS_OBSERVER.md) now joins fresh original
+frames, retained source/file history, meaningful effect pixels and each role's
+own post-restart kernel proof. Host image timestamps retain their measured
+acquisition interval rather than relabeling native epochs. Explicit phase
+retirement preserves failed originals and does not publish old facts. Whole-run
+worker, WK lifetime and finalization composition remain unfinished.
+
 The existing world-target PNG sampler only reads actual main-mono OpenGL
 framebuffers; Vulkan's product `downloadFramebuffer` remains unimplemented.
 The [completed Vulkan frame source](../native/COMPLETED_FRAME_OBSERVATION.md)
