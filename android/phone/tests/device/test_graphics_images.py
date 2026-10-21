@@ -53,7 +53,7 @@ class GraphicsImageTests(unittest.TestCase):
         self.assertEqual(20000,value['capture']['capturedEpochMs'])
 
     def test_preexisting_foreign_or_matching_png_is_never_overwritten_or_adopted(self):
-        name='graphics-'+RUN+'-primary-0-'+self.capture['requestId']+'.png';path=self.root/name
+        name=self.images.KIND+'-'+RUN+'-primary-'+str(self.images.stage)+'-'+self.capture['requestId']+'.png';path=self.root/name
         for raw in (b'foreign replacement',self.raw):
             path.write_bytes(raw);path.chmod(0o600)
             with self.subTest(rawLength=len(raw)),self.assertRaises(FileExistsError):self.save()
@@ -103,7 +103,7 @@ class GraphicsImageTests(unittest.TestCase):
 
     def test_foreign_role_stage_candidate_or_process_cannot_read_this_scope_as_current(self):
         value=self.save()
-        for options in (dict(role='actor'),dict(stage=1),dict(binding=BINDING|dict(processIdentity='32:15')),
+        for options in (dict(role='actor'),dict(stage=self.images.stage+1),dict(binding=BINDING|dict(processIdentity='32:15')),
                 dict(binding=BINDING|dict(artifactSha256='f'*64))):
             with self.subTest(options=options),self.assertRaises(NativeUIError):self.factory(**options).read(value)
 
@@ -138,14 +138,14 @@ class GraphicsImageTests(unittest.TestCase):
     def test_historical_validation_returns_old_bytes_without_sdk_repair_or_new_timestamps(self):
         value=self.save();before=deepcopy(value);self.okay=False
         with self.assertRaises(NativeUIError):self.images.read(value)
-        self.assertEqual(self.raw,PhoneGraphicsImages.archive(self.root,value))
+        self.assertEqual(self.raw,type(self.images).archive(self.root,value))
         self.assertEqual(before,value);self.assertEqual(3,len(self.intents))
 
     def test_record_schema_refuses_unknown_versions_paths_expected_values_and_false_inode_claims(self):
         value=self.save()
         for change in (dict(graphicsImageVersion=True),dict(name='../foreign.png'),dict(expectedPixels=True),
                 dict(stage=True),dict(file=dict(device=1,inode=False)),dict(capture=value['capture']|dict(processId=99))):
-            with self.subTest(change=change),self.assertRaises(NativeUIError):record(value|change)
+            with self.subTest(change=change),self.assertRaises(NativeUIError):self.images.record(value|change)
 
     def test_original_pixel_mismatch_fails_before_any_intent_or_artifact_is_created(self):
         with self.assertRaises(NativeUIError):self.images.write(TICKET,self.capture,self.raw[:-5])

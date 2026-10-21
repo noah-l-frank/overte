@@ -16,10 +16,12 @@ from feature_journeys.contract import identifier
 VERSION=1
 
 
-def record(value):
-    exact(value,{'graphicsImageVersion','binding','runId','role','stage','ticket','capture','name','phase','file'})
-    need(type(value['graphicsImageVersion']) is int and value['graphicsImageVersion']==VERSION
-         and value['role'] in ('primary','actor') and type(value['stage']) is int and value['stage'] in (0,1)
+def _image_record(value,kind):
+    need(kind in ('graphics','emote'));version=kind+'ImageVersion'
+    exact(value,{version,'binding','runId','role','stage','ticket','capture','name','phase','file'})
+    need(type(value[version]) is int and value[version]==VERSION
+         and value['role'] in ('primary','actor') and type(value['stage']) is int
+         and (value['stage'] in (0,1) if kind=='graphics' else 1<=value['stage']<=256)
          and value['phase'] in ('planned','opened','saved'))
     context(value['binding']);identifier(value['runId']);identifier(value['ticket'])
     capture=value['capture'];need(type(capture) is dict)
@@ -28,7 +30,7 @@ def record(value):
     need(pid.isdigit() and int(pid)>0)
     capture_packet(capture,nonce,int(pid),capture.get('capturedEpochMs'))
     need(capture['source']['captureVersion']==2)
-    name='graphics-'+value['runId']+'-'+value['role']+'-'+str(value['stage'])+'-'+nonce+'.png'
+    name=kind+'-'+value['runId']+'-'+value['role']+'-'+str(value['stage'])+'-'+nonce+'.png'
     need(value['name']==name and re.fullmatch(r'[a-z0-9-]{1,120}\.png',name))
     if value['phase']=='planned':need(value['file'] is None)
     else:
@@ -37,18 +39,27 @@ def record(value):
     return value
 
 
+def record(value):return _image_record(value,'graphics')
+
+
 class PhoneGraphicsImages:
+    KIND='graphics'
+
+    @classmethod
+    def record(cls,value):return _image_record(value,cls.KIND)
+
     def __init__(self,root,binding,run,role,stage,guard,intent,*,monotonic=time.monotonic,timeout=5):
         context(binding);identifier(run)
-        need(role in ('primary','actor') and type(stage) is int and stage in (0,1)
+        need(role in ('primary','actor') and type(stage) is int
+             and (stage in (0,1) if self.KIND=='graphics' else self.KIND=='emote' and 1<=stage<=256)
              and all(callable(v) for v in (guard,intent,monotonic)) and number(timeout,.01,5))
         self.root,self.binding,self.run,self.role,self.stage=Path(root),deepcopy(binding),run,role,stage
         self.guard,self.intent,self.monotonic,self.timeout=guard,intent,monotonic,timeout
         self.last_clock=None
-        PrivateFeatureState(self.root/'graphics-evidence-boundary.json')._parent()
+        PrivateFeatureState(self.root/(self.KIND+'-evidence-boundary.json'))._parent()
 
     def _path(self,value):
-        record(value)
+        self.record(value)
         need(value['binding']==self.binding and value['runId']==self.run and value['role']==self.role and value['stage']==self.stage)
         path=self.root/value['name'];PrivateFeatureState(path)._parent()
         return path
@@ -87,10 +98,10 @@ class PhoneGraphicsImages:
         """Persist planned/opened intent before bytes; never overwrite a file."""
         started=previous=self._now();previous=self._budget(started,previous)
         identifier(ticket);need(type(capture) is dict)
-        value=dict(graphicsImageVersion=VERSION,binding=deepcopy(self.binding),runId=self.run,role=self.role,stage=self.stage,
-            ticket=ticket,capture=deepcopy(capture),name='graphics-'+self.run+'-'+self.role+'-'+str(self.stage)+'-'+str(capture.get('requestId'))+'.png',
-            phase='planned',file=None)
-        record(value);original_pixels(capture,raw)
+        value=dict(binding=deepcopy(self.binding),runId=self.run,role=self.role,stage=self.stage,
+            ticket=ticket,capture=deepcopy(capture),name=self.KIND+'-'+self.run+'-'+self.role+'-'+str(self.stage)+'-'+str(capture.get('requestId'))+'.png',
+            phase='planned',file=None,**{self.KIND+'ImageVersion':VERSION})
+        self.record(value);original_pixels(capture,raw)
         previous=self._budget(started,previous)
         path=self._path(value)
         need(self.intent(deepcopy(value)) is not False);previous=self._budget(started,previous)
@@ -116,6 +127,6 @@ class PhoneGraphicsImages:
     @classmethod
     def archive(cls,root,value):
         """Pure historical file validation: no SDK, repair, input or retiming."""
-        record(value)
+        cls.record(value)
         reader=cls(root,value['binding'],value['runId'],value['role'],value['stage'],lambda:True,lambda _value:False)
         return reader.read(value)

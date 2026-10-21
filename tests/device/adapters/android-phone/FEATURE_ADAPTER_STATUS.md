@@ -30,6 +30,12 @@ camera/background changes. Its sixteen host counterexamples validate measurement
 logic only. Owned image/fixture acquisition, Rig/input/actor and whole-run
 cleanup composition remain required; full Emotes is still incomplete.
 
+[Emote PNG file ownership](EMOTE_IMAGES.md) reuses the existing Graphics private
+file engine and its real filesystem counterexamples. Its explicit Emote contract
+and acquisition indices preserve interrupted responsibilities without broadening
+limits. Native capture/receipt retirement and full source/fixture/actor/run
+coordination remain required before capability registration.
+
 The [original Emote input component](NORMAL_EMOTE_PROTOCOL.md) now joins actual
 Qt widgets, normal pointer/wheel delivery, original tokens and private Phone
 read-only admission. Its 251-case combined host regression passes. Full Emote

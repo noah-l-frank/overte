@@ -109,6 +109,7 @@ REQUIRED = {
     "phone-emote-background": 1,
     "phone-emote-lifetime": 1,
     "phone-emote-pixels": 1,
+    "phone-emote-images": 1,
     "phone-emote-originals": 1,
     "native-script-file-controls": 1,
     "native-script-fixture-location": 1,

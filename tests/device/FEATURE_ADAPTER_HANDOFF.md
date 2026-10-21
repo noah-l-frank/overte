@@ -25,6 +25,12 @@ It still requires durable original acquisition, controlled scene/content,
 Rig/input causality, independent actor and complete resource/run retirement;
 no full Emote capability is promoted.
 
+[Emote PNG ownership](adapters/android-phone/EMOTE_IMAGES.md) now extends the
+existing Graphics private-file engine with separate versioned Emote scopes and
+1–256 acquisition indices. The same interrupt/inode/link/digest/age checks apply
+to both; Graphics v1 stays compatible. This is host evidence storage, not native
+lease release or complete Emote acquisition/cleanup coordination.
+
 Phone Emote now has [durable original per-role sources](adapters/android-phone/EMOTE_SOURCES.md)
 and [actual loaded/evaluated Rig playback and restoration joins](native/EMOTE_RIG_MEASUREMENTS.md).
 These retain original roots, submitted manager/code, actual Rig/pose history,
