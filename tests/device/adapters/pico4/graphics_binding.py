@@ -2,6 +2,10 @@
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from adapters.native_feature_observation import need
+from adapters.normal_feature_state import context
+from copy import deepcopy
+import hashlib
+import re
 from adapters.pico4.script_journey import PicoScriptJourney
 from adapters.owned_world_render import OwnedWorldRenderCapture
 from adapters.script_journey.lock import ScriptSourceLock
@@ -47,6 +51,41 @@ class PicoGraphicsBinding(PicoScriptJourney):
     def world_render_store(self,target,*,role):
         need(type(role) is str and role in ('primary','actor'))
         return self._store(target,'graphics-'+role+'-world-render-owner.json')
+
+    def _graphics_lifecycle_status(self,target,binding):
+        """Current kernel/foreground source; no Qt reads or foreground repair.
+
+        The binding identifies the existing owner scope. Its GUI bridge is
+        independently reacquired/verified after actual foreground activation.
+        """
+        context(binding);original=self.original
+        need(original.pico_configuration is not None and binding['targetFingerprint']==hashlib.sha256(
+            (target+'\0'+str(original.pico_configuration)).encode()).hexdigest())
+        before=original._installation(target)
+        need(all(before[key]==binding[key] for key in ('sourceRevision','artifactSha256')))
+        state=original.adb.process_state(target,'org.overte.pico')
+        need(type(state) is dict and state.get('running') is True and state.get('identity')==binding['processIdentity']
+            and original.require_pico_session_identity(target)==state['identity'])
+        foreground=original.adb.foreground_package(target)
+        need(type(foreground) is str and re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+',foreground)
+            and original.require_pico_session_identity(target)==state['identity']
+            and original._installation(target)==before)
+        return dict(binding=deepcopy(binding),foreground=foreground=='org.overte.pico',running=state['running'])
+
+    def _graphics_lifecycle_input(self,target,operation,binding):
+        need(operation in ('lifecycle.background','app.launch'))
+        status=self._graphics_lifecycle_status(target,binding)
+        if operation=='lifecycle.background':
+            need(status['foreground'] is True)
+            self._guard(target)
+        # Ordinary controlled activation must preserve this process; do not
+        # use a missing probe as an invitation to bootstrap or repair it.
+        need(self.original.require_controlled_debug_identity(target)==binding['processIdentity'])
+        return self.original.invoke(target,operation,{})
+
+    def invoke(self,target,operation,values):
+        need(operation in ('app.launch','app.stop') and values=={})
+        return self.original.invoke(target,operation,values)
 
     def _world_render_capture(self,target,*,read_only=True,role,require_frame_view=True,source_lock):
         need(read_only is True and require_frame_view is True)

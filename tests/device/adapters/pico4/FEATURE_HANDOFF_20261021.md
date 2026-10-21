@@ -441,3 +441,15 @@ current framework appearance remain failures. The complete sensor-to-world
 matrix is checked; physical head motion is still allowed. See the
 [scene handoff](GRAPHICS_SCENE_OWNER.md). This does not yet provide the normal
 restart controller, full Graphics coordination or device qualification.
+
+## Normal Graphics background/resume continuation
+
+The [background owner](GRAPHICS_LIFECYCLE.md) now records normal Android input,
+checks original current Pico process/foreground and separately verifies native
+lifecycle/settings preservation. Its explicit recovery path validates immutable
+archives while backgrounded and reacquires real native owners only after actual
+foreground; no old input or fake foreground guard is replayed. Both lost
+replies, ignored inputs, unexpected launches, changed settings and unknown OS
+sources remain covered. Rendering persistence still requires fresh independent
+stereo samples. Full normal restart, Graphics/actor dispatch and combined quiet
+retirement remain open. Native code is uncompiled and devices untested.

@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 REQUIRED = {
+    "graphics-journey-background": 1,
+    "pico-graphics-lifecycle-binding": 1,
     "graphics-journey-observer": 1,
     "graphics-journey-readiness": 1,
     "graphics-journey-effects": 1,

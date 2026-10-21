@@ -1039,5 +1039,38 @@
     ],
     "details": "Qualified original RestartInputs/presence/load packets and the actual scene archive decoder preserve old originals, validate independent new-process framework IDs and reject unknown old-process presence. Complete original sensor-to-world matrices are compared, while actual physical head motion remains permitted. Explicit v3 journal reconstruction sends no extra navigation.",
     "limits": "Synthetic process/UI/source boundaries. Normal Graphics restart/background inputs, full feature/actor coordination and complete quiet retirement remain missing; no physical restart or device qualification."
+  },
+  "graphicsBackgroundPacket": {
+    "contracts": [
+      "graphics-journey-background v1",
+      "pico-graphics-lifecycle-binding v1"
+    ],
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_background (from tests/device)",
+        "tests": 10,
+        "status": "passed",
+        "durationSeconds": 3.521
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test suite-runner --test coverage-matrix --timeout 240",
+        "groups": 3,
+        "status": "passed",
+        "durationSeconds": 51.75,
+        "junit": "graphics-background-owning.xml"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 3.45,
+        "junit": "graphics-background-project.xml"
+      }
+    ],
+    "details": "Normal existing Android/Pico lifecycle input is admitted against original kernel/foreground/candidate scope. Archive-only recovery does not construct a live foreground owner while backgrounded. Both lost replies, both ignored operations, changed original files, unexpected launch counters/settings, missing controlled probe and process replacement prevent unsafe replay or success. Rendering persistence remains an independent original stereo requirement.",
+    "limits": "Synthetic native/UI/OS boundaries. No full restart/feature/actor operation or combined quiet retirement is registered; source logic does not qualify devices or native timing."
   }
 }
