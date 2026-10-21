@@ -164,11 +164,18 @@ class PhoneEmoteCapture:
             before=avatar.read();native=self.source.frames[-1]['group']['native']
             need(before['instance']==native['instance'] and before['source']['rigId']==native['animation']['rigId'])
             self._remember('avatarBefore',before)
-            send=owned.capture.send
+            intent,send=owned.capture.intent,owned.capture.send
+            def reserve(command):
+                need(self.state['captureIntent'] is None and owned.owner.store.read() is None)
+                WorldRenderOwner.acquisition(command)
+                # Retain the exact nonce before the downstream owner write can
+                # commit and lose its return. Never dispatch on a failed write.
+                self._remember('captureIntent',command);intent(command)
+                need(same(owned.owner.owned()['capture'],command));self._bound()
             def acquire(command):
-                need(same(owned.owner.owned()['capture'],command) and self.state['captureIntent'] is None)
-                self._remember('captureIntent',command);send(command)
-            owned.capture.send=acquire
+                need(same(self.state['captureIntent'],command)
+                    and same(owned.owner.owned()['capture'],command));self._bound();send(command)
+            owned.capture.intent,owned.capture.send=reserve,acquire
             capture,raw=owned.read(0);self._remember('capture',capture)
             self._remember('draws',models.read(capture));self._remember('avatarAfter',avatar.read())
             self.images().write(ticket,capture,raw);self._bound()

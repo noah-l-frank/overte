@@ -55,9 +55,13 @@ observation, and joins its actual native birth/Rig to the independently retained
 original source frame. Its factories must be real typed Phone readers and retain
 the same PID and native-clock transport.
 
-The existing world-render owner persists its acquisition before the capture
-wrapper records the exact matching dispatch in this journal. Only then may the
-original request be sent. The completed original PNG, separately queried
+This journal first persists the exact acquisition command, then the existing
+world-render owner persists the same command, and both are independently reopened
+before original dispatch. A lost downstream ownership-write return therefore
+leaves the exact known nonce available for ordinary verified retirement without
+repeating the image request. A failed first write never enters the downstream
+owner; a missing owner without actual retirement proof remains unresolved.
+Neither journal may recreate or adopt a foreign owner. The completed original PNG, separately queried
 same-capture model table and later avatar observation are durably retained.
 The existing file engine persists legal planned→opened→saved PNG transitions.
 No expected source, pose, image, bounds, feature state or desired result enters

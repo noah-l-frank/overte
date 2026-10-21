@@ -101,6 +101,90 @@ class EmoteCaptureTests(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory(prefix='overte-emote-capture-');self.addCleanup(temporary.cleanup)
         self.model=Model(Path(temporary.name))
 
+    def test_lost_downstream_owner_write_return_retires_exact_nonce_without_sending_capture(self):
+        m=self.model;retained=[]
+        with m.lock.held():
+            owner=m.capture();write=PrivateFeatureState.write
+            def lost(store,value,previous):
+                if store.path==m.world_root/'world-primary.json' and previous is None:
+                    child=unpack(owner.store.read()['payload'])[0]
+                    self.assertEqual(value['capture'],child['captureIntent'])
+                    write(store,value,previous)
+                    raise OSError('Synthetic lost committed downstream intent return')
+                return write(store,value,previous)
+            with patch.object(PrivateFeatureState,'write',lost),self.assertRaises(NativeUIError):owner.read(TICKET)
+            self.assertEqual(0,m.world.counters['capture']);self.assertIsNotNone(owner.state['captureIntent'])
+            self.assertIsNotNone(owner.state['retirement']);self.assertFalse((m.world_root/'world-primary.json').exists())
+            self.assertEqual(owner.state['captureIntent'],owner.state['retirement']['owner']['capture'])
+            current=m.capture();proof=current.cleanup(retain=lambda packet:retained.append(deepcopy(packet)))
+            self.assertFalse(proof['completeImageRecord']);self.assertIsNone(retained[0]['header'].get('expectedResult'))
+            PhoneEmoteCapture.retirement_archive(retained[0],current.source,1,POLICY)
+            self.assertEqual(0,m.world.counters['capture']);self.assertEqual([],list(m.world.receipt_root.iterdir()))
+
+    def test_failed_first_intent_write_never_enters_downstream_owner_or_native_dispatch(self):
+        for committed in (False,True):
+            root=self.model.root/str(committed);root.mkdir(mode=0o700);m=Model(root)
+            with self.subTest(committed=committed),m.lock.held():
+                owner=m.capture();write=owner.store.write
+                def lost(value,previous):
+                    if unpack(value['payload'])[0]['captureIntent'] is not None:
+                        if committed:write(value,previous)
+                        raise OSError('Synthetic failed first acquisition intent write')
+                    return write(value,previous)
+                with patch.object(owner.store,'write',side_effect=lost),self.assertRaises(NativeUIError):owner.read(TICKET)
+                self.assertTrue(owner.failed);self.assertEqual(0,m.world.counters['capture'])
+                self.assertEqual([],m.world.calls);self.assertFalse((m.world_root/'world-primary.json').exists())
+                current=m.capture();self.assertEqual(committed,current.state['captureIntent'] is not None)
+                if committed:
+                    with self.assertRaises(NativeUIError):current.cleanup()
+                    self.assertIsNotNone(current.store.read())
+                else:self.assertFalse(current.cleanup()['completeImageRecord'])
+
+    def test_uncommitted_downstream_intent_stays_unresolved_without_recreating_an_owner(self):
+        m=self.model
+        with m.lock.held():
+            owner=m.capture();write=PrivateFeatureState.write
+            def failed(store,value,previous):
+                if store.path==m.world_root/'world-primary.json':raise OSError('Synthetic failed downstream write')
+                return write(store,value,previous)
+            with patch.object(PrivateFeatureState,'write',failed),self.assertRaises(NativeUIError):owner.read(TICKET)
+            self.assertFalse(owner.failed);self.assertIsNotNone(owner.state['captureIntent'])
+            self.assertEqual([],m.world.calls);self.assertIsNone(owner.state['retirement'])
+            current=m.capture()
+            with self.assertRaises(NativeUIError):current.cleanup()
+            self.assertFalse((m.world_root/'world-primary.json').exists());self.assertIsNotNone(current.store.read())
+
+    def test_foreign_owner_inserted_after_first_intent_is_neither_adopted_nor_released(self):
+        m=self.model
+        with m.lock.held():
+            owner=m.capture();write=owner.store.write;foreign={}
+            def insert(value,previous):
+                write(value,previous)
+                if unpack(value['payload'])[0]['captureIntent'] is not None and not foreign:
+                    foreign.update(ownershipVersion=2,binding=deepcopy(m.binding),role='primary',receipts=[],
+                        capture=dict(schemaVersion=1,commandId='f'*32,action='feature-world-render-observe'))
+                    PrivateFeatureState(m.world_root/'world-primary.json').write(foreign,None)
+            with patch.object(owner.store,'write',side_effect=insert),self.assertRaises(NativeUIError):owner.read(TICKET)
+            self.assertEqual(foreign,PrivateFeatureState(m.world_root/'world-primary.json').read())
+            self.assertEqual([],m.world.calls);self.assertEqual(0,m.world.counters['capture'])
+            current=m.capture()
+            with self.assertRaises(NativeUIError):current.cleanup()
+            self.assertEqual(foreign,PrivateFeatureState(m.world_root/'world-primary.json').read())
+
+    def test_slow_committed_downstream_intent_cannot_dispatch_and_requires_fresh_reconstruction_for_retirement(self):
+        m=self.model
+        with m.lock.held():
+            owner=m.capture();write=PrivateFeatureState.write
+            def slow(store,value,previous):
+                write(store,value,previous)
+                if store.path==m.world_root/'world-primary.json' and previous is None:m.clock+=6
+            with patch.object(PrivateFeatureState,'write',slow),self.assertRaises(NativeUIError):owner.read(TICKET)
+            self.assertEqual(0,m.world.counters['capture']);self.assertTrue((m.world_root/'world-primary.json').exists())
+            self.assertIsNone(owner.state['retirement']);current=m.capture()
+            proof=current.cleanup();self.assertFalse(proof['completeImageRecord'])
+            self.assertIsNotNone(proof['retirement']);self.assertFalse((m.world_root/'world-primary.json').exists())
+            self.assertEqual(0,m.world.counters['capture'])
+
     def test_parent_retains_exact_complete_child_and_source_originals_before_metadata_removal(self):
         m=self.model;retained=[]
         with m.lock.held():
