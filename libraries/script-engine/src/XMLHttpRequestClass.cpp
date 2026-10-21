@@ -17,6 +17,11 @@
 #include "XMLHttpRequestClass.h"
 
 #include <QEventLoop>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/TabletHttpObservationBridge.h"
+#include <QCryptographicHash>
+#include <QUuid>
+#endif
 #include <qurlquery.h>
 
 #include <AccountManager.h>
@@ -43,6 +48,9 @@ XMLHttpRequestClass::XMLHttpRequestClass(ScriptEngine* engine) :
 }
 
 XMLHttpRequestClass::~XMLHttpRequestClass() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    featureTabletHttpState("destroying");
+#endif
     if (_reply) { _reply->deleteLater(); }
     Q_ASSERT(_engine);
     {
@@ -130,8 +138,17 @@ ScriptValue XMLHttpRequestClass::getResponseHeader(const QString& name) const {
 void XMLHttpRequestClass::setReadyState(ReadyState readyState) {
     if (readyState != _readyState) {
         _readyState = readyState;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        featureTabletHttpState("state");
+#endif
         if (_onReadyStateChange.isFunction()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            ++_featureTabletHttpDepth;featureTabletHttpState("callback-enter");
+#endif
             _onReadyStateChange.call(_onReadyStateChange.engine()->nullValue());
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+            --_featureTabletHttpDepth;featureTabletHttpState("callback-exit");
+#endif
         }
     }
 }
@@ -195,11 +212,17 @@ void XMLHttpRequestClass::doSend() {
     DependencyManager::get<ResourceRequestObserver>()->update(_url, -1, "XMLHttpRequestClass::doSend");
     _reply = NetworkAccessManager::getInstance().sendCustomRequest(_request, _method.toLatin1(), _sendData);
     connectToReply(_reply);
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    featureTabletHttpReply();
+#endif
 
     if (_timeout > 0) {
         _timer.start(_timeout);
         connect(&_timer, SIGNAL(timeout()), this, SLOT(requestTimeout()));
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    featureTabletHttpState("state");
+#endif
 }
 
 /*@jsdoc
@@ -207,6 +230,9 @@ void XMLHttpRequestClass::doSend() {
  * @callback XMLHttpRequest~onTimeoutCallback 
  */
 void XMLHttpRequestClass::requestTimeout() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    ++_featureTabletHttpDepth;featureTabletHttpState("callback-enter");
+#endif
     if (_onTimeout.isFunction()) {
         _onTimeout.call(_engine->nullValue());
     }
@@ -214,12 +240,18 @@ void XMLHttpRequestClass::requestTimeout() {
     _errorCode = QNetworkReply::TimeoutError;
     setReadyState(DONE);
     emit requestComplete();
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    --_featureTabletHttpDepth;featureTabletHttpState("callback-exit");
+#endif
 }
 
 void XMLHttpRequestClass::requestError(QNetworkReply::NetworkError code) {
 }
 
 void XMLHttpRequestClass::requestFinished() {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    ++_featureTabletHttpDepth;featureTabletHttpState("callback-enter");
+#endif
     disconnect(&_timer, SIGNAL(timeout()), this, SLOT(requestTimeout()));
 
     _errorCode = _reply->error();
@@ -248,6 +280,9 @@ void XMLHttpRequestClass::requestFinished() {
     disconnectFromReply(_reply);
     _reply->deleteLater();
     _reply = nullptr;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    --_featureTabletHttpDepth;featureTabletHttpState("callback-exit");
+#endif
 }
 
 void XMLHttpRequestClass::abortRequest() {
@@ -259,6 +294,9 @@ void XMLHttpRequestClass::abortRequest() {
         _reply->deleteLater();
         _reply = nullptr;
     }
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    featureTabletHttpState("state");
+#endif
 }
 
 void XMLHttpRequestClass::connectToReply(QNetworkReply* reply) {
@@ -274,3 +312,40 @@ void XMLHttpRequestClass::disconnectFromReply(QNetworkReply* reply) {
     disconnect(reply, SIGNAL(downloadProgress(qint64, qint64)), this, SLOT(requestDownloadProgress(qint64, qint64)));
     disconnect(reply, SIGNAL(metaDataChanged()), this, SLOT(requestMetaDataChanged()));
 }
+
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+void XMLHttpRequestClass::featureBindTabletHttp(const QString& lease) {
+    if (!overte::e2e::tabletHttpEnabled() || QThread::currentThread()!=thread()
+            || !_featureTabletHttpLease.isEmpty() || _readyState!=UNSENT || _reply || _timer.isActive()
+            || _onReadyStateChange.isFunction() || _onTimeout.isFunction()
+            || !QRegularExpression("\\A[0-9a-f]{32}\\z").match(lease).hasMatch()) { return; }
+    _featureTabletHttpLease=lease;
+    featureTabletHttpState("bound");
+    connect(this,&QObject::destroyed,QCoreApplication::instance(),[lease] {
+        overte::e2e::TabletHttpEvent event;event.lease=lease;event.kind="destroyed";
+        overte::e2e::postTabletHttpEvent(event);
+    },Qt::DirectConnection);
+    connect(&_timer,&QTimer::timeout,this,[this] { featureTabletHttpState("state"); });
+}
+void XMLHttpRequestClass::featureTabletHttpState(const QString& kind) {
+    if (_featureTabletHttpLease.isEmpty()) { return; }
+    overte::e2e::TabletHttpEvent event;event.lease=_featureTabletHttpLease;event.kind=kind;event.request=this;
+    event.state={{"readyState",static_cast<int>(_readyState)},{"errorCode",static_cast<int>(_errorCode)},
+        {"status",_reply ? _reply->attribute(QNetworkRequest::HttpStatusCodeAttribute) : QVariant()},
+        {"timerActive",_timer.isActive()},{"readyHandler",_onReadyStateChange.isFunction()},
+        {"timeoutHandler",_onTimeout.isFunction()},{"callbackDepth",_featureTabletHttpDepth}};
+    overte::e2e::postTabletHttpEvent(event);
+}
+void XMLHttpRequestClass::featureTabletHttpReply() {
+    if (_featureTabletHttpLease.isEmpty() || !_reply) { return; }
+    const auto lease=_featureTabletHttpLease;
+    const auto id=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');
+    overte::e2e::TabletHttpEvent event;event.lease=lease;event.kind="reply";event.replyId=id;event.reply=_reply;
+    event.urlSha256=QString::fromLatin1(QCryptographicHash::hash(_reply->url().toEncoded(QUrl::FullyEncoded),QCryptographicHash::Sha256).toHex());
+    overte::e2e::postTabletHttpEvent(event);
+    connect(_reply,&QObject::destroyed,QCoreApplication::instance(),[lease,id] {
+        overte::e2e::TabletHttpEvent event;event.lease=lease;event.kind="reply-destroyed";event.replyId=id;
+        overte::e2e::postTabletHttpEvent(event);
+    },Qt::DirectConnection);
+}
+#endif

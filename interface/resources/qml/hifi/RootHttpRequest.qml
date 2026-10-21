@@ -17,6 +17,10 @@ import QtQuick 2.5
 Item {
     property var httpCalls: ({});
     property var httpCounter: 0;
+    // Enabled only by the dedicated native Pico E2E observer. The normal
+    // request/response path and its exception behavior remain unchanged.
+    property bool featureObservationEnabled: false;
+    property int featureCallbackDepth: 0;
     // Public function for initiating an http request.
     // REQUIRES parent to be root to have sendToScript!
     function request(options, callback) {
@@ -31,7 +35,9 @@ Item {
             console.warn('No callback for', JSON.stringify(message));
             return;
         }
+        if (featureObservationEnabled) { featureCallbackDepth++; }
         delete httpCalls[message.id];
         callback(message.error, message.response);
+        if (featureObservationEnabled) { featureCallbackDepth--; }
     }
 }

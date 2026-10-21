@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contracts": {
+    "native-tablet-http": {"current": 1, "reads": [1]},
     "acceptance-policy": {"current": 1, "reads": [1]},
     "adapter-manifest": {"current": 1, "reads": [1]},
     "artifact-manifest": {"current": 1, "reads": [1]},

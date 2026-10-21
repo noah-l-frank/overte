@@ -40,7 +40,9 @@
         "tests/device/adapters/pico4/binding.py",
         "tests/device/feature_journeys/NAVIGATION_SOURCE.md",
         "tests/device/adapters/native_scene_loads.py",
-        "tests/device/native/SceneLoadObservation.h"
+        "tests/device/native/SceneLoadObservation.h",
+        "tests/device/adapters/native_tablet_http.py",
+        "tests/device/native/TabletHttpObservation.h"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -77,7 +79,8 @@
         "Original directory response and native consumed response ID",
         "Original named-lookup 404 and visible current modal",
         "Current avatar location/position and original stereo scene images",
-        "Separately acquired Places/UI/storage witness"
+        "Separately acquired Places/UI/storage witness",
+        "Original QML/XHR callback and every reply retirement through native-tablet-http v1"
       ],
       "cleanupObligations": [
         "Remove only the owned bookmark",
@@ -491,7 +494,9 @@
         "tests/device/self_tests/test_stereo_graphics_pixels.py",
         "tests/device/adapters/pico4/graphics_source.py",
         "tests/device/adapters/pico4/GRAPHICS_UI_SOURCE.md",
-        "tests/device/native/FeatureUiInventory.h"
+        "tests/device/native/FeatureUiInventory.h",
+        "tests/device/adapters/native_tablet_http.py",
+        "tests/device/native/TabletHttpObservation.h"
       ],
       "declaredCheckpoints": 15,
       "inputVerbs": [
@@ -525,7 +530,8 @@
         "Original PNG bytes and current challenge in both eyes",
         "Current preferences separately from measured render scale",
         "Executing stereo Forward/Haze/Mirror batch trace v3 bound to original same-frame OpenXR submission",
-        "Actual bound original camera UBO range/data and GL share-group identity after late pose correction/jitter, with Forward/Mirror roles"
+        "Actual bound original camera UBO range/data and GL share-group identity after late pose correction/jitter, with Forward/Mirror roles",
+        "Original QML/XHR callback and every reply retirement through native-tablet-http v1"
       ],
       "cleanupObligations": [
         "Normal restoration of captured original VR preferences",

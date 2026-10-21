@@ -257,3 +257,17 @@ pass. The complete Graphics owner still needs the ordinary Home/Settings/Go To
 recipe, original Go To/request-service backend callback lifetime, HMD/framework
 entity ownership, per-role sampling/restart and verified scene restoration.
 These concrete remaining sources are required before advertising the full triple.
+
+## Original Go To HTTP callback lifetime
+
+The [native tablet HTTP source](../../native/TABLET_HTTP_OBSERVATION.md) now
+covers actual original QML callback maps/execution, the system request service,
+native XHR callbacks/timers and weak original reply retirement, including
+redirect ancestors. `_tablet_http_observer()` uses the existing Pico guarded
+transport. Node tests execute the actual modified service/module/QML function
+bodies, preserving response and exception behavior; synthetic source tests
+reject retained roots, callbacks, handlers, timers, missing binding, outstanding
+reply destruction and stale/foreign history. No full Graphics or navigation
+capability is added. Whole ordinary input/actor/restart restoration, HMD/framework
+entity ownership and quiet-window composition remain required. Native source
+is uncompiled and all devices remain untested.

@@ -33,6 +33,14 @@
     function fromQml(message) { // messages are {id, method, params}, like json-rpc. See also sendToQml.
         switch (message.method) {
         case 'http.request':
+            // Dedicated Pico E2E builds annotate only this internal envelope.
+            // Keep the original options, network operation and response intact.
+            var featureLease;
+            if (typeof Test !== 'undefined' && typeof Test.featureBindTabletHttpRequest === 'function'
+                    && typeof message._overteE2ETabletHttpLease === 'string'
+                    && /^[0-9a-f]{32}$/.test(message._overteE2ETabletHttpLease)) {
+                featureLease = message._overteE2ETabletHttpLease;
+            }
             request(message.params, function (error, response) {
                 tablet.sendToQml({
                     id: message.id,
@@ -41,7 +49,7 @@
                     response: response,
                    jsonrpc: '2.0'
                 });
-            });
+            }, featureLease);
             break;
         }
     }

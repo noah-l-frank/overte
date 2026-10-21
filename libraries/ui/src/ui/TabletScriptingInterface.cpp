@@ -11,6 +11,9 @@
 #include "TabletScriptingInterface.h"
 
 #include <algorithm>
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../../tests/device/native/TabletHttpObservation.h"
+#endif
 
 #include <QtCore/QThread>
 #include <QtQml/QQmlProperty>
@@ -545,6 +548,9 @@ void TabletProxy::setQmlTabletRoot(OffscreenQmlSurface* qmlOffscreenSurface) {
 
     _qmlOffscreenSurface = qmlOffscreenSurface;
     _qmlTabletRoot = qmlOffscreenSurface ? qmlOffscreenSurface->getRootItem() : nullptr;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    if (_name==SYSTEM_TABLET) { overte::e2e::ensureTabletHttpProvider(_qmlTabletRoot); }
+#endif
     if (_qmlTabletRoot && _qmlOffscreenSurface) {
         QObject::connect(_qmlOffscreenSurface, SIGNAL(webEventReceived(QVariant)), this, SLOT(emitWebEvent(QVariant)));
         QObject::connect(_qmlTabletRoot, SIGNAL(screenChanged(QVariant, QVariant)), this, SIGNAL(screenChanged(QVariant, QVariant)));
@@ -552,7 +558,12 @@ void TabletProxy::setQmlTabletRoot(OffscreenQmlSurface* qmlOffscreenSurface) {
         // forward qml surface events to interface js
         connect(_qmlOffscreenSurface, &OffscreenQmlSurface::fromQml, this, [this](QVariant message) {
             if (message.canConvert<QJSValue>()) {
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+                const auto original=qvariant_cast<QJSValue>(message).toVariant();
+                emit fromQml(_name==SYSTEM_TABLET ? overte::e2e::observeTabletHttpMessage(_qmlTabletRoot,original) : original);
+#else
                 emit fromQml(qvariant_cast<QJSValue>(message).toVariant());
+#endif
             } else if (message.canConvert<QString>()) {
                 emit fromQml(message.toString());
             } else {

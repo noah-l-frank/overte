@@ -181,6 +181,9 @@ public:
     XMLHttpRequestClass(ScriptEngine* engine);
     ~XMLHttpRequestClass();
 
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    void featureBindTabletHttp(const QString& lease);
+#endif
     static const int MAXIMUM_REDIRECTS = 5;
 
     /*@jsdoc
@@ -230,9 +233,17 @@ public:
     QString getStatusText() const;
 
     ScriptValue getOnTimeout() const { return _onTimeout; }
-    void setOnTimeout(const ScriptValue& function) { _onTimeout = function; }
+    void setOnTimeout(const ScriptValue& function) { _onTimeout = function;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        featureTabletHttpState("state");
+#endif
+    }
     ScriptValue getOnReadyStateChange() const { return _onReadyStateChange; }
-    void setOnReadyStateChange(const ScriptValue& function) { _onReadyStateChange = function; }
+    void setOnReadyStateChange(const ScriptValue& function) { _onReadyStateChange = function;
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+        featureTabletHttpState("state");
+#endif
+    }
 
 public slots:
 
@@ -298,6 +309,12 @@ signals:
     void requestComplete();
 
 private:
+#if defined(OVERTE_E2E_FEATURE_TESTS) && defined(ANDROID_APP_PICO_INTERFACE)
+    void featureTabletHttpState(const QString& kind);
+    void featureTabletHttpReply();
+    QString _featureTabletHttpLease;
+    int _featureTabletHttpDepth {0};
+#endif
     void setReadyState(ReadyState readyState);
     void doSend();
     void connectToReply(QNetworkReply* reply);

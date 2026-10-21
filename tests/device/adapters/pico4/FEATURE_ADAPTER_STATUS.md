@@ -9,8 +9,8 @@ Stereo source follow-up: world-render acquisition v2 now joins original two-eye 
 # Pico feature adapter implementation status
 
 Current isolated continuation: [2026-10-21 coverage and handoff](FEATURE_HANDOFF_20261021.md).
-Scripts now has a complete source-level, host-verified v16 triple on that local
-branch, using the real Pico VR input composition. The other thirteen complete
+Scripts and Authentication have complete source-level, host-verified v16 triples
+on that local branch, using the actual Pico VR input composition. The other twelve complete
 areas remain unavailable; native source is uncompiled and every device is
 untested. See the [Scripts contract](SCRIPT_FEATURE.md) and
 [machine matrix](FEATURE_COVERAGE_20261021.json).
@@ -449,3 +449,8 @@ VR keyboard measurements explicitly prevent UI projection. Common journey is
 v10. Full Chat composition and complete feature triples remain missing; native
 code is uncompiled and devices untested. See
 [the source and handoff](../../native/CHAT_VIEW_OBSERVATION.md).
+
+Current HTTP lifetime prerequisite: the
+[original tablet HTTP source](../../native/TABLET_HTTP_OBSERVATION.md) traces
+actual QML, request-service, native XHR/callback/timer and reply retirement on
+Pico. It does not complete Graphics or navigation, and remains uncompiled.

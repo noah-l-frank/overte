@@ -146,6 +146,35 @@ class FeatureObservationTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):reader.read(RUN,ROOT)
             self.assertEqual(3,len(source.commands))
 
+    def test_pico_tablet_http_preserves_original_held_reply_and_candidate_binding(self):
+        from self_tests.test_native_tablet_http import Boundary, RUN
+        from adapters.native_tablet_http import released
+        source=Boundary();old_send=source.send
+        def send(command):
+            source.epoch=self.native.epoch_milliseconds(self.native.target)
+            if not source.commands:
+                for row in source.rows:
+                    row['queuedEpochMs']=source.epoch
+                    for event in row['events']:
+                        event['occurredEpochMs']=event['receivedEpochMs']=source.epoch
+                    for reply in row['replies']:reply['createdEpochMs']=source.epoch
+            old_send(command)
+            source.sample['processId']=int(self.native.identity.split(':')[0])
+        native=self.adapter._native_feature_observer(self.native.target);original_read=self.native.read_debug_app_file
+        def read(target,package,path,**options):
+            if path=='files/overte-e2e/feature-tablet-http.json':return source.original()
+            return original_read(target,package,path,**options)
+        with patch.object(native,'send',side_effect=send),patch.object(self.adapter,'_native_feature_observer',return_value=native), \
+                patch.object(self.native,'read_debug_app_file',side_effect=read):
+            reader=self.adapter._tablet_http_observer(self.native.target)
+            with self.assertRaises(RuntimeError):released(reader.read(RUN))
+            source.retire_reply()
+            source.rows[0]['events'][-1].update(occurredEpochMs=source.epoch,receivedEpochMs=source.epoch)
+            self.assertTrue(released(reader.read(RUN)))
+            self.native.digest='f'*64
+            with self.assertRaises(RuntimeError):reader.read(RUN)
+            self.assertEqual([],self.native.inputs);self.assertEqual(2,len(source.commands))
+
     def test_pico_scene_load_source_preserves_retained_callbacks_and_candidate_owner(self):
         from self_tests.test_native_scene_loads import Boundary, RUN, URL
         from adapters.native_scene_loads import committed

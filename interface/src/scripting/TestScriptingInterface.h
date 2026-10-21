@@ -169,6 +169,10 @@ public slots:
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptFiles(const QVariantMap& command);
+#if defined(ANDROID_APP_PICO_INTERFACE)
+    Q_INVOKABLE void featureBindTabletHttpRequest(const QString& lease, QObject* request);
+    Q_INVOKABLE QVariantMap featureTabletHttpObservation(const QVariantMap& command);
+#endif
     Q_INVOKABLE QVariantMap featureSceneLoadObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureGraphicsSubjectObservation(const QVariantMap& command);
     Q_INVOKABLE QVariantMap featureWorldRenderCapture(const QString& requestId);

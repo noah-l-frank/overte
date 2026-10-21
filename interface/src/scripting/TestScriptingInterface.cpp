@@ -31,6 +31,10 @@
 #include "../../../tests/device/native/ChatViewObservation.h"
 #include "../../../tests/device/native/WebDOMObservationBridge.h"
 #include "../../../tests/device/native/WebRuntimeBridge.h"
+#if defined(ANDROID_APP_PICO_INTERFACE)
+#include "../../../tests/device/native/TabletHttpObservationBridge.h"
+#include <XMLHttpRequestClass.h>
+#endif
 #include "../../../tests/device/native/PendingFieldCommitBridge.h"
 #include "../../../tests/device/native/ProcessPresence.h"
 #include <ui/TabletScriptingInterface.h>
@@ -358,6 +362,30 @@ QVariantMap TestScriptingInterface::featurePendingCommitOwner(const QVariantMap&
     const auto provider = original.value<overte::e2e::PendingCommitProvider>();
     return provider ? provider(command) : QVariantMap();
 }
+
+#if defined(ANDROID_APP_PICO_INTERFACE)
+void TestScriptingInterface::featureBindTabletHttpRequest(const QString& lease,QObject* request) {
+    // Called on the original request's script thread; never read its state from
+    // the GUI thread or dispatch a request, callback, abort or replacement.
+    if (!overte::e2e::tabletHttpEnabled()) { return; }
+    auto xhr=qobject_cast<XMLHttpRequestClass*>(request);
+    if (xhr && xhr->thread()==QThread::currentThread()) { xhr->featureBindTabletHttp(lease); }
+}
+QVariantMap TestScriptingInterface::featureTabletHttpObservation(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureTabletHttpObservation(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !overte::e2e::tabletHttpEnabled() || !overte::e2e::tabletHttpCommand(command)) { return {}; }
+    const auto original=qApp->property(overte::e2e::tabletHttpProperty());
+    if (original.userType()!=qMetaTypeId<overte::e2e::TabletHttpProvider>()) { return {}; }
+    const auto provider=original.value<overte::e2e::TabletHttpProvider>();
+    return provider.snapshot ? provider.snapshot(command) : QVariantMap();
+}
+#endif
 
 QVariantMap TestScriptingInterface::featureWebRuntimeObservation(const QVariantMap& command) {
     if (QThread::currentThread()!=thread()) {
@@ -960,7 +988,7 @@ void TestScriptingInterface::saveObject(QVariant variant, const QString& filenam
             || filename == "feature-pending-commit-owner.json" || filename == "feature-navigation-replies.json"
             || filename == "feature-process-presence.json"
             || filename == "feature-graphics-subject.json" || filename == "feature-scene-load.json"
-            || filename == "feature-web-runtime.json"
+            || filename == "feature-web-runtime.json" || filename == "feature-tablet-http.json"
             || filename == "recorded-preview-observation.json" || filename == "feature-script-observation.json"
             || filename == "feature-script-files.json" || filename == "world-render-observation.json"
             || filename == "world-render-receipt-result.json"

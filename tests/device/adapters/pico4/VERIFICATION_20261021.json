@@ -456,5 +456,37 @@
       }
     ],
     "remaining": "Whole ordinary input/restoration and actor/restart coordinator, original Go To/request-service backend callback ownership and actual HMD/framework entity restoration. No native or physical qualification."
+  },
+  "tabletHttpPacket": {
+    "contract": "native-tablet-http v1; actual original QML/request-service/native XHR/reply lifetime",
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_native_tablet_http (from tests/device)",
+        "tests": 13,
+        "status": "passed"
+      },
+      {
+        "command": "python3 android/vr/pico/tests/pico4-test-suite.py --test graphics-sources --test feature-observation --test suite-runner --test coverage-matrix",
+        "groups": 4,
+        "status": "passed",
+        "durationSeconds": 21.52,
+        "junit": "tablet-http-owning.xml"
+      },
+      {
+        "command": "python3 tests/device/validate_contract_versions.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.86,
+        "junit": "tablet-http-project.xml"
+      }
+    ],
+    "limits": "Original fact/lifetime prerequisite only. Native code uncompiled; synthetic Qt/XHR state and Node source execution do not qualify real Qt networking or VR. Whole feature coordinator/independent actor/restart/quiet cleanup remains required."
   }
 }

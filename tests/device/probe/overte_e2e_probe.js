@@ -144,6 +144,7 @@
     var lastScriptSourceRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
+    var lastTabletHttpRequest = "";
     var lastProcessPresenceRequest = "";
     var lastScriptFilesRequest = "";
     function saveScriptSourceObservation(requestId) {
@@ -1234,6 +1235,23 @@
             return;
         }
         if (command && command.schemaVersion === 1
+                && typeof command.commandId === "string" && /^[0-9a-f]{32}$/.test(command.commandId)
+                && typeof command.runId === "string" && /^[0-9a-f]{32}$/.test(command.runId)
+                && command.action === "feature-tablet-http-observe"
+                && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "runId"])) {
+            if (command.commandId === lastTabletHttpRequest) { return; }
+            lastTabletHttpRequest = command.commandId;
+            var tabletHttp = {schemaVersion: 1, commandId: command.commandId, available: false};
+            try {
+                if (typeof Test.featureTabletHttpObservation === "function") {
+                    var originalTabletHttp = Test.featureTabletHttpObservation(command);
+                    if (originalTabletHttp && originalTabletHttp.commandId === command.commandId) { tabletHttp = originalTabletHttp; }
+                }
+            } catch (_tabletHttpError) { /* Original request lifetimes remain unavailable. */ }
+            Test.saveObject(tabletHttp, "feature-tablet-http.json");
+            return;
+        }
+        if (command && command.schemaVersion === 1
                 && /^(?:ios-)?[0-9a-f]{32}$/.test(String(command.commandId))
                 && /^[0-9a-f]{32}$/.test(String(command.runId))
                 && command.action === "feature-graphics-subject-observe"
@@ -1603,6 +1621,7 @@
                 || command.action === "feature-world-render-observe"
                 || command.action === "feature-graphics-subject-observe"
                 || command.action === "feature-scene-load-observe"
+                || command.action === "feature-tablet-http-observe"
                 || command.action === "feature-web-runtime-observe"
                 || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"

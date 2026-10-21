@@ -18,6 +18,7 @@
 #include "../../../../../../tests/device/native/ScriptFileUi.h"
 #include "../../../../../../tests/device/native/NormalAccountMenuControls.h"
 #include "../../../../../../tests/device/native/FeatureUiInventory.h"
+#include "../../../../../../tests/device/native/TabletHttpObservation.h"
 #include <AudioClient.h>
 #include <AccountManager.h>
 #include <Application.h>
@@ -140,6 +141,7 @@ QJsonObject NavigationUi::observe(QQuickItem* root, QQuickWindow* window, bool o
     // Observe roots at the original normal-control read before a possible
     // close/replacement, even if no passive publisher has polled yet.
     overte::e2e::graphicsUiInventory().observe(root,window);
+    overte::e2e::ensureTabletHttpProvider(root);
 #endif
     if (_root != root || _window != window || _open != open) {
         _generation = token();

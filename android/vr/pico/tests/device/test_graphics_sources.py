@@ -7,6 +7,7 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[5]/'tests/device'))
 from self_tests.test_native_graphics_subject import GraphicsSubjectTests
 from self_tests.test_native_scene_loads import SceneLoadTests
+from self_tests.test_native_tablet_http import TabletHttpTests
 from self_tests.test_native_web_runtime import WebRuntimeTests
 from self_tests.test_native_web_renderers import WebRendererTests
 from self_tests.test_pico_graphics_source import PicoGraphicsSourceTests

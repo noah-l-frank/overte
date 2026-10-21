@@ -21,6 +21,12 @@ module.exports = {
     // cb(error, responseOfCorrectContentType, optionalCallbackParameter) of url. A subset of npm request.
     request: function (options, callback, optionalCallbackParameter) {
         var httpRequest = new XMLHttpRequest(), key;
+        if (typeof Test !== 'undefined' && typeof Test.featureBindTabletHttpRequest === 'function'
+                && typeof optionalCallbackParameter === 'string'
+                && /^[0-9a-f]{32}$/.test(optionalCallbackParameter)) {
+            try { Test.featureBindTabletHttpRequest(optionalCallbackParameter, httpRequest); }
+            catch (_featureObservationError) { /* Missing ownership stays unresolved. */ }
+        }
         // QT bug: apparently doesn't handle onload. Workaround using readyState.
         httpRequest.onreadystatechange = function () {
             var READY_STATE_DONE = 4;
