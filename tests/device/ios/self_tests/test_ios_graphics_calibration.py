@@ -113,6 +113,60 @@ class CalibrationTests(CalibrationHarness,unittest.TestCase):
             self.assertEqual(before,self.sdk.model.actions);self.assertTrue(self.sdk.model.haze)
 
 
+class CompleteReferenceCalibrationTests(CalibrationHarness,unittest.TestCase):
+    def test_actual_all_off_round_seeds_both_roles_without_any_product_input(self):
+        with self.lock.held():
+            self.scene().prepare();self.preferences().prepare();before=list(self.sdk.model.actions)
+            calibration,_observer=self.calibration();row=calibration.begin(0)
+            self.assertEqual([],row['features']);self.assertEqual(['haze','mirror'],row['captureFeatures'])
+            self.assertEqual([],row['offCalls']);self.assertEqual([],row['restoreCalls'])
+            self.assertFalse(calibration.advance_primary());refs=self.captures()
+            calibration,_observer=self.calibration();self.assertTrue(calibration.advance_primary())
+            self.assertEqual(before,self.sdk.model.actions)
+            for role in ('primary','actor'):
+                self.assertEqual({'haze','mirror'},set(refs[role]))
+                observer=self.observer(role);self.assertEqual(0,observer.state['sequence'])
+                observer.read(0,0);self.assertFalse(observer.frame(observer.state['last'],observer.state['binding'])[2]['state']['haze'])
+
+    def test_mixed_current_settings_capture_false_and_toggled_effects_and_restore_actual_values(self):
+        with self.lock.held():
+            self.scene().prepare();self.preferences().prepare();self.private_action('open')
+            self.private_action('set-haze',dict(enabled=True));self.private_action('close')
+            calibration,_observer=self.calibration();row=calibration.begin(0);self.assertEqual(['haze'],row['features'])
+            calibration.advance_primary();refs=self.captures();calibration,_observer=self.calibration();calibration.advance_primary()
+            self.assertTrue(self.sdk.model.haze);self.assertFalse(self.sdk.model.mirrors);self.assertEqual('closed',self.sdk.stage)
+            self.assertTrue(all(set(value)=={'haze','mirror'} for value in refs.values()))
+            self.assertFalse(any(s['call']['verb']=='set-mirrors' for s in row['offCalls']+row['restoreCalls']))
+
+    def test_all_off_round_still_requires_both_independent_role_references(self):
+        with self.lock.held():
+            self.scene().prepare();self.preferences().prepare();calibration,_observer=self.calibration();calibration.begin(0)
+            calibration.advance_primary();calibration,observer=self.calibration();calibration.capture(observer)
+            calibration,_observer=self.calibration();self.assertFalse(calibration.advance_primary())
+            self.assertEqual('off',calibration.state['rounds'][-1]['phase']);self.assertIsNone(calibration.state['rounds'][-1]['roles']['actor'])
+            self.assertEqual([],self.client.observe()['entries'])
+
+    def test_legacy_round_retains_its_original_narrow_capture_scope_after_v2_reconstruction(self):
+        with self.lock.held():
+            self.original_true();calibration,_observer=self.calibration();calibration.begin(0);calibration.advance_primary()
+            self.captures();calibration,_observer=self.calibration();calibration.advance_primary()
+            legacy=deepcopy(calibration.previous);state=unpack(legacy['payload'])[0]
+            for row in state['rounds']:row.pop('captureFeatures')
+            legacy['iosGraphicsCalibrationVersion']=1;legacy['payload']=pack([state]);calibration.store.write(legacy,calibration.previous)
+            restored,_observer=self.calibration();self.assertNotIn('captureFeatures',restored.state['rounds'][0])
+            self.assertEqual(['haze','mirror'],restored.capture_features(restored.state['rounds'][0]))
+            restored.begin(0);self.assertEqual(2,restored.previous['iosGraphicsCalibrationVersion'])
+            self.assertNotIn('captureFeatures',restored.state['rounds'][0]);self.assertEqual(['haze','mirror'],restored.state['rounds'][1]['captureFeatures'])
+
+    def test_boolean_or_missing_complete_capture_scope_cannot_drop_an_off_reference(self):
+        with self.lock.held():
+            self.scene().prepare();self.preferences().prepare();calibration,_observer=self.calibration();calibration.begin(0)
+            for features in (['haze'],[],True):
+                changed=deepcopy(calibration.previous);state=unpack(changed['payload'])[0]
+                state['rounds'][-1]['captureFeatures']=features;changed['payload']=pack([state])
+                with self.subTest(features=features),self.assertRaises(NativeUIError):calibration.decode(changed)
+
+
 class CalibrationRestartTests(CalibrationHarness,RestartHarness,unittest.TestCase):
     def test_completed_old_round_requires_real_restart_handoff_before_new_process_calibration(self):
         with self.lock.held():

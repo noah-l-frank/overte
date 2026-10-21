@@ -100,7 +100,7 @@
     "ios-process-retirement-record": {"current": 1, "reads": [1]},
     "ios-retired-process": {"current": 1, "reads": [1]},
     "ios-retired-process-acquisition": {"current": 1, "reads": [1]},
-    "ios-graphics-calibration": {"current": 1, "reads": [1]},
+    "ios-graphics-calibration": {"current": 2, "reads": [1, 2]},
     "ios-graphics-publisher": {"current": 1, "reads": [1]},
     "ios-graphics-publication-record": {"current": 1, "reads": [1]},
     "ios-graphics-observer": {"current": 3, "reads": [1, 2, 3]},

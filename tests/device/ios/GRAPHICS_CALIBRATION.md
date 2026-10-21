@@ -38,3 +38,20 @@ altered original settings, persistence-before-input and proven process
 replacement. Host files, HTTP resources and normal input transports are real;
 all iOS/native/GPU/OS boundaries and rasterized pixels are synthetic. Compilation
 and device qualification remain unexecuted. No full Graphics capability is added.
+
+
+Version 2 records `captureFeatures` separately from the actually enabled fields
+that need ordinary toggles. Every newly created round captures both haze and
+mirror references for each role. Mixed current settings therefore cannot leave
+the already disabled feature without a reference. An all-off round reserves no
+open/toggle/close input at all, still measures fresh original native/UI state,
+and still requires both independent role captures before completing. It never
+manufactures an off image or updates a public sequence.
+
+Readers retain v1 rounds with their original narrower capture scope. Migration
+does not fill missing old references or claim that an old role observed another
+effect. New rounds emit v2 and explicitly capture both fields. Fifteen selected
+no-build cases pass, adding all-off no-input behavior, mixed settings, the
+all-off role barrier, legacy preservation and malformed capture scopes to the
+earlier recovery/process tests. Full coordinator/worker integration remains
+unfinished; native compilation and devices remain unverified.

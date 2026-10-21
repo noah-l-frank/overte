@@ -22,7 +22,8 @@ from ios.adapters.graphics_observer import IOSGraphicsObserver
 from ios.adapters.graphics_preferences import IOSGraphicsPreferences
 from ios.adapters.graphics_source import validate as graphics_packet
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 FIELDS={'haze':'hazeSetting','mirror':'mirrorsSetting'}
 VERBS={'haze':'set-haze','mirror':'set-mirrors'}
 
@@ -39,7 +40,7 @@ class IOSGraphicsCalibration:
 
     def decode(self,value):
         exact(value,{'iosGraphicsCalibrationVersion','runId','fixtureUrl','providerInstance','payload'})
-        need(type(value['iosGraphicsCalibrationVersion']) is int and value['iosGraphicsCalibrationVersion']==VERSION
+        need(type(value['iosGraphicsCalibrationVersion']) is int and value['iosGraphicsCalibrationVersion'] in READS
              and value['runId']==self.run and value['fixtureUrl']==self.source.client.url and value['providerInstance']==self.source.instance)
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
         exact(state,{'rounds'});need(type(state['rounds']) is list and 1<=len(state['rounds'])<=8)
@@ -48,7 +49,9 @@ class IOSGraphicsCalibration:
             from ios.adapters.graphics_restart_proof import validate as restart_packet
             receipt=restart_packet(handoff['receipt']);need(same(receipt['input']['newBinding'],self.binding))
         for ordinal,row in enumerate(state['rounds'],1):
-            exact(row,{'ordinal','stage','binding','phase','active','native','graphics','shown','features','offCalls','restoreCalls','offNative','restoredNative','restoredGraphics','roles'})
+            exact(row,{'ordinal','stage','binding','phase','active','native','graphics','shown','features','offCalls','restoreCalls','offNative','restoredNative','restoredGraphics','roles'}|({'captureFeatures'} if 'captureFeatures' in row else set()))
+            if value['iosGraphicsCalibrationVersion']==1:need('captureFeatures' not in row)
+            if 'captureFeatures' in row:need(row['captureFeatures']==list(FIELDS))
             need(type(row['ordinal']) is int and row['ordinal']==ordinal and integer(row['stage'],0,1)
                  and row['phase'] in ('turning-off','off','restoring','complete') and (ordinal==len(state['rounds']) or row['phase']=='complete'))
             binding=context(row['binding']);pid=int(binding['processIdentity'])
@@ -67,15 +70,15 @@ class IOSGraphicsCalibration:
             ui=row['graphics'];graphics_packet(ui,ui['commandId'],pid,ui['capturedEpochMs'])
             need(ui['capturedEpochMs']<=native['requestedEpochMs']
                  and type(row['shown']) is bool and row['shown']==(TokenGraphicsUI.row(ui,'graphics.page') is not None))
-            need(row['features']==[f for f,k in FIELDS.items() if native['graphics'][k]] and bool(row['features']))
+            need(row['features']==[f for f,k in FIELDS.items() if native['graphics'][k]] and (bool(row['features']) or 'captureFeatures' in row))
             active=row['active'];exact(active,{'ticket','verb','inputs','afterEpochMs','status'})
             self.source.active(dict(schemaVersion=1,runId=self.run,area='graphics',ticket=active['ticket'],stimulus=dict(verb=active['verb'],inputs=active['inputs'])))
             status=active['status'];validate_status(status,instance=self.source.instance,run=self.run,url=self.source.client.url,request=status['requestId'])
             need(status['active'] and status['ticket']==active['ticket'] and integer(active['afterEpochMs'],1))
-            off=[('open',{})] if not row['shown'] else []
+            off=[('open',{})] if row['features'] and not row['shown'] else []
             off += [(VERBS[f],dict(enabled=False)) for f in row['features']]
             restore=[(VERBS[f],dict(enabled=native['graphics'][FIELDS[f]])) for f in row['features']]
-            if not row['shown']:restore.append(('close',{}))
+            if row['features'] and not row['shown']:restore.append(('close',{}))
             seen=set()
             for key,plan in (('offCalls',off),('restoreCalls',restore)):
                 need(type(row[key]) is list and len(row[key])==len(plan))
@@ -96,7 +99,7 @@ class IOSGraphicsCalibration:
                 need(item['before']['role']==role and item['before']['runId']==self.run)
                 if item['phase']=='capturing':need(item['refs'] is None)
                 else:
-                    exact(item['refs'],set(row['features']))
+                    exact(item['refs'],set(self.capture_features(row)))
                     for ref in item['refs'].values():
                         exact(ref,{'iosGraphicsObserverFrameRefVersion','stage','requestId','sha256'})
                         need(ref['stage']==row['stage'] and ref['iosGraphicsObserverFrameRefVersion']==1)
@@ -134,15 +137,15 @@ class IOSGraphicsCalibration:
              and (self.state is None or len(self.state['rounds'])<8))
         active=self.source.read();_surface,ui,shown=self.preferences.status();native=self.preferences.source()
         page=TokenGraphicsUI.row(ui,'graphics.page');need(shown==(page is not None))
-        features=[f for f,k in FIELDS.items() if native['graphics'][k]];need(features)
-        off=([('open',{})] if not shown else [])+[(VERBS[f],dict(enabled=False)) for f in features]
-        restore=[(VERBS[f],dict(enabled=native['graphics'][FIELDS[f]])) for f in features]+([('close',{})] if not shown else [])
+        features=[f for f,k in FIELDS.items() if native['graphics'][k]]
+        off=([('open',{})] if features and not shown else [])+[(VERBS[f],dict(enabled=False)) for f in features]
+        restore=[(VERBS[f],dict(enabled=native['graphics'][FIELDS[f]])) for f in features]+([('close',{})] if features and not shown else [])
         def calls(plan):
             return [dict(call=dict(contractVersion=CONTRACT_VERSION,runId=self.run,fixtureUrl=self.source.fixture_url,
                          ticket=secrets.token_hex(16),verb=verb,inputs=inputs),phase='planned') for verb,inputs in plan]
         rounds=[] if self.state is None else self.state['rounds']
         rounds.append(dict(ordinal=len(rounds)+1,stage=stage,binding=self.binding,phase='turning-off',active=active,native=native,
-            graphics=ui,shown=shown,features=features,offCalls=calls(off),restoreCalls=calls(restore),offNative=None,
+            graphics=ui,shown=shown,features=features,captureFeatures=list(FIELDS),offCalls=calls(off),restoreCalls=calls(restore),offNative=None,
             restoredNative=None,restoredGraphics=None,roles=dict(primary=None,actor=None)))
         self.state=dict(rounds=rounds);self.save();return deepcopy(rounds[-1])
 
@@ -170,8 +173,11 @@ class IOSGraphicsCalibration:
             row.update(phase='complete',restoredNative=deepcopy(packet),restoredGraphics=deepcopy(ui));self.save()
         need(row['phase']=='complete');return True
 
+    @staticmethod
+    def capture_features(row):return row.get('captureFeatures',row['features'])
+
     def verify_refs(self,row,observer,refs):
-        exact(refs,set(row['features']))
+        exact(refs,set(self.capture_features(row)))
         for feature,ref in refs.items():
             need(ref['stage']==row['stage']);frame,_raw,actual,_name=observer.frame(ref,row['binding'])
             need(frame['provider']['ticket']==row['active']['ticket'] and not actual['state'][feature]
@@ -189,10 +195,10 @@ class IOSGraphicsCalibration:
             item=dict(phase='capturing',before=deepcopy(observer.previous),refs=None);row['roles'][role]=item;self.save()
         observer.decode(item['before'])
         if item['phase']=='observed':return self.verify_refs(row,observer,item['refs'])
-        if same(observer.previous,item['before']):refs=observer.seed_off(row['features'],row['stage'])
+        if same(observer.previous,item['before']):refs=observer.seed_off(self.capture_features(row),row['stage'])
         else:
             # A committed seed whose return was lost is adopted by immutable
             # reference and original input barrier, with no second GPU request.
             need(observer.state['phase']=='ready')
-            refs={f:deepcopy(observer.state['offFrames'][f]) for f in row['features']};need(all(refs.values()))
+            refs={f:deepcopy(observer.state['offFrames'][f]) for f in self.capture_features(row)};need(all(refs.values()))
         item.update(phase='observed',refs=self.verify_refs(row,observer,refs));self.save();return deepcopy(item['refs'])
