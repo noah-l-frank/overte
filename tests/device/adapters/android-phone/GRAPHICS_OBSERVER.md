@@ -1,4 +1,4 @@
-# Independent Phone Graphics observations, version 1
+# Independent Phone Graphics observations, version 2
 
 `PhoneGraphicsObserver` composes the original GPU/native/UI/PNG sources for one
 role. The complete feature coordinator is still missing; no full Graphics triple
@@ -25,7 +25,7 @@ Every read obtains the actual fresh fixture phase and read barrier, saves durabl
 [`PhoneGraphicsSamples` v3](GRAPHICS_SAMPLES.md) and the bounded
 [original marker-readiness wrapper](GRAPHICS_READINESS.md).
 
-The private `phone-graphics-<role>-observer.json` version-1 envelope binds run,
+The private `phone-graphics-<role>-observer.json` version-2 envelope binds run,
 fixture/provider birth, role, artifact directory and image policy. Its compressed
 hashed payload retains process binding, stage, public sequence, original source
 clock floor, provider history, first baseline frame, last actual frame, actual
@@ -42,6 +42,27 @@ scale or effect. `baseline()` returns this historical measured projection only;
 no later frame is retimed as its original. Every public observation uses a new
 original role-specific PNG, the actual ticket/clock, native lifecycle and actual
 resource inventory. The existing v16 result validator checks the public shape.
+
+## Immutable original frame archives
+
+Version 2 stores frame references in the role journal and preserves each complete
+original once in a private `graphics-observer-<run>-<role>-<stage>-<capture>.json`
+file. This avoids duplicating large original packets for the baseline, last/off
+frames and multiple effect pairs without raising the existing journal bounds.
+The separate frame/reference format is version 1. Its exact envelope pins run,
+role/stage, capture nonce and compressed canonical original frame. A reference
+pins the exact canonical envelope SHA-256 and direct scope-derived filename.
+Writes are verified before a reference can enter a successful role journal.
+
+Historical decoding loads and verifies the actual immutable frame files, then
+runs the same original native/PNG/retirement/effect checks. It preserves every
+original time/context and creates no current result. Missing/replaced/foreign
+files, ignored/lost writes, path escapes, unknown reference fields and changed
+scope fail. Frame JSON files remain private evidence alongside original PNGs;
+the complete owner must include their integrity in archive verification. Version
+1 journals and inline full-frame version-2 payloads are refused without automatic
+upgrade or source-history reset. Existing compression/private file bounds still
+fail closed; a new archive cannot overwrite an existing different original.
 
 ## Actual target pixel effects
 
@@ -110,7 +131,7 @@ exact archives, then discard each exact journal and independently verify absence
 
 ## Host counterexamples
 
-Twenty-four observer cases plus seventeen fixture-reader cases exercise actual
+Thirty-one observer cases plus seventeen fixture-reader cases exercise actual
 source readers, real private PNGs/CAS journals and explicit synthetic HTTP/native
 boundaries. They cover both independent roles, actual haze/mirror target effects,
 ignored input, counters without pixels, old/foreign source cursors/frames/files,

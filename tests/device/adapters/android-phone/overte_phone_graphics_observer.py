@@ -7,6 +7,7 @@ holding the shared source lock before calling this internal measurement owner.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import hashlib
 from pathlib import Path
 import math
 import time
@@ -22,13 +23,14 @@ from feature_journeys.witness import projection
 from feature_journeys.graphics_resources import validate_status
 from overte_phone_graphics_fixture import GraphicsFixtureReader,GraphicsPhasePending
 from overte_phone_graphics_images import PhoneGraphicsImages
-from overte_phone_graphics_effects import original,compare
+from overte_phone_graphics_effects import original,compare,FRAME
 from overte_phone_graphics_samples import PhoneGraphicsSamples
 from overte_phone_graphics_readiness import PhoneGraphicsReadiness
-from overte_phone_script_history import pack,unpack,same
+from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=1
+VERSION=2
+FRAME_VERSION=1
 
 
 class PhoneGraphicsObserver:
@@ -50,6 +52,45 @@ class PhoneGraphicsObserver:
         if self.previous is not None:self.state=self.decode(self.previous)
         PrivateFeatureState(self.artifact_root/'graphics-observer-boundary.json')._parent()
         if self.previous is None:self.save()
+
+    def frame_record(self,frame):
+        exact(frame,FRAME);image=frame['image'];need(image['runId']==self.run and image['role']==self.role)
+        stage=image['stage'];need(integer(stage,0,1));request=identifier(frame['capture']['requestId'])
+        need(image['capture']==frame['capture'] and image['ticket']==frame['ticket'])
+        name='graphics-observer-'+self.run+'-'+self.role+'-'+str(stage)+'-'+request+'.json'
+        value=dict(graphicsObserverFrameVersion=FRAME_VERSION,runId=self.run,role=self.role,stage=stage,
+            requestId=request,payload=pack([frame]))
+        store=PrivateFeatureState(self.artifact_root/name);old=store.read()
+        if old is None:store.write(value,None);old=store.read()
+        need(same(old,value))
+        return dict(graphicsObserverFrameRefVersion=FRAME_VERSION,name=name,
+            sha256=hashlib.sha256(canonical(value)).hexdigest(),stage=stage,requestId=request)
+
+    def load_frame(self,reference):
+        exact(reference,{'graphicsObserverFrameRefVersion','name','sha256','stage','requestId'})
+        need(type(reference['graphicsObserverFrameRefVersion']) is int and reference['graphicsObserverFrameRefVersion']==FRAME_VERSION
+            and integer(reference['stage'],0,1));request=identifier(reference['requestId']);stage=reference['stage']
+        name='graphics-observer-'+self.run+'-'+self.role+'-'+str(stage)+'-'+request+'.json'
+        need(reference['name']==name and type(reference['sha256']) is str and len(reference['sha256'])==64)
+        value=PrivateFeatureState(self.artifact_root/name).read()
+        need(value is not None and hashlib.sha256(canonical(value)).hexdigest()==reference['sha256'])
+        exact(value,{'graphicsObserverFrameVersion','runId','role','stage','requestId','payload'})
+        need(type(value['graphicsObserverFrameVersion']) is int and value['graphicsObserverFrameVersion']==FRAME_VERSION
+            and value['runId']==self.run and value['role']==self.role and type(value['stage']) is int and value['stage']==stage and value['requestId']==request)
+        rows=unpack(value['payload']);need(len(rows)==1);frame=rows[0];exact(frame,FRAME)
+        need(frame['image']['runId']==self.run and frame['image']['role']==self.role and type(frame['image']['stage']) is int
+            and frame['image']['stage']==stage and frame['capture']['requestId']==request)
+        return frame
+
+    def frame_references(self,value,*,loading):
+        if type(value) is dict:
+            if 'graphicsObserverFrameRefVersion' in value:
+                need(loading);return self.load_frame(value)
+            if set(value)==FRAME:
+                need(not loading);return self.frame_record(value)
+            return {key:self.frame_references(item,loading=loading) for key,item in value.items()}
+        if type(value) is list:return [self.frame_references(item,loading=loading) for item in value]
+        return value
 
     def binding_for(self,state,stage):
         need(integer(stage,0,state['stage']))
@@ -83,7 +124,7 @@ class PhoneGraphicsObserver:
         need(type(value['graphicsObserverVersion']) is int and value['graphicsObserverVersion']==VERSION
             and value['runId']==self.run and value['fixtureUrl']==self.source.client.url and value['providerInstance']==self.source.instance
             and value['role']==self.role and value['artifactRoot']==str(self.artifact_root) and same(value['imagePolicy'],self.image_policy))
-        rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
+        rows=unpack(value['payload']);need(len(rows)==1);state=self.frame_references(rows[0],loading=True)
         exact(state,{'phase','binding','stage','sequence','capturedEpochMs','backend','baseline','last','offFrames','effects','restart','pending'})
         context(state['binding']);need(state['phase'] in ('ready','reading','retired') and integer(state['stage'],0,1)
             and integer(state['sequence'],0,256) and integer(state['capturedEpochMs']) and type(state['effects']) is list and len(state['effects'])<=64)
@@ -132,7 +173,7 @@ class PhoneGraphicsObserver:
     def save(self):
         self.lock.assert_held();need(self.guard() is not False and same(self.store.read(),self.previous))
         value=dict(graphicsObserverVersion=VERSION,runId=self.run,fixtureUrl=self.source.client.url,providerInstance=self.source.instance,
-            role=self.role,artifactRoot=str(self.artifact_root),imagePolicy=deepcopy(self.image_policy),payload=pack([self.state]))
+            role=self.role,artifactRoot=str(self.artifact_root),imagePolicy=deepcopy(self.image_policy),payload=pack([self.frame_references(self.state,loading=False)]))
         self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
 
     def baseline(self):

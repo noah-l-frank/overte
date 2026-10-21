@@ -168,9 +168,11 @@ capability or physical acceptance is promoted.
 
 The [independent Graphics observation owner](GRAPHICS_OBSERVER.md) now joins
 separate role GPU/native/UI/PNG histories, each role's own Haze/Mirror target-pixel
-comparisons and independent old/new process plus kernel ESRCH proof. Twenty-four
+comparisons and independent old/new process plus kernel ESRCH proof. Thirty-one
 observer and seventeen fixture-reader cases cover ignored inputs, missing actual
 pixel effects, source/file loss, process/candidate changes and ticket races.
+Version 2 retains each complete original frame once in a verified immutable
+private file and uses exact hashed references within the bounded role journal.
 Ordinary full-run coordination and recoverable final retirement still need
 composition; no full Graphics capability or physical acceptance is promoted.
 

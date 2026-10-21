@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 import sys
 import json
+import hashlib
 from types import SimpleNamespace
 import tempfile
 import unittest
@@ -18,7 +19,7 @@ from adapters.normal_feature_state import PrivateFeatureState
 from feature_journeys.witness import Journal,Client
 from overte_phone_graphics_fixture import GraphicsFixtureReader,GraphicsPhasePending
 from overte_phone_graphics_observer import PhoneGraphicsObserver
-from overte_phone_script_history import pack,unpack
+from overte_phone_script_history import pack,unpack,canonical
 import test_graphics_samples as samples_fixture
 from test_graphics_samples import Originals
 from self_tests.test_native_process_presence import Boundary as Presence
@@ -336,6 +337,63 @@ class GraphicsObserverTests(unittest.TestCase):
                 m.binding=binding|{field:value};owner=m.factory_observer();before=len(m.calls)
                 with self.subTest(field=field),self.assertRaises(NativeUIError):owner.read(1,1)
                 self.assertEqual(before,len(m.calls))
+
+    def test_v2_journal_uses_one_immutable_private_archive_per_original_frame(self):
+        m=self.m
+        with m.lock.held():
+            owner=m.factory_observer();owner.read(0,0);wire=unpack(owner.previous['payload'])[0]
+            self.assertEqual(2,owner.previous['graphicsObserverVersion']);self.assertIn('graphicsObserverFrameRefVersion',wire['baseline'])
+            self.assertEqual(wire['baseline'],wire['last']['frame']);self.assertEqual(wire['baseline'],wire['offFrames']['haze'])
+            self.assertEqual(1,len(list(self.root.glob('graphics-observer-*.json'))));owner=m.factory_observer();owner.read(1,0)
+            self.assertEqual(2,len(list(self.root.glob('graphics-observer-*.json'))));self.assertEqual('ready',m.archive_observer(owner.previous)['phase'])
+    def test_missing_or_changed_original_frame_archive_cannot_be_replaced_by_journal_values(self):
+        m=self.m
+        with m.lock.held():owner=m.factory_observer();owner.read(0,0)
+        reference=unpack(owner.previous['payload'])[0]['baseline'];path=self.root/reference['name'];original=path.read_bytes()
+        path.unlink()
+        with self.assertRaises(NativeUIError):m.archive_observer(owner.previous)
+        path.write_bytes(original);path.chmod(0o600);value=json.loads(original);value['requestId']='f'*32
+        path.write_text(json.dumps(value))
+        with self.assertRaises(NativeUIError):m.archive_observer(owner.previous)
+    def test_borrowed_archive_is_rejected_even_with_a_recomputed_outer_reference_digest(self):
+        m=self.m
+        with m.lock.held():owner=m.factory_observer();owner.read(0,0)
+        value=deepcopy(owner.previous);state=unpack(value['payload'])[0];reference=state['baseline'];path=self.root/reference['name']
+        packet=json.loads(path.read_text());packet['role']='actor';path.write_text(json.dumps(packet));path.chmod(0o600)
+        reference['sha256']=hashlib.sha256(canonical(packet)).hexdigest();value['payload']=pack([state])
+        with self.assertRaises(NativeUIError):m.archive_observer(value)
+    def test_frame_reference_cannot_escape_scope_or_accept_unknown_desired_fields(self):
+        m=self.m
+        with m.lock.held():owner=m.factory_observer();owner.read(0,0)
+        for edit in [dict(name='../foreign.json'),dict(stage=1),dict(expectedGraphics={}),dict(graphicsObserverFrameRefVersion=True)]:
+            value=deepcopy(owner.previous);state=unpack(value['payload'])[0];state['baseline'].update(edit);value['payload']=pack([state])
+            with self.subTest(edit=edit),self.assertRaises(NativeUIError):m.archive_observer(value)
+    def test_v1_or_unreferenced_full_frame_journals_cannot_be_implicitly_upgraded(self):
+        m=self.m
+        with m.lock.held():owner=m.factory_observer();owner.read(0,0)
+        value=deepcopy(owner.previous);value['graphicsObserverVersion']=1
+        with self.assertRaises(NativeUIError):m.archive_observer(value)
+        value=deepcopy(owner.previous);value['payload']=pack([owner.state])
+        with self.assertRaises(NativeUIError):m.archive_observer(value)
+    def test_ignored_original_frame_archive_write_cannot_return_a_green_sample(self):
+        m=self.m
+        with m.lock.held():
+            owner=m.factory_observer();write=PrivateFeatureState.write
+            def ignored(store,value,previous):
+                if store.path.name.startswith('graphics-observer-'):return
+                return write(store,value,previous)
+            with patch.object(PrivateFeatureState,'write',ignored),self.assertRaises(NativeUIError):owner.read(0,0)
+            self.assertEqual('reading',m.factory_observer().state['phase']);self.assertEqual([],m.published)
+    def test_lost_original_archive_write_response_preserves_red_intent_and_diagnostics(self):
+        m=self.m
+        with m.lock.held():
+            owner=m.factory_observer();write=PrivateFeatureState.write
+            def lost(store,value,previous):
+                result=write(store,value,previous)
+                if store.path.name.startswith('graphics-observer-'):raise RuntimeError('Synthetic lost archive write response')
+                return result
+            with patch.object(PrivateFeatureState,'write',lost),self.assertRaises(RuntimeError):owner.read(0,0)
+            self.assertEqual(1,len(list(self.root.glob('graphics-observer-*.json'))));self.assertEqual('reading',m.factory_observer().state['phase'])
 
 
 if __name__=='__main__':unittest.main()
