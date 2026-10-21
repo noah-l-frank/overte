@@ -291,18 +291,13 @@ jobs:
   native:
     name: Native C++ owner
     needs: [plan, policy]
-    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.native == 'true'
+    if: needs.plan.outputs.active == 'true' && needs.plan.outputs.native == 'true' && github.event_name == 'pull_request'
     permissions:
       contents: read
       packages: read
     uses: ./.github/workflows/native-tests.yml
     with:
       mode: ${{ needs.plan.outputs.native_mode }}
-      source_sha: ${{ needs.plan.outputs.source }}
-      source_ref: refs/pull/${{ fromJSON(needs.plan.outputs.context_json).number }}/merge
-      trusted_source: ${{ needs.plan.outputs.controller }}
-      context_json: ${{ needs.plan.outputs.context_json }}
-      plan_json: ${{ needs.plan.outputs.plan_json }}
 
   codeql:
     name: CodeQL (${{ matrix.language }})

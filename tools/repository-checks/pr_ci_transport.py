@@ -40,7 +40,7 @@ STEPS = {
     "policy": ("Verify exact policy and source identities",),
     "host": ("Execute selected host contracts without credentials",),
     "npm": ("Execute the selected package owner without credentials",),
-    "native": ("Recheck explicit central native ownership", "Configure and select affected targets",
+    "native": ("Recheck exact candidate selection", "Configure and select affected targets",
                "Build and run selected native tests"),
     "codeql": ("Initialize the pinned CodeQL extractor", "Require the reviewed extractor version",
                "Analyze the exact PR merge source", "Record the native upload identity",

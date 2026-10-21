@@ -5,6 +5,7 @@ These checks inspect real workflow data. They do not execute actions, contact
 GitHub, qualify a candidate, or replace the first genuine manual bootstrap.
 """
 from copy import deepcopy
+import hashlib
 from pathlib import Path
 import re
 import unittest
@@ -74,6 +75,26 @@ def source_contract(job):
         else:
             assert checkout["ref"] == "${{ needs.plan.outputs.source }}"
             assert checkout["fetch-depth"] == 2
+
+
+def native_recipe_contract(caller, workflow):
+    assert caller["with"] == {"mode": "${{ needs.plan.outputs.native_mode }}"}
+    assert "github.event_name == 'pull_request'" in caller["if"]
+    assert workflow["on"]["workflow_call"]["inputs"] == {"mode": {"type": "string", "required": True}}
+    job = workflow["jobs"]["build"]
+    candidate, trusted = checkouts(job)
+    # Ordinary PR checkout remains GitHub's original merge source. A manual
+    # workflow's H is different, so that execution path is deliberately excluded.
+    assert "ref" not in candidate and "path" not in candidate
+    assert candidate["fetch-depth"] == 2 and candidate["persist-credentials"] is False
+    assert trusted["ref"] == "${{ github.event.repository.default_branch }}"
+    assert trusted["path"] == "trusted" and trusted["persist-credentials"] is False
+    recheck = next(step for step in job["steps"] if step["name"] == "Recheck exact candidate selection")
+    assert "if" not in recheck
+    assert recheck["env"]["EXPECTED_MODE"] == "${{ inputs.mode }}"
+    assert 'trusted/tools/native-tests/check.py plan --candidate .' in recheck["run"]
+    assert '--event "$GITHUB_EVENT_PATH" --sha "$GITHUB_SHA"' in recheck["run"]
+    assert 'in ("core", "full")' in recheck["run"]
 
 
 class WorkflowContracts(unittest.TestCase):
@@ -240,30 +261,29 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual("error", upload["with"]["if-no-files-found"])
         self.assertIs(upload["with"]["overwrite"], False)
 
-    def test_native_reusable_verifies_explicit_source_without_changing_product_steps(self):
-        inputs = self.native["on"]["workflow_call"]["inputs"]
-        self.assertTrue({"mode", "source_sha", "source_ref", "trusted_source", "context_json", "plan_json"} <= set(inputs))
+    def test_original_native_recipe_continues_only_for_ordinary_pr_source(self):
+        self.assertEqual("c277ebda3ce3d972ffce0c3849bf817c664feef90a0b6b90df9ee428a5e576b1",
+            hashlib.sha256((WORKFLOWS / "native-tests.yml").read_bytes()).hexdigest())
+        native_recipe_contract(self.jobs["native"], self.native)
         job = self.native["jobs"]["build"]
-        candidate, trusted = checkouts(job)
-        self.assertEqual("${{ inputs.source_sha || github.sha }}", candidate["ref"])
-        self.assertFalse(candidate["persist-credentials"])
-        self.assertEqual("${{ inputs.trusted_source || github.event.repository.default_branch }}", trusted["ref"])
-        self.assertFalse(trusted["persist-credentials"])
-        central = next(step for step in job["steps"] if "pr_ci.py verify-native" in step.get("run", ""))
-        self.assertEqual("inputs.context_json != ''", central["if"])
-        self.assertEqual("${{ inputs.source_ref }}", central["env"]["PR_CI_SOURCE_REF"])
-        legacy = next(step for step in job["steps"] if "check.py plan" in step.get("run", ""))
-        self.assertEqual("inputs.context_json == ''", legacy["if"])
-        native_call = self.jobs["native"]["with"]
-        self.assertEqual("${{ needs.plan.outputs.source }}", native_call["source_sha"])
-        self.assertEqual("${{ needs.plan.outputs.controller }}", native_call["trusted_source"])
+        self.assertNotIn("pr_ci.py verify-native", scripts(job))
         command = scripts(job)
         for required in ("conan install .", "--build=never --no-remote",
                 "bash tools/native-tests/configure.sh", "trusted/tools/native-tests/select.py",
                 "trusted/tools/native-tests/run.py", "--selection build/native-selection.json --jobs 2"):
             self.assertIn(required, command)
         cache = next(step for step in job["steps"] if step.get("id") == "compiler-cache")
-        self.assertIn("inputs.source_sha || github.sha", cache["with"]["key"])
+        self.assertIn("${{ github.sha }}", cache["with"]["key"])
+        for mutation in ("manual-native", "implicit-trusted-candidate", "new-input-envelope"):
+            caller, workflow = deepcopy(self.jobs["native"]), deepcopy(self.native)
+            if mutation == "manual-native":
+                caller["if"] = "needs.plan.outputs.native == 'true'"
+            elif mutation == "implicit-trusted-candidate":
+                workflow["jobs"]["build"]["steps"][1]["with"]["ref"] = "${{ github.sha }}"
+            else:
+                caller["with"]["source_sha"] = "${{ needs.plan.outputs.source }}"
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                native_recipe_contract(caller, workflow)
 
     def test_selected_platforms_fail_closed_through_trusted_cli(self):
         for name in ("android", "ios"):

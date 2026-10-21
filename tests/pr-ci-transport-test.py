@@ -150,6 +150,16 @@ class NativeTests(unittest.TestCase):
         values = jobs(self.owners); values[2]["steps"][0]["conclusion"] = "skipped"
         with self.assertRaises(T.TransportError): self.verify_jobs(values)
 
+    def test_selected_native_owner_requires_the_unchanged_protected_recipe(self):
+        owners = {**self.owners, "native": True}
+        values = jobs(owners)
+        T.validate_jobs(values, owners, plan=self.plan, context=context())
+        native = next(row for row in values if row["name"] == "Native C++ owner / build")
+        self.assertEqual(native["steps"][0]["name"], "Recheck exact candidate selection")
+        native["steps"][0]["name"] = "Recheck explicit central native ownership"
+        with self.assertRaisesRegex(T.TransportError, "required commands"):
+            T.validate_jobs(values, owners, plan=self.plan, context=context())
+
     def test_matrix_is_exact_and_unselected_owners_cannot_execute(self):
         values = jobs(self.owners); values = [row for row in values if row["name"] != "CodeQL (python)"]
         with self.assertRaises(T.TransportError): self.verify_jobs(values)

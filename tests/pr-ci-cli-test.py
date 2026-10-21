@@ -197,6 +197,29 @@ class GateTests(unittest.TestCase):
         self.assertEqual(self.selected_contexts[0]["controller"], self.base)
         self.assertEqual(self.selected_contexts[0]["caller_source"], self.original)
 
+    def selected_native(self, mode):
+        self.plan["native"] = {"mode": mode}
+        self.plan["owners"] = CLI.expected_owners(self.plan)
+        self.record["plan"] = deepcopy(self.plan)
+        self.record["owners"]["native"] = {"result": "success"}
+        native = next(row for row in self.job_rows if row["name"] == "Native C++ owner / build")
+        native.update(status="completed", conclusion="success", steps=[
+            {"name": name, "number": index + 1, "status": "completed", "conclusion": "success"}
+            for index, name in enumerate(TRANSPORT.STEPS["native"])])
+
+    def test_manual_bootstrap_cannot_accept_a_native_owner_receipt(self):
+        for mode in ("core", "full"):
+            self.selected_native(mode)
+            with self.subTest(mode=mode), self.assertRaisesRegex(CLI.C.ContextError, "(?i)bootstrap|manual"):
+                self.run_gate()
+
+    def test_ordinary_pr_can_use_the_unchanged_native_owner(self):
+        self.ordinary_worker()
+        self.selected_native("core")
+        result = self.run_gate("pull_request_target")
+        self.assertTrue(result["owners"]["native"])
+        self.assertEqual(result["source"], self.original)
+
     def test_completed_metadata_only_worker_does_not_replace_original_execution(self):
         self.ordinary_worker()
         self.api.lists["actions/workflows/repository-checks.yml/runs?event=pull_request&head_sha="
@@ -341,6 +364,13 @@ class CommandTests(unittest.TestCase):
                                ("GITHUB_WORKFLOW_SHA", "6" * 40)):
                 with self.subTest(key=key), patch.dict(os.environ, {key: value}), self.assertRaises(CLI.C.ContextError):
                     CLI.upload_proof(self.context, "python", upload)
+
+    def test_plan_execution_scope_rejects_manual_native_before_owner_execution(self):
+        for mode in ("core", "full"):
+            plan = {**self.plan, "native": {"mode": mode}}
+            with self.subTest(mode=mode), self.assertRaises(CLI.C.ContextError):
+                CLI.validate_execution_scope({**self.context, "execution_event": "workflow_dispatch"}, plan)
+            CLI.validate_execution_scope({**self.context, "execution_event": "pull_request"}, plan)
 
     def candidate(self, path):
         subprocess.run([sys.executable, str(ROOT / "tools/branch-policy/check.py"), "check-name",

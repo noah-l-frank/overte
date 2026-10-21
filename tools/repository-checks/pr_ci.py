@@ -89,6 +89,13 @@ def expected_owners(plan):
             "android": bool(plan["android_required"]), "ios": bool(plan["ios_required"])}
 
 
+def validate_execution_scope(context, plan):
+    if context.get("execution_event") == "workflow_dispatch":
+        C.require(plan["native"]["mode"] == "skip" and not plan["android_required"]
+                  and not plan["ios_required"],
+                  "manual controller bootstrap cannot replace an ordinary native or platform PR execution")
+
+
 def selection(candidate, context):
     candidate = Path(candidate).resolve(strict=True)
     C.require(git(candidate, "rev-parse", "HEAD").decode().strip() == context["original_merge"],
@@ -383,6 +390,7 @@ def gate(event, event_name, number, controller, *, timeout=5700, pause=time.slee
                     run_attempt=identity["run_attempt"], execution_event=execution_event,
                     caller_source=context["head"] if execution_event == "workflow_dispatch" else original)
                 plan, actual_tree, trusted_tree = remote_selection(api, context)
+                validate_execution_scope(context, plan)
                 transport.validate_sources(actual_tree, trusted_tree)
                 jobs = api.pages(f"actions/runs/{identity['id']}/attempts/{identity['run_attempt']}/jobs", field="jobs")
                 try:
@@ -485,6 +493,7 @@ def main():
     elif args.command == "plan":
         context = read_json(args.context.read_text())
         plan = selection(args.candidate, context)
+        validate_execution_scope(context, plan)
         C.bookend(API(), context)
         write_json(args.out, plan)
         values = {**plan["owners"], "native_mode": plan["native"]["mode"],

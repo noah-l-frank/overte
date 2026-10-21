@@ -83,6 +83,9 @@ Before changing required checks, an authorized maintainer must run the manual
 `pr_number`. The manual controller must equal that head. The bootstrap must finish
 with genuine selected-owner success, authenticated execution transport, complete
 CodeQL processing when selected, and unchanged PR identities.
+The manual bootstrap accepts only plans without native or platform builds.
+Selected native or platform work requires its ordinary PR execution; a manual
+run cannot replace it.
 
 Only after that result is verified should the existing main requirements be
 replaced by the protected native `required-ci` check. Keep the old requirements
