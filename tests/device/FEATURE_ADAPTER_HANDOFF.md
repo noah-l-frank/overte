@@ -702,3 +702,9 @@ node IDs/properties and original weak-reference drainage. Same-UUID/foreign-chil
 clone deletion is refused under the actual tree lock. This is a prerequisite,
 not a complete scene/Browser/feature/actor owner; remaining full-run joins stay
 open and no feature capability is enabled. Native source is uncompiled.
+
+Retirement review additionally pins actual Phone candidate admission through the
+parent proof-retention callback. Native fixture run tombstones refuse delayed
+old-run resurrection after another run drains (bounded 256, no eviction). The
+49 focused host checks pass; native source remains uncompiled and does not
+qualify target behavior. Full Emote coordination remains open.

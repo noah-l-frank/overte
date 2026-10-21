@@ -44,7 +44,9 @@ partial/failed creation remains visible as failed, with nullable actual IDs.
 There is no arbitrary entity JSON, requested UUID, desired result, general
 setting mutation or deletion-by-name-prefix route. A same-command duplicate
 returns only its original receipt; same-ID changed input is refused. A second
-prepare for the same run is refused. Another run is admitted only after actual
+prepare for any previously issued run is refused, including after a later run
+drains. At most 256 run tombstones are retained for this native process; reaching
+that bound fails closed without eviction. Another run is admitted only after actual
 old object drainage; the parent must additionally finish Browser/host retirement.
 
 Receipt is exactly `phoneEmoteFixtureInputVersion:1`, `commandId`, `runId`,

@@ -83,7 +83,9 @@ uses only the durable original. Foreign CAS replacements stay untouched.
 
 `retire(retain)` obtains another fresh restored snapshot and requires the
 parent's callback to durably retain that exact proof in its own bound journal
-before child removal. False/failed retention leaves child responsibility. A lost
+before child removal. Actual candidate/process admission is checked again after
+retention, including after any parent journal IO. False/failed retention or a
+changed candidate leaves child responsibility. A lost
 removal return can leave the proof with the parent; a missing child alone never
 reconstructs success. General Appium cleanup refuses any remaining view journal,
 including unknown/partial metadata. The full parent must still retire every
@@ -92,7 +94,7 @@ other fixture/source/input/image/actor resource before declaring cleanup.
 The whole method is bounded to 60 seconds, each combined source acquisition to
 5 seconds and source/phase freshness to 1.5 seconds, including final durable
 writes/copies/guards and a monotonic age floor. Frozen wall clocks do not hide
-late delivery. Nineteen Phone host cases exercise real UI recipes/readers and
+late delivery. Twenty Phone host cases exercise real UI recipes/readers and
 private filesystem journals over explicit synthetic boundaries, including ignored
 input, lost returns, phase races, altered evidence, late delivery and incomplete
 cleanup. They establish test logic only. Native additions are uncompiled; the

@@ -101,6 +101,11 @@ class PhoneEmoteView:
         self.store=PrivateFeatureState(path.with_name('phone-emote-view.json'))
         _ui,_native,binding,self.guard,_installed=adapter.normal_feature_runtime(selector,read_only=True)
         self.binding=deepcopy(context(binding));self.pid=int(binding['processIdentity'].split(':')[0]);need(integer(self.pid,1))
+        native_guard=adapter._avatar_configuration_observer(selector,read_only=True).guard
+        runtime_guard=self.guard
+        def original_candidate():
+            need(runtime_guard() is not False and native_guard() is not False)
+        self.guard=original_candidate
         self.previous=self.store.read()
         self.state=dict(phase='reserved',original=None,current=None,leases=dict(tablet=False,address=False,menu=False,general=False),actions=[],active=None)
         if self.previous is not None:self.state=self.decode(self.previous)

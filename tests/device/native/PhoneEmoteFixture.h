@@ -19,6 +19,7 @@
 #include <memory>
 #include <vector>
 #include <QJsonArray>
+#include <QSet>
 
 namespace overte::e2e {
 // Fixture inputs only. Product observations, pixels and Browser retirement are
@@ -54,7 +55,8 @@ public:
                     || !finite(view.getFieldOfView(),1,179) || !finite(view.getAspectRatio(),.1,10)
                     || !finite(view.getNearClip(),.00001,1e6) || !finite(view.getFarClip(),.001,1e9)
                     || view.getFarClip()<=view.getNearClip()
-                    || (!_instance.isEmpty() && (_phase!="drained" || _run==run))) { return {}; }
+                    || _seenRuns.contains(run) || _seenRuns.size()>=256
+                    || (!_instance.isEmpty() && _phase!="drained")) { return {}; }
             const auto extent=object.value("imageExtent").toArray(),roi=object.value("markerRoi").toArray();
             auto whole=[](const QJsonValue& v,int low,int high) {
                 return v.isDouble() && std::isfinite(v.toDouble()) && v.toDouble()>=low && v.toDouble()<=high
@@ -91,7 +93,7 @@ public:
             const auto markerSize=unrotate*(markerBottom-markerTop),backSize=unrotate*(backBottom-backTop);
             auto dimensions=[](const glm::vec3& delta) { return glm::vec3(std::abs(delta.x),std::abs(delta.y),.01f); };
             _instance=QUuid::createUuid().toString(QUuid::WithoutBraces).remove('-');_run=run;_phase="creating";
-            _created=QDateTime::currentMSecsSinceEpoch();_objects.clear();_originalInput=command;
+            _created=QDateTime::currentMSecsSinceEpoch();_objects.clear();_originalInput=command;_seenRuns.insert(run);
             QVariantList matrix;
             for (int row=0;row<4;++row) { for (int column=0;column<4;++column) { matrix.append(projection[column][row]); } }
             _view={{"position",vec(view.getPosition())},{"rotation",quat(view.getOrientation())},{"projection",matrix},
@@ -186,6 +188,7 @@ private:
     static QVariantList vec(const glm::vec3& value) { return {value.x,value.y,value.z}; }
     static QVariantList quat(const glm::quat& value) { return {value.x,value.y,value.z,value.w}; }
     QString _instance,_run,_phase;
+    QSet<QString> _seenRuns; // Bounded tombstones: old runs cannot revive after a later run drains.
     qint64 _created {0};
     QVariantMap _originalInput,_view,_lastInput,_lastReceipt;
     std::vector<Object> _objects;

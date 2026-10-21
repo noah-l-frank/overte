@@ -35,7 +35,7 @@ class Model:
         self.fixture=surface_fixture.GraphicsSurfaceTests();self.fixture.setUp()
         self.root,self.sdk=self.fixture.root,self.fixture.client
         self.native=ConfigurationBoundary();self.touch=TouchBoundary()
-        self.boom=1.5;self.preference=False;self.editor=False;self.lose='';self.ignore='';self.fault=None;self.actions=[];self.actions_retired=[]
+        self.boom=1.5;self.preference=False;self.editor=False;self.lose='';self.ignore='';self.fault=None;self.actions=[];self.actions_retired=[];self.candidate_okay=True
         self.lock=PhoneScriptSourceLock(self.root/'phone-script-sources.lock')
         self.journal=Journal(lambda:self.native.epoch)
         with patch('feature_journeys.witness.secrets.token_hex',return_value=RUN):self.journal.register('emotes')
@@ -115,7 +115,7 @@ class Model:
         if self.fault=='pose':self.native.avatar['pose']['feetPosition'][0]=2
     def _avatar_configuration_observer(self,_selector,*,read_only):
         assert read_only;self.sync()
-        return NativePhoneAvatarConfiguration(self.native.send,self.native.original,lambda:self.native.epoch,lambda:self.native.okay,31,
+        return NativePhoneAvatarConfiguration(self.native.send,self.native.original,lambda:self.native.epoch,lambda:self.native.okay and self.candidate_okay,31,
             monotonic=lambda:self.sdk.clock,sleep=self.fixture.sleep)
     def _avatar_render_observer(self,_selector,*,read_only):
         assert read_only;self.sync()
@@ -312,6 +312,16 @@ class EmoteViewTests(unittest.TestCase):
             view=m.factory();view.prepare();m.cleanup(view);m.touch.touch['axes']=[dict(channel=4,value=.1)]
             with self.assertRaises(NativeUIError):m.retire(view)
             self.assertIsNotNone(view.store.read());self.assertEqual([],m.actions_retired)
+
+
+    def test_candidate_change_during_parent_retention_cannot_retire_child_responsibility(self):
+        m=self.model
+        with m.lock.held():
+            view=m.factory();view.prepare();m.cleanup(view)
+            def retain(proof):m.actions_retired.append(deepcopy(proof));m.candidate_okay=False
+            with self.assertRaises(NativeUIError):view.retire(retain)
+            self.assertIsNotNone(view.store.read());self.assertEqual(1,len(m.actions_retired))
+            m.candidate_okay=True;view=m.factory();m.retire(view)
 
 
 if __name__=='__main__':unittest.main()

@@ -139,6 +139,11 @@ removal refuses foreign replacements, parents/children and clone links. Full
 scene-owner/Browser/image/effect/actor/run joins remain open. No full capability
 is advertised; native code remains uncompiled and complete Phone count stays 3.
 
+Emote view retirement additionally rechecks the actual original candidate after
+parent retention IO. Native fixture admission retains bounded run tombstones so
+a delayed old prepare cannot revive after a later run drains. Forty-nine focused
+host checks pass; native tombstone behavior remains uncompiled/device-unqualified.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)
