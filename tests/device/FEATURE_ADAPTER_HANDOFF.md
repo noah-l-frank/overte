@@ -561,3 +561,11 @@ and both roles' actual restored-world/Web lifetime windows. Exact archives and
 recoverable hash-scoped retirement retain failures and unknown files. See the
 [complete handoff](adapters/android-phone/GRAPHICS_FEATURE.md). Host simulations
 verify control logic only; native compilation and all devices remain untested.
+
+## Original input-phase metadata v1
+
+The existing fixture journal exposes a nonce-bound read-only activation history
+for all fourteen areas. [The exact phase contract](feature_journeys/PHASE_FIXTURE.md)
+preserves original activation times and retirement without exposing peer facts.
+It supports later Emote/native input causality; it supplies no target effects,
+full adapter capability or cleanup proof. Full Phone Emotes remains incomplete.

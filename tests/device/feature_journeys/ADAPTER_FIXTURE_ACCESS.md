@@ -84,3 +84,7 @@ peer-fact masking, every mutation route, credential-role mistakes, wrong/private
 file scopes, role reassignment, optional-role compatibility and retired-provider
 reads. These are source/privacy logic checks, without a build, installation,
 device connection or laboratory run.
+
+The [original phase endpoint](PHASE_FIXTURE.md) additionally exposes nonce-bound
+closed activation history and original input-journal retirement. These remain
+input metadata, never target/peer measurements or successful cleanup.

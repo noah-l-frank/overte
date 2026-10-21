@@ -280,6 +280,11 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) < 2 or parts[0] != 'runs':
                 return self.send(404, {'error': 'not-found'})
             run = identifier(parts[1])
+            if parts[2:]==['phase']:
+                if self.command!='GET':return self.send(403,{'error':'forbidden'})
+                requests=self.headers.get_all('X-Overte-Phase-Read',[])
+                if len(requests)!=1:raise ValueError('Original phase snapshot nonce is required')
+                return self.send(200,self.server.journal.phase(run,identifier(requests[0])))
             if parts[2:]==['graphics']:
                 if self.command=='GET' and self.server.graphics_resources is not None:
                     requests=self.headers.get_all('X-Overte-Graphics-Read',[])

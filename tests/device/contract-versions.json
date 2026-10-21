@@ -16,6 +16,7 @@
     "native-web-dom-observation": {"current": 1, "reads": [1]},
     "web-dom-observation": {"current": 1, "reads": [1]},
     "feature-browser-resources": {"current": 1, "reads": [1]},
+    "feature-fixture-phase": {"current": 1, "reads": [1]},
     "feature-adapter-fixture-access": {"current": 1, "reads": [1]},
     "native-feature-observation": {"current": 1, "reads": [1]},
     "independent-chat-receiver": {"current": 1, "reads": [1]},

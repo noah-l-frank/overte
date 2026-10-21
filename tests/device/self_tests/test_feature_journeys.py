@@ -50,7 +50,8 @@ class Boundary:
         self.snapshot_original_state=copy.deepcopy(self.state);self.snapshot_original=None
         self.journal = Journal(self.epoch)
         # The real coordinator generates the run; tests need a deterministic one.
-        self.journal.runs[RUN] = dict(area=area, ticket=None, entries=[], sequence=0, activeEpochMs=self.epoch(), stimulus=None, tickets=set())
+        with patch('feature_journeys.witness.secrets.token_hex', return_value=RUN):
+            self.journal.register(area)
         self.clock = 0.0
         self.sequence = self.actor_sequence = 0
         self.ticket = None

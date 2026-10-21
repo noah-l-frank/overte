@@ -46,6 +46,9 @@ class Journal:
     def __init__(self, clock=None):
         self.clock = clock or (lambda: time.time() * 1000)
         self.runs = {}
+        self.phase_instance = secrets.token_hex(16)
+        self.phase_sequence = 0
+        self.retired_phases = {}
         self.lock = threading.RLock()
 
     def register(self, area):
@@ -55,8 +58,12 @@ class Journal:
             if len(self.runs) >= 32:
                 raise ValueError('Owned fixture run limit reached')
             run = secrets.token_hex(16)
+            if run in self.runs or run in self.retired_phases:
+                raise ValueError('Owned fixture run identity was reused')
+            created = self.clock()
             self.runs[run] = dict(area=area, ticket=None, entries=[], sequence=0,
-                                  activeEpochMs=self.clock(), stimulus=None, tickets=set())
+                                  activeEpochMs=created, stimulus=None, tickets=set(),
+                                  phaseCreatedEpochMs=created, phaseActivations=[])
             return run
 
     def activate(self, run, ticket, verb='baseline', inputs=None):
@@ -78,7 +85,10 @@ class Journal:
             if len(row['tickets']) >= 256:
                 raise ValueError('Owned challenge limit reached')
             row['tickets'].add(ticket)
-            row.update(ticket=ticket, activeEpochMs=self.clock(), stimulus=dict(verb=verb, inputs=inputs))
+            original = dict(verb=verb, inputs=copy.deepcopy(inputs))
+            row.update(ticket=ticket, activeEpochMs=self.clock(), stimulus=original)
+            row['phaseActivations'].append(dict(sequence=len(row['phaseActivations'])+1, ticket=ticket,
+                activatedEpochMs=row['activeEpochMs'], stimulus=copy.deepcopy(original)))
 
     def publish(self, run, value):
         exact(value, {'ticket', 'actor', 'actorSequence', 'capturedEpochMs', 'facts'}, 'independent actor sample')
@@ -117,9 +127,27 @@ class Journal:
             return dict(schemaVersion=1, runId=run, area=row['area'], ticket=row['ticket'],
                         sampleEpochMs=self.clock(), entries=copy.deepcopy(row['entries']))
 
+    def phase(self, run, request):
+        """Original input metadata only; never peer facts or product success."""
+        identifier(run);identifier(request)
+        with self.lock:
+            active = run in self.runs
+            row = self.runs[run] if active else self.retired_phases[run]
+            self.phase_sequence += 1
+            return dict(fixturePhaseVersion=1, instance=self.phase_instance, sequence=self.phase_sequence,
+                requestId=request, runId=run, area=row['area'], capturedEpochMs=self.clock(), active=active,
+                createdEpochMs=row['phaseCreatedEpochMs'], retiredEpochMs=None if active else row['retiredEpochMs'],
+                activations=copy.deepcopy(row['phaseActivations']))
+
     def close(self, run):
         with self.lock:
-            self.runs.pop(identifier(run), None)
+            row = self.runs.pop(identifier(run), None)
+            if row is not None:
+                self.retired_phases[run] = dict(area=row['area'], phaseCreatedEpochMs=row['phaseCreatedEpochMs'],
+                    phaseActivations=copy.deepcopy(row['phaseActivations']), retiredEpochMs=self.clock())
+                # Unknown/evicted originals stay unavailable, never empty success.
+                while len(self.retired_phases) > 64:
+                    del self.retired_phases[next(iter(self.retired_phases))]
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -138,13 +166,14 @@ class Client:
         self.url, self.token = url, reader_token
         self.monotonic,self.sleep=monotonic,sleep
 
-    def request(self, path, value=None, method=None, *, script_nonce=None, graphics_nonce=None, adapter_access=False):
+    def request(self, path, value=None, method=None, *, script_nonce=None, graphics_nonce=None, phase_nonce=None, adapter_access=False):
         raw = None if value is None else json.dumps(value).encode()
         headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'}
         if type(adapter_access) is not bool:raise ValueError('Invalid adapter fixture access marker')
         if adapter_access:headers['X-Overte-Fixture-Adapter-Read']='1'
         if script_nonce is not None:headers['X-Overte-Script-Read']=identifier(script_nonce)
         if graphics_nonce is not None:headers['X-Overte-Graphics-Read']=identifier(graphics_nonce)
+        if phase_nonce is not None:headers['X-Overte-Phase-Read']=identifier(phase_nonce)
         request = Request(self.url + path, data=raw, method=method,
                           headers=headers)
         try:
