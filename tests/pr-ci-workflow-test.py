@@ -218,6 +218,9 @@ class WorkflowContracts(unittest.TestCase):
         java = next(step for step in self.jobs["host"]["steps"] if step.get("uses", "").startswith("actions/setup-java@"))
         self.assertEqual("21", java["with"]["java-version"])
         self.assertEqual("needs.plan.outputs.full_host == 'true'", java["if"])
+        prerequisites = next(step for step in self.jobs["host"]["steps"]
+                             if step.get("name") == "Install complete host prerequisites")
+        self.assertIn('test -x /usr/lib/qt6/bin/qmltestrunner', prerequisites["run"])
 
     def test_protected_observer_never_checks_out_or_executes_candidate(self):
         job = self.jobs["required-ci"]

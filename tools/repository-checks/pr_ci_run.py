@@ -187,6 +187,10 @@ def _command(command):
 def _environment(environment, roots):
     require(environment is None or type(environment) is dict, "environment must be an explicit safe mapping")
     paths = [str(root / "bin") for root in roots if root != Path("/usr") and (root / "bin").is_dir()]
+    # Ubuntu and Fedora install the Qt6 test runner outside /usr/bin. Keep
+    # discovery inside the already read-only system runtime, never ambient PATH.
+    paths.extend(str(path) for path in (Path("/usr/lib/qt6/bin"), Path("/usr/lib64/qt6/bin"))
+                 if path.is_dir())
     values = {
         "PATH": ":".join(dict.fromkeys([*paths, "/usr/local/bin", "/usr/bin", "/bin"])),
         "HOME": "/tmp", "TMPDIR": "/tmp", "XDG_CACHE_HOME": "/tmp/cache",

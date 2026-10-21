@@ -136,6 +136,7 @@ class DockerCommandTests(unittest.TestCase):
     def test_env_is_explicitly_empty_before_safe_values_and_never_inherits_credentials(self):
         with patch.dict(os.environ, {"GH_TOKEN": "do-not-forward", "GITHUB_TOKEN": "secret",
                                    "GITHUB_ACTIONS": "true", "ACTIONS_RUNTIME_TOKEN": "secret",
+                                   "PATH": "/host/private-tools",
                                    "GITHUB_OUTPUT": "/host/output", "GITHUB_ENV": "/host/env"}):
             argv = self.command(prepared_roots=[self.tools], environment={"JAVA_HOME": str(self.tools)})
         self.assertEqual(["-i", "--"], argv[argv.index(R.IMAGE) + 1:argv.index(R.IMAGE) + 3])
@@ -146,6 +147,10 @@ class DockerCommandTests(unittest.TestCase):
         self.assertFalse(any(name.startswith(("GH_", "GITHUB_", "ACTIONS_")) for name in values))
         self.assertNotIn("do-not-forward", " ".join(argv))
         self.assertNotIn("/host/output", " ".join(argv))
+        self.assertNotIn("/host/private-tools", values["PATH"])
+        for path in (Path("/usr/lib/qt6/bin"), Path("/usr/lib64/qt6/bin")):
+            if path.is_dir():
+                self.assertIn(str(path), values["PATH"].split(":"))
 
     def test_unsafe_environment_keys_and_paths_are_rejected(self):
         for name in ("GH_TOKEN", "GITHUB_OUTPUT", "GITHUB_ENV", "GITHUB_ACTIONS", "HOME",

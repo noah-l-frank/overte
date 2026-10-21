@@ -205,6 +205,7 @@ jobs:
             qml6-module-qtquick-layouts qml6-module-qtquick-templates qml6-module-qtquick-window \
             qml6-module-qt-labs-settings qml6-module-qtquick-dialogs qml6-module-qttest
           pkg-config --exists Qt5Quick Qt5WebChannel Qt5Network Qt6Quick Qt6WebChannel Qt6Network
+          test -x /usr/lib/qt6/bin/qmltestrunner
       - name: Install selected Qt6 and portable compiler prerequisites
         if: needs.plan.outputs.full_host != 'true' && contains(fromJSON(needs.plan.outputs.setup_json), 'qt6-qml')
         run: |
