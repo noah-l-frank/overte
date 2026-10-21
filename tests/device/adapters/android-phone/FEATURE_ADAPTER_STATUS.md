@@ -23,7 +23,9 @@ three-second native/work quiet windows. The [cleanup input owner](EMOTE_CLEANUP_
 Qt/SDK returns without replay and independently proves actual native/UI
 restoration. The [namespace lease v2](EMOTE_NAMESPACE_LEASE.md) retains aborted
 partial freezes and transfers original proof before metadata retirement.
-Approved-world/Script/cache admission, public role/image/motion observation,
+[Original world/Script/cache admission](EMOTE_ADMISSION.md) is now mandatory in
+the run owner; each checked role source also rejects late foreign code/worlds.
+Public role/image/motion observation,
 credentialed actor publishing and whole-run resource/file retirement remain
 open; complete Emotes remains missing and unregistered.
 The [consumed animation data source](../../native/ANIMATION_SOURCE.md) now joins
@@ -31,8 +33,8 @@ actual parser bytes and original retargeted model/resource identity to compiled
 Emote effects and image brackets. Wrong file content at the correct URL remains
 red. The [passive cache inventory/readiness join](../../native/ANIMATION_INVENTORY.md)
 now observes existing resources and checks all twelve actual models without
-loading or repairing any. Owning admission, recovery, actor publication and
-complete Emote coordination remain pending.
+loading or repairing any. Its durable admission owner and run/source gates are
+now implemented; public observation/actor and whole-run retirement remain pending.
 Capture cleanup additionally supports [parent retention](EMOTE_CAPTURE.md#parent-retention-before-child-metadata-removal)
 of exact child/source/native retirement originals before child metadata removal.
 Actual partial-file hashes remain failed diagnostic evidence. Complete

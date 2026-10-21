@@ -1,4 +1,4 @@
-# Phone original Emote source acquisition, version 3
+# Phone original Emote source acquisition, versions 3 and 4
 
 `overte_phone_emote_sources.PhoneEmoteSources` connects the original Emote
 measurement join to actual guarded Phone source factories. The owning caller
@@ -109,3 +109,29 @@ and rejected rather than migrated or adopted. The input journal remains version
 General Phone teardown always attempts base cleanup, but returns unavailable
 while either role's source journal or the input journal remains. It does not
 forget originals or infer retirement from process shutdown.
+
+
+## Checked world and all-executable sources, version 4
+
+The current run owner supplies the explicit [admission policy](EMOTE_ADMISSION.md)
+through `PhoneEmoteSources(...,admission=policy)`. Version 4 adds exactly
+`admissionPolicy` to the version 3 outer header and exactly `probe` to every
+original frame. It independently reads the existing original `probe.snapshot`
+inside the bound existing input session, before the final fixture phase/clock
+checks. Every frame verifies current actual domain UUID/host/port/markers, original
+probe freshness and all manager/submitted/compiled/require identities against the
+fixed executable catalog. The probe and compiled pinned probe manager belong to
+the same guarded current candidate/process. Original sample epochs/sequences are
+retained; repeated sequences require identical originals. Expected world values
+are comparison inputs and are never returned as a measured snapshot.
+
+Version 3 remains its exact old unchecked format for legacy component/cleanup
+use. A checked header or namespace cannot downgrade, an unchecked predecessor
+cannot silently become checked, and successors inherit the actual prior checked
+policy when no explicit argument is supplied. The current run always supplies
+its parent-pinned policy for new sources. Private in-memory policy removal or a
+changed actual control header fails before acquisition. Historical replay validates
+its own original format and cannot substitute version 3 frames for a version 4
+role/effect/image archive. Primary/actor joins require equal admission policies.
+Source/input/observation bounds, source epochs, native commands and common journey
+version 17 remain unchanged. Full Emote capability registration is still pending.

@@ -1,25 +1,26 @@
-# Phone Emote setup and input run owner, version 2
+# Phone Emote setup and input run owner, version 3
 
 `PhoneEmoteRun` joins the existing View, Scene, per-role Source, normal Input,
 Background, Namespace and Cleanup Input components under the same source lock.
 This internal owner is not a complete feature adapter and is deliberately not
-registered as `feature.emotes.*`. Whole approved-world/Script admission, passive
-animation readiness, public role/image/motion observations, independently
-credentialed actor publication and whole-run resource/file retirement are still
-required. Its private `prepared` phase means only that its actual setup children
-completed. Native source remains uncompiled; device behavior is untested.
+registered as `feature.emotes.*`. Public role/image/motion observations,
+independently credentialed actor publication and whole-run resource/file retirement are still
+required. Its private `prepared` phase requires the actual original world/Script/
+cache admission and completion of its actual setup children. Native source
+remains uncompiled; device behavior is untested.
 
 Construct with the real Phone adapter/selector, actual Emote PhaseFixtureReader,
 private absolute artifact directory, explicit integral image extent and marker
-ROI. Geometry uses the existing native fixture input grammar. Those inputs are
+ROI, plus the explicit [admission policy](EMOTE_ADMISSION.md). Geometry uses the existing native fixture input grammar. Those inputs are
 stored unchanged and cannot be replaced on reconstruction. The constructor does
 not open a foreground-only target source, so reconstructing the run while an
 owned background action is interrupted remains possible.
 
-The private control `phone-emote-run.json` contains exactly `emoteRunVersion:2`,
-`runId`, `fixtureUrl`, `artifactRoot`, `imageExtent`, `markerRoi`, `payload`. Its
+The private control `phone-emote-run.json` contains exactly `emoteRunVersion:3`,
+`runId`, `fixtureUrl`, `artifactRoot`, `imageExtent`, `markerRoi`,
+`admissionPolicy`, `payload`. Its
 existing bounded packed payload holds one
-`{phase,binding,segment,baseline,call,cleanupTicket}` state. Binding is the actual
+`{phase,binding,segment,baseline,call,cleanupTicket,admissionSha256}` state. Binding is the actual
 existing candidate/process/session context. Baseline references an original
 primary frame by revision/hash. Call is an actual normal action or null. Current
 segment retains the existing 0..15 bound. Phases are `preparing`, `prepared`,
@@ -31,12 +32,14 @@ resource retirement. General Phone cleanup fails while the run control remains.
 `prepare()` requires a real baseline. A new run refuses orphaned Emote component
 metadata and persists parent responsibility before any child source request or
 setup input. It independently observes original native inactivity and a closed
-tablet, then invokes the real normal View preparation and actual Scene fixture
+tablet, completes the real three-sample world/Script/cache admission, then invokes
+the real normal View preparation and actual Scene fixture
 preparation in order. A missing/partial View completion blocks Scene preparation.
 Both actual child states and the unchanged actual fixture baseline are checked
 before prepared is committed. Interrupted setup stays preparing; it cannot be
-completed under a later ordinary fixture phase. This owner still needs the full
-approved-world/Script/cache admission fence before a public adapter invokes it.
+completed under a later ordinary fixture phase. The parent retains the SHA-256 of that exact private admission header. Every
+normal action reopens its originals before input; all current sources additionally
+enforce the same actual executable/world policy through source version 4.
 
 `act(call)` requires prepared/active ownership and the exact actual fixture
 activation. The parent writes acting/call before ordinary input. The normal
@@ -125,3 +128,33 @@ still test only child ordering and parent ownership; they do not qualify native
 View/Scene product behavior. Original View/Scene/Lifetime counterexamples remain
 registered separately. All child and original-file metadata is deliberately
 retained until the remaining whole-run transfer/retirement protocol is complete.
+
+
+## Mandatory original admission, version 3
+
+New runs require `admission={domainUrl,domainId,domainMarkers,probeUrl}`; missing
+configuration does not create parent or child ownership. Admission is read-only
+and must complete before normal View/Scene setup. Its exact original header hash
+is saved in `admissionSha256`. Missing/changed headers or original files block
+later inputs. The configured policy remains anchored in the unchanged parent
+header and all version 4 primary/actor source headers. Every subsequent source
+frame independently acquires the world probe and validates all actual executable
+membership, so a late foreign compilation/domain cannot borrow initial approval.
+Namespace successors inherit the same policy and cannot downgrade to unchecked
+version 3 sources. Checked primary and unchecked actor contexts cannot be joined.
+
+An already owned interrupted background action can check the exact pinned
+admission header before OS recovery without creating a foreground-only getter.
+The actual same owned background call/binding is required. After foreground is
+observed, its originals are reopened before action completion. This exception
+permits recovery of the existing cycle only; it does not authorize a new Home.
+Cleanup retains its separate foreground-first recovery regardless of failed
+admission or input state.
+
+Versions 1 and 2 remain readable for cleanup. Their former prepared/active state
+contains no admission hash and cannot authorize new setup or inputs. Cleanup
+writes version 3 while preserving the explicit missing approval; it cannot turn
+legacy source history into approved current evidence. No old source journal is
+silently migrated into a checked namespace. The remaining complete adapter must
+still own public observations, credentials/actor publication and verified full
+resource/original-file/host-journal retirement before capability registration.

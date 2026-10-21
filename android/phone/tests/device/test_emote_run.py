@@ -22,14 +22,35 @@ from feature_journeys.phase_fixture import PhaseFixtureReader
 from overte_phone_emote_inputs import PhoneEmoteInputs
 from overte_phone_emote_namespaces import PhoneEmoteNamespaces
 from overte_phone_emote_run import PhoneEmoteRun
+from overte_phone_emote_sources import PhoneEmoteSources
+from overte_phone_emote_effects import PhoneEmoteEffects
 from overte_phone_script_history import pack,unpack
-from test_emote_background import Model as BackgroundModel
+from test_emote_admission_owner import Model as AdmissionModel
 from test_emote_lifetime import ScopedModel
 from test_emote_sources import RUN
+from self_tests.test_emote_admission import POLICY,add_manager,PROBE
+from adapters.emote_admission import catalog,KEYS
 
 
-class Model(BackgroundModel,ScopedModel):
-    """Reuse actual independent OS and scoped timer boundary producers."""
+class Model(AdmissionModel,ScopedModel):
+    """Reuse independent OS, world/cache/Script and scoped timer producers."""
+    def __init__(self,root):
+        super().__init__(root)
+        bubble=next(row for row in catalog()['files'] if row['runtimePath']=='system/bubble.js')
+        for row in (self.foreign_compilation,self.worker.compiled['compilations'][2]):
+            row.update(resourceName=self.roots.root+'/system/bubble.js',**{key:bubble[key] for key in KEYS})
+        observe=self.code.mutate
+        def script(value):
+            observe(value);value['source']['engines'][0]['compiled']['compilations'].append(deepcopy(self.foreign_compilation))
+        self.code.mutate=script
+    def use_included_source(self):
+        if getattr(self,'included_once',False):return
+        super().use_included_source();self.included_once=True
+    def work_send(self,request):
+        super().work_send(request)
+        member=dict(instance='f'*32,assigned=True,url=PROBE,assignedEpochMs=14900,loadGeneration=1)
+        self.work_value['source']['revision']=2
+        self.work_value['source']['workers'].append(dict(membership=member,running=True,stopping=False,finished=False,done=False))
 
 
 class EmoteRunTests(unittest.TestCase):
@@ -64,7 +85,7 @@ class EmoteRunTests(unittest.TestCase):
     def owner(self):
         m=self.model
         phase=PhaseFixtureReader(m.client,RUN,'emotes',epoch_ms=lambda:m.epoch,monotonic=lambda:m.clock)
-        return PhoneEmoteRun(m,'synthetic-selector',phase,m.root,[1000,750],[20,20,180,60],monotonic=lambda:m.clock,sleep=m.sleep)
+        return PhoneEmoteRun(m,'synthetic-selector',phase,m.root,[1000,750],[20,20,180,60],admission=POLICY,monotonic=lambda:m.clock,sleep=m.sleep)
 
     def prepared(self):
         owner=self.owner();owner.prepare();return owner
@@ -261,15 +282,18 @@ class EmoteRunTests(unittest.TestCase):
         self.assertIsNotNone(owner.store.read());self.assertTrue(m.worker.timers)
 
     def test_legacy_input_run_is_read_without_rewrite_and_upgraded_on_resource_cleanup(self):
-        owner=self.prepared();value=owner.store.read();value['emoteRunVersion']=1
-        owner.store.write(value,owner.previous);owner=self.owner();owner.prepare()
+        owner=self.prepared();value=owner.store.read();value['emoteRunVersion']=1;value.pop('admissionPolicy')
+        state=unpack(value['payload'])[0];state.pop('admissionSha256');value['payload']=pack([state])
+        owner.store.write(value,owner.previous);owner=self.owner()
+        with self.assertRaises(NativeUIError):owner.prepare() # Old input readiness is not approved admission.
         self.assertEqual(value,owner.store.read());self.cleanup_phase()
         owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
-        self.assertEqual(2,owner.store.read()['emoteRunVersion']);self.assertEqual('resources-restored',owner.state['phase'])
+        self.assertEqual(3,owner.store.read()['emoteRunVersion']);self.assertEqual('resources-restored',owner.state['phase'])
 
     def test_legacy_header_cannot_claim_a_new_resource_phase(self):
         owner=self.prepared();self.cleanup_phase();owner.cleanup_resources(dict(contractVersion=VERSION,runId=RUN))
-        value=owner.store.read();value['emoteRunVersion']=1;owner.store.write(value,owner.previous)
+        value=owner.store.read();value['emoteRunVersion']=1;value.pop('admissionPolicy')
+        state=unpack(value['payload'])[0];state.pop('admissionSha256');value['payload']=pack([state]);owner.store.write(value,owner.previous)
         with self.assertRaises(NativeUIError):self.owner().cleanup_quiet('primary')
         self.assertIsNotNone(owner.store.read())
 
@@ -283,6 +307,55 @@ class EmoteRunTests(unittest.TestCase):
         with patch.object(owner,'active',side_effect=slow),self.assertRaises(NativeUIError):owner.cleanup_quiet('primary')
         self.assertEqual(2,calls[0]);state=unpack(PrivateFeatureState(m.root/'phone-emote-primary-lifetime.json').read()['payload'])[0]
         self.assertEqual('complete',state['phase']);self.assertIsNotNone(owner.store.read())
+
+    def test_missing_admission_configuration_never_starts_a_new_run(self):
+        owner=self.owner();owner.policy=None
+        with self.assertRaises(NativeUIError):owner.prepare()
+        self.assertIsNone(owner.store.read());self.assertEqual([],self.setup_calls)
+
+    def test_unfinished_admission_blocks_view_scene_and_normal_input(self):
+        self.model.admission_fault='wrong-domain';owner=self.owner()
+        with self.assertRaises(NativeUIError):owner.prepare()
+        self.assertEqual([],self.setup_calls);self.assertIsNotNone(owner.store.read())
+        with self.assertRaises(NativeUIError):owner.act(self.model.call('open'))
+        self.assertEqual([],self.model.controls.input_requests)
+
+    def test_missing_or_changed_admission_header_blocks_input_after_prepared_commit(self):
+        owner=self.prepared();store=PrivateFeatureState(self.model.root/'phone-emote-primary-admission.json')
+        store.discard(store.read());call=self.model.call('play',dict(name='Crying'))
+        with self.assertRaises(NativeUIError):owner.act(call)
+        self.assertEqual([],self.model.controls.input_requests);self.assertIsNone(self.model.actual_name)
+
+    def test_late_unapproved_compilation_cannot_borrow_initial_admission_to_send_input(self):
+        m=self.model;owner=self.prepared();observe=m.code.mutate
+        def extra(value):
+            observe(value);value['source']['engines'][0]['compiled']['compilations'].append(dict(scriptId=32,
+                resourceName=m.roots.root+'/unapproved.js',encoding='utf-16le-code-units',codeUnits=2,sha256='f'*64,compiledEpochMs=m.epoch))
+        m.code.mutate=extra
+        with self.assertRaises(NativeUIError):owner.act(m.call('play',dict(name='Crying')))
+        self.assertEqual([],m.controls.input_requests);self.assertEqual([],m.tablet_inputs);self.assertIsNone(m.actual_name)
+
+    def test_late_foreign_world_cannot_borrow_initial_admission_to_send_input(self):
+        m=self.model;owner=self.prepared();m.admission_fault='wrong-domain'
+        with self.assertRaises(NativeUIError):owner.act(m.call('play',dict(name='Crying')))
+        self.assertEqual([],m.controls.input_requests);self.assertEqual([],m.tablet_inputs);self.assertIsNone(m.actual_name)
+
+    def test_checked_primary_cannot_publish_using_an_unchecked_actor_source(self):
+        m=self.model;owner=self.prepared()
+        with owner.lock.held():
+            owner.load();primary=owner.source();inputs=PhoneEmoteInputs(primary)
+            actor=PhoneEmoteSources(m,'synthetic-selector',owner.phase,'actor',owner.lock,artifact_root=m.root,monotonic=lambda:m.clock)
+            self.assertIsNone(actor.admission)
+            with self.assertRaises(NativeUIError):PhoneEmoteEffects(inputs,current_source=actor)
+            self.assertIsNotNone(primary.admission);self.assertIsNone(actor.store.read())
+
+    def test_live_source_policy_cannot_be_removed_in_memory_before_acquisition(self):
+        m=self.model;owner=self.prepared()
+        with owner.lock.held():
+            owner.load();source=owner.source();header=deepcopy(source.previous);before=deepcopy(m.calls)
+            source.admission=None
+            with self.assertRaises(NativeUIError):source.read()
+            self.assertEqual(before,m.calls);self.assertEqual(header,source.store.read())
 
 
 if __name__=='__main__':unittest.main()

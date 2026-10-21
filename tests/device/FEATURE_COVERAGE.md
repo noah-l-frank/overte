@@ -26,8 +26,9 @@ branches; complete Lifecycle joins remain missing.
 All rows have shared test logic. Android Phone now implements the complete Script, Authentication and Graphics extensions; native instrumentation remains uncompiled and untested on devices. The other eleven Phone area adapters and all complete Pico/iOS area adapters remain missing.
 The [Phone Emote run owner](adapters/android-phone/EMOTE_RUN.md) now connects
 setup, ordinary inputs, original role sources, bounded namespace switching and
-input cleanup. Complete Emotes still lacks full admission, public observations/
-actor and whole-run retirement; it is not counted as an implemented full triple.
+input cleanup. [Original admission](adapters/android-phone/EMOTE_ADMISSION.md)
+now gates setup and each current source enforces executable/world approval.
+Complete Emotes still lacks public observations/actor and whole-run retirement; it is not counted as an implemented full triple.
 These are implementation statuses, not complete product-feature acceptance.
 The [source compatibility review](FEATURE_SOURCE_COMPATIBILITY.md) identifies
 remaining platform Emote prerequisites. Version 5 corrects ordinary override/chooser semantics, adds nine automatic completions and a separate early-restoration check. Version 4 corrects Graphics to immediate settings and independently measured original preferences. Version 2 corrected Scripts to the real file-bundle picker; version 3 corrected

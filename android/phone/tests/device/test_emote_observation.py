@@ -23,6 +23,10 @@ from overte_phone_emote_effects import PhoneEmoteEffects
 from overte_phone_emote_capture import PhoneEmoteCapture
 from overte_phone_emote_observation import PhoneEmoteObservation
 from overte_phone_script_history import unpack
+from feature_journeys.phase_fixture import PhaseFixtureReader
+from overte_phone_emote_sources import PhoneEmoteSources
+from test_emote_admission_owner import Model as AdmissionModel
+from self_tests.test_emote_admission import POLICY as ADMISSION_POLICY
 from test_emote_capture import Model as CaptureModel
 from test_emote_pixels import POLICY
 from test_emote_sources import RUN
@@ -493,6 +497,29 @@ class EmoteObservationTests(unittest.TestCase):
             m.on_capture=lambda:setattr(m,'actual_asset_name','Cheering')
             with self.assertRaises(NativeUIError):scope.read(call['ticket'])
             self.assertIsNotNone(scope.store.read());self.assertNotEqual('complete',scope.state['phase'])
+
+
+class AdmittedModel(Model,AdmissionModel):
+    """Reuse the existing image and independent approved-source boundaries."""
+    def source(self,role='primary',*,segment=0):
+        phase=PhaseFixtureReader(self.client,RUN,'emotes',epoch_ms=lambda:self.epoch,monotonic=lambda:self.clock)
+        return PhoneEmoteSources(self,'synthetic-selector',phase,role,self.lock,artifact_root=self.root,
+            monotonic=lambda:self.clock,segment=segment,admission=ADMISSION_POLICY)
+
+
+class AdmittedObservationTests(unittest.TestCase):
+    def test_checked_primary_and_actor_images_transfer_their_own_v4_original_contexts(self):
+        for role in ('primary','actor'):
+            with self.subTest(role=role),tempfile.TemporaryDirectory(prefix='overte-emote-approved-image-') as directory:
+                m=AdmittedModel(Path(directory))
+                with patch('overte_phone_emote_inputs.PhoneScriptUI',side_effect=m.tablet),m.lock.held():
+                    call=m.call('play',dict(name='Crying'));owner=PhoneEmoteInputs(m.source());owner.act(call)
+                    scope=m.scope(owner,1,role=role);value=scope.read(call['ticket']);archive=scope.transfer(lambda *_:None)
+                    actual=PhoneEmoteObservation.archive(archive,scope.effects,1,POLICY)
+                    self.assertEqual(value,actual);self.assertEqual(role,actual['role'])
+                    self.assertEqual(4,archive['inputSourceHeader']['emoteSourcesVersion'])
+                    self.assertEqual(4,archive['sourceHeader']['emoteSourcesVersion'])
+                    self.assertEqual(ADMISSION_POLICY,archive['sourceHeader']['admissionPolicy'])
 
 
 if __name__=='__main__':unittest.main()

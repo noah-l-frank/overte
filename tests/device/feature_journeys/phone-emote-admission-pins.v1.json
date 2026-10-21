@@ -1,0 +1,3548 @@
+{
+  "phoneEmoteAdmissionCatalogVersion": 1,
+  "sourceBase": "6e886b2a3548fd99991e0a7b89dd606622b6cfb8",
+  "managers": [
+    "defaultScripts.js",
+    "system/create/edit.js",
+    "system/snapshot.js",
+    "communityScripts/armored-chat/armored_chat.js",
+    "communityScripts/chatBubbles/chatBubbles.js",
+    "communityScripts/notificationCore/notificationCore.js"
+  ],
+  "files": [
+    {
+      "path": "scripts/+android_interface/defaultScripts.js",
+      "runtimePath": "+android_interface/defaultScripts.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3766,
+      "sha256": "234f4951224bb40543fee85e8e3ae49948c2a2f2371fdb1ec982b840057d7f53"
+    },
+    {
+      "path": "scripts/+android_phoneInterface/defaultScripts.js",
+      "runtimePath": "+android_phoneInterface/defaultScripts.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2018,
+      "sha256": "e83a0029ac7ae356114c1b16174e6d357ed092651f1bf4ad06b3417fd4728d68"
+    },
+    {
+      "path": "scripts/+android_questInterface/defaultScripts.js",
+      "runtimePath": "+android_questInterface/defaultScripts.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5884,
+      "sha256": "4fdf27ba5f1ce78fd6c7eeea8a6f4e891519f3bdcafa3df79d463ea0b366a09a"
+    },
+    {
+      "path": "scripts/communityScripts/armored-chat/armored_chat.js",
+      "runtimePath": "communityScripts/armored-chat/armored_chat.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 18706,
+      "sha256": "266e75a11f20263841e35fb818c0f661aec18bfb5ceb39b6cd36df50a65fba49"
+    },
+    {
+      "path": "scripts/communityScripts/chatBubbles/chatBubbles.js",
+      "runtimePath": "communityScripts/chatBubbles/chatBubbles.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 16436,
+      "sha256": "298872557b72c6a4c9aadb048e27e9a798a9f079d096873b71024f508a2aaaa6"
+    },
+    {
+      "path": "scripts/communityScripts/contextMenu.js",
+      "runtimePath": "communityScripts/contextMenu.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 25314,
+      "sha256": "76dd166de8705bb0827d7429c62a802949cc3b0e02ea8ad4d01f3cbca2b5d8de"
+    },
+    {
+      "path": "scripts/communityScripts/explore/explore.js",
+      "runtimePath": "communityScripts/explore/explore.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6693,
+      "sha256": "0e6775f5ce831c02260bbe257b6db38cfc0246a29dba5676586ea3aa494f4d3a"
+    },
+    {
+      "path": "scripts/communityScripts/libraries/axios/axios.min.js",
+      "runtimePath": "communityScripts/libraries/axios/axios.min.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 14355,
+      "sha256": "3d53a969a36fd51c11d8f2e77bc0a0cdffef89dabacf63e659c5a8ba3343d525"
+    },
+    {
+      "path": "scripts/communityScripts/libraries/materialdesignicons/package.json",
+      "runtimePath": "communityScripts/libraries/materialdesignicons/package.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/communityScripts/libraries/vue-router/vue-router.js",
+      "runtimePath": "communityScripts/libraries/vue-router/vue-router.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 84012,
+      "sha256": "caceea2580f6feba4cdf694e623db51bbbafe618d28f90892677d0427b9fd6d4"
+    },
+    {
+      "path": "scripts/communityScripts/libraries/vue/vue.min.js",
+      "runtimePath": "communityScripts/libraries/vue/vue.min.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 93670,
+      "sha256": "28ff9b7901dd5895a7b409292b1a6a01250d5d85f6a4a6f4c1e6cd29087322f6"
+    },
+    {
+      "path": "scripts/communityScripts/libraries/vuetify/attributes.json",
+      "runtimePath": "communityScripts/libraries/vuetify/attributes.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/communityScripts/libraries/vuetify/tags.json",
+      "runtimePath": "communityScripts/libraries/vuetify/tags.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/communityScripts/libraries/vuetify/vuetify-v2.3.9.js",
+      "runtimePath": "communityScripts/libraries/vuetify/vuetify-v2.3.9.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1547394,
+      "sha256": "8e5797fa25690afe3497e01707ab32b90073462ca871bfcacbe801b03b78aab9"
+    },
+    {
+      "path": "scripts/communityScripts/libraries/vuetify/vuetify-v2.3.9.min.js",
+      "runtimePath": "communityScripts/libraries/vuetify/vuetify-v2.3.9.min.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 497539,
+      "sha256": "4da1529e7caa110021c38677faca410d430412a8ebd27b397d126282af11b497"
+    },
+    {
+      "path": "scripts/communityScripts/libraries/vuetify/web-types.json",
+      "runtimePath": "communityScripts/libraries/vuetify/web-types.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/communityScripts/notificationCore/notificationCore.js",
+      "runtimePath": "communityScripts/notificationCore/notificationCore.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5989,
+      "sha256": "0fab7adb71d7301e214a99c46e6b32851cec1cb2239591ebea9d867b50548556"
+    },
+    {
+      "path": "scripts/+android_phoneInterface/defaultScripts.js",
+      "runtimePath": "defaultScripts.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2018,
+      "sha256": "e83a0029ac7ae356114c1b16174e6d357ed092651f1bf4ad06b3417fd4728d68"
+    },
+    {
+      "path": "scripts/developer/EZrecord.js",
+      "runtimePath": "developer/EZrecord.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 8733,
+      "sha256": "35aa8e0d83736d44b1c319f3d20885506f38946ed95f8d8a3242da52b4f51a43"
+    },
+    {
+      "path": "scripts/developer/automaticLookAt.js",
+      "runtimePath": "developer/automaticLookAt.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 63050,
+      "sha256": "ef7f1db69d19d543c3c71c183373d6e4bdde9e5b2264d92bd359f494a19a956f"
+    },
+    {
+      "path": "scripts/developer/characterSmoothing/characterSmoothing.js",
+      "runtimePath": "developer/characterSmoothing/characterSmoothing.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3319,
+      "sha256": "85747b4bbe9066f8163341211487c2cd8f353f481719ce400a758ef61e3f85ad"
+    },
+    {
+      "path": "scripts/developer/characterSmoothing/ui/index.js",
+      "runtimePath": "developer/characterSmoothing/ui/index.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3906,
+      "sha256": "3fa9b751780317954d212e1c0cdaaba1da553824aa11dca3fccadece925327b4"
+    },
+    {
+      "path": "scripts/developer/createAvatarInputsBarEntity.js",
+      "runtimePath": "developer/createAvatarInputsBarEntity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6204,
+      "sha256": "18e73ad32f3a6c88e03f663723c25995c3b45cd2f59c7a49e7f4496ec927d649"
+    },
+    {
+      "path": "scripts/developer/debugging/QObjectWrapperGCTest.js",
+      "runtimePath": "developer/debugging/QObjectWrapperGCTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1818,
+      "sha256": "adeac0f37b536e418e93560ceec1f8b6f57830cbccc4c735346bed917966e4b4"
+    },
+    {
+      "path": "scripts/developer/debugging/actionInspector.js",
+      "runtimePath": "developer/debugging/actionInspector.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4911,
+      "sha256": "485a899384041f7ed94021d2bf470859d8e8db6350c134b52dd11074deb85ca8"
+    },
+    {
+      "path": "scripts/developer/debugging/debugAvatarMixer.js",
+      "runtimePath": "developer/debugging/debugAvatarMixer.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7194,
+      "sha256": "6c76c8dfd70df774bd68d167453a7b92c9d9c8a9d164473908d3d0c37909d4ea"
+    },
+    {
+      "path": "scripts/developer/debugging/debugWindow.js",
+      "runtimePath": "developer/debugging/debugWindow.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4446,
+      "sha256": "d13f709a8205b5797c8eddf5f91832f3af72da978d63e6d37acf366177383d61"
+    },
+    {
+      "path": "scripts/developer/debugging/debugWorkloadWithMouseHover.js",
+      "runtimePath": "developer/debugging/debugWorkloadWithMouseHover.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4661,
+      "sha256": "2cc7a3ba7344464e7cd5ccf16a4b4faebcb2734f094ea2f3c403942d891e2b8f"
+    },
+    {
+      "path": "scripts/developer/debugging/essDebugWindow.js",
+      "runtimePath": "developer/debugging/essDebugWindow.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 717,
+      "sha256": "891ee779c721bc4fde28f40b7f5454d0f21fe31682ea7d6016a68637662bc3d8"
+    },
+    {
+      "path": "scripts/developer/debugging/grabInspector.js",
+      "runtimePath": "developer/debugging/grabInspector.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4506,
+      "sha256": "66fa8590481fc8e93e9c98c9da7d591ba508e7c5629a187a7c5e665b4201e68e"
+    },
+    {
+      "path": "scripts/developer/debugging/openxrControllerInputs.js",
+      "runtimePath": "developer/debugging/openxrControllerInputs.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2626,
+      "sha256": "6e82baadb1be0386627a277b6e56cfac74f138ad4bbf5ac9225d755bcd37d8bd"
+    },
+    {
+      "path": "scripts/developer/debugging/pico4InteractionTestStation.js",
+      "runtimePath": "developer/debugging/pico4InteractionTestStation.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3342,
+      "sha256": "28b01286f5c632e253308c76747ce18da94d1922be97a76fc92df1e4151bb022"
+    },
+    {
+      "path": "scripts/developer/debugging/pico4InteractionTraceControl.js",
+      "runtimePath": "developer/debugging/pico4InteractionTraceControl.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 666,
+      "sha256": "9913fa9e965f974db3d0ced2c3e8e2d6856ea700d207018a73d7d6568abcc709"
+    },
+    {
+      "path": "scripts/developer/debugging/pico4ObjectInteraction.js",
+      "runtimePath": "developer/debugging/pico4ObjectInteraction.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5346,
+      "sha256": "35506b297636f1ff2215d1765b7acec395b127d454cf6b9a9835e232601cda1d"
+    },
+    {
+      "path": "scripts/developer/debugging/queryAACubeInspector.js",
+      "runtimePath": "developer/debugging/queryAACubeInspector.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1975,
+      "sha256": "46228cc04f4c670839decf260011a58033db2e865de095c033a3bd3a963e150f"
+    },
+    {
+      "path": "scripts/developer/debugging/scriptMemoryReport.js",
+      "runtimePath": "developer/debugging/scriptMemoryReport.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1754,
+      "sha256": "4da5ad268db25e0fec58ea584a5e51bbd6fb909aef5ff758a656ec0e3e98d652"
+    },
+    {
+      "path": "scripts/developer/facialExpressions.js",
+      "runtimePath": "developer/facialExpressions.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 10250,
+      "sha256": "2d44648a77c54522e95ac44058c3620981d05d815176a541ddcf56b08d7cd101"
+    },
+    {
+      "path": "scripts/developer/hmdRollControlDisable.js",
+      "runtimePath": "developer/hmdRollControlDisable.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 424,
+      "sha256": "0728f294297191d9e8bddbb36270f6d0b7c40d02f13bf28ff21c44ee6ddc472f"
+    },
+    {
+      "path": "scripts/developer/hmdRollControlEnable.js",
+      "runtimePath": "developer/hmdRollControlEnable.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 678,
+      "sha256": "c8aae6953d0dc0c927de503a632171eea4ff1afba08861c3afce59dcd571d34b"
+    },
+    {
+      "path": "scripts/developer/inputRecording.js",
+      "runtimePath": "developer/inputRecording.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2582,
+      "sha256": "e21230c41e44d9badf32fb56cd4f714d20fe38f70826c5f60669724ec31b8842"
+    },
+    {
+      "path": "scripts/developer/libraries/jasmine/hifi-boot.js",
+      "runtimePath": "developer/libraries/jasmine/hifi-boot.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3164,
+      "sha256": "aeab644e5c54b91d3409d381bf1511e26b3f7884cb93e4063c0dfc3c2ec23dd3"
+    },
+    {
+      "path": "scripts/developer/libraries/jasmine/jasmine.js",
+      "runtimePath": "developer/libraries/jasmine/jasmine.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 92161,
+      "sha256": "b7b2df08fd56e4b59f739b43c22e599222507a1e882d13bfa92c0dac187f078e"
+    },
+    {
+      "path": "scripts/developer/libraries/utils.js",
+      "runtimePath": "developer/libraries/utils.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 8503,
+      "sha256": "915bc553e2ffd0a4c871435df18da7c8fdc216e4c8e5429cb0f542557c842859"
+    },
+    {
+      "path": "scripts/developer/libraries/virtualBaton.js",
+      "runtimePath": "developer/libraries/virtualBaton.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 19472,
+      "sha256": "6af70015128dd74756d4a063d7308fab6a29c5b28de867bd527e62b3d3c87c2b"
+    },
+    {
+      "path": "scripts/developer/sunModel.js",
+      "runtimePath": "developer/sunModel.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 12724,
+      "sha256": "9e2554bacf0394c747b1022734bb87bc63c42e8573e2c40352fdcd6e877c6b5a"
+    },
+    {
+      "path": "scripts/developer/tests/agentAPITest.js",
+      "runtimePath": "developer/tests/agentAPITest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1903,
+      "sha256": "c76d7e5f7de51a724b8ccadaffb5e6330a2ec8bbc0acb3209e18f291db0e5219"
+    },
+    {
+      "path": "scripts/developer/tests/ambientSoundTest.js",
+      "runtimePath": "developer/tests/ambientSoundTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 663,
+      "sha256": "85493195fd475dd250d90833c53d55c6a2dec036bcdadde132c17c35e4edd6d9"
+    },
+    {
+      "path": "scripts/developer/tests/avatarAttachmentTest.js",
+      "runtimePath": "developer/tests/avatarAttachmentTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6538,
+      "sha256": "9a883e49e35aabe35f3b84310432f2ccdbdee9ae7be21108c2edd3e78e9f3de8"
+    },
+    {
+      "path": "scripts/developer/tests/avatarToWorldTests.js",
+      "runtimePath": "developer/tests/avatarToWorldTests.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3435,
+      "sha256": "e0568c8e21a2fd3f159286e663fbb1d5750bb9ce15fee9e612adbbbebacdd4ba"
+    },
+    {
+      "path": "scripts/developer/tests/basicEntityTest/entitySpawner.js",
+      "runtimePath": "developer/tests/basicEntityTest/entitySpawner.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 753,
+      "sha256": "fabee615f1d0c65f16b079caaf0c38ed1679550e0a673143b02521ad2e8695c0"
+    },
+    {
+      "path": "scripts/developer/tests/basicEntityTest/myEntityScript.js",
+      "runtimePath": "developer/tests/basicEntityTest/myEntityScript.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 439,
+      "sha256": "23cc7b54dd3ed9dabaaaa067e09aea37d63d52e68b2a1c2d79f7a995b895a67d"
+    },
+    {
+      "path": "scripts/developer/tests/basicEntityTest/shapeSpawner.js",
+      "runtimePath": "developer/tests/basicEntityTest/shapeSpawner.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 849,
+      "sha256": "09a1ae8555a3281a0f532c309ca46adc51cdb9f5d845122d0270de965557884c"
+    },
+    {
+      "path": "scripts/developer/tests/batonSoundEntityTest/batonSoundTestEntityScript.js",
+      "runtimePath": "developer/tests/batonSoundEntityTest/batonSoundTestEntityScript.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3075,
+      "sha256": "20b67dfeecba71e866c3c295d3df7628ccf59e877eb5fe1c4aea5e7f8d95211c"
+    },
+    {
+      "path": "scripts/developer/tests/batonSoundEntityTest/batonSoundTestEntitySpawner.js",
+      "runtimePath": "developer/tests/batonSoundEntityTest/batonSoundTestEntitySpawner.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 774,
+      "sha256": "ee29c032697fddd21ac4af96729d92e11dd09eb0b1d5e0f3506736c55b4c78e8"
+    },
+    {
+      "path": "scripts/developer/tests/consoleObjectTest.js",
+      "runtimePath": "developer/tests/consoleObjectTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3834,
+      "sha256": "02fef3dc572f3bdad2a44d210269d3c52f6ca3bd367e5b7600bba5d46222c0b6"
+    },
+    {
+      "path": "scripts/developer/tests/controllerInterfaceTest.js",
+      "runtimePath": "developer/tests/controllerInterfaceTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2187,
+      "sha256": "8095b1a91133fc7cba6bc7e76dc7a9e1b6b4f5292aa5667d91bd882e3b21d33f"
+    },
+    {
+      "path": "scripts/developer/tests/controllerTableTest.js",
+      "runtimePath": "developer/tests/controllerTableTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 9944,
+      "sha256": "4b96c827df0d73b4f003e4c8125b306e8d6a6566c1b7a20e8e78f4f8392bca6c"
+    },
+    {
+      "path": "scripts/developer/tests/controlsGallery.js",
+      "runtimePath": "developer/tests/controlsGallery.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 790,
+      "sha256": "9d7bff83d639b8cfb366125fe36b07af9464ed0ba335a8595690bc367f79eba8"
+    },
+    {
+      "path": "scripts/developer/tests/drawTrackedObjects.js",
+      "runtimePath": "developer/tests/drawTrackedObjects.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 962,
+      "sha256": "b6333d1caac579bf5ce230ce124aa5c370327b0a48d83d04082115ecf1c3e70f"
+    },
+    {
+      "path": "scripts/developer/tests/dynamics/dynamics-tests-interface.js",
+      "runtimePath": "developer/tests/dynamics/dynamics-tests-interface.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2361,
+      "sha256": "6ec985879a02d6cc939d1a7309ff48bf69fc74680fd9a070c29a5593fa8c1c88"
+    },
+    {
+      "path": "scripts/developer/tests/dynamics/dynamicsTests.js",
+      "runtimePath": "developer/tests/dynamics/dynamicsTests.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 28776,
+      "sha256": "fa35fa55186b19a25b59af0077bf7a0ad6881767b0323a7dbdbea2cd5ae5a81f"
+    },
+    {
+      "path": "scripts/developer/tests/entityEditStressTest.js",
+      "runtimePath": "developer/tests/entityEditStressTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 914,
+      "sha256": "2f59c45497431291e830ae8d747935a4844c82f1403f24e345f01c9f5a3a1570"
+    },
+    {
+      "path": "scripts/developer/tests/entityLookupCostMeasurement.js",
+      "runtimePath": "developer/tests/entityLookupCostMeasurement.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3556,
+      "sha256": "a57ade41f8b31b633c2468c907f8de0b46c77f357ca0c407b7c7408316f76d22"
+    },
+    {
+      "path": "scripts/developer/tests/entityServerStampedeTest-entity.js",
+      "runtimePath": "developer/tests/entityServerStampedeTest-entity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 645,
+      "sha256": "1e11c71a7c5b4533ab6e6a4466602585ff3921771d8bd9202691eb81f32faa61"
+    },
+    {
+      "path": "scripts/developer/tests/entityServerStampedeTest.js",
+      "runtimePath": "developer/tests/entityServerStampedeTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1147,
+      "sha256": "3b4fa77b9072944334c72ac113440935ac8ecacbc9deafa16d243134348eaa61"
+    },
+    {
+      "path": "scripts/developer/tests/entitySpawnTool.js",
+      "runtimePath": "developer/tests/entitySpawnTool.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6834,
+      "sha256": "043cad209af943abf97e8006225bb88cebc7840e3ac292ca2579f34764b78627"
+    },
+    {
+      "path": "scripts/developer/tests/entityStampedeTest-entity-fail.js",
+      "runtimePath": "developer/tests/entityStampedeTest-entity-fail.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 62,
+      "sha256": "50b15bb0ef372251579611de9b057995fc0c0c6503eadf99f8da21010d0edb45"
+    },
+    {
+      "path": "scripts/developer/tests/entityStampedeTest-entity.js",
+      "runtimePath": "developer/tests/entityStampedeTest-entity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 642,
+      "sha256": "74698a18ac45706059c2c71eec55a85d5643283648bdf1dc4247a047d58b6d4b"
+    },
+    {
+      "path": "scripts/developer/tests/entityStampedeTest.js",
+      "runtimePath": "developer/tests/entityStampedeTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1128,
+      "sha256": "ef4e941f4eb12c2ea34f0c81887a901d8475715ede8b7cef969160022e6541af"
+    },
+    {
+      "path": "scripts/developer/tests/filtered-puck-attach.js",
+      "runtimePath": "developer/tests/filtered-puck-attach.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 14659,
+      "sha256": "5e8b357b72dff48b75ec6faa903b04258ebfdaf248fbe5735c1daca0f25bd8d6"
+    },
+    {
+      "path": "scripts/developer/tests/gravityScript.js",
+      "runtimePath": "developer/tests/gravityScript.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1008,
+      "sha256": "306d4edac23483bdad393bb4b3b7229c69860e632b9e5022066f863918d18d95"
+    },
+    {
+      "path": "scripts/developer/tests/hazeTestInitialPose.js",
+      "runtimePath": "developer/tests/hazeTestInitialPose.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 157,
+      "sha256": "d392acfaad8afeb476dce014934414fafb6e86f82d90e3552db210624de8caaa"
+    },
+    {
+      "path": "scripts/developer/tests/hipsControllerTest.js",
+      "runtimePath": "developer/tests/hipsControllerTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3535,
+      "sha256": "f105a21e2ff9f96bbe41bd67ae2a14bf9f34e1b116c58768d3c504090707f7d2"
+    },
+    {
+      "path": "scripts/developer/tests/hipsIkTest.js",
+      "runtimePath": "developer/tests/hipsIkTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3572,
+      "sha256": "6817350d38164acb6f26af1ff6e50e9b279a5a8ab3fc574d3e38eb5ccf3fc7ce"
+    },
+    {
+      "path": "scripts/developer/tests/injectorTest.js",
+      "runtimePath": "developer/tests/injectorTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1160,
+      "sha256": "b6e7bc0921431d1f66d0f5a81a5e2211c2bd8b95d5106d604b466572ade599c5"
+    },
+    {
+      "path": "scripts/developer/tests/interactiveWindowTest.js",
+      "runtimePath": "developer/tests/interactiveWindowTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1106,
+      "sha256": "3d411efc01133ad2b2ba553faa8d08c44ec15a34c85e523ea819c21097317be4"
+    },
+    {
+      "path": "scripts/developer/tests/loadedMachine.js",
+      "runtimePath": "developer/tests/loadedMachine.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7518,
+      "sha256": "3e62f58f4488b5a26e4b743fff1031973de73bd6089025220fc42bfa5205cd36"
+    },
+    {
+      "path": "scripts/developer/tests/lodTest.js",
+      "runtimePath": "developer/tests/lodTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1207,
+      "sha256": "898f35a4d5e60c760513a0283820f673c61b54e054bc5a7365a523e68d1a21a4"
+    },
+    {
+      "path": "scripts/developer/tests/mat4test.js",
+      "runtimePath": "developer/tests/mat4test.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6794,
+      "sha256": "43ca8855d4d1aa83a8066b897d7175173e1cb1cbdbeacf041f87e2588add349b"
+    },
+    {
+      "path": "scripts/developer/tests/messagesTests.js",
+      "runtimePath": "developer/tests/messagesTests.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1268,
+      "sha256": "04486211fea056d1d9363e379697ebd49d3dcaf9ed87148a6b0433dc69036918"
+    },
+    {
+      "path": "scripts/developer/tests/overlayMouseTrackingTest.js",
+      "runtimePath": "developer/tests/overlayMouseTrackingTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1110,
+      "sha256": "c4e6d0c730d8efe625f4e29d3759ebc3ab56c149f19d53ee34d01a3c051d21b9"
+    },
+    {
+      "path": "scripts/developer/tests/particleOrientationTest.js",
+      "runtimePath": "developer/tests/particleOrientationTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2565,
+      "sha256": "5bf438222caa5396905f33c08fa75b7171683d317d1e55dda8788143891efdb0"
+    },
+    {
+      "path": "scripts/developer/tests/performance/consoleSpawner.js",
+      "runtimePath": "developer/tests/performance/consoleSpawner.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5809,
+      "sha256": "664976666356359c6be6b268a4dad7695e061dd503729874c6c07fbf7555a624"
+    },
+    {
+      "path": "scripts/developer/tests/performance/crowd-agent.js",
+      "runtimePath": "developer/tests/performance/crowd-agent.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5775,
+      "sha256": "93f534c34353107124cb0650f35bff62212a72889fe016bbd43c908374edd3e2"
+    },
+    {
+      "path": "scripts/developer/tests/performance/domain-check.js",
+      "runtimePath": "developer/tests/performance/domain-check.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 14416,
+      "sha256": "51c186887d21f6066d1719d08726d6becbab281b3026bb302024ff4b2254372b"
+    },
+    {
+      "path": "scripts/developer/tests/performance/keepAwayEntity.js",
+      "runtimePath": "developer/tests/performance/keepAwayEntity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1522,
+      "sha256": "5b8b69fbfd72029aa3a0fb97ff22b78a6bf0e8f4eb2b4d5f024435198444656f"
+    },
+    {
+      "path": "scripts/developer/tests/performance/rayPickPerformance.js",
+      "runtimePath": "developer/tests/performance/rayPickPerformance.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4150,
+      "sha256": "9b2c8b5b5800d6df6422570d0c66b9df4527ab606c610dddc81e563816e909df"
+    },
+    {
+      "path": "scripts/developer/tests/performance/simpleKeepAway.js",
+      "runtimePath": "developer/tests/performance/simpleKeepAway.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4246,
+      "sha256": "3cc090443dc3aff2425d3a6fae95d3f05a8970d71e32f48eebee871b3b99ca87"
+    },
+    {
+      "path": "scripts/developer/tests/performance/staticEdits.js",
+      "runtimePath": "developer/tests/performance/staticEdits.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3879,
+      "sha256": "6d9189f88277c6a927d30d13b06d5b29c5fe40b59f1a5fce7ee902552a46e77d"
+    },
+    {
+      "path": "scripts/developer/tests/performance/summon.js",
+      "runtimePath": "developer/tests/performance/summon.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7052,
+      "sha256": "02f9029bd5ab7de70690a4a953c5389abb5439cbdfa9bdaa7fb21e5f7cd1fc72"
+    },
+    {
+      "path": "scripts/developer/tests/performance/tribbleEntity.js",
+      "runtimePath": "developer/tests/performance/tribbleEntity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3664,
+      "sha256": "229a2f4114ce09b426fb2d714ed9797e395276fa7f536faf1bed4c120c412922"
+    },
+    {
+      "path": "scripts/developer/tests/performance/tribbles.js",
+      "runtimePath": "developer/tests/performance/tribbles.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3728,
+      "sha256": "78c649f2148bbac07eaebc842252a994647ead7a23022d606a1bb5f2010b96eb"
+    },
+    {
+      "path": "scripts/developer/tests/picoWebEntityTest.js",
+      "runtimePath": "developer/tests/picoWebEntityTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3674,
+      "sha256": "4137b1e71cf125eeb8984d7ceea45cde04a27a11601fa3316f7a026402cc6887"
+    },
+    {
+      "path": "scripts/developer/tests/playaPerformanceTest.js",
+      "runtimePath": "developer/tests/playaPerformanceTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 191,
+      "sha256": "00a8aed58d79b6dcfd3076d626d327780e3a204574ff3aad14ea1e1f12ed1c41"
+    },
+    {
+      "path": "scripts/developer/tests/primitivesTest.js",
+      "runtimePath": "developer/tests/primitivesTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 850,
+      "sha256": "aa9197cf7f94a58a7db60bf07f7adedd71fdccd01e1815423b6bd10d9ad8584b"
+    },
+    {
+      "path": "scripts/developer/tests/printTest.js",
+      "runtimePath": "developer/tests/printTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1454,
+      "sha256": "c42c46b96cb4c2a528f777225c272cc4a94adef952c93abd0f0b7de5fde36ed8"
+    },
+    {
+      "path": "scripts/developer/tests/puck-attach.js",
+      "runtimePath": "developer/tests/puck-attach.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 10640,
+      "sha256": "0b706c8f942908023cc5cba9f5f2a83a26e910d7d781fb6688afd0ee22abf1eb"
+    },
+    {
+      "path": "scripts/developer/tests/qmlTest.js",
+      "runtimePath": "developer/tests/qmlTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 263,
+      "sha256": "1ea2e7c8e1ee836cafa9483a6bbf167a6b1e0a243276f639d57bc392608be296"
+    },
+    {
+      "path": "scripts/developer/tests/rapidProceduralChange/rapidProceduralChangeTest.js",
+      "runtimePath": "developer/tests/rapidProceduralChange/rapidProceduralChangeTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2929,
+      "sha256": "04289200e3602331368bc21b53f13fe3a20d8a0db70bb3f41e79bab71d3b04d0"
+    },
+    {
+      "path": "scripts/developer/tests/raypickTester.js",
+      "runtimePath": "developer/tests/raypickTester.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2659,
+      "sha256": "3dd1476c76c62f029646109eaa2dc2d59192dc9f3b19f92ce36b83d87b5b9144"
+    },
+    {
+      "path": "scripts/developer/tests/scriptableResource/lib.js",
+      "runtimePath": "developer/tests/scriptableResource/lib.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3139,
+      "sha256": "d3087916dc8e0bbfc58c85d6be7c6edf25318c37e4396b1c7213203524ba8240"
+    },
+    {
+      "path": "scripts/developer/tests/scriptableResource/loadPerfTest.js",
+      "runtimePath": "developer/tests/scriptableResource/loadPerfTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 913,
+      "sha256": "b75c2c1543d540db7fc85eac3e150f8f9618d5f5b53b23e4288cd479b16170de"
+    },
+    {
+      "path": "scripts/developer/tests/scriptableResource/movieTest.js",
+      "runtimePath": "developer/tests/scriptableResource/movieTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1463,
+      "sha256": "f5451b110673fba9020bcaf256d3ae569c4bf9a8bce810d6c80e70eb1dae6b36"
+    },
+    {
+      "path": "scripts/developer/tests/scriptableResource/prefetchTest.js",
+      "runtimePath": "developer/tests/scriptableResource/prefetchTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1078,
+      "sha256": "1e34cd3b5da73476fd98327b41bbd6c7babcd67b22ebd071cbc28f117021c141"
+    },
+    {
+      "path": "scripts/developer/tests/skybox/skyboxTest.js",
+      "runtimePath": "developer/tests/skybox/skyboxTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3072,
+      "sha256": "6450ceb87329ccdb58eafd80b9f878790d666e7315effe8c69c203cf0424fe49"
+    },
+    {
+      "path": "scripts/developer/tests/sliderTestMain.js",
+      "runtimePath": "developer/tests/sliderTestMain.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1178,
+      "sha256": "820408ce04e9b9f4501e204cc5d9f3ae4548f5c995d464cbc1dc9b111458a1bd"
+    },
+    {
+      "path": "scripts/developer/tests/sphereLODTest.js",
+      "runtimePath": "developer/tests/sphereLODTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1814,
+      "sha256": "8b05d2203df459b2544e4d6f5d27ced80b491dfd9597564610304062b11a3d87"
+    },
+    {
+      "path": "scripts/developer/tests/tabletEventBridgeTest.js",
+      "runtimePath": "developer/tests/tabletEventBridgeTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3383,
+      "sha256": "c606e31915f41bd23fa7482e0f448903ec1fd7f0a93f040f6fe7f068ed75cad0"
+    },
+    {
+      "path": "scripts/developer/tests/tabletTest.js",
+      "runtimePath": "developer/tests/tabletTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1162,
+      "sha256": "7a181ff83b522912b81eb40bd21efc7e5b153786c37cfdd3abae3d354ad203e1"
+    },
+    {
+      "path": "scripts/developer/tests/testInterval.js",
+      "runtimePath": "developer/tests/testInterval.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7634,
+      "sha256": "86d3f6ffcc106ee4ebbfb8adb88c6eeecc794b408d817b9be3288d27141c485d"
+    },
+    {
+      "path": "scripts/developer/tests/testIntervalRpcFunction.js",
+      "runtimePath": "developer/tests/testIntervalRpcFunction.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2773,
+      "sha256": "0ed9d0f441d8eb69dde5854abe38f5f757301642db19b4f247fe607ec9a18531"
+    },
+    {
+      "path": "scripts/developer/tests/textureStress.js",
+      "runtimePath": "developer/tests/textureStress.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2030,
+      "sha256": "22866e8a85cce50f2bb08cc290edd2f203d77be7399ec47511101c2e45a63a00"
+    },
+    {
+      "path": "scripts/developer/tests/toolbarTest.js",
+      "runtimePath": "developer/tests/toolbarTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1329,
+      "sha256": "4271800ef362c42b3d95c209b9075c1fb14018e35cb4e7b9bc692b31c5d493d8"
+    },
+    {
+      "path": "scripts/developer/tests/ui/testLocalFileAccess.js",
+      "runtimePath": "developer/tests/ui/testLocalFileAccess.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1385,
+      "sha256": "0171cc7ea14fdf6615f9979723e9fab6ff878a0c260987c36a94ddd255cbd090"
+    },
+    {
+      "path": "scripts/developer/tests/ui/testLocalFileAccessServer.js",
+      "runtimePath": "developer/tests/ui/testLocalFileAccessServer.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 928,
+      "sha256": "af7f3d532b8734155fea52025c48757aa10dcb7e628947d8e31b716d66448e34"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/assetUnitTests.js",
+      "runtimePath": "developer/tests/unit_tests/assetUnitTests.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 20328,
+      "sha256": "75b1f42e53a262ef152901cf3c8df10a66a5309b20ad8248355af015ad78036d"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/avatarUnitTests.js",
+      "runtimePath": "developer/tests/unit_tests/avatarUnitTests.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2283,
+      "sha256": "3fcc5ff6f270bb8687ab37bf8e96b3a5fc0ed45c56095709d9e9f596f7dab475"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/bindUnitTest.js",
+      "runtimePath": "developer/tests/unit_tests/bindUnitTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 805,
+      "sha256": "d579db3b3ef7688d3027dcce9f03380079baa885b22671a4d761fa80c38130f1"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/entityUnitTests.js",
+      "runtimePath": "developer/tests/unit_tests/entityUnitTests.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4016,
+      "sha256": "8efe23ad0b718ca7326493f506f0c21baa6694b116d71e354f2a0f9ef0eab5f6"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/cycles/a.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/cycles/a.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 217,
+      "sha256": "30927d3d6508e2e2f426da2ccf131988029b1eff0593ed212e155df424325136"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/cycles/b.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/cycles/b.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 217,
+      "sha256": "764c619349dbb42bbdf61525cdad6369881bf6f0c792daa7580ccadc213e5960"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/cycles/main.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/cycles/main.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 320,
+      "sha256": "51b37bbe66433d3c48ba944edab08b2e1d135a763a1143dae82252320d7ea536"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/entity/entityConstructorAPIException.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/entity/entityConstructorAPIException.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 504,
+      "sha256": "c6c97f9294ad298f7bbec9960abf5762269396eb92dc2a54e63b1005575c19ad"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/entity/entityConstructorModule.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/entity/entityConstructorModule.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 761,
+      "sha256": "9b223889e5a3a635bd6a259913f76f62fe9141abd404fe8226661dd02b8e0df9"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/entity/entityConstructorNested.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/entity/entityConstructorNested.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 383,
+      "sha256": "8f9e61a2e3f6fa0c440ba77d3f1a336e20214be49a6ef8a006cf6368dada72cb"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/entity/entityConstructorNested2.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/entity/entityConstructorNested2.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 810,
+      "sha256": "e1b369649c7c22364d23f3642faf5b87ba5e1f10d66acd18d8b7e62da916e50b"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/entity/entityConstructorRequireException.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/entity/entityConstructorRequireException.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 342,
+      "sha256": "b34dbfa00085d53a52843c61c07b46b9edd3e6ec73c4e3c6e403c02397c002f4"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/entity/entityPreloadAPIError.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/entity/entityPreloadAPIError.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 507,
+      "sha256": "394e5b218ecc7ef10bb8f3d1e8a2689a5f29223bbadc194c501e58569cffb90b"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/entity/entityPreloadRequire.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/entity/entityPreloadRequire.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 361,
+      "sha256": "9586cb40853638e949e2b1da9b0322c46300aac593132644fda2364b27b67042"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/example.json",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/example.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/exceptions/exception.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/exceptions/exception.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 87,
+      "sha256": "4e539a99735e20a1f4e52ab71fb38c2e4ee31106b247927f01b3f9e3d2ea2715"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleTests/exceptions/exceptionInFunction.js",
+      "runtimePath": "developer/tests/unit_tests/moduleTests/exceptions/exceptionInFunction.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 350,
+      "sha256": "5016a1c2aae5a6c5e6a437a4586766259c775f8bcc33d9368a823990d4614d84"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/moduleUnitTests.js",
+      "runtimePath": "developer/tests/unit_tests/moduleUnitTests.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 16557,
+      "sha256": "93e29ddd2ce96f0dc2885f3367610ad66a8168aa2c4668edb2802395f6edc4f3"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/package.json",
+      "runtimePath": "developer/tests/unit_tests/package.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/scriptTests/error.js",
+      "runtimePath": "developer/tests/unit_tests/scriptTests/error.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 127,
+      "sha256": "46f4ed3ae0df2fa524ec43e21be05bc9c2314448df6af293dd57a01ed545b00c"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/scriptTests/nested-error.js",
+      "runtimePath": "developer/tests/unit_tests/scriptTests/nested-error.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 246,
+      "sha256": "daf6d18117b61edb9f7315fab044fa778b2a7bffb82cf709eef81302a1344483"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/scriptTests/nested-syntax-error.js",
+      "runtimePath": "developer/tests/unit_tests/scriptTests/nested-syntax-error.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 253,
+      "sha256": "31320414ccec1e81949634efa5c7b618731adfc5f9e5dfc3c740216eac38393f"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/scriptTests/nested/error.js",
+      "runtimePath": "developer/tests/unit_tests/scriptTests/nested/error.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 133,
+      "sha256": "7e1c8a0319f1c15ceb4670a298d7301957212e38790f8b0a7acff83204875f47"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/scriptTests/nested/lib.js",
+      "runtimePath": "developer/tests/unit_tests/scriptTests/nested/lib.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 70,
+      "sha256": "62e3f7f413eae70951d11c07dff9380c39b130e60346ecf9bd618e0652f0064c"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/scriptTests/nested/sibling.js",
+      "runtimePath": "developer/tests/unit_tests/scriptTests/nested/sibling.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 42,
+      "sha256": "236e46c3a98f0c9cd236265ba26fe5368a49a617f4f746b3b908ce08d0407550"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/scriptTests/nested/syntax-error.js",
+      "runtimePath": "developer/tests/unit_tests/scriptTests/nested/syntax-error.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 52,
+      "sha256": "5cc35de11fff1fe83ef7de0f6d06420830bf7513bfa48e73e888b69a68f3e1b5"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/scriptTests/top-level-error.js",
+      "runtimePath": "developer/tests/unit_tests/scriptTests/top-level-error.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 225,
+      "sha256": "b47395aa6a150930437ec1e41709e40be3047655a95bb038bd7bd8c1fa6b5253"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/scriptTests/top-level.js",
+      "runtimePath": "developer/tests/unit_tests/scriptTests/top-level.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 96,
+      "sha256": "eb236998729000ab652be70805efd8e3d2ce2ab66438d14410924e3c58c24ea8"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/scriptUnitTests.js",
+      "runtimePath": "developer/tests/unit_tests/scriptUnitTests.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6114,
+      "sha256": "d9946cbd2acc76e7c7881cfa261725e8f917c5e2d8146ff6e92d4690b2eeb87a"
+    },
+    {
+      "path": "scripts/developer/tests/unit_tests/testRunner.js",
+      "runtimePath": "developer/tests/unit_tests/testRunner.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 855,
+      "sha256": "0413587acb3198cfe89292a8e63afb5a5b3a351505ab17e6c85d631eb11dcae3"
+    },
+    {
+      "path": "scripts/developer/tests/viveMotionCapture.js",
+      "runtimePath": "developer/tests/viveMotionCapture.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 13411,
+      "sha256": "2bd6266bb9473cf3200d0e5d80414dc331b0ff321c71c44767288a11e6525836"
+    },
+    {
+      "path": "scripts/developer/tests/viveTouchpadTest.js",
+      "runtimePath": "developer/tests/viveTouchpadTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2385,
+      "sha256": "19e69618bd79bcad6d1f7afb4180e83d51e61ad1f98eed6d1ce63526078bc8ca"
+    },
+    {
+      "path": "scripts/developer/tests/wasmCompilation.js",
+      "runtimePath": "developer/tests/wasmCompilation.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2010,
+      "sha256": "8acc2ed3f6f013dff9b848427bb5deb6265daeca7d421a9bc75ef18def6dbc71"
+    },
+    {
+      "path": "scripts/developer/tests/webOverlayTool.js",
+      "runtimePath": "developer/tests/webOverlayTool.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3080,
+      "sha256": "f496e47f9ccb04af5adc2e0bf878351c80dd2e537011086ad3ed2526a2f703a1"
+    },
+    {
+      "path": "scripts/developer/tests/webSpawnTool.js",
+      "runtimePath": "developer/tests/webSpawnTool.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3646,
+      "sha256": "1c3a4a55e20c68a735991ce31f8d82ce8cdac430e68f6978d1b31e24689b66cd"
+    },
+    {
+      "path": "scripts/developer/tests/worldToAvatarTests.js",
+      "runtimePath": "developer/tests/worldToAvatarTests.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4028,
+      "sha256": "b388562e0d02e4ced9375c47f2bc658a96a2c6961978ef728bc587a66d9a5433"
+    },
+    {
+      "path": "scripts/developer/utilities/audio/audioScope.js",
+      "runtimePath": "developer/utilities/audio/audioScope.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 428,
+      "sha256": "aa90e0b20768c81da38284362c28a7fbbe0f65c1a7d2eb0924ffbd8814d4287f"
+    },
+    {
+      "path": "scripts/developer/utilities/audio/stats.js",
+      "runtimePath": "developer/utilities/audio/stats.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 951,
+      "sha256": "a5a6698043f34a5c664ea7675d55d4cd79ba2616a6b61f394a54b21fd6ae54a4"
+    },
+    {
+      "path": "scripts/developer/utilities/cache/cacheStats.js",
+      "runtimePath": "developer/utilities/cache/cacheStats.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 544,
+      "sha256": "8060ce37c97f9a4de0abd6d195c28c47da2e50c74458c5e703a4d0fa3def6b9a"
+    },
+    {
+      "path": "scripts/developer/utilities/cache/cash.js",
+      "runtimePath": "developer/utilities/cache/cash.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2127,
+      "sha256": "f1cb4f3c508754bbdabce3a93541fcc4f63adfdc895debdeddeaf365209875a5"
+    },
+    {
+      "path": "scripts/developer/utilities/diagnostics/XMLHttpRequest.js",
+      "runtimePath": "developer/utilities/diagnostics/XMLHttpRequest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5566,
+      "sha256": "4af4595713b1a0685c36bf03aef673c2e98b3463807eb4d2f1d371b517ada086"
+    },
+    {
+      "path": "scripts/developer/utilities/diagnostics/loadTestServers.js",
+      "runtimePath": "developer/utilities/diagnostics/loadTestServers.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1935,
+      "sha256": "675aab4c6a0a64542173b9f4c7b8bc64bc6320f26ba1db3c2f6798ee7f1da3ba"
+    },
+    {
+      "path": "scripts/developer/utilities/diagnostics/testWebSocket.js",
+      "runtimePath": "developer/utilities/diagnostics/testWebSocket.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4750,
+      "sha256": "c1b729ed9416400a90c60b4192b4f8e8170d2e81176aa782ec6e49caf97adeb1"
+    },
+    {
+      "path": "scripts/developer/utilities/diagnostics/typedArraysUnitTest.js",
+      "runtimePath": "developer/utilities/diagnostics/typedArraysUnitTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 31861,
+      "sha256": "8518910557ddc249de49c51fd1c169ca18a9866b14901ac943c83b49ce15aa0f"
+    },
+    {
+      "path": "scripts/developer/utilities/lib/jet/jet.js",
+      "runtimePath": "developer/utilities/lib/jet/jet.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 8038,
+      "sha256": "26b884fd5ef62636d1ce81b68d0f0a4e7b49bf3d363d1e68022ab2f38ac448d0"
+    },
+    {
+      "path": "scripts/developer/utilities/lib/skit/Page.js",
+      "runtimePath": "developer/utilities/lib/skit/Page.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3095,
+      "sha256": "5c3d2f3239f4483d2b1cf47e50c5e46199fc4c429eac3fec586991d5a460c665"
+    },
+    {
+      "path": "scripts/developer/utilities/render/antialiasing.js",
+      "runtimePath": "developer/utilities/render/antialiasing.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2678,
+      "sha256": "086d7b07d1e4306c4d9952564bd44e286373a993743b37e97e6fcd9b6294748c"
+    },
+    {
+      "path": "scripts/developer/utilities/render/currentZone.js",
+      "runtimePath": "developer/utilities/render/currentZone.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1737,
+      "sha256": "5983d776a65d0fd5b48b20df7e7652959b0e10646513d7506a483f4f45dee0bf"
+    },
+    {
+      "path": "scripts/developer/utilities/render/debugAmbientOcclusionPass.js",
+      "runtimePath": "developer/utilities/render/debugAmbientOcclusionPass.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1537,
+      "sha256": "bfaa34a1a736060f3c09082f91ec451b698c83da92e47691d331fd53af477e16"
+    },
+    {
+      "path": "scripts/developer/utilities/render/debugBloom.js",
+      "runtimePath": "developer/utilities/render/debugBloom.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 487,
+      "sha256": "42abc252b51131ee2e290df620c3cfbf2ff54bd19287e53beb6226e02f0ffe67"
+    },
+    {
+      "path": "scripts/developer/utilities/render/debugCulling.js",
+      "runtimePath": "developer/utilities/render/debugCulling.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 550,
+      "sha256": "77c81a98d0a830cfd449f4a6484abec2107bf228d0f510ff918fa2079a7508da"
+    },
+    {
+      "path": "scripts/developer/utilities/render/debugHighlight.js",
+      "runtimePath": "developer/utilities/render/debugHighlight.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6144,
+      "sha256": "69ff20b6cf03ea672e2b01d4581c358bb1a1c176698a979d6944d7300a1e278f"
+    },
+    {
+      "path": "scripts/developer/utilities/render/debugShadow.js",
+      "runtimePath": "developer/utilities/render/debugShadow.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2020,
+      "sha256": "49a8bdf323c7181f2783960e95cdad62ea5acd7d416427b2675adcf8013a3256"
+    },
+    {
+      "path": "scripts/developer/utilities/render/debugSubsurfaceScattering.js",
+      "runtimePath": "developer/utilities/render/debugSubsurfaceScattering.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1139,
+      "sha256": "1e2390d5ae99ce63e9d8d3c59dab2b05601771f82e062ff2ecbaf9e0579888e2"
+    },
+    {
+      "path": "scripts/developer/utilities/render/debugSurfaceGeometryPass.js",
+      "runtimePath": "developer/utilities/render/debugSurfaceGeometryPass.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 578,
+      "sha256": "d20e9bdbd1a5871ca2310d24d9bc5fa460bbb92d029ffc9ab7f1dde23423cad0"
+    },
+    {
+      "path": "scripts/developer/utilities/render/debugTransition.js",
+      "runtimePath": "developer/utilities/render/debugTransition.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 8784,
+      "sha256": "f80060fe58b9d83e2430a1240a6a4f515e87ee4d72bebc66ad018775f2456e73"
+    },
+    {
+      "path": "scripts/developer/utilities/render/engineInspector.js",
+      "runtimePath": "developer/utilities/render/engineInspector.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 204,
+      "sha256": "a02743c255d1cdd0a3ae49927d7b3dd24e89c86901daca104db1521b08f741d6"
+    },
+    {
+      "path": "scripts/developer/utilities/render/engineList.js",
+      "runtimePath": "developer/utilities/render/engineList.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 199,
+      "sha256": "e532dc815efd2ed766f4269df596329e224e88b6769f0ff830a049ffb0f8bc1c"
+    },
+    {
+      "path": "scripts/developer/utilities/render/engineProfiler.js",
+      "runtimePath": "developer/utilities/render/engineProfiler.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1892,
+      "sha256": "e3614c4767baa4b49ca9101d9655b04ce689702f3b9b9ec25760d437c382fe3f"
+    },
+    {
+      "path": "scripts/developer/utilities/render/lightClustering.js",
+      "runtimePath": "developer/utilities/render/lightClustering.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 609,
+      "sha256": "f5900c3b781513239d37a026222982eb4ce6d484efa6d58b762e1612705b9c28"
+    },
+    {
+      "path": "scripts/developer/utilities/render/lod.js",
+      "runtimePath": "developer/utilities/render/lod.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3527,
+      "sha256": "4542eb9089f0df23604f21d50125fea91c44fe6cab45ac7f0fd7358fa34a97a7"
+    },
+    {
+      "path": "scripts/developer/utilities/render/lodWindow.js",
+      "runtimePath": "developer/utilities/render/lodWindow.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 179,
+      "sha256": "91b9053217fbc7a117f1c08f0ab48b0804623928dadc7cd1f953a192e24390e2"
+    },
+    {
+      "path": "scripts/developer/utilities/render/luci.js",
+      "runtimePath": "developer/utilities/render/luci.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2192,
+      "sha256": "ce1aa2e5703a096c7021e2e9c28e5bcbb3d3dd02e66c04b9165038039d15d615"
+    },
+    {
+      "path": "scripts/developer/utilities/render/materialInspector.js",
+      "runtimePath": "developer/utilities/render/materialInspector.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4518,
+      "sha256": "d944b69dec9471ffc4bbde85e1a2b5dc361a2ceb143506f0967eef07f851731b"
+    },
+    {
+      "path": "scripts/developer/utilities/render/performanceSetup.js",
+      "runtimePath": "developer/utilities/render/performanceSetup.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 201,
+      "sha256": "14d48563bcf0f521cc2d6b5d37e31f74e890eb95b24417b735bde5b661afb54a"
+    },
+    {
+      "path": "scripts/developer/utilities/render/photobooth/photoboothApp.js",
+      "runtimePath": "developer/utilities/render/photobooth/photoboothApp.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 8316,
+      "sha256": "ba1d8a3bd6a927379d6a51bf4ab46fe4dc33aa49494dec1ccc1c1aa7b1965c7f"
+    },
+    {
+      "path": "scripts/developer/utilities/render/photobooth/photoboothSetup.json",
+      "runtimePath": "developer/utilities/render/photobooth/photoboothSetup.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/developer/utilities/render/platform.js",
+      "runtimePath": "developer/utilities/render/platform.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 668,
+      "sha256": "43dab1451112f75b27d1c089fd15ebcec9d808dde4701013b9532107bdf15280"
+    },
+    {
+      "path": "scripts/developer/utilities/render/renderRates.js",
+      "runtimePath": "developer/utilities/render/renderRates.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 545,
+      "sha256": "44d0197362bd3f74050d2bd8f58abb4cdc08f468fd7903899b97432dfb76a0d6"
+    },
+    {
+      "path": "scripts/developer/utilities/render/renderSettings.js",
+      "runtimePath": "developer/utilities/render/renderSettings.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 223,
+      "sha256": "8302b321ad98bf3d10807f9867884b9f29fe3e54fc94727eb1e12eb59289c522"
+    },
+    {
+      "path": "scripts/developer/utilities/render/renderStats.js",
+      "runtimePath": "developer/utilities/render/renderStats.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 549,
+      "sha256": "8587260516a0c2cc76bcb7c519f1766a2d90cdfeb7eccd06472d00925fddf131"
+    },
+    {
+      "path": "scripts/developer/utilities/render/renderStatsGPU.js",
+      "runtimePath": "developer/utilities/render/renderStatsGPU.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 587,
+      "sha256": "0e8fc3df3bb134cc71a61aad1e0b05d6848faa7b0807694b856ae206b6638d66"
+    },
+    {
+      "path": "scripts/developer/utilities/render/textureMonitor.js",
+      "runtimePath": "developer/utilities/render/textureMonitor.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 558,
+      "sha256": "61ca3da18422f66ad9995331767445645340ff31652014f5d6425b10bcdd8bb3"
+    },
+    {
+      "path": "scripts/developer/utilities/templates/entityScripts/exampleSelfCallingTimeoutNoCleanup.js",
+      "runtimePath": "developer/utilities/templates/entityScripts/exampleSelfCallingTimeoutNoCleanup.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2218,
+      "sha256": "8770f46f572f84786f16e3d4f6833ee2358535b48e63c9949c71ab6a1a66a2f3"
+    },
+    {
+      "path": "scripts/developer/utilities/templates/entityScripts/exampleTimeoutNoCleanup.js",
+      "runtimePath": "developer/utilities/templates/entityScripts/exampleTimeoutNoCleanup.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2009,
+      "sha256": "70c5e42509a408df04bf2fd7d8a68043f80ed4aa7de38ba73d3fd9942625cf5e"
+    },
+    {
+      "path": "scripts/developer/utilities/templates/entityScripts/exampleUpdate.js",
+      "runtimePath": "developer/utilities/templates/entityScripts/exampleUpdate.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2333,
+      "sha256": "b3230c7ebfa0b6d95eb0e2f9b9736b9ee4dc64f05e3960d24e300857a983f8ac"
+    },
+    {
+      "path": "scripts/developer/utilities/templates/entityScripts/exampleUpdateNoDisconnect.js",
+      "runtimePath": "developer/utilities/templates/entityScripts/exampleUpdateNoDisconnect.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2368,
+      "sha256": "9715b1c62dae9d0d045ad4cab3c69b09c3d408d74b5d59506e25f806c30f49f6"
+    },
+    {
+      "path": "scripts/developer/utilities/tests/allPerfTests.js",
+      "runtimePath": "developer/utilities/tests/allPerfTests.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 339,
+      "sha256": "5efbc50453e8b947c9b02a51b0faf8620128c2c65b4a185be3686b1486f0db91"
+    },
+    {
+      "path": "scripts/developer/utilities/tests/editEntityStressTest.js",
+      "runtimePath": "developer/utilities/tests/editEntityStressTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6117,
+      "sha256": "553ab4b93e2aa85f8609cd0eb1d3cb1bac944685d0f1e76b25cb53f208bd6564"
+    },
+    {
+      "path": "scripts/developer/utilities/tests/entityPerfTest.js",
+      "runtimePath": "developer/utilities/tests/entityPerfTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3058,
+      "sha256": "9bd692ebca3e4eda47f2c79400331b1d0374751b638cf98c8ca339d1d200e281"
+    },
+    {
+      "path": "scripts/developer/utilities/tests/forLoopPerfTest.js",
+      "runtimePath": "developer/utilities/tests/forLoopPerfTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4480,
+      "sha256": "cb6755c15ab90552a803b814aa19993d8ad5fc5fe43366607e4eda39dbbfcc99"
+    },
+    {
+      "path": "scripts/developer/utilities/tests/mathPerfTest.js",
+      "runtimePath": "developer/utilities/tests/mathPerfTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4415,
+      "sha256": "47c34186a1db8343491ed08afc1686a414fb2c31d2bddb5eb617a42e20ce55e7"
+    },
+    {
+      "path": "scripts/developer/utilities/tests/perfTest.js",
+      "runtimePath": "developer/utilities/tests/perfTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6090,
+      "sha256": "fd1964ea12b865bc0f11610ce2709b9526d0120d5197d33140516965a22304c3"
+    },
+    {
+      "path": "scripts/developer/utilities/tools/MonoHMD.js",
+      "runtimePath": "developer/utilities/tools/MonoHMD.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1569,
+      "sha256": "43b42808cb0a66cae4a5efd08a79a9b7050198c05facff2071d742753ac6023c"
+    },
+    {
+      "path": "scripts/developer/utilities/tools/cookies.js",
+      "runtimePath": "developer/utilities/tools/cookies.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 42498,
+      "sha256": "7f474416a0d3e37de9db2465c29c56a34e24924d239b2f1de6970d245331715f"
+    },
+    {
+      "path": "scripts/developer/utilities/tools/currentAPI.js",
+      "runtimePath": "developer/utilities/tools/currentAPI.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5795,
+      "sha256": "51a2b78ee07529d2b1f2ece1d61a77859b750ca08b63e5e45e4c92fb411abff1"
+    },
+    {
+      "path": "scripts/developer/utilities/tools/developerMenuItems.js",
+      "runtimePath": "developer/utilities/tools/developerMenuItems.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6849,
+      "sha256": "6011c3c66cc353a8071247dab1c39bb7e2214484e85d12b5a6c68e2b9a9f4780"
+    },
+    {
+      "path": "scripts/developer/utilities/tools/disableAvatarAnimations.js",
+      "runtimePath": "developer/utilities/tools/disableAvatarAnimations.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1443,
+      "sha256": "73d3c7872b30ce3b00b942da06aa5ae4dc0ebdf769e8ed741aeb57a54ac8d003"
+    },
+    {
+      "path": "scripts/developer/utilities/tools/overlayFinder.js",
+      "runtimePath": "developer/utilities/tools/overlayFinder.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 497,
+      "sha256": "59718acc0e8af6e49823dc96c304cbf5bc5d2111e820f720ce1f4c63599dea16"
+    },
+    {
+      "path": "scripts/developer/utilities/tools/reverbTest.js",
+      "runtimePath": "developer/utilities/tools/reverbTest.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3213,
+      "sha256": "6c50fcfcf2497cce4f837f52b7c1f0000a471ea2f101b10acfe573fc860b381b"
+    },
+    {
+      "path": "scripts/developer/utilities/tools/testEars.js",
+      "runtimePath": "developer/utilities/tools/testEars.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3676,
+      "sha256": "471714af80a5e404fd340e2b13593fe62de1cdebcf0d07a476f8785ec6ddab1a"
+    },
+    {
+      "path": "scripts/developer/utilities/workload/avatars.js",
+      "runtimePath": "developer/utilities/workload/avatars.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3538,
+      "sha256": "baf4cc0107831ccaf44900b0401cc6ff9983c223a72d79e13cbe62dff4bebc5f"
+    },
+    {
+      "path": "scripts/developer/utilities/workload/inspectEngine.js",
+      "runtimePath": "developer/utilities/workload/inspectEngine.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 586,
+      "sha256": "ff8e34b0711200d358455a95e71fff32c3c54d113afc39238d49edf5c2c9556f"
+    },
+    {
+      "path": "scripts/developer/utilities/workload/test_physics_scene.js",
+      "runtimePath": "developer/utilities/workload/test_physics_scene.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 8317,
+      "sha256": "5a28e8a3c7b4546ef191743ebee2f01adf93fe4f2363811345924df277710a81"
+    },
+    {
+      "path": "scripts/developer/utilities/workload/workload.js",
+      "runtimePath": "developer/utilities/workload/workload.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4629,
+      "sha256": "828cbe5aeaa71f6578a0ef48233e32f2c568c8f2554ee0f700a4de25f1343ef3"
+    },
+    {
+      "path": "scripts/modules/appUi.js",
+      "runtimePath": "modules/appUi.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 16425,
+      "sha256": "b8e6d123c2aced16d9933e2cf0bd60644f2b97fb2214a4c6d5f07b026f527ab4"
+    },
+    {
+      "path": "scripts/modules/canvasCommand.js",
+      "runtimePath": "modules/canvasCommand.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2773,
+      "sha256": "0818d7664d10d091fcc2ac0f16d24b22d3c937484bd3cb75638d441faf6f4186"
+    },
+    {
+      "path": "scripts/modules/contextMenu.js",
+      "runtimePath": "modules/contextMenu.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7763,
+      "sha256": "0aced516213ae9ad908fd54e8f19f1feb4e4e3c538c91122f437183275e5c5f6"
+    },
+    {
+      "path": "scripts/modules/keycodes.js",
+      "runtimePath": "modules/keycodes.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4847,
+      "sha256": "03d2661904cf8f29ed3648a8ed74c251d3bc676ea5134a4f46fa645db7c525d6"
+    },
+    {
+      "path": "scripts/modules/request.js",
+      "runtimePath": "modules/request.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3452,
+      "sha256": "d1a7bfbdef56ffb74bee06310d7405ac097cce49dd68ece76efdffce2aa5cacb"
+    },
+    {
+      "path": "scripts/modules/utilMath.js",
+      "runtimePath": "modules/utilMath.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 39601,
+      "sha256": "849ff9b1803126b7523301b5d79f38596e3332b2661c1cb116f9b6254b24ed34"
+    },
+    {
+      "path": "scripts/modules/vec3.js",
+      "runtimePath": "modules/vec3.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2174,
+      "sha256": "04a2fcf7eadf8abf3e4507a58f8a9fe85e6362be1d2e0254d63382070e8f5e3a"
+    },
+    {
+      "path": "scripts/simplifiedUI/clickToZoom/clickToZoom.js",
+      "runtimePath": "simplifiedUI/clickToZoom/clickToZoom.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 24786,
+      "sha256": "b1f48c8b0f2c2db9b787f21ea2a31b56ff6942c8a182475c55bd426ab6e7f7ef"
+    },
+    {
+      "path": "scripts/simplifiedUI/simplifiedEmote/emojiApp/resources/modules/customEmojiList.js",
+      "runtimePath": "simplifiedUI/simplifiedEmote/emojiApp/resources/modules/customEmojiList.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 89,
+      "sha256": "ddc49b571ad308524eebcf2bb0f236b7eb7f0530d666443dc6e9402b814146b3"
+    },
+    {
+      "path": "scripts/simplifiedUI/simplifiedEmote/emojiApp/resources/modules/easing.js",
+      "runtimePath": "simplifiedUI/simplifiedEmote/emojiApp/resources/modules/easing.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1415,
+      "sha256": "a4e393af2122f36ca3bf03d6630b28fb22af17f05dcf65b2d2e7939bf19b5e0f"
+    },
+    {
+      "path": "scripts/simplifiedUI/simplifiedEmote/emojiApp/resources/modules/emojiList.js",
+      "runtimePath": "simplifiedUI/simplifiedEmote/emojiApp/resources/modules/emojiList.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 935309,
+      "sha256": "01a4aeea668f87363dff7005750ef9486e3bf4f7bbde9d528279e6509fd6d787"
+    },
+    {
+      "path": "scripts/simplifiedUI/simplifiedEmote/emojiApp/resources/modules/objectAssign.js",
+      "runtimePath": "simplifiedUI/simplifiedEmote/emojiApp/resources/modules/objectAssign.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1224,
+      "sha256": "7f806872502444d2c86c97a8eb631eb59982a37e33b8b53d110074dfc1875230"
+    },
+    {
+      "path": "scripts/simplifiedUI/simplifiedEmote/emojiApp/simplifiedEmoji.js",
+      "runtimePath": "simplifiedUI/simplifiedEmote/emojiApp/simplifiedEmoji.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 13984,
+      "sha256": "847be8b2a081610d5b661107c7f44b0fe190f6b2ce0932b9aaaca4f8a2e9bec0"
+    },
+    {
+      "path": "scripts/simplifiedUI/simplifiedEmote/simplifiedEmote.js",
+      "runtimePath": "simplifiedUI/simplifiedEmote/simplifiedEmote.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 25789,
+      "sha256": "17e73b5ffa92577c077dc79d79ee7761ab083a9c5a7f4d3b2f0e5741957a9e08"
+    },
+    {
+      "path": "scripts/simplifiedUI/ui/simplifiedNametag/resources/modules/defaultLocalEntityProps.js",
+      "runtimePath": "simplifiedUI/ui/simplifiedNametag/resources/modules/defaultLocalEntityProps.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 714,
+      "sha256": "bf345ee0623a12d89f80ec1fa5aff3bef01782f34e40e265646962d64d5c0e75"
+    },
+    {
+      "path": "scripts/simplifiedUI/ui/simplifiedNametag/resources/modules/entityMaker.js",
+      "runtimePath": "simplifiedUI/ui/simplifiedNametag/resources/modules/entityMaker.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3573,
+      "sha256": "31b81990dc337e82cd68a60d07b2b85058ecad10de4488f31d22797706ff65a1"
+    },
+    {
+      "path": "scripts/simplifiedUI/ui/simplifiedNametag/resources/modules/nameTagListManager.js",
+      "runtimePath": "simplifiedUI/ui/simplifiedNametag/resources/modules/nameTagListManager.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 22833,
+      "sha256": "a1d964099c59d5b56d93ee41e93c68d611d9518b0f990c38084e7cefc830782f"
+    },
+    {
+      "path": "scripts/simplifiedUI/ui/simplifiedNametag/resources/modules/objectAssign.js",
+      "runtimePath": "simplifiedUI/ui/simplifiedNametag/resources/modules/objectAssign.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1224,
+      "sha256": "7f806872502444d2c86c97a8eb631eb59982a37e33b8b53d110074dfc1875230"
+    },
+    {
+      "path": "scripts/simplifiedUI/ui/simplifiedNametag/resources/modules/pickRayController.js",
+      "runtimePath": "simplifiedUI/ui/simplifiedNametag/resources/modules/pickRayController.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 8872,
+      "sha256": "c27373d6001fc9852cc9baaa4310a61fc965c6d7764dc3c66c5ff47246c9a9a6"
+    },
+    {
+      "path": "scripts/simplifiedUI/ui/simplifiedNametag/resources/modules/textHelper.js",
+      "runtimePath": "simplifiedUI/ui/simplifiedNametag/resources/modules/textHelper.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4293,
+      "sha256": "f63fd7fc73889a682553d982be1888acb5217f89cb4eb7283dca3e47085842ed"
+    },
+    {
+      "path": "scripts/simplifiedUI/ui/simplifiedNametag/simplifiedNametag.js",
+      "runtimePath": "simplifiedUI/ui/simplifiedNametag/simplifiedNametag.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3327,
+      "sha256": "04bfe75a444f689103175fe9ab43dbcb4a28284102882748430c98f4a57e465b"
+    },
+    {
+      "path": "scripts/simplifiedUI/ui/simplifiedStatusIndicator/simplifiedStatusIndicator.js",
+      "runtimePath": "simplifiedUI/ui/simplifiedStatusIndicator/simplifiedStatusIndicator.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7003,
+      "sha256": "4000508e8a21038ad46763caeeebb3c83883f611e38b83e6b954436ae90df35e"
+    },
+    {
+      "path": "scripts/simplifiedUI/ui/simplifiedUI.js",
+      "runtimePath": "simplifiedUI/ui/simplifiedUI.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 26620,
+      "sha256": "33fd86a07a8d24f126f9baed211bf418c0dc07f0bd6ead9d5380872463d252e9"
+    },
+    {
+      "path": "scripts/simplifiedUIBootstrapper.js",
+      "runtimePath": "simplifiedUIBootstrapper.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2207,
+      "sha256": "8a57bcee62925f1170d8ddfd82d7f4a2feec27c6c666ce4b0301faa9a619fc99"
+    },
+    {
+      "path": "scripts/system/+android_interface/actionbar.js",
+      "runtimePath": "system/+android_interface/actionbar.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1382,
+      "sha256": "63ba4fd9dfae1a271d65ade5601190fbedb1a27623d989cf9baad9126d5de2a2"
+    },
+    {
+      "path": "scripts/system/+android_interface/androidControls.js",
+      "runtimePath": "system/+android_interface/androidControls.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4073,
+      "sha256": "a24b9e276ef7c88abd22811eead7f1de4297a23130633a32436a5b486ff36e3b"
+    },
+    {
+      "path": "scripts/system/+android_interface/audio.js",
+      "runtimePath": "system/+android_interface/audio.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1684,
+      "sha256": "b768b59dead6fdeae247c05a589f48f7ca2e0f0f59e16220653ef05fc4c2819d"
+    },
+    {
+      "path": "scripts/system/+android_interface/clickWeb.js",
+      "runtimePath": "system/+android_interface/clickWeb.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2327,
+      "sha256": "f6881c91a00f8b950320f6d400ab98ccbe2b8870d6acbe3fc705907886b1fbd7"
+    },
+    {
+      "path": "scripts/system/+android_interface/displayNames.js",
+      "runtimePath": "system/+android_interface/displayNames.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4585,
+      "sha256": "ba7cb93d4ccdead634103f790418b6c42dc0934ddc40ac30a3cb8ba2379905ea"
+    },
+    {
+      "path": "scripts/system/+android_interface/modes.js",
+      "runtimePath": "system/+android_interface/modes.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3117,
+      "sha256": "9dda91768c6c12daa691313e09c9c6cf61c1d3e0cabefa3950fcac6aa98fd4d0"
+    },
+    {
+      "path": "scripts/system/+android_interface/radar.js",
+      "runtimePath": "system/+android_interface/radar.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 39168,
+      "sha256": "2b5b04c5709bbaad08b8f8c447e104e66021436d5d00645c0ad38ce4488fe8fd"
+    },
+    {
+      "path": "scripts/system/+android_interface/stats.js",
+      "runtimePath": "system/+android_interface/stats.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 826,
+      "sha256": "9c986345408ac7753dfb17e76e5aee4a69ce73e2e7d908c742ee03ab2cff0354"
+    },
+    {
+      "path": "scripts/system/+android_interface/touchscreenvirtualpad.js",
+      "runtimePath": "system/+android_interface/touchscreenvirtualpad.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 482,
+      "sha256": "974330c66c25238f0e36f2492a4190634e0747adad864d7e8d840ec9ae737174"
+    },
+    {
+      "path": "scripts/system/+android_interface/uniqueColor.js",
+      "runtimePath": "system/+android_interface/uniqueColor.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1526,
+      "sha256": "c0af8a04404557cf305312ae2b5969f81e10d3c2e12ed5aa1ce1bff91f22c4d0"
+    },
+    {
+      "path": "scripts/system/+android_phoneInterface/mobileActionBar.js",
+      "runtimePath": "system/+android_phoneInterface/mobileActionBar.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 14810,
+      "sha256": "342f4de121354f4f4597fe188408bb5a59b1d5b6816f5b0701820e9f6b763441"
+    },
+    {
+      "path": "scripts/system/+android_phoneInterface/mobileTabletApps.js",
+      "runtimePath": "system/+android_phoneInterface/mobileTabletApps.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 168,
+      "sha256": "ae562ebf7dc45d1e87a2583b652ea13a3d7e3e64ec6939e2edf41d6f070a8db0"
+    },
+    {
+      "path": "scripts/system/+android_phoneInterface/phoneEmote.js",
+      "runtimePath": "system/+android_phoneInterface/phoneEmote.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4827,
+      "sha256": "a989b25a06ff2e880974ccdd44c86ebbd9c71e40d93f585464f7c06ff2898362"
+    },
+    {
+      "path": "scripts/system/+android_phoneInterface/phoneGraphics.js",
+      "runtimePath": "system/+android_phoneInterface/phoneGraphics.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4507,
+      "sha256": "b08630a7f854974aaa8ca896fcb5ee96e2daee79e8c330f56b8f33fcd4315ac0"
+    },
+    {
+      "path": "scripts/system/assets/images/materials/GridPattern.json",
+      "runtimePath": "system/assets/images/materials/GridPattern.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/system/attachedEntitiesManager.js",
+      "runtimePath": "system/attachedEntitiesManager.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 11433,
+      "sha256": "7dfda152e03a123df1ed893e80cde9e1082887fcb3f6474b19a0106c5659cc67"
+    },
+    {
+      "path": "scripts/system/audio.js",
+      "runtimePath": "system/audio.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2927,
+      "sha256": "bff8b6796e55a40b387bae403a0b04fdb79f9d79ccd24350c69f4275b6f7e3a1"
+    },
+    {
+      "path": "scripts/system/audioMuteOverlay.js",
+      "runtimePath": "system/audioMuteOverlay.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4400,
+      "sha256": "0b8bc2e98bd2928f98c091c6d404f2103c6a727cdaa444cfcba7f05b4daa0c34"
+    },
+    {
+      "path": "scripts/system/audioScope.js",
+      "runtimePath": "system/audioScope.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2740,
+      "sha256": "3cf215f91ac80de5f97f8cf5763f459260401cbe957cca0725833a695d10dc2d"
+    },
+    {
+      "path": "scripts/system/avatarFinderBeacon.js",
+      "runtimePath": "system/avatarFinderBeacon.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3445,
+      "sha256": "1aeafa2a6287472b0d884539b59466e19a202438d0c18b1955ab21efffc88ab0"
+    },
+    {
+      "path": "scripts/system/avatarapp.js",
+      "runtimePath": "system/avatarapp.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 26267,
+      "sha256": "45ccb7045419a537f39854d2461b4c4b1383e855d69d28e1f86275db2715f66e"
+    },
+    {
+      "path": "scripts/system/away.js",
+      "runtimePath": "system/away.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 12644,
+      "sha256": "a96ad0c11f38effaf23f3c0afefd0858c32b02c41712285e609a766ebbe62eb8"
+    },
+    {
+      "path": "scripts/system/bubble.js",
+      "runtimePath": "system/bubble.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 9327,
+      "sha256": "a0e3290d8faf7f035a0c25c65087b70e625599ab5919c7681ab0a8558ca2a121"
+    },
+    {
+      "path": "scripts/system/clickToAvatarApp.js",
+      "runtimePath": "system/clickToAvatarApp.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 555,
+      "sha256": "22c389cb0c6b9d5af8d4c7cbd62888306d73a2e6069af4683b3bf49b741b8ad4"
+    },
+    {
+      "path": "scripts/system/controllers/+android_questInterface/controllerScripts.js",
+      "runtimePath": "system/controllers/+android_questInterface/controllerScripts.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1630,
+      "sha256": "c29e4436de18bbdec24aaee80d00f4894ae0e4d9f0432c5ff374d9d0e9e14148"
+    },
+    {
+      "path": "scripts/system/controllers/controllerDispatcher.js",
+      "runtimePath": "system/controllers/controllerDispatcher.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 64128,
+      "sha256": "4b169e6c7884e6ded27a63f8703813db07d07c07db652b4391109e547569d3ca"
+    },
+    {
+      "path": "scripts/system/controllers/controllerDisplay.js",
+      "runtimePath": "system/controllers/controllerDisplay.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 13440,
+      "sha256": "d40b74907db51436c4c49cceb03e66acf8e85b77e362777a8b05019b937d556b"
+    },
+    {
+      "path": "scripts/system/controllers/controllerDisplayManager.js",
+      "runtimePath": "system/controllers/controllerDisplayManager.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7124,
+      "sha256": "6569553bd4f67c9a1704fd1189721dcf9f976d0826995c990839b1590a4bab4a"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/disableOtherModule.js",
+      "runtimePath": "system/controllers/controllerModules/disableOtherModule.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3111,
+      "sha256": "771b6f0db6754279c24cca2ce42ec3b5056f41650390665bcacf9613eca2ce82"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/equipEntity.js",
+      "runtimePath": "system/controllers/controllerModules/equipEntity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 37332,
+      "sha256": "63c0d8701f4eee4172a17b16bdb357f42ee8f3620ac067df3eb4065f511420fe"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/farActionGrabEntity.js",
+      "runtimePath": "system/controllers/controllerModules/farActionGrabEntity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 25893,
+      "sha256": "69b1da5da27c0d4d280944d92b083ee3a6c39fa3221ce7b4078656844c11b996"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/farGrabEntity.js",
+      "runtimePath": "system/controllers/controllerModules/farGrabEntity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 38281,
+      "sha256": "74aa5b2c8b4a951d6d7ca64f95393f07ac39ef1f11ba817fa93efd10a63a41dd"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/farTrigger.js",
+      "runtimePath": "system/controllers/controllerModules/farTrigger.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4081,
+      "sha256": "7fe54d1c3b2312c921c33a5f5bf6d39b7de75a02cbfd16f423bfe06ff6b181e1"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/hudOverlayPointer.js",
+      "runtimePath": "system/controllers/controllerModules/hudOverlayPointer.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6919,
+      "sha256": "2179f97efdab3c8704f3540435850bc96c0cd7c108cc795514828a48941f63bf"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/inEditMode.js",
+      "runtimePath": "system/controllers/controllerModules/inEditMode.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 11262,
+      "sha256": "3da8ce9512dbc64f64ca001b26d0ed7f39ddbfaf8c277f0301157acdfd8a454d"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/inVREditMode.js",
+      "runtimePath": "system/controllers/controllerModules/inVREditMode.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7801,
+      "sha256": "c27e7f03321ac16b06e0a642cfd49a938c5cc2122bf4bfab5919f346d0b1e48e"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/mouseHMD.js",
+      "runtimePath": "system/controllers/controllerModules/mouseHMD.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5115,
+      "sha256": "037d6c79cf19d61b251164cabf66a2fcb815b14c3c0ae208a5152ec8b836fd1f"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/nearGrabEntity.js",
+      "runtimePath": "system/controllers/controllerModules/nearGrabEntity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 12656,
+      "sha256": "8a53599e5c057377017c091c4c8607a9c6f726aea9de39a2eadd21e98fa97cb4"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/nearGrabHyperLinkEntity.js",
+      "runtimePath": "system/controllers/controllerModules/nearGrabHyperLinkEntity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3405,
+      "sha256": "8e62875e53017c24d7b2441f47399fc5863d59f2c53a1975cd0bbbddd0b590ad"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/nearParentGrabOverlay.js",
+      "runtimePath": "system/controllers/controllerModules/nearParentGrabOverlay.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 11587,
+      "sha256": "eb1ddaedf94495e6d4016b250c9d08322840815b473d02d891882db0840214e8"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/nearTabletHighlight.js",
+      "runtimePath": "system/controllers/controllerModules/nearTabletHighlight.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5031,
+      "sha256": "c70624d389f76fd477e31511cb0e72346c2f2684400377efe39e3255445dbd23"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/nearTrigger.js",
+      "runtimePath": "system/controllers/controllerModules/nearTrigger.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4637,
+      "sha256": "a4db2fda27ab397fb815450a1c9ad549982649749c5e095cae29e9874eb01e49"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/pico4FarGrabDepthWorker.js",
+      "runtimePath": "system/controllers/controllerModules/pico4FarGrabDepthWorker.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5654,
+      "sha256": "bccaff089a52698e003375a9321691ce3e2594512443c2ed19219b60a95cc6ee"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/pushToTalk.js",
+      "runtimePath": "system/controllers/controllerModules/pushToTalk.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2141,
+      "sha256": "b762777b9708261409271e81f9f00352f253714ac047295358b8c1d811e1b523"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/scaleAvatar.js",
+      "runtimePath": "system/controllers/controllerModules/scaleAvatar.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3740,
+      "sha256": "41b8fee13c2735ed7e3e0ad7286658e36523d02addd90f7f687d47137fae5bca"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/scaleEntity.js",
+      "runtimePath": "system/controllers/controllerModules/scaleEntity.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5303,
+      "sha256": "162d90d82de16aeb096d389ccd18cbb45d9d63115d36112aac6207b503f52b10"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/stylusInput.js",
+      "runtimePath": "system/controllers/controllerModules/stylusInput.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 10039,
+      "sha256": "3916d42a1e6cb8cbdfd4dee6c0a74bf9059fe826f37502308d93932c959d1e4d"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/teleport.js",
+      "runtimePath": "system/controllers/controllerModules/teleport.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 52275,
+      "sha256": "0dde425bec728b421079732b434ef14ac5f534bbad3ea462e2ca6afb9f6af97c"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/trackedHandTablet.js",
+      "runtimePath": "system/controllers/controllerModules/trackedHandTablet.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5001,
+      "sha256": "3e08190dab64b551cd805900bac62d50b37f46b9ae6dead434a907e412edfaa1"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/trackedHandWalk.js",
+      "runtimePath": "system/controllers/controllerModules/trackedHandWalk.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6748,
+      "sha256": "29638fc605773a6e7f8dc3b92bfe45da34e20bef791aa30c52449dfa77bf5568"
+    },
+    {
+      "path": "scripts/system/controllers/controllerModules/webSurfaceLaserInput.js",
+      "runtimePath": "system/controllers/controllerModules/webSurfaceLaserInput.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 14966,
+      "sha256": "88ac3bfa8d819019dc5af9960940e23453b1cb7d2de41f4087c896f4e80234eb"
+    },
+    {
+      "path": "scripts/system/controllers/controllerScripts.js",
+      "runtimePath": "system/controllers/controllerScripts.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2299,
+      "sha256": "ec3a8ec99db15611842b8105a7f91d86e7a2dd4204d7e650d54ec92da1ad8c13"
+    },
+    {
+      "path": "scripts/system/controllers/godView.js",
+      "runtimePath": "system/controllers/godView.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3273,
+      "sha256": "3976224fbcdbd256b1f69a1ebe02c510f7423a0cacec83bb7dc7595c47cbe28b"
+    },
+    {
+      "path": "scripts/system/controllers/grab.js",
+      "runtimePath": "system/controllers/grab.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 17197,
+      "sha256": "368f606d9dcd3ec0af1431ec3f5619412f3567754f58b4974f3d4d13501ab19c"
+    },
+    {
+      "path": "scripts/system/controllers/handTouch.js",
+      "runtimePath": "system/controllers/handTouch.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35972,
+      "sha256": "f747ea8a38f3f5fc281aec2a184a2e0a6b2af907fb23f4278b727fcf5c26f9d2"
+    },
+    {
+      "path": "scripts/system/controllers/mouseLook.js",
+      "runtimePath": "system/controllers/mouseLook.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3289,
+      "sha256": "c2e1df06b784208edf6921155e868537c252555f03516dc3d6a9e5ca38d2a43f"
+    },
+    {
+      "path": "scripts/system/controllers/squeezeHands.js",
+      "runtimePath": "system/controllers/squeezeHands.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6758,
+      "sha256": "83772898154052b4952bb6cba65dffde4e7fb27af23cf6a552be0d664a6bb3e0"
+    },
+    {
+      "path": "scripts/system/controllers/toggleAdvancedMovementForHandControllers.js",
+      "runtimePath": "system/controllers/toggleAdvancedMovementForHandControllers.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5788,
+      "sha256": "5c09b1627f1dbee63f887aa9e454ca46d905a7c7f0c45d2af64fad9d1302b848"
+    },
+    {
+      "path": "scripts/system/controllers/touchControllerConfiguration.js",
+      "runtimePath": "system/controllers/touchControllerConfiguration.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 16771,
+      "sha256": "662e23e100f71b8905fb6db917b55bf351fe4857f33966ec86fc256822fc5a04"
+    },
+    {
+      "path": "scripts/system/controllers/viveControllerConfiguration.js",
+      "runtimePath": "system/controllers/viveControllerConfiguration.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 14707,
+      "sha256": "46cf41669fb61eea4fb4570322229310fd972c7dd016e6bb72e24ad75ebec6e6"
+    },
+    {
+      "path": "scripts/system/create/assets/data/createAppTooltips.json",
+      "runtimePath": "system/create/assets/data/createAppTooltips.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/system/create/audioFeedback/audioFeedback.js",
+      "runtimePath": "system/create/audioFeedback/audioFeedback.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1310,
+      "sha256": "b4cd1d27bb28ab1680d9c56db8b77980c40eb04f87c48387203d42d146dcb252"
+    },
+    {
+      "path": "scripts/system/create/edit.js",
+      "runtimePath": "system/create/edit.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 162887,
+      "sha256": "4358ff98986be6bb0038d4b16aa9d0c47bbf334af80fb66c48fb07f1dc1eef30"
+    },
+    {
+      "path": "scripts/system/create/editModes/editModes.js",
+      "runtimePath": "system/create/editModes/editModes.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5752,
+      "sha256": "bbeccb5566acdaee67de6742a892251d942dbf95c1f3dea53c45be004de07c08"
+    },
+    {
+      "path": "scripts/system/create/editModes/editVoxels.js",
+      "runtimePath": "system/create/editModes/editVoxels.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 32430,
+      "sha256": "1d45f0bf32f83e1eff37a2959551d6b219a3ca870270edd7022b4d5f16d7c15e"
+    },
+    {
+      "path": "scripts/system/create/entityList/entityList.js",
+      "runtimePath": "system/create/entityList/entityList.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 21142,
+      "sha256": "fdd683708d6e3ddeb3e5385c376a7c3e1927337d378dd2619089937e15569110"
+    },
+    {
+      "path": "scripts/system/create/entityList/html/js/entityList.js",
+      "runtimePath": "system/create/entityList/html/js/entityList.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 81081,
+      "sha256": "4356080dc48621320eeca16061f06541a0887dcbdea4dbedc0162d7eb40f0728"
+    },
+    {
+      "path": "scripts/system/create/entityList/html/js/entityListContextMenu.js",
+      "runtimePath": "system/create/entityList/html/js/entityListContextMenu.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4864,
+      "sha256": "79fa1902aa735a5d47bc84d7b63e6d0f264d4aceac473c8b9eb00d2a0fd1d106"
+    },
+    {
+      "path": "scripts/system/create/entityList/html/js/listView.js",
+      "runtimePath": "system/create/entityList/html/js/listView.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 13574,
+      "sha256": "5edfd55a42c29716276e725bdd6d2f0e9f91762709f5abf0d27371d522e7576d"
+    },
+    {
+      "path": "scripts/system/create/entityProperties/html/js/createAppTooltip.js",
+      "runtimePath": "system/create/entityProperties/html/js/createAppTooltip.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4148,
+      "sha256": "b68e174b90982c0841ac3451874b1c4b79ed742f618f31a94d81758f08c4fee4"
+    },
+    {
+      "path": "scripts/system/create/entityProperties/html/js/draggableNumber.js",
+      "runtimePath": "system/create/entityProperties/html/js/draggableNumber.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 9449,
+      "sha256": "9ffdb2e7fef4007c4527f6cce3132934ad1723e5c4ae67c1ba0caaeba5309179"
+    },
+    {
+      "path": "scripts/system/create/entityProperties/html/js/entityProperties.js",
+      "runtimePath": "system/create/entityProperties/html/js/entityProperties.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 279563,
+      "sha256": "e2f8260844de1ce272f3bdfe675f64cabc2722f074519f5899da2122050c328d"
+    },
+    {
+      "path": "scripts/system/create/entityProperties/html/js/materialAssistant.js",
+      "runtimePath": "system/create/entityProperties/html/js/materialAssistant.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 105663,
+      "sha256": "9c7d8070039acab543dd02eff7b6beb498284f862b165bda8ed05287f2e86c5b"
+    },
+    {
+      "path": "scripts/system/create/entityProperties/html/js/underscore-min.js",
+      "runtimePath": "system/create/entityProperties/html/js/underscore-min.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 16449,
+      "sha256": "aa8ff0f7c3f16ee3ee262447d647d6a530f744bd1183be79ed97e5fdd9bc65b4"
+    },
+    {
+      "path": "scripts/system/create/entitySelectionTool/entitySelectionTool.js",
+      "runtimePath": "system/create/entitySelectionTool/entitySelectionTool.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 161354,
+      "sha256": "576a22d0b0aa97e67fdd277b993cbfbea165fc81a47960ddd744b6b758f0508b"
+    },
+    {
+      "path": "scripts/system/create/importEntities/html/js/importEntitiesUi.js",
+      "runtimePath": "system/create/importEntities/html/js/importEntitiesUi.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7938,
+      "sha256": "303d1618b5032ce8eb1d242a2e09a413af77dfadb9bfcbc0ca71f3c46cfa2ce0"
+    },
+    {
+      "path": "scripts/system/create/modules/brokenURLReport.js",
+      "runtimePath": "system/create/modules/brokenURLReport.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 19245,
+      "sha256": "d78d9b3f38c4f4e081a0e903434d637801efc5c18eee61fe2df3f90893009c3e"
+    },
+    {
+      "path": "scripts/system/create/modules/createWindow.js",
+      "runtimePath": "system/create/modules/createWindow.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5194,
+      "sha256": "3e693a8bffd76dac9d3c51a8194030244aeafeaa088bd89561940d0f9d2562ac"
+    },
+    {
+      "path": "scripts/system/create/modules/entityShapeVisualizer.js",
+      "runtimePath": "system/create/modules/entityShapeVisualizer.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 8542,
+      "sha256": "b089eb81dcb0ec130a5c542a23ffc462c4eb952891657eb63f886f4cf7a03fc5"
+    },
+    {
+      "path": "scripts/system/create/modules/nativeCreateBridge.js",
+      "runtimePath": "system/create/modules/nativeCreateBridge.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 15596,
+      "sha256": "1ba41687ccb705c6a57d9226d7351d4da67c93128ac8426f0309f9f02d651e6f"
+    },
+    {
+      "path": "scripts/system/create/modules/picoPropertiesValidation.js",
+      "runtimePath": "system/create/modules/picoPropertiesValidation.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1890,
+      "sha256": "64cb79c297b8400ee7366b811d52264d8454f20bebb4674ef49a40e5a2ff018c"
+    },
+    {
+      "path": "scripts/system/create/modules/picoQmlMessageValidation.js",
+      "runtimePath": "system/create/modules/picoQmlMessageValidation.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 563,
+      "sha256": "d926004132e34c9e9c49e1536b079bd5abd5cd7ed104f2dbe0e07b88fbc79714"
+    },
+    {
+      "path": "scripts/system/create/modules/renderWithZonesManager.js",
+      "runtimePath": "system/create/modules/renderWithZonesManager.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 20568,
+      "sha256": "1d8560b28ba9c4eee81c6d3fa89d66e46fcb98ed2f5b8abc75dae15d61340887"
+    },
+    {
+      "path": "scripts/system/dialTone.js",
+      "runtimePath": "system/dialTone.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1051,
+      "sha256": "58dd8510453a4d0b4e1a24065ecf8e2c3625d705722424bd7d8bf867870d1bbd"
+    },
+    {
+      "path": "scripts/system/directory.js",
+      "runtimePath": "system/directory.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3151,
+      "sha256": "8ba447950431e92561bc2bf21aa7e13c5025b757cdf150aacdb5b0dfba6ed4b1"
+    },
+    {
+      "path": "scripts/system/emote.js",
+      "runtimePath": "system/emote.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6892,
+      "sha256": "f8c5ecc89cccd9b9c564be41578befd24bd4aaf105beb83fb715c24a2c57826e"
+    },
+    {
+      "path": "scripts/system/fingerPaint.js",
+      "runtimePath": "system/fingerPaint.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 16261,
+      "sha256": "4d8bb500b65a5d82fd8fda614feb6705850b674e3d43a3858f486e5d526f40ff"
+    },
+    {
+      "path": "scripts/system/firstPersonHMD.js",
+      "runtimePath": "system/firstPersonHMD.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 548,
+      "sha256": "16cf7c347ba3b59592b701ec7383ad1fd5962161f8f5b1b3112825ed3306f070"
+    },
+    {
+      "path": "scripts/system/flyCam.js",
+      "runtimePath": "system/flyCam.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6952,
+      "sha256": "51b8700b5c5c136e9499d639728e8abe4f222b76a2ac0d10c284f79a765adb6c"
+    },
+    {
+      "path": "scripts/system/generalSettings.js",
+      "runtimePath": "system/generalSettings.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1545,
+      "sha256": "a8bf528a2b622f53d065d9ce14fc37d0a654f3fedcab37d72f1d91b15d01b532"
+    },
+    {
+      "path": "scripts/system/goto.js",
+      "runtimePath": "system/goto.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1775,
+      "sha256": "5ff2ef66357b9774258390d764453c9de91e8b66f10a0ca24e0b4ef15b93bd04"
+    },
+    {
+      "path": "scripts/system/help.js",
+      "runtimePath": "system/help.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 744,
+      "sha256": "30248aba41214503a2936353144638e09bd6dc8efa78fa8b1623db46e8fdb2c1"
+    },
+    {
+      "path": "scripts/system/hmd.js",
+      "runtimePath": "system/hmd.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2661,
+      "sha256": "82c8705f88b779ee2ad3e5a41fbc25b616a6df7e2f426732d1a4bf14002a6b67"
+    },
+    {
+      "path": "scripts/system/html/js/SnapshotReview.js",
+      "runtimePath": "system/html/js/SnapshotReview.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 38632,
+      "sha256": "c79ee41fc2a013482ed2fc4f9ca6a755bc46e7f2f711198184fae0e2954ded1d"
+    },
+    {
+      "path": "scripts/system/html/js/colpick.js",
+      "runtimePath": "system/html/js/colpick.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 30233,
+      "sha256": "da165778d6eb3aee8e8d90d4ae8121074d6c04a6d0e1ffc673a4c845f66af8e9"
+    },
+    {
+      "path": "scripts/system/html/js/eventBridgeLoader.js",
+      "runtimePath": "system/html/js/eventBridgeLoader.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 479,
+      "sha256": "109784cf0200fc86ba709eaa674131f61bc945c95be0501d12fbdbea0cbce582"
+    },
+    {
+      "path": "scripts/system/html/js/gridControls.js",
+      "runtimePath": "system/html/js/gridControls.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 11199,
+      "sha256": "9fda55d6098bc4e20c1cb402bc989ab0b41f03db5713ebfe489fdf63685f5184"
+    },
+    {
+      "path": "scripts/system/html/js/includes.js",
+      "runtimePath": "system/html/js/includes.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 713,
+      "sha256": "ca0657356ad39dcbd4a3f1e54de9a2f41f98a7f0f109b12fb096fecf8f4f348a"
+    },
+    {
+      "path": "scripts/system/html/js/jquery-2.1.4.min.js",
+      "runtimePath": "system/html/js/jquery-2.1.4.min.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 84345,
+      "sha256": "ec7db93fe80cdf8d2298ffe691d562151928b1317923e7fab38f9aa1d220257f"
+    },
+    {
+      "path": "scripts/system/html/js/jsoneditor.min.js",
+      "runtimePath": "system/html/js/jsoneditor.min.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 618656,
+      "sha256": "f8eb4d223376c91d9dfbf8a5f864d72076ed27abbc042e078cc9bc48378d2781"
+    },
+    {
+      "path": "scripts/system/html/js/list.min.js",
+      "runtimePath": "system/html/js/list.min.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 16952,
+      "sha256": "f74873c18fff8379d0012eb72f5473060c4508fd2b6ecaeedfc1db5fb98288ad"
+    },
+    {
+      "path": "scripts/system/html/js/marketplacesInject.js",
+      "runtimePath": "system/html/js/marketplacesInject.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 16325,
+      "sha256": "cf7cb8d6cdf0378a46637a9d3c0f69a1f6ac485b4f0cc8508362f2358ef3436c"
+    },
+    {
+      "path": "scripts/system/html/js/miniTablet.js",
+      "runtimePath": "system/html/js/miniTablet.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4536,
+      "sha256": "a38a543719fed1d6ef7f95bfeed83ea851e97d260c5a607ceecc6d7a8009f57c"
+    },
+    {
+      "path": "scripts/system/html/js/spinButtons.js",
+      "runtimePath": "system/html/js/spinButtons.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1476,
+      "sha256": "943b82f2aa6026f6726fa0ab99f0c0ad07b4edeaec9635a3cc2fd82e76be05dd"
+    },
+    {
+      "path": "scripts/system/html/js/utils.js",
+      "runtimePath": "system/html/js/utils.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2352,
+      "sha256": "d665eda5d58e91d6d1e3a621f6aedb6c7a73a00c7059076a9dcd820ad6a1c343"
+    },
+    {
+      "path": "scripts/system/inspect.js",
+      "runtimePath": "system/inspect.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 10179,
+      "sha256": "1b97328d27c9acf11c785842c6cbed4dc048527baae42079b3e498d41211324a"
+    },
+    {
+      "path": "scripts/system/interstitialPage.js",
+      "runtimePath": "system/interstitialPage.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 24272,
+      "sha256": "252f0dc1066463ff3c80ecefc7c67be704f6c16442223734bcd94a3728cafd91"
+    },
+    {
+      "path": "scripts/system/keyboardShortcuts/keyboardShortcuts.js",
+      "runtimePath": "system/keyboardShortcuts/keyboardShortcuts.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1457,
+      "sha256": "ed3e70ce738aaecf1d2b1d8e1682d9b84eb35f24b9315d0a2200a1e0e453ed65"
+    },
+    {
+      "path": "scripts/system/libraries/ToolTip.js",
+      "runtimePath": "system/libraries/ToolTip.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3365,
+      "sha256": "be95b54cd0696cce68bdc6a3e332063472090aebb761571a27d1ab93f9715cfd"
+    },
+    {
+      "path": "scripts/system/libraries/Trigger.js",
+      "runtimePath": "system/libraries/Trigger.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2922,
+      "sha256": "c08ab702519223085c1f87b8de32c056519fad398d90e7fbf2fde6814b757a46"
+    },
+    {
+      "path": "scripts/system/libraries/WebTablet.js",
+      "runtimePath": "system/libraries/WebTablet.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 27591,
+      "sha256": "7d66236906a2392621dc70cb8d9e18b7ce15acd730d34f18b4b486b51e297827"
+    },
+    {
+      "path": "scripts/system/libraries/Xform.js",
+      "runtimePath": "system/libraries/Xform.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1446,
+      "sha256": "dc56d083c775224e58e79365f59509721707d5e1fd5300827fb344156d48ad75"
+    },
+    {
+      "path": "scripts/system/libraries/accountUtils.js",
+      "runtimePath": "system/libraries/accountUtils.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 207,
+      "sha256": "616ee268a337f8c13035e57d951f8293951c3872842abd1045307a23421d8c4c"
+    },
+    {
+      "path": "scripts/system/libraries/cloneEntityUtils.js",
+      "runtimePath": "system/libraries/cloneEntityUtils.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1730,
+      "sha256": "43f167b9ebbded91f92ed8df75691de5e405ed718d0dd1940d9383bcfd3b42e6"
+    },
+    {
+      "path": "scripts/system/libraries/connectionUtils.js",
+      "runtimePath": "system/libraries/connectionUtils.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3361,
+      "sha256": "7418fedcef33ea91225cd51875f803388de61d9940410c98ae3ce0e78264f68b"
+    },
+    {
+      "path": "scripts/system/libraries/controllerDispatcherUtils.js",
+      "runtimePath": "system/libraries/controllerDispatcherUtils.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 25059,
+      "sha256": "26d26cbb56508803296020be354b4a124374aaec193ec9153ea6e0bba23ea020"
+    },
+    {
+      "path": "scripts/system/libraries/controllers.js",
+      "runtimePath": "system/libraries/controllers.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5777,
+      "sha256": "349409495bfb667fba0293360b0050343180f853b6ea3dfe9be6cd4471a0492a"
+    },
+    {
+      "path": "scripts/system/libraries/dataViewHelpers.js",
+      "runtimePath": "system/libraries/dataViewHelpers.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1648,
+      "sha256": "8a641d34bc3fe6f29cc692e6c8616e63d243e49d79e7f28f58d6e959d41bd413"
+    },
+    {
+      "path": "scripts/system/libraries/entityCameraTool.js",
+      "runtimePath": "system/libraries/entityCameraTool.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 18725,
+      "sha256": "1355430a25056b9bc8b6df0b6548b12bc134a23a688069645168a61a8fb651c1"
+    },
+    {
+      "path": "scripts/system/libraries/entityIconOverlayManager.js",
+      "runtimePath": "system/libraries/entityIconOverlayManager.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5522,
+      "sha256": "07266f3a5bb4863bb6bd7ccd611664bf069214be097e2f93d19324c6cc9428da"
+    },
+    {
+      "path": "scripts/system/libraries/globals.js",
+      "runtimePath": "system/libraries/globals.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 272,
+      "sha256": "74515a60e2a8b04edb95f0c73f028a007f8117baaaccd4b47b9f306673803fac"
+    },
+    {
+      "path": "scripts/system/libraries/gridTool.js",
+      "runtimePath": "system/libraries/gridTool.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 9336,
+      "sha256": "a915f00dbe9e0ca83a03cefd59737cab678323caf7a95a7337101b7970525d03"
+    },
+    {
+      "path": "scripts/system/libraries/networkingConstants.js",
+      "runtimePath": "system/libraries/networkingConstants.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 847,
+      "sha256": "e693797246dc0a3e7a9b04ff5b243d8eb9001541432eaaf111edccc83044c89a"
+    },
+    {
+      "path": "scripts/system/libraries/overlayUtils.js",
+      "runtimePath": "system/libraries/overlayUtils.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2105,
+      "sha256": "b7be39170ad4c8e11139b70cd87aa5f5b64361e73d56230dd84b33ce45b43eb0"
+    },
+    {
+      "path": "scripts/system/libraries/peopleConnection.js",
+      "runtimePath": "system/libraries/peopleConnection.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 11585,
+      "sha256": "749f488851f5c0303e82c44c46059b1146a22f16d8ade7416613465cfdb1ed83"
+    },
+    {
+      "path": "scripts/system/libraries/picoTabletSettings.js",
+      "runtimePath": "system/libraries/picoTabletSettings.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 491,
+      "sha256": "fac894f71567fd313869e230bb4047673908c3d07d844c3bc9b08c85daae1287"
+    },
+    {
+      "path": "scripts/system/libraries/pointersUtils.js",
+      "runtimePath": "system/libraries/pointersUtils.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 11283,
+      "sha256": "70de9e7807796168f5fba486dab8defe4df8156010eea19d72242eee737a0c9d"
+    },
+    {
+      "path": "scripts/system/libraries/progressDialog.js",
+      "runtimePath": "system/libraries/progressDialog.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4581,
+      "sha256": "a93ee1080f04e1a850b551fd66b72abbac547adc26049bd99eb6ccce150933a7"
+    },
+    {
+      "path": "scripts/system/libraries/soundArray.js",
+      "runtimePath": "system/libraries/soundArray.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1707,
+      "sha256": "da54781bc07b52bf00a0cd718b6bee634f8b9e3452ec41be96def0ca41680120"
+    },
+    {
+      "path": "scripts/system/libraries/stringHelpers.js",
+      "runtimePath": "system/libraries/stringHelpers.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 17435,
+      "sha256": "d86ca5c1c68f2192966913ca2fecda839eb909c2a150fa7949f4e337293ce0c5"
+    },
+    {
+      "path": "scripts/system/libraries/toolBars.js",
+      "runtimePath": "system/libraries/toolBars.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 17991,
+      "sha256": "be5ef1367219ac1560477c3533ea9a256e533846e9494d855b06ebebde8409d7"
+    },
+    {
+      "path": "scripts/system/libraries/touchEventUtils.js",
+      "runtimePath": "system/libraries/touchEventUtils.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 9747,
+      "sha256": "ecc8f5e977490543b4385561378f110c3e402c6cb8891a3487201bb2474306ee"
+    },
+    {
+      "path": "scripts/system/libraries/utils.js",
+      "runtimePath": "system/libraries/utils.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 18385,
+      "sha256": "e850144b2a898c73ac92929622f62cf22e157c4689320de226526f0d0fe8c1db"
+    },
+    {
+      "path": "scripts/system/makeUserConnection.js",
+      "runtimePath": "system/makeUserConnection.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 41393,
+      "sha256": "ce4ea19ddbbdfcdfa069980271e9f54838f713e7d04f812d485224e45e8d11cb"
+    },
+    {
+      "path": "scripts/system/menu.js",
+      "runtimePath": "system/menu.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2879,
+      "sha256": "e39072c5cbbed0a5186ee1f63e596224bed6e94f1be9c9be7b0dab2edcf4a526"
+    },
+    {
+      "path": "scripts/system/miniTablet.js",
+      "runtimePath": "system/miniTablet.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 44433,
+      "sha256": "fee9d46794e3f413f28a6a3583e76fad4b8aec710c90f3c94dc2239921b9ad8e"
+    },
+    {
+      "path": "scripts/system/mod.js",
+      "runtimePath": "system/mod.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 8494,
+      "sha256": "efd72ac0947d33b895813e61ece844d2bafa0b4cfb0f99383ef05c6c2765625b"
+    },
+    {
+      "path": "scripts/system/more/app-more.js",
+      "runtimePath": "system/more/app-more.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4386,
+      "sha256": "98666ca8cd9183b879768c40d5decf3cdef503f0bed285616c2cfe54f71297ed"
+    },
+    {
+      "path": "scripts/system/more/jquery-3.5.1.min.js",
+      "runtimePath": "system/more/jquery-3.5.1.min.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 89476,
+      "sha256": "055ffeaf3b89b9292952130af40b752fa301768180d3c2afb758b206a9e18167"
+    },
+    {
+      "path": "scripts/system/nameTag.js",
+      "runtimePath": "system/nameTag.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3511,
+      "sha256": "e9cd2a38403ecf07798c7995c4be84354c5880da265385082a79ba10be0d5998"
+    },
+    {
+      "path": "scripts/system/notifications.js",
+      "runtimePath": "system/notifications.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 19613,
+      "sha256": "16b8a8d59607ba3bfbabf5075a078c424cd7adf2d197185bbfbfa14fe7a1409e"
+    },
+    {
+      "path": "scripts/system/onEscape.js",
+      "runtimePath": "system/onEscape.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 953,
+      "sha256": "a21e13055002087c3e8095c9b3a3f288099c2afbdf8ad19308b67c0d2b1ba4a5"
+    },
+    {
+      "path": "scripts/system/pal.js",
+      "runtimePath": "system/pal.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 45320,
+      "sha256": "9c06306a8b3693c72961a9f40c6244b6b365629f73a81e1d27b53864701f5ae8"
+    },
+    {
+      "path": "scripts/system/places/federation.json",
+      "runtimePath": "system/places/federation.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/system/places/places.js",
+      "runtimePath": "system/places/places.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 33334,
+      "sha256": "cdb8de19691d6ba411be453edec14a1152c6a97924ecf2e05eb3cbbf310f0cd6"
+    },
+    {
+      "path": "scripts/system/places/placesHtml.js",
+      "runtimePath": "system/places/placesHtml.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 43176,
+      "sha256": "f1eb4cb018f046985d9d3b1c2223220762292aa0048b41ec7b6da992833550f0"
+    },
+    {
+      "path": "scripts/system/places/portal.js",
+      "runtimePath": "system/places/portal.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7594,
+      "sha256": "a6a81bd5e9ca7ffe869424e10a422afd5251ab669a1d6ee91287e4ddd8c4e595"
+    },
+    {
+      "path": "scripts/system/progress.js",
+      "runtimePath": "system/progress.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 15192,
+      "sha256": "09b3538170e65c7023027b44551d4eca39d77e52db3a5c8881d179033d13bdb8"
+    },
+    {
+      "path": "scripts/system/quickGoto.js",
+      "runtimePath": "system/quickGoto.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2103,
+      "sha256": "953c30451eba66dd9184a4d8b2c7092082eae783743ed73f5e62b4e5ab1cdff1"
+    },
+    {
+      "path": "scripts/system/redirectOverlays.js",
+      "runtimePath": "system/redirectOverlays.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 10418,
+      "sha256": "61c623a1771394e65c77a516f02dc651f8530d31d17ed90f8d303dcfc017c9c7"
+    },
+    {
+      "path": "scripts/system/request-service.js",
+      "runtimePath": "system/request-service.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2433,
+      "sha256": "5b0a283f2ff5d6f92eb52c2c59252fe7d133bbc1b4aea2a245d051da12588053"
+    },
+    {
+      "path": "scripts/system/run.js",
+      "runtimePath": "system/run.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1071,
+      "sha256": "a5427353d73b83929da744f07da6eeb7619f0db6d618254a4d548992bec0accb"
+    },
+    {
+      "path": "scripts/system/settings/settings.js",
+      "runtimePath": "system/settings/settings.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2814,
+      "sha256": "d6fdf9fdb4a8d06d3a397da04de1b7fc912ab6ec28f17804395bd6914aba26a1"
+    },
+    {
+      "path": "scripts/system/snapshot.js",
+      "runtimePath": "system/snapshot.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 39613,
+      "sha256": "1508edb7495625d81c797bf26a85f1abd0fc2bfd0c6d8778fd96962d2ab70030"
+    },
+    {
+      "path": "scripts/system/tablet-goto.js",
+      "runtimePath": "system/tablet-goto.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4740,
+      "sha256": "9f134dcc781fab7603bb4ca6502be1e8714cd2c90d23e3de4262710d4f3e94a9"
+    },
+    {
+      "path": "scripts/system/tablet-position/tabletPosition.js",
+      "runtimePath": "system/tablet-position/tabletPosition.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2252,
+      "sha256": "e0e2a5333756d3107f7904b67526fbb9d5b863916a16c65f45bc3982ac42c657"
+    },
+    {
+      "path": "scripts/system/tablet-ui/mobileTabletApps.js",
+      "runtimePath": "system/tablet-ui/mobileTabletApps.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5322,
+      "sha256": "6a92131e4134942f61f124536c35fd2e750e4ad0495c2d6d1d2a6a1f849dadbc"
+    },
+    {
+      "path": "scripts/system/tablet-ui/tabletUI.js",
+      "runtimePath": "system/tablet-ui/tabletUI.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 16815,
+      "sha256": "223ff323d9adf2e68242a4768c1d4e6df52b8ac45d9d3fac929585a5cdd49843"
+    },
+    {
+      "path": "scripts/system/tablet-users.js",
+      "runtimePath": "system/tablet-users.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4460,
+      "sha256": "5b2cb68be7c2e946722f854a03966061aff9bc605da27e3732c367b1cd492c0b"
+    },
+    {
+      "path": "scripts/system/voxels.js",
+      "runtimePath": "system/voxels.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 15811,
+      "sha256": "bd41a5ae5044890fc5b451dbea5809a903d21008bf57e6bf9892306c26995d12"
+    },
+    {
+      "path": "scripts/tutorials/butterflies.js",
+      "runtimePath": "tutorials/butterflies.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5071,
+      "sha256": "e3ed8b23a0b4306b8e14bd7cfe0238c593f9f6b988182e8a09fa72281fc11824"
+    },
+    {
+      "path": "scripts/tutorials/contextMenu/flashlight.js",
+      "runtimePath": "tutorials/contextMenu/flashlight.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2274,
+      "sha256": "8e262db52395c4370a0a9a248c29ecb3bb6f1779134087eac5524c71ff630ce9"
+    },
+    {
+      "path": "scripts/tutorials/contextMenu/localMirror.js",
+      "runtimePath": "tutorials/contextMenu/localMirror.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1487,
+      "sha256": "26252e6d5f0ae1a0d56661d65e55b5abeddf1f2d374a52fff52d25aa3df4273e"
+    },
+    {
+      "path": "scripts/tutorials/createCow.js",
+      "runtimePath": "tutorials/createCow.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1523,
+      "sha256": "0df8c99e121135a2c1fa69c22848e7e0e37750bc51b9e4f06d11b01d30bfb5b4"
+    },
+    {
+      "path": "scripts/tutorials/createDice.js",
+      "runtimePath": "tutorials/createDice.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4084,
+      "sha256": "59890577407c6799ce92587334174b74dd9996b1c25cd243dfa9ba3f83574179"
+    },
+    {
+      "path": "scripts/tutorials/createFlashlight.js",
+      "runtimePath": "tutorials/createFlashlight.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 983,
+      "sha256": "59b608248411ea6b8932d264f3c4661e8e676feed800c8e8a13e18e6dbfb3ee2"
+    },
+    {
+      "path": "scripts/tutorials/createFloatingLanternBox.js",
+      "runtimePath": "tutorials/createFloatingLanternBox.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1665,
+      "sha256": "66c94e2b88b5ab0933218e2de4e7e4067380f08507466a2a0597cca4979725dd"
+    },
+    {
+      "path": "scripts/tutorials/createGolfClub.js",
+      "runtimePath": "tutorials/createGolfClub.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2496,
+      "sha256": "8d95cc53641c5ba1bd54ec7db10f4669425ebc8f60f09b19da2cce7be4ffbc73"
+    },
+    {
+      "path": "scripts/tutorials/createMidiSphere.js",
+      "runtimePath": "tutorials/createMidiSphere.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1122,
+      "sha256": "296afbfcfe02bc396616bc9813fe8d0e07016cee485ac082d39166671966951f"
+    },
+    {
+      "path": "scripts/tutorials/createPictureFrame.js",
+      "runtimePath": "tutorials/createPictureFrame.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2815,
+      "sha256": "ec0e90b0ff1e5e8658fcea1fb0476dfc7364f607613bc7b7ab42bd02b1bc3efa"
+    },
+    {
+      "path": "scripts/tutorials/createPingPongGun.js",
+      "runtimePath": "tutorials/createPingPongGun.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1741,
+      "sha256": "f48086f61f48314be309ce23955a76f15851ba0a49b7fece7fa7db040dfff83c"
+    },
+    {
+      "path": "scripts/tutorials/createPistol.js",
+      "runtimePath": "tutorials/createPistol.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1638,
+      "sha256": "4c86c376c97ca93459d6767f5a583da2d11cbd7e8d21ceffefbc81e4476e2e04"
+    },
+    {
+      "path": "scripts/tutorials/createSoundMaker.js",
+      "runtimePath": "tutorials/createSoundMaker.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 912,
+      "sha256": "d6f7b41fcccbe0e5884c668eb1605bd7f380861231e6ebc7c7315a9c71e56213"
+    },
+    {
+      "path": "scripts/tutorials/createSwords.js",
+      "runtimePath": "tutorials/createSwords.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1482,
+      "sha256": "3703861b05619b03374138f3f554bd54f9948a3132a37db92aaf2a6a391c0bee"
+    },
+    {
+      "path": "scripts/tutorials/createTetherballStick.js",
+      "runtimePath": "tutorials/createTetherballStick.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4236,
+      "sha256": "e425603d8aa691174c797f534bdc30e3016944b02f960d79d834829ada454e85"
+    },
+    {
+      "path": "scripts/tutorials/entity_edit_filters/keep-in-zone-example.js",
+      "runtimePath": "tutorials/entity_edit_filters/keep-in-zone-example.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1495,
+      "sha256": "364bfc1c5ab8b45a34f39f8e9864d50828e493910588b78c899dada3977734ea"
+    },
+    {
+      "path": "scripts/tutorials/entity_edit_filters/position-example.js",
+      "runtimePath": "tutorials/entity_edit_filters/position-example.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1680,
+      "sha256": "078517efd645c824af5521550d0f506b277c0ec5d46a83ea02061b3b348b56a0"
+    },
+    {
+      "path": "scripts/tutorials/entity_edit_filters/prevent-add-delete-or-edit-of-entities-with-name-of-zone.js",
+      "runtimePath": "tutorials/entity_edit_filters/prevent-add-delete-or-edit-of-entities-with-name-of-zone.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1599,
+      "sha256": "99fb0634fed557d9eedaef9df688dd3ecf7954ce3acd48c5f8e181d57623cfef"
+    },
+    {
+      "path": "scripts/tutorials/entity_edit_filters/prevent-add-of-entities-named-bob-example.js",
+      "runtimePath": "tutorials/entity_edit_filters/prevent-add-of-entities-named-bob-example.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 830,
+      "sha256": "61c78228765ff6877c36136c3669eeb0c045c20c61a79010f3656dc62ee06c58"
+    },
+    {
+      "path": "scripts/tutorials/entity_edit_filters/prevent-all-deletes.js",
+      "runtimePath": "tutorials/entity_edit_filters/prevent-all-deletes.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 676,
+      "sha256": "94e66ed263d5da0adabd24fef435ee56249c7f754a221e0e22a9a2607ef6e40a"
+    },
+    {
+      "path": "scripts/tutorials/entity_edit_filters/prevent-delete-in-zone-example.js",
+      "runtimePath": "tutorials/entity_edit_filters/prevent-delete-in-zone-example.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 661,
+      "sha256": "adf5b9e61f0857b1db00a240362fe0d8f03ffc89e2a54bcd3d6762030376bb50"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/ambientSound.js",
+      "runtimePath": "tutorials/entity_scripts/ambientSound.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 10465,
+      "sha256": "b5719c12aaac4b9707eb4305925c1870186ebaad21fe925e9b7668dbef6a780b"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/balloonSpawner/balloonParty.json",
+      "runtimePath": "tutorials/entity_scripts/balloonSpawner/balloonParty.json",
+      "kind": "json-module",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 35,
+      "sha256": "061cb24aebd486f42247668da49d36198842ccda7139f8b40bd6cb86d7191e42"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/balloonSpawner/spawnBalloons.js",
+      "runtimePath": "tutorials/entity_scripts/balloonSpawner/spawnBalloons.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 8470,
+      "sha256": "58988099c61c59f57fab7043727ec5ba4a1c648b1801aa06ff5a6e5330a8cd26"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/chair.js",
+      "runtimePath": "tutorials/entity_scripts/chair.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 6717,
+      "sha256": "95963caff904aa8718c7fa8792de719738ee4b14fb8f0145de6a501056439be8"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/cow.js",
+      "runtimePath": "tutorials/entity_scripts/cow.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2850,
+      "sha256": "9ee288d02631939487a6c4c8131a24df181e47769d1ca9cd33c4d27f602c93e1"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/flashlight.js",
+      "runtimePath": "tutorials/entity_scripts/flashlight.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 9737,
+      "sha256": "ac25a7f830fc80438a8951b09255b15d294349ff0be88a8ca4aa288a1a1b3805"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/floatingLantern.js",
+      "runtimePath": "tutorials/entity_scripts/floatingLantern.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3394,
+      "sha256": "d726434c5aa2ad41245b780770c1b222459c3f74d3e45313740e7e06a526a875"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/floatingLanternBox.js",
+      "runtimePath": "tutorials/entity_scripts/floatingLanternBox.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3341,
+      "sha256": "a3ade163c50b68b90a0f5a02368de30c50f61ed31532c6191cb066bd57a353a8"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/golfClub.js",
+      "runtimePath": "tutorials/entity_scripts/golfClub.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5061,
+      "sha256": "fc1b278956396df7ca7d495a255bb064eff52d388bbc265495389a71f032d582"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/magneticBlock.js",
+      "runtimePath": "tutorials/entity_scripts/magneticBlock.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5715,
+      "sha256": "3fc058419b72f9d67c8c676d0889d1e66013325d81d7d13efaaa46f56d69d770"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/midiSphere.js",
+      "runtimePath": "tutorials/entity_scripts/midiSphere.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1701,
+      "sha256": "2d8b0fa5b63a5c338036f3683194b81a707e09cafbd695b941a7109002b32d5b"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/pingPongGun.js",
+      "runtimePath": "tutorials/entity_scripts/pingPongGun.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 5547,
+      "sha256": "311986d98a7c9026d5d3015f38eaa4436097b64ad4b5018485630ba10f546117"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/pistol.js",
+      "runtimePath": "tutorials/entity_scripts/pistol.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 11799,
+      "sha256": "2ae4df3fd666580cb9c06faa9aff16b2d610d11fba2ab1d159e9972fce435f00"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/sit.js",
+      "runtimePath": "tutorials/entity_scripts/sit.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 12919,
+      "sha256": "65c902effaed9f9e0c2ff55705b2c5b0bba5659f9d0cea3ce90f8a9450014d2a"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/soundMaker.js",
+      "runtimePath": "tutorials/entity_scripts/soundMaker.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 766,
+      "sha256": "54b308f94ac338498a3ee372833b20d09cde5b2bf60612b3abdc5effbffacbdb"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/springAway.js",
+      "runtimePath": "tutorials/entity_scripts/springAway.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4882,
+      "sha256": "b40b432975c646b36945b151b6f8564a67ac92a0d2eb4708a93d112bf022a63f"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/springHold.js",
+      "runtimePath": "tutorials/entity_scripts/springHold.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3245,
+      "sha256": "bda85b60b1536b3f3cc1f65178dd8a58d0a0699a4455e0149a4cca29f987c2be"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/tetherballStick.js",
+      "runtimePath": "tutorials/entity_scripts/tetherballStick.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 4990,
+      "sha256": "9c1fe281ed50173ccb666f777c0fa102a71d8ca820042587695e24921e0c4396"
+    },
+    {
+      "path": "scripts/tutorials/entity_scripts/touch.js",
+      "runtimePath": "tutorials/entity_scripts/touch.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 7999,
+      "sha256": "e7f32498f3a0d130d38647080354a30700e0023e588c9735833c2767073fca58"
+    },
+    {
+      "path": "scripts/tutorials/getDomainMetadata.js",
+      "runtimePath": "tutorials/getDomainMetadata.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 3861,
+      "sha256": "4f867712633075210ad070b778a2e20a314c7f015c7582619708412273d99a45"
+    },
+    {
+      "path": "scripts/tutorials/giveAvatarMagicFingers.js",
+      "runtimePath": "tutorials/giveAvatarMagicFingers.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2880,
+      "sha256": "1915a5df3de17db4cf8471e457ea1d84846f66720419d442b3ffec454129765d"
+    },
+    {
+      "path": "scripts/tutorials/halfDuplex.js",
+      "runtimePath": "tutorials/halfDuplex.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2465,
+      "sha256": "26251533b27153c1525b493a09f3bd0c489056cb109bb9cff1712aac06199294"
+    },
+    {
+      "path": "scripts/tutorials/makeAvatarClap.js",
+      "runtimePath": "tutorials/makeAvatarClap.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 1291,
+      "sha256": "beab99149bd1e4d7624295b4b1e74a09b8f0f775fa5d7790ee9727db1257ea3a"
+    },
+    {
+      "path": "scripts/tutorials/makeBlocks.js",
+      "runtimePath": "tutorials/makeBlocks.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2045,
+      "sha256": "f5851d825a2e337bb0e4666fd8a9a9c676e6b4f810b20e29b4132c98631cd994"
+    },
+    {
+      "path": "scripts/tutorials/nBody.js",
+      "runtimePath": "tutorials/nBody.js",
+      "kind": "script",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 2293,
+      "sha256": "50369c5bb282fbe2370b122cfa5904c7cfb4e3fb2377ebbd192db67992556096"
+    }
+  ],
+  "probe": {
+    "path": "tests/device/probe/overte_e2e_probe.js",
+    "encoding": "utf-16le-code-units",
+    "codeUnits": 158606,
+    "sha256": "4fa6c936caf6170ca93645f0f81f476128d5841597f3833a65f6c46a1f04b0a6"
+  },
+  "native": [
+    {
+      "resourceName": "(boundRequire)",
+      "encoding": "utf-16le-code-units",
+      "codeUnits": 84,
+      "sha256": "94cea367ced58b7ef32f563b445982ae333320c6ba23a35788ea36ba19f43036"
+    }
+  ]
+}

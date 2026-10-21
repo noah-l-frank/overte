@@ -10,6 +10,7 @@ from pathlib import Path
 import time
 
 from adapters.emote_rig_measurements import source,continuation
+from adapters.emote_admission import executable,world,policy as admission_policy
 from adapters.native_feature_observation import exact,fresh,integer,need,number,validate as native_packet
 from adapters.native_animation_history import accept as animation_history
 from adapters.native_script_roots import validate as roots_packet
@@ -25,7 +26,7 @@ from overte_phone_graphics_samples import restore_native,restore_ui
 from overte_phone_script_history import pack,unpack,same
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=3
+VERSION=4
 LIMIT=MAX_FRAMES
 MAX_SEGMENTS=16
 
@@ -40,7 +41,7 @@ class EmotePhaseChanged(NativeUIError):
 
 
 class PhoneEmoteSources:
-    def __init__(self,adapter,selector,phase,role,lock,*,artifact_root,monotonic=time.monotonic,segment=0):
+    def __init__(self,adapter,selector,phase,role,lock,*,artifact_root,monotonic=time.monotonic,segment=0,admission=None):
         need(isinstance(phase,PhaseFixtureReader) and phase.area=='emotes'
             and role in ('primary','actor') and isinstance(lock,PhoneScriptSourceLock) and callable(monotonic))
         path=adapter.state_path(selector);need(lock.path==path.with_name('phone-script-sources.lock'));lock.assert_held()
@@ -51,12 +52,17 @@ class PhoneEmoteSources:
         self.binding=deepcopy(context(binding));self.pid=int(self.binding['processIdentity'].split(':')[0]);need(integer(self.pid,1))
         self.store=PrivateFeatureState(path.with_name(source_name(role,segment)))
         self.previous=self.store.read();self.frames=[];self.failed=False
+        original_policy=self.previous.get('admissionPolicy') if self.previous is not None and self.previous.get('emoteSourcesVersion')==VERSION else None
+        self.admission=None if admission is None and original_policy is None else admission_policy(original_policy if admission is None else admission)
         self.artifact_root=Path(artifact_root)
         self.state=dict(phase='ready',revision=0,manifests=[],pending=None)
         self.originals=PhoneEmoteOriginals(self.artifact_root,self.binding,self.run,self.role,self.guard,self.storage_intent,monotonic=self.monotonic)
         if segment:
             self.prior_store=PrivateFeatureState(path.with_name(source_name(role,segment-1)));self.prior_header=self.prior_store.read()
             need(self.prior_header is not None and self.prior_header.get('role')==role)
+            prior_policy=self.prior_header.get('admissionPolicy') if self.prior_header.get('emoteSourcesVersion')==VERSION else None
+            if self.admission is None and self.previous is None and prior_policy is not None:self.admission=admission_policy(prior_policy)
+            need(same(self.admission,prior_policy)) # Never downgrade or silently upgrade an unchecked predecessor.
             prior_state,prior_frames=self.archive(self.prior_header,phase=phase,artifact_root=self.artifact_root,binding=self.binding,
                 guard=self.guard,monotonic=self.monotonic)
             need(prior_state['phase']=='ready' and prior_state['pending'] is None and bool(prior_frames)
@@ -81,11 +87,19 @@ class PhoneEmoteSources:
         references=self.originals.manifest(self.prior_manifest);need(same(references[-1],self.prior_reference))
         original=self.originals.read(self.originals.expand(self.prior_reference));need(same(original,self.predecessor))
 
+    def configuration_bound(self):
+        need(same(self.store.read(),self.previous))
+        if self.previous is not None:
+            need(same(self.previous.get('admissionPolicy'),self.admission)
+                and self.previous['emoteSourcesVersion']==(VERSION if self.admission is not None else 3))
+
     def decode(self,value):
-        exact(value,{'emoteSourcesVersion','runId','fixtureUrl','role','binding','artifactRoot','payload'})
-        need(type(value['emoteSourcesVersion']) is int and value['emoteSourcesVersion']==VERSION
+        version=value.get('emoteSourcesVersion') if type(value) is dict else None
+        exact(value,{'emoteSourcesVersion','runId','fixtureUrl','role','binding','artifactRoot','payload'}|({'admissionPolicy'} if version==VERSION else set()))
+        need(type(version) is int and version in (3,VERSION) and (self.admission is not None)==(version==VERSION)
             and value['runId']==self.run and value['fixtureUrl']==self.phase.fixture_url and value['role']==self.role
             and same(context(value['binding']),self.binding) and value['artifactRoot']==str(self.artifact_root))
+        if version==VERSION:need(same(value['admissionPolicy'],self.admission))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
         exact(state,{'phase','revision','manifests','pending'})
         need(state['phase'] in ('ready','reading') and integer(state['revision'],0,LIMIT))
@@ -125,6 +139,7 @@ class PhoneEmoteSources:
             and value.get('role') in ('primary','actor') and callable(guard) and callable(monotonic))
         scope=object.__new__(cls);scope.phase,scope.run,scope.role=phase,identifier(phase.run),value['role']
         scope.binding=deepcopy(context(binding));scope.pid=int(scope.binding['processIdentity'].split(':')[0]);need(integer(scope.pid,1))
+        scope.admission=None if value.get('emoteSourcesVersion')!=VERSION else admission_policy(value['admissionPolicy'])
         scope.artifact_root=Path(artifact_root);scope.monotonic=monotonic
         scope.originals=PhoneEmoteOriginals(scope.artifact_root,scope.binding,scope.run,scope.role,guard,
             lambda *_args:need(False),monotonic=monotonic)
@@ -175,9 +190,18 @@ class PhoneEmoteSources:
         pending[kind]=deepcopy(value);self.save()
 
     def validate_frame(self,frame,previous=None):
-        exact(frame,{'group','ui','widgets','phaseBefore','phaseAfter','hostEpochMs','epochMs'})
+        exact(frame,{'group','ui','widgets','phaseBefore','phaseAfter','hostEpochMs','epochMs'}|({'probe'} if self.admission is not None else set()))
         need(integer(frame['epochMs'],1) and number(frame['hostEpochMs'],1,1e15))
         selected,current,_urls=source(frame['group'],self.pid,frame['epochMs'])
+        if self.admission is not None:
+            _selected,probe_engine,_proof=executable(frame['group'],pid=self.pid,epoch=frame['epochMs'],probe_url=self.admission['probeUrl'])
+            top=max(row['compiledEpochMs'] for row in probe_engine['compiled']['compilations'] if row['resourceName']==self.admission['probeUrl']
+                and row['sha256']==probe_engine['code']['sha256'])
+            world(frame['probe'],self.admission,epoch=frame['epochMs'],after_epoch=top,
+                after_sequence=0 if previous is None else previous['probe']['sampleSequence']-1)
+            if previous is not None:
+                need(frame['probe']['sampleEpochMs']>=previous['probe']['sampleEpochMs'])
+                if frame['probe']['sampleSequence']==previous['probe']['sampleSequence']:need(same(frame['probe'],previous['probe']))
         ui=snapshot(frame['ui']);widgets=frame['widgets']
         widget_packet(widgets,identifier(widgets.get('commandId')),self.pid,frame['epochMs'])
         expected=dict(emoteControlsVersion=1,open=ui['open'],ready=widgets['ready'],controls=widgets['controls'],scope=dict(
@@ -208,10 +232,11 @@ class PhoneEmoteSources:
     def save(self):
         need(getattr(self,'historical',False) is False)
         try:
-            self.lock.assert_held();need(not self.failed and self.guard() is not False and same(self.store.read(),self.previous))
+            self.lock.assert_held();need(not self.failed and self.guard() is not False);self.configuration_bound()
             self.state['revision']=len(self.frames)
-            value=dict(emoteSourcesVersion=VERSION,runId=self.run,fixtureUrl=self.phase.fixture_url,role=self.role,
+            value=dict(emoteSourcesVersion=VERSION if self.admission is not None else 3,runId=self.run,fixtureUrl=self.phase.fixture_url,role=self.role,
                 binding=self.binding,artifactRoot=str(self.artifact_root),payload=pack([self.state]))
+            if self.admission is not None:value['admissionPolicy']=deepcopy(self.admission)
             self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
         except Exception:
             self.failed=True
@@ -223,6 +248,7 @@ class PhoneEmoteSources:
     def read(self):
         need(getattr(self,'historical',False) is False)
         self.lock.assert_held();need(not self.failed and self.state['phase']=='ready' and len(self.frames)<LIMIT and self.guard() is not False)
+        self.configuration_bound()
         started=previous=self.monotonic();need(number(started,0,1e15))
         def bound():
             nonlocal previous
@@ -256,10 +282,15 @@ class PhoneEmoteSources:
         if not self.frames:self.segment_start(packet)
         after=roots.read(before['sequence']);bound()
         visual=ui.capture();bound();widgets=deepcopy(ui.original_packet)
+        probe=None
+        if self.admission is not None:
+            with self.adapter.existing_input_session(self.selector):probe=self.adapter.invoke(self.selector,'probe.snapshot',{})
+            bound()
         final=self.phase.status(phase['status']);bound()
         device_epoch=native.clock_ms();host_epoch=self.phase.epoch_ms();bound()
         frame=dict(group=dict(rootsBefore=before,script=script,native=packet,rootsAfter=after),ui=visual,widgets=widgets,
             phaseBefore=phase['status'],phaseAfter=final,hostEpochMs=host_epoch,epochMs=device_epoch)
+        if self.admission is not None:frame['probe']=deepcopy(probe)
         stable=self.validate_frame(frame,last);bound()
         fresh(before['requestedEpochMs'],device_epoch)
         # Frozen external clocks cannot conceal late sequential acquisition.

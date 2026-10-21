@@ -7,15 +7,18 @@ before a complete capability can be registered.
 # Copyright 2026 Overte contributors.
 # SPDX-License-Identifier: Apache-2.0
 from copy import deepcopy
+import hashlib
 from pathlib import Path
 import time
 
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.native_phone_emote_fixture import input_command
+from adapters.emote_admission import policy as admission_policy
 from adapters.normal_feature_state import PrivateFeatureState,context
 from feature_journeys.contract import arguments
 from feature_journeys.phase_fixture import PhaseFixtureReader
 from overte_phone_emote_background import PhoneEmoteBackground
+from overte_phone_emote_admission import PhoneEmoteAdmission
 from overte_phone_emote_cleanup import PhoneEmoteCleanup
 from overte_phone_emote_inputs import PhoneEmoteInputs
 from overte_phone_emote_lifetime import PhoneEmoteLifetime
@@ -23,18 +26,19 @@ from overte_phone_emote_namespaces import PhoneEmoteNamespaces
 from overte_phone_emote_scene import PhoneEmoteScene
 from overte_phone_emote_sources import PhoneEmoteSources,MAX_SEGMENTS
 from overte_phone_emote_view import PhoneEmoteView
-from overte_phone_script_history import pack,unpack,same
+from overte_phone_script_history import pack,unpack,same,canonical
 from overte_phone_script_lock import PhoneScriptSourceLock
 
-VERSION=2
+VERSION=3
 
 
 class PhoneEmoteRun:
-    def __init__(self,adapter,selector,phase,artifact_root,image_extent,marker_roi,*,monotonic=time.monotonic,sleep=time.sleep):
+    def __init__(self,adapter,selector,phase,artifact_root,image_extent,marker_roi,*,admission=None,monotonic=time.monotonic,sleep=time.sleep):
         need(isinstance(phase,PhaseFixtureReader) and phase.area=='emotes' and callable(monotonic) and callable(sleep))
         self.adapter,self.selector,self.phase=adapter,selector,phase
         self.run,self.fixture_url=phase.run,phase.fixture_url
         self.root,self.extent,self.marker=Path(artifact_root),deepcopy(image_extent),deepcopy(marker_roi)
+        self.policy=None if admission is None else admission_policy(admission)
         PrivateFeatureState(self.root/'emote-run-boundary.json')._parent()
         input_command(dict(schemaVersion=1,commandId='a'*32,action='phone-emote-fixture-input',operation='prepare',
             runId=self.run,fixtureUrl=self.fixture_url,ticket='a'*32,imageExtent=self.extent,markerRoi=self.marker))
@@ -50,16 +54,25 @@ class PhoneEmoteRun:
         return self.state
 
     def decode(self,value):
-        exact(value,{'emoteRunVersion','runId','fixtureUrl','artifactRoot','imageExtent','markerRoi','payload'})
-        need(type(value['emoteRunVersion']) is int and value['emoteRunVersion'] in (1,VERSION)
+        version=value.get('emoteRunVersion') if type(value) is dict else None
+        exact(value,{'emoteRunVersion','runId','fixtureUrl','artifactRoot','imageExtent','markerRoi','payload'}
+            |({'admissionPolicy'} if version==VERSION else set()))
+        need(type(version) is int and version in (1,2,VERSION)
             and value['runId']==self.run and value['fixtureUrl']==self.fixture_url and value['artifactRoot']==str(self.root)
             and same(value['imageExtent'],self.extent) and same(value['markerRoi'],self.marker))
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
-        exact(state,{'phase','binding','segment','baseline','call','cleanupTicket'})
+        exact(state,{'phase','binding','segment','baseline','call','cleanupTicket'}|({'admissionSha256'} if version==VERSION else set()))
+        state=deepcopy(state)
+        if version==VERSION:need(same(value['admissionPolicy'],self.policy))
+        else:state['admissionSha256']=None
         context(state['binding']);need(integer(state['segment'],0,MAX_SEGMENTS-1)
             and state['phase'] in ('preparing','prepared','acting','active','switching','cleaning-inputs','inputs-restored',
                 'restoring-resources','resources-restored'))
         if value['emoteRunVersion']==1:need(state['phase'] not in ('restoring-resources','resources-restored'))
+        if state['admissionSha256'] is not None:
+            need(self.policy is not None and type(state['admissionSha256']) is str
+                and len(state['admissionSha256'])==64 and all(ch in '0123456789abcdef' for ch in state['admissionSha256']))
+        if version==VERSION and state['phase'] in ('prepared','acting','active','switching'):need(state['admissionSha256'] is not None)
         if state['baseline'] is not None:
             exact(state['baseline'],{'revision','sha256'});need(integer(state['baseline']['revision'],1,1024)
                 and type(state['baseline']['sha256']) is str and len(state['baseline']['sha256'])==64
@@ -79,7 +92,7 @@ class PhoneEmoteRun:
     def save(self):
         self.lock.assert_held();need(not self.failed and same(self.store.read(),self.previous))
         value=dict(emoteRunVersion=VERSION,runId=self.run,fixtureUrl=self.fixture_url,artifactRoot=str(self.root),
-            imageExtent=self.extent,markerRoi=self.marker,payload=pack([self.state]))
+            imageExtent=self.extent,markerRoi=self.marker,admissionPolicy=deepcopy(self.policy),payload=pack([self.state]))
         try:
             self.decode(value);self.store.write(value,self.previous);need(same(self.store.read(),value));self.previous=deepcopy(value)
         except Exception:self.failed=True;raise
@@ -87,7 +100,8 @@ class PhoneEmoteRun:
     def source(self,role='primary',*,segment=None):
         need(self.state is not None)
         source=PhoneEmoteSources(self.adapter,self.selector,self.phase,role,self.lock,artifact_root=self.root,
-            monotonic=self.monotonic,segment=self.state['segment'] if segment is None else segment)
+            monotonic=self.monotonic,segment=self.state['segment'] if segment is None else segment,
+            admission=self.policy if self.state['phase']=='preparing' or self.state['admissionSha256'] is not None else None)
         need(same(source.binding,self.state['binding']))
         return source
 
@@ -102,6 +116,20 @@ class PhoneEmoteRun:
         return PhoneEmoteBackground(self.adapter,self.selector,self.phase,self.lock,artifact_root=self.root,
             monotonic=self.monotonic,sleep=self.sleep,segment=self.state['segment'])
 
+    def admitted(self,*,recovering_background=False):
+        """Reopen original approved admission; background recovery uses its pin.
+
+        The recovery exception permits only an already owned OS cycle to reach
+        foreground. Fresh original validation follows before action completion.
+        It never permits a new Home or native getter in an unknown background.
+        """
+        need(self.policy is not None and self.state['admissionSha256'] is not None)
+        header=PrivateFeatureState(self.store.path.with_name('phone-emote-primary-admission.json')).read()
+        need(header is not None and hashlib.sha256(canonical(header)).hexdigest()==self.state['admissionSha256'])
+        if recovering_background:return
+        admission=PhoneEmoteAdmission(self.source(segment=0),self.policy)
+        need(admission.state['phase']=='admitted' and same(admission.previous,header))
+
     def active(self,verb=None,call=None):
         status=self.phase.status();need(status['active'] and status['activations']);row=status['activations'][-1]
         if verb is not None:need(row['stimulus']==dict(verb=verb,inputs={}))
@@ -114,16 +142,17 @@ class PhoneEmoteRun:
         with self.lock.held():
             self.load()
             if self.state is None:
+                need(self.policy is not None)
                 self.active('baseline')
                 # No orphaned ownership is adopted by a new run. Existing
                 # diagnostic transport files have different native filenames.
                 need(not list(self.store.path.parent.glob('phone-emote-*.json')))
                 _ui,_service,binding,guard,_installed=self.adapter.normal_feature_runtime(self.selector,read_only=True)
                 need(guard() is not False)
-                self.state=dict(phase='preparing',binding=deepcopy(context(binding)),segment=0,baseline=None,call=None,cleanupTicket=None)
+                self.state=dict(phase='preparing',binding=deepcopy(context(binding)),segment=0,baseline=None,call=None,cleanupTicket=None,admissionSha256=None)
                 self.save() # Parent ownership precedes every child request/input.
             if self.state['phase']!='preparing':
-                need(self.state['phase'] in ('prepared','acting','active','switching'));return deepcopy(self.state)
+                need(self.state['phase'] in ('prepared','acting','active','switching'));self.admitted();return deepcopy(self.state)
             baseline_ticket=self.active('baseline')['ticket'];source=self.source();owner=PhoneEmoteInputs(source)
             if self.state['baseline'] is None:
                 frame=source.read();need(frame['group']['native']['animation']['overrideActive'] is False
@@ -132,6 +161,11 @@ class PhoneEmoteRun:
             else:
                 frame=owner.original(self.state['baseline']);need(frame['phaseAfter']['activations'][-1]['stimulus']==dict(verb='baseline',inputs={}))
             need(all(frame[key]['activations'][-1]['ticket']==baseline_ticket for key in ('phaseBefore','phaseAfter')))
+            if self.state['admissionSha256'] is None:
+                need(self.policy is not None);admission=PhoneEmoteAdmission(source,self.policy)
+                header=admission.wait(sleep=self.sleep);need(admission.state['phase']=='admitted')
+                self.state['admissionSha256']=hashlib.sha256(canonical(header)).hexdigest();self.save()
+            else:self.admitted()
             view=self.view();view.prepare();need(view.state['phase']=='active')
             need(self.active('baseline')['ticket']==baseline_ticket)
             scene=self.scene(view);scene.prepare();need(scene.state['phase']=='active')
@@ -144,14 +178,17 @@ class PhoneEmoteRun:
         with self.lock.held():
             self.load();need(self.state is not None and self.state['phase'] in ('prepared','acting','active'))
             self.active(call=call)
+            recovering=(call['verb']=='background-resume' and PrivateFeatureState(self.store.path.with_name('phone-emote-background.json')).read() is not None)
+            self.admitted(recovering_background=recovering)
             if self.state['phase']=='acting':need(same(self.state['call'],call))
             else:self.state.update(phase='acting',call=call);self.save()
             if call['verb']=='background-resume':
                 # Construct/recover the OS owner before any foreground-only
                 # source. The same actual background action is never resent.
                 background=self.background()
-                if background.state is not None:need(same(background.state['binding'],self.state['binding']))
+                if background.state is not None:need(same(background.state['binding'],self.state['binding']) and same(background.state['call'],call))
                 value=background.act(call)
+                self.admitted()
             else:
                 source=self.source();PhoneEmoteNamespaces(source).assert_acquiring();value=PhoneEmoteInputs(source).act(call)
             need(value=={'performed':True});self.active(call=call)

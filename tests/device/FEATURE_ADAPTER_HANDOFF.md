@@ -16,12 +16,19 @@ here. Pico/iOS adapters are maintained in separate sessions/worktrees; this Phon
 checkout does not establish their current implementation status. No native build or device
 qualification has been performed here.
 
-The [Phone setup/input run owner v2](adapters/android-phone/EMOTE_RUN.md) now
+The [Phone original admission owner](adapters/android-phone/EMOTE_ADMISSION.md)
+now requires fresh actual controlled-domain, all-executable and all-twelve-cache
+proofs before setup. The fixed repository catalog never learns from a target.
+Source version 4 repeats executable/world verification on every role frame;
+late foreign code/worlds and checked/unchecked archive mixing fail closed.
+
+The [Phone setup/input run owner v3](adapters/android-phone/EMOTE_RUN.md) now
 composes actual setup, ordinary input, per-role sources, bounded namespace
-switches and foreground-first input cleanup. It also orders real Scene/View restoration and obtains each
-role's own three-second native/work quiet window. Its input acknowledgments do not
-supply feature facts or complete cleanup; full admission, observations/actor and
-whole-run retirement still block complete Emote capability registration.
+switches and foreground-first input cleanup. It also orders real Scene/View
+restoration and obtains each role's own three-second native/work quiet window.
+Its input acknowledgments do not supply feature facts or complete cleanup; public
+observations/actor and whole-run retirement still block complete Emote capability
+registration.
 
 The [Phone namespace lease v2](adapters/android-phone/EMOTE_NAMESPACE_LEASE.md)
 now preserves aborted partial freezes and both roles' original headers under the
