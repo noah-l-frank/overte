@@ -320,5 +320,23 @@ class PhoneEmoteBackground:
         need(state['phase']=='observed' and state['cleanup'] is None and same(state['binding'],source.binding))
         _left,before=view.archive(state['beforeHeader'],source.binding)
         _right,after=view.archive(state['afterHeader'],source.binding)
+        # Namespace is a host-path ownership identity, not an invented native
+        # fact. A retained packet cannot relabel otherwise valid source frames
+        # as another namespace whose actual journal never owned this prefix.
+        namespace_header=view.sources.read();need(namespace_header is not None)
+        _namespace,current=view.archive(namespace_header,source.binding)
+        need(namespace_header['role']=='primary' and len(current)>=len(after)
+            and same(current[:len(after)],after) and same(view.sources.read(),namespace_header))
+        if segment:
+            predecessor_store=PrivateFeatureState(source.store.path.with_name(source_name('primary',segment-1)))
+            predecessor_header=predecessor_store.read();need(predecessor_header is not None)
+            predecessor_state,predecessor=view.archive(predecessor_header,source.binding)
+            need(predecessor_header['role']=='primary' and predecessor_state['phase']=='ready'
+                and predecessor_state['pending'] is None and predecessor)
+            previous=view.idle(predecessor[-1]);first=view.idle(current[0])
+            source.validate_frame(current[0],predecessor[-1])
+            need(first['animation']['history']['callSequence']==previous['animation']['history']['callSequence']
+                and same(predecessor_store.read(),predecessor_header) and same(view.sources.read(),namespace_header))
+        need(view.status(source.binding)['foreground'] is True)
         result=deepcopy((state,before,after));source.lock.assert_held();need(source.guard() is not False)
         end=source.monotonic();need(number(end,started,1e15) and end-started<5);return result

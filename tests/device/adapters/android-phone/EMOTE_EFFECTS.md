@@ -3,8 +3,8 @@
 `PhoneEmoteEffects` connects existing ordinary input ownership to original native
 Rig measurements. It takes a real `PhoneEmoteInputs` backed by source journal v3;
 it delivers no product input, retries no uncertain input, creates no new journal
-and advertises no complete Emote capability. Images, separate actor publication,
-background/resume and whole-resource cleanup remain missing. Phone still has
+and advertises no complete Emote capability. Whole image/background/actor and
+resource-cleanup coordination remains incomplete. Phone still has
 three complete source adapters, with uncompiled native code and no device runs.
 
 Version 2 adds independently acquired actor effects and an explicit result role.
@@ -162,3 +162,40 @@ Host counterexamples cover historical primary/actor cancellation after a future
 play, foreign play references/calls, missing files, slow replay and changed
 derived image/effect facts. Full Phone Emotes remains unregistered and native
 instrumentation/device qualification remain pending.
+
+## Current background restoration effects, version 1
+
+`background_recompute(reference, previous=..., header=..., image_policy=...)`
+reopens this role's complete original cancel observation archive and the actual
+completed `PhoneEmoteBackground` header. The prior checkpoint must independently
+prove a genuine early cancel with its original native play and cancel barriers.
+Its cancel ticket must immediately precede the current background ticket in the
+unchanged fixture history. An old cancel cannot be relabeled as a background
+input; no new ordinary-input journal row or ACK is created.
+
+Current native facts come from the given role's newly acquired original source
+frame. The old cancel's original native frame must precede the actual cycle's
+before-frame, and current native evaluation must advance beyond its after-frame.
+Actual process/Rig/code/event provenance and the completed native lifecycle
+counters remain bound. A new override, extra lifecycle transition, disabled or
+unloaded graph, foreign role/history/namespace, changed input phase, missing
+original or another actual OS background cannot qualify. Current panel state
+comes from the new Qt source, never from the pre-background checkpoint.
+
+The existing Rig restoration verifier recomputes actual idle state and early
+restoration from the preserved real play/restore events and cancel barrier. It
+does not copy the old checkpoint's state. The closed private output contains
+exactly `emoteBackgroundEffectVersion:1`, `role`, `runId`, `binding`, `call`,
+`frame`, `previousTicket`, `state`, `proof`. `call` is the original background
+input; `previousTicket` is the actual preceding cancel. There are no desired
+poses, timing expectations or success flags.
+
+`measure(reference, background={previous,header,image_policy})` requires the
+latest ready source, current durable ownership and actual fixture phase, then
+enforces the existing independent native/host 1.5-second freshness limits and
+five-second total bound. `played` must be absent. Historical recomputation alone
+does not assert freshness or successful foreground restoration. Neither path
+dispatches input or obtains native/UI measurements; the caller owns acquisition.
+The background archive uses the actual bound OS observer and therefore is not
+an offline/device-disconnected reader. Image-frame integration and full feature
+registration remain pending.

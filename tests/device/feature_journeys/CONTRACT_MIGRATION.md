@@ -7,6 +7,11 @@ Authentication and Graphics producers use the shared current version; their
 feature semantics are unchanged. Native instrumentation remains uncompiled and
 all clients remain untested on devices.
 
+Retire any pending v16 run with its v16 owner before switching that run to v17.
+Version 17 rejects old-version calls/journals and preserves their cleanup
+responsibility. Do not bulk-rewrite contract versions, adopt old input ACKs or
+delete unresolved private evidence to make a new run appear ready.
+
 Every active Emote play/Sit/override checkpoint now requires an original
 `kind: file` [native motion proof](EMOTE_MOTION.md), in addition to its original
 PNG and independent actor facts. Source-audited brief clips cannot accommodate

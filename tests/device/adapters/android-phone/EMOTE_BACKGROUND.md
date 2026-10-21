@@ -152,3 +152,14 @@ cover ignored/lost inputs, background reconstruction, native counter absence,
 wrong source/fixture/process authority, corrupt originals, pending ordinary
 input, failed writes, current phase changes and incomplete retirement. No device,
 installation, compiler, build or Jenkins execution is performed.
+
+Historical completed-cycle reads additionally bind the claimed primary namespace
+to its actual retained source journal and unchanged original cycle prefix. A
+later namespace must have the actual ready inactive predecessor, a genuinely
+advancing first native/root/UI/fixture frame and unchanged native call cursor.
+Copying a valid source header to another namespace path does not create that
+ownership. Keep these original namespace journals until all background joins
+and their enclosing retirement proofs have been verified. Missing/changed
+journals are errors, not successful empty history. The bound process must still
+be foreground; recovery while actually backgrounded uses the separate recovery
+path above, without foreground-only native getters.

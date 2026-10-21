@@ -87,6 +87,8 @@ class PhoneEmoteBackgroundTests(unittest.TestCase):
         with m.lock.held():
             first=m.source();first.read();frozen=deepcopy(first.previous)
             m.source(segment=1).read();owner=m.owner(segment=1);call=m.call('background-resume');owner.act(call)
+            archived,_before,_after=PhoneEmoteBackground.completed_archive(owner.previous,m.source(segment=1))
+            self.assertEqual(call,archived['call'])
             self.assertEqual(1,owner.previous['sourceSegment'])
             self.assertEqual('phone-emote-primary-sources-segment-1.json',owner.sources.path.name)
             self.assertEqual(frozen,first.store.read())

@@ -8,7 +8,7 @@ whole-feature cleanup verdict. It advertises no complete feature capability.
 from copy import deepcopy
 import hashlib
 
-from adapters.emote_rig_measurements import playback,restoration,source as source_group
+from adapters.emote_rig_measurements import playback,restoration,continuation,source as source_group
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.token_emote_ui import snapshot
 from feature_journeys.phase_fixture import validate as phase_packet
@@ -18,6 +18,7 @@ from overte_phone_emote_originals import BLOCK
 from overte_phone_script_history import same,unpack,canonical
 
 VERSION=2
+BACKGROUND_VERSION=1
 PLAYS={'play','sit','override'}
 
 
@@ -184,7 +185,48 @@ class PhoneEmoteEffects:
         returned=deepcopy(value);source.lock.assert_held();need(source.guard() is not False)
         end=source.monotonic();need(number(end,started,1e15) and end-started<5);return returned
 
-    def measure(self,reference,*,played=None):
+    def background_recompute(self,reference,*,previous,header,image_policy):
+        """Fresh-frame facts joined to this role's original cancel and OS cycle.
+
+        The old ordinary input remains an old input. No background input row,
+        synthetic ACK, old measured state or peer fact is adopted as current.
+        """
+        from overte_phone_emote_observation import PhoneEmoteObservation
+        from overte_phone_emote_background import PhoneEmoteBackground
+        source=self.source;started=source.monotonic();need(number(started,0,1e15))
+        source.lock.assert_held();need(source.guard() is not False)
+        need(type(previous) is dict and type(previous.get('header')) is dict)
+        prior=PhoneEmoteObservation.archive(previous,self,previous['header'].get('index'),image_policy)
+        effect=prior['effect']
+        need(prior['role']==source.role and type(effect.get('emoteEffectVersion')) is int
+            and effect['emoteEffectVersion']==2 and effect['kind']=='restoration'
+            and effect['call']['verb']=='cancel' and effect['state']['override'] is False
+            and effect['state']['restoredBeforeNominalEnd'] is True)
+        proof=effect['proof'];need(proof['kind']=='restoration' and proof['barrier'] is not None)
+        cycle,before,after=PhoneEmoteBackground.completed_archive(header,source);call=cycle['call']
+        frame=self.current_original(reference)
+        for key in ('phaseBefore','phaseAfter'):
+            packet=frame[key];self.inputs.active(call,packet)
+            phase_packet(packet,run=source.run,area='emotes',request=packet['requestId'],epoch=frame['hostEpochMs'],
+                previous=after[-1]['phaseAfter'])
+            rows=packet['activations'];need(len(rows)>=2)
+            last=rows[-2]
+            need(last['ticket']==effect['call']['ticket']
+                and same(last['stimulus'],dict(verb='cancel',inputs=effect['call']['inputs'])))
+        continuation(proof['group']['native'],before[-1]['group']['native'],source.pid)
+        continuation(after[-1]['group']['native'],frame['group']['native'],source.pid)
+        need(same(frame['group']['native']['lifecycle'],after[-1]['group']['native']['lifecycle']))
+        current=restoration(frame['group'],proof['played'],pid=source.pid,epoch=frame['epochMs'],native_barrier=proof['barrier'])
+        animation=frame['group']['native']['animation']
+        need(animation['animationsEnabled'] is True and animation['graphLoaded'] is True
+            and current['state']['restoredBeforeNominalEnd'] is True)
+        state=deepcopy(current['state']);state['panel']=self.panel(frame)
+        value=dict(emoteBackgroundEffectVersion=BACKGROUND_VERSION,role=source.role,runId=source.run,binding=deepcopy(source.binding),
+            call=deepcopy(call),frame=deepcopy(reference),previousTicket=effect['call']['ticket'],state=state,proof=current)
+        source.lock.assert_held();need(source.guard() is not False)
+        end=source.monotonic();need(number(end,started,1e15) and end-started<5);return deepcopy(value)
+
+    def measure(self,reference,*,played=None,background=None):
         owner,source=self.inputs,self.source
         started=source.monotonic();need(number(started,0,1e15));self.bound()
         need(source.state['phase']=='ready' and source.state['pending'] is None
@@ -197,8 +239,12 @@ class PhoneEmoteEffects:
         need(native.pid==source.pid and native.ios is False and native.guard() is not False)
         epoch=native.clock_ms();host=source.phase.epoch_ms();clock=source.monotonic()
         need(integer(epoch,1) and number(host,1,1e15) and number(clock,started,1e15))
-        value=self.recompute(reference,played=played);call=value['call']
-        frame=self.after(owner.state['current'],reference)
+        if background is None:
+            value=self.recompute(reference,played=played);frame=self.after(owner.state['current'],reference)
+        else:
+            exact(background,{'previous','header','image_policy'});need(played is None)
+            value=self.background_recompute(reference,**background);frame=self.current_original(reference)
+        call=value['call']
         # Check durable ownership and actual provider phase again after joins;
         # neither a stale frame nor a slow final guard may publish fresh facts.
         self.bound();status=source.phase.status(frame['phaseAfter']);owner.active(call,status);self.bound()
