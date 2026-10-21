@@ -28,7 +28,7 @@ performs no launches, installs, kills, signals or changes to product behavior.
 
 ## Wire contract and original observations
 
-Both commands accept exactly one argument object, exactly `{bundleId}`:
+The two original commands accept exactly one argument object, exactly `{bundleId}`:
 
 `mobile: overteProcessSourceInfo` returns `{processSourceVersion:1,source:
 "dvt-bundle-pid-xcuitest-state",instance,available,cleanupPending,sdk}`. Instance
@@ -51,7 +51,7 @@ No `activeAppInfo` fallback can accidentally identify SpringBoard as Overte.
 
 The five-second monotonic deadline includes actual source closure. One original
 DVT lease/socket is retained before validating late acquisition. Success requires
-that original socket destroyed and the original service connection/socket gone
+that original socket destroyed, its actual `close` callback drained, and the original service connection/socket gone
 and handshake retired. A close ACK alone fails. Timeout destroys only an owned
 socket, retains uncertain/pending acquisition and prevents subsequent successful
 reads in that driver. Late acquisition still runs its owned close path; its
@@ -88,3 +88,37 @@ local SDK reference without constructing a driver/server. Metadata uses Node's
 original package search order and actual driver dependency context, including
 ESM-only packages that do not export a CommonJS entry or package.json. The host
 counterexample covers that exact layout and rejects a neighboring foreign SDK.
+
+## Original numeric-PID retirement source (package 1.1.0)
+
+`mobile: overteRetiredProcessInfo` accepts exactly `{bundleId, commandId}`;
+`commandId` is a fresh `ios-` plus 32 lowercase hexadecimal nonce. It cannot
+accept an expected PID, expected absence, alternate device or service selector.
+The producer retains the latest actual successful nonzero observation in the
+same driver/device/bundle/session, including original clocks and source counter.
+A later null bundle lookup never erases or retimes that anchor.
+
+The v1 packet contains the unchanged anchor and two fresh WDA app states, two
+fresh bundle PID lookups, and two actual `deviceInfo.isRunningPid` results for
+that anchored numeric PID. Presence and contradictory results remain originals;
+only the consumer may establish absence when all agree. Each read has a new
+counter and nonce; SDK acquisition and the actual original socket close event
+belong to its deadline. Pending callbacks retain ownership after timeout.
+
+`ios.adapters.retired_process` validates these packets against the original
+installed binding and source metadata. It preserves the Node-host epoch and
+monotonic clocks separately from a v1 controller acquisition receipt. Different
+Node/controller epochs are permitted; replay, clock regression, slow transfer,
+changed anchor/source/PID and nonboolean SDK results fail. Pure historical
+validation cannot create a new acquisition receipt or credit a quiet window.
+`IOSGraphicsRuntime._retired_process_observer` uses only the existing SDK session
+and a canonical retiring/retired process record. It neither launches a session
+nor requests foreground native bytes after process death.
+
+Thirty selected no-build host tests cover the original producer, new retirement
+producer, consumer and stopped-session composition. These use synthetic SDK calls
+and original unconnected Node sockets; one test delays the original socket
+`_destroy` implementation to verify that a true destroyed flag cannot substitute
+for the actual close event. No real SDK service or device has been exercised.
+Whole-feature final stop, paired quiet windows and metadata retirement remain
+coordinator work; this source alone is no completed feature capability.

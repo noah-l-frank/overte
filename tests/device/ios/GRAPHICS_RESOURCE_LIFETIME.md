@@ -159,9 +159,10 @@ both roles observe actual original-world restoration before the owned stop,
 then independently prove the old numeric PID absent and a fresh complete quiet
 window before retiring its ownership. Original resource counters must retain
 their pre-exit values; no fictional post-death zero packet is allowed. This is
-adapter work, not authorization to change or clear product caches. The existing
-read-only DVT process source needs an original numeric-PID observation after
-stop; bundle absence alone is insufficient for that proof.
+adapter work, not authorization to change or clear product caches. The read-only DVT process source now has a v1 original numeric-PID observation
+after stop (`process_plugin/README.md`); bundle absence alone remains
+insufficient. Paired finalizer integration and fresh quiet-window ownership
+remain unfinished.
 
 The archived local RemoteXPC 5.15.3 API was read only as a source reference:
 `Services.startDVTService` exposes `deviceInfo.isRunningPid`. No service, server,

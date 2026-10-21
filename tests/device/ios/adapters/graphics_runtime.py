@@ -19,6 +19,25 @@ from adapters.normal_feature_state import context
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _retired_process_observer(self,selector,binding,source):
+        """Existing SDK only; no foreground UI/native-byte read after app stop."""
+        from copy import deepcopy
+        from ios.adapters.installed_code import source as validate_source
+        from ios.adapters.retired_process import IOSRetiredProcess
+        expected=deepcopy(context(binding));validate_source(source)
+        client,session,state,target,scope=self._existing(selector)
+        need(same(scope,{k:v for k,v in expected.items() if k!='processIdentity'}))
+        gate=self.adapter._binding(selector,client,session,state,target)
+        def guard():
+            self.adapter._candidate_guard(complete=True)
+            need(same(self.adapter.read_session(selector),state) and self.adapter._scope(selector,session,state,target)==scope)
+            record=gate.record();need(record is not None and record['phase'] in ('retiring','retired')
+                 and record['process']['pid']==int(expected['processIdentity']) and same(record['scope'],scope)
+                 and same(validate_source(gate.process_source()),source) and same(record['source'],source))
+        guard()
+        return IOSRetiredProcess(lambda query:client.execute(session,'mobile: overteRetiredProcessInfo',query),
+                                 guard,target['appId'],int(expected['processIdentity']),source)
+
     def _graphics_calibration(self,preferences,source):
         from ios.adapters.graphics_calibration import IOSGraphicsCalibration
         return IOSGraphicsCalibration(preferences,source)
