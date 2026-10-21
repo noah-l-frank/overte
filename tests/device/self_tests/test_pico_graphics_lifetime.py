@@ -14,6 +14,7 @@ import uuid
 
 from adapters.graphics_journey.fixture import GraphicsFixtureReader
 from adapters.graphics_journey.lifetime import GraphicsLifetime
+from adapters.graphics_journey.preferences import GraphicsPreferences
 from adapters.native_web_runtime import NativeWebRuntime
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
@@ -34,6 +35,8 @@ class WebBoundary(RendererBoundary):
     def now(self):return self.model.native.epoch
     def packet(self):
         packet=super().packet();packet['runId']=RUN
+        packet.update(processId=self.model.pid,instance=self.model.instance)
+        packet['source']['java'].update(processId=self.model.pid,instance=self.model.instance)
         urls=self.model.web_urls;native=deepcopy(packet['source']['nativeAfter']['views'][0])
         java=deepcopy(packet['source']['java']['views'][0]);renderer=deepcopy(packet['source']['java']['renderers'][0])
         views=[];javas=[];renderers=[];known=[]
@@ -49,7 +52,7 @@ class WebBoundary(RendererBoundary):
         packet['source']['java'].update(views=javas,renderers=renderers)
         return packet
     def reader(self):
-        return NativeWebRuntime(self.send,self.original,self.now,self.model.guard,31,require_renderers=True,
+        return NativeWebRuntime(self.send,self.original,self.now,self.model.guard,self.model.pid,require_renderers=True,
             monotonic=lambda:self.model.native.clock,sleep=self.model.native.sleep)
 
 
@@ -72,8 +75,11 @@ class Model(Base):
         self.web_urls=[row['sourceUrl'] for row in value['entities'] if row['type']=='Web'];return value
     def http_reader(self,_target):
         reader=self.http.reader();send=reader.send
-        def current(request):self.http.epoch=self.native.epoch;send(request)
+        def current(request):
+            self.http.epoch=self.native.epoch;send(request)
+            self.http.sample.update(processId=self.pid,instance=self.instance)
         reader.send=current;reader.clock_ms=lambda:self.native.epoch;reader.guard=self.guard
+        reader.pid=self.pid
         reader.monotonic=lambda:self.native.clock;reader.sleep=self.native.sleep;return reader
     def graphics_reader(self,target):
         reader=super().graphics_reader(target);send=reader.send
@@ -102,15 +108,15 @@ class Model(Base):
                 capture=dict(schemaVersion=1,commandId=capture,action='feature-world-render-observe'),
                 receipts=[uuid.uuid4().hex,uuid.uuid4().hex])
             for receipt in source.owner['receipts']:source.issue(receipt)
-            source.mutate=lambda value:value.update(instance='a'*32)
-            source.native.native_instance=lambda:'a'*32
+            source.mutate=lambda value:value.update(instance=self.instance,processId=self.pid)
+            source.native.native_instance=lambda:self.instance;source.native.pid=self.pid
             files=source.native.retire()
-            memory=dict(storageVersion=1,commandId=source.owner['receipts'][0],requestId=capture,instance='a'*32,
-                sequence=1,processId=31,capturedEpochMs=self.native.epoch,present=False,callbacks=0,pngBytes=0)
+            memory=dict(storageVersion=1,commandId=source.owner['receipts'][0],requestId=capture,instance=self.instance,
+                sequence=1,processId=self.pid,capturedEpochMs=self.native.epoch,present=False,callbacks=0,pngBytes=0)
             proofs[role]=dict(owner=deepcopy(source.owner),memory=memory,files=files);self.receipts[capture]=source
         return proofs
-    def lifetime(self,role='primary'):
-        return GraphicsLifetime(self.flow,'owned',self.source,role,0,self.lock,artifact_root=self.root/'artifacts',
+    def lifetime(self,role='primary',stage=0):
+        return GraphicsLifetime(self.flow,'owned',self.source,role,stage,self.lock,artifact_root=self.root/'artifacts',
             monotonic=lambda:self.native.clock,sleep=self.native.sleep)
     def ready(self,*,release_http=True):
         scene=self.scene();scene.prepare();owner=self.lifetime();owner.observe_active();proofs=self.captures()
@@ -220,6 +226,21 @@ class PicoGraphicsLifetimeTests(unittest.TestCase):
         self.assertGreaterEqual(m.native.clock-before,3)
         self.assertNotEqual(primary.state['windows'][0]['samples'][0]['subject']['requestId'],
             actor.state['windows'][0]['samples'][0]['subject']['requestId'])
+    def test_new_process_quiet_window_uses_the_qualified_framework_baseline_and_keeps_old_originals(self):
+        m=self.model;scene=m.scene();scene.prepare();old=m.lifetime();old.observe_active()
+        preferences=GraphicsPreferences(scene,monotonic=lambda:m.native.clock,sleep=m.native.sleep);preferences.prepare()
+        call=dict(contractVersion=16,runId=RUN,ticket=uuid.uuid4().hex,fixtureUrl=m.source.fixture_url,
+            verb='restart-app',inputs={})
+        with patch('adapters.android_process_query.subprocess.run',side_effect=m.query):m.restart().act(call)
+        m.web=WebBoundary(m);m.http=HttpBoundary()
+        owner=m.lifetime(stage=1);owner.observe_active();proofs=m.captures()
+        scene=m.scene();preferences=GraphicsPreferences(scene,monotonic=lambda:m.native.clock,sleep=m.native.sleep)
+        preferences.retire();final_preferences=deepcopy(preferences.previous);scene.restore();scene.retire()
+        m.restart().retire(scene.previous,final_preferences)
+        m.web.close();m.http.retire_reply();m.provider.retire(RUN);owner.wait_released(scene.previous,proofs)
+        self.assertEqual(32,owner.pid);self.assertEqual('released',owner.state['phase'])
+        self.assertEqual(31,old.state['activeProofs'][0]['subject']['processId'])
+        self.assertNotEqual(old.state['web']['instance'],owner.state['web']['instance'])
 
 
 if __name__=='__main__':unittest.main()

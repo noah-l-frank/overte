@@ -51,3 +51,9 @@ original clocks, observation gaps, interrupted windows, reused queries and
 missing archives. No native compilation or physical device qualification is
 claimed. The full feature/actor dispatcher still must join these owners, all
 shared Graphics checkpoints and recoverable final metadata retirement.
+
+The composed restart counterexample suite also runs the actual normal restart
+owner before stage-one lifetime acquisition, then restores the world and retires
+restart input journals before the new-process quiet window. New framework IDs
+are admitted only through the original qualified handoff; old-process subject
+and Web originals retain their original PID and native instance.

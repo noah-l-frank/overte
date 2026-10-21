@@ -1172,5 +1172,26 @@
     ],
     "details": "Separate per-role active proofs for all three original world Web/renderer sources, original full scene/avatar/framework restoration, native scene loads, tablet HTTP/XHR/reply lifetime, passive Graphics UI and Script inventory, and new complete-issuer/receipt inspections of both retired role acquisitions. Every invocation requires a new bounded three-second original/local quiet window. Counterexamples cover separate actor acquisition, retained objects/callbacks, unknown capture ownership, changed current framework, pending scene leases, frozen original epochs, observation gaps, interrupted windows, reused queries and missing archive files.",
     "limits": "Synthetic native/UI/SDK/process boundaries. Full Graphics feature/actor coordination and recoverable final metadata retirement remain required. Native sources are uncompiled and devices untested."
+  },
+  "graphicsRestartQuietCompositionPacket": {
+    "completeFeatureCapabilityAdded": false,
+    "nativeCompilation": "unverified",
+    "physicalRuns": 0,
+    "checks": [
+      {
+        "command": "python3 -m unittest self_tests.test_pico_graphics_lifetime (from tests/device)",
+        "tests": 16,
+        "status": "passed",
+        "durationSeconds": 30.122
+      },
+      {
+        "command": "python3 tests/run-project-tests.py --suite documentation --suite documentation-contracts --suite source-layout --suite project-coverage",
+        "suites": 4,
+        "status": "passed",
+        "durationSeconds": 2.46,
+        "junit": "graphics-restart-quiet-project.xml"
+      }
+    ],
+    "details": "The actual normal restart controller and original lifetime owner are exercised together: new PID/native/Qt bridge, old-PID ESRCH, persisted actual settings, qualified new-process framework baseline, normal world restoration, input journal retirement and fresh both-role capture/resource quiet proofs. Old-process active Web/subject originals keep their original PID. Synthetic transports only; no subprocess reaches a device."
   }
 }
