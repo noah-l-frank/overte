@@ -579,3 +579,15 @@ and [Phone protocol](adapters/android-phone/NORMAL_EMOTE_PROTOCOL.md). This
 component supplies no Rig/pose/image/peer success and advertises no complete
 Emote capability. Three complete Phone areas remain implemented; eleven remain
 missing, including full Emotes. All native builds and devices remain untested.
+
+## Actual configured Script roots v1
+
+The [native root contract](native/SCRIPT_RESOURCE_ROOTS.md) now connects original
+application resource configuration to submitted Emote code. The Phone factory
+has existing-session read-only admission and both native reads bracket the
+original engine observation. The exact native `~` table alias also requires
+that manager's original physical assignment and load generation. Root selection,
+expected profile arguments, stale
+reads and recognized foreign filenames cannot substitute for original identity.
+This remains source association, with native compilation and the full Emote
+Rig/pose/image/actor/cleanup join still open.

@@ -281,6 +281,7 @@
         }
         return /^(?:settings\.entry|graphics\.(?:settings-entry|haze|mirrors))$/.test(String(request.controlId));
     }
+    var lastScriptRootsRequest = "";
     var lastProcessPresenceRequest = "";
     var lastGraphicsSubjectRequest = "";
     var lastSceneLoadRequest = "";
@@ -1338,6 +1339,24 @@
             }
             return true;
         }
+        if (command && command.action === "feature-script-roots-observe") {
+            if (command.schemaVersion === 1 && typeof command.commandId === "string"
+                    && /^(?:ios-)?[0-9a-f]{32}$/.test(command.commandId)
+                    && command.commandId.length === (command.commandId.indexOf("ios-") === 0 ? 36 : 32)
+                    && objectKeysMatch(command,["schemaVersion","commandId","action"])
+                    && command.commandId !== lastScriptRootsRequest) {
+                lastScriptRootsRequest=command.commandId;
+                var scriptRoots={scriptRootsVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.featureScriptRoots === "function") {
+                        var originalScriptRoots=Test.featureScriptRoots(command);
+                        if (originalScriptRoots && originalScriptRoots.commandId === command.commandId) { scriptRoots=originalScriptRoots; }
+                    }
+                } catch (_scriptRootsError) { /* Missing original configuration is never an inferred root. */ }
+                Test.saveObject(scriptRoots,"feature-script-roots.json");
+            }
+            return true;
+        }
         if (command && command.action === "feature-phone-web-runtime-observe") {
             if (command.schemaVersion === 1 && typeof command.commandId === "string"
                     && command.commandId.length === 32 && /^[0-9a-f]{32}$/.test(command.commandId)
@@ -1888,7 +1907,7 @@
                 || command.action === "feature-chat-observe" || command.action === "feature-chat-view-observe" || command.action === "feature-web-dom-observe" || command.action === "feature-account-probe" || command.action === "feature-account-origin"
                 || command.action === "feature-phone-web-runtime-observe"
                 || command.action === "feature-pending-commit-owner" || command.action === "feature-navigation-replies"
-                || command.action === "feature-process-presence"
+                || command.action === "feature-process-presence" || command.action === "feature-script-roots-observe"
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "phone-login-ui" || command.action === "phone-create-ui" || command.action === "phone-chat-ui"

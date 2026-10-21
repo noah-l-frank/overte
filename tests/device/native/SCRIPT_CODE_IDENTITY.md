@@ -61,3 +61,10 @@ unit identity, unknown hashes, installed-root isolation and ambiguous/retired
 managers, alongside existing actual module/effect checks. Host simulations prove
 reader/selector logic only. No full-area capability is activated. The canonical
 iOS installed-code association block remains unchanged.
+
+The later [original application-root join](SCRIPT_RESOURCE_ROOTS.md) supplies
+actual configured resource roots and complete native manager assignments. It
+handles the engine table's exact `file:///~//...` normalization without replacing
+original URLs or inferring roots from filenames. Native assignment must belong
+to the same observed manager and precede submitted code. These are input/source
+semantics only; full Emote Rig/pose/image/actor/cleanup composition remains open.

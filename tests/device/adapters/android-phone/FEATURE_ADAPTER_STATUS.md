@@ -21,6 +21,12 @@ read-only admission. Its 251-case combined host regression passes. Full Emote
 Script/Rig/pose/image/actor/cleanup composition remains incomplete; the complete
 Phone area count stays three of fourteen. Native code remains uncompiled.
 
+The [original configured Script-root source](../../native/SCRIPT_RESOURCE_ROOTS.md)
+now pins actual application configuration and brackets submitted Emote code
+with two independent native reads. It prevents matching filenames or stale/
+foreign paths from selecting a profile. Full original Rig/pose/image/actor/
+cleanup composition remains required; no complete Emote capability is enabled.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

@@ -66,6 +66,7 @@ REQUIRED = {
     "phone-graphics-restart-proof": 1,
     "phone-graphics-restart": 1,
     "native-script-code-identity": 1,
+    "native-script-roots": 1,
     "native-script-load-history": 1,
     "native-process-presence": 1,
     "native-script-manager-status": 1,

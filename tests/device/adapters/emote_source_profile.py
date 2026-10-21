@@ -33,36 +33,76 @@ def pins(path=PINS):
     return value['profiles']
 
 
+def assignment(value, engine):
+    from adapters.native_script_membership import validate as membership_packet
+    source=value['source']
+    need(type(source.get('membershipSourceVersion')) is int and source['membershipSourceVersion']==1)
+    membership=source.get('membership');membership_packet(membership,value['capturedEpochMs']);need(membership['complete'])
+    rows=[row for row in membership['managers'] if row['instance']==engine['required']['instance']]
+    need(len(rows)==1 and rows[0]['assigned'])
+    return deepcopy(rows[0])
+
+
 def select(value, installed_scripts_root, *, reviewed=None):
-    # Root must come from the existing actual installed-candidate resource
-    # binding. This helper never infers it from a script URL or filesystem scan.
+    return _select(value,installed_scripts_root,reviewed=reviewed,assigned=False)
+
+
+def _select(value, installed_scripts_root, *, reviewed, assigned):
+    # Root must come from actual application configuration. A normalized ~
+    # table key alone never proves which local file was assigned to that manager.
     need(type(installed_scripts_root) is str and len(installed_scripts_root)<=4096)
-    root=urlsplit(installed_scripts_root)
-    path=unquote(root.path,errors='strict')
+    root=urlsplit(installed_scripts_root);path=unquote(root.path,errors='strict')
     need(root.scheme in ('qrc','file') and not root.netloc and not root.query and not root.fragment
          and root.path==path and path.startswith('/') and path.endswith('/scripts/')
          and '\\' not in path and not any(part in ('.','..') for part in path.split('/')))
     reviewed=pins() if reviewed is None else pins(reviewed)
+    def urls(source_path):
+        suffix=source_path[len('scripts/'):]
+        physical='qrc:'+root.path+suffix if root.scheme=='qrc' else urlunsplit(('file','',root.path+suffix,'',''))
+        options={physical}
+        if assigned and root.scheme=='file':options.add('file:///~//'+suffix)
+        return physical,options
     candidates=[]
     for profile in reviewed:
-        resource=root.path+profile['sourcePath'][len('scripts/'):]
-        url=urlunsplit((root.scheme,'',resource,'',''))
-        # Qt canonical qrc spelling is qrc:/scripts/... rather than qrc:///.
-        if root.scheme=='qrc':url='qrc:'+resource
-        rows=[engine for engine in value['source']['engines'] if engine['url']==url
+        physical,options=urls(profile['sourcePath'])
+        rows=[engine for engine in value['source']['engines'] if engine['url'] in options
               and engine['running'] and not engine['stopping'] and not engine['finished']]
-        if rows:
-            code=submitted_source(value,url)
+        for engine in rows:
+            code=submitted_source(value,engine['url']);original=None
+            if assigned:
+                original=assignment(value,engine)
+                need(original['url']==physical and original['assignedEpochMs']<=code['submittedEpochMs'])
             if all(code[key]==profile[key] for key in ('encoding','codeUnits','sha256')):
-                candidates.append(dict(profile=deepcopy(profile),url=url,
-                    engineInstance=rows[0]['required']['instance'],code=code))
-    # A running source at a known startup URL must match exactly one reviewed
-    # profile. Unknown code cannot fall through to a basename/platform guess.
+                selected=dict(profile=deepcopy(profile),url=engine['url'],engineInstance=engine['required']['instance'],code=code)
+                if original is not None:selected.update(assignedUrl=original['url'],loadGeneration=original['loadGeneration'],assignedEpochMs=original['assignedEpochMs'])
+                candidates.append(selected)
+    known=set().union(*(urls(source)[1] for source in PATHS))
     active_urls={engine['url'] for engine in value['source']['engines'] if engine['running']
-        and not engine['stopping'] and not engine['finished'] and engine['url'] in {
-            ('qrc:' if root.scheme=='qrc' else 'file://')+root.path+p[len('scripts/'):]
-            for p in PATHS}}
-    need(active_urls=={candidate['url'] for candidate in candidates})
-    # Multiple known startup surfaces are ambiguous even if their labels match.
-    need(len(candidates)==1)
+        and not engine['stopping'] and not engine['finished'] and engine['url'] in known}
+    need(active_urls=={candidate['url'] for candidate in candidates} and len(candidates)==1)
     return candidates[0]
+
+
+def select_from_roots(value, before, after, *, pid, epoch, reviewed=None):
+    """Join actual application roots around original submitted engine code.
+
+    This selects input semantics only. It supplies no Rig/pose/UI/pixel facts.
+    The owning reader must durably retain all three originals and their cursors.
+    """
+    from adapters.native_script_roots import validate as roots_packet,root_url
+    from adapters.native_script_observation import validate as scripts_packet
+    from adapters.native_feature_observation import fresh
+    need(type(value) is dict and type(before) is dict and type(after) is dict
+        and type(value.get('requestId')) is str and re.fullmatch(r'(?:ios-)?[0-9a-f]{32}',value['requestId']))
+    for packet in (before,after):
+        roots_packet(packet,dict(schemaVersion=1,commandId=packet.get('commandId'),
+            action='feature-script-roots-observe'),pid,epoch)
+    roots_packet(after,dict(schemaVersion=1,commandId=after['commandId'],action='feature-script-roots-observe'),
+        pid,epoch,previous=before)
+    scripts_packet(value,value.get('requestId'),pid,epoch)
+    need(before['instance']==value['instance']==after['instance']
+        and before['requestedEpochMs']<=before['capturedEpochMs']<=value['requestedEpochMs']
+        <=value['capturedEpochMs']<=after['requestedEpochMs']<=after['capturedEpochMs']
+        and after['capturedEpochMs']-before['requestedEpochMs']<=1500)
+    fresh(before['requestedEpochMs'],epoch)
+    return _select(value,root_url(before['source']['defaultScriptsUrl']),reviewed=reviewed,assigned=True)

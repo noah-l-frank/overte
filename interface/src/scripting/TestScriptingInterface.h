@@ -169,6 +169,7 @@ public slots:
     Q_INVOKABLE QVariantMap releaseFeatureRecordedVoiceEvidence(const QString& requestId);
     Q_INVOKABLE QVariantMap featureRecordedVoiceFiles(const QString& requestId);
     Q_INVOKABLE QVariantMap featureScriptObservation(const QString& requestId);
+    Q_INVOKABLE QVariantMap featureScriptRoots(const QVariantMap& command);
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     Q_INVOKABLE QVariantMap phoneScriptFileUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneAudioUi(const QVariantMap& command);
@@ -247,6 +248,7 @@ private:
     QByteArray _featurePreviewInputDigest, _featurePreviewSinkDigest;
     quint64 _featurePreviewSequence {0}, _featurePreviewLease {0};
     quint64 _featureScriptSequence {0};
+    quint64 _featureScriptRootsSequence {0};
 #if defined(ANDROID_APP_PHONE_INTERFACE)
     QVariantMap phoneControlUi(const QVariantMap& command, int surfaceKind);
     std::shared_ptr<overte::e2e::ScriptFileUi> _phoneScriptFileUi;

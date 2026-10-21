@@ -42,6 +42,7 @@
 #include "avatar/AvatarManager.h"
 #include "RenderScriptingInterface.h"
 #include <AccountManager.h>
+#include <PathUtils.h>
 #include <AddressManager.h>
 #include <MessagesClient.h>
 #include <AudioClient.h>
@@ -613,6 +614,32 @@ QVariantMap TestScriptingInterface::featureScriptFiles(const QVariantMap& comman
         {"runId", command.value("runId")}, {"operation", action}, {"source", source}};
     _featureScriptFilesCommand = command; _featureScriptFilesResult = result;
     return result;
+}
+
+QVariantMap TestScriptingInterface::featureScriptRoots(const QVariantMap& command) {
+    if (QThread::currentThread()!=thread()) {
+        if (!thread() || !thread()->isRunning()) { return {}; }
+        QVariantMap result;
+        if (!QMetaObject::invokeMethod(this,[&] { result=featureScriptRoots(command); },Qt::BlockingQueuedConnection)) { return {}; }
+        return result;
+    }
+    const auto json=QJsonObject::fromVariantMap(command);const auto keys=json.keys();
+    const auto id=json.value("commandId").toString();
+    if (_testResultsLocation.isEmpty() || !_featureLifecycle || _featureLifecycle->snapshot().isEmpty()
+            || !QCoreApplication::arguments().contains("--testScript") || _featureScriptRootsSequence>=1000000000
+            || QSet<QString>(keys.begin(),keys.end())!=QSet<QString>{"schemaVersion","commandId","action"}
+            || json.value("schemaVersion")!=QJsonValue(1) || json.value("action")!=QJsonValue(QStringLiteral("feature-script-roots-observe"))
+            || !QRegularExpression("\\A(?:ios-)?[0-9a-f]{32}\\z").match(id).hasMatch()) { return {}; }
+    const auto requested=QDateTime::currentMSecsSinceEpoch();
+    // Actual application resource configuration, not a root inferred from a
+    // running engine URL, a caller argument or a matching source basename.
+    const auto original=PathUtils::defaultScriptsLocation().toString(QUrl::FullyEncoded);
+    if (original.isEmpty()) { return {}; }
+    return {{"scriptRootsVersion",1},{"commandId",id},{"instance",_featureObservationInstance},
+        {"sequence",static_cast<qulonglong>(++_featureScriptRootsSequence)},
+        {"processId",QCoreApplication::applicationPid()},{"requestedEpochMs",requested},
+        {"capturedEpochMs",QDateTime::currentMSecsSinceEpoch()},
+        {"source",QVariantMap{{"defaultScriptsUrl",original}}}};
 }
 
 QVariantMap TestScriptingInterface::featureScriptObservation(const QString& requestId) {

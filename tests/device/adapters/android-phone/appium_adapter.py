@@ -78,6 +78,7 @@ from overte_phone_script_feature import PhoneScriptFeature, ScriptFixtureReader
 from overte_phone_authentication_feature import PhoneAuthenticationFeature, AuthenticationFixtureReader
 from overte_phone_emote_controls import PhoneEmoteIO, FILE as EMOTE_UI_FILE
 from adapters.token_emote_ui import TokenEmoteUI
+from adapters.native_script_roots import NativeScriptRoots, FILE as SCRIPT_ROOTS_FILE
 from overte_phone_graphics_feature import PhoneGraphicsFeature
 from overte_phone_graphics_fixture import GraphicsFixtureReader
 from feature_journeys.witness import Client as FeatureFixtureClient
@@ -96,7 +97,7 @@ def readonly_feature_command(command):
             and type(command.get('commandId')) is str and re.fullmatch('[0-9a-f]{32}',command['commandId']),
             'PHONE_READ_ONLY_COMMAND_REJECTED')
     action=command.get('action')
-    if action in ('feature-native-observe','feature-script-observe','feature-world-render-observe'):
+    if action in ('feature-native-observe','feature-script-observe','feature-world-render-observe','feature-script-roots-observe'):
         require(set(command)=={'schemaVersion','commandId','action'},'PHONE_READ_ONLY_COMMAND_REJECTED')
     elif action=='feature-script-files':
         from adapters.native_script_files import command as validate_files
@@ -867,6 +868,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda: transport.read_debug_app_file(device, target['appId'],
                 'files/overte-e2e/' + SCRIPT_FILE_UI_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid)
+
+    def _script_roots(self,selector,*,read_only=False):
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativeScriptRoots(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+SCRIPT_ROOTS_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
     def _emote_controls(self,selector,intent,*,read_only=False):
         native=self._native_feature_observer(selector,read_only=read_only)
