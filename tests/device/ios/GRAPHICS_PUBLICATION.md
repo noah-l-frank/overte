@@ -39,3 +39,43 @@ and two existing independent-observer/phase-retirement regressions. They use
 real loopback journals/private files and synthetic iOS native/SDK sources.
 This establishes test logic only; native code remains uncompiled and devices
 remain untested. Graphics still has no complete capability.
+
+## Original authority retirement after journal deletion
+
+Publication records now write version 2 and read versions 1 and 2. The publisher
+owner remains version 1 because its header/state/reference layout is unchanged.
+`retire_run` retains an exact planned or issued intent as `mode: run-retired`
+using `IOSGraphicsRunRetirement`'s separately acquired original retired journal
+authority and inactive resource-provider packets. The closed history must extend
+the intent's original provider history and contain its actual original ticket.
+An active journal, missing/foreign authority or changed provider cannot authorize
+this path. The new record form cannot be relabelled as version 1.
+
+A deleted original journal has no readable entry/outcome. The retirement record
+therefore contains neither a journal nor an entry. A POST that actually committed
+before deletion and a POST that never arrived both remain unknown outcomes. No
+requested fact, ACK, expected receipt or empty fabricated journal is supplied.
+Planned intents can retire without ever issuing a POST. Neither capture nor POST
+is redelivered. A committed retirement record with a lost return is adopted as
+history without another authority query, input or fresh timestamp. Pure archives
+validate the same originals after runtime metadata removal and app death.
+
+`resolve` selects this path when the original provider is inactive. A close that
+races an earlier active-provider lookup may still interrupt live journal lookup;
+its exact pending intent remains owned and the finalizer can call `retire_run`
+explicitly. The whole worker/finalizer integration remains unfinished. These
+methods do not stop an app, remove runtime metadata, prove complete quiet or
+advertise a whole Graphics capability.
+
+The fixture reader also preserves retirement when two originals have the same
+millisecond epoch and activation-prefix length. An old active caller floor must
+be validated as an ancestor of the retired source; it cannot be mistaken for a
+new advancing active source. Original timestamps and nonce histories remain
+unchanged. This fixes a real host source-reconstruction failure at closure.
+
+The combined retired-publication, existing publication and original scene
+selection passes 27 no-build cases in 73.477 seconds, including lost committed
+and uncommitted POSTs, never-issued intent, lost retirement-copy return, exact
+same-epoch retirement, v1 compatibility/downgrade refusal, and pure archive
+validation after metadata and SDK retirement. All native/driver/pixel boundaries
+remain synthetic; native compilation and devices remain unexecuted.

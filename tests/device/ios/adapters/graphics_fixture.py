@@ -73,7 +73,10 @@ class GraphicsFixtureReader:
                 # Independent samplers on this Client can advance the provider
                 # between our reads. Adopt only a qualified prefix extension;
                 # an older caller floor must instead be a prefix of ours.
-                advances=(previous['capturedEpochMs']>=self.previous['capturedEpochMs'] and all(
+                # An old active floor cannot revive an already retired source,
+                # including equal original epochs and activation-prefix lengths.
+                advances=((self.previous['active'] or not previous['active']) and
+                    previous['capturedEpochMs']>=self.previous['capturedEpochMs'] and all(
                     len(previous[key])>=len(self.previous[key]) for key in ('activations','responses')))
                 if advances:
                     validate_status(previous,instance=self.instance,run=self.run,url=self.client.url,

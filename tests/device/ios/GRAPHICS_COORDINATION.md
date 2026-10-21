@@ -112,9 +112,9 @@ retired. Only then may configuration/dispatch advertise the whole capability.
 The sample owner now supports actual inactive-run retirement using the original
 retired journal authority plus original native release, preserving uncertain
 acquisitions as abandoned history. See [the v3 sample handoff](GRAPHICS_SAMPLES.md).
-The remaining whole recovery boundary includes an actor POST still uncertain
-after fixture closure. Current publication resolution reads a live journal that
-closure removes. Its immutable phase-retirement source remains available. The
-finalizer must join that original retired authority to retained POST
-responsibility without publishing an outcome, replaying the POST or requiring
-a nonexistent later active phase.
+Uncertain actor POSTs now have the separate original-authority retirement path
+described in [the publication handoff](GRAPHICS_PUBLICATION.md). It records no
+publication outcome after journal deletion. The remaining finalizer/worker must
+call these paths before stopping the process, preserve their exact originals,
+and then compose both role image/lifetime snapshots, one-send Stop, independent
+process quiet windows and complete paired archive/metadata retirement.

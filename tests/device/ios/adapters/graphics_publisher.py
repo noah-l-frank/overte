@@ -19,7 +19,8 @@ from ios.adapters.graphics_fixture import GraphicsPhasePending
 from ios.adapters.graphics_observer import IOSGraphicsObserver
 
 VERSION = 1
-RECORD_VERSION = 1
+RECORD_VERSION = 2
+RECORD_READS = (1, 2)
 
 
 class IOSGraphicsPublisher:
@@ -97,6 +98,16 @@ class IOSGraphicsPublisher:
         return value
 
     def receipt(self, row):
+        if row.get('mode')=='run-retired':
+            exact(row,{'intent','mode','runRetirement'})
+            from ios.adapters.graphics_run_retirement import validate as retired
+            saved=self.intent(row['intent']);closure=row['runRetirement']
+            retired(closure,run=self.run,url=self.source.client.url,instance=self.source.instance)
+            packet=closure['provider']
+            validate_status(packet,instance=self.source.instance,run=self.run,url=self.source.client.url,
+                request=packet['requestId'],previous=saved['backend'])
+            need(any(a['ticket']==row['intent']['body']['ticket'] for a in closure['authorityAfter']['activations']))
+            return row # Retired responsibility only; no publication outcome.
         exact(row, {'intent', 'journal', 'entry', 'mode', 'providerBefore', 'providerAfter', 'acquisition'})
         self.intent(row['intent']); journal = self.journal(row['journal']); body = row['intent']['body']
         before,after=row['providerBefore'],row['providerAfter']
@@ -124,9 +135,10 @@ class IOSGraphicsPublisher:
         exact(reference, {'ordinal', 'sha256'}); value = self.record_store(reference['ordinal']).read()
         need(value is not None and digest(value) == reference['sha256'])
         exact(value, {'iosGraphicsPublicationRecordVersion', 'runId', 'fixtureUrl', 'providerInstance', 'payload'})
-        need(type(value['iosGraphicsPublicationRecordVersion']) is int and value['iosGraphicsPublicationRecordVersion'] == RECORD_VERSION
+        need(type(value['iosGraphicsPublicationRecordVersion']) is int and value['iosGraphicsPublicationRecordVersion'] in RECORD_READS
              and value['runId'] == self.run and value['fixtureUrl'] == self.source.client.url and value['providerInstance'] == self.source.instance)
         rows = unpack(value['payload']); need(len(rows) == 1)
+        need(rows[0].get('mode')!='run-retired' or value['iosGraphicsPublicationRecordVersion']>=2)
         row = self.receipt(rows[0]); need(row['intent']['ordinal'] == reference['ordinal']); return row
 
     def decode(self, value):
@@ -161,6 +173,22 @@ class IOSGraphicsPublisher:
         row = self.load(ref); need(same(row['intent'], self.state['pending']))
         self.state['records'].append(deepcopy(ref)); self.state['pending'] = None; self.save()
 
+    def retire_run(self):
+        """Retire an uncertain POST after original authority deletion.
+
+        Planned and issued intents retain their exact original values. No
+        live journal, new capture, POST or claimed publication is supplied.
+        """
+        from ios.adapters.graphics_run_retirement import IOSGraphicsRunRetirement
+        self.bound();pending=self.state['pending']
+        if pending is None:return True
+        value=self.record_store(pending['ordinal']).read()
+        if value is not None:
+            self.adopt(dict(ordinal=pending['ordinal'],sha256=digest(value)));return True
+        closure=IOSGraphicsRunRetirement(self.source,monotonic=self.observer.monotonic).read();self.bound()
+        ref=self.store_record(dict(intent=deepcopy(pending),mode='run-retired',runRetirement=closure))
+        self.adopt(ref);return True
+
     def resolve(self):
         """Read original journal history; an uncertain POST is never sent again."""
         self.bound(); pending = self.state['pending']
@@ -170,6 +198,7 @@ class IOSGraphicsPublisher:
             self.adopt(dict(ordinal=pending['ordinal'], sha256=digest(value))); return True
         epoch,started=self.source.clock(),self.observer.monotonic()
         before=self.source.status(self.observer.state['backend'])
+        if not before['active']:return self.retire_run()
         journal=deepcopy(self.source.client.observe());self.journal(journal);self.bound()
         after=self.source.status(before);self.bound();now,ended=self.source.clock(),self.observer.monotonic()
         need(number(epoch,1,10**15) and number(now,epoch,epoch+1500) and now-epoch<1500
