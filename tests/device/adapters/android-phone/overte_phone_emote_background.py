@@ -31,6 +31,7 @@ class PhoneEmoteBackground:
         self.store=PrivateFeatureState(path.with_name('phone-emote-background.json'))
         self.sources=PrivateFeatureState(path.with_name(name))
         self.previous=self.store.read();self.state=None;self.failed=False;self.started=self.clock=None;self.before_phase=None
+        self.historical=False
         if self.previous is not None:
             try:self.state=self.decode(self.previous)
             except (KeyError,TypeError,ValueError,OSError):
@@ -38,8 +39,11 @@ class PhoneEmoteBackground:
 
     def bound(self):
         self.lock.assert_held();now=self.monotonic()
+        limit=5 if self.historical else 30
         need(not self.failed and number(now,0,1e15) and (self.clock is None or now>=self.clock)
-            and (self.started is None or now-self.started<30) and same(self.store.read(),self.previous))
+            and (self.started is None or now-self.started<limit))
+        if self.historical:need(same(self.previous,self.archive_header))
+        else:need(same(self.store.read(),self.previous))
         self.clock=now
 
     def status(self,binding):
@@ -122,6 +126,7 @@ class PhoneEmoteBackground:
         return deepcopy(state)
 
     def save(self):
+        need(self.historical is False)
         try:
             self.bound();self.status(self.state['binding'])
             value=dict(emoteBackgroundVersion=VERSION,runId=self.run,fixtureUrl=self.fixture_url,
@@ -141,10 +146,12 @@ class PhoneEmoteBackground:
         raise NativeUIError('Normal Emote background input did not change actual OS state')
 
     def live(self):
+        need(self.historical is False)
         return PhoneEmoteSources(self.adapter,self.selector,self.phase,'primary',self.lock,
             artifact_root=self.artifact_root,monotonic=self.monotonic,segment=self.segment)
 
     def act(self,call):
+        need(self.historical is False)
         call=deepcopy(arguments('feature.emotes.act',call));need(call['verb']=='background-resume'
             and call['runId']==self.run and call['fixtureUrl']==self.fixture_url)
         self.started=self.monotonic();self.bound();self.current_phase(call)
@@ -187,15 +194,32 @@ class PhoneEmoteBackground:
             state.update(phase='observed',afterHeader=deepcopy(source.previous));self.save();self.bound()
         return {'performed':True} # OS/native lifecycle proof only; no whole-feature result.
 
+    def current_sources(self):
+        """Later same-phase observations preserve the actual completed cycle."""
+        need(self.state is not None and self.state['phase']=='observed' and self.state['cleanup'] is None)
+        binding=self.state['binding'];header=self.sources.read()
+        state,frames=self.archive(header,binding)
+        _after,original=self.archive(self.state['afterHeader'],binding)
+        need(state['phase']=='ready' and state['pending'] is None and same(frames[:len(original)],original))
+        current,completed=self.idle(frames[-1]),self.idle(original[-1])
+        need(current['instance']==completed['instance'] and current['processId']==completed['processId']
+            and current['animation']['rigId']==completed['animation']['rigId']
+            and same(current['lifecycle'],completed['lifecycle'])
+            and current['animation']['history']['callSequence']==completed['animation']['history']['callSequence']
+            and current['animation']['history']['overrideSequence']==completed['animation']['history']['overrideSequence']
+            and same(current['animation']['history']['events'],completed['animation']['history']['events']))
+        self.active(self.state['call'],frames[-1]['phaseBefore']);self.active(self.state['call'],frames[-1]['phaseAfter'])
+        self.bound();return header
+
     def retire(self,*,retain=None):
-        need(retain is None or callable(retain));self.started=self.monotonic()
+        need(self.historical is False and (retain is None or callable(retain)));self.started=self.monotonic()
         try:
             self.bound();need(self.state is not None and self.state['phase']=='observed' and self.state['cleanup'] is None)
-            need(same(self.decode(self.previous),self.state) and same(self.sources.read(),self.state['afterHeader']))
+            need(same(self.decode(self.previous),self.state));current=self.current_sources()
             binding=self.state['binding'];need(self.status(binding)['foreground'] is True)
             if retain is not None:
                 need(retain(deepcopy(self.previous)) is not False);self.bound();self.decode(self.previous)
-                need(same(self.sources.read(),self.state['afterHeader']) and self.status(binding)['foreground'] is True)
+                need(same(self.current_sources(),current) and self.status(binding)['foreground'] is True)
             self.store.discard(self.previous);need(self.store.read() is None)
             self.previous=self.state=None;self.bound();need(self.status(binding)['foreground'] is True)
         finally:self.started=None
@@ -223,7 +247,7 @@ class PhoneEmoteBackground:
 
     def recover_foreground(self,call):
         """One separately owned cleanup activation; never complete an old action."""
-        call=arguments('feature.emotes.cleanup',call);need(call['runId']==self.run)
+        call=arguments('feature.emotes.cleanup',call);need(self.historical is False and call['runId']==self.run)
         self.started=self.monotonic()
         try:
             self.bound();need(self.state is not None and same(self.decode(self.previous),self.state))
@@ -262,7 +286,7 @@ class PhoneEmoteBackground:
 
     def retire_recovery(self,retain):
         """Transfer old failure plus cleanup proof before removing this lease."""
-        need(callable(retain));self.started=self.monotonic()
+        need(self.historical is False and callable(retain));self.started=self.monotonic()
         try:
             self.bound();need(self.state is not None and self.state['cleanup'] is not None and self.state['cleanup']['phase']=='observed')
             need(same(self.decode(self.previous),self.state))
@@ -274,3 +298,27 @@ class PhoneEmoteBackground:
             self.store.discard(self.previous);need(self.store.read() is None);self.previous=self.state=None
             self.bound();need(self.status(binding)['foreground'] is True);return value
         finally:self.started=None
+
+    @classmethod
+    def completed_archive(cls,value,source):
+        """Reopen a retained actual cycle for later observation, never an input.
+
+        This requires the bound process/OS observer but issues no native getter
+        or action. It does not assert that the historical native state is fresh.
+        """
+        need(isinstance(source,PhoneEmoteSources));source.lock.assert_held()
+        started=source.monotonic();need(number(started,0,1e15) and source.guard() is not False)
+        need(type(value) is dict);segment=value.get('sourceSegment',0);name=source_name('primary',segment)
+        view=object.__new__(cls);view.adapter,view.selector,view.phase,view.lock=source.adapter,source.selector,source.phase,source.lock
+        view.artifact_root,view.monotonic,view.sleep=source.artifact_root,source.monotonic,lambda *_:need(False)
+        view.run,view.fixture_url,view.segment=source.run,source.phase.fixture_url,segment
+        view.store=PrivateFeatureState(source.store.path.with_name('phone-emote-background.json'))
+        view.sources=PrivateFeatureState(source.store.path.with_name(name))
+        view.previous=deepcopy(value);view.archive_header=deepcopy(value);view.historical=True
+        view.failed=False;view.started=started;view.clock=None;view.before_phase=None
+        state=view.decode(view.previous)
+        need(state['phase']=='observed' and state['cleanup'] is None and same(state['binding'],source.binding))
+        _left,before=view.archive(state['beforeHeader'],source.binding)
+        _right,after=view.archive(state['afterHeader'],source.binding)
+        result=deepcopy((state,before,after));source.lock.assert_held();need(source.guard() is not False)
+        end=source.monotonic();need(number(end,started,1e15) and end-started<5);return result

@@ -78,12 +78,33 @@ It supplies no public feature state, pixels, independent actor facts or global
 resource-absence verdict. The complete owner must acquire fresh original Emote
 state/image/actor evidence separately.
 
-`retire(retain=None)` requires completed owned background state, unchanged current source
-header, revalidated original native proof and actual current same-process
+`retire(retain=None)` requires completed owned background state, a current complete
+same-phase source history preserving the exact original completed prefix,
+revalidated original native proof and actual current same-process
 foreground. It removes only the exact background input journal; source originals
 remain. The optional callback receives the exact header before deletion; callback
 rejection, changed originals/context or a deadline overrun preserves the lease.
 The full run owner must use this retention path.
+
+New source/image observations after resume may extend the original history.
+The last current source must still be idle in the same background input phase,
+with the same native PID/birth/Rig, lifecycle, call/override cursors and original
+events as the completed cycle. Missing/partial histories, a later fixture phase,
+new override or unowned calls cannot authorize retirement. Retention IO must
+not advance or replace that checked current header. This admits genuine later
+observations without discarding the original lifecycle proof.
+
+`completed_archive(header,source)` reopens a retained successful cycle after
+its lease metadata retires. It returns original `(state,before_frames,after_frames)`
+and preserves their original timestamps. The real source supplies actual run/
+fixture/artifact/candidate binding and held lock. The readonly reconstruction
+reuses the original decoder/source files and actual OS binding observer, with
+a five-second bound including the initial guard. It accepts only completed
+cycles without cleanup recovery. Its private view cannot act, recover, save,
+retire or create a live source. It sends no native measurement request/input
+and supplies no fresh feature facts. An independent actor may use the original
+cycle as causal context but must acquire its own current source/image facts;
+the historical primary frames cannot substitute for actor observations.
 
 `recover_foreground(cleanup_call)` handles an interrupted cycle after the fixture
 enters its actual `cleanup` phase. The public cleanup arguments contain only the

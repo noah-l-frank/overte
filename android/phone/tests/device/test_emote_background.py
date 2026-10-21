@@ -267,6 +267,99 @@ class PhoneEmoteBackgroundTests(unittest.TestCase):
                 with self.assertRaises((NativeUIError,OSError)):current.retire(retain=retain)
                 self.assertIsNotNone(current.store.read())
 
+    def test_later_same_phase_native_source_reads_do_not_prevent_retaining_the_original_completed_cycle(self):
+        m=self.model;retained=[]
+        with m.lock.held():
+            current=m.owner();current.act(m.call('background-resume'));original=deepcopy(current.previous)
+            source=current.live();source.read();self.assertNotEqual(current.state['afterHeader'],source.previous)
+            current.retire(retain=lambda header:retained.append(deepcopy(header)))
+            self.assertEqual([original],retained);self.assertIsNone(current.store.read());self.assertIsNotNone(source.store.read())
+        self.assertEqual(['lifecycle.background','app.launch'],m.normal_inputs);self.assertEqual(0,m.background_native_accesses)
+
+    def test_completed_archive_reopens_original_cycle_after_lease_retirement_without_queries_or_retiming(self):
+        m=self.model;retained=[]
+        with m.lock.held():
+            current=m.owner();current.act(m.call('background-resume'));source=current.live();source.read()
+            current.retire(retain=lambda header:retained.append(deepcopy(header)));reads=m.calls.count('native-read')
+            state,before,after=PhoneEmoteBackground.completed_archive(retained[0],source)
+            self.assertEqual('observed',state['phase']);self.assertLess(before[-1]['group']['native']['sequence'],after[-1]['group']['native']['sequence'])
+            self.assertEqual(1,after[-1]['group']['native']['lifecycle']['backgrounds'])
+            original=deepcopy((state,before,after));m.epoch+=5000
+            self.assertEqual(original,PhoneEmoteBackground.completed_archive(retained[0],source))
+            self.assertEqual(reads,m.calls.count('native-read'));self.assertEqual(['lifecycle.background','app.launch'],m.normal_inputs)
+
+    def test_completed_archive_can_bind_an_independent_actor_without_forwarding_current_native_facts(self):
+        m=self.model
+        with m.lock.held():
+            current=m.owner();current.act(m.call('background-resume'));actor=m.source('actor');reads=m.calls.count('native-read')
+            state,before,after=PhoneEmoteBackground.completed_archive(current.previous,actor)
+            self.assertEqual([],actor.frames);self.assertEqual(reads,m.calls.count('native-read'))
+            self.assertEqual('primary',state['beforeHeader']['role']);self.assertEqual('primary',state['afterHeader']['role'])
+            self.assertTrue(before and after);self.assertNotIn('fresh',state)
+
+    def test_completed_archive_cannot_issue_live_inputs_cleanup_or_new_source_reads(self):
+        m=self.model;views=[];decode=PhoneEmoteBackground.decode
+        with m.lock.held():
+            current=m.owner();call=m.call('background-resume');current.act(call);source=current.live()
+            def spy(scope,value):
+                if scope.historical:views.append(scope)
+                return decode(scope,value)
+            with patch.object(PhoneEmoteBackground,'decode',spy):PhoneEmoteBackground.completed_archive(current.previous,source)
+            self.assertEqual(1,len(views));view=views[0]
+            for action in (lambda:view.act(call),view.live,view.save,view.retire,
+                    lambda:view.recover_foreground(dict(contractVersion=CONTRACT_VERSION,runId=RUN)),
+                    lambda:view.retire_recovery(lambda *_:None)):
+                with self.assertRaises(NativeUIError):action()
+        self.assertEqual(['lifecycle.background','app.launch'],m.normal_inputs)
+
+    def test_changed_phase_or_new_native_override_cannot_retire_a_completed_cycle_through_later_observations(self):
+        m=self.model
+        with m.lock.held():
+            current=m.owner();current.act(m.call('background-resume'));m.start('Waving');source=current.live();source.read()
+            with self.assertRaises(NativeUIError):current.retire()
+            self.assertIsNotNone(current.store.read());m.restore();m.call('close');source=current.live();source.read()
+            with self.assertRaises(NativeUIError):current.retire()
+            self.assertIsNotNone(current.store.read())
+
+    def test_completed_archive_rejects_changed_context_failed_phase_and_missing_original(self):
+        m=self.model
+        with m.lock.held():
+            current=m.owner();current.act(m.call('background-resume'));source=current.live()
+            for fault in ('version','phase','process','segment','source-role'):
+                value=deepcopy(current.previous);state=unpack(value['payload'])[0]
+                if fault=='version':value['emoteBackgroundVersion']=True
+                elif fault=='phase':state['phase']='background-issued'
+                elif fault=='process':state['binding']['processIdentity']='32:foreign'
+                elif fault=='segment':value['sourceSegment']=True
+                else:state['beforeHeader']['role']='actor'
+                value['payload']=pack([state])
+                with self.subTest(fault=fault),self.assertRaises((NativeUIError,ValueError,OSError)):
+                    PhoneEmoteBackground.completed_archive(value,source)
+            from overte_phone_emote_originals import PhoneEmoteOriginals
+            originals=PhoneEmoteOriginals(m.root,m.binding,RUN,'primary',lambda:True,lambda *_:False)
+            state=unpack(current.state['beforeHeader']['payload'])[0];rows=originals.manifest(state['manifests'][0])
+            originals.path(originals.expand(rows[0])).unlink()
+            with self.assertRaises((NativeUIError,OSError)):PhoneEmoteBackground.completed_archive(current.previous,source)
+
+    def test_later_fixture_phase_alone_cannot_retire_the_original_background_cycle(self):
+        m=self.model
+        with m.lock.held():
+            current=m.owner();current.act(m.call('background-resume'));source=current.live()
+            m.call('close');source.read()
+            self.assertEqual(0,source.frames[-1]['group']['native']['animation']['history']['callSequence'])
+            with self.assertRaises(NativeUIError):current.retire()
+            self.assertIsNotNone(current.store.read())
+
+    def test_completed_archive_initial_guard_is_inside_its_five_second_bound(self):
+        m=self.model
+        with m.lock.held():
+            current=m.owner();current.act(m.call('background-resume'));source=current.live();guard=source.guard
+            reads=m.calls.count('native-read')
+            def slow():m.clock+=6;return guard()
+            source.guard=slow
+            with self.assertRaises(NativeUIError):PhoneEmoteBackground.completed_archive(current.previous,source)
+            self.assertIsNotNone(current.store.read());self.assertEqual(reads,m.calls.count('native-read'))
+
     def test_ordinary_home_and_activation_require_original_os_and_native_lifecycle_then_retire_metadata(self):
         m=self.model
         with m.lock.held():
