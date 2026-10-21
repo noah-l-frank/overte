@@ -31,6 +31,9 @@ class ObserverHarness(SamplesHarness):
         scene=self.scene();return IOSGraphicsPreferences(scene,monotonic=lambda:self.sdk.clock,sleep=self.sdk.sleep)
     def prepare(self):
         self.scene().prepare();self.preferences().prepare()
+        disabled=[f for f,value in (('haze',self.sdk.model.haze),('mirror',self.sdk.model.mirrors)) if not value]
+        if disabled:
+            for role in ('primary','actor'):self.observer(role).seed_off(disabled,0)
     def action(self,verb,inputs=None):
         self.counter=getattr(self,'counter',100)+1;ticket=format(self.counter,'032x');self.client.activate(ticket,verb,inputs or {});self.gpu.marker=ticket
         call=dict(contractVersion=VERSION,runId=RUN,ticket=ticket,fixtureUrl=self.client.url+'/runs/'+RUN+'/',verb=verb,inputs=inputs or {})
@@ -104,9 +107,10 @@ class ObserverTests(ObserverHarness,unittest.TestCase):
     def test_same_phase_cannot_reset_a_lost_native_capture(self):
         with self.lock.held():
             self.prepare();self.observer().read(0,0);observer=self.observer();self.gpu.lost=True
+            count=sum(row['operation']=='read' for row in self.gpu.commands)
             with self.assertRaises(NativeUIError):observer.read(0,0)
             with self.assertRaises(NativeUIError):self.observer().retire_phase()
-            self.assertEqual(2,sum(row['operation']=='read' for row in self.gpu.commands))
+            self.assertEqual(count+1,sum(row['operation']=='read' for row in self.gpu.commands))
 
     def test_failed_effect_keeps_original_files_and_can_retire_only_under_a_later_cleanup_phase(self):
         with self.lock.held():
@@ -258,7 +262,7 @@ class CurrentObserverTests(CurrentObserverHarness,unittest.TestCase):
             self.prepare();observer=self.observer();observer.read(0,0)
             floor=observer.frame(observer.state['last'],observer.state['binding'])[0]['clockJoin']['nativeAfter']
             value=deepcopy(observer.previous);value['iosGraphicsObserverVersion']=1;state=unpack(value['payload'])[0]
-            for key in ('currentEffects','currentEffectsAfter','nativeFloor'):state.pop(key)
+            for key in ('currentEffects','currentEffectsAfter','disabledEffects','disabledEffectsAfter','nativeFloor'):state.pop(key)
             value['payload']=pack([state]);observer.store.write(value,observer.previous)
             migrated=self.observer();self.assertEqual(floor,migrated.accepted_native())
             migrated.effect_preflight(0)

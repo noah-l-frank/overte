@@ -82,3 +82,11 @@ proofs. Their accepted native floor is recovered from retained original frames
 and phase retirements. Version-2 current frames must retain the actual pixel
 proof for each enabled effect; dropping a proof is rejected. Passive preflight
 reads preserve native birth, sequence, lifecycle and source-history prefixes.
+
+Version 3 additionally requires current disabled-effect pixel comparisons and
+retains their immutable original references and statistics. Initial false values
+need private role-owned `seed_off` images before the first public observation.
+These private seeds are not public samples. A false setting and zero issued
+haze/mirror draws cannot hide current stale enabled-effect pixels. Legacy v1/v2
+records retain their original qualification boundary; their history is not
+upgraded into fabricated disabled proofs. See the current-effect handoff above.

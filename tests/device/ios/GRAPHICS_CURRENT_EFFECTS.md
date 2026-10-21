@@ -55,4 +55,36 @@ including baseline, non-enable phases, restart and restoration. Its private
 `seed_off` retains separate role originals without changing the fixture phase.
 Whole-owner ordinary-input calibration, actor coordination and finalization
 remain pending. This helper is not a completed
-Graphics adapter and does not supply current disabled-effect qualification.
+Graphics adapter.
+
+## Current disabled-state comparison
+
+The separate version-1 `compare_disabled` contract uses the same complete
+original provenance, process replacement, geometry, PNG and clock checks. The
+current native setting and issued pass must both be false. Current haze blue
+dominance cannot exceed the original off reference by more than 10; reflection
+orange fraction cannot exceed it by more than 0.005. These are the complementary
+existing effect thresholds. Ordinary pixel changes due to resolution or the
+other effect are allowed; the two target regions remain disjoint and the whole
+challenge card remains excluded. No expected color or requested flag is returned
+as a measurement. Disabled comparisons do not claim that enabling worked; the
+unchanged full journey must independently qualify both actual enabled effects.
+
+Observer v3 requires these original comparisons in every current false state.
+A role must first acquire its own private off references through `seed_off`.
+These seed images create no public sample or sequence. Only a later newly
+acquired frame can be qualified. An existing off reference is replaced after
+successful current-pixel qualification; delayed enable input still cannot replace
+it with an early false image from that enable phase. Version-1/2 observer archives
+stay readable without fabricating disabled proofs for historical samples. Every
+new v3 sample must retain its actual false-state proofs. Reference age remains
+bounded by the original 45-second limit; missing or expired evidence fails before
+capture instead of being retimed.
+
+The combined disabled/current/observer/calibration selection passes 57 no-build
+cases. Eight new cases include stale effect pixels despite false actual settings
+and zero effect draws, restoration failure, separate private role references,
+resolution/other-effect changes, expired/reused evidence and strict process
+replacement. All iOS/native/GPU/OS boundaries and pixels remain synthetic.
+Compilation and devices remain unverified; full owner/worker/finalization work
+continues without advertising a complete Graphics capability.

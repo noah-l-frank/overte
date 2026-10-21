@@ -29,13 +29,13 @@ from ios.adapters.graphics_fixture import GraphicsFixtureReader,GraphicsPhasePen
 from ios.adapters.graphics_samples import IOSGraphicsSamples,GraphicsMarkerPending
 from ios.adapters.graphics_world_measurements import compose
 from ios.adapters.graphics_world_effects import compare,GraphicsWorldEffectPending
-from ios.adapters.graphics_current_effects import compare as compare_current
+from ios.adapters.graphics_current_effects import compare as compare_current,compare_disabled
 from ios.adapters.graphics_history import restore_native,follow_native
 from ios.adapters.graphics_restart_proof import validate as restart_receipt
 from ios.adapters.login_source import nonce
 
-VERSION=2
-READS=(1,2)
+VERSION=3
+READS=(1,2,3)
 FRAME_VERSION=1
 
 
@@ -61,7 +61,7 @@ class IOSGraphicsObserver:
         if source.previous is None:source.status()
         self.previous=self.store.read()
         self.state=dict(phase='ready',binding=self.current_binding,stage=0,sequence=0,capturedEpochMs=0,
-            backend=deepcopy(source.previous),baseline=None,last=None,offFrames=dict(haze=None,mirror=None),effects=[],restart=None,pending=None,retirements=[],currentEffects=[],currentEffectsAfter=0,nativeFloor=None)
+            backend=deepcopy(source.previous),baseline=None,last=None,offFrames=dict(haze=None,mirror=None),effects=[],restart=None,pending=None,retirements=[],currentEffects=[],currentEffectsAfter=0,disabledEffects=[],disabledEffectsAfter=0,nativeFloor=None)
         if self.previous is None:self.save()
         else:self.state=self.decode(self.previous)
 
@@ -137,10 +137,14 @@ class IOSGraphicsObserver:
         rows=unpack(value['payload']);need(len(rows)==1);state=rows[0]
         version=value['iosGraphicsObserverVersion']
         fields={'phase','binding','stage','sequence','capturedEpochMs','backend','baseline','last','offFrames','effects','restart','pending','retirements'}
-        exact(state,fields|({'currentEffects','currentEffectsAfter','nativeFloor'} if version>=2 else set()))
+        exact(state,fields|({'currentEffects','currentEffectsAfter','nativeFloor'} if version>=2 else set())
+              |({'disabledEffects','disabledEffectsAfter'} if version>=3 else set()))
         if version==1:state=dict(state,currentEffects=[],currentEffectsAfter=state['sequence'],nativeFloor=None)
+        if version<3:state=dict(state,disabledEffects=[],disabledEffectsAfter=state['sequence'])
         need(type(state['currentEffects']) is list and len(state['currentEffects'])<=1024
-             and integer(state['currentEffectsAfter'],0,state['sequence']))
+             and integer(state['currentEffectsAfter'],0,state['sequence'])
+             and type(state['disabledEffects']) is list and len(state['disabledEffects'])<=1024
+             and integer(state['disabledEffectsAfter'],0,state['sequence']))
         if state['nativeFloor'] is not None:
             packet=state['nativeFloor']
             from adapters.native_feature_observation import validate as native_packet
@@ -154,6 +158,7 @@ class IOSGraphicsObserver:
         else:need(state['restart'] is not None and same(state['binding'],state['restart']['newBinding']));self.transfer(state['restart'])
         if state['baseline'] is None:need(state['last'] is None and state['sequence']==state['capturedEpochMs']==0
              and not state['effects'] and not state['currentEffects'] and state['restart'] is None
+             and not state['disabledEffects']
              and (version>=2 or all(v is None for v in state['offFrames'].values())))
         else:
             need(state['baseline']['stage']==0)
@@ -175,13 +180,13 @@ class IOSGraphicsObserver:
             observed=compare(self.run,effect['feature'],self.fixture_url,binding,before,a,after,b,self.policy,self.source.instance,
                 lambda:round(after['clockJoin']['hostAfterEpochMs']),lambda:True,monotonic=lambda:0.)
             need(same(observed,effect['observed']))
-        for effect in state['currentEffects']:
+        for effect,comparator in [(row,compare_current) for row in state['currentEffects']]+[(row,compare_disabled) for row in state['disabledEffects']]:
             exact(effect,{'stage','feature','before','after','receipt','observed'})
             need(integer(effect['stage'],0,state['stage']) and effect['feature'] in ('haze','mirror')
                  and effect['after']['stage']==effect['stage'] and integer(effect['before']['stage'],0,effect['stage']))
             left=self.binding_for(state,effect['before']['stage']);right=self.binding_for(state,effect['after']['stage'])
             before,a,_old,_name=self.frame(effect['before'],left);after,b,_new,_name=self.frame(effect['after'],right)
-            measured=compare_current(self.run,effect['feature'],self.fixture_url,left,before,a,right,after,b,self.policy,self.source.instance,
+            measured=comparator(self.run,effect['feature'],self.fixture_url,left,before,a,right,after,b,self.policy,self.source.instance,
                 lambda:round(after['clockJoin']['hostAfterEpochMs']),lambda:True,restart=effect['receipt'],monotonic=lambda:0.)
             need(same(measured,effect['observed']))
         if state['last'] is not None and state['sequence']>state['currentEffectsAfter']:
@@ -189,6 +194,11 @@ class IOSGraphicsObserver:
             for feature in ('haze','mirror'):
                 if actual['state'][feature]:
                     need(any(row['feature']==feature and same(row['after'],state['last']) for row in state['currentEffects']))
+        if state['last'] is not None and state['sequence']>state['disabledEffectsAfter']:
+            actual=self.frame(state['last'],state['binding'])[2]
+            for feature in ('haze','mirror'):
+                if not actual['state'][feature]:
+                    need(any(row['feature']==feature and same(row['after'],state['last']) for row in state['disabledEffects']))
         if state['phase']=='reading':
             self.validate_pending(state['pending']);pending=state['pending'];need(integer(pending['stage'],state['stage'],1))
             if pending['stage']==state['stage']:need(same(pending['binding'],state['binding']))
@@ -325,9 +335,8 @@ class IOSGraphicsObserver:
             need(self.state['last'] is not None)
             graphics=self.frame(self.state['last'],self.state['binding'])[0]['nativeAfter']['graphics']
         for feature,field in (('haze','hazeSetting'),('mirror','mirrorsSetting')):
-            if not graphics[field]:continue
             ref=self.state['offFrames'][feature]
-            if ref is None:raise GraphicsEffectReferencePending('Current enabled Graphics effect has no original off reference')
+            if ref is None:raise GraphicsEffectReferencePending('Current Graphics effect has no original off reference')
             old=self.frame(ref,self.binding_for(self.state,ref['stage']))[0]
             if self.source.clock()-old['clockJoin']['hostAfterEpochMs']>45000:
                 raise GraphicsEffectReferencePending('Current Graphics effect off reference requires a new ordinary-input calibration')
@@ -392,12 +401,11 @@ class IOSGraphicsObserver:
                 transfer=dict(oldBinding=self.state['binding'],oldFrame=self.state['last'],newBinding=self.current_binding,newFrame=ref,
                     exit=self.adapter._process_presence(self.selector,read_only=True).require_absent(old['nativeAfter']['processId']))
                 self.transfer(transfer);candidate.update(stage=stage,binding=self.current_binding,restart=transfer)
-            effects=[];current_effects=[]
+            effects=[];current_effects=[];disabled_effects=[]
             try:
                 for feature,verb in (('haze','set-haze'),('mirror','set-mirrors')):
                     enabled=active['verb']==verb and active['inputs'].get('enabled') is True
-                    if not measured['state'][feature] and not measured['state'][feature+'Pass'] and not enabled:candidate['offFrames'][feature]=ref
-                    elif enabled and measured['state'][feature] and measured['state'][feature+'Pass']:
+                    if enabled and measured['state'][feature] and measured['state'][feature+'Pass']:
                         before=candidate['offFrames'][feature];need(before is not None and len(candidate['effects'])+len(effects)<64)
                         if before['stage']==stage:
                             old,a,_old,_name=self.frame(before,self.current_binding)
@@ -411,13 +419,21 @@ class IOSGraphicsObserver:
                         stats=compare_current(self.run,feature,self.fixture_url,left,old,a,self.current_binding,frame,raw,self.policy,self.source.instance,
                             self.source.epoch_ms,self.guard,restart=receipt,monotonic=self.monotonic)
                         current_effects.append(dict(stage=stage,feature=feature,before=reference,after=ref,receipt=receipt,observed=stats));bound()
+                    else:
+                        reference=candidate['offFrames'][feature];need(reference is not None and len(candidate['disabledEffects'])+len(disabled_effects)<1024)
+                        left=self.binding_for(candidate,reference['stage']);old,a,_old,_name=self.frame(reference,left)
+                        receipt=self.effect_restart_receipt() if not same(left,self.current_binding) else None
+                        stats=compare_disabled(self.run,feature,self.fixture_url,left,old,a,self.current_binding,frame,raw,self.policy,self.source.instance,
+                            self.source.epoch_ms,self.guard,restart=receipt,monotonic=self.monotonic)
+                        disabled_effects.append(dict(stage=stage,feature=feature,before=reference,after=ref,receipt=receipt,observed=stats));bound()
+                        if not enabled:candidate['offFrames'][feature]=ref
 
             except GraphicsWorldEffectPending:
                 bound();need(attempt<80)
                 current=self.source.read(samples.state['cursors']['provider'])
                 if current['ticket']!=active['ticket']:raise GraphicsPhasePending('Original Graphics phase changed during effect readiness')
                 self.sleep(.25);bound();continue
-            candidate['effects']+=effects;candidate['currentEffects']+=current_effects;break
+            candidate['effects']+=effects;candidate['currentEffects']+=current_effects;candidate['disabledEffects']+=disabled_effects;break
         else:raise NativeUIError('Original Graphics pixels did not reach readiness')
         if candidate['baseline'] is None:
             need(not measured['state']['dialog'] and not measured['resources']);candidate['baseline']=ref

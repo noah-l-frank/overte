@@ -26,6 +26,7 @@ from ios.adapters.graphics_world_effects import GraphicsWorldEffectPending
 from ios.adapters.graphics_world_measurements import compose
 
 VERSION=1
+DISABLED_VERSION=1
 
 
 def view_equal(left,right):
@@ -81,6 +82,24 @@ def process_pair(old_binding,new_binding,before,after,restart):
 
 def compare(run,feature,fixture_url,old_binding,before,raw_before,binding,current,raw_current,policy,provider_instance,
             epoch_ms,guard,*,restart=None,monotonic=time.monotonic):
+    return _compare(run,feature,fixture_url,old_binding,before,raw_before,binding,current,raw_current,policy,
+        provider_instance,epoch_ms,guard,enabled=True,restart=restart,monotonic=monotonic)
+
+
+def compare_disabled(run,feature,fixture_url,old_binding,before,raw_before,binding,current,raw_current,policy,provider_instance,
+                     epoch_ms,guard,*,restart=None,monotonic=time.monotonic):
+    """A fresh disabled frame must not retain the previously enabled signature.
+
+    The original off reference stays original. The controlled effect targets
+    are disjoint; changes to resolution or the other effect can alter ordinary
+    pixels, but cannot substitute for absence of this target's effect signature.
+    """
+    return _compare(run,feature,fixture_url,old_binding,before,raw_before,binding,current,raw_current,policy,
+        provider_instance,epoch_ms,guard,enabled=False,restart=restart,monotonic=monotonic)
+
+
+def _compare(run,feature,fixture_url,old_binding,before,raw_before,binding,current,raw_current,policy,provider_instance,
+             epoch_ms,guard,*,enabled,restart,monotonic):
     identifier(run);need(feature in ('haze','mirror') and all(callable(f) for f in (epoch_ms,guard,monotonic)))
     start=previous=monotonic();need(number(start,0,1e15))
     def bound():
@@ -99,10 +118,10 @@ def compare(run,feature,fixture_url,old_binding,before,raw_before,binding,curren
     replaced=process_pair(old_binding,binding,before,current,restart)
     field='hazeSetting' if feature=='haze' else 'mirrorsSetting'
     need(first['state'][feature] is False and first['state'][feature+'Pass'] is False
-         and last['state'][feature] is True and last['state'][feature+'Pass'] is True)
+         and last['state'][feature] is enabled and last['state'][feature+'Pass'] is enabled)
     allowed={'requestedResolutionScale','applicationResolutionScale','hazeSetting','mirrorsSetting'}
     left,right=before['nativeAfter']['graphics'],current['nativeBefore']['graphics']
-    need(left[field] is False and right[field] is True
+    need(left[field] is False and right[field] is enabled
          and all(same(v,right[k]) for k,v in left.items() if k not in allowed))
     # Both actual scenes independently match the controlled resource. Differences
     # in resolution or the other effect cannot introduce a foreign orange object,
@@ -124,9 +143,14 @@ def compare(run,feature,fixture_url,old_binding,before,raw_before,binding,curren
     need(target_box[2]<=other_box[0] or other_box[2]<=target_box[0] or target_box[3]<=other_box[1] or other_box[3]<=target_box[1])
     stats=measure_pair(raw_before,raw_current,target,rows[ids['marker']],b['renderTrace']['recordedView'],b['targetExtent'],
                        [0,0],b['targetExtent'],policy,bound)
-    ready=stats['changedFraction']>=.05 and (stats['blueDominanceAfter']-stats['blueDominanceBefore']>10 if feature=='haze'
-        else stats['orangeFractionAfter']-stats['orangeFractionBefore']>.005)
-    result=dict(iosGraphicsCurrentEffectsVersion=VERSION,feature=feature,referenceTicket=before['provider']['ticket'],
+    if enabled:
+        ready=stats['changedFraction']>=.05 and (stats['blueDominanceAfter']-stats['blueDominanceBefore']>10 if feature=='haze'
+            else stats['orangeFractionAfter']-stats['orangeFractionBefore']>.005)
+    else:
+        ready=(stats['blueDominanceAfter']-stats['blueDominanceBefore']<=10 if feature=='haze'
+            else stats['orangeFractionAfter']-stats['orangeFractionBefore']<=.005)
+    version={'iosGraphicsCurrentEffectsVersion':VERSION} if enabled else {'iosGraphicsDisabledEffectsVersion':DISABLED_VERSION}
+    result=dict(**version,feature=feature,referenceTicket=before['provider']['ticket'],
         currentTicket=current['provider']['ticket'],referenceBindingSha256=digest(old_binding),bindingSha256=digest(binding),
         restartSha256=digest(restart) if replaced else None,referenceSha256=hashlib.sha256(raw_before).hexdigest(),
         currentSha256=hashlib.sha256(raw_current).hexdigest(),targetId=target['id'],**stats)
