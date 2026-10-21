@@ -76,6 +76,8 @@ from overte_phone_script_observation import PhoneScriptObservation
 from overte_phone_script_actions import PhoneScriptActions
 from overte_phone_script_feature import PhoneScriptFeature, ScriptFixtureReader
 from overte_phone_authentication_feature import PhoneAuthenticationFeature, AuthenticationFixtureReader
+from overte_phone_emote_controls import PhoneEmoteIO, FILE as EMOTE_UI_FILE
+from adapters.token_emote_ui import TokenEmoteUI
 from overte_phone_graphics_feature import PhoneGraphicsFeature
 from overte_phone_graphics_fixture import GraphicsFixtureReader
 from feature_journeys.witness import Client as FeatureFixtureClient
@@ -128,7 +130,7 @@ def readonly_feature_command(command):
     elif action=='feature-account-probe':
         from adapters.native_account_probe import command as validate_probe
         validate_probe(command) # Only read/release/inspect; no URL or credentials.
-    elif action in ('phone-script-file-ui','phone-login-ui','phone-graphics-ui'):
+    elif action in ('phone-script-file-ui','phone-login-ui','phone-graphics-ui','phone-emote-ui'):
         require(set(command)=={'schemaVersion','commandId','action','request'}
                 and type(command['request']) is dict
                 and command['request']==dict(schemaVersion=1,commandId=command['commandId'],action='observe')
@@ -865,6 +867,17 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda: transport.read_debug_app_file(device, target['appId'],
                 'files/overte-e2e/' + SCRIPT_FILE_UI_FILE, attempts=1),
             native.clock_ms, native.guard, native.pid)
+
+    def _emote_controls(self,selector,intent,*,read_only=False):
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        ui,_observe,_context,check,_installed=self.normal_feature_runtime(selector,read_only=read_only)
+        tablet=PhoneScriptUI(ui,target['appId']);check()
+        io=PhoneEmoteIO(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+EMOTE_UI_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,tablet_shown=tablet.tablet_visible,
+            monotonic=native.monotonic,sleep=native.sleep)
+        return TokenEmoteUI(io,intent,monotonic=native.monotonic,sleep=native.sleep)
 
     def _graphics_controls(self, selector, intent, *, read_only=False):
         # Internal ordinary-input component. Original render/pass/image and

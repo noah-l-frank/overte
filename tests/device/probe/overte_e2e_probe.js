@@ -216,7 +216,7 @@
                 || !phoneChatNonce(request.instance) || !phoneChatNonce(request.generation)
                 || !phoneChatNonce(request.controlToken)
                 || !phoneFileInteger(request.sequence,1,9007199254740991)
-                || !phoneFileInteger(request.observedElapsedMs,0,9007199254740991) || typeof request.controlId !== "string") { return false; }
+                || !phoneFileInteger(request.observedElapsedMs,0,9007199254740991) || typeof request.controlId !== "string" || /[\x00-\x1f\x7f]/.test(request.controlId)) { return false; }
         if (request.action === "replace") { return request.controlId === "chat.input" && typeof request.text === "string"
             && !/[\x00-\x1f\x7f]/.test(request.text) && (request.text === "" || /^(?:Overte ä Ω 東京 |(?:reply|hidden|retry)-)[0-9a-f]{32}$/.test(request.text)); }
         if (request.action === "submit") { return request.controlId === "chat.input"; }
@@ -244,6 +244,21 @@
         return field || choice || /^(?:tablet\.(?:home|page\.(?:[1-9]|[12][0-9]|3[0-2]))|create\.(?:entry|new-shape|new-model|new-voxel|refresh|apply|delete|undo|redo|import-submit|import-browse|apply-typed|export|tab\.[0-4]))$/.test(request.controlId)
             || (/^create\.entity\.[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(request.controlId)
                 && request.controlId !== "create.entity.00000000-0000-0000-0000-000000000000");
+    }
+    var lastPhoneEmoteRequest = "";
+    function validPhoneEmoteRequest(request) {
+        function nonce(value) { return typeof value === "string" && value.length === 32 && /^[0-9a-f]{32}$/.test(value); }
+        if (!request || request.schemaVersion !== 1 || !nonce(request.commandId)) { return false; }
+        if (request.action === "observe") { return objectKeysMatch(request, ["schemaVersion", "commandId", "action"]); }
+        var keys=["schemaVersion","commandId","action","instance","generation","sequence","observedElapsedMs","controlId","controlToken"];
+        if (request.action === "scroll") { keys.push("direction"); }
+        if ((request.action !== "activate" && request.action !== "scroll") || !objectKeysMatch(request,keys)
+                || !nonce(request.instance) || !nonce(request.generation) || !nonce(request.controlToken)
+                || !phoneFileInteger(request.sequence,1,9007199254740991)
+                || !phoneFileInteger(request.observedElapsedMs,0,9007199254740991)
+                || typeof request.controlId !== "string") { return false; }
+        if (request.action === "scroll") { return request.controlId === "emote.grid" && (request.direction === "up" || request.direction === "down"); }
+        return /^(?:tablet\.(?:home|page\.(?:[1-9]|[12][0-9]|3[0-2]))|emote\.(?:entry|play\.(?:Crying|Surprised|Dancing|Cheering|Waving|Fall|Pointing|Clapping|Sit|Love)))$/.test(request.controlId);
     }
     var lastPhoneGraphicsRequest = "";
     function validPhoneGraphicsRequest(request) {
@@ -1204,6 +1219,23 @@
             }
             return;
         }
+        if (command && command.schemaVersion === 1 && typeof command.commandId === "string"
+                && /^[0-9a-f]{32}$/.test(command.commandId) && command.action === "phone-emote-ui"
+                && objectKeysMatch(command,["schemaVersion","commandId","action","request"])
+                && validPhoneEmoteRequest(command.request) && command.request.commandId === command.commandId) {
+            if (command.commandId !== lastPhoneEmoteRequest) {
+                lastPhoneEmoteRequest=command.commandId;
+                var emoteUi={schemaVersion:1,commandId:command.commandId,available:false};
+                try {
+                    if (typeof Test.phoneEmoteUi === "function") {
+                        var emoteOriginal=Test.phoneEmoteUi(command.request);
+                        if (emoteOriginal && emoteOriginal.commandId === command.commandId) { emoteUi=emoteOriginal; }
+                    }
+                } catch (_phoneEmoteError) { /* No input ACK is an animation result. */ }
+                Test.saveObject(emoteUi,"phone-emote-ui.json");
+            }
+            return;
+        }
         if (command && command.schemaVersion === 1 && /^[0-9a-f]{32}$/.test(String(command.commandId))
                 && command.action === "phone-graphics-ui"
                 && objectKeysMatch(command, ["schemaVersion", "commandId", "action", "request"])
@@ -1860,7 +1892,7 @@
                 || command.action === "feature-recorded-audio-observe" || command.action === "feature-recorded-audio-release"
                 || command.action === "feature-recorded-audio-files" || command.action === "feature-script-observe"
                 || command.action === "phone-login-ui" || command.action === "phone-create-ui" || command.action === "phone-chat-ui"
-                || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui"
+                || command.action === "phone-script-file-ui" || command.action === "phone-audio-ui" || command.action === "phone-graphics-ui" || command.action === "phone-emote-ui"
                 || command.action === "feature-world-render-observe" || command.action === "feature-world-render-storage"
                 || command.action === "feature-world-render-receipt"
                 || command.action === "feature-world-render-receipts"

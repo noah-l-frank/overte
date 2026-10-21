@@ -22,7 +22,7 @@
 #include <memory>
 namespace overte::e2e { class ChatViewObservation; }
 #include <QUuid>
-namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; }
+namespace overte::e2e { class FeatureLifecycle; class AccountOriginLease; class ScriptFileUi; class AudioUi; class GraphicsUi; class LoginUi; class CreateUi; class ChatUi; class EmoteUi; }
 #endif
 
 class TestScriptingInterface : public QObject {
@@ -173,6 +173,7 @@ public slots:
     Q_INVOKABLE QVariantMap phoneScriptFileUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneAudioUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneGraphicsUi(const QVariantMap& command);
+    Q_INVOKABLE QVariantMap phoneEmoteUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneCreateUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneChatUi(const QVariantMap& command);
     Q_INVOKABLE QVariantMap phoneLoginUi(const QVariantMap& command);
@@ -251,6 +252,7 @@ private:
     std::shared_ptr<overte::e2e::ScriptFileUi> _phoneScriptFileUi;
     std::shared_ptr<overte::e2e::AudioUi> _phoneAudioUi;
     std::shared_ptr<overte::e2e::GraphicsUi> _phoneGraphicsUi;
+    std::shared_ptr<overte::e2e::EmoteUi> _phoneEmoteUi;
     std::shared_ptr<overte::e2e::LoginUi> _phoneLoginUi;
     std::shared_ptr<overte::e2e::CreateUi> _phoneCreateUi;
     std::shared_ptr<overte::e2e::ChatUi> _phoneChatUi;

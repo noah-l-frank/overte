@@ -15,6 +15,12 @@ component notes below do not supersede this current status. In particular,
 earlier Graphics statements that full coordination remains pending are historical:
 the complete coordinator and guarded triple are now implemented.
 
+The [original Emote input component](NORMAL_EMOTE_PROTOCOL.md) now joins actual
+Qt widgets, normal pointer/wheel delivery, original tokens and private Phone
+read-only admission. Its 251-case combined host regression passes. Full Emote
+Script/Rig/pose/image/actor/cleanup composition remains incomplete; the complete
+Phone area count stays three of fourteen. Native code remains uncompiled.
+
 ## Historical component packets
 
 Graphics now has source-only [same-view render-batch provenance](../../native/WORLD_RENDER_ACQUISITION.md)

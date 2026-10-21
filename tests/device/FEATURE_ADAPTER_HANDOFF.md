@@ -569,3 +569,13 @@ for all fourteen areas. [The exact phase contract](feature_journeys/PHASE_FIXTUR
 preserves original activation times and retirement without exposing peer facts.
 It supports later Emote/native input causality; it supplies no target effects,
 full adapter capability or cleanup proof. Full Phone Emotes remains incomplete.
+
+## Original Android Phone Emote controls v1
+
+The existing Phone transport now provides original widget/token, grid-motion and
+ordinary pointer/wheel inputs, with private read-only admission and explicit
+missing-hook failures. See [the exact native contract](native/NORMAL_EMOTE_CONTROLS.md)
+and [Phone protocol](adapters/android-phone/NORMAL_EMOTE_PROTOCOL.md). This
+component supplies no Rig/pose/image/peer success and advertises no complete
+Emote capability. Three complete Phone areas remain implemented; eleven remain
+missing, including full Emotes. All native builds and devices remain untested.
