@@ -174,12 +174,18 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Prepare Python dependencies from trusted requirements
+        env:
+          FULL_HOST: ${{ needs.plan.outputs.full_host }}
         run: |
           python3 -m venv "$RUNNER_TEMP/pr-ci-venv"
+          requirements=trusted/tests/requirements-repository.txt
+          if test "$FULL_HOST" = true; then
+            requirements=trusted/tests/requirements-host.txt
+          fi
           "$RUNNER_TEMP/pr-ci-venv/bin/python" -m pip install \
-            --disable-pip-version-check --requirement trusted/tests/requirements-repository.txt
+            --disable-pip-version-check --requirement "$requirements"
       - name: Prepare the reviewed image-test dependency when selected
-        if: needs.plan.outputs.full_host == 'true' || contains(fromJSON(needs.plan.outputs.setup_json), 'pillow')
+        if: needs.plan.outputs.full_host != 'true' && contains(fromJSON(needs.plan.outputs.setup_json), 'pillow')
         run: |
           pillow=$(sed -n '/^Pillow==[0-9][0-9.]*$/p' trusted/tests/requirements-host.txt)
           test -n "$pillow" && test "$(printf '%s\n' "$pillow" | wc -l)" -eq 1
