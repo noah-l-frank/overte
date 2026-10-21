@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 from PIL import Image,ImageDraw
 from adapters.native_vulkan_world_frame import NativeVulkanWorldFrame
+from adapters.native_clock_join import digest
 from adapters.normal_feature_state import PrivateFeatureState
 from adapters.normal_ui import NativeUIError
 from adapters.owned_vulkan_world_frame import VulkanWorldFrameOwner
@@ -16,7 +17,7 @@ from adapters.script_feature.history import pack,unpack
 from feature_journeys.fixtures import challenge
 from ios.adapters import normal_input
 from feature_journeys.witness import Client
-from ios.adapters.graphics_fixture import GraphicsFixtureReader
+from ios.adapters.graphics_fixture import GraphicsFixtureReader,GraphicsPhasePending
 from ios.adapters.graphics_preferences import IOSGraphicsPreferences
 from ios.adapters.graphics_samples import IOSGraphicsSamples,GraphicsMarkerPending
 from ios.adapters.graphics_source import IOSGraphicsSource
@@ -42,7 +43,7 @@ class GPU:
     """Independent read/callback model; no adapter desired-state input is read."""
     def __init__(self,sdk):
         self.sdk,self.worlds,self.sequence,self.frames=sdk,{},0,0
-        self.marker=TICKET;self.commands=[];self.lost=False;self.no_fence=False;self.birth='c'*32;self.delay=0
+        self.marker=TICKET;self.commands=[];self.lost=False;self.no_fence=False;self.birth='c'*32;self.delay=0;self.on_read=None
     def source(self,packet):
         packet['instance']=self.birth
         source=packet.get('source',{})
@@ -62,6 +63,7 @@ class GPU:
             if query['operation']=='read':self.frames+=1
             b.send(query);self.sequence=b.sequence;self.sdk.clock=b.clock
             if query['operation']=='read':self.sdk.sleep(self.delay)
+            if query['operation']=='read' and self.on_read:self.on_read()
             if self.lost and query['operation']=='read':raise OSError('Synthetic lost original GPU return')
         def original():
             b=current[0];b.clock=self.sdk.clock;b.sequence=self.sequence
@@ -180,6 +182,51 @@ class SamplesTests(SceneHarness,unittest.TestCase):
             with patch.object(samples.store,'write',side_effect=OSError('Synthetic failed role intent')),self.assertRaises(OSError):
                 samples.read(TICKET,self.sdk.host_epoch())
             self.assertEqual([],self.gpu.commands)
+
+    def test_crossed_phase_retires_original_consumers_without_publishing_or_replaying_capture(self):
+        current='7'*32
+        with self.lock.held():
+            self.scene().prepare();samples=self.samples()
+            self.gpu.on_read=lambda:self.client.activate(current,'open',{})
+            with self.assertRaises(GraphicsPhasePending):samples.read(TICKET,self.sdk.host_epoch())
+            self.assertEqual('reading',samples.state['phase']);self.assertEqual(0,samples.state['sequence'])
+            recovery=self.samples(cleanup=True);proof=recovery.retire_crossed_phase()
+            self.assertEqual(TICKET,recovery.state['owners'][0]['ticket'])
+            self.assertEqual('abandoned',recovery.state['owners'][0]['phase']);self.assertEqual(0,recovery.state['sequence'])
+            self.assertEqual(0,proof['retirement']['source']['callbacks']);self.assertEqual(current,proof['provider']['ticket'])
+            self.gpu.on_read=None;self.gpu.marker=current
+            recreated=self.samples();actual=recreated.read(current,self.sdk.host_epoch())
+            self.assertEqual(1,actual['sequence']);self.assertEqual(2,sum(c['operation']=='read' for c in self.gpu.commands))
+
+    def test_same_phase_cannot_authorize_discarding_an_uncertain_acquisition(self):
+        self.gpu.lost=True
+        with self.lock.held():
+            self.scene().prepare();samples=self.samples()
+            with self.assertRaises(NativeUIError):samples.read(TICKET,self.sdk.host_epoch())
+            with self.assertRaises(NativeUIError):self.samples(cleanup=True).retire_crossed_phase()
+            self.assertEqual('reading',unpack(samples.store.read()['payload'])[0]['phase'])
+
+    def test_changed_phase_does_not_authorize_a_changed_gpu_birth_as_old_consumer_absence(self):
+        self.gpu.lost=True
+        with self.lock.held():
+            self.scene().prepare();samples=self.samples()
+            with self.assertRaises(NativeUIError):samples.read(TICKET,self.sdk.host_epoch())
+            self.client.activate('7'*32,'open',{});self.gpu.birth='f'*32
+            with self.assertRaises(NativeUIError):self.samples(cleanup=True).retire_crossed_phase()
+            self.assertEqual('reading',unpack(samples.store.read()['payload'])[0]['phase'])
+
+    def test_version_one_original_indexes_and_sample_records_migrate_without_retiming(self):
+        with self.lock.held():
+            self.scene().prepare();samples=self.samples();samples.read(TICKET,self.sdk.host_epoch())
+            row=samples.state['owners'][0];store=samples.sample_store(row);sample=store.read()
+            old_sample=deepcopy(sample);old_sample['iosGraphicsSamplesVersion']=1;store.write(old_sample,sample)
+            old_index=deepcopy(samples.previous);state=unpack(old_index['payload'])[0]
+            state['owners'][0]['sampleSha256']=digest(old_sample);old_index.update(iosGraphicsSamplesVersion=1,payload=pack([state]))
+            samples.store.write(old_index,samples.previous)
+            current=self.samples();archived=current.archive(current.state['owners'][0])[0]
+            self.assertEqual(unpack(old_sample['payload'])[0],archived)
+            current.read(TICKET,self.sdk.host_epoch());self.assertEqual(2,current.previous['iosGraphicsSamplesVersion'])
+            self.assertEqual(old_sample,store.read())
 
 
 if __name__=='__main__':unittest.main()

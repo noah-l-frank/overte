@@ -10,7 +10,7 @@ from pathlib import Path
 import time
 import uuid
 
-from adapters.native_clock_join import NativeClockAcquisition,digest
+from adapters.native_clock_join import NativeClockAcquisition,digest,validate_join
 from adapters.native_feature_observation import exact,integer,need,number,validate as native_packet
 from adapters.native_graphics_subject import validate as subject_packet
 from adapters.native_vulkan_world_frame import absent,validate as capture_packet
@@ -27,7 +27,8 @@ from ios.adapters.graphics_source import validate as graphics_packet
 from ios.adapters.graphics_world_measurements import compose,originals
 from ios.adapters.login_source import nonce
 
-VERSION=1
+VERSION=2
+READS=(1,2)
 CURSORS={'native','subject','graphics','tablet','capture','retirement','provider'}
 
 
@@ -70,11 +71,20 @@ class IOSGraphicsSamples:
         if self.previous is not None:self.state=self.decode(self.previous)
         need(cleanup_only or self.state['phase']=='ready')
         if self.previous is not None and self.state['phase']=='ready' and self.state['owners']:
-            frames=[self.record(row)[1] for row in self.state['owners']]
-            need(self.state['seenFrames']==[frame['capture']['source']['renderTrace']['frameId'] for frame in frames])
-            last=frames[-1];expected={key:last[field] for key,field in (('subject','subjectAfter'),('graphics','graphics'),
-                ('tablet','tablet'),('capture','capture'),('retirement','retirement'),('provider','provider'))}
-            expected['native']=last['clockJoin']['nativeAfter'];need(same(expected,self.state['cursors']))
+            records=[self.record(row)[1] for row in self.state['owners']];seen=[]
+            for record in records:
+                capture=record['capture']
+                if capture is not None:
+                    identity=capture['source']['renderTrace']['frameId']
+                    if identity not in seen:seen.append(identity)
+            need(self.state['seenFrames']==seen)
+            last=records[-1]
+            if self.state['owners'][-1]['phase']=='abandoned':expected=last['cursors']
+            else:
+                expected={key:last[field] for key,field in (('subject','subjectAfter'),('graphics','graphics'),
+                    ('tablet','tablet'),('capture','capture'),('retirement','retirement'),('provider','provider'))}
+                expected['native']=last['clockJoin']['nativeAfter']
+            need(same(expected,self.state['cursors']))
 
     def envelope(self,state):
         return dict(iosGraphicsSamplesVersion=VERSION,runId=self.run,role=self.role,stage=self.stage,
@@ -82,7 +92,9 @@ class IOSGraphicsSamples:
 
     def decode(self,value):
         exact(value,{'iosGraphicsSamplesVersion','runId','role','stage','providerInstance','fixtureUrl','artifactRoot','imagePolicy','payload'})
-        rows=unpack(value['payload']);need(len(rows)==1 and same(value,self.envelope(rows[0])))
+        rows=unpack(value['payload']);version=value['iosGraphicsSamplesVersion']
+        need(type(version) is int and version in READS and len(rows)==1
+             and same(value,self.envelope(rows[0])|dict(iosGraphicsSamplesVersion=version)))
         state=rows[0];exact(state,{'binding','phase','sequence','cursors','owners','seenFrames'})
         need(same(state['binding'],self.binding) and state['phase'] in ('ready','reading')
              and integer(state['sequence'],0,512) and type(state['owners']) is list and len(state['owners'])<=512
@@ -93,7 +105,7 @@ class IOSGraphicsSamples:
         for index,row in enumerate(state['owners']):
             exact(row,{'requestId','ticket','phase','sampleSha256'})
             nonce(row['requestId']);identifier(row['ticket']);need(row['requestId'] not in seen);seen.add(row['requestId'])
-            need(row['phase'] in ('reserved','observed','marker-pending'))
+            need(row['phase'] in ('reserved','observed','marker-pending','abandoned') and (version>=2 or row['phase']!='abandoned'))
             if row['phase']=='reserved':need(state['phase']=='reading' and index==len(state['owners'])-1 and row['sampleSha256'] is None)
             else:
                 need(type(row['sampleSha256']) is str and len(row['sampleSha256'])==64)
@@ -151,16 +163,44 @@ class IOSGraphicsSamples:
     def record(self,row):
         need(row['phase']!='reserved')
         value=self.sample_store(row).read();exact(value,{'iosGraphicsSamplesVersion','binding','runId','role','stage','requestId','ticket','afterEpochMs','payload'})
-        need(value['iosGraphicsSamplesVersion']==VERSION and type(value['iosGraphicsSamplesVersion']) is int
+        need(type(value['iosGraphicsSamplesVersion']) is int and value['iosGraphicsSamplesVersion'] in READS
              and same(value['binding'],self.binding) and value['runId']==self.run and value['role']==self.role
              and type(value['stage']) is int and value['stage']==self.stage and value['requestId']==row['requestId']
              and value['ticket']==row['ticket'] and digest(value)==row['sampleSha256'])
         frames=unpack(value['payload']);need(len(frames)==1)
+        if row['phase']=='abandoned':
+            need(value['iosGraphicsSamplesVersion']>=2);self.validate_abandonment(row,frames[0])
         return value,frames[0]
+
+    def validate_abandonment(self,row,proof):
+        from feature_journeys.graphics_resources import validate_status
+        exact(proof,{'native','retirement','capture','clockJoin','phase','provider','cursors'})
+        self.fixture.active(proof['phase']);need(proof['phase']['ticket']!=row['ticket'])
+        provider=proof['provider'];validate_status(provider,instance=self.instance,run=self.run,url=self.client.url,request=provider['requestId'])
+        need(provider['active'] and provider['ticket']==proof['phase']['ticket'])
+        packets={'native':proof['native']}
+        native_packet(proof['native'],nonce(proof['native']['requestId']),self.pid,proof['native']['capturedEpochMs'])
+        if proof['retirement'] is not None:
+            need(absent(proof['retirement']) and proof['retirement']['requestId']==row['requestId']
+                 and proof['retirement']['processId']==self.pid);packets['retirement']=proof['retirement']
+        capture=proof['capture']
+        if capture is not None:
+            capture_packet(capture,dict(schemaVersion=1,action='feature-vulkan-world-frame',operation='read',
+                commandId=capture['commandId'],requestId=row['requestId']),self.pid,capture['capturedEpochMs'])
+            need(proof['retirement'] is not None and capture['instance']==proof['retirement']['instance'])
+        clock=validate_join(proof['clockJoin'],packets);self.validate_cursors(proof['cursors'])
+        need(clock['nativeBefore']['processId']==self.pid
+             and clock['nativeBefore']['instance']==proof['native']['instance']
+             and clock['nativeBefore']['sequence']<proof['native']['sequence']<clock['nativeAfter']['sequence']
+             and clock['hostBeforeEpochMs']<=provider['capturedEpochMs']<=clock['hostAfterEpochMs']
+             and provider['activations'][-1]['activatedEpochMs']<=clock['hostBeforeEpochMs'])
+        need(same(proof['cursors']['native'],proof['clockJoin']['nativeAfter'])
+             and same(proof['cursors']['provider'],provider)
+             and (proof['retirement'] is None or same(proof['cursors']['retirement'],proof['retirement'])))
 
     def archive(self,row):
         """Historical originals only; never a fresh observation or repair."""
-        self.bound();need(any(same(row,item) for item in self.state['owners']))
+        self.bound();need(row['phase']!='abandoned' and any(same(row,item) for item in self.state['owners']))
         value,frame=self.record(row);owner=self.owner(row);raw=owner.archive();stored=owner.state
         need(same(stored['frame'],frame['capture']) and stored['phase']=='released'
              and any(same(event['receipt'],frame['retirement']) for event in owner.events)
@@ -212,13 +252,53 @@ class IOSGraphicsSamples:
         self.sample_store(row).write(sample,None);need(same(self.sample_store(row).read(),sample) and owner.archive()==raw)
         row.update(phase='marker-pending' if missing else 'observed',sampleSha256=digest(sample))
         self.state.update(phase='ready',sequence=self.state['sequence']+(0 if missing else 1));self.save()
-        ended,epoch=self.monotonic(),self.epoch_ms();start=frame['clockJoin']
+        self.finish_window(frame['clockJoin'])
+        self.bound()
+        if missing:raise GraphicsMarkerPending('Original current Graphics marker is not yet rendered')
+        return deepcopy(dict(sequence=self.state['sequence'],imagePath=str(self.root/owner.name),**result))
+
+    def finish_window(self,start):
+        ended,epoch=self.monotonic(),self.epoch_ms()
         need(number(ended,start['hostBeforeMonotonic'],start['hostBeforeMonotonic']+1.5) and ended-start['hostBeforeMonotonic']<1.5
              and number(epoch,start['hostAfterEpochMs'],start['hostBeforeEpochMs']+1500)
              and epoch-start['hostBeforeEpochMs']<1500 and abs(epoch-start['hostBeforeEpochMs']-(ended-start['hostBeforeMonotonic'])*1000)<=250)
         self.bound()
-        if missing:raise GraphicsMarkerPending('Original current Graphics marker is not yet rendered')
-        return deepcopy(dict(sequence=self.state['sequence'],imagePath=str(self.root/owner.name),**result))
+
+    def retire_crossed_phase(self):
+        """Retire an old acquisition after a separately observed phase change.
+
+        This publishes no image or product fact. Unknown commands are released
+        once, original callbacks/buffers must actually drain, and all original
+        files/transcripts remain owned. No native capture is replayed.
+        """
+        self.bound();need(self.state['phase']=='reading' and self.state['owners'][-1]['phase']=='reserved')
+        row=self.state['owners'][-1];phase=self.fixture.read(self.state['cursors']['provider'])
+        need(phase['ticket']!=row['ticket'] and self.sample_store(row).read() is None)
+        reader=self.adapter._native_feature_observer(self.selector,read_only=True);restore_native(reader,self.state['cursors']['native'])
+        window=NativeClockAcquisition(reader,epoch_ms=self.epoch_ms,monotonic=self.monotonic);window.begin(phase['afterEpochMs'])
+        native=reader.read(reader.sequence);self.remember('native',native)
+        owner=self.owner(row);retirement=capture=None
+        if owner.store.read() is not None:
+            retirement=owner.release();self.remember('retirement',retirement);capture=deepcopy(owner.state['frame'])
+        else:need(not (self.root/owner.name).exists())
+        provider=self.fixture.status(phase['status']);need(provider['active'] and provider['ticket']==phase['ticket'])
+        self.remember('provider',provider)
+        packets={'native':native}
+        if retirement is not None:packets['retirement']=retirement
+        clock=window.finish(packets,[(key,'capturedEpochMs') for key in packets]);self.remember('native',clock['nativeAfter'])
+        proof=dict(native=native,retirement=retirement,capture=capture,clockJoin=clock,phase=dict(schemaVersion=1,
+            runId=self.run,area='graphics',ticket=phase['ticket'],stimulus=dict(verb=phase['verb'],inputs=phase['inputs'])),
+            provider=provider,cursors=deepcopy(self.state['cursors']))
+        self.validate_abandonment(row,proof)
+        if capture is not None:
+            identity=capture['source']['renderTrace']['frameId']
+            if identity not in self.state['seenFrames']:self.state['seenFrames'].append(identity)
+        value=dict(iosGraphicsSamplesVersion=VERSION,binding=self.binding,runId=self.run,role=self.role,stage=self.stage,
+            requestId=row['requestId'],ticket=row['ticket'],afterEpochMs=phase['afterEpochMs'],payload=pack([proof]))
+        self.sample_store(row).write(value,None);need(same(self.sample_store(row).read(),value))
+        row.update(phase='abandoned',sampleSha256=digest(value));self.state['phase']='ready';self.save();self.bound()
+        self.finish_window(clock)
+        return deepcopy(proof) # Retirement originals only, never a feature observation.
 
     def drain(self):
         """Fresh actual native absence; does not retire metadata or prove quiet."""

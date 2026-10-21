@@ -87,7 +87,7 @@
     "ios-graphics-scene": {"current": 1, "reads": [1]},
     "ios-graphics-preferences": {"current": 1, "reads": [1]},
     "ios-graphics-source-floors": {"current": 1, "reads": [1]},
-    "ios-graphics-samples": {"current": 1, "reads": [1]},
+    "ios-graphics-samples": {"current": 2, "reads": [1, 2]},
     "feature-image-marker-readiness": {"current": 1, "reads": [1]},
     "ios-graphics-restart-proof": {"current": 1, "reads": [1]},
     "feature-graphics-viewpoint-query": {"current": 1, "reads": [1]},
