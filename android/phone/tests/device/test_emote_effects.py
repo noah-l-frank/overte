@@ -112,6 +112,24 @@ class PhoneEmoteEffectTests(unittest.TestCase):
             self.assertFalse(value['state']['panel']);self.assertEqual('idle',value['state']['animation'])
             self.assertFalse(m.widgets.tablet)
 
+    def test_new_primary_segment_observes_unowned_calls_before_input_as_failure_even_when_already_restored(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            first=m.source();first.read();second=m.source(segment=1);m.start('Waving');m.restore()
+            with self.assertRaises(NativeUIError):second.read()
+            self.assertEqual(2,m.value['animation']['history']['callSequence']);self.assertFalse(m.value['animation']['overrideActive'])
+            self.assertIsNotNone(second.store.read());self.assertEqual('reading',second.state['phase'])
+            self.assertIsNotNone(first.store.read())
+
+    def test_reconstruction_cannot_adopt_an_invalid_segment_start_written_by_a_faulty_producer(self):
+        m=self.model;m.use_included_source()
+        with m.lock.held():
+            m.source().read();second=m.source(segment=1);m.start('Waving');m.restore()
+            with patch.object(second,'segment_start',return_value=None):second.read()
+            self.assertEqual('ready',second.state['phase']);self.assertIsNotNone(second.store.read())
+            with self.assertRaises(NativeUIError):m.source(segment=1)
+            self.assertIsNotNone(second.store.read())
+
     def test_all_ten_normal_emote_buttons_join_their_own_loaded_originals_and_restoration(self):
         m=self.model
         with m.lock.held():

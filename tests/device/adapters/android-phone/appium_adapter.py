@@ -1415,7 +1415,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_EMOTE_OBSERVATION_CLEANUP_INCOMPLETE')
         require(all(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-'+role+'-sources.json')).read() is None
                     for role in ('primary','actor')),'PHONE_EMOTE_SOURCE_CLEANUP_INCOMPLETE')
+        require(not any(self.state_path(selector).parent.glob('phone-emote-*-sources-segment-*.json')),
+                'PHONE_EMOTE_SOURCE_CLEANUP_INCOMPLETE')
         require(PrivateFeatureState(self.state_path(selector).with_name('phone-emote-inputs.json')).read() is None,
+                'PHONE_EMOTE_INPUT_CLEANUP_INCOMPLETE')
+        require(not any(self.state_path(selector).parent.glob('phone-emote-inputs-segment-*.json')),
                 'PHONE_EMOTE_INPUT_CLEANUP_INCOMPLETE')
         require(self.graphics_restart_store(selector).read() is None and self.graphics_restart_inputs_store(selector).read() is None,
                 'PHONE_GRAPHICS_RESTART_CLEANUP_INCOMPLETE')

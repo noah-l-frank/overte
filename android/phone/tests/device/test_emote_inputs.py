@@ -62,6 +62,15 @@ class PhoneEmoteInputsTests(unittest.TestCase):
         temporary=tempfile.TemporaryDirectory(prefix='overte-emote-inputs-');self.addCleanup(temporary.cleanup)
         self.model=Originals(Path(temporary.name));self.mock=patch('overte_phone_emote_inputs.PhoneScriptUI',side_effect=self.model.tablet)
         self.tablet_factory=self.mock.start();self.addCleanup(self.mock.stop)
+
+    def test_idle_segment_uses_distinct_input_metadata_without_discarding_original_input_history(self):
+        m=self.model;m.idle=True
+        with m.lock.held():
+            first=PhoneEmoteInputs(m.source());first.act(m.call('open'));first.source.read();header=deepcopy(first.previous)
+            second=PhoneEmoteInputs(m.source(segment=1));second.act(m.call('wait-complete'))
+            self.assertNotEqual(first.store.path,second.store.path);self.assertEqual(header,first.store.read())
+            self.assertEqual('phone-emote-inputs-segment-1.json',second.store.path.name)
+            self.assertEqual([],second.state['history']);self.assertEqual('wait-complete',second.state['current']['call']['verb'])
     def test_open_play_and_close_use_original_normal_controls_and_durable_consumption_receipts(self):
         m=self.model
         with m.lock.held():

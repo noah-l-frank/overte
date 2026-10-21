@@ -23,8 +23,13 @@ Actual partial-file hashes remain failed diagnostic evidence. Complete
 [observation archive transfer](EMOTE_OBSERVATION.md#complete-original-archive-transfer-version-1)
 now retains replayable role-local source/input/image contexts and supports fresh
 stability images under one phase index. Whole parent failure recovery, source/
-input segment handoff/continuity and full Emote coordination remain open; the
+input segment ownership and full Emote coordination remain open; the
 complete Phone count remains three of fourteen.
+The [bounded journal namespaces](EMOTE_JOURNAL_NAMESPACE.md) now preserve old
+source/input metadata while a successor restores and checks actual native/
+Script/UI continuity. Frozen/missing/active predecessors and unknown remaining
+segment files fail closed. Whole-parent rotation/actor leases, failure recovery
+and final retirement still require composition before capability registration.
 Pico and iOS are owned by separate sessions/worktrees; this session edits Phone only. Historical
 component notes below do not supersede this current status. In particular,
 earlier Graphics statements that full coordination remains pending are historical:

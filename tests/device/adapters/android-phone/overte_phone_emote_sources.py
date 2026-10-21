@@ -27,6 +27,12 @@ from overte_phone_script_lock import PhoneScriptSourceLock
 
 VERSION=3
 LIMIT=MAX_FRAMES
+MAX_SEGMENTS=16
+
+
+def source_name(role,segment):
+    need(role in ('primary','actor') and integer(segment,0,MAX_SEGMENTS-1))
+    return 'phone-emote-'+role+'-sources'+('-segment-'+str(segment) if segment else '')+'.json'
 
 
 class EmotePhaseChanged(NativeUIError):
@@ -34,23 +40,46 @@ class EmotePhaseChanged(NativeUIError):
 
 
 class PhoneEmoteSources:
-    def __init__(self,adapter,selector,phase,role,lock,*,artifact_root,monotonic=time.monotonic):
+    def __init__(self,adapter,selector,phase,role,lock,*,artifact_root,monotonic=time.monotonic,segment=0):
         need(isinstance(phase,PhaseFixtureReader) and phase.area=='emotes'
             and role in ('primary','actor') and isinstance(lock,PhoneScriptSourceLock) and callable(monotonic))
         path=adapter.state_path(selector);need(lock.path==path.with_name('phone-script-sources.lock'));lock.assert_held()
         self.adapter,self.selector,self.phase,self.role,self.lock=adapter,selector,phase,role,lock
         self.monotonic=monotonic;self.run=identifier(phase.run);self.historical=False
+        self.segment=segment;self.predecessor=None;self.prior_store=None;self.prior_header=None
         _ui,_service,binding,self.guard,_installed=adapter.normal_feature_runtime(selector,read_only=True)
         self.binding=deepcopy(context(binding));self.pid=int(self.binding['processIdentity'].split(':')[0]);need(integer(self.pid,1))
-        self.store=PrivateFeatureState(path.with_name('phone-emote-'+role+'-sources.json'))
+        self.store=PrivateFeatureState(path.with_name(source_name(role,segment)))
         self.previous=self.store.read();self.frames=[];self.failed=False
         self.artifact_root=Path(artifact_root)
         self.state=dict(phase='ready',revision=0,manifests=[],pending=None)
         self.originals=PhoneEmoteOriginals(self.artifact_root,self.binding,self.run,self.role,self.guard,self.storage_intent,monotonic=self.monotonic)
+        if segment:
+            self.prior_store=PrivateFeatureState(path.with_name(source_name(role,segment-1)));self.prior_header=self.prior_store.read()
+            need(self.prior_header is not None and self.prior_header.get('role')==role)
+            prior_state,prior_frames=self.archive(self.prior_header,phase=phase,artifact_root=self.artifact_root,binding=self.binding,
+                guard=self.guard,monotonic=self.monotonic)
+            need(prior_state['phase']=='ready' and prior_state['pending'] is None and bool(prior_frames)
+                and prior_frames[-1]['group']['native']['animation']['overrideActive'] is False)
+            self.predecessor=prior_frames[-1];self.prior_manifest=deepcopy(prior_state['manifests'][-1])
+            self.prior_reference=deepcopy(self.originals.manifest(self.prior_manifest)[-1]);self.predecessor_bound()
         if self.previous is not None:
             try:self.state,self.frames=self.decode(self.previous)
             except (KeyError,TypeError,ValueError,OSError):
                 raise NativeUIError('Original Emote source journal is invalid') from None
+            if self.frames and self.predecessor is not None:
+                self.validate_frame(self.frames[0],self.predecessor);self.segment_start(self.frames[0]['group']['native'])
+
+    def segment_start(self,packet):
+        if self.predecessor is not None and self.role=='primary':
+            need(packet['animation']['overrideActive'] is False and packet['animation']['history']['callSequence']==
+                self.predecessor['group']['native']['animation']['history']['callSequence'])
+
+    def predecessor_bound(self):
+        if self.predecessor is None:return
+        self.lock.assert_held();need(self.guard() is not False and same(self.prior_store.read(),self.prior_header))
+        references=self.originals.manifest(self.prior_manifest);need(same(references[-1],self.prior_reference))
+        original=self.originals.read(self.originals.expand(self.prior_reference));need(same(original,self.predecessor))
 
     def decode(self,value):
         exact(value,{'emoteSourcesVersion','runId','fixtureUrl','role','binding','artifactRoot','payload'})
@@ -199,7 +228,8 @@ class PhoneEmoteSources:
             nonlocal previous
             self.lock.assert_held();need(self.guard() is not False)
             now=self.monotonic();need(number(now,previous,1e15) and now-started<5);previous=now
-        last=self.frames[-1] if self.frames else None
+        self.predecessor_bound();bound()
+        last=self.frames[-1] if self.frames else self.predecessor
         old=last['group'] if last else None
         roots=self.adapter._script_roots(self.selector,read_only=True)
         scripts=self.adapter._script_execution_observer(self.selector,read_only=True)
@@ -207,8 +237,9 @@ class PhoneEmoteSources:
         ui=self.adapter._emote_controls(self.selector,lambda *_:need(False),read_only=True).io
         need(roots.pid==scripts.pid==native.pid==ui.pid==self.pid and native.ios is False and scripts.ios is False)
         if old:
-            roots.restore(old['rootsAfter']);self.replay_scripts(scripts,self.frames)
-            restore_native(native,old['native']);native.animation_history=self.replay_animation(self.frames)
+            history=([self.predecessor] if self.predecessor is not None else [])+self.frames
+            roots.restore(old['rootsAfter']);self.replay_scripts(scripts,history)
+            restore_native(native,old['native']);native.animation_history=self.replay_animation(history)
             native.rig=old['native']['animation']['rigId']
             native.rig_sequence=old['native']['animation']['evaluationSequence']
             restore_ui(ui,last['widgets'],widget_packet)
@@ -222,6 +253,7 @@ class PhoneEmoteSources:
         before=roots.read(roots.last['sequence'] if roots.last else 0);bound()
         script=scripts.read(scripts.sequence,require_effects=True,require_code_identity=True,require_load_history=True,require_membership=True);bound()
         packet=native.read(native.sequence,require_animation=True,require_animation_history=True);bound()
+        if not self.frames:self.segment_start(packet)
         after=roots.read(before['sequence']);bound()
         visual=ui.capture();bound();widgets=deepcopy(ui.original_packet)
         final=self.phase.status(phase['status']);bound()
@@ -240,6 +272,7 @@ class PhoneEmoteSources:
         # Durability/guard work is part of delivery time, too. Accepted packets
         # remain historical if a slow final write prevents a fresh return.
         delivered_epoch=native.clock_ms();delivered_host=self.phase.epoch_ms();bound()
+        self.predecessor_bound();bound()
         need(integer(delivered_epoch,device_epoch) and number(delivered_host,host_epoch,1e15)
             and max(delivered_epoch-before['requestedEpochMs'],epoch-before['requestedEpochMs']+(previous-epoch_local)*1000)<=1500
             and max(delivered_host-phase['status']['capturedEpochMs'],

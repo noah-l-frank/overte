@@ -1009,6 +1009,19 @@ class FeatureAdapterTests(unittest.TestCase):
                 base.assert_called_once()
             self.assertEqual({'phase':phase},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_any_emote_segment_including_unknown_namespace_names(self):
+        for name,error in (
+            ('phone-emote-primary-sources-segment-1.json','PHONE_EMOTE_SOURCE_CLEANUP_INCOMPLETE'),
+            ('phone-emote-actor-sources-segment-15.json','PHONE_EMOTE_SOURCE_CLEANUP_INCOMPLETE'),
+            ('phone-emote-alien-sources-segment-unknown.json','PHONE_EMOTE_SOURCE_CLEANUP_INCOMPLETE'),
+            ('phone-emote-inputs-segment-1.json','PHONE_EMOTE_INPUT_CLEANUP_INCOMPLETE'),
+            ('phone-emote-inputs-segment-unknown.json','PHONE_EMOTE_INPUT_CLEANUP_INCOMPLETE')):
+            store=appium.PrivateFeatureState(self.adapter.state_path(SELECTOR).with_name(name));store.write({'unresolved':True},None)
+            with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+                with self.subTest(name=name),self.assertRaisesRegex(ValueError,error):self.adapter.cleanup(SELECTOR)
+                base.assert_called_once()
+            self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
     def test_general_cleanup_cannot_forget_unrestored_graphics_preferences(self):
         store=self.adapter.graphics_preferences_store(SELECTOR);store.write({'unresolved':True},None)
         with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:

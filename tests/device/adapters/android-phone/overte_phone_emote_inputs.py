@@ -25,7 +25,8 @@ class PhoneEmoteInputs:
         need(isinstance(source,PhoneEmoteSources) and source.role=='primary');source.lock.assert_held()
         self.source=source;self.adapter,self.selector,self.lock=source.adapter,source.selector,source.lock
         self.run,self.fixture_url,self.binding=source.run,source.phase.fixture_url,source.binding
-        self.store=PrivateFeatureState(source.store.path.with_name('phone-emote-inputs.json'))
+        suffix='-segment-'+str(source.segment) if source.segment else ''
+        self.store=PrivateFeatureState(source.store.path.with_name('phone-emote-inputs'+suffix+'.json'))
         self.previous=self.store.read();self.state=dict(history=[],current=None)
         self.history_state=dict(count=0,manifests=[],pendingArchive=None)
         self.history_store=PhoneEmoteOriginals(source.artifact_root,self.binding,self.run,'primary',source.guard,

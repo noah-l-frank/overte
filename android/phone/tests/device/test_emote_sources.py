@@ -119,15 +119,57 @@ class Originals(RigPackets):
         self.calls.append('phase-read');self.phase_reads+=1
         if self.fault=='phase-race' and self.phase_reads==2:self.journal.activate(RUN,OTHER,'open',{})
         return self.journal.phase(RUN,kwargs['phase_nonce'])
-    def source(self,role='primary'):
+    def source(self,role='primary',*,segment=0):
         phase=PhaseFixtureReader(self.client,RUN,'emotes',epoch_ms=lambda:self.epoch,monotonic=lambda:self.clock)
-        return PhoneEmoteSources(self,'synthetic-selector',phase,role,self.lock,artifact_root=self.root,monotonic=lambda:self.clock)
+        return PhoneEmoteSources(self,'synthetic-selector',phase,role,self.lock,artifact_root=self.root,monotonic=lambda:self.clock,segment=segment)
 
 
 class PhoneEmoteSourcesTests(unittest.TestCase):
     def setUp(self):
         temporary=tempfile.TemporaryDirectory(prefix='overte-emote-sources-');self.addCleanup(temporary.cleanup)
         self.model=Originals(Path(temporary.name))
+
+    def test_bounded_segments_keep_previous_metadata_and_original_files_and_link_actual_native_ui_roots(self):
+        m=self.model;m.idle=True
+        with m.lock.held():
+            first=m.source();old=first.read();header=deepcopy(first.previous)
+            second=m.source(segment=1);self.assertEqual([],second.frames);self.assertEqual(old,second.predecessor)
+            current=second.read();self.assertEqual(header,first.store.read());self.assertEqual(old,first.frames[-1])
+            self.assertNotEqual(first.store.path,second.store.path);self.assertEqual(1,second.state['revision'])
+            self.assertGreater(current['group']['native']['sequence'],old['group']['native']['sequence'])
+            self.assertGreater(current['group']['rootsBefore']['sequence'],old['group']['rootsAfter']['sequence'])
+            self.assertGreater(current['widgets']['sourceSequence'],old['widgets']['sourceSequence'])
+            reconstructed=m.source(segment=1);self.assertEqual(second.frames,reconstructed.frames);reconstructed.read()
+            third=m.source(segment=2);third.read();self.assertEqual(1,len(third.frames));self.assertIsNotNone(first.store.read());self.assertIsNotNone(second.store.read())
+
+    def test_segment_cannot_skip_missing_predecessor_take_active_run_or_expand_closed_namespace(self):
+        m=self.model
+        with m.lock.held():
+            for segment in (True,-1,16,1,2):
+                with self.subTest(segment=segment),self.assertRaises((NativeUIError,ValueError)):m.source(segment=segment)
+            m.source().read()
+            with self.assertRaises(NativeUIError):m.source(segment=1)
+            self.assertFalse((m.root/'phone-emote-primary-sources-segment-1.json').exists())
+
+    def test_prior_segment_original_loss_or_changed_header_cannot_be_hidden_by_cached_predecessor(self):
+        for fault in ('source-file','manifest','header'):
+            temporary=tempfile.TemporaryDirectory(prefix='overte-emote-prior-');self.addCleanup(temporary.cleanup)
+            m=Originals(Path(temporary.name));m.idle=True
+            with self.subTest(fault=fault),m.lock.held():
+                first=m.source();first.read();second=m.source(segment=1);calls=deepcopy(m.calls)
+                if fault=='source-file':second.originals.path(second.originals.expand(second.prior_reference)).unlink()
+                elif fault=='manifest':second.originals.manifest_path(second.prior_manifest).unlink()
+                else:first.store.discard(first.previous)
+                with self.assertRaises((NativeUIError,OSError,ValueError)):second.read()
+                self.assertEqual(calls,m.calls);self.assertIsNone(second.store.read())
+
+    def test_actor_namespace_never_reuses_primary_predecessor(self):
+        m=self.model;m.idle=True
+        with m.lock.held():
+            m.source().read()
+            with self.assertRaises(NativeUIError):m.source(role='actor',segment=1)
+            first=m.source(role='actor');first.read();second=m.source(role='actor',segment=1);second.read()
+            self.assertEqual('actor',second.previous['role']);self.assertEqual(1,len(second.frames))
     def test_fresh_sources_are_durable_originals_without_feature_or_peer_verdicts(self):
         m=self.model
         with m.lock.held():source=m.source();value=source.read()
