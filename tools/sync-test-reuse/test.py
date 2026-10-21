@@ -1830,6 +1830,8 @@ class CallbackNativeRolesTests(unittest.TestCase):
                 "conclusion": "success", "started_at": job["started_at"], "completed_at": job["completed_at"]}
         self.jobs[1]["steps"] = [{"name": "Dispatch exact synchronization completion",
                                   "status": "completed", "conclusion": "success"}]
+        for job in self.jobs:
+            self.documents[self.prefix + "/actions/jobs/" + str(job["id"])] = job
         self.roster = {"total_count": 2, "jobs": self.jobs}
         self.documents[self.prefix + "/actions/runs/700/attempts/1/jobs?per_page=100"] = self.roster
         self.api = MappingApi(self.documents)
@@ -1965,6 +1967,202 @@ class CallbackNativeRolesTests(unittest.TestCase):
                 with self.subTest(change=change), mock.patch.object(gate.suite_inputs, "full_tree", return_value=tree):
                     with self.assertRaises(gate.GateError):
                         gate._callback_sync_recipe()
+
+
+class CallbackTerminalObservationTests(unittest.TestCase):
+    """Only bounded native metadata reads; a finished worker is never redispatched."""
+
+    def setUp(self):
+        CallbackNativeRolesTests.setUp(self)
+        self.source = HEAD
+        self.requests = []
+
+    def native(self, mutate=None, *, seconds=8):
+        run = DispatchContracts().run_document("gate-701-attempt-1", run_id=700)
+        run.update(head_sha=self.source, check_suite_id=1700)
+        self.documents[self.prefix + "/actions/runs/700/attempts/1"] = run
+        self.documents[self.prefix + "/check-suites/1700"] = {
+            "id": 1700, "head_sha": self.source,
+            "repository": {"id": REPOSITORY_ID, "full_name": REPOSITORY}, "app": {"id": 15368}}
+        identity = gate._dispatch_run(run, 700, self.source, "gate-701-attempt-1")
+        clock = [0]
+        def request(endpoint, **kwargs):
+            self.requests.append((endpoint, kwargs))
+            value = deepcopy(self.documents[endpoint])
+            return mutate(endpoint, value) if mutate else value
+        def sleep(seconds):
+            clock[0] += seconds
+        api = mock.Mock()
+        api.json.side_effect = request
+        with mock.patch.object(gate, "_callback_sync_recipe", return_value=True), \
+                mock.patch.object(gate.time, "monotonic", side_effect=lambda: clock[0]), \
+                mock.patch.object(gate.time, "sleep", side_effect=sleep) as self.sleep, \
+                mock.patch("sys.stdout", new_callable=io.StringIO) as self.output:
+            result = gate._dispatch_native(api, self.prefix, run, self.source,
+                "gate-701-attempt-1", identity, deadline=seconds)
+        self.assertTrue(all(not kwargs for _, kwargs in self.requests), "metadata GETs only")
+        return result
+
+    def test_direct_terminal_jobs_authenticate_a_stale_nonterminal_list(self):
+        def stale(endpoint, value):
+            if "/attempts/1/jobs?" in endpoint:
+                for job in value["jobs"]:
+                    job.update(status="in_progress", conclusion=None, completed_at=None)
+            return value
+        try:
+            self.native(stale)
+        except gate.GateError as error:
+            self.fail("matching direct terminal native roles must supersede only stale list status: " + str(error))
+        self.assertTrue(all(any(endpoint.endswith("/actions/jobs/" + str(job["id"]))
+            for endpoint, _ in self.requests) for job in self.jobs))
+        self.sleep.assert_not_called()
+        observed = json.loads(self.output.getvalue().strip().removeprefix("sync_cleanup_notification="))
+        self.assertIs(observed["qualification"], False)
+
+    def test_only_missing_check_registration_waits_for_the_same_worker(self):
+        attempts = [0]
+        def registering(endpoint, value):
+            if endpoint.endswith("/check-runs/71"):
+                attempts[0] += 1
+                if attempts[0] == 1:
+                    value.update(app=None, status="in_progress", conclusion=None, completed_at=None)
+            return value
+        try:
+            self.native(registering)
+        except gate.GateError as error:
+            self.fail("matching incomplete native registration must be reobserved, not redispatched: " + str(error))
+        self.assertEqual(self.sleep.call_args_list, [mock.call(2)])
+        self.assertEqual(attempts[0], 2)
+
+    def test_missing_role_registration_waits_but_foreign_present_role_is_fatal(self):
+        observations = [0]
+        def registering(endpoint, value):
+            if "/attempts/1/jobs?" in endpoint:
+                observations[0] += 1
+                if observations[0] == 1:
+                    value.update(total_count=1, jobs=value["jobs"][:1])
+            return value
+        self.native(registering)
+        self.assertEqual(self.sleep.call_args_list, [mock.call(2)])
+        def foreign(endpoint, value):
+            if "/attempts/1/jobs?" in endpoint:
+                value.update(total_count=1, jobs=[dict(value["jobs"][0], head_sha=BASE)])
+            return value
+        with self.assertRaisesRegex(gate.GateError, "head_sha"):
+            self.native(foreign)
+        self.sleep.assert_not_called()
+
+    def test_pending_metadata_never_masks_foreign_native_identity(self):
+        for suffix, changes, field in (
+            ("/actions/jobs/71", {"head_sha": BASE, "status": "in_progress", "conclusion": None}, "head_sha"),
+            ("/actions/jobs/71", {"run_attempt": 2, "status": "in_progress", "conclusion": None}, "run_attempt"),
+            ("/actions/jobs/71", {"id": 72, "status": "in_progress", "conclusion": None}, "id"),
+            ("/actions/jobs/71", {"url": "https://api.github.com/repos/overte-org/overte/actions/jobs/71"}, "url"),
+            ("/check-runs/71", {"app": {"id": 57789}, "status": "in_progress", "conclusion": None}, "app.id"),
+            ("/check-runs/71", {"check_suite": {"id": 1701}}, "check_suite.id"),
+        ):
+            def mutate(endpoint, value):
+                if endpoint.endswith(suffix): value.update(changes)
+                return value
+            with self.subTest(field=field), self.assertRaisesRegex(gate.GateError, field):
+                self.native(mutate)
+            self.sleep.assert_not_called()
+
+    def test_validator_failure_and_terminal_clock_conflict_fail_without_retry(self):
+        for changes, check_changes, pattern in (
+            ({"conclusion": "failure"}, {"conclusion": "failure"}, "workload did not succeed"),
+            ({}, {"completed_at": "2026-10-18T00:02:00Z"}, "completed_at"),
+        ):
+            def mutate(endpoint, value):
+                if endpoint.endswith("/actions/jobs/71"): value.update(changes)
+                if endpoint.endswith("/check-runs/71"): value.update(check_changes)
+                return value
+            with self.subTest(pattern=pattern), self.assertRaisesRegex(gate.GateError, pattern):
+                self.native(mutate)
+            self.sleep.assert_not_called()
+
+    def test_incomplete_terminal_metadata_times_out_with_endpoint_and_fields(self):
+        def pending(endpoint, value):
+            if endpoint.endswith("/actions/jobs/71"):
+                value.update(status="in_progress", conclusion=None, completed_at=None)
+            return value
+        with self.assertRaisesRegex(gate.GateError, "terminal.*timeout.*actions/jobs/71.*status"):
+            self.native(pending, seconds=5)
+        self.assertEqual(sum(call.args[0] for call in self.sleep.call_args_list), 5)
+        self.assertTrue(all(not kwargs for _, kwargs in self.requests))
+
+    def test_captured_1513_terminal_role_fields_use_direct_native_resources(self):
+        # Actual retained terminal job fields. Check responses are controlled
+        # API fixtures; this is not live native acceptance or a PR recovery.
+        jobs = [{'id': 119242432983,
+          'run_id': 39606059628,
+          'run_attempt': 1,
+          'head_sha': '995c039ca5c0ab65e7b0260b929f9035d7559736',
+          'name': 'Validate exact synchronization',
+          'status': 'completed',
+          'conclusion': 'success',
+          'url': 'https://api.github.com/repos/noah-l-frank/overte/actions/jobs/119242432983',
+          'html_url': 'https://github.com/noah-l-frank/overte/actions/runs/39606059628/job/119242432983',
+          'check_run_url': 'https://api.github.com/repos/noah-l-frank/overte/check-runs/119242432983',
+          'started_at': '2026-10-21T13:13:12Z',
+          'completed_at': '2026-10-21T13:27:46Z',
+          'steps': []},
+         {'id': 119249830533,
+          'run_id': 39606059628,
+          'run_attempt': 1,
+          'head_sha': '995c039ca5c0ab65e7b0260b929f9035d7559736',
+          'name': 'Notify completed synchronization cleanup',
+          'status': 'completed',
+          'conclusion': 'success',
+          'url': 'https://api.github.com/repos/noah-l-frank/overte/actions/jobs/119249830533',
+          'html_url': 'https://github.com/noah-l-frank/overte/actions/runs/39606059628/job/119249830533',
+          'check_run_url': 'https://api.github.com/repos/noah-l-frank/overte/check-runs/119249830533',
+          'started_at': '2026-10-21T13:27:48Z',
+          'completed_at': '2026-10-21T13:27:57Z',
+          'steps': [{'name': 'Dispatch exact synchronization completion',
+                     'status': 'completed',
+                     'conclusion': 'success'}]}]
+        run = {"id": 39606059628, "check_suite_id": 107331120430}
+        source = "995c039ca5c0ab65e7b0260b929f9035d7559736"
+        documents = {self.prefix + "/actions/runs/39606059628/attempts/1/jobs?per_page=100":
+                     {"total_count": 2, "jobs": deepcopy(jobs)}}
+        for job in jobs:
+            documents[self.prefix + "/actions/jobs/" + str(job["id"])] = job
+            documents[self.prefix + "/check-runs/" + str(job["id"])] = {
+                **{key: job[key] for key in ("id", "name", "head_sha", "status", "conclusion", "started_at", "completed_at")},
+                "app": {"id": 15368}, "check_suite": {"id": run["check_suite_id"]},
+                "details_url": job["html_url"]}
+        for listed in documents[self.prefix + "/actions/runs/39606059628/attempts/1/jobs?per_page=100"]["jobs"]:
+            listed.update(status="in_progress", conclusion=None, completed_at=None)
+        with mock.patch("sys.stdout", new_callable=io.StringIO):
+            value = gate._dispatch_terminal_roles(MappingApi(documents), self.prefix, run, source)
+        self.assertEqual(value["job_id"], 119249830533)
+        self.assertEqual(value["conclusion"], "success")
+        self.assertIs(value["qualification"], False)
+
+    def test_malformed_present_lifecycle_or_role_fields_fail_without_retry(self):
+        for suffix, changes, field in (
+            ("/actions/jobs/72", {"status": []}, "status"),
+            ("/check-runs/72", {"conclusion": {}}, "conclusion"),
+            ("/attempts/1/jobs?per_page=100", None, "roles"),
+        ):
+            def mutate(endpoint, value):
+                if endpoint.endswith(suffix):
+                    if changes is None: value["jobs"][1]["name"] = []
+                    else: value.update(changes)
+                return value
+            with self.subTest(field=field), self.assertRaisesRegex(gate.GateError, field):
+                self.native(mutate)
+            self.sleep.assert_not_called()
+
+    def test_transport_failure_is_not_a_metadata_retry(self):
+        def failed(endpoint, value):
+            if endpoint.endswith("/actions/jobs/71"):
+                raise gate.GateError("command exit=1 http=403")
+            return value
+        with self.assertRaisesRegex(gate.GateError, "http=403"):
+            self.native(failed)
+        self.sleep.assert_not_called()
 
 
 class DispatchTransportContracts(unittest.TestCase):
@@ -4257,6 +4455,7 @@ class RetainedSyncMetadataTests(unittest.TestCase):
                 'app':{'id':15368},'check_suite':{'id':suite},'details_url':value['html_url'],
                 'started_at':value['started_at'],'completed_at':value['completed_at']}
             self.docs[self.prefix+'/check-runs/'+str(identifier)]=check
+            self.docs[self.prefix+'/actions/jobs/'+str(identifier)]=value
             return value
         self.original_job=job(101,100,500,'sync-test-reuse')
         for name in ('Inspect topology and exact parent evidence','Dispatch isolated read-only validation','Publish decision'):
