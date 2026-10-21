@@ -1125,6 +1125,21 @@ fallback. Deploy this capability before the consumer-only correction: that
 later ordinary source update preserves identical `SELF` bytes and can exercise
 the new partial-current-parent path without a dummy qualification run.
 
+The preregistered successor `protected-producer-optional-leaf-common-v1` adds a
+separate current-controller import capability for normal protected leaf pushes
+on `apple-ios`, `android-phone` and `android-vr-pico`. It authenticates the native
+original attempt, App/job, complete installed recipe, actual merged PR and fresh
+protected refs before common candidate checkout or setup. Only when the original
+`B` cannot satisfy strict `B/D` source compatibility may the optional common
+qualification emit `UNAVAILABLE`: no executed suites, PASS, environment or
+receipt. The aggregate independently derives and authenticates that decision.
+Compatible sources retain the existing common execution path. Required PR,
+package, tool and separate Android platform owners remain unchanged; actual
+platform execution retains strict original-source admission. Preregistration
+leaves generation27 and its historical canonical recipe installed. Activate only
+the exact registered project successor after its source is protected on main,
+then propagate the combined ancestry once to the six child branches.
+
 Deployment requires two stages. The trusted helpers and approved templates
 must land on the default branch before installing the exact project, parent and sync
 templates plus the appropriate outer caller. The package caller with direct
@@ -1203,6 +1218,14 @@ automatically enables consumer selection consistently in the package CLI and
 both outer verifiers; candidate JSON and caller flags cannot enable it. Legacy
 four-file callers retain their behavior. Once the protected base contains the
 new generation, a candidate cannot revert to the legacy owner or opt out.
+
+An already installed, exact iOS compiler-cache profile can also retain its
+application and own-host omission for these independently owned npm changes.
+The trusted PR route recomputes the package plan, verifies the original B/M
+lock admission and identical H/M lock bytes, and retains the complete compiler
+profile and reader-boundary checks on B/H/M. Missing or mismatched ownership,
+changed cache inputs and unrelated product changes keep the full iOS gate.
+Compiler-cache installation itself still requires its independent iOS host.
 
 The paired Browser workflow preserves every existing Browser/native journey
 step and manual input. Its metadata route omits both existing jobs only for an
@@ -1572,6 +1595,88 @@ evidence authority. Missing initial proof keeps the existing documentation
 fallback; changed proof during final verification fails the owner. These source
 contracts still require actual native qualification before reuse is enabled.
 
+Delegated CI37 synchronization keeps the same ordered 37-suite selection. When
+no existing native producer or E proof covers it, the trusted validator may
+consume the four commands already completed by that PR's original Repository
+documentation and workflow-contract jobs. This requires the exact registered
+caller and documentation recipes, native attempt 1 and App, the same current
+B/H/M/tree, complete successful job inventories and fresh source bookends.
+The validator reserves exactly those four commands and executes the remaining
+33 concurrently with pending native owners. A pending owner grants no coverage;
+completed native proof is required before any successful report. Failed, stale
+or changed owners block rather than cause those four commands to run again.
+Only the 33 actual commands produce candidate JUnit cases.
+For the exact protected CI32 selection, the original Repository route must
+independently select `security=false`: its three documentation commands supply
+coverage while the uniquely skipped workflow-contract job supplies none. Sync
+executes the other 29 commands, including workflow contracts, and records only
+those actual commands in its JUnit and execution sidecar. Pending or failed
+documentation cannot produce a successful combined report.
+An independently selected native or project product owner keeps the previous
+CI37 execution route. A required Android owner remains separate: the same
+original Repository run must authenticate its complete route, execute and
+verify jobs before the four-command proof can be consumed. Its commands are
+never counted as shared CI coverage.
+The separate native four-command proof is not an environment, fingerprint or E;
+the combined report remains `qualification: false` and `reusable: false`.
+Metadata retention and the finite identical-tree Android parent consumer
+independently revalidate both owners. Closed PR associations may be cleared
+only after the existing exact normal-merge geometry has been authenticated.
+
+The identical-tree AndroidMain-to-VR consumer independently derives both ordered
+selections. It accepts only CI37 or CI37 without `producer-proof`,
+`python-test-runner`, `release-bundle`, `project-coverage` and
+`native-registration`. An authenticated original CI32 covers those same 32
+commands in a current CI37 request; the current validator executes the five
+remaining commands and records their actual JUnit and sidecar. Complete coverage
+uses the existing differential-only path with no consumer setup. Original and
+requested rosters, their intersection, the full original report, native owners
+and expiry remain explicit; none of these reports qualifies a runtime or E.
+
+The preregistered `protected-producer-exact-parent-command-owners-v1` recipe
+also lets the current Repository aggregate consume those same four parent
+commands. Its early `parent-owners` job uses the complete trusted default
+checkout and authenticates the actual original Repository caller, App, attempt
+and current B/H/M. It reads only completed parent evidence: it never waits for
+the current Sync validator or Repository aggregate. Unsupported or unavailable
+coverage immediately keeps the standalone commands selected. Partial coverage
+cannot claim a missing command.
+
+The two boolean outputs and the parent-proof digest are scheduling hints. Before
+accepting omitted commands, the required aggregate independently derives the
+same existing typed parent proof, checks the digest, and requires the claimed
+standalone jobs to be actually skipped. Failed jobs, stale context, changed
+proofs and forged hints block the merge. This creates no receipt, test pass,
+environment or E. The exact reviewed28-to29 caller transition preserves the
+parent's actual old base and independently authenticates its new native recipe;
+unknown or mixed workflow tuples remain unusable. The active caller remains28
+during preregistration;29 requires a separate normal activation after the trusted
+default owns this verifier.
+
+Android routing may omit its independent union for the closed set of canonical
+CI/controller/test and guide changes in `REVIEWED_CI_INPUTS`. Every changed entry
+must be regular and exactly equal the protected default's entry. The complete
+candidate inventory, and the old inventory after replacing only those checked
+CI entries for comparison, must match the trusted target's existing lock-reader
+anchor and count. Policy JSON may change only its reviewed lock-source records.
+The dependency graph may change only validated reader and lookup digests; its
+definitions, membership and profiles remain exact. The generation catalog may
+only append the exact reviewed generation 28 to the exact historical 27-entry
+prefix. Only the two pinned passive recipes may be newly added. The sole
+execution-input exception is `inputs.py` with an identical complete Python AST
+after masking one valid top-level `INSTALLED_COMPILER_READER` digest literal.
+All functional execution-controller or runtime changes, Android configuration,
+fixtures, profiles and toolchain changes retain the complete Android owner. Before a
+branch delivery is published, independently derive its Android plan and locally
+preflight every selected command with all six ordinary views; shared host61 is
+not a substitute for the target-specific Android union.
+
+Metadata retention authenticates `pull_request_target` execution against the
+protected default branch's exact source, independently of the PR's target and
+B/H/M/tree. GitHub uses the default branch for this event's workflow and
+`GITHUB_REF`/`GITHUB_SHA`; see the [event change announcement](https://github.blog/changelog/2025-11-07-actions-pull_request_target-and-environment-branch-protections-changes/)
+and [event reference](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows/#pull_request_target).
+
 A partial parent run uploads its real JUnit results and a diagnostic
 `host-selection.json` with the exact candidate, package plan, selected and
 omitted names, and `reusable: false`. That report makes no passing claim for
@@ -1899,3 +2004,50 @@ owner. It retains CI37 and the independent iOS host contracts while avoiding
 unrelated shared product suites and an application build. Global CI path
 ownership and reader digests remain unchanged; partial, mixed, unknown,
 nonregular or differently targeted changes retain conservative coverage.
+
+The project aggregate authenticates route outputs according to their actual
+native event. A PR descriptor must provide the literal `protected_full` value;
+a supported leaf push omits that PR-only output and cannot claim a descriptor
+producer. Package and platform result verification remains independent in both
+cases. An absent push field is not interpreted as a PR qualification.
+
+The manual shared-host diagnostic uses isolated Python with bytecode writes
+disabled (`-I -B`), so loading reviewed source does not alter its retained
+inventory. A production pre-execution decline reports only the existing bounded
+public failure summary. It does not log raw exception arguments or environment
+values, qualify execution, or retry an executor after suites have started.
+
+Native Sync validation distinguishes the workflow caller's actual immutable
+source from the current PR base. For `pull_request_target`, the caller must be
+an independently proven ancestor of that base, and both caller and current
+workflow recipes must still match the trusted default recipe exactly. Native
+App, original attempt, association and current base/head/merge checks remain
+required at both bookends. Manual validation still requires the exact current
+default caller; an older caller never replaces the current merge context.
+
+Sync captures job-log bytes unchanged with `gh api --allow-escape-sequences`
+only for the exact fork-owned job-log GET endpoint. Output remains in captured
+pipes; artifact downloads, other endpoints and failure handling are unchanged.
+
+The source-staged `codeql-upload-provenance.yml` successor records the pinned
+Analyze action's opaque `sarif-id` output in one small native artifact per selected
+language. The protected reader authenticates the original job/App, immutable
+workflow/source, actual attempt, whole archive digest and exact upload metadata,
+then reads that specific SARIF processing status and analysis. This binds delayed
+server processing without extending the legacy analysis-created job window or
+interpreting an upload ID as a timestamp. Error-free `errors: null` and `errors: []`
+are accepted; processing errors, unknown or missing uploads, altered artifacts,
+open findings and changed source/native bookends still fail closed.
+
+Only specific authenticated pending uploads receive a bounded twenty-minute wait;
+the new result job has a twenty-five-minute budget. A wholly fresh retry must
+succeed with its own complete selector/analyzer inventory and actual attempt's
+uploads. A result-only second attempt may use analysis attempt one only when all
+its selected analyzers and selector succeeded, its sole failure was the result
+verification step, and attempt two contains only the genuine native result job.
+It never combines languages from different attempts or ignores a newer failed
+analyzer. Ordinary and text-edit result consumers retain both real attempts and
+fresh current-PR, default-source, native-job and artifact bookends. This provides
+security-result verification, not a test-environment receipt or reuse authority.
+The old seven recipes remain unchanged; the new recipe must first be protected
+and explicitly activated before it can supply this proof.

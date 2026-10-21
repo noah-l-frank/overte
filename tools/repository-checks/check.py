@@ -708,6 +708,99 @@ def native_required(config: dict, event: dict | None) -> bool:
 _NATIVE_OWNER_GENERATION = 'protected-producer-seven-target-ci-v1'
 _NATIVE_OWNER_OUTPUTS = frozenset({'documentation_verified', 'workflow_contracts_verified'})
 _NATIVE_DOCUMENTATION = frozenset({'documentation-contracts', 'documentation', 'policy-consistency'})
+_PARENT_OWNER_GENERATION = 'protected-producer-exact-parent-command-owners-v1'
+_PARENT_OWNER_OUTPUTS = frozenset({*_NATIVE_OWNER_OUTPUTS, 'parent_proof'})
+
+
+def parent_owner_policy():
+    """Load the existing parent verifier from this fixed trusted checkout."""
+    path = ROOT / 'tools/sync-test-reuse/gate.py'
+    spec = importlib.util.spec_from_file_location('repository_native_parent_gate', path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def parent_owner_outputs(event):
+    """Hints from completed parent commands; unavailable proof never waits."""
+    gate = parent_owner_policy()
+    proof = gate.native_repository_parent_evidence(
+        gate.GitHubApi(), gate.load_config(gate.DEFAULT_CONFIG), event)
+    outputs = {'documentation_verified': 'false', 'workflow_contracts_verified': 'false',
+               'parent_proof': ''}
+    if proof is None:
+        return outputs, None
+    covered = set(gate.exact_tree_covered_suites(proof, proof['requested_suites']))
+    if _NATIVE_DOCUMENTATION <= covered:
+        outputs['documentation_verified'] = 'true'
+    if 'workflow-contracts' in covered:
+        outputs['workflow_contracts_verified'] = 'true'
+    if 'true' not in (outputs[key] for key in _NATIVE_OWNER_OUTPUTS):
+        return outputs, None
+    outputs['parent_proof'] = hashlib.sha256(gate.canonical_json(proof)).hexdigest()
+    return outputs, proof
+
+
+def parent_owner_scheduled(needs, event):
+    """Mirror the exact ordinary VR job condition, without granting coverage."""
+    route = needs.get('route', {})
+    outputs = route.get('outputs', {})
+    return (os.environ.get('GITHUB_EVENT_NAME') == 'pull_request'
+        and isinstance(event, dict)
+        and event.get('pull_request', {}).get('base', {}).get('ref') == 'android-vr'
+        and route.get('result') == 'success' and outputs.get('metadata_only') != 'true'
+        and outputs.get('mode') == 'delegated-sync'
+        and not metadata_edit(event, 'pull_request')
+        and event.get('action') not in {'labeled', 'unlabeled'})
+
+
+def bound_parent_owners(needs, candidate, event, sha):
+    """Independently authenticate parent ownership before representing skips."""
+    if not isinstance(needs, dict):
+        return needs, None
+    generation = package_policy().validate_wiring(candidate) if candidate is not None else None
+    if generation != _PARENT_OWNER_GENERATION:
+        if 'parent-owners' in needs:
+            raise ValueError('parent owners require the exact complete reviewed caller')
+        return needs, None
+    owner = needs.get('parent-owners')
+    if not isinstance(owner, dict) or not isinstance(owner.get('outputs'), dict):
+        raise ValueError('parent owner job and outputs are required')
+    represented = {key: value for key, value in needs.items() if key != 'parent-owners'}
+    claims = owner['outputs']
+    if not parent_owner_scheduled(needs, event):
+        if owner.get('result') != 'skipped' or claims not in ({}, dict.fromkeys(_PARENT_OWNER_OUTPUTS, '')):
+            raise ValueError('unselected parent owner must be skipped without claims')
+        return represented, None
+    if owner.get('result') != 'success' or set(claims) != _PARENT_OWNER_OUTPUTS \
+            or any(type(claims[key]) is not str or claims[key] not in {'false', 'true'}
+                   for key in _NATIVE_OWNER_OUTPUTS):
+        raise ValueError('selected parent owner requires complete literal successful hints')
+    positive = any(claims[key] == 'true' for key in _NATIVE_OWNER_OUTPUTS)
+    if not positive:
+        if claims['parent_proof'] != '':
+            raise ValueError('unavailable parent cannot claim a proof')
+        return represented, None
+    if type(claims['parent_proof']) is not str or not re.fullmatch('[0-9a-f]{64}', claims['parent_proof']) \
+            or candidate is None or not isinstance(event, dict) or not sha \
+            or needs.get('project', {}).get('result') != 'skipped' \
+            or any(needs.get('project', {}).get('outputs', {}).values()):
+        raise ValueError('parent owner requires an exact unexecuted delegated project')
+    actual, proof = parent_owner_outputs(event)
+    if proof is None or claims != actual:
+        raise ValueError('parent commands or their current native proof changed')
+    for flag, job in (('documentation_verified', 'documentation'),
+                      ('workflow_contracts_verified', 'workflow-contracts')):
+        if flag == 'workflow_contracts_verified' and needs['route']['outputs'].get('security') != 'true':
+            continue
+        if claims[flag] != 'true':
+            continue
+        current = needs.get(job)
+        if not isinstance(current, dict) or current.get('result') != 'skipped' or current.get('outputs', {}) != {}:
+            raise ValueError('parent ownership requires the actual skipped standalone command job')
+        represented[job] = {**current, 'result': 'success'}
+    return represented, proof
 
 
 def native_owner_policy():
@@ -742,7 +835,8 @@ def bound_project_owners(needs, candidate, event, sha):
     if generation not in {_NATIVE_OWNER_GENERATION, 'protected-producer-original-default-v1',
             'protected-producer-original-default-boolean-v1',
             'protected-producer-original-default-required-context-v1',
-            'protected-producer-optional-parent-source-v1'}:
+            'protected-producer-optional-parent-source-v1',
+    'protected-producer-optional-leaf-common-v1', _PARENT_OWNER_GENERATION}:
         if 'workflow-contracts' in needs:
             raise ValueError('contract fallback requires an exact complete native-owner generation')
         if present:
@@ -927,6 +1021,9 @@ def main() -> int:
     metadata.add_argument("--event", type=Path, required=True)
     metadata.add_argument("--event-name", required=True)
     metadata.add_argument("--output", type=Path, required=True)
+    parent = commands.add_parser('parent-owners')
+    parent.add_argument('--event', type=Path, required=True)
+    parent.add_argument('--output', type=Path, required=True)
     route = commands.add_parser("plan")
     route.add_argument("--event", type=Path, required=True)
     route.add_argument("--candidate", type=Path, required=True)
@@ -959,6 +1056,12 @@ def main() -> int:
             result = _metadata_event_cli(args.event, args.event_name)
             with args.output.open("a") as output:
                 output.write("metadata_only=" + result["metadata_only"] + "\n")
+            print(json.dumps(result, sort_keys=True))
+            return 0
+        if args.command == 'parent-owners':
+            result, _ = parent_owner_outputs(json.loads(args.event.read_text()))
+            with args.output.open('a') as output:
+                output.write(''.join(f'{key}={value}\n' for key, value in result.items()))
             print(json.dumps(result, sort_keys=True))
             return 0
         config, branches = configuration()
@@ -995,7 +1098,9 @@ def main() -> int:
             # The protected controller rejects ambient unrelated repository
             # imports. Authenticate its current owner before loading browser
             # or Android routing modules in this fresh trusted process.
-            needs, native_owners = bound_project_owners(needs, args.candidate, event, args.sha)
+            parent_lane = isinstance(needs, dict) and 'parent-owners' in needs
+            if not parent_lane:
+                needs, native_owners = bound_project_owners(needs, args.candidate, event, args.sha)
             native_android = None
             if (args.candidate is not None and event is not None and args.sha
                     and (event.get('pull_request', {}).get('base', {}).get('ref')
@@ -1004,6 +1109,12 @@ def main() -> int:
                 # browser/Android imports. Legacy recipes retain admit below.
                 native_android = android_policy().current_source_owner(
                     args.candidate,event,args.sha,needs,os.environ)
+            # Preserve the existing protected Android bootstrap before any
+            # new package router or parent-proof imports. The new caller's
+            # parent ownership must then precede legacy standalone fallback.
+            needs, parent_owners = bound_parent_owners(needs, args.candidate, event, args.sha)
+            if parent_lane:
+                needs, native_owners = bound_project_owners(needs, args.candidate, event, args.sha)
             direct_plan = None
             packages = package_policy()
             package_plan = None
@@ -1047,6 +1158,9 @@ def main() -> int:
                             candidate=args.candidate,event=event)
             if native_owners is not None:
                 result['native_owners'] = native_owners
+            if parent_owners is not None:
+                result['parent_owners'] = {'kind': parent_owners['kind'],
+                    'original_proof': parent_owners['original_proof']}
         else:
             event = json.loads(args.event.read_text())
             validate_direct_wiring(args.candidate)

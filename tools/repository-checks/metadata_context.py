@@ -39,6 +39,8 @@ SOURCE_GUARD_BLOB = '20580c3ea413e63a6779898fdd3d2c5e051625f4'
 CURRENT_PARENT_IMPORT_GUARD_BLOB = '3b97657d8874a842c74a0cbf5a8032e06b941e65'
 BOOLEAN_SOURCE_GUARD_BLOB = 'a89e1d51be5039214def84d8f6f5a06f3dfaea29'
 REQUIRED_CONTEXT_SOURCE_GUARD_BLOB = 'aed06c587034f2762552eeb666bda1f4b6efff23'
+OPTIONAL_LEAF_SOURCE_GUARD_BLOB = '9c2897b7971daea2a3460a0d8146a0cbe2ac86aa'
+EXACT_PARENT_SOURCE_GUARD_BLOB = '503c9ce2281718498560cdc27f08a8ecd763b35c'
 TARGETS = frozenset({'main', 'apple-main', 'apple-ios', 'android-main',
                      'android-phone', 'android-vr', 'android-vr-pico'})
 _READERS = ('inputs', 'runtime', 'execution', 'producer', 'producer_api', 'source_admission')
@@ -220,7 +222,7 @@ def _protected_readers(event, environment, native_value, root):
     raw = _git(root, 'show', 'HEAD:' + relative)
     require(not path.is_symlink() and not path.parent.is_symlink() and path.read_bytes() == raw,
             'stdlib source guard differs from immutable protected checkout')
-    require(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB, REQUIRED_CONTEXT_SOURCE_GUARD_BLOB)
+    require(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() in (SOURCE_GUARD_BLOB, CURRENT_PARENT_IMPORT_GUARD_BLOB, BOOLEAN_SOURCE_GUARD_BLOB, REQUIRED_CONTEXT_SOURCE_GUARD_BLOB, OPTIONAL_LEAF_SOURCE_GUARD_BLOB, EXACT_PARENT_SOURCE_GUARD_BLOB)
         and not path.stat().st_mode & 0o111, 'stdlib source guard has no reviewed bootstrap identity')
     # No neighboring import lookup is exposed until the guard has checked its
     # complete reviewed inventory. The bootstrap itself imports only stdlib.
@@ -299,6 +301,8 @@ def _source_policy(root, adapter, binding, references, native_value, protected, 
     extras = ('tools/repository-checks/codeql.py', 'tools/repository-checks/codeql_results.py',
               'tools/repository-checks/workflows/metadata-edits/codeql-metadata.yml',
               '.github/codeql/codeql-config.yml')
+    if A.CODEQL_UPLOAD_TEMPLATE in default:
+        extras += (A.CODEQL_UPLOAD_TEMPLATE,)
     for relative in extras:
         require(base.get(relative) == default.get(relative) and base.get(relative, {}).get('mode') == '100644'
             and base[relative]['type'] == 'blob', 'metadata semantic reader differs from current default')
@@ -328,7 +332,7 @@ def _source_policy(root, adapter, binding, references, native_value, protected, 
         catalog = json.loads(_git(root, 'show', 'HEAD:.github/package-workflow-generations.json'),
                              object_pairs_hook=source.unique)
         require(type(catalog) is dict and catalog.get('schema') == 1
-            and type(catalog.get('generations')) is list and len(catalog['generations']) <= 27,
+            and type(catalog.get('generations')) is list and len(catalog['generations']) <= 29,
             'scheduling trusted generation catalog unavailable')
         for row in catalog['generations']:
             entries = row.get('workflows', {})
@@ -345,6 +349,10 @@ def _source_policy(root, adapter, binding, references, native_value, protected, 
                 sources.pop('metadata-scheduling-v2', None)
             generations[row['name']], sources[row['name']] = entries, pair
     else:
+        if default.get(A.CODEQL_UPLOAD_TEMPLATE) == {'mode':'100644','type':'blob','sha':A.CODEQL_UPLOAD_WORKFLOW}:
+            generations['codeql-native-upload-v1'] = {
+                caller:default[A.CODEQL_UPLOAD_TEMPLATE], SOURCE_WORKFLOW:default[SOURCE_TEMPLATE]}
+            sources['codeql-native-upload-v1'] = {SOURCE:base[SOURCE]}
         generations['codeql-metadata-v1'] = {caller: {'mode': '100644', 'type': 'blob',
             'sha': '3a273057a38255ca368d3028594fb94227ba7c3b'}, SOURCE_WORKFLOW: old_source}
         sources['codeql-metadata-v1'] = old_helper

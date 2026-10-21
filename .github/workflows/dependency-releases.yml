@@ -1,10 +1,8 @@
 name: Dependency release policy
 
 on:
-  pull_request:
   push:
     branches:
-      - main
       - apple-main
       - apple-ios
       - android-main

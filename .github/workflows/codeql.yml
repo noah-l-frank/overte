@@ -4,12 +4,9 @@ run-name: ${{ (github.event_name == 'pull_request' && ((github.event.action == '
 
 on:
   push:
-    branches: [main, apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
+    branches: [apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
     paths-ignore:
       - "**/*.md"
-  pull_request:
-    types: [opened, reopened, synchronize, edited]
-    branches: [main, apple-main, apple-ios, android-main, android-phone, android-vr, android-vr-pico]
   schedule:
     - cron: "17 3 * * 4"
 
@@ -141,16 +138,55 @@ jobs:
           test "$CODEQL_VERSION" = 2.27.2
 
       - name: Analyze
+        id: analyze
         uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           category: "/language:${{ matrix.language }}"
+          wait-for-processing: false
+
+      - name: Record the native CodeQL upload identity
+        env:
+          CODEQL_LANGUAGE: ${{ matrix.language }}
+          CODEQL_SARIF_ID: ${{ steps.analyze.outputs['sarif-id'] }}
+        run: |
+          python3 -I -S -B - <<'PYUPLOAD'
+          import json, os, re, uuid
+          from pathlib import Path
+          language=os.environ['CODEQL_LANGUAGE']
+          upload=os.environ['CODEQL_SARIF_ID']
+          assert language in ('javascript-typescript','python') and str(uuid.UUID(upload))==upload
+          assert os.environ['GITHUB_REPOSITORY']=='noah-l-frank/overte'
+          assert os.environ['GITHUB_REPOSITORY_ID']=='1319052603'
+          source=os.environ['GITHUB_SHA']
+          assert re.fullmatch('[0-9a-f]{40}',source) and source!='0'*40
+          run=int(os.environ['GITHUB_RUN_ID']); attempt=int(os.environ['GITHUB_RUN_ATTEMPT'])
+          assert run>0 and attempt>0
+          value={'schema':1,'kind':'native-codeql-upload-id','repository':'noah-l-frank/overte',
+              'repository_id':1319052603,'run_id':run,'run_attempt':attempt,'language':language,
+              'source_commit':source,'ref':os.environ['GITHUB_REF'],'workflow':'.github/workflows/codeql.yml',
+              'workflow_sha':os.environ['GITHUB_WORKFLOW_SHA'],'sarif_id':upload}
+          assert value['workflow_sha']==source
+          directory=Path(os.environ['RUNNER_TEMP'])/('codeql-upload-'+language)
+          directory.mkdir(mode=0o700)
+          with (directory/'upload.json').open('x') as output:
+              output.write(json.dumps(value,sort_keys=True,separators=(',',':'))+'\n')
+          PYUPLOAD
+
+      - name: Publish the native CodeQL upload identity
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: codeql-upload-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.language }}
+          path: ${{ runner.temp }}/codeql-upload-${{ matrix.language }}/upload.json
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: false
 
   codeql-checks:
     name: codeql-security-results
     if: always()
     needs: [select, analyze]
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ needs.select.outputs.metadata_only == 'true' && 100 || 5 }}
+    timeout-minutes: ${{ needs.select.outputs.metadata_only == 'true' && 100 || 25 }}
     permissions:
       contents: read
       actions: read

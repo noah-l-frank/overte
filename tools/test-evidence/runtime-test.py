@@ -123,9 +123,17 @@ class RuntimeIdentityTests(unittest.TestCase):
         for search in (".:/usr/bin", "/candidate/bin:/usr/bin", "relative/bin:/usr/bin", "/usr/bin:"):
             with self.subTest(search=search), self.assertRaises(RUNTIME.RuntimeIdentityError):
                 self.capture({"PATH": search})
-        base = Path(RUNTIME.sys.base_prefix).resolve()
-        self.capture({"PATH": "/opt/hostedtoolcache/node/22/x64/bin:/usr/bin:/bin",
-                      "PKG_CONFIG_PATH": str(base / "lib/pkgconfig"), "LD_LIBRARY_PATH": str(base / "lib")})
+        base = Path("/opt/hostedtoolcache/Python/3.12.15/x64")
+        with patch.object(RUNTIME.sys, "base_prefix", str(base)):
+            identity = self.capture({"PATH": "/opt/hostedtoolcache/node/22/x64/bin:/usr/bin:/bin",
+                                     "PKG_CONFIG_PATH": str(base / "lib/pkgconfig"), "LD_LIBRARY_PATH": str(base / "lib")})
+        self.assertEqual(identity["flags"]["PKG_CONFIG_PATH"], "python-base-pkgconfig")
+        self.assertEqual(identity["flags"]["LD_LIBRARY_PATH"], "python-base-lib")
+        unreviewed = Path("/unreviewed/python")
+        with patch.object(RUNTIME.sys, "base_prefix", str(unreviewed)), \
+                self.assertRaises(RUNTIME.RuntimeIdentityError):
+            self.capture({"PKG_CONFIG_PATH": str(unreviewed / "lib/pkgconfig"),
+                          "LD_LIBRARY_PATH": str(unreviewed / "lib")})
         with self.assertRaises(RUNTIME.RuntimeIdentityError):
             self.capture({"LD_LIBRARY_PATH": "/candidate/lib"})
 
