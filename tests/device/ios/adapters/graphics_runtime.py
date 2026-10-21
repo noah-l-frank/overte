@@ -19,6 +19,15 @@ from adapters.normal_feature_state import context
 
 
 class IOSGraphicsRuntime(IOSScriptRuntime):
+    def _graphics_feature(self,selector,run,*,role,client,settings):
+        from ios.adapters.graphics_configuration import settings as validate_settings
+        from ios.adapters.graphics_fixture import GraphicsFixtureReader
+        from ios.adapters.graphics_feature import IOSGraphicsFeature
+        need(role in ('primary','actor') and client is not None)
+        selected=validate_settings(settings)
+        return IOSGraphicsFeature(self,selector,GraphicsFixtureReader(client,run),
+            selected['artifactRoot'],selected['imagePolicy'],role=role)
+
     def _graphics_final_source(self,selector,binding):
         """Actual admitted installed-code/process source before final stop."""
         from copy import deepcopy

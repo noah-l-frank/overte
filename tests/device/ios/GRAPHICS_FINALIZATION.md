@@ -6,8 +6,8 @@ retirement. It runs **after** the shared journey's observable cleanup and actual
 fixture retirement. It is separate from `feature.graphics.cleanup`, which must
 remain observable and repeatable while the controlled scene and process exist.
 The finalizer does not mark the journey successful or advertise a capability.
-Graphics remains partial until its worker, private configuration and canonical
-dispatch are integrated and verified with the full shared journey.
+Graphics remains partial until primary private configuration and canonical
+dispatch/session teardown are integrated and verified with the full shared journey.
 
 ## Operation and original evidence
 
@@ -125,9 +125,35 @@ The new registry entries are `ios-graphics-finalization`,
 journeys remain version 16. These iOS-specific additions require a registry
 union during later Phone/Pico reconciliation; no parallel worktree is modified.
 
-The worker must remain alive after fixture/retirement intent, contribute its own
-restored image and process window, and exit only after the actual final receipt.
-The existing Script/Authentication worker's early-exit behavior cannot substitute
-for this protocol. Worker/configuration/canonical dispatch and a complete
-fifteen-step journey followed by this finalization are the next required
-integration packet. No complete Graphics capability is enabled by this file.
+## Independent worker
+
+`ios/graphics_observer.py` attaches to an existing candidate-bound session. Its
+version-1 private configuration contains exactly `iosGraphicsObserverVersion`,
+`target`, `candidateArguments`, `fixtureUrl`, `actorToken`, `durationSeconds`,
+`artifactRoot` and `imagePolicy`. The absolute private artifact directory must
+already exist. Both roles must select the identical fixed marker/subject ROIs
+and `world-render-target` source before acquisition. The worker accepts no
+primary credential or desired state and never calls setup/describe/install.
+
+The worker remains alive after actual fixture closure and retirement intent,
+contributes its own restored image and process window, and exits only after
+validating the actual final receipt. It can attach to the original retirement
+plan after feature metadata has been removed. The decision between publication
+and finalization is serialized under the same source lock, including a second
+ownership read; an intent racing initial attachment cannot invoke public input.
+
+Only phase-pending and actual source-lock contention are ordinary retries.
+Other publication/finalization failures leave a private immutable run-scoped
+`graphics-worker-failed-<run>.json` marker. Publication is not retried afterward;
+the worker continues contributing teardown and ultimately returns status 2.
+A restarted worker retains that failure. Lost primary Stop results still use
+original OS queries without another Stop. No exception details or credentials
+are stored in the failure marker.
+
+Twelve worker lifecycle/configuration counterexamples and two coupled actual
+worker/finalizer host tests pass. These use original host fixture/files and
+synthetic SDK sources; no device or compiler is invoked. The full fifteen-step
+journey with this worker, primary configuration, canonical dispatch and session
+deletion without repeated termination remains the next integration packet.
+No complete Graphics capability is enabled by this file. Registry additions
+`ios-graphics-observer-worker` and `ios-graphics-worker-failure` are version 1.
