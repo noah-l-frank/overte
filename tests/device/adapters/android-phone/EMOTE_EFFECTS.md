@@ -134,9 +134,10 @@ request, input or input journal is created by either method. The source owner
 must have acquired its actual group first. Actor roles still use their own
 source originals.
 
-These methods do not yet compose phase images or the full Emote run. The
-observation owner, admission/readiness, actor publication and final quiet/full
-resource retirement still need integration before feature registration.
+The existing observation owner now composes these methods with original
+phase images using its frame/result version 2. Admission/readiness, whole-run
+coordination, actor publication and final quiet/full resource retirement still
+need integration before feature registration.
 
 ## Historical recomputation from originals
 

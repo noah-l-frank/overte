@@ -76,7 +76,17 @@ class PhoneEmoteEffects:
             need(same(input_source_header,source_header));current=primary
         else:current=sources(source,source_header)
         owner=object.__new__(PhoneEmoteInputs);owner.__dict__=self.inputs.__dict__.copy();owner.source=primary
-        owner.previous=deepcopy(input_header);owner.state,owner.history_state=owner.decode(owner.previous)
+        owner.previous=deepcopy(input_header)
+        if input_header is None:
+            need(bool(primary.frames))
+            for key in ('phaseBefore','phaseAfter'):
+                packet=primary.frames[-1][key]
+                need(packet['active'] and len(packet['activations'])==1
+                    and packet['activations'][0]['stimulus']==dict(verb='baseline',inputs={}))
+            # Historical absence of a baseline input owner is not an ACK.
+            # This read-only view cannot create or act through a live store.
+            owner.state=dict(history=[],current=None);owner.history_state=dict(count=0,manifests=[],pendingArchive=None)
+        else:owner.state,owner.history_state=owner.decode(owner.previous)
         need(owner.history_state['pendingArchive'] is None)
         context=PhoneEmoteEffects(owner,current_source=current);context.historical=True
         source.lock.assert_held();need(source.guard() is not False)

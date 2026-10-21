@@ -30,6 +30,14 @@ role/run/candidate/artifact directory and with the same image policy. It supplie
 only the independently reopened historical PNG for changed-body comparison.
 No expected name, pose, pixel statistics or success flag enters a native query.
 
+`read_phase(ticket,previous=None)` uses the same source/image/configuration/pixel
+acquisition and retirement path for actual fixture `baseline`/`cleanup` phases.
+It uses the existing [idle phase effects](EMOTE_EFFECTS.md), with no ordinary
+input row or synthetic ACK. Both source groups must actually observe the same
+owned idle phase. A normal action cannot use this mode to bypass its input/Rig
+effect proof. Active overrides, a changed fixture phase, wrong image challenge,
+changed native interval, missing original or late delivery still fail.
+
 The sequence is:
 
 1. Persist observation responsibility before any new source/image acquisition.
@@ -97,8 +105,9 @@ does not let an old child's cleanup authorize another attempt. Version 1
 parents remain readable with null identity; no new identity is invented for
 their past actions. Saved complete legacy image originals can still transfer
 through their immutable references. Earlier legacy partial captures cannot use
-the stronger parent-identity failure path. Frame/result, image and archive
-schemas remain version 1.
+the stronger parent-identity failure path. Ordinary frame/result schemas remain
+version 1; the idle-phase variant below uses frame/result version 2. Image and
+archive envelopes remain version 1.
 Decoded state has exactly:
 
 | Field | Meaning |
@@ -129,6 +138,27 @@ recomputed `pixels`, exact retained child `image` header and immutable `capture`
 and `outcome` references. It contains private source/context data and is not a
 public journey result or peer receipt. The future owner must use the existing
 public projection, alias, privacy and authenticated actor contracts.
+
+Phase capture/outcome originals have the same exact field sets with
+`emoteObservationFrameVersion:2`. `played` is null; the outcome contains original
+`emotePhaseEffectVersion:1` facts instead of an ordinary call/effect. The return
+uses `emoteObservationResultVersion:2` with the same field set. Replay independently
+recomputes the actual phase/native/UI facts and measured pixels; stored state
+cannot replace a measured open panel with the expected closed baseline. Capture
+and outcome variants must agree. Ordinary version 1 and legacy headers remain
+readable.
+
+An archived `inputHeader:null` is admitted only for the real initial baseline:
+the original primary source history must have one baseline fixture activation,
+before and after sampling. Its empty input context is a historical control view,
+not an input ACK or fabricated journal; live source/input methods remain blocked.
+Cleanup and normal actions with existing input history cannot discard that
+owner by replacing its header with null. A later owned input or source-journal
+advancement does not erase the original baseline image/proof.
+
+These phase images retire only their own measurement resources. Initial/cleanup
+admission, selected-script work/quiet checks, scene/view ownership and all
+source/input/actor/run retirement remain required before a whole-feature pass.
 
 ## Freshness, interruptions and retirement
 

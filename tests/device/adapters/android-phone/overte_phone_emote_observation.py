@@ -95,12 +95,17 @@ class PhoneEmoteObservation:
 
     def row(self,row,kind,ticket):
         need(kind in ('capture','outcome'))
+        version=row.get('emoteObservationFrameVersion') if type(row) is dict else None
+        need(type(version) is int and version in (1,2))
         if kind=='capture':
             exact(row,{'emoteObservationFrameVersion','kind','ticket','before','header','played','previous'})
             frame,_raw,_state=PhoneEmoteCapture.archive(row['header'],self.source,self.index,self.policy)
             need(row['header'].get('parentScope')==self.scope_id)
             need(frame['ticket']==ticket)
             self.effects.current_original(row['before'])
+            if version==2:
+                need(row['played'] is None)
+                phase=self.effects.phase_recompute(row['before']);need(phase['ticket']==ticket)
             if row['played'] is not None:exact(row['played'],{'inputTicket','frame'});identifier(row['played']['inputTicket'])
             if row['previous'] is not None:
                 exact(row['previous'],{'index','capture'})
@@ -112,12 +117,16 @@ class PhoneEmoteObservation:
             frame=self.effects.current_original(row['after']);need(frame['phaseAfter']['activations'][-1]['ticket']==ticket)
             value=row['configuration'];config_packet(value,dict(schemaVersion=1,commandId=value.get('requestId'),
                 action='phone-avatar-configuration-observe'),self.source.pid,value.get('capturedEpochMs'))
-            effect=row['effect'];need(effect['emoteEffectVersion']==2 and effect['role']==self.source.role
-                and effect['runId']==self.source.run and same(effect['binding'],self.source.binding)
-                and same(effect['frame'],row['after']) and effect['call']['ticket']==ticket)
+            effect=row['effect']
+            if version==2:
+                exact(effect,{'emotePhaseEffectVersion','role','runId','binding','phase','ticket','frame','state'})
+                need(type(effect['emotePhaseEffectVersion']) is int and effect['emotePhaseEffectVersion']==1
+                    and self.effects.phase_identity(frame['phaseAfter'])==(effect['phase'],ticket) and effect['ticket']==ticket)
+            else:need(effect['emoteEffectVersion']==2 and effect['call']['ticket']==ticket)
+            need(effect['role']==self.source.role and effect['runId']==self.source.run and same(effect['binding'],self.source.binding)
+                and same(effect['frame'],row['after']))
             need(row['pixels']['emotePixelsVersion']==1 and row['pixels']['ticket']==ticket)
-        need(type(row['emoteObservationFrameVersion']) is int and row['emoteObservationFrameVersion']==VERSION
-            and row['kind']==kind and row['ticket']==ticket)
+        need(row['kind']==kind and row['ticket']==ticket)
 
     def save(self):
         need(self.historical is False)
@@ -153,7 +162,7 @@ class PhoneEmoteObservation:
     def previous_image(self,reference):
         if reference is None:return None
         row=self.originals.read(self.originals.expand(reference['capture']))
-        need(row['kind']=='capture' and row['emoteObservationFrameVersion']==VERSION)
+        need(row['kind']=='capture' and type(row['emoteObservationFrameVersion']) is int and row['emoteObservationFrameVersion'] in (1,2))
         frame,raw,_record=PhoneEmoteCapture.archive(row['header'],self.source,reference['index'],self.policy)
         need(frame['ticket']!=self.state['ticket'])
         return dict(frame=frame,png=raw)
@@ -186,14 +195,23 @@ class PhoneEmoteObservation:
 
     def read(self,ticket,*,played=None,previous=None):
         """One new acquisition only; interruptions never replay this scope."""
-        identifier(ticket);need(self.historical is False and self.previous is None and self.state['phase']=='reserved')
+        return self._read(ticket,played=played,previous=previous,phase=False)
+
+    def read_phase(self,ticket,*,previous=None):
+        """Actual baseline/cleanup image join without an ordinary input row."""
+        return self._read(ticket,played=None,previous=previous,phase=True)
+
+    def _read(self,ticket,*,played,previous,phase):
+        identifier(ticket);need(type(phase) is bool and self.historical is False and self.previous is None and self.state['phase']=='reserved')
         self.started=self.bound();epoch_reader=self.source.adapter._native_feature_observer(self.source.selector,read_only=True)
         epoch=epoch_reader.clock_ms();host=self.source.phase.epoch_ms();need(integer(epoch,1) and number(host,1,1e15))
         try:
             self.effects.bound();self.state.update(phase='preparing',ticket=ticket);self.save()
             self.source.read();before=self.effects.reference()
-            row=self.effects.inputs.state['current'];need(row is not None and row['call']['ticket']==ticket)
-            self.effects.after(row,before)
+            if phase:need(self.effects.phase_recompute(before)['ticket']==ticket)
+            else:
+                row=self.effects.inputs.state['current'];need(row is not None and row['call']['ticket']==ticket)
+                self.effects.after(row,before)
             previous_ref=None
             if previous is not None:
                 if isinstance(previous,PhoneEmoteObservation):
@@ -209,21 +227,21 @@ class PhoneEmoteObservation:
             self.state['phase']='capturing';self.save()
             capture=PhoneEmoteCapture(self.source,self.index,self.policy,monotonic=self.source.monotonic,parent_scope=self.scope_id)
             capture.read(ticket);capture.original()
-            captured=dict(emoteObservationFrameVersion=VERSION,kind='capture',ticket=ticket,before=before,
+            captured=dict(emoteObservationFrameVersion=2 if phase else VERSION,kind='capture',ticket=ticket,before=before,
                 header=deepcopy(capture.previous),played=deepcopy(played),previous=previous_ref)
             # The parent's immutable original is committed before child removal
             # or any source-header advancement. A lost cleanup return retains it.
             self.record('capture',captured);self.state['phase']='captured';self.save()
             self.state['retirement']=capture.cleanup();self.state['phase']='measuring';self.save()
             self.source.read();reference=self.effects.reference()
-            effect=self.effects.measure(reference,played=played)
+            effect=self.effects.phase_measure(reference) if phase else self.effects.measure(reference,played=played)
             configuration=self.source.adapter._avatar_configuration_observer(self.source.selector,read_only=True)
             need(isinstance(configuration,NativePhoneAvatarConfiguration) and configuration.pid==self.source.pid and configuration.ios is False)
             config=configuration.read()
             image,raw,_record=PhoneEmoteCapture.archive(captured['header'],self.source,self.index,self.policy)
             measured=pixels(self.source.run,image,raw,self.policy,self.source.pid,configuration.clock_ms,self.source.guard,
                 previous=self.previous_image(previous_ref),monotonic=self.source.monotonic)
-            outcome=dict(emoteObservationFrameVersion=VERSION,kind='outcome',ticket=ticket,after=reference,
+            outcome=dict(emoteObservationFrameVersion=2 if phase else VERSION,kind='outcome',ticket=ticket,after=reference,
                 configuration=config,effect=effect,pixels=measured)
             self.join(captured,outcome);self.record('outcome',outcome);self.state['phase']='complete';self.save()
             result=self.original();self.delivery(result,epoch_reader,epoch,host);return result
@@ -240,7 +258,7 @@ class PhoneEmoteObservation:
     def _original(self):
         self.bound();need(self.previous is not None and same(self.decode(self.previous),self.state) and self.state['phase']=='complete')
         captured,outcome,measured=self._facts()
-        value=dict(emoteObservationResultVersion=VERSION,role=self.source.role,index=self.index,runId=self.source.run,
+        value=dict(emoteObservationResultVersion=captured['emoteObservationFrameVersion'],role=self.source.role,index=self.index,runId=self.source.run,
             binding=deepcopy(self.source.binding),ticket=self.state['ticket'],state=deepcopy(outcome['effect']['state']),
             effect=deepcopy(outcome['effect']),pixels=measured,image=deepcopy(captured['header']),
             capture=deepcopy(self.state['capture']),outcome=deepcopy(self.state['outcome']))
@@ -249,7 +267,9 @@ class PhoneEmoteObservation:
     def _facts(self):
         """Replay saved facts without changing or promoting the durable phase."""
         captured,outcome=self.load('capture'),self.load('outcome');image,raw,_before,_after=self.join(captured,outcome)
-        effect=self.effects.recompute(outcome['after'],played=captured['played'],call=outcome['effect']['call'])
+        need(captured['emoteObservationFrameVersion']==outcome['emoteObservationFrameVersion'])
+        effect=(self.effects.phase_recompute(outcome['after']) if captured['emoteObservationFrameVersion']==2
+            else self.effects.recompute(outcome['after'],played=captured['played'],call=outcome['effect']['call']))
         need(same(effect,outcome['effect']))
         # Recompute pixel facts from retained original PNGs, including prior
         # role-local pixels. Stored statistics never replace measured bytes.
@@ -261,7 +281,10 @@ class PhoneEmoteObservation:
     def delivery(self,value,reader,epoch,host):
         self.effects.bound();need(reader.guard() is not False)
         captured,outcome=self.load('capture'),self.load('outcome');_image,_raw,before,_after=self.join(captured,outcome)
-        phase=self.source.phase.status(_after['phaseAfter']);self.effects.inputs.active(outcome['effect']['call'],phase)
+        phase=self.source.phase.status(_after['phaseAfter'])
+        if outcome['emoteObservationFrameVersion']==2:
+            need(self.effects.phase_identity(phase)==(outcome['effect']['phase'],self.state['ticket']))
+        else:self.effects.inputs.active(outcome['effect']['call'],phase)
         need(value['ticket']==self.state['ticket']);self.bound()
         now=reader.clock_ms();host_now=self.source.phase.epoch_ms();self.bound();end=self.source.monotonic()
         need(integer(now,epoch) and number(host_now,host,1e15) and number(end,self.started,1e15) and end-self.started<5)
@@ -418,8 +441,13 @@ class PhoneEmoteObservation:
         scope.bound();scope.state=scope.decode(scope.previous);need(scope.state['phase'] in ('preparing','capturing','captured','measuring'))
         need(scope.scope_id is not None);child=value['childRetirement']
         if scope.state['phase']=='preparing':
-            need(child is None and scope.effects.inputs.state['current'] is not None
-                and scope.effects.inputs.state['current']['call']['ticket']==scope.state['ticket'])
+            need(child is None)
+            if scope.effects.inputs.state['current'] is not None:
+                need(scope.effects.inputs.state['current']['call']['ticket']==scope.state['ticket'])
+            else:
+                need(value['inputHeader'] is None and bool(scope.source.frames))
+                for key in ('phaseBefore','phaseAfter'):
+                    need(scope.effects.phase_identity(scope.source.frames[-1][key])==('baseline',scope.state['ticket']))
         else:
             PhoneEmoteCapture.retirement_archive(child,scope.source,index,scope.policy)
             need(child['header'].get('parentScope')==scope.scope_id)
