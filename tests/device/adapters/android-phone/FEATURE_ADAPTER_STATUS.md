@@ -133,6 +133,14 @@ These record builders do not yet deliver stop/launch or recover partial applicat
 full restart ownership and the independent Graphics coordinator remain pending.
 No full capability is enabled.
 
+The [normal explicit Graphics restart coordinator](GRAPHICS_RESTART.md) now
+composes one-send Stop/Launch, original new native/kernel persistence, durable
+partial-CAS recovery and normal new-process scene reentry. Sixteen focused cases
+and actual stopped/cleanup wrappers cover ignored/lost inputs, foreign scope and
+metadata retirement. The 356-case combined Phone/Authentication regression
+passes. Independent role/GPU/image orchestration and complete fixture/Web
+retirement remain pending; no full Graphics capability is enabled.
+
 Authentication now has [durable original-source acquisitions](AUTHENTICATION_SOURCES.md)
 for each independent role, including real native protected requests, original
 UI/account/provider observations and measured retirement of every temporary

@@ -193,10 +193,17 @@ class PhoneGraphicsScene:
     @classmethod
     def archive(cls,value,*,adapter,selector,client,run):
         """Pure historical validation; no SDK/read/repair or usable live owner."""
+        scope=cls._archive_scope(adapter=adapter,selector=selector,client=client,run=run)
+        return deepcopy(scope.decode(value))
+
+    @classmethod
+    def _archive_scope(cls,*,adapter,selector,client,run):
+        # Decoder fields only. No runtime/source/guard exists on this object;
+        # it cannot be used for a live read or ordinary input.
         need(isinstance(client,Client) and client.run==run and client.area=='graphics');identifier(run)
         scope=object.__new__(cls);scope.adapter,scope.selector,scope.client,scope.run=adapter,selector,client,run
         scope.store=PrivateFeatureState(adapter.state_path(selector).with_name('phone-graphics-scene.json'))
-        return deepcopy(scope.decode(value))
+        return scope
 
     def validate_subject(self,packet,pid):
         subject_packet(packet,dict(schemaVersion=1,commandId=packet['requestId'],action='feature-graphics-subject-observe',runId=self.run),pid,packet['capturedEpochMs'],require_avatar=True)

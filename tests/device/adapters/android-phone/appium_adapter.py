@@ -377,15 +377,24 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return PhoneAuthenticationFeature(self,selector,AuthenticationFixtureReader(client,run),role=role)
 
     def _authentication_restart_stopped(self, selector, old_binding):
+        return self._feature_restart_stopped(selector,old_binding,'AUTHENTICATION')
+
+    def _graphics_restart_stopped(self, selector, old_binding):
+        return self._feature_restart_stopped(selector,old_binding,'GRAPHICS')
+
+    def _feature_restart_stopped(self, selector, old_binding, scope):
+        require(scope in ('AUTHENTICATION','GRAPHICS'),'PHONE_RESTART_SCOPE_INVALID')
         target=self.target(selector)
         require(self.snapshot_fingerprint(target)==old_binding['targetFingerprint'],
-                'PHONE_AUTHENTICATION_RESTART_TARGET_CHANGED')
+                'PHONE_'+scope+'_RESTART_TARGET_CHANGED')
         installed=self.installed_identity(selector)
         require(all(installed[key]==old_binding[key] for key in ('sourceRevision','artifactSha256')),
-                'PHONE_AUTHENTICATION_RESTART_INSTALL_CHANGED')
+                'PHONE_'+scope+'_RESTART_INSTALL_CHANGED')
         client,session,state=self.existing_session(selector)
+        require(session==old_binding['sessionId'] and state.get('generation')==old_binding['generation'],
+                'PHONE_'+scope+'_RESTART_SESSION_CHANGED')
         status=self.query_app_state(client,session,target)
-        require(status in (1,2,3,4),'PHONE_AUTHENTICATION_RESTART_OS_STATE_UNAVAILABLE')
+        require(type(status) is int and status in (1,2,3,4),'PHONE_'+scope+'_RESTART_OS_STATE_UNAVAILABLE')
         process=self.process_state(selector,client,session,state,target)
         running=status>=2 or process.get('running') is True
         return dict(running=running,identity=process.get('identity') if running else None)
@@ -427,6 +436,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
 
     def graphics_background_store(self, selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-background.json'))
+
+    def graphics_restart_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-restart.json'))
+
+    def graphics_restart_inputs_store(self, selector):
+        return PrivateFeatureState(self.state_path(selector).with_name('phone-graphics-restart-inputs.json'))
 
     def _graphics_lifecycle_status(self, selector, binding):
         # OS/process observation remains available while native/UI foreground
@@ -1178,6 +1193,8 @@ class PhoneAppiumAdapter(AppiumAdapter):
                 'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE')
         require(not world_error and all(self.world_render_store(selector,role=role).read() is None for role in ('primary','actor')),
                 'PHONE_WORLD_RENDER_CLEANUP_INCOMPLETE')
+        require(self.graphics_restart_store(selector).read() is None and self.graphics_restart_inputs_store(selector).read() is None,
+                'PHONE_GRAPHICS_RESTART_CLEANUP_INCOMPLETE')
         require(self.graphics_background_store(selector).read() is None,'PHONE_GRAPHICS_BACKGROUND_CLEANUP_INCOMPLETE')
         require(self.graphics_preferences_store(selector).read() is None,'PHONE_GRAPHICS_PREFERENCES_CLEANUP_INCOMPLETE')
         require(self.graphics_scene_store(selector).read() is None,'PHONE_GRAPHICS_SCENE_CLEANUP_INCOMPLETE')

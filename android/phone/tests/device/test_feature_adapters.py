@@ -938,6 +938,31 @@ class FeatureAdapterTests(unittest.TestCase):
             base.assert_called_once()
         self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
 
+    def test_general_cleanup_cannot_forget_either_graphics_restart_journal(self):
+        for store in (self.adapter.graphics_restart_store(SELECTOR),self.adapter.graphics_restart_inputs_store(SELECTOR)):
+            store.write({'unresolved':True},None)
+            with patch.object(AppiumAdapter,'cleanup',return_value={'cleaned':True}) as base:
+                with self.assertRaisesRegex(ValueError,'PHONE_GRAPHICS_RESTART_CLEANUP_INCOMPLETE'):self.adapter.cleanup(SELECTOR)
+                base.assert_called_once()
+            self.assertEqual({'unresolved':True},store.read());store.discard(store.read())
+
+    def test_graphics_restart_stopped_observes_os_and_process_through_existing_session(self):
+        self.read_only_boundaries();_ui,_observer,binding,_guard,_installed=self.adapter.normal_feature_runtime(SELECTOR,read_only=True)
+        self.assertEqual(dict(running=True,identity='31:14'),self.adapter._graphics_restart_stopped(SELECTOR,binding))
+        self.native.running=False
+        self.assertEqual(dict(running=False,identity=None),self.adapter._graphics_restart_stopped(SELECTOR,binding))
+        self.assertEqual([],self.native.lifecycle_inputs);self.assertEqual([],self.native.inputs)
+
+    def test_graphics_restart_stopped_refuses_changed_session_install_and_unknown_os_state(self):
+        self.read_only_boundaries();_ui,_observer,binding,_guard,_installed=self.adapter.normal_feature_runtime(SELECTOR,read_only=True)
+        for changed in (binding|dict(sessionId='foreign-session'),binding|dict(generation=99),binding|dict(artifactSha256='f'*64)):
+            with self.subTest(changed=changed),self.assertRaises(ValueError):self.adapter._graphics_restart_stopped(SELECTOR,changed)
+        with patch.object(self.adapter,'query_app_state',return_value=True),self.assertRaises(ValueError):
+            self.adapter._graphics_restart_stopped(SELECTOR,binding)
+        with patch.object(self.adapter,'query_app_state',return_value=1):
+            self.assertEqual(dict(running=True,identity='31:14'),self.adapter._graphics_restart_stopped(SELECTOR,binding))
+        self.assertEqual([],self.native.lifecycle_inputs)
+
     def test_graphics_os_status_uses_existing_session_without_foreground_native_guard_or_repair(self):
         calls=self.read_only_boundaries();_ui,_observer,binding,_guard,_installed=self.adapter.normal_feature_runtime(SELECTOR,read_only=True)
         with patch.object(self.adapter,'query_app_state',return_value=3),patch.object(self.adapter,'normal_feature_runtime',side_effect=AssertionError('Unexpected foreground-only source')):

@@ -4,8 +4,9 @@ Scene and preference journals are now version 2. They retain a complete original
 old-process archive and admit one explicitly proved new process without relabeling
 old packets as new observations. Version 1 pending journals are refused; no silent
 migration/reconstruction can invent missing process or original-source proof.
-This packet supplies the closed receipt validator and durable record builders,
-not normal stop/launch orchestration or the complete Graphics coordinator. No full
+The closed receipt validator and durable record builders are now composed by the
+[normal restart coordinator](GRAPHICS_RESTART.md). The complete independent
+Graphics coordinator remains required. No full
 capability is advertised. Native instrumentation is uncompiled and devices untested.
 
 ## Closed restart receipt v1
