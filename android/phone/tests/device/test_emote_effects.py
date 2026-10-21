@@ -96,6 +96,91 @@ class PhoneEmoteEffectTests(unittest.TestCase):
         owner.source.read();owner.source.read()
         return effect.measure(effect.reference(),played=played)
 
+    def phase_effect(self):
+        owner=PhoneEmoteInputs(self.model.source());owner.source.read()
+        return owner,PhoneEmoteEffects(owner)
+
+    def test_initial_idle_phase_observes_original_sources_without_an_input_journal_or_fake_ack(self):
+        m=self.model
+        with m.lock.held():
+            owner,effect=self.phase_effect();reads=m.calls.count('native-read');value=effect.phase_measure(effect.reference())
+            self.assertEqual(1,value['emotePhaseEffectVersion']);self.assertEqual('baseline',value['phase'])
+            self.assertEqual('idle',value['state']['animation']);self.assertFalse(value['state']['override'])
+            self.assertIsNone(owner.previous);self.assertIsNone(owner.store.read());self.assertNotIn('call',value)
+            self.assertEqual(value,effect.phase_recompute(effect.reference()));self.assertEqual(reads,m.calls.count('native-read'))
+            self.assertEqual([],m.controls.input_requests);self.assertEqual([],m.tablet_inputs)
+
+    def test_idle_phase_panel_is_an_actual_ui_reading_instead_of_the_expected_closed_baseline(self):
+        m=self.model;m.widgets.page=True;m.widgets.tablet=True
+        with m.lock.held():
+            owner,effect=self.phase_effect();value=effect.phase_measure(effect.reference())
+            self.assertTrue(value['state']['panel']);self.assertTrue(owner.source.frames[-1]['ui']['open'])
+            self.assertEqual([],m.controls.input_requests)
+
+    def test_active_unowned_override_cannot_be_reported_as_an_idle_phase(self):
+        m=self.model;m.start('Waving')
+        with m.lock.held():
+            owner,effect=self.phase_effect()
+            with self.assertRaises(NativeUIError):effect.phase_recompute(effect.reference())
+            with self.assertRaises(NativeUIError):effect.phase_measure(effect.reference())
+            self.assertTrue(owner.source.frames[-1]['group']['native']['animation']['overrideActive'])
+            self.assertEqual([],m.controls.input_requests)
+
+    def test_normal_action_phase_cannot_be_relabelled_as_baseline_or_cleanup(self):
+        m=self.model;m.call('open')
+        with m.lock.held():
+            owner,effect=self.phase_effect()
+            with self.assertRaises(NativeUIError):effect.phase_measure(effect.reference())
+            self.assertIsNone(owner.store.read());self.assertEqual([],m.controls.input_requests)
+
+    def test_cleanup_phase_observes_actual_idle_without_erasing_owned_input_or_native_restore_history(self):
+        m=self.model
+        with m.lock.held():
+            owner,effect=self.act('play',dict(name='Waving'));m.restore()
+            m.journal.activate(owner.run,'e'*32,'cleanup',{});owner.source.read()
+            history=deepcopy(owner.state);events=deepcopy(m.events);inputs=deepcopy(m.controls.input_requests)
+            value=effect.phase_measure(effect.reference());self.assertEqual('cleanup',value['phase'])
+            self.assertEqual('idle',value['state']['animation']);self.assertFalse(value['state']['restoredBeforeNominalEnd'])
+            self.assertEqual(events,m.events);self.assertEqual('restore',events[-1]['kind']);self.assertEqual(history,owner.state)
+            self.assertEqual(inputs,m.controls.input_requests);self.assertTrue(owner.store.path.exists())
+
+    def test_old_phase_frame_and_changed_provider_ticket_cannot_become_current(self):
+        m=self.model
+        with m.lock.held():
+            owner,effect=self.phase_effect();old=effect.reference();owner.source.read()
+            with self.assertRaises(NativeUIError):effect.phase_measure(old)
+            self.assertEqual('baseline',effect.phase_recompute(old)['phase'])
+            status=owner.source.phase.status
+            def changed(previous):m.journal.activate(owner.run,'e'*32,'cleanup',{});return status(previous)
+            with patch.object(owner.source.phase,'status',side_effect=changed),self.assertRaises(NativeUIError):effect.phase_measure(effect.reference())
+
+    def test_phase_freshness_includes_slow_replay_with_frozen_native_and_host_epochs(self):
+        m=self.model
+        with m.lock.held():
+            owner,effect=self.phase_effect();replay=effect.phase_recompute
+            def slow(reference):value=replay(reference);m.clock+=1.6;return value
+            with patch.object(effect,'phase_recompute',side_effect=slow),self.assertRaises(NativeUIError):effect.phase_measure(effect.reference())
+            self.assertIsNone(owner.store.read());self.assertEqual([],m.controls.input_requests)
+
+    def test_phase_replay_cannot_replace_missing_or_equal_byte_foreign_original(self):
+        m=self.model
+        with m.lock.held():
+            owner,effect=self.phase_effect();source=owner.source;entries=source.originals.manifest(source.state['manifests'][0])
+            path=source.originals.path(source.originals.expand(entries[0]));replacement=path.with_suffix('.replacement')
+            replacement.write_bytes(path.read_bytes());replacement.chmod(0o600);replacement.replace(path)
+            with self.assertRaises(NativeUIError):effect.phase_recompute(effect.reference())
+
+    def test_phase_current_frame_cannot_be_selected_by_truncating_only_in_memory_history(self):
+        m=self.model
+        with m.lock.held():
+            owner,effect=self.phase_effect();owner.source.read();owner.source.frames.pop()
+            with self.assertRaises(NativeUIError):effect.phase_measure(effect.reference())
+            owner.source.state['revision']=1
+            with self.assertRaises(NativeUIError):effect.phase_measure(effect.reference())
+            current=PhoneEmoteInputs(m.source());fresh=PhoneEmoteEffects(current)
+            self.assertEqual('baseline',fresh.phase_measure(fresh.reference())['phase'])
+            self.assertEqual([],m.controls.input_requests)
+
     def test_normal_open_loaded_play_automatic_restore_and_close_reconstruct_original_ownership(self):
         m=self.model
         with m.lock.held():

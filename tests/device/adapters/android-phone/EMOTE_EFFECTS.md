@@ -100,6 +100,44 @@ Host cases run actual Python input/source/effect logic against explicit syntheti
 SDK/Qt/native boundaries, including all ten ordinary buttons. They verify test
 logic only and establish no physical Emote success.
 
+## Idle fixture-phase observations, version 1
+
+`phase_recompute(reference)` and `phase_measure(reference)` observe the actual
+fixture's `baseline` or `cleanup` phase without inventing a normal input row,
+input receipt or acknowledgement. The baseline phase must be the fixture's first
+activation; both original source-side phase packets must agree on its real
+kind/ticket. An ordinary action cannot be relabelled as one of these phases.
+The original selected Script/root/native history must actually observe an
+enabled, loaded Rig with no active override. An unowned active override fails.
+Panel visibility remains the original UI observation and can report an open
+panel when the common test expects closed.
+
+The exact private return is `{emotePhaseEffectVersion:1,role,runId,binding,phase,ticket,frame,state}`.
+`frame` addresses this role's actual immutable source original; there is no
+`call`, requested value, synthetic input row or ordinary playback proof. Idle,
+no Sit and zero override progress are defined absent-override values admitted
+only by the real native inactive observation. `restoredBeforeNominalEnd:false`
+means this fixture-only phase has no qualified ordinary restoration action;
+it does not erase old native restore events, replace previous measured action
+proofs or claim that an old early cancel did not happen. Native and input
+histories remain unchanged and owned. This is a phase projection, not a cleanup
+or resource-absence verdict.
+
+`phase_recompute` only reopens original bytes and derives historical facts;
+`phase_measure` also requires the latest complete durable source context,
+unchanged original source/input ownership, the actual same current fixture phase,
+and the existing five-second/1.5-second native/host freshness bounds through
+final copies/guards. Partial source owners, a changed phase/ticket, truncated
+in-memory history, a stale reference, foreign/replaced original or frozen clocks
+with slow replay cannot produce a current observation. No native observation
+request, input or input journal is created by either method. The source owner
+must have acquired its actual group first. Actor roles still use their own
+source originals.
+
+These methods do not yet compose phase images or the full Emote run. The
+observation owner, admission/readiness, actor publication and final quiet/full
+resource retirement still need integration before feature registration.
+
 ## Historical recomputation from originals
 
 `recompute(reference,played=None,call=None)` reopens original input archives and

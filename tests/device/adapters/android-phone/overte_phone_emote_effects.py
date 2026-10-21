@@ -8,9 +8,10 @@ whole-feature cleanup verdict. It advertises no complete feature capability.
 from copy import deepcopy
 import hashlib
 
-from adapters.emote_rig_measurements import playback,restoration
+from adapters.emote_rig_measurements import playback,restoration,source as source_group
 from adapters.native_feature_observation import exact,fresh,integer,need,number
 from adapters.token_emote_ui import snapshot
+from feature_journeys.phase_fixture import validate as phase_packet
 from overte_phone_emote_inputs import PhoneEmoteInputs
 from overte_phone_emote_sources import PhoneEmoteSources
 from overte_phone_emote_originals import BLOCK
@@ -199,4 +200,55 @@ class PhoneEmoteEffects:
         fresh(barrier,delivered);fresh(phase,delivered_host)
         need(max(delivered-barrier,epoch-barrier+(final-started)*1000)<=1500
             and max(delivered_host-phase,host-phase+(final-started)*1000)<=1500)
+        return returned
+
+    def phase_identity(self,packet):
+        phase_packet(packet,run=self.source.run,area='emotes',request=packet.get('requestId'),epoch=packet.get('capturedEpochMs'))
+        need(packet['active'] and packet['activations']);current=packet['activations'][-1]
+        need(current['stimulus']['verb'] in ('baseline','cleanup') and current['stimulus']['inputs']=={})
+        if current['stimulus']['verb']=='baseline':need(len(packet['activations'])==1)
+        return current['stimulus']['verb'],current['ticket']
+
+    def phase_recompute(self,reference):
+        """Historical idle-phase facts without a fabricated ordinary input.
+
+        Early restoration describes a qualified ordinary action, which these
+        fixture-only phases do not have. Historical input/restore evidence is
+        preserved and is not erased or replaced by this phase projection.
+        """
+        source=self.source;started=source.monotonic();need(number(started,0,1e15))
+        source.lock.assert_held();need(source.guard() is not False)
+        frame=self.current_original(reference)
+        phase,ticket=self.phase_identity(frame['phaseBefore']);need((phase,ticket)==self.phase_identity(frame['phaseAfter']))
+        _selected,native,_urls=source_group(frame['group'],source.pid,frame['epochMs']);animation=native['animation']
+        need(animation['animationsEnabled'] is True and animation['graphLoaded'] is True and animation['overrideActive'] is False)
+        # These are the defined absent-override values, admitted only by the
+        # original native idle observation. Panel remains an actual UI reading.
+        state=dict(animation='idle',sit='none',override=animation['overrideActive'],poseProgress=0.,
+            restoredBeforeNominalEnd=False,panel=self.panel(frame))
+        value=dict(emotePhaseEffectVersion=1,role=source.role,runId=source.run,binding=deepcopy(source.binding),
+            phase=phase,ticket=ticket,frame=deepcopy(reference),state=state)
+        result=deepcopy(value);source.lock.assert_held();need(source.guard() is not False)
+        end=source.monotonic();need(number(end,started,1e15) and end-started<5);return result
+
+    def phase_measure(self,reference):
+        """Fresh idle phase observation; no input, image or cleanup verdict."""
+        source=self.source;started=source.monotonic();need(number(started,0,1e15));self.bound()
+        need(reference==self.reference() and self.input_source.state['phase']=='ready'
+            and self.input_source.state['pending'] is None and self.inputs.history_state['pendingArchive'] is None)
+        for actual in (source,self.input_source):
+            need(actual.previous is not None and actual.state['revision']==len(actual.frames)
+                and same(unpack(actual.previous['payload']),[actual.state]))
+        reader=source.adapter._native_feature_observer(source.selector,read_only=True)
+        need(reader.pid==source.pid and reader.ios is False and reader.guard() is not False)
+        epoch,host=reader.clock_ms(),source.phase.epoch_ms();need(integer(epoch,1) and number(host,1,1e15));self.bound()
+        value=self.phase_recompute(reference);frame=self.current_original(reference)
+        status=source.phase.status(frame['phaseAfter']);need(self.phase_identity(status)==(value['phase'],value['ticket']));self.bound()
+        returned=deepcopy(value);need(reader.guard() is not False);self.bound()
+        now,host_now=reader.clock_ms(),source.phase.epoch_ms();self.bound();end=source.monotonic()
+        need(integer(now,epoch) and number(host_now,host,1e15) and number(end,started,1e15) and end-started<5)
+        floor=frame['group']['rootsBefore']['requestedEpochMs'];host_floor=frame['phaseBefore']['capturedEpochMs']
+        fresh(floor,now);fresh(host_floor,host_now)
+        need(max(now-floor,epoch-floor+(end-started)*1000)<=1500
+            and max(host_now-host_floor,host-host_floor+(end-started)*1000)<=1500)
         return returned

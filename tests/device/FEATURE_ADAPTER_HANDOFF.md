@@ -18,6 +18,11 @@ Approved scene/Script admission, background/failure recovery, authenticated acto
 publication and whole-run retirement still require the complete coordinator.
 This adds no complete feature capability or physical acceptance.
 
+The existing [Phone Emote effects](adapters/android-phone/EMOTE_EFFECTS.md) also
+observe initial/cleanup idle phases from original native/UI/source histories
+without inventing an ordinary input or acknowledgement. Their phase-image/run
+composition is still pending; these private facts prove no whole-run cleanup.
+
 Normal Phone startup evaluates `phoneEmote.js` through `Script.include` inside
 the shared default-script manager. The [version 2 source selector](native/EMOTE_SOURCE_PROFILE.md)
 now admits that actual layout using original manager assignment/submitted and
