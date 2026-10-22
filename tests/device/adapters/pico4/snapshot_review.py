@@ -8,7 +8,8 @@ This source has no handler, setter, input or export authority.
 from urllib.parse import unquote,urlsplit
 from adapters.native_feature_observation import exact,integer,need
 
-VERSION=1
+VERSION=2
+READ_VERSIONS=(1,2)
 BOOLS={'visible','capturing','processing','loggedIn','canShare','canBlast','statusError','captureSettingsLoaded','exportBusy'}
 STRINGS={'statusText':2048,'uploadPath':2048,'exportTicket':2048,'format':16,'exportError':256}
 
@@ -18,11 +19,13 @@ def text(value,limit):return type(value) is str and len(value)<=limit and '\0' n
 
 def validate(value):
     exact(value,{'snapshotReviewObservationVersion','present','review'})
-    need(type(value['snapshotReviewObservationVersion']) is int and value['snapshotReviewObservationVersion']==VERSION
+    need(type(value['snapshotReviewObservationVersion']) is int and value['snapshotReviewObservationVersion'] in READ_VERSIONS
         and type(value['present']) is bool)
     if not value['present']:
         need(value['review'] is None);return value
-    row=value['review'];exact(row,BOOLS|set(STRINGS)|{'componentUrl','mode','capabilities','images'})
+    extra={'captureName'} if value['snapshotReviewObservationVersion']==2 else set()
+    row=value['review'];exact(row,BOOLS|set(STRINGS)|{'componentUrl','mode','capabilities','images'}|extra)
+    if extra:need(text(row['captureName'],48))
     need(all(type(row[key]) is bool for key in BOOLS) and all(text(row[key],limit) for key,limit in STRINGS.items())
         and integer(row['mode'],0,3) and text(row['componentUrl'],4096))
     url=urlsplit(row['componentUrl'])

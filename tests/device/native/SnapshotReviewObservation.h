@@ -55,7 +55,7 @@ inline QVariantMap snapshotReviewObservation(QQuickItem* root) {
         for (auto child:item->childItems()) { walk(child,depth+1); }
     };
     walk(root,0);if (invalid) { return {}; }
-    if (!page) { return {{"snapshotReviewObservationVersion",1},{"present",false},{"review",QVariant()}}; }
+    if (!page) { return {{"snapshotReviewObservationVersion",2},{"present",false},{"review",QVariant()}}; }
     if (page->window()!=root->window() || page->metaObject()->indexOfSignal("sendToScript(QVariant)")<0) { return {}; }
     QVariantMap review{{"componentUrl",component},{"visible",page->isVisible()}};
     for (const auto& name:QStringList{"capturing","processing","loggedIn","canShare","canBlast","statusError","captureSettingsLoaded"}) {
@@ -67,18 +67,21 @@ inline QVariantMap snapshotReviewObservation(QQuickItem* root) {
         if (value.userType()!=QMetaType::QString || value.toString().size()>2048) { return {}; }
         review.insert(name,value);
     }
-    QObject* mode=nullptr;QObject* format=nullptr;QObject* platform=nullptr;count=0;
+    QObject* mode=nullptr;QObject* format=nullptr;QObject* platform=nullptr;QObject* name=nullptr;count=0;
     std::function<void(QObject*,int)> children=[&](QObject* object,int depth) {
         if (!object || invalid) { return; }
         if (++count>4096 || depth>128 || object->thread()!=root->thread()) { invalid=true;return; }
         auto find=[&](const QString& id,QObject*& result) {
             if (snapshotReviewId(object,id)) { if (result && result!=object) { invalid=true; }else { result=object; } }
         };
-        find("captureMode",mode);find("captureFormat",format);find("platform",platform);
+        find("captureMode",mode);find("captureFormat",format);find("platform",platform);find("captureName",name);
         for (auto child:object->children()) { children(child,depth+1); }
     };
-    children(page,0);if (invalid || !mode || !format || !platform) { return {}; }
+    children(page,0);if (invalid || !mode || !format || !platform || !name) { return {}; }
     const auto index=mode->property("currentIndex"),total=mode->property("count"),current=format->property("currentText");
+    const auto captureName=name->property("text");
+    if (name->objectName()!="snapshotName" || captureName.userType()!=QMetaType::QString || captureName.toString().size()>48) { return {}; }
+    review.insert("captureName",captureName);
     const auto capabilities=snapshotReviewVariant(platform->property("capabilities"));
     const auto busy=platform->property("busy"),error=platform->property("error");
     if (index.userType()!=QMetaType::Int || total.userType()!=QMetaType::Int || total.toInt()!=4
@@ -99,7 +102,7 @@ inline QVariantMap snapshotReviewObservation(QQuickItem* root) {
         rows.append(QVariantMap{{"path",path},{"storyPresent",story.isValid() && !story.toString().isEmpty()}});
     }
     review.insert("images",rows);
-    return {{"snapshotReviewObservationVersion",1},{"present",true},{"review",review}};
+    return {{"snapshotReviewObservationVersion",2},{"present",true},{"review",review}};
 }
 inline QJsonObject picoSnapshotReviewObservation(QQuickItem* root,QQuickWindow* window) {
     if (!QCoreApplication::instance() || QThread::currentThread()!=QCoreApplication::instance()->thread()

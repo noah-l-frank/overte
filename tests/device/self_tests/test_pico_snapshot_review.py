@@ -38,6 +38,20 @@ class SnapshotReviewTests(unittest.TestCase):
         for fault in faults:
             value=observation();fault(value)
             with self.subTest(fault=fault),self.assertRaises(NativeUIError):validate(value)
+    def test_v2_requires_actual_bounded_capture_name_without_upgrading_v1(self):
+        value=observation();validate(value)
+        self.assertNotIn('captureName',value['review'])
+        value['snapshotReviewObservationVersion']=2
+        with self.assertRaises(NativeUIError):validate(value)
+        for name in ('', 'parity-aaaaaaaaaaaaaaaa-animated'):
+            value['review']['captureName']=name;validate(value)
+        for name in (None, True, 'a'*49, 'bad\0name'):
+            value['review']['captureName']=name
+            with self.subTest(name=name),self.assertRaises(NativeUIError):validate(value)
+        value['review']['captureName']='original'
+        value['snapshotReviewObservationVersion']=1
+        with self.assertRaises(NativeUIError):validate(value)
+        validate(dict(snapshotReviewObservationVersion=2,present=False,review=None))
     def test_actual_optional_navigation_field_is_strict_and_does_not_change_original_control_dto(self):
         value=dict(schemaVersion=1,bridgeId='12345678-1234-4234-8234-123456789abc',
             generation='22345678-1234-4234-8234-123456789abc',processId=31,elapsedMs=3,updatedEpochMs=20000,

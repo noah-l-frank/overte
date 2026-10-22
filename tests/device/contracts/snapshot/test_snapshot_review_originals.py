@@ -31,14 +31,19 @@ with tempfile.TemporaryDirectory(prefix='snapshot-review-originals-') as directo
     stage=Path(directory);runtime=stage/'runtime';runtime.mkdir(mode=0o700)
     source=Path(__file__).with_name('snapshot-review-originals-test.cpp')
     subprocess.run([str(moc),str(source),'-o',str(stage/'snapshot-review-originals-test.moc')],check=True,timeout=30,env=environment)
+    # Compile the whole original default field input, with real Qt IME events.
+    field=stage/'field.o'
+    subprocess.run(['c++','-std=c++17','-fPIC','-Wall','-Wextra','-Werror',
+        '-c',str(ROOT/'libraries/ui/src/ui/NativeFieldInput.cpp'),'-o',str(field),*flags],check=True,timeout=60,env=environment)
     executable=stage/'test'
     subprocess.run(['c++','-std=c++17','-fPIC','-Wall','-Wextra','-Werror','-UNDEBUG','-DOVERTE_E2E_FEATURE_TESTS',
-        '-I'+str(ROOT),'-I'+str(stage),str(source),'-o',str(executable),*library,*flags],check=True,timeout=60,env=environment)
+        '-I'+str(ROOT),'-I'+str(ROOT/'libraries/ui/src'),'-I'+str(stage),str(source),str(field),'-o',str(executable),*library,*flags],check=True,timeout=60,env=environment)
     environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',XDG_RUNTIME_DIR=str(runtime))
     for options in ([],['--testScript']):
         result=subprocess.check_output(['unshare','--user','--map-root-user','--net',str(executable),
             str(ROOT/'scripts/system/snapshot/NativeSnapshotReview.qml'),str(ROOT),*options],text=True,timeout=20,env=environment)
         if options:
             value=json.loads(result);validate(value)
-            assert value['present'] and not value['review']['visible'] and value['review']['capturing']
+            assert value['snapshotReviewObservationVersion']==2 and value['present'] and not value['review']['visible'] and value['review']['capturing']
+            assert value['review']['captureName']=='parity-aaaaaaaaaaaaaaaa-animated'
 print('PASS: actual Snapshot Review QML, pointer and original hidden/context source (Qt'+major+')')
