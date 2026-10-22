@@ -179,7 +179,7 @@ class NavigationBaselineImage:
         self.take('nativeEnd',lambda:dict(nativeAfter=self.native.read(self.native.sequence),
             hostAfterEpochMs=self.epoch_ms(),hostAfterMonotonic=self.monotonic()))
         result,_proof,_raw=self.qualify();self.state.update(phase='observed',resultSha256=digest(result));self.save()
-        self.fresh();return self.archive()
+        value=self.archive();self.fresh();return value
 
     def archive(self):
         self.bound();need(self.state is not None and self.state['phase']=='observed')
@@ -192,12 +192,11 @@ class NavigationBaselineImage:
 
     def fresh(self):
         need(not self.historical);parts=self.originals();first=parts['baseRead']['before'];last=parts['nativeEnd']
-        epoch,mono=self.epoch_ms(),self.monotonic()
+        self.bound();epoch,mono=self.epoch_ms(),self.monotonic()
         need(number(epoch,last['hostAfterEpochMs'],first['epochMs']+1500)
             and number(mono,last['hostAfterMonotonic'],first['monotonic']+1.5)
             and epoch-first['epochMs']<1500 and mono-first['monotonic']<1.5
             and abs(epoch-first['epochMs']-(mono-first['monotonic'])*1000)<=250)
-        self.bound()
 
     def drain(self):
         """Actual native frame drainage preserves every retained original."""

@@ -100,5 +100,16 @@ class NavigationBaselineImageTests(unittest.TestCase):
             with self.assertRaises(NativeUIError):self.f.owner().recover()
             self.assertEqual(before,self.h.gpu.commands);self.assertEqual([],self.h.flow_fixture.b.inputs)
 
+    def test_slow_final_archive_validation_cannot_return_a_fresh_baseline(self):
+        with self.held():
+            owner=self.f.owner();archive=owner.archive
+            def slow():
+                value=archive();self.h.sdk.gpu.clock+=2;return value
+            owner.archive=slow
+            with self.assertRaises(NativeUIError):owner.acquire(self.h.now())
+            self.assertEqual('observed',owner.state['phase'])
+            self.assertIsNotNone(self.f.owner(historical=True).archive())
+            with self.assertRaises(NativeUIError):self.f.owner().fresh()
+
 
 if __name__=='__main__':unittest.main()

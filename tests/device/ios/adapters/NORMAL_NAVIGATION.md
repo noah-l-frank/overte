@@ -120,7 +120,8 @@ pose and recorded Vulkan view to unmodified PNG pixels and actual GPU release.
 Historical replay sends no source or SDK command and cannot renew freshness.
 A later run scene, blank image, changed component/candidate, partial source,
 lost final write or lost GPU read cannot become a fresh untouched baseline.
-Seventeen host tests cover this owner and the runtime factories. Native code
+Eighteen host tests cover this owner and the runtime factories, including
+freshness after the final original-file and candidate validation. Native code
 remains uncompiled and devices untested. Whole preparation must still retain
 both role baselines before entry and acquire a new actual admission cut just
 before its first ordinary input; this image owner alone grants no capability.
