@@ -98,6 +98,8 @@ TESTS = (
     test("create-callback-native", "interaction", PYTHON, "device/test_create_callbacks_native.py", requires=("c++", "pkg-config")),
     test("create-browse-setting", "interaction", PYTHON, "device/test_create_browse_setting.py"),
     test("create-browse-setting-native", "interaction", PYTHON, "device/test_create_browse_setting_native.py", requires=("c++", "pkg-config")),
+    test("create-rez-permissions", "interaction", PYTHON, "device/test_create_rez_permissions.py"),
+    test("create-rez-owner", "interaction", PYTHON, "device/test_create_rez_owner.py"),
     test("create-voxel-owner", "interaction", PYTHON, "device/test_create_voxel_owner_flow.py"),
     test("create-voxel-guards", "interaction", PYTHON, "device/test_create_voxel_owner_guards.py"),
     test("create-primitives-owner", "interaction", PYTHON, "device/test_create_primitives_owner.py"),

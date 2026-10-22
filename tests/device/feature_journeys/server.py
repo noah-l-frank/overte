@@ -22,6 +22,7 @@ if __package__ in (None, ''):
 from feature_journeys.contract import exact, identifier, json_document
 from feature_journeys.fixtures import check, companion, payload
 from feature_journeys.witness import Journal
+from feature_journeys.create_permissions import CreatePermissionProvider
 from feature_journeys.account_provider import AccountProvider,form,TOKEN_PATH,PROFILE_PATH,REQUEST_HEADER,RUN_HEADER,TICKET_HEADER
 from feature_journeys.browser_fixture import BrowserResources
 from feature_journeys.navigation_fixture import NavigationResources,DIRECTORY
@@ -274,6 +275,9 @@ class Handler(BaseHTTPRequestHandler):
                 if body['area']=='scripts' and self.server.script_resources is None:
                     return self.send(503,{'error':'script-provider-unavailable'})
                 run=self.server.journal.register(body['area'])
+                if body['area']=='create' and self.server.create_permissions is not None:
+                    try:self.server.create_permissions.provision(run)
+                    except (OSError,RuntimeError):return self.send(503,{"error":"create-permissions-unavailable"})
                 if body['area']=='graphics' and self.server.graphics_resources is not None:
                     try:self.server.graphics_resources.provision(run,profile=selected)
                     except Exception:
@@ -299,6 +303,19 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) < 2 or parts[0] != 'runs':
                 return self.send(404, {'error': 'not-found'})
             run = identifier(parts[1])
+            if parts[2:]==['create-permissions']:
+                if self.command!='GET':return self.send(403,{'error':'forbidden'})
+                provider=self.server.create_permissions
+                if provider is None:return self.send(503,{'error':'create-permissions-unavailable'})
+                requests=self.headers.get_all('X-Overte-Phase-Read',[])
+                if len(requests)!=1:raise ValueError('Original Create Settings snapshot nonce is required')
+                nonce=identifier(requests[0])
+                with self.server.journal.lock:
+                    phase=self.server.journal.phase(run,nonce)
+                    if phase['area']!='create':return self.send(403,{'error':'forbidden'})
+                    try:source=provider.snapshot(run,nonce,phase)
+                    except (OSError,RuntimeError):return self.send(503,{"error":"create-permissions-unavailable"})
+                return self.send(200,source)
             if parts[2:]==['phase']:
                 if self.command!='GET':return self.send(403,{'error':'forbidden'})
                 requests=self.headers.get_all('X-Overte-Phase-Read',[])
@@ -355,7 +372,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(403,{'error':'forbidden'})
             if self.command == 'POST' and parts[2:] == ['active'] and reader:
                 exact(body, {'ticket', 'verb', 'inputs'}, 'fixture challenge')
-                if (self.server.journal.runs[run]['area']=='graphics' and self.server.graphics_resources is not None):
+                if self.server.journal.runs[run]['area']=='create' and self.server.create_permissions is not None:
+                    with self.server.journal.lock:
+                        self.server.journal.activate(run,body['ticket'],body['verb'],body['inputs'])
+                        try:self.server.create_permissions.activate(run,self.server.journal.runs[run]['phaseActivations'][-1])
+                        except (OSError,RuntimeError):return self.send(503,{"error":"create-permissions-unavailable"})
+                elif (self.server.journal.runs[run]['area']=='graphics' and self.server.graphics_resources is not None):
                     with self.server.journal.lock:
                         self.server.journal.activate(run,body['ticket'],body['verb'],body['inputs'])
                         self.server.graphics_resources.activate(run,body['ticket'])
@@ -388,6 +410,12 @@ class Handler(BaseHTTPRequestHandler):
                 if adapter_reader:original['entries']=[] # Only the original phase/read clock, never independent peer facts.
                 return self.send(200,original)
             if self.command == 'DELETE' and len(parts) == 2 and reader:
+                if self.server.journal.runs.get(run,{}).get('area')=='create' and self.server.create_permissions is not None:
+                    with self.server.journal.lock:
+                        try:self.server.create_permissions.retire(run)
+                        except (OSError,RuntimeError):return self.send(503,{"error":"create-permissions-unavailable"})
+                        self.server.journal.close(run)
+                    return self.send(200,{})
                 if self.server.graphics_resources is not None and self.server.graphics_resources.has_run(run):
                     with self.server.journal.lock:
                         self.server.graphics_resources.retire(run)
@@ -436,7 +464,7 @@ class FixtureServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None):
+def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_provider=None,tls_context=None,browser_peer_of=None,navigation_resources=None,graphics_resources=None,adapter_token=None,create_permissions=None):
     if adapter_token is not None and (type(adapter_token) is not str or not 32<=len(adapter_token)<=256
             or not adapter_token.isascii() or any(not 33<=ord(c)<=126 for c in adapter_token)
             or adapter_token in (reader_token,actor_token)):
@@ -459,10 +487,13 @@ def make_server(reader_token, actor_token, address=('127.0.0.1', 0),*,account_pr
     if account_provider is not None:account_provider._attach(reader_token,actor_token)
     if graphics_resources is not None and (not isinstance(graphics_resources,GraphicsResources) or browser_peer_of is not None):
         raise ValueError('Graphics provider requires its original primary owner')
+    if create_permissions is not None and (not isinstance(create_permissions,CreatePermissionProvider) or browser_peer_of is not None):
+        raise ValueError("Create Settings provider requires its original primary owner")
     server = FixtureServer(address, Handler)
     server.account_provider,server.tls_context=account_provider,tls_context
     server.navigation_resources=navigation_resources
     server.graphics_resources=graphics_resources
+    server.create_permissions=create_permissions
     server.script_resources=ScriptResources() if browser_peer_of is None else browser_peer_of.script_resources
     server.internal_errors=0
     server.reader_token, server.actor_token = reader_token, actor_token
@@ -487,7 +518,7 @@ def main():
         parser.error('--private-config is required to serve')
     from adapters.normal_feature_state import PrivateFeatureState
     config=PrivateFeatureState(args.private_config.absolute()).read()
-    fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())|({'graphicsProvider'} if 'graphicsProvider' in config else set())|({'navigationSceneProfile'} if 'navigationSceneProfile' in config else set())
+    fields={'readerToken','actorToken','host','port'}|({'adapterToken'} if 'adapterToken' in config else set())|({'tls'} if 'tls' in config else set())|({'accountProvider'} if 'accountProvider' in config else set())|({'browserPeer'} if 'browserPeer' in config else set())|({'navigationProvider'} if 'navigationProvider' in config else set())|({'graphicsProvider'} if 'graphicsProvider' in config else set())|({'navigationSceneProfile'} if 'navigationSceneProfile' in config else set())|({'createPermissionProvider'} if 'createPermissionProvider' in config else set())
     exact(config,fields,'private fixture configuration')
     tls=None;provider=None
     if 'tls' in config:
@@ -509,9 +540,14 @@ def main():
     if 'graphicsProvider' in config:
         exact(config['graphicsProvider'],{'fixtureUrl'},'actual Graphics fixture input')
         graphics=GraphicsResources(config['graphicsProvider']['fixtureUrl'])
+    create_permissions=None
+    if "createPermissionProvider" in config:
+        details=config["createPermissionProvider"]
+        exact(details,{"controlUrl","controlToken","domainId","stateFile"},"private Create Settings provider")
+        create_permissions=CreatePermissionProvider({k:v for k,v in details.items() if k!="stateFile"},PrivateFeatureState(Path(details["stateFile"])))
     with ExitStack() as owned:
         server=owned.enter_context(make_server(config['readerToken'],config['actorToken'],(config['host'],config['port']),
-            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken')))
+            account_provider=provider,tls_context=tls,navigation_resources=navigation,graphics_resources=graphics,adapter_token=config.get('adapterToken'),create_permissions=create_permissions))
         peer=None;worker=None
         if 'browserPeer' in config:
             exact(config['browserPeer'],{'host','port'},'private second browser listener')

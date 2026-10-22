@@ -175,10 +175,15 @@ class OwnedCreatePicker:
 
     @staticmethod
     def same_scene(before,after):
+        OwnedCreatePicker.same_scene_identity(before,after)
+        need(all(before['source'][k]==after['source'][k] for k in ('canRez','canRezTmp')))
+
+    @staticmethod
+    def same_scene_identity(before,after):
         a,b=before['source'],after['source']
         need(before['instance']==after['instance'] and a['domainConnected'] and b['domainConnected'] and a['domainId'] is not None and a['sessionId'] is not None
             and a['createEntitySourceVersion']==b['createEntitySourceVersion'] and a['createEntitySourceVersion'] in (2,3,4,5) and a['domainSession']==b['domainSession']
-            and all(a[k]==b[k] for k in ('runId','domainId','sessionId','canRez','canRezTmp'))
+            and all(a[k]==b[k] for k in ('runId','domainId','sessionId'))
             and a['scan']['center']==b['scan']['center'] and a['scan']['unowned']==b['scan']['unowned'])
 
     def join_open(self):
