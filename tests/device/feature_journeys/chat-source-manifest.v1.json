@@ -1,0 +1,17 @@
+{
+  "chatSourceManifestVersion": 1,
+  "sources": {
+    "chat": {
+      "codeUnits": 18706,
+      "path": "scripts/communityScripts/armored-chat/armored_chat.js",
+      "sha256": "266e75a11f20263841e35fb818c0f661aec18bfb5ceb39b6cd36df50a65fba49",
+      "utf8Sha256": "72ceb585d6071fb747102b0c97b6799dffab5f55df9619c83b41fcd510b02e5e"
+    },
+    "peer": {
+      "codeUnits": 1920,
+      "path": "tests/device/fixture/domain_peer_agent.js",
+      "sha256": "767c867ef3ea0d9f1714d5d28ddd166bbfcbe723983a6376a3bfb3871a976e7e",
+      "utf8Sha256": "50fb2997ad01a6da7304d716884e15e088cead65a90bda4dae7d425a24ee49fa"
+    }
+  }
+}

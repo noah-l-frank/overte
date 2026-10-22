@@ -36,6 +36,7 @@ from adapters.native_account_probe import (NativeAccountProbe, AccountProbeOwner
     FILE as ACCOUNT_PROBE_FILE)
 from adapters.native_chat_observation import NativeChatObservation, ChatCaptureOwner, OwnedChatCapture, FILE as CHAT_FILE
 from adapters.native_chat_view import NativeChatView, FILE as CHAT_VIEW_FILE
+from adapters.native_chat_history import NativeChatHistory, FILE as CHAT_HISTORY_FILE
 from adapters.native_web_dom import NativeWebDOMObservation, FILE as WEB_DOM_FILE
 from adapters.native_navigation_replies import NativeNavigationReplies, FILE as NAVIGATION_REPLIES_FILE
 from adapters.native_process_presence import NativeProcessPresence, FILE as PROCESS_PRESENCE_FILE
@@ -113,6 +114,7 @@ EMOTE_FEATURE_OPERATIONS={'feature.emotes.'+kind for kind in ('act','observe','c
 WORLD_WEB_FEATURE_OPERATIONS={'feature.world-web.'+kind for kind in ('act','observe','cleanup')}
 TABLET_WEB_FEATURE_OPERATIONS={'feature.tablet-web.'+kind for kind in ('act','observe','cleanup')}
 TABLET_FOUNDATION_OPERATIONS={'tablet.open','tablet.close'}
+CHAT_FEATURE_OPERATIONS={'feature.chat.'+kind for kind in ('act','observe','cleanup')}
 AUDIO_FEATURE_OPERATIONS={'feature.audio.'+kind for kind in ('act','observe','cleanup')}
 NAVIGATION_FEATURE_OPERATIONS={'feature.world-navigation.'+kind for kind in ('act','observe','cleanup')}
 WEB_REFERENCE_OPERATIONS={'web.reference.'+kind for kind in ('open','close','play','pause','seek')}
@@ -412,6 +414,12 @@ class PhoneAppiumAdapter(AppiumAdapter):
             self._tablet_web_configuration();self._feature_fixture_client()
             values=sorted(set(values)|TABLET_WEB_FEATURE_OPERATIONS|WEB_REFERENCE_OPERATIONS|TABLET_FOUNDATION_OPERATIONS)
         reference_enabled=os.environ.get('OVERTE_PHONE_NORMAL_WEB_REFERENCE','0')
+        full_chat=os.environ.get('OVERTE_PHONE_FEATURE_CHAT','0')
+        require(full_chat in ('0','1'),'PHONE_FEATURE_CHAT_CONFIGURATION_INVALID')
+        if full_chat=='1':
+            require(self.candidate is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+                and self.controlled_android_client(target),'PHONE_FEATURE_CHAT_BOUND_DEBUG_TARGET_REQUIRED')
+            self._chat_configuration();self._feature_fixture_client();values=sorted(set(values)|CHAT_FEATURE_OPERATIONS)
         full_audio=os.environ.get('OVERTE_PHONE_FEATURE_AUDIO','0')
         require(full_audio in ('0','1'),'PHONE_FEATURE_AUDIO_CONFIGURATION_INVALID')
         if full_audio=='1':
@@ -516,15 +524,63 @@ class PhoneAppiumAdapter(AppiumAdapter):
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+WEB_DOM_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
 
-    def _chat_view(self,selector):
-        _ui,_observe,context,check,installed=self.normal_feature_runtime(selector)
-        native=self._native_feature_observer(selector)
+    def _chat_view(self,selector,*,read_only=False):
+        _ui,_observe,context,check,installed=self.normal_feature_runtime(selector,read_only=read_only)
+        native=self._native_feature_observer(selector,read_only=read_only)
         target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
         check();require(self.installed_identity(selector)==installed and native.pid==int(context['processIdentity'].split(':')[0]),
             'PHONE_CHAT_VIEW_CONTEXT_CHANGED')
         return NativeChatView(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+CHAT_VIEW_FILE,attempts=1),
             native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _chat_receive(self,selector,*,read_only=True):
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativeChatObservation(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+CHAT_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _chat_history(self,selector,*,read_only=True):
+        native=self._native_feature_observer(selector,read_only=read_only)
+        target=self.target(selector);device=target['capabilities']['appium:udid'];transport=PhoneAdapter(self.candidate).adb
+        return NativeChatHistory(native.send,
+            lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+CHAT_HISTORY_FILE,attempts=1),
+            native.clock_ms,native.guard,native.pid,monotonic=native.monotonic,sleep=native.sleep)
+
+    @staticmethod
+    def _chat_configuration(metadata=None):
+        from overte_phone_chat_peer import configuration
+        from overte_phone_chat_measurements import source_pins
+        value=PrivateFeatureState(Path(os.environ.get('OVERTE_PHONE_CHAT_CONFIGURATION',''))).read() if metadata is None else metadata['configuration']
+        require(type(value) is dict and set(value)=={'chatFeatureVersion','artifactRoot','peer'} and type(value['chatFeatureVersion']) is int
+            and value['chatFeatureVersion']==1,'PHONE_CHAT_CONFIGURATION_REQUIRED')
+        root=Path(value['artifactRoot']);require(root.is_absolute() and str(root)==value['artifactRoot'],'PHONE_CHAT_ARTIFACT_ROOT_REQUIRED')
+        PrivateFeatureState(root/'chat-boundary.json')._parent();configuration(value['peer']);source_pins();return deepcopy(value)
+
+    def chat_feature_store(self,selector):return PrivateFeatureState(self.state_path(selector).with_name('phone-chat-feature.json'))
+    def chat_retirement_store(self,selector):return PrivateFeatureState(self.state_path(selector).with_name('phone-chat-retirement.json'))
+
+    def _chat_peer(self,selector,run,config,*,read_only=True,attach_files=True):
+        from overte_phone_chat_peer import PhoneChatPeer
+        from overte_phone_chat_measurements import source_pins
+        _ui,_observe,binding,guard,_installed=self.normal_feature_runtime(selector,read_only=True);guard()
+        native=self._native_feature_observer(selector,read_only=True)
+        return PhoneChatPeer(config,self.state_path(selector),binding,run,read_only=read_only,attach_files=attach_files,
+            script_sha256=source_pins()['peer']['utf8Sha256'],clock_ms=native.clock_ms,monotonic=native.monotonic,sleep=native.sleep)
+
+    def _chat_feature(self,selector,run,*,role='primary',client=None,retirement=False):
+        from overte_phone_chat_feature import PhoneChatFeature
+        from feature_journeys.phase_fixture import PhaseFixtureReader
+        target=self.target(selector)
+        require(self.candidate is not None and target.get('appId')=='io.github.noah_be.overte.phone'
+            and self.controlled_android_client(target),'PHONE_CHAT_BOUND_DEBUG_TARGET_REQUIRED')
+        if client is None:
+            require(role=='primary','PHONE_CHAT_ACTOR_REQUIRES_SEPARATE_CLIENT');client=self._feature_fixture_client()
+        metadata=self.chat_feature_store(selector).read() or self.chat_retirement_store(selector).read()
+        if role=='actor':require(metadata is not None and metadata['runId']==run,'PHONE_CHAT_ORIGINAL_OWNER_REQUIRED')
+        config=self._chat_configuration(metadata)
+        return PhoneChatFeature(self,selector,PhaseFixtureReader(client,run,'chat'),config,role=role)
 
     def chat_capture_store(self,selector):
         return PrivateFeatureState(self.state_path(selector).with_name('phone-chat-capture-owner.json'))
@@ -1996,13 +2052,13 @@ class PhoneAppiumAdapter(AppiumAdapter):
             native.clock_ms,native.guard,native.pid,tablet_shown=ui.tablet_visible)
         return TokenCreateUI(io,intent)
 
-    def _chat_controls(self, selector, intent, run):
+    def _chat_controls(self, selector, intent, run, *, read_only=False):
         # Input component only. The caller owns source/profile/settings/peer
         # intent; normal input effects never enable full Chat capabilities.
-        native=self._native_feature_observer(selector)
+        native=self._native_feature_observer(selector,read_only=read_only)
         target=self.target(selector);device=target['capabilities']['appium:udid']
         transport=PhoneAdapter(self.candidate).adb
-        native_ui,_observe,_context,check,_installed=self.normal_feature_runtime(selector)
+        native_ui,_observe,_context,check,_installed=self.normal_feature_runtime(selector,read_only=read_only)
         ui=PhoneScriptUI(native_ui,target['appId']);check()
         io=PhoneChatIO(native.send,
             lambda:transport.read_debug_app_file(device,target['appId'],'files/overte-e2e/'+CHAT_UI_FILE,attempts=1),
@@ -2268,6 +2324,11 @@ class PhoneAppiumAdapter(AppiumAdapter):
         return result
 
     def cleanup(self, selector):
+        chat_feature_error=False
+        try:
+            metadata=self.chat_feature_store(selector).read() or self.chat_retirement_store(selector).read()
+            if metadata is not None:self._chat_feature(selector,metadata['runId'],retirement=True).finalize()
+        except Exception:chat_feature_error=True
         audio_error=False
         try:
             metadata=self.audio_feature_store(selector).read() or self.audio_retirement_store(selector).read()
@@ -2431,6 +2492,9 @@ class PhoneAppiumAdapter(AppiumAdapter):
         require(create_error is None and create_store.read() is None
                 and self.create_script_store(selector).read() is None,
                 'PHONE_NORMAL_CREATE_CLEANUP_INCOMPLETE')
+        require(not chat_feature_error and all(PrivateFeatureState(self.state_path(selector).with_name(name)).read() is None
+            for name in ('phone-chat-feature.json','phone-chat-retirement.json','phone-chat-primary.json','phone-chat-actor.json',
+                         'phone-chat-peer-capture.json','phone-chat-peer-files.json')),'PHONE_CHAT_FEATURE_CLEANUP_INCOMPLETE')
         require(not chat_error and self.chat_capture_store(selector).read() is None,
                 'PHONE_CHAT_CAPTURE_CLEANUP_INCOMPLETE')
         require(not world_error and all(self.world_render_store(selector,role=role).read() is None for role in ('primary','actor')),
@@ -2580,6 +2644,10 @@ class PhoneAppiumAdapter(AppiumAdapter):
             arguments(operation,values)
             require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_AVATAR_PEOPLE_FEATURE_NOT_ENABLED')
             return self._invoke_feature(selector,operation,values,lambda retired:self._avatar_people_feature(selector,values['runId'],**({'retirement':True} if retired else {})))
+        if operation in CHAT_FEATURE_OPERATIONS:
+            from feature_journeys.contract import arguments
+            arguments(operation,values);require(operation in self.advertised_capabilities(self.target(selector)),'PHONE_CHAT_FEATURE_NOT_ENABLED')
+            return self._invoke_feature(selector,operation,values,lambda retired:self._chat_feature(selector,values['runId'],retirement=retired))
         if operation in NAVIGATION_FEATURE_OPERATIONS:
             from feature_journeys.contract import arguments
             arguments(operation,values)

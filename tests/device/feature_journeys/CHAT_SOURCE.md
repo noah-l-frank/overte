@@ -1,5 +1,12 @@
 # Chat source and adapter boundary, common journey v10
 
+The [Phone public composition](../adapters/android-phone/CHAT_FEATURE.md) now
+implements these source semantics through common v18, including the existing
+text-input foundation and complete fixture-close retirement. The historical
+component status below describes earlier packets; complete Android compilation
+and device acceptance remain unverified. Other platform adapters are outside
+this Phone packet.
+
 The reviewed Phone (`718d069add`), Pico (`c5bf8ac17b`) and iOS (`864f8b79a4`)
 product bases contain identical relevant sources:
 

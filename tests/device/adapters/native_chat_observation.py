@@ -94,6 +94,13 @@ class NativeChatObservation:
         self.instance,self.sequence,self.captured,self.source=None,0,0,None
         self.run=None
 
+    def restore_source(self,value):
+        request=dict(schemaVersion=1,action='feature-chat-observe',**{k:value[k] for k in ('commandId','runId','operation')})
+        validate(value,request,self.pid,value['capturedEpochMs'])
+        need(self.instance is None and self.sequence==self.captured==0)
+        self.instance,self.sequence,self.captured,self.run=(value[k] for k in ('instance','sequence','capturedEpochMs','runId'))
+        self.source=deepcopy(value['source'])
+
     def perform(self,run,operation):
         try:
             request=dict(schemaVersion=1,commandId=('ios-' if self.ios else '')+uuid.uuid4().hex,
@@ -192,7 +199,9 @@ class OwnedChatCapture:
         original=self.reader.perform(self.run,'inspect');self.owner.match(original)
         if owned['active']:need(original['source']['scopePresent'] and not original['source']['retired'])
         self.owner.admit(original) # Native absence and durable source pin before observe can create a cache.
-        value=self.reader.perform(self.run,'observe');self.owner.activated(value)
+        value=self.reader.perform(self.run,'observe')
+        if not owned['active']:need(value['source']['openedEpochMs']>=original['capturedEpochMs'])
+        self.owner.activated(value)
         need(value['source']['droppedEvents']==0)
         return value
 

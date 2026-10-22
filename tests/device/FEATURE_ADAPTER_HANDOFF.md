@@ -903,3 +903,13 @@ Native Qt, Java and JNI checks cover the documented component boundaries only.
 No complete Android client build or device acceptance is claimed. Shared Probe
 changes require centrally regenerating the Emote admission catalog from the
 final integrated source commit before its actual admission can be enabled.
+## Phone Chat public composition, common v18
+
+The [Phone Chat handoff](adapters/android-phone/CHAT_FEATURE.md) supersedes the
+earlier component-only status below for Android Phone. The guarded public
+triple, separately credentialed observer v6, all 25 actions, mandatory original
+text-input foundation, source-bound measurements and strict post-fixture-close
+retirement are source implemented and host verified. Original source/Qt helper
+checks do not qualify the product translation units or devices. Shared observer
+union and changed probe-code pins remain central integration checks; no global
+coverage count or acceptance claim is changed by this packet.

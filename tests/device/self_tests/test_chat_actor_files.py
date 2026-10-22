@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from adapters.chat_actor_files import ChatActorFiles,COMMAND,RESULT,SOURCE,encode,node
 from adapters.native_chat_observation import NativeChatObservation
@@ -205,6 +206,25 @@ class ActorFileTests(unittest.TestCase):
         self.assertLessEqual(self.clock,1.5);self.assertTrue(self.store.read()['removed']);self.assertGreaterEqual(self.actor.fd,0)
         self.transport.detach();self.transport=self.make();self.actor.release=True;self.transport.close()
         self.assertIsNone(self.store.read());self.assertEqual(-1,self.actor.fd)
+
+    def test_interrupted_original_unlink_resumes_from_saved_closing_intent(self):
+        reader=self.reader();reader.perform(RUN,'observe');reader.perform(RUN,'retire');reader.perform(RUN,'inspect')
+        unlink=os.unlink
+        def lost_return(name,*args,**kwargs):
+            unlink(name,*args,**kwargs)
+            if name==RESULT:raise OSError('Synthetic lost return after actual unlink')
+        with patch('adapters.chat_actor_files.os.unlink',side_effect=lost_return),self.assertRaises(OSError):self.transport.close()
+        original=self.store.read();self.assertTrue(original['closing']);self.assertFalse(original['removed'])
+        self.assertFalse((self.root/RESULT).exists());self.assertTrue((self.root/COMMAND).exists())
+        self.transport.detach();self.transport=self.make();self.transport.close()
+        self.assertIsNone(self.store.read());self.assertFalse((self.root/COMMAND).exists());self.assertEqual(-1,self.actor.fd)
+
+    def test_replacement_after_interrupted_unlink_is_preserved_and_blocks_retirement(self):
+        reader=self.reader();reader.perform(RUN,'observe');reader.perform(RUN,'retire');reader.perform(RUN,'inspect')
+        original=self.store.read();self.store.write(original|dict(closing=True),original)
+        (self.root/RESULT).unlink();replacement=b'foreign original';(self.root/RESULT).write_bytes(replacement);(self.root/RESULT).chmod(0o600)
+        with self.assertRaises(NativeUIError):self.transport.close()
+        self.assertEqual(replacement,(self.root/RESULT).read_bytes());self.assertIsNotNone(self.store.read());self.assertTrue((self.root/COMMAND).exists())
 
     def test_pending_journal_foreign_run_and_unexpected_parameters_cannot_mutate_source(self):
         for edit in ({'expected':[]},{'operation':'send'},{'commandId':'ios-'+'f'*32}):

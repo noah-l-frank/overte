@@ -1,5 +1,10 @@
 # Phone SH-004 installed-candidate adapter
 
+The default-off [complete Chat owner](CHAT_FEATURE.md) joins normal original
+controls, independent native peer reception, actual mixer control, the mandatory
+text-input foundation and common v18 retirement. Full host composition passes;
+component Qt6 checks are separate from unverified Android/device acceptance.
+
 The [native browser DOM component](WEB_DOM_OBSERVATION.md) now wires the exact
 common passive source through the actual Android backend and guarded private
 adapter file transport. The Phone feature adapter group passes 97 host cases.

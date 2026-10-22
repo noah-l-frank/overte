@@ -102,6 +102,12 @@ class NativeChatView:
         self.ios, self.monotonic, self.sleep = ios, monotonic, sleep
         self.instance, self.sequence, self.captured, self.run = None, 0, 0, None
 
+    def restore_source(self,value):
+        request=dict(schemaVersion=1,action='feature-chat-view-observe',**{k:value[k] for k in ('commandId','runId')})
+        validate(value,request,self.pid,value['capturedEpochMs'])
+        need(self.instance is None and self.sequence==self.captured==0)
+        self.instance,self.sequence,self.captured,self.run=(value[k] for k in ('instance','sequence','capturedEpochMs','runId'))
+
     def read(self, run):
         try:
             request = dict(schemaVersion=1, commandId=('ios-' if self.ios else '') + uuid.uuid4().hex,

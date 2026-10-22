@@ -29,7 +29,7 @@ from overte_phone_emote_actor import image_policy
 from overte_phone_avatar_people_feature import image_policy as avatar_people_image_policy
 
 SCRIPT_VERSION=1
-VERSION=5
+VERSION=6
 
 
 def configuration(path):
@@ -39,13 +39,14 @@ def configuration(path):
         need(type(value['scriptObserverVersion']) is int and value['scriptObserverVersion']==SCRIPT_VERSION)
     else:
         exact(value,{'featureObserverVersion','area','target','candidateArguments','fixtureUrl','actorToken','durationSeconds'}
-            |({'imagePolicy'} if value.get('featureObserverVersion') in (3,4,5) and value.get('area')=='emotes' else set())
-            |({'peerTarget','peerImagePolicy'} if value.get('featureObserverVersion') in (4,5) and value.get('area')=='avatar-people' else set()))
-        need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,3,4,VERSION)
+            |({'imagePolicy'} if value.get('featureObserverVersion') in (3,4,5,6) and value.get('area')=='emotes' else set())
+            |({'peerTarget','peerImagePolicy'} if value.get('featureObserverVersion') in (4,5,6) and value.get('area')=='avatar-people' else set()))
+        need(type(value['featureObserverVersion']) is int and value['featureObserverVersion'] in (2,3,4,5,VERSION)
              and value['area'] in (('scripts','authentication','graphics') if value['featureObserverVersion']==2 else
                  ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','audio') if value['featureObserverVersion']==3 else
                  ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people') if value['featureObserverVersion']==4 else
-                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets')))
+                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets') if value['featureObserverVersion']==5 else
+                 ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets','chat')))
         if value['area']=='emotes':image_policy(value['imagePolicy'])
         if value['area']=='authentication':account_origin(value['fixtureUrl'])
         if value['area']=='avatar-people':
@@ -63,10 +64,11 @@ def run(adapter,config,*,monotonic=time.monotonic,sleep=time.sleep):
     """One owned run; no session repair, child launch or device discovery."""
     started=previous=monotonic();need(number(started,0,1e15))
     client=Client(config['fixtureUrl'],config['actorToken']);flow=None
-    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets'))
+    area=config.get('area','scripts');need(area in ('scripts','authentication','graphics','emotes','world-web','tablet-web','world-navigation','create','audio','avatar-people','assets','chat'))
     if area=='avatar-people':return run_avatar_people(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area in ('world-web','tablet-web','audio'):return run_world_web(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='assets':return run_assets(adapter,config,client,monotonic=monotonic,sleep=sleep)
+    if area=='chat':return run_chat(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='create':return run_create(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='emotes':return run_emote(adapter,config,client,monotonic=monotonic,sleep=sleep)
     if area=='authentication':account_origin(config['fixtureUrl'])
@@ -119,6 +121,26 @@ def run_avatar_people(adapter,config,client,*,monotonic=time.monotonic,sleep=tim
             need(metadata.get('runId')==flow.run)
             try:flow.publish()
             except PhaseRetired:return 0
+            except (PhasePending,PhoneScriptSourceBusy):pass
+        sleep(.25)
+
+
+def run_chat(adapter,config,client,*,monotonic=time.monotonic,sleep=time.sleep):
+    """Separate actor token and original Phone/AC readers; never input repair."""
+    started=previous=monotonic();flow=None
+    while True:
+        now=monotonic();need(number(now,previous,started+config['durationSeconds']));previous=now
+        if flow is None:
+            metadata=adapter.chat_feature_store(config['target']).read()
+            if metadata is not None:
+                need(metadata.get('fixtureUrl')==client.url+'/runs/'+metadata['runId']+'/')
+                flow=adapter._chat_feature(config['target'],metadata['runId'],role='actor',client=client)
+        if flow is not None:
+            metadata=adapter.chat_feature_store(config['target']).read()
+            if metadata is None and flow.role_store.read() is None:return 0
+            need(metadata is not None and metadata.get('runId')==flow.run)
+            try:flow.publish()
+            except PhaseRetired:flow.retire_actor();return 0
             except (PhasePending,PhoneScriptSourceBusy):pass
         sleep(.25)
 

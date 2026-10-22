@@ -225,13 +225,16 @@ class ChatActorFiles:
                  and frame['source']['retired'] and not frame['source']['scopePresent'])
             closing={**previous,'closing':True};self.store.write(closing,previous);previous=closing
         if not previous['removed']:
-            self._check_command(previous)
-            raw,info=self._read(RESULT,131072)
-            need(stamp(info)==previous['result']['stamp'] and hashlib.sha256(raw).hexdigest()==previous['result']['sha256'])
-            # The durable closing intent precedes deletion. A crash between an
-            # unlink and its journal update remains unresolved, never adoption.
-            os.unlink(RESULT,dir_fd=self.fd)
-            os.unlink(COMMAND,dir_fd=self.fd);os.fsync(self.fd)
+            # The persisted closing intent already pins both original files.
+            # Resume an interrupted unlink by checking each remaining original;
+            # an absent name can never authorize adopting a replacement inode.
+            if self._exists(RESULT):
+                raw,info=self._read(RESULT,131072)
+                need(stamp(info)==previous['result']['stamp'] and hashlib.sha256(raw).hexdigest()==previous['result']['sha256'])
+                os.unlink(RESULT,dir_fd=self.fd)
+            if self._exists(COMMAND):
+                self._check_command(previous);os.unlink(COMMAND,dir_fd=self.fd)
+            os.fsync(self.fd)
             updated={**previous,'removed':True};self.store.write(updated,previous);previous=updated
         need(not self._exists(COMMAND) and not self._exists(RESULT))
         started=prior=self.monotonic();need(number(started,0,1e15))

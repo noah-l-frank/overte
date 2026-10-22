@@ -64,6 +64,8 @@ COMMON_HOST_CHECKS = (
     "android/phone/tests/device/test_snapshot_capture_files.py",
     "android/phone/tests/device/test_snapshot_foundation.py",
     "android/phone/tests/device/test_feature_dispatch.py",
+    "android/phone/tests/device/test_chat_feature.py",
+    "android/phone/tests/device/test_chat_foundation.py",
 
     "android/phone/tests/device/test_snapshot_os_retirement_source.py",
     "android/phone/tests/device/test_snapshot_share_grants_source.py",
