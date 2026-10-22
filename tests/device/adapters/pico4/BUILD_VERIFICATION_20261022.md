@@ -111,3 +111,28 @@ without --testScript no private result appears, and ordinary result handling
 is preserved. This closes the repeated omission found during parallel source
 review; it is not full TSI/application compilation. See
 [the private writer contract](../../native/PRIVATE_FEATURE_RESULTS.md).
+
+## Integrated original Chat mixer and Lifecycle draft controls
+
+Local commits c2a0d36181, 111db72ebc and 0d5f74d4de compose the original
+fixture mixer with both native role journals and separate recovery when a
+native journal is interrupted. The 24 affected mixer/transition/recovery
+counterexamples pass (25.454 seconds). Recovery retains native journals and
+reports unresolved native Chat; restoring a fixture process is not Chat cleanup.
+
+Commit d984716b62 adds actual normal Create draft pointer/IME controls and
+weak original field/page/context/window identities. The focused Qt5 test
+compiles the original NativeFieldInput implementation and loads the actual
+NativeCreate.qml; it passes both runtime-gated invocations. The full Pico
+navigation translation unit remains uncompiled. Additive integration preserves
+Emote version 2, Chat version 2 and original Create picker controls.
+
+The combined 6/63 catalog selection passed coverage-matrix (0.061s),
+lifecycle-input-owner (44.830s), create-file-ui (90.437s), normal-chat (38.903s)
+and normal-emote (48.503s). The broad normal-scripts group reached its outer
+150-second process limit; it is not reported as passing. This expanded factory
+suite needs a larger outer execution budget or a targeted continuation; its
+individual freshness and quiet-window limits are unchanged. Four project
+checks pass (documentation, documentation-contracts, source-layout and
+project-coverage; 5.04 seconds). No complete additional feature or device
+qualification is claimed.
