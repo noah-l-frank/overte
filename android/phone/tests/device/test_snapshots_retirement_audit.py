@@ -28,9 +28,12 @@ class SnapshotsRetirementAuditTests(unittest.TestCase):
 
     def closed_owner(self):
         f=self.failed_preflight();self.client.activate('cleanup');f.cleanup(self.call());self.client.retire()
-        child=subprocess.Popen([sys.executable,'-c','pass'])
+        child=subprocess.Popen([sys.executable,'-c','import os,sys;print(os.getpid(),flush=True);sys.stdin.read()'],
+            stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+        self.addCleanup(lambda:child.poll() is None and child.kill())
+        self.assertEqual(str(child.pid),child.stdout.readline().strip())
         process=dict(pid=child.pid,start=start_identity(child.pid))
-        self.assertIsNotNone(process['start']);self.assertEqual(0,child.wait(timeout=5))
+        self.assertIsNotNone(process['start']);child.stdin.close();self.assertEqual(0,child.wait(timeout=5));child.stdout.close()
         with f.lock.held():
             proof=f.partial_restored();closure=f.phase.status()
             actor=dict(process=process,phase='retired',pending=None,last=None,dropped=[],quiet=None,closure=closure,partialClosure=proof)
