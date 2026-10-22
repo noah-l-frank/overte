@@ -154,6 +154,7 @@ REQUIRED = {
     "pico-lifecycle-background-owner": 1,
     "pico-lifecycle-background-originals": 1,
     "chat-journey-source-chunks": 1,
+    "audio-preview-owner": 1,
     "native-navigation-replies": 2,
     "native-navigation-modals": 1,
     "native-navigation-error-controls": 1,

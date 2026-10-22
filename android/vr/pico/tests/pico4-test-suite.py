@@ -51,6 +51,7 @@ TESTS = (
     test("webview-touch-state", "webview", "bash", "pico-webview-input-test.sh", requires=("javac", "java")),
     test("audio-capture-state", "audio", "bash", "pico-audio-capture-state-test.sh", requires=("javac", "java")),
     test("audio-native-transport", "audio", PYTHON, "pico-audio-transport-test.py"),
+    test("audio-preview-owner", "audio", PYTHON, "device/test_audio_preview.py"),
     test("openxr-loader", "openxr", PYTHON, "pico-openxr-loader-test.py"),
     test("openxr-input", "openxr", PYTHON, "pico-openxr-input-test.py"),
     test("openxr-display", "openxr", PYTHON, "pico-openxr-display-test.py"),

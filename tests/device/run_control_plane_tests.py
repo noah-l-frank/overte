@@ -65,6 +65,7 @@ def commands(profile: str, self_test_jobs: int | None = None) -> list[tuple[str,
         # Portable production regressions require Qt6 Core/Concurrent/Gui development
         # packages and a host C++ compiler; no device or native client build.
         for path in (
+            "audio/test_recorded_preview_observation.py",
             "audio/test_audio_device_selection.py",
             "audio/test_injector_buffer_publication.py",
             "audio/test_injector_event_delivery.py",
@@ -197,6 +198,7 @@ def commands(profile: str, self_test_jobs: int | None = None) -> list[tuple[str,
             "test_pico_lifecycle_background_owner.py",
             "test_pico_lifecycle_background_originals.py",
             "test_pico_lifecycle_process.py",
+            "test_audio_preview.py",
             "test_graphics_fixture.py",
             "test_token_graphics_ui.py",
             "test_world_render_evidence.py",

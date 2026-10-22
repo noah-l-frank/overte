@@ -184,8 +184,17 @@ class RecordedPreviewEvidence:
             value = self._packet(request, started)
             exact(value, {'schemaVersion', 'requestId', 'released'})
             need(type(value['schemaVersion']) is int and value['schemaVersion'] == 1 and value['released'] is True)
-            # A release acknowledgement cannot establish absence. Issue a
-            # separate read-only native filesystem/memory query with a fresh ID.
+            # A release acknowledgement cannot establish absence.
+            return self.inspect_empty(started=started)
+        except Exception:
+            raise NativeUIError('Original recorded preview evidence cleanup is incomplete') from None
+
+    def inspect_empty(self, *, started=None):
+        """Read actual absence after an uncertain release without sending it again."""
+        try:
+            started = self.monotonic() if started is None else started
+            need(number(started, 0, 1e15))
+            requested = self.clock_ms()
             request = self._request('feature-recorded-audio-files')
             observed = self._packet(request, started)
             exact(observed, {'schemaVersion', 'requestId', 'instance', 'sequence', 'requestedEpochMs',
@@ -197,6 +206,7 @@ class RecordedPreviewEvidence:
                  and integer(observed['processId'], 1) and observed['processId'] == self.pid
                  and integer(observed['requestedEpochMs'], 1) and integer(observed['capturedEpochMs'], 1)
                  and 0 <= observed['capturedEpochMs'] - observed['requestedEpochMs'] < 5000
+                 and (self.ios or observed['requestedEpochMs'] >= requested)
                  and observed['memoryEmpty'] is True and type(observed['files']) is list
                  and len(observed['files']) == 2)
             fresh(observed['capturedEpochMs'], observed['capturedEpochMs'] if self.ios else self.clock_ms())
@@ -209,6 +219,7 @@ class RecordedPreviewEvidence:
             need(number(completed, 0, 1e15) and started <= completed and completed - started < 5)
             need(self.guard() is not False)
             self.instance, self.sequence = observed['instance'], observed['sequence']
+            return deepcopy(observed)
         except Exception:
             raise NativeUIError('Original recorded preview evidence cleanup is incomplete') from None
 
