@@ -240,3 +240,12 @@ tablet first uses the existing original OpenXR/controller/tablet owner. The
 private `_chat_normal_input` factory and base teardown retain its original
 intent even after observed delivery/close. Host-only source/control checks do
 not qualify actual product networking, device input or full Chat resource release.
+
+The [complete original source history](../chat_journey/SOURCE_HISTORY.md) now
+uses ChatSamples v4 private immutable children instead of one compressed field.
+It retains up to 512 whole original bundles within the existing total raw bound,
+including complete changing pose rows, and refuses orphaned/changed/interrupted
+histories. Old v1/v2/v3 ownership is retained. The real Qt5 Settings proof also
+supports the product's actual registered JSON writer as described in the
+[Erase/profile component](../chat_journey/ERASE_RESTORE.md). Neither change
+completes the remaining full-journey/publication/lifetime composition.

@@ -23,11 +23,13 @@ class MixerRecoveryTests(unittest.TestCase):
         self.h.h.primary.alive=False
         self.native=[len(self.h.h.primary.commands),len(self.h.h.peer.commands)]
         self.original=deepcopy(self.h.store.read()['transcript'])
+        self.source_files={path:path.read_bytes() for path in self.h.h.root.iterdir() if path.name.startswith(self.h.h.store.path.name)}
     def recovery(self,guard=lambda:True):
         return ChatMixerRecovery(self.h.controls(),self.h.store,self.h.roles[0].binding,RUN,guard,
             component_only=True,monotonic=lambda:self.h.clock)
     def unchanged(self):
         self.assertEqual(self.interrupted,self.h.h.store.read())
+        self.assertEqual(self.source_files,{path:path.read_bytes() for path in self.h.h.root.iterdir() if path.name.startswith(self.h.h.store.path.name)})
         self.assertEqual(self.original,self.h.store.read()['transcript'])
         self.assertEqual(self.native,[len(self.h.h.primary.commands),len(self.h.h.peer.commands)])
     def test_reconstructed_controller_owner_restores_without_adopting_or_reading_interrupted_native_roles(self):
