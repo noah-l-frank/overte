@@ -18,6 +18,18 @@ VERSION=1
 ROLES=('primary','actor')
 
 
+def session_binding(value):
+    """Original controlled session inputs; never peer/login product evidence."""
+    if (type(value) is not dict or set(value)!={'avatarSessionBindingVersion','sessions','domain'}
+            or type(value['avatarSessionBindingVersion']) is not int or value['avatarSessionBindingVersion']!=1
+            or type(value['sessions']) is not dict or set(value['sessions'])!=set(ROLES)
+            or len(set(value['sessions'].values()))!=2):
+        raise ValueError('Original Avatar session input binding is invalid')
+    session(value['domain'])
+    for identity in value['sessions'].values():session(identity)
+    return deepcopy(value)
+
+
 class AvatarAccountScopes:
     def __init__(self,accounts,social):
         if (not isinstance(accounts,AccountProvider) or not isinstance(social,AvatarSocialProvider)
@@ -95,10 +107,13 @@ class AvatarAccountScopes:
         identifier(run)
         with self.lock:
             row=self.runs[run]
-            return dict(avatarAccountsVersion=VERSION,instance=self.instance,runId=run,ticket=row['ticket'],phase=row['phase'],
+            value=dict(avatarAccountsVersion=VERSION,instance=self.instance,runId=run,ticket=row['ticket'],phase=row['phase'],
                 providerInstance=self.accounts.instance,socialInstance=self.social.instance,
                 accounts={role:self.accounts.snapshot(row['children'][role]) for role in row['created']},
                 social=self.social.snapshot(run) if row['socialPrepared'] and not row['socialRetired'] else None)
+            if row['sessions'] is not None:
+                value['sessionBinding']=dict(avatarSessionBindingVersion=1,sessions=deepcopy(row['sessions']),domain=row['domain'])
+            return value
 
     def revoke(self,run):
         identifier(run)

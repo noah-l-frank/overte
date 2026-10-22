@@ -88,6 +88,7 @@ REQUIRED = {
     "ios-emote-images": 1,
     "ios-emote-lifecycle": 1,
     "feature-avatar-accounts": 1,
+    "feature-avatar-session-binding": 1,
     "ios-avatar-source-recovery": 1,
     "ios-avatar-abandoned-source": 1,
     "ios-avatar-sources": 2,

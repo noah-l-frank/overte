@@ -7,6 +7,7 @@ import time
 from adapters.native_feature_observation import exact,integer,need,number
 from feature_journeys.contract import identifier
 from feature_journeys.witness import Client
+from feature_journeys.avatar_accounts import session_binding
 from ios.adapters.authentication_origin import origin
 from ios.adapters.authentication_samples import provider_status
 
@@ -21,7 +22,8 @@ class AvatarAuthorityReader:
         self.last=None;self.last_epoch=self.last_mono=None
 
     def validate(self,value,epoch,previous=None):
-        exact(value,{'avatarAccountsVersion','instance','runId','ticket','phase','providerInstance','socialInstance','accounts','social'})
+        exact(value,{'avatarAccountsVersion','instance','runId','ticket','phase','providerInstance','socialInstance','accounts','social'}
+            | ({'sessionBinding'} if 'sessionBinding' in value else set()))
         need(type(value['avatarAccountsVersion']) is int and value['avatarAccountsVersion']==VERSION and value['runId']==self.run
              and value['phase'] in ('allocated','ready','revoking'))
         for key in ('instance','providerInstance','socialInstance'):identifier(value[key])
@@ -33,8 +35,10 @@ class AvatarAuthorityReader:
         need(len(children)==2)
         if value['phase']=='allocated':need(value['social'] is None)
         else:need(value['social'] is None or type(value['social']) is dict)
+        if 'sessionBinding' in value:session_binding(value['sessionBinding'])
         if previous:
             for key in ('instance','providerInstance','socialInstance','runId'):need(value[key]==previous[key])
+            if 'sessionBinding' in previous:need('sessionBinding' in value and value['sessionBinding']==previous['sessionBinding'])
             for role in ROLES:
                 left,right=previous['accounts'][role],value['accounts'][role]
                 need(left['runId']==right['runId'] and right['capturedEpochMs']>=left['capturedEpochMs']
